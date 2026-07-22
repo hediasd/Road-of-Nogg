@@ -1,0 +1,81 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+WARNING: res://scenes/main.tscn:4 - ext_resource, invalid UID: uid://dag1475eepn5q - using text path instead: res://src/board/GameBoardVisual.gd
+     at: load (scene/resources/resource_format_text.cpp:453)
+ERROR: Attempt to open script 'res://src/board/GameBoardVisual.gd' resulted in error 'File not found'.
+   at: (modules/gdscript/gdscript.cpp:1094)
+ERROR: Failed loading resource: res://src/board/GameBoardVisual.gd. Make sure resources have been imported by opening the project in the editor at least once.
+   at: (core/io/resource_loader.cpp:283)
+ERROR: res://scenes/main.tscn:63 - Parse Error: [ext_resource] referenced non-existent resource at: res://src/board/GameBoardVisual.gd
+   at: _parse_ext_resource (scene/resources/resource_format_text.cpp:159)
+[[Ice Punch]]
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+[[Mending, Holy Cross]]
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+[[Think, Ice Punch, Ice Plume], [Thought, Ice Plow, Dump]]
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+[[Dark Bolt, Dark Nova]]
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+[[Ember Strike, Pyre Blast]]
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+[[Ice Punch]]
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+[[Ice Punch]]
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+STARTING 1 ROUND ---------------- 
+TURN 1 - It's Magemornus [#103] turn! 
+Magemornus [#103] is at (6, 5) and wants to move to (6, 4)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 2 - It's Magedegon [#102] turn! 
+Magedegon [#102] is at (2, 1) and wants to move to (2, 3)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 3 - It's Megidos [#104] turn! 
+Megidos [#104] is at (6, 5) and wants to move to (6, 7)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 4 - It's Defaultgon [#100] turn! 
+Defaultgon [#100] is at (1, 2) and wants to move to (1, 3)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 5 - It's Emagnus [#101] turn! 
+Emagnus [#101] is at (0, 1) and wants to move to (0, 2)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 6 - It's Dump [#105] turn! 
+Dump [#105] is at (6, 7) and wants to move to (6, 7)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 7 - It's Dump [#106] turn! 
+Dump [#106] is at (7, 5) and wants to move to (7, 5)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+STARTING 2 ROUND ---------------- 
+TURN 8 - It's Magemornus [#103] turn! 
+Magemornus [#103] is at (6, 5) and wants to move to (6, 4)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 9 - It's Magedegon [#102] turn! 
+Magedegon [#102] is at (2, 1) and wants to move to (2, 3)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 10 - It's Megidos [#104] turn! 
+Megidos [#104] is at (6, 5) and wants to move to (6, 7)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 11 - It's Defaultgon [#100] turn! 
+Defaultgon [#100] is at (1, 2) and wants to move to (1, 3)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)
+TURN 12 - It's Emagnus [#101] turn! 
+Emagnus [#101] is at (0, 1) and wants to move to (0, 2)
+SCRIPT ERROR: Invalid call. Nonexistent function 'runTurnDecision' in base 'Nil'.
+          at: runTurnDecision (res://src/systems/BattleMaster.gd:55)

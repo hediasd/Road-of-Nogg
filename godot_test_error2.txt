@@ -1,0 +1,188 @@
+Godot Engine v4.3.stable.official.77dcf97d8 - https://godotengine.org
+
+SCRIPT ERROR: Parse Error: Identifier "PassiveSkillFactory" not declared in the current scope.
+          at: GDScript::reload (res://src/entities/Monster.gd:46)
+SCRIPT ERROR: Compile Error: 
+          at: GDScript::reload (res://src/board/GameBoardLogic.gd:-1)
+SCRIPT ERROR: Parse Error: Identifier "PassiveSkillFactory" not declared in the current scope.
+          at: GDScript::reload (res://src/entities/Monster.gd:46)
+SCRIPT ERROR: Compile Error: 
+          at: GDScript::reload (res://src/board/GameBoardThinker.gd:-1)
+SCRIPT ERROR: Parse Error: Identifier "PassiveSkillFactory" not declared in the current scope.
+          at: GDScript::reload (res://src/entities/Monster.gd:46)
+SCRIPT ERROR: Compile Error: 
+          at: GDScript::reload (res://src/systems/GameBoardVisual.gd:-1)
+SCRIPT ERROR: Parse Error: Identifier "PassiveSkillFactory" not declared in the current scope.
+          at: GDScript::reload (res://src/entities/Monster.gd:46)
+SCRIPT ERROR: Compile Error: 
+          at: GDScript::reload (res://src/board/BattleBoard.gd:-1)
+SCRIPT ERROR: Parse Error: Identifier "PassiveSkillFactory" not declared in the current scope.
+          at: GDScript::reload (res://src/entities/Monster.gd:46)
+SCRIPT ERROR: Compile Error: 
+          at: GDScript::reload (res://src/factories/MonsterFactory.gd:-1)
+SCRIPT ERROR: Compile Error: 
+          at: GDScript::reload (res://src/systems/BattleMaster.gd:-1)
+ERROR: Failed to load script "res://src/systems/BattleMaster.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript.cpp:2936)
+WARNING: res://scenes/main.tscn:4 - ext_resource, invalid UID: uid://dag1475eepn5q - using text path instead: res://src/board/GameBoardVisual.gd
+     at: load (scene/resources/resource_format_text.cpp:453)
+ERROR: Attempt to open script 'res://src/board/GameBoardVisual.gd' resulted in error 'File not found'.
+   at: (modules/gdscript/gdscript.cpp:1094)
+ERROR: Failed loading resource: res://src/board/GameBoardVisual.gd. Make sure resources have been imported by opening the project in the editor at least once.
+   at: (core/io/resource_loader.cpp:283)
+ERROR: res://scenes/main.tscn:63 - Parse Error: [ext_resource] referenced non-existent resource at: res://src/board/GameBoardVisual.gd
+   at: _parse_ext_resource (scene/resources/resource_format_text.cpp:159)
+SCRIPT ERROR: Invalid call. Nonexistent function 'getReference' in base 'Nil'.
+          at: getReference (res://src/factories/Factory.gd:11)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: createMonster (res://src/factories/MonsterFactory.gd:15)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: BattleBoard.setMonster (res://src/board/BattleBoard.gd:25)
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+SCRIPT ERROR: Invalid call. Nonexistent function 'getReference' in base 'Nil'.
+          at: getReference (res://src/factories/Factory.gd:11)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: createMonster (res://src/factories/MonsterFactory.gd:15)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: BattleBoard.setMonster (res://src/board/BattleBoard.gd:25)
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+SCRIPT ERROR: Invalid call. Nonexistent function 'getReference' in base 'Nil'.
+          at: getReference (res://src/factories/Factory.gd:11)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: createMonster (res://src/factories/MonsterFactory.gd:15)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: BattleBoard.setMonster (res://src/board/BattleBoard.gd:25)
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+SCRIPT ERROR: Invalid call. Nonexistent function 'getReference' in base 'Nil'.
+          at: getReference (res://src/factories/Factory.gd:11)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: createMonster (res://src/factories/MonsterFactory.gd:15)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: BattleBoard.setMonster (res://src/board/BattleBoard.gd:25)
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+SCRIPT ERROR: Invalid call. Nonexistent function 'getReference' in base 'Nil'.
+          at: getReference (res://src/factories/Factory.gd:11)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: createMonster (res://src/factories/MonsterFactory.gd:15)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: BattleBoard.setMonster (res://src/board/BattleBoard.gd:25)
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+SCRIPT ERROR: Invalid call. Nonexistent function 'getReference' in base 'Nil'.
+          at: getReference (res://src/factories/Factory.gd:11)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: createMonster (res://src/factories/MonsterFactory.gd:15)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: BattleBoard.setMonster (res://src/board/BattleBoard.gd:25)
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+SCRIPT ERROR: Invalid call. Nonexistent function 'getReference' in base 'Nil'.
+          at: getReference (res://src/factories/Factory.gd:11)
+SCRIPT ERROR: Invalid call. Nonexistent function 'new' in base 'GDScript'.
+          at: createMonster (res://src/factories/MonsterFactory.gd:15)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: BattleBoard.setMonster (res://src/board/BattleBoard.gd:25)
+SCRIPT ERROR: Invalid call. Nonexistent function 'spawnMonster' in base 'Nil'.
+          at: spawnMonster (res://src/systems/BattleMaster.gd:71)
+STARTING 1 ROUND ---------------- 
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+STARTING 2 ROUND ---------------- 
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Invalid access to property or key 'speed' on a base object of type 'Nil'.
+          at: <anonymous lambda> (res://src/systems/BattleMaster.gd:90)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)
+SCRIPT ERROR: Cannot call method 'get' on a null value.
+          at: GameBoardThinker.think (res://src/board/GameBoardThinker.gd:26)
+SCRIPT ERROR: Invalid call. Nonexistent function 'get' in base 'Nil'.
+          at: _process (res://src/systems/BattleMaster.gd:45)

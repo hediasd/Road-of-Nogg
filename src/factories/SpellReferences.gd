@@ -56,12 +56,23 @@ static func _static_init():
 		},{
 			"NAME" = "Wood Splinter",
 			"RANGE" = 3, "DAMAGE" = 3, "ELEMENT" = "wood"
+		},{
+			"NAME" = "Empower",
+			"RANGE" = 0, "DAMAGE" = 0, "ELEMENT" = "wood",
+			"TARGET_TYPE" = "self",
+			"BUFFS_ATK" = 3, "BUFF_DURATION" = 2,
+			"BYPASS_LOS" = true,
+			"DESC" = "Channels wood energy to temporarily empower the caster's strength (+3 ATK for 2 turns)."
 		},
 		# --- NEW SPELLS ---
 		{
 			"NAME" = "Eschatology",
-			"RANGE" = 3, "DAMAGE" = 6,
-			"ELEMENT" = "fire",
+			"MIN_RANGE" = 2,
+			"RANGE" = 3, 
+			"DAMAGE_LINES" = [
+				{"damage": 4, "element": "fire"},
+				{"damage": 4, "element": "light"}
+			],
 			"DESC" = "A medium-close range fire/light damage spell."
 		},{
 			"NAME" = "Closing of the Third Sanctuary",
@@ -77,9 +88,38 @@ static func _static_init():
 			"REMOVES_STATUS" = "petrify",
 			"ELEMENT" = "light",
 			"DESC" = "Removes petrification and heals allies in a 3-cell radius."
+		},{
+			"NAME" = "Holy Cross",
+			"TARGET_TYPE" = "area",
+			"AREA_SHAPE" = "cross",
+			"RADIUS" = 2, "RANGE" = 4, "DAMAGE" = 4,
+			"ELEMENT" = "light",
+			"DESC" = "A cross-shaped burst of holy energy."
+		},{
+			"NAME" = "Smoke Tower",
+			"TARGET_TYPE" = "area",
+			"AREA_SHAPE" = "cross",
+			"RADIUS" = 1, "RANGE" = 4, "DAMAGE" = 4,
+			"ELEMENT" = "fire",
+			"INFLICTS_STATUS" = "burn",
+			"DESC" = "A cross-shaped pillar of smoke and fire that inflicts burn."
 		},
 		# --- UTILITY / PLACEHOLDER ---
 		{
+			"NAME" = "Timeoff",
+			"TARGET_TYPE" = "single",
+			"RANGE" = 4, "DAMAGE" = 0, "HEALS" = true,
+			"INFLICTS_STATUS" = "spd_debuff",
+			"ELEMENT" = "wood",
+			"DESC" = "Heals the target but permanently reduces their speed."
+		},{
+			"NAME" = "Ages Ago",
+			"TARGET_TYPE" = "single",
+			"RANGE" = 4, "DAMAGE" = 0,
+			"REVERTS_DAMAGE" = true,
+			"ELEMENT" = "steel",
+			"DESC" = "Reverts the damage dealt by the target on their last turn."
+		},{
 			"NAME" = "Think",
 			"RADIUS" = 0, "RANGE" = 0, "DAMAGE" = 0, "ELEMENT" = "none"
 		},{

@@ -25,6 +25,8 @@ func connectToEvents(battleEvents: BattleEvents) -> void:
 	battleEvents.effect_ticked.connect(_on_effect_ticked)
 	battleEvents.effect_removed.connect(_on_effect_removed)
 	battleEvents.status_damage_dealt.connect(_on_status_damage_dealt)
+	battleEvents.passive_triggered.connect(_on_passive_triggered)
+	battleEvents.passive_aoe_damage.connect(_on_passive_aoe_damage)
 
 
 # --- Override these in subclasses ---
@@ -39,7 +41,7 @@ func _on_turn_ended(_monsterID: int) -> void: pass
 func _on_monster_spawned(_monsterID: int, _name: String, _team: int, _pos: Vector2i, _stats: Dictionary) -> void: pass
 func _on_monster_moved(_monsterID: int, _path: Array) -> void: pass
 func _on_monster_attacked(_attackerID: int, _targetID: int, _damage: int, _targetNewHP: int) -> void: pass
-func _on_monster_cast_spell(_casterID: int, _targetID: int, _spellName: String, _element: String, _damage: int, _targetNewHP: int) -> void: pass
+func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, damageLines: Array, targetNewHP: int) -> void: pass
 func _on_monster_healed(_healerID: int, _targetID: int, _spellName: String, _healAmount: int, _targetNewHP: int) -> void: pass
 func _on_monster_damaged(_monsterID: int, _newHP: int, _damageAmount: int) -> void: pass
 func _on_monster_defeated(_monsterID: int, _killerID: int) -> void: pass
@@ -47,3 +49,5 @@ func _on_effect_applied(_monsterID: int, _effectName: String, _duration: int, _s
 func _on_effect_ticked(_monsterID: int, _effectName: String, _remainingTurns: int) -> void: pass
 func _on_effect_removed(_monsterID: int, _effectName: String) -> void: pass
 func _on_status_damage_dealt(_monsterID: int, _effectName: String, _damage: int, _newHP: int) -> void: pass
+func _on_passive_triggered(_monsterID: int, _passiveName: String, _trigger: String) -> void: pass
+func _on_passive_aoe_damage(_sourceID: int, _passiveName: String, _targetID: int, _element: String, _damage: int, _targetNewHP: int) -> void: pass

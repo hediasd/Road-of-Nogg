@@ -23,7 +23,15 @@ func startNewRound() -> void:
 
 func sortBySpeed() -> void:
 	turnOrder.sort_custom(func(a, b):
-		return state.getMonster(a).speed > state.getMonster(b).speed
+		var spd_a = state.getMonster(a).speed
+		for effect in state.getActiveEffects(a):
+			spd_a += effect.get("spd_bonus", 0)
+			
+		var spd_b = state.getMonster(b).speed
+		for effect in state.getActiveEffects(b):
+			spd_b += effect.get("spd_bonus", 0)
+			
+		return spd_a > spd_b
 	)
 
 
@@ -47,6 +55,7 @@ func startNextTurn() -> int:
 	var monsterID = turnOrder.pop_front()
 	state.turnCount += 1
 	state.currentMonsterID = monsterID
+	state.lastTurnDamageLog[monsterID] = []
 	events.turn_started.emit(monsterID, state.roundCount, state.turnCount)
 	return monsterID
 

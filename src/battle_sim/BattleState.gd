@@ -6,7 +6,13 @@ class_name BattleState
 var boardSize: Vector2i
 var board: Matrix                        # Monster ID layer (0 = empty)
 var heightBoard: Matrix                  # Height layer (for future use)
-var terrainBoard: Matrix                 # Terrain ID layer (0 = clear, 1 = tree)
+var terrainBoard: Matrix                 # Terrain ID layer
+
+enum {
+	TERRAIN_CLEAR = 0,     # Walkable, allows LoS
+	TERRAIN_OBSTACLE = 1,  # Unwalkable, blocks LoS (Trees/Walls)
+	TERRAIN_ABYSS = 2      # Unwalkable, allows LoS (Water/Pits)
+}
 
 var monsters: Dictionary = {}            # monsterID -> Monster
 var monsterPositions: Dictionary = {}    # monsterID -> Vector2i (reverse lookup)
@@ -20,12 +26,19 @@ var currentMonsterID: int = -1
 # Each effect: { "name", "remainingTurns", "sourceMonsterID", "sourceSpellName", "damagePerTurn" }
 var activeEffects: Dictionary = {}
 
+var rng: RandomNumberGenerator
+
+var lastTurnDamageLog: Dictionary = {}
+
 
 func _init(size: Vector2i) -> void:
 	boardSize = size
 	board = Matrix.new(size.x, size.y)
 	heightBoard = Matrix.new(size.x, size.y)
 	terrainBoard = Matrix.new(size.x, size.y)
+	rng = RandomNumberGenerator.new()
+	rng.randomize()
+
 
 
 # --- Monster registry ---
@@ -95,9 +108,14 @@ func isOccupied(pos: Vector2i) -> bool:
 
 
 func isWalkable(pos: Vector2i) -> bool:
-	if terrainBoard.at(pos) != 0:
+	var terrain = terrainBoard.at(pos)
+	if terrain == TERRAIN_OBSTACLE or terrain == TERRAIN_ABYSS:
 		return false
 	return true
+
+
+func isLoSBlocked(pos: Vector2i) -> bool:
+	return terrainBoard.at(pos) == TERRAIN_OBSTACLE
 
 
 # --- Team queries ---

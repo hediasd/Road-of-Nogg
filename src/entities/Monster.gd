@@ -13,6 +13,9 @@ var speed: int = 1
 var team: int
 var position: Vector2i
 var spellSets = []
+var elements: Array = []  # Array of String
+var race: String = "none"
+var passives: Array = []  # Array of PassiveSkill instances
 var brain  # EntityBrain instance — assigned by BattleSimulator
 
 static func get_or_default(dict: Dictionary, key: String, default_value = 1):
@@ -29,6 +32,8 @@ func _init(parameterDictionary, _uniqueID) -> void:
 	atk = get_or_default(parameterDictionary, "ATK", 1)
 	def = get_or_default(parameterDictionary, "DEF", 1)
 	speed = get_or_default(parameterDictionary, "SPD", 1)
+	elements = get_or_default(parameterDictionary, "ELEMENTS", [])
+	race = get_or_default(parameterDictionary, "RACE", "none")
 
 	var refSpellSetsList = get_or_default(parameterDictionary, "SPELLS", [])
 
@@ -38,6 +43,13 @@ func _init(parameterDictionary, _uniqueID) -> void:
 			var newSpell = SpellFactory.createSpell(spellName)
 			newSpellSet.append(newSpell)
 		spellSets.append(newSpellSet)
+
+	# Load passive skills
+	var refPassivesList = get_or_default(parameterDictionary, "PASSIVES", [])
+	for passiveName in refPassivesList:
+		var newPassive = PassiveSkillFactory.createPassive(passiveName)
+		if newPassive != null:
+			passives.append(newPassive)
 
 	#if(uniqueID == 100):
 	#	for spellSet in spellSets:
@@ -58,15 +70,25 @@ func is_alive() -> bool:
 	return hitpoints > 0
 
 
-func take_damage(amount: int) -> int:
-	## Applies damage and returns actual damage dealt.
-	var actualDamage = min(amount, hitpoints)
-	hitpoints -= actualDamage
-	return actualDamage
-
+func take_damage(damage: int) -> int:
+	var old = hitpoints
+	hitpoints = max(0, hitpoints - damage)
+	return old - hitpoints
 
 func heal(amount: int) -> int:
-	## Restores HP and returns actual HP restored (capped at max).
-	var actualHeal = min(amount, max_hitpoints - hitpoints)
-	hitpoints += actualHeal
-	return actualHeal
+	var old = hitpoints
+	hitpoints = min(max_hitpoints, hitpoints + amount)
+	return hitpoints - old
+
+func can_cast(spell: Spell) -> bool:
+	var required_elements = {}
+	if spell.element != "none":
+		required_elements[spell.element] = true
+	for line in spell.damage_lines:
+		if line.has("element") and line["element"] != "none":
+			required_elements[line["element"]] = true
+			
+	for req in required_elements.keys():
+		if not elements.has(req):
+			return false
+	return true

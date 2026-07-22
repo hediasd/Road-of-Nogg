@@ -5,6 +5,9 @@
 
 class_name EntityBrain
 
+const ThreatMap = preload("res://src/algorithms/ThreatMap.gd")
+const LineOfSight = preload("res://src/algorithms/LineOfSight.gd")
+
 var state: BattleState
 var movementResolver: MovementResolver
 var combatResolver: CombatResolver
@@ -115,9 +118,14 @@ func _findBestOffensiveSpell(monsterID: int, fromPos: Vector2i) -> Variant:
 
 	var spellSet = mon.spellSets[0]
 
+	var bestResult = null
+	var highestScore = -1
+
 	for spellIdx in range(spellSet.size()):
 		var spell = spellSet[spellIdx]
-		if spell.heals or spell.range <= 0:
+		if not mon.can_cast(spell):
+			continue
+		if spell.heals or spell.targetType != "single":
 			continue
 		if spell.damage <= 0 and spell.inflicts_status == "" and spell.removes_status == "":
 			continue
@@ -128,11 +136,21 @@ func _findBestOffensiveSpell(monsterID: int, fromPos: Vector2i) -> Variant:
 				continue
 			var enemyPos = state.getMonsterPosition(enemyID)
 			var dist = abs(fromPos.x - enemyPos.x) + abs(fromPos.y - enemyPos.y)
-			if dist <= spell.range:
+			if dist >= spell.min_range and dist <= spell.range:
 				if spell.bypass_los or _checkLoS(fromPos, enemyPos, monsterID, enemyID):
-					return { "target_id": enemyID, "spell_set_index": 0, "spell_index": spellIdx }
+					var score = max(1, mon.atk + spell.damage - enemy.def)
+					if spell.inflicts_status != "":
+						score += 10
+					if score > highestScore:
+						highestScore = score
+						bestResult = {
+							"target_id": enemyID,
+							"spell_set_index": 0,
+							"spell_index": spellIdx,
+							"score": score
+						}
 
-	return null
+	return bestResult
 
 
 func _findBestHealSpell(monsterID: int, fromPos: Vector2i, hpThreshold: float = 0.75) -> Variant:
@@ -149,7 +167,9 @@ func _findBestHealSpell(monsterID: int, fromPos: Vector2i, hpThreshold: float = 
 
 	for spellIdx in range(spellSet.size()):
 		var spell = spellSet[spellIdx]
-		if not spell.heals:
+		if not mon.can_cast(spell):
+			continue
+		if not spell.heals and not spell.reverts_damage:
 			continue
 
 		for allyID in state.monsters:
@@ -161,11 +181,28 @@ func _findBestHealSpell(monsterID: int, fromPos: Vector2i, hpThreshold: float = 
 				continue
 			var allyPos = state.getMonsterPosition(allyID)
 			var dist = abs(fromPos.x - allyPos.x) + abs(fromPos.y - allyPos.y)
-			if dist <= spell.range and ratio < lowestRatio:
+			if dist >= spell.min_range and dist <= spell.range and ratio < lowestRatio:
 				if spell.bypass_los or _checkLoS(fromPos, allyPos, monsterID, allyID):
 					lowestRatio = ratio
 					bestTarget = allyID
 					bestSpellIdx = spellIdx
+					
+		# If it's a reverts_damage spell, maybe cast it if someone took damage last turn
+		if spell.reverts_damage:
+			for enemyID in state.monsters:
+				var enemy = state.monsters[enemyID]
+				if enemy.team == mon.team or not enemy.is_alive(): continue
+				if state.lastTurnDamageLog.has(enemyID) and state.lastTurnDamageLog[enemyID].size() > 0:
+					# This enemy dealt damage last turn! We should target them!
+					var enemyPos = state.getMonsterPosition(enemyID)
+					var dist = abs(fromPos.x - enemyPos.x) + abs(fromPos.y - enemyPos.y)
+					if dist >= spell.min_range and dist <= spell.range:
+						if spell.bypass_los or _checkLoS(fromPos, enemyPos, monsterID, enemyID):
+							# We prioritize this heavily
+							lowestRatio = 0.0
+							bestTarget = enemyID
+							bestSpellIdx = spellIdx
+							break
 
 	if bestTarget == -1:
 		return null
@@ -174,21 +211,60 @@ func _findBestHealSpell(monsterID: int, fromPos: Vector2i, hpThreshold: float = 
 
 
 func _checkLoS(fromPos: Vector2i, toPos: Vector2i, selfID: int, targetID: int) -> bool:
-	## LoS check using Bresenham raycast. Other monsters block sight.
+	## LoS check using Bresenham raycast. Other monsters and obstacles block sight.
 	return LineOfSight.hasLoS(fromPos, toPos, func(p: Vector2i) -> bool:
 		if not state.withinBounds(p):
+			return true
+		if state.isLoSBlocked(p):
 			return true
 		var id = state.board.at(p)
 		return id != 0 and id != selfID and id != targetID
 	)
 
 
+func _findSafestReachablePosition(monsterID: int, targetPos: Vector2i, retreat: bool = false) -> Vector2i:
+	## Among reachable positions, find the safest tile (lowest threat).
+	## Ties are broken by minimizing distance to targetPos (or maximizing if retreat).
+	var mon = state.getMonster(monsterID)
+	var reachable = movementResolver.getReachablePositions(monsterID)
+	if reachable.is_empty():
+		return state.getMonsterPosition(monsterID)
+		
+	var threatMap = ThreatMap.generate(state, mon.team)
+	var bestPos = reachable[0]
+	var bestThreat = threatMap.get(bestPos, 9999)
+	var bestDist = abs(bestPos.x - targetPos.x) + abs(bestPos.y - targetPos.y)
+	
+	for pos in reachable:
+		var threat = threatMap.get(pos, 0)
+		var dist = abs(pos.x - targetPos.x) + abs(pos.y - targetPos.y)
+		
+		if threat < bestThreat:
+			bestThreat = threat
+			bestDist = dist
+			bestPos = pos
+		elif threat == bestThreat:
+			if retreat and dist > bestDist:
+				bestDist = dist
+				bestPos = pos
+			elif not retreat and dist < bestDist:
+				bestDist = dist
+				bestPos = pos
+			
+	return bestPos
+
+
 func _buildMovePath(monsterID: int, targetPos: Vector2i) -> Array:
 	## Build a truncated move path toward targetPos within move range.
 	var mon = state.getMonster(monsterID)
 	var myPos = state.getMonsterPosition(monsterID)
-	var bestMoveTarget = _findReachablePositionClosestTo(monsterID, targetPos)
-	var path = movementResolver.findPath(myPos, bestMoveTarget, mon.move)
+	var path = movementResolver.findPath(myPos, targetPos, 100)
+	if path.is_empty():
+		return []
+		
+	if path.back() == targetPos and state.isOccupied(targetPos):
+		path.pop_back()
+		
 	if path.size() > mon.move:
 		path = path.slice(0, mon.move)
 	return path

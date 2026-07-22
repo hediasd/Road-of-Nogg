@@ -9,6 +9,7 @@ var events: BattleEvents
 var turnManager: TurnManager
 var movementResolver: MovementResolver
 var combatResolver: CombatResolver
+var passiveSkillResolver: PassiveSkillResolver
 var visualAdapter: IBattleVisualAdapter
 
 var brains: Dictionary = {}  # monsterID -> EntityBrain
@@ -19,12 +20,22 @@ func _init(boardSize: Vector2i) -> void:
 	state = BattleState.new(boardSize)
 	turnManager = TurnManager.new(state, events)
 	movementResolver = MovementResolver.new(state, events)
-	combatResolver = CombatResolver.new(state, events)
+	combatResolver = preload("res://src/battle_sim/CombatResolver.gd").new(state, events)
+	passiveSkillResolver = preload("res://src/battle_sim/PassiveSkillResolver.gd").new(state, events)
+	print("DEBUG: passiveSkillResolver created? ", passiveSkillResolver)
+	# Inject passiveSkillResolver into CombatResolver
+	combatResolver.passiveSkillResolver = passiveSkillResolver
 
 
 func setVisualAdapter(adapter: IBattleVisualAdapter) -> void:
 	visualAdapter = adapter
 	adapter.connectToEvents(events)
+
+
+func setSeed(seedValue: int) -> void:
+	## Forces the battle state RNG to use a specific seed for deterministic outcomes.
+	state.rng.seed = seedValue
+
 
 
 func spawnMonster(referenceName: String, team: int, pos: Vector2i) -> Monster:
@@ -36,6 +47,11 @@ func spawnMonster(referenceName: String, team: int, pos: Vector2i) -> Monster:
 	var brainClassName = ref.get("BRAIN", "MeleeBrain")
 	var brainClass = _resolveBrainClass(brainClassName)
 	
+	# Fatal checks: Do not allow spawning on invalid/occupied tiles
+	assert(state.withinBounds(pos), "Fatal Error: Spawning monster out of bounds at %s" % str(pos))
+	assert(state.isWalkable(pos), "Fatal Error: Attempting to spawn monster on an unwalkable tile at %s" % str(pos))
+	assert(not state.isOccupied(pos), "Fatal Error: Attempting to spawn monster on an already occupied tile at %s" % str(pos))
+
 	# Create and assign brain
 	var brain = brainClass.new(state, movementResolver, combatResolver)
 	monster.brain = brain
@@ -63,6 +79,7 @@ func _resolveBrainClass(name: String):
 		"RangedMageBrain": return load("res://src/entity_ai/RangedMageBrain.gd")
 		"HealerBrain":     return load("res://src/entity_ai/HealerBrain.gd")
 		"BrawlerBrain":    return load("res://src/entity_ai/BrawlerBrain.gd")
+		"BerserkBrain":    return load("res://src/entity_ai/BerserkBrain.gd")
 		_:                 return load("res://src/entity_ai/SimpleBrain.gd")
 
 
@@ -81,13 +98,16 @@ func runFullBattle(maxRounds: int = 50) -> int:
 
 	for round in range(maxRounds):
 		turnManager.startNewRound()
+		var actions_this_round = 0
 
 		while turnManager.hasNextTurn():
 			var monsterID = turnManager.startNextTurn()
 			if monsterID == -1:
 				break
 
-			executeTurn(monsterID)
+			var acted = executeTurn(monsterID)
+			if acted:
+				actions_this_round += 1
 
 			turnManager.endTurn(monsterID)
 
@@ -97,35 +117,45 @@ func runFullBattle(maxRounds: int = 50) -> int:
 				events.battle_ended.emit(winner)
 				return winner
 		
-		events.round_ended.emit(round)
+		events.round_ended.emit(state.roundCount)
+		
+		# Loop detector
+		if actions_this_round == 0:
+			print("Loop detector: No actions taken this round. Ending battle early.")
+			break
 
-	# If we hit max rounds, the team with more alive monsters wins
+	# If we hit max rounds or loop detected, the team with more alive monsters wins
 	var winner = _determineWinnerByNumbers()
 	events.battle_ended.emit(winner)
 	return winner
 
 
-func executeTurn(monsterID: int) -> void:
+func executeTurn(monsterID: int) -> bool:
 	## Executes a single monster's turn using its brain.
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
-		return
+		return false
+		
+	# Clear damage dealt previously so it only tracks this new turn
+	state.lastTurnDamageLog[monsterID] = []
 
 	var brain = brains.get(monsterID)
 	if brain == null:
-		return
+		return false
 
 	if state.hasEffect(monsterID, "petrify"):
 		events.monster_skipped_turn.emit(monsterID, "petrify")
 		# Phase 3: Apply status effect damage (even if skipped)
 		combatResolver.executeStatusEffectDamage(monsterID)
-		return
+		return false
 
 	var decision = brain.decideTurn(monsterID)
+	var acted = false
 
 	# Phase 1: Move
 	if decision.has("move_path") and not decision["move_path"].is_empty():
 		movementResolver.executeMove(monsterID, decision["move_path"])
+		acted = true
 
 	# Phase 2: Act
 	var action = decision.get("action", "wait")
@@ -133,14 +163,18 @@ func executeTurn(monsterID: int) -> void:
 
 	if action == "attack" and targetID != -1:
 		combatResolver.executeBasicAttack(monsterID, targetID)
+		acted = true
 
 	elif action == "spell" and targetID != -1:
 		var spellSetIdx = decision.get("spell_set_index", 0)
 		var spellIdx = decision.get("spell_index", 0)
 		combatResolver.executeCastSpell(monsterID, targetID, spellSetIdx, spellIdx)
+		acted = true
 		
-	# Phase 3: Apply status effect damage (e.g. BURN) before turn ends
-	combatResolver.executeStatusEffectDamage(monsterID)
+	# Phase 3: Fire ON_TURN_END event (status effect damage ticks + passive hooks)
+	passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
+	
+	return acted
 
 
 func checkWinCondition() -> int:

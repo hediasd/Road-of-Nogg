@@ -5,7 +5,7 @@ class_name ConsoleVisualAdapter
 extends IBattleVisualAdapter
 
 var state: BattleState
-var logFile: String = "res://ai/battle_log.txt"
+var logFile: String = "res://docs/battle_log.txt"
 var _roundEvents: Array = []
 var _roundPaths: Array = []
 
@@ -56,7 +56,7 @@ func _build_legend() -> Dictionary:
 		var p2 = (t2_list[i] + " (T2)") if i < t2_list.size() else ""
 		lines.append("      " + p1 + p2)
 		
-	lines.append("      #=Tree              >=Path")
+	lines.append("      #=Tree   ~=Abyss   >=Path")
 	
 	return { "chars": mon_chars, "lines": lines }
 
@@ -96,11 +96,8 @@ func _getElementEmoji(element: String) -> String:
 
 func _getSymbol(mon: Monster) -> String:
 	if mon == null: return "[ ? ]"
-	var n = mon.name.to_lower()
-	if "mage" in n: return "< M >"
-	if "emagnus" in n: return "( H )"
-	if "megidos" in n: return "{ B }"
-	return "[ D ]"
+	var n = mon.name.substr(0, 1).to_upper()
+	return "[ %s ]" % n
 
 
 func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
@@ -188,22 +185,45 @@ func _on_monster_attacked(attackerID: int, targetID: int, damage: int, targetNew
 	})
 
 
-func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, element: String, damage: int, targetNewHP: int) -> void:
+func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, damageLines: Array, targetNewHP: int) -> void:
 	var caster = state.getMonster(casterID)
 	var target = state.getMonster(targetID)
 	var targetName = target.name if target != null else "???"
-	var emoji = _getElementEmoji(element)
 	
-	_log("  [SPELL] %s #%s  %s━━━▶  %s #%s with '%s' (💥 %s dmg | ❤️ %s)" % [
-		caster.name, casterID, emoji, targetName, targetID, spellName, damage, targetNewHP
+	var dmg_texts = []
+	var primary_element = "none"
+	var total_damage = 0
+	
+	if damageLines.is_empty():
+		dmg_texts.append("0")
+	else:
+		primary_element = damageLines[0].get("element", "none")
+		for line in damageLines:
+			var el = line.get("element", "none")
+			var d = line.get("damage", 0)
+			total_damage += d
+			if el != "none":
+				dmg_texts.append("%s %s" % [d, el.to_upper()])
+			else:
+				dmg_texts.append("%s" % d)
+	
+	var combined_dmg_str = " + ".join(dmg_texts)
+	if damageLines.size() > 1:
+		combined_dmg_str += " = %s" % total_damage
+	combined_dmg_str += " dmg"
+		
+	var emoji = _getElementEmoji(primary_element)
+	
+	_log("  [SPELL] %s #%s  %s━━━▶  %s #%s with '%s' (💥 %s | ❤️ %s)" % [
+		caster.name, casterID, emoji, targetName, targetID, spellName, combined_dmg_str, targetNewHP
 	])
 	
 	_roundEvents.append({
-		"score": damage * 2 + 5,
+		"score": total_damage * 2 + 5,
 		"type": "spell",
 		"attacker": caster,
 		"target": target,
-		"element": element,
+		"element": primary_element,
 		"defeated": targetNewHP <= 0
 	})
 
@@ -262,6 +282,34 @@ func _on_effect_ticked(monsterID: int, effectName: String, remainingTurns: int) 
 	pass
 
 
+func _on_passive_triggered(monsterID: int, passiveName: String, trigger: String) -> void:
+	var mon = state.getMonster(monsterID)
+	var monName = mon.name if mon != null else "???"
+	_log("  [PASSIVE] %s #%s — '%s' activated! (trigger: %s)" % [monName, monsterID, passiveName, trigger])
+
+
+func _on_passive_aoe_damage(sourceID: int, passiveName: String, targetID: int, element: String, damage: int, targetNewHP: int) -> void:
+	var src = state.getMonster(sourceID)
+	var tgt = state.getMonster(targetID)
+	var srcName = src.name if src != null else "???"
+	var tgtName = tgt.name if tgt != null else "???"
+	_log("  [PASSIVE AOE] '%s' from %s #%s hits %s #%s for %s %s dmg! (❤️ %s)" % [
+		passiveName, srcName, sourceID, tgtName, targetID, damage, element.to_upper(), targetNewHP
+	])
+
+
+func _split_name(name: String, max_len: int) -> Array:
+	if name.length() <= max_len:
+		return [name, ""]
+	var space_idx = name.rfind(" ", max_len)
+	if space_idx > 0:
+		var part1 = name.substr(0, space_idx)
+		var part2 = name.substr(space_idx + 1, max_len)
+		return [part1, part2]
+	else:
+		return [name.substr(0, max_len), name.substr(max_len, max_len)]
+
+
 func _on_round_ended(roundNumber: int) -> void:
 	if not _roundEvents.is_empty():
 		_roundEvents.sort_custom(func(a, b): return a.score > b.score)
@@ -273,13 +321,23 @@ func _on_round_ended(roundNumber: int) -> void:
 		var main = _roundEvents[0]
 		var aSym = _getSymbol(main.attacker)
 		var tSym = _getSymbol(main.target)
-		var aName = main.attacker.name.rpad(14) if main.attacker != null else "???".rpad(14)
-		var tName = main.target.name.lpad(14) if main.target != null else "???".lpad(14)
+		var aNameFull = main.attacker.name if main.attacker != null else "???"
+		var tNameFull = main.target.name if main.target != null else "???"
+		var aParts = _split_name(aNameFull, 14)
+		var tParts = _split_name(tNameFull, 14)
+		
+		var aName = aParts[0].rpad(14)
+		var tName = tParts[0].lpad(14)
+		var aName2 = aParts[1].rpad(14)
+		var tName2 = tParts[1].lpad(14)
+		var has_second_line = (aParts[1] != "" or tParts[1] != "")
 		
 		if main.type == "attack":
 			_log(" │                      %s 🗡️ ━━━━━━━▶ 💥 %s" % [aSym, tSym])
 			_log(" │                     ═══════                   ═══════")
 			_log(" │                   %s                 %s" % [aName, tName])
+			if has_second_line:
+				_log(" │                   %s                 %s" % [aName2, tName2])
 			if main.defeated:
 				_log(" │                                            ☠️ DEFEATED!")
 				
@@ -288,6 +346,8 @@ func _on_round_ended(roundNumber: int) -> void:
 			_log(" │                      %s %s ━━━━━━━▶ 💥 %s" % [aSym, emj, tSym])
 			_log(" │                     ═══════                   ═══════")
 			_log(" │                   %s                 %s" % [aName, tName])
+			if has_second_line:
+				_log(" │                   %s                 %s" % [aName2, tName2])
 			if main.defeated:
 				_log(" │                                            ☠️ DEFEATED!")
 				
@@ -295,11 +355,15 @@ func _on_round_ended(roundNumber: int) -> void:
 			_log(" │                      %s ✨ ━━━━━━━▶ 💖 %s" % [aSym, tSym])
 			_log(" │                     ═══════                   ═══════")
 			_log(" │                   %s                 %s" % [aName, tName])
+			if has_second_line:
+				_log(" │                   %s                 %s" % [aName2, tName2])
 			
 		elif main.type == "skipped":
 			_log(" │                                 💤 %s" % main.reason.to_upper())
 			_log(" │                     ═══════                   ")
 			_log(" │                   %s                 " % aName)
+			if has_second_line:
+				_log(" │                   %s                 " % aName2)
 
 		_log(" │                                                                           ")
 		_log(" │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ ")
@@ -308,6 +372,8 @@ func _on_round_ended(roundNumber: int) -> void:
 		var minorLine1 = " │ "
 		var minorLine2 = " │ "
 		var minorLine3 = " │ "
+		var minorLine4 = " │ "
+		var has_minor_line4 = false
 		
 		var maxMinors = min(_roundEvents.size() - 1, 2)
 		if maxMinors > 0:
@@ -323,13 +389,28 @@ func _on_round_ended(roundNumber: int) -> void:
 				
 				minorLine1 += _pad_right_visual(str1, 36)
 				minorLine2 += _pad_right_visual("   ══════        ══════", 36)
-				var mn1 = m.attacker.name.substr(0,8) if m.attacker != null else "???"
-				var mn2 = m.target.name.substr(0,8) if m.target != null else "???"
+				
+				var maNameFull = m.attacker.name if m.attacker != null else "???"
+				var mtNameFull = m.target.name if m.target != null else "???"
+				var maParts = _split_name(maNameFull, 8)
+				var mtParts = _split_name(mtNameFull, 8)
+				
+				var mn1 = maParts[0]
+				var mn2 = mtParts[0]
 				minorLine3 += _pad_right_visual("   " + mn1.rpad(8) + "      " + mn2.rpad(8), 36)
+				
+				if maParts[1] != "" or mtParts[1] != "":
+					has_minor_line4 = true
+					
+				var mn1_p2 = maParts[1]
+				var mn2_p2 = mtParts[1]
+				minorLine4 += _pad_right_visual("   " + mn1_p2.rpad(8) + "      " + mn2_p2.rpad(8), 36)
 				
 			_log(minorLine1)
 			_log(minorLine2)
 			_log(minorLine3)
+			if has_minor_line4:
+				_log(minorLine4)
 		else:
 			_log(" │  (None)")
 			
@@ -340,8 +421,8 @@ func _on_round_ended(roundNumber: int) -> void:
 	_roundPaths.clear()
 
 
-func _print_tactical_map() -> void:
-	if _roundPaths.is_empty():
+func _print_tactical_map(force: bool = false) -> void:
+	if not force and _roundPaths.is_empty():
 		return
 		
 	var legend_data = _build_legend()
@@ -358,6 +439,8 @@ func _print_tactical_map() -> void:
 		for x in range(state.boardSize.x):
 			if state.terrainBoard.at(Vector2i(x, y)) == 1:
 				row.append("# ")
+			elif state.terrainBoard.at(Vector2i(x, y)) == 2:
+				row.append("~ ")
 			else:
 				row.append(". ")
 		grid.append(row)
@@ -409,36 +492,6 @@ func _print_tactical_map() -> void:
 
 
 func printBoardState() -> void:
-	## Prints an ASCII map of the board state.
-	var legend_data = _build_legend()
-	var mon_chars = legend_data["chars"]
-	var legend_lines = legend_data["lines"]
-	
-	_log("")
-	_log("    " + " ".join(range(state.boardSize.x).map(func(i): return str(i % 10))))
-	_log("  ┌" + "─".repeat(state.boardSize.x * 2 + 1) + "┐")
-	
-	for y in range(state.boardSize.y):
-		var rowStr = str(y).lpad(2) + " │ "
-		for x in range(state.boardSize.x):
-			if state.terrainBoard.at(Vector2i(x, y)) == 1:
-				rowStr += "# "
-				continue
-				
-			var id = state.board.at(Vector2i(x, y))
-			if id == 0:
-				rowStr += ". "
-			else:
-				if mon_chars.has(id):
-					rowStr += mon_chars[id]
-				else:
-					rowStr += "? "
-		rowStr += "│"
-		
-		if y < legend_lines.size():
-			rowStr += legend_lines[y]
-			
-		_log(rowStr)
-		
-	_log("  └" + "─".repeat(state.boardSize.x * 2 + 1) + "┘")
+	## Prints an ASCII map of the board state using the standard tactical map formatter.
+	_print_tactical_map(true)
 	_log("")

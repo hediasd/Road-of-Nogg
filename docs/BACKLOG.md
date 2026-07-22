@@ -1,0 +1,28 @@
+# Road of Nogg — Backlog & Suggestions
+
+This file tracks feature ideas, architectural suggestions, and potential improvements identified during development. 
+The AI will proactively add suggestions here when observing technical debt, missing systems, or gameplay opportunities.
+
+## Gameplay & Design
+- **Directional Facing**: Entities could have a "facing" direction, allowing for backstab damage multipliers or cone-based AoE attacks.
+- **Terrain Modifiers**: Expand the `terrainBoard` to include varied terrain types (mud, high ground) that affect movement costs and line-of-sight.
+- **Stat System Deep-Dive (docs)**: Expand `trpg_14_stats_and_attributes.md` with a per-game breakdown of how each individual stat feeds into derived values (e.g., how exactly RO's AGI feeds into ASPD and Flee formulas, how FFT's Brave stat interacts with the reaction ability system, how Pokémon IVs/EVs interact with base species values). This is a large research task best done per-game.
+- **Additional OnEvent Triggers**: Once the trigger system is live, add `ON_DAMAGE_TAKEN` (counter-attack or reflect passives), `ON_SPELL_CAST` (mana drain on cast, combo triggers), and `ON_TILE_STEPPED` (trap tiles, elemental terrain surfaces).
+- **General Stat Buff/Debuff System**: Expand beyond ATK-only buffs ("Empower") to a generalized stat modifier layer stored in `activeEffects` (e.g. `{stat: "def", bonus: -2, duration: 3}`). Apply modifiers in damage calculations dynamically rather than mutating base stats.
+
+## Engine & Architecture
+- **Event Sourcing / Action History Log**: The current approach of tracking turn history via state variables (like `lastTurnDamageLog`) works for simple use cases, but scaling into time-travel mechanics (like the "Ages Ago" spell), battle replays, or network synchronization requires a centralized **Event History Log**. We should implement an immutable, turn-by-turn event ledger that records all actions, movements, and damage. This completely eliminates the need to clean up temporary state variables and natively supports rewinding/replaying the battle state deterministically.
+- **Animation Queueing**: As the visual adapter gets more complex, implement an asynchronous visual action queue so events can play out sequentially in the UI without blocking the headless engine.
+
+## Code Quality & Cleanup
+- **Clean Up Factory Preloads**: Ensure all `preload()` references match the actual folder structure strictly, even though Godot's `class_name` currently masks path inaccuracies.
+
+## Future Milestones
+- **Visual Integration**: Connect the Battle Simulator and its events to the actual Godot Visuals/UI, rendering sprites, grid selection, and spell effects.
+- **Shop & Economy Systems**: Implement the underlying logic and interfaces for the economy based on the `gamerefs/trpg_11_shop_and_economy_systems.md` documentation.
+- **Roster Expansion**: Add additional Monsters, diverse Spells, and specialized AI Brains (e.g., assassins, buffers) to flesh out the game.
+- **Documentation Refinement**: Continue to iterate and expand the `gamerefs/` game design specifications and AI architecture guidelines.
+- **Parabolic Trajectory / Arcs**: Implement an algorithm to calculate height arcs for projectiles (arrows, items) crossing the `heightBoard` to verify vertical line-of-sight clearance over obstacles.
+- **Player-Controlled Teams (PvE)**: Implement input-handling logic allowing real players to select movement paths, spells, and targets instead of relying purely on the AI Brains.
+- **Online Multiplayer (PvP/Co-op)**: Expand the architecture to support networked battles (Player vs Player over the internet), ensuring the state machine can sync inputs and simulation deterministically across clients.
+- **Savestates / Serialization**: Implement a system to serialize the entire `BattleState` into JSON (and deserialize back), allowing for battle replays, suspend-save, and mid-battle reloading.

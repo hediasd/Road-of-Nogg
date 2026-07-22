@@ -16,10 +16,8 @@ func decideTurn(monsterID: int) -> Dictionary:
 
 	# If enemies are too close, try to move away
 	if currentDist <= 2:
-		var retreatPos = _findReachablePositionFarthestFrom(monsterID, enemyPos, 3)
-		var retreatPath = movementResolver.findPath(myPos, retreatPos, state.getMonster(monsterID).move)
-		if retreatPath.size() > state.getMonster(monsterID).move:
-			retreatPath = retreatPath.slice(0, state.getMonster(monsterID).move)
+		var retreatPos = _findSafestReachablePosition(monsterID, enemyPos, true)
+		var retreatPath = _buildMovePath(monsterID, retreatPos)
 		
 		var posAfterRetreat = myPos if retreatPath.is_empty() else retreatPath.back()
 		var spellDecisionAfterRetreat = _findBestOffensiveSpell(monsterID, posAfterRetreat)

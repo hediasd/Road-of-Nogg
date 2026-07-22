@@ -5,6 +5,7 @@ class_name CombatResolver
 
 var state: BattleState
 var events: BattleEvents
+var passiveSkillResolver  # PassiveSkillResolver — injected by BattleSimulator
 
 
 func _init(_state: BattleState, _events: BattleEvents) -> void:
@@ -15,6 +16,8 @@ func _init(_state: BattleState, _events: BattleEvents) -> void:
 # --- Basic melee attack ---
 
 const LineOfSight = preload("res://src/algorithms/LineOfSight.gd")
+const ShapeCaster = preload("res://src/algorithms/ShapeCaster.gd")
+const RaceReferences = preload("res://src/factories/RaceReferences.gd")
 const DIRECTIONS = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
 
 func getBasicAttackTargets(monsterID: int) -> Array:
@@ -75,7 +78,15 @@ func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
 
 
 func calculateBasicDamage(attacker: Monster, target: Monster) -> int:
-	return max(1, attacker.atk - target.def)
+	var raw = max(1, attacker.atk - target.def)
+	## Apply atk_bonus from active buffs
+	for effect in state.getActiveEffects(attacker.uniqueID):
+		raw += effect.get("atk_bonus", 0)
+	raw = max(1, raw)
+	## Let PassiveSkillResolver apply damage reduction passives on the target
+	if passiveSkillResolver != null:
+		raw = passiveSkillResolver.applyDamageModifiers(raw, target.uniqueID)
+	return raw
 
 
 # --- Spell casting ---
@@ -94,6 +105,10 @@ func getSpellTargets(monsterID: int, spellSetIndex: int, spellIndex: int) -> Arr
 	var spell = mon.spellSets[spellSetIndex][spellIndex]
 	var pos = state.getMonsterPosition(monsterID)
 	var targets = []
+
+	# Self-targeting spells always return the caster as the only target
+	if spell.targetType == "self":
+		return [monsterID]
 
 	for candidateID in state.monsters:
 		var candidate = state.monsters[candidateID]
@@ -123,10 +138,12 @@ func getSpellTargets(monsterID: int, spellSetIndex: int, spellIndex: int) -> Arr
 
 func _hasLoS(casterID: int, fromPos: Vector2i, toPos: Vector2i, targetID: int) -> bool:
 	## Returns true if there is clear LoS between fromPos and toPos.
-	## Other monsters (not caster, not target) block line of sight.
+	## Other monsters (not caster, not target) block line of sight, as do TERRAIN_OBSTACLE.
 	return LineOfSight.hasLoS(fromPos, toPos, func(p: Vector2i) -> bool:
 		if not state.withinBounds(p):
 			return true  # Out-of-bounds blocks LoS
+		if state.isLoSBlocked(p):
+			return true  # Trees/Walls block LoS
 		var occupantID = state.board.at(p)
 		return occupantID != 0 and occupantID != casterID and occupantID != targetID
 	)
@@ -157,11 +174,19 @@ func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellInd
 		return { "success": false, "reason": "out_of_range" }
 
 	var actualTargets = []
-	if spell.targetType == "area":
-		for otherID in state.getAliveMonsterIDs():
-			var otherPos = state.getMonsterPosition(otherID)
-			var distFromCenter = abs(centerPos.x - otherPos.x) + abs(centerPos.y - otherPos.y)
-			if distFromCenter <= spell.radius:
+	if spell.targetType == "self":
+		# Self-cast: always targets the caster only, no range or LoS needed
+		actualTargets.append(casterID)
+	elif spell.targetType == "area":
+		var affectedTiles = []
+		match spell.area_shape:
+			"cross": affectedTiles = ShapeCaster.getCross(centerPos, spell.radius)
+			"line":  affectedTiles = ShapeCaster.getLine(casterPos, centerPos, spell.radius)
+			"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, spell.radius)
+		for p in affectedTiles:
+			if not state.withinBounds(p): continue
+			var otherID = state.board.at(p)
+			if otherID != 0:
 				# Friendly fire rules: heals only allies, damage/debuffs only enemies
 				var isAlly = state.getMonster(otherID).team == caster.team
 				if spell.heals and not isAlly: continue
@@ -197,11 +222,39 @@ func _applySpellEffects(casterID: int, targetID: int, spell: Spell) -> void:
 		events.monster_healed.emit(casterID, targetID, spell.name, actualHeal, target.hitpoints)
 		return
 
-	# --- Damage path ---
-	var damage = calculateSpellDamage(caster, target, spell)
-	var actualDamage = target.take_damage(damage)
+	# --- Ages Ago (Damage Reversion) ---
+	if spell.reverts_damage:
+		var targetDamageHistory = state.lastTurnDamageLog.get(targetID, [])
+		var healedTargets = 0
+		var totalHealing = 0
+		for entry in targetDamageHistory:
+			var victimID = entry.get("target_id")
+			var dmgAmount = entry.get("damage")
+			var victim = state.getMonster(victimID)
+			if victim != null and victim.is_alive():
+				var actualHeal = victim.heal(dmgAmount)
+				events.monster_healed.emit(casterID, victimID, "Ages Ago", actualHeal, victim.hitpoints)
+				totalHealing += actualHeal
+				healedTargets += 1
+		# Output a special event so the visualizer can log it?
+		# For now, we rely on individual heal events.
+		return
 
-	events.monster_cast_spell.emit(casterID, targetID, spell.name, spell.element, actualDamage, target.hitpoints)
+	# --- Damage path ---
+	var actual_damage_lines = []
+	for line in spell.damage_lines:
+		var elem = line.get("element", "none")
+		var dmg = calculateSpellDamage(caster, target, line.get("damage", 0), elem)
+		var actualDamage = target.take_damage(dmg)
+		
+		# Log damage for "Ages Ago"
+		if not state.lastTurnDamageLog.has(casterID):
+			state.lastTurnDamageLog[casterID] = []
+		state.lastTurnDamageLog[casterID].append({ "target_id": targetID, "damage": actualDamage })
+		
+		actual_damage_lines.append({ "element": elem, "damage": actualDamage })
+
+	events.monster_cast_spell.emit(casterID, targetID, spell.name, actual_damage_lines, target.hitpoints)
 
 	# Apply status if the spell inflicts one
 	if spell.inflicts_status != "":
@@ -210,46 +263,70 @@ func _applySpellEffects(casterID: int, targetID: int, spell: Spell) -> void:
 		state.addEffect(targetID, spell.inflicts_status, statusDuration, casterID, spell.name, statusDmg)
 		events.effect_applied.emit(targetID, spell.inflicts_status, statusDuration, casterID, spell.name)
 
+	# Apply ATK buff if the spell provides one (stored as a timed activeEffect)
+	if spell.buffs_atk > 0 and spell.buff_duration > 0:
+		state.addEffect(targetID, "atk_buff", spell.buff_duration, casterID, spell.name, 0)
+		for effect in state.activeEffects.get(targetID, []):
+			if effect["name"] == "atk_buff" and effect.get("atk_bonus", 0) == 0:
+				effect["atk_bonus"] = spell.buffs_atk
+				break
+		events.effect_applied.emit(targetID, "atk_buff", spell.buff_duration, casterID, spell.name)
+
+	# Apply SPD debuff if the spell inflicts "spd_debuff" (Timeoff)
+	if spell.inflicts_status == "spd_debuff":
+		var duration = 99 # Permanent for the battle
+		state.addEffect(targetID, "spd_debuff", duration, casterID, spell.name, 0)
+		for effect in state.activeEffects.get(targetID, []):
+			if effect["name"] == "spd_debuff" and effect.get("spd_bonus", 0) == 0:
+				effect["spd_bonus"] = -2 # Arbitrary debuff amount
+				break
+		events.effect_applied.emit(targetID, "spd_debuff", duration, casterID, spell.name)
+
 	if not target.is_alive():
 		_handleDefeat(targetID, casterID)
 
 
-func calculateSpellDamage(caster: Monster, target: Monster, spell: Spell) -> int:
-	return max(1, caster.atk + spell.damage - target.def)
+func calculateSpellDamage(caster: Monster, target: Monster, base_damage: int, element: String = "none") -> int:
+	var raw = max(1, caster.atk + base_damage - target.def)
+	## Apply atk_bonus from active buffs on the caster
+	for effect in state.getActiveEffects(caster.uniqueID):
+		raw += effect.get("atk_bonus", 0)
+	raw = max(1, raw)
+	
+	if element != "none":
+		var multiplier = RaceReferences.getDamageMultiplier(target.race, element)
+		raw = int(round(float(raw) * multiplier))
+		raw = max(1, raw)
+		
+	## Let PassiveSkillResolver apply damage reduction passives on the target
+	if passiveSkillResolver != null:
+		raw = passiveSkillResolver.applyDamageModifiers(raw, target.uniqueID)
+	return raw
 
 
 func calculateHeal(caster: Monster, spell: Spell) -> int:
 	## Heal amount scales on caster ATK + spell power (same formula as damage for now).
-	return max(1, caster.atk + spell.damage)
+	var base_power = 0
+	if spell.damage_lines.size() > 0:
+		base_power = spell.damage_lines[0].get("damage", 0)
+	return max(1, caster.atk + base_power)
 
 
-# --- Status effect damage ticks ---
-
-func executeStatusEffectDamage(monsterID: int) -> void:
-	## Called at end of turn before tickEffects(). Applies per-turn damage from effects like Burn.
-	var effects = state.getActiveEffects(monsterID)
-	var mon = state.getMonster(monsterID)
-	if mon == null or not mon.is_alive():
-		return
-
-	for effect in effects:
-		var dmg = effect.get("damagePerTurn", 0)
-		if dmg <= 0:
-			continue
-		var actualDamage = mon.take_damage(dmg)
-		events.status_damage_dealt.emit(monsterID, effect["name"], actualDamage, mon.hitpoints)
-		if not mon.is_alive():
-			# Status effect kills — source monster gets credit
-			var sourceID = effect.get("sourceMonsterID", -1)
-			_handleDefeat(monsterID, sourceID)
-			return  # Monster is dead, stop processing
+# --- Status effect damage ticks --- MOVED to PassiveSkillResolver.fireEvent(ON_TURN_END)
+# CombatResolver no longer owns executeStatusEffectDamage().
+# BattleSimulator.executeTurn() calls passiveSkillResolver.fireEvent(ON_TURN_END, monsterID) instead.
 
 
 # --- Internal helpers ---
 
 func _handleDefeat(defeatedID: int, killerID: int) -> void:
-	events.monster_defeated.emit(defeatedID, killerID)
-	state.removeMonster(defeatedID)
+	## Fire ON_DEATH passives BEFORE removing from state (so Snowfall can read positions).
+	if passiveSkillResolver != null:
+		passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_DEATH, defeatedID)
+	## Only emit defeated + remove if still in state (ON_DEATH aoe may have already cleared it)
+	if state.monsters.has(defeatedID) and not state.getMonster(defeatedID).is_alive():
+		events.monster_defeated.emit(defeatedID, killerID)
+		state.removeMonster(defeatedID)
 
 
 func _getStatusDuration(statusName: String) -> int:
