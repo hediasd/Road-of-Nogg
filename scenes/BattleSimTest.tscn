@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://vlju00t6gukr"]
+
+[ext_resource type="Script" uid="uid://molcnc5yxidp" path="res://src/battle_sim/BattleSimTest.gd" id="1_test"]
+
+[node name="BattleSimTest" type="Node"]
+script = ExtResource("1_test")

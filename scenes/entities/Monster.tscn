@@ -1,0 +1,28 @@
+[gd_scene load_steps=3 format=3 uid="uid://cvq2oj61cos2"]
+
+[ext_resource type="Texture2D" uid="uid://33xvnrux3b6p" path="res://Ice Golem.png" id="1_yfjp4"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_61xc0"]
+
+[node name="Node2" type="Node3D"]
+
+[node name="Sprite3D2" type="Sprite3D" parent="."]
+transform = Transform3D(-2.2, 0, -1.9233e-07, 0, 2.2, 0, 1.9233e-07, 0, -2.2, 0.3, 0.4, 0.3)
+cast_shadow = 2
+gi_lightmap_texel_scale = 2.0
+pixel_size = 0.013
+billboard = 1
+shaded = true
+alpha_cut = 3
+texture_filter = 0
+texture = ExtResource("1_yfjp4")
+hframes = 3
+vframes = 3
+
+[node name="RigidBody3D2" type="RigidBody3D" parent="."]
+visible = false
+mass = 0.01
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RigidBody3D2"]
+transform = Transform3D(1, 0, 0, 0, 1, 0.000575959, 0, -0.000575959, 1, 0, 0, 0)
+shape = SubResource("BoxShape3D_61xc0")

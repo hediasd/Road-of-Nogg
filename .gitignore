@@ -1,0 +1,24 @@
+# Godot
+.godot/
+.import/
+*.tmp
+*.import~*
+
+# Blender
+*.blend1
+*.blend2
+
+# Crocotile
+*.crocotile
+
+# System
+.DS_Store
+thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Godot executable (don't commit engine)
+Godot_v*.exe
+Godot_v*.x86_64

@@ -1,0 +1,24 @@
+# Road of Nogg — Learnings & Patterns
+
+This document tracks learned patterns, gotchas, and specific implementations regarding the Road of Nogg game, engine, and AI workflows.
+
+## GDScript Patterns & Nuances
+- **Global Classes**: `class_name` makes a class globally available without `preload()`. This is used extensively for structural classes (e.g. `BattleEvents`, `BattleState`).
+- **Signal-Only Classes**: Scripts that use `class_name` but don't extend `Node` cannot emit Godot engine-level tree signals natively, but they CAN define custom signals. `BattleEvents` works as a pure logic class because signals are just declared/emitted in memory.
+- **Pathing (A*)**: Dictionary-based open/closed sets work extremely well for pathfinding. The engine relies on Manhattan distance for grid heuristics.
+- **Sorting**: For turn queues, use inline lambdas: `sort_custom(func(a, b): return a.speed > b.speed)`.
+
+## Architecture & Code Defenses
+- **Data vs Logic**: `GameBoardLogic` and `GameBoardThinker` were previously `Node` extensions despite having zero visual code. The current `src/battle_sim/` layer corrects this by remaining 100% headless and decoupled from the Godot Node tree.
+- **Factory Paths**: The `preload()` paths in factories previously contained misleading directory structures (`res://scripts/...` instead of `src/factories/`). Godot resolves `class_name` globally, so it didn't crash, but strict file-path hygiene is required to avoid deployment errors.
+- **State Consolidation**: Entity position was previously tracked both in `BattleBoard` and the `Monster` object. The `BattleState` now consolidates this as the Single Source of Truth to prevent desyncs.
+
+## Tactical UI & Console Formatting
+- **ASCII/Emoji Grid Alignment**: Mixing emojis (like 🔵, 🔴, 🌲) with standard ASCII box-drawing characters (─, │) causes severe alignment issues across different operating systems and text editors because emojis render as 1, 1.5, or 2 columns wide depending on the environment.
+- **Pure ASCII Solution**: Dropping emojis in the grid and using standard 1-byte monospace ASCII (`.`, `#`, `1`, `A`) guarantees mathematical precision in every terminal.
+- **Dynamic Legends**: Assigning a unique `A-Z` / `a-z` character identifier per entity creates a perfectly aligned, readable tactical map when paired with a side-by-side 2-column legend.
+- **Open-Ended Borders**: Removing the closing right border (`│`) from UI panels (like the Round Highlights) creates a "Comic Book Frame" aesthetic that is 100% immune to internal character-width inconsistencies.
+
+## Console Tooling
+- **Godot Headless CLI**: To test the engine rapidly without the Godot editor, use: `& "Godot_v4.4-stable_win64.exe" --path "<project>" --quit-after <s> "res://scenes/<scene>.tscn"`
+- Windows non-console builds still write to `stderr`, which can be captured cleanly in PowerShell using `2>&1`.

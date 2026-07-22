@@ -1,0 +1,11 @@
+[gd_scene load_steps=2 format=3 uid="uid://d2b6u2wsge0ju"]
+
+[ext_resource type="PackedScene" uid="uid://c3m08pxrhq60a" path="res://Map Attempt Nov2025.gltf" id="1_tjhuf"]
+
+[node name="Node3D" type="Node3D"]
+
+[node name="default2" parent="." instance=ExtResource("1_tjhuf")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2)
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(-0.866025, -0.353553, 0.353553, 0.5, -0.612372, 0.612372, -6.18172e-08, 0.707107, 0.707107, 0, 1, 8)
