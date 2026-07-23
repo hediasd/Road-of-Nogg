@@ -28,7 +28,8 @@ var activeEffects: Dictionary = {}
 
 var rng: RandomNumberGenerator
 
-var lastTurnDamageLog: Dictionary = {}
+var history: Array[Dictionary] = []
+var last_turn_start_index: Dictionary = {}
 
 
 func _init(size: Vector2i) -> void:
@@ -191,6 +192,29 @@ func hasEffect(monsterID: int, effectName: String) -> bool:
 func getActiveEffects(monsterID: int) -> Array:
 	## Returns the full effect list for a monster (empty array if none).
 	return activeEffects.get(monsterID, [])
+
+# --- Event Ledger (History) ---
+
+func add_event(type: String, actor_id: int, target_id: int, data: Dictionary = {}) -> void:
+	history.append({
+		"round": roundCount,
+		"turn": turnCount,
+		"type": type,
+		"actor_id": actor_id,
+		"target_id": target_id,
+		"data": data
+	})
+
+func get_events_for_actor_since_last_turn(actor_id: int, event_type: String) -> Array[Dictionary]:
+	var results: Array[Dictionary] = []
+	var start_idx = last_turn_start_index.get(actor_id, 0)
+	
+	for i in range(start_idx, history.size()):
+		var ev = history[i]
+		if ev["type"] == event_type and ev["actor_id"] == actor_id:
+			results.append(ev)
+			
+	return results
 
 
 func tickEffects(monsterID: int) -> Array:

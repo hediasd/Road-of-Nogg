@@ -25,9 +25,11 @@ Movement and Actions draw from two separate resource pools per turn: Movement Po
 
 ### Approach 1.3: Unified Action Point (AP / RAP) Pools
 All actions (moving per tile, attacking, casting spells, defending) consume points from a single AP/RAP pool.
-* **Games Following This Approach:** *Hoshigami: Ruining Blue Earth*
+* **Games Following This Approach:** *Hoshigami: Ruining Blue Earth, Sakura Wars, Panzer Dragoon Saga*
 * **Detailed Variations:**
   - *Hoshigami:* RAP pool (0–100%). Moving tiles, attacking, or using Coins spends RAP %.
+  - *Sakura Wars:* Uses the ARMS (Action Point) system where moving and attacking draw from a shared meter.
+  - *Panzer Dragoon Saga:* Features 3 ATB gauges that act as action points; a basic shot costs 1 gauge, while powerful spells cost 2 or 3.
 
 ### Approach 1.4: Variable Action Costs & Turn Delay Refunds
 Ending a turn early without performing a Move or Action refunds turn delay penalty, allowing the unit's next turn to arrive faster.
@@ -55,7 +57,7 @@ Combat has no distinct "turn" pauses; action economy is strictly gated by skill 
   - *Ragnarok Online:* Heavy reliance on SP pots and cast delay (After-Cast Delay) which gates how rapidly a player can spam actions.
 
 ### Not Applicable / Absent
-* **Games:** *(None — all 28 analyzed games feature an action budgeting architecture).*
+* **Games:** *(None — all 30 analyzed games feature an action budgeting architecture).*
 
 ---
 
@@ -77,16 +79,18 @@ Specific units or skills allow resuming movement after taking a non-combat or co
 
 ### Approach 2.3: Free Command Stacking & Mid-Phase Re-Movement
 Units can move, queue actions, execute attacks, and continue moving if movement range remains, without ending their phase turn.
-* **Games Following This Approach:** *Disgaea Series, Into the Breach*
+* **Games Following This Approach:** *Disgaea Series, Into the Breach, Sakura Wars*
 * **Detailed Variations:**
   - *Disgaea:* Players can move units, register attack commands, hit "Execute", and move unactivated units again before ending phase.
   - *Into the Breach:* Free grid movement per mech + 1 primary action.
+  - *Sakura Wars:* Units can move, attack, and continue moving as long as they have remaining ARMS points in the phase.
 
 ### Approach 2.4: Real-Time Free Movement & Kiting
 Characters can move freely around the map in real-time, interrupting their own movement instantly to attack or cast, then immediately resume moving (kiting).
-* **Games Following This Approach:** *Ragnarok Online, MapleStory*
+* **Games Following This Approach:** *Ragnarok Online, MapleStory, Panzer Dragoon Saga*
 * **Detailed Variations:**
   - *Ragnarok Online:* "Hit-and-run" (kiting) is heavily utilized by archer/mage classes to avoid damage while attacking.
+  - *Panzer Dragoon Saga:* Player continuously flies around the enemy in 360 degrees to find weak spots while gauges charge, dodging attacks.
 
 ### Not Applicable / Absent
 Turn movement flow is non-standard, driven by card decks, Wisp cursors, or turn timers.
@@ -100,11 +104,12 @@ Rules governing actions that charge across multiple turns or units that expire f
 
 ### Approach 3.1: Multi-Turn Charging & Cast Times
 High-power actions require a charge turn or cast time before executing, or force a recharge rest turn after resolving.
-* **Games Following This Approach:** *Pokémon Series, Final Fantasy Tactics, Ragnarok Online*
+* **Games Following This Approach:** *Pokémon Series, Final Fantasy Tactics, Ragnarok Online, Panzer Dragoon Saga*
 * **Detailed Variations:**
   - *Pokémon Series:* **Recharge moves** (*Hyper Beam*) force skipping the next turn; **Charging moves** (*Solar Beam*) require 1 turn of preparation before attacking.
   - *FFT:* High-level spells require multiple global CT ticks to channel before resolving on a target cell.
   - *Ragnarok Online:* Massive spells (e.g., Storm Gust, Asura Strike) require cast times that can take seconds. If the caster is hit during this window, the cast is interrupted and fails (unless they have Phenomenon Card / uninterruptible buffs).
+  - *Panzer Dragoon Saga:* Powerful attacks and spells require waiting for all 3 ATB gauges to fill, leaving the player vulnerable while charging.
 
 ### Approach 3.2: Confine Turn Expiration (Temporary Field Despawn)
 Summoned units have a fixed turn presence limit on the field before automatically despawning.
@@ -114,8 +119,42 @@ Summoned units have a fixed turn presence limit on the field before automaticall
 
 ### Not Applicable / Absent
 No actions require multi-turn charging/recharging, and units remain on the battlefield until defeated.
-* **Games:** *Fire Emblem Series, Tactics Ogre: Let Us Cling Together / Reborn, Hoshigami: Ruining Blue Earth, Triangle Strategy, Disgaea Series, Shining Force Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Into the Breach, Dofus & Wakfu, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Chrono Trigger, Digimon World 3, Dragon Quest 9, MapleStory, Road of Nogg (current baseline)*
+* **Games:** *Fire Emblem Series, Tactics Ogre: Let Us Cling Together / Reborn, Hoshigami: Ruining Blue Earth, Triangle Strategy, Disgaea Series, Shining Force Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Into the Breach, Dofus & Wakfu, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Chrono Trigger, Digimon World 3, Dragon Quest 9, MapleStory, Sakura Wars, Road of Nogg (current baseline)*
 
 ---
 
 [Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+
+## Implementation Takeaways for Road of Nogg
+
+- **To Decide / To Avoid:** (TBD)
+### Master List Checklist Validation
+*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
+- Fire Emblem Series (TBD)
+- Final Fantasy Tactics (FFT) (TBD)
+- Tactics Ogre (TBD)
+- Disgaea Series (TBD)
+- Shining Force Series (TBD)
+- TearRing Saga & Berwick Saga (TBD)
+- XCOM / XCOM 2 (TBD)
+- Divinity: Original Sin 1 & 2 (TBD)
+- Mario + Rabbids Kingdom Battle (TBD)
+- Triangle Strategy (TBD)
+- Dofus & Wakfu (TBD)
+- Hoshigami: Ruining Blue Earth (TBD)
+- Stella Deus: The Gate of Eternity (TBD)
+- Energy Breaker (TBD)
+- Breath of Fire Series (TBD)
+- Treasure of the Rudras (TBD)
+- Vandal Hearts Series (TBD)
+- Feda: Emblem of Justice (TBD)
+- Pokemon Series (TBD)
+- Chrono Trigger (TBD)
+- Digimon World 3 (TBD)
+- Dragon Quest 9 (TBD)
+- Ragnarok Online (TBD)
+- MapleStory (TBD)
+- World of Warcraft (TBD)
+- Panzer Dragoon Saga (TBD)
+- Sakura Wars (TBD)
+- Road of Nogg (TBD)

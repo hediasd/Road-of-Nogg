@@ -10,7 +10,7 @@ High-level rules defining whether character Speed/Agility grants extra turn acti
 
 ### Approach 1.1: Dynamic Turn Frequency (Fast Units Gain Multiple Turns)
 High Speed accelerates CT/WT accumulation, enabling fast units to act multiple times before a slow unit gets a single turn.
-* **Games Following This Approach:** *Final Fantasy Tactics, Tactics Ogre: Let Us Cling Together / Reborn, Hoshigami: Ruining Blue Earth, Triangle Strategy, Grandia Series, Octopath Traveler, Dofus & Wakfu, Stella Deus: The Gate of Eternity, Wild Arms XF, Chrono Trigger, Digimon World 3, Ragnarok Online*
+* **Games Following This Approach:** *Final Fantasy Tactics, Tactics Ogre: Let Us Cling Together / Reborn, Hoshigami: Ruining Blue Earth, Triangle Strategy, Grandia Series, Octopath Traveler, Dofus & Wakfu, Stella Deus: The Gate of Eternity, Wild Arms XF, Chrono Trigger, Digimon World 3, Ragnarok Online, Panzer Dragoon Saga*
 * **Detailed Variations:**
   - *FFT / Tactics Ogre / Digimon World 3:* `CT += Speed` tick accumulation; fast units hit 100 CT sooner.
   - *Hoshigami:* DEX/Speed accelerates Ready Action Points (RAP) accumulation.
@@ -39,7 +39,7 @@ Speed determines turn order rank within a round, but every unit acts strictly on
 
 ### Not Applicable / Absent
 Speed stat is absent, fixed, or has zero impact on turn scheduling or turn frequency.
-* **Games:** *Disgaea Series, Into the Breach, Vandal Hearts Series, TearRing Saga & Berwick Saga, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Yggdra Union, Master of Monsters / Nectaris, Feda: Emblem of Justice, MapleStory*
+* **Games:** *Disgaea Series, Into the Breach, Vandal Hearts Series, TearRing Saga & Berwick Saga, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Yggdra Union, Master of Monsters / Nectaris, Feda: Emblem of Justice, MapleStory, Sakura Wars*
 
 ---
 
@@ -67,7 +67,7 @@ High Agility reduces animation delay and skill cooldowns, allowing characters to
 
 ### Not Applicable / Absent
 Speed stat does not grant extra strikes, doubling, or counter-attack chance during combat resolution.
-* **Games:** *Final Fantasy Tactics, Tactics Ogre: Let Us Cling Together / Reborn, Hoshigami: Ruining Blue Earth, Triangle Strategy, Disgaea Series, Shining Force Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Into the Breach, Dofus & Wakfu, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Pokémon Series, Chrono Trigger, Digimon World 3, Dragon Quest 9, Road of Nogg (current baseline)*
+* **Games:** *Final Fantasy Tactics, Tactics Ogre: Let Us Cling Together / Reborn, Hoshigami: Ruining Blue Earth, Triangle Strategy, Disgaea Series, Shining Force Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Into the Breach, Dofus & Wakfu, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Pokémon Series, Chrono Trigger, Digimon World 3, Dragon Quest 9, Panzer Dragoon Saga, Sakura Wars, Road of Nogg (current baseline)*
 
 ---
 
@@ -89,8 +89,42 @@ Agility feeds Dodge and Lock stats. Attempting to step away from an adjacent ene
 
 ### Not Applicable / Absent
 Speed and Agility have zero effect on grid movement distance or escaping adjacent enemies.
-* **Games:** *Fire Emblem Series, Final Fantasy Tactics, Tactics Ogre: Let Us Cling Together / Reborn, Hoshigami: Ruining Blue Earth, Triangle Strategy, Disgaea Series, Shining Force Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Into the Breach, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Pokémon Series (Mainline), Chrono Trigger, Digimon World 3, Dragon Quest 9, Ragnarok Online, MapleStory, Road of Nogg (current baseline)*
+* **Games:** *Fire Emblem Series, Final Fantasy Tactics, Tactics Ogre: Let Us Cling Together / Reborn, Hoshigami: Ruining Blue Earth, Triangle Strategy, Disgaea Series, Shining Force Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Into the Breach, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Pokémon Series (Mainline), Chrono Trigger, Digimon World 3, Dragon Quest 9, Ragnarok Online, MapleStory, Panzer Dragoon Saga, Sakura Wars, Road of Nogg (current baseline)*
 
 ---
 
 [Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+
+## Implementation Takeaways for Road of Nogg
+
+- **To Decide / To Avoid:** (TBD)
+### Master List Checklist Validation
+*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
+- Fire Emblem Series (TBD)
+- Final Fantasy Tactics (FFT) (TBD)
+- Tactics Ogre (TBD)
+- Disgaea Series (TBD)
+- Shining Force Series (TBD)
+- TearRing Saga & Berwick Saga (TBD)
+- XCOM / XCOM 2 (TBD)
+- Divinity: Original Sin 1 & 2 (TBD)
+- Mario + Rabbids Kingdom Battle (TBD)
+- Triangle Strategy (TBD)
+- Dofus & Wakfu (TBD)
+- Hoshigami: Ruining Blue Earth (TBD)
+- Stella Deus: The Gate of Eternity (TBD)
+- Energy Breaker (TBD)
+- Breath of Fire Series (TBD)
+- Treasure of the Rudras (TBD)
+- Vandal Hearts Series (TBD)
+- Feda: Emblem of Justice (TBD)
+- Pokemon Series (TBD)
+- Chrono Trigger (TBD)
+- Digimon World 3 (TBD)
+- Dragon Quest 9 (TBD)
+- Ragnarok Online (TBD)
+- MapleStory (TBD)
+- World of Warcraft (TBD)
+- Panzer Dragoon Saga (TBD)
+- Sakura Wars (TBD)
+- Road of Nogg (TBD)

@@ -75,12 +75,11 @@ func spawnMonster(referenceName: String, team: int, pos: Vector2i) -> Monster:
 
 func _resolveBrainClass(name: String):
 	match name:
-		"MeleeBrain":      return load("res://src/entity_ai/MeleeBrain.gd")
-		"RangedMageBrain": return load("res://src/entity_ai/RangedMageBrain.gd")
-		"HealerBrain":     return load("res://src/entity_ai/HealerBrain.gd")
-		"BrawlerBrain":    return load("res://src/entity_ai/BrawlerBrain.gd")
-		"BerserkBrain":    return load("res://src/entity_ai/BerserkBrain.gd")
-		_:                 return load("res://src/entity_ai/SimpleBrain.gd")
+		"BerserkBrain": return load("res://src/entity_ai/BerserkBrain.gd")
+		"TacticalBrain": return load("res://src/entity_ai/TacticalBrain.gd")
+		"MageBrain":    return load("res://src/entity_ai/MageBrain.gd")
+		"SupportBrain": return load("res://src/entity_ai/SupportBrain.gd")
+		_:              return load("res://src/entity_ai/TacticalBrain.gd")
 
 
 func startBattle() -> void:
@@ -136,9 +135,6 @@ func executeTurn(monsterID: int) -> bool:
 	if mon == null or not mon.is_alive():
 		return false
 		
-	# Clear damage dealt previously so it only tracks this new turn
-	state.lastTurnDamageLog[monsterID] = []
-
 	var brain = brains.get(monsterID)
 	if brain == null:
 		return false

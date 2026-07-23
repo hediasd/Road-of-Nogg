@@ -10,7 +10,7 @@ High-level architectural model defining how character offensive stats scale into
 
 ### Approach 1.1: Dual Stat Split (Physical vs. Special / Magic)
 Physical attacks compare Physical Attack/Strength against Armor Defense (`Str/Atk vs Def`); Special/Magical attacks compare Magic Power against Magic Resistance (`Mag/SpAtk vs Res/SpDef`).
-* **Games Following This Approach:** *Pokémon Series (Mainline & Spinoffs), Fire Emblem Series, Triangle Strategy, Octopath Traveler, Final Fantasy Tactics (PA/MA), Stella Deus: The Gate of Eternity, Breath of Fire Series, Treasure of the Rudras, Hoshigami: Ruining Blue Earth, Wild Arms XF, Energy Breaker, Chrono Trigger, Digimon World 3, Dragon Quest 9, Ragnarok Online, MapleStory*
+* **Games Following This Approach:** *Pokémon Series (Mainline & Spinoffs), Fire Emblem Series, Triangle Strategy, Octopath Traveler, Final Fantasy Tactics (PA/MA), Stella Deus: The Gate of Eternity, Breath of Fire Series, Treasure of the Rudras, Hoshigami: Ruining Blue Earth, Wild Arms XF, Energy Breaker, Chrono Trigger, Digimon World 3, Dragon Quest 9, Ragnarok Online, MapleStory, Panzer Dragoon Saga*
 * **Detailed Variations:**
   - *Pokémon Mainline:* Splits Physical moves (`Atk vs Def`) and Special moves (`SpAtk vs SpDef`). Multiplicative formula includes Move Power, STAB (1.5x), and 18-Type Effectiveness.
   - *Fire Emblem:* Flat subtraction: `Physical Damage = Str + WeaponMight - EnemyDef`; `Magic Damage = Mag + SpellMight - EnemyRes`.
@@ -19,13 +19,15 @@ Physical attacks compare Physical Attack/Strength against Armor Defense (`Str/At
   - *Digimon World 3:* Direct subtraction between `Str vs Def` (Physical) and `Spt vs Wis` (Magic).
   - *Ragnarok Online:* Dual ATK/MATK pools. Physical damage heavily scales off Weapon ATK modifiers based on target Size (Small/Medium/Large).
   - *MapleStory:* Main Stat + Sub Stat multiplier formula `(4 * Main Stat + Sub Stat) * Weapon Attack` compared against flat or % Enemy Defense.
+  - *Panzer Dragoon Saga:* Features dual damage typing: Physical (Gun) vs Armor, and Spiritual (Laser/Magic) vs Spiritual Defense. Damage is exponentially scaled by whether the player is attacking an enemy's weak spot quadrant.
 
 ### Approach 1.2: Single Offense & Defense Subtraction (`ATK - DEF`)
 A single Attack stat is compared directly against a single Defense stat for all combat calculations regardless of weapon or spell type.
-* **Games Following This Approach:** *Shining Force Series, Vandal Hearts Series, Feda: Emblem of Justice, Langrisser Series, Master of Monsters / Nectaris, Phantom Brave / Makai Kingdom, Road of Nogg (current baseline)*
+* **Games Following This Approach:** *Shining Force Series, Vandal Hearts Series, Feda: Emblem of Justice, Langrisser Series, Master of Monsters / Nectaris, Phantom Brave / Makai Kingdom, Sakura Wars, Road of Nogg (current baseline)*
 * **Detailed Variations:**
   - *Shining Force / Road of Nogg:* `Damage = Attacker ATK - Target DEF`. Simple, transparent damage math.
   - *Vandal Hearts:* Single ATK vs DEF subtraction, modified by 1.5x backstab multipliers and elevation bonuses.
+  - *Sakura Wars:* Base ATK vs DEF, though highly augmented by Trust/LIPS emotional state of the pilots.
 
 ### Approach 1.3: Weapon-Specific Primary Stat Scaling
 Different weapon classes scale off entirely different primary character attributes.
@@ -47,6 +49,40 @@ Zero offensive stats exist. Attacks deal fixed numerical values or scale strictl
   - *Yggdra Union:* Card Power vs target Morale meter.
 
 ### Not Applicable / Absent
-* **Games:** *(None — all 28 analyzed games feature a primary damage stat architecture).*
+* **Games:** *(None — all 30 analyzed games feature a primary damage stat architecture).*
 
 [Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+
+## Implementation Takeaways for Road of Nogg
+
+- **To Decide / To Avoid:** (TBD)
+### Master List Checklist Validation
+*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
+- Fire Emblem Series (TBD)
+- Final Fantasy Tactics (FFT) (TBD)
+- Tactics Ogre (TBD)
+- Disgaea Series (TBD)
+- Shining Force Series (TBD)
+- TearRing Saga & Berwick Saga (TBD)
+- XCOM / XCOM 2 (TBD)
+- Divinity: Original Sin 1 & 2 (TBD)
+- Mario + Rabbids Kingdom Battle (TBD)
+- Triangle Strategy (TBD)
+- Dofus & Wakfu (TBD)
+- Hoshigami: Ruining Blue Earth (TBD)
+- Stella Deus: The Gate of Eternity (TBD)
+- Energy Breaker (TBD)
+- Breath of Fire Series (TBD)
+- Treasure of the Rudras (TBD)
+- Vandal Hearts Series (TBD)
+- Feda: Emblem of Justice (TBD)
+- Pokemon Series (TBD)
+- Chrono Trigger (TBD)
+- Digimon World 3 (TBD)
+- Dragon Quest 9 (TBD)
+- Ragnarok Online (TBD)
+- MapleStory (TBD)
+- World of Warcraft (TBD)
+- Panzer Dragoon Saga (TBD)
+- Sakura Wars (TBD)
+- Road of Nogg (TBD)

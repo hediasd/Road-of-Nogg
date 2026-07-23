@@ -18,6 +18,7 @@ var race: String = "none"
 var passives: Array = []  # Array of PassiveSkill instances
 var brain  # EntityBrain instance — assigned by BattleSimulator
 
+var spell_cooldowns: Dictionary = {} # Maps spell name (String) to remaining turns (int)
 static func get_or_default(dict: Dictionary, key: String, default_value = 1):
 	return dict[key] if dict.has(key) else default_value
 
@@ -81,6 +82,9 @@ func heal(amount: int) -> int:
 	return hitpoints - old
 
 func can_cast(spell: Spell) -> bool:
+	if spell_cooldowns.has(spell.name) and spell_cooldowns[spell.name] > 0:
+		return false
+		
 	var required_elements = {}
 	if spell.element != "none":
 		required_elements[spell.element] = true
@@ -92,3 +96,12 @@ func can_cast(spell: Spell) -> bool:
 		if not elements.has(req):
 			return false
 	return true
+
+func tick_cooldowns() -> void:
+	for spell_name in spell_cooldowns.keys():
+		if spell_cooldowns[spell_name] > 0:
+			spell_cooldowns[spell_name] -= 1
+
+func record_cast(spell: Spell) -> void:
+	if spell.cooldown > 0:
+		spell_cooldowns[spell.name] = spell.cooldown

@@ -33,7 +33,7 @@ Zero randomness in combat. 100% hit chance, no critical hits, no Luck stat. Outc
 
 ### Not Applicable / Absent
 No explicit Luck or Critical stat exists; chance mechanics rely on flat weapon accuracy formulas, skill percentages, or cover stats.
-* **Games:** *Disgaea Series, Shining Force Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Master of Monsters / Nectaris, Langrisser Series, Vandal Hearts Series, Yggdra Union, Feda: Emblem of Justice, Chrono Trigger, Digimon World 3, Road of Nogg (current baseline)*
+* **Games:** *Disgaea Series, Shining Force Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Master of Monsters / Nectaris, Langrisser Series, Vandal Hearts Series, Yggdra Union, Feda: Emblem of Justice, Chrono Trigger, Digimon World 3, Panzer Dragoon Saga, Sakura Wars, Road of Nogg (current baseline)*
 
 ---
 
@@ -64,8 +64,42 @@ Attacking an enemy from behind (rear tile) guarantees a 100% Critical Hit chance
 
 ### Not Applicable / Absent
 No critical hit mechanics exist in combat resolution.
-* **Games:** *Into the Breach, Hoshigami: Ruining Blue Earth, Disgaea Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Dofus & Wakfu, Treasure of the Rudras, Langrisser Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Road of Nogg (current baseline)*
+* **Games:** *Into the Breach, Hoshigami: Ruining Blue Earth, Disgaea Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Dofus & Wakfu, Treasure of the Rudras, Langrisser Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Panzer Dragoon Saga, Sakura Wars, Road of Nogg (current baseline)*
 
 ---
 
 [Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+
+## Implementation Takeaways for Road of Nogg
+
+- **To Decide / To Avoid:** (TBD)
+### Master List Checklist Validation
+*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
+- Fire Emblem Series (TBD)
+- Final Fantasy Tactics (FFT) (TBD)
+- Tactics Ogre (TBD)
+- Disgaea Series (TBD)
+- Shining Force Series (TBD)
+- TearRing Saga & Berwick Saga (TBD)
+- XCOM / XCOM 2 (TBD)
+- Divinity: Original Sin 1 & 2 (TBD)
+- Mario + Rabbids Kingdom Battle (TBD)
+- Triangle Strategy (TBD)
+- Dofus & Wakfu (TBD)
+- Hoshigami: Ruining Blue Earth (TBD)
+- Stella Deus: The Gate of Eternity (TBD)
+- Energy Breaker (TBD)
+- Breath of Fire Series (TBD)
+- Treasure of the Rudras (TBD)
+- Vandal Hearts Series (TBD)
+- Feda: Emblem of Justice (TBD)
+- Pokemon Series (TBD)
+- Chrono Trigger (TBD)
+- Digimon World 3 (TBD)
+- Dragon Quest 9 (TBD)
+- Ragnarok Online (TBD)
+- MapleStory (TBD)
+- World of Warcraft (TBD)
+- Panzer Dragoon Saga (TBD)
+- Sakura Wars (TBD)
+- Road of Nogg (TBD)

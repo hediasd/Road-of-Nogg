@@ -35,7 +35,7 @@ Carrying excessive inventory weight disables passive recovery and eventually att
 
 ### Not Applicable / Absent
 Equipment or held items have zero weight penalty or initiative delay.
-* **Games:** *Final Fantasy Tactics, Hoshigami: Ruining Blue Earth, Triangle Strategy, Disgaea Series, Shining Force Series, Grandia Series & Octopath Traveler, Into the Breach, Dofus & Wakfu, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Chrono Trigger, Digimon World 3, Dragon Quest 9, MapleStory, Road of Nogg (current baseline)*
+* **Games:** *Final Fantasy Tactics, Hoshigami: Ruining Blue Earth, Triangle Strategy, Disgaea Series, Shining Force Series, Grandia Series & Octopath Traveler, Into the Breach, Dofus & Wakfu, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Chrono Trigger, Digimon World 3, Dragon Quest 9, MapleStory, Panzer Dragoon Saga, Sakura Wars, Road of Nogg (current baseline)*
 
 ---
 
@@ -78,8 +78,42 @@ Terrain relies heavily on vertical platforming physics.
 
 ### Not Applicable / Absent
 Board terrain is uniform and flat with no jump stat gating, elevation bonuses, or line-of-sight constraints.
-* **Games:** *Fire Emblem Series, Shining Force Series, TearRing Saga & Berwick Saga, Hoshigami: Ruining Blue Earth, Grandia Series & Octopath Traveler, Into the Breach, Breath of Fire Series, Treasure of the Rudras, Phantom Brave / Makai Kingdom, Yggdra Union, Stella Deus: The Gate of Eternity, Energy Breaker & Feda: Emblem of Justice, Chrono Trigger, Digimon World 3, Dragon Quest 9, Road of Nogg (current baseline)*
+* **Games:** *Fire Emblem Series, Shining Force Series, TearRing Saga & Berwick Saga, Hoshigami: Ruining Blue Earth, Grandia Series & Octopath Traveler, Into the Breach, Breath of Fire Series, Treasure of the Rudras, Phantom Brave / Makai Kingdom, Yggdra Union, Stella Deus: The Gate of Eternity, Energy Breaker & Feda: Emblem of Justice, Chrono Trigger, Digimon World 3, Dragon Quest 9, Panzer Dragoon Saga, Sakura Wars, Road of Nogg (current baseline)*
 
 ---
 
 [Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+
+## Implementation Takeaways for Road of Nogg
+
+- **To Decide / To Avoid:** (TBD)
+### Master List Checklist Validation
+*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
+- Fire Emblem Series (TBD)
+- Final Fantasy Tactics (FFT) (TBD)
+- Tactics Ogre (TBD)
+- Disgaea Series (TBD)
+- Shining Force Series (TBD)
+- TearRing Saga & Berwick Saga (TBD)
+- XCOM / XCOM 2 (TBD)
+- Divinity: Original Sin 1 & 2 (TBD)
+- Mario + Rabbids Kingdom Battle (TBD)
+- Triangle Strategy (TBD)
+- Dofus & Wakfu (TBD)
+- Hoshigami: Ruining Blue Earth (TBD)
+- Stella Deus: The Gate of Eternity (TBD)
+- Energy Breaker (TBD)
+- Breath of Fire Series (TBD)
+- Treasure of the Rudras (TBD)
+- Vandal Hearts Series (TBD)
+- Feda: Emblem of Justice (TBD)
+- Pokemon Series (TBD)
+- Chrono Trigger (TBD)
+- Digimon World 3 (TBD)
+- Dragon Quest 9 (TBD)
+- Ragnarok Online (TBD)
+- MapleStory (TBD)
+- World of Warcraft (TBD)
+- Panzer Dragoon Saga (TBD)
+- Sakura Wars (TBD)
+- Road of Nogg (TBD)

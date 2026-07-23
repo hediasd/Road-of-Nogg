@@ -20,16 +20,32 @@ func _init(_state: BattleState, _movementResolver: MovementResolver, _combatReso
 
 
 func decideTurn(monsterID: int) -> Dictionary:
-	## Override this in subclasses.
-	## Returns a turn decision dictionary:
-	## {
-	##   "move_path": Array[Vector2i]  — path to move along (can be empty for no move)
-	##   "action": String              — "attack", "spell", "wait"
-	##   "target_id": int              — target monster ID (for attack/spell)
-	##   "spell_set_index": int        — (for spell action only)
-	##   "spell_index": int            — (for spell action only)
-	## }
-	return { "move_path": [], "action": "wait", "target_id": -1 }
+	## Overridden by subclasses indirectly via `_evaluateTile`.
+	## Iterates through all reachable positions and scores them.
+	var reachable = movementResolver.getReachablePositions(monsterID)
+	var myPos = state.getMonsterPosition(monsterID)
+	if not reachable.has(myPos):
+		reachable.append(myPos)
+		
+	var best_score = -9999
+	var best_decision = { "move_path": [], "action": "wait", "target_id": -1, "dest_pos": myPos }
+	
+	for pos in reachable:
+		var evaluation = _evaluateTile(monsterID, pos)
+		if evaluation.score > best_score:
+			best_score = evaluation.score
+			best_decision = evaluation.decision
+			best_decision["dest_pos"] = pos
+			
+	var movePath = _buildMovePath(monsterID, best_decision.dest_pos)
+	best_decision["move_path"] = movePath
+	return best_decision
+
+
+func _evaluateTile(_monsterID: int, pos: Vector2i) -> Dictionary:
+	## Virtual method. Override in subclasses.
+	## Must return a dict: { "score": int, "decision": { "action": "wait", "target_id": -1 } }
+	return { "score": 0, "decision": { "action": "wait", "target_id": -1 } }
 
 
 # ─── Shared Query Helpers ─────────────────────────────────────────────────────
@@ -153,6 +169,24 @@ func _findBestOffensiveSpell(monsterID: int, fromPos: Vector2i) -> Variant:
 	return bestResult
 
 
+func _findBestSelfBuff(monsterID: int) -> Variant:
+	## Finds an unapplied self-buff spell
+	var mon = state.getMonster(monsterID)
+	if mon.spellSets.is_empty(): return null
+	var spellSet = mon.spellSets[0]
+	for spellIdx in range(spellSet.size()):
+		var spell = spellSet[spellIdx]
+		if spell.targetType == "self" and spell.range == 0 and spell.buffs_atk > 0:
+			var hasBuff = false
+			for effect in state.getActiveEffects(monsterID):
+				if effect.name == "atk_buff":
+					hasBuff = true
+					break
+			if not hasBuff:
+				return { "action": "spell", "target_id": monsterID, "spell_set_index": 0, "spell_index": spellIdx }
+	return null
+
+
 func _findBestHealSpell(monsterID: int, fromPos: Vector2i, hpThreshold: float = 0.75) -> Variant:
 	## Find the best heal spell and lowest-HP ally below hpThreshold in range.
 	## Returns { target_id, spell_set_index, spell_index } or null.
@@ -192,7 +226,7 @@ func _findBestHealSpell(monsterID: int, fromPos: Vector2i, hpThreshold: float = 
 			for enemyID in state.monsters:
 				var enemy = state.monsters[enemyID]
 				if enemy.team == mon.team or not enemy.is_alive(): continue
-				if state.lastTurnDamageLog.has(enemyID) and state.lastTurnDamageLog[enemyID].size() > 0:
+				if state.get_events_for_actor_since_last_turn(enemyID, "damage").size() > 0:
 					# This enemy dealt damage last turn! We should target them!
 					var enemyPos = state.getMonsterPosition(enemyID)
 					var dist = abs(fromPos.x - enemyPos.x) + abs(fromPos.y - enemyPos.y)

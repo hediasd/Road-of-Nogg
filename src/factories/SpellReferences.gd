@@ -62,6 +62,7 @@ static func _static_init():
 			"TARGET_TYPE" = "self",
 			"BUFFS_ATK" = 3, "BUFF_DURATION" = 2,
 			"BYPASS_LOS" = true,
+			"DAMAGE_LINES" = [],
 			"DESC" = "Channels wood energy to temporarily empower the caster's strength (+3 ATK for 2 turns)."
 		},
 		# --- NEW SPELLS ---
@@ -113,12 +114,19 @@ static func _static_init():
 			"ELEMENT" = "wood",
 			"DESC" = "Heals the target but permanently reduces their speed."
 		},{
+			"NAME" = "Lightningbolt",
+			"TARGET_TYPE" = "single",
+			"RANGE" = 6, "DAMAGE" = 2,
+			"ELEMENT" = "thunder",
+			"DESC" = "Strikes the target with lightning from a long range."
+		},{
 			"NAME" = "Ages Ago",
 			"TARGET_TYPE" = "single",
 			"RANGE" = 4, "DAMAGE" = 0,
 			"REVERTS_DAMAGE" = true,
+			"COOLDOWN" = 8,
 			"ELEMENT" = "steel",
-			"DESC" = "Reverts the damage dealt by the target on their last turn."
+			"DESC" = "Reverts the damage dealt by the target on their last turn. Cooldown: 8 turns."
 		},{
 			"NAME" = "Think",
 			"RADIUS" = 0, "RANGE" = 0, "DAMAGE" = 0, "ELEMENT" = "none"

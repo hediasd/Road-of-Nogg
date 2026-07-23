@@ -10,9 +10,10 @@ Standard graph search algorithms used to calculate shortest path movement across
 
 ### Approach 1.1: 2D Square Grid A* Pathfinding
 Finds the shortest path on a weighted 2D grid array using heuristic evaluation $f(n) = g(n) + h(n)$ with Manhattan distance heuristics.
-* **Games Following This Approach:** *Dofus & Wakfu, Final Fantasy Tactics, Tactics Ogre: Let Us Cling Together / Reborn, Fire Emblem Series, Pokémon Series (Mystery Dungeon), Ragnarok Online, Road of Nogg (current baseline)*
+* **Reference:** [Red Blob Games: Introduction to A* Pathfinding](https://www.redblobgames.com/pathfinding/a-star/introduction.html)
+* **Games Following This Approach:** *Dofus & Wakfu, Final Fantasy Tactics, Tactics Ogre: Let Us Cling Together / Reborn, Fire Emblem Series, Pokémon Series (Mystery Dungeon), Ragnarok Online, Sakura Wars, Road of Nogg (current baseline)*
 * **Detailed Variations:**
-  - *Dofus / FFT / Fire Emblem / PMD / Road of Nogg:* Evaluates node cost $f(n) = g(n) + h(n)$ using Manhattan distance heuristics on 2D square grids.
+  - *Dofus / FFT / Fire Emblem / Sakura Wars / Road of Nogg:* Evaluates node cost $f(n) = g(n) + h(n)$ using Manhattan distance heuristics on 2D square grids.
   - *Ragnarok Online:* Server-side A* pathfinding determines optimal movement vectors across static 2D cell grids for players and mobs, ensuring shortest routes around obstacles.
 
 ### Approach 1.2: Hexagonal Grid Axial/Cube Coordinate A*
@@ -29,7 +30,7 @@ Evaluates continuous 2D circle movement radii rather than discrete grid tiles.
 
 ### Not Applicable / Absent
 No pathfinding algorithm is used; units move along fixed lines, card paths, or preset battle slots.
-* **Games:** *Shining Force Series, TearRing Saga & Berwick Saga, Triangle Strategy, Disgaea Series, Grandia Series & Octopath Traveler, Into the Breach, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Yggdra Union, Stella Deus: The Gate of Eternity, Energy Breaker & Feda: Emblem of Justice, Pokémon Series (Mainline), Chrono Trigger, Digimon World 3, Dragon Quest 9, MapleStory*
+* **Games:** *Shining Force Series, TearRing Saga & Berwick Saga, Triangle Strategy, Disgaea Series, Grandia Series & Octopath Traveler, Into the Breach, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Yggdra Union, Stella Deus: The Gate of Eternity, Energy Breaker & Feda: Emblem of Justice, Pokémon Series (Mainline), Chrono Trigger, Digimon World 3, Dragon Quest 9, MapleStory, Panzer Dragoon Saga*
 
 ---
 
@@ -52,7 +53,7 @@ Calculates archer arrow trajectories $z(t) = z_0 + v_z t - \frac{1}{2}gt^2$ over
 
 ### Not Applicable / Absent
 No line-of-sight or raycasting algorithms exist; attacks target grid cells directly without ray testing.
-* **Games:** *Fire Emblem Series, Disgaea Series, Shining Force Series, TearRing Saga & Berwick Saga, Triangle Strategy, Grandia Series & Octopath Traveler, Into the Breach, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Phantom Brave / Makai Kingdom, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Pokémon Series, Chrono Trigger, Digimon World 3, Dragon Quest 9, MapleStory, Road of Nogg (current baseline)*
+* **Games:** *Fire Emblem Series, Disgaea Series, Shining Force Series, TearRing Saga & Berwick Saga, Triangle Strategy, Grandia Series & Octopath Traveler, Into the Breach, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Phantom Brave / Makai Kingdom, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Pokémon Series, Chrono Trigger, Digimon World 3, Dragon Quest 9, MapleStory, Panzer Dragoon Saga, Sakura Wars, Road of Nogg (current baseline)*
 
 ---
 
@@ -71,6 +72,7 @@ Evaluates all legal candidate moves (Move + Action) and selects the move with th
 
 ### Approach 3.2: 1-RN vs 2-RN Probability Distribution Curves
 Probability models translating displayed hit percentages into true combat outcomes.
+* **Reference:** [Serenes Forest: True Hit (2-RN) Explanation](https://serenesforest.net/general/true-hit/)
 * **Games Following This Approach:** *Fire Emblem Series, Final Fantasy Tactics, Tactics Ogre: Let Us Cling Together / Reborn, Disgaea Series*
 * **Detailed Variations:**
   - *1-RN System (FFT, Tactics Ogre, Disgaea):* Generates 1 random number (1–100); displayed hit % equals true hit %.
@@ -85,6 +87,7 @@ AI generates a 2D grid heatmap assigning danger or utility scores to every tile 
 
 ### Approach 3.4: Deterministic Lock vs Dodge Ratio Math
 Calculates remaining AP/MP percentages when escaping adjacent enemies on a grid.
+* **Reference:** [Dofus Wiki: Tackle and Dodge mechanics](https://dofuswiki.fandom.com/wiki/Tackle)
 * **Games Following This Approach:** *Dofus & Wakfu*
 * **Detailed Variations:**
   - *Dofus Tackle Formula:* Evaluates `Dodge / Lock` ratio:
@@ -98,7 +101,7 @@ Mathematical models determining enemy AI targets based on accumulated threat rat
 
 ### Not Applicable / Absent
 Simpler deterministic rules or flat lookup tables without complex AI scoring or probability curves.
-* **Games:** *Shining Force Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Chrono Trigger*
+* **Games:** *Shining Force Series, TearRing Saga & Berwick Saga, Grandia Series & Octopath Traveler, Breath of Fire Series, Treasure of the Rudras, Langrisser Series, Vandal Hearts Series, Knights in the Nightmare, Phantom Brave / Makai Kingdom, Wild Arms XF, Yggdra Union, Stella Deus: The Gate of Eternity, Master of Monsters / Nectaris, Energy Breaker & Feda: Emblem of Justice, Chrono Trigger, Panzer Dragoon Saga, Sakura Wars*
 
 ---
 
@@ -114,6 +117,9 @@ The simplest and most transparent formula. Damage is a flat subtraction of Defen
 
 ### Approach 4.2: Fractional & Multiplicative Scaling
 Damage scales logarithmically or fractionally based on attacker and defender level ratios, preventing impenetrable armor walls where 0 damage is dealt.
+* **References:** 
+  - [Bulbapedia: Pokemon Damage Formula](https://bulbapedia.bulbagarden.net/wiki/Damage)
+  - [iRO Wiki: Ragnarok Online Attack/Damage Calculation](https://irowiki.org/wiki/ATK)
 * **Games Following This Approach:** *Pokémon Series, Final Fantasy Tactics, Tactics Ogre, Ragnarok Online, MapleStory*
 * **Detailed Variations:**
   - *Pokémon Series:* Fractional level-based multiplier step function:
@@ -127,9 +133,49 @@ Damage is an absolute flat number dictated entirely by the weapon, attack, or ca
 * **Detailed Variations:**
   - *Into the Breach:* 100% deterministic. A Mech Cannon always deals exactly 2 damage. Bumping into a mountain always deals exactly 1 damage.
 
+### Approach 4.4: Weak-Point Positional Multipliers (3D ATB)
+Damage calculation is multiplied significantly depending on the attacker's 3D positioning relative to the target's exposed weak points or armored sections.
+* **Games Following This Approach:** *Panzer Dragoon Saga*
+* **Detailed Variations:**
+  - *Panzer Dragoon Saga:* The player can move in 360 degrees around enemies. Attacks from the front (armored) might deal 0 or 1 damage, while attacks from a designated safe/weak spot quadrant deal exponentially higher damage.
+
 ### Not Applicable / Absent
 *(None — all games analyzed require a mathematical model for HP resolution).*
 
 ---
 
 [Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+
+## Implementation Takeaways for Road of Nogg
+
+- **To Decide / To Avoid:** (TBD)
+### Master List Checklist Validation
+*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
+- Fire Emblem Series (TBD)
+- Final Fantasy Tactics (FFT) (TBD)
+- Tactics Ogre (TBD)
+- Disgaea Series (TBD)
+- Shining Force Series (TBD)
+- TearRing Saga & Berwick Saga (TBD)
+- XCOM / XCOM 2 (TBD)
+- Divinity: Original Sin 1 & 2 (TBD)
+- Mario + Rabbids Kingdom Battle (TBD)
+- Triangle Strategy (TBD)
+- Dofus & Wakfu (TBD)
+- Hoshigami: Ruining Blue Earth (TBD)
+- Stella Deus: The Gate of Eternity (TBD)
+- Energy Breaker (TBD)
+- Breath of Fire Series (TBD)
+- Treasure of the Rudras (TBD)
+- Vandal Hearts Series (TBD)
+- Feda: Emblem of Justice (TBD)
+- Pokemon Series (TBD)
+- Chrono Trigger (TBD)
+- Digimon World 3 (TBD)
+- Dragon Quest 9 (TBD)
+- Ragnarok Online (TBD)
+- MapleStory (TBD)
+- World of Warcraft (TBD)
+- Panzer Dragoon Saga (TBD)
+- Sakura Wars (TBD)
+- Road of Nogg (TBD)

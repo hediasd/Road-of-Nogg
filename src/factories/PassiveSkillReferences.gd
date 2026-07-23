@@ -22,6 +22,13 @@ static func _static_init() -> void:
 			"VALUE"       = 15.0,       # Flat ICE damage dealt to all in radius
 			"ELEMENT"     = "ice",
 			"RADIUS"      = 3
+		},{
+			"NAME"        = "Storm Surge",
+			"TRIGGER"     = "ON_TARGETED",
+			"EFFECT_TYPE" = "retaliate_damage",
+			"VALUE"       = 3,          # Flat THUNDER damage back to attacker
+			"ELEMENT"     = "thunder",
+			"RADIUS"      = 0
 		}
 	]
 	pass

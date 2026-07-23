@@ -10,7 +10,7 @@ Rules defining how a character's core offensive and defensive power is measured.
 
 ### Approach 1.1: Classic D&D 6-Stat Spread (STR, AGI, VIT, INT, DEX, LUK)
 Characters possess a comprehensive array of primary attributes, each feeding into multiple derived statistics (e.g., AGI increases dodge and attack speed; VIT increases Max HP and physical defense).
-* **Games Following This Approach:** *Tactics Ogre: Let Us Cling Together / Reborn, Ragnarok Online, MapleStory, Digimon World 3, Dragon Quest 9*
+* **Games Following This Approach:** *Tactics Ogre: Let Us Cling Together / Reborn, Ragnarok Online, MapleStory, Digimon World 3, Dragon Quest 9, Panzer Dragoon Saga*
 * **Detailed Variations:**
   - *Digimon World 3:* Features 6 primary stats (Strength, Defense, Spirit, Wisdom, Speed, Charisma). Physical attacks use Str vs Def; Magic uses Spt vs Wis. Charisma dictates whether you can battle certain NPCs and effects specific Digivolutions.
   - *Dragon Quest 9:* Features primary attributes like Strength, Resilience (Def), Agility, Deftness (Crit/Steal rate), Charm (Chance to enthrall enemies), Magical Might, and Magical Mending. Stats are tied directly to Vocation (Class) and seeds.
@@ -19,7 +19,7 @@ Characters possess a comprehensive array of primary attributes, each feeding int
 
 ### Approach 1.2: Condensed Combat Stats (ATK, DEF, MAG, RES, SPD)
 Primary attributes are abstracted directly into their combat output equivalents. Characters do not have an underlying "Strength" score, but rather a direct "Attack" score.
-* **Games Following This Approach:** *Triangle Strategy, Pokémon Series, Into the Breach, Shining Force Series, Master of Monsters / Nectaris, Road of Nogg (current baseline)*
+* **Games Following This Approach:** *Triangle Strategy, Pokémon Series, Into the Breach, Shining Force Series, Master of Monsters / Nectaris, Sakura Wars, Road of Nogg (current baseline)*
 * **Detailed Variations:**
   - *Pokémon Series:* 6 core combat stats (HP, Attack, Defense, Sp. Atk, Sp. Def, Speed) dictated by base species values, IVs, and EVs.
   - *Road of Nogg:* Highly condensed to HP, ATK, DEF, SPD, MOVE.
@@ -82,6 +82,7 @@ A complete listing of the core primary and secondary attributes utilized by the 
 * **Grandia Series:** HP, SP, MP, STR, VIT, WIT (Speed/Action gauge fill rate), AGI (Movement speed on field).
 * **Breath of Fire Series (1-4):** HP, AP, Pwr (Power), Def (Defense), Agi (Agility), Wis (Wisdom).
 * **Treasure of the Rudras:** HP, MP, STR, DEF, INT, MDEF, SPD, M_SPD (Magic Speed).
+* **Panzer Dragoon Saga:** HP, BP (Berserk Points), Attack, Defense, Spiritual, Agility.
 
 ### 3.2: Condensed Combat Stats (ATK, DEF, MAG, RES, SPD)
 * **Triangle Strategy:** HP, Str, Phys Def, Magic, Magic Def, Luck, Speed, Move, Jump.
@@ -91,6 +92,7 @@ A complete listing of the core primary and secondary attributes utilized by the 
 * **Langrisser Series:** HP, ATK, DEF, MP, A (Commander Attack Modifier), D (Commander Defense Modifier), MV (Move).
 * **Vandal Hearts Series:** HP, MP, ATK, DEF, AGI (Agility).
 * **Hoshigami: Ruining Blue Earth:** HP, MP, STR (Strength), DEF (Defense), AGI (Agility), plus Coin Deity Affinities.
+* **Sakura Wars:** HP, ARMS (AP), ATK, DEF, Spirit, Trust/LIPS.
 
 ### 3.3: Dual Physical & Magical Splits
 * **Final Fantasy Tactics:** HP, MP, PA (Physical Attack), MA (Magical Attack), Speed, Brave, Faith, Move, Jump, C-EV/S-EV/A-EV.
@@ -110,3 +112,37 @@ A complete listing of the core primary and secondary attributes utilized by the 
 ---
 
 [Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+
+## Implementation Takeaways for Road of Nogg
+
+- **To Decide / To Avoid:** (TBD)
+### Master List Checklist Validation
+*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
+- Fire Emblem Series (TBD)
+- Final Fantasy Tactics (FFT) (TBD)
+- Tactics Ogre (TBD)
+- Disgaea Series (TBD)
+- Shining Force Series (TBD)
+- TearRing Saga & Berwick Saga (TBD)
+- XCOM / XCOM 2 (TBD)
+- Divinity: Original Sin 1 & 2 (TBD)
+- Mario + Rabbids Kingdom Battle (TBD)
+- Triangle Strategy (TBD)
+- Dofus & Wakfu (TBD)
+- Hoshigami: Ruining Blue Earth (TBD)
+- Stella Deus: The Gate of Eternity (TBD)
+- Energy Breaker (TBD)
+- Breath of Fire Series (TBD)
+- Treasure of the Rudras (TBD)
+- Vandal Hearts Series (TBD)
+- Feda: Emblem of Justice (TBD)
+- Pokemon Series (TBD)
+- Chrono Trigger (TBD)
+- Digimon World 3 (TBD)
+- Dragon Quest 9 (TBD)
+- Ragnarok Online (TBD)
+- MapleStory (TBD)
+- World of Warcraft (TBD)
+- Panzer Dragoon Saga (TBD)
+- Sakura Wars (TBD)
+- Road of Nogg (TBD)

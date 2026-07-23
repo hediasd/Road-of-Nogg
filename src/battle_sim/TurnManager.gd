@@ -55,7 +55,8 @@ func startNextTurn() -> int:
 	var monsterID = turnOrder.pop_front()
 	state.turnCount += 1
 	state.currentMonsterID = monsterID
-	state.lastTurnDamageLog[monsterID] = []
+	state.last_turn_start_index[monsterID] = state.history.size()
+	state.add_event("turn_start", monsterID, -1, {"round": state.roundCount, "turn": state.turnCount})
 	events.turn_started.emit(monsterID, state.roundCount, state.turnCount)
 	return monsterID
 
@@ -71,6 +72,7 @@ func endTurn(monsterID: int) -> void:
 
 	# Phase 1: Tick down remaining durations and collect expired effects
 	var expiredEffects = state.tickEffects(monsterID)
+	mon.tick_cooldowns()
 
 	for expiredEffect in expiredEffects:
 		events.effect_removed.emit(monsterID, expiredEffect["name"])

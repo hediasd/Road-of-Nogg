@@ -19,6 +19,7 @@ var bypass_los: bool = false         # If true, LoS check is skipped for this sp
 var buffs_atk: int = 0               # If > 0, grants a timed ATK buff to the target (self-cast)
 var buff_duration: int = 0           # Duration in turns for any stat buff this spell provides
 var reverts_damage: bool = false     # If true, reverts damage dealt by target in previous turn
+var cooldown: int = 0                # Cooldown in turns before this spell can be cast again
 
 var ownerID: int
 var castByTeam: int
@@ -52,6 +53,7 @@ func _init(parameterDictionary) -> void:
 	buffs_atk = parameterDictionary["BUFFS_ATK"] if (parameterDictionary.has("BUFFS_ATK")) else 0
 	buff_duration = parameterDictionary["BUFF_DURATION"] if (parameterDictionary.has("BUFF_DURATION")) else 0
 	reverts_damage = parameterDictionary["REVERTS_DAMAGE"] if (parameterDictionary.has("REVERTS_DAMAGE")) else false
+	cooldown = parameterDictionary["COOLDOWN"] if (parameterDictionary.has("COOLDOWN")) else 0
 
 	pass
 

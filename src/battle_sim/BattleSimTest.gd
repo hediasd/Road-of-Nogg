@@ -33,8 +33,8 @@ func _ready() -> void:
 	sim.state.terrainBoard.set_at(2, Vector2i(8, 4))
 
 	# --- Team 1: The Heroes (Lower Left) ---
-	sim.spawnMonster("Defaultgon", 1, Vector2i(2, 6)) # Frontline
-	sim.spawnMonster("Mangrovesaurus", 1, Vector2i(1, 7)) # Tank
+	sim.spawnMonster("Envoy of Lightning", 1, Vector2i(2, 6)) # Frontline, retaliates
+	sim.spawnMonster("Gigasaurus", 1, Vector2i(1, 7)) # Tank
 	sim.spawnMonster("Healer Mage", 1, Vector2i(1, 6)) # Single target Healer (Mending)
 	sim.spawnMonster("Mage Dragon", 1, Vector2i(2, 7)) # Ranged/Ice
 

@@ -15,6 +15,7 @@ var events: BattleEvents
 const ON_TURN_END  = "ON_TURN_END"
 const ON_DEATH     = "ON_DEATH"
 const ON_DAMAGE_TAKEN = "ON_DAMAGE_TAKEN"
+const ON_TARGETED  = "ON_TARGETED"
 
 
 func _init(_state: BattleState, _events: BattleEvents) -> void:
@@ -24,7 +25,7 @@ func _init(_state: BattleState, _events: BattleEvents) -> void:
 
 # ─── Damage Modifier Hook ─────────────────────────────────────────────────────
 
-func applyDamageModifiers(rawDamage: int, targetID: int) -> int:
+func applyDamageModifiers(rawDamage: int, targetID: int, is_simulation: bool = false) -> int:
 	## Called by CombatResolver before applying any damage to targetID.
 	## Iterates the target's passives and reduces damage for "damage_reduction" passives.
 	var mon = state.getMonster(targetID)
@@ -36,7 +37,8 @@ func applyDamageModifiers(rawDamage: int, targetID: int) -> int:
 		if passive.trigger == ON_DAMAGE_TAKEN and passive.effect_type == "damage_reduction":
 			var reduction = int(float(finalDamage) * passive.value)
 			finalDamage = max(1, finalDamage - reduction)
-			events.passive_triggered.emit(targetID, passive.name, ON_DAMAGE_TAKEN)
+			if not is_simulation:
+				events.passive_triggered.emit(targetID, passive.name, ON_DAMAGE_TAKEN)
 
 	return finalDamage
 
@@ -115,6 +117,22 @@ func _onDeath(monsterID: int) -> void:
 				if not target.is_alive():
 					_handleDefeat(occupantID, monsterID)
 
+func fireOnTargeted(targetID: int, attackerID: int) -> void:
+	var target = state.getMonster(targetID)
+	var attacker = state.getMonster(attackerID)
+	if target == null or attacker == null or not attacker.is_alive() or not target.is_alive():
+		return
+
+	for passive in target.passives:
+		if passive.trigger == ON_TARGETED:
+			events.passive_triggered.emit(targetID, passive.name, ON_TARGETED)
+			if passive.effect_type == "retaliate_damage":
+				var damage = int(passive.value)
+				var actualDamage = attacker.take_damage(damage)
+				# Use a generic retaliate event or just emit the damage
+				events.passive_aoe_damage.emit(targetID, passive.name, attackerID, passive.element, actualDamage, attacker.hitpoints)
+				if not attacker.is_alive():
+					_handleDefeat(attackerID, targetID)
 
 func _handleDefeat(defeatedID: int, killerID: int) -> void:
 	events.monster_defeated.emit(defeatedID, killerID)

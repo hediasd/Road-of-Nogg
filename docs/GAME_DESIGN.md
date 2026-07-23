@@ -38,6 +38,10 @@ Turn-based Tactical RPG (TRPG), inspired by Final Fantasy Tactics, Fire Emblem, 
 - Team 2: Computer-controlled.
 - Each entity has a "brain" (AI module) that decides actions.
 
+## Elements
+- Elements dictate spell types and elemental affinities (resistances/weaknesses).
+- Current standard elements: `fire`, `ice`, `wood`, `steel`, `darkness`, `light`, `earth`, `water`, `thunder`, `none`.
+
 ## Entities
 - Identified by unique ID.
 - Stats: HP, ATK, DEF, SPD, MOVE.

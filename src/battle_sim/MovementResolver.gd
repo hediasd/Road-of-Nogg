@@ -56,6 +56,7 @@ func executeMove(monsterID: int, path: Array) -> bool:
 		return false
 
 	state.moveMonsterTo(monsterID, destination)
+	state.add_event("move", monsterID, -1, {"path": path})
 	events.monster_moved.emit(monsterID, path)
 	return true
 

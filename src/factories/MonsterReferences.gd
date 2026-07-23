@@ -8,14 +8,14 @@ static func _static_init():
 			"NAME" = "Defaultgon",
 			"HP" =  10, "ATK" = 3, "DEF" = 3, "SPD" = 2, "MOVE" = 2,
 			"ELEMENTS" = ["ice"], "RACE" = "none",
-			"BRAIN" = "MeleeBrain",
+			"BRAIN" = "TacticalBrain",
 			"SPELLS" =
 				[[ "Ice Punch" ]]
 		},{
 			"NAME" = "Mage Dragon",
 			"HP" =  50, "ATK" = 4, "DEF" = 3, "SPD" = 3, "MOVE" = 3,
 			"ELEMENTS" = ["ice"], "RACE" = "none",
-			"BRAIN" = "RangedMageBrain",
+			"BRAIN" = "MageBrain",
 			"SPELLS" =
 				[[ "Think", "Ice Punch", "Ice Plume" ],
 				[ "Thought", "Ice Plow", "Ice Flow" ]]
@@ -24,7 +24,7 @@ static func _static_init():
 			"NAME" = "Magemornus",
 			"HP" =  8, "ATK" = 2, "DEF" = 2, "SPD" = 4, "MOVE" = 2,
 			"ELEMENTS" = ["darkness"], "RACE" = "none",
-			"BRAIN" = "RangedMageBrain",
+			"BRAIN" = "MageBrain",
 			"SPELLS" =
 				[[ "Dark Bolt", "Dark Nova" ]]
 		},{
@@ -32,7 +32,7 @@ static func _static_init():
 			"NAME" = "Healer Mage",
 			"HP" =  50, "ATK" = 2, "DEF" = 4, "SPD" = 2, "MOVE" = 2,
 			"ELEMENTS" = ["light"], "RACE" = "none",
-			"BRAIN" = "HealerBrain",
+			"BRAIN" = "SupportBrain",
 			"SPELLS" =
 				[[ "Mending", "Holy Cross" ]]
 		},{
@@ -40,11 +40,20 @@ static func _static_init():
 			"NAME" = "Megidos",
 			"HP" =  50, "ATK" = 5, "DEF" = 3, "SPD" = 3, "MOVE" = 3,
 			"ELEMENTS" = ["fire"], "RACE" = "none",
-			"BRAIN" = "BrawlerBrain",
+			"BRAIN" = "TacticalBrain",
 			"SPELLS" =
 				[[ "Ember Strike", "Pyre Blast" ]]
 		},{
-			"NAME" = "Mangrovesaurus",
+			# Lightning envoy: prefers close combat (BerserkBrain), but has long-range spell and retaliates when targeted
+			"NAME" = "Envoy of Lightning",
+			"HP" =  40, "ATK" = 3, "DEF" = 2, "SPD" = 4, "MOVE" = 3,
+			"ELEMENTS" = ["thunder"], "RACE" = "none",
+			"BRAIN" = "BerserkBrain",
+			"SPELLS" =
+				[[ "Lightningbolt" ]],
+			"PASSIVES" = [ "Storm Surge" ]
+		},{
+			"NAME" = "Gigasaurus",
 			"HP" = 50, "ATK" = 6, "DEF" = 5, "SPD" = 2, "MOVE" = 4,
 			"ELEMENTS" = ["wood"], "RACE" = "none",
 			"BRAIN" = "BerserkBrain",
@@ -61,31 +70,31 @@ static func _static_init():
 			"NAME" = "Dump",
 			"HP" =  1, "ATK" = 1, "DEF" = 1, "SPD" = 1, "MOVE" = 1,
 			"ELEMENTS" = ["ice"], "RACE" = "none",
-			"BRAIN" = "MeleeBrain",
+			"BRAIN" = "TacticalBrain",
 			"SPELLS" = []
 		},{
 			"NAME" = "Smoke Cloud",
 			"HP" = 45, "ATK" = 4, "DEF" = 3, "SPD" = 4, "MOVE" = 3,
 			"ELEMENTS" = ["fire", "darkness"], "RACE" = "none",
-			"BRAIN" = "RangedMageBrain",
+			"BRAIN" = "MageBrain",
 			"SPELLS" = [[ "Smoke Tower" ]]
 		},{
 			"NAME" = "Oracle of Megnos",
 			"HP" = 50, "ATK" = 3, "DEF" = 2, "SPD" = 4, "MOVE" = 3,
 			"ELEMENTS" = ["fire", "light"], "RACE" = "none",
-			"BRAIN" = "SimpleBrain",
+			"BRAIN" = "SupportBrain",
 			"SPELLS" = [[ "Eschatology" ]]
 		},{
 			"NAME" = "Wing of Sanctum",
 			"HP" = 50, "ATK" = 2, "DEF" = 4, "SPD" = 3, "MOVE" = 2,
 			"ELEMENTS" = ["light", "darkness"], "RACE" = "none",
-			"BRAIN" = "HealerBrain",
+			"BRAIN" = "SupportBrain",
 			"SPELLS" = [[ "Closing of the Third Sanctuary", "Opening of the Third Sanctuary" ]]
 		},{
 			"NAME" = "Oracle of Ages",
 			"HP" = 40, "ATK" = 2, "DEF" = 4, "SPD" = 5, "MOVE" = 3,
 			"ELEMENTS" = ["wood", "steel"], "RACE" = "Chrononaut",
-			"BRAIN" = "HealerBrain",
+			"BRAIN" = "SupportBrain",
 			"SPELLS" = [[ "Timeoff", "Ages Ago" ]]
 		}
 	]

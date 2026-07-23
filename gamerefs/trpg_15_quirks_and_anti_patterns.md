@@ -21,10 +21,74 @@ This document collects unique, unintended, or poorly scaling mechanics observed 
 ### 2.4 Ragnarok Online
 - **The 1-Damage Buff/Debuff**: Many supportive or utility spells in the older engine inherently required a "hit" state to apply their effect. As a result, casting a buff or a hex might deal 1 point of base damage because the damage formula couldn't process an offensive spell type as 0. 
 
-## 3. Implementation Takeaways for Road of Nogg
+### 2.5 Panzer Dragoon Saga
+- **Constant 360-Degree Kiting**: The optimal way to play often devolves into endlessly spinning the camera around the enemy to stay in the "Safe Zone" while waiting for gauges to fill, which can make some encounters feel like a dizzying merry-go-round rather than a tactical duel.
+
+### 2.6 Sakura Wars
+- **Dating Sim as Combat Prep**: Your performance in visual novel dialogue choices (LIPS) directly and strictly dictates your stats in the TRPG grid combat. Failing to flirt or respond correctly to a heroine in the downtime means her mech is significantly weaker on the battlefield, completely bypassing traditional RPG leveling.
+
+## 3. Systemic Limitations & AI Edge Cases
+
+### 3.1 Infinite Loops and Action Stagnation
+High-level architecture governing how the battle engine prevents combat from deadlocking when units are incapable of harming one another.
+- **The "Loop Detector" Pattern (e.g. Early Access / Roguelike TRPGs)**
+  - *Architecture:* The battle orchestrator tracks the number of meaningful actions taken each round (e.g., attacks, spells, or movements).
+  - *Execution:* If a complete round passes (all units cycle their turns) and the aggregate action count is 0, the game detects an infinite loop and forcefully terminates the battle (often declaring a draw or victory to the defending team).
+  - *Use Case:* Used primarily in fully automated combat (auto-battlers) or AI testing simulations to prevent the engine from freezing.
+
+- **The Hard Turn Limit (e.g. Fire Emblem Heroes, Langrisser Mobile)**
+  - *Architecture:* Battles have a globally enforced maximum round count (e.g., 15, 30, or 50 rounds).
+  - *Execution:* If the battle is not resolved before the round counter expires, the match immediately ends. The win condition is typically evaluated based on total remaining HP, number of surviving units, or defaults to a Defender Victory.
+  - *Use Case:* Ensures PvP and PvE matches do not drag on indefinitely due to overly defensive AI or unreachable terrain.
+
+### 3.2 Pathfinding Deadlocks (The "Traffic Jam")
+How pathfinding algorithms handle scenarios where a unit's optimal destination is occupied, or the only path forward is blocked by allies.
+- **Partial Path Execution (e.g. Final Fantasy Tactics)**
+  - *Architecture:* If a unit's absolute target tile is unreachable or occupied, the AI calculates a full path, but truncates it to their maximum movement range and stopping just before the obstacle.
+  - *Execution:* Even if the destination is completely walled off by allies, the unit will step forward as much as possible to form a tighter formation.
+  - *Drawback:* Can lead to units clustering uselessly behind chokepoints.
+
+- **Fallback Idle State (e.g. Disgaea - certain AI)**
+  - *Architecture:* If the pathing fails completely (e.g., target is out of range AND path is blocked), the unit simply defaults to passing its turn to save computing time.
+  - *Execution:* Results in AI units occasionally appearing "brain dead" when faced with complex terrain they cannot navigate.
+
+## 4. Implementation Takeaways for Road of Nogg
 
 - **To Avoid**: Infinite grind loops (EXP/JP should ideally be tied to battle victory or unique actions, not infinitely spammable actions). 
 - **To Decide**: The 1-Damage Buff quirk. Currently, Road of Nogg's `calculateSpellDamage` enforces `max(1, dmg)`. Spells with `0` base damage (like "Empower") deal 1 damage to the caster. This is functionally identical to the RO quirk. We can keep it for flavor, or filter out damage for spells specifically marked as "buffs" in a future patch.
 
+## Implementation Takeaways for Road of Nogg
+
+- **To Decide / To Avoid:** (TBD)
+### Master List Checklist Validation
+*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
+- Fire Emblem Series (TBD)
+- Final Fantasy Tactics (FFT) (TBD)
+- Tactics Ogre (TBD)
+- Disgaea Series (TBD)
+- Shining Force Series (TBD)
+- TearRing Saga & Berwick Saga (TBD)
+- XCOM / XCOM 2 (TBD)
+- Divinity: Original Sin 1 & 2 (TBD)
+- Mario + Rabbids Kingdom Battle (TBD)
+- Triangle Strategy (TBD)
+- Dofus & Wakfu (TBD)
+- Hoshigami: Ruining Blue Earth (TBD)
+- Stella Deus: The Gate of Eternity (TBD)
+- Energy Breaker (TBD)
+- Breath of Fire Series (TBD)
+- Treasure of the Rudras (TBD)
+- Vandal Hearts Series (TBD)
+- Feda: Emblem of Justice (TBD)
+- Pokemon Series (TBD)
+- Chrono Trigger (TBD)
+- Digimon World 3 (TBD)
+- Dragon Quest 9 (TBD)
+- Ragnarok Online (TBD)
+- MapleStory (TBD)
+- World of Warcraft (TBD)
+- Panzer Dragoon Saga (TBD)
+- Sakura Wars (TBD)
+- Road of Nogg (TBD)
 ---
 [Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)

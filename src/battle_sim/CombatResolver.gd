@@ -58,10 +58,19 @@ func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
 	if distance > 1:
 		return { "success": false, "reason": "out_of_range" }
 
+	if passiveSkillResolver != null:
+		passiveSkillResolver.fireOnTargeted(targetID, attackerID)
+		if not attacker.is_alive():
+			return { "success": false, "reason": "attacker_died_to_passive" }
+		if not target.is_alive():
+			return { "success": true, "damage": 0, "targetHP": 0, "defeated": true }
+
 	# Calculate and apply damage
 	var damage = calculateBasicDamage(attacker, target)
 	var actualDamage = target.take_damage(damage)
 
+	state.add_event("damage", attackerID, targetID, { "damage": actualDamage, "type": "physical" })
+	
 	events.monster_attacked.emit(attackerID, targetID, actualDamage, target.hitpoints)
 
 	var result = {
@@ -77,7 +86,7 @@ func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
 	return result
 
 
-func calculateBasicDamage(attacker: Monster, target: Monster) -> int:
+func calculateBasicDamage(attacker: Monster, target: Monster, is_simulation: bool = false) -> int:
 	var raw = max(1, attacker.atk - target.def)
 	## Apply atk_bonus from active buffs
 	for effect in state.getActiveEffects(attacker.uniqueID):
@@ -85,7 +94,8 @@ func calculateBasicDamage(attacker: Monster, target: Monster) -> int:
 	raw = max(1, raw)
 	## Let PassiveSkillResolver apply damage reduction passives on the target
 	if passiveSkillResolver != null:
-		raw = passiveSkillResolver.applyDamageModifiers(raw, target.uniqueID)
+		raw = passiveSkillResolver.applyDamageModifiers(raw, target.uniqueID, is_simulation)
+
 	return raw
 
 
@@ -198,8 +208,20 @@ func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellInd
 	if actualTargets.is_empty():
 		return { "success": false, "reason": "no_valid_targets" }
 
+	if passiveSkillResolver != null:
+		# Fire targeted for all valid targets (some could die, attacker could die)
+		for tID in actualTargets:
+			var t = state.getMonster(tID)
+			if t != null and t.is_alive():
+				passiveSkillResolver.fireOnTargeted(tID, casterID)
+		
+		if not caster.is_alive():
+			return { "success": false, "reason": "caster_died_to_passive" }
+
 	for tID in actualTargets:
 		_applySpellEffects(casterID, tID, spell)
+
+	caster.record_cast(spell)
 
 	return { "success": true, "targetsHit": actualTargets.size(), "spellName": spell.name }
 
@@ -224,35 +246,34 @@ func _applySpellEffects(casterID: int, targetID: int, spell: Spell) -> void:
 
 	# --- Ages Ago (Damage Reversion) ---
 	if spell.reverts_damage:
-		var targetDamageHistory = state.lastTurnDamageLog.get(targetID, [])
+		var targetDamageHistory = state.get_events_for_actor_since_last_turn(targetID, "damage")
 		var healedTargets = 0
 		var totalHealing = 0
 		for entry in targetDamageHistory:
 			var victimID = entry.get("target_id")
-			var dmgAmount = entry.get("damage")
+			var dmgAmount = entry.get("data", {}).get("damage", 0)
 			var victim = state.getMonster(victimID)
 			if victim != null and victim.is_alive():
 				var actualHeal = victim.heal(dmgAmount)
 				events.monster_healed.emit(casterID, victimID, "Ages Ago", actualHeal, victim.hitpoints)
 				totalHealing += actualHeal
 				healedTargets += 1
-		# Output a special event so the visualizer can log it?
-		# For now, we rely on individual heal events.
 		return
 
 	# --- Damage path ---
 	var actual_damage_lines = []
 	for line in spell.damage_lines:
 		var elem = line.get("element", "none")
-		var dmg = calculateSpellDamage(caster, target, line.get("damage", 0), elem)
-		var actualDamage = target.take_damage(dmg)
+		var base_dmg = line.get("damage", 0)
 		
-		# Log damage for "Ages Ago"
-		if not state.lastTurnDamageLog.has(casterID):
-			state.lastTurnDamageLog[casterID] = []
-		state.lastTurnDamageLog[casterID].append({ "target_id": targetID, "damage": actualDamage })
-		
-		actual_damage_lines.append({ "element": elem, "damage": actualDamage })
+		if base_dmg > 0:
+			var dmg = calculateSpellDamage(caster, target, base_dmg, elem)
+			var actualDamage = target.take_damage(dmg)
+			
+			# Log damage for "Ages Ago" and replays
+			state.add_event("damage", casterID, targetID, { "damage": actualDamage, "spell": spell.name, "element": elem })
+			
+			actual_damage_lines.append({ "element": elem, "damage": actualDamage })
 
 	events.monster_cast_spell.emit(casterID, targetID, spell.name, actual_damage_lines, target.hitpoints)
 
@@ -286,22 +307,24 @@ func _applySpellEffects(casterID: int, targetID: int, spell: Spell) -> void:
 		_handleDefeat(targetID, casterID)
 
 
-func calculateSpellDamage(caster: Monster, target: Monster, base_damage: int, element: String = "none") -> int:
+func calculateSpellDamage(caster: Monster, target: Monster, base_damage: int, element: String = "none", is_simulation: bool = false) -> int:
 	var raw = max(1, caster.atk + base_damage - target.def)
 	## Apply atk_bonus from active buffs on the caster
 	for effect in state.getActiveEffects(caster.uniqueID):
 		raw += effect.get("atk_bonus", 0)
 	raw = max(1, raw)
-	
+
+	# 1) Element interactions
 	if element != "none":
 		var multiplier = RaceReferences.getDamageMultiplier(target.race, element)
 		raw = int(round(float(raw) * multiplier))
 		raw = max(1, raw)
-		
-	## Let PassiveSkillResolver apply damage reduction passives on the target
+
+	# 2) Passive damage reduction
 	if passiveSkillResolver != null:
-		raw = passiveSkillResolver.applyDamageModifiers(raw, target.uniqueID)
-	return raw
+		raw = passiveSkillResolver.applyDamageModifiers(raw, target.uniqueID, is_simulation)
+
+	return max(1, raw)
 
 
 func calculateHeal(caster: Monster, spell: Spell) -> int:

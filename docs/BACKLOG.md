@@ -21,7 +21,7 @@ The AI will proactively add suggestions here when observing technical debt, miss
 - **Visual Integration**: Connect the Battle Simulator and its events to the actual Godot Visuals/UI, rendering sprites, grid selection, and spell effects.
 - **Shop & Economy Systems**: Implement the underlying logic and interfaces for the economy based on the `gamerefs/trpg_11_shop_and_economy_systems.md` documentation.
 - **Roster Expansion**: Add additional Monsters, diverse Spells, and specialized AI Brains (e.g., assassins, buffers) to flesh out the game.
-- **Documentation Refinement**: Continue to iterate and expand the `gamerefs/` game design specifications and AI architecture guidelines.
+- **Documentation Refinement**: Continue to iterate and expand the `gamerefs/` game design specifications and AI architecture guidelines. Add analysis for *Threads of Fate*, *Suikoden*, *Vagrant Story*, and *Phantasy Star* across all 16 aspect reference modules and update `tactical_rpg_turn_systems.md`.
 - **Parabolic Trajectory / Arcs**: Implement an algorithm to calculate height arcs for projectiles (arrows, items) crossing the `heightBoard` to verify vertical line-of-sight clearance over obstacles.
 - **Player-Controlled Teams (PvE)**: Implement input-handling logic allowing real players to select movement paths, spells, and targets instead of relying purely on the AI Brains.
 - **Online Multiplayer (PvP/Co-op)**: Expand the architecture to support networked battles (Player vs Player over the internet), ensuring the state machine can sync inputs and simulation deterministically across clients.
