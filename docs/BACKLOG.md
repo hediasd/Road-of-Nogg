@@ -12,7 +12,11 @@ The AI will proactively add suggestions here when observing technical debt, miss
 
 ## Engine & Architecture
 - **Event Sourcing / Action History Log**: The current approach of tracking turn history via state variables (like `lastTurnDamageLog`) works for simple use cases, but scaling into time-travel mechanics (like the "Ages Ago" spell), battle replays, or network synchronization requires a centralized **Event History Log**. We should implement an immutable, turn-by-turn event ledger that records all actions, movements, and damage. This completely eliminates the need to clean up temporary state variables and natively supports rewinding/replaying the battle state deterministically.
-- **Animation Queueing**: As the visual adapter gets more complex, implement an asynchronous visual action queue so events can play out sequentially in the UI without blocking the headless engine.
+	- **Animation Queueing**: As the visual adapter gets more complex, implement an asynchronous visual action queue so events can play out sequentially in the UI without blocking the headless engine.
+- **Screen-Space X-Ray Tactical Outlines**: Implement a true "Always On Top" X-Ray outline for selected/hovered monsters that renders cleanly over terrain but perfectly behind the monster's front faces. 
+  - *Why do it:* Standard object-attached shaders using mesh expansion clip into the terrain (if depth tested) or obscure the model itself (if depth disabled). A tactical RPG needs outlines visible behind walls without breaking the character model.
+  - *How to do it:* Requires migrating from a per-object shader to a **Screen-Space Post-Processing Pipeline**. We must use a secondary `SubViewport` or write to a custom data channel/stencil buffer, rendering only the silhoutte of the targeted monster, blurring it, and compositing it back over the main camera feed.
+  - *Impacts & Risks:* Major architectural change to the visual rendering tree (`GodotVisualTest.tscn` / `GodotVisualAdapter`). We must be careful about performance overhead (extra viewport rendering) and ensure we can dynamically mask specific IDs (via visual layers/cull masks) so only the selected unit gets the outline.
 
 ## Code Quality & Cleanup
 - **Clean Up Factory Preloads**: Ensure all `preload()` references match the actual folder structure strictly, even though Godot's `class_name` currently masks path inaccuracies.

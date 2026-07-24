@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ideq13d1d86f"]
+
+[ext_resource type="Script" path="res://src/battle_sim/Retro3DMapPrototype.gd" id="1_proto"]
+
+[node name="Retro3DMapPrototype" type="Node3D"]
+script = ExtResource("1_proto")

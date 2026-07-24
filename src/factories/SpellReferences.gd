@@ -69,7 +69,7 @@ static func _static_init():
 		{
 			"NAME" = "Eschatology",
 			"MIN_RANGE" = 2,
-			"RANGE" = 3, 
+			"RANGE" = 3,
 			"DAMAGE_LINES" = [
 				{"damage": 4, "element": "fire"},
 				{"damage": 4, "element": "light"}

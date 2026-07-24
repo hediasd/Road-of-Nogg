@@ -15,9 +15,9 @@ var visualAdapter: IBattleVisualAdapter
 var brains: Dictionary = {}  # monsterID -> EntityBrain
 
 
-func _init(boardSize: Vector2i) -> void:
+func _init() -> void:
 	events = BattleEvents.new()
-	state = BattleState.new(boardSize)
+	state = BattleState.new()
 	turnManager = TurnManager.new(state, events)
 	movementResolver = MovementResolver.new(state, events)
 	combatResolver = preload("res://src/battle_sim/CombatResolver.gd").new(state, events)
@@ -35,6 +35,13 @@ func setVisualAdapter(adapter: IBattleVisualAdapter) -> void:
 func setSeed(seedValue: int) -> void:
 	## Forces the battle state RNG to use a specific seed for deterministic outcomes.
 	state.rng.seed = seedValue
+
+
+func loadMap(mapName: String) -> void:
+	var _MapFactory = preload("res://src/factories/MapFactory.gd")
+	var map = _MapFactory.createMap(mapName)
+	state.setup_board(map.boardSize)
+	_MapFactory.applyMapToState(map, state)
 
 
 
@@ -83,6 +90,17 @@ func _resolveBrainClass(name: String):
 
 
 func startBattle() -> void:
+	# Dump initial state for Replays
+	DirAccess.make_dir_absolute("res://debug")
+	var replay_data = {
+		"seed": state.rng.seed,
+		"initial_state": state.serialize_state()
+	}
+	var file = FileAccess.open("res://debug/battle_log.json", FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(replay_data, "\t"))
+		file.close()
+
 	## Emits battle_started and begins the first round.
 	var monsterList = []
 	for id in state.monsters:
@@ -129,7 +147,17 @@ func runFullBattle(maxRounds: int = 50) -> int:
 	return winner
 
 
+func _auto_dump_state() -> void:
+	# Automatically dumps state to latest_turn_dump.json for crash post-mortem analysis
+	DirAccess.make_dir_absolute("res://debug")
+	var state_dict = state.serialize_state()
+	var file = FileAccess.open("res://debug/latest_turn_dump.json", FileAccess.WRITE)
+	if file:
+		file.store_string(JSON.stringify(state_dict, "\t"))
+		file.close()
+
 func executeTurn(monsterID: int) -> bool:
+	_auto_dump_state()
 	## Executes a single monster's turn using its brain.
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():

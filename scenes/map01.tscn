@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://d2b6u2wsge0ju"]
 
-[ext_resource type="PackedScene" uid="uid://c3m08pxrhq60a" path="res://Map Attempt Nov2025.gltf" id="1_tjhuf"]
+[ext_resource type="PackedScene" uid="uid://c3m08pxrhq60a" path="res://assets/models/Map Attempt Nov2025.gltf" id="1_tjhuf"]
 
 [node name="Node3D" type="Node3D"]
 

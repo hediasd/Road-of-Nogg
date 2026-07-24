@@ -32,13 +32,15 @@ var history: Array[Dictionary] = []
 var last_turn_start_index: Dictionary = {}
 
 
-func _init(size: Vector2i) -> void:
+func _init() -> void:
+	rng = RandomNumberGenerator.new()
+	rng.randomize()
+
+func setup_board(size: Vector2i) -> void:
 	boardSize = size
 	board = Matrix.new(size.x, size.y)
 	heightBoard = Matrix.new(size.x, size.y)
 	terrainBoard = Matrix.new(size.x, size.y)
-	rng = RandomNumberGenerator.new()
-	rng.randomize()
 
 
 
@@ -234,3 +236,24 @@ func tickEffects(monsterID: int) -> Array:
 
 	activeEffects[monsterID] = remaining
 	return expired
+
+func serialize_state() -> Dictionary:
+	var terrain_data = []
+	for y in range(boardSize.y):
+		var row = []
+		for x in range(boardSize.x):
+			row.append(terrainBoard.at(Vector2i(x, y)))
+		terrain_data.append(row)
+		
+	var state_dict = {
+		"boardSize": {"x": boardSize.x, "y": boardSize.y},
+		"roundCount": roundCount,
+		"turnCount": turnCount,
+		"currentMonsterID": currentMonsterID,
+		"terrainBoard": terrain_data,
+		"activeEffects": activeEffects,
+		"monsters": {}
+	}
+	for id in monsters:
+		state_dict["monsters"][str(id)] = monsters[id].serialize()
+	return state_dict

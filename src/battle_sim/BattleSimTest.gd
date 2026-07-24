@@ -10,27 +10,13 @@ func _ready() -> void:
 	print("Starting a 4v4 battle on a 16x8 board with obstacles...")
 	print("")
 
-	var sim = BattleSimulator.new(Vector2i(16, 8))
+	var sim = BattleSimulator.new()
+	sim.loadMap("Forest")
 	var console = ConsoleVisualAdapter.new(sim.state)
 	sim.setVisualAdapter(console)
 	
 	# Set deterministic seed for test consistency
 	sim.setSeed(42)
-
-	# --- Obstacles (Trees) ---
-	sim.state.terrainBoard.set_at(1, Vector2i(1, 1))
-	sim.state.terrainBoard.set_at(1, Vector2i(2, 1))
-	sim.state.terrainBoard.set_at(1, Vector2i(1, 2))
-	sim.state.terrainBoard.set_at(1, Vector2i(14, 6))
-	sim.state.terrainBoard.set_at(1, Vector2i(13, 6))
-	sim.state.terrainBoard.set_at(1, Vector2i(14, 5))
-	
-	# --- Abyss (Water/Pit) ---
-	# 2x2 in the exact middle of a 16x8 board
-	sim.state.terrainBoard.set_at(2, Vector2i(7, 3))
-	sim.state.terrainBoard.set_at(2, Vector2i(8, 3))
-	sim.state.terrainBoard.set_at(2, Vector2i(7, 4))
-	sim.state.terrainBoard.set_at(2, Vector2i(8, 4))
 
 	# --- Team 1: The Heroes (Lower Left) ---
 	sim.spawnMonster("Envoy of Lightning", 1, Vector2i(2, 6)) # Frontline, retaliates

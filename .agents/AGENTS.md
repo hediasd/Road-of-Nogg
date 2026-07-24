@@ -12,7 +12,7 @@
 
 ## 2. AI Workflow & Safety Practices
 - **Safe Editing:** When editing large files (especially Markdown docs), strictly use small, precise line ranges to prevent accidental content truncation.
-- **Clean Slate:** Before executing a Large/Medium task plan, ensure `git status` is clean. Never write project code to temporary folders; utility scripts go in `scripts/`.
+- **MANDATORY GIT CHECK:** Before creating any Implementation Plan, you MUST perform a `git status`, clean any temp or leftover files, and `git commit` with meaningful messages covering all the logics implemented on this commit. Never write project code to temporary folders; utility scripts go in `scripts/`.
 - **Fail-Fast:** Do not silently catch critical internal state desyncs; use `assert()` or `push_error()` to fail loudly.
 - **The Scout Rule:** If a script exceeds 300 lines of code or has 3+ levels of deep nesting, proactively pause and recommend a refactor/split.
 
@@ -24,5 +24,6 @@
 ## 4. Verification
 - **Mandatory CLI Testing:** NEVER declare a feature complete without running the Godot headless CLI test script to verify runtime execution:
   ```powershell
-  & "C:\Users\Henri\Documents\Road of Nogg\Godot_v4.3-stable_win64.exe" --path "C:\Users\Henri\Documents\Road of Nogg" --quit-after 3 "res://scenes/BattleSample.tscn"
+  powershell -ExecutionPolicy Bypass -File .\run_headless_tests.ps1
   ```
+- **Automated Verification:** Whenever modifying files in `src/battle_sim/`, `src/algorithms/`, or `src/entities/`, you MUST automatically trigger a headless GUT test run (`powershell -ExecutionPolicy Bypass -File .\run_headless_tests.ps1`) as part of your verification step, before finalizing the task.

@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://cvq2oj61cos2"]
 
-[ext_resource type="Texture2D" uid="uid://33xvnrux3b6p" path="res://Ice Golem.png" id="1_yfjp4"]
+[ext_resource type="Texture2D" uid="uid://33xvnrux3b6p" path="res://assets/textures/Ice Golem.png" id="1_yfjp4"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_61xc0"]
 

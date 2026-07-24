@@ -62,6 +62,8 @@ These rules are absolute and must never be broken under any circumstances.
 10. **Language Version & Formatting**:
     - Target **Godot 4.4 GDScript**. Use explicit static typing annotations where possible.
     - Casing: `PascalCase` for Classes/Enums; `camelCase` for variables/functions; `UPPER_SNAKE_CASE` for constants.
+11. **Visual Aesthetics & Shader Rules**:
+    - Specific aesthetic directives must be strictly adhered to. For example, dual-element color splits on 3D models must be a diagonal cut from bottom-left to top-right (`y = x` plane or `ly - lx < 0.0`), never a simple vertical slice.
 
 ---
 

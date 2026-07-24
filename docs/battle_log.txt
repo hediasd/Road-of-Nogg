@@ -1,20 +1,28 @@
 
 ╔══════════════════════════════════════════════════════════════╗
 ║                    ⚔️ BATTLE START! ⚔️                      ║
-║    Board: 16x8                                             ║
+║    Board: 16x16                                             ║
 ╚══════════════════════════════════════════════════════════════╝
 
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . . . . . . a c .       A=Envoy of L (T1)   a=Smoke Clou (T2)
- │     . # # . . . . . . . . . . d b .       B=Gigasaurus (T1)   b=Megidos (T2)
- │     . # . . . . . . . . . . . . . .       C=Healer Mag (T1)   c=Oracle of  (T2)
- │     . . . . . . . ~ ~ . . . . . . .       D=Mage Drago (T1)   d=Snowzilla (T2)
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . . . . . . . . # . 
- │     . C A . . . . . . . . . . # # . 
- │     . B D . . . . . . . . . . . . . 
+ │     . . . . . . . . . . . . . a c #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . . . . . . . . d b #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . . . . . # # . . #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . . # # . . . . . . # # . . #       D=Mage Drago (T1)   d=Snowzilla (T2)
+ │     # . . . . . . . . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . . # # . . # # . . . . # 
+ │     # C A . . # . . . . # . . . . # 
+ │     # B D . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 
@@ -23,17 +31,17 @@
 
 ▶ Turn 1: Oracle of Ages #106 (Team 2) at (14, 0) | HP: ❤️ 40/40
 ▶ Turn 2: Envoy of Lightning #100 (Team 1) at (2, 6) | HP: ❤️ 40/40
-  [MOVE] Envoy of Lightning #100: (3, 6) 👣 (4, 6) 👣 (5, 6)
+  [MOVE] Envoy of Lightning #100: (3, 6) 👣 (4, 6) 👣 (4, 5)
 ▶ Turn 3: Smoke Cloud #104 (Team 2) at (13, 0) | HP: ❤️ 45/45
   [MOVE] Smoke Cloud #104: (12, 0) 👣 (11, 0) 👣 (10, 0)
 ▶ Turn 4: Mage Dragon #103 (Team 1) at (2, 7) | HP: ❤️ 50/50
   [MOVE] Mage Dragon #103: (3, 7) 👣 (4, 7) 👣 (5, 7)
 ▶ Turn 5: Megidos #105 (Team 2) at (14, 1) | HP: ❤️ 50/50
-  [MOVE] Megidos #105: (14, 2) 👣 (13, 2) 👣 (12, 2)
+  [MOVE] Megidos #105: (14, 2) 👣 (13, 2) 👣 (13, 3)
 ▶ Turn 6: Snowzilla #107 (Team 2) at (13, 1) | HP: ❤️ 28/28
   [MOVE] Snowzilla #107: (12, 1) 👣 (11, 1) 👣 (10, 1)
 ▶ Turn 7: Gigasaurus #101 (Team 1) at (1, 7) | HP: ❤️ 50/50
-  [MOVE] Gigasaurus #101: (0, 7)
+  [MOVE] Gigasaurus #101: (2, 7)
   [SPELL] Gigasaurus #101  💥━━━▶  Gigasaurus #101 with 'Empower' (💥 0 dmg | ❤️ 50)
   [EFFECT+] Gigasaurus #101 gained 🌀 'ATK_BUFF' for 2 turns
 ▶ Turn 8: Healer Mage #102 (Team 1) at (1, 6) | HP: ❤️ 50/50
@@ -52,14 +60,22 @@
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . . . a < - . c .       A=Envoy of L (T1)   a=Smoke Clou (T2)
- │     . # # . . . . . . . d < - . . .       B=Gigasaurus (T1)   b=Megidos (T2)
- │     . # . . . . . . . . . . b < - .       C=Healer Mag (T1)   c=Oracle of  (T2)
- │     . . . . . . . ~ ~ . . . . . . .       D=Mage Drago (T1)   d=Snowzilla (T2)
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . . . . . . . . # . 
- │     . . > C > A . . . . . . . # # . 
- │     B . . - > D . . . . . . . . . . 
+ │     . . . . . . . . . . a < - . c #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . . . . . d < - . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . . . . . # # v - #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . . # # . . . . . . # # b . #       D=Mage Drago (T1)   d=Snowzilla (T2)
+ │     # . . . . . . . . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . A # # . . # # . . . . # 
+ │     # . > C ^ # . . . . # . . . . # 
+ │     # . B - > D . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 2 ══════════════════════
@@ -67,32 +83,40 @@
 
 ▶ Turn 9: Oracle of Ages #106 (Team 2) at (14, 0) | HP: ❤️ 40/40
   [MOVE] Oracle of Ages #106: (13, 0) 👣 (12, 0) 👣 (11, 0)
-▶ Turn 10: Envoy of Lightning #100 (Team 1) at (5, 6) | HP: ❤️ 40/40
-  [MOVE] Envoy of Lightning #100: (6, 6) 👣 (7, 6) 👣 (8, 6)
+▶ Turn 10: Envoy of Lightning #100 (Team 1) at (4, 5) | HP: ❤️ 40/40
+  [MOVE] Envoy of Lightning #100: (4, 4) 👣 (5, 4) 👣 (6, 4)
 ▶ Turn 11: Smoke Cloud #104 (Team 2) at (10, 0) | HP: ❤️ 45/45
-  [MOVE] Smoke Cloud #104: (9, 0) 👣 (8, 0) 👣 (8, 1)
+  [MOVE] Smoke Cloud #104: (9, 0) 👣 (8, 0) 👣 (7, 0)
 ▶ Turn 12: Mage Dragon #103 (Team 1) at (5, 7) | HP: ❤️ 50/50
   [MOVE] Mage Dragon #103: (6, 7)
-▶ Turn 13: Megidos #105 (Team 2) at (12, 2) | HP: ❤️ 50/50
-  [MOVE] Megidos #105: (13, 2) 👣 (14, 2)
+▶ Turn 13: Megidos #105 (Team 2) at (13, 3) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (14, 3) 👣 (14, 2)
 ▶ Turn 14: Snowzilla #107 (Team 2) at (10, 1) | HP: ❤️ 28/28
-  [MOVE] Snowzilla #107: (9, 1) 👣 (9, 2) 👣 (8, 2)
-▶ Turn 15: Gigasaurus #101 (Team 1) at (0, 7) | HP: ❤️ 50/50
-  [MOVE] Gigasaurus #101: (1, 7) 👣 (2, 7) 👣 (3, 7) 👣 (4, 7)
+  [MOVE] Snowzilla #107: (9, 1) 👣 (8, 1) 👣 (7, 1)
+▶ Turn 15: Gigasaurus #101 (Team 1) at (2, 7) | HP: ❤️ 50/50
+  [MOVE] Gigasaurus #101: (3, 7) 👣 (4, 7) 👣 (4, 6) 👣 (4, 5)
   [EFFECT-] Gigasaurus #101 lost effect 'ATK_BUFF'
 ▶ Turn 16: Healer Mage #102 (Team 1) at (3, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (4, 6) 👣 (5, 6)
+  [MOVE] Healer Mage #102: (3, 5) 👣 (3, 4)
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . v - . c < - . .       A=Envoy of L (T1)   a=Smoke Clou (T2)
- │     . # # . . . . . a | . . . . . .       B=Gigasaurus (T1)   b=Megidos (T2)
- │     . # . . . . . . d < . . . > b .       C=Healer Mag (T1)   c=Oracle of  (T2)
- │     . . . . . . . ~ ~ . . . . . . .       D=Mage Drago (T1)   d=Snowzilla (T2)
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . . . . . . . . # . 
- │     . . . . > C - > A . . . . # # . 
- │     . - - > B . D . . . . . . . . . 
+ │     . . . . . . . a < - . c < - . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . . d < - . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . . . . . # # . b #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . . # # . . . . . . # # . ^ #       D=Mage Drago (T1)   d=Snowzilla (T2)
+ │     # . . C - > A . . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . ^ B # # . . # # . . . . # 
+ │     # . . . ^ # . . . . # . . . . # 
+ │     # . . - + . D . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 3 ══════════════════════
@@ -100,491 +124,1009 @@
 
 ▶ Turn 17: Oracle of Ages #106 (Team 2) at (11, 0) | HP: ❤️ 40/40
   [MOVE] Oracle of Ages #106: (12, 0)
-▶ Turn 18: Envoy of Lightning #100 (Team 1) at (8, 6) | HP: ❤️ 40/40
-  [MOVE] Envoy of Lightning #100: (7, 6)
-  [SPELL] Envoy of Lightning #100  💥━━━▶  Snowzilla #107 with 'Lightningbolt' (💥 2 THUNDER dmg | ❤️ 26)
-▶ Turn 19: Smoke Cloud #104 (Team 2) at (8, 1) | HP: ❤️ 45/45
-  [MOVE] Smoke Cloud #104: (7, 1) 👣 (7, 2)
+▶ Turn 18: Envoy of Lightning #100 (Team 1) at (6, 4) | HP: ❤️ 40/40
+  [MOVE] Envoy of Lightning #100: (7, 4) 👣 (7, 3) 👣 (7, 2)
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Snowzilla #107 (💥 1 dmg | ❤️ 27)
+▶ Turn 19: Smoke Cloud #104 (Team 2) at (7, 0) | HP: ❤️ 45/45
+  [MOVE] Smoke Cloud #104: (8, 0)
 ▶ Turn 20: Mage Dragon #103 (Team 1) at (6, 7) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (6, 6) 👣 (6, 5)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Smoke Cloud #104 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 39)
+  [MOVE] Mage Dragon #103: (7, 7)
 ▶ Turn 21: Megidos #105 (Team 2) at (14, 2) | HP: ❤️ 50/50
-  [MOVE] Megidos #105: (13, 2)
-▶ Turn 22: Snowzilla #107 (Team 2) at (8, 2) | HP: ❤️ 26/28
-  [MOVE] Snowzilla #107: (9, 2) 👣 (9, 3) 👣 (9, 4)
-▶ Turn 23: Gigasaurus #101 (Team 1) at (4, 7) | HP: ❤️ 50/50
-  [MOVE] Gigasaurus #101: (3, 7)
-  [SPELL] Gigasaurus #101  💥━━━▶  Gigasaurus #101 with 'Empower' (💥 0 dmg | ❤️ 50)
-  [EFFECT+] Gigasaurus #101 gained 🌀 'ATK_BUFF' for 2 turns
-▶ Turn 24: Healer Mage #102 (Team 1) at (5, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (4, 6) 👣 (3, 6)
+  [MOVE] Megidos #105: (14, 3) 👣 (14, 4) 👣 (14, 5)
+▶ Turn 22: Snowzilla #107 (Team 2) at (7, 1) | HP: ❤️ 27/28
+  [MOVE] Snowzilla #107: (6, 1) 👣 (6, 2)
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Snowzilla #107 for 3 THUNDER dmg! (❤️ 24)
+  [ATTACK] Snowzilla #107  👊━━━▶  Envoy of Lightning #100 (💥 5 dmg | ❤️ 35)
+▶ Turn 23: Gigasaurus #101 (Team 1) at (4, 5) | HP: ❤️ 50/50
+  [MOVE] Gigasaurus #101: (4, 4) 👣 (5, 4) 👣 (6, 4) 👣 (6, 3)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Snowzilla #107 (💥 3 dmg | ❤️ 21)
+▶ Turn 24: Healer Mage #102 (Team 1) at (3, 4) | HP: ❤️ 50/50
+  [MOVE] Healer Mage #102: (2, 4) 👣 (2, 3)
 
  ╭───────────────────────── 🌟 ROUND 3 HIGHLIGHT 🌟 ─────────────────────────
  │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ S ]
+ │                      [ S ] 🗡️ ━━━━━━━▶ 💥 [ E ]
  │                     ═══════                   ═══════
- │                   Mage Dragon                       Smoke Cloud
+ │                   Snowzilla                            Envoy of
+ │                                                       Lightning
  │                                                                           
  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
  │  MINOR CLASHES:                                                           
- │     [ E ] 💥━━▶ 💥 [ S ]                [ G ] 💥━━▶ 💥 [ G ]            
+ │     [ G ] 🗡️━━▶ 💥 [ S ]                [ E ] 🗡️━━▶ 💥 [ S ]            
  │    ══════        ══════                ══════        ══════             
- │    Envoy of      Snowzill              Gigasaur      Gigasaur           
- │    Lightnin      a                     us            us                 
+ │    Gigasaur      Snowzill              Envoy of      Snowzill           
+ │    us            a                     Lightnin      a                  
  ╰───────────────────────────────────────────────────────────────────────────
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . . . . . c . . .       A=Envoy of L (T1)   a=Smoke Clou (T2)
- │     . # # . . . . v . . . . . . . .       B=Gigasaurus (T1)   b=Megidos (T2)
- │     . # . . . . . a . | . . . b . .       C=Healer Mag (T1)   c=Oracle of  (T2)
- │     . . . . . . . ~ ~ v . . . . . .       D=Mage Drago (T1)   d=Snowzilla (T2)
- │     . . . . . . . ~ ~ d . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . D . . . . . . . # . 
- │     . . . C < . ^ A . . . . . # # . 
- │     . . . B . . . . . . . . . . . . 
+ │     . . . . . . . . a . . . c . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . v . . . . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . d A . . . # # . . #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . C # # . B ^ . . . # # . | #       D=Mage Drago (T1)   d=Snowzilla (T2)
+ │     # . ^ . - - ^ | . . . . . . v #       #=Tree   ~=Abyss   >=Path
+ │     # . . . . # # . . # # . . . b # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . . . D . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 4 ══════════════════════
   Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Snowzilla#107, Gigasaurus#101, Healer Mage#102
 
 ▶ Turn 25: Oracle of Ages #106 (Team 2) at (12, 0) | HP: ❤️ 40/40
-  [MOVE] Oracle of Ages #106: (11, 0)
-▶ Turn 26: Envoy of Lightning #100 (Team 1) at (7, 6) | HP: ❤️ 40/40
-  [MOVE] Envoy of Lightning #100: (8, 6) 👣 (9, 6) 👣 (9, 5)
-  [ATTACK] Envoy of Lightning #100  👊━━━▶  Snowzilla #107 (💥 1 dmg | ❤️ 25)
-▶ Turn 27: Smoke Cloud #104 (Team 2) at (7, 2) | HP: ❤️ 39/45
-  [MOVE] Smoke Cloud #104: (6, 2)
-▶ Turn 28: Mage Dragon #103 (Team 1) at (6, 5) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (5, 5)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Smoke Cloud #104 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 33)
-▶ Turn 29: Megidos #105 (Team 2) at (13, 2) | HP: ❤️ 50/50
-  [MOVE] Megidos #105: (14, 2) 👣 (15, 2) 👣 (15, 1)
-▶ Turn 30: Snowzilla #107 (Team 2) at (9, 4) | HP: ❤️ 25/28
-  [MOVE] Snowzilla #107: (10, 4) 👣 (10, 5)
+  [MOVE] Oracle of Ages #106: (11, 0) 👣 (10, 0) 👣 (9, 0)
   [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
-  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Snowzilla #107 for 3 THUNDER dmg! (❤️ 22)
-  [ATTACK] Snowzilla #107  👊━━━▶  Envoy of Lightning #100 (💥 5 dmg | ❤️ 35)
-▶ Turn 31: Gigasaurus #101 (Team 1) at (3, 7) | HP: ❤️ 50/50
-  [MOVE] Gigasaurus #101: (4, 7) 👣 (5, 7) 👣 (6, 7) 👣 (6, 6)
-  [EFFECT-] Gigasaurus #101 lost effect 'ATK_BUFF'
-▶ Turn 32: Healer Mage #102 (Team 1) at (3, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (2, 6)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Oracle of Ages #106 for 3 THUNDER dmg! (❤️ 37)
+  [HEAL] Oracle of Ages #106  ❤️━━━▶  Snowzilla #107 with 'Ages Ago' (+1 HP | ❤️ 22)
+▶ Turn 26: Envoy of Lightning #100 (Team 1) at (7, 2) | HP: ❤️ 35/40
+  [MOVE] Envoy of Lightning #100: (8, 2) 👣 (8, 1)
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 44)
+▶ Turn 27: Smoke Cloud #104 (Team 2) at (8, 0) | HP: ❤️ 44/45
+  [MOVE] Smoke Cloud #104: (7, 0) 👣 (6, 0) 👣 (5, 0)
+▶ Turn 28: Mage Dragon #103 (Team 1) at (7, 7) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (7, 6) 👣 (7, 5) 👣 (7, 4)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Snowzilla #107 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 16)
+▶ Turn 29: Megidos #105 (Team 2) at (14, 5) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (14, 6)
+▶ Turn 30: Snowzilla #107 (Team 2) at (6, 2) | HP: ❤️ 16/28
+  [MOVE] Snowzilla #107: (7, 2) 👣 (8, 2)
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Snowzilla #107 for 3 THUNDER dmg! (❤️ 13)
+  [ATTACK] Snowzilla #107  👊━━━▶  Envoy of Lightning #100 (💥 5 dmg | ❤️ 30)
+▶ Turn 31: Gigasaurus #101 (Team 1) at (6, 3) | HP: ❤️ 50/50
+  [MOVE] Gigasaurus #101: (7, 3) 👣 (8, 3)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Snowzilla #107 (💥 3 dmg | ❤️ 10)
+▶ Turn 32: Healer Mage #102 (Team 1) at (2, 3) | HP: ❤️ 50/50
+  [MOVE] Healer Mage #102: (1, 3) 👣 (1, 4)
 
  ╭───────────────────────── 🌟 ROUND 4 HIGHLIGHT 🌟 ─────────────────────────
  │                                                                           
  │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ S ]
  │                     ═══════                   ═══════
- │                   Mage Dragon                       Smoke Cloud
+ │                   Mage Dragon                         Snowzilla
  │                                                                           
  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
  │  MINOR CLASHES:                                                           
- │     [ S ] 🗡️━━▶ 💥 [ E ]                [ E ] 🗡️━━▶ 💥 [ S ]            
+ │     [ S ] 🗡️━━▶ 💥 [ E ]                [ G ] 🗡️━━▶ 💥 [ S ]            
  │    ══════        ══════                ══════        ══════             
- │    Snowzill      Envoy of              Envoy of      Snowzill           
- │    a             Lightnin              Lightnin      a                  
+ │    Snowzill      Envoy of              Gigasaur      Snowzill           
+ │    a             Lightnin              us            a                  
  ╰───────────────────────────────────────────────────────────────────────────
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . . . . c . . . .       A=Envoy of L (T1)   a=Smoke Clou (T2)
- │     . # # . . . . . . . . . . . . b       B=Gigasaurus (T1)   b=Megidos (T2)
- │     . # . . . . a . . . . . . . - ^       C=Healer Mag (T1)   c=Oracle of  (T2)
- │     . . . . . . . ~ ~ . . . . . . .       D=Mage Drago (T1)   d=Snowzilla (T2)
- │     . . . . . . . ~ ~ . v . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . D . . . A d . . . # . 
- │     . . C . . . B . - ^ . . . # # . 
- │     . . . . - - ^ . . . . . . . . . 
+ │     . . . . . a < - . c < - . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . . . A . . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . > d . . # # . . #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # v . # # . . > B . . # # . . #       D=Mage Drago (T1)   d=Snowzilla (T2)
+ │     # C . . . . . D . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . . # # ^ . # # . . . . # 
+ │     # . . . . # . | . . # . . . b # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 5 ══════════════════════
   Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Snowzilla#107, Gigasaurus#101, Healer Mage#102
 
-▶ Turn 33: Oracle of Ages #106 (Team 2) at (11, 0) | HP: ❤️ 40/40
-  [MOVE] Oracle of Ages #106: (10, 0) 👣 (9, 0) 👣 (8, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Smoke Cloud #104 with 'Timeoff' (+2 HP | ❤️ 35)
-▶ Turn 34: Envoy of Lightning #100 (Team 1) at (9, 5) | HP: ❤️ 35/40
-  [MOVE] Envoy of Lightning #100: (9, 4) 👣 (10, 4)
-  [ATTACK] Envoy of Lightning #100  👊━━━▶  Snowzilla #107 (💥 1 dmg | ❤️ 21)
-▶ Turn 35: Smoke Cloud #104 (Team 2) at (6, 2) | HP: ❤️ 35/45
-  [MOVE] Smoke Cloud #104: (6, 3)
-▶ Turn 36: Mage Dragon #103 (Team 1) at (5, 5) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (4, 5)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Smoke Cloud #104 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 29)
-▶ Turn 37: Megidos #105 (Team 2) at (15, 1) | HP: ❤️ 50/50
-  [MOVE] Megidos #105: (14, 1) 👣 (13, 1) 👣 (12, 1)
-▶ Turn 38: Snowzilla #107 (Team 2) at (10, 5) | HP: ❤️ 21/28
-  [MOVE] Snowzilla #107: (9, 5) 👣 (9, 4)
+▶ Turn 33: Oracle of Ages #106 (Team 2) at (9, 0) | HP: ❤️ 37/40
+  [MOVE] Oracle of Ages #106: (10, 0)
+  [HEAL] Oracle of Ages #106  ❤️━━━▶  Snowzilla #107 with 'Timeoff' (+2 HP | ❤️ 12)
+▶ Turn 34: Envoy of Lightning #100 (Team 1) at (8, 1) | HP: ❤️ 30/40
+  [MOVE] Envoy of Lightning #100: (7, 1) 👣 (7, 2)
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Snowzilla #107 (💥 1 dmg | ❤️ 11)
+▶ Turn 35: Smoke Cloud #104 (Team 2) at (5, 0) | HP: ❤️ 44/45
+▶ Turn 36: Mage Dragon #103 (Team 1) at (7, 4) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (8, 4) 👣 (9, 4)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Snowzilla #107 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 5)
+▶ Turn 37: Megidos #105 (Team 2) at (14, 6) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (14, 7) 👣 (14, 8)
+▶ Turn 38: Snowzilla #107 (Team 2) at (8, 2) | HP: ❤️ 5/28
+  [MOVE] Snowzilla #107: (8, 1) 👣 (7, 1)
   [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
-  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Snowzilla #107 for 3 THUNDER dmg! (❤️ 18)
-  [ATTACK] Snowzilla #107  👊━━━▶  Envoy of Lightning #100 (💥 5 dmg | ❤️ 30)
-▶ Turn 39: Gigasaurus #101 (Team 1) at (6, 6) | HP: ❤️ 50/50
-  [MOVE] Gigasaurus #101: (6, 5) 👣 (6, 4)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Smoke Cloud #104 (💥 3 dmg | ❤️ 26)
-▶ Turn 40: Healer Mage #102 (Team 1) at (2, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (1, 6)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Snowzilla #107 for 3 THUNDER dmg! (❤️ 2)
+  [ATTACK] Snowzilla #107  👊━━━▶  Envoy of Lightning #100 (💥 5 dmg | ❤️ 25)
+▶ Turn 39: Gigasaurus #101 (Team 1) at (8, 3) | HP: ❤️ 50/50
+  [MOVE] Gigasaurus #101: (8, 2) 👣 (8, 1)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Snowzilla #107 (💥 2 dmg | ❤️ 0)
+  [PASSIVE] Snowzilla #107 — 'Snowfall' activated! (trigger: ON_DEATH)
+  [PASSIVE AOE] 'Snowfall' from Snowzilla #107 hits Smoke Cloud #104 for 15 ICE dmg! (❤️ 29)
+  [PASSIVE AOE] 'Snowfall' from Snowzilla #107 hits Envoy of Lightning #100 for 15 ICE dmg! (❤️ 10)
+  [PASSIVE AOE] 'Snowfall' from Snowzilla #107 hits Gigasaurus #101 for 15 ICE dmg! (❤️ 35)
+  ☠️ [DEFEATED] Snowzilla #107 was struck down by Gigasaurus #101!
+▶ Turn 40: Healer Mage #102 (Team 1) at (1, 4) | HP: ❤️ 50/50
+  [MOVE] Healer Mage #102: (2, 4) 👣 (2, 5)
 
  ╭───────────────────────── 🌟 ROUND 5 HIGHLIGHT 🌟 ─────────────────────────
  │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ S ]
+ │                      [ G ] 🗡️ ━━━━━━━▶ 💥 [ S ]
  │                     ═══════                   ═══════
- │                   Mage Dragon                       Smoke Cloud
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ S ] 🗡️━━▶ 💥 [ E ]                [ O ] ✨━━▶ 💖 [ S ]            
- │    ══════        ══════                ══════        ══════             
- │    Snowzill      Envoy of              Oracle        Smoke              
- │    a             Lightnin              of Ages       Cloud              
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . c < - . . . . .       A=Envoy of L (T1)   a=Smoke Clou (T2)
- │     . # # . . . . . . . . . b < - .       B=Gigasaurus (T1)   b=Megidos (T2)
- │     . # . . . . . . . . . . . . . .       C=Healer Mag (T1)   c=Oracle of  (T2)
- │     . . . . . . a ~ ~ . . . . . . .       D=Mage Drago (T1)   d=Snowzilla (T2)
- │     . . . . . . B ~ ~ d A . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . D . ^ . . ^ . . . . # . 
- │     . C . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 6 ══════════════════════
-  Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Snowzilla#107, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 41: Oracle of Ages #106 (Team 2) at (8, 0) | HP: ❤️ 40/40
-  [MOVE] Oracle of Ages #106: (9, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Snowzilla #107 with 'Timeoff' (+2 HP | ❤️ 20)
-▶ Turn 42: Envoy of Lightning #100 (Team 1) at (10, 4) | HP: ❤️ 30/40
-  [MOVE] Envoy of Lightning #100: (10, 3) 👣 (9, 3)
-  [ATTACK] Envoy of Lightning #100  👊━━━▶  Snowzilla #107 (💥 1 dmg | ❤️ 19)
-▶ Turn 43: Smoke Cloud #104 (Team 2) at (6, 3) | HP: ❤️ 26/45
-  [MOVE] Smoke Cloud #104: (5, 3) 👣 (5, 2)
-▶ Turn 44: Mage Dragon #103 (Team 1) at (4, 5) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (5, 5)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Smoke Cloud #104 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 20)
-▶ Turn 45: Megidos #105 (Team 2) at (12, 1) | HP: ❤️ 50/50
-  [MOVE] Megidos #105: (11, 1) 👣 (10, 1)
-  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
-  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Megidos #105 for 3 THUNDER dmg! (❤️ 47)
-  [SPELL] Megidos #105  🔥━━━▶  Envoy of Lightning #100 with 'Pyre Blast' (💥 7 FIRE dmg | ❤️ 23)
-  [EFFECT+] Envoy of Lightning #100 gained 🔥 'BURN' for 3 turns
-▶ Turn 46: Snowzilla #107 (Team 2) at (9, 4) | HP: ❤️ 19/28
-  [MOVE] Snowzilla #107: (10, 4) 👣 (10, 3)
-  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
-  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Snowzilla #107 for 3 THUNDER dmg! (❤️ 16)
-  [ATTACK] Snowzilla #107  👊━━━▶  Envoy of Lightning #100 (💥 5 dmg | ❤️ 18)
-▶ Turn 47: Gigasaurus #101 (Team 1) at (6, 4) | HP: ❤️ 50/50
-  [MOVE] Gigasaurus #101: (5, 4) 👣 (5, 3)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Smoke Cloud #104 (💥 3 dmg | ❤️ 17)
-▶ Turn 48: Healer Mage #102 (Team 1) at (1, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (0, 6) 👣 (0, 5)
-
- ╭───────────────────────── 🌟 ROUND 6 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] 🔥 ━━━━━━━▶ 💥 [ E ]
- │                     ═══════                   ═══════
- │                   Megidos                              Envoy of
- │                                                       Lightning
+ │                   Gigasaurus                          Snowzilla
+ │                                            ☠️ DEFEATED!
  │                                                                           
  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
  │  MINOR CLASHES:                                                           
  │     [ M ] ❄️━━▶ 💥 [ S ]                [ S ] 🗡️━━▶ 💥 [ E ]            
  │    ══════        ══════                ══════        ══════             
- │    Mage          Smoke                 Snowzill      Envoy of           
- │    Dragon        Cloud                 a             Lightnin           
+ │    Mage          Snowzill              Snowzill      Envoy of           
+ │    Dragon        a                     a             Lightnin           
  ╰───────────────────────────────────────────────────────────────────────────
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . . c . . . . . .       A=Envoy of L (T1)   a=Smoke Clou (T2)
- │     . # # . . . . . . . b < . . . .       B=Gigasaurus (T1)   b=Megidos (T2)
- │     . # . . . a . . . . . . . . . .       C=Healer Mag (T1)   c=Oracle of  (T2)
- │     . . . . . B . ~ ~ A d . . . . .       D=Mage Drago (T1)   d=Snowzilla (T2)
- │     . . . . . ^ . ~ ~ . ^ . . . . .       #=Tree   ~=Abyss   >=Path
- │     C . . . . D . . . . . . . . # . 
- │     ^ . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
+ │     . . . . . a . . . . c . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . . v B . . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . A ^ . . # # . . #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . . # # . . . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . v . . . . . > D . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . C . . # # . . # # . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . . . . . . . . . . v # 
+ │     # . . . . . . . . . . . . . b # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+══════════════════════ 🔄 ROUND 6 ══════════════════════
+  Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+
+▶ Turn 41: Oracle of Ages #106 (Team 2) at (10, 0) | HP: ❤️ 37/40
+  [MOVE] Oracle of Ages #106: (9, 0)
+  [HEAL] Oracle of Ages #106  ❤️━━━▶  Smoke Cloud #104 with 'Timeoff' (+2 HP | ❤️ 31)
+▶ Turn 42: Envoy of Lightning #100 (Team 1) at (7, 2) | HP: ❤️ 10/40
+  [MOVE] Envoy of Lightning #100: (6, 2) 👣 (5, 2) 👣 (5, 1)
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 30)
+▶ Turn 43: Smoke Cloud #104 (Team 2) at (5, 0) | HP: ❤️ 30/45
+  [MOVE] Smoke Cloud #104: (4, 0) 👣 (3, 0)
+▶ Turn 44: Mage Dragon #103 (Team 1) at (9, 4) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (9, 3)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 31)
+▶ Turn 45: Megidos #105 (Team 2) at (14, 8) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (13, 8)
+▶ Turn 46: Gigasaurus #101 (Team 1) at (8, 1) | HP: ❤️ 35/50
+  [MOVE] Gigasaurus #101: (9, 1)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 29)
+▶ Turn 47: Healer Mage #102 (Team 1) at (2, 5) | HP: ❤️ 50/50
+  [MOVE] Healer Mage #102: (3, 5) 👣 (4, 5)
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Healer Mage #102 for 3 THUNDER dmg! (❤️ 47)
+  [HEAL] Healer Mage #102  ❤️━━━▶  Envoy of Lightning #100 with 'Mending' (+7 HP | ❤️ 17)
+
+ ╭───────────────────────── 🌟 ROUND 6 HIGHLIGHT 🌟 ─────────────────────────
+ │                                                                           
+ │                      [ H ] ✨ ━━━━━━━▶ 💖 [ E ]
+ │                     ═══════                   ═══════
+ │                   Healer Mage                          Envoy of
+ │                                                       Lightning
+ │                                                                           
+ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
+ │  MINOR CLASHES:                                                           
+ │     [ M ] ❄️━━▶ 💥 [ O ]                [ O ] ✨━━▶ 💖 [ S ]            
+ │    ══════        ══════                ══════        ══════             
+ │    Mage          Oracle                Oracle        Smoke              
+ │    Dragon        of Ages               of Ages       Cloud              
+ ╰───────────────────────────────────────────────────────────────────────────
+
+ ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
+ │
+ │     . . . a < . . . . c . . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . A . . . B . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # ^ - . . . . # # . . #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . . # # . . . . D . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . > C # # . . # # . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . b . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 7 ══════════════════════
-  Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Snowzilla#107, Gigasaurus#101, Healer Mage#102
+  Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
 
-▶ Turn 49: Oracle of Ages #106 (Team 2) at (9, 0) | HP: ❤️ 40/40
-  [MOVE] Oracle of Ages #106: (10, 0) 👣 (11, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Snowzilla #107 with 'Timeoff' (+2 HP | ❤️ 18)
-▶ Turn 50: Envoy of Lightning #100 (Team 1) at (9, 3) | HP: ❤️ 18/40
-  [MOVE] Envoy of Lightning #100: (9, 2) 👣 (10, 2)
-  [ATTACK] Envoy of Lightning #100  👊━━━▶  Megidos #105 (💥 1 dmg | ❤️ 46)
-  [STATUS] Envoy of Lightning #100 suffers 2 damage from BURN! (❤️ 16)
-▶ Turn 51: Smoke Cloud #104 (Team 2) at (5, 2) | HP: ❤️ 17/45
-  [MOVE] Smoke Cloud #104: (4, 2) 👣 (4, 1)
-▶ Turn 52: Mage Dragon #103 (Team 1) at (5, 5) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (4, 5)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Smoke Cloud #104 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 11)
-▶ Turn 53: Megidos #105 (Team 2) at (10, 1) | HP: ❤️ 46/50
-  [MOVE] Megidos #105: (11, 1) 👣 (11, 2)
+▶ Turn 48: Oracle of Ages #106 (Team 2) at (9, 0) | HP: ❤️ 29/40
+  [MOVE] Oracle of Ages #106: (8, 0)
+  [HEAL] Oracle of Ages #106  ❤️━━━▶  Oracle of Ages #106 with 'Timeoff' (+2 HP | ❤️ 31)
+▶ Turn 49: Envoy of Lightning #100 (Team 1) at (5, 1) | HP: ❤️ 17/40
+  [MOVE] Envoy of Lightning #100: (4, 1) 👣 (3, 1)
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 29)
+▶ Turn 50: Smoke Cloud #104 (Team 2) at (3, 0) | HP: ❤️ 29/45
+  [MOVE] Smoke Cloud #104: (2, 0) 👣 (1, 0)
+▶ Turn 51: Mage Dragon #103 (Team 1) at (9, 3) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (8, 3)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 25)
+▶ Turn 52: Megidos #105 (Team 2) at (13, 8) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (12, 8)
+▶ Turn 53: Gigasaurus #101 (Team 1) at (9, 1) | HP: ❤️ 35/50
+  [MOVE] Gigasaurus #101: (8, 1)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 23)
+▶ Turn 54: Healer Mage #102 (Team 1) at (4, 5) | HP: ❤️ 47/50
+  [MOVE] Healer Mage #102: (3, 5) 👣 (3, 6)
   [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
-  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Megidos #105 for 3 THUNDER dmg! (❤️ 43)
-  [ATTACK] Megidos #105  👊━━━▶  Envoy of Lightning #100 (💥 3 dmg | ❤️ 13)
-▶ Turn 54: Snowzilla #107 (Team 2) at (10, 3) | HP: ❤️ 18/28
-  [MOVE] Snowzilla #107: (9, 3) 👣 (9, 2)
-  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
-  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Snowzilla #107 for 3 THUNDER dmg! (❤️ 15)
-  [ATTACK] Snowzilla #107  👊━━━▶  Envoy of Lightning #100 (💥 5 dmg | ❤️ 8)
-▶ Turn 55: Gigasaurus #101 (Team 1) at (5, 3) | HP: ❤️ 50/50
-  [MOVE] Gigasaurus #101: (4, 3) 👣 (4, 2)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Smoke Cloud #104 (💥 3 dmg | ❤️ 8)
-▶ Turn 56: Healer Mage #102 (Team 1) at (0, 5) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (1, 5) 👣 (1, 6)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Healer Mage #102 for 3 THUNDER dmg! (❤️ 44)
+  [HEAL] Healer Mage #102  ❤️━━━▶  Envoy of Lightning #100 with 'Mending' (+7 HP | ❤️ 24)
 
  ╭───────────────────────── 🌟 ROUND 7 HIGHLIGHT 🌟 ─────────────────────────
  │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ S ]
+ │                      [ H ] ✨ ━━━━━━━▶ 💖 [ E ]
  │                     ═══════                   ═══════
- │                   Mage Dragon                       Smoke Cloud
+ │                   Healer Mage                          Envoy of
+ │                                                       Lightning
  │                                                                           
  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
  │  MINOR CLASHES:                                                           
- │     [ S ] 🗡️━━▶ 💥 [ E ]                [ O ] ✨━━▶ 💖 [ S ]            
+ │     [ M ] ❄️━━▶ 💥 [ O ]                [ O ] ✨━━▶ 💖 [ O ]            
  │    ══════        ══════                ══════        ══════             
- │    Snowzill      Envoy of              Oracle        Snowzill           
- │    a             Lightnin              of Ages       a                  
+ │    Mage          Oracle                Oracle        Oracle             
+ │    Dragon        of Ages               of Ages       of Ages            
  ╰───────────────────────────────────────────────────────────────────────────
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . . . > c . . . .       A=Envoy of L (T1)   a=Smoke Clou (T2)
- │     . # # . a . . . . . . v . . . .       B=Gigasaurus (T1)   b=Megidos (T2)
- │     . # . . B . . . . d A b . . . .       C=Healer Mag (T1)   c=Oracle of  (T2)
- │     . . . . ^ . . ~ ~ ^ . . . . . .       D=Mage Drago (T1)   d=Snowzilla (T2)
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . v . . D . . . . . . . . . # . 
- │     . C . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
+ │     . a < . . . . . c . . . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . A < . . . B . . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . . . . . # # . . #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . . # # . . . D . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . v . # # . . # # . . . . # 
+ │     # . . C . # . . . . # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . b . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 8 ══════════════════════
-  Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Snowzilla#107, Gigasaurus#101, Healer Mage#102
+  Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
 
-▶ Turn 57: Oracle of Ages #106 (Team 2) at (11, 0) | HP: ❤️ 40/40
-  [MOVE] Oracle of Ages #106: (10, 0)
+▶ Turn 55: Oracle of Ages #106 (Team 2) at (8, 0) | HP: ❤️ 23/40
+  [MOVE] Oracle of Ages #106: (7, 0)
+  [HEAL] Oracle of Ages #106  ❤️━━━▶  Oracle of Ages #106 with 'Timeoff' (+2 HP | ❤️ 25)
+▶ Turn 56: Envoy of Lightning #100 (Team 1) at (3, 1) | HP: ❤️ 24/40
+  [MOVE] Envoy of Lightning #100: (2, 1) 👣 (1, 1)
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 28)
+▶ Turn 57: Smoke Cloud #104 (Team 2) at (1, 0) | HP: ❤️ 28/45
+  [MOVE] Smoke Cloud #104: (2, 0) 👣 (3, 0)
+▶ Turn 58: Mage Dragon #103 (Team 1) at (8, 3) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (7, 3) 👣 (7, 4)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 19)
+▶ Turn 59: Megidos #105 (Team 2) at (12, 8) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (11, 8) 👣 (11, 9)
+▶ Turn 60: Gigasaurus #101 (Team 1) at (8, 1) | HP: ❤️ 35/50
+  [MOVE] Gigasaurus #101: (7, 1)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 17)
+▶ Turn 61: Healer Mage #102 (Team 1) at (3, 6) | HP: ❤️ 44/50
+  [MOVE] Healer Mage #102: (2, 6) 👣 (1, 6)
   [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
-  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Oracle of Ages #106 for 3 THUNDER dmg! (❤️ 37)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Megidos #105 with 'Ages Ago' (+1 HP | ❤️ 44)
-▶ Turn 58: Envoy of Lightning #100 (Team 1) at (10, 2) | HP: ❤️ 8/40
-  [MOVE] Envoy of Lightning #100: (10, 1)
-  [ATTACK] Envoy of Lightning #100  👊━━━▶  Oracle of Ages #106 (💥 1 dmg | ❤️ 36)
-  [STATUS] Envoy of Lightning #100 suffers 2 damage from BURN! (❤️ 6)
-▶ Turn 59: Smoke Cloud #104 (Team 2) at (4, 1) | HP: ❤️ 8/45
-  [MOVE] Smoke Cloud #104: (3, 1) 👣 (3, 0)
-▶ Turn 60: Mage Dragon #103 (Team 1) at (4, 5) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (3, 5) 👣 (3, 4)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Smoke Cloud #104 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 2)
-▶ Turn 61: Megidos #105 (Team 2) at (11, 2) | HP: ❤️ 44/50
-  [MOVE] Megidos #105: (10, 2)
-  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
-  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Megidos #105 for 3 THUNDER dmg! (❤️ 41)
-  [ATTACK] Megidos #105  👊━━━▶  Envoy of Lightning #100 (💥 3 dmg | ❤️ 3)
-▶ Turn 62: Snowzilla #107 (Team 2) at (9, 2) | HP: ❤️ 15/28
-  [MOVE] Snowzilla #107: (9, 1)
-  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
-  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Snowzilla #107 for 3 THUNDER dmg! (❤️ 12)
-  [ATTACK] Snowzilla #107  👊━━━▶  Envoy of Lightning #100 (💥 3 dmg | ❤️ 0)
-  ☠️ [DEFEATED] Envoy of Lightning #100 was struck down by Snowzilla #107!
-▶ Turn 63: Gigasaurus #101 (Team 1) at (4, 2) | HP: ❤️ 50/50
-  [MOVE] Gigasaurus #101: (3, 2) 👣 (3, 1)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Smoke Cloud #104 (💥 2 dmg | ❤️ 0)
-  ☠️ [DEFEATED] Smoke Cloud #104 was struck down by Gigasaurus #101!
-▶ Turn 64: Healer Mage #102 (Team 1) at (1, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (2, 6) 👣 (3, 6)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Healer Mage #102 for 3 THUNDER dmg! (❤️ 41)
+  [HEAL] Healer Mage #102  ❤️━━━▶  Envoy of Lightning #100 with 'Mending' (+7 HP | ❤️ 31)
 
  ╭───────────────────────── 🌟 ROUND 8 HIGHLIGHT 🌟 ─────────────────────────
  │                                                                           
- │                      [ S ] 🗡️ ━━━━━━━▶ 💥 [ E ]
+ │                      [ H ] ✨ ━━━━━━━▶ 💖 [ E ]
  │                     ═══════                   ═══════
- │                   Snowzilla                            Envoy of
+ │                   Healer Mage                          Envoy of
  │                                                       Lightning
- │                                            ☠️ DEFEATED!
  │                                                                           
  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
  │  MINOR CLASHES:                                                           
- │     [ G ] 🗡️━━▶ 💥 [ S ]                [ M ] ❄️━━▶ 💥 [ S ]            
+ │     [ M ] ❄️━━▶ 💥 [ O ]                [ O ] ✨━━▶ 💖 [ O ]            
  │    ══════        ══════                ══════        ══════             
- │    Gigasaur      Smoke                 Mage          Smoke              
- │    us            Cloud                 Dragon        Cloud              
+ │    Mage          Oracle                Oracle        Oracle             
+ │    Dragon        of Ages               of Ages       of Ages            
  ╰───────────────────────────────────────────────────────────────────────────
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . . . b . . . . .       A=Gigasaurus (T1)   a=Megidos (T2)
- │     . # # A . . . . . c . . . . . .       B=Healer Mag (T1)   b=Oracle of  (T2)
- │     . # . ^ . . . . . . a . . . . .       C=Mage Drago (T1)   c=Snowzilla (T2)
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . C . . . ~ ~ . . . . . . . 
- │     . . . ^ . . . . . . . . . . # . 
- │     . . > B . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
+ │     . . > a . . . c . . . . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # A < . . . . B . . . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . . . . . # # . . #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . . # # . . v . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . D . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . . # # . . # # . . . . # 
+ │     # C < . . # . . . . # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . v . . . # 
+ │     # . . . . # . . . . # b . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 9 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Megidos#105, Snowzilla#107, Gigasaurus#101, Healer Mage#102
+  Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
 
-▶ Turn 65: Oracle of Ages #106 (Team 2) at (10, 0) | HP: ❤️ 36/40
-  [MOVE] Oracle of Ages #106: (9, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Snowzilla #107 with 'Timeoff' (+2 HP | ❤️ 14)
-▶ Turn 66: Mage Dragon #103 (Team 1) at (3, 4) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (4, 4) 👣 (5, 4)
-▶ Turn 67: Megidos #105 (Team 2) at (10, 2) | HP: ❤️ 41/50
-  [MOVE] Megidos #105: (11, 2) 👣 (12, 2)
-▶ Turn 68: Snowzilla #107 (Team 2) at (9, 1) | HP: ❤️ 14/28
-  [MOVE] Snowzilla #107: (8, 1) 👣 (7, 1) 👣 (6, 1)
-▶ Turn 69: Gigasaurus #101 (Team 1) at (3, 1) | HP: ❤️ 50/50
-  [MOVE] Gigasaurus #101: (4, 1) 👣 (5, 1)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Snowzilla #107 (💥 3 dmg | ❤️ 11)
-▶ Turn 70: Healer Mage #102 (Team 1) at (3, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (4, 6) 👣 (5, 6)
+▶ Turn 62: Oracle of Ages #106 (Team 2) at (7, 0) | HP: ❤️ 17/40
+  [MOVE] Oracle of Ages #106: (8, 0) 👣 (9, 0) 👣 (10, 0)
+  [HEAL] Oracle of Ages #106  ❤️━━━▶  Oracle of Ages #106 with 'Timeoff' (+2 HP | ❤️ 19)
+▶ Turn 63: Envoy of Lightning #100 (Team 1) at (1, 1) | HP: ❤️ 31/40
+  [MOVE] Envoy of Lightning #100: (2, 1) 👣 (3, 1)
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 27)
+▶ Turn 64: Smoke Cloud #104 (Team 2) at (3, 0) | HP: ❤️ 27/45
+  [MOVE] Smoke Cloud #104: (2, 0) 👣 (1, 0) 👣 (0, 0)
+▶ Turn 65: Mage Dragon #103 (Team 1) at (7, 4) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (8, 4) 👣 (9, 4) 👣 (9, 3)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 13)
+▶ Turn 66: Megidos #105 (Team 2) at (11, 9) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (12, 9)
+▶ Turn 67: Gigasaurus #101 (Team 1) at (7, 1) | HP: ❤️ 35/50
+  [MOVE] Gigasaurus #101: (8, 1) 👣 (9, 1) 👣 (10, 1)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 11)
+▶ Turn 68: Healer Mage #102 (Team 1) at (1, 6) | HP: ❤️ 41/50
+  [MOVE] Healer Mage #102: (2, 6) 👣 (3, 6)
 
  ╭───────────────────────── 🌟 ROUND 9 HIGHLIGHT 🌟 ─────────────────────────
  │                                                                           
- │                      [ O ] ✨ ━━━━━━━▶ 💖 [ S ]
+ │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ O ]
  │                     ═══════                   ═══════
- │                   Oracle of Ages                      Snowzilla
+ │                   Mage Dragon                    Oracle of Ages
  │                                                                           
  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
  │  MINOR CLASHES:                                                           
- │     [ G ] 🗡️━━▶ 💥 [ S ]            
- │    ══════        ══════             
- │    Gigasaur      Snowzill           
- │    us            a                  
+ │     [ O ] ✨━━▶ 💖 [ O ]                [ G ] 🗡️━━▶ 💥 [ O ]            
+ │    ══════        ══════                ══════        ══════             
+ │    Oracle        Oracle                Gigasaur      Oracle             
+ │    of Ages       of Ages               us            of Ages            
  ╰───────────────────────────────────────────────────────────────────────────
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . . b . . . . . .       A=Gigasaurus (T1)   a=Megidos (T2)
- │     . # # . > A c < - . . . . . . .       B=Healer Mag (T1)   b=Oracle of  (T2)
- │     . # . . . . . . . . . > a . . .       C=Mage Drago (T1)   c=Snowzilla (T2)
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . > C . ~ ~ . . . . . . . 
- │     . . . . . . . . . . . . . . # . 
- │     . . . . > B . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
+ │     a < - . . . . . - > c . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . > A . . . . - > B . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . . . . . # # . . #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . . # # . . . . D . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . - ^ . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . . # # . . # # . . . . # 
+ │     # . > C . # . . . . # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . b . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 10 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Megidos#105, Snowzilla#107, Gigasaurus#101, Healer Mage#102
+  Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
 
-▶ Turn 71: Oracle of Ages #106 (Team 2) at (9, 0) | HP: ❤️ 36/40
-  [MOVE] Oracle of Ages #106: (8, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Snowzilla #107 with 'Timeoff' (+2 HP | ❤️ 13)
-▶ Turn 72: Mage Dragon #103 (Team 1) at (5, 4) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (4, 4)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Snowzilla #107 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 7)
-▶ Turn 73: Megidos #105 (Team 2) at (12, 2) | HP: ❤️ 41/50
-  [MOVE] Megidos #105: (11, 2) 👣 (11, 1)
-▶ Turn 74: Snowzilla #107 (Team 2) at (6, 1) | HP: ❤️ 7/28
-  [MOVE] Snowzilla #107: (6, 0) 👣 (5, 0)
-  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
-  [ATTACK] Snowzilla #107  👊━━━▶  Gigasaurus #101 (💥 2 dmg | ❤️ 48)
-▶ Turn 75: Gigasaurus #101 (Team 1) at (5, 1) | HP: ❤️ 48/50
-  [MOVE] Gigasaurus #101: (4, 1) 👣 (4, 0)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Snowzilla #107 (💥 3 dmg | ❤️ 4)
-▶ Turn 76: Healer Mage #102 (Team 1) at (5, 6) | HP: ❤️ 50/50
+▶ Turn 69: Oracle of Ages #106 (Team 2) at (10, 0) | HP: ❤️ 11/40
+  [MOVE] Oracle of Ages #106: (11, 0) 👣 (12, 0)
+  [HEAL] Oracle of Ages #106  ❤️━━━▶  Oracle of Ages #106 with 'Timeoff' (+2 HP | ❤️ 13)
+▶ Turn 70: Envoy of Lightning #100 (Team 1) at (3, 1) | HP: ❤️ 31/40
+  [MOVE] Envoy of Lightning #100: (2, 1) 👣 (1, 1) 👣 (1, 0)
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 26)
+▶ Turn 71: Smoke Cloud #104 (Team 2) at (0, 0) | HP: ❤️ 26/45
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Smoke Cloud #104 for 3 THUNDER dmg! (❤️ 23)
+  [ATTACK] Smoke Cloud #104  👊━━━▶  Envoy of Lightning #100 (💥 2 dmg | ❤️ 29)
+▶ Turn 72: Mage Dragon #103 (Team 1) at (9, 3) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (9, 2) 👣 (9, 1) 👣 (9, 0)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 7)
+▶ Turn 73: Megidos #105 (Team 2) at (12, 9) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (11, 9) 👣 (11, 8) 👣 (10, 8)
+▶ Turn 74: Gigasaurus #101 (Team 1) at (10, 1) | HP: ❤️ 35/50
+  [MOVE] Gigasaurus #101: (11, 1) 👣 (12, 1)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 5)
+▶ Turn 75: Healer Mage #102 (Team 1) at (3, 6) | HP: ❤️ 41/50
   [MOVE] Healer Mage #102: (4, 6) 👣 (4, 5)
 
  ╭───────────────────────── 🌟 ROUND 10 HIGHLIGHT 🌟 ─────────────────────────
  │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ S ]
+ │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ O ]
  │                     ═══════                   ═══════
- │                   Mage Dragon                         Snowzilla
+ │                   Mage Dragon                    Oracle of Ages
  │                                                                           
  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
  │  MINOR CLASHES:                                                           
- │     [ O ] ✨━━▶ 💖 [ S ]                [ G ] 🗡️━━▶ 💥 [ S ]            
+ │     [ O ] ✨━━▶ 💖 [ O ]                [ S ] 🗡️━━▶ 💥 [ E ]            
  │    ══════        ══════                ══════        ══════             
- │    Oracle        Snowzill              Gigasaur      Snowzill           
- │    of Ages       a                     us            a                  
+ │    Oracle        Oracle                Smoke         Envoy of           
+ │    of Ages       of Ages               Cloud         Lightnin           
  ╰───────────────────────────────────────────────────────────────────────────
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . A c < . b . . . . . . .       A=Gigasaurus (T1)   a=Megidos (T2)
- │     . # # . ^ . . . . . . a . . . .       B=Healer Mag (T1)   b=Oracle of  (T2)
- │     . # . . . . . . . . . ^ . . . .       C=Mage Drago (T1)   c=Snowzilla (T2)
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . C . . ~ ~ . . . . . . . 
- │     . . . . B . . . . . . . . . # . 
- │     . . . . ^ . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
+ │     a A . . . . . . . D . > c . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # ^ - . . . . . . ^ . > B . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . . . | . # # . . #       C=Healer Mag (T1)   c=Oracle of  (T2)
+ │     # . . # # . . . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . C # # . . # # . . . . # 
+ │     # . . . ^ # . . . . # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . b < . . . # 
+ │     # . . . . # . . . . # | . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 11 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Megidos#105, Snowzilla#107, Gigasaurus#101, Healer Mage#102
+  Turn order: Oracle of Ages#106, Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
 
-▶ Turn 77: Oracle of Ages #106 (Team 2) at (8, 0) | HP: ❤️ 36/40
-  [MOVE] Oracle of Ages #106: (9, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Snowzilla #107 with 'Timeoff' (+2 HP | ❤️ 6)
-▶ Turn 78: Mage Dragon #103 (Team 1) at (4, 4) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (3, 4) 👣 (3, 3)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Snowzilla #107 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 0)
-  [PASSIVE] Snowzilla #107 — 'Snowfall' activated! (trigger: ON_DEATH)
-  [PASSIVE AOE] 'Snowfall' from Snowzilla #107 hits Gigasaurus #101 for 15 ICE dmg! (❤️ 33)
-  ☠️ [DEFEATED] Snowzilla #107 was struck down by Mage Dragon #103!
-▶ Turn 79: Megidos #105 (Team 2) at (11, 1) | HP: ❤️ 41/50
-  [MOVE] Megidos #105: (10, 1) 👣 (10, 0)
-▶ Turn 80: Gigasaurus #101 (Team 1) at (4, 0) | HP: ❤️ 33/50
-  [MOVE] Gigasaurus #101: (5, 0) 👣 (6, 0) 👣 (7, 0) 👣 (8, 0)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 34)
-▶ Turn 81: Healer Mage #102 (Team 1) at (4, 5) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (5, 5) 👣 (6, 5)
+▶ Turn 76: Oracle of Ages #106 (Team 2) at (12, 0) | HP: ❤️ 5/40
+  [MOVE] Oracle of Ages #106: (11, 0)
+  [HEAL] Oracle of Ages #106  ❤️━━━▶  Oracle of Ages #106 with 'Timeoff' (+2 HP | ❤️ 7)
+▶ Turn 77: Envoy of Lightning #100 (Team 1) at (1, 0) | HP: ❤️ 29/40
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 22)
+▶ Turn 78: Smoke Cloud #104 (Team 2) at (0, 0) | HP: ❤️ 22/45
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Smoke Cloud #104 for 3 THUNDER dmg! (❤️ 19)
+  [ATTACK] Smoke Cloud #104  👊━━━▶  Envoy of Lightning #100 (💥 2 dmg | ❤️ 27)
+▶ Turn 79: Mage Dragon #103 (Team 1) at (9, 0) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (8, 0)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 1)
+▶ Turn 80: Megidos #105 (Team 2) at (10, 8) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (11, 8) 👣 (12, 8) 👣 (12, 7)
+▶ Turn 81: Gigasaurus #101 (Team 1) at (12, 1) | HP: ❤️ 35/50
+  [MOVE] Gigasaurus #101: (11, 1)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 1 dmg | ❤️ 0)
+  ☠️ [DEFEATED] Oracle of Ages #106 was struck down by Gigasaurus #101!
+▶ Turn 82: Healer Mage #102 (Team 1) at (4, 5) | HP: ❤️ 41/50
+  [MOVE] Healer Mage #102: (3, 5)
 
  ╭───────────────────────── 🌟 ROUND 11 HIGHLIGHT 🌟 ─────────────────────────
  │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ S ]
+ │                      [ G ] 🗡️ ━━━━━━━▶ 💥 [ O ]
  │                     ═══════                   ═══════
- │                   Mage Dragon                         Snowzilla
+ │                   Gigasaurus                     Oracle of Ages
  │                                            ☠️ DEFEATED!
  │                                                                           
  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
  │  MINOR CLASHES:                                                           
- │     [ O ] ✨━━▶ 💖 [ S ]                [ G ] 🗡️━━▶ 💥 [ O ]            
+ │     [ M ] ❄️━━▶ 💥 [ O ]                [ O ] ✨━━▶ 💖 [ O ]            
  │    ══════        ══════                ══════        ══════             
- │    Oracle        Snowzill              Gigasaur      Oracle             
- │    of Ages       a                     us            of Ages            
+ │    Mage          Oracle                Oracle        Oracle             
+ │    Dragon        of Ages               of Ages       of Ages            
  ╰───────────────────────────────────────────────────────────────────────────
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . - - > A b a . . . . .       A=Gigasaurus (T1)   a=Megidos (T2)
- │     . # # . . . . . . . ^ . . . . .       B=Healer Mag (T1)   b=Oracle of  (T2)
- │     . # . . . . . . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . C . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . ^ . . . ~ ~ . . . . . . . 
- │     . . . . . > B . . . . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
+ │     a A . . . . . . D . . . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . . . . . . B . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . . . . . # # . . #       C=Healer Mag (T1)   
+ │     # . . # # . . . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . C . # # . . # # . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . . . . . . . . b . . # 
+ │     # . . . . . . . . . . - ^ . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 12 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+  Turn order: Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
 
-▶ Turn 82: Oracle of Ages #106 (Team 2) at (9, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (9, 1) 👣 (10, 1)
-▶ Turn 83: Mage Dragon #103 (Team 1) at (3, 3) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (4, 3)
-▶ Turn 84: Megidos #105 (Team 2) at (10, 0) | HP: ❤️ 41/50
-  [MOVE] Megidos #105: (9, 0)
-  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
-  [ATTACK] Megidos #105  👊━━━▶  Gigasaurus #101 (💥 1 dmg | ❤️ 32)
-▶ Turn 85: Gigasaurus #101 (Team 1) at (8, 0) | HP: ❤️ 32/50
-  [MOVE] Gigasaurus #101: (8, 1) 👣 (9, 1)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 38)
-▶ Turn 86: Healer Mage #102 (Team 1) at (6, 5) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (7, 5) 👣 (8, 5)
-  [HEAL] Healer Mage #102  ❤️━━━▶  Gigasaurus #101 with 'Mending' (+7 HP | ❤️ 39)
+▶ Turn 83: Envoy of Lightning #100 (Team 1) at (1, 0) | HP: ❤️ 27/40
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 18)
+▶ Turn 84: Smoke Cloud #104 (Team 2) at (0, 0) | HP: ❤️ 18/45
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Smoke Cloud #104 for 3 THUNDER dmg! (❤️ 15)
+  [ATTACK] Smoke Cloud #104  👊━━━▶  Envoy of Lightning #100 (💥 2 dmg | ❤️ 25)
+▶ Turn 85: Mage Dragon #103 (Team 1) at (8, 0) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (7, 0) 👣 (7, 1)
+▶ Turn 86: Megidos #105 (Team 2) at (12, 7) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (11, 7)
+▶ Turn 87: Gigasaurus #101 (Team 1) at (11, 1) | HP: ❤️ 35/50
+  [MOVE] Gigasaurus #101: (10, 1)
+  [SPELL] Gigasaurus #101  💥━━━▶  Gigasaurus #101 with 'Empower' (💥 0 dmg | ❤️ 35)
+  [EFFECT+] Gigasaurus #101 gained 🌀 'ATK_BUFF' for 2 turns
+▶ Turn 88: Healer Mage #102 (Team 1) at (3, 5) | HP: ❤️ 41/50
+  [MOVE] Healer Mage #102: (2, 5) 👣 (1, 5)
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Healer Mage #102 for 3 THUNDER dmg! (❤️ 38)
+  [HEAL] Healer Mage #102  ❤️━━━▶  Envoy of Lightning #100 with 'Mending' (+7 HP | ❤️ 32)
 
  ╭───────────────────────── 🌟 ROUND 12 HIGHLIGHT 🌟 ─────────────────────────
+ │                                                                           
+ │                      [ H ] ✨ ━━━━━━━▶ 💖 [ E ]
+ │                     ═══════                   ═══════
+ │                   Healer Mage                          Envoy of
+ │                                                       Lightning
+ │                                                                           
+ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
+ │  MINOR CLASHES:                                                           
+ │     [ G ] 💥━━▶ 💥 [ G ]                [ S ] 🗡️━━▶ 💥 [ E ]            
+ │    ══════        ══════                ══════        ══════             
+ │    Gigasaur      Gigasaur              Smoke         Envoy of           
+ │    us            us                    Cloud         Lightnin           
+ ╰───────────────────────────────────────────────────────────────────────────
+
+ ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
+ │
+ │     a A . . . . . v . . . . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . . D . . B . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . . . . . . # # . . #       C=Healer Mag (T1)   
+ │     # . . # # . . . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . . . . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # C < . . # # . . # # . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . . . . . . . b . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+══════════════════════ 🔄 ROUND 13 ══════════════════════
+  Turn order: Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+
+▶ Turn 89: Envoy of Lightning #100 (Team 1) at (1, 0) | HP: ❤️ 32/40
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 14)
+▶ Turn 90: Smoke Cloud #104 (Team 2) at (0, 0) | HP: ❤️ 14/45
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Smoke Cloud #104 for 3 THUNDER dmg! (❤️ 11)
+  [ATTACK] Smoke Cloud #104  👊━━━▶  Envoy of Lightning #100 (💥 2 dmg | ❤️ 30)
+▶ Turn 91: Mage Dragon #103 (Team 1) at (7, 1) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (6, 1) 👣 (6, 2)
+▶ Turn 92: Megidos #105 (Team 2) at (11, 7) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (10, 7)
+▶ Turn 93: Gigasaurus #101 (Team 1) at (10, 1) | HP: ❤️ 35/50
+  [MOVE] Gigasaurus #101: (10, 2) 👣 (10, 3) 👣 (10, 4)
+  [EFFECT-] Gigasaurus #101 lost effect 'ATK_BUFF'
+▶ Turn 94: Healer Mage #102 (Team 1) at (1, 5) | HP: ❤️ 38/50
+  [MOVE] Healer Mage #102: (2, 5) 👣 (3, 5)
+
+ ╭───────────────────────── 🌟 ROUND 13 HIGHLIGHT 🌟 ─────────────────────────
+ │                                                                           
+ │                      [ S ] 🗡️ ━━━━━━━▶ 💥 [ E ]
+ │                     ═══════                   ═══════
+ │                   Smoke Cloud                          Envoy of
+ │                                                       Lightning
+ │                                                                           
+ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
+ │  MINOR CLASHES:                                                           
+ │     [ E ] 🗡️━━▶ 💥 [ S ]            
+ │    ══════        ══════             
+ │    Envoy of      Smoke              
+ │    Lightnin      Cloud              
+ ╰───────────────────────────────────────────────────────────────────────────
+
+ ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
+ │
+ │     a A . . . . . . . . . . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . v . . . . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . D . . . | # # . . #       C=Healer Mag (T1)   
+ │     # . . # # . . . . . v # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . . B . . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . > C . # # . . # # . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . . . . . . b . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+══════════════════════ 🔄 ROUND 14 ══════════════════════
+  Turn order: Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+
+▶ Turn 95: Envoy of Lightning #100 (Team 1) at (1, 0) | HP: ❤️ 30/40
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 10)
+▶ Turn 96: Smoke Cloud #104 (Team 2) at (0, 0) | HP: ❤️ 10/45
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Smoke Cloud #104 for 3 THUNDER dmg! (❤️ 7)
+  [ATTACK] Smoke Cloud #104  👊━━━▶  Envoy of Lightning #100 (💥 2 dmg | ❤️ 28)
+▶ Turn 97: Mage Dragon #103 (Team 1) at (6, 2) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (5, 2) 👣 (5, 3)
+▶ Turn 98: Megidos #105 (Team 2) at (10, 7) | HP: ❤️ 50/50
+  [MOVE] Megidos #105: (11, 7) 👣 (11, 6)
+  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
+  [SPELL] Megidos #105  🔥━━━▶  Gigasaurus #101 with 'Pyre Blast' (💥 4 FIRE dmg | ❤️ 31)
+  [EFFECT+] Gigasaurus #101 gained 🔥 'BURN' for 3 turns
+▶ Turn 99: Gigasaurus #101 (Team 1) at (10, 4) | HP: ❤️ 31/50
+  [MOVE] Gigasaurus #101: (11, 4) 👣 (11, 5)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 47)
+  [STATUS] Gigasaurus #101 suffers 2 damage from BURN! (❤️ 29)
+▶ Turn 100: Healer Mage #102 (Team 1) at (3, 5) | HP: ❤️ 38/50
+  [MOVE] Healer Mage #102: (2, 5) 👣 (1, 5)
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Healer Mage #102 for 3 THUNDER dmg! (❤️ 35)
+  [HEAL] Healer Mage #102  ❤️━━━▶  Envoy of Lightning #100 with 'Mending' (+7 HP | ❤️ 35)
+
+ ╭───────────────────────── 🌟 ROUND 14 HIGHLIGHT 🌟 ─────────────────────────
+ │                                                                           
+ │                      [ H ] ✨ ━━━━━━━▶ 💖 [ E ]
+ │                     ═══════                   ═══════
+ │                   Healer Mage                          Envoy of
+ │                                                       Lightning
+ │                                                                           
+ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
+ │  MINOR CLASHES:                                                           
+ │     [ M ] 🔥━━▶ 💥 [ G ]                [ G ] 🗡️━━▶ 💥 [ M ]            
+ │    ══════        ══════                ══════        ══════             
+ │    Megidos       Gigasaur              Gigasaur      Megidos            
+ │                  us                    us                               
+ ╰───────────────────────────────────────────────────────────────────────────
+
+ ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
+ │
+ │     a A . . . . . . . . . . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . . . . . . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # v . . . . . # # . . #       C=Healer Mag (T1)   
+ │     # . . # # D . . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . . . v . . . #       #=Tree   ~=Abyss   >=Path
+ │     # C < . . # # . . # # B . . . # 
+ │     # . . . . # . . . . # b . . . # 
+ │     # . . . . . . . . . . ^ . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+══════════════════════ 🔄 ROUND 15 ══════════════════════
+  Turn order: Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+
+▶ Turn 101: Envoy of Lightning #100 (Team 1) at (1, 0) | HP: ❤️ 35/40
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 6)
+▶ Turn 102: Smoke Cloud #104 (Team 2) at (0, 0) | HP: ❤️ 6/45
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Smoke Cloud #104 for 3 THUNDER dmg! (❤️ 3)
+  [ATTACK] Smoke Cloud #104  👊━━━▶  Envoy of Lightning #100 (💥 2 dmg | ❤️ 33)
+▶ Turn 103: Mage Dragon #103 (Team 1) at (5, 3) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (6, 3) 👣 (6, 2)
+▶ Turn 104: Megidos #105 (Team 2) at (11, 6) | HP: ❤️ 47/50
+  [MOVE] Megidos #105: (12, 6) 👣 (12, 5)
+  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
+  [ATTACK] Megidos #105  👊━━━▶  Gigasaurus #101 (💥 1 dmg | ❤️ 28)
+▶ Turn 105: Gigasaurus #101 (Team 1) at (11, 5) | HP: ❤️ 28/50
+  [MOVE] Gigasaurus #101: (11, 4) 👣 (12, 4)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 44)
+  [STATUS] Gigasaurus #101 suffers 2 damage from BURN! (❤️ 26)
+▶ Turn 106: Healer Mage #102 (Team 1) at (1, 5) | HP: ❤️ 35/50
+  [MOVE] Healer Mage #102: (2, 5) 👣 (3, 5)
+  [HEAL] Healer Mage #102  ❤️━━━▶  Healer Mage #102 with 'Mending' (+7 HP | ❤️ 42)
+
+ ╭───────────────────────── 🌟 ROUND 15 HIGHLIGHT 🌟 ─────────────────────────
+ │                                                                           
+ │                      [ H ] ✨ ━━━━━━━▶ 💖 [ H ]
+ │                     ═══════                   ═══════
+ │                   Healer Mage                       Healer Mage
+ │                                                                           
+ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
+ │  MINOR CLASHES:                                                           
+ │     [ G ] 🗡️━━▶ 💥 [ M ]                [ S ] 🗡️━━▶ 💥 [ E ]            
+ │    ══════        ══════                ══════        ══════             
+ │    Gigasaur      Megidos               Smoke         Envoy of           
+ │    us                                  Cloud         Lightnin           
+ ╰───────────────────────────────────────────────────────────────────────────
+
+ ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
+ │
+ │     a A . . . . . . . . . . . . . #       A=Envoy of L (T1)   a=Smoke Clou (T2)
+ │     # . . . . . . . . . . . . . . #       B=Gigasaurus (T1)   b=Megidos (T2)
+ │     # . . # # . D . . . . # # . . #       C=Healer Mag (T1)   
+ │     # . . # # . ^ . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . . . > B . . #       #=Tree   ~=Abyss   >=Path
+ │     # . > C . # # . . # # . b . . # 
+ │     # . . . . # . . . . # . ^ . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+══════════════════════ 🔄 ROUND 16 ══════════════════════
+  Turn order: Envoy of Lightning#100, Smoke Cloud#104, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+
+▶ Turn 107: Envoy of Lightning #100 (Team 1) at (1, 0) | HP: ❤️ 33/40
+  [ATTACK] Envoy of Lightning #100  👊━━━▶  Smoke Cloud #104 (💥 1 dmg | ❤️ 2)
+▶ Turn 108: Smoke Cloud #104 (Team 2) at (0, 0) | HP: ❤️ 2/45
+  [PASSIVE] Envoy of Lightning #100 — 'Storm Surge' activated! (trigger: ON_TARGETED)
+  [PASSIVE AOE] 'Storm Surge' from Envoy of Lightning #100 hits Smoke Cloud #104 for 2 THUNDER dmg! (❤️ 0)
+  ☠️ [DEFEATED] Smoke Cloud #104 was struck down by Envoy of Lightning #100!
+▶ Turn 109: Mage Dragon #103 (Team 1) at (6, 2) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (7, 2) 👣 (8, 2)
+▶ Turn 110: Megidos #105 (Team 2) at (12, 5) | HP: ❤️ 44/50
+  [MOVE] Megidos #105: (11, 5) 👣 (11, 4)
+  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
+  [ATTACK] Megidos #105  👊━━━▶  Gigasaurus #101 (💥 1 dmg | ❤️ 25)
+▶ Turn 111: Gigasaurus #101 (Team 1) at (12, 4) | HP: ❤️ 25/50
+  [MOVE] Gigasaurus #101: (12, 5) 👣 (11, 5)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 41)
+  [STATUS] Gigasaurus #101 suffers 2 damage from BURN! (❤️ 23)
+  [EFFECT-] Gigasaurus #101 lost effect 'BURN'
+▶ Turn 112: Healer Mage #102 (Team 1) at (3, 5) | HP: ❤️ 42/50
+  [MOVE] Healer Mage #102: (4, 5)
+
+ ╭───────────────────────── 🌟 ROUND 16 HIGHLIGHT 🌟 ─────────────────────────
+ │                                                                           
+ │                      [ E ] 🗡️ ━━━━━━━▶ 💥 [ S ]
+ │                     ═══════                   ═══════
+ │                   Envoy of                          Smoke Cloud
+ │                   Lightning                                    
+ │                                                                           
+ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
+ │  MINOR CLASHES:                                                           
+ │     [ G ] 🗡️━━▶ 💥 [ M ]                [ M ] 🗡️━━▶ 💥 [ G ]            
+ │    ══════        ══════                ══════        ══════             
+ │    Gigasaur      Megidos               Megidos       Gigasaur           
+ │    us                                                us                 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+ ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
+ │
+ │     . A . . . . . . . . . . . . . #       A=Envoy of L (T1)   a=Megidos (T2)
+ │     # . . . . . . . . . . . . . . #       B=Gigasaurus (T1)   
+ │     # . . # # . . > D . . # # . . #       C=Healer Mag (T1)   
+ │     # . . # # . . . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . . . a . . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . C # # . . # # B < . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+══════════════════════ 🔄 ROUND 17 ══════════════════════
+  Turn order: Envoy of Lightning#100, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+
+▶ Turn 113: Envoy of Lightning #100 (Team 1) at (1, 0) | HP: ❤️ 33/40
+  [MOVE] Envoy of Lightning #100: (2, 0) 👣 (3, 0) 👣 (4, 0)
+▶ Turn 114: Mage Dragon #103 (Team 1) at (8, 2) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (9, 2)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 35)
+▶ Turn 115: Megidos #105 (Team 2) at (11, 4) | HP: ❤️ 35/50
+  [MOVE] Megidos #105: (12, 4) 👣 (12, 5)
+  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
+  [ATTACK] Megidos #105  👊━━━▶  Gigasaurus #101 (💥 1 dmg | ❤️ 22)
+▶ Turn 116: Gigasaurus #101 (Team 1) at (11, 5) | HP: ❤️ 22/50
+  [MOVE] Gigasaurus #101: (11, 4) 👣 (12, 4)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 32)
+▶ Turn 117: Healer Mage #102 (Team 1) at (4, 5) | HP: ❤️ 42/50
+  [MOVE] Healer Mage #102: (4, 4) 👣 (5, 4)
+
+ ╭───────────────────────── 🌟 ROUND 17 HIGHLIGHT 🌟 ─────────────────────────
+ │                                                                           
+ │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ M ]
+ │                     ═══════                   ═══════
+ │                   Mage Dragon                           Megidos
+ │                                                                           
+ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
+ │  MINOR CLASHES:                                                           
+ │     [ G ] 🗡️━━▶ 💥 [ M ]                [ M ] 🗡️━━▶ 💥 [ G ]            
+ │    ══════        ══════                ══════        ══════             
+ │    Gigasaur      Megidos               Megidos       Gigasaur           
+ │    us                                                us                 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+ ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
+ │
+ │     . . - > A . . . . . . . . . . #       A=Envoy of L (T1)   a=Megidos (T2)
+ │     # . . . . . . . . . . . . . . #       B=Gigasaurus (T1)   
+ │     # . . # # . . . . D . # # . . #       C=Healer Mag (T1)   
+ │     # . . # # . . . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . > C . . . . . > B . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . . # # . . # # . a . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+══════════════════════ 🔄 ROUND 18 ══════════════════════
+  Turn order: Envoy of Lightning#100, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+
+▶ Turn 118: Envoy of Lightning #100 (Team 1) at (4, 0) | HP: ❤️ 33/40
+  [MOVE] Envoy of Lightning #100: (5, 0) 👣 (6, 0) 👣 (7, 0)
+▶ Turn 119: Mage Dragon #103 (Team 1) at (9, 2) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (10, 2) 👣 (10, 3)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 26)
+▶ Turn 120: Megidos #105 (Team 2) at (12, 5) | HP: ❤️ 26/50
+  [MOVE] Megidos #105: (13, 5) 👣 (13, 4)
+  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
+  [ATTACK] Megidos #105  👊━━━▶  Gigasaurus #101 (💥 1 dmg | ❤️ 21)
+▶ Turn 121: Gigasaurus #101 (Team 1) at (12, 4) | HP: ❤️ 21/50
+  [MOVE] Gigasaurus #101: (12, 5) 👣 (13, 5)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 23)
+▶ Turn 122: Healer Mage #102 (Team 1) at (5, 4) | HP: ❤️ 42/50
+  [MOVE] Healer Mage #102: (6, 4)
+
+ ╭───────────────────────── 🌟 ROUND 18 HIGHLIGHT 🌟 ─────────────────────────
+ │                                                                           
+ │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ M ]
+ │                     ═══════                   ═══════
+ │                   Mage Dragon                           Megidos
+ │                                                                           
+ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
+ │  MINOR CLASHES:                                                           
+ │     [ G ] 🗡️━━▶ 💥 [ M ]                [ M ] 🗡️━━▶ 💥 [ G ]            
+ │    ══════        ══════                ══════        ══════             
+ │    Gigasaur      Megidos               Megidos       Gigasaur           
+ │    us                                                us                 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+ ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
+ │
+ │     . . . . . - > A . . . . . . . #       A=Envoy of L (T1)   a=Megidos (T2)
+ │     # . . . . . . . . . . . . . . #       B=Gigasaurus (T1)   
+ │     # . . # # . . . . . v # # . . #       C=Healer Mag (T1)   
+ │     # . . # # . . . . . D # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . C . . . . . . a . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . . # # . . # # . > B . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+══════════════════════ 🔄 ROUND 19 ══════════════════════
+  Turn order: Envoy of Lightning#100, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+
+▶ Turn 123: Envoy of Lightning #100 (Team 1) at (7, 0) | HP: ❤️ 33/40
+  [MOVE] Envoy of Lightning #100: (8, 0) 👣 (9, 0) 👣 (10, 0)
+▶ Turn 124: Mage Dragon #103 (Team 1) at (10, 3) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (10, 4)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 17)
+▶ Turn 125: Megidos #105 (Team 2) at (13, 4) | HP: ❤️ 17/50
+  [MOVE] Megidos #105: (14, 4) 👣 (14, 5) 👣 (14, 6)
+  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
+  [SPELL] Megidos #105  🔥━━━▶  Gigasaurus #101 with 'Pyre Blast' (💥 4 FIRE dmg | ❤️ 17)
+  [EFFECT+] Gigasaurus #101 gained 🔥 'BURN' for 3 turns
+▶ Turn 126: Gigasaurus #101 (Team 1) at (13, 5) | HP: ❤️ 17/50
+  [MOVE] Gigasaurus #101: (14, 5)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 14)
+  [STATUS] Gigasaurus #101 suffers 2 damage from BURN! (❤️ 15)
+▶ Turn 127: Healer Mage #102 (Team 1) at (6, 4) | HP: ❤️ 42/50
+  [MOVE] Healer Mage #102: (7, 4) 👣 (8, 4)
+
+ ╭───────────────────────── 🌟 ROUND 19 HIGHLIGHT 🌟 ─────────────────────────
+ │                                                                           
+ │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ M ]
+ │                     ═══════                   ═══════
+ │                   Mage Dragon                           Megidos
+ │                                                                           
+ │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
+ │  MINOR CLASHES:                                                           
+ │     [ M ] 🔥━━▶ 💥 [ G ]                [ G ] 🗡️━━▶ 💥 [ M ]            
+ │    ══════        ══════                ══════        ══════             
+ │    Megidos       Gigasaur              Gigasaur      Megidos            
+ │                  us                    us                               
+ ╰───────────────────────────────────────────────────────────────────────────
+
+ ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
+ │
+ │     . . . . . . . . - > A . . . . #       A=Envoy of L (T1)   a=Megidos (T2)
+ │     # . . . . . . . . . . . . . . #       B=Gigasaurus (T1)   
+ │     # . . # # . . . . . . # # . . #       C=Healer Mag (T1)   
+ │     # . . # # . . . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . > C . D . . . | #       #=Tree   ~=Abyss   >=Path
+ │     # . . . . # # . . # # . . . B # 
+ │     # . . . . # . . . . # . . . a # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
+ ╰───────────────────────────────────────────────────────────────────────────
+
+══════════════════════ 🔄 ROUND 20 ══════════════════════
+  Turn order: Envoy of Lightning#100, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
+
+▶ Turn 128: Envoy of Lightning #100 (Team 1) at (10, 0) | HP: ❤️ 33/40
+  [MOVE] Envoy of Lightning #100: (11, 0) 👣 (12, 0) 👣 (13, 0)
+▶ Turn 129: Mage Dragon #103 (Team 1) at (10, 4) | HP: ❤️ 50/50
+  [MOVE] Mage Dragon #103: (11, 4) 👣 (12, 4)
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 8)
+▶ Turn 130: Megidos #105 (Team 2) at (14, 6) | HP: ❤️ 8/50
+  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
+  [ATTACK] Megidos #105  👊━━━▶  Gigasaurus #101 (💥 1 dmg | ❤️ 14)
+▶ Turn 131: Gigasaurus #101 (Team 1) at (14, 5) | HP: ❤️ 14/50
+  [MOVE] Gigasaurus #101: (13, 5) 👣 (13, 6)
+  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 5)
+  [STATUS] Gigasaurus #101 suffers 2 damage from BURN! (❤️ 12)
+▶ Turn 132: Healer Mage #102 (Team 1) at (8, 4) | HP: ❤️ 42/50
+  [MOVE] Healer Mage #102: (9, 4) 👣 (10, 4)
+  [HEAL] Healer Mage #102  ❤️━━━▶  Gigasaurus #101 with 'Mending' (+7 HP | ❤️ 19)
+
+ ╭───────────────────────── 🌟 ROUND 20 HIGHLIGHT 🌟 ─────────────────────────
  │                                                                           
  │                      [ H ] ✨ ━━━━━━━▶ 💖 [ G ]
  │                     ═══════                   ═══════
@@ -592,696 +1134,42 @@
  │                                                                           
  │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
  │  MINOR CLASHES:                                                           
- │     [ G ] 🗡️━━▶ 💥 [ M ]                [ M ] 🗡️━━▶ 💥 [ G ]            
+ │     [ M ] ❄️━━▶ 💥 [ M ]                [ G ] 🗡️━━▶ 💥 [ M ]            
  │    ══════        ══════                ══════        ══════             
- │    Gigasaur      Megidos               Megidos       Gigasaur           
- │    us                                                us                 
+ │    Mage          Megidos               Gigasaur      Megidos            
+ │    Dragon                              us                               
  ╰───────────────────────────────────────────────────────────────────────────
 
  ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
  │
- │     . . . . . . . . . a . . . . . .       A=Gigasaurus (T1)   a=Megidos (T2)
- │     . # # . . . . . > A b . . . . .       B=Healer Mag (T1)   b=Oracle of  (T2)
- │     . # . . . . . . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . C . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . . . . > B . . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 13 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 87: Oracle of Ages #106 (Team 2) at (10, 1) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (10, 0)
-▶ Turn 88: Mage Dragon #103 (Team 1) at (4, 3) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (5, 3) 👣 (6, 3) 👣 (6, 2)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 32)
-▶ Turn 89: Megidos #105 (Team 2) at (9, 0) | HP: ❤️ 32/50
-  [MOVE] Megidos #105: (8, 0) 👣 (8, 1)
-  [PASSIVE] Gigasaurus #101 — 'Tough Skin' activated! (trigger: ON_DAMAGE_TAKEN)
-  [ATTACK] Megidos #105  👊━━━▶  Gigasaurus #101 (💥 1 dmg | ❤️ 38)
-▶ Turn 90: Gigasaurus #101 (Team 1) at (9, 1) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (9, 0) 👣 (8, 0)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 29)
-▶ Turn 91: Healer Mage #102 (Team 1) at (8, 5) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (7, 5)
-
- ╭───────────────────────── 🌟 ROUND 13 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ M ]
- │                     ═══════                   ═══════
- │                   Mage Dragon                           Megidos
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ G ] 🗡️━━▶ 💥 [ M ]                [ M ] 🗡️━━▶ 💥 [ G ]            
- │    ══════        ══════                ══════        ══════             
- │    Gigasaur      Megidos               Megidos       Gigasaur           
- │    us                                                us                 
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . A < b . . . . .       A=Gigasaurus (T1)   a=Megidos (T2)
- │     . # # . . . . . a . . . . . . .       B=Healer Mag (T1)   b=Oracle of  (T2)
- │     . # . . . . C . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . . - ^ ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . . . . B . . . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 14 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 92: Oracle of Ages #106 (Team 2) at (10, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (9, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Megidos #105 with 'Timeoff' (+2 HP | ❤️ 31)
-▶ Turn 93: Mage Dragon #103 (Team 1) at (6, 2) | HP: ❤️ 50/50
-  [MOVE] Mage Dragon #103: (5, 2)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 25)
-▶ Turn 94: Megidos #105 (Team 2) at (8, 1) | HP: ❤️ 25/50
-  [MOVE] Megidos #105: (7, 1) 👣 (6, 1) 👣 (5, 1)
-  [ATTACK] Megidos #105  👊━━━▶  Mage Dragon #103 (💥 2 dmg | ❤️ 48)
-▶ Turn 95: Gigasaurus #101 (Team 1) at (8, 0) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (7, 0) 👣 (6, 0) 👣 (5, 0)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 22)
-▶ Turn 96: Healer Mage #102 (Team 1) at (7, 5) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (7, 6)
-
- ╭───────────────────────── 🌟 ROUND 14 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ M ]
- │                     ═══════                   ═══════
- │                   Mage Dragon                           Megidos
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ O ] ✨━━▶ 💖 [ M ]                [ G ] 🗡️━━▶ 💥 [ M ]            
- │    ══════        ══════                ══════        ══════             
- │    Oracle        Megidos               Gigasaur      Megidos            
- │    of Ages                             us                               
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . A < - . b . . . . . .       A=Gigasaurus (T1)   a=Megidos (T2)
- │     . # # . . a < - . . . . . . . .       B=Healer Mag (T1)   b=Oracle of  (T2)
- │     . # . . . C . . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . . . . . . . . . . . # . 
- │     . . . . . . . B . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 15 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 97: Oracle of Ages #106 (Team 2) at (9, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (8, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Megidos #105 with 'Timeoff' (+2 HP | ❤️ 24)
-▶ Turn 98: Mage Dragon #103 (Team 1) at (5, 2) | HP: ❤️ 48/50
-  [MOVE] Mage Dragon #103: (4, 2) 👣 (3, 2) 👣 (2, 2)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 18)
-▶ Turn 99: Megidos #105 (Team 2) at (5, 1) | HP: ❤️ 18/50
-  [MOVE] Megidos #105: (4, 1) 👣 (3, 1) 👣 (3, 2)
-  [ATTACK] Megidos #105  👊━━━▶  Mage Dragon #103 (💥 2 dmg | ❤️ 46)
-▶ Turn 100: Gigasaurus #101 (Team 1) at (5, 0) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (4, 0) 👣 (3, 0) 👣 (3, 1)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 15)
-▶ Turn 101: Healer Mage #102 (Team 1) at (7, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (6, 6)
-
- ╭───────────────────────── 🌟 ROUND 15 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ M ]
- │                     ═══════                   ═══════
- │                   Mage Dragon                           Megidos
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ O ] ✨━━▶ 💖 [ M ]                [ G ] 🗡️━━▶ 💥 [ M ]            
- │    ══════        ══════                ══════        ══════             
- │    Oracle        Megidos               Gigasaur      Megidos            
- │    of Ages                             us                               
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . v - . . . b . . . . . . .       A=Gigasaurus (T1)   a=Megidos (T2)
- │     . # # A - . . . . . . . . . . .       B=Healer Mag (T1)   b=Oracle of  (T2)
- │     . # C a - . . . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . . . . . . . . . . . # . 
- │     . . . . . . B . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 16 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 102: Oracle of Ages #106 (Team 2) at (8, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (7, 0) 👣 (6, 0) 👣 (5, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Megidos #105 with 'Ages Ago' (+3 HP | ❤️ 18)
-▶ Turn 103: Mage Dragon #103 (Team 1) at (2, 2) | HP: ❤️ 46/50
-  [MOVE] Mage Dragon #103: (2, 3) 👣 (1, 3) 👣 (0, 3)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 12)
-▶ Turn 104: Megidos #105 (Team 2) at (3, 2) | HP: ❤️ 12/50
-  [MOVE] Megidos #105: (2, 2) 👣 (2, 3) 👣 (1, 3)
-  [ATTACK] Megidos #105  👊━━━▶  Mage Dragon #103 (💥 2 dmg | ❤️ 44)
-▶ Turn 105: Gigasaurus #101 (Team 1) at (3, 1) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (3, 2) 👣 (2, 2) 👣 (2, 3)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 9)
-▶ Turn 106: Healer Mage #102 (Team 1) at (6, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (7, 6)
-
- ╭───────────────────────── 🌟 ROUND 16 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ M ]
- │                     ═══════                   ═══════
- │                   Mage Dragon                           Megidos
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ O ] ✨━━▶ 💖 [ M ]                [ G ] 🗡️━━▶ 💥 [ M ]            
- │    ══════        ══════                ══════        ══════             
- │    Oracle        Megidos               Gigasaur      Megidos            
- │    of Ages                             us                               
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . b < - . . . . . . . .       A=Gigasaurus (T1)   a=Megidos (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   b=Oracle of  (T2)
- │     . # v - . . . . . . . . . . . .       C=Mage Drago (T1)   
- │     C a A . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . . . . . . . . . . . # . 
- │     . . . . . . . B . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 17 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 107: Oracle of Ages #106 (Team 2) at (5, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (6, 0)
-▶ Turn 108: Mage Dragon #103 (Team 1) at (0, 3) | HP: ❤️ 44/50
-  [MOVE] Mage Dragon #103: (0, 4) 👣 (0, 5)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 3)
-▶ Turn 109: Megidos #105 (Team 2) at (1, 3) | HP: ❤️ 3/50
-  [MOVE] Megidos #105: (0, 3) 👣 (0, 4)
-  [ATTACK] Megidos #105  👊━━━▶  Mage Dragon #103 (💥 2 dmg | ❤️ 42)
-▶ Turn 110: Gigasaurus #101 (Team 1) at (2, 3) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (1, 3) 👣 (0, 3)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Megidos #105 (💥 3 dmg | ❤️ 0)
-  ☠️ [DEFEATED] Megidos #105 was struck down by Gigasaurus #101!
-▶ Turn 111: Healer Mage #102 (Team 1) at (7, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (8, 6)
-
- ╭───────────────────────── 🌟 ROUND 17 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ G ] 🗡️ ━━━━━━━▶ 💥 [ M ]
- │                     ═══════                   ═══════
- │                   Gigasaurus                            Megidos
- │                                            ☠️ DEFEATED!
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ M ] ❄️━━▶ 💥 [ M ]                [ M ] 🗡️━━▶ 💥 [ M ]            
- │    ══════        ══════                ══════        ══════             
- │    Mage          Megidos               Megidos       Mage               
- │    Dragon                                            Dragon             
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . a . . . . . . . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   
- │     . # . . . . . . . . . . . . . .       C=Mage Drago (T1)   
- │     A < . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     v . . . . . . ~ ~ . . . . . . . 
- │     C . . . . . . . . . . . . . # . 
- │     . . . . . . . . B . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 18 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 112: Oracle of Ages #106 (Team 2) at (6, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (5, 0)
-▶ Turn 113: Mage Dragon #103 (Team 1) at (0, 5) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (1, 5) 👣 (2, 5)
-▶ Turn 114: Gigasaurus #101 (Team 1) at (0, 3) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (1, 3)
-  [SPELL] Gigasaurus #101  💥━━━▶  Gigasaurus #101 with 'Empower' (💥 0 dmg | ❤️ 38)
-  [EFFECT+] Gigasaurus #101 gained 🌀 'ATK_BUFF' for 2 turns
-▶ Turn 115: Healer Mage #102 (Team 1) at (8, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (7, 6)
-
- ╭───────────────────────── 🌟 ROUND 18 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ G ] 💥 ━━━━━━━▶ 💥 [ G ]
- │                     ═══════                   ═══════
- │                   Gigasaurus                         Gigasaurus
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │  (None)
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . a . . . . . . . . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   
- │     . # . . . . . . . . . . . . . .       C=Mage Drago (T1)   
- │     . A . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . > C . . . . . . . . . . . # . 
- │     . . . . . . . B . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 19 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 116: Oracle of Ages #106 (Team 2) at (5, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (6, 0)
-▶ Turn 117: Mage Dragon #103 (Team 1) at (2, 5) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (3, 5)
-▶ Turn 118: Gigasaurus #101 (Team 1) at (1, 3) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (2, 3) 👣 (3, 3) 👣 (4, 3) 👣 (5, 3)
-  [EFFECT-] Gigasaurus #101 lost effect 'ATK_BUFF'
-▶ Turn 119: Healer Mage #102 (Team 1) at (7, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (8, 6)
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . a . . . . . . . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   
- │     . # . . . . . . . . . . . . . .       C=Mage Drago (T1)   
- │     . . - - > A . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . C . . . . . . . . . . # . 
- │     . . . . . . . . B . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 20 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 120: Oracle of Ages #106 (Team 2) at (6, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (7, 0) 👣 (8, 0) 👣 (9, 0)
-▶ Turn 121: Mage Dragon #103 (Team 1) at (3, 5) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (4, 5) 👣 (5, 5) 👣 (6, 5)
-▶ Turn 122: Gigasaurus #101 (Team 1) at (5, 3) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (4, 3)
-  [SPELL] Gigasaurus #101  💥━━━▶  Gigasaurus #101 with 'Empower' (💥 0 dmg | ❤️ 38)
-  [EFFECT+] Gigasaurus #101 gained 🌀 'ATK_BUFF' for 2 turns
-▶ Turn 123: Healer Mage #102 (Team 1) at (8, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (7, 6) 👣 (6, 6)
-
- ╭───────────────────────── 🌟 ROUND 20 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ G ] 💥 ━━━━━━━▶ 💥 [ G ]
- │                     ═══════                   ═══════
- │                   Gigasaurus                         Gigasaurus
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │  (None)
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . - > a . . . . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   
- │     . # . . . . . . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . A . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . - > C . . . . . . . # . 
- │     . . . . . . B < . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
+ │     . . . . . . . . . . . - > A . #       A=Envoy of L (T1)   a=Megidos (T2)
+ │     # . . . . . . . . . . . . . . #       B=Gigasaurus (T1)   
+ │     # . . # # . . . . . . # # . . #       C=Healer Mag (T1)   
+ │     # . . # # . . . . . . # # . . #       D=Mage Drago (T1)   
+ │     # . . . . . . . . > C > D . . #       #=Tree   ~=Abyss   >=Path
+ │     # . . . . # # . . # # . . v . # 
+ │     # . . . . # . . . . # . . B a # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . # . . . . # . . . . # 
+ │     # . . . . # # . . # # . . . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . # # . . . . . . # # . . # 
+ │     # . . . . . . . . . . . . . . # 
+ │     # . . . . . . . . . . . . . . . 
  ╰───────────────────────────────────────────────────────────────────────────
 
 ══════════════════════ 🔄 ROUND 21 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
+  Turn order: Envoy of Lightning#100, Mage Dragon#103, Megidos#105, Gigasaurus#101, Healer Mage#102
 
-▶ Turn 124: Oracle of Ages #106 (Team 2) at (9, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (10, 0)
-▶ Turn 125: Mage Dragon #103 (Team 1) at (6, 5) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (7, 5)
-▶ Turn 126: Gigasaurus #101 (Team 1) at (4, 3) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (5, 3) 👣 (6, 3) 👣 (6, 2) 👣 (7, 2)
-  [EFFECT-] Gigasaurus #101 lost effect 'ATK_BUFF'
-▶ Turn 127: Healer Mage #102 (Team 1) at (6, 6) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (6, 5) 👣 (6, 4)
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . a . . . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   
- │     . # . . . . > A . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . . - + ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . B ~ ~ . . . . . . . 
- │     . . . . . . ^ C . . . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 22 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 128: Oracle of Ages #106 (Team 2) at (10, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (11, 0)
-▶ Turn 129: Mage Dragon #103 (Team 1) at (7, 5) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (8, 5)
-▶ Turn 130: Gigasaurus #101 (Team 1) at (7, 2) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (6, 2)
-  [SPELL] Gigasaurus #101  💥━━━▶  Gigasaurus #101 with 'Empower' (💥 0 dmg | ❤️ 38)
-  [EFFECT+] Gigasaurus #101 gained 🌀 'ATK_BUFF' for 2 turns
-▶ Turn 131: Healer Mage #102 (Team 1) at (6, 4) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (6, 3)
-
- ╭───────────────────────── 🌟 ROUND 22 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ G ] 💥 ━━━━━━━▶ 💥 [ G ]
- │                     ═══════                   ═══════
- │                   Gigasaurus                         Gigasaurus
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │  (None)
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . . a . . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   
- │     . # . . . . A . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . . . B ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . . . . . C . . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 23 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 132: Oracle of Ages #106 (Team 2) at (11, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (12, 0)
-▶ Turn 133: Mage Dragon #103 (Team 1) at (8, 5) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (9, 5)
-▶ Turn 134: Gigasaurus #101 (Team 1) at (6, 2) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (7, 2) 👣 (8, 2) 👣 (9, 2) 👣 (10, 2)
-  [EFFECT-] Gigasaurus #101 lost effect 'ATK_BUFF'
-▶ Turn 135: Healer Mage #102 (Team 1) at (6, 3) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (6, 2)
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . . . a . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   
- │     . # . . . . B - - > A . . . . .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . . . . . . C . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 24 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 136: Oracle of Ages #106 (Team 2) at (12, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (13, 0) 👣 (14, 0)
-▶ Turn 137: Mage Dragon #103 (Team 1) at (9, 5) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (10, 5) 👣 (11, 5)
-▶ Turn 138: Gigasaurus #101 (Team 1) at (10, 2) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (9, 2)
-  [SPELL] Gigasaurus #101  💥━━━▶  Gigasaurus #101 with 'Empower' (💥 0 dmg | ❤️ 38)
-  [EFFECT+] Gigasaurus #101 gained 🌀 'ATK_BUFF' for 2 turns
-▶ Turn 139: Healer Mage #102 (Team 1) at (6, 2) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (7, 2) 👣 (8, 2)
-
- ╭───────────────────────── 🌟 ROUND 24 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ G ] 💥 ━━━━━━━▶ 💥 [ G ]
- │                     ═══════                   ═══════
- │                   Gigasaurus                         Gigasaurus
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │  (None)
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . . . . > a .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   
- │     . # . . . . . > B A . . . . . .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . . . . . . . > C . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 25 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 140: Oracle of Ages #106 (Team 2) at (14, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (15, 0)
-▶ Turn 141: Mage Dragon #103 (Team 1) at (11, 5) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (12, 5)
-▶ Turn 142: Gigasaurus #101 (Team 1) at (9, 2) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (10, 2) 👣 (11, 2) 👣 (12, 2) 👣 (13, 2)
-  [EFFECT-] Gigasaurus #101 lost effect 'ATK_BUFF'
-▶ Turn 143: Healer Mage #102 (Team 1) at (8, 2) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (9, 2)
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . . . . . . a       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . . .       B=Healer Mag (T1)   
- │     . # . . . . . . . B - - > A . .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . . . . 
- │     . . . . . . . . . . . . C . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 26 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 144: Oracle of Ages #106 (Team 2) at (15, 0) | HP: ❤️ 34/40
-  [MOVE] Oracle of Ages #106: (14, 0)
-▶ Turn 145: Mage Dragon #103 (Team 1) at (12, 5) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (13, 5) 👣 (13, 4) 👣 (14, 4)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 28)
-▶ Turn 146: Gigasaurus #101 (Team 1) at (13, 2) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (14, 2) 👣 (14, 1)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 26)
-▶ Turn 147: Healer Mage #102 (Team 1) at (9, 2) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (8, 2)
-
- ╭───────────────────────── 🌟 ROUND 26 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ O ]
- │                     ═══════                   ═══════
- │                   Mage Dragon                    Oracle of Ages
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ G ] 🗡️━━▶ 💥 [ O ]            
- │    ══════        ══════             
- │    Gigasaur      Oracle             
- │    us            of Ages            
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . . . . . a .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . . A .       B=Healer Mag (T1)   
- │     . # . . . . . . B . . . . . ^ .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . > C . 
- │     . . . . . . . . . . . . . | # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 27 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 148: Oracle of Ages #106 (Team 2) at (14, 0) | HP: ❤️ 26/40
-  [MOVE] Oracle of Ages #106: (13, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Oracle of Ages #106 with 'Ages Ago' (+2 HP | ❤️ 28)
-▶ Turn 149: Mage Dragon #103 (Team 1) at (14, 4) | HP: ❤️ 42/50
+▶ Turn 133: Envoy of Lightning #100 (Team 1) at (13, 0) | HP: ❤️ 33/40
+  [MOVE] Envoy of Lightning #100: (14, 0)
+  [SPELL] Envoy of Lightning #100  💥━━━▶  Megidos #105 with 'Lightningbolt' (💥 2 THUNDER dmg | ❤️ 3)
+▶ Turn 134: Mage Dragon #103 (Team 1) at (12, 4) | HP: ❤️ 50/50
   [MOVE] Mage Dragon #103: (13, 4)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 22)
-▶ Turn 150: Gigasaurus #101 (Team 1) at (14, 1) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (13, 1)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 20)
-▶ Turn 151: Healer Mage #102 (Team 1) at (8, 2) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (7, 2)
-
- ╭───────────────────────── 🌟 ROUND 27 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ O ]
- │                     ═══════                   ═══════
- │                   Mage Dragon                    Oracle of Ages
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ O ] ✨━━▶ 💖 [ O ]                [ G ] 🗡️━━▶ 💥 [ O ]            
- │    ══════        ══════                ══════        ══════             
- │    Oracle        Oracle                Gigasaur      Oracle             
- │    of Ages       of Ages               us            of Ages            
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . . . . a . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . . A . .       B=Healer Mag (T1)   
- │     . # . . . . . B . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . . C . . 
- │     . . . . . . . . . . . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 28 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 152: Oracle of Ages #106 (Team 2) at (13, 0) | HP: ❤️ 20/40
-  [MOVE] Oracle of Ages #106: (12, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Oracle of Ages #106 with 'Timeoff' (+2 HP | ❤️ 22)
-▶ Turn 153: Mage Dragon #103 (Team 1) at (13, 4) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (12, 4)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 16)
-▶ Turn 154: Gigasaurus #101 (Team 1) at (13, 1) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (12, 1)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 14)
-▶ Turn 155: Healer Mage #102 (Team 1) at (7, 2) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (6, 2)
-
- ╭───────────────────────── 🌟 ROUND 28 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ O ]
- │                     ═══════                   ═══════
- │                   Mage Dragon                    Oracle of Ages
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ O ] ✨━━▶ 💖 [ O ]                [ G ] 🗡️━━▶ 💥 [ O ]            
- │    ══════        ══════                ══════        ══════             
- │    Oracle        Oracle                Gigasaur      Oracle             
- │    of Ages       of Ages               us            of Ages            
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . . . a . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . . A . . .       B=Healer Mag (T1)   
- │     . # . . . . B . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . . C . . . 
- │     . . . . . . . . . . . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 29 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 156: Oracle of Ages #106 (Team 2) at (12, 0) | HP: ❤️ 14/40
-  [MOVE] Oracle of Ages #106: (11, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Oracle of Ages #106 with 'Timeoff' (+2 HP | ❤️ 16)
-▶ Turn 157: Mage Dragon #103 (Team 1) at (12, 4) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (11, 4)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 10)
-▶ Turn 158: Gigasaurus #101 (Team 1) at (12, 1) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (11, 1)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 8)
-▶ Turn 159: Healer Mage #102 (Team 1) at (6, 2) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (5, 2)
-
- ╭───────────────────────── 🌟 ROUND 29 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ O ]
- │                     ═══════                   ═══════
- │                   Mage Dragon                    Oracle of Ages
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ O ] ✨━━▶ 💖 [ O ]                [ G ] 🗡️━━▶ 💥 [ O ]            
- │    ══════        ══════                ══════        ══════             
- │    Oracle        Oracle                Gigasaur      Oracle             
- │    of Ages       of Ages               us            of Ages            
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . . a . . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . . A . . . .       B=Healer Mag (T1)   
- │     . # . . . B . . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . . C . . . . 
- │     . . . . . . . . . . . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
-
-══════════════════════ 🔄 ROUND 30 ══════════════════════
-  Turn order: Oracle of Ages#106, Mage Dragon#103, Gigasaurus#101, Healer Mage#102
-
-▶ Turn 160: Oracle of Ages #106 (Team 2) at (11, 0) | HP: ❤️ 8/40
-  [MOVE] Oracle of Ages #106: (10, 0)
-  [HEAL] Oracle of Ages #106  ❤️━━━▶  Oracle of Ages #106 with 'Timeoff' (+2 HP | ❤️ 10)
-▶ Turn 161: Mage Dragon #103 (Team 1) at (11, 4) | HP: ❤️ 42/50
-  [MOVE] Mage Dragon #103: (10, 4)
-  [SPELL] Mage Dragon #103  ❄️━━━▶  Oracle of Ages #106 with 'Ice Plume' (💥 6 ICE dmg | ❤️ 4)
-▶ Turn 162: Gigasaurus #101 (Team 1) at (11, 1) | HP: ❤️ 38/50
-  [MOVE] Gigasaurus #101: (10, 1)
-  [ATTACK] Gigasaurus #101  👊━━━▶  Oracle of Ages #106 (💥 2 dmg | ❤️ 2)
-▶ Turn 163: Healer Mage #102 (Team 1) at (5, 2) | HP: ❤️ 50/50
-  [MOVE] Healer Mage #102: (4, 2)
-
- ╭───────────────────────── 🌟 ROUND 30 HIGHLIGHT 🌟 ─────────────────────────
- │                                                                           
- │                      [ M ] ❄️ ━━━━━━━▶ 💥 [ O ]
- │                     ═══════                   ═══════
- │                   Mage Dragon                    Oracle of Ages
- │                                                                           
- │ ┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈ 
- │  MINOR CLASHES:                                                           
- │     [ O ] ✨━━▶ 💖 [ O ]                [ G ] 🗡️━━▶ 💥 [ O ]            
- │    ══════        ══════                ══════        ══════             
- │    Oracle        Oracle                Gigasaur      Oracle             
- │    of Ages       of Ages               us            of Ages            
- ╰───────────────────────────────────────────────────────────────────────────
-
- ╭────────────────────────────── TACTICAL MAP ──────────────────────────────
- │
- │     . . . . . . . . . . a . . . . .       A=Gigasaurus (T1)   a=Oracle of  (T2)
- │     . # # . . . . . . . A . . . . .       B=Healer Mag (T1)   
- │     . # . . B . . . . . . . . . . .       C=Mage Drago (T1)   
- │     . . . . . . . ~ ~ . . . . . . .       #=Tree   ~=Abyss   >=Path
- │     . . . . . . . ~ ~ . C . . . . . 
- │     . . . . . . . . . . . . . . # . 
- │     . . . . . . . . . . . . . # # . 
- │     . . . . . . . . . . . . . . . . 
- ╰───────────────────────────────────────────────────────────────────────────
+  [SPELL] Mage Dragon #103  ❄️━━━▶  Megidos #105 with 'Ice Plume' (💥 3 ICE dmg | ❤️ 0)
+  ☠️ [DEFEATED] Megidos #105 was struck down by Mage Dragon #103!
 
 ╔══════════════════════════════════════════════════════════════╗
 ║             🏆 BATTLE OVER — TEAM 1 WINS! 🏆               ║

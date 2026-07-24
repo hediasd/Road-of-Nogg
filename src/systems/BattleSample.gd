@@ -15,12 +15,12 @@ func _init() -> void:
 		"POS" = Vector2i(1, 1)
 	})
 	monsterTeamCoordinatesList.append({
-		"NAME" = "Emagnus", # Healer
+		"NAME" = "Smoke Cloud", # fire/darkness
 		"TEAM" = 1,
 		"POS" = Vector2i(0, 0)
 	})
 	monsterTeamCoordinatesList.append({
-		"NAME" = "Magedegon", # Ranged/Ice
+		"NAME" = "Oracle of Megnos", # fire/light
 		"TEAM" = 1,
 		"POS" = Vector2i(2, 0)
 	})

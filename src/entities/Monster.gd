@@ -105,3 +105,14 @@ func tick_cooldowns() -> void:
 func record_cast(spell: Spell) -> void:
 	if spell.cooldown > 0:
 		spell_cooldowns[spell.name] = spell.cooldown
+
+func serialize() -> Dictionary:
+	return {
+		"uniqueID": uniqueID,
+		"name": name,
+		"team": team,
+		"position": {"x": position.x, "y": position.y},
+		"hitpoints": hitpoints,
+		"max_hitpoints": max_hitpoints,
+		"spell_cooldowns": spell_cooldowns
+	}

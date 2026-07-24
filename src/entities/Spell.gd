@@ -36,14 +36,14 @@ func _init(parameterDictionary) -> void:
 	range = parameterDictionary["RANGE"] if (parameterDictionary.has("RANGE")) else 1
 	damage = parameterDictionary["DAMAGE"] if (parameterDictionary.has("DAMAGE")) else 0
 	element = parameterDictionary["ELEMENT"] if (parameterDictionary.has("ELEMENT")) else "none"
-	
+
 	if parameterDictionary.has("DAMAGE_LINES"):
 		damage_lines = parameterDictionary["DAMAGE_LINES"]
 		for line in damage_lines:
 			damage += line.get("damage", 0)
 	else:
 		damage_lines = [{"damage": damage, "element": element}]
-		
+
 	targetType = parameterDictionary["TARGET_TYPE"] if (parameterDictionary.has("TARGET_TYPE")) else "single"
 	area_shape = parameterDictionary["AREA_SHAPE"] if (parameterDictionary.has("AREA_SHAPE")) else "circle"
 	heals = parameterDictionary["HEALS"] if (parameterDictionary.has("HEALS")) else false

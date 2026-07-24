@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cxy2b4a506xy0"]
+
+[ext_resource type="Script" uid="uid://h6pq62v73rn5" path="res://src/battle_sim/GodotVisualTest.gd" id="1_test"]
+
+[node name="Battle25D" type="Node3D"]
+script = ExtResource("1_test")
