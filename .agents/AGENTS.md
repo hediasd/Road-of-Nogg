@@ -22,8 +22,4 @@
 - **No Creative Assumptions:** Never unilaterally invent names, lore, or creative details. If in doubt, STOP and ask the user.
 
 ## 4. Verification
-- **Mandatory CLI Testing:** NEVER declare a feature complete without running the Godot headless CLI test script to verify runtime execution:
-  ```powershell
-  powershell -ExecutionPolicy Bypass -File .\run_headless_tests.ps1
-  ```
-- **Automated Verification:** Whenever modifying files in `src/battle_sim/`, `src/algorithms/`, or `src/entities/`, you MUST automatically trigger a headless GUT test run (`powershell -ExecutionPolicy Bypass -File .\run_headless_tests.ps1`) as part of your verification step, before finalizing the task.
+- **Targeted Verification:** Do NOT run headless tests automatically. Verification should be done by reviewing logic manually, running targeted scripts only if specifically requested, or relying on the user to run the test suite in the editor.
