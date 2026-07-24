@@ -22,4 +22,4 @@
 - **No Creative Assumptions:** Never unilaterally invent names, lore, or creative details. If in doubt, STOP and ask the user.
 
 ## 4. Verification
-- **Targeted Verification:** Do NOT run headless tests automatically. Verification should be done by reviewing logic manually, running targeted scripts only if specifically requested, or relying on the user to run the test suite in the editor.
+- **Targeted Verification:** Only run headless tests when modifying the core data simulation (e.g., `BattleSimulator.gd`, `BattleState.gd`, or files in `src/algorithms/`). Do not run headless tests for purely visual tweaks in `GodotVisualAdapter.gd` or shaders. When you DO run them, you MUST wait for the background task to complete and read the resulting log file to verify 0 failures.
