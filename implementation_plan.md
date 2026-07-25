@@ -74,7 +74,7 @@ Exit: simulation folders contain only headless data and logic.
 
 - Refactor in this order: `CombatResolver.gd`, `EntityBrain.gd`,
   `GodotVisualAdapter.gd`, `ConsoleVisualAdapter.gd`, and
-  `GodotVisualTest.gd`.
+  `BattlePresentationController.gd`.
 - Preserve public contracts and verify between extractions.
 - Keep gameplay content data-driven.
 

@@ -59,7 +59,8 @@ Road of Nogg/
 │   │   └── Reference.gd
 │   │
 │   └── systems/                 # Godot-integrated systems (visuals, input, camera)
-│       ├── BattleMaster.gd          # Scene orchestrator (Godot Node)
+│       ├── BattlePresentationController.gd # Canonical scene/pacing controller
+│       ├── BattleMaster.gd          # Legacy rollback scene orchestrator
 │       ├── BattleSample.gd          # Hardcoded test scenario
 │       ├── GameBoardVisual.gd       # Monster sprite management
 │       └── Input.gd, MainCamera.gd, Spin.gd

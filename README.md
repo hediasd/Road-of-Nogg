@@ -11,3 +11,12 @@ You can find detailed design documents outlining the game's mechanics, turn syst
 ## Built With
 - [Godot Engine](https://godotengine.org/) 
 - GDScript
+
+## Runtime
+- Default scene: `scenes/Battle25D.tscn`
+- Canonical simulation: `src/battle_sim/BattleSimulator.gd`
+- Presentation controller: `src/systems/BattlePresentationController.gd`
+- Legacy rollback scene: `scenes/main.tscn`
+
+## Verification
+The GUT 9.4 command-line runner is intentionally isolated after a reproducible Windows crash. See `docs/BACKLOG.md` before opting into another GUT investigation.

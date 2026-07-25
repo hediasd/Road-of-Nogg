@@ -12,7 +12,7 @@ contracts.
 | Battle state, board occupancy, teams, effects, and history | `BattleState` | `BattleBoard` state inside the old scene stack |
 | Turn order, movement, combat, passives, victory, and seeded RNG | `BattleSimulator` and its resolvers | `BattleMaster`, `GameBoardLogic`, and `GameBoardThinker` |
 | Simulation-to-presentation communication | `BattleEvents` and `IBattleVisualAdapter` | Direct calls from `BattleMaster` to `GameBoardVisual` |
-| Godot scene lifecycle, input, camera, animation, and pacing | Presentation code under `src/systems/` | Current `scenes/main.tscn` rollback path |
+| Godot scene lifecycle, input, camera, animation, and pacing | `src/systems/BattlePresentationController.gd` and presentation code under `src/systems/` | `scenes/main.tscn` rollback path |
 
 ### Canonical runtime contract
 
@@ -29,8 +29,9 @@ contracts.
 - `src/systems/BattleMaster.gd` and its direct `GameBoardLogic`,
   `GameBoardThinker`, and `GameBoardVisual` flow are frozen. Bug fixes needed to
   preserve the rollback path are allowed; new gameplay behavior is not.
-- `scenes/main.tscn` still launches the legacy runtime today. This is an explicit
-  temporary rollback state, not architectural authority.
+- `project.godot` launches `scenes/Battle25D.tscn` through the canonical
+  presentation controller. `scenes/main.tscn` remains the explicit legacy
+  rollback entry point, not architectural authority.
 - The legacy stack is not deleted until the new presentation controller can
   load equivalent sample data, spawn all visuals, pace turns, and provide a
   recoverable launch path.
