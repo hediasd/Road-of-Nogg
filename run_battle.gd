@@ -2,13 +2,13 @@ extends SceneTree
 
 func _init() -> void:
 	print("Starting simulation script...")
-	var BattleSimulator = preload("res://src/battle_sim/BattleSimulator.gd")
-	var ConsoleVisualAdapter = preload("res://src/presentation/ConsoleVisualAdapter.gd")
+	var battleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
+	var consoleVisualAdapterScript = preload("res://src/presentation/ConsoleVisualAdapter.gd")
 	
-	var sim = BattleSimulator.new()
+	var sim = battleSimulatorScript.new()
 	sim.loadMap("Forest")
 	
-	var console = ConsoleVisualAdapter.new(sim.state)
+	var console = consoleVisualAdapterScript.new(sim.state)
 	sim.setVisualAdapter(console)
 	sim.setSeed(42)
 	
