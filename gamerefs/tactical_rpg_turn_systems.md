@@ -1,6 +1,11 @@
 # TRPG Reference Index: Comprehensive Mechanics & Systems Taxonomy
 
-A feature-driven architectural reference analyzing turn structures, speed mechanics, action economy, damage scaling, luck, core algorithms, elemental systems, shops, and forging/crafting across classic, modern, and obscure Tactical & Turn-Based RPGs. Designed for **Road of Nogg**.
+A feature-driven reference for Road of Nogg design questions across tactical and
+turn-based RPGs. The roster is centralized here; aspect modules cover only the
+examples relevant to their subject.
+
+Research entries are comparative notes, not implementation authority. Verify a
+specific technical claim against an external source before relying on it in code.
 
 ---
 
@@ -57,29 +62,29 @@ This study analyzes **42 major & obscure RPG and TRPG titles**:
 
 The analysis is split into individual focused modules in the `gamerefs/` folder:
 
-- 📜 [01: Turn Flow & Initiative Order](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_01_turn_flow_and_initiative.md)
-- ⚡ [02: Speed Stat Behavior & Turn Frequency](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_02_speed_and_turn_frequency.md)
-- ⏳ [03: Action Economy & Turn Cost Refunds](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_03_action_economy_and_costs.md)
-- ⚔️ [04: Offensive Stat Scaling & Damage Calculation](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_04_offensive_stats_and_damage.md)
-- 🎲 [05: Luck & Chance Mechanics](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_05_luck_and_chance_mechanics.md)
-- 🛡️ [06: Interactivity, Counter-Attacks & Reactions](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_06_interactivity_and_counters.md)
-- 🧠 [07: Secondary Resource Gauges & Mental Stats](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_07_secondary_resources_and_mental_stats.md)
-- ⚖️ [08: Equipment Weight & Mobility Penalties](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_08_equipment_weight_and_mobility.md)
-- 🧮 [09: Algorithms & Mathematical Models](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_09_algorithms_and_math_models.md)
-- 🔥 [10: Elemental Systems & Affinity Matrices](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_10_elemental_systems_and_affinities.md)
-- 🛒 [11: Shop, Economy & Merchant Systems](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_11_shop_and_economy_systems.md)
-- 🔨 [12: Forging, Crafting & Item Systems](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_12_forging_crafting_and_item_systems.md)
+- 📜 [01: Turn Flow & Initiative Order](./trpg_01_turn_flow_and_initiative.md)
+- ⚡ [02: Speed Stat Behavior & Turn Frequency](./trpg_02_speed_and_turn_frequency.md)
+- ⏳ [03: Action Economy & Turn Cost Refunds](./trpg_03_action_economy_and_costs.md)
+- ⚔️ [04: Offensive Stat Scaling & Damage Calculation](./trpg_04_offensive_stats_and_damage.md)
+- 🎲 [05: Luck & Chance Mechanics](./trpg_05_luck_and_chance_mechanics.md)
+- 🛡️ [06: Interactivity, Counter-Attacks & Reactions](./trpg_06_interactivity_and_counters.md)
+- 🧠 [07: Secondary Resource Gauges & Mental Stats](./trpg_07_secondary_resources_and_mental_stats.md)
+- ⚖️ [08: Equipment Weight & Mobility Penalties](./trpg_08_equipment_weight_and_mobility.md)
+- 🧮 [09: Algorithms & Mathematical Models](./trpg_09_algorithms_and_math_models.md)
+- 🔥 [10: Elemental Systems & Affinity Matrices](./trpg_10_elemental_systems_and_affinities.md)
+- 🛒 [11: Shop, Economy & Merchant Systems](./trpg_11_shop_and_economy_systems.md)
+- 🔨 [12: Forging, Crafting & Item Systems](./trpg_12_forging_crafting_and_item_systems.md)
 
-- 🌲 [13: Environment, Terrain & Weather](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_13_environment_and_weather.md)
-- 📊 [14: Stats & Attributes Progression](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_14_stats_and_attributes.md)
-- 👾 [15: Quirks & Anti-Patterns](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_15_quirks_and_anti_patterns.md)
-- ⌛ [16: Skill Restrictions & Cooldowns](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_16_skill_restrictions_and_cooldowns.md)
-- 🛡️ [17: Defensive Mechanics & Status Effects](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_17_defensive_mechanics_and_status_effects.md)
-- ⬛ [18: Grid Mechanics & Large Monsters](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/trpg_18_grid_mechanics_and_large_monsters.md)
+- 🌲 [13: Environment, Terrain & Weather](./trpg_13_environment_and_weather.md)
+- 📊 [14: Stats & Attributes Progression](./trpg_14_stats_and_attributes.md)
+- 👾 [15: Quirks & Anti-Patterns](./trpg_15_quirks_and_anti_patterns.md)
+- ⌛ [16: Skill Restrictions & Cooldowns](./trpg_16_skill_restrictions_and_cooldowns.md)
+- 🛡️ [17: Defensive Mechanics & Status Effects](./trpg_17_defensive_mechanics_and_status_effects.md)
+- ⬛ [18: Grid Mechanics & Large Monsters](./trpg_18_grid_mechanics_and_large_monsters.md)
 
 ---
 
-## Master Comparison Matrix (41 Games + Road of Nogg Baseline)
+## Master Comparison Matrix
 
 | Game Title | Turn Paradigm | Speed Effect | Primary Damage Formula | Luck Stat Role | Reaction System | Secondary Gauges | Equipment Penalty | Forging & Crafting | Stats & Attributes | Environment & Weather |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |

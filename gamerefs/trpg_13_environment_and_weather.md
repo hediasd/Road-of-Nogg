@@ -68,47 +68,9 @@ Grid tiles have uniform environmental properties with no element surface hazards
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
-
 ## Implementation Takeaways for Road of Nogg
 
-- **To Decide / To Avoid:** (TBD)
-### Master List Checklist Validation
-*(Ensuring all analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
-- Fire Emblem Series (TBD)
-- Final Fantasy Tactics (FFT) (TBD)
-- Tactics Ogre (TBD)
-- Disgaea Series (TBD)
-- Shining Force Series (TBD)
-- TearRing Saga & Berwick Saga (TBD)
-- XCOM / XCOM 2 (TBD)
-- Divinity: Original Sin 1 & 2 (Approach 1.2 Surface Chemistry)
-- Mario + Rabbids Kingdom Battle (Approach 1.6 Destructible Cover & Pipes)
-- Triangle Strategy (TBD)
-- Dofus & Wakfu (TBD)
-- Hoshigami: Ruining Blue Earth (TBD)
-- Stella Deus: The Gate of Eternity (TBD)
-- Energy Breaker (TBD)
-- Breath of Fire Series (TBD)
-- Treasure of the Rudras (TBD)
-- Vandal Hearts Series (TBD)
-- Feda: Emblem of Justice (TBD)
-- Pokemon Series (TBD)
-- Chrono Trigger (TBD)
-- Digimon World 3 (TBD)
-- Dragon Quest 9 (TBD)
-- Ragnarok Online (TBD)
-- MapleStory (TBD)
-- World of Warcraft (TBD)
-- Panzer Dragoon Saga (TBD)
-- Sakura Wars (TBD)
-- Threads of Fate (Dewprism) (TBD)
-- Suikoden Series & Suikoden Tactics (TBD)
-- Vagrant Story (TBD)
-- Phantasy Star Series (TBD)
-- Bahamut Lagoon (Approach 1.2 Surface Element Modifications)
-- Ogre Battle / Ogre Battle 64 (Approach 1.1 Time of Day Cycles)
-- Advance Wars Series (Approach 1.1 Fog of War & Weather)
-- Final Fantasy Tactics Advance (Approach 1.8 Global Field Laws)
-- Super Robot Wars Series (Approach 1.7 Air/Ground/Space Terrain)
-- Road of Nogg (TBD)
+- Current terrain distinguishes clear, line-of-sight-blocking obstacles, and non-walkable abyss tiles.
+- Movement costs, elevation effects, weather, and destructible terrain remain separate future decisions.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

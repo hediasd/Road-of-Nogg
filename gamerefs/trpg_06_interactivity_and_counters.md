@@ -69,4 +69,9 @@ No positional co-op attacks, timeline cancels, or ZOC grid pinning exist.
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+## Implementation Takeaways for Road of Nogg
+
+- No universal counter/reaction phase is currently confirmed.
+- Future reactions should be explicit deterministic resolver events with loop guards.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

@@ -59,4 +59,9 @@ Debuffs that lower combat effectiveness without fully preventing actions.
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+## Implementation Takeaways for Road of Nogg
+
+- Keep affinities and timed effects in authoritative battle state and deterministic history.
+- Generalize stat modifiers before adding many one-off buff or debuff branches.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

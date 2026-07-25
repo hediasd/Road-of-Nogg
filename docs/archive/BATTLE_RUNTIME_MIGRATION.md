@@ -1,6 +1,12 @@
 # Battle Runtime Stabilization and Migration Plan
 
-Status: approved on 2026-07-24.
+Status: closed with documented deviations on 2026-07-25.
+
+Outcome: `BattleSimulator` became the canonical runtime, the default scene was
+migrated, presentation boundaries were restored, and deterministic snapshots
+and focused checks were added. GUT repair and replay deserialization were not
+completed; they are intentionally tracked in the backlog. The former rigid
+300-line rule was replaced by risk-based review.
 
 Architectural decision: `BattleSimulator` is the canonical battle runtime. The
 older `BattleMaster` stack remains available only as a temporary rollback path

@@ -93,38 +93,9 @@ Speed and Agility have zero effect on grid movement distance or escaping adjacen
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
-
 ## Implementation Takeaways for Road of Nogg
 
-- **To Decide / To Avoid:** (TBD)
-### Master List Checklist Validation
-*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
-- Fire Emblem Series (TBD)
-- Final Fantasy Tactics (FFT) (TBD)
-- Tactics Ogre (TBD)
-- Disgaea Series (TBD)
-- Shining Force Series (TBD)
-- TearRing Saga & Berwick Saga (TBD)
-- XCOM / XCOM 2 (TBD)
-- Divinity: Original Sin 1 & 2 (TBD)
-- Mario + Rabbids Kingdom Battle (TBD)
-- Triangle Strategy (TBD)
-- Dofus & Wakfu (TBD)
-- Hoshigami: Ruining Blue Earth (TBD)
-- Stella Deus: The Gate of Eternity (TBD)
-- Energy Breaker (TBD)
-- Breath of Fire Series (TBD)
-- Treasure of the Rudras (TBD)
-- Vandal Hearts Series (TBD)
-- Feda: Emblem of Justice (TBD)
-- Pokemon Series (TBD)
-- Chrono Trigger (TBD)
-- Digimon World 3 (TBD)
-- Dragon Quest 9 (TBD)
-- Ragnarok Online (TBD)
-- MapleStory (TBD)
-- World of Warcraft (TBD)
-- Panzer Dragoon Saga (TBD)
-- Sakura Wars (TBD)
-- Road of Nogg (TBD)
+- SPD currently determines order within each round; it does not grant extra turns or movement.
+- Revisit frequency-based speed only as an explicit turn-system redesign.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

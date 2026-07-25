@@ -70,4 +70,9 @@ No spell coin engraving, TM move crafting, monster poaching, or soul transmutati
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+## Implementation Takeaways for Road of Nogg
+
+- Crafting and item progression remain future systems.
+- When added, recipes and outputs should be data-driven and independently balanceable.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

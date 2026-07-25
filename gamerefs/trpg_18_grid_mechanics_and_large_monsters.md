@@ -45,4 +45,9 @@ Larger monsters often naturally possess longer melee reach (e.g., striking 2 til
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+## Implementation Takeaways for Road of Nogg
+
+- Current monsters occupy one tile.
+- Multi-tile units require a coordinated design for occupancy, pathing, targeting, area effects, and visuals.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

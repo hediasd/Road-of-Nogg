@@ -69,4 +69,9 @@ No secondary skill points, fatigue heat, shield break, or form transformation ga
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+## Implementation Takeaways for Road of Nogg
+
+- No secondary combat gauge is currently confirmed.
+- Add a gauge only with a distinct tactical purpose, serialization, AI valuation, and readable UI.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

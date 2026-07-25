@@ -49,40 +49,9 @@ Status effects that temporarily lock a unit out of casting spells or using skill
 
 ---
 
-## 3. Implementation Takeaways for Road of Nogg
+## Implementation Takeaways for Road of Nogg
 
-- **To Avoid**: Over-relying strictly on MP for balance. If a player finds a way to restore MP infinitely, high-cost OP spells will break the game.
-- **To Decide**: Cooldown Tracking. Currently, Road of Nogg is implementing a simple Turn Cooldown system where a spell (like "Ages Ago") goes on an X-turn cooldown after use, ticking down at the end of each turn alongside active debuff durations. This is simpler to parse than CT (Charge Time) mechanics for a standard round-robin queue.
+- Per-spell turn cooldowns already exist and tick at turn end.
+- Player UI must show remaining cooldown and target validity before command confirmation.
 
----
-
-### Master List Checklist Validation
-*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
-- Fire Emblem Series (1.4, 1.2)
-- Final Fantasy Tactics (FFT) (1.2, 1.3, 2.1)
-- Tactics Ogre (1.2, 1.3, 2.1)
-- Disgaea Series (1.2)
-- Shining Force Series (1.2)
-- TearRing Saga & Berwick Saga (1.4)
-- XCOM / XCOM 2 (1.1, 1.4)
-- Divinity: Original Sin 1 & 2 (1.1, 2.1)
-- Mario + Rabbids Kingdom Battle (1.1)
-- Triangle Strategy (1.4)
-- Dofus & Wakfu (1.3)
-- Hoshigami: Ruining Blue Earth (1.3)
-- Stella Deus: The Gate of Eternity (1.3)
-- Energy Breaker (1.3)
-- Breath of Fire Series (1.2)
-- Treasure of the Rudras (1.2)
-- Vandal Hearts Series (1.2)
-- Feda: Emblem of Justice (1.4)
-- Pokemon Series (1.2)
-- Chrono Trigger (1.2)
-- Digimon World 3 (1.2)
-- Dragon Quest 9 (1.2, 2.1)
-- Ragnarok Online (1.2, 2.1)
-- MapleStory (1.2)
-- World of Warcraft (1.1)
-- Panzer Dragoon Saga (1.3)
-- Sakura Wars (1.3)
-- Road of Nogg (1.1, 3)
+[Back to Master Index](./tactical_rpg_turn_systems.md)

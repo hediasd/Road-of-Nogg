@@ -1,25 +1,33 @@
 # Road of Nogg
 
-A Tactical RPG project built with the Godot Engine.
-
-## Overview
-This repository contains the source code, game design documents, and assets for **Road of Nogg**. It features custom battle simulations, entity AI, A* pathfinding, line-of-sight algorithms, and various tactical RPG systems.
-
-## Documentation
-You can find detailed design documents outlining the game's mechanics, turn systems, elemental affinities, economy, and more in the `gamerefs/` directory.
-
-## Built With
-- [Godot Engine](https://godotengine.org/) 
-- GDScript
+A tactical RPG project built with Godot 4.4.
 
 ## Runtime
+
 - Default scene: `scenes/Battle25D.tscn`
 - Canonical simulation: `src/battle_sim/BattleSimulator.gd`
 - Presentation controller: `src/systems/BattlePresentationController.gd`
 - Legacy rollback scene: `scenes/main.tscn`
 
-## Verification
-- Determinism: `.\Godot_v4.4-stable_win64.exe --headless --path . -s res://run_determinism_check.gd`
-- Seeded battle smoke: `.\Godot_v4.4-stable_win64.exe --headless --path . -s res://run_battle.gd`
+## Documentation
 
-The GUT 9.4 command-line runner remains intentionally isolated after a reproducible Windows crash. See `docs/BACKLOG.md` before opting into another GUT investigation.
+Start with the [documentation index](./docs/README.md). It links the current
+architecture, game design, active playable-battle plan, development commands,
+backlog, durable learnings, and comparative game references.
+
+## Verification
+
+Run checks according to the change risk described in
+[`docs/POLICIES.md`](./docs/POLICIES.md). Verified commands and Windows-specific
+safeguards are in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md).
+
+Common focused checks:
+
+```powershell
+.\Godot_v4.4-stable_win64.exe --headless --disable-crash-handler --path . --rendering-method gl_compatibility --audio-driver Dummy -s res://run_determinism_check.gd
+.\Godot_v4.4-stable_win64.exe --headless --disable-crash-handler --path . --rendering-method gl_compatibility --audio-driver Dummy -s res://run_cursor_check.gd
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_docs.ps1
+```
+
+GUT remains intentionally isolated pending the investigation tracked in the
+[backlog](./docs/BACKLOG.md).

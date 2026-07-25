@@ -1,4 +1,4 @@
-# TRPG Quirks & Anti-Patterns 
+# TRPG Quirks & Anti-Patterns
 
 ## 1. Introduction
 This document collects unique, unintended, or poorly scaling mechanics observed in classic Turn-Based and Tactical RPGs. By identifying these "quirks," we can decide whether to embrace them as nostalgic features (like buff spells dealing 1 damage) or avoid them as design flaws (like infinite grind loops).
@@ -19,7 +19,7 @@ This document collects unique, unintended, or poorly scaling mechanics observed 
 - **True Hit vs. Displayed Hit**: The game rolled 2 RNs (Random Numbers) and averaged them. This meant a displayed 90% hit rate was actually 98%, and a 20% hit rate was actually 8%. This made reliable attacks feel mathematically perfect, but completely hid the actual math from the player.
 
 ### 2.4 Ragnarok Online
-- **The 1-Damage Buff/Debuff**: Many supportive or utility spells in the older engine inherently required a "hit" state to apply their effect. As a result, casting a buff or a hex might deal 1 point of base damage because the damage formula couldn't process an offensive spell type as 0. 
+- **The 1-Damage Buff/Debuff**: Many supportive or utility spells in the older engine inherently required a "hit" state to apply their effect. As a result, casting a buff or a hex might deal 1 point of base damage because the damage formula couldn't process an offensive spell type as 0.
 
 ### 2.5 Panzer Dragoon Saga
 - **Constant 360-Degree Kiting**: The optimal way to play often devolves into endlessly spinning the camera around the enemy to stay in the "Safe Zone" while waiting for gauges to fill, which can make some encounters feel like a dizzying merry-go-round rather than a tactical duel.
@@ -52,43 +52,11 @@ How pathfinding algorithms handle scenarios where a unit's optimal destination i
   - *Architecture:* If the pathing fails completely (e.g., target is out of range AND path is blocked), the unit simply defaults to passing its turn to save computing time.
   - *Execution:* Results in AI units occasionally appearing "brain dead" when faced with complex terrain they cannot navigate.
 
-## 4. Implementation Takeaways for Road of Nogg
-
-- **To Avoid**: Infinite grind loops (EXP/JP should ideally be tied to battle victory or unique actions, not infinitely spammable actions). 
-- **To Decide**: The 1-Damage Buff quirk. Currently, Road of Nogg's `calculateSpellDamage` enforces `max(1, dmg)`. Spells with `0` base damage (like "Empower") deal 1 damage to the caster. This is functionally identical to the RO quirk. We can keep it for flavor, or filter out damage for spells specifically marked as "buffs" in a future patch.
+---
 
 ## Implementation Takeaways for Road of Nogg
 
-- **To Decide / To Avoid:** (TBD)
-### Master List Checklist Validation
-*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
-- Fire Emblem Series (TBD)
-- Final Fantasy Tactics (FFT) (TBD)
-- Tactics Ogre (TBD)
-- Disgaea Series (TBD)
-- Shining Force Series (TBD)
-- TearRing Saga & Berwick Saga (TBD)
-- XCOM / XCOM 2 (TBD)
-- Divinity: Original Sin 1 & 2 (TBD)
-- Mario + Rabbids Kingdom Battle (TBD)
-- Triangle Strategy (TBD)
-- Dofus & Wakfu (TBD)
-- Hoshigami: Ruining Blue Earth (TBD)
-- Stella Deus: The Gate of Eternity (TBD)
-- Energy Breaker (TBD)
-- Breath of Fire Series (TBD)
-- Treasure of the Rudras (TBD)
-- Vandal Hearts Series (TBD)
-- Feda: Emblem of Justice (TBD)
-- Pokemon Series (TBD)
-- Chrono Trigger (TBD)
-- Digimon World 3 (TBD)
-- Dragon Quest 9 (TBD)
-- Ragnarok Online (TBD)
-- MapleStory (TBD)
-- World of Warcraft (TBD)
-- Panzer Dragoon Saga (TBD)
-- Sakura Wars (TBD)
-- Road of Nogg (TBD)
----
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+- Preserve maximum-round and no-action guards for automated battles.
+- Buffs and status effects must use explicit effect paths, never artificial minimum damage to trigger them.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

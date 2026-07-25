@@ -1,25 +1,57 @@
-# Project-Scoped Rules (Road of Nogg)
+# Project Instructions — Road of Nogg
 
-**Role:** You are a Senior Engine Programmer and Game Systems Designer working on *Road of Nogg*. 
+These instructions govern work in this repository. `docs/POLICIES.md` explains
+the rationale; this file is the concise operational contract.
 
-## 1. Absolute Architectural Constraints
-- **Pure-Logic Decoupling:** Scripts in the Simulation layer (`src/battle_sim/`, `src/algorithms/`, `src/entities/`) MUST NEVER inherit from `Node` or import visual Engine classes (`Sprite2D`, `Control`). They must be 100% headless.
-- **Data-Driven Design:** NEVER hardcode gameplay logic branches for specific skills, items, or classes. Content must be pure data entries evaluated by generalized resolvers.
-- **Save/Load & Network Determinism:** NEVER use `get_instance_id()`. Use our custom `uniqueID` integer system.
-- **Deterministic RNG:** NEVER use global `randi()` or `randf()`. All random events must flow through the seeded `RandomNumberGenerator` stored in the `BattleState`.
-- **Signal Architecture:** Visual nodes MUST observe state changes strictly through `BattleEvents.gd` signals or by implementing `IBattleVisualAdapter.gd`. They MUST NEVER mutate simulation state directly.
-- **Godot 4 Standards:** Strictly adhere to Godot 4.3+ GDScript standards (explicit static typing, `@export`, Signal decoupling).
+## Architecture
 
-## 2. AI Workflow & Safety Practices
-- **Safe Editing:** When editing large files (especially Markdown docs), strictly use small, precise line ranges to prevent accidental content truncation.
-- **MANDATORY GIT CHECK:** Before creating any Implementation Plan, you MUST perform a `git status`, clean any temp or leftover files, and `git commit` with meaningful messages covering all the logics implemented on this commit. Never write project code to temporary folders; utility scripts go in `scripts/`.
-- **Fail-Fast:** Do not silently catch critical internal state desyncs; use `assert()` or `push_error()` to fail loudly.
-- **The Scout Rule:** If a script exceeds 300 lines of code or has 3+ levels of deep nesting, proactively pause and recommend a refactor/split.
+- Keep `src/battle_sim/`, `src/algorithms/`, `src/board/`, `src/entities/`,
+  `src/entity_ai/`, and `src/factories/` headless. They may use Godot data
+  types, but must not inherit visual/tree nodes or depend on presentation code.
+- `BattleSimulator` and `BattleState` are the canonical runtime and state.
+- Presentation observes simulation through `BattleEvents` or
+  `IBattleVisualAdapter`; it never mutates battle state directly.
+- Use deterministic `uniqueID` values, never `get_instance_id()`, for gameplay
+  identity. Route gameplay randomness through `BattleState.rng`.
+- Express content as data handled by general resolvers. Prefer composition and
+  small strategies over content-specific branches or unnecessary inheritance.
+- Target Godot 4.4 and use typed GDScript where it improves correctness.
 
-## 3. Knowledge Management Loop
-- **Consult Policies:** You must actively consult `docs/POLICIES.md` before making architectural decisions.
-- **Expand the Backlog:** You must actively append to `docs/BACKLOG.md` when discovering missing systems, edge cases, or enhancement opportunities.
-- **No Creative Assumptions:** Never unilaterally invent names, lore, or creative details. If in doubt, STOP and ask the user.
+## Working safely
 
-## 4. Verification
-- **Targeted Verification:** Only run headless tests when modifying the core data simulation (e.g., `BattleSimulator.gd`, `BattleState.gd`, or files in `src/algorithms/`). Do not run headless tests for purely visual tweaks in `GodotVisualAdapter.gd` or shaders. When you DO run them, you MUST wait for the background task to complete and read the resulting log file to verify 0 failures.
+- Inspect `git status` before substantial work. Preserve changes you do not own;
+  never clean, overwrite, commit, or stash them without authorization.
+- Use a written plan when risk or scope benefits from one, especially for
+  cross-layer changes. A file count alone does not require a plan.
+- Ask before making creative or lore decisions and before materially expanding
+  scope. Resolve ordinary technical details from repository evidence.
+- Fail loudly on critical state desynchronization. Review large or deeply
+  nested code for extraction, but do not stop solely at a numeric threshold.
+- Keep commits focused. Stage only files that belong to the current task.
+
+## Documentation routing
+
+- Start at `docs/README.md`.
+- Consult `docs/POLICIES.md` before architectural or workflow changes.
+- Consult `docs/ARCHITECTURE.md` before changing runtime ownership or data flow.
+- Consult `docs/GAME_DESIGN.md` before changing confirmed gameplay rules.
+- Consult `docs/LEARNINGS.md` when its “When to consult” table matches the task.
+  Add only durable, verified findings with a clear reuse trigger.
+- Add backlog items only when they are actionable, durable, and out of current
+  scope. Do not use the backlog as a stream of incidental ideas.
+- Keep game references maintainable: the master index owns the roster; aspect
+  files cover relevant examples and cite external technical claims.
+
+## Verification
+
+Choose checks by affected risk:
+
+- Documentation only: run `scripts/check_docs.ps1`.
+- Simulation/state/resolvers: run deterministic and focused headless checks.
+- Presentation/cursor/scene: run the relevant focused smoke script and the
+  default-scene smoke check.
+- Cross-layer changes: run both simulation and presentation checks.
+
+Use the verified commands and Windows safeguards in `docs/DEVELOPMENT.md`.
+GUT remains isolated and opt-in until its recorded Windows crash is resolved.
+Do not claim completion without reading the command output and exit code.

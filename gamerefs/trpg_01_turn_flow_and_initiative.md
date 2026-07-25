@@ -121,4 +121,9 @@ No mechanics exist to interrupt, refund, or delay turn queue positions mid-battl
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+## Implementation Takeaways for Road of Nogg
+
+- Keep round-based speed ordering with deterministic ID tie-breaking for the current runtime.
+- Queue refunds, CT delay, and mid-turn interruption are not part of the first playable slice.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

@@ -1,6 +1,6 @@
 # Playable Battle and Setup Flow Plan
 
-Status: draft for approval on 2026-07-25.
+Status: approved direction on 2026-07-25; implementation pending.
 
 ## Goal and defaults
 

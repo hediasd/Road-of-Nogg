@@ -49,4 +49,9 @@ Combats use non-elemental stat calculations or physical weapon triangles instead
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
+## Implementation Takeaways for Road of Nogg
+
+- Keep element keys and affinity multipliers centralized in reference data.
+- UI must expose weakness/resistance outcomes before adding a more complex matrix.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

@@ -117,7 +117,7 @@ The simplest and most transparent formula. Damage is a flat subtraction of Defen
 
 ### Approach 4.2: Fractional & Multiplicative Scaling
 Damage scales logarithmically or fractionally based on attacker and defender level ratios, preventing impenetrable armor walls where 0 damage is dealt.
-* **References:** 
+* **References:**
   - [Bulbapedia: Pokemon Damage Formula](https://bulbapedia.bulbagarden.net/wiki/Damage)
   - [iRO Wiki: Ragnarok Online Attack/Damage Calculation](https://irowiki.org/wiki/ATK)
 * **Games Following This Approach:** *Pokémon Series, Final Fantasy Tactics, Tactics Ogre, Ragnarok Online, MapleStory*
@@ -144,38 +144,9 @@ Damage calculation is multiplied significantly depending on the attacker's 3D po
 
 ---
 
-[Back to Master Index](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md)
-
 ## Implementation Takeaways for Road of Nogg
 
-- **To Decide / To Avoid:** (TBD)
-### Master List Checklist Validation
-*(Ensuring all 26 analyzed reference games + Road of Nogg baseline are accounted for in the sections above)*
-- Fire Emblem Series (TBD)
-- Final Fantasy Tactics (FFT) (TBD)
-- Tactics Ogre (TBD)
-- Disgaea Series (TBD)
-- Shining Force Series (TBD)
-- TearRing Saga & Berwick Saga (TBD)
-- XCOM / XCOM 2 (TBD)
-- Divinity: Original Sin 1 & 2 (TBD)
-- Mario + Rabbids Kingdom Battle (TBD)
-- Triangle Strategy (TBD)
-- Dofus & Wakfu (TBD)
-- Hoshigami: Ruining Blue Earth (TBD)
-- Stella Deus: The Gate of Eternity (TBD)
-- Energy Breaker (TBD)
-- Breath of Fire Series (TBD)
-- Treasure of the Rudras (TBD)
-- Vandal Hearts Series (TBD)
-- Feda: Emblem of Justice (TBD)
-- Pokemon Series (TBD)
-- Chrono Trigger (TBD)
-- Digimon World 3 (TBD)
-- Dragon Quest 9 (TBD)
-- Ragnarok Online (TBD)
-- MapleStory (TBD)
-- World of Warcraft (TBD)
-- Panzer Dragoon Saga (TBD)
-- Sakura Wars (TBD)
-- Road of Nogg (TBD)
+- Keep orthogonal A* aligned with Manhattan distance and deterministic tie behavior.
+- Treat pathing, range, line of sight, and threat maps as reusable pure algorithms.
+
+[Back to Master Index](./tactical_rpg_turn_systems.md)

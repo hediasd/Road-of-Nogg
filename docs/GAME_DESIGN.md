@@ -1,61 +1,71 @@
-# Road of Nogg — Game Design Notes
+# Game Design Baseline
 
-## Genre
-Turn-based Tactical RPG (TRPG), inspired by Final Fantasy Tactics, Fire Emblem, Hoshigami.
+Status: confirmed rules and approved first-playable direction as of 2026-07-25.
+Creative details and balance values not recorded here still require user input.
 
-## Battle Flow
-1. Battle starts with 2 teams (can eventually support more).
-2. Each team has ~5 entities placed on a grid board.
-3. Entities take turns based on speed (highest speed goes first).
-4. On their turn, an entity can: **move first**, then **optionally act** (attack, spell, item).
-5. After the entity finishes, a **TurnWheel** function:
-   - Passes the turn to the next entity.
-   - Any active status effects on the previous entity lose 1 turn of duration.
-   - If an effect reaches 0 remaining turns, it is removed.
-6. When all entities have acted in a round, a new round begins (re-sorted by speed).
-7. Battle ends when all entities of one team are defeated.
+## Battle format
+
+- Battles use a square grid and currently support two teams.
+- The first playable slice is fixed 4v4 with automatic deployment.
+- Setup offers CPU vs CPU by default and Player vs CPU as the interactive mode.
+  Team 1 is the player side in the first slice.
+- Meadow is the default map. The animated sky background loads before the setup
+  overlay so configuration never opens onto a blank scene.
+- Duplicate monsters are allowed but should be discouraged by the UI.
+- Seeded random team presets must be reproducible.
+
+The detailed setup, dropdown, controller, cursor, and delivery decisions are in
+[`PLAYABLE_BATTLE_PLAN.md`](./PLAYABLE_BATTLE_PLAN.md).
+
+## Turn and victory flow
+
+1. A round queues all living entities by speed, highest first. Equal-speed ties
+   use deterministic entity ID order.
+2. On a turn, an entity may move and then optionally attack, cast, or wait.
+3. End-of-turn status/passive processing runs for the acting entity.
+4. When the queue is empty, living entities are sorted again for a new round.
+5. Battle ends when only one team has living entities.
+
+CPU decisions and future player input must converge on the same validated
+command contract. A controller proposes a command; the simulator validates,
+executes, and records it.
 
 ## Actions
-- **Move**: A* pathfinding across the board. Movement range depends on entity MOVE stat.
-- **Basic Attack**: Always available. Range 1 (melee/adjacent). Uses ATK stat.
-- **Spell**: Uses the entity's spell set. Each spell has range, radius, damage, element.
-- **Item**: (Future) Use consumable items.
-- **Wait/Defend**: (Future) End turn early, possibly with a defense bonus.
 
-## Damage Formula
-- Basic: `max(1, attacker.atk + spell.damage - target.def)`
-- To be iterated on.
+- **Move:** Orthogonal grid pathfinding, limited by MOVE.
+- **Basic attack:** Always available, currently adjacent/melee and based on ATK.
+- **Spell:** Uses a monster’s spell set with range, area, effect, and element.
+- **Wait:** Completes a turn without an attack or spell.
+- **Items and defend:** Future systems, not first-slice blockers.
 
-## Board, Terrain & Obstacles
-- Square grid.
-- **Clear Tiles (`TERRAIN_CLEAR`)**: Standard walkable tiles that do not block Line of Sight (LoS).
-- **Hard Obstacles (`TERRAIN_OBSTACLE`)**: Things like Trees, Walls, and Pillars. These tiles cannot be walked on (unwalkable) AND they completely block Line of Sight for ranged spells.
-- **Soft Obstacles (`TERRAIN_ABYSS`)**: Things like Water, Pits, or Chasms. These tiles cannot be walked on (unwalkable), but they DO NOT block Line of Sight. Units can fire ranged attacks directly over them.
-- Future additions may include move-cost modifiers (e.g. mud) and elevation (e.g. high ground).
+The current basic damage floor is expressed as
+`max(1, attacker.atk + action_power - target.def)`. Resolver-specific elemental,
+passive, multi-hit, healing, and status behavior may modify the result.
 
-## Teams
-- Team 1: Player-controlled (later; AI-controlled for testing).
-- Team 2: Computer-controlled.
-- Each entity has a "brain" (AI module) that decides actions.
+## Board and terrain
 
-## Elements
-- Elements dictate spell types and elemental affinities (resistances/weaknesses).
-- Current standard elements: `fire`, `ice`, `wood`, `steel`, `darkness`, `light`, `earth`, `water`, `thunder`, `none`.
+- `TERRAIN_CLEAR`: walkable and does not block line of sight.
+- `TERRAIN_OBSTACLE`: unwalkable and blocks line of sight.
+- `TERRAIN_ABYSS`: unwalkable but does not block line of sight.
+- Movement costs, elevation effects, facing, and manual deployment are future
+  extensions.
 
-## Entities
-- Identified by unique ID.
-- Stats: HP, ATK, DEF, SPD, MOVE.
-- Can have multiple spell sets (loadouts).
+## Entities and elements
 
-## References & Inspiration
-- See [tactical_rpg_turn_systems.md](file:///c:/Users/Henri/Documents/Road%20of%20Nogg/gamerefs/tactical_rpg_turn_systems.md) for a detailed comparative study of turn paradigms, speed sorting, CT/WT systems, and action economy across Fire Emblem, Final Fantasy Tactics, Hoshigami, Tactics Ogre, Disgaea, and more.
+Entities have deterministic IDs and currently expose HP, ATK, DEF, SPD, MOVE,
+team, position, spell sets, passive data, and elemental affinities. Current
+standard element keys are `fire`, `ice`, `wood`, `steel`, `darkness`, `light`,
+`earth`, `water`, `thunder`, and `none`.
 
----
+## Scalability constraints
 
-## Future Scalability & Engine Architecture
-To ensure the engine can support advanced future features, the architectural foundation strictly follows these constraints:
-- **Pure Logic Decoupling**: The battle engine (BattleSimulator, BattleState, and Resolvers) has zero dependencies on Godot's `Node` tree or visual representation, operating purely on data structures.
-- **Serialization (Savestates)**: All `BattleState` data (including logs, effect durations, and stats) must be strictly serializable (e.g., to JSON). This guarantees that we can implement suspend-saves, replay viewers, and mid-battle reloading flawlessly in the future.
-- **Input Abstraction**: Instead of hardcoding AI execution, `BattleSimulator.executeTurn()` queries an abstracted `Brain` interface. In the future, we will swap `EntityBrain` out with a `PlayerInputBrain` to allow real players to control teams, and a `NetworkBrain` to support PvP over the internet using deterministic input syncing.
+- Simulation is headless and separate from presentation.
+- Base reference data stays immutable during battle.
+- Seeds, IDs, commands, effects, and state required for replay must remain
+  serializable.
+- Local Player vs Player, online play, inventory, and manual deployment follow
+  the first Player vs CPU slice.
 
-*Last updated: 2026-07-22*
+Comparative research is indexed in
+[`gamerefs/tactical_rpg_turn_systems.md`](../gamerefs/tactical_rpg_turn_systems.md).
+It informs design but does not override confirmed Road of Nogg decisions.
