@@ -19,6 +19,7 @@ The AI will proactively add suggestions here when observing technical debt, miss
   - *Impacts & Risks:* Major architectural change to the visual rendering tree (`Battle25D.tscn` / `GodotVisualAdapter`). We must be careful about performance overhead (extra viewport rendering) and ensure we can dynamically mask specific IDs (via visual layers/cull masks) so only the selected unit gets the outline.
 
 ## Code Quality & Cleanup
+- **Archived Retro3D Prototype Shells**: `scenes/prototypes/Retro3DMapPrototype.tscn` and `Retro3DVisualTest.tscn` are inert placeholders because their original scripts were already absent. Restore purpose-built scripts or remove the shells in a future explicitly approved cleanup.
 - **Clean Up Factory Preloads**: Ensure all `preload()` references match the actual folder structure strictly, even though Godot's `class_name` currently masks path inaccuracies.
 - **Data-Driven AI Brain Registry**: Replace `BattleSimulator._resolveBrainClass()`
   hardcoded class-name branches with a validated registry or factory. Monster

@@ -4,11 +4,14 @@
 
 extends Node
 
+const LegacyGameBoardLogicScript = preload("res://src/systems/legacy/GameBoardLogic.gd")
+const LegacyGameBoardThinkerScript = preload("res://src/systems/legacy/GameBoardThinker.gd")
+
 var battleSample
 var battleBoard
 
-@export var gameBoardLogic:GameBoardLogic
-@export var gameBoardThinker:GameBoardThinker
+@export var gameBoardLogic: Node
+@export var gameBoardThinker: Node
 @export var gameBoardVisual:GameBoardVisual
 
 var monsterFactory
@@ -23,8 +26,8 @@ func _ready() -> void:
 	battleSample = BattleSample.new()
 	battleBoard = BattleBoard.new(battleSample.get("boardSize"))
 
-	gameBoardLogic = GameBoardLogic.new(battleBoard)
-	gameBoardThinker = GameBoardThinker.new(battleBoard)
+	gameBoardLogic = LegacyGameBoardLogicScript.new(battleBoard)
+	gameBoardThinker = LegacyGameBoardThinkerScript.new(battleBoard)
 	#gameBoardVisual = GameBoardVisual.new()
 
 	add_child(gameBoardLogic)

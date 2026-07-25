@@ -42,7 +42,8 @@ Road of Nogg/
 │   ├── presentation/            # Simulation observers and Godot presentation
 │   │   ├── GodotVisualAdapter.gd   # 3D event adapter
 │   │   ├── BattleCameraController.gd # Tactical camera controls
-│   │   └── ConsoleVisualAdapter.gd # Console/file event adapter
+│   │   ├── ConsoleVisualAdapter.gd # Console/file event adapter
+│   │   └── legacy/Grid.gd          # Archived visual grid mesh
 │   │
 │   ├── entity_ai/               # AI brain modules for entities
 │   │   ├── EntityBrain.gd           # Base brain class (interface)
@@ -50,8 +51,7 @@ Road of Nogg/
 │   │
 │   ├── board/                   # Grid data structures
 │   │   ├── BattleBoard.gd           # Multi-layer grid state
-│   │   ├── Matrix.gd                # 2D array helper
-│   │   └── Grid.gd                  # Visual grid mesh
+│   │   └── Matrix.gd                # 2D array helper
 │   │
 │   ├── entities/                # Data models
 │   │   ├── Monster.gd               # Unit/entity data class
@@ -65,6 +65,8 @@ Road of Nogg/
 │   └── systems/                 # Godot-integrated systems (visuals, input, camera)
 │       ├── BattlePresentationController.gd # Canonical scene/pacing controller
 │       ├── BattleMaster.gd          # Legacy rollback scene orchestrator
+│       ├── legacy/GameBoardLogic.gd # Legacy rollback board mutation Node
+│       ├── legacy/GameBoardThinker.gd # Legacy rollback AI Node
 │       ├── BattleSample.gd          # Hardcoded test scenario
 │       ├── GameBoardVisual.gd       # Monster sprite management
 │       └── Input.gd, MainCamera.gd, Spin.gd

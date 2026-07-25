@@ -1,6 +1,0 @@
-[gd_scene load_steps=2 format=3 uid="uid://dgeai2bicn1pp"]
-
-[ext_resource type="Script" path="res://src/battle_sim/Retro3DVisualTest.gd" id="1_rvt"]
-
-[node name="Retro3DVisualTest" type="Node3D"]
-script = ExtResource("1_rvt")
