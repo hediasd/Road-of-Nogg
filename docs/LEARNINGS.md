@@ -14,6 +14,7 @@ This document tracks learned patterns, gotchas, and specific implementations reg
 - **State Consolidation**: Entity position was previously tracked both in `BattleBoard` and the `Monster` object. The `BattleState` now consolidates this as the Single Source of Truth to prevent desyncs.
 
 ## Tactical UI & Console Formatting
+- **Cursor Represents Intent, Not Animation**: The tactical cursor is a discrete cell marker. It snaps to a movement destination, then to an attack, spell, or heal target as soon as that intent is committed. It must never interpolate alongside a model or infer action targets from animation state.
 - **ASCII/Emoji Grid Alignment**: Mixing emojis (like 🔵, 🔴, 🌲) with standard ASCII box-drawing characters (─, │) causes severe alignment issues across different operating systems and text editors because emojis render as 1, 1.5, or 2 columns wide depending on the environment.
 - **Pure ASCII Solution**: Dropping emojis in the grid and using standard 1-byte monospace ASCII (`.`, `#`, `1`, `A`) guarantees mathematical precision in every terminal.
 - **Dynamic Legends**: Assigning a unique `A-Z` / `a-z` character identifier per entity creates a perfectly aligned, readable tactical map when paired with a side-by-side 2-column legend.

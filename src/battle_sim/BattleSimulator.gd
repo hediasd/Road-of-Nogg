@@ -177,12 +177,16 @@ func executeTurn(monsterID: int) -> bool:
 
 	# Phase 1: Move
 	if decision.has("move_path") and not decision["move_path"].is_empty():
+		events.movement_targeted.emit(monsterID, decision["move_path"].back())
 		movementResolver.executeMove(monsterID, decision["move_path"])
 		acted = true
 
 	# Phase 2: Act
 	var action = decision.get("action", "wait")
 	var targetID = decision.get("target_id", -1)
+
+	if action in ["attack", "spell"] and targetID != -1:
+		events.action_targeted.emit(monsterID, targetID, action)
 
 	if action == "attack" and targetID != -1:
 		combatResolver.executeBasicAttack(monsterID, targetID)

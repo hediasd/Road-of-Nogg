@@ -66,9 +66,11 @@ cancel, wait, and end-turn actions.
 
 ### Cursor ownership
 
-BattleCursorController owns one cursor animation and distinct modes for AI turn
-indication, player tile selection, and targeting. Changing owner or mode
-cancels older animation. AI events may not move a player-owned cursor.
+BattleCursorController owns a discrete grid intent with distinct modes for AI
+turn indication, movement destination, player tile selection, and action
+targeting. It never follows a model continuously between cells: movement snaps
+it to the destination cell, while attack, spell, or heal intent snaps it to the
+target cell.
 
 Mouse is the first input target, but cursor APIs should remain compatible with
 keyboard and gamepad navigation.

@@ -15,7 +15,9 @@ func connectToEvents(battleEvents: BattleEvents) -> void:
 	battleEvents.monster_skipped_turn.connect(_on_monster_skipped_turn)
 	battleEvents.turn_ended.connect(_on_turn_ended)
 	battleEvents.monster_spawned.connect(_on_monster_spawned)
+	battleEvents.movement_targeted.connect(_on_movement_targeted)
 	battleEvents.monster_moved.connect(_on_monster_moved)
+	battleEvents.action_targeted.connect(_on_action_targeted)
 	battleEvents.monster_attacked.connect(_on_monster_attacked)
 	battleEvents.monster_cast_spell.connect(_on_monster_cast_spell)
 	battleEvents.monster_healed.connect(_on_monster_healed)
@@ -39,7 +41,9 @@ func _on_turn_started(_monsterID: int, _roundNumber: int, _turnNumber: int) -> v
 func _on_monster_skipped_turn(_monsterID: int, _reason: String) -> void: pass
 func _on_turn_ended(_monsterID: int) -> void: pass
 func _on_monster_spawned(_monsterID: int, _name: String, _team: int, _pos: Vector2i, _stats: Dictionary) -> void: pass
+func _on_movement_targeted(_monsterID: int, _destination: Vector2i) -> void: pass
 func _on_monster_moved(_monsterID: int, _path: Array) -> void: pass
+func _on_action_targeted(_monsterID: int, _targetID: int, _action: String) -> void: pass
 func _on_monster_attacked(_attackerID: int, _targetID: int, _damage: int, _targetNewHP: int) -> void: pass
 func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, damageLines: Array, targetNewHP: int) -> void: pass
 func _on_monster_healed(_healerID: int, _targetID: int, _spellName: String, _healAmount: int, _targetNewHP: int) -> void: pass

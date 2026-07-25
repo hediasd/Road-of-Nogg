@@ -160,6 +160,11 @@ func _on_turn_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> vo
 		_cursor_controller.focusTurn(m.position)
 
 
+func _on_movement_targeted(monsterID: int, destination: Vector2i) -> void:
+	if state.currentMonsterID == monsterID and state.withinBounds(destination):
+		_cursor_controller.focusMovementDestination(destination)
+
+
 func _on_monster_moved(monsterID: int, path: Array) -> void:
 	if not _monster_visuals.has(monsterID) or path.is_empty(): return
 	var mi = _monster_visuals[monsterID]
@@ -172,17 +177,20 @@ func _on_monster_moved(monsterID: int, path: Array) -> void:
 		target_pos.y = 0.2
 		tween.tween_property(mi, "position", target_pos, 0.2)
 
-	if (
-		_cursor_controller.mode == BattleCursorControllerScript.Mode.TURN_INDICATOR
-		and state.currentMonsterID == monsterID
-	):
-		_cursor_controller.animateTurnPath(path, state.getMonsterPosition(monsterID))
+	if state.currentMonsterID == monsterID:
+		_cursor_controller.focusMovementDestination(state.getMonsterPosition(monsterID))
 
-# We do not await the visual tweens; cursor ownership prevents overlap.
+# The model follows its path visually; the cursor teleports to the destination.
+
+func _on_action_targeted(monsterID: int, targetID: int, _action: String) -> void:
+	if state.currentMonsterID == monsterID:
+		_focus_cursor_on_target(targetID)
+
 
 func _on_monster_attacked(attackerID: int, targetID: int, _damage: int, _targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
 	if target:
+		_focus_cursor_on_target(targetID)
 		_update_right_ui("TARGET:\n%s\nTakes %s Damage\nHP Left: %s" % [target.name, _damage, _targetNewHP])
 		_log("Attacks %s for %s damage! (HP: %s)" % [target.name, _damage, _targetNewHP])
 	_play_bump_animation(attackerID, targetID)
@@ -194,9 +202,25 @@ func _on_monster_cast_spell(casterID: int, targetID: int, _spellName: String, da
 	for d in damageLines: total_dmg += d.get("damage", 0)
 
 	if target:
+		_focus_cursor_on_target(targetID)
 		_update_right_ui("SPELL TARGET:\n%s\nTakes %s Dmg from %s\nHP Left: %s" % [target.name, total_dmg, _spellName, _targetNewHP])
 		_log("Casts %s on %s for %s damage! (HP: %s)" % [_spellName, target.name, total_dmg, _targetNewHP])
 	_play_bump_animation(casterID, targetID)
+
+
+func _on_monster_healed(_healerID: int, targetID: int, spellName: String, healAmount: int, targetNewHP: int) -> void:
+	var target = state.getMonster(targetID)
+	if target:
+		_focus_cursor_on_target(targetID)
+		_update_right_ui("HEAL TARGET:\n%s\nRecovers %s HP from %s\nHP: %s" % [
+			target.name, healAmount, spellName, targetNewHP
+		])
+
+
+func _focus_cursor_on_target(monsterID: int) -> void:
+	var targetPos = state.getMonsterPosition(monsterID)
+	if state.withinBounds(targetPos):
+		_cursor_controller.focusTarget(targetPos)
 
 
 func _on_monster_defeated(monsterID: int, killerID: int) -> void:
