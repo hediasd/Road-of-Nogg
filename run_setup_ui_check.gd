@@ -14,7 +14,7 @@ func _run() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
-	scene.retro_renderer.set_options(true, true, true, false)
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
 	scene._sync_rendering_options()
 
 	if scene.retro_renderer.world_viewport.size != Vector2i(320, 240):
@@ -89,7 +89,7 @@ func _run() -> void:
 		_fail("affine texture mapping was not enabled independently")
 		return
 
-	scene.retro_renderer.set_options(false, false, false, false)
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_CLEAN, false)
 	await process_frame
 	var nativeSize = Vector2i(scene.get_viewport().get_visible_rect().size)
 	if scene.retro_renderer.world_viewport.size != nativeSize:
@@ -98,7 +98,15 @@ func _run() -> void:
 	if retroMaterial.get_shader_parameter("vertex_snap_enabled"):
 		_fail("clean mode did not disable vertex jitter")
 		return
-	scene.retro_renderer.set_options(true, true, true, false)
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_CRT, false)
+	await process_frame
+	if scene.retro_renderer.world_viewport.size != Vector2i(640, 480):
+		_fail("CRT preset did not use its lighter 640x480 render target")
+		return
+	if not scene.retro_renderer.crt_overlay.visible:
+		_fail("CRT preset did not enable the CRT display pass")
+		return
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
 	await process_frame
 	if scene.battle_ui["canvas"].find_children("*", "OptionButton", true, false).size() != 1:
 		_fail("battle HUD contains rendering dropdowns beyond the spell selector")

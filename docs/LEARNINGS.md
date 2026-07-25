@@ -151,5 +151,11 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   aspect-preserving display rectangle. Forward camera input deliberately and
   query physics through the isolated world root. A shader that writes
   POSITION must assign a valid clip-space value on every path.
+- **Verified observation:** Screen-space vertex snapping also ran during the
+  directional-light shadow pass and produced broad diagonal bands across the
+  battlefield.
+- **Reusable rule:** Keep real-time shadow casting disabled for snapped world
+  materials unless a separate shadow-safe pass is implemented and visually
+  verified.
 - **Review when:** changing viewport resolution, letterboxing, camera controls,
-  mouse picking, world shaders, or the UI/world composition.
+  mouse picking, world shaders, shadows, or the UI/world composition.

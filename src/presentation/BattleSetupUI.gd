@@ -83,10 +83,10 @@ static func build(
 	content.add_child(renderingGrid)
 	var renderModeOption = _addOptionRow(
 		renderingGrid,
-		"World",
-		["PS1 320x240", "Clean native"],
-		["ps1", "clean"],
-		"Render only the 3D world at PS1 resolution; UI remains native."
+		"Look",
+		["PS1 Soft", "Retro Light", "PS1 Classic", "CRT", "Clean"],
+		["ps1_soft", "retro_light", "ps1_classic", "crt", "clean"],
+		"Quick visual presets. Only the 3D world is affected."
 	)
 	var geometryOption = _addOptionRow(
 		renderingGrid,
@@ -104,7 +104,9 @@ static func build(
 	)
 	for option in [renderModeOption, geometryOption, textureMappingOption]:
 		option.custom_minimum_size.x = 118
-		option.item_selected.connect(callbacks["rendering_selected"])
+	renderModeOption.item_selected.connect(callbacks["rendering_preset_selected"])
+	geometryOption.item_selected.connect(callbacks["rendering_feature_selected"])
+	textureMappingOption.item_selected.connect(callbacks["rendering_feature_selected"])
 
 	var teams = HBoxContainer.new()
 	teams.size_flags_vertical = Control.SIZE_EXPAND_FILL

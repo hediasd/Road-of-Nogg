@@ -5,17 +5,26 @@ class_name RetroRenderController
 extends RefCounted
 
 const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
+const CRT_DISPLAY_SHADER = preload("res://assets/shaders/crt_display.gdshader")
 const SETTINGS_PATH := "user://rendering.cfg"
-const RETRO_SIZE := Vector2i(320, 240)
 const MIN_VIEWPORT_SIZE := Vector2i(2, 2)
+const PRESET_CLEAN := "clean"
+const PRESET_RETRO_LIGHT := "retro_light"
+const PRESET_PS1_SOFT := "ps1_soft"
+const PRESET_PS1_CLASSIC := "ps1_classic"
+const PRESET_CRT := "crt"
 
 var host: Node
 var world_viewport: SubViewport
 var world_root: Node3D
 var display_layer: CanvasLayer
 var world_texture: TextureRect
+var crt_overlay: ColorRect
+var render_preset: String = PRESET_PS1_SOFT
+var render_size := Vector2i(480, 360)
 var retro_enabled: bool = true
-var vertex_snap_enabled: bool = true
+var crt_enabled: bool = false
+var vertex_snap_enabled: bool = false
 var affine_mapping_enabled: bool = true
 
 
@@ -60,14 +69,66 @@ func _build_render_target() -> void:
 	world_texture.texture = world_viewport.get_texture()
 	display_layer.add_child(world_texture)
 
+	crt_overlay = ColorRect.new()
+	crt_overlay.name = "CRTOverlay"
+	crt_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	crt_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var crtMaterial = ShaderMaterial.new()
+	crtMaterial.shader = CRT_DISPLAY_SHADER
+	crt_overlay.material = crtMaterial
+	display_layer.add_child(crt_overlay)
+
 	host.get_viewport().size_changed.connect(_on_main_viewport_size_changed)
 
 
-func set_options(retro: bool, vertexSnap: bool, affineMapping: bool, persist: bool = true) -> void:
-	retro_enabled = retro
+func set_preset(preset: String, persist: bool = true) -> void:
+	if not _apply_preset_values(preset):
+		push_warning("Unknown rendering preset '%s'; using PS1 Soft." % preset)
+		_apply_preset_values(PRESET_PS1_SOFT)
+	_apply_settings(persist)
+
+
+func set_features(vertexSnap: bool, affineMapping: bool, persist: bool = true) -> void:
 	vertex_snap_enabled = vertexSnap
 	affine_mapping_enabled = affineMapping
 	_apply_settings(persist)
+
+
+func _apply_preset_values(preset: String) -> bool:
+	render_preset = preset
+	match render_preset:
+		PRESET_CLEAN:
+			retro_enabled = false
+			crt_enabled = false
+			vertex_snap_enabled = false
+			affine_mapping_enabled = false
+		PRESET_RETRO_LIGHT:
+			retro_enabled = true
+			crt_enabled = false
+			render_size = Vector2i(640, 480)
+			vertex_snap_enabled = false
+			affine_mapping_enabled = false
+		PRESET_PS1_SOFT:
+			retro_enabled = true
+			crt_enabled = false
+			render_size = Vector2i(480, 360)
+			vertex_snap_enabled = false
+			affine_mapping_enabled = true
+		PRESET_PS1_CLASSIC:
+			retro_enabled = true
+			crt_enabled = false
+			render_size = Vector2i(320, 240)
+			vertex_snap_enabled = true
+			affine_mapping_enabled = true
+		PRESET_CRT:
+			retro_enabled = true
+			crt_enabled = true
+			render_size = Vector2i(640, 480)
+			vertex_snap_enabled = false
+			affine_mapping_enabled = false
+		_:
+			return false
+	return true
 
 
 func _apply_settings(persist: bool) -> void:
@@ -77,6 +138,7 @@ func _apply_settings(persist: bool) -> void:
 		if retro_enabled else
 		CanvasItem.TEXTURE_FILTER_LINEAR
 	)
+	crt_overlay.visible = crt_enabled
 	BattleMeshFactoryScript.configureRetro(
 		vertex_snap_enabled,
 		affine_mapping_enabled,
@@ -89,7 +151,7 @@ func _apply_settings(persist: bool) -> void:
 
 func _resize_world_viewport() -> void:
 	if retro_enabled:
-		world_viewport.size = RETRO_SIZE
+		world_viewport.size = render_size
 		return
 	var mainSize = Vector2i(host.get_viewport().get_visible_rect().size)
 	world_viewport.size = Vector2i(
@@ -149,13 +211,30 @@ func _load_settings() -> void:
 	var config = ConfigFile.new()
 	if config.load(SETTINGS_PATH) != OK:
 		return
-	retro_enabled = bool(config.get_value("rendering", "retro_enabled", true))
-	vertex_snap_enabled = bool(config.get_value("rendering", "vertex_snap_enabled", true))
-	affine_mapping_enabled = bool(config.get_value("rendering", "affine_mapping_enabled", true))
+	if not config.has_section_key("rendering", "render_preset"):
+		return
+	var savedPreset = str(config.get_value(
+		"rendering",
+		"render_preset",
+		PRESET_PS1_SOFT
+	))
+	if not _apply_preset_values(savedPreset):
+		_apply_preset_values(PRESET_PS1_SOFT)
+	vertex_snap_enabled = bool(config.get_value(
+		"rendering",
+		"vertex_snap_enabled",
+		vertex_snap_enabled
+	))
+	affine_mapping_enabled = bool(config.get_value(
+		"rendering",
+		"affine_mapping_enabled",
+		affine_mapping_enabled
+	))
 
 
 func _save_settings() -> void:
 	var config = ConfigFile.new()
+	config.set_value("rendering", "render_preset", render_preset)
 	config.set_value("rendering", "retro_enabled", retro_enabled)
 	config.set_value("rendering", "vertex_snap_enabled", vertex_snap_enabled)
 	config.set_value("rendering", "affine_mapping_enabled", affine_mapping_enabled)

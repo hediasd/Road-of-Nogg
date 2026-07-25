@@ -83,8 +83,8 @@ func _setup_camera_and_lighting() -> void:
 
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-45, 45, 0)
-	light.shadow_enabled = true
-	light.shadow_blur = 0.0
+	# Vertex-snapped shadow passes create large diagonal bands in the battle view.
+	light.shadow_enabled = false
 	light.light_energy = 1.0
 	light.light_color = Color.WHITE
 	retro_renderer.world_root.add_child(light)
@@ -121,7 +121,8 @@ func _build_setup_ui() -> void:
 			"preset_selected": Callable(self, "_on_preset_selected"),
 			"monster_selected": Callable(self, "_on_monster_selected"),
 			"seed_changed": Callable(self, "_on_seed_changed"),
-			"rendering_selected": Callable(self, "_on_rendering_selected"),
+			"rendering_preset_selected": Callable(self, "_on_rendering_preset_selected"),
+			"rendering_feature_selected": Callable(self, "_on_rendering_feature_selected"),
 			"confirmed": Callable(self, "_on_setup_confirmed")
 		},
 		MapReferencesScript.getNames(),
@@ -181,7 +182,7 @@ func _on_monster_selected(_selectedIndex: int, team: int, _slotIndex: int) -> vo
 func _sync_rendering_options() -> void:
 	_select_option_by_metadata(
 		setup_ui["render_mode_option"],
-		"ps1" if retro_renderer.retro_enabled else "clean"
+		retro_renderer.render_preset
 	)
 	_select_option_by_metadata(
 		setup_ui["geometry_option"],
@@ -193,12 +194,16 @@ func _sync_rendering_options() -> void:
 	)
 
 
-func _on_rendering_selected(_index: int) -> void:
+func _on_rendering_preset_selected(_index: int) -> void:
 	var renderMode: OptionButton = setup_ui["render_mode_option"]
+	retro_renderer.set_preset(renderMode.get_item_metadata(renderMode.selected))
+	_sync_rendering_options()
+
+
+func _on_rendering_feature_selected(_index: int) -> void:
 	var geometry: OptionButton = setup_ui["geometry_option"]
 	var textureMapping: OptionButton = setup_ui["texture_mapping_option"]
-	retro_renderer.set_options(
-		renderMode.get_item_metadata(renderMode.selected) == "ps1",
+	retro_renderer.set_features(
 		geometry.get_item_metadata(geometry.selected) == "jitter",
 		textureMapping.get_item_metadata(textureMapping.selected) == "affine"
 	)
