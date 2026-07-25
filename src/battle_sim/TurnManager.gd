@@ -31,6 +31,8 @@ func sortBySpeed() -> void:
 		for effect in state.getActiveEffects(b):
 			spd_b += effect.get("spd_bonus", 0)
 			
+		if spd_a == spd_b:
+			return a < b
 		return spd_a > spd_b
 	)
 

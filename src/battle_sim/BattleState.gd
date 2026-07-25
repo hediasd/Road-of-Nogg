@@ -3,6 +3,8 @@
 
 class_name BattleState
 
+const BattleStateSerializerScript = preload("res://src/battle_sim/BattleStateSerializer.gd")
+
 var boardSize: Vector2i
 var board: Matrix                        # Monster ID layer (0 = empty)
 var heightBoard: Matrix                  # Height layer (for future use)
@@ -27,14 +29,27 @@ var currentMonsterID: int = -1
 var activeEffects: Dictionary = {}
 
 var rng: RandomNumberGenerator
+var battleSeed: int = 0
+var nextMonsterID: int = 100
 
 var history: Array[Dictionary] = []
 var last_turn_start_index: Dictionary = {}
 
 
-func _init() -> void:
+func _init(seedValue: int = 0) -> void:
 	rng = RandomNumberGenerator.new()
-	rng.randomize()
+	setSeed(seedValue)
+
+
+func setSeed(seedValue: int) -> void:
+	battleSeed = seedValue
+	rng.seed = seedValue
+
+
+func allocateMonsterID() -> int:
+	var monsterID = nextMonsterID
+	nextMonsterID += 1
+	return monsterID
 
 func setup_board(size: Vector2i) -> void:
 	boardSize = size
@@ -238,22 +253,4 @@ func tickEffects(monsterID: int) -> Array:
 	return expired
 
 func serialize_state() -> Dictionary:
-	var terrain_data = []
-	for y in range(boardSize.y):
-		var row = []
-		for x in range(boardSize.x):
-			row.append(terrainBoard.at(Vector2i(x, y)))
-		terrain_data.append(row)
-		
-	var state_dict = {
-		"boardSize": {"x": boardSize.x, "y": boardSize.y},
-		"roundCount": roundCount,
-		"turnCount": turnCount,
-		"currentMonsterID": currentMonsterID,
-		"terrainBoard": terrain_data,
-		"activeEffects": activeEffects,
-		"monsters": {}
-	}
-	for id in monsters:
-		state_dict["monsters"][str(id)] = monsters[id].serialize()
-	return state_dict
+	return BattleStateSerializerScript.serialize(self)

@@ -107,6 +107,17 @@ func record_cast(spell: Spell) -> void:
 		spell_cooldowns[spell.name] = spell.cooldown
 
 func serialize() -> Dictionary:
+	var serializedSpellSets = []
+	for spellSet in spellSets:
+		var serializedSpellSet = []
+		for spell in spellSet:
+			serializedSpellSet.append(spell.name)
+		serializedSpellSets.append(serializedSpellSet)
+
+	var serializedPassives = []
+	for passive in passives:
+		serializedPassives.append(passive.name)
+
 	return {
 		"uniqueID": uniqueID,
 		"name": name,
@@ -114,5 +125,14 @@ func serialize() -> Dictionary:
 		"position": {"x": position.x, "y": position.y},
 		"hitpoints": hitpoints,
 		"max_hitpoints": max_hitpoints,
-		"spell_cooldowns": spell_cooldowns
+		"move": move,
+		"atk": atk,
+		"def": def,
+		"speed": speed,
+		"elements": elements.duplicate(),
+		"race": race,
+		"spellSets": serializedSpellSets,
+		"spellCooldowns": spell_cooldowns.duplicate(true),
+		"passives": serializedPassives,
+		"brainClass": brain.get_script().resource_path.get_file().get_basename() if brain != null else ""
 	}

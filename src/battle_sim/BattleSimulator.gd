@@ -13,16 +13,16 @@ var passiveSkillResolver: PassiveSkillResolver
 var visualAdapter: IBattleVisualAdapter
 
 var brains: Dictionary = {}  # monsterID -> EntityBrain
+var initialStateSnapshot: Dictionary = {}
 
 
-func _init() -> void:
+func _init(seedValue: int = 0) -> void:
 	events = BattleEvents.new()
-	state = BattleState.new()
+	state = BattleState.new(seedValue)
 	turnManager = TurnManager.new(state, events)
 	movementResolver = MovementResolver.new(state, events)
 	combatResolver = preload("res://src/battle_sim/CombatResolver.gd").new(state, events)
 	passiveSkillResolver = preload("res://src/battle_sim/PassiveSkillResolver.gd").new(state, events)
-	print("DEBUG: passiveSkillResolver created? ", passiveSkillResolver)
 	# Inject passiveSkillResolver into CombatResolver
 	combatResolver.passiveSkillResolver = passiveSkillResolver
 
@@ -33,8 +33,8 @@ func setVisualAdapter(adapter: IBattleVisualAdapter) -> void:
 
 
 func setSeed(seedValue: int) -> void:
-	## Forces the battle state RNG to use a specific seed for deterministic outcomes.
-	state.rng.seed = seedValue
+	## Sets the deterministic battle seed before gameplay decisions run.
+	state.setSeed(seedValue)
 
 
 func loadMap(mapName: String) -> void:
@@ -47,7 +47,7 @@ func loadMap(mapName: String) -> void:
 
 func spawnMonster(referenceName: String, team: int, pos: Vector2i) -> Monster:
 	## Creates a monster from references and places it on the board.
-	var monster = MonsterFactory.createMonster(referenceName)
+	var monster = MonsterFactory.createMonster(referenceName, state.allocateMonsterID())
 	var ref = MonsterReferences.getReference(referenceName)
 
 	# Resolve brain class
@@ -89,17 +89,25 @@ func _resolveBrainClass(name: String):
 		_:              return load("res://src/entity_ai/TacticalBrain.gd")
 
 
-func startBattle() -> void:
-	# Dump initial state for Replays
-	DirAccess.make_dir_absolute("res://debug")
-	var replay_data = {
-		"seed": state.rng.seed,
-		"initial_state": state.serialize_state()
+func createReplaySnapshot() -> Dictionary:
+	var brainClasses = {}
+	for monsterID in brains:
+		var brain = brains[monsterID]
+		brainClasses[str(monsterID)] = brain.get_script().resource_path.get_file().get_basename()
+
+	return {
+		"version": 1,
+		"seed": state.battleSeed,
+		"initialState": initialStateSnapshot if not initialStateSnapshot.is_empty() else state.serialize_state(),
+		"currentState": state.serialize_state(),
+		"turnOrder": turnManager.turnOrder.duplicate(),
+		"brainClasses": brainClasses
 	}
-	var file = FileAccess.open("res://debug/battle_log.json", FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(replay_data, "\t"))
-		file.close()
+
+
+func startBattle() -> void:
+	if initialStateSnapshot.is_empty():
+		initialStateSnapshot = state.serialize_state()
 
 	## Emits battle_started and begins the first round.
 	var monsterList = []
@@ -147,17 +155,7 @@ func runFullBattle(maxRounds: int = 50) -> int:
 	return winner
 
 
-func _auto_dump_state() -> void:
-	# Automatically dumps state to latest_turn_dump.json for crash post-mortem analysis
-	DirAccess.make_dir_absolute("res://debug")
-	var state_dict = state.serialize_state()
-	var file = FileAccess.open("res://debug/latest_turn_dump.json", FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(state_dict, "\t"))
-		file.close()
-
 func executeTurn(monsterID: int) -> bool:
-	_auto_dump_state()
 	## Executes a single monster's turn using its brain.
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
@@ -170,10 +168,11 @@ func executeTurn(monsterID: int) -> bool:
 	if state.hasEffect(monsterID, "petrify"):
 		events.monster_skipped_turn.emit(monsterID, "petrify")
 		# Phase 3: Apply status effect damage (even if skipped)
-		combatResolver.executeStatusEffectDamage(monsterID)
+		passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
 		return false
 
 	var decision = brain.decideTurn(monsterID)
+	state.add_event("decision", monsterID, decision.get("target_id", -1), decision.duplicate(true))
 	var acted = false
 
 	# Phase 1: Move

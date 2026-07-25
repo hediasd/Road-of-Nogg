@@ -10,8 +10,9 @@ static func _static_init():
 	pass
 
 
-static func createMonster(name : String = "Defaultgon"):
+static func createMonster(name: String = "Defaultgon", uniqueID: int = -1) -> Monster:
 	var parameters = getReference(name)
-	var newMonster = Monster.new(parameters, uniqueMonsterIDMaker)
-	uniqueMonsterIDMaker += 1
-	return newMonster
+	if uniqueID < 0:
+		uniqueID = uniqueMonsterIDMaker
+		uniqueMonsterIDMaker += 1
+	return Monster.new(parameters, uniqueID)
