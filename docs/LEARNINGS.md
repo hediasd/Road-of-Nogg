@@ -38,3 +38,15 @@ This document tracks learned patterns, gotchas, and specific implementations reg
   `run_headless_tests.ps1 -ForceGut`. Normal invocation exits immediately and
   points to the backlog. Future diagnostics retain a temporary shadow project
   and 120-second watchdog to avoid editor contention and indefinite hangs.
+
+## Codex / Windows Execution Playbook
+- **Stop Early on Tool Stalls**: If a filesystem patch or helper produces no useful result within the first bounded attempt, stop it and change methods. Do not repeat the same hanging operation. Keep Godot launches under a 30-second watchdog and report progress before 60 seconds.
+- **Patch Helper Fallback**: On this Windows workspace, `apply_patch` can fail with `helper_unknown_error` or hang after already writing a file. After a failure, inspect `git status` and the target before retrying. For small existing-file changes, use exact anchored replacements with `[System.IO.File]`, assert every anchor exists, then run `git diff --check` and review the diff.
+- **Preserve Document Line Endings**: Several Markdown files contain historical CRLF/LF mixtures. Never normalize an entire document incidentally. Prefer new standalone files or byte-preserving, line-scoped edits; check `git diff --stat` immediately for unexpected whole-file rewrites.
+- **Recover From Partial Writes Safely**: Restore only files changed by the current operation from a verified Git blob. Hash the temporary blob against `git rev-parse HEAD:<path>` before copying it over the target, and confirm the restored file has no diff.
+- **Godot Paths With Spaces**: Older Windows PowerShell can split `Start-Process -ArgumentList` values containing the project path. Run from the repository working directory and pass `--path .`.
+- **Prefer Direct Godot Exit Codes**: Redirected `Start-Process` objects can expose a null or stale `ExitCode`. For short checks, invoke Godot directly and use `$LASTEXITCODE`; use an explicit success marker for custom smoke scripts.
+- **Editor Import Is Not the Primary Smoke Test**: `--editor --quit` may hit Godot's progress-dialog/message-queue error while importing. Use a focused headless script plus a default-scene launch to verify runtime parsing. Inspect for newly generated `.gd.uid` files before retrying an import.
+- **GUT Remains Isolated**: Do not use GUT as a routine validation step until its Windows access violation is re-evaluated. Use focused headless smoke scripts and deterministic replay checks instead.
+- **Local Image Viewer Fallback**: If direct image inspection fails with a sandbox refresh error, read the image as base64 inside an orchestrated command and emit it as an image result. Remove any temporary inspection copies afterward.
+- **Permission Expectations**: Workspace edit approval does not automatically authorize external executables or Git index writes. Batch external checks into one request, reuse saved Git approvals, and never promise that mandatory safety prompts can be globally disabled.
