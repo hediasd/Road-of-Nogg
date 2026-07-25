@@ -36,7 +36,8 @@ Road of Nogg/
 │   │   ├── BattleSimulator.gd       # Main orchestrator
 │   │   ├── TurnManager.gd           # Turn order and round management
 │   │   ├── MovementResolver.gd      # A* pathfinding + movement validation
-│   │   ├── CombatResolver.gd        # Damage calculation and attack resolution
+│   │   ├── CombatResolver.gd        # Attack/spell orchestration
+│   │   ├── SpellEffectResolver.gd   # Spell damage, healing, buffs, and statuses
 │   │   └── IBattleVisualAdapter.gd  # Interface for presentation observers
 │   │
 │   ├── presentation/            # Simulation observers and Godot presentation

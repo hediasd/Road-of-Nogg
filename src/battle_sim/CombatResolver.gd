@@ -6,18 +6,20 @@ class_name CombatResolver
 var state: BattleState
 var events: BattleEvents
 var passiveSkillResolver  # PassiveSkillResolver — injected by BattleSimulator
+var spellEffectResolver
 
 
 func _init(_state: BattleState, _events: BattleEvents) -> void:
 	state = _state
 	events = _events
+	spellEffectResolver = SpellEffectResolverScript.new(state, events)
 
 
 # --- Basic melee attack ---
 
 const LineOfSight = preload("res://src/algorithms/LineOfSight.gd")
 const ShapeCaster = preload("res://src/algorithms/ShapeCaster.gd")
-const RaceReferences = preload("res://src/factories/RaceReferences.gd")
+const SpellEffectResolverScript = preload("res://src/battle_sim/SpellEffectResolver.gd")
 const DIRECTIONS = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
 
 func getBasicAttackTargets(monsterID: int) -> Array:
@@ -227,113 +229,21 @@ func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellInd
 
 
 func _applySpellEffects(casterID: int, targetID: int, spell: Spell) -> void:
-	var caster = state.getMonster(casterID)
-	var target = state.getMonster(targetID)
-	if not target.is_alive(): return
-
-	# --- Remove Status ---
-	if spell.removes_status != "":
-		if state.hasEffect(targetID, spell.removes_status):
-			state.removeEffect(targetID, spell.removes_status)
-			events.effect_removed.emit(targetID, spell.removes_status)
-
-	# --- Heal path ---
-	if spell.heals:
-		var healAmount = calculateHeal(caster, spell)
-		var actualHeal = target.heal(healAmount)
-		events.monster_healed.emit(casterID, targetID, spell.name, actualHeal, target.hitpoints)
-		return
-
-	# --- Ages Ago (Damage Reversion) ---
-	if spell.reverts_damage:
-		var targetDamageHistory = state.get_events_for_actor_since_last_turn(targetID, "damage")
-		var healedTargets = 0
-		var totalHealing = 0
-		for entry in targetDamageHistory:
-			var victimID = entry.get("target_id")
-			var dmgAmount = entry.get("data", {}).get("damage", 0)
-			var victim = state.getMonster(victimID)
-			if victim != null and victim.is_alive():
-				var actualHeal = victim.heal(dmgAmount)
-				events.monster_healed.emit(casterID, victimID, "Ages Ago", actualHeal, victim.hitpoints)
-				totalHealing += actualHeal
-				healedTargets += 1
-		return
-
-	# --- Damage path ---
-	var actual_damage_lines = []
-	for line in spell.damage_lines:
-		var elem = line.get("element", "none")
-		var base_dmg = line.get("damage", 0)
-		
-		if base_dmg > 0:
-			var dmg = calculateSpellDamage(caster, target, base_dmg, elem)
-			var actualDamage = target.take_damage(dmg)
-			
-			# Log damage for "Ages Ago" and replays
-			state.add_event("damage", casterID, targetID, { "damage": actualDamage, "spell": spell.name, "element": elem })
-			
-			actual_damage_lines.append({ "element": elem, "damage": actualDamage })
-
-	events.monster_cast_spell.emit(casterID, targetID, spell.name, actual_damage_lines, target.hitpoints)
-
-	# Apply status if the spell inflicts one
-	if spell.inflicts_status != "":
-		var statusDuration = _getStatusDuration(spell.inflicts_status)
-		var statusDmg = _getStatusDamagePerTurn(spell.inflicts_status)
-		state.addEffect(targetID, spell.inflicts_status, statusDuration, casterID, spell.name, statusDmg)
-		events.effect_applied.emit(targetID, spell.inflicts_status, statusDuration, casterID, spell.name)
-
-	# Apply ATK buff if the spell provides one (stored as a timed activeEffect)
-	if spell.buffs_atk > 0 and spell.buff_duration > 0:
-		state.addEffect(targetID, "atk_buff", spell.buff_duration, casterID, spell.name, 0)
-		for effect in state.activeEffects.get(targetID, []):
-			if effect["name"] == "atk_buff" and effect.get("atk_bonus", 0) == 0:
-				effect["atk_bonus"] = spell.buffs_atk
-				break
-		events.effect_applied.emit(targetID, "atk_buff", spell.buff_duration, casterID, spell.name)
-
-	# Apply SPD debuff if the spell inflicts "spd_debuff" (Timeoff)
-	if spell.inflicts_status == "spd_debuff":
-		var duration = 99 # Permanent for the battle
-		state.addEffect(targetID, "spd_debuff", duration, casterID, spell.name, 0)
-		for effect in state.activeEffects.get(targetID, []):
-			if effect["name"] == "spd_debuff" and effect.get("spd_bonus", 0) == 0:
-				effect["spd_bonus"] = -2 # Arbitrary debuff amount
-				break
-		events.effect_applied.emit(targetID, "spd_debuff", duration, casterID, spell.name)
-
-	if not target.is_alive():
+	if spellEffectResolver.applySpellEffects(casterID, targetID, spell, passiveSkillResolver):
 		_handleDefeat(targetID, casterID)
 
-
 func calculateSpellDamage(caster: Monster, target: Monster, base_damage: int, element: String = "none", is_simulation: bool = false) -> int:
-	var raw = max(1, caster.atk + base_damage - target.def)
-	## Apply atk_bonus from active buffs on the caster
-	for effect in state.getActiveEffects(caster.uniqueID):
-		raw += effect.get("atk_bonus", 0)
-	raw = max(1, raw)
-
-	# 1) Element interactions
-	if element != "none":
-		var multiplier = RaceReferences.getDamageMultiplier(target.race, element)
-		raw = int(round(float(raw) * multiplier))
-		raw = max(1, raw)
-
-	# 2) Passive damage reduction
-	if passiveSkillResolver != null:
-		raw = passiveSkillResolver.applyDamageModifiers(raw, target.uniqueID, is_simulation)
-
-	return max(1, raw)
-
+	return spellEffectResolver.calculateSpellDamage(
+		caster,
+		target,
+		base_damage,
+		element,
+		is_simulation,
+		passiveSkillResolver
+	)
 
 func calculateHeal(caster: Monster, spell: Spell) -> int:
-	## Heal amount scales on caster ATK + spell power (same formula as damage for now).
-	var base_power = 0
-	if spell.damage_lines.size() > 0:
-		base_power = spell.damage_lines[0].get("damage", 0)
-	return max(1, caster.atk + base_power)
-
+	return spellEffectResolver.calculateHeal(caster, spell)
 
 # --- Status effect damage ticks --- MOVED to PassiveSkillResolver.fireEvent(ON_TURN_END)
 # CombatResolver no longer owns executeStatusEffectDamage().
@@ -350,19 +260,3 @@ func _handleDefeat(defeatedID: int, killerID: int) -> void:
 	if state.monsters.has(defeatedID) and not state.getMonster(defeatedID).is_alive():
 		events.monster_defeated.emit(defeatedID, killerID)
 		state.removeMonster(defeatedID)
-
-
-func _getStatusDuration(statusName: String) -> int:
-	match statusName:
-		"burn":    return 3
-		"poison":  return 4
-		"petrify": return 2
-		_:         return 2
-
-
-func _getStatusDamagePerTurn(statusName: String) -> int:
-	match statusName:
-		"burn":    return 2
-		"poison":  return 1
-		"petrify": return 0  # No damage but will prevent action (future)
-		_:         return 1
