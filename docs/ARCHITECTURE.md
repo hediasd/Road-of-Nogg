@@ -2,6 +2,50 @@
 
 A comprehensive technical blueprint documenting the architecture, state contracts, control flows, visual bridge systems, and extension playbooks for the **Road of Nogg** combat simulation engine.
 
+## 0. Runtime Authority and Migration Boundary
+
+This section is authoritative wherever older sections below use stale names or
+contracts.
+
+| Concern | Canonical owner | Legacy or temporary path |
+| --- | --- | --- |
+| Battle state, board occupancy, teams, effects, and history | `BattleState` | `BattleBoard` state inside the old scene stack |
+| Turn order, movement, combat, passives, victory, and seeded RNG | `BattleSimulator` and its resolvers | `BattleMaster`, `GameBoardLogic`, and `GameBoardThinker` |
+| Simulation-to-presentation communication | `BattleEvents` and `IBattleVisualAdapter` | Direct calls from `BattleMaster` to `GameBoardVisual` |
+| Godot scene lifecycle, input, camera, animation, and pacing | Presentation code under `src/systems/` | Current `scenes/main.tscn` rollback path |
+
+### Canonical runtime contract
+
+- `BattleSimulator` is the only authoritative gameplay runtime for new work.
+- Simulation mutations flow through its state and resolvers. Presentation code
+  may request actions but must never mutate simulation state directly.
+- `BattleState.rng` is the only gameplay random source, and deterministic
+  `uniqueID` values are the only entity identity keys.
+- Visuals observe `BattleEvents` or implement `IBattleVisualAdapter`.
+- The canonical runtime must remain usable without a Godot scene tree.
+
+### Legacy freeze boundary
+
+- `src/systems/BattleMaster.gd` and its direct `GameBoardLogic`,
+  `GameBoardThinker`, and `GameBoardVisual` flow are frozen. Bug fixes needed to
+  preserve the rollback path are allowed; new gameplay behavior is not.
+- `scenes/main.tscn` still launches the legacy runtime today. This is an explicit
+  temporary rollback state, not architectural authority.
+- The legacy stack is not deleted until the new presentation controller can
+  load equivalent sample data, spawn all visuals, pace turns, and provide a
+  recoverable launch path.
+- No scene may connect both runtimes to the same battle at once.
+
+### Migration gates
+
+1. Add a presentation controller that constructs and configures
+   `BattleSimulator` without moving gameplay logic into `Node` classes.
+2. Bind visuals only through the event/adapter contracts.
+3. Verify the new scene independently, then switch the default main scene.
+4. Retain the old scene as a named rollback entry point until visual and startup
+   parity are confirmed.
+5. Remove the legacy stack only in a separate, explicitly approved cleanup.
+
 ---
 
 ## 1. Core Architectural Principles

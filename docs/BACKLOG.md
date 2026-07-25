@@ -20,6 +20,10 @@ The AI will proactively add suggestions here when observing technical debt, miss
 
 ## Code Quality & Cleanup
 - **Clean Up Factory Preloads**: Ensure all `preload()` references match the actual folder structure strictly, even though Godot's `class_name` currently masks path inaccuracies.
+- **Data-Driven AI Brain Registry**: Replace `BattleSimulator._resolveBrainClass()`
+  hardcoded class-name branches with a validated registry or factory. Monster
+  reference data should select a registered brain without requiring simulator
+  code changes for every new AI type.
 - **Complete Simulation Regression Matrix**: Expand GUT coverage for seeded
   replay determinism, movement and occupied tiles, line of sight, elemental
   damage, turn order and status expiration, battle termination, and serialized

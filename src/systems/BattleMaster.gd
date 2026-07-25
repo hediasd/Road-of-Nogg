@@ -1,3 +1,7 @@
+## LEGACY ROLLBACK RUNTIME: gameplay authority belongs to BattleSimulator.
+## Preserve this Node-driven path only until the canonical presentation
+## controller reaches launch and visual parity. Do not add new gameplay here.
+
 extends Node
 
 var battleSample
