@@ -19,4 +19,7 @@ You can find detailed design documents outlining the game's mechanics, turn syst
 - Legacy rollback scene: `scenes/main.tscn`
 
 ## Verification
-The GUT 9.4 command-line runner is intentionally isolated after a reproducible Windows crash. See `docs/BACKLOG.md` before opting into another GUT investigation.
+- Determinism: `.\Godot_v4.4-stable_win64.exe --headless --path . -s res://run_determinism_check.gd`
+- Seeded battle smoke: `.\Godot_v4.4-stable_win64.exe --headless --path . -s res://run_battle.gd`
+
+The GUT 9.4 command-line runner remains intentionally isolated after a reproducible Windows crash. See `docs/BACKLOG.md` before opting into another GUT investigation.

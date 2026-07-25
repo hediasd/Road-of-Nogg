@@ -24,6 +24,13 @@ contracts.
 - Visuals observe `BattleEvents` or implement `IBattleVisualAdapter`.
 - The canonical runtime must remain usable without a Godot scene tree.
 
+### Deterministic snapshot contract
+
+- `BattleState` owns the battle seed, RNG state, and monotonic monster-ID allocation.
+- Equal-speed turns use monster ID as a stable tie-breaker.
+- `BattleSimulator.createReplaySnapshot()` captures initial and current state, the event/decision history, pending turn order, and brain classes.
+- Core simulation code does not write diagnostic files. Presentation or tooling code decides when and where snapshots are saved.
+
 ### Legacy freeze boundary
 
 - `src/systems/BattleMaster.gd` and its direct `GameBoardLogic`,

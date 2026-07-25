@@ -1,7 +1,7 @@
 # Road of Nogg — Project Structure
 
 ## Engine
-Godot 4.4 / 4.3 (GDScript)
+Godot 4.4 (GDScript)
 
 ## Folder Layout
 
@@ -33,6 +33,7 @@ Road of Nogg/
 │   ├── battle_sim/              # Pure-logic battle simulation (no visuals)
 │   │   ├── BattleEvents.gd          # Signal bus for decoupling
 │   │   ├── BattleState.gd           # All battle state in one place
+│   │   ├── BattleStateSerializer.gd # JSON-safe deterministic snapshots
 │   │   ├── BattleSimulator.gd       # Main orchestrator
 │   │   ├── TurnManager.gd           # Turn order and round management
 │   │   ├── MovementResolver.gd      # A* pathfinding + movement validation
@@ -42,8 +43,13 @@ Road of Nogg/
 │   │
 │   ├── presentation/            # Simulation observers and Godot presentation
 │   │   ├── GodotVisualAdapter.gd   # 3D event adapter
+│   │   ├── BattleMeshFactory.gd    # Placeholder mesh/material construction
+│   │   ├── BattleVisualEffects.gd  # Selection and material effects
+│   │   ├── BattleUIBuilder.gd      # Runtime controls and info panels
 │   │   ├── BattleCameraController.gd # Tactical camera controls
 │   │   ├── ConsoleVisualAdapter.gd # Console/file event adapter
+│   │   ├── ConsoleRoundSummary.gd  # End-of-round highlight formatter
+│   │   ├── ConsoleMapRenderer.gd   # Tactical-map formatter
 │   │   └── legacy/Grid.gd          # Archived visual grid mesh
 │   │
 │   ├── entity_ai/               # AI brain modules for entities
