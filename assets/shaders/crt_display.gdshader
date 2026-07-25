@@ -1,13 +1,22 @@
 shader_type canvas_item;
 
 uniform sampler2D screen_texture : hint_screen_texture, filter_nearest;
-uniform float scanline_strength : hint_range(0.0, 0.5) = 0.12;
-uniform float mask_strength : hint_range(0.0, 0.25) = 0.04;
-uniform float vignette_strength : hint_range(0.0, 0.5) = 0.16;
-uniform float flicker_strength : hint_range(0.0, 0.1) = 0.012;
+uniform float scanline_strength : hint_range(0.0, 0.5) = 0.22;
+uniform float mask_strength : hint_range(0.0, 0.25) = 0.1;
+uniform float vignette_strength : hint_range(0.0, 0.5) = 0.2;
+uniform float flicker_strength : hint_range(0.0, 0.1) = 0.02;
+uniform float color_bleed : hint_range(0.0, 4.0) = 0.8;
 
 void fragment() {
-	vec4 source = textureLod(screen_texture, SCREEN_UV, 0.0);
+	vec2 texel_size = 1.0 / vec2(textureSize(screen_texture, 0));
+	vec2 bleed_offset = vec2(texel_size.x * color_bleed, 0.0);
+	vec4 center = textureLod(screen_texture, SCREEN_UV, 0.0);
+	vec4 source = vec4(
+		textureLod(screen_texture, SCREEN_UV + bleed_offset, 0.0).r,
+		center.g,
+		textureLod(screen_texture, SCREEN_UV - bleed_offset, 0.0).b,
+		center.a
+	);
 	float scanline = 1.0 - scanline_strength * (
 		0.5 + 0.5 * sin(FRAGCOORD.y * 3.14159265)
 	);

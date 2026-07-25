@@ -108,9 +108,38 @@ func _run() -> void:
 		return
 	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
 	await process_frame
-	if scene.battle_ui["canvas"].find_children("*", "OptionButton", true, false).size() != 1:
-		_fail("battle HUD contains rendering dropdowns beyond the spell selector")
+	if scene.battle_ui["canvas"].find_children("*", "OptionButton", true, false).size() != 4:
+		_fail("battle HUD does not contain the spell selector and three graphics dropdowns")
 		return
+	var timerWasStopped = scene.turn_timer.is_stopped()
+	scene.battle_ui["graphics_button"].button_pressed = true
+	await process_frame
+	if not scene.battle_ui["graphics_panel"].visible:
+		_fail("Graphics button did not show the live translucent menu")
+		return
+	if scene.turn_timer.is_stopped() != timerWasStopped:
+		_fail("opening Graphics changed battle playback state")
+		return
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_CRT, false)
+	scene.retro_renderer.set_crt_parameter(scene.retro_renderer.CRT_SCANLINE, 0.4, false)
+	scene._sync_rendering_options()
+	var scanlineData: Dictionary = scene.battle_ui["graphics_crt_sliders"]["scanline"]
+	if not scanlineData["slider"].editable:
+		_fail("CRT sliders did not enable for the CRT preset")
+		return
+	if not is_equal_approx(
+		scene.retro_renderer.crt_material.get_shader_parameter("scanline_strength"),
+		0.4
+	):
+		_fail("CRT slider value did not reach the live display material")
+		return
+	scene.battle_ui["graphics_button"].button_pressed = false
+	await process_frame
+	if scene.battle_ui["graphics_panel"].visible:
+		_fail("Graphics button did not hide the live menu")
+		return
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
+	scene._sync_rendering_options()
 	if scene.battle_ui["play_button"] is CheckButton:
 		_fail("battle playback still uses the old auto-play check button")
 		return

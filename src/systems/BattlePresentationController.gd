@@ -98,6 +98,9 @@ func _build_battle_ui() -> void:
 		"new_battle_pressed": Callable(self, "_on_new_battle_pressed"),
 		"screenshot_pressed": Callable(self, "_on_screenshot_pressed"),
 		"dump_state_pressed": Callable(self, "_on_dump_state_pressed"),
+		"graphics_preset_selected": Callable(self, "_on_battle_rendering_preset_selected"),
+		"graphics_feature_selected": Callable(self, "_on_battle_rendering_feature_selected"),
+		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed"),
 		"player_move": Callable(self, "_on_player_move"),
 		"player_attack": Callable(self, "_on_player_attack"),
 		"player_spell": Callable(self, "_on_player_spell"),
@@ -112,6 +115,7 @@ func _build_battle_ui() -> void:
 	right_ui_label = battle_ui["right_ui_label"]
 	log_label = battle_ui["log_label"]
 	log_panel = battle_ui["log_panel"]
+	_sync_rendering_options()
 
 
 func _build_setup_ui() -> void:
@@ -142,6 +146,8 @@ func _show_setup() -> void:
 	if turn_timer:
 		turn_timer.stop()
 	if not battle_ui.is_empty():
+		battle_ui["graphics_button"].set_pressed_no_signal(false)
+		battle_ui["graphics_panel"].visible = false
 		battle_ui["play_button"].set_pressed_no_signal(true)
 		battle_ui["play_button"].text = "Pause"
 		battle_ui["play_button"].tooltip_text = "Pause computer-controlled turns."
@@ -180,18 +186,45 @@ func _on_monster_selected(_selectedIndex: int, team: int, _slotIndex: int) -> vo
 
 
 func _sync_rendering_options() -> void:
+	if not setup_ui.is_empty():
+		_select_option_by_metadata(
+			setup_ui["render_mode_option"],
+			retro_renderer.render_preset
+		)
+		_select_option_by_metadata(
+			setup_ui["geometry_option"],
+			"jitter" if retro_renderer.vertex_snap_enabled else "stable"
+		)
+		_select_option_by_metadata(
+			setup_ui["texture_mapping_option"],
+			"affine" if retro_renderer.affine_mapping_enabled else "perspective"
+		)
+
+	if battle_ui.is_empty():
+		return
 	_select_option_by_metadata(
-		setup_ui["render_mode_option"],
+		battle_ui["graphics_look_option"],
 		retro_renderer.render_preset
 	)
 	_select_option_by_metadata(
-		setup_ui["geometry_option"],
+		battle_ui["graphics_geometry_option"],
 		"jitter" if retro_renderer.vertex_snap_enabled else "stable"
 	)
 	_select_option_by_metadata(
-		setup_ui["texture_mapping_option"],
+		battle_ui["graphics_texture_option"],
 		"affine" if retro_renderer.affine_mapping_enabled else "perspective"
 	)
+	var crtActive = retro_renderer.render_preset == retro_renderer.PRESET_CRT
+	battle_ui["graphics_crt_hint"].modulate = (
+		Color(0.82, 0.9, 1.0) if crtActive else Color(0.48, 0.54, 0.64)
+	)
+	for parameter in battle_ui["graphics_crt_sliders"]:
+		var sliderData: Dictionary = battle_ui["graphics_crt_sliders"][parameter]
+		var slider: HSlider = sliderData["slider"]
+		var value = retro_renderer.get_crt_parameter(parameter)
+		slider.set_value_no_signal(value)
+		slider.editable = crtActive
+		sliderData["value_label"].text = "%.2f" % value
 
 
 func _on_rendering_preset_selected(_index: int) -> void:
@@ -207,6 +240,28 @@ func _on_rendering_feature_selected(_index: int) -> void:
 		geometry.get_item_metadata(geometry.selected) == "jitter",
 		textureMapping.get_item_metadata(textureMapping.selected) == "affine"
 	)
+	_sync_rendering_options()
+
+
+func _on_battle_rendering_preset_selected(_index: int) -> void:
+	var option: OptionButton = battle_ui["graphics_look_option"]
+	retro_renderer.set_preset(option.get_item_metadata(option.selected))
+	_sync_rendering_options()
+
+
+func _on_battle_rendering_feature_selected(_index: int) -> void:
+	var geometry: OptionButton = battle_ui["graphics_geometry_option"]
+	var textureMapping: OptionButton = battle_ui["graphics_texture_option"]
+	retro_renderer.set_features(
+		geometry.get_item_metadata(geometry.selected) == "jitter",
+		textureMapping.get_item_metadata(textureMapping.selected) == "affine"
+	)
+	_sync_rendering_options()
+
+
+func _on_crt_parameter_changed(value: float, parameter: String) -> void:
+	retro_renderer.set_crt_parameter(parameter, value)
+	_sync_rendering_options()
 
 
 func _on_seed_changed(_value: float) -> void:
@@ -279,6 +334,8 @@ func _start_battle(config) -> void:
 	log_label.text = ""
 	left_ui_label.text = "Battle ready"
 	right_ui_label.text = "No target"
+	battle_ui["graphics_button"].set_pressed_no_signal(false)
+	battle_ui["graphics_panel"].visible = false
 	battle_ui["play_button"].set_pressed_no_signal(true)
 	battle_ui["play_button"].text = "Pause"
 	battle_ui["play_button"].tooltip_text = "Pause computer-controlled turns."

@@ -2,6 +2,8 @@
 
 class_name BattleUIBuilder
 
+const BattleGraphicsMenuScript = preload("res://src/presentation/BattleGraphicsMenu.gd")
+
 
 static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	var canvas = CanvasLayer.new()
@@ -59,6 +61,11 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	topHud.add_child(debugPanel)
 	var debugRow = HBoxContainer.new()
 	debugPanel.add_child(debugRow)
+	var graphicsButton = Button.new()
+	graphicsButton.toggle_mode = true
+	graphicsButton.text = "Graphics"
+	graphicsButton.tooltip_text = "Show or hide live rendering controls."
+	debugRow.add_child(graphicsButton)
 	var screenshotButton = _addActionButton(
 		debugRow, "Screenshot", "Save debug/screenshot.png.", callbacks["screenshot_pressed"]
 	)
@@ -93,7 +100,26 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	logLabel.scroll_following = true
 	logPanel.add_child(logLabel)
 	canvas.add_child(logPanel)
-	logButton.toggled.connect(func(pressed): logPanel.visible = pressed)
+
+	var graphicsMenu = BattleGraphicsMenuScript.build(
+		canvas,
+		graphicsButton,
+		{
+			"preset_selected": callbacks["graphics_preset_selected"],
+			"feature_selected": callbacks["graphics_feature_selected"],
+			"crt_parameter_changed": callbacks["crt_parameter_changed"]
+		}
+	)
+	graphicsButton.toggled.connect(func(pressed):
+		graphicsMenu["panel"].visible = pressed
+		if pressed:
+			logButton.button_pressed = false
+	)
+	logButton.toggled.connect(func(pressed):
+		logPanel.visible = pressed
+		if pressed:
+			graphicsButton.button_pressed = false
+	)
 
 	var bottomHud = HBoxContainer.new()
 	bottomHud.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -170,6 +196,13 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		"canvas": canvas,
 		"turn_timer": turnTimer,
 		"play_button": playButton,
+		"graphics_button": graphicsButton,
+		"graphics_panel": graphicsMenu["panel"],
+		"graphics_look_option": graphicsMenu["look_option"],
+		"graphics_geometry_option": graphicsMenu["geometry_option"],
+		"graphics_texture_option": graphicsMenu["texture_option"],
+		"graphics_crt_hint": graphicsMenu["crt_hint"],
+		"graphics_crt_sliders": graphicsMenu["crt_sliders"],
 		"left_ui_label": leftLabel,
 		"right_ui_label": rightLabel,
 		"log_label": logLabel,

@@ -13,6 +13,11 @@ const PRESET_RETRO_LIGHT := "retro_light"
 const PRESET_PS1_SOFT := "ps1_soft"
 const PRESET_PS1_CLASSIC := "ps1_classic"
 const PRESET_CRT := "crt"
+const CRT_SCANLINE := "scanline"
+const CRT_MASK := "mask"
+const CRT_VIGNETTE := "vignette"
+const CRT_FLICKER := "flicker"
+const CRT_COLOR_BLEED := "color_bleed"
 
 var host: Node
 var world_viewport: SubViewport
@@ -20,12 +25,18 @@ var world_root: Node3D
 var display_layer: CanvasLayer
 var world_texture: TextureRect
 var crt_overlay: ColorRect
+var crt_material: ShaderMaterial
 var render_preset: String = PRESET_PS1_SOFT
 var render_size := Vector2i(480, 360)
 var retro_enabled: bool = true
 var crt_enabled: bool = false
 var vertex_snap_enabled: bool = false
 var affine_mapping_enabled: bool = true
+var crt_scanline_strength: float = 0.22
+var crt_mask_strength: float = 0.1
+var crt_vignette_strength: float = 0.2
+var crt_flicker_strength: float = 0.02
+var crt_color_bleed: float = 0.8
 
 
 func _init(_host: Node) -> void:
@@ -73,9 +84,9 @@ func _build_render_target() -> void:
 	crt_overlay.name = "CRTOverlay"
 	crt_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	crt_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var crtMaterial = ShaderMaterial.new()
-	crtMaterial.shader = CRT_DISPLAY_SHADER
-	crt_overlay.material = crtMaterial
+	crt_material = ShaderMaterial.new()
+	crt_material.shader = CRT_DISPLAY_SHADER
+	crt_overlay.material = crt_material
 	display_layer.add_child(crt_overlay)
 
 	host.get_viewport().size_changed.connect(_on_main_viewport_size_changed)
@@ -92,6 +103,51 @@ func set_features(vertexSnap: bool, affineMapping: bool, persist: bool = true) -
 	vertex_snap_enabled = vertexSnap
 	affine_mapping_enabled = affineMapping
 	_apply_settings(persist)
+
+
+func set_crt_parameter(parameter: String, value: float, persist: bool = true) -> void:
+	match parameter:
+		CRT_SCANLINE:
+			crt_scanline_strength = clampf(value, 0.0, 0.5)
+		CRT_MASK:
+			crt_mask_strength = clampf(value, 0.0, 0.3)
+		CRT_VIGNETTE:
+			crt_vignette_strength = clampf(value, 0.0, 0.6)
+		CRT_FLICKER:
+			crt_flicker_strength = clampf(value, 0.0, 0.1)
+		CRT_COLOR_BLEED:
+			crt_color_bleed = clampf(value, 0.0, 4.0)
+		_:
+			push_warning("Unknown CRT parameter '%s'." % parameter)
+			return
+	_apply_crt_parameters()
+	if persist:
+		_save_settings()
+
+
+func get_crt_parameter(parameter: String) -> float:
+	match parameter:
+		CRT_SCANLINE:
+			return crt_scanline_strength
+		CRT_MASK:
+			return crt_mask_strength
+		CRT_VIGNETTE:
+			return crt_vignette_strength
+		CRT_FLICKER:
+			return crt_flicker_strength
+		CRT_COLOR_BLEED:
+			return crt_color_bleed
+	return 0.0
+
+
+func _apply_crt_parameters() -> void:
+	if crt_material == null:
+		return
+	crt_material.set_shader_parameter("scanline_strength", crt_scanline_strength)
+	crt_material.set_shader_parameter("mask_strength", crt_mask_strength)
+	crt_material.set_shader_parameter("vignette_strength", crt_vignette_strength)
+	crt_material.set_shader_parameter("flicker_strength", crt_flicker_strength)
+	crt_material.set_shader_parameter("color_bleed", crt_color_bleed)
 
 
 func _apply_preset_values(preset: String) -> bool:
@@ -139,6 +195,7 @@ func _apply_settings(persist: bool) -> void:
 		CanvasItem.TEXTURE_FILTER_LINEAR
 	)
 	crt_overlay.visible = crt_enabled
+	_apply_crt_parameters()
 	BattleMeshFactoryScript.configureRetro(
 		vertex_snap_enabled,
 		affine_mapping_enabled,
@@ -230,6 +287,21 @@ func _load_settings() -> void:
 		"affine_mapping_enabled",
 		affine_mapping_enabled
 	))
+	crt_scanline_strength = clampf(float(config.get_value(
+		"crt", "scanline_strength", crt_scanline_strength
+	)), 0.0, 0.5)
+	crt_mask_strength = clampf(float(config.get_value(
+		"crt", "mask_strength", crt_mask_strength
+	)), 0.0, 0.3)
+	crt_vignette_strength = clampf(float(config.get_value(
+		"crt", "vignette_strength", crt_vignette_strength
+	)), 0.0, 0.6)
+	crt_flicker_strength = clampf(float(config.get_value(
+		"crt", "flicker_strength", crt_flicker_strength
+	)), 0.0, 0.1)
+	crt_color_bleed = clampf(float(config.get_value(
+		"crt", "color_bleed", crt_color_bleed
+	)), 0.0, 4.0)
 
 
 func _save_settings() -> void:
@@ -238,6 +310,11 @@ func _save_settings() -> void:
 	config.set_value("rendering", "retro_enabled", retro_enabled)
 	config.set_value("rendering", "vertex_snap_enabled", vertex_snap_enabled)
 	config.set_value("rendering", "affine_mapping_enabled", affine_mapping_enabled)
+	config.set_value("crt", "scanline_strength", crt_scanline_strength)
+	config.set_value("crt", "mask_strength", crt_mask_strength)
+	config.set_value("crt", "vignette_strength", crt_vignette_strength)
+	config.set_value("crt", "flicker_strength", crt_flicker_strength)
+	config.set_value("crt", "color_bleed", crt_color_bleed)
 	var error = config.save(SETTINGS_PATH)
 	if error != OK:
 		push_warning("Could not save rendering settings: %s" % error_string(error))
