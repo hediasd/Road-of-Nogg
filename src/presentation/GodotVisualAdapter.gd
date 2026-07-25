@@ -4,6 +4,9 @@
 class_name GodotVisualAdapter
 extends IBattleVisualAdapter
 
+const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
+const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEffects.gd")
+
 var state: BattleState
 var root_node: Node3D
 var grid_node: Node3D
@@ -14,15 +17,14 @@ var anim_queue: Array = []
 var is_animating: bool = false
 var anim_tween: Tween
 
-var selected_monster_id: int = -1
-var aura_container: Node3D
-var monster_nodes: Dictionary = {}
+var visualEffects
 
 var _monster_visuals: Dictionary = {} # monsterID -> MeshInstance3D
 
 func _init(_state: BattleState, _root_node: Node3D) -> void:
 	state = _state
 	root_node = _root_node
+	visualEffects = BattleVisualEffectsScript.new(_monster_visuals)
 
 	grid_node = Node3D.new()
 	grid_node.name = "Grid"
@@ -32,7 +34,7 @@ func _init(_state: BattleState, _root_node: Node3D) -> void:
 	monsters_node.name = "Monsters"
 	root_node.add_child(monsters_node)
 
-	_cursor = _create_mesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
+	_cursor = BattleMeshFactoryScript.createMesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
 	_cursor.visible = false
 	root_node.add_child(_cursor)
 
@@ -54,103 +56,6 @@ func _update_right_ui(text: String) -> void:
 func _coord_to_pos3d(coord: Vector2i) -> Vector3:
 	return Vector3(coord.x, 0, coord.y)
 
-func _get_element_color(element: String) -> Color:
-	match element.to_lower():
-		"fire": return Color(0.9, 0.2, 0.2)
-		"water", "ice": return Color(0.2, 0.7, 0.9)
-		"earth", "nature", "wood": return Color(0.2, 0.7, 0.2)
-		"electric", "lightning", "thunder": return Color(0.9, 0.9, 0.1)
-		"dark", "darkness": return Color(0.4, 0.1, 0.6)
-		"light": return Color(0.9, 0.9, 0.8)
-		"steel": return Color(0.6, 0.6, 0.75)
-		_: return Color(0.5, 0.5, 0.5)
-
-func _create_half_material(color1: Color, color2: Color, center: Vector3) -> ShaderMaterial:
-	var shader = Shader.new()
-	shader.code = """
-	shader_type spatial;
-	uniform vec4 color1 : source_color;
-	uniform vec4 color2 : source_color;
-	uniform float metallic = 0.0;
-	uniform float roughness = 1.0;
-	varying vec3 local_pos;
-	void vertex() {
-		local_pos = VERTEX;
-	}
-	void fragment() {
-		METALLIC = metallic;
-		ROUGHNESS = roughness;
-		SPECULAR = 0.5;
-
-		// Diagonal split from bottom-left to top-right in local object space
-		if (local_pos.y - local_pos.x < 0.0) {
-			ALBEDO = color1.rgb;
-		} else {
-			ALBEDO = color2.rgb;
-		}
-	}
-	"""
-	var mat = ShaderMaterial.new()
-	mat.shader = shader
-	mat.set_shader_parameter("color1", color1)
-	mat.set_shader_parameter("color2", color2)
-	mat.set_shader_parameter("metallic", 0.0)
-	mat.set_shader_parameter("roughness", 1.0)
-	return mat
-
-
-func _create_mesh(type: String, color: Color) -> MeshInstance3D:
-	var mi = MeshInstance3D.new()
-	var mat = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 1.0
-	mat.metallic = 0.0
-
-	if type == "cursor":
-		mi.mesh = PlaneMesh.new()
-		mi.mesh.size = Vector2(1.1, 1.1)
-		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		mat.emission_enabled = true
-		mat.emission = color
-	elif type == "box":
-		mi.mesh = BoxMesh.new()
-		mi.mesh.size = Vector3(0.9, 0.4, 0.9)
-	elif type == "plane":
-		mi.mesh = PlaneMesh.new()
-		mi.mesh.size = Vector2(0.9, 0.9)
-	elif type == "cylinder":
-		mi.mesh = CylinderMesh.new()
-		mi.mesh.height = 1.0
-		mi.mesh.top_radius = 0.3
-		mi.mesh.bottom_radius = 0.3
-	elif type == "capsule_base":
-		mi.mesh = CylinderMesh.new()
-		mi.mesh.height = 0.2
-		mi.mesh.top_radius = 0.45
-		mi.mesh.bottom_radius = 0.45
-	elif type == "shape_sphere":
-		mi.mesh = SphereMesh.new()
-		mi.mesh.radius = 0.4
-	elif type == "shape_cube":
-		mi.mesh = BoxMesh.new()
-		mi.mesh.size = Vector3(0.7, 0.7, 0.7)
-	elif type == "shape_coin":
-		mi.mesh = CylinderMesh.new()
-		mi.mesh.height = 0.2
-		mi.mesh.top_radius = 0.4
-		mi.mesh.bottom_radius = 0.4
-	elif type == "shape_capsule":
-		mi.mesh = CapsuleMesh.new()
-		mi.mesh.radius = 0.3
-		mi.mesh.height = 0.8
-	elif type == "shape_pyramid":
-		mi.mesh = PrismMesh.new()
-		mi.mesh.size = Vector3(0.7, 0.8, 0.7)
-
-	mi.material_override = mat
-	return mi
-
-
 # --- EVENTS ---
 
 func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
@@ -165,7 +70,7 @@ func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
 			if terrain == 1: color = Color(0.5, 0.3, 0.1) # Trees/Obstacle
 			elif terrain == 2: color = Color(0.1, 0.3, 0.8) # Water/Abyss
 
-			var tile = _create_mesh("box", color)
+			var tile = BattleMeshFactoryScript.createMesh("box", color)
 			var pos3d = _coord_to_pos3d(coord)
 
 			if terrain == 2:
@@ -181,11 +86,10 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 
 	var mat: Material = null
 	if m and m.elements.size() >= 2:
-		var pos3d = _coord_to_pos3d(pos)
-		mat = _create_half_material(_get_element_color(m.elements[0]), _get_element_color(m.elements[1]), pos3d)
+		mat = BattleMeshFactoryScript.createHalfMaterial(BattleMeshFactoryScript.elementColor(m.elements[0]), BattleMeshFactoryScript.elementColor(m.elements[1]))
 	elif m and m.elements.size() == 1:
 		var st_mat = StandardMaterial3D.new()
-		st_mat.albedo_color = _get_element_color(m.elements[0])
+		st_mat.albedo_color = BattleMeshFactoryScript.elementColor(m.elements[0])
 		st_mat.metallic = 0.0
 		st_mat.roughness = 1.0
 		mat = st_mat
@@ -200,7 +104,7 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 	container.position = _coord_to_pos3d(pos)
 	container.position.y = 0.2 # Offset to sit on top of the box tiles
 
-	var base_mesh = _create_mesh("capsule_base", team_color)
+	var base_mesh = BattleMeshFactoryScript.createMesh("capsule_base", team_color)
 	base_mesh.position.y = 0.1
 	container.add_child(base_mesh)
 
@@ -208,27 +112,27 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 	var body_mesh = Node3D.new()
 
 	# Base bulb
-	var base_bulb = _create_mesh("shape_coin", Color.WHITE)
+	var base_bulb = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
 	base_bulb.mesh.height = 0.2; base_bulb.mesh.top_radius = 0.3; base_bulb.mesh.bottom_radius = 0.35
 	base_bulb.position.y = 0.3; base_bulb.material_override = mat
 
 	# Small ring
-	var ring = _create_mesh("shape_coin", Color.WHITE)
+	var ring = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
 	ring.mesh.height = 0.05; ring.mesh.top_radius = 0.31; ring.mesh.bottom_radius = 0.31
 	ring.position.y = 0.425; ring.material_override = mat
 
 	# Stem
-	var stem = _create_mesh("shape_coin", Color.WHITE)
+	var stem = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
 	stem.mesh.height = 0.6; stem.mesh.top_radius = 0.1; stem.mesh.bottom_radius = 0.25
 	stem.position.y = 0.75; stem.material_override = mat
 
 	# Collar
-	var collar = _create_mesh("shape_coin", Color.WHITE)
+	var collar = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
 	collar.mesh.height = 0.05; collar.mesh.top_radius = 0.2; collar.mesh.bottom_radius = 0.2
 	collar.position.y = 1.075; collar.material_override = mat
 
 	# Head
-	var head = _create_mesh("shape_sphere", Color.WHITE)
+	var head = BattleMeshFactoryScript.createMesh("shape_sphere", Color.WHITE)
 	head.mesh.radius = 0.2; head.mesh.height = 0.4; head.position.y = 1.3; head.material_override = mat
 
 	body_mesh.add_child(base_bulb)
@@ -327,86 +231,8 @@ func _play_bump_animation(sourceID: int, targetID: int) -> void:
 	tween.tween_property(src_mi, "position", original_pos, 0.15)
 
 func highlight_monster(monster_id: int) -> void:
-	if selected_monster_id == monster_id:
-		return
+	visualEffects.highlightMonster(monster_id)
 
-	selected_monster_id = monster_id
-
-	# Clear previous aura
-	if is_instance_valid(aura_container):
-		aura_container.queue_free()
-		aura_container = null
-
-	if monster_id == -1 or not _monster_visuals.has(monster_id):
-		return
-
-	var target_node = _monster_visuals[monster_id]
-
-	aura_container = Node3D.new()
-	target_node.add_child(aura_container)
-
-	var shader = load("res://assets/shaders/pixel_aura.gdshader")
-	var mat = ShaderMaterial.new()
-	mat.shader = shader
-	mat.set_shader_parameter("aura_color", Color.WHITE)
-	mat.set_shader_parameter("thickness", 0.04)
-	mat.set_shader_parameter("pixel_size", 64.0)
-
-	aura_container.position.y += 0.02 # Lift slightly to prevent Z-fighting with floor
-
-	_build_aura_meshes(target_node, aura_container, mat)
-
-func _build_aura_meshes(source: Node, dest: Node3D, mat: Material) -> void:
-	for child in source.get_children():
-		if child == aura_container: continue
-		if child is MeshInstance3D:
-			var mi = MeshInstance3D.new()
-			mi.mesh = child.mesh
-			mi.transform = child.transform
-			mi.material_override = mat
-			dest.add_child(mi)
-		elif child is Node3D:
-			var pivot = Node3D.new()
-			pivot.transform = child.transform
-			dest.add_child(pivot)
-			_build_aura_meshes(child, pivot, mat)
 
 func apply_global_effect(index: int) -> void:
-	var mat: Material = null
-	match index:
-		0: mat = null # Default (Clear override)
-		1: mat = _load_effect_mat("res://assets/shaders/effects/01_hologram.gdshader")
-		2: mat = _load_effect_mat("res://assets/shaders/effects/02_ghost.gdshader")
-		3: mat = _load_effect_mat("res://assets/shaders/effects/03_toon.gdshader")
-		4: mat = _load_effect_mat("res://assets/shaders/effects/04_molten.gdshader")
-		5: mat = _load_effect_mat("res://assets/shaders/effects/05_dissolve.gdshader")
-		6: mat = _load_effect_mat("res://assets/shaders/effects/06_matrix.gdshader")
-		7: mat = _load_effect_mat("res://assets/shaders/effects/07_glass.gdshader")
-		8: mat = _load_effect_mat("res://assets/shaders/effects/08_shadow.gdshader")
-		9: mat = _load_effect_mat("res://assets/shaders/effects/09_petrified.gdshader")
-		10:
-			var std = StandardMaterial3D.new()
-			std.albedo_color = Color(1.0, 0.8, 0.1)
-			std.metallic = 1.0
-			std.roughness = 0.15
-			mat = std
-
-	for m_id in _monster_visuals.keys():
-		var node = _monster_visuals[m_id]
-		_override_materials_recursive(node, mat)
-
-func _load_effect_mat(path: String) -> ShaderMaterial:
-	var shader = load(path)
-	var sm = ShaderMaterial.new()
-	sm.shader = shader
-	return sm
-
-func _override_materials_recursive(node: Node, mat: Material) -> void:
-	if node == aura_container: return # Don't override the highlight aura itself
-
-	if node is MeshInstance3D:
-		# If index is 0, mat is null, which clears the override
-		node.material_override = mat
-
-	for child in node.get_children():
-		_override_materials_recursive(child, mat)
+	visualEffects.applyGlobalEffect(index)
