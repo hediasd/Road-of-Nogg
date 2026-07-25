@@ -1,7 +1,5 @@
-## MovementResolver — Game-specific movement application layer.
-## Delegates pure algorithms to AStarPathfinder and BFSFloodFill.
-## Handles game rules: occupancy validation, move range, and event emission.
-## Pure logic, no Node dependency.
+## Game-specific movement validation and application.
+## Pure logic; delegates reachability and pathfinding to stateless algorithms.
 
 class_name MovementResolver
 
@@ -17,10 +15,7 @@ func _init(_state: BattleState, _events: BattleEvents) -> void:
 	events = _events
 
 
-# --- Reachable positions (BFS, respects move range and occupancy) ---
-
 func getReachablePositions(monsterID: int) -> Array:
-	## Returns all grid positions this monster can move to within its move range.
 	var mon = state.getMonster(monsterID)
 	if mon == null:
 		return []
@@ -28,58 +23,64 @@ func getReachablePositions(monsterID: int) -> Array:
 	return BFSFloodFill.getReachable(startPos, mon.move, _isPassableForMonster.bind(monsterID))
 
 
-# --- A* pathfinding ---
-
 func findPath(fromPos: Vector2i, toPos: Vector2i, maxSteps: int = 100) -> Array:
-	## A* path from fromPos to toPos, excluding start, including destination.
-	## Returns empty array if no path found.
-	return AStarPathfinder.findPath(fromPos, toPos, _isPassableForPath.bind(fromPos, toPos), maxSteps)
+	return AStarPathfinder.findPath(
+		fromPos,
+		toPos,
+		_isPassableForPath.bind(fromPos, toPos),
+		maxSteps
+	)
 
 
-# --- Execute movement ---
-
-func executeMove(monsterID: int, path: Array) -> bool:
-	## Validates and executes a movement along the given path.
-	## Returns true if the move was successful.
-	if path.is_empty():
-		return false
-
+func validateMovePath(monsterID: int, path: Array) -> Dictionary:
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
-		return false
-
+		return {"success": false, "reason": "invalid_monster"}
 	if path.size() > mon.move:
+		return {"success": false, "reason": "path_exceeds_move"}
+	if path.is_empty():
+		return {"success": true, "destination": state.getMonsterPosition(monsterID)}
+
+	var previous: Vector2i = state.getMonsterPosition(monsterID)
+	var visited: Dictionary = {previous: true}
+	for stepValue in path:
+		if not stepValue is Vector2i:
+			return {"success": false, "reason": "invalid_path_coordinate"}
+		var step: Vector2i = stepValue
+		if abs(previous.x - step.x) + abs(previous.y - step.y) != 1:
+			return {"success": false, "reason": "non_contiguous_path"}
+		if visited.has(step):
+			return {"success": false, "reason": "path_loop"}
+		if not state.withinBounds(step):
+			return {"success": false, "reason": "path_out_of_bounds"}
+		if not state.isWalkable(step):
+			return {"success": false, "reason": "path_blocked"}
+		if state.isOccupied(step):
+			return {"success": false, "reason": "path_occupied"}
+		visited[step] = true
+		previous = step
+
+	return {"success": true, "destination": previous}
+
+
+func executeMove(monsterID: int, path: Array) -> bool:
+	if path.is_empty():
+		return false
+	var validation = validateMovePath(monsterID, path)
+	if not validation["success"]:
 		return false
 
-	var destination: Vector2i = path.back()
-	if state.isOccupied(destination):
-		return false
-
-	state.moveMonsterTo(monsterID, destination)
-	state.add_event("move", monsterID, -1, {"path": path})
+	state.moveMonsterTo(monsterID, validation["destination"])
+	state.add_event("move", monsterID, -1, {"path": path.duplicate()})
 	events.monster_moved.emit(monsterID, path)
 	return true
 
 
-# --- Passability callbacks (passed to pure algorithm classes) ---
-
 func _isPassableForMonster(pos: Vector2i, _monsterID: int) -> bool:
-	## Used by BFS: a tile is passable if it's in-bounds, walkable, and unoccupied.
-	if not state.withinBounds(pos):
-		return false
-	if not state.isWalkable(pos):
-		return false
-	if state.isOccupied(pos):
-		return false
-	return true
+	return state.withinBounds(pos) and state.isWalkable(pos) and not state.isOccupied(pos)
 
 
 func _isPassableForPath(pos: Vector2i, fromPos: Vector2i, toPos: Vector2i) -> bool:
-	## Used by A*: allows moving to occupied tiles only if it's the source or destination.
-	if not state.withinBounds(pos):
+	if not state.withinBounds(pos) or not state.isWalkable(pos):
 		return false
-	if not state.isWalkable(pos):
-		return false
-	if state.isOccupied(pos) and pos != fromPos and pos != toPos:
-		return false
-	return true
+	return not state.isOccupied(pos) or pos == fromPos or pos == toPos

@@ -1,5 +1,4 @@
-## BattleCursorController — Owns the tactical cursor's mode and discrete
-## grid intent. The cursor never interpolates between cells.
+## Owns the tactical cursor's discrete grid intent and input authority.
 
 class_name BattleCursorController
 extends RefCounted
@@ -12,11 +11,17 @@ enum Mode {
 	TARGETING
 }
 
+enum Owner {
+	NONE,
+	AI,
+	PLAYER
+}
+
 const CURSOR_HEIGHT := 0.21
 
 var mode: Mode = Mode.HIDDEN
+var owner: Owner = Owner.NONE
 var grid_position := Vector2i(-1, -1)
-
 var _cursor: MeshInstance3D
 
 
@@ -26,19 +31,37 @@ func _init(cursor: MeshInstance3D) -> void:
 
 
 func focusTurn(coord: Vector2i) -> void:
-	showAt(coord, Mode.TURN_INDICATOR)
+	_showAIIntent(coord, Mode.TURN_INDICATOR)
 
 
 func focusMovementDestination(coord: Vector2i) -> void:
-	showAt(coord, Mode.MOVEMENT_TARGET)
-
-
-func focusPlayerSelection(coord: Vector2i) -> void:
-	showAt(coord, Mode.PLAYER_SELECTION)
+	_showAIIntent(coord, Mode.MOVEMENT_TARGET)
 
 
 func focusTarget(coord: Vector2i) -> void:
+	_showAIIntent(coord, Mode.TARGETING)
+
+
+func focusPlayerSelection(coord: Vector2i) -> void:
+	owner = Owner.PLAYER
+	showAt(coord, Mode.PLAYER_SELECTION)
+
+
+func focusPlayerTarget(coord: Vector2i) -> void:
+	owner = Owner.PLAYER
 	showAt(coord, Mode.TARGETING)
+
+
+func releasePlayerOwnership() -> void:
+	if owner == Owner.PLAYER:
+		owner = Owner.NONE
+
+
+func _showAIIntent(coord: Vector2i, nextMode: Mode) -> void:
+	if owner == Owner.PLAYER:
+		return
+	owner = Owner.AI
+	showAt(coord, nextMode)
 
 
 func showAt(coord: Vector2i, nextMode: Mode) -> void:
@@ -48,10 +71,12 @@ func showAt(coord: Vector2i, nextMode: Mode) -> void:
 	_cursor.visible = true
 
 
-func hide() -> void:
+func hide(clearOwner: bool = true) -> void:
 	mode = Mode.HIDDEN
 	grid_position = Vector2i(-1, -1)
 	_cursor.visible = false
+	if clearOwner:
+		owner = Owner.NONE
 
 
 func _worldPosition(coord: Vector2i) -> Vector3:

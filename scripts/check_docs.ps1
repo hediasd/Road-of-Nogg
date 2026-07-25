@@ -36,11 +36,15 @@ foreach ($retiredPath in @('docs/PROJECT_STRUCTURE.md', 'implementation_plan.md'
     }
 }
 
+$trackedMarkdownPaths = @(
+    & git -C $repoRoot ls-files -- '*.md'
+)
+if ($LASTEXITCODE -ne 0) {
+    throw 'Unable to enumerate tracked Markdown files.'
+}
 $markdownFiles = @(
-    Get-Item -LiteralPath (Join-Path $repoRoot 'README.md')
-    Get-ChildItem -LiteralPath (Join-Path $repoRoot '.agents') -File -Filter '*.md'
-    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'docs') -Recurse -File -Filter '*.md'
-    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'gamerefs') -File -Filter '*.md'
+    $trackedMarkdownPaths |
+        ForEach-Object { Get-Item -LiteralPath (Join-Path $repoRoot $_) }
 )
 
 $forbidden = [ordered]@{
@@ -91,7 +95,14 @@ foreach ($file in $markdownFiles) {
     }
 }
 
-$aspectFiles = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot 'gamerefs') -File -Filter 'trpg_*.md' | Sort-Object Name)
+$aspectFiles = @(
+    $markdownFiles |
+        Where-Object {
+            $_.DirectoryName -eq (Join-Path $repoRoot 'gamerefs') -and
+            $_.Name -like 'trpg_*.md'
+        } |
+        Sort-Object Name
+)
 if ($aspectFiles.Count -ne 18) {
     Add-AuditError "Expected 18 gameref aspect modules; found $($aspectFiles.Count)"
 }

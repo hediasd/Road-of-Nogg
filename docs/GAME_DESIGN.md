@@ -26,7 +26,7 @@ The detailed setup, dropdown, controller, cursor, and delivery decisions are in
 4. When the queue is empty, living entities are sorted again for a new round.
 5. Battle ends when only one team has living entities.
 
-CPU decisions and future player input must converge on the same validated
+CPU decisions and player input converge on the same validated
 command contract. A controller proposes a command; the simulator validates,
 executes, and records it.
 

@@ -7,11 +7,13 @@ extends IBattleVisualAdapter
 const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
 const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEffects.gd")
 const BattleCursorControllerScript = preload("res://src/presentation/BattleCursorController.gd")
+const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
 
 var state: BattleState
 var root_node: Node3D
 var grid_node: Node3D
 var monsters_node: Node3D
+var overlay_node: Node3D
 var _cursor: MeshInstance3D
 var _cursor_controller: BattleCursorController
 
@@ -36,6 +38,10 @@ func _init(_state: BattleState, _root_node: Node3D) -> void:
 	monsters_node.name = "Monsters"
 	root_node.add_child(monsters_node)
 
+	overlay_node = Node3D.new()
+	overlay_node.name = "TacticalOverlays"
+	root_node.add_child(overlay_node)
+
 	_cursor = BattleMeshFactoryScript.createMesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
 	root_node.add_child(_cursor)
 	_cursor_controller = BattleCursorControllerScript.new(_cursor)
@@ -57,6 +63,23 @@ func _update_right_ui(text: String) -> void:
 
 func _coord_to_pos3d(coord: Vector2i) -> Vector3:
 	return Vector3(coord.x, 0, coord.y)
+
+func _buildPlaceholderBody(material: Material) -> Node3D:
+	var body = Node3D.new()
+	var parts = [
+		["shape_coin", Vector3(0, 0.3, 0), Vector3(0.35, 0.2, 0.3)],
+		["shape_coin", Vector3(0, 0.425, 0), Vector3(0.31, 0.05, 0.31)],
+		["shape_coin", Vector3(0, 0.75, 0), Vector3(0.25, 0.6, 0.1)],
+		["shape_coin", Vector3(0, 1.075, 0), Vector3(0.2, 0.05, 0.2)],
+		["shape_sphere", Vector3(0, 1.3, 0), Vector3(0.2, 0.4, 0.2)]
+	]
+	for partData in parts:
+		var part = BattleMeshFactoryScript.createMesh(partData[0], Color.WHITE)
+		part.position = partData[1]
+		part.scale = partData[2]
+		part.material_override = material
+		body.add_child(part)
+	return body
 
 # --- EVENTS ---
 
@@ -110,40 +133,10 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 	base_mesh.position.y = 0.1
 	container.add_child(base_mesh)
 
-	var brain_name = m.brain.get_script().resource_path.get_file().get_basename() if m and m.brain else ""
-	var body_mesh = Node3D.new()
-
-	# Base bulb
-	var base_bulb = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	base_bulb.mesh.height = 0.2; base_bulb.mesh.top_radius = 0.3; base_bulb.mesh.bottom_radius = 0.35
-	base_bulb.position.y = 0.3; base_bulb.material_override = mat
-
-	# Small ring
-	var ring = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	ring.mesh.height = 0.05; ring.mesh.top_radius = 0.31; ring.mesh.bottom_radius = 0.31
-	ring.position.y = 0.425; ring.material_override = mat
-
-	# Stem
-	var stem = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	stem.mesh.height = 0.6; stem.mesh.top_radius = 0.1; stem.mesh.bottom_radius = 0.25
-	stem.position.y = 0.75; stem.material_override = mat
-
-	# Collar
-	var collar = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	collar.mesh.height = 0.05; collar.mesh.top_radius = 0.2; collar.mesh.bottom_radius = 0.2
-	collar.position.y = 1.075; collar.material_override = mat
-
-	# Head
-	var head = BattleMeshFactoryScript.createMesh("shape_sphere", Color.WHITE)
-	head.mesh.radius = 0.2; head.mesh.height = 0.4; head.position.y = 1.3; head.material_override = mat
-
-	body_mesh.add_child(base_bulb)
-	body_mesh.add_child(ring)
-	body_mesh.add_child(stem)
-	body_mesh.add_child(collar)
-	body_mesh.add_child(head)
-
-	container.add_child(body_mesh)
+	var bodyVisual = MonsterVisualRegistryScript.instantiateVisual(_name)
+	if bodyVisual == null:
+		bodyVisual = _buildPlaceholderBody(mat)
+	container.add_child(bodyVisual)
 
 	monsters_node.add_child(container)
 	_monster_visuals[monsterID] = container
@@ -263,11 +256,55 @@ func show_player_cursor(coord: Vector2i) -> void:
 
 
 func show_target_cursor(coord: Vector2i) -> void:
-	_cursor_controller.focusTarget(coord)
+	_cursor_controller.focusPlayerTarget(coord)
+
+
+func release_player_cursor() -> void:
+	_cursor_controller.releasePlayerOwnership()
 
 
 func hide_cursor() -> void:
 	_cursor_controller.hide()
+
+
+func show_movement_options(reachable: Array, path: Array = []) -> void:
+	clear_tactical_overlays()
+	for coord in reachable:
+		_add_overlay(coord, Color(0.15, 0.75, 1.0, 0.32))
+	for coord in path:
+		_add_overlay(coord, Color(1.0, 0.85, 0.15, 0.72))
+
+
+func show_target_options(targetIDs: Array) -> void:
+	clear_tactical_overlays()
+	for targetID in targetIDs:
+		var coord = state.getMonsterPosition(targetID)
+		if state.withinBounds(coord):
+			_add_overlay(coord, Color(1.0, 0.2, 0.25, 0.68))
+
+
+func clear_tactical_overlays() -> void:
+	if not is_instance_valid(overlay_node):
+		return
+	for child in overlay_node.get_children():
+		child.free()
+
+
+func _add_overlay(coord: Vector2i, color: Color) -> void:
+	var marker = BattleMeshFactoryScript.createMesh("plane", color)
+	var material = marker.material_override as StandardMaterial3D
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	marker.position = Vector3(coord.x, 0.215, coord.y)
+	overlay_node.add_child(marker)
+
+
+func dispose() -> void:
+	disconnectFromEvents()
+	for node in [grid_node, monsters_node, overlay_node, _cursor]:
+		if is_instance_valid(node):
+			node.queue_free()
+	_monster_visuals.clear()
 
 
 func apply_global_effect(index: int) -> void:

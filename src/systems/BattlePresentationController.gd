@@ -1,57 +1,75 @@
 extends Node3D
 
 const BattleUIBuilderScript = preload("res://src/presentation/BattleUIBuilder.gd")
+const BattleSetupUIScript = preload("res://src/presentation/BattleSetupUI.gd")
+const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
+const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
+const BattleSetupPresetsScript = preload("res://src/factories/BattleSetupPresets.gd")
+const MapReferencesScript = preload("res://src/factories/MapReferences.gd")
+const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
+const GodotVisualAdapterScript = preload("res://src/presentation/GodotVisualAdapter.gd")
+
+enum Lifecycle { SETUP, BATTLE, COMPLETE }
+enum PlayerState { INACTIVE, UNIT_SELECTED, MOVE_PREVIEW, ACTION_MENU, TARGETING, CONFIRM }
 
 var sim: BattleSimulator
 var visual_adapter: GodotVisualAdapter
 var turn_timer: Timer
 var camera: BattleCameraController
 
-# UI Elements
 var left_ui_label: Label
 var right_ui_label: Label
 var log_label: RichTextLabel
 var log_panel: PanelContainer
 
+var battle_ui: Dictionary = {}
+var setup_ui: Dictionary = {}
+var current_config
+var lifecycle: Lifecycle = Lifecycle.SETUP
+var player_state: PlayerState = PlayerState.INACTIVE
+var active_player_id: int = -1
+var player_grid_cursor := Vector2i.ZERO
+var reachable_tiles: Array = []
+var valid_target_ids: Array = []
+var pending_move_path: Array = []
+var pending_action: String = "wait"
+var pending_target_id: int = -1
+var pending_spell_set: int = 0
+var pending_spell_index: int = 0
+
+
 func _ready() -> void:
 	_setup_background()
 	_setup_camera_and_lighting()
-	_setup_ui()
-	_setup_simulation()
+	_build_battle_ui()
+	_build_setup_ui()
+	_show_setup()
 
-	var ss_timer = Timer.new()
-	ss_timer.wait_time = 1.0
-	ss_timer.one_shot = true
-	ss_timer.timeout.connect(_on_screenshot_pressed)
-	add_child(ss_timer)
-	ss_timer.start()
+
 func _setup_background() -> void:
-	var bg_canvas = CanvasLayer.new()
-	bg_canvas.layer = -1
-	add_child(bg_canvas)
+	var bgCanvas = CanvasLayer.new()
+	bgCanvas.layer = -1
+	add_child(bgCanvas)
+	var material = ShaderMaterial.new()
+	material.shader = load("res://assets/textures/sky/retro_sky_2d.gdshader")
+	var background = ColorRect.new()
+	background.material = material
+	background.set_anchors_preset(Control.PRESET_FULL_RECT)
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bgCanvas.add_child(background)
 
-	var shader = load("res://assets/textures/sky/retro_sky_2d.gdshader")
-	var mat = ShaderMaterial.new()
-	mat.shader = shader
+	var environment = Environment.new()
+	environment.background_mode = Environment.BG_CANVAS
+	environment.background_canvas_max_layer = -1
+	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	environment.ambient_light_color = Color(0.8, 0.8, 0.8)
+	environment.ssao_enabled = false
+	environment.ssil_enabled = false
+	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	var worldEnvironment = WorldEnvironment.new()
+	worldEnvironment.environment = environment
+	add_child(worldEnvironment)
 
-	var crect = ColorRect.new()
-	crect.material = mat
-	crect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	crect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg_canvas.add_child(crect)
-
-	var env = Environment.new()
-	env.background_mode = Environment.BG_CANVAS
-	env.background_canvas_max_layer = -1
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.8, 0.8, 0.8) # Brute bright ambient
-	env.ssao_enabled = false
-	env.ssil_enabled = false
-	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-
-	var we = WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
 
 func _setup_camera_and_lighting() -> void:
 	camera = BattleCameraController.new()
@@ -63,51 +81,188 @@ func _setup_camera_and_lighting() -> void:
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-45, 45, 0)
 	light.shadow_enabled = true
-	light.shadow_blur = 0.0 # Brute sharp shadows
+	light.shadow_blur = 0.0
 	light.light_energy = 1.0
-	light.light_color = Color(1.0, 1.0, 1.0)
+	light.light_color = Color.WHITE
 	add_child(light)
 
-func _setup_ui() -> void:
-	var ui = BattleUIBuilderScript.build(self, {
+
+func _build_battle_ui() -> void:
+	battle_ui = BattleUIBuilderScript.build(self, {
 		"play_toggled": Callable(self, "_on_play_toggled"),
 		"speed_changed": Callable(self, "_on_speed_changed"),
 		"turn_timeout": Callable(self, "_on_turn_timer_timeout"),
+		"new_battle_pressed": Callable(self, "_on_new_battle_pressed"),
 		"clayness_selected": Callable(self, "_on_clayness_selected"),
 		"material_selected": Callable(self, "_on_material_selected"),
 		"screenshot_pressed": Callable(self, "_on_screenshot_pressed"),
-		"dump_state_pressed": Callable(self, "_on_dump_state_pressed")
+		"dump_state_pressed": Callable(self, "_on_dump_state_pressed"),
+		"player_move": Callable(self, "_on_player_move"),
+		"player_attack": Callable(self, "_on_player_attack"),
+		"player_spell": Callable(self, "_on_player_spell"),
+		"player_wait": Callable(self, "_on_player_wait"),
+		"player_confirm": Callable(self, "_on_player_confirm"),
+		"player_cancel": Callable(self, "_on_player_cancel"),
+		"player_end_turn": Callable(self, "_on_player_end_turn"),
+		"spell_selected": Callable(self, "_on_spell_selected")
 	})
-	turn_timer = ui["turn_timer"]
-	left_ui_label = ui["left_ui_label"]
-	right_ui_label = ui["right_ui_label"]
-	log_label = ui["log_label"]
-	log_panel = ui["log_panel"]
+	turn_timer = battle_ui["turn_timer"]
+	left_ui_label = battle_ui["left_ui_label"]
+	right_ui_label = battle_ui["right_ui_label"]
+	log_label = battle_ui["log_label"]
+	log_panel = battle_ui["log_panel"]
 
-func _setup_simulation() -> void:
-	sim = BattleSimulator.new()
-	sim.loadMap("Meadow")
-	visual_adapter = preload("res://src/presentation/GodotVisualAdapter.gd").new(sim.state, self)
-	sim.setVisualAdapter(visual_adapter)
-	sim.setSeed(42)
 
-	# --- Teams ---
-	sim.spawnMonster("Envoy of Lightning", 1, Vector2i(2, 6))
-	sim.spawnMonster("Gigasaurus", 1, Vector2i(1, 7))
-	sim.spawnMonster("Healer Mage", 1, Vector2i(1, 6))
-	sim.spawnMonster("Mage Dragon", 1, Vector2i(2, 7))
+func _build_setup_ui() -> void:
+	setup_ui = BattleSetupUIScript.build(
+		self,
+		{
+			"preset_selected": Callable(self, "_on_preset_selected"),
+			"monster_selected": Callable(self, "_on_monster_selected"),
+			"seed_changed": Callable(self, "_on_seed_changed"),
+			"confirmed": Callable(self, "_on_setup_confirmed")
+		},
+		MapReferencesScript.getNames(),
+		MonsterReferencesScript.getNames(),
+		BattleSetupPresetsScript.getPresetNames()
+	)
+	_apply_preset(1, BattleSetupPresetsScript.PRESET_DEFAULT)
+	_apply_preset(2, BattleSetupPresetsScript.PRESET_DEFAULT)
+	_update_duplicate_note()
 
-	sim.spawnMonster("Smoke Cloud", 2, Vector2i(13, 0))
-	sim.spawnMonster("Megidos", 2, Vector2i(14, 1))
-	sim.spawnMonster("Oracle of Ages", 2, Vector2i(14, 0))
-	sim.spawnMonster("Snowzilla", 2, Vector2i(13, 1))
 
+func _show_setup() -> void:
+	lifecycle = Lifecycle.SETUP
+	player_state = PlayerState.INACTIVE
+	active_player_id = -1
+	if turn_timer:
+		turn_timer.stop()
+	if visual_adapter:
+		visual_adapter.dispose()
+	visual_adapter = null
+	sim = null
+	battle_ui["canvas"].visible = false
+	battle_ui["action_panel"].visible = false
+	setup_ui["canvas"].visible = true
+	setup_ui["error_label"].text = ""
+	setup_ui["confirm_button"].call_deferred("grab_focus")
+
+
+func _on_preset_selected(index: int, team: int) -> void:
+	var presetOption: OptionButton = setup_ui["team_%d_preset" % team]
+	var presetName: String = presetOption.get_item_metadata(index)
+	_apply_preset(team, presetName)
+
+
+func _apply_preset(team: int, presetName: String) -> void:
+	if presetName == BattleSetupPresetsScript.PRESET_CUSTOM:
+		return
+	var roster = BattleSetupPresetsScript.getRoster(presetName, team, int(setup_ui["seed_input"].value))
+	var slots: Array = setup_ui["team_%d_slots" % team]
+	for index in range(min(roster.size(), slots.size())):
+		_select_option_by_metadata(slots[index], roster[index])
+	_update_duplicate_note()
+
+
+func _on_monster_selected(_selectedIndex: int, team: int, _slotIndex: int) -> void:
+	var preset: OptionButton = setup_ui["team_%d_preset" % team]
+	_select_option_by_metadata(preset, BattleSetupPresetsScript.PRESET_CUSTOM)
+	_update_duplicate_note()
+
+
+func _on_seed_changed(_value: float) -> void:
+	for team in [1, 2]:
+		var preset: OptionButton = setup_ui["team_%d_preset" % team]
+		var presetName: String = preset.get_item_metadata(preset.selected)
+		if presetName == BattleSetupPresetsScript.PRESET_RANDOM_BALANCED:
+			_apply_preset(team, presetName)
+
+
+func _select_option_by_metadata(option: OptionButton, value) -> void:
+	for index in range(option.item_count):
+		if option.get_item_metadata(index) == value:
+			option.select(index)
+			return
+
+
+func _read_roster(team: int) -> Array[String]:
+	var roster: Array[String] = []
+	for option in setup_ui["team_%d_slots" % team]:
+		roster.append(option.get_item_metadata(option.selected))
+	return roster
+
+
+func _update_duplicate_note() -> void:
+	if setup_ui.is_empty():
+		return
+	var hasDuplicates = false
+	for roster in [_read_roster(1), _read_roster(2)]:
+		var seen: Dictionary = {}
+		for monsterName in roster:
+			if seen.has(monsterName):
+				hasDuplicates = true
+			seen[monsterName] = true
+	setup_ui["duplicate_note"].text = (
+		"Duplicates selected — allowed, but varied teams are recommended."
+		if hasDuplicates else
+		"Duplicates are allowed, but varied teams are recommended."
+	)
+
+
+func _read_setup_config():
+	var config = BattleSetupConfigScript.new()
+	var modeOption: OptionButton = setup_ui["mode_option"]
+	var mapOption: OptionButton = setup_ui["map_option"]
+	config.battleMode = modeOption.get_item_metadata(modeOption.selected)
+	config.mapName = mapOption.get_item_metadata(mapOption.selected)
+	config.seed = int(setup_ui["seed_input"].value)
+	config.team1 = _read_roster(1)
+	config.team2 = _read_roster(2)
+	return config
+
+
+func _on_setup_confirmed() -> void:
+	var config = _read_setup_config()
+	var validation = config.validate()
+	if not validation["success"]:
+		setup_ui["error_label"].text = "\n".join(validation["errors"])
+		return
+	_start_battle(config)
+
+
+func _start_battle(config) -> void:
+	current_config = config
+	setup_ui["canvas"].visible = false
+	battle_ui["canvas"].visible = true
+	lifecycle = Lifecycle.BATTLE
+	player_state = PlayerState.INACTIVE
+	active_player_id = -1
+	log_label.text = ""
+	left_ui_label.text = "Battle ready"
+	right_ui_label.text = "No target"
+
+	sim = BattleSetupFactoryScript.createSimulator(config, Callable(self, "_create_visual_adapter"))
+	var size = sim.state.boardSize
+	camera.focus_point = Vector3((size.x - 1) * 0.5, 0, (size.y - 1) * 0.5)
+	camera.size = max(size.x, size.y) * 0.95
 	sim.startBattle()
 	sim.turnManager.startNewRound()
+	turn_timer.start()
 
 
-func _on_play_toggled(button_pressed: bool) -> void:
-	if button_pressed:
+func _create_visual_adapter(state: BattleState):
+	visual_adapter = GodotVisualAdapterScript.new(state, self)
+	return visual_adapter
+
+
+func _on_new_battle_pressed() -> void:
+	_show_setup()
+
+
+func _on_play_toggled(buttonPressed: bool) -> void:
+	if lifecycle != Lifecycle.BATTLE or active_player_id != -1:
+		return
+	if buttonPressed:
 		turn_timer.start()
 	else:
 		turn_timer.stop()
@@ -118,142 +273,423 @@ func _on_speed_changed(value: float) -> void:
 	if not turn_timer.is_stopped():
 		turn_timer.start()
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		_handle_click_selection(event.position)
-
-func _handle_click_selection(mouse_pos: Vector2) -> void:
-	if not camera or not sim or not sim.state: return
-	var ray_origin = camera.project_ray_origin(mouse_pos)
-	var ray_normal = camera.project_ray_normal(mouse_pos)
-
-	# Intersect with Y=0 plane
-	if ray_normal.y >= 0.0: return # Parallel or pointing up
-	var t = -ray_origin.y / ray_normal.y
-	var intersection = ray_origin + ray_normal * t
-
-	var grid_x = roundi(intersection.x)
-	var grid_z = roundi(intersection.z)
-	var pos = Vector2i(grid_x, grid_z)
-
-	var monster_id = -1
-	if sim.state.withinBounds(pos):
-		var monster = sim.state.getMonsterAt(pos)
-		if monster != null:
-			monster_id = monster.uniqueID
-
-	if monster_id != -1:
-		visual_adapter.highlight_monster(monster_id)
-		_update_selection_ui(monster_id)
-	else:
-		visual_adapter.highlight_monster(-1)
-		_update_selection_ui(-1)
-
-func _update_selection_ui(monster_id: int) -> void:
-	if monster_id == -1:
-		left_ui_label.text = "Waiting for turn..."
-		return
-
-	var m = sim.state.getMonster(monster_id)
-	if not m: return
-
-	var info = "[ %s ]\n" % m.name
-	info += "HP: %d/%d\n" % [m.hitpoints, m.max_hitpoints]
-	info += "ATK: %d | DEF: %d\n" % [m.atk, m.def]
-	info += "SPD: %d | MOV: %d\n" % [m.speed, m.move]
-
-	var elements_str = "None"
-	if m.elements and m.elements.size() > 0:
-		elements_str = ", ".join(m.elements)
-	info += "Elements: %s" % elements_str
-
-	left_ui_label.text = info
-
 
 func _on_turn_timer_timeout() -> void:
+	_advance_battle()
+
+
+func _advance_battle() -> void:
+	if lifecycle != Lifecycle.BATTLE or sim == null or active_player_id != -1:
+		return
 	if not sim.turnManager.hasNextTurn():
 		var winner = sim.checkWinCondition()
 		if winner != -1:
-			turn_timer.stop()
-			sim.events.battle_ended.emit(winner)
+			_finish_battle(winner)
 			return
-
 		sim.events.round_ended.emit(sim.state.roundCount)
 		sim.turnManager.startNewRound()
 
 	var monsterID = sim.turnManager.startNextTurn()
-	if monsterID != -1:
-		sim.executeTurn(monsterID)
+	if monsterID == -1:
+		return
+	var monster = sim.state.getMonster(monsterID)
+	if sim.state.hasEffect(monsterID, "petrify"):
+		sim.executeCommand(monsterID, {"move_path": [], "action": "wait"}, "system")
 		sim.turnManager.endTurn(monsterID)
+		return
+	if current_config.controllerForTeam(monster.team) == "player":
+		_begin_player_turn(monsterID)
+		return
 
-		var winner = sim.checkWinCondition()
-		if winner != -1:
-			turn_timer.stop()
-			sim.events.battle_ended.emit(winner)
+	sim.executeTurn(monsterID)
+	sim.turnManager.endTurn(monsterID)
+	var winner = sim.checkWinCondition()
+	if winner != -1:
+		_finish_battle(winner)
+
+
+func _finish_battle(winner: int) -> void:
+	lifecycle = Lifecycle.COMPLETE
+	turn_timer.stop()
+	active_player_id = -1
+	player_state = PlayerState.INACTIVE
+	battle_ui["action_panel"].visible = false
+	visual_adapter.clear_tactical_overlays()
+	visual_adapter.release_player_cursor()
+	sim.events.battle_ended.emit(winner)
+	right_ui_label.text = "BATTLE COMPLETE\nTeam %d wins.\nChoose New Battle to return to setup." % winner
+
+
+func _begin_player_turn(monsterID: int) -> void:
+	turn_timer.stop()
+	active_player_id = monsterID
+	pending_move_path = []
+	pending_action = "wait"
+	pending_target_id = -1
+	pending_spell_set = 0
+	pending_spell_index = 0
+	player_grid_cursor = sim.state.getMonsterPosition(monsterID)
+	battle_ui["action_panel"].visible = true
+	_populate_spell_options()
+	player_state = PlayerState.UNIT_SELECTED
+	visual_adapter.show_player_cursor(player_grid_cursor)
+	_enter_move_preview()
+
+
+func _enter_move_preview() -> void:
+	if active_player_id == -1:
+		return
+	player_state = PlayerState.MOVE_PREVIEW
+	var currentPos = sim.state.getMonsterPosition(active_player_id)
+	reachable_tiles = sim.movementResolver.getReachablePositions(active_player_id)
+	if not reachable_tiles.has(currentPos):
+		reachable_tiles.append(currentPos)
+	pending_move_path = []
+	player_grid_cursor = currentPos
+	visual_adapter.show_player_cursor(currentPos)
+	visual_adapter.show_movement_options(reachable_tiles)
+	_set_action_status("MOVE_PREVIEW — select a blue tile, then choose an action.")
+	_update_action_buttons()
+
+
+func _future_position() -> Vector2i:
+	if not pending_move_path.is_empty():
+		return pending_move_path.back()
+	return sim.state.getMonsterPosition(active_player_id)
+
+
+func _handle_grid_selection(pos: Vector2i) -> void:
+	if active_player_id == -1 or not sim.state.withinBounds(pos):
+		return
+	player_grid_cursor = pos
+	if player_state == PlayerState.MOVE_PREVIEW:
+		if not reachable_tiles.has(pos):
+			_set_action_status("That tile is not reachable.")
+			return
+		var currentPos = sim.state.getMonsterPosition(active_player_id)
+		pending_move_path = [] if pos == currentPos else sim.movementResolver.findPath(currentPos, pos, 100)
+		var validation = sim.movementResolver.validateMovePath(active_player_id, pending_move_path)
+		if not validation["success"]:
+			_set_action_status("Invalid path: %s" % validation["reason"])
+			return
+		player_state = PlayerState.ACTION_MENU
+		visual_adapter.show_player_cursor(pos)
+		visual_adapter.show_movement_options(reachable_tiles, pending_move_path)
+		_set_action_status("ACTION_MENU — attack, cast, wait, or revise movement.")
+		_update_action_buttons()
+	elif player_state == PlayerState.TARGETING:
+		var target = sim.state.getMonsterAt(pos)
+		if target == null or not valid_target_ids.has(target.uniqueID):
+			_set_action_status("Choose one of the highlighted targets.")
+			return
+		pending_target_id = target.uniqueID
+		player_state = PlayerState.CONFIRM
+		visual_adapter.show_target_cursor(pos)
+		_set_action_status("CONFIRM — %s %s." % [pending_action.capitalize(), target.name])
+		_update_action_buttons()
+
+
+func _on_player_move() -> void:
+	_enter_move_preview()
+
+
+func _on_player_attack() -> void:
+	if active_player_id == -1:
+		return
+	pending_action = "attack"
+	pending_target_id = -1
+	valid_target_ids = sim.combatResolver.getBasicAttackTargetsFrom(active_player_id, _future_position())
+	_enter_targeting("ATTACK")
+
+
+func _on_player_spell() -> void:
+	if active_player_id == -1 or battle_ui["spell_option"].item_count == 0:
+		return
+	var spellOption: OptionButton = battle_ui["spell_option"]
+	var metadata = spellOption.get_item_metadata(spellOption.selected)
+	if not metadata is Vector2i or metadata.x < 0:
+		_set_action_status("No available spell selected.")
+		return
+	pending_spell_set = metadata.x
+	pending_spell_index = metadata.y
+	pending_action = "spell"
+	pending_target_id = -1
+	valid_target_ids = sim.combatResolver.getSpellTargetsFrom(
+		active_player_id, pending_spell_set, pending_spell_index, _future_position()
+	)
+	_enter_targeting("SPELL")
+
+
+func _enter_targeting(label: String) -> void:
+	if valid_target_ids.is_empty():
+		player_state = PlayerState.ACTION_MENU
+		_set_action_status("No valid %s targets from the previewed destination." % label.to_lower())
+		_update_action_buttons()
+		return
+	player_state = PlayerState.TARGETING
+	visual_adapter.show_target_options(valid_target_ids)
+	var firstTarget = valid_target_ids[0]
+	player_grid_cursor = sim.state.getMonsterPosition(firstTarget)
+	visual_adapter.show_target_cursor(player_grid_cursor)
+	_set_action_status("TARGETING — choose a highlighted %s target." % label.to_lower())
+	_update_action_buttons()
+
+
+func _on_player_wait() -> void:
+	if active_player_id == -1:
+		return
+	pending_action = "wait"
+	pending_target_id = -1
+	player_state = PlayerState.CONFIRM
+	visual_adapter.clear_tactical_overlays()
+	visual_adapter.show_player_cursor(_future_position())
+	_set_action_status("CONFIRM — move and wait without acting.")
+	_update_action_buttons()
+
+
+func _on_player_confirm() -> void:
+	if player_state == PlayerState.CONFIRM:
+		_submit_player_command()
+
+
+func _on_player_end_turn() -> void:
+	if active_player_id == -1:
+		return
+	pending_action = "wait"
+	pending_target_id = -1
+	_submit_player_command()
+
+
+func _submit_player_command() -> void:
+	var command = {
+		"move_path": pending_move_path,
+		"action": pending_action,
+		"target_id": pending_target_id,
+		"spell_set_index": pending_spell_set,
+		"spell_index": pending_spell_index
+	}
+	var result = sim.executeCommand(active_player_id, command, "player")
+	if not result.get("success", false):
+		_set_action_status("Command rejected: %s" % result.get("reason", "unknown"))
+		return
+
+	var completedID = active_player_id
+	visual_adapter.release_player_cursor()
+	visual_adapter.clear_tactical_overlays()
+	sim.turnManager.endTurn(completedID)
+	active_player_id = -1
+	player_state = PlayerState.INACTIVE
+	battle_ui["action_panel"].visible = false
+	var winner = sim.checkWinCondition()
+	if winner != -1:
+		_finish_battle(winner)
+	elif battle_ui["play_button"].button_pressed:
+		turn_timer.start()
+
+
+func _on_player_cancel() -> void:
+	if active_player_id == -1:
+		return
+	match player_state:
+		PlayerState.CONFIRM:
+			if pending_action in ["attack", "spell"]:
+				_enter_targeting(pending_action.to_upper())
+			else:
+				player_state = PlayerState.ACTION_MENU
+		PlayerState.TARGETING:
+			player_state = PlayerState.ACTION_MENU
+			valid_target_ids = []
+			visual_adapter.show_movement_options(reachable_tiles, pending_move_path)
+			visual_adapter.show_player_cursor(_future_position())
+		PlayerState.ACTION_MENU:
+			_enter_move_preview()
+		_:
+			pass
+	if player_state == PlayerState.ACTION_MENU:
+		_set_action_status("ACTION_MENU — choose an action or revise movement.")
+	_update_action_buttons()
+
+
+func _populate_spell_options() -> void:
+	var option: OptionButton = battle_ui["spell_option"]
+	option.clear()
+	var monster = sim.state.getMonster(active_player_id)
+	var firstAvailable = -1
+	for setIndex in range(monster.spellSets.size()):
+		for spellIndex in range(monster.spellSets[setIndex].size()):
+			var spell = monster.spellSets[setIndex][spellIndex]
+			var remaining = int(monster.spell_cooldowns.get(spell.name, 0))
+			var ready = monster.can_cast(spell)
+			var suffix = "R%d" % spell.range if ready else "CD %d" % remaining
+			option.add_item("%s [%s]" % [spell.name, suffix])
+			var itemIndex = option.item_count - 1
+			option.set_item_metadata(itemIndex, Vector2i(setIndex, spellIndex))
+			option.set_item_disabled(itemIndex, not ready)
+			if ready and firstAvailable == -1:
+				firstAvailable = itemIndex
+	if option.item_count == 0:
+		option.add_item("No spells")
+		option.set_item_metadata(0, Vector2i(-1, -1))
+		option.set_item_disabled(0, true)
+	elif firstAvailable >= 0:
+		option.select(firstAvailable)
+
+
+func _on_spell_selected(index: int) -> void:
+	if active_player_id == -1:
+		return
+	var option: OptionButton = battle_ui["spell_option"]
+	var metadata = option.get_item_metadata(index)
+	if metadata is Vector2i and metadata.x >= 0:
+		var spell = sim.state.getMonster(active_player_id).spellSets[metadata.x][metadata.y]
+		_set_action_status("%s — range %d, minimum %d, cooldown %d." % [
+			spell.name, spell.range, spell.min_range, spell.cooldown
+		])
+
+
+func _set_action_status(text: String) -> void:
+	battle_ui["action_status"].text = text
+
+
+func _update_action_buttons() -> void:
+	var inActionMenu = player_state == PlayerState.ACTION_MENU
+	battle_ui["move_button"].disabled = active_player_id == -1
+	battle_ui["attack_button"].disabled = not inActionMenu
+	battle_ui["cast_button"].disabled = not inActionMenu
+	battle_ui["spell_option"].disabled = not inActionMenu
+	battle_ui["wait_button"].disabled = not inActionMenu
+	battle_ui["confirm_button"].disabled = player_state != PlayerState.CONFIRM
+	battle_ui["cancel_button"].disabled = player_state in [PlayerState.INACTIVE, PlayerState.MOVE_PREVIEW]
+	battle_ui["end_turn_button"].disabled = active_player_id == -1
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if lifecycle != Lifecycle.BATTLE:
+		return
+	if active_player_id != -1:
+		if event.is_action_pressed("ui_cancel"):
+			_on_player_cancel()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("ui_accept"):
+			_handle_grid_selection(player_grid_cursor)
+			get_viewport().set_input_as_handled()
+			return
+		var direction = Vector2i.ZERO
+		if event.is_action_pressed("ui_left"): direction = Vector2i.LEFT
+		elif event.is_action_pressed("ui_right"): direction = Vector2i.RIGHT
+		elif event.is_action_pressed("ui_up"): direction = Vector2i.UP
+		elif event.is_action_pressed("ui_down"): direction = Vector2i.DOWN
+		if direction != Vector2i.ZERO:
+			_move_player_cursor(direction)
+			get_viewport().set_input_as_handled()
+			return
+		if event is InputEventKey and event.pressed and not event.echo:
+			match event.keycode:
+				KEY_M: _on_player_move()
+				KEY_A: _on_player_attack()
+				KEY_S: _on_player_spell()
+				KEY_W: _on_player_wait()
+				KEY_E: _on_player_end_turn()
+
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		var pos = _mouse_to_grid(event.position)
+		if active_player_id != -1:
+			_handle_grid_selection(pos)
+		else:
+			_handle_click_selection(pos)
+
+
+func _move_player_cursor(direction: Vector2i) -> void:
+	var next = player_grid_cursor + direction
+	next.x = clampi(next.x, 0, sim.state.boardSize.x - 1)
+	next.y = clampi(next.y, 0, sim.state.boardSize.y - 1)
+	player_grid_cursor = next
+	if player_state == PlayerState.TARGETING:
+		visual_adapter.show_target_cursor(next)
+	else:
+		visual_adapter.show_player_cursor(next)
+
+
+func _mouse_to_grid(mousePos: Vector2) -> Vector2i:
+	if not camera:
+		return Vector2i(-1, -1)
+	var rayOrigin = camera.project_ray_origin(mousePos)
+	var rayNormal = camera.project_ray_normal(mousePos)
+	if rayNormal.y >= 0.0:
+		return Vector2i(-1, -1)
+	var distance = -rayOrigin.y / rayNormal.y
+	var intersection = rayOrigin + rayNormal * distance
+	return Vector2i(roundi(intersection.x), roundi(intersection.z))
+
+
+func _handle_click_selection(pos: Vector2i) -> void:
+	if sim == null or not sim.state.withinBounds(pos):
+		return
+	var monster = sim.state.getMonsterAt(pos)
+	if monster:
+		visual_adapter.highlight_monster(monster.uniqueID)
+		_update_selection_ui(monster.uniqueID)
+	else:
+		visual_adapter.highlight_monster(-1)
+		_update_selection_ui(-1)
+
+
+func _update_selection_ui(monsterID: int) -> void:
+	if monsterID == -1:
+		left_ui_label.text = "Waiting for turn..."
+		return
+	var monster = sim.state.getMonster(monsterID)
+	if monster == null:
+		return
+	left_ui_label.text = "[ %s ]\nHP: %d/%d\nATK: %d | DEF: %d\nSPD: %d | MOV: %d\nElements: %s" % [
+		monster.name, monster.hitpoints, monster.max_hitpoints,
+		monster.atk, monster.def, monster.speed, monster.move,
+		", ".join(monster.elements) if not monster.elements.is_empty() else "None"
+	]
+
 
 func _on_screenshot_pressed() -> void:
 	DirAccess.make_dir_absolute("res://debug")
-	var img = get_viewport().get_texture().get_image()
-	img.save_png("res://debug/screenshot.png")
+	get_viewport().get_texture().get_image().save_png("res://debug/screenshot.png")
 	print("Screenshot saved to debug/screenshot.png")
 
+
 func _on_dump_state_pressed() -> void:
+	if sim == null:
+		return
 	DirAccess.make_dir_absolute("res://debug")
-	var state_dict = sim.createReplaySnapshot()
 	var file = FileAccess.open("res://debug/state_dump.json", FileAccess.WRITE)
 	if file:
-		file.store_string(JSON.stringify(state_dict, "\t"))
+		file.store_string(JSON.stringify(sim.createReplaySnapshot(), "\t"))
 		file.close()
-		print("State dumped to debug/state_dump.json")
+		print("Replay snapshot saved to debug/state_dump.json")
+
 
 func _on_clayness_selected(index: int) -> void:
-	var env_node = null
-	var light_node = null
+	var environmentNode: WorldEnvironment
+	var lightNode: DirectionalLight3D
 	for child in get_children():
-		if child is WorldEnvironment: env_node = child
-		if child is DirectionalLight3D: light_node = child
-	if not env_node or not light_node: return
-
-	var env = env_node.environment
-
+		if child is WorldEnvironment: environmentNode = child
+		if child is DirectionalLight3D: lightNode = child
+	if environmentNode == null or lightNode == null:
+		return
+	var environment = environmentNode.environment
 	if index == 0:
-		env.ambient_light_color = Color(0.8, 0.8, 0.8)
-		env.ssao_enabled = false
-		env.ssil_enabled = false
-		env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-		light_node.shadow_blur = 0.0
-		light_node.light_energy = 1.0
-		light_node.light_color = Color(1.0, 1.0, 1.0)
+		environment.ambient_light_color = Color(0.8, 0.8, 0.8)
+		environment.ssao_enabled = false
+		environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+		lightNode.shadow_blur = 0.0
+		lightNode.light_energy = 1.0
 		return
 
-	index -= 1
+	environment.ssao_enabled = true
+	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
+	environment.ssao_intensity = 2.0 + index * 0.6
+	environment.ssao_radius = 1.0 + index * 0.3
+	lightNode.shadow_blur = clampf(index * 0.45, 0.5, 5.0)
+	environment.ambient_light_color = Color(0.65, 0.68, 0.75).darkened(index * 0.035)
 
-	# Reset defaults before applying profile
-	env.ssao_enabled = true
-	env.tonemap_mode = Environment.TONE_MAPPER_ACES
-	light_node.light_energy = 0.8
-
-	match index:
-		0: # Profile 1 (Base Clay)
-			env.ssao_intensity = 3.0; env.ssao_radius = 2.0; light_node.shadow_blur = 3.0; env.ambient_light_color = Color(0.6, 0.65, 0.7)
-		1: # Profile 2 (Harsh SSAO)
-			env.ssao_intensity = 8.0; env.ssao_radius = 1.0; light_node.shadow_blur = 1.0; env.ambient_light_color = Color(0.5, 0.55, 0.6)
-		2: # Profile 3 (Soft SSAO)
-			env.ssao_intensity = 2.0; env.ssao_radius = 4.0; light_node.shadow_blur = 5.0; env.ambient_light_color = Color(0.7, 0.75, 0.8)
-		3: # Profile 4 (High Contrast)
-			env.ssao_intensity = 5.0; env.ssao_radius = 3.0; light_node.shadow_blur = 0.5; env.ambient_light_color = Color(0.3, 0.35, 0.4)
-		4: # Profile 5 (No SSAO)
-			env.ssao_intensity = 0.0; env.ssao_radius = 1.0; light_node.shadow_blur = 3.0; env.ambient_light_color = Color(0.6, 0.65, 0.7)
-		5: # Profile 6 (Glowy Ambient)
-			env.ssao_intensity = 4.0; env.ssao_radius = 2.0; light_node.shadow_blur = 3.0; env.ambient_light_color = Color(0.8, 0.8, 0.85)
-		6: # Profile 7 (Dark Clay)
-			env.ssao_intensity = 6.0; env.ssao_radius = 1.5; light_node.shadow_blur = 4.0; env.ambient_light_color = Color(0.2, 0.25, 0.3); light_node.light_energy = 1.2
-		7: # Profile 8 (Vibrant/Linear)
-			env.ssao_intensity = 4.0; env.ssao_radius = 2.0; light_node.shadow_blur = 3.0; env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-		8: # Profile 9 (Filmic Clay)
-			env.ssao_intensity = 5.0; env.ssao_radius = 2.5; light_node.shadow_blur = 2.0; env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-		9: # Profile 10 (Deep Shadows)
-			env.ssao_intensity = 10.0; env.ssao_radius = 5.0; light_node.shadow_blur = 1.0; env.ambient_light_color = Color(0.1, 0.1, 0.15); light_node.light_energy = 1.5
 
 func _on_material_selected(index: int) -> void:
 	if visual_adapter:

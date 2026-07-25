@@ -1,6 +1,6 @@
 # Playable Battle and Setup Flow Plan
 
-Status: approved direction on 2026-07-25; implementation pending.
+Status: implemented and verified on 2026-07-25.
 
 ## Goal and defaults
 
@@ -32,17 +32,17 @@ visuals, and starts round one.
 
 ### Configuration and deployment
 
-Add a pure-data BattleSetupConfig containing mode, map, seed, team rosters, and
-controller type per team. UI produces it and simulation consumes it.
+`BattleSetupConfig` is the pure-data boundary containing mode, map, seed, team
+rosters, and controller type per team. UI produces it and simulation consumes
+it through `BattleSetupFactory`.
 
-MapReferences and MonsterReferences need display-name catalog methods. Every
-map also needs explicit Team 1 and Team 2 deployment slots; coordinates must
-not remain hardcoded in the presentation controller.
+`MapReferences` and `MonsterReferences` expose display-name catalogs. Every map
+owns explicit Team 1 and Team 2 deployment slots; deployment coordinates are
+not hardcoded in the presentation controller.
 
 ### Controller-neutral commands
 
-Player control requires separating AI decision generation from command
-execution:
+AI decision generation and command execution are separated:
 
 1. Start a unit turn.
 2. Ask its team controller for a command.
@@ -51,7 +51,7 @@ execution:
 5. End the turn.
 
 AI and player controllers use the same command fields: move_path, action,
-target_id, spell_set_index, and spell_index. Existing brains become the CPU
+target_id, spell_set_index, and spell_index. Existing brains are the CPU
 controller. The player controller waits for UI input.
 
 ### Player turn states
@@ -77,23 +77,22 @@ keyboard and gamepad navigation.
 
 ### Models
 
-Procedural placeholder monsters are sufficient for the first playable slice.
-Authored models require a visual registry mapping each monster reference to a
-scene or model resource, with the placeholder as fallback.
+`MonsterVisualRegistry` maps monster references to authored scenes or models.
+The Godot adapter creates a procedural placeholder when no authored mapping
+exists.
 
 ## Delivery phases
 
-1. Add BattleSetupConfig, presets, catalog accessors, and map deployment slots.
-2. Build the dropdown setup overlay and defer battle creation until Confirm.
-3. Extract validated command execution from AI decision generation.
-4. Implement player movement, actions, spells, targets, confirm/cancel, and wait.
-5. Add the model registry, restart-to-setup flow, and input/accessibility polish.
-6. Verify every map/preset, deterministic CPU play, invalid player commands,
-   and replay snapshots containing setup plus player commands.
+1. Complete: setup configuration, presets, catalog accessors, and deployment slots.
+2. Complete: dropdown setup overlay and deferred battle creation.
+3. Complete: validated command execution shared by CPU and player controllers.
+4. Complete: player movement, actions, spells, targets, confirm/cancel, and wait.
+5. Complete: model registry, return-to-setup flow, and keyboard/gamepad-compatible
+   cursor APIs.
+6. Complete: map/preset, deterministic CPU, invalid-command, JSON replay,
+   snapshot-restoration, and setup/UI lifecycle checks.
 
-## Missing decisions
-
-Recommended first-slice choices:
+## Implemented first-slice decisions
 
 - Duplicate monsters on one team: allowed, but discouraged in the UI.
 - Player side: Team 1 only.

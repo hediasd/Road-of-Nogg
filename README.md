@@ -8,6 +8,7 @@ A tactical RPG project built with Godot 4.4.
 - Canonical simulation: `src/battle_sim/BattleSimulator.gd`
 - Presentation controller: `src/systems/BattlePresentationController.gd`
 - Legacy rollback scene: `scenes/main.tscn`
+- Playable setup: CPU vs CPU or Player vs CPU, map/team dropdowns, seeded defaults
 
 ## Documentation
 
@@ -24,8 +25,8 @@ safeguards are in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md).
 Common focused checks:
 
 ```powershell
-.\Godot_v4.4-stable_win64.exe --headless --disable-crash-handler --path . --rendering-method gl_compatibility --audio-driver Dummy -s res://run_determinism_check.gd
-.\Godot_v4.4-stable_win64.exe --headless --disable-crash-handler --path . --rendering-method gl_compatibility --audio-driver Dummy -s res://run_cursor_check.gd
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 -Script res://run_playable_battle_check.gd -ExpectedMarker PLAYABLE_BATTLE_CORE_OK -TimeoutSeconds 45 -QuitAfter 45 -LogStem playable_core
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 -Script res://run_setup_ui_check.gd -ExpectedMarker PLAYABLE_BATTLE_UI_OK -TimeoutSeconds 45 -QuitAfter 45 -LogStem setup_ui
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_docs.ps1
 ```
 

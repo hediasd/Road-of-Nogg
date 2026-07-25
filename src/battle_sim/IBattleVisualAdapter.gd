@@ -5,8 +5,14 @@
 
 class_name IBattleVisualAdapter
 
+var _connectedEvents: BattleEvents
+
 
 func connectToEvents(battleEvents: BattleEvents) -> void:
+	if _connectedEvents == battleEvents:
+		return
+	disconnectFromEvents()
+	_connectedEvents = battleEvents
 	battleEvents.battle_started.connect(_on_battle_started)
 	battleEvents.battle_ended.connect(_on_battle_ended)
 	battleEvents.round_started.connect(_on_round_started)
@@ -29,6 +35,39 @@ func connectToEvents(battleEvents: BattleEvents) -> void:
 	battleEvents.status_damage_dealt.connect(_on_status_damage_dealt)
 	battleEvents.passive_triggered.connect(_on_passive_triggered)
 	battleEvents.passive_aoe_damage.connect(_on_passive_aoe_damage)
+
+
+func disconnectFromEvents() -> void:
+	if _connectedEvents == null:
+		return
+	_disconnect(_connectedEvents.battle_started, _on_battle_started)
+	_disconnect(_connectedEvents.battle_ended, _on_battle_ended)
+	_disconnect(_connectedEvents.round_started, _on_round_started)
+	_disconnect(_connectedEvents.round_ended, _on_round_ended)
+	_disconnect(_connectedEvents.turn_started, _on_turn_started)
+	_disconnect(_connectedEvents.monster_skipped_turn, _on_monster_skipped_turn)
+	_disconnect(_connectedEvents.turn_ended, _on_turn_ended)
+	_disconnect(_connectedEvents.monster_spawned, _on_monster_spawned)
+	_disconnect(_connectedEvents.movement_targeted, _on_movement_targeted)
+	_disconnect(_connectedEvents.monster_moved, _on_monster_moved)
+	_disconnect(_connectedEvents.action_targeted, _on_action_targeted)
+	_disconnect(_connectedEvents.monster_attacked, _on_monster_attacked)
+	_disconnect(_connectedEvents.monster_cast_spell, _on_monster_cast_spell)
+	_disconnect(_connectedEvents.monster_healed, _on_monster_healed)
+	_disconnect(_connectedEvents.monster_damaged, _on_monster_damaged)
+	_disconnect(_connectedEvents.monster_defeated, _on_monster_defeated)
+	_disconnect(_connectedEvents.effect_applied, _on_effect_applied)
+	_disconnect(_connectedEvents.effect_ticked, _on_effect_ticked)
+	_disconnect(_connectedEvents.effect_removed, _on_effect_removed)
+	_disconnect(_connectedEvents.status_damage_dealt, _on_status_damage_dealt)
+	_disconnect(_connectedEvents.passive_triggered, _on_passive_triggered)
+	_disconnect(_connectedEvents.passive_aoe_damage, _on_passive_aoe_damage)
+	_connectedEvents = null
+
+
+func _disconnect(eventSignal: Signal, callback: Callable) -> void:
+	if eventSignal.is_connected(callback):
+		eventSignal.disconnect(callback)
 
 
 # --- Override these in subclasses ---

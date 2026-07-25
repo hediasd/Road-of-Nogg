@@ -52,11 +52,6 @@ func _init(parameterDictionary, _uniqueID) -> void:
 		if newPassive != null:
 			passives.append(newPassive)
 
-	#if(uniqueID == 100):
-	#	for spellSet in spellSets:
-	#		for spell in spellSet:
-	print(spellSets)
-
 	pass
 
 func _to_string():

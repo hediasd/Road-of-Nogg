@@ -8,6 +8,7 @@ not a session log, policy copy, or backlog.
 | Before working on… | Read… |
 |---|---|
 | Determinism, replay, RNG, or identity | Deterministic state |
+| Commands, action results, or reactive passives | Command acceptance and resolution |
 | Turn order, movement, or pathfinding | Ordering and pathing |
 | Godot classes, loads, or factory paths | GDScript loading |
 | Console maps or diagnostic output | Text rendering |
@@ -38,6 +39,20 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Reusable rule:** Move entities only through the state/resolver contract so
   all three representations stay synchronized; views react to emitted events.
 - **Review when:** adding movement, forced displacement, teleportation, or load.
+
+## Command acceptance and resolution
+
+### A valid command can still fizzle during resolution
+
+- **Verified observation:** A command can pass authoritative target/range
+  validation, then a reactive passive can defeat or invalidate its actor before
+  the requested action resolves.
+- **Reusable rule:** Treat validation acceptance and action resolution as
+  separate outcomes. Record an accepted command once with `success=true`; use
+  `resolved` and `actionResult` for a later fizzle. Do not relabel it as rejected
+  or generate a fallback command.
+- **Review when:** adding reactions, interrupts, counterattacks, movement
+  triggers, new action types, replay logic, or network command handling.
 
 ## Ordering and pathing
 
@@ -100,11 +115,12 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ### Bound native diagnostics
 
-- **Verified observation:** Godot launches and filesystem helpers have stalled
-  or returned incomplete status in this Windows environment.
-- **Reusable rule:** Use bounded attempts, inspect state after failure, and
-  change method instead of repeating the same operation. Read output and exit
-  codes before reporting success.
+- **Verified observation:** Direct PowerShell invocation of the bundled
+  non-console Godot binary returned before its detached process completed, so a
+  stale exit code hid parser errors and left the failed `SceneTree` alive.
+- **Reusable rule:** Use `scripts/run_godot_check.ps1`, a bounded waited process,
+  a fresh captured log, and an expected success marker. On timeout, terminate
+  only the exact process object launched by the check.
 - **Review when:** the execution host or sandbox tooling changes.
 
 ## Cursor event semantics

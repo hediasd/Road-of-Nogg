@@ -23,22 +23,22 @@ const SpellEffectResolverScript = preload("res://src/battle_sim/SpellEffectResol
 const DIRECTIONS = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
 
 func getBasicAttackTargets(monsterID: int) -> Array:
-	## Returns monster IDs of enemies adjacent to this monster (range 1).
+	return getBasicAttackTargetsFrom(monsterID, state.getMonsterPosition(monsterID))
+
+
+func getBasicAttackTargetsFrom(monsterID: int, fromPos: Vector2i) -> Array:
 	var mon = state.getMonster(monsterID)
-	if mon == null:
+	if mon == null or not mon.is_alive():
 		return []
 
-	var pos = state.getMonsterPosition(monsterID)
 	var targets = []
-
-	for dir in DIRECTIONS:
-		var neighbor = pos + dir
+	for direction in DIRECTIONS:
+		var neighbor = fromPos + direction
 		if not state.withinBounds(neighbor):
 			continue
 		var targetMon = state.getMonsterAt(neighbor)
 		if targetMon != null and targetMon.team != mon.team and targetMon.is_alive():
 			targets.append(targetMon.uniqueID)
-
 	return targets
 
 
@@ -51,6 +51,8 @@ func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
 		return { "success": false, "reason": "invalid_monster" }
 	if not attacker.is_alive() or not target.is_alive():
 		return { "success": false, "reason": "dead_monster" }
+	if attacker.team == target.team:
+		return { "success": false, "reason": "invalid_target" }
 
 	# Validate range (must be adjacent)
 	var attackerPos = state.getMonsterPosition(attackerID)
@@ -104,30 +106,39 @@ func calculateBasicDamage(attacker: Monster, target: Monster, is_simulation: boo
 # --- Spell casting ---
 
 func getSpellTargets(monsterID: int, spellSetIndex: int, spellIndex: int) -> Array:
-	## Returns valid target IDs for the spell, filtered by range AND line-of-sight.
-	## Heals target ALLIES; damage spells target ENEMIES.
+	return getSpellTargetsFrom(
+		monsterID,
+		spellSetIndex,
+		spellIndex,
+		state.getMonsterPosition(monsterID)
+	)
+
+
+func getSpellTargetsFrom(
+		monsterID: int,
+		spellSetIndex: int,
+		spellIndex: int,
+		fromPos: Vector2i) -> Array:
 	var mon = state.getMonster(monsterID)
-	if mon == null:
+	if mon == null or not mon.is_alive():
 		return []
-	if spellSetIndex >= mon.spellSets.size():
+	if spellSetIndex < 0 or spellSetIndex >= mon.spellSets.size():
 		return []
-	if spellIndex >= mon.spellSets[spellSetIndex].size():
+	if spellIndex < 0 or spellIndex >= mon.spellSets[spellSetIndex].size():
 		return []
 
 	var spell = mon.spellSets[spellSetIndex][spellIndex]
-	var pos = state.getMonsterPosition(monsterID)
-	var targets = []
-
-	# Self-targeting spells always return the caster as the only target
+	if not mon.can_cast(spell):
+		return []
 	if spell.targetType == "self":
 		return [monsterID]
 
+	var targets = []
 	for candidateID in state.monsters:
 		var candidate = state.monsters[candidateID]
 		if not candidate.is_alive():
 			continue
 
-		# Heal spells target allies; damage spells target enemies
 		var isAlly = candidate.team == mon.team
 		if spell.heals and not isAlly:
 			continue
@@ -135,14 +146,11 @@ func getSpellTargets(monsterID: int, spellSetIndex: int, spellIndex: int) -> Arr
 			continue
 
 		var candidatePos = state.getMonsterPosition(candidateID)
-		var distance = abs(pos.x - candidatePos.x) + abs(pos.y - candidatePos.y)
-		if distance > spell.range:
+		var distance = abs(fromPos.x - candidatePos.x) + abs(fromPos.y - candidatePos.y)
+		if distance < spell.min_range or distance > spell.range:
 			continue
-
-		# Line-of-sight check (skipped if spell has bypass_los)
-		if not spell.bypass_los and not _hasLoS(monsterID, pos, candidatePos, candidateID):
+		if not spell.bypass_los and not _hasLoS(monsterID, fromPos, candidatePos, candidateID):
 			continue
-
 		targets.append(candidateID)
 
 	return targets
@@ -170,19 +178,23 @@ func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellInd
 		return { "success": false, "reason": "invalid_monster" }
 	if not caster.is_alive() or not centerTarget.is_alive():
 		return { "success": false, "reason": "dead_monster" }
-	if spellSetIndex >= caster.spellSets.size():
+	if spellSetIndex < 0 or spellSetIndex >= caster.spellSets.size():
 		return { "success": false, "reason": "invalid_spell_set" }
-	if spellIndex >= caster.spellSets[spellSetIndex].size():
+	if spellIndex < 0 or spellIndex >= caster.spellSets[spellSetIndex].size():
 		return { "success": false, "reason": "invalid_spell" }
 
 	var spell = caster.spellSets[spellSetIndex][spellIndex]
+	if not caster.can_cast(spell):
+		return { "success": false, "reason": "unavailable_spell" }
+	if not getSpellTargets(casterID, spellSetIndex, spellIndex).has(targetID):
+		return { "success": false, "reason": "invalid_target" }
 
 	# Validate range to center
 	var casterPos = state.getMonsterPosition(casterID)
 	var centerPos = state.getMonsterPosition(targetID)
 	var distance = abs(casterPos.x - centerPos.x) + abs(casterPos.y - centerPos.y)
 
-	if distance > spell.range:
+	if distance < spell.min_range or distance > spell.range:
 		return { "success": false, "reason": "out_of_range" }
 
 	var actualTargets = []

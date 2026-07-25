@@ -105,3 +105,16 @@ static func getReference(name):
 		if(reference["NAME"] == name):
 			return reference
 	return list.back()
+
+static func hasReference(name: String) -> bool:
+	for reference in list:
+		if reference["NAME"] == name:
+			return true
+	return false
+
+
+static func getNames() -> Array[String]:
+	var names: Array[String] = []
+	for reference in list:
+		names.append(reference["NAME"])
+	return names
