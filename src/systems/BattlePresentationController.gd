@@ -93,8 +93,6 @@ func _build_battle_ui() -> void:
 		"speed_changed": Callable(self, "_on_speed_changed"),
 		"turn_timeout": Callable(self, "_on_turn_timer_timeout"),
 		"new_battle_pressed": Callable(self, "_on_new_battle_pressed"),
-		"clayness_selected": Callable(self, "_on_clayness_selected"),
-		"material_selected": Callable(self, "_on_material_selected"),
 		"screenshot_pressed": Callable(self, "_on_screenshot_pressed"),
 		"dump_state_pressed": Callable(self, "_on_dump_state_pressed"),
 		"player_move": Callable(self, "_on_player_move"),
@@ -664,33 +662,3 @@ func _on_dump_state_pressed() -> void:
 		file.store_string(JSON.stringify(sim.createReplaySnapshot(), "\t"))
 		file.close()
 		print("Replay snapshot saved to debug/state_dump.json")
-
-
-func _on_clayness_selected(index: int) -> void:
-	var environmentNode: WorldEnvironment
-	var lightNode: DirectionalLight3D
-	for child in get_children():
-		if child is WorldEnvironment: environmentNode = child
-		if child is DirectionalLight3D: lightNode = child
-	if environmentNode == null or lightNode == null:
-		return
-	var environment = environmentNode.environment
-	if index == 0:
-		environment.ambient_light_color = Color(0.8, 0.8, 0.8)
-		environment.ssao_enabled = false
-		environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
-		lightNode.shadow_blur = 0.0
-		lightNode.light_energy = 1.0
-		return
-
-	environment.ssao_enabled = true
-	environment.tonemap_mode = Environment.TONE_MAPPER_ACES
-	environment.ssao_intensity = 2.0 + index * 0.6
-	environment.ssao_radius = 1.0 + index * 0.3
-	lightNode.shadow_blur = clampf(index * 0.45, 0.5, 5.0)
-	environment.ambient_light_color = Color(0.65, 0.68, 0.75).darkened(index * 0.035)
-
-
-func _on_material_selected(index: int) -> void:
-	if visual_adapter:
-		visual_adapter.apply_global_effect(index)

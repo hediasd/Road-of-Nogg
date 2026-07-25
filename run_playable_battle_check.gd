@@ -147,11 +147,12 @@ func _run() -> void:
 			_fail("JSON turn-order IDs were not normalized to integers")
 			return
 
-	var authoredVisual = MonsterVisualRegistryScript.instantiateVisual("Snowzilla")
-	if authoredVisual == null:
-		_fail("registered Snowzilla visual did not load")
+	if not MonsterVisualRegistryScript.getRegisteredNames().is_empty():
+		_fail("authored visual mappings unexpectedly changed the placeholder roster")
 		return
-	authoredVisual.free()
+	if MonsterVisualRegistryScript.instantiateVisual("Snowzilla") != null:
+		_fail("Snowzilla did not use the restored procedural placeholder")
+		return
 
 	_succeed("PLAYABLE_BATTLE_CORE_OK setups=%d commands=%d" % [setupCount, snapshot["commands"].size()])
 

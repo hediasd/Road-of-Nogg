@@ -1,9 +1,8 @@
 class_name MonsterVisualRegistry
 extends RefCounted
 
-const VISUAL_PATHS := {
-	"Snowzilla": "res://scenes/entities/Monster.tscn"
-}
+const VISUAL_PATHS := {}
+
 
 
 static func instantiateVisual(monsterName: String) -> Node3D:

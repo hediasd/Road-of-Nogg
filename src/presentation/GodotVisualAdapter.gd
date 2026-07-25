@@ -66,21 +66,47 @@ func _coord_to_pos3d(coord: Vector2i) -> Vector3:
 
 func _buildPlaceholderBody(material: Material) -> Node3D:
 	var body = Node3D.new()
-	var parts = [
-		["shape_coin", Vector3(0, 0.3, 0), Vector3(0.35, 0.2, 0.3)],
-		["shape_coin", Vector3(0, 0.425, 0), Vector3(0.31, 0.05, 0.31)],
-		["shape_coin", Vector3(0, 0.75, 0), Vector3(0.25, 0.6, 0.1)],
-		["shape_coin", Vector3(0, 1.075, 0), Vector3(0.2, 0.05, 0.2)],
-		["shape_sphere", Vector3(0, 1.3, 0), Vector3(0.2, 0.4, 0.2)]
-	]
-	for partData in parts:
-		var part = BattleMeshFactoryScript.createMesh(partData[0], Color.WHITE)
-		part.position = partData[1]
-		part.scale = partData[2]
-		part.material_override = material
-		body.add_child(part)
-	return body
 
+	var baseBulb = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
+	baseBulb.mesh.height = 0.2
+	baseBulb.mesh.top_radius = 0.3
+	baseBulb.mesh.bottom_radius = 0.35
+	baseBulb.position.y = 0.3
+	baseBulb.material_override = material
+	body.add_child(baseBulb)
+
+	var ring = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
+	ring.mesh.height = 0.05
+	ring.mesh.top_radius = 0.31
+	ring.mesh.bottom_radius = 0.31
+	ring.position.y = 0.425
+	ring.material_override = material
+	body.add_child(ring)
+
+	var stem = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
+	stem.mesh.height = 0.6
+	stem.mesh.top_radius = 0.1
+	stem.mesh.bottom_radius = 0.25
+	stem.position.y = 0.75
+	stem.material_override = material
+	body.add_child(stem)
+
+	var collar = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
+	collar.mesh.height = 0.05
+	collar.mesh.top_radius = 0.2
+	collar.mesh.bottom_radius = 0.2
+	collar.position.y = 1.075
+	collar.material_override = material
+	body.add_child(collar)
+
+	var head = BattleMeshFactoryScript.createMesh("shape_sphere", Color.WHITE)
+	head.mesh.radius = 0.2
+	head.mesh.height = 0.4
+	head.position.y = 1.3
+	head.material_override = material
+	body.add_child(head)
+
+	return body
 # --- EVENTS ---
 
 func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:

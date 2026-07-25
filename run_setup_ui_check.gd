@@ -59,6 +59,9 @@ func _run() -> void:
 	if scene.visual_adapter._monster_visuals.size() != 8:
 		_fail("monster visuals were not loaded after confirmation")
 		return
+	if scene.battle_ui["canvas"].find_children("*", "OptionButton", true, false).size() != 1:
+		_fail("battle HUD contains rendering dropdowns beyond the spell selector")
+		return
 
 	for _step in range(12):
 		if scene.active_player_id != -1:
