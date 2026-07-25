@@ -37,8 +37,12 @@ Road of Nogg/
 │   │   ├── TurnManager.gd           # Turn order and round management
 │   │   ├── MovementResolver.gd      # A* pathfinding + movement validation
 │   │   ├── CombatResolver.gd        # Damage calculation and attack resolution
-│   │   ├── IBattleVisualAdapter.gd  # Interface for visual bridge
-│   │   └── ConsoleVisualAdapter.gd  # Console-print adapter for testing
+│   │   └── IBattleVisualAdapter.gd  # Interface for presentation observers
+│   │
+│   ├── presentation/            # Simulation observers and Godot presentation
+│   │   ├── GodotVisualAdapter.gd   # 3D event adapter
+│   │   ├── BattleCameraController.gd # Tactical camera controls
+│   │   └── ConsoleVisualAdapter.gd # Console/file event adapter
 │   │
 │   ├── entity_ai/               # AI brain modules for entities
 │   │   ├── EntityBrain.gd           # Base brain class (interface)

@@ -197,7 +197,7 @@ func _setup_ui() -> void:
 func _setup_simulation() -> void:
 	sim = BattleSimulator.new()
 	sim.loadMap("Meadow")
-	visual_adapter = preload("res://src/battle_sim/GodotVisualAdapter.gd").new(sim.state, self)
+	visual_adapter = preload("res://src/presentation/GodotVisualAdapter.gd").new(sim.state, self)
 	sim.setVisualAdapter(visual_adapter)
 	sim.setSeed(42)
 

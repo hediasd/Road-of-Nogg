@@ -12,7 +12,7 @@ contracts.
 | Battle state, board occupancy, teams, effects, and history | `BattleState` | `BattleBoard` state inside the old scene stack |
 | Turn order, movement, combat, passives, victory, and seeded RNG | `BattleSimulator` and its resolvers | `BattleMaster`, `GameBoardLogic`, and `GameBoardThinker` |
 | Simulation-to-presentation communication | `BattleEvents` and `IBattleVisualAdapter` | Direct calls from `BattleMaster` to `GameBoardVisual` |
-| Godot scene lifecycle, input, camera, animation, and pacing | `src/systems/BattlePresentationController.gd` and presentation code under `src/systems/` | `scenes/main.tscn` rollback path |
+| Godot scene lifecycle, input, camera, animation, and pacing | `src/systems/BattlePresentationController.gd` with adapters under `src/presentation/` | `scenes/main.tscn` rollback path |
 
 ### Canonical runtime contract
 
