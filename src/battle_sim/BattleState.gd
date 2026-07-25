@@ -63,6 +63,12 @@ func setup_board(size: Vector2i) -> void:
 
 func addMonster(monster: Monster, pos: Vector2i, team: int) -> void:
 	var id = monster.uniqueID
+	if not withinBounds(pos):
+		push_error("Cannot add monster %d outside the board at %s." % [id, pos])
+		return
+	if isOccupied(pos):
+		push_error("Cannot add monster %d to occupied tile %s." % [id, pos])
+		return
 	monsters[id] = monster
 	monsterPositions[id] = pos
 	monster.team = team
@@ -72,6 +78,7 @@ func addMonster(monster: Monster, pos: Vector2i, team: int) -> void:
 	if not teamRosters.has(team):
 		teamRosters[team] = []
 	teamRosters[team].append(id)
+	assertValidOccupancy()
 
 
 func removeMonster(monsterID: int) -> void:
@@ -86,6 +93,7 @@ func removeMonster(monsterID: int) -> void:
 		teamRosters[mon.team].erase(monsterID)
 	# Keep the monster in the monsters dict for reference, but mark as defeated
 	# (is_alive will return false)
+	assertValidOccupancy()
 
 
 func getMonster(monsterID: int) -> Monster:
@@ -108,11 +116,53 @@ func getMonsterPosition(monsterID: int) -> Vector2i:
 
 
 func moveMonsterTo(monsterID: int, newPos: Vector2i) -> void:
+	if not monsterPositions.has(monsterID):
+		push_error("Cannot move unplaced monster %d." % monsterID)
+		return
+	if not withinBounds(newPos):
+		push_error("Cannot move monster %d outside the board to %s." % [monsterID, newPos])
+		return
+	var destinationOccupant = board.at(newPos)
+	if destinationOccupant != 0 and destinationOccupant != monsterID:
+		push_error(
+			"Tile %s is occupied by monster %d; monster %d cannot enter it." %
+			[newPos, destinationOccupant, monsterID]
+		)
+		return
 	var oldPos = monsterPositions[monsterID]
 	board.set_at(0, oldPos)
 	board.set_at(monsterID, newPos)
 	monsterPositions[monsterID] = newPos
 	monsters[monsterID].position = newPos
+	assertValidOccupancy()
+
+
+func assertValidOccupancy() -> void:
+	var occupiedTiles: Dictionary = {}
+	for monsterID in monsterPositions:
+		var pos: Vector2i = monsterPositions[monsterID]
+		assert(withinBounds(pos), "Monster %d has out-of-bounds position %s." % [monsterID, pos])
+		assert(
+			not occupiedTiles.has(pos),
+			"Monsters %d and %d share forbidden tile %s." %
+			[occupiedTiles.get(pos, -1), monsterID, pos]
+		)
+		assert(
+			board.at(pos) == monsterID,
+			"Board/position mismatch for monster %d at %s." % [monsterID, pos]
+		)
+		occupiedTiles[pos] = monsterID
+
+	for y in range(boardSize.y):
+		for x in range(boardSize.x):
+			var pos = Vector2i(x, y)
+			var occupant = board.at(pos)
+			if occupant == 0:
+				continue
+			assert(
+				monsterPositions.has(occupant) and monsterPositions[occupant] == pos,
+				"Board occupant %d at %s has no matching position." % [occupant, pos]
+			)
 
 
 # --- Board queries ---

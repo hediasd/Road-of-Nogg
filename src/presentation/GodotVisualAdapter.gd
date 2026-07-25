@@ -24,6 +24,7 @@ var anim_tween: Tween
 var visualEffects
 
 var _monster_visuals: Dictionary = {} # monsterID -> MeshInstance3D
+var _position_tweens: Dictionary = {} # monsterID -> Tween
 
 func _init(_state: BattleState, _root_node: Node3D) -> void:
 	state = _state
@@ -63,6 +64,42 @@ func _update_right_ui(text: String) -> void:
 
 func _coord_to_pos3d(coord: Vector2i) -> Vector3:
 	return Vector3(coord.x, 0, coord.y)
+
+
+func _stop_position_tween(monsterID: int) -> void:
+	if not _position_tweens.has(monsterID):
+		return
+	var tween: Tween = _position_tweens[monsterID]
+	if tween != null and tween.is_valid():
+		tween.kill()
+	_position_tweens.erase(monsterID)
+
+
+func _synchronize_visual_occupancy(exceptMonsterID: int = -1) -> void:
+	state.assertValidOccupancy()
+	for monsterID in _monster_visuals.keys():
+		if monsterID == exceptMonsterID:
+			continue
+		_stop_position_tween(monsterID)
+		var visual: Node3D = _monster_visuals[monsterID]
+		var authoritativePos = state.getMonsterPosition(monsterID)
+		if not state.withinBounds(authoritativePos):
+			visual.visible = false
+			continue
+		var targetPos = _coord_to_pos3d(authoritativePos)
+		targetPos.y = 0.2
+		visual.position = targetPos
+
+
+func _track_position_tween(monsterID: int, tween: Tween) -> void:
+	_position_tweens[monsterID] = tween
+	tween.finished.connect(_on_position_tween_finished.bind(monsterID, tween))
+
+
+func _on_position_tween_finished(monsterID: int, tween: Tween) -> void:
+	if _position_tweens.get(monsterID) == tween:
+		_position_tweens.erase(monsterID)
+
 
 func _buildPlaceholderBody(material: Material) -> Node3D:
 	var body = Node3D.new()
@@ -186,11 +223,14 @@ func _on_movement_targeted(monsterID: int, destination: Vector2i) -> void:
 
 func _on_monster_moved(monsterID: int, path: Array) -> void:
 	if not _monster_visuals.has(monsterID) or path.is_empty(): return
-	var mi = _monster_visuals[monsterID]
+	_synchronize_visual_occupancy(monsterID)
+	_stop_position_tween(monsterID)
+	var mi: Node3D = _monster_visuals[monsterID]
 
 	_log("Moved to %s" % [path.back()])
 
 	var tween = mi.create_tween()
+	_track_position_tween(monsterID, tween)
 	for coord in path:
 		var target_pos = _coord_to_pos3d(coord)
 		target_pos.y = 0.2
@@ -249,6 +289,7 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 		_update_right_ui("%s was DEFEATED!" % m.name)
 
 	if not _monster_visuals.has(monsterID): return
+	_stop_position_tween(monsterID)
 	var mi = _monster_visuals[monsterID]
 
 	var tween = mi.create_tween()
@@ -261,6 +302,7 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 
 func _play_bump_animation(sourceID: int, targetID: int) -> void:
 	if not _monster_visuals.has(sourceID) or not _monster_visuals.has(targetID): return
+	_synchronize_visual_occupancy()
 	var src_mi = _monster_visuals[sourceID]
 	var tgt_mi = _monster_visuals[targetID]
 
@@ -270,6 +312,7 @@ func _play_bump_animation(sourceID: int, targetID: int) -> void:
 	var bump_pos = original_pos + bump_vector
 
 	var tween = src_mi.create_tween()
+	_track_position_tween(sourceID, tween)
 	tween.tween_property(src_mi, "position", bump_pos, 0.1)
 	tween.tween_property(src_mi, "position", original_pos, 0.15)
 
@@ -327,6 +370,8 @@ func _add_overlay(coord: Vector2i, color: Color) -> void:
 
 func dispose() -> void:
 	disconnectFromEvents()
+	for monsterID in _position_tweens.keys():
+		_stop_position_tween(monsterID)
 	for node in [grid_node, monsters_node, overlay_node, _cursor]:
 		if is_instance_valid(node):
 			node.queue_free()

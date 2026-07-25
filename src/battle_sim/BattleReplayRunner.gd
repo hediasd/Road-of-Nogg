@@ -41,6 +41,7 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 				"reason": "command_rejected",
 				"detail": result
 			}
+		simulator.state.assertValidOccupancy()
 		simulator.turnManager.endTurn(actorID)
 
 	return {"success": true, "simulator": simulator}

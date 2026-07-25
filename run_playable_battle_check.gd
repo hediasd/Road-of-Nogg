@@ -39,6 +39,7 @@ func _run() -> void:
 			if mapSimulator.state.getAliveMonsterIDs().size() != 8:
 				_fail("%s/%s did not deploy eight monsters" % [mapName, presetName])
 				return
+			mapSimulator.state.assertValidOccupancy()
 			setupCount += 1
 
 	var duplicateConfig = _defaultConfig("Meadow")
@@ -114,6 +115,7 @@ func _run() -> void:
 	if not replay.get("success", false):
 		_fail("command replay failed: %s" % replay)
 		return
+	replay["simulator"].state.assertValidOccupancy()
 
 	var restored = BattleSimulatorScript.new()
 	var restoreResult = restored.restoreReplaySnapshot(snapshot)
@@ -133,6 +135,7 @@ func _run() -> void:
 	if not jsonReplay.get("success", false):
 		_fail("JSON command replay failed: %s" % jsonReplay)
 		return
+	jsonReplay["simulator"].state.assertValidOccupancy()
 	var jsonRestored = BattleSimulatorScript.new()
 	if not jsonRestored.restoreReplaySnapshot(parsedSnapshot).get("success", false):
 		_fail("JSON snapshot restoration failed")
@@ -163,6 +166,15 @@ func _checkValidatedActions() -> String:
 	var attacker = attackSimulator.spawnMonster("Gigasaurus", 1, Vector2i(5, 5))
 	var defender = attackSimulator.spawnMonster("Smoke Cloud", 2, Vector2i(6, 5))
 	attackSimulator.state.currentMonsterID = attacker.uniqueID
+	var collisionResult = attackSimulator.executeCommand(attacker.uniqueID, {
+		"move_path": [Vector2i(6, 5)], "action": "wait"
+	}, "test")
+	if collisionResult.get("success", true):
+		return "movement into an occupied tile was accepted"
+	if attackSimulator.state.getMonsterPosition(attacker.uniqueID) != Vector2i(5, 5):
+		return "rejected occupied-tile movement mutated authoritative position"
+	attackSimulator.state.assertValidOccupancy()
+
 	var startingHP = defender.hitpoints
 	var attackResult = attackSimulator.executeCommand(attacker.uniqueID, {
 		"move_path": [], "action": "attack", "target_id": defender.uniqueID

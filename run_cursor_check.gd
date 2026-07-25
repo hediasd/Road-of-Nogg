@@ -49,6 +49,7 @@ func _run() -> void:
 	var adapter = GodotVisualAdapterScript.new(simulator.state, visualRoot)
 	simulator.setVisualAdapter(adapter)
 	var actor = simulator.spawnMonster("Mage Dragon", 1, Vector2i(0, 0))
+	var follower = simulator.spawnMonster("Healer Mage", 1, Vector2i(0, 1))
 	var target = simulator.spawnMonster("Smoke Cloud", 2, Vector2i(3, 0))
 	simulator.startBattle()
 
@@ -64,11 +65,27 @@ func _run() -> void:
 		_fail("action target did not replace the movement destination")
 		return
 
+	# A second move may reuse a tile as soon as the first entity vacates it in
+	# authoritative state. The adapter must snap the first model to that state
+	# before animating the follower, rather than leaving two models on one tile.
+	simulator.state.moveMonsterTo(actor.uniqueID, Vector2i(1, 0))
+	simulator.events.monster_moved.emit(actor.uniqueID, [Vector2i(1, 0)])
+	simulator.state.moveMonsterTo(follower.uniqueID, Vector2i(0, 0))
+	simulator.events.monster_moved.emit(follower.uniqueID, [Vector2i(0, 0)])
+	simulator.state.assertValidOccupancy()
+	if adapter._monster_visuals[actor.uniqueID].position != Vector3(1, 0.2, 0):
+		_fail("a stale movement tween left the previous entity on a reused tile")
+		return
+	if adapter._monster_visuals[actor.uniqueID].position == adapter._monster_visuals[follower.uniqueID].position:
+		_fail("two entity visuals occupied the same tile after immediate moves")
+		return
+
 	visualRoot.free()
 	cursor.free()
 	adapter = null
 	simulator = null
 	actor = null
+	follower = null
 	target = null
 	controller = null
 	await process_frame

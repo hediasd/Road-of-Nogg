@@ -35,10 +35,13 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 ### Coordinated position mirrors
 
 - **Verified observation:** `BattleState.moveMonsterTo()` updates the occupancy
-  board, `monsterPositions`, and `Monster.position` together.
-- **Reusable rule:** Move entities only through the state/resolver contract so
-  all three representations stay synchronized; views react to emitted events.
-- **Review when:** adding movement, forced displacement, teleportation, or load.
+  board, `monsterPositions`, and `Monster.position` together. Fast consecutive
+  commands can reuse a vacated tile before its previous visual tween finishes.
+- **Reusable rule:** One live entity per tile is a hard invariant. Assert the
+  board/position bijection after mutations, restore, and replay; views must
+  cancel or synchronize stale position animations before rendering tile reuse.
+- **Review when:** adding movement, forced displacement, teleportation, load,
+  replay playback, or animation timing changes.
 
 ## Command acceptance and resolution
 

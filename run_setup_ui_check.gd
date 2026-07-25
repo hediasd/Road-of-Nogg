@@ -47,7 +47,6 @@ func _run() -> void:
 		BattleSetupConfigScript.MODE_PLAYER_VS_CPU
 	)
 	scene._on_setup_confirmed()
-	scene.turn_timer.stop()
 	await process_frame
 
 	if scene.sim == null or scene.sim.state.getAliveMonsterIDs().size() != 8:
@@ -61,6 +60,25 @@ func _run() -> void:
 		return
 	if scene.battle_ui["canvas"].find_children("*", "OptionButton", true, false).size() != 1:
 		_fail("battle HUD contains rendering dropdowns beyond the spell selector")
+		return
+	if scene.battle_ui["play_button"] is CheckButton:
+		_fail("battle playback still uses the old auto-play check button")
+		return
+	if scene.battle_ui["play_button"].text != "Play" or scene.battle_ui["play_button"].button_pressed:
+		_fail("battle did not load in a paused state with a Play button")
+		return
+	if not scene.turn_timer.is_stopped():
+		_fail("CPU turns began before Play was pressed")
+		return
+	scene.battle_ui["play_button"].set_pressed_no_signal(true)
+	scene._on_play_toggled(true)
+	if scene.battle_ui["play_button"].text != "Pause" or scene.turn_timer.is_stopped():
+		_fail("Play did not start CPU turns and change to Pause")
+		return
+	scene.battle_ui["play_button"].set_pressed_no_signal(false)
+	scene._on_play_toggled(false)
+	if scene.battle_ui["play_button"].text != "Play" or not scene.turn_timer.is_stopped():
+		_fail("Pause did not stop CPU turns and change to Play")
 		return
 
 	for _step in range(12):

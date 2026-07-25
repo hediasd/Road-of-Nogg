@@ -70,6 +70,7 @@ static func deserialize(data: Dictionary) -> BattleState:
 		monster.position = state.monsterPositions.get(monsterID, Vector2i(-1, -1))
 		state.monsters[monsterID] = monster
 
+	state.assertValidOccupancy()
 	return state
 
 

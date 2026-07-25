@@ -23,10 +23,11 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	var topRow = HBoxContainer.new()
 	topPanel.add_child(topRow)
 
-	var playButton = CheckButton.new()
-	playButton.text = "Auto-Play CPU"
-	playButton.button_pressed = true
-	playButton.tooltip_text = "Pause or resume computer-controlled turns."
+	var playButton = Button.new()
+	playButton.toggle_mode = true
+	playButton.text = "Play"
+	playButton.button_pressed = false
+	playButton.tooltip_text = "Start computer-controlled turns."
 	playButton.toggled.connect(callbacks["play_toggled"])
 	topRow.add_child(playButton)
 

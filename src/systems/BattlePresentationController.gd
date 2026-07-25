@@ -135,6 +135,11 @@ func _show_setup() -> void:
 	active_player_id = -1
 	if turn_timer:
 		turn_timer.stop()
+	if not battle_ui.is_empty():
+		battle_ui["play_button"].set_pressed_no_signal(false)
+		battle_ui["play_button"].text = "Play"
+		battle_ui["play_button"].tooltip_text = "Start computer-controlled turns."
+		battle_ui["play_button"].disabled = false
 	if visual_adapter:
 		visual_adapter.dispose()
 	visual_adapter = null
@@ -238,6 +243,10 @@ func _start_battle(config) -> void:
 	log_label.text = ""
 	left_ui_label.text = "Battle ready"
 	right_ui_label.text = "No target"
+	battle_ui["play_button"].set_pressed_no_signal(false)
+	battle_ui["play_button"].text = "Play"
+	battle_ui["play_button"].tooltip_text = "Start computer-controlled turns."
+	battle_ui["play_button"].disabled = false
 
 	sim = BattleSetupFactoryScript.createSimulator(config, Callable(self, "_create_visual_adapter"))
 	var size = sim.state.boardSize
@@ -245,7 +254,7 @@ func _start_battle(config) -> void:
 	camera.size = max(size.x, size.y) * 0.95
 	sim.startBattle()
 	sim.turnManager.startNewRound()
-	turn_timer.start()
+	turn_timer.stop()
 
 
 func _create_visual_adapter(state: BattleState):
@@ -258,6 +267,12 @@ func _on_new_battle_pressed() -> void:
 
 
 func _on_play_toggled(buttonPressed: bool) -> void:
+	battle_ui["play_button"].text = "Pause" if buttonPressed else "Play"
+	battle_ui["play_button"].tooltip_text = (
+		"Pause computer-controlled turns."
+		if buttonPressed else
+		"Start computer-controlled turns."
+	)
 	if lifecycle != Lifecycle.BATTLE or active_player_id != -1:
 		return
 	if buttonPressed:
@@ -309,6 +324,10 @@ func _advance_battle() -> void:
 func _finish_battle(winner: int) -> void:
 	lifecycle = Lifecycle.COMPLETE
 	turn_timer.stop()
+	battle_ui["play_button"].set_pressed_no_signal(false)
+	battle_ui["play_button"].text = "Play"
+	battle_ui["play_button"].tooltip_text = "Battle complete."
+	battle_ui["play_button"].disabled = true
 	active_player_id = -1
 	player_state = PlayerState.INACTIVE
 	battle_ui["action_panel"].visible = false
@@ -320,6 +339,7 @@ func _finish_battle(winner: int) -> void:
 
 func _begin_player_turn(monsterID: int) -> void:
 	turn_timer.stop()
+	battle_ui["play_button"].disabled = true
 	active_player_id = monsterID
 	pending_move_path = []
 	pending_action = "wait"
@@ -478,6 +498,7 @@ func _submit_player_command() -> void:
 	active_player_id = -1
 	player_state = PlayerState.INACTIVE
 	battle_ui["action_panel"].visible = false
+	battle_ui["play_button"].disabled = false
 	var winner = sim.checkWinCondition()
 	if winner != -1:
 		_finish_battle(winner)
