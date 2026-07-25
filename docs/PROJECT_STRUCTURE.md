@@ -48,6 +48,7 @@ Road of Nogg/
 │   │
 │   ├── entity_ai/               # AI brain modules for entities
 │   │   ├── EntityBrain.gd           # Base brain class (interface)
+│   │   ├── BrainTargeting.gd        # Shared enemy, ally, and LoS queries
 │   │   └── SimpleBrain.gd           # Simple AI: move toward nearest enemy, attack
 │   │
 │   ├── board/                   # Grid data structures

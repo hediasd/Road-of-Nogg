@@ -6,17 +6,19 @@
 class_name EntityBrain
 
 const ThreatMap = preload("res://src/algorithms/ThreatMap.gd")
-const LineOfSight = preload("res://src/algorithms/LineOfSight.gd")
+const BrainTargetingScript = preload("res://src/entity_ai/BrainTargeting.gd")
 
 var state: BattleState
 var movementResolver: MovementResolver
 var combatResolver: CombatResolver
+var targeting
 
 
 func _init(_state: BattleState, _movementResolver: MovementResolver, _combatResolver: CombatResolver) -> void:
 	state = _state
 	movementResolver = _movementResolver
 	combatResolver = _combatResolver
+	targeting = BrainTargetingScript.new(state)
 
 
 func decideTurn(monsterID: int) -> Dictionary:
@@ -51,41 +53,11 @@ func _evaluateTile(_monsterID: int, pos: Vector2i) -> Dictionary:
 # ─── Shared Query Helpers ─────────────────────────────────────────────────────
 
 func _findNearestEnemy(monsterID: int) -> int:
-	## Find the closest living enemy by Manhattan distance.
-	var mon = state.getMonster(monsterID)
-	var myPos = state.getMonsterPosition(monsterID)
-	var nearestID = -1
-	var nearestDist = 9999
-
-	for enemyID in state.monsters:
-		var enemy = state.monsters[enemyID]
-		if enemy.team == mon.team or not enemy.is_alive():
-			continue
-		var enemyPos = state.getMonsterPosition(enemyID)
-		var dist = abs(myPos.x - enemyPos.x) + abs(myPos.y - enemyPos.y)
-		if dist < nearestDist:
-			nearestDist = dist
-			nearestID = enemyID
-
-	return nearestID
+	return targeting.findNearestEnemy(monsterID)
 
 
 func _findLowestHPAlly(monsterID: int) -> int:
-	## Find the living ally (including self) with the lowest HP percentage.
-	var mon = state.getMonster(monsterID)
-	var lowestID = -1
-	var lowestRatio = 1.1  # Above 100%
-
-	for allyID in state.monsters:
-		var ally = state.monsters[allyID]
-		if ally.team != mon.team or not ally.is_alive():
-			continue
-		var ratio = float(ally.hitpoints) / float(ally.max_hitpoints)
-		if ratio < lowestRatio:
-			lowestRatio = ratio
-			lowestID = allyID
-
-	return lowestID
+	return targeting.findLowestHPAlly(monsterID)
 
 
 func _findReachablePositionClosestTo(monsterID: int, targetPos: Vector2i) -> Vector2i:
@@ -245,15 +217,7 @@ func _findBestHealSpell(monsterID: int, fromPos: Vector2i, hpThreshold: float = 
 
 
 func _checkLoS(fromPos: Vector2i, toPos: Vector2i, selfID: int, targetID: int) -> bool:
-	## LoS check using Bresenham raycast. Other monsters and obstacles block sight.
-	return LineOfSight.hasLoS(fromPos, toPos, func(p: Vector2i) -> bool:
-		if not state.withinBounds(p):
-			return true
-		if state.isLoSBlocked(p):
-			return true
-		var id = state.board.at(p)
-		return id != 0 and id != selfID and id != targetID
-	)
+	return targeting.hasLineOfSight(fromPos, toPos, selfID, targetID)
 
 
 func _findSafestReachablePosition(monsterID: int, targetPos: Vector2i, retreat: bool = false) -> Vector2i:
