@@ -20,6 +20,17 @@ The AI will proactively add suggestions here when observing technical debt, miss
 
 ## Code Quality & Cleanup
 - **Clean Up Factory Preloads**: Ensure all `preload()` references match the actual folder structure strictly, even though Godot's `class_name` currently masks path inaccuracies.
+- **Complete Simulation Regression Matrix**: Expand GUT coverage for seeded
+  replay determinism, movement and occupied tiles, line of sight, elemental
+  damage, turn order and status expiration, battle termination, and serialized
+  continuation. Retain an intentional-failure smoke fixture to verify nonzero
+  CLI exit-code propagation.
+- **Future GUT 9.4 Re-evaluation**: Keep GUT isolated until a future maintenance
+  pass. Its supported CLI currently crashes Godot 4.4 on Windows with
+  `0xC0000005` before producing output, including in a shadow project with a
+  valid global class cache and isolated user data. Re-test with another Godot
+  patch version or GUT release, preserve the 120-second watchdog, and only then
+  re-enable the default headless test command.
 
 ## Future Milestones
 - **Visual Integration**: Connect the Battle Simulator and its events to the actual Godot Visuals/UI, rendering sprites, grid selection, and spell effects.

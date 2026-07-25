@@ -22,3 +22,19 @@ This document tracks learned patterns, gotchas, and specific implementations reg
 ## Console Tooling
 - **Godot Headless CLI**: To test the engine rapidly without the Godot editor, use: `& "Godot_v4.4-stable_win64.exe" --path "<project>" --quit-after <s> "res://scenes/<scene>.tscn"`
 - Windows non-console builds still write to `stderr`, which can be captured cleanly in PowerShell using `2>&1`.
+
+## Automated Test Lifecycle
+- **GUT 9.4 CLI Ownership**: Run GUT through
+  `res://addons/gut/gut_cmdln.gd` with `-gexit`. The supported runner owns test
+  startup, JUnit export, shutdown, and failure exit codes. A custom per-frame
+  poll of `GutMain` is unsafe because GUT 9.4 removed `get_is_running()` and the
+  old `set_junit_xml_file()` method.
+- **Godot/GUT Crash Boundary**: Godot 4.4 completes both a minimal-project
+  startup and a fresh-cache Road of Nogg import with exit code 0. Starting GUT's
+  supported CLI still exits with Windows access violation `0xC0000005`, before
+  stdout or stderr, even with compatibility rendering, dummy audio, a dedicated
+  user-data directory, and a populated 51-entry global class cache.
+- **Temporary Isolation**: GUT execution is intentionally opt-in through
+  `run_headless_tests.ps1 -ForceGut`. Normal invocation exits immediately and
+  points to the backlog. Future diagnostics retain a temporary shadow project
+  and 120-second watchdog to avoid editor contention and indefinite hangs.

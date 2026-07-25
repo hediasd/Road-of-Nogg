@@ -17,7 +17,7 @@ func test_basic_attack_adjacency():
 	assert_eq(result["reason"], "out_of_range", "Failure reason should be out_of_range")
 	
 	# Move them closer
-	sim.state.moveMonster(m2.uniqueID, Vector2i(1, 2))
+	sim.state.moveMonsterTo(m2.uniqueID, Vector2i(1, 2))
 	var result_success = sim.combatResolver.executeBasicAttack(m1.uniqueID, m2.uniqueID)
 	assert_true(result_success["success"], "Attack should succeed when adjacent")
 
