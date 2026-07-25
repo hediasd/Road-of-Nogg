@@ -136,9 +136,9 @@ func _show_setup() -> void:
 	if turn_timer:
 		turn_timer.stop()
 	if not battle_ui.is_empty():
-		battle_ui["play_button"].set_pressed_no_signal(false)
-		battle_ui["play_button"].text = "Play"
-		battle_ui["play_button"].tooltip_text = "Start computer-controlled turns."
+		battle_ui["play_button"].set_pressed_no_signal(true)
+		battle_ui["play_button"].text = "Pause"
+		battle_ui["play_button"].tooltip_text = "Pause computer-controlled turns."
 		battle_ui["play_button"].disabled = false
 	if visual_adapter:
 		visual_adapter.dispose()
@@ -243,9 +243,9 @@ func _start_battle(config) -> void:
 	log_label.text = ""
 	left_ui_label.text = "Battle ready"
 	right_ui_label.text = "No target"
-	battle_ui["play_button"].set_pressed_no_signal(false)
-	battle_ui["play_button"].text = "Play"
-	battle_ui["play_button"].tooltip_text = "Start computer-controlled turns."
+	battle_ui["play_button"].set_pressed_no_signal(true)
+	battle_ui["play_button"].text = "Pause"
+	battle_ui["play_button"].tooltip_text = "Pause computer-controlled turns."
 	battle_ui["play_button"].disabled = false
 
 	sim = BattleSetupFactoryScript.createSimulator(config, Callable(self, "_create_visual_adapter"))
@@ -254,7 +254,7 @@ func _start_battle(config) -> void:
 	camera.size = max(size.x, size.y) * 0.95
 	sim.startBattle()
 	sim.turnManager.startNewRound()
-	turn_timer.stop()
+	turn_timer.start()
 
 
 func _create_visual_adapter(state: BattleState):
@@ -612,7 +612,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				KEY_E: _on_player_end_turn()
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		var pos = _mouse_to_grid(event.position)
+		var pos = _mouse_to_battle_coord(event.position)
 		if active_player_id != -1:
 			_handle_grid_selection(pos)
 		else:
@@ -640,6 +640,32 @@ func _mouse_to_grid(mousePos: Vector2) -> Vector2i:
 	var distance = -rayOrigin.y / rayNormal.y
 	var intersection = rayOrigin + rayNormal * distance
 	return Vector2i(roundi(intersection.x), roundi(intersection.z))
+
+
+func _mouse_to_battle_coord(mousePos: Vector2) -> Vector2i:
+	var monsterID = _mouse_to_monster_id(mousePos)
+	if monsterID != -1 and sim != null:
+		var monsterPos = sim.state.getMonsterPosition(monsterID)
+		if sim.state.withinBounds(monsterPos):
+			return monsterPos
+	return _mouse_to_grid(mousePos)
+
+
+func _mouse_to_monster_id(mousePos: Vector2) -> int:
+	if not camera or visual_adapter == null:
+		return -1
+	var rayOrigin = camera.project_ray_origin(mousePos)
+	var rayNormal = camera.project_ray_normal(mousePos)
+	var query = PhysicsRayQueryParameters3D.create(
+		rayOrigin,
+		rayOrigin + rayNormal * 1000.0,
+		GodotVisualAdapterScript.MONSTER_PICK_COLLISION_LAYER
+	)
+	var hit = get_world_3d().direct_space_state.intersect_ray(query)
+	var collider = hit.get("collider")
+	if is_instance_valid(collider) and collider.has_meta("monster_id"):
+		return int(collider.get_meta("monster_id"))
+	return -1
 
 
 func _handle_click_selection(pos: Vector2i) -> void:

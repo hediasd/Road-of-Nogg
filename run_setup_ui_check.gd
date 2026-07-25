@@ -48,6 +48,7 @@ func _run() -> void:
 	)
 	scene._on_setup_confirmed()
 	await process_frame
+	await physics_frame
 
 	if scene.sim == null or scene.sim.state.getAliveMonsterIDs().size() != 8:
 		_fail("confirm did not load the configured battle")
@@ -64,21 +65,41 @@ func _run() -> void:
 	if scene.battle_ui["play_button"] is CheckButton:
 		_fail("battle playback still uses the old auto-play check button")
 		return
-	if scene.battle_ui["play_button"].text != "Play" or scene.battle_ui["play_button"].button_pressed:
-		_fail("battle did not load in a paused state with a Play button")
+	if scene.battle_ui["play_button"].text != "Pause" or not scene.battle_ui["play_button"].button_pressed:
+		_fail("battle did not start playing with a Pause button")
 		return
-	if not scene.turn_timer.is_stopped():
-		_fail("CPU turns began before Play was pressed")
-		return
-	scene.battle_ui["play_button"].set_pressed_no_signal(true)
-	scene._on_play_toggled(true)
-	if scene.battle_ui["play_button"].text != "Pause" or scene.turn_timer.is_stopped():
-		_fail("Play did not start CPU turns and change to Pause")
+	if scene.turn_timer.is_stopped():
+		_fail("CPU turns did not begin after battle setup")
 		return
 	scene.battle_ui["play_button"].set_pressed_no_signal(false)
 	scene._on_play_toggled(false)
 	if scene.battle_ui["play_button"].text != "Play" or not scene.turn_timer.is_stopped():
 		_fail("Pause did not stop CPU turns and change to Play")
+		return
+	scene.battle_ui["play_button"].set_pressed_no_signal(true)
+	scene._on_play_toggled(true)
+	if scene.battle_ui["play_button"].text != "Pause" or scene.turn_timer.is_stopped():
+		_fail("Play did not resume CPU turns and change to Pause")
+		return
+	scene.battle_ui["play_button"].set_pressed_no_signal(false)
+	scene._on_play_toggled(false)
+
+	var pickID = scene.sim.state.getAliveMonsterIDs()[0]
+	var pickVisual: Node3D = scene.visual_adapter._monster_visuals[pickID]
+	var selectionBody = pickVisual.get_node_or_null("SelectionBody")
+	if selectionBody == null:
+		_fail("monster visual has no whole-model selection body")
+		return
+	var collision = selectionBody.get_node_or_null("WholeModelBounds")
+	if collision == null or not collision.shape is BoxShape3D or collision.shape.size.y < 1.0:
+		_fail("monster selection bounds do not cover the complete model")
+		return
+	var upperBodyPoint = pickVisual.to_global(
+		collision.position + Vector3(0, collision.shape.size.y * 0.3, 0)
+	)
+	var upperBodyScreenPoint = scene.camera.unproject_position(upperBodyPoint)
+	if scene._mouse_to_monster_id(upperBodyScreenPoint) != pickID:
+		_fail("clicking the upper model did not select its entity")
 		return
 
 	for _step in range(12):

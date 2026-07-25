@@ -4,6 +4,7 @@
 class_name GodotVisualAdapter
 extends IBattleVisualAdapter
 
+const MONSTER_PICK_COLLISION_LAYER := 1 << 7
 const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
 const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEffects.gd")
 const BattleCursorControllerScript = preload("res://src/presentation/BattleCursorController.gd")
@@ -144,6 +145,55 @@ func _buildPlaceholderBody(material: Material) -> Node3D:
 	body.add_child(head)
 
 	return body
+
+
+func _add_selection_body(container: Node3D, monsterID: int) -> void:
+	var accumulated = {"has_bounds": false, "bounds": AABB()}
+	_accumulate_visual_bounds(container, Transform3D.IDENTITY, accumulated)
+	if not accumulated["has_bounds"]:
+		return
+
+	var bounds: AABB = accumulated["bounds"].grow(0.08)
+	var selectionBody = StaticBody3D.new()
+	selectionBody.name = "SelectionBody"
+	selectionBody.collision_layer = MONSTER_PICK_COLLISION_LAYER
+	selectionBody.collision_mask = 0
+	selectionBody.set_meta("monster_id", monsterID)
+
+	var box = BoxShape3D.new()
+	box.size = Vector3(
+		maxf(bounds.size.x, 0.2),
+		maxf(bounds.size.y, 0.2),
+		maxf(bounds.size.z, 0.2)
+	)
+	var collision = CollisionShape3D.new()
+	collision.name = "WholeModelBounds"
+	collision.position = bounds.get_center()
+	collision.shape = box
+	selectionBody.add_child(collision)
+	container.add_child(selectionBody)
+
+
+func _accumulate_visual_bounds(
+		node: Node,
+		fromContainer: Transform3D,
+		accumulated: Dictionary) -> void:
+	for child in node.get_children():
+		var childNode = child as Node3D
+		if childNode == null:
+			continue
+		var childTransform = fromContainer * childNode.transform
+		var meshInstance = childNode as MeshInstance3D
+		if meshInstance != null and meshInstance.mesh != null:
+			var childBounds: AABB = childTransform * meshInstance.get_aabb()
+			if accumulated["has_bounds"]:
+				accumulated["bounds"] = accumulated["bounds"].merge(childBounds)
+			else:
+				accumulated["bounds"] = childBounds
+				accumulated["has_bounds"] = true
+		_accumulate_visual_bounds(childNode, childTransform, accumulated)
+
+
 # --- EVENTS ---
 
 func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
@@ -200,6 +250,7 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 	if bodyVisual == null:
 		bodyVisual = _buildPlaceholderBody(mat)
 	container.add_child(bodyVisual)
+	_add_selection_body(container, monsterID)
 
 	monsters_node.add_child(container)
 	_monster_visuals[monsterID] = container

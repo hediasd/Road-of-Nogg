@@ -25,9 +25,9 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 
 	var playButton = Button.new()
 	playButton.toggle_mode = true
-	playButton.text = "Play"
-	playButton.button_pressed = false
-	playButton.tooltip_text = "Start computer-controlled turns."
+	playButton.text = "Pause"
+	playButton.button_pressed = true
+	playButton.tooltip_text = "Pause computer-controlled turns."
 	playButton.toggled.connect(callbacks["play_toggled"])
 	topRow.add_child(playButton)
 
