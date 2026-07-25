@@ -6,12 +6,14 @@ extends IBattleVisualAdapter
 
 const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
 const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEffects.gd")
+const BattleCursorControllerScript = preload("res://src/presentation/BattleCursorController.gd")
 
 var state: BattleState
 var root_node: Node3D
 var grid_node: Node3D
 var monsters_node: Node3D
 var _cursor: MeshInstance3D
+var _cursor_controller: BattleCursorController
 
 var anim_queue: Array = []
 var is_animating: bool = false
@@ -35,8 +37,8 @@ func _init(_state: BattleState, _root_node: Node3D) -> void:
 	root_node.add_child(monsters_node)
 
 	_cursor = BattleMeshFactoryScript.createMesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
-	_cursor.visible = false
 	root_node.add_child(_cursor)
+	_cursor_controller = BattleCursorControllerScript.new(_cursor)
 
 
 func _log(text: String) -> void:
@@ -155,9 +157,7 @@ func _on_turn_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> vo
 		_update_right_ui("Waiting for action...")
 		_log("\n--- TURN: %s [#%s] ---" % [m.name, monsterID])
 
-		_cursor.visible = true
-		_cursor.position = _coord_to_pos3d(m.position)
-		_cursor.position.y = 0.21
+		_cursor_controller.focusTurn(m.position)
 
 
 func _on_monster_moved(monsterID: int, path: Array) -> void:
@@ -167,18 +167,18 @@ func _on_monster_moved(monsterID: int, path: Array) -> void:
 	_log("Moved to %s" % [path.back()])
 
 	var tween = mi.create_tween()
-	var cursor_tween = _cursor.create_tween() if _cursor.visible else null
 	for coord in path:
 		var target_pos = _coord_to_pos3d(coord)
 		target_pos.y = 0.2
 		tween.tween_property(mi, "position", target_pos, 0.2)
-		if cursor_tween:
-			var cursor_pos = target_pos
-			cursor_pos.y = 0.21
-			cursor_tween.tween_property(_cursor, "position", cursor_pos, 0.2)
 
-	# We don't await the tween here, we just let it play out asynchronously
+	if (
+		_cursor_controller.mode == BattleCursorControllerScript.Mode.TURN_INDICATOR
+		and state.currentMonsterID == monsterID
+	):
+		_cursor_controller.animateTurnPath(path, state.getMonsterPosition(monsterID))
 
+# We do not await the visual tweens; cursor ownership prevents overlap.
 
 func _on_monster_attacked(attackerID: int, targetID: int, _damage: int, _targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
@@ -232,6 +232,18 @@ func _play_bump_animation(sourceID: int, targetID: int) -> void:
 
 func highlight_monster(monster_id: int) -> void:
 	visualEffects.highlightMonster(monster_id)
+
+
+func show_player_cursor(coord: Vector2i) -> void:
+	_cursor_controller.focusPlayerSelection(coord)
+
+
+func show_target_cursor(coord: Vector2i) -> void:
+	_cursor_controller.focusTarget(coord)
+
+
+func hide_cursor() -> void:
+	_cursor_controller.hide()
 
 
 func apply_global_effect(index: int) -> void:
