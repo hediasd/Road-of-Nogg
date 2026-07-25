@@ -77,6 +77,35 @@ static func build(
 	seedInput.value_changed.connect(callbacks["seed_changed"])
 	generalGrid.add_child(seedInput)
 
+	var renderingGrid = GridContainer.new()
+	renderingGrid.columns = 6
+	renderingGrid.add_theme_constant_override("h_separation", 8)
+	content.add_child(renderingGrid)
+	var renderModeOption = _addOptionRow(
+		renderingGrid,
+		"World",
+		["PS1 320x240", "Clean native"],
+		["ps1", "clean"],
+		"Render only the 3D world at PS1 resolution; UI remains native."
+	)
+	var geometryOption = _addOptionRow(
+		renderingGrid,
+		"Geometry",
+		["Vertex jitter", "Stable"],
+		["jitter", "stable"],
+		"Toggle screen-space vertex snapping independently."
+	)
+	var textureMappingOption = _addOptionRow(
+		renderingGrid,
+		"Textures",
+		["Affine", "Perspective"],
+		["affine", "perspective"],
+		"Toggle affine-style interpolation for textured 3D materials."
+	)
+	for option in [renderModeOption, geometryOption, textureMappingOption]:
+		option.custom_minimum_size.x = 118
+		option.item_selected.connect(callbacks["rendering_selected"])
+
 	var teams = HBoxContainer.new()
 	teams.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	teams.add_theme_constant_override("separation", 24)
@@ -109,6 +138,9 @@ static func build(
 		"canvas": canvas,
 		"mode_option": modeOption,
 		"map_option": mapOption,
+		"render_mode_option": renderModeOption,
+		"geometry_option": geometryOption,
+		"texture_mapping_option": textureMappingOption,
 		"seed_input": seedInput,
 		"team_1_preset": team1["preset"],
 		"team_2_preset": team2["preset"],

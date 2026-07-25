@@ -4,6 +4,10 @@ Status: proposed for approval on 2026-07-25. This document supersedes the
 original architectural draft. It is an implementation plan, not a promise that
 all future meta-game ideas ship in the first playable release.
 
+Implementation status: the optional PS1 rendering subsection of Phase 6 was
+completed on 2026-07-25. Elevation, movement, combat, stat, AI, capsule visual,
+and team-color work remains unstarted.
+
 ## Outcome
 
 Build a deterministic, replayable tactical battle layer with meaningful

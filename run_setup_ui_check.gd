@@ -14,6 +14,21 @@ func _run() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
+	scene.retro_renderer.set_options(true, true, true, false)
+	scene._sync_rendering_options()
+
+	if scene.retro_renderer.world_viewport.size != Vector2i(320, 240):
+		_fail("PS1 mode did not use the 320x240 world render target")
+		return
+	if scene.setup_ui["canvas"].get_viewport() == scene.retro_renderer.world_viewport:
+		_fail("setup UI was rendered inside the low-resolution world viewport")
+		return
+	var mappedCenter = scene.retro_renderer.screen_to_world(
+		scene.retro_renderer.world_to_screen(Vector2(160, 120))
+	)
+	if not mappedCenter.is_equal_approx(Vector2(160, 120)):
+		_fail("letterboxed screen/world coordinate conversion is inconsistent")
+		return
 
 	if scene.sim != null:
 		_fail("simulation spawned before setup confirmation")
@@ -35,7 +50,7 @@ func _run() -> void:
 		return
 
 	var hasSky = false
-	for child in scene.get_children():
+	for child in scene.retro_renderer.world_viewport.get_children():
 		if child is CanvasLayer and child.layer == -1:
 			hasSky = true
 	if not hasSky:
@@ -59,6 +74,32 @@ func _run() -> void:
 	if scene.visual_adapter._monster_visuals.size() != 8:
 		_fail("monster visuals were not loaded after confirmation")
 		return
+	if scene.camera.get_viewport() != scene.retro_renderer.world_viewport:
+		_fail("3D camera is not isolated in the world viewport")
+		return
+	var firstTile = scene.visual_adapter.grid_node.get_child(0) as MeshInstance3D
+	var retroMaterial = firstTile.material_override as ShaderMaterial
+	if retroMaterial == null:
+		_fail("world geometry did not receive the retro-capable material")
+		return
+	if not retroMaterial.get_shader_parameter("vertex_snap_enabled"):
+		_fail("vertex jitter was not enabled independently")
+		return
+	if not retroMaterial.get_shader_parameter("affine_mapping_enabled"):
+		_fail("affine texture mapping was not enabled independently")
+		return
+
+	scene.retro_renderer.set_options(false, false, false, false)
+	await process_frame
+	var nativeSize = Vector2i(scene.get_viewport().get_visible_rect().size)
+	if scene.retro_renderer.world_viewport.size != nativeSize:
+		_fail("clean mode did not restore native world resolution")
+		return
+	if retroMaterial.get_shader_parameter("vertex_snap_enabled"):
+		_fail("clean mode did not disable vertex jitter")
+		return
+	scene.retro_renderer.set_options(true, true, true, false)
+	await process_frame
 	if scene.battle_ui["canvas"].find_children("*", "OptionButton", true, false).size() != 1:
 		_fail("battle HUD contains rendering dropdowns beyond the spell selector")
 		return
@@ -97,7 +138,8 @@ func _run() -> void:
 	var upperBodyPoint = pickVisual.to_global(
 		collision.position + Vector3(0, collision.shape.size.y * 0.3, 0)
 	)
-	var upperBodyScreenPoint = scene.camera.unproject_position(upperBodyPoint)
+	var upperBodyWorldPoint = scene.camera.unproject_position(upperBodyPoint)
+	var upperBodyScreenPoint = scene.retro_renderer.world_to_screen(upperBodyWorldPoint)
 	if scene._mouse_to_monster_id(upperBodyScreenPoint) != pickID:
 		_fail("clicking the upper model did not select its entity")
 		return

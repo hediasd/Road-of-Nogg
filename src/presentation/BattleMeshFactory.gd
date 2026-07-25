@@ -1,6 +1,21 @@
-## BattleMeshFactory — Creates placeholder meshes and elemental materials.
+## Creates placeholder meshes and materials that can opt into PS1-style vertex
+## snapping and affine texture interpolation without changing battle state.
 
 class_name BattleMeshFactory
+
+const RETRO_SURFACE_SHADER = preload("res://assets/shaders/retro_surface.gdshader")
+const RETRO_TRANSPARENT_SHADER = preload("res://assets/shaders/retro_surface_transparent.gdshader")
+const RETRO_MATERIAL_META := "road_of_nogg_retro_material"
+
+static var vertex_snap_enabled: bool = true
+static var affine_mapping_enabled: bool = true
+static var snap_resolution := Vector2(320, 240)
+
+
+static func configureRetro(vertexSnap: bool, affineMapping: bool, resolution: Vector2) -> void:
+	vertex_snap_enabled = vertexSnap
+	affine_mapping_enabled = affineMapping
+	snap_resolution = Vector2(maxf(resolution.x, 2.0), maxf(resolution.y, 2.0))
 
 
 static func elementColor(element: String) -> Color:
@@ -15,59 +30,50 @@ static func elementColor(element: String) -> Color:
 		_: return Color(0.5, 0.5, 0.5)
 
 
-static func createHalfMaterial(color1: Color, color2: Color) -> ShaderMaterial:
-	var shader = Shader.new()
-	shader.code = """
-	shader_type spatial;
-	uniform vec4 color1 : source_color;
-	uniform vec4 color2 : source_color;
-	uniform float metallic = 0.0;
-	uniform float roughness = 1.0;
-	varying vec3 local_pos;
-	void vertex() {
-		local_pos = VERTEX;
-	}
-	void fragment() {
-		METALLIC = metallic;
-		ROUGHNESS = roughness;
-		SPECULAR = 0.5;
-
-		if (local_pos.y - local_pos.x < 0.0) {
-			ALBEDO = color1.rgb;
-		} else {
-			ALBEDO = color2.rgb;
-		}
-	}
-	"""
+static func createMaterial(
+		color: Color,
+		transparent: bool = false,
+		emissionStrength: float = 0.0,
+		texture: Texture2D = null) -> ShaderMaterial:
 	var material = ShaderMaterial.new()
-	material.shader = shader
-	material.set_shader_parameter("color1", color1)
-	material.set_shader_parameter("color2", color2)
-	material.set_shader_parameter("metallic", 0.0)
-	material.set_shader_parameter("roughness", 1.0)
+	material.shader = RETRO_TRANSPARENT_SHADER if transparent else RETRO_SURFACE_SHADER
+	material.set_meta(RETRO_MATERIAL_META, true)
+	material.set_shader_parameter("color_a", color)
+	material.set_shader_parameter("color_b", color)
+	material.set_shader_parameter("split_color", false)
+	material.set_shader_parameter("use_albedo_texture", texture != null)
+	if texture != null:
+		material.set_shader_parameter("albedo_texture", texture)
+	material.set_shader_parameter("emission_strength", emissionStrength)
+	_updateRetroMaterial(material)
+	return material
+
+
+static func createHalfMaterial(color1: Color, color2: Color) -> ShaderMaterial:
+	var material = createMaterial(color1)
+	material.set_shader_parameter("color_b", color2)
+	material.set_shader_parameter("split_color", true)
 	return material
 
 
 static func createMesh(type: String, color: Color) -> MeshInstance3D:
 	var meshInstance = MeshInstance3D.new()
-	var material = StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = 1.0
-	material.metallic = 0.0
+	var transparent = false
+	var emissionStrength = 0.0
 
 	match type:
 		"cursor":
 			meshInstance.mesh = PlaneMesh.new()
 			meshInstance.mesh.size = Vector2(1.1, 1.1)
-			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			material.emission_enabled = true
-			material.emission = color
+			transparent = true
+			emissionStrength = 1.0
 		"box":
 			meshInstance.mesh = BoxMesh.new()
 			meshInstance.mesh.size = Vector3(0.9, 0.4, 0.9)
 		"plane":
 			meshInstance.mesh = PlaneMesh.new()
 			meshInstance.mesh.size = Vector2(0.9, 0.9)
+			transparent = true
 		"cylinder":
 			meshInstance.mesh = CylinderMesh.new()
 			meshInstance.mesh.height = 1.0
@@ -97,5 +103,70 @@ static func createMesh(type: String, color: Color) -> MeshInstance3D:
 			meshInstance.mesh = PrismMesh.new()
 			meshInstance.mesh.size = Vector3(0.7, 0.8, 0.7)
 
-	meshInstance.material_override = material
+	meshInstance.material_override = createMaterial(color, transparent, emissionStrength)
 	return meshInstance
+
+
+static func prepareNodeMaterials(node: Node) -> void:
+	if node is MeshInstance3D:
+		_prepareMeshMaterials(node)
+	for child in node.get_children():
+		prepareNodeMaterials(child)
+
+
+static func updateMaterialsRecursive(node: Node) -> void:
+	if node is MeshInstance3D:
+		_updateMeshMaterials(node)
+	for child in node.get_children():
+		updateMaterialsRecursive(child)
+
+
+static func _prepareMeshMaterials(meshInstance: MeshInstance3D) -> void:
+	if meshInstance.material_override is StandardMaterial3D:
+		meshInstance.material_override = _convertStandardMaterial(meshInstance.material_override)
+	elif meshInstance.material_override is ShaderMaterial:
+		_updateRetroMaterial(meshInstance.material_override)
+
+	if meshInstance.mesh == null or meshInstance.material_override != null:
+		return
+	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
+		var activeMaterial = meshInstance.get_active_material(surfaceIndex)
+		if activeMaterial is StandardMaterial3D:
+			meshInstance.set_surface_override_material(
+				surfaceIndex,
+				_convertStandardMaterial(activeMaterial)
+			)
+
+
+static func _updateMeshMaterials(meshInstance: MeshInstance3D) -> void:
+	if meshInstance.material_override is ShaderMaterial:
+		_updateRetroMaterial(meshInstance.material_override)
+	if meshInstance.mesh == null:
+		return
+	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
+		var material = meshInstance.get_surface_override_material(surfaceIndex)
+		if material is ShaderMaterial:
+			_updateRetroMaterial(material)
+
+
+static func _convertStandardMaterial(source: StandardMaterial3D) -> ShaderMaterial:
+	var transparent = (
+		source.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED or
+		source.albedo_color.a < 1.0
+	)
+	var emissionStrength = 1.0 if source.emission_enabled else 0.0
+	var converted = createMaterial(
+		source.albedo_color,
+		transparent,
+		emissionStrength,
+		source.albedo_texture
+	)
+	return converted
+
+
+static func _updateRetroMaterial(material: ShaderMaterial) -> void:
+	if not material.has_meta(RETRO_MATERIAL_META):
+		return
+	material.set_shader_parameter("vertex_snap_enabled", vertex_snap_enabled)
+	material.set_shader_parameter("affine_mapping_enabled", affine_mapping_enabled)
+	material.set_shader_parameter("snap_resolution", snap_resolution)

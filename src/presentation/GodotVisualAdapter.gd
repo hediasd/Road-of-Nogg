@@ -12,6 +12,7 @@ const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisua
 
 var state: BattleState
 var root_node: Node3D
+var visual_parent: Node3D
 var grid_node: Node3D
 var monsters_node: Node3D
 var overlay_node: Node3D
@@ -27,25 +28,26 @@ var visualEffects
 var _monster_visuals: Dictionary = {} # monsterID -> MeshInstance3D
 var _position_tweens: Dictionary = {} # monsterID -> Tween
 
-func _init(_state: BattleState, _root_node: Node3D) -> void:
+func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = null) -> void:
 	state = _state
 	root_node = _root_node
+	visual_parent = _visual_parent if _visual_parent != null else _root_node
 	visualEffects = BattleVisualEffectsScript.new(_monster_visuals)
 
 	grid_node = Node3D.new()
 	grid_node.name = "Grid"
-	root_node.add_child(grid_node)
+	visual_parent.add_child(grid_node)
 
 	monsters_node = Node3D.new()
 	monsters_node.name = "Monsters"
-	root_node.add_child(monsters_node)
+	visual_parent.add_child(monsters_node)
 
 	overlay_node = Node3D.new()
 	overlay_node.name = "TacticalOverlays"
-	root_node.add_child(overlay_node)
+	visual_parent.add_child(overlay_node)
 
 	_cursor = BattleMeshFactoryScript.createMesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
-	root_node.add_child(_cursor)
+	visual_parent.add_child(_cursor)
 	_cursor_controller = BattleCursorControllerScript.new(_cursor)
 
 
@@ -226,17 +228,9 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 	if m and m.elements.size() >= 2:
 		mat = BattleMeshFactoryScript.createHalfMaterial(BattleMeshFactoryScript.elementColor(m.elements[0]), BattleMeshFactoryScript.elementColor(m.elements[1]))
 	elif m and m.elements.size() == 1:
-		var st_mat = StandardMaterial3D.new()
-		st_mat.albedo_color = BattleMeshFactoryScript.elementColor(m.elements[0])
-		st_mat.metallic = 0.0
-		st_mat.roughness = 1.0
-		mat = st_mat
+		mat = BattleMeshFactoryScript.createMaterial(BattleMeshFactoryScript.elementColor(m.elements[0]))
 	else:
-		var st_mat = StandardMaterial3D.new()
-		st_mat.albedo_color = Color(0.6, 0.6, 0.6)
-		st_mat.metallic = 0.0
-		st_mat.roughness = 1.0
-		mat = st_mat
+		mat = BattleMeshFactoryScript.createMaterial(Color(0.6, 0.6, 0.6))
 
 	var container = Node3D.new()
 	container.position = _coord_to_pos3d(pos)
@@ -250,6 +244,7 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 	if bodyVisual == null:
 		bodyVisual = _buildPlaceholderBody(mat)
 	container.add_child(bodyVisual)
+	BattleMeshFactoryScript.prepareNodeMaterials(bodyVisual)
 	_add_selection_body(container, monsterID)
 
 	monsters_node.add_child(container)
@@ -412,9 +407,6 @@ func clear_tactical_overlays() -> void:
 
 func _add_overlay(coord: Vector2i, color: Color) -> void:
 	var marker = BattleMeshFactoryScript.createMesh("plane", color)
-	var material = marker.material_override as StandardMaterial3D
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	marker.position = Vector3(coord.x, 0.215, coord.y)
 	overlay_node.add_child(marker)
 

@@ -14,6 +14,7 @@ not a session log, policy copy, or backlog.
 | Console maps or diagnostic output | Text rendering |
 | Godot/GUT execution on Windows | Test and process behavior |
 | Cursor ownership or tile intent | Cursor event semantics |
+| SubViewports, render scaling, shaders, or picking | Render isolation |
 
 When adding a learning, include the verified observation, the reusable rule,
 and a review trigger. Move commands to [`DEVELOPMENT.md`](./DEVELOPMENT.md),
@@ -137,3 +138,18 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   Cursor ownership prevents older AI activity from overriding player intent.
 - **Review when:** implementing player control, queued animations, cancellation,
   keyboard navigation, or replay playback.
+
+## Render isolation
+
+### Standalone SubViewports need explicit display and input mapping
+
+- **Verified observation:** A standalone `SubViewport` does not display itself
+  or automatically receive main-viewport input. Its isolated 3D world also owns
+  the physics space used by picking.
+- **Reusable rule:** Display its `ViewportTexture` explicitly, keep native UI
+  outside the low-resolution viewport, and map coordinates through the actual
+  aspect-preserving display rectangle. Forward camera input deliberately and
+  query physics through the isolated world root. A shader that writes
+  POSITION must assign a valid clip-space value on every path.
+- **Review when:** changing viewport resolution, letterboxing, camera controls,
+  mouse picking, world shaders, or the UI/world composition.

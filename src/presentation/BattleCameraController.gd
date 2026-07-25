@@ -36,6 +36,10 @@ func _process(_delta: float) -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	handle_input(event)
+
+
+func handle_input(event: InputEvent, motionScale: Vector2 = Vector2.ONE) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			_zoom_camera(-zoom_step)
@@ -45,12 +49,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			_reset_camera()
 
 	elif event is InputEventMouseMotion:
+		var scaledRelative = event.relative * motionScale
 		# Middle click orbiting
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
-			_pan_camera(event.relative)
+			_pan_camera(scaledRelative)
 		# Right click panning
 		elif Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-			_pan_focus(event.relative)
+			_pan_focus(scaledRelative)
 
 
 func _update_camera_transform() -> void:

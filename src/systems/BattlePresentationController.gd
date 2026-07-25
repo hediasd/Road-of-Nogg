@@ -8,6 +8,7 @@ const BattleSetupPresetsScript = preload("res://src/factories/BattleSetupPresets
 const MapReferencesScript = preload("res://src/factories/MapReferences.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const GodotVisualAdapterScript = preload("res://src/presentation/GodotVisualAdapter.gd")
+const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderController.gd")
 
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
 enum PlayerState { INACTIVE, UNIT_SELECTED, MOVE_PREVIEW, ACTION_MENU, TARGETING, CONFIRM }
@@ -16,6 +17,7 @@ var sim: BattleSimulator
 var visual_adapter: GodotVisualAdapter
 var turn_timer: Timer
 var camera: BattleCameraController
+var retro_renderer
 
 var left_ui_label: Label
 var right_ui_label: Label
@@ -39,6 +41,7 @@ var pending_spell_index: int = 0
 
 
 func _ready() -> void:
+	retro_renderer = RetroRenderControllerScript.new(self)
 	_setup_background()
 	_setup_camera_and_lighting()
 	_build_battle_ui()
@@ -49,7 +52,7 @@ func _ready() -> void:
 func _setup_background() -> void:
 	var bgCanvas = CanvasLayer.new()
 	bgCanvas.layer = -1
-	add_child(bgCanvas)
+	retro_renderer.world_viewport.add_child(bgCanvas)
 	var material = ShaderMaterial.new()
 	material.shader = load("res://assets/textures/sky/retro_sky_2d.gdshader")
 	var background = ColorRect.new()
@@ -68,7 +71,7 @@ func _setup_background() -> void:
 	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	var worldEnvironment = WorldEnvironment.new()
 	worldEnvironment.environment = environment
-	add_child(worldEnvironment)
+	retro_renderer.world_root.add_child(worldEnvironment)
 
 
 func _setup_camera_and_lighting() -> void:
@@ -76,7 +79,7 @@ func _setup_camera_and_lighting() -> void:
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	camera.size = 14.0
 	camera.position = Vector3(6, 15, 14)
-	add_child(camera)
+	retro_renderer.world_root.add_child(camera)
 
 	var light = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-45, 45, 0)
@@ -84,7 +87,7 @@ func _setup_camera_and_lighting() -> void:
 	light.shadow_blur = 0.0
 	light.light_energy = 1.0
 	light.light_color = Color.WHITE
-	add_child(light)
+	retro_renderer.world_root.add_child(light)
 
 
 func _build_battle_ui() -> void:
@@ -118,6 +121,7 @@ func _build_setup_ui() -> void:
 			"preset_selected": Callable(self, "_on_preset_selected"),
 			"monster_selected": Callable(self, "_on_monster_selected"),
 			"seed_changed": Callable(self, "_on_seed_changed"),
+			"rendering_selected": Callable(self, "_on_rendering_selected"),
 			"confirmed": Callable(self, "_on_setup_confirmed")
 		},
 		MapReferencesScript.getNames(),
@@ -126,6 +130,7 @@ func _build_setup_ui() -> void:
 	)
 	_apply_preset(1, BattleSetupPresetsScript.PRESET_DEFAULT)
 	_apply_preset(2, BattleSetupPresetsScript.PRESET_DEFAULT)
+	_sync_rendering_options()
 	_update_duplicate_note()
 
 
@@ -171,6 +176,32 @@ func _on_monster_selected(_selectedIndex: int, team: int, _slotIndex: int) -> vo
 	var preset: OptionButton = setup_ui["team_%d_preset" % team]
 	_select_option_by_metadata(preset, BattleSetupPresetsScript.PRESET_CUSTOM)
 	_update_duplicate_note()
+
+
+func _sync_rendering_options() -> void:
+	_select_option_by_metadata(
+		setup_ui["render_mode_option"],
+		"ps1" if retro_renderer.retro_enabled else "clean"
+	)
+	_select_option_by_metadata(
+		setup_ui["geometry_option"],
+		"jitter" if retro_renderer.vertex_snap_enabled else "stable"
+	)
+	_select_option_by_metadata(
+		setup_ui["texture_mapping_option"],
+		"affine" if retro_renderer.affine_mapping_enabled else "perspective"
+	)
+
+
+func _on_rendering_selected(_index: int) -> void:
+	var renderMode: OptionButton = setup_ui["render_mode_option"]
+	var geometry: OptionButton = setup_ui["geometry_option"]
+	var textureMapping: OptionButton = setup_ui["texture_mapping_option"]
+	retro_renderer.set_options(
+		renderMode.get_item_metadata(renderMode.selected) == "ps1",
+		geometry.get_item_metadata(geometry.selected) == "jitter",
+		textureMapping.get_item_metadata(textureMapping.selected) == "affine"
+	)
 
 
 func _on_seed_changed(_value: float) -> void:
@@ -258,7 +289,7 @@ func _start_battle(config) -> void:
 
 
 func _create_visual_adapter(state: BattleState):
-	visual_adapter = GodotVisualAdapterScript.new(state, self)
+	visual_adapter = GodotVisualAdapterScript.new(state, self, retro_renderer.world_root)
 	return visual_adapter
 
 
@@ -585,6 +616,7 @@ func _update_action_buttons() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE:
 		return
+	camera.handle_input(event, retro_renderer.screen_motion_scale())
 	if active_player_id != -1:
 		if event.is_action_pressed("ui_cancel"):
 			_on_player_cancel()
@@ -633,8 +665,11 @@ func _move_player_cursor(direction: Vector2i) -> void:
 func _mouse_to_grid(mousePos: Vector2) -> Vector2i:
 	if not camera:
 		return Vector2i(-1, -1)
-	var rayOrigin = camera.project_ray_origin(mousePos)
-	var rayNormal = camera.project_ray_normal(mousePos)
+	var worldMousePos = retro_renderer.screen_to_world(mousePos)
+	if worldMousePos.x < 0.0:
+		return Vector2i(-1, -1)
+	var rayOrigin = camera.project_ray_origin(worldMousePos)
+	var rayNormal = camera.project_ray_normal(worldMousePos)
 	if rayNormal.y >= 0.0:
 		return Vector2i(-1, -1)
 	var distance = -rayOrigin.y / rayNormal.y
@@ -654,14 +689,17 @@ func _mouse_to_battle_coord(mousePos: Vector2) -> Vector2i:
 func _mouse_to_monster_id(mousePos: Vector2) -> int:
 	if not camera or visual_adapter == null:
 		return -1
-	var rayOrigin = camera.project_ray_origin(mousePos)
-	var rayNormal = camera.project_ray_normal(mousePos)
+	var worldMousePos = retro_renderer.screen_to_world(mousePos)
+	if worldMousePos.x < 0.0:
+		return -1
+	var rayOrigin = camera.project_ray_origin(worldMousePos)
+	var rayNormal = camera.project_ray_normal(worldMousePos)
 	var query = PhysicsRayQueryParameters3D.create(
 		rayOrigin,
 		rayOrigin + rayNormal * 1000.0,
 		GodotVisualAdapterScript.MONSTER_PICK_COLLISION_LAYER
 	)
-	var hit = get_world_3d().direct_space_state.intersect_ray(query)
+	var hit = retro_renderer.world_root.get_world_3d().direct_space_state.intersect_ray(query)
 	var collider = hit.get("collider")
 	if is_instance_valid(collider) and collider.has_meta("monster_id"):
 		return int(collider.get_meta("monster_id"))
