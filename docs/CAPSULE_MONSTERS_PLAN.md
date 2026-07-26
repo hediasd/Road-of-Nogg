@@ -281,7 +281,9 @@ resuming.
 3. Apply nearest filtering through world-asset import/material policy rather
    than disabling mipmaps globally.
 4. Treat vertex snapping and affine-style texture distortion as separate shader
-   features. Ship neither until each has an independent toggle and fallback.
+   features. Expose snapping independently. Keep affine mapping selectable by
+   presets with a perspective-correct fallback, but do not expose a player-facing
+   toggle until textured perspective content makes its result demonstrable.
 5. Persist the retro setting locally. It may change presentation resources but
    cannot rebuild or mutate the simulator.
 6. Convert mouse coordinates correctly between the native UI viewport and the

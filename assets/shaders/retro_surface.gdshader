@@ -6,6 +6,7 @@ uniform bool split_color = false;
 uniform bool use_albedo_texture = false;
 uniform sampler2D albedo_texture : source_color, filter_nearest;
 uniform bool vertex_snap_enabled = true;
+uniform float vertex_snap_strength : hint_range(0.0, 1.0) = 1.0;
 uniform bool affine_mapping_enabled = true;
 uniform vec2 snap_resolution = vec2(320.0, 240.0);
 uniform float emission_strength = 0.0;
@@ -21,8 +22,10 @@ void vertex() {
 	affine_clip_w = clip_position.w;
 	if (vertex_snap_enabled) {
 		vec2 half_resolution = max(snap_resolution * 0.5, vec2(1.0));
-		vec2 snapped_ndc = round((clip_position.xy / clip_position.w) * half_resolution) / half_resolution;
-		clip_position.xy = snapped_ndc * clip_position.w;
+		vec2 original_ndc = clip_position.xy / clip_position.w;
+		vec2 snapped_ndc = round(original_ndc * half_resolution) / half_resolution;
+		vec2 adjusted_ndc = mix(original_ndc, snapped_ndc, vertex_snap_strength);
+		clip_position.xy = adjusted_ndc * clip_position.w;
 	}
 	POSITION = clip_position;
 }

@@ -151,6 +151,12 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   aspect-preserving display rectangle. Forward camera input deliberately and
   query physics through the isolated world root. A shader that writes
   POSITION must assign a valid clip-space value on every path.
+- **Verified observation:** Affine UV interpolation has no visible result on
+  flat-colored geometry under an orthographic camera because there is neither
+  textured UV detail nor perspective depth to distort.
+- **Reusable rule:** Do not present an affine/perspective choice as a useful
+  player-facing control until the active content visibly demonstrates it. Use
+  directly observable controls such as upscale filtering for current content.
 - **Verified observation:** Screen-space vertex snapping also ran during the
   directional-light shadow pass and produced broad diagonal bands across the
   battlefield.

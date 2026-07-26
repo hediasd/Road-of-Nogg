@@ -107,6 +107,7 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		{
 			"preset_selected": callbacks["graphics_preset_selected"],
 			"feature_selected": callbacks["graphics_feature_selected"],
+			"look_parameter_changed": callbacks["look_parameter_changed"],
 			"crt_parameter_changed": callbacks["crt_parameter_changed"]
 		}
 	)
@@ -200,7 +201,8 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		"graphics_panel": graphicsMenu["panel"],
 		"graphics_look_option": graphicsMenu["look_option"],
 		"graphics_geometry_option": graphicsMenu["geometry_option"],
-		"graphics_texture_option": graphicsMenu["texture_option"],
+		"graphics_upscale_option": graphicsMenu["upscale_option"],
+		"graphics_look_sliders": graphicsMenu["look_sliders"],
 		"graphics_crt_hint": graphicsMenu["crt_hint"],
 		"graphics_crt_sliders": graphicsMenu["crt_sliders"],
 		"left_ui_label": leftLabel,

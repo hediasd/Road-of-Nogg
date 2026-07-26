@@ -8,12 +8,18 @@ const RETRO_TRANSPARENT_SHADER = preload("res://assets/shaders/retro_surface_tra
 const RETRO_MATERIAL_META := "road_of_nogg_retro_material"
 
 static var vertex_snap_enabled: bool = true
+static var vertex_snap_strength: float = 1.0
 static var affine_mapping_enabled: bool = true
 static var snap_resolution := Vector2(320, 240)
 
 
-static func configureRetro(vertexSnap: bool, affineMapping: bool, resolution: Vector2) -> void:
+static func configureRetro(
+		vertexSnap: bool,
+		affineMapping: bool,
+		resolution: Vector2,
+		vertexSnapStrength: float = 1.0) -> void:
 	vertex_snap_enabled = vertexSnap
+	vertex_snap_strength = clampf(vertexSnapStrength, 0.0, 1.0)
 	affine_mapping_enabled = affineMapping
 	snap_resolution = Vector2(maxf(resolution.x, 2.0), maxf(resolution.y, 2.0))
 
@@ -168,5 +174,6 @@ static func _updateRetroMaterial(material: ShaderMaterial) -> void:
 	if not material.has_meta(RETRO_MATERIAL_META):
 		return
 	material.set_shader_parameter("vertex_snap_enabled", vertex_snap_enabled)
+	material.set_shader_parameter("vertex_snap_strength", vertex_snap_strength)
 	material.set_shader_parameter("affine_mapping_enabled", affine_mapping_enabled)
 	material.set_shader_parameter("snap_resolution", snap_resolution)

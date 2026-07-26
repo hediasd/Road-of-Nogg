@@ -95,18 +95,18 @@ static func build(
 		["jitter", "stable"],
 		"Toggle screen-space vertex snapping independently."
 	)
-	var textureMappingOption = _addOptionRow(
+	var upscaleOption = _addOptionRow(
 		renderingGrid,
-		"Textures",
-		["Affine", "Perspective"],
-		["affine", "perspective"],
-		"Toggle affine-style interpolation for textured 3D materials."
+		"Upscale",
+		["Sharp pixels", "Smooth"],
+		["nearest", "linear"],
+		"Choose crisp nearest-neighbor pixels or smooth world upscaling."
 	)
-	for option in [renderModeOption, geometryOption, textureMappingOption]:
+	for option in [renderModeOption, geometryOption, upscaleOption]:
 		option.custom_minimum_size.x = 118
 	renderModeOption.item_selected.connect(callbacks["rendering_preset_selected"])
 	geometryOption.item_selected.connect(callbacks["rendering_feature_selected"])
-	textureMappingOption.item_selected.connect(callbacks["rendering_feature_selected"])
+	upscaleOption.item_selected.connect(callbacks["rendering_feature_selected"])
 
 	var teams = HBoxContainer.new()
 	teams.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -142,7 +142,7 @@ static func build(
 		"map_option": mapOption,
 		"render_mode_option": renderModeOption,
 		"geometry_option": geometryOption,
-		"texture_mapping_option": textureMappingOption,
+		"upscale_option": upscaleOption,
 		"seed_input": seedInput,
 		"team_1_preset": team1["preset"],
 		"team_2_preset": team2["preset"],

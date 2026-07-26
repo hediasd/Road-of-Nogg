@@ -100,6 +100,7 @@ func _build_battle_ui() -> void:
 		"dump_state_pressed": Callable(self, "_on_dump_state_pressed"),
 		"graphics_preset_selected": Callable(self, "_on_battle_rendering_preset_selected"),
 		"graphics_feature_selected": Callable(self, "_on_battle_rendering_feature_selected"),
+		"look_parameter_changed": Callable(self, "_on_look_parameter_changed"),
 		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed"),
 		"player_move": Callable(self, "_on_player_move"),
 		"player_attack": Callable(self, "_on_player_attack"),
@@ -196,8 +197,8 @@ func _sync_rendering_options() -> void:
 			"jitter" if retro_renderer.vertex_snap_enabled else "stable"
 		)
 		_select_option_by_metadata(
-			setup_ui["texture_mapping_option"],
-			"affine" if retro_renderer.affine_mapping_enabled else "perspective"
+			setup_ui["upscale_option"],
+			"nearest" if retro_renderer.nearest_filter_enabled else "linear"
 		)
 
 	if battle_ui.is_empty():
@@ -211,9 +212,20 @@ func _sync_rendering_options() -> void:
 		"jitter" if retro_renderer.vertex_snap_enabled else "stable"
 	)
 	_select_option_by_metadata(
-		battle_ui["graphics_texture_option"],
-		"affine" if retro_renderer.affine_mapping_enabled else "perspective"
+		battle_ui["graphics_upscale_option"],
+		"nearest" if retro_renderer.nearest_filter_enabled else "linear"
 	)
+	for parameter in battle_ui["graphics_look_sliders"]:
+		var lookSliderData: Dictionary = battle_ui["graphics_look_sliders"][parameter]
+		var lookSlider: HSlider = lookSliderData["slider"]
+		var lookValue = retro_renderer.get_look_parameter(parameter)
+		lookSlider.set_value_no_signal(lookValue)
+		lookSlider.editable = (
+			retro_renderer.vertex_snap_enabled
+			if parameter == retro_renderer.LOOK_SNAP_STRENGTH else
+			true
+		)
+		lookSliderData["value_label"].text = "%.2f" % lookValue
 	var crtActive = retro_renderer.render_preset == retro_renderer.PRESET_CRT
 	battle_ui["graphics_crt_hint"].modulate = (
 		Color(0.82, 0.9, 1.0) if crtActive else Color(0.48, 0.54, 0.64)
@@ -235,10 +247,10 @@ func _on_rendering_preset_selected(_index: int) -> void:
 
 func _on_rendering_feature_selected(_index: int) -> void:
 	var geometry: OptionButton = setup_ui["geometry_option"]
-	var textureMapping: OptionButton = setup_ui["texture_mapping_option"]
+	var upscale: OptionButton = setup_ui["upscale_option"]
 	retro_renderer.set_features(
 		geometry.get_item_metadata(geometry.selected) == "jitter",
-		textureMapping.get_item_metadata(textureMapping.selected) == "affine"
+		upscale.get_item_metadata(upscale.selected) == "nearest"
 	)
 	_sync_rendering_options()
 
@@ -251,11 +263,16 @@ func _on_battle_rendering_preset_selected(_index: int) -> void:
 
 func _on_battle_rendering_feature_selected(_index: int) -> void:
 	var geometry: OptionButton = battle_ui["graphics_geometry_option"]
-	var textureMapping: OptionButton = battle_ui["graphics_texture_option"]
+	var upscale: OptionButton = battle_ui["graphics_upscale_option"]
 	retro_renderer.set_features(
 		geometry.get_item_metadata(geometry.selected) == "jitter",
-		textureMapping.get_item_metadata(textureMapping.selected) == "affine"
+		upscale.get_item_metadata(upscale.selected) == "nearest"
 	)
+	_sync_rendering_options()
+
+
+func _on_look_parameter_changed(value: float, parameter: String) -> void:
+	retro_renderer.set_look_parameter(parameter, value)
 	_sync_rendering_options()
 
 

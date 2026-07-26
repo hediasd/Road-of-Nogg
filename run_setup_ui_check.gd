@@ -14,6 +14,7 @@ func _run() -> void:
 	root.add_child(scene)
 	await process_frame
 	await process_frame
+	scene.retro_renderer.set_look_parameter(scene.retro_renderer.LOOK_RENDER_SCALE, 1.0, false)
 	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
 	scene._sync_rendering_options()
 
@@ -106,6 +107,7 @@ func _run() -> void:
 	if not scene.retro_renderer.crt_overlay.visible:
 		_fail("CRT preset did not enable the CRT display pass")
 		return
+	scene.retro_renderer.set_look_parameter(scene.retro_renderer.LOOK_RENDER_SCALE, 1.0, false)
 	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
 	await process_frame
 	if scene.battle_ui["canvas"].find_children("*", "OptionButton", true, false).size() != 4:
@@ -117,11 +119,19 @@ func _run() -> void:
 	if not scene.battle_ui["graphics_panel"].visible:
 		_fail("Graphics button did not show the live translucent menu")
 		return
+	if scene.battle_ui["graphics_look_sliders"].size() != 7:
+		_fail("Any Look tab does not expose all general tuning controls")
+		return
+	if scene.battle_ui["graphics_crt_sliders"].size() != 9:
+		_fail("CRT tab does not expose all CRT tuning controls")
+		return
 	if scene.turn_timer.is_stopped() != timerWasStopped:
 		_fail("opening Graphics changed battle playback state")
 		return
 	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_CRT, false)
+	scene.retro_renderer.set_look_parameter(scene.retro_renderer.LOOK_BRIGHTNESS, 1.2, false)
 	scene.retro_renderer.set_crt_parameter(scene.retro_renderer.CRT_SCANLINE, 0.4, false)
+	scene.retro_renderer.set_crt_parameter(scene.retro_renderer.CRT_NOISE, 0.12, false)
 	scene._sync_rendering_options()
 	var scanlineData: Dictionary = scene.battle_ui["graphics_crt_sliders"]["scanline"]
 	if not scanlineData["slider"].editable:
@@ -133,11 +143,24 @@ func _run() -> void:
 	):
 		_fail("CRT slider value did not reach the live display material")
 		return
+	if not is_equal_approx(
+		scene.retro_renderer.crt_material.get_shader_parameter("brightness"),
+		1.2
+	):
+		_fail("Any Look tuning did not reach the live display material")
+		return
+	if not is_equal_approx(
+		scene.retro_renderer.crt_material.get_shader_parameter("noise_strength"),
+		0.12
+	):
+		_fail("expanded CRT tuning did not reach the live display material")
+		return
 	scene.battle_ui["graphics_button"].button_pressed = false
 	await process_frame
 	if scene.battle_ui["graphics_panel"].visible:
 		_fail("Graphics button did not hide the live menu")
 		return
+	scene.retro_renderer.set_look_parameter(scene.retro_renderer.LOOK_RENDER_SCALE, 1.0, false)
 	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
 	scene._sync_rendering_options()
 	if scene.battle_ui["play_button"] is CheckButton:
