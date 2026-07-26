@@ -7,9 +7,9 @@ all future meta-game ideas ship in the first playable release.
 Implementation status: complete. The optional PS1 rendering work landed on
 2026-07-25; elevation, height-aware movement/combat/LoS, deterministic stats,
 shared CPU command evaluation, checker terrain presentation, capsule defeat,
-and team-color work landed on 2026-07-26. Existing production maps intentionally
-retain height 0 while the focused three-elevation fixture verifies the full
-runtime and presentation contract.
+and team-color work landed on 2026-07-26. Meadow, Crossroads, and Forest now
+ship symmetric low/mid/high profiles, while focused fixtures verify the full
+runtime, replay, presentation, and decoupled visual-queue contracts.
 
 ## Outcome
 
@@ -29,7 +29,7 @@ and the visual mode can be disabled without changing simulation results.
 |---|---|
 | Grid coordinates | Continue using `Vector2i(x, y)`; call the third dimension `height` or `elevation`. Godot presentation maps this to world Y. |
 | Height storage | Use the existing `BattleState.heightBoard`; do not add another board or modify `Matrix` for this purpose. |
-| Height unit | Integer elevation steps in the inclusive range 0 through 8. Existing maps default every tile to height 0. |
+| Height unit | Integer elevation steps in the inclusive range 0 through 8. Production maps currently use symmetric profiles from 0 through 2; legacy maps without height data migrate to 0. |
 | Jump | Monsters receive `jump = 1` by default. Flying and water-walking are separate future movement capabilities. |
 | LoS geometry | Unit eye/target height is 1.0 above the surface; obstacle terrain adds 2.0 height; comparisons use epsilon 0.001. |
 | Movement cost | Every traversable cardinal step costs 1 in the first slice. Variable terrain cost is deferred. |
@@ -325,7 +325,7 @@ is not complete merely because its visual demonstration works.
 
 ## Delivery order and commit boundaries
 
-1. Map height schema, state queries, serialization migration, and flat-map tests.
+1. Map height schema, state queries, serialization migration, and production-profile tests.
 2. Height rendering, camera, cursor, overlay, and picking alignment.
 3. Shared traversal rule plus BFS/A*/validation integration.
 4. Shared height/range/LoS queries and centralized direct damage.
@@ -344,13 +344,16 @@ than burying a rules change inside presentation or AI code.
 The focused `run_capsule_features_check.gd` covers schema validation, version-2
 migration, height serialization, jump edges, high/low-ground damage, ridge LoS,
 elevated visuals and picking anchors, checker tones, capsule team colors,
-defeat cleanup, lethal CPU choice, and the eight-unit decision benchmark.
+defeat cleanup, decoupled visual-queue ordering/watchdog recovery, lethal CPU
+choice, and the eight-unit decision benchmark.
 
 On the reference Windows machine (`AMD64 Family 25 Model 80`, 16 logical
-processors), the recorded eight-unit Meadow decision p95 was 40,808 microseconds.
+processors), the recorded eight-unit elevated-Meadow decision p95 was 33,066
+microseconds after caching invariant enemy positions per CPU decision.
 The playable core/UI checks and deterministic full-battle check also completed
 with their success markers. The runner continues to surface the known host-only
 Windows root-certificate-store warning after Godot exits successfully.
+
 ## Explicitly deferred
 
 - diagonal movement;

@@ -14,6 +14,7 @@ not a session log, policy copy, or backlog.
 | Console maps or diagnostic output | Text rendering |
 | Godot/GUT execution on Windows | Test and process behavior |
 | Cursor ownership or tile intent | Cursor event semantics |
+| Presentation event sequencing or animation cancellation | Visual action playback |
 | SubViewports, render scaling, shaders, or picking | Render isolation |
 
 When adding a learning, include the verified observation, the reusable rule,
@@ -39,8 +40,9 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   board, `monsterPositions`, and `Monster.position` together. Fast consecutive
   commands can reuse a vacated tile before its previous visual tween finishes.
 - **Reusable rule:** One live entity per tile is a hard invariant. Assert the
-  board/position bijection after mutations, restore, and replay; views must
-  cancel or synchronize stale position animations before rendering tile reuse.
+  board/position bijection after mutations, restore, and replay. Views serialize
+  event-time position snapshots; they must not synchronize a follow-up action
+  from newer authoritative state while an older position animation is playing.
 - **Review when:** adding movement, forced displacement, teleportation, load,
   replay playback, or animation timing changes.
 
@@ -147,6 +149,20 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   Cursor ownership prevents older AI activity from overriding player intent.
 - **Review when:** implementing player control, queued animations, cancellation,
   keyboard navigation, or replay playback.
+
+## Visual action playback
+
+### Follow-up actions must not resynchronize active movement
+
+- **Verified observation:** Starting the attack bump called the global visual
+  occupancy synchronizer, which killed the active movement tween and snapped the
+  attacker to its newer authoritative tile before the move animation completed.
+- **Reusable rule:** Queue movement, targeting, action, and defeat presentation
+  in event order using coordinates and text captured when the event is emitted.
+  Simulation never waits for this queue. Bound every tween with an idempotent
+  completion callback plus a watchdog, and invalidate both on adapter disposal.
+- **Review when:** adding a visual event, changing action timing, accelerating
+  simulation playback, replay visualization, or implementing skip/fast-forward.
 
 ## Render isolation
 

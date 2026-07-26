@@ -1,7 +1,7 @@
 # Backlog
 
 Status: durable work outside the completed first-playable task. Last reviewed:
-2026-07-25.
+2026-07-26.
 
 Items belong here only when they are actionable, still relevant, and not already
 implemented by the playable battle flow.
@@ -22,8 +22,6 @@ implemented by the playable battle flow.
 
 ## Presentation
 
-- **Visual action queue:** Sequence animations without blocking the headless
-  simulator and define cancellation/restart behavior.
 - **Authored model coverage:** Add registry mappings as authored monster scenes
   become available; preserve the procedural fallback for incomplete rosters.
 - **Input and accessibility polish:** Add user-facing key remapping, explicit

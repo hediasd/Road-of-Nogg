@@ -1,6 +1,6 @@
 # Runtime Architecture
 
-Status: current. Last reconciled with source: 2026-07-25.
+Status: current. Last reconciled with source: 2026-07-26.
 
 ## Runtime ownership
 
@@ -136,9 +136,14 @@ and cursor anchors all derive world Y from the same state height query.
 
 `BattleEvents` describes lifecycle, movement intent/results, action targets,
 combat, healing, effects, passives, and victory. `IBattleVisualAdapter` connects
-a consumer to that bus. Presentation animation may lag behind authoritative
-state, but it must queue or cancel visual work without delaying or rewriting
-simulation results.
+a consumer to that bus. `GodotVisualAdapter` copies position-bearing event data
+into a FIFO visual-action queue, so movement, targeting, attacks, spells, heals,
+defeat, and victory play in event order without blocking the simulation.
+Playback never re-reads a later monster position to start a queued action. Each
+tween has a
+bounded watchdog recovery, while disposal invalidates callbacks and clears the
+queue. Presentation may lag behind authoritative state but cannot delay or
+rewrite simulation results.
 
 ## Determinism, replay, and restoration
 

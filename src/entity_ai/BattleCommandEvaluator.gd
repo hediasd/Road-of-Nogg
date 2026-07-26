@@ -31,6 +31,10 @@ func chooseCommand(monsterID: int, weights: Dictionary) -> Dictionary:
 	var threat = ThreatMapScript.generate(
 		state, actor.team, movementResolver, combatResolver
 	)
+	var enemyPositions: Array[Vector2i] = []
+	for candidateID in state.getAliveMonsterIDs():
+		if state.getMonster(candidateID).team != actor.team:
+			enemyPositions.append(state.getMonsterPosition(candidateID))
 	var candidates: Array[Dictionary] = []
 	for destination in destinations:
 		var path: Array = (
@@ -40,20 +44,20 @@ func chooseCommand(monsterID: int, weights: Dictionary) -> Dictionary:
 		if destination != origin and path.is_empty():
 			continue
 		candidates.append(_candidate(
-			monsterID, path, destination, "wait", -1, 0, 0, threat, weights
+			actor, path, destination, "wait", -1, 0, 0, threat, weights, enemyPositions
 		))
 		for targetID in combatResolver.getBasicAttackTargetsFrom(monsterID, destination):
 			candidates.append(_candidate(
-				monsterID, path, destination, "attack", targetID, 0, 0,
-				threat, weights
+				actor, path, destination, "attack", targetID, 0, 0,
+				threat, weights, enemyPositions
 			))
 		for spellSetIndex in range(actor.spellSets.size()):
 			for spellIndex in range(actor.spellSets[spellSetIndex].size()):
 				for targetID in combatResolver.getSpellTargetsFrom(
 						monsterID, spellSetIndex, spellIndex, destination):
 					candidates.append(_candidate(
-						monsterID, path, destination, "spell", targetID,
-						spellSetIndex, spellIndex, threat, weights
+						actor, path, destination, "spell", targetID,
+						spellSetIndex, spellIndex, threat, weights, enemyPositions
 					))
 
 	if candidates.is_empty():
@@ -67,7 +71,7 @@ func chooseCommand(monsterID: int, weights: Dictionary) -> Dictionary:
 
 
 func _candidate(
-		monsterID: int,
+		actor: Monster,
 		path: Array,
 		destination: Vector2i,
 		action: String,
@@ -75,8 +79,8 @@ func _candidate(
 		spellSetIndex: int,
 		spellIndex: int,
 		threat: Dictionary,
-		weights: Dictionary) -> Dictionary:
-	var actor = state.getMonster(monsterID)
+		weights: Dictionary,
+		enemyPositions: Array[Vector2i]) -> Dictionary:
 	var command = {
 		"move_path": path.duplicate(),
 		"action": action,
@@ -97,7 +101,7 @@ func _candidate(
 	elif action == "spell":
 		var spell = actor.spellSets[spellSetIndex][spellIndex]
 		var affected = combatResolver.getSpellAffectedTargetsFrom(
-			monsterID, spellSetIndex, spellIndex, destination, targetID
+			actor.uniqueID, spellSetIndex, spellIndex, destination, targetID
 		)
 		for affectedID in affected:
 			var target = state.getMonster(affectedID)
@@ -132,11 +136,7 @@ func _candidate(
 		):
 			utility += 10
 
-	var enemyCount = 0
-	for enemyID in state.getAliveMonsterIDs():
-		if state.getMonster(enemyID).team != actor.team:
-			enemyCount += 1
-	var winsBattle = defeats > 0 and defeats >= enemyCount
+	var winsBattle = defeats > 0 and defeats >= enemyPositions.size()
 	var score = (
 		(1_000_000 if winsBattle else 0)
 		+ defeats * 100_000
@@ -145,7 +145,7 @@ func _candidate(
 		+ expectedDamage * int(weights.get("damage", 100))
 		- int(threat.get(destination, 0)) * int(weights.get("threat", 1))
 	)
-	var nearestEnemyDistance = _nearestEnemyDistance(actor.team, destination)
+	var nearestEnemyDistance = _nearestEnemyDistance(destination, enemyPositions)
 	score -= nearestEnemyDistance * int(weights.get("distance", 1))
 	if action == "wait":
 		score -= int(weights.get("wait_penalty", 5))
@@ -160,12 +160,9 @@ func _candidate(
 	return {"score": score, "tie_key": tieKey, "command": command}
 
 
-func _nearestEnemyDistance(team: int, fromPos: Vector2i) -> int:
+func _nearestEnemyDistance(fromPos: Vector2i, enemyPositions: Array[Vector2i]) -> int:
 	var result = 999
-	for enemyID in state.getAliveMonsterIDs():
-		if state.getMonster(enemyID).team == team:
-			continue
-		var enemyPos = state.getMonsterPosition(enemyID)
+	for enemyPos in enemyPositions:
 		result = mini(
 			result,
 			abs(fromPos.x - enemyPos.x) + abs(fromPos.y - enemyPos.y)

@@ -461,8 +461,9 @@ func _finish_battle(winner: int) -> void:
 	battle_ui["action_panel"].visible = false
 	visual_adapter.clear_tactical_overlays()
 	visual_adapter.release_player_cursor()
+	# The adapter queues the victory message after every preceding visual action;
+	# simulation completion itself remains immediate and independent.
 	sim.events.battle_ended.emit(winner)
-	right_ui_label.text = "BATTLE COMPLETE\nTeam %d wins.\nChoose New Battle to return to setup." % winner
 
 
 func _begin_player_turn(monsterID: int) -> void:

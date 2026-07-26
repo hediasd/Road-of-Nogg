@@ -19,8 +19,15 @@ func _run() -> void:
 	for mapName in MapReferencesScript.getNames():
 		var reference = MapReferencesScript.getReference(mapName)
 		var validation = MapFactoryScript.validateReference(reference)
-		if not validation["success"] or int(reference.get("REVISION", 0)) < 2:
+		if not validation["success"] or int(reference.get("REVISION", 0)) < 3:
 			_fail("map height schema failed for %s" % mapName)
+			return
+		var distinctHeights: Dictionary = {}
+		for row in reference["HEIGHTS"]:
+			for height in row:
+				distinctHeights[int(height)] = true
+		if distinctHeights.size() < 3 or not distinctHeights.has(0) or not distinctHeights.has(2):
+			_fail("production elevation profile is missing low/mid/high ground for %s" % mapName)
 			return
 
 	if MonsterStatCalculatorScript.derive(10, 25, 5) != 11:
@@ -110,20 +117,20 @@ func _run() -> void:
 		return
 
 	var visualState = BattleState.new(9)
-	visualState.setup_board(Vector2i(2, 2))
+	visualState.setup_board(Vector2i(3, 2))
 	visualState.heightBoard.set_at(2, Vector2i(1, 0))
 	var visualMonster = MonsterFactoryScript.createMonster("Defaultgon", 300)
-	visualState.addMonster(visualMonster, Vector2i(1, 0), 1)
+	var visualTarget = MonsterFactoryScript.createMonster("Gigasaurus", 301)
+	visualState.addMonster(visualMonster, Vector2i(0, 0), 1)
+	visualState.addMonster(visualTarget, Vector2i(2, 0), 2)
 	var visualRoot = Node3D.new()
 	root.add_child(visualRoot)
 	var adapter = GodotVisualAdapterScript.new(visualState, visualRoot, visualRoot)
-	adapter._on_battle_started(visualState.boardSize, [300])
-	adapter._on_monster_spawned(300, visualMonster.name, 1, Vector2i(1, 0), {})
+	adapter._on_battle_started(visualState.boardSize, [300, 301])
+	adapter._on_monster_spawned(300, visualMonster.name, 1, Vector2i(0, 0), {})
+	adapter._on_monster_spawned(301, visualTarget.name, 2, Vector2i(2, 0), {})
 	if not is_equal_approx(adapter.grid_node.get_child(1).position.y, 2.0):
 		_fail("elevated tile visual is misaligned")
-		return
-	if not is_equal_approx(adapter._monster_visuals[300].position.y, 2.2):
-		_fail("elevated monster visual is misaligned")
 		return
 	adapter.show_player_cursor(Vector2i(1, 0))
 	if not is_equal_approx(adapter._cursor.position.y, 2.21):
@@ -144,20 +151,57 @@ func _run() -> void:
 	if teamColor.b <= teamColor.r:
 		_fail("Team 1 capsule base is not blue")
 		return
-	visualMonster.hitpoints = 0
-	adapter._on_monster_defeated(300, -1)
-	await process_frame
-	var selection = adapter._monster_visuals[300].get_node("SelectionBody") as StaticBody3D
-	if selection.collision_layer != 0:
-		_fail("defeat did not disable selection immediately")
+
+	visualState.moveMonsterTo(300, Vector2i(1, 0))
+	adapter._on_monster_moved(300, [Vector2i(1, 0)])
+	adapter._on_monster_attacked(300, 301, 1, visualTarget.hitpoints - 1)
+	adapter._on_battle_ended(1)
+	# Simulate authoritative state advancing again while the view still owns the
+	# earlier movement and attack snapshots.
+	visualState.moveMonsterTo(300, Vector2i(0, 0))
+	if adapter.activeAnimationKind() != "move" or adapter.queuedAnimationCount() != 2:
+		_fail("movement, attack, and victory were not serialized in the visual queue")
 		return
-	if adapter._monster_visuals[300].get_node_or_null("CapsuleShatter") == null:
+	if not is_equal_approx(adapter._monster_visuals[300].position.x, 0.0):
+		_fail("queued attack snapped the still-moving model to backend state")
+		return
+	await create_timer(0.23).timeout
+	if adapter.activeAnimationKind() != "bump":
+		_fail("attack animation did not wait for movement completion")
+		return
+	await create_timer(0.35).timeout
+	if adapter.isAnimationBusy() or adapter.queuedAnimationCount() != 0:
+		_fail("visual animation queue did not drain")
+		return
+	var queuedFinal: Vector3 = adapter._monster_visuals[300].position
+	if not is_equal_approx(queuedFinal.x, 1.0) or not is_equal_approx(queuedFinal.y, 2.2):
+		_fail("queued movement read later authoritative position instead of its snapshot")
+		return
+
+	adapter._on_monster_moved(300, [Vector2i(0, 0)])
+	adapter.anim_tween.pause()
+	await create_timer(1.05).timeout
+	if adapter.isAnimationBusy() or not is_equal_approx(adapter._monster_visuals[300].position.x, 0.0):
+		_fail("visual animation watchdog did not recover a stalled tween")
+		return
+
+	visualTarget.hitpoints = 0
+	adapter._on_monster_defeated(301, 300)
+	await process_frame
+	var selection = adapter._monster_visuals[301].get_node("SelectionBody") as StaticBody3D
+	if selection.collision_layer != 0:
+		_fail("defeat did not disable selection when its queued action began")
+		return
+	if adapter._monster_visuals[301].get_node_or_null("CapsuleShatter") == null:
 		_fail("defeat did not create the capsule shatter effect")
+		return
+	await create_timer(0.45).timeout
+	if adapter.isAnimationBusy() or adapter._monster_visuals.has(301):
+		_fail("defeat animation did not finish and release its visual")
 		return
 	adapter.dispose()
 	visualRoot.queue_free()
 	await process_frame
-
 	var ai = BattleSimulator.new(13)
 	ai.state.setup_board(Vector2i(5, 3))
 	var cpu = ai.spawnMonster("Gigasaurus", 1, Vector2i(1, 1))

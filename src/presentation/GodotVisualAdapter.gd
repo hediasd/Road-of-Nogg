@@ -9,6 +9,10 @@ const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactor
 const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEffects.gd")
 const BattleCursorControllerScript = preload("res://src/presentation/BattleCursorController.gd")
 const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
+const MAX_QUEUED_ANIMATIONS := 4096
+const ANIMATION_WATCHDOG_MARGIN := 0.75
+
+signal animation_queue_drained
 
 var state: BattleState
 var root_node: Node3D
@@ -22,6 +26,9 @@ var _cursor_controller: BattleCursorController
 var anim_queue: Array = []
 var is_animating: bool = false
 var anim_tween: Tween
+var _active_animation: Dictionary = {}
+var _animation_serial: int = 0
+var _disposed: bool = false
 
 var visualEffects
 
@@ -103,6 +110,145 @@ func _track_position_tween(monsterID: int, tween: Tween) -> void:
 func _on_position_tween_finished(monsterID: int, tween: Tween) -> void:
 	if _position_tweens.get(monsterID) == tween:
 		_position_tweens.erase(monsterID)
+
+
+func isAnimationBusy() -> bool:
+	return is_animating or not anim_queue.is_empty()
+
+
+func activeAnimationKind() -> String:
+	return str(_active_animation.get("kind", ""))
+
+
+func queuedAnimationCount() -> int:
+	return anim_queue.size()
+
+
+func _enqueue_animation(action: Dictionary) -> void:
+	if _disposed:
+		return
+	if anim_queue.size() >= MAX_QUEUED_ANIMATIONS:
+		push_error("Visual animation queue overflow; recovering to authoritative positions.")
+		_recover_animation_queue()
+	anim_queue.append(action.duplicate(true))
+	_start_next_animation()
+
+
+func _start_next_animation() -> void:
+	if _disposed or is_animating:
+		return
+	while not anim_queue.is_empty():
+		var action: Dictionary = anim_queue.pop_front()
+		if _start_queued_animation(action):
+			return
+	animation_queue_drained.emit()
+
+
+func _start_queued_animation(action: Dictionary) -> bool:
+	match str(action.get("kind", "")):
+		"focus":
+			_present_queued_message(action)
+		"message":
+			_present_queued_message(action)
+		"move":
+			return _start_move_animation(action)
+		"bump":
+			_present_queued_message(action)
+			return _start_bump_animation(action)
+		"defeat":
+			_present_queued_message(action)
+			return _start_defeat_animation(action)
+		_:
+			push_warning("Ignoring unknown visual animation kind: %s" % action.get("kind"))
+	return false
+
+
+func _activate_tween(tween: Tween, action: Dictionary, duration: float) -> void:
+	is_animating = true
+	anim_tween = tween
+	_active_animation = action
+	_animation_serial += 1
+	var serial = _animation_serial
+	tween.finished.connect(_complete_active_animation.bind(serial, false), CONNECT_ONE_SHOT)
+	var tree = root_node.get_tree() if is_instance_valid(root_node) else null
+	if tree:
+		tree.create_timer(duration + ANIMATION_WATCHDOG_MARGIN).timeout.connect(
+			_complete_active_animation.bind(serial, true),
+			CONNECT_ONE_SHOT
+		)
+
+
+func _complete_active_animation(serial: int, timedOut: bool) -> void:
+	if _disposed or not is_animating or serial != _animation_serial:
+		return
+	var completedAction = _active_animation
+	if timedOut:
+		push_warning("Visual animation watchdog recovered a stalled %s action." % completedAction.get("kind", "unknown"))
+		if anim_tween != null and anim_tween.is_valid():
+			anim_tween.kill()
+	_finalize_animation(completedAction)
+	is_animating = false
+	anim_tween = null
+	_active_animation = {}
+	call_deferred("_start_next_animation")
+
+
+func _finalize_animation(action: Dictionary) -> void:
+	var monsterID = int(action.get("monster_id", -1))
+	var kind = str(action.get("kind", ""))
+	if kind == "move" and _monster_visuals.has(monsterID):
+		var path: Array = action.get("path", [])
+		if not path.is_empty():
+			var finalPos = _coord_to_pos3d(path.back())
+			finalPos.y += 0.2
+			_monster_visuals[monsterID].position = finalPos
+	elif kind == "bump" and _monster_visuals.has(monsterID):
+		_monster_visuals[monsterID].position = action.get(
+			"origin",
+			_monster_visuals[monsterID].position
+		)
+	elif kind == "defeat":
+		_defeat_tweens.erase(monsterID)
+		if _monster_visuals.has(monsterID):
+			var container: Node3D = _monster_visuals[monsterID]
+			_monster_visuals.erase(monsterID)
+			container.queue_free()
+	_position_tweens.erase(monsterID)
+
+
+func _recover_animation_queue() -> void:
+	_animation_serial += 1
+	var interruptedAction = _active_animation
+	if anim_tween != null and anim_tween.is_valid():
+		anim_tween.kill()
+	if not interruptedAction.is_empty():
+		_finalize_animation(interruptedAction)
+	anim_queue.clear()
+	is_animating = false
+	anim_tween = null
+	_active_animation = {}
+	_synchronize_visual_occupancy()
+
+
+func _present_queued_message(action: Dictionary) -> void:
+	var coord = action.get("coord", Vector2i(-1, -1))
+	if coord is Vector2i and state.withinBounds(coord):
+		match str(action.get("cursor_mode", "target")):
+			"turn":
+				_cursor_controller.focusTurn(coord)
+			"movement":
+				_cursor_controller.focusMovementDestination(coord)
+			_:
+				_focus_cursor_on_coord(coord)
+	var leftText = str(action.get("left_text", ""))
+	if not leftText.is_empty():
+		_update_left_ui(leftText)
+	var rightText = str(action.get("right_text", ""))
+	if not rightText.is_empty():
+		_update_right_ui(rightText)
+	var logText = str(action.get("log_text", ""))
+	if not logText.is_empty():
+		_log(logText)
 
 
 func _buildPlaceholderBody(material: Material) -> Node3D:
@@ -222,6 +368,14 @@ func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
 			grid_node.add_child(tile)
 
 
+func _on_battle_ended(winningTeam: int) -> void:
+	_enqueue_animation({
+		"kind": "message",
+		"right_text": "BATTLE COMPLETE\nTeam %d wins.\nChoose New Battle to return to setup." % winningTeam,
+		"log_text": "=== TEAM %d WINS ===" % winningTeam
+	})
+
+
 static func tileColorFor(baseColor: Color, coord: Vector2i, _terrain: int) -> Color:
 	# Every terrain supplies one representative color and automatically receives
 	# a coordinated light/dark pair. Future sand, rock, or lava palettes only
@@ -271,94 +425,133 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 
 
 func _on_turn_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> void:
-	var m = state.getMonster(monsterID)
-	if m:
-		_update_left_ui("CURRENT TURN:\n%s  Lv.%s\nHP: %s/%s\nATK %s | DEF %s | SPD %s\nMOVE %s | JUMP %s | HEIGHT %s" % [m.name, m.level, m.hitpoints, m.max_hitpoints, m.atk, m.def, m.speed, m.move, m.jump, state.getHeight(m.position)])
-		_update_right_ui("Waiting for action...")
-		_log("\n--- TURN: %s [#%s] ---" % [m.name, monsterID])
-
-		_cursor_controller.focusTurn(m.position)
+	var monster = state.getMonster(monsterID)
+	if monster:
+		var turnPos = monster.position
+		_enqueue_animation({
+			"kind": "message",
+			"coord": turnPos,
+			"cursor_mode": "turn",
+			"left_text": "CURRENT TURN:\n%s  Lv.%s\nHP: %s/%s\nATK %s | DEF %s | SPD %s\nMOVE %s | JUMP %s | HEIGHT %s" % [monster.name, monster.level, monster.hitpoints, monster.max_hitpoints, monster.atk, monster.def, monster.speed, monster.move, monster.jump, state.getHeight(turnPos)],
+			"right_text": "Waiting for action...",
+			"log_text": "\n--- TURN: %s [#%s] ---" % [monster.name, monsterID]
+		})
 
 
 func _on_movement_targeted(monsterID: int, destination: Vector2i) -> void:
 	if state.currentMonsterID == monsterID and state.withinBounds(destination):
-		_cursor_controller.focusMovementDestination(destination)
+		_enqueue_animation({
+			"kind": "focus",
+			"coord": destination,
+			"cursor_mode": "movement"
+		})
 
 
 func _on_monster_moved(monsterID: int, path: Array) -> void:
-	if not _monster_visuals.has(monsterID) or path.is_empty(): return
-	_synchronize_visual_occupancy(monsterID)
-	_stop_position_tween(monsterID)
-	var mi: Node3D = _monster_visuals[monsterID]
+	if not _monster_visuals.has(monsterID) or path.is_empty():
+		return
+	_enqueue_animation({
+		"kind": "move",
+		"monster_id": monsterID,
+		"path": path.duplicate(),
+		"log_text": "Moved to %s" % [path.back()]
+	})
 
-	_log("Moved to %s" % [path.back()])
-
-	var tween = mi.create_tween()
-	_track_position_tween(monsterID, tween)
-	var visualStart = mi.position
-	for coord in path:
-		var targetPos = _coord_to_pos3d(coord)
-		targetPos.y += 0.2
-		var peak = (visualStart + targetPos) * 0.5
-		peak.y = maxf(visualStart.y, targetPos.y) + 0.32
-		tween.tween_property(mi, "position", peak, 0.1)
-		tween.tween_property(mi, "position", targetPos, 0.1)
-		visualStart = targetPos
-
-	if state.currentMonsterID == monsterID:
-		_cursor_controller.focusMovementDestination(state.getMonsterPosition(monsterID))
 
 # The model follows its path visually; the cursor teleports to the destination.
-
 func _on_action_targeted(monsterID: int, targetID: int, _action: String) -> void:
 	if state.currentMonsterID == monsterID:
-		_focus_cursor_on_target(targetID)
+		var targetPos = state.getMonsterPosition(targetID)
+		if state.withinBounds(targetPos):
+			_enqueue_animation({"kind": "focus", "coord": targetPos})
 
 
-func _on_monster_attacked(attackerID: int, targetID: int, _damage: int, _targetNewHP: int) -> void:
+func _on_monster_attacked(attackerID: int, targetID: int, damage: int, targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
 	if target:
-		_focus_cursor_on_target(targetID)
-		_update_right_ui("TARGET:\n%s\nTakes %s Damage\nHP Left: %s" % [target.name, _damage, _targetNewHP])
-		_log("Attacks %s for %s damage! (HP: %s)" % [target.name, _damage, _targetNewHP])
-	_play_bump_animation(attackerID, targetID)
+		_enqueue_animation({
+			"kind": "bump",
+			"monster_id": attackerID,
+			"target_id": targetID,
+			"coord": state.getMonsterPosition(targetID),
+			"right_text": "TARGET:\n%s\nTakes %s Damage\nHP Left: %s" % [target.name, damage, targetNewHP],
+			"log_text": "Attacks %s for %s damage! (HP: %s)" % [target.name, damage, targetNewHP]
+		})
 
 
-func _on_monster_cast_spell(casterID: int, targetID: int, _spellName: String, damageLines: Array, _targetNewHP: int) -> void:
+func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, damageLines: Array, targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
-	var total_dmg = 0
-	for d in damageLines: total_dmg += d.get("damage", 0)
-
+	var totalDamage = 0
+	for damageLine in damageLines:
+		totalDamage += damageLine.get("damage", 0)
 	if target:
-		_focus_cursor_on_target(targetID)
-		_update_right_ui("SPELL TARGET:\n%s\nTakes %s Dmg from %s\nHP Left: %s" % [target.name, total_dmg, _spellName, _targetNewHP])
-		_log("Casts %s on %s for %s damage! (HP: %s)" % [_spellName, target.name, total_dmg, _targetNewHP])
-	_play_bump_animation(casterID, targetID)
+		_enqueue_animation({
+			"kind": "bump",
+			"monster_id": casterID,
+			"target_id": targetID,
+			"coord": state.getMonsterPosition(targetID),
+			"right_text": "SPELL TARGET:\n%s\nTakes %s Dmg from %s\nHP Left: %s" % [target.name, totalDamage, spellName, targetNewHP],
+			"log_text": "Casts %s on %s for %s damage! (HP: %s)" % [spellName, target.name, totalDamage, targetNewHP]
+		})
 
 
 func _on_monster_healed(_healerID: int, targetID: int, spellName: String, healAmount: int, targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
 	if target:
-		_focus_cursor_on_target(targetID)
-		_update_right_ui("HEAL TARGET:\n%s\nRecovers %s HP from %s\nHP: %s" % [
-			target.name, healAmount, spellName, targetNewHP
-		])
+		_enqueue_animation({
+			"kind": "message",
+			"coord": state.getMonsterPosition(targetID),
+			"right_text": "HEAL TARGET:\n%s\nRecovers %s HP from %s\nHP: %s" % [
+				target.name, healAmount, spellName, targetNewHP
+			]
+		})
 
 
-func _focus_cursor_on_target(monsterID: int) -> void:
-	var targetPos = state.getMonsterPosition(monsterID)
+
+func _focus_cursor_on_coord(targetPos: Vector2i) -> void:
 	if state.withinBounds(targetPos):
 		_cursor_controller.focusTarget(targetPos)
 
 
 func _on_monster_defeated(monsterID: int, killerID: int) -> void:
-	var m = state.getMonster(monsterID)
-	if m:
-		_log("%s was DEFEATED!" % m.name)
-		_update_right_ui("%s was DEFEATED!" % m.name)
+	var monster = state.getMonster(monsterID)
+	var displayName = monster.name if monster else "Monster #%d" % monsterID
+	_enqueue_animation({
+		"kind": "defeat",
+		"monster_id": monsterID,
+		"killer_id": killerID,
+		"right_text": "%s was DEFEATED!" % displayName,
+		"log_text": "%s was DEFEATED!" % displayName
+	})
 
+
+func _start_move_animation(action: Dictionary) -> bool:
+	var monsterID = int(action.get("monster_id", -1))
+	var path: Array = action.get("path", [])
+	if not _monster_visuals.has(monsterID) or path.is_empty():
+		return false
+	_present_queued_message(action)
+	_stop_position_tween(monsterID)
+	var visual: Node3D = _monster_visuals[monsterID]
+	var tween = visual.create_tween()
+	_track_position_tween(monsterID, tween)
+	var visualStart = visual.position
+	for coord in path:
+		var targetPos = _coord_to_pos3d(coord)
+		targetPos.y += 0.2
+		var peak = (visualStart + targetPos) * 0.5
+		peak.y = maxf(visualStart.y, targetPos.y) + 0.32
+		tween.tween_property(visual, "position", peak, 0.1)
+		tween.tween_property(visual, "position", targetPos, 0.1)
+		visualStart = targetPos
+	_activate_tween(tween, action, float(path.size()) * 0.2)
+	return true
+
+
+func _start_defeat_animation(action: Dictionary) -> bool:
+	var monsterID = int(action.get("monster_id", -1))
 	if not _monster_visuals.has(monsterID):
-		return
+		return false
 	_stop_position_tween(monsterID)
 	var container: Node3D = _monster_visuals[monsterID]
 	_disable_selection_collision(container)
@@ -370,12 +563,8 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 	tween.tween_property(body, "scale", Vector3.ZERO, 0.38).set_trans(Tween.TRANS_BACK)
 	tween.tween_property(body, "position", capsuleTarget, 0.38).set_trans(Tween.TRANS_QUAD)
 	_spawn_capsule_shatter(container, baseMesh)
-	tween.chain().tween_callback(func():
-		_defeat_tweens.erase(monsterID)
-		container.queue_free()
-		_monster_visuals.erase(monsterID)
-	)
-
+	_activate_tween(tween, action, 0.38)
+	return true
 
 func _disable_selection_collision(container: Node3D) -> void:
 	var selectionBody = container.get_node_or_null("SelectionBody") as StaticBody3D
@@ -411,21 +600,26 @@ func _spawn_capsule_shatter(container: Node3D, baseMesh: MeshInstance3D) -> void
 	baseMesh.visible = false
 	particles.emitting = true
 
-func _play_bump_animation(sourceID: int, targetID: int) -> void:
-	if not _monster_visuals.has(sourceID) or not _monster_visuals.has(targetID): return
-	_synchronize_visual_occupancy()
-	var src_mi = _monster_visuals[sourceID]
-	var tgt_mi = _monster_visuals[targetID]
-
-	var original_pos = src_mi.position
-	var target_pos = tgt_mi.position
-	var bump_vector = (target_pos - original_pos).normalized() * 0.4
-	var bump_pos = original_pos + bump_vector
-
-	var tween = src_mi.create_tween()
+func _start_bump_animation(action: Dictionary) -> bool:
+	var sourceID = int(action.get("monster_id", -1))
+	var targetID = int(action.get("target_id", -1))
+	if not _monster_visuals.has(sourceID) or not _monster_visuals.has(targetID):
+		return false
+	var sourceVisual: Node3D = _monster_visuals[sourceID]
+	var targetVisual: Node3D = _monster_visuals[targetID]
+	var originalPos = sourceVisual.position
+	action["origin"] = originalPos
+	var targetPos = targetVisual.position
+	var bumpDirection = targetPos - originalPos
+	if bumpDirection.is_zero_approx():
+		bumpDirection = Vector3.FORWARD
+	var bumpPos = originalPos + bumpDirection.normalized() * 0.4
+	var tween = sourceVisual.create_tween()
 	_track_position_tween(sourceID, tween)
-	tween.tween_property(src_mi, "position", bump_pos, 0.1)
-	tween.tween_property(src_mi, "position", original_pos, 0.15)
+	tween.tween_property(sourceVisual, "position", bumpPos, 0.1)
+	tween.tween_property(sourceVisual, "position", originalPos, 0.15)
+	_activate_tween(tween, action, 0.25)
+	return true
 
 func highlight_monster(monster_id: int) -> void:
 	visualEffects.highlightMonster(monster_id)
@@ -477,6 +671,14 @@ func _add_overlay(coord: Vector2i, color: Color) -> void:
 
 
 func dispose() -> void:
+	_disposed = true
+	_animation_serial += 1
+	anim_queue.clear()
+	is_animating = false
+	_active_animation = {}
+	if anim_tween != null and anim_tween.is_valid():
+		anim_tween.kill()
+	anim_tween = null
 	disconnectFromEvents()
 	for monsterID in _position_tweens.keys():
 		_stop_position_tween(monsterID)

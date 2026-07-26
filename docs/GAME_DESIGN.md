@@ -1,6 +1,6 @@
 # Game Design Baseline
 
-Status: confirmed rules and approved first-playable direction as of 2026-07-25.
+Status: confirmed rules and approved first-playable direction as of 2026-07-26.
 Creative details and balance values not recorded here still require user input.
 
 ## Battle format
@@ -53,6 +53,9 @@ passive, multi-hit, healing, and status behavior may modify the result.
   Spells define their own maximum height delta; bypassing LoS never bypasses it.
 - Direct damage gains 10% from higher ground and loses 10% from lower ground,
   using deterministic integer rounding before target-side reductions.
+- Meadow rises around its central pond, Crossroads has a raised central bridge,
+  and Forest climbs toward a broad wooded center. All three profiles use
+  symmetric elevation steps from 0 through 2 and remain traversable at JUMP 1.
 - Facing, variable movement costs, special traversal, and manual deployment
   remain future extensions.
 
