@@ -16,7 +16,7 @@ static func getReachable(
 		isPassable: Callable,
 		excludeStart: bool = true) -> Array[Vector2i]:
 	## Returns all positions reachable from startPos within maxRange steps.
-	## isPassable: func(pos: Vector2i) -> bool
+	## isPassable: func(current: Vector2i, next: Vector2i) -> bool
 	## All tiles cost 1 step (uniform movement cost).
 
 	var costMap: Dictionary = { startPos: 0 }
@@ -37,7 +37,7 @@ static func getReachable(
 			var neighbor: Vector2i = current + dir
 			var newCost: int = currentCost + 1
 
-			if not isPassable.call(neighbor):
+			if not isPassable.call(current, neighbor):
 				continue
 			if costMap.has(neighbor) and costMap[neighbor] <= newCost:
 				continue

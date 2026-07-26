@@ -52,8 +52,8 @@ func loadMap(mapName: String) -> void:
 	MapFactoryScript.applyMapToState(map, state)
 
 
-func spawnMonster(referenceName: String, team: int, pos: Vector2i) -> Monster:
-	var monster = MonsterFactory.createMonster(referenceName, state.allocateMonsterID())
+func spawnMonster(referenceName: String, team: int, pos: Vector2i, level: int = 1) -> Monster:
+	var monster = MonsterFactory.createMonster(referenceName, state.allocateMonsterID(), level)
 	var reference = MonsterReferences.getReference(referenceName)
 	var brainClass = _resolveBrainClass(reference.get("BRAIN", "TacticalBrain"))
 
@@ -71,7 +71,10 @@ func spawnMonster(referenceName: String, team: int, pos: Vector2i) -> Monster:
 		"atk": monster.atk,
 		"def": monster.def,
 		"spd": monster.speed,
-		"move": monster.move
+		"move": monster.move,
+		"level": monster.level,
+		"jump": monster.jump,
+		"height": state.getHeight(pos)
 	}
 	events.monster_spawned.emit(monster.uniqueID, monster.name, team, pos, stats)
 	return monster
@@ -229,7 +232,7 @@ func createReplaySnapshot() -> Dictionary:
 			commands.append(BattleStateSerializerScript.jsonSafe(event))
 
 	return {
-		"version": 2,
+		"version": 3,
 		"seed": state.battleSeed,
 		"setup": setupSnapshot.duplicate(true),
 		"initialState": initialStateSnapshot if not initialStateSnapshot.is_empty() else state.serialize_state(),
@@ -241,6 +244,9 @@ func createReplaySnapshot() -> Dictionary:
 
 
 func restoreReplaySnapshot(snapshot: Dictionary) -> Dictionary:
+	var version = int(snapshot.get("version", 2))
+	if version < 2 or version > 3:
+		return {"success": false, "reason": "unsupported_replay_version", "version": version}
 	if not snapshot.has("currentState"):
 		return {"success": false, "reason": "missing_current_state"}
 
@@ -282,7 +288,10 @@ func emitRestoredBattle() -> void:
 			"atk": monster.atk,
 			"def": monster.def,
 			"spd": monster.speed,
-			"move": monster.move
+			"move": monster.move,
+			"level": monster.level,
+			"jump": monster.jump,
+			"height": state.getHeight(state.getMonsterPosition(monsterID))
 		}
 		events.monster_spawned.emit(
 			monsterID,

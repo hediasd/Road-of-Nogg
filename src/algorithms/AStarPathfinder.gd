@@ -17,7 +17,7 @@ static func findPath(
 		isPassable: Callable,
 		maxSteps: int = 200) -> Array[Vector2i]:
 	## A* pathfinding. Returns path as Array[Vector2i] excluding start, including destination.
-	## isPassable: func(pos: Vector2i) -> bool
+	## isPassable: func(current: Vector2i, next: Vector2i) -> bool
 	## Returns empty array if no path found or fromPos == toPos.
 
 	if fromPos == toPos:
@@ -55,7 +55,7 @@ static func findPath(
 
 			if closedSet.has(neighbor):
 				continue
-			if not isPassable.call(neighbor):
+			if not isPassable.call(currentPos, neighbor):
 				continue
 
 			var tentativeG: int = current["g"] + 1

@@ -3,6 +3,8 @@
 
 class_name SpellEffectResolver
 
+const DirectDamageRulesScript = preload("res://src/battle_sim/DirectDamageRules.gd")
+
 const RaceReferences = preload("res://src/factories/RaceReferences.gd")
 
 var state: BattleState
@@ -53,7 +55,10 @@ func applySpellEffects(casterID: int, targetID: int, spell: Spell, passiveSkillR
 		state.add_event("damage", casterID, targetID, {
 			"damage": actualDamage,
 			"spell": spell.name,
-			"element": element
+			"element": element,
+			"elevation_percent": DirectDamageRulesScript.elevationPercent(
+				state, casterID, targetID
+			)
 		})
 		actualDamageLines.append({ "element": element, "damage": actualDamage })
 
@@ -70,13 +75,22 @@ func calculateSpellDamage(
 	baseDamage: int,
 	element: String = "none",
 	isSimulation: bool = false,
-	passiveSkillResolver = null
+	passiveSkillResolver = null,
+	casterPos: Vector2i = Vector2i(-1, -1)
 ) -> int:
 	var raw = max(1, caster.atk + baseDamage - target.def)
 	for effect in state.getActiveEffects(caster.uniqueID):
 		raw += effect.get("atk_bonus", 0)
 	raw = max(1, raw)
 
+	if state.withinBounds(casterPos):
+		raw = DirectDamageRulesScript.applyElevationFromPositions(
+			state, raw, casterPos, state.getMonsterPosition(target.uniqueID)
+		)
+	else:
+		raw = DirectDamageRulesScript.applyElevation(
+			state, raw, caster.uniqueID, target.uniqueID
+		)
 	if element != "none":
 		var multiplier = RaceReferences.getDamageMultiplier(target.race, element)
 		raw = max(1, int(round(float(raw) * multiplier)))

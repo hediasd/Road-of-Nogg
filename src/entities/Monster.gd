@@ -1,5 +1,7 @@
 class_name Monster
 
+const MonsterStatCalculatorScript = preload("res://src/battle_sim/MonsterStatCalculator.gd")
+
 var uniqueID: int
 var name: String = "Dump"
 
@@ -9,6 +11,14 @@ var move: int = 1
 var atk: int = 1
 var def: int = 1
 var speed: int = 1
+var level: int = 1
+var jump: int = 1
+var base_hitpoints: int = 1
+var base_atk: int = 1
+var base_def: int = 1
+var hp_growth: int = 0
+var atk_growth: int = 0
+var def_growth: int = 0
 
 var team: int
 var position: Vector2i
@@ -27,11 +37,20 @@ func _init(parameterDictionary, _uniqueID) -> void:
 	uniqueID = _uniqueID
 
 	name = get_or_default(parameterDictionary, "NAME", "Dump")
-	hitpoints = get_or_default(parameterDictionary, "HP", 1)
+	level = maxi(1, int(get_or_default(parameterDictionary, "LEVEL", 1)))
+	jump = maxi(0, int(get_or_default(parameterDictionary, "JUMP", 1)))
+	base_hitpoints = int(get_or_default(parameterDictionary, "BASE_HP", get_or_default(parameterDictionary, "HP", 1)))
+	base_atk = int(get_or_default(parameterDictionary, "BASE_ATK", get_or_default(parameterDictionary, "ATK", 1)))
+	base_def = int(get_or_default(parameterDictionary, "BASE_DEF", get_or_default(parameterDictionary, "DEF", 1)))
+	hp_growth = maxi(0, int(get_or_default(parameterDictionary, "HP_GROWTH", 0)))
+	atk_growth = maxi(0, int(get_or_default(parameterDictionary, "ATK_GROWTH", 0)))
+	def_growth = maxi(0, int(get_or_default(parameterDictionary, "DEF_GROWTH", 0)))
+	var derivedStats = MonsterStatCalculatorScript.deriveFromReference(parameterDictionary, level)
+	hitpoints = derivedStats["hp"]
 	max_hitpoints = hitpoints
 	move = get_or_default(parameterDictionary, "MOVE", 1)
-	atk = get_or_default(parameterDictionary, "ATK", 1)
-	def = get_or_default(parameterDictionary, "DEF", 1)
+	atk = derivedStats["atk"]
+	def = derivedStats["def"]
 	speed = get_or_default(parameterDictionary, "SPD", 1)
 	elements = get_or_default(parameterDictionary, "ELEMENTS", [])
 	race = get_or_default(parameterDictionary, "RACE", "none")
@@ -124,6 +143,14 @@ func serialize() -> Dictionary:
 		"atk": atk,
 		"def": def,
 		"speed": speed,
+		"level": level,
+		"jump": jump,
+		"base_hitpoints": base_hitpoints,
+		"base_atk": base_atk,
+		"base_def": base_def,
+		"hp_growth": hp_growth,
+		"atk_growth": atk_growth,
+		"def_growth": def_growth,
 		"elements": elements.duplicate(),
 		"race": race,
 		"spellSets": serializedSpellSets,

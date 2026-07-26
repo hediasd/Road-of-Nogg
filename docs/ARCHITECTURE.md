@@ -39,7 +39,9 @@ controls, and visual resources are not.
 `BattleState` owns:
 
 - `board`, `heightBoard`, and `terrainBoard` as `Matrix` layers;
-- monsters by deterministic ID, team rosters, and position lookup;
+- the active map name/revision used by state and replay compatibility;
+- monsters by deterministic ID, team rosters, position lookup, level, jump,
+  immutable base/growth values, and resolved battle stats;
 - round, turn, and current-monster counters;
 - active effects and deterministic event/command history;
 - the battle seed, RNG state, and monotonic monster-ID allocator.
@@ -57,8 +59,8 @@ On Confirm:
 
 1. `BattleSetupUI` produces a `BattleSetupConfig` containing mode, map, seed,
    controller ownership, and both four-monster rosters.
-2. `BattleSetupConfig.validate()` checks catalogs, roster sizes, and every
-   map-owned deployment slot.
+2. `BattleSetupConfig.validate()` checks catalogs, roster sizes, the versioned
+   terrain/height schema, and every map-owned deployment slot.
 3. `BattleSetupFactory` creates and seeds the simulator, loads the selected map,
    attaches the visual adapter, and deploys both teams.
 4. `MonsterVisualRegistry` supplies an authored scene when registered;
@@ -92,6 +94,23 @@ Command outcome has two distinct stages:
 shared executor. The player controller waits for UI input and submits through
 the same method.
 
+## Elevation, combat, and CPU planning
+
+`MapFactory` validates map revisions plus an independent integer height matrix
+and copies it into `BattleState.heightBoard`. `MovementResolver.canTraverse()`
+is the shared cardinal, terrain, occupancy, and JUMP edge rule used by BFS, A*,
+player previews, command validation, and CPU paths.
+
+Combat target queries enforce melee/spell height reach before resolution.
+Height-aware supercover LoS compares the interpolated eye-to-eye ray against
+surface, obstacle, and intervening-unit tops. `DirectDamageRules` owns the
+110/100/90-percent elevation arithmetic used by real attacks, spells, and pure
+CPU estimates; healing, ticks, and reflected damage do not call it.
+
+`BattleCommandEvaluator` builds one context per CPU decision, enumerates legal
+controller-neutral movement/action candidates, and orders them by battle win,
+defeats, survival/threat, role utility, damage, position, and a stable tie key.
+Brain subclasses provide weights rather than separate legality formulas.
 ## Player interaction and cursor
 
 The first playable player state machine is:
@@ -110,7 +129,8 @@ the same command boundary.
 `BattleCursorController` owns discrete grid intent for AI turns, movement
 destinations, player selection, and targeting. Player ownership blocks older AI
 events from moving the cursor. Movement snaps to a destination cell; attacks,
-spells, and heals snap to the affected target cell.
+spells, and heals snap to the affected target cell. Tiles, monsters, overlays,
+and cursor anchors all derive world Y from the same state height query.
 
 ## Event and presentation contract
 
@@ -124,6 +144,8 @@ simulation results.
 
 - All gameplay randomness flows through `BattleState.rng`.
 - Equal-speed turn ties use deterministic monster ID ordering.
+- Schema version 3 records map revision, height, level, jump, base/growth fields,
+  and resolved stats; version 2 migrates to height 0, level 1, and jump 1.
 - `BattleStateSerializer` produces and restores JSON-safe state, including RNG,
   IDs, board layers, rosters, effects, history, and monsters.
 - `BattleSimulator.createReplaySnapshot()` includes setup, initial/current state,

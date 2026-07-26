@@ -10,9 +10,11 @@ static func _static_init():
 	pass
 
 
-static func createMonster(name: String = "Defaultgon", uniqueID: int = -1) -> Monster:
+static func createMonster(name: String = "Defaultgon", uniqueID: int = -1, level: int = 1) -> Monster:
 	var parameters = getReference(name)
 	if uniqueID < 0:
 		uniqueID = uniqueMonsterIDMaker
 		uniqueMonsterIDMaker += 1
-	return Monster.new(parameters, uniqueID)
+	var leveledParameters = parameters.duplicate(true)
+	leveledParameters["LEVEL"] = level
+	return Monster.new(leveledParameters, uniqueID)

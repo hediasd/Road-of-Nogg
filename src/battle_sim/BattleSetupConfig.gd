@@ -3,6 +3,7 @@ extends RefCounted
 
 const MapReferencesScript = preload("res://src/factories/MapReferences.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
+const MapFactoryScript = preload("res://src/factories/MapFactory.gd")
 
 const MODE_CPU_VS_CPU := "cpu_vs_cpu"
 const MODE_PLAYER_VS_CPU := "player_vs_cpu"
@@ -49,6 +50,12 @@ func validate() -> Dictionary:
 			errors.append("Unknown monster: %s." % monsterName)
 
 	if MapReferencesScript.hasReference(mapName):
+		var mapValidation = MapFactoryScript.validateReference(
+			MapReferencesScript.getReference(mapName)
+		)
+		if not mapValidation["success"]:
+			errors.append("%s has invalid map data: %s." % [mapName, mapValidation["reason"]])
+		var occupiedSlots: Dictionary = {}
 		for team in [1, 2]:
 			var slots = MapReferencesScript.getDeploymentSlots(mapName, team)
 			if slots.size() < TEAM_SIZE:
@@ -62,6 +69,10 @@ func validate() -> Dictionary:
 					errors.append("%s has an out-of-bounds Team %d deployment slot." % [mapName, team])
 				elif layout[slot.y][slot.x] != ".":
 					errors.append("%s has a blocked Team %d deployment slot at %s." % [mapName, team, slot])
+				elif occupiedSlots.has(slot):
+					errors.append("%s reuses deployment slot %s." % [mapName, slot])
+				else:
+					occupiedSlots[slot] = team
 
 	return {
 		"success": errors.is_empty(),

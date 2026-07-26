@@ -6,6 +6,8 @@ static func _static_init():
 	list = [
 		{
 			"NAME": "Meadow",
+			"REVISION": 2,
+			"HEIGHTS": _flatHeights(Vector2i(16, 8)),
 			"SIZE": Vector2i(16, 8),
 			"TEAM_1_SLOTS": [
 				Vector2i(2, 6), Vector2i(1, 7),
@@ -28,6 +30,8 @@ static func _static_init():
 		},
 		{
 			"NAME": "Crossroads",
+			"REVISION": 2,
+			"HEIGHTS": _flatHeights(Vector2i(8, 8)),
 			"SIZE": Vector2i(8, 8),
 			"TEAM_1_SLOTS": [
 				Vector2i(0, 5), Vector2i(0, 6),
@@ -50,6 +54,8 @@ static func _static_init():
 		},
 		{
 			"NAME": "Forest",
+			"REVISION": 2,
+			"HEIGHTS": _flatHeights(Vector2i(16, 16)),
 			"SIZE": Vector2i(16, 16),
 			"TEAM_1_SLOTS": [
 				Vector2i(1, 13), Vector2i(1, 14),
@@ -80,6 +86,15 @@ static func _static_init():
 		}
 	]
 	pass
+
+static func _flatHeights(size: Vector2i) -> Array:
+	var rows: Array = []
+	for _y in range(size.y):
+		var row: Array = []
+		row.resize(size.x)
+		row.fill(0)
+		rows.append(row)
+	return rows
 
 static func getReference(name: String) -> Dictionary:
 	for reference in list:

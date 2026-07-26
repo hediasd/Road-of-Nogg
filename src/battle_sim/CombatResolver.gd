@@ -20,6 +20,7 @@ func _init(_state: BattleState, _events: BattleEvents) -> void:
 const LineOfSight = preload("res://src/algorithms/LineOfSight.gd")
 const ShapeCaster = preload("res://src/algorithms/ShapeCaster.gd")
 const SpellEffectResolverScript = preload("res://src/battle_sim/SpellEffectResolver.gd")
+const DirectDamageRulesScript = preload("res://src/battle_sim/DirectDamageRules.gd")
 const DIRECTIONS = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
 
 func getBasicAttackTargets(monsterID: int) -> Array:
@@ -37,7 +38,12 @@ func getBasicAttackTargetsFrom(monsterID: int, fromPos: Vector2i) -> Array:
 		if not state.withinBounds(neighbor):
 			continue
 		var targetMon = state.getMonsterAt(neighbor)
-		if targetMon != null and targetMon.team != mon.team and targetMon.is_alive():
+		if (
+			targetMon != null
+			and targetMon.team != mon.team
+			and targetMon.is_alive()
+			and state.getHeightDifference(fromPos, neighbor) <= 1
+		):
 			targets.append(targetMon.uniqueID)
 	return targets
 
@@ -61,6 +67,8 @@ func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
 
 	if distance > 1:
 		return { "success": false, "reason": "out_of_range" }
+	if state.getHeightDifference(attackerPos, targetPos) > 1:
+		return { "success": false, "reason": "height_out_of_range" }
 
 	if passiveSkillResolver != null:
 		passiveSkillResolver.fireOnTargeted(targetID, attackerID)
@@ -73,7 +81,11 @@ func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
 	var damage = calculateBasicDamage(attacker, target)
 	var actualDamage = target.take_damage(damage)
 
-	state.add_event("damage", attackerID, targetID, { "damage": actualDamage, "type": "physical" })
+	state.add_event("damage", attackerID, targetID, {
+		"damage": actualDamage,
+		"type": "physical",
+		"elevation_percent": getElevationPercent(attackerID, targetID)
+	})
 	
 	events.monster_attacked.emit(attackerID, targetID, actualDamage, target.hitpoints)
 
@@ -90,12 +102,22 @@ func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
 	return result
 
 
-func calculateBasicDamage(attacker: Monster, target: Monster, is_simulation: bool = false) -> int:
+func calculateBasicDamage(
+	attacker: Monster,
+	target: Monster,
+	is_simulation: bool = false,
+	attackerPos: Vector2i = Vector2i(-1, -1)) -> int:
 	var raw = max(1, attacker.atk - target.def)
 	## Apply atk_bonus from active buffs
 	for effect in state.getActiveEffects(attacker.uniqueID):
 		raw += effect.get("atk_bonus", 0)
 	raw = max(1, raw)
+	if state.withinBounds(attackerPos):
+		raw = DirectDamageRulesScript.applyElevationFromPositions(
+			state, raw, attackerPos, state.getMonsterPosition(target.uniqueID)
+		)
+	else:
+		raw = applyElevationModifier(raw, attacker.uniqueID, target.uniqueID)
 	## Let PassiveSkillResolver apply damage reduction passives on the target
 	if passiveSkillResolver != null:
 		raw = passiveSkillResolver.applyDamageModifiers(raw, target.uniqueID, is_simulation)
@@ -149,6 +171,8 @@ func getSpellTargetsFrom(
 		var distance = abs(fromPos.x - candidatePos.x) + abs(fromPos.y - candidatePos.y)
 		if distance < spell.min_range or distance > spell.range:
 			continue
+		if state.getHeightDifference(fromPos, candidatePos) > spell.max_height_delta:
+			continue
 		if not spell.bypass_los and not _hasLoS(monsterID, fromPos, candidatePos, candidateID):
 			continue
 		targets.append(candidateID)
@@ -157,17 +181,84 @@ func getSpellTargetsFrom(
 
 
 func _hasLoS(casterID: int, fromPos: Vector2i, toPos: Vector2i, targetID: int) -> bool:
-	## Returns true if there is clear LoS between fromPos and toPos.
-	## Other monsters (not caster, not target) block line of sight, as do TERRAIN_OBSTACLE.
-	return LineOfSight.hasLoS(fromPos, toPos, func(p: Vector2i) -> bool:
-		if not state.withinBounds(p):
-			return true  # Out-of-bounds blocks LoS
-		if state.isLoSBlocked(p):
-			return true  # Trees/Walls block LoS
-		var occupantID = state.board.at(p)
-		return occupantID != 0 and occupantID != casterID and occupantID != targetID
+	var sourceEye = float(state.getHeight(fromPos)) + 1.0
+	var targetEye = float(state.getHeight(toPos)) + 1.0
+	return LineOfSight.hasHeightAwareLoS(
+		fromPos,
+		toPos,
+		sourceEye,
+		targetEye,
+		func(p: Vector2i) -> float:
+			if not state.withinBounds(p):
+				return INF
+			var blockerTop = float(state.getHeight(p))
+			if state.isLoSBlocked(p):
+				blockerTop += 2.0
+			var occupantID = state.board.at(p)
+			if occupantID != 0 and occupantID != casterID and occupantID != targetID:
+				blockerTop = maxf(blockerTop, float(state.getHeight(p)) + 2.0)
+			return blockerTop
 	)
 
+func canBasicAttackPositionFrom(monsterID: int, fromPos: Vector2i, targetPos: Vector2i) -> bool:
+	return (
+		state.withinBounds(targetPos)
+		and abs(fromPos.x - targetPos.x) + abs(fromPos.y - targetPos.y) == 1
+		and state.getHeightDifference(fromPos, targetPos) <= 1
+	)
+
+
+func canSpellReachPositionFrom(
+		monsterID: int,
+		spellSetIndex: int,
+		spellIndex: int,
+		fromPos: Vector2i,
+		targetPos: Vector2i) -> bool:
+	var mon = state.getMonster(monsterID)
+	if mon == null or spellSetIndex < 0 or spellSetIndex >= mon.spellSets.size():
+		return false
+	if spellIndex < 0 or spellIndex >= mon.spellSets[spellSetIndex].size():
+		return false
+	var spell = mon.spellSets[spellSetIndex][spellIndex]
+	if not mon.can_cast(spell):
+		return false
+	var distance = abs(fromPos.x - targetPos.x) + abs(fromPos.y - targetPos.y)
+	if distance < spell.min_range or distance > spell.range:
+		return false
+	if state.getHeightDifference(fromPos, targetPos) > spell.max_height_delta:
+		return false
+	return spell.bypass_los or _hasLoS(monsterID, fromPos, targetPos, -1)
+
+
+func getSpellAffectedTargetsFrom(
+		casterID: int,
+		spellSetIndex: int,
+		spellIndex: int,
+		fromPos: Vector2i,
+		centerTargetID: int) -> Array:
+	if not getSpellTargetsFrom(casterID, spellSetIndex, spellIndex, fromPos).has(centerTargetID):
+		return []
+	var caster = state.getMonster(casterID)
+	var spell = caster.spellSets[spellSetIndex][spellIndex]
+	if spell.targetType != "area":
+		return [centerTargetID]
+	var centerPos = state.getMonsterPosition(centerTargetID)
+	var affectedTiles = []
+	match spell.area_shape:
+		"cross": affectedTiles = ShapeCaster.getCross(centerPos, spell.radius)
+		"line": affectedTiles = ShapeCaster.getLine(fromPos, centerPos, spell.radius)
+		"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, spell.radius)
+	var result: Array = []
+	for pos in affectedTiles:
+		if not state.withinBounds(pos):
+			continue
+		var otherID = state.board.at(pos)
+		if otherID == 0:
+			continue
+		var isAlly = state.getMonster(otherID).team == caster.team
+		if (spell.heals and isAlly) or (not spell.heals and not isAlly):
+			result.append(otherID)
+	return result
 
 func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellIndex: int) -> Dictionary:
 	## Casts a spell. Routes to heal or damage logic based on spell.heals. Supports AOE.
@@ -197,28 +288,9 @@ func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellInd
 	if distance < spell.min_range or distance > spell.range:
 		return { "success": false, "reason": "out_of_range" }
 
-	var actualTargets = []
-	if spell.targetType == "self":
-		# Self-cast: always targets the caster only, no range or LoS needed
-		actualTargets.append(casterID)
-	elif spell.targetType == "area":
-		var affectedTiles = []
-		match spell.area_shape:
-			"cross": affectedTiles = ShapeCaster.getCross(centerPos, spell.radius)
-			"line":  affectedTiles = ShapeCaster.getLine(casterPos, centerPos, spell.radius)
-			"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, spell.radius)
-		for p in affectedTiles:
-			if not state.withinBounds(p): continue
-			var otherID = state.board.at(p)
-			if otherID != 0:
-				# Friendly fire rules: heals only allies, damage/debuffs only enemies
-				var isAlly = state.getMonster(otherID).team == caster.team
-				if spell.heals and not isAlly: continue
-				if not spell.heals and isAlly: continue
-				actualTargets.append(otherID)
-	else:
-		actualTargets.append(targetID)
-
+	var actualTargets = getSpellAffectedTargetsFrom(
+		casterID, spellSetIndex, spellIndex, casterPos, targetID
+	)
 	if actualTargets.is_empty():
 		return { "success": false, "reason": "no_valid_targets" }
 
@@ -244,15 +316,29 @@ func _applySpellEffects(casterID: int, targetID: int, spell: Spell) -> void:
 	if spellEffectResolver.applySpellEffects(casterID, targetID, spell, passiveSkillResolver):
 		_handleDefeat(targetID, casterID)
 
-func calculateSpellDamage(caster: Monster, target: Monster, base_damage: int, element: String = "none", is_simulation: bool = false) -> int:
+func calculateSpellDamage(
+		caster: Monster,
+		target: Monster,
+		base_damage: int,
+		element: String = "none",
+		is_simulation: bool = false,
+		casterPos: Vector2i = Vector2i(-1, -1)) -> int:
 	return spellEffectResolver.calculateSpellDamage(
 		caster,
 		target,
 		base_damage,
 		element,
 		is_simulation,
-		passiveSkillResolver
+		passiveSkillResolver,
+		casterPos
 	)
+
+func getElevationPercent(attackerID: int, targetID: int) -> int:
+	return DirectDamageRulesScript.elevationPercent(state, attackerID, targetID)
+
+
+func applyElevationModifier(rawDamage: int, attackerID: int, targetID: int) -> int:
+	return DirectDamageRulesScript.applyElevation(state, rawDamage, attackerID, targetID)
 
 func calculateHeal(caster: Monster, spell: Spell) -> int:
 	return spellEffectResolver.calculateHeal(caster, spell)

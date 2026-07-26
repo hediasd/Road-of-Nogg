@@ -17,8 +17,8 @@ implemented by the playable battle flow.
   so buffs/debuffs target named stats without mutating reference data.
 - **Additional passive triggers:** Consider damage-taken, spell-cast, and
   tile-entered triggers after the command/effect contracts stabilize.
-- **Terrain and trajectory:** Add movement costs, elevation rules, and parabolic
-  projectile clearance using `heightBoard`.
+- **Terrain and trajectory:** Add variable movement costs, specialized traversal,
+  and explicitly designed lobbed/homing projectile clearance using `heightBoard`.
 
 ## Presentation
 

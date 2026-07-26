@@ -1,12 +1,15 @@
 # Capsule Monsters Implementation Plan
 
-Status: proposed for approval on 2026-07-25. This document supersedes the
+Status: implemented on 2026-07-26. This document supersedes the
 original architectural draft. It is an implementation plan, not a promise that
 all future meta-game ideas ship in the first playable release.
 
-Implementation status: the optional PS1 rendering subsection of Phase 6 was
-completed on 2026-07-25. Elevation, movement, combat, stat, AI, capsule visual,
-and team-color work remains unstarted.
+Implementation status: complete. The optional PS1 rendering work landed on
+2026-07-25; elevation, height-aware movement/combat/LoS, deterministic stats,
+shared CPU command evaluation, checker terrain presentation, capsule defeat,
+and team-color work landed on 2026-07-26. Existing production maps intentionally
+retain height 0 while the focused three-elevation fixture verifies the full
+runtime and presentation contract.
 
 ## Outcome
 
@@ -336,6 +339,18 @@ Keep each commit within one boundary where practical. If a phase reveals that a
 recommended decision is wrong, stop at that boundary and revise this plan rather
 than burying a rules change inside presentation or AI code.
 
+## Verified implementation result
+
+The focused `run_capsule_features_check.gd` covers schema validation, version-2
+migration, height serialization, jump edges, high/low-ground damage, ridge LoS,
+elevated visuals and picking anchors, checker tones, capsule team colors,
+defeat cleanup, lethal CPU choice, and the eight-unit decision benchmark.
+
+On the reference Windows machine (`AMD64 Family 25 Model 80`, 16 logical
+processors), the recorded eight-unit Meadow decision p95 was 40,808 microseconds.
+The playable core/UI checks and deterministic full-battle check also completed
+with their success markers. The runner continues to surface the known host-only
+Windows root-certificate-store warning after Godot exits successfully.
 ## Explicitly deferred
 
 - diagonal movement;

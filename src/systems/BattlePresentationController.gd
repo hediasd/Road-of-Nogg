@@ -370,8 +370,16 @@ func _start_battle(config) -> void:
 
 	sim = BattleSetupFactoryScript.createSimulator(config, Callable(self, "_create_visual_adapter"))
 	var size = sim.state.boardSize
-	camera.focus_point = Vector3((size.x - 1) * 0.5, 0, (size.y - 1) * 0.5)
-	camera.size = max(size.x, size.y) * 0.95
+	var highestTile = 0
+	for y in range(size.y):
+		for x in range(size.x):
+			highestTile = maxi(highestTile, sim.state.getHeight(Vector2i(x, y)))
+	camera.focus_point = Vector3(
+		(size.x - 1) * 0.5,
+		float(highestTile) * 0.5,
+		(size.y - 1) * 0.5
+	)
+	camera.size = max(size.x, size.y) * 0.95 + float(highestTile) * 0.35
 	sim.startBattle()
 	sim.turnManager.startNewRound()
 	turn_timer.start()
@@ -486,7 +494,7 @@ func _enter_move_preview() -> void:
 	player_grid_cursor = currentPos
 	visual_adapter.show_player_cursor(currentPos)
 	visual_adapter.show_movement_options(reachable_tiles)
-	_set_action_status("MOVE_PREVIEW — select a blue tile, then choose an action.")
+	_set_action_status("MOVE_PREVIEW — select a blue tile. Current height: %d." % sim.state.getHeight(currentPos))
 	_update_action_buttons()
 
 
@@ -513,7 +521,7 @@ func _handle_grid_selection(pos: Vector2i) -> void:
 		player_state = PlayerState.ACTION_MENU
 		visual_adapter.show_player_cursor(pos)
 		visual_adapter.show_movement_options(reachable_tiles, pending_move_path)
-		_set_action_status("ACTION_MENU — attack, cast, wait, or revise movement.")
+		_set_action_status("ACTION_MENU — height %d; attack, cast, wait, or revise movement." % sim.state.getHeight(pos))
 		_update_action_buttons()
 	elif player_state == PlayerState.TARGETING:
 		var target = sim.state.getMonsterAt(pos)
@@ -681,8 +689,12 @@ func _on_spell_selected(index: int) -> void:
 	var metadata = option.get_item_metadata(index)
 	if metadata is Vector2i and metadata.x >= 0:
 		var spell = sim.state.getMonster(active_player_id).spellSets[metadata.x][metadata.y]
-		_set_action_status("%s — range %d, minimum %d, cooldown %d." % [
-			spell.name, spell.range, spell.min_range, spell.cooldown
+		_set_action_status("%s — range %d, minimum %d, height reach %d, cooldown %d." % [
+			spell.name,
+			spell.range,
+			spell.min_range,
+			spell.max_height_delta,
+			spell.cooldown
 		])
 
 

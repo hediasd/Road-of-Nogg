@@ -5,6 +5,7 @@ var name: String = "Dump"
 
 var min_range: int = 0
 var range: int = 1
+var max_height_delta: int = 1
 var damage: int = 0
 var element: String = "none"
 var damage_lines: Array = [] # Array of Dictionary: { "damage": int, "element": String }
@@ -34,6 +35,7 @@ func _init(parameterDictionary) -> void:
 	radius = parameterDictionary["RADIUS"] if (parameterDictionary.has("RADIUS")) else 1
 	min_range = parameterDictionary["MIN_RANGE"] if (parameterDictionary.has("MIN_RANGE")) else 0
 	range = parameterDictionary["RANGE"] if (parameterDictionary.has("RANGE")) else 1
+	max_height_delta = parameterDictionary["MAX_HEIGHT_DELTA"] if (parameterDictionary.has("MAX_HEIGHT_DELTA")) else 1
 	damage = parameterDictionary["DAMAGE"] if (parameterDictionary.has("DAMAGE")) else 0
 	element = parameterDictionary["ELEMENT"] if (parameterDictionary.has("ELEMENT")) else "none"
 

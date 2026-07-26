@@ -58,6 +58,15 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Review when:** adding reactions, interrupts, counterattacks, movement
   triggers, new action types, replay logic, or network command handling.
 
+### Height is a shared edge rule
+
+- **Verified observation:** Passing only a destination into BFS/A* cannot decide
+  jump legality because traversal depends on both the current and next heights.
+- **Reusable rule:** Search callbacks receive `(current, next)` and delegate to
+  `MovementResolver.canTraverse()`; previews, validation, and CPU planning must
+  not reimplement height edges.
+- **Review when:** adding terrain costs, special traversal, teleportation, or
+  moving/destructible surfaces.
 ## Ordering and pathing
 
 ### Stable turn ties
@@ -175,9 +184,17 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Reusable rule:** Treat presets as complete recipes and immediately label any
   manual rendering change as `Custom`; persist the complete Custom state. Keep
   `None` as the neutral reset baseline and migrate legacy preset identifiers.
-- **Verified observation:** Small coordinate-derived value and saturation shifts
-  make flat tactical tiles readable as a board without consuming simulation RNG.
-- **Reusable rule:** Presentation-only tile variation must be deterministic from
-  coordinates and terrain, remain subtle, and never modify `BattleState.rng`.
+- **Verified observation:** A strict parity checker with one coordinated light
+  tone and one dark tone makes terrain categories visibly tile-based; mottled
+  multi-step variation read as accidental inconsistency instead.
+- **Reusable rule:** Derive presentation-only terrain alternation from `(x+y)%2`
+  and a terrain base color. Keep it outside simulation RNG so grass, water, and
+  future sand/rock/lava palettes inherit the same deterministic two-tone rule.
+- **Verified observation:** CPU estimates made from a candidate destination can
+  disagree with resolution if elevation arithmetic reads the actor's current
+  state position instead of the proposed command position.
+- **Reusable rule:** Pure planning queries accept explicit source positions and
+  share the same damage/height arithmetic as resolution; never mutate state to
+  simulate a candidate.
 - **Review when:** changing viewport resolution, letterboxing, camera controls,
   mouse picking, world shaders, shadows, or the UI/world composition.

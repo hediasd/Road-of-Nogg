@@ -130,8 +130,8 @@ func _run() -> void:
 					break
 			if not alreadyFound:
 				grassColors.append(grassColor)
-	if grassColors.size() < 2:
-		_fail("grass tiles do not have deterministic color variance")
+	if grassColors.size() != 2:
+		_fail("grass tiles do not use exactly two checker tones")
 		return
 	var sampledColor = scene.visual_adapter.tileColorFor(Color(0.2, 0.8, 0.2), Vector2i(2, 3), 0)
 	if not sampledColor.is_equal_approx(
@@ -139,8 +139,8 @@ func _run() -> void:
 	):
 		_fail("tile color variance is not deterministic")
 		return
-	if absf(sampledColor.v - Color(0.2, 0.8, 0.2).v) > 0.05:
-		_fail("tile color variance is too strong")
+	if absf(sampledColor.v - Color(0.2, 0.8, 0.2).v) > 0.12:
+		_fail("tile checker contrast is too strong")
 		return
 	if retroMaterial == null:
 		_fail("world geometry did not receive the retro-capable material")

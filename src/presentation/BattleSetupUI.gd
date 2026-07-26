@@ -2,6 +2,7 @@ class_name BattleSetupUI
 extends RefCounted
 
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
+const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 
 
 static func build(
@@ -185,7 +186,7 @@ static func _buildTeamColumn(
 		label.text = "%d." % (index + 1)
 		label.custom_minimum_size.x = 24
 		row.add_child(label)
-		var option = _newOption(monsterNames, monsterNames)
+		var option = _newOption(_monsterLabels(monsterNames), monsterNames)
 		option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		option.tooltip_text = "Monster slot %d. Duplicate selections are allowed." % (index + 1)
 		option.item_selected.connect(callbacks["monster_selected"].bind(team, index))
@@ -194,6 +195,18 @@ static func _buildTeamColumn(
 
 	return {"preset": preset, "slots": slots}
 
+
+static func _monsterLabels(monsterNames: Array[String]) -> Array[String]:
+	var labels: Array[String] = []
+	for monsterName in monsterNames:
+		var reference = MonsterReferencesScript.getReference(monsterName)
+		labels.append("%s [Lv1 HP%s A%s D%s]" % [
+			monsterName,
+			reference.get("BASE_HP", reference.get("HP", 1)),
+			reference.get("BASE_ATK", reference.get("ATK", 1)),
+			reference.get("BASE_DEF", reference.get("DEF", 1))
+		])
+	return labels
 
 static func _addOptionRow(
 		grid: GridContainer,

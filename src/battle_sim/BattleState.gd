@@ -9,6 +9,8 @@ var boardSize: Vector2i
 var board: Matrix                        # Monster ID layer (0 = empty)
 var heightBoard: Matrix                  # Height layer (for future use)
 var terrainBoard: Matrix                 # Terrain ID layer
+var mapName: String = ""
+var mapRevision: int = 1
 
 enum {
 	TERRAIN_CLEAR = 0,     # Walkable, allows LoS
@@ -173,6 +175,18 @@ func withinBounds(pos: Vector2i) -> bool:
 
 func isOccupied(pos: Vector2i) -> bool:
 	return board.at(pos) != 0
+
+func getHeight(pos: Vector2i) -> int:
+	if not withinBounds(pos):
+		return -1
+	return int(heightBoard.at(pos))
+
+
+func getHeightDifference(fromPos: Vector2i, toPos: Vector2i) -> int:
+	if not withinBounds(fromPos) or not withinBounds(toPos):
+		return 999
+	return abs(getHeight(toPos) - getHeight(fromPos))
+
 
 
 func isWalkable(pos: Vector2i) -> bool:

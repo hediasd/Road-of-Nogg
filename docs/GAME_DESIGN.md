@@ -47,12 +47,18 @@ passive, multi-hit, healing, and status behavior may modify the result.
 - `TERRAIN_CLEAR`: walkable and does not block line of sight.
 - `TERRAIN_OBSTACLE`: unwalkable and blocks line of sight.
 - `TERRAIN_ABYSS`: unwalkable but does not block line of sight.
-- Movement costs, elevation effects, facing, and manual deployment are future
-  extensions.
+- Tile elevations are integers from 0 through 8. Cardinal movement costs one,
+  and each step must remain within the acting monster's JUMP value.
+- Basic melee requires cardinal adjacency and at most one elevation step.
+  Spells define their own maximum height delta; bypassing LoS never bypasses it.
+- Direct damage gains 10% from higher ground and loses 10% from lower ground,
+  using deterministic integer rounding before target-side reductions.
+- Facing, variable movement costs, special traversal, and manual deployment
+  remain future extensions.
 
 ## Entities and elements
 
-Entities have deterministic IDs and currently expose HP, ATK, DEF, SPD, MOVE,
+Entities have deterministic IDs and currently expose level, HP, ATK, DEF, SPD, MOVE, JUMP,
 team, position, spell sets, passive data, and elemental affinities. Current
 standard element keys are `fire`, `ice`, `wood`, `steel`, `darkness`, `light`,
 `earth`, `water`, `thunder`, and `none`.

@@ -6,6 +6,9 @@ class_name TacticalBrain
 extends EntityBrain
 
 
+func _evaluationWeights() -> Dictionary:
+	return {"damage": 100, "utility": 100, "threat": 3, "distance": 1, "wait_penalty": 6}
+
 func _evaluateTile(monsterID: int, pos: Vector2i) -> Dictionary:
 	var tile_score = -9999
 	var tile_decision = { "action": "wait", "target_id": -1 }

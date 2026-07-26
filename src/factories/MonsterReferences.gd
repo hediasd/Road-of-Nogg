@@ -98,7 +98,14 @@ static func _static_init():
 			"SPELLS" = [[ "Timeoff", "Ages Ago" ]]
 		}
 	]
-pass
+	for reference in list:
+		reference["BASE_HP"] = int(reference.get("BASE_HP", reference.get("HP", 1)))
+		reference["BASE_ATK"] = int(reference.get("BASE_ATK", reference.get("ATK", 1)))
+		reference["BASE_DEF"] = int(reference.get("BASE_DEF", reference.get("DEF", 1)))
+		reference["HP_GROWTH"] = int(reference.get("HP_GROWTH", 0))
+		reference["ATK_GROWTH"] = int(reference.get("ATK_GROWTH", 0))
+		reference["DEF_GROWTH"] = int(reference.get("DEF_GROWTH", 0))
+		reference["JUMP"] = int(reference.get("JUMP", 1))
 
 static func getReference(name):
 	for reference in list:

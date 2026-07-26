@@ -27,6 +27,7 @@ var visualEffects
 
 var _monster_visuals: Dictionary = {} # monsterID -> MeshInstance3D
 var _position_tweens: Dictionary = {} # monsterID -> Tween
+var _defeat_tweens: Dictionary = {} # monsterID -> Tween
 
 func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = null) -> void:
 	state = _state
@@ -48,7 +49,7 @@ func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = nul
 
 	_cursor = BattleMeshFactoryScript.createMesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
 	visual_parent.add_child(_cursor)
-	_cursor_controller = BattleCursorControllerScript.new(_cursor)
+	_cursor_controller = BattleCursorControllerScript.new(_cursor, state.getHeight)
 
 
 func _log(text: String) -> void:
@@ -66,7 +67,7 @@ func _update_right_ui(text: String) -> void:
 # --- HELPERS ---
 
 func _coord_to_pos3d(coord: Vector2i) -> Vector3:
-	return Vector3(coord.x, 0, coord.y)
+	return Vector3(coord.x, float(state.getHeight(coord)), coord.y)
 
 
 func _stop_position_tween(monsterID: int) -> void:
@@ -90,7 +91,7 @@ func _synchronize_visual_occupancy(exceptMonsterID: int = -1) -> void:
 			visual.visible = false
 			continue
 		var targetPos = _coord_to_pos3d(authoritativePos)
-		targetPos.y = 0.2
+		targetPos.y += 0.2
 		visual.position = targetPos
 
 
@@ -221,23 +222,16 @@ func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
 			grid_node.add_child(tile)
 
 
-static func tileColorFor(baseColor: Color, coord: Vector2i, terrain: int) -> Color:
-	# Presentation-only coordinate pattern: stable across replays and independent
-	# from BattleState RNG. A faint checker under a five-step mottled pattern
-	# echoes late-1990s tactical boards without obscuring terrain categories.
-	var pattern = (coord.x * 17 + coord.y * 31 + coord.x * coord.y * 7 + terrain * 11) % 5
-	var valueShifts = [-0.026, -0.014, 0.0, 0.014, 0.026]
-	var checkerShift = 0.012 if (coord.x + coord.y) % 2 == 0 else -0.012
-	var saturationShift = (float(pattern) - 2.0) * 0.006
-	return Color.from_hsv(
-		baseColor.h,
-		clampf(baseColor.s + saturationShift, 0.0, 1.0),
-		clampf(baseColor.v + valueShifts[pattern] + checkerShift, 0.0, 1.0),
-		baseColor.a
-	)
+static func tileColorFor(baseColor: Color, coord: Vector2i, _terrain: int) -> Color:
+	# Every terrain supplies one representative color and automatically receives
+	# a coordinated light/dark pair. Future sand, rock, or lava palettes only
+	# need to provide their base color to inherit this checker treatment.
+	if (coord.x + coord.y) % 2 == 0:
+		return baseColor.lightened(0.09)
+	return baseColor.darkened(0.11)
 
 func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i, _stats: Dictionary) -> void:
-	var team_color = Color(0.8, 0.2, 0.2) if team == 1 else Color(0.2, 0.4, 0.9)
+	var team_color = Color(0.18, 0.42, 0.95) if team == 1 else Color(0.9, 0.2, 0.16)
 	var m = state.getMonster(monsterID)
 
 	var mat: Material = null
@@ -250,7 +244,7 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 
 	var container = Node3D.new()
 	container.position = _coord_to_pos3d(pos)
-	container.position.y = 0.2 # Offset to sit on top of the box tiles
+	container.position.y += 0.2 # Offset to sit on top of the tile surface
 
 	var base_mesh = BattleMeshFactoryScript.createMesh("capsule_base", team_color)
 	base_mesh.position.y = 0.1
@@ -279,7 +273,7 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 func _on_turn_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> void:
 	var m = state.getMonster(monsterID)
 	if m:
-		_update_left_ui("CURRENT TURN:\n%s\nHP: %s/%s\nAtk: %s | Spd: %s" % [m.name, m.hitpoints, m.max_hitpoints, m.atk, m.speed])
+		_update_left_ui("CURRENT TURN:\n%s  Lv.%s\nHP: %s/%s\nATK %s | DEF %s | SPD %s\nMOVE %s | JUMP %s | HEIGHT %s" % [m.name, m.level, m.hitpoints, m.max_hitpoints, m.atk, m.def, m.speed, m.move, m.jump, state.getHeight(m.position)])
 		_update_right_ui("Waiting for action...")
 		_log("\n--- TURN: %s [#%s] ---" % [m.name, monsterID])
 
@@ -301,10 +295,15 @@ func _on_monster_moved(monsterID: int, path: Array) -> void:
 
 	var tween = mi.create_tween()
 	_track_position_tween(monsterID, tween)
+	var visualStart = mi.position
 	for coord in path:
-		var target_pos = _coord_to_pos3d(coord)
-		target_pos.y = 0.2
-		tween.tween_property(mi, "position", target_pos, 0.2)
+		var targetPos = _coord_to_pos3d(coord)
+		targetPos.y += 0.2
+		var peak = (visualStart + targetPos) * 0.5
+		peak.y = maxf(visualStart.y, targetPos.y) + 0.32
+		tween.tween_property(mi, "position", peak, 0.1)
+		tween.tween_property(mi, "position", targetPos, 0.1)
+		visualStart = targetPos
 
 	if state.currentMonsterID == monsterID:
 		_cursor_controller.focusMovementDestination(state.getMonsterPosition(monsterID))
@@ -358,17 +357,59 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 		_log("%s was DEFEATED!" % m.name)
 		_update_right_ui("%s was DEFEATED!" % m.name)
 
-	if not _monster_visuals.has(monsterID): return
+	if not _monster_visuals.has(monsterID):
+		return
 	_stop_position_tween(monsterID)
-	var mi = _monster_visuals[monsterID]
-
-	var tween = mi.create_tween()
-	tween.tween_property(mi, "scale", Vector3.ZERO, 0.5)
-	tween.tween_callback(func():
-		mi.queue_free()
+	var container: Node3D = _monster_visuals[monsterID]
+	_disable_selection_collision(container)
+	var baseMesh = container.get_child(0) as MeshInstance3D
+	var body = container.get_child(1) as Node3D
+	var capsuleTarget = baseMesh.position + Vector3(0, 0.08, 0)
+	var tween = container.create_tween().set_parallel(true)
+	_defeat_tweens[monsterID] = tween
+	tween.tween_property(body, "scale", Vector3.ZERO, 0.38).set_trans(Tween.TRANS_BACK)
+	tween.tween_property(body, "position", capsuleTarget, 0.38).set_trans(Tween.TRANS_QUAD)
+	_spawn_capsule_shatter(container, baseMesh)
+	tween.chain().tween_callback(func():
+		_defeat_tweens.erase(monsterID)
+		container.queue_free()
 		_monster_visuals.erase(monsterID)
 	)
 
+
+func _disable_selection_collision(container: Node3D) -> void:
+	var selectionBody = container.get_node_or_null("SelectionBody") as StaticBody3D
+	if selectionBody == null:
+		return
+	selectionBody.collision_layer = 0
+	for shape in selectionBody.find_children("*", "CollisionShape3D", true, false):
+		shape.set_deferred("disabled", true)
+
+
+func _spawn_capsule_shatter(container: Node3D, baseMesh: MeshInstance3D) -> void:
+	var particles = GPUParticles3D.new()
+	particles.name = "CapsuleShatter"
+	particles.amount = 12
+	particles.lifetime = 0.42
+	particles.one_shot = true
+	particles.explosiveness = 1.0
+	particles.position = baseMesh.position
+	var processMaterial = ParticleProcessMaterial.new()
+	processMaterial.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+	processMaterial.emission_sphere_radius = 0.16
+	processMaterial.direction = Vector3(0, 1, 0)
+	processMaterial.spread = 72.0
+	processMaterial.initial_velocity_min = 1.4
+	processMaterial.initial_velocity_max = 2.4
+	processMaterial.gravity = Vector3(0, -5.0, 0)
+	particles.process_material = processMaterial
+	var fragment = BoxMesh.new()
+	fragment.size = Vector3(0.07, 0.035, 0.07)
+	particles.draw_pass_1 = fragment
+	particles.material_override = baseMesh.material_override
+	container.add_child(particles)
+	baseMesh.visible = false
+	particles.emitting = true
 
 func _play_bump_animation(sourceID: int, targetID: int) -> void:
 	if not _monster_visuals.has(sourceID) or not _monster_visuals.has(targetID): return
@@ -431,7 +472,7 @@ func clear_tactical_overlays() -> void:
 
 func _add_overlay(coord: Vector2i, color: Color) -> void:
 	var marker = BattleMeshFactoryScript.createMesh("plane", color)
-	marker.position = Vector3(coord.x, 0.215, coord.y)
+	marker.position = Vector3(coord.x, float(state.getHeight(coord)) + 0.215, coord.y)
 	overlay_node.add_child(marker)
 
 
@@ -439,6 +480,11 @@ func dispose() -> void:
 	disconnectFromEvents()
 	for monsterID in _position_tweens.keys():
 		_stop_position_tween(monsterID)
+	for monsterID in _defeat_tweens.keys():
+		var tween: Tween = _defeat_tweens[monsterID]
+		if tween != null and tween.is_valid():
+			tween.kill()
+	_defeat_tweens.clear()
 	for node in [grid_node, monsters_node, overlay_node, _cursor]:
 		if is_instance_valid(node):
 			node.queue_free()

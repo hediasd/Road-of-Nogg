@@ -23,10 +23,12 @@ var mode: Mode = Mode.HIDDEN
 var owner: Owner = Owner.NONE
 var grid_position := Vector2i(-1, -1)
 var _cursor: MeshInstance3D
+var _getHeight: Callable
 
 
-func _init(cursor: MeshInstance3D) -> void:
+func _init(cursor: MeshInstance3D, getHeight: Callable = Callable()) -> void:
 	_cursor = cursor
+	_getHeight = getHeight
 	_cursor.visible = false
 
 
@@ -80,4 +82,7 @@ func hide(clearOwner: bool = true) -> void:
 
 
 func _worldPosition(coord: Vector2i) -> Vector3:
-	return Vector3(coord.x, CURSOR_HEIGHT, coord.y)
+	var surfaceHeight = 0.0
+	if _getHeight.is_valid():
+		surfaceHeight = float(_getHeight.call(coord))
+	return Vector3(coord.x, surfaceHeight + CURSOR_HEIGHT, coord.y)

@@ -2,15 +2,20 @@
 
 class_name BattleStateSerializer
 
+const CURRENT_VERSION := 3
+const MIN_SUPPORTED_VERSION := 2
+
 const MonsterFactoryScript = preload("res://src/factories/MonsterFactory.gd")
 
 
 static func serialize(state: BattleState) -> Dictionary:
 	return {
-		"version": 2,
+		"version": CURRENT_VERSION,
 		"seed": state.battleSeed,
 		"rngState": state.rng.state,
 		"nextMonsterID": state.nextMonsterID,
+		"mapName": state.mapName,
+		"mapRevision": state.mapRevision,
 		"boardSize": _vector(state.boardSize),
 		"board": _matrix(state.board, state.boardSize),
 		"heightBoard": _matrix(state.heightBoard, state.boardSize),
@@ -32,12 +37,25 @@ static func jsonSafe(value):
 
 
 static func deserialize(data: Dictionary) -> BattleState:
+	var version = int(data.get("version", MIN_SUPPORTED_VERSION))
+	assert(
+		version >= MIN_SUPPORTED_VERSION and version <= CURRENT_VERSION,
+		"Unsupported battle state version %d; supported versions are %d-%d." % [
+			version, MIN_SUPPORTED_VERSION, CURRENT_VERSION
+		]
+	)
 	var state = BattleState.new(int(data.get("seed", 0)))
 	var sizeData: Dictionary = data.get("boardSize", {"x": 0, "y": 0})
 	state.setup_board(Vector2i(int(sizeData.get("x", 0)), int(sizeData.get("y", 0))))
 	_restoreMatrix(state.board, data.get("board", []))
-	_restoreMatrix(state.heightBoard, data.get("heightBoard", []))
+	var heightRows: Array = data.get("heightBoard", [])
+	if version == 2 and heightRows.is_empty():
+		heightRows = _flatMatrix(state.boardSize)
+	_validateHeightRows(heightRows, state.boardSize)
+	_restoreMatrix(state.heightBoard, heightRows)
 	_restoreMatrix(state.terrainBoard, data.get("terrainBoard", []))
+	state.mapName = str(data.get("mapName", ""))
+	state.mapRevision = int(data.get("mapRevision", 1))
 
 	state.battleSeed = int(data.get("seed", 0))
 	state.rng.seed = state.battleSeed
@@ -56,7 +74,11 @@ static func deserialize(data: Dictionary) -> BattleState:
 	for key in data.get("monsters", {}):
 		var monsterData: Dictionary = data["monsters"][key]
 		var monsterID = int(key)
-		var monster = MonsterFactoryScript.createMonster(monsterData.get("name", "Defaultgon"), monsterID)
+		var monster = MonsterFactoryScript.createMonster(
+			monsterData.get("name", "Defaultgon"),
+			monsterID,
+			int(monsterData.get("level", 1))
+		)
 		monster.team = int(monsterData.get("team", 0))
 		monster.hitpoints = int(monsterData.get("hitpoints", monster.hitpoints))
 		monster.max_hitpoints = int(monsterData.get("max_hitpoints", monster.max_hitpoints))
@@ -64,6 +86,14 @@ static func deserialize(data: Dictionary) -> BattleState:
 		monster.atk = int(monsterData.get("atk", monster.atk))
 		monster.def = int(monsterData.get("def", monster.def))
 		monster.speed = int(monsterData.get("speed", monster.speed))
+		monster.level = maxi(1, int(monsterData.get("level", 1)))
+		monster.jump = maxi(0, int(monsterData.get("jump", 1)))
+		monster.base_hitpoints = int(monsterData.get("base_hitpoints", monster.max_hitpoints))
+		monster.base_atk = int(monsterData.get("base_atk", monster.atk))
+		monster.base_def = int(monsterData.get("base_def", monster.def))
+		monster.hp_growth = maxi(0, int(monsterData.get("hp_growth", 0)))
+		monster.atk_growth = maxi(0, int(monsterData.get("atk_growth", 0)))
+		monster.def_growth = maxi(0, int(monsterData.get("def_growth", 0)))
 		monster.elements.assign(monsterData.get("elements", []))
 		monster.race = monsterData.get("race", monster.race)
 		monster.spell_cooldowns = monsterData.get("spellCooldowns", {}).duplicate(true)
@@ -73,6 +103,23 @@ static func deserialize(data: Dictionary) -> BattleState:
 	state.assertValidOccupancy()
 	return state
 
+
+static func _validateHeightRows(rows: Array, size: Vector2i) -> void:
+	assert(rows.size() == size.y, "Height board row count does not match board size.")
+	for row in rows:
+		assert(row is Array and row.size() == size.x, "Height board column count does not match board size.")
+		for value in row:
+			assert(int(value) >= 0 and int(value) <= 8, "Height values must be between 0 and 8.")
+
+
+static func _flatMatrix(size: Vector2i) -> Array:
+	var rows: Array = []
+	for _y in range(size.y):
+		var row: Array = []
+		row.resize(size.x)
+		row.fill(0)
+		rows.append(row)
+	return rows
 
 static func _restoreMatrix(matrix: Matrix, rows: Array) -> void:
 	for y in range(min(rows.size(), matrix.max_y)):

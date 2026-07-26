@@ -6,6 +6,9 @@ const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactor
 
 
 static func replay(snapshot: Dictionary) -> Dictionary:
+	var version = int(snapshot.get("version", 2))
+	if version < 2 or version > 3:
+		return {"success": false, "reason": "unsupported_replay_version", "version": version}
 	if snapshot.get("setup", {}).is_empty():
 		return {"success": false, "reason": "missing_setup"}
 
@@ -15,6 +18,16 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 		return {"success": false, "reason": "invalid_setup", "errors": validation["errors"]}
 
 	var simulator = BattleSetupFactoryScript.createSimulator(config)
+	if version >= 3:
+		var initialState: Dictionary = snapshot.get("initialState", {})
+		var recordedRevision = int(initialState.get("mapRevision", simulator.state.mapRevision))
+		if recordedRevision != simulator.state.mapRevision:
+			return {
+				"success": false,
+				"reason": "map_revision_mismatch",
+				"recorded": recordedRevision,
+				"current": simulator.state.mapRevision
+			}
 	simulator.startBattle()
 
 	for entry in snapshot.get("commands", []):

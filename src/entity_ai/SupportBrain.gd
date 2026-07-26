@@ -5,6 +5,9 @@ class_name SupportBrain
 extends EntityBrain
 
 
+func _evaluationWeights() -> Dictionary:
+	return {"damage": 45, "utility": 180, "threat": 8, "distance": 0, "wait_penalty": 4}
+
 func _evaluateTile(monsterID: int, pos: Vector2i) -> Dictionary:
 	var tile_score = -9999
 	var tile_decision = { "action": "wait", "target_id": -1 }

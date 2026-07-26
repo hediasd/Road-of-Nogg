@@ -5,6 +5,9 @@ class_name MageBrain
 extends EntityBrain
 
 
+func _evaluationWeights() -> Dictionary:
+	return {"damage": 125, "utility": 70, "threat": 4, "distance": 1, "wait_penalty": 8}
+
 func _evaluateTile(monsterID: int, pos: Vector2i) -> Dictionary:
 	var tile_score = -9999
 	var tile_decision = { "action": "wait", "target_id": -1 }

@@ -138,7 +138,8 @@ static func _static_init():
 			"RADIUS" = 0, "RANGE" = 0, "DAMAGE" = 0, "ELEMENT" = "none"
 		}
 	]
-pass
+	for reference in list:
+		reference["MAX_HEIGHT_DELTA"] = int(reference.get("MAX_HEIGHT_DELTA", 1))
 
 static func getReference(name):
 	for reference in list:

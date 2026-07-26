@@ -7,11 +7,13 @@ class_name EntityBrain
 
 const ThreatMap = preload("res://src/algorithms/ThreatMap.gd")
 const BrainTargetingScript = preload("res://src/entity_ai/BrainTargeting.gd")
+const BattleCommandEvaluatorScript = preload("res://src/entity_ai/BattleCommandEvaluator.gd")
 
 var state: BattleState
 var movementResolver: MovementResolver
 var combatResolver: CombatResolver
 var targeting
+var commandEvaluator
 
 
 func _init(_state: BattleState, _movementResolver: MovementResolver, _combatResolver: CombatResolver) -> void:
@@ -19,30 +21,21 @@ func _init(_state: BattleState, _movementResolver: MovementResolver, _combatReso
 	movementResolver = _movementResolver
 	combatResolver = _combatResolver
 	targeting = BrainTargetingScript.new(state)
+	commandEvaluator = BattleCommandEvaluatorScript.new(state, movementResolver, combatResolver)
 
 
 func decideTurn(monsterID: int) -> Dictionary:
-	## Overridden by subclasses indirectly via `_evaluateTile`.
-	## Iterates through all reachable positions and scores them.
-	var reachable = movementResolver.getReachablePositions(monsterID)
-	var myPos = state.getMonsterPosition(monsterID)
-	if not reachable.has(myPos):
-		reachable.append(myPos)
-		
-	var best_score = -9999
-	var best_decision = { "move_path": [], "action": "wait", "target_id": -1, "dest_pos": myPos }
-	
-	for pos in reachable:
-		var evaluation = _evaluateTile(monsterID, pos)
-		if evaluation.score > best_score:
-			best_score = evaluation.score
-			best_decision = evaluation.decision
-			best_decision["dest_pos"] = pos
-			
-	var movePath = _buildMovePath(monsterID, best_decision.dest_pos)
-	best_decision["move_path"] = movePath
-	return best_decision
+	return commandEvaluator.chooseCommand(monsterID, _evaluationWeights())
 
+
+func _evaluationWeights() -> Dictionary:
+	return {
+		"damage": 100,
+		"utility": 100,
+		"threat": 2,
+		"distance": 1,
+		"wait_penalty": 5
+	}
 
 func _evaluateTile(_monsterID: int, pos: Vector2i) -> Dictionary:
 	## Virtual method. Override in subclasses.
@@ -217,7 +210,7 @@ func _findBestHealSpell(monsterID: int, fromPos: Vector2i, hpThreshold: float = 
 
 
 func _checkLoS(fromPos: Vector2i, toPos: Vector2i, selfID: int, targetID: int) -> bool:
-	return targeting.hasLineOfSight(fromPos, toPos, selfID, targetID)
+	return combatResolver._hasLoS(selfID, fromPos, toPos, targetID)
 
 
 func _findSafestReachablePosition(monsterID: int, targetPos: Vector2i, retreat: bool = false) -> Vector2i:

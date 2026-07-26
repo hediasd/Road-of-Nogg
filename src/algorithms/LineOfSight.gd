@@ -69,3 +69,20 @@ static func hasLoS(
 				return false
 
 	return true
+static func hasHeightAwareLoS(
+		fromPos: Vector2i,
+		toPos: Vector2i,
+		sourceEyeHeight: float,
+		targetEyeHeight: float,
+		getBlockerTop: Callable,
+		epsilon: float = 0.001) -> bool:
+	## Uses the same discrete supercover/corner cells as hasLoS, but compares each
+	## intermediate blocker top against the interpolated ray height.
+	return hasLoS(fromPos, toPos, func(cell: Vector2i) -> bool:
+		var delta = Vector2(toPos - fromPos)
+		var relative = Vector2(cell - fromPos)
+		var denominator = maxf(delta.length_squared(), 1.0)
+		var t = clampf(relative.dot(delta) / denominator, 0.0, 1.0)
+		var rayHeight = lerpf(sourceEyeHeight, targetEyeHeight, t)
+		return float(getBlockerTop.call(cell)) > rayHeight + epsilon
+	)

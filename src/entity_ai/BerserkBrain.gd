@@ -5,6 +5,9 @@ class_name BerserkBrain
 extends EntityBrain
 
 
+func _evaluationWeights() -> Dictionary:
+	return {"damage": 135, "utility": 35, "threat": 0, "distance": 4, "wait_penalty": 12}
+
 func _evaluateTile(monsterID: int, pos: Vector2i) -> Dictionary:
 	var tile_score = -9999
 	var tile_decision = { "action": "wait", "target_id": -1 }
