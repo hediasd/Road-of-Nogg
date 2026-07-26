@@ -720,6 +720,16 @@ func _update_action_buttons() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if (
+		lifecycle in [Lifecycle.BATTLE, Lifecycle.COMPLETE] and
+		event is InputEventKey and
+		event.pressed and
+		not event.echo and
+		(event.keycode == KEY_SPACE or event.physical_keycode == KEY_SPACE)
+	):
+		battle_ui["canvas"].visible = not battle_ui["canvas"].visible
+		get_viewport().set_input_as_handled()
+		return
 	# A drag that began over the world keeps owning motion and its release even
 	# when the pointer crosses UI or an animated model moves underneath it.
 	if lifecycle != Lifecycle.BATTLE or not camera or not camera.isDragging():

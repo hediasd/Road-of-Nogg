@@ -78,6 +78,17 @@ func _run() -> void:
 	if scene.setup_ui["canvas"].visible or not scene.battle_ui["canvas"].visible:
 		_fail("UI did not transition from setup to battle")
 		return
+	var spacePress = InputEventKey.new()
+	spacePress.keycode = KEY_SPACE
+	spacePress.pressed = true
+	scene._input(spacePress)
+	if scene.battle_ui["canvas"].visible:
+		_fail("Space did not hide the battle UI")
+		return
+	scene._input(spacePress)
+	if not scene.battle_ui["canvas"].visible:
+		_fail("Space did not restore the battle UI")
+		return
 	if scene.visual_adapter._monster_visuals.size() != 8:
 		_fail("monster visuals were not loaded after confirmation")
 		return
