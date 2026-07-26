@@ -1,6 +1,8 @@
 class_name BattleSetupUI
 extends RefCounted
 
+const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
+
 
 static func build(
 		root: Node,
@@ -84,9 +86,9 @@ static func build(
 	var renderModeOption = _addOptionRow(
 		renderingGrid,
 		"Look",
-		["PS1 Soft", "Retro Light", "PS1 Classic", "CRT", "Clean"],
-		["ps1_soft", "retro_light", "ps1_classic", "crt", "clean"],
-		"Quick visual presets. Only the 3D world is affected."
+		RenderPresetCatalogScript.labels(),
+		RenderPresetCatalogScript.values(),
+		"Quick visual presets. Manual changes become Custom."
 	)
 	var geometryOption = _addOptionRow(
 		renderingGrid,

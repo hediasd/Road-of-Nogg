@@ -169,5 +169,15 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Reusable rule:** Keep real-time shadow casting disabled for snapped world
   materials unless a separate shadow-safe pass is implemented and visually
   verified.
+- **Verified observation:** Rendering preset values can be edited independently
+  during battle, so the originating preset name no longer describes the active
+  configuration after the first manual change.
+- **Reusable rule:** Treat presets as complete recipes and immediately label any
+  manual rendering change as `Custom`; persist the complete Custom state. Keep
+  `None` as the neutral reset baseline and migrate legacy preset identifiers.
+- **Verified observation:** Small coordinate-derived value and saturation shifts
+  make flat tactical tiles readable as a board without consuming simulation RNG.
+- **Reusable rule:** Presentation-only tile variation must be deterministic from
+  coordinates and terrain, remain subtle, and never modify `BattleState.rng`.
 - **Review when:** changing viewport resolution, letterboxing, camera controls,
   mouse picking, world shaders, shadows, or the UI/world composition.

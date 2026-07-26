@@ -9,6 +9,7 @@ const MapReferencesScript = preload("res://src/factories/MapReferences.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const GodotVisualAdapterScript = preload("res://src/presentation/GodotVisualAdapter.gd")
 const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderController.gd")
+const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
 enum PlayerState { INACTIVE, UNIT_SELECTED, MOVE_PREVIEW, ACTION_MENU, TARGETING, CONFIRM }
@@ -208,6 +209,9 @@ func _sync_rendering_options() -> void:
 		battle_ui["graphics_look_option"],
 		retro_renderer.render_preset
 	)
+	battle_ui["graphics_preset_description"].text = (
+		RenderPresetCatalogScript.description(retro_renderer.render_preset)
+	)
 	_select_option_by_metadata(
 		battle_ui["graphics_geometry_option"],
 		"jitter" if retro_renderer.vertex_snap_enabled else "stable"
@@ -227,7 +231,7 @@ func _sync_rendering_options() -> void:
 			true
 		)
 		lookSliderData["value_label"].text = "%.2f" % lookValue
-	var crtActive = retro_renderer.render_preset == retro_renderer.PRESET_CRT
+	var crtActive = retro_renderer.crt_enabled
 	battle_ui["graphics_crt_hint"].modulate = (
 		Color(0.82, 0.9, 1.0) if crtActive else Color(0.48, 0.54, 0.64)
 	)

@@ -209,6 +209,7 @@ func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
 
 			if terrain == 1: color = Color(0.5, 0.3, 0.1) # Trees/Obstacle
 			elif terrain == 2: color = Color(0.1, 0.3, 0.8) # Water/Abyss
+			color = tileColorFor(color, coord, terrain)
 
 			var tile = BattleMeshFactoryScript.createMesh("box", color)
 			var pos3d = _coord_to_pos3d(coord)
@@ -219,6 +220,21 @@ func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
 			tile.position = pos3d
 			grid_node.add_child(tile)
 
+
+static func tileColorFor(baseColor: Color, coord: Vector2i, terrain: int) -> Color:
+	# Presentation-only coordinate pattern: stable across replays and independent
+	# from BattleState RNG. A faint checker under a five-step mottled pattern
+	# echoes late-1990s tactical boards without obscuring terrain categories.
+	var pattern = (coord.x * 17 + coord.y * 31 + coord.x * coord.y * 7 + terrain * 11) % 5
+	var valueShifts = [-0.026, -0.014, 0.0, 0.014, 0.026]
+	var checkerShift = 0.012 if (coord.x + coord.y) % 2 == 0 else -0.012
+	var saturationShift = (float(pattern) - 2.0) * 0.006
+	return Color.from_hsv(
+		baseColor.h,
+		clampf(baseColor.s + saturationShift, 0.0, 1.0),
+		clampf(baseColor.v + valueShifts[pattern] + checkerShift, 0.0, 1.0),
+		baseColor.a
+	)
 
 func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i, _stats: Dictionary) -> void:
 	var team_color = Color(0.8, 0.2, 0.2) if team == 1 else Color(0.2, 0.4, 0.9)

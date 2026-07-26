@@ -5,14 +5,20 @@ class_name RetroRenderController
 extends RefCounted
 
 const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
+const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 const CRT_DISPLAY_SHADER = preload("res://assets/shaders/crt_display.gdshader")
 const SETTINGS_PATH := "user://rendering.cfg"
 const MIN_VIEWPORT_SIZE := Vector2i(2, 2)
-const PRESET_CLEAN := "clean"
-const PRESET_RETRO_LIGHT := "retro_light"
-const PRESET_PS1_SOFT := "ps1_soft"
-const PRESET_PS1_CLASSIC := "ps1_classic"
-const PRESET_CRT := "crt"
+const PRESET_NONE := RenderPresetCatalogScript.NONE
+const PRESET_DITHERED_HORIZON := RenderPresetCatalogScript.DITHERED_HORIZON
+const PRESET_TACTICAL_SOFT := RenderPresetCatalogScript.TACTICAL_SOFT
+const PRESET_SATURATED_CRT := RenderPresetCatalogScript.SATURATED_CRT
+const PRESET_TACTICS_CLASSIC := RenderPresetCatalogScript.TACTICS_CLASSIC
+const PRESET_WEATHERED_STONE := RenderPresetCatalogScript.WEATHERED_STONE
+const PRESET_FOGGY_SURVIVAL := RenderPresetCatalogScript.FOGGY_SURVIVAL
+const PRESET_TROPICAL_COLOR := RenderPresetCatalogScript.TROPICAL_COLOR
+const PRESET_STEALTH_GREEN := RenderPresetCatalogScript.STEALTH_GREEN
+const PRESET_CUSTOM := RenderPresetCatalogScript.CUSTOM
 const LOOK_RENDER_SCALE := "render_scale"
 const LOOK_SNAP_STRENGTH := "snap_strength"
 const LOOK_BRIGHTNESS := "brightness"
@@ -37,14 +43,14 @@ var display_layer: CanvasLayer
 var world_texture: TextureRect
 var crt_overlay: ColorRect
 var crt_material: ShaderMaterial
-var render_preset: String = PRESET_PS1_SOFT
-var render_size := Vector2i(480, 360)
-var retro_enabled: bool = true
+var render_preset: String = PRESET_NONE
+var render_size := Vector2i(640, 480)
+var retro_enabled: bool = false
 var crt_enabled: bool = false
-var nearest_filter_enabled: bool = true
+var nearest_filter_enabled: bool = false
 var vertex_snap_enabled: bool = false
-var vertex_snap_strength: float = 1.0
-var affine_mapping_enabled: bool = true
+var vertex_snap_strength: float = 0.0
+var affine_mapping_enabled: bool = false
 var render_scale: float = 1.0
 var brightness: float = 1.0
 var contrast: float = 1.0
@@ -116,38 +122,27 @@ func _build_render_target() -> void:
 
 
 func reset_defaults(persist: bool = true) -> void:
-	render_scale = 1.0
-	vertex_snap_strength = 1.0
-	brightness = 1.0
-	contrast = 1.0
-	saturation = 1.0
-	color_levels = 0.0
-	dither_strength = 0.0
-	crt_scanline_strength = 0.22
-	crt_scanline_size = 1.0
-	crt_mask_strength = 0.1
-	crt_mask_size = 1.0
-	crt_vignette_strength = 0.2
-	crt_flicker_strength = 0.02
-	crt_color_bleed = 0.8
-	crt_noise_strength = 0.03
-	crt_glow_strength = 0.1
-	_apply_preset_values(PRESET_PS1_SOFT)
+	_apply_preset_values(PRESET_NONE)
 	_apply_settings(persist)
 
 
 func set_preset(preset: String, persist: bool = true) -> void:
 	if not _apply_preset_values(preset):
-		push_warning("Unknown rendering preset '%s'; using PS1 Soft." % preset)
-		_apply_preset_values(PRESET_PS1_SOFT)
+		push_warning("Unknown rendering preset '%s'; using None." % preset)
+		_apply_preset_values(PRESET_NONE)
 	_apply_settings(persist)
 
 
 func set_features(vertexSnap: bool, sharpPixels: bool, persist: bool = true) -> void:
+	var changed = (
+		vertex_snap_enabled != vertexSnap
+		or nearest_filter_enabled != sharpPixels
+	)
 	vertex_snap_enabled = vertexSnap
 	nearest_filter_enabled = sharpPixels
+	if changed:
+		_mark_custom()
 	_apply_settings(persist)
-
 
 func set_look_parameter(parameter: String, value: float, persist: bool = true) -> void:
 	var resizeRequired = false
@@ -170,6 +165,7 @@ func set_look_parameter(parameter: String, value: float, persist: bool = true) -
 		_:
 			push_warning("Unknown look parameter '%s'." % parameter)
 			return
+	_mark_custom()
 	if resizeRequired:
 		_apply_settings(persist)
 	else:
@@ -227,6 +223,7 @@ func set_crt_parameter(parameter: String, value: float, persist: bool = true) ->
 		_:
 			push_warning("Unknown CRT parameter '%s'." % parameter)
 			return
+	_mark_custom()
 	_apply_display_parameters()
 	if persist:
 		_save_settings()
@@ -276,46 +273,129 @@ func _apply_display_parameters() -> void:
 
 
 func _apply_preset_values(preset: String) -> bool:
-	render_preset = preset
+	var normalizedPreset = RenderPresetCatalogScript.normalize_legacy(preset)
+	if not RenderPresetCatalogScript.has(normalizedPreset):
+		return false
+	if normalizedPreset == PRESET_CUSTOM:
+		render_preset = PRESET_CUSTOM
+		return true
+
+	_set_neutral_values()
+	render_preset = normalizedPreset
 	match render_preset:
-		PRESET_CLEAN:
-			retro_enabled = false
-			nearest_filter_enabled = false
-			crt_enabled = false
-			vertex_snap_enabled = false
-			affine_mapping_enabled = false
-		PRESET_RETRO_LIGHT:
+		PRESET_NONE:
+			pass
+		PRESET_DITHERED_HORIZON:
 			retro_enabled = true
-			nearest_filter_enabled = true
-			crt_enabled = false
-			render_size = Vector2i(640, 480)
-			vertex_snap_enabled = false
-			affine_mapping_enabled = false
-		PRESET_PS1_SOFT:
-			retro_enabled = true
-			nearest_filter_enabled = true
-			crt_enabled = false
-			render_size = Vector2i(480, 360)
-			vertex_snap_enabled = false
-			affine_mapping_enabled = true
-		PRESET_PS1_CLASSIC:
-			retro_enabled = true
-			nearest_filter_enabled = true
-			crt_enabled = false
 			render_size = Vector2i(320, 240)
+			nearest_filter_enabled = true
 			vertex_snap_enabled = true
+			vertex_snap_strength = 0.7
 			affine_mapping_enabled = true
-		PRESET_CRT:
+			brightness = 0.78
+			contrast = 1.25
+			saturation = 0.75
+			color_levels = 16.0
+			dither_strength = 0.065
+		PRESET_TACTICAL_SOFT:
 			retro_enabled = true
+			render_size = Vector2i(480, 360)
+			contrast = 0.95
+			saturation = 1.1
+			color_levels = 32.0
+			dither_strength = 0.01
+		PRESET_SATURATED_CRT:
+			retro_enabled = true
+			render_size = Vector2i(640, 480)
 			nearest_filter_enabled = true
 			crt_enabled = true
-			render_size = Vector2i(640, 480)
-			vertex_snap_enabled = false
-			affine_mapping_enabled = false
-		_:
-			return false
+			brightness = 1.1
+			contrast = 1.15
+			saturation = 1.25
+			crt_scanline_strength = 0.4
+			crt_mask_strength = 0.18
+			crt_vignette_strength = 0.16
+			crt_flicker_strength = 0.012
+			crt_color_bleed = 1.5
+			crt_noise_strength = 0.035
+			crt_glow_strength = 0.25
+		PRESET_TACTICS_CLASSIC:
+			retro_enabled = true
+			render_size = Vector2i(320, 240)
+			nearest_filter_enabled = true
+			contrast = 1.05
+			saturation = 0.95
+			color_levels = 32.0
+			dither_strength = 0.025
+		PRESET_WEATHERED_STONE:
+			retro_enabled = true
+			render_size = Vector2i(320, 240)
+			nearest_filter_enabled = true
+			vertex_snap_enabled = true
+			vertex_snap_strength = 0.65
+			affine_mapping_enabled = true
+			brightness = 0.82
+			contrast = 1.28
+			saturation = 0.65
+			color_levels = 18.0
+			dither_strength = 0.08
+		PRESET_FOGGY_SURVIVAL:
+			retro_enabled = true
+			render_size = Vector2i(480, 360)
+			brightness = 0.72
+			contrast = 0.9
+			saturation = 0.35
+			color_levels = 24.0
+			dither_strength = 0.06
+		PRESET_TROPICAL_COLOR:
+			retro_enabled = true
+			render_size = Vector2i(480, 360)
+			brightness = 1.05
+			contrast = 1.05
+			saturation = 1.35
+			dither_strength = 0.01
+		PRESET_STEALTH_GREEN:
+			retro_enabled = true
+			render_size = Vector2i(320, 240)
+			nearest_filter_enabled = true
+			vertex_snap_enabled = true
+			vertex_snap_strength = 0.45
+			affine_mapping_enabled = true
+			brightness = 0.9
+			contrast = 1.18
+			saturation = 0.75
+			color_levels = 24.0
+			dither_strength = 0.05
 	return true
 
+
+func _set_neutral_values() -> void:
+	render_size = Vector2i(640, 480)
+	retro_enabled = false
+	crt_enabled = false
+	nearest_filter_enabled = false
+	vertex_snap_enabled = false
+	vertex_snap_strength = 0.0
+	affine_mapping_enabled = false
+	render_scale = 1.0
+	brightness = 1.0
+	contrast = 1.0
+	saturation = 1.0
+	color_levels = 0.0
+	dither_strength = 0.0
+	crt_scanline_strength = 0.22
+	crt_scanline_size = 1.0
+	crt_mask_strength = 0.1
+	crt_mask_size = 1.0
+	crt_vignette_strength = 0.2
+	crt_flicker_strength = 0.02
+	crt_color_bleed = 0.8
+	crt_noise_strength = 0.03
+	crt_glow_strength = 0.1
+
+
+func _mark_custom() -> void:
+	render_preset = PRESET_CUSTOM
 
 func _apply_settings(persist: bool) -> void:
 	_resize_world_viewport()
@@ -404,10 +484,26 @@ func _load_settings() -> void:
 	var savedPreset = str(config.get_value(
 		"rendering",
 		"render_preset",
-		PRESET_PS1_SOFT
+		PRESET_NONE
 	))
 	if not _apply_preset_values(savedPreset):
-		_apply_preset_values(PRESET_PS1_SOFT)
+		_apply_preset_values(PRESET_NONE)
+	if render_preset != PRESET_CUSTOM:
+		return
+	retro_enabled = bool(config.get_value(
+		"rendering",
+		"retro_enabled",
+		retro_enabled
+	))
+	crt_enabled = bool(config.get_value(
+		"rendering",
+		"crt_enabled",
+		crt_enabled
+	))
+	render_size = Vector2i(
+		int(config.get_value("rendering", "render_width", render_size.x)),
+		int(config.get_value("rendering", "render_height", render_size.y))
+	)
 	vertex_snap_enabled = bool(config.get_value(
 		"rendering",
 		"vertex_snap_enabled",
@@ -477,6 +573,9 @@ func _save_settings() -> void:
 	var config = ConfigFile.new()
 	config.set_value("rendering", "render_preset", render_preset)
 	config.set_value("rendering", "retro_enabled", retro_enabled)
+	config.set_value("rendering", "crt_enabled", crt_enabled)
+	config.set_value("rendering", "render_width", render_size.x)
+	config.set_value("rendering", "render_height", render_size.y)
 	config.set_value("rendering", "vertex_snap_enabled", vertex_snap_enabled)
 	config.set_value("rendering", "nearest_filter_enabled", nearest_filter_enabled)
 	config.set_value("rendering", "affine_mapping_enabled", affine_mapping_enabled)

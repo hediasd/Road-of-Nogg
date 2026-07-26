@@ -15,11 +15,11 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	scene.retro_renderer.set_look_parameter(scene.retro_renderer.LOOK_RENDER_SCALE, 1.0, false)
-	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_DITHERED_HORIZON, false)
 	scene._sync_rendering_options()
 
 	if scene.retro_renderer.world_viewport.size != Vector2i(320, 240):
-		_fail("PS1 mode did not use the 320x240 world render target")
+		_fail("Dithered Horizon did not use the 320x240 world render target")
 		return
 	if scene.setup_ui["canvas"].get_viewport() == scene.retro_renderer.world_viewport:
 		_fail("setup UI was rendered inside the low-resolution world viewport")
@@ -39,6 +39,12 @@ func _run() -> void:
 		return
 	if scene.setup_ui["mode_option"].get_item_metadata(0) != BattleSetupConfigScript.MODE_CPU_VS_CPU:
 		_fail("CPU vs CPU is not the default mode")
+		return
+	if scene.setup_ui["render_mode_option"].get_item_metadata(0) != scene.retro_renderer.PRESET_NONE:
+		_fail("None is not the first rendering preset")
+		return
+	if scene.setup_ui["render_mode_option"].item_count != 10:
+		_fail("rendering catalog does not expose all presets plus Custom")
 		return
 	if scene.setup_ui["map_option"].get_item_metadata(0) != "Meadow":
 		_fail("Meadow is not the default map")
@@ -107,6 +113,35 @@ func _run() -> void:
 		return
 	var firstTile = scene.visual_adapter.grid_node.get_child(0) as MeshInstance3D
 	var retroMaterial = firstTile.material_override as ShaderMaterial
+	var grassColors: Array[Color] = []
+	for y in range(scene.sim.state.boardSize.y):
+		for x in range(scene.sim.state.boardSize.x):
+			var coord = Vector2i(x, y)
+			if scene.sim.state.terrainBoard.at(coord) != 0:
+				continue
+			var tileIndex = y * scene.sim.state.boardSize.x + x
+			var grassTile = scene.visual_adapter.grid_node.get_child(tileIndex) as MeshInstance3D
+			var grassMaterial = grassTile.material_override as ShaderMaterial
+			var grassColor: Color = grassMaterial.get_shader_parameter("color_a")
+			var alreadyFound = false
+			for existingColor in grassColors:
+				if existingColor.is_equal_approx(grassColor):
+					alreadyFound = true
+					break
+			if not alreadyFound:
+				grassColors.append(grassColor)
+	if grassColors.size() < 2:
+		_fail("grass tiles do not have deterministic color variance")
+		return
+	var sampledColor = scene.visual_adapter.tileColorFor(Color(0.2, 0.8, 0.2), Vector2i(2, 3), 0)
+	if not sampledColor.is_equal_approx(
+		scene.visual_adapter.tileColorFor(Color(0.2, 0.8, 0.2), Vector2i(2, 3), 0)
+	):
+		_fail("tile color variance is not deterministic")
+		return
+	if absf(sampledColor.v - Color(0.2, 0.8, 0.2).v) > 0.05:
+		_fail("tile color variance is too strong")
+		return
 	if retroMaterial == null:
 		_fail("world geometry did not receive the retro-capable material")
 		return
@@ -117,25 +152,25 @@ func _run() -> void:
 		_fail("affine texture mapping was not enabled independently")
 		return
 
-	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_CLEAN, false)
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_NONE, false)
 	await process_frame
 	var nativeSize = Vector2i(scene.get_viewport().get_visible_rect().size)
 	if scene.retro_renderer.world_viewport.size != nativeSize:
-		_fail("clean mode did not restore native world resolution")
+		_fail("None did not restore native world resolution")
 		return
 	if retroMaterial.get_shader_parameter("vertex_snap_enabled"):
-		_fail("clean mode did not disable vertex jitter")
+		_fail("None did not disable vertex jitter")
 		return
-	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_CRT, false)
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_SATURATED_CRT, false)
 	await process_frame
 	if scene.retro_renderer.world_viewport.size != Vector2i(640, 480):
-		_fail("CRT preset did not use its lighter 640x480 render target")
+		_fail("Saturated CRT did not use its 640x480 render target")
 		return
 	if not scene.retro_renderer.crt_overlay.visible:
-		_fail("CRT preset did not enable the CRT display pass")
+		_fail("Saturated CRT did not enable the CRT display pass")
 		return
 	scene.retro_renderer.set_look_parameter(scene.retro_renderer.LOOK_RENDER_SCALE, 1.0, false)
-	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_DITHERED_HORIZON, false)
 	await process_frame
 	if scene.battle_ui["canvas"].find_children("*", "OptionButton", true, false).size() != 4:
 		_fail("battle HUD does not contain the spell selector and three graphics dropdowns")
@@ -155,11 +190,20 @@ func _run() -> void:
 	if scene.turn_timer.is_stopped() != timerWasStopped:
 		_fail("opening Graphics changed battle playback state")
 		return
-	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_CRT, false)
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_SATURATED_CRT, false)
 	scene.retro_renderer.set_look_parameter(scene.retro_renderer.LOOK_BRIGHTNESS, 1.2, false)
+	if scene.retro_renderer.render_preset != scene.retro_renderer.PRESET_CUSTOM:
+		_fail("manual graphics tuning did not mark the preset as Custom")
+		return
 	scene.retro_renderer.set_crt_parameter(scene.retro_renderer.CRT_SCANLINE, 0.4, false)
 	scene.retro_renderer.set_crt_parameter(scene.retro_renderer.CRT_NOISE, 0.12, false)
 	scene._sync_rendering_options()
+	var selectedLook = scene.battle_ui["graphics_look_option"].get_item_metadata(
+		scene.battle_ui["graphics_look_option"].selected
+	)
+	if selectedLook != scene.retro_renderer.PRESET_CUSTOM:
+		_fail("manual graphics tuning did not update the dropdown to Custom")
+		return
 	var scanlineData: Dictionary = scene.battle_ui["graphics_crt_sliders"]["scanline"]
 	if not scanlineData["slider"].editable:
 		_fail("CRT sliders did not enable for the CRT preset")
@@ -184,8 +228,8 @@ func _run() -> void:
 		return
 	scene.retro_renderer.reset_defaults(false)
 	scene._sync_rendering_options()
-	if scene.retro_renderer.render_preset != scene.retro_renderer.PRESET_PS1_SOFT:
-		_fail("graphics reset did not restore the default look")
+	if scene.retro_renderer.render_preset != scene.retro_renderer.PRESET_NONE:
+		_fail("graphics reset did not restore the default None look")
 		return
 	if not is_equal_approx(scene.retro_renderer.brightness, 1.0):
 		_fail("graphics reset did not restore general tuning defaults")
@@ -199,7 +243,7 @@ func _run() -> void:
 		_fail("Graphics button did not hide the live menu")
 		return
 	scene.retro_renderer.set_look_parameter(scene.retro_renderer.LOOK_RENDER_SCALE, 1.0, false)
-	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_PS1_CLASSIC, false)
+	scene.retro_renderer.set_preset(scene.retro_renderer.PRESET_DITHERED_HORIZON, false)
 	scene._sync_rendering_options()
 	if scene.battle_ui["play_button"] is CheckButton:
 		_fail("battle playback still uses the old auto-play check button")

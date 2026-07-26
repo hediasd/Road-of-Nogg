@@ -201,6 +201,7 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		"graphics_button": graphicsButton,
 		"graphics_panel": graphicsMenu["panel"],
 		"graphics_look_option": graphicsMenu["look_option"],
+		"graphics_preset_description": graphicsMenu["preset_description"],
 		"graphics_geometry_option": graphicsMenu["geometry_option"],
 		"graphics_upscale_option": graphicsMenu["upscale_option"],
 		"graphics_look_sliders": graphicsMenu["look_sliders"],

@@ -3,6 +3,8 @@
 class_name BattleGraphicsMenu
 extends RefCounted
 
+const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
+
 
 static func build(
 		canvas: CanvasLayer,
@@ -64,8 +66,8 @@ static func build(
 	var lookOption = _add_option(
 		options,
 		"Look",
-		["PS1 Soft", "Retro Light", "PS1 Classic", "CRT", "Clean"],
-		["ps1_soft", "retro_light", "ps1_classic", "crt", "clean"]
+		RenderPresetCatalogScript.labels(),
+		RenderPresetCatalogScript.values()
 	)
 	lookOption.item_selected.connect(callbacks["preset_selected"])
 	var geometryOption = _add_option(
@@ -83,6 +85,12 @@ static func build(
 	)
 	upscaleOption.item_selected.connect(callbacks["feature_selected"])
 
+	var presetDescription = Label.new()
+	presetDescription.name = "PresetDescription"
+	presetDescription.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	presetDescription.modulate = Color(0.72, 0.82, 0.94)
+	column.add_child(presetDescription)
+
 	var tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(tabs)
@@ -92,7 +100,7 @@ static func build(
 	lookTab.add_theme_constant_override("separation", 5)
 	tabs.add_child(lookTab)
 	var lookHint = Label.new()
-	lookHint.text = "These controls tune every preset, including Clean."
+	lookHint.text = "Changing any value marks the look as Custom."
 	lookHint.modulate = Color(0.74, 0.84, 0.96)
 	lookTab.add_child(lookHint)
 	var lookSliders: Dictionary = {}
@@ -130,7 +138,7 @@ static func build(
 	crtTab.add_theme_constant_override("separation", 3)
 	tabs.add_child(crtTab)
 	var crtHint = Label.new()
-	crtHint.text = "Select the CRT preset to enable these controls."
+	crtHint.text = "Available while the active look includes CRT."
 	crtHint.modulate = Color(0.72, 0.8, 0.92)
 	crtTab.add_child(crtHint)
 	var crtSliders: Dictionary = {}
@@ -174,6 +182,7 @@ static func build(
 	return {
 		"panel": panel,
 		"look_option": lookOption,
+		"preset_description": presetDescription,
 		"geometry_option": geometryOption,
 		"upscale_option": upscaleOption,
 		"look_sliders": lookSliders,
