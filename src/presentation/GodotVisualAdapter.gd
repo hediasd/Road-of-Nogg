@@ -11,6 +11,13 @@ const BattleCursorControllerScript = preload("res://src/presentation/BattleCurso
 const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
 const MAX_QUEUED_ANIMATIONS := 4096
 const ANIMATION_WATCHDOG_MARGIN := 0.75
+const TERRAIN_CELL_HEIGHT := BattleMeshFactoryScript.TERRAIN_CELL_SIZE.y
+const TERRAIN_SURFACE_OFFSET := TERRAIN_CELL_HEIGHT * 0.5
+const ABYSS_VERTICAL_OFFSET := -0.15
+const OVERLAY_LIFT := 0.015
+const MOVE_STEP_DURATION := 0.28
+const MOVE_HEIGHT_DURATION_FACTOR := 0.08
+const MOVE_ARC_CLEARANCE := 0.3
 
 signal animation_queue_drained
 
@@ -58,7 +65,7 @@ func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = nul
 
 	_cursor = BattleMeshFactoryScript.createMesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
 	visual_parent.add_child(_cursor)
-	_cursor_controller = BattleCursorControllerScript.new(_cursor, state.getHeight)
+	_cursor_controller = BattleCursorControllerScript.new(_cursor, _surface_y)
 
 
 func _log(text: String) -> void:
@@ -75,8 +82,18 @@ func _update_right_ui(text: String) -> void:
 
 # --- HELPERS ---
 
-func _coord_to_pos3d(coord: Vector2i) -> Vector3:
-	return Vector3(coord.x, float(state.getHeight(coord)), coord.y)
+func _surface_y(coord: Vector2i) -> float:
+	var logicalHeight = maxi(state.getHeight(coord), 0)
+	var verticalOffset = (
+		ABYSS_VERTICAL_OFFSET
+		if state.terrainBoard.at(coord) == BattleState.TERRAIN_ABYSS else
+		0.0
+	)
+	return float(logicalHeight) * TERRAIN_CELL_HEIGHT + TERRAIN_SURFACE_OFFSET + verticalOffset
+
+
+func _coord_to_surface_pos3d(coord: Vector2i) -> Vector3:
+	return Vector3(coord.x, _surface_y(coord), coord.y)
 
 
 func _stop_position_tween(monsterID: int) -> void:
@@ -99,9 +116,7 @@ func _synchronize_visual_occupancy(exceptMonsterID: int = -1) -> void:
 		if not state.withinBounds(authoritativePos):
 			visual.visible = false
 			continue
-		var targetPos = _coord_to_pos3d(authoritativePos)
-		targetPos.y += 0.2
-		visual.position = targetPos
+		visual.position = _coord_to_surface_pos3d(authoritativePos)
 
 
 func _track_position_tween(monsterID: int, tween: Tween) -> void:
@@ -201,9 +216,7 @@ func _finalize_animation(action: Dictionary) -> void:
 	if kind == "move" and _monster_visuals.has(monsterID):
 		var path: Array = action.get("path", [])
 		if not path.is_empty():
-			var finalPos = _coord_to_pos3d(path.back())
-			finalPos.y += 0.2
-			_monster_visuals[monsterID].position = finalPos
+			_monster_visuals[monsterID].position = _coord_to_surface_pos3d(path.back())
 	elif kind == "bump" and _monster_visuals.has(monsterID):
 		_monster_visuals[monsterID].position = action.get(
 			"origin",
@@ -372,7 +385,7 @@ func _add_tile_column(coord: Vector2i, terrain: int, baseColor: Color) -> void:
 
 	var logicalHeight = maxi(state.getHeight(coord), 0)
 	var topColor = tileColorFor(baseColor, coord, terrain)
-	var verticalOffset = -0.15 if terrain == BattleState.TERRAIN_ABYSS else 0.0
+	var verticalOffset = ABYSS_VERTICAL_OFFSET if terrain == BattleState.TERRAIN_ABYSS else 0.0
 	for layer in range(logicalHeight + 1):
 		var blockColor = topColor
 		if layer < logicalHeight:
@@ -380,9 +393,13 @@ func _add_tile_column(coord: Vector2i, terrain: int, baseColor: Color) -> void:
 			blockColor = topColor.darkened(minf(0.06 + float(depth) * 0.04, 0.24))
 		var block = BattleMeshFactoryScript.createMesh("terrain_block", blockColor)
 		block.name = "Layer_%d" % layer
-		# A one-unit block centered at layer - 0.3 retains the historical top
-		# surface at logical height + 0.2, so every existing anchor stays valid.
-		block.position = Vector3(0.0, float(layer) - 0.3 + verticalOffset, 0.0)
+		# Exact half-height blocks touch vertically; logical elevation remains an
+		# integer while presentation scales each step to half a world unit.
+		block.position = Vector3(
+			0.0,
+			float(layer) * TERRAIN_CELL_HEIGHT + verticalOffset,
+			0.0
+		)
 		column.add_child(block)
 		if layer == logicalHeight:
 			_tile_surfaces[coord] = block
@@ -425,8 +442,7 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 		mat = BattleMeshFactoryScript.createMaterial(Color(0.6, 0.6, 0.6))
 
 	var container = Node3D.new()
-	container.position = _coord_to_pos3d(pos)
-	container.position.y += 0.2 # Offset to sit on top of the tile surface
+	container.position = _coord_to_surface_pos3d(pos)
 
 	var base_mesh = BattleMeshFactoryScript.createMesh("capsule_base", team_color)
 	base_mesh.position.y = 0.1
@@ -563,16 +579,23 @@ func _start_move_animation(action: Dictionary) -> bool:
 	var visual: Node3D = _monster_visuals[monsterID]
 	var tween = visual.create_tween()
 	_track_position_tween(monsterID, tween)
-	var visualStart = visual.position
+	var visualStart: Vector3 = visual.position
+	var totalDuration := 0.0
 	for coord in path:
-		var targetPos = _coord_to_pos3d(coord)
-		targetPos.y += 0.2
+		var targetPos := _coord_to_surface_pos3d(coord)
+		var heightDelta = absf(targetPos.y - visualStart.y)
+		var stepDuration = MOVE_STEP_DURATION + heightDelta * MOVE_HEIGHT_DURATION_FACTOR
 		var peak = (visualStart + targetPos) * 0.5
-		peak.y = maxf(visualStart.y, targetPos.y) + 0.32
-		tween.tween_property(visual, "position", peak, 0.1)
-		tween.tween_property(visual, "position", targetPos, 0.1)
+		peak.y = maxf(visualStart.y, targetPos.y) + MOVE_ARC_CLEARANCE
+		tween.tween_property(visual, "position", peak, stepDuration * 0.5).set_trans(
+			Tween.TRANS_SINE
+		).set_ease(Tween.EASE_OUT)
+		tween.tween_property(visual, "position", targetPos, stepDuration * 0.5).set_trans(
+			Tween.TRANS_SINE
+		).set_ease(Tween.EASE_IN)
 		visualStart = targetPos
-	_activate_tween(tween, action, float(path.size()) * 0.2)
+		totalDuration += stepDuration
+	_activate_tween(tween, action, totalDuration)
 	return true
 
 
@@ -694,7 +717,7 @@ func clear_tactical_overlays() -> void:
 
 func _add_overlay(coord: Vector2i, color: Color) -> void:
 	var marker = BattleMeshFactoryScript.createMesh("plane", color)
-	marker.position = Vector3(coord.x, float(state.getHeight(coord)) + 0.215, coord.y)
+	marker.position = Vector3(coord.x, _surface_y(coord) + OVERLAY_LIFT, coord.y)
 	overlay_node.add_child(marker)
 
 

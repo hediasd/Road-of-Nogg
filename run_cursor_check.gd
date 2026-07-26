@@ -22,7 +22,7 @@ func _run() -> void:
 	if controller.grid_position != Vector2i(3, 1):
 		_fail("cursor did not snap to the movement destination")
 		return
-	if cursor.position != Vector3(3, BattleCursorControllerScript.CURSOR_HEIGHT, 1):
+	if cursor.position != Vector3(3, BattleCursorControllerScript.CURSOR_LIFT, 1):
 		_fail("cursor interpolated instead of snapping to the destination")
 		return
 
@@ -66,15 +66,15 @@ func _run() -> void:
 		return
 
 	# A second move may reuse a tile as soon as the first entity vacates it in
-	# authoritative state. The adapter must snap the first model to that state
-	# before animating the follower, rather than leaving two models on one tile.
+	# authoritative state. Presentation keeps both moves in order and never
+	# rewrites the first visual from the newer backend position.
 	simulator.state.moveMonsterTo(actor.uniqueID, Vector2i(1, 0))
 	simulator.events.monster_moved.emit(actor.uniqueID, [Vector2i(1, 0)])
 	simulator.state.moveMonsterTo(follower.uniqueID, Vector2i(0, 0))
 	simulator.events.monster_moved.emit(follower.uniqueID, [Vector2i(0, 0)])
 	simulator.state.assertValidOccupancy()
-	if adapter._monster_visuals[actor.uniqueID].position != Vector3(1, 0.2, 0):
-		_fail("a stale movement tween left the previous entity on a reused tile")
+	if adapter._monster_visuals[actor.uniqueID].position != Vector3(0, 0.25, 0):
+		_fail("queued movement resynchronized from newer backend state")
 		return
 	if adapter._monster_visuals[actor.uniqueID].position == adapter._monster_visuals[follower.uniqueID].position:
 		_fail("two entity visuals occupied the same tile after immediate moves")

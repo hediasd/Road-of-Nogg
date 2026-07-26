@@ -141,6 +141,17 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Cursor event semantics
 
+### Camera drags own their complete gesture
+
+- **Verified observation:** Inferring camera dragging from global mouse-button
+  state during each motion event allowed a gesture to stop when event delivery
+  changed as animated models or UI passed beneath the pointer.
+- **Reusable rule:** Acquire orbit/pan ownership on an unhandled press, route an
+  active drag before hit-tested controls, and release only on the matching
+  button-up, focus loss, or battle lifecycle change.
+- **Review when:** changing camera controls, viewport input forwarding, modal UI,
+  model picking, or mouse capture behavior.
+
 ### Events communicate discrete tactical intent
 
 - **Verified observation:** Following a moving model caused the cursor to land on
@@ -160,8 +171,11 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   attacker to its newer authoritative tile before the move animation completed.
 - **Reusable rule:** Queue movement, targeting, action, and defeat presentation
   in event order using coordinates and text captured when the event is emitted.
-  Simulation never waits for this queue. Bound every tween with an idempotent
-  completion callback plus a watchdog, and invalidate both on adapter disposal.
+  Simulation never waits for this queue. Each movement step starts from the
+  current rendered transform and animates to the shared terrain-surface query;
+  its arc and duration include the vertical delta rather than snapping Y from
+  authoritative state. Bound every tween with an idempotent completion callback
+  plus a watchdog, and invalidate both on adapter disposal.
 - **Review when:** adding a visual event, changing action timing, accelerating
   simulation playback, replay visualization, or implementing skip/fast-forward.
 
@@ -172,9 +186,10 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Verified observation:** Moving one thin tile mesh directly to logical height
   made raised terrain appear to float, even though monsters and overlays were
   numerically aligned with its top surface.
-- **Reusable rule:** Render height `N` as a contiguous column of `N + 1`
-  full-depth blocks. Preserve the established top-surface Y so gameplay,
-  movement arcs, cursor anchors, overlays, and picking remain unchanged.
+- **Reusable rule:** Render height `N` as a contiguous column of `N + 1` exact
+  `1 x 0.5 x 1` blocks. Keep logical heights integer-based, map every level to
+  0.5 world units, and derive movement, cursor, overlay, and picking anchors
+  from the same top-surface query.
 - **Review when:** changing elevation units, tile mesh dimensions, terrain
   deformation, ramps, cliffs, water depth, or map rendering hierarchy.
 

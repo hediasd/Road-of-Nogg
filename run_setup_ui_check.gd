@@ -111,6 +111,32 @@ func _run() -> void:
 	if scene.camera.get_viewport() != scene.retro_renderer.world_viewport:
 		_fail("3D camera is not isolated in the world viewport")
 		return
+	var orbitPress = InputEventMouseButton.new()
+	orbitPress.button_index = MOUSE_BUTTON_MIDDLE
+	orbitPress.pressed = true
+	if not scene.camera.handle_input(orbitPress) or not scene.camera.isDragging():
+		_fail("middle mouse did not acquire camera drag ownership")
+		return
+	var yawBeforeDrag = scene.camera.current_yaw
+	var orbitMotion = InputEventMouseMotion.new()
+	orbitMotion.relative = Vector2(24.0, -8.0)
+	if not scene.camera.handle_input(orbitMotion):
+		_fail("owned camera drag did not consume motion")
+		return
+	if is_equal_approx(scene.camera.current_yaw, yawBeforeDrag):
+		_fail("camera drag still depends on global mouse-button polling")
+		return
+	var orbitRelease = InputEventMouseButton.new()
+	orbitRelease.button_index = MOUSE_BUTTON_MIDDLE
+	orbitRelease.pressed = false
+	scene.camera.handle_input(orbitRelease)
+	var yawAfterRelease = scene.camera.current_yaw
+	if scene.camera.isDragging() or scene.camera.handle_input(orbitMotion):
+		_fail("middle mouse release did not relinquish camera drag ownership")
+		return
+	if not is_equal_approx(scene.camera.current_yaw, yawAfterRelease):
+		_fail("camera continued moving after drag release")
+		return
 	var firstTile = scene.visual_adapter.getTileSurface(Vector2i.ZERO)
 	var retroMaterial = firstTile.material_override as ShaderMaterial
 	var grassColors: Array[Color] = []

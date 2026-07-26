@@ -143,6 +143,8 @@ func _build_setup_ui() -> void:
 
 
 func _show_setup() -> void:
+	if camera:
+		camera.cancelDrag()
 	lifecycle = Lifecycle.SETUP
 	player_state = PlayerState.INACTIVE
 	active_player_id = -1
@@ -374,12 +376,13 @@ func _start_battle(config) -> void:
 	for y in range(size.y):
 		for x in range(size.x):
 			highestTile = maxi(highestTile, sim.state.getHeight(Vector2i(x, y)))
+	var highestWorldElevation = float(highestTile) * GodotVisualAdapterScript.TERRAIN_CELL_HEIGHT
 	camera.focus_point = Vector3(
 		(size.x - 1) * 0.5,
-		float(highestTile) * 0.5,
+		highestWorldElevation * 0.5,
 		(size.y - 1) * 0.5
 	)
-	camera.size = max(size.x, size.y) * 0.95 + float(highestTile) * 0.35
+	camera.size = max(size.x, size.y) * 0.95 + highestWorldElevation * 0.35
 	sim.startBattle()
 	sim.turnManager.startNewRound()
 	turn_timer.start()
@@ -450,6 +453,7 @@ func _advance_battle() -> void:
 
 
 func _finish_battle(winner: int) -> void:
+	camera.cancelDrag()
 	lifecycle = Lifecycle.COMPLETE
 	turn_timer.stop()
 	battle_ui["play_button"].set_pressed_no_signal(false)
@@ -715,10 +719,21 @@ func _update_action_buttons() -> void:
 	battle_ui["end_turn_button"].disabled = active_player_id == -1
 
 
+func _input(event: InputEvent) -> void:
+	# A drag that began over the world keeps owning motion and its release even
+	# when the pointer crosses UI or an animated model moves underneath it.
+	if lifecycle != Lifecycle.BATTLE or not camera or not camera.isDragging():
+		return
+	if camera.handle_input(event, retro_renderer.screen_motion_scale()):
+		get_viewport().set_input_as_handled()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE:
 		return
-	camera.handle_input(event, retro_renderer.screen_motion_scale())
+	if camera.handle_input(event, retro_renderer.screen_motion_scale()):
+		get_viewport().set_input_as_handled()
+		return
 	if active_player_id != -1:
 		if event.is_action_pressed("ui_cancel"):
 			_on_player_cancel()

@@ -129,10 +129,15 @@ the same command boundary.
 `BattleCursorController` owns discrete grid intent for AI turns, movement
 destinations, player selection, and targeting. Player ownership blocks older AI
 events from moving the cursor. Movement snaps to a destination cell; attacks,
-spells, and heals snap to the affected target cell. Each coordinate renders a
-contiguous column of `height + 1` full-depth terrain blocks whose top surface
-remains at logical height plus 0.2. Monsters, overlays, movement arcs, and cursor
-anchors derive world Y from that same state height query.
+spells, and heals snap to the affected target cell. Camera orbit/pan gestures
+acquire explicit ownership on mouse press and retain motion delivery until the
+matching release, independent of moving models or controls under the pointer.
+
+Each coordinate renders a contiguous column of `height + 1` exact
+`1 x 0.5 x 1` terrain blocks. Logical elevation stays integer-based while its
+world-space top surface is `height * 0.5 + 0.25` before terrain-specific visual
+offsets. Monsters, overlays, queued movement arcs, and cursor anchors derive
+world Y from the same presentation surface query.
 
 ## Event and presentation contract
 
@@ -141,8 +146,9 @@ combat, healing, effects, passives, and victory. `IBattleVisualAdapter` connects
 a consumer to that bus. `GodotVisualAdapter` copies position-bearing event data
 into a FIFO visual-action queue, so movement, targeting, attacks, spells, heals,
 defeat, and victory play in event order without blocking the simulation.
-Playback never re-reads a later monster position to start a queued action. Each
-tween has a
+Playback never re-reads a later monster position to start a queued action.
+Movement begins at the model's current rendered transform and animates every
+horizontal and vertical step through a bounded jump arc. Each tween has a
 bounded watchdog recovery, while disposal invalidates callbacks and clears the
 queue. Presentation may lag behind authoritative state but cannot delay or
 rewrite simulation results.

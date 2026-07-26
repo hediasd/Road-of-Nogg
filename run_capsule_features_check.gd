@@ -136,22 +136,26 @@ func _run() -> void:
 		return
 	for layer in range(3):
 		var block = elevatedColumn.get_child(layer) as MeshInstance3D
-		if block == null or not is_equal_approx(block.position.y, float(layer) - 0.3):
+		if block == null or not is_equal_approx(block.position.y, float(layer) * 0.5):
 			_fail("elevated tile column has a gap or misplaced layer")
+			return
+		var blockMesh = block.mesh as BoxMesh
+		if blockMesh == null or not blockMesh.size.is_equal_approx(Vector3(1.0, 0.5, 1.0)):
+			_fail("terrain cell dimensions are not exactly 1 x 0.5 x 1")
 			return
 	var surfaceMesh = elevatedSurface.mesh as BoxMesh
 	if surfaceMesh == null or not is_equal_approx(
 			elevatedSurface.position.y + surfaceMesh.size.y * 0.5,
-			2.2
+			1.25
 	):
 		_fail("elevated tile top surface is misaligned")
 		return
 	adapter.show_player_cursor(Vector2i(1, 0))
-	if not is_equal_approx(adapter._cursor.position.y, 2.21):
+	if not is_equal_approx(adapter._cursor.position.y, 1.265):
 		_fail("elevated cursor is misaligned")
 		return
 	adapter.show_movement_options([Vector2i(1, 0)])
-	if not is_equal_approx(adapter.overlay_node.get_child(0).position.y, 2.215):
+	if not is_equal_approx(adapter.overlay_node.get_child(0).position.y, 1.265):
 		_fail("elevated tactical overlay is misaligned")
 		return
 	var lightGrass = adapter.tileColorFor(Color(0.2, 0.8, 0.2), Vector2i(0, 0), 0)
@@ -176,25 +180,39 @@ func _run() -> void:
 	if adapter.activeAnimationKind() != "move" or adapter.queuedAnimationCount() != 2:
 		_fail("movement, attack, and victory were not serialized in the visual queue")
 		return
-	if not is_equal_approx(adapter._monster_visuals[300].position.x, 0.0):
+	var movementStart: Vector3 = adapter._monster_visuals[300].position
+	if not movementStart.is_equal_approx(Vector3(0.0, 0.25, 0.0)):
 		_fail("queued attack snapped the still-moving model to backend state")
 		return
-	await create_timer(0.23).timeout
+	# Focused SceneTree scripts may not continuously tick bound tweens while
+	# headless, so step the tween explicitly to inspect the in-flight transform.
+	adapter.anim_tween.custom_step(0.12)
+	var movementInFlight: Vector3 = adapter._monster_visuals[300].position
+	if (
+		movementInFlight.x <= movementStart.x or
+		movementInFlight.x >= 1.0 or
+		movementInFlight.y <= movementStart.y
+	):
+		_fail("uphill movement snapped instead of following its jump arc: start=%s in_flight=%s" % [movementStart, movementInFlight])
+		return
+	adapter.anim_tween.custom_step(0.3)
+	await process_frame
 	if adapter.activeAnimationKind() != "bump":
 		_fail("attack animation did not wait for movement completion")
 		return
-	await create_timer(0.35).timeout
+	adapter.anim_tween.custom_step(0.3)
+	await process_frame
 	if adapter.isAnimationBusy() or adapter.queuedAnimationCount() != 0:
 		_fail("visual animation queue did not drain")
 		return
 	var queuedFinal: Vector3 = adapter._monster_visuals[300].position
-	if not is_equal_approx(queuedFinal.x, 1.0) or not is_equal_approx(queuedFinal.y, 2.2):
+	if not is_equal_approx(queuedFinal.x, 1.0) or not is_equal_approx(queuedFinal.y, 1.25):
 		_fail("queued movement read later authoritative position instead of its snapshot")
 		return
 
 	adapter._on_monster_moved(300, [Vector2i(0, 0)])
 	adapter.anim_tween.pause()
-	await create_timer(1.05).timeout
+	await create_timer(1.2).timeout
 	if adapter.isAnimationBusy() or not is_equal_approx(adapter._monster_visuals[300].position.x, 0.0):
 		_fail("visual animation watchdog did not recover a stalled tween")
 		return
@@ -209,7 +227,8 @@ func _run() -> void:
 	if adapter._monster_visuals[301].get_node_or_null("CapsuleShatter") == null:
 		_fail("defeat did not create the capsule shatter effect")
 		return
-	await create_timer(0.45).timeout
+	adapter.anim_tween.custom_step(0.45)
+	await process_frame
 	if adapter.isAnimationBusy() or adapter._monster_visuals.has(301):
 		_fail("defeat animation did not finish and release its visual")
 		return

@@ -1,6 +1,12 @@
 class_name BattleCameraController
 extends Camera3D
 
+enum DragMode {
+	NONE,
+	ORBIT,
+	PAN
+}
+
 var default_yaw: float
 var default_pitch: float
 var default_size: float
@@ -14,6 +20,7 @@ var focus_point: Vector3 = Vector3(8, 0, 4)
 var min_zoom: float = 2.0
 var max_zoom: float = 30.0
 var zoom_step: float = 1.0
+var _dragMode: DragMode = DragMode.NONE
 
 func _ready() -> void:
 	# Calculate initial spherical coords from starting position relative to focus
@@ -35,27 +42,53 @@ func _process(_delta: float) -> void:
 	_update_camera_transform()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	handle_input(event)
-
-
-func handle_input(event: InputEvent, motionScale: Vector2 = Vector2.ONE) -> void:
+func handle_input(event: InputEvent, motionScale: Vector2 = Vector2.ONE) -> bool:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			_zoom_camera(-zoom_step)
+			return true
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
 			_zoom_camera(zoom_step)
+			return true
 		elif event.button_index == MOUSE_BUTTON_MIDDLE and event.pressed and event.double_click:
+			cancelDrag()
 			_reset_camera()
+			return true
+		elif event.button_index == MOUSE_BUTTON_MIDDLE:
+			if event.pressed:
+				_dragMode = DragMode.ORBIT
+			elif _dragMode == DragMode.ORBIT:
+				_dragMode = DragMode.NONE
+			return true
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed:
+				_dragMode = DragMode.PAN
+			elif _dragMode == DragMode.PAN:
+				_dragMode = DragMode.NONE
+			return true
 
 	elif event is InputEventMouseMotion:
 		var scaledRelative = event.relative * motionScale
-		# Middle click orbiting
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+		if _dragMode == DragMode.ORBIT:
 			_pan_camera(scaledRelative)
-		# Right click panning
-		elif Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+			return true
+		elif _dragMode == DragMode.PAN:
 			_pan_focus(scaledRelative)
+			return true
+	return false
+
+
+func isDragging() -> bool:
+	return _dragMode != DragMode.NONE
+
+
+func cancelDrag() -> void:
+	_dragMode = DragMode.NONE
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		cancelDrag()
 
 
 func _update_camera_transform() -> void:

@@ -6,6 +6,7 @@ class_name BattleMeshFactory
 const RETRO_SURFACE_SHADER = preload("res://assets/shaders/retro_surface.gdshader")
 const RETRO_TRANSPARENT_SHADER = preload("res://assets/shaders/retro_surface_transparent.gdshader")
 const RETRO_MATERIAL_META := "road_of_nogg_retro_material"
+const TERRAIN_CELL_SIZE := Vector3(1.0, 0.5, 1.0)
 
 static var vertex_snap_enabled: bool = true
 static var vertex_snap_strength: float = 1.0
@@ -78,7 +79,7 @@ static func createMesh(type: String, color: Color) -> MeshInstance3D:
 			meshInstance.mesh.size = Vector3(0.9, 0.4, 0.9)
 		"terrain_block":
 			meshInstance.mesh = BoxMesh.new()
-			meshInstance.mesh.size = Vector3(0.9, 1.0, 0.9)
+			meshInstance.mesh.size = TERRAIN_CELL_SIZE
 		"plane":
 			meshInstance.mesh = PlaneMesh.new()
 			meshInstance.mesh.size = Vector2(0.9, 0.9)
