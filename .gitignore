@@ -21,6 +21,7 @@ thumbs.db
 
 # Generated diagnostics and test reports
 debug/
+builds/
 godot_final.txt
 test_out.txt
 gut_report.xml
