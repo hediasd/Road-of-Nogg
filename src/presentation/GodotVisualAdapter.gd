@@ -35,6 +35,8 @@ var visualEffects
 var _monster_visuals: Dictionary = {} # monsterID -> MeshInstance3D
 var _position_tweens: Dictionary = {} # monsterID -> Tween
 var _defeat_tweens: Dictionary = {} # monsterID -> Tween
+var _tile_columns: Dictionary = {} # Vector2i -> Node3D
+var _tile_surfaces: Dictionary = {} # Vector2i -> MeshInstance3D
 
 func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = null) -> void:
 	state = _state
@@ -347,25 +349,51 @@ func _accumulate_visual_bounds(
 
 func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
 	_log("=== BATTLE STARTED ===")
-	# Draw the board
+	# Every coordinate owns a full terrain column. Logical height remains the top
+	# surface level; supporting blocks are presentation-only volume beneath it.
 	for y in range(boardSize.y):
 		for x in range(boardSize.x):
 			var coord = Vector2i(x, y)
 			var terrain = state.terrainBoard.at(coord)
-			var color = Color(0.2, 0.8, 0.2) # Grass
+			var baseColor = Color(0.2, 0.8, 0.2) # Grass
+			if terrain == BattleState.TERRAIN_OBSTACLE:
+				baseColor = Color(0.5, 0.3, 0.1)
+			elif terrain == BattleState.TERRAIN_ABYSS:
+				baseColor = Color(0.1, 0.3, 0.8)
+			_add_tile_column(coord, terrain, baseColor)
 
-			if terrain == 1: color = Color(0.5, 0.3, 0.1) # Trees/Obstacle
-			elif terrain == 2: color = Color(0.1, 0.3, 0.8) # Water/Abyss
-			color = tileColorFor(color, coord, terrain)
 
-			var tile = BattleMeshFactoryScript.createMesh("box", color)
-			var pos3d = _coord_to_pos3d(coord)
+func _add_tile_column(coord: Vector2i, terrain: int, baseColor: Color) -> void:
+	var column = Node3D.new()
+	column.name = "TileColumn_%d_%d" % [coord.x, coord.y]
+	column.position = Vector3(coord.x, 0.0, coord.y)
+	grid_node.add_child(column)
+	_tile_columns[coord] = column
 
-			if terrain == 2:
-				pos3d.y -= 0.15 # lower the abyss
+	var logicalHeight = maxi(state.getHeight(coord), 0)
+	var topColor = tileColorFor(baseColor, coord, terrain)
+	var verticalOffset = -0.15 if terrain == BattleState.TERRAIN_ABYSS else 0.0
+	for layer in range(logicalHeight + 1):
+		var blockColor = topColor
+		if layer < logicalHeight:
+			var depth = logicalHeight - layer
+			blockColor = topColor.darkened(minf(0.06 + float(depth) * 0.04, 0.24))
+		var block = BattleMeshFactoryScript.createMesh("terrain_block", blockColor)
+		block.name = "Layer_%d" % layer
+		# A one-unit block centered at layer - 0.3 retains the historical top
+		# surface at logical height + 0.2, so every existing anchor stays valid.
+		block.position = Vector3(0.0, float(layer) - 0.3 + verticalOffset, 0.0)
+		column.add_child(block)
+		if layer == logicalHeight:
+			_tile_surfaces[coord] = block
 
-			tile.position = pos3d
-			grid_node.add_child(tile)
+
+func getTileColumn(coord: Vector2i) -> Node3D:
+	return _tile_columns.get(coord) as Node3D
+
+
+func getTileSurface(coord: Vector2i) -> MeshInstance3D:
+	return _tile_surfaces.get(coord) as MeshInstance3D
 
 
 func _on_battle_ended(winningTeam: int) -> void:
@@ -691,6 +719,8 @@ func dispose() -> void:
 		if is_instance_valid(node):
 			node.queue_free()
 	_monster_visuals.clear()
+	_tile_columns.clear()
+	_tile_surfaces.clear()
 
 
 func apply_global_effect(index: int) -> void:

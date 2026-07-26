@@ -129,8 +129,10 @@ the same command boundary.
 `BattleCursorController` owns discrete grid intent for AI turns, movement
 destinations, player selection, and targeting. Player ownership blocks older AI
 events from moving the cursor. Movement snaps to a destination cell; attacks,
-spells, and heals snap to the affected target cell. Tiles, monsters, overlays,
-and cursor anchors all derive world Y from the same state height query.
+spells, and heals snap to the affected target cell. Each coordinate renders a
+contiguous column of `height + 1` full-depth terrain blocks whose top surface
+remains at logical height plus 0.2. Monsters, overlays, movement arcs, and cursor
+anchors derive world Y from that same state height query.
 
 ## Event and presentation contract
 

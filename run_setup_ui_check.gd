@@ -111,7 +111,7 @@ func _run() -> void:
 	if scene.camera.get_viewport() != scene.retro_renderer.world_viewport:
 		_fail("3D camera is not isolated in the world viewport")
 		return
-	var firstTile = scene.visual_adapter.grid_node.get_child(0) as MeshInstance3D
+	var firstTile = scene.visual_adapter.getTileSurface(Vector2i.ZERO)
 	var retroMaterial = firstTile.material_override as ShaderMaterial
 	var grassColors: Array[Color] = []
 	for y in range(scene.sim.state.boardSize.y):
@@ -119,8 +119,7 @@ func _run() -> void:
 			var coord = Vector2i(x, y)
 			if scene.sim.state.terrainBoard.at(coord) != 0:
 				continue
-			var tileIndex = y * scene.sim.state.boardSize.x + x
-			var grassTile = scene.visual_adapter.grid_node.get_child(tileIndex) as MeshInstance3D
+			var grassTile = scene.visual_adapter.getTileSurface(coord)
 			var grassMaterial = grassTile.material_override as ShaderMaterial
 			var grassColor: Color = grassMaterial.get_shader_parameter("color_a")
 			var alreadyFound = false

@@ -129,8 +129,22 @@ func _run() -> void:
 	adapter._on_battle_started(visualState.boardSize, [300, 301])
 	adapter._on_monster_spawned(300, visualMonster.name, 1, Vector2i(0, 0), {})
 	adapter._on_monster_spawned(301, visualTarget.name, 2, Vector2i(2, 0), {})
-	if not is_equal_approx(adapter.grid_node.get_child(1).position.y, 2.0):
-		_fail("elevated tile visual is misaligned")
+	var elevatedColumn = adapter.getTileColumn(Vector2i(1, 0))
+	var elevatedSurface = adapter.getTileSurface(Vector2i(1, 0))
+	if elevatedColumn == null or elevatedColumn.get_child_count() != 3:
+		_fail("height-2 tile did not render as a three-block column")
+		return
+	for layer in range(3):
+		var block = elevatedColumn.get_child(layer) as MeshInstance3D
+		if block == null or not is_equal_approx(block.position.y, float(layer) - 0.3):
+			_fail("elevated tile column has a gap or misplaced layer")
+			return
+	var surfaceMesh = elevatedSurface.mesh as BoxMesh
+	if surfaceMesh == null or not is_equal_approx(
+			elevatedSurface.position.y + surfaceMesh.size.y * 0.5,
+			2.2
+	):
+		_fail("elevated tile top surface is misaligned")
 		return
 	adapter.show_player_cursor(Vector2i(1, 0))
 	if not is_equal_approx(adapter._cursor.position.y, 2.21):

@@ -15,6 +15,7 @@ not a session log, policy copy, or backlog.
 | Godot/GUT execution on Windows | Test and process behavior |
 | Cursor ownership or tile intent | Cursor event semantics |
 | Presentation event sequencing or animation cancellation | Visual action playback |
+| Elevation rendering or map geometry | Elevation presentation |
 | SubViewports, render scaling, shaders, or picking | Render isolation |
 
 When adding a learning, include the verified observation, the reusable rule,
@@ -163,6 +164,19 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   completion callback plus a watchdog, and invalidate both on adapter disposal.
 - **Review when:** adding a visual event, changing action timing, accelerating
   simulation playback, replay visualization, or implementing skip/fast-forward.
+
+## Elevation presentation
+
+### A logical surface needs visible supporting volume
+
+- **Verified observation:** Moving one thin tile mesh directly to logical height
+  made raised terrain appear to float, even though monsters and overlays were
+  numerically aligned with its top surface.
+- **Reusable rule:** Render height `N` as a contiguous column of `N + 1`
+  full-depth blocks. Preserve the established top-surface Y so gameplay,
+  movement arcs, cursor anchors, overlays, and picking remain unchanged.
+- **Review when:** changing elevation units, tile mesh dimensions, terrain
+  deformation, ramps, cliffs, water depth, or map rendering hierarchy.
 
 ## Render isolation
 

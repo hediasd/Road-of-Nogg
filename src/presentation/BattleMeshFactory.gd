@@ -76,6 +76,9 @@ static func createMesh(type: String, color: Color) -> MeshInstance3D:
 		"box":
 			meshInstance.mesh = BoxMesh.new()
 			meshInstance.mesh.size = Vector3(0.9, 0.4, 0.9)
+		"terrain_block":
+			meshInstance.mesh = BoxMesh.new()
+			meshInstance.mesh.size = Vector3(0.9, 1.0, 0.9)
 		"plane":
 			meshInstance.mesh = PlaneMesh.new()
 			meshInstance.mesh.size = Vector2(0.9, 0.9)
