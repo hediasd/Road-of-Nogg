@@ -245,6 +245,14 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 		bodyVisual = _buildPlaceholderBody(mat)
 	container.add_child(bodyVisual)
 	BattleMeshFactoryScript.prepareNodeMaterials(bodyVisual)
+	if m and m.elements.size() >= 2:
+		var splitBounds = {"has_bounds": false, "bounds": AABB()}
+		_accumulate_visual_bounds(bodyVisual, Transform3D.IDENTITY, splitBounds)
+		if splitBounds["has_bounds"]:
+			BattleMeshFactoryScript.configureSplitBounds(
+				bodyVisual,
+				splitBounds["bounds"]
+			)
 	_add_selection_body(container, monsterID)
 
 	monsters_node.add_child(container)

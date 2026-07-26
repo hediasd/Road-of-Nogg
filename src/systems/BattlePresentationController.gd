@@ -98,6 +98,7 @@ func _build_battle_ui() -> void:
 		"new_battle_pressed": Callable(self, "_on_new_battle_pressed"),
 		"screenshot_pressed": Callable(self, "_on_screenshot_pressed"),
 		"dump_state_pressed": Callable(self, "_on_dump_state_pressed"),
+		"graphics_reset_pressed": Callable(self, "_on_graphics_reset_pressed"),
 		"graphics_preset_selected": Callable(self, "_on_battle_rendering_preset_selected"),
 		"graphics_feature_selected": Callable(self, "_on_battle_rendering_feature_selected"),
 		"look_parameter_changed": Callable(self, "_on_look_parameter_changed"),
@@ -252,6 +253,11 @@ func _on_rendering_feature_selected(_index: int) -> void:
 		geometry.get_item_metadata(geometry.selected) == "jitter",
 		upscale.get_item_metadata(upscale.selected) == "nearest"
 	)
+	_sync_rendering_options()
+
+
+func _on_graphics_reset_pressed() -> void:
+	retro_renderer.reset_defaults()
 	_sync_rendering_options()
 
 

@@ -40,6 +40,11 @@ static func build(
 	title.add_theme_font_size_override("font_size", 20)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
+	var resetButton = Button.new()
+	resetButton.text = "Reset"
+	resetButton.tooltip_text = "Restore every graphics setting to its default value."
+	resetButton.pressed.connect(callbacks["reset_pressed"])
+	header.add_child(resetButton)
 	var closeButton = Button.new()
 	closeButton.text = "Close"
 	closeButton.pressed.connect(func(): toggleButton.button_pressed = false)

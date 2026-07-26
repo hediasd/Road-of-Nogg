@@ -115,6 +115,27 @@ func _build_render_target() -> void:
 	host.get_viewport().size_changed.connect(_on_main_viewport_size_changed)
 
 
+func reset_defaults(persist: bool = true) -> void:
+	render_scale = 1.0
+	vertex_snap_strength = 1.0
+	brightness = 1.0
+	contrast = 1.0
+	saturation = 1.0
+	color_levels = 0.0
+	dither_strength = 0.0
+	crt_scanline_strength = 0.22
+	crt_scanline_size = 1.0
+	crt_mask_strength = 0.1
+	crt_mask_size = 1.0
+	crt_vignette_strength = 0.2
+	crt_flicker_strength = 0.02
+	crt_color_bleed = 0.8
+	crt_noise_strength = 0.03
+	crt_glow_strength = 0.1
+	_apply_preset_values(PRESET_PS1_SOFT)
+	_apply_settings(persist)
+
+
 func set_preset(preset: String, persist: bool = true) -> void:
 	if not _apply_preset_values(preset):
 		push_warning("Unknown rendering preset '%s'; using PS1 Soft." % preset)

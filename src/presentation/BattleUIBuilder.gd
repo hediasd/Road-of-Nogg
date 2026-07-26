@@ -105,6 +105,7 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		canvas,
 		graphicsButton,
 		{
+			"reset_pressed": callbacks["graphics_reset_pressed"],
 			"preset_selected": callbacks["graphics_preset_selected"],
 			"feature_selected": callbacks["graphics_feature_selected"],
 			"look_parameter_changed": callbacks["look_parameter_changed"],

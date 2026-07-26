@@ -151,6 +151,12 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   aspect-preserving display rectangle. Forward camera input deliberately and
   query physics through the isolated world root. A shader that writes
   POSITION must assign a valid clip-space value on every path.
+- **Verified observation:** Per-mesh vertex coordinates restart for every part
+  of a procedural model, so a local-coordinate color split repeats separately
+  across the head, stem, collar, and base.
+- **Reusable rule:** Multi-part visual effects that represent one model must use
+  a shared model-space transform and shared complete-model bounds. Per-instance
+  shader transforms preserve that space while materials remain shared.
 - **Verified observation:** Affine UV interpolation has no visible result on
   flat-colored geometry under an orthographic camera because there is neither
   textured UV detail nor perspective depth to distort.

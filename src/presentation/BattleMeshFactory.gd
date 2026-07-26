@@ -114,10 +114,86 @@ static func createMesh(type: String, color: Color) -> MeshInstance3D:
 
 
 static func prepareNodeMaterials(node: Node) -> void:
+	_prepareNodeMaterialsRecursive(node, Transform3D.IDENTITY, true)
+
+
+static func configureSplitBounds(node: Node, bounds: AABB) -> void:
+	var safeSize = Vector2(maxf(bounds.size.x, 0.0001), maxf(bounds.size.y, 0.0001))
+	_configureSplitBoundsRecursive(node, Vector2(bounds.position.x, bounds.position.y), safeSize)
+
+
+static func _prepareNodeMaterialsRecursive(
+		node: Node,
+		parentTransform: Transform3D,
+		isRoot: bool = false) -> void:
+	var modelTransform = parentTransform
+	if node is Node3D and not isRoot:
+		modelTransform = parentTransform * node.transform
 	if node is MeshInstance3D:
 		_prepareMeshMaterials(node)
+		_setSplitInstanceTransform(node, modelTransform)
 	for child in node.get_children():
-		prepareNodeMaterials(child)
+		_prepareNodeMaterialsRecursive(child, modelTransform)
+
+
+static func _setSplitInstanceTransform(
+		meshInstance: MeshInstance3D,
+		modelTransform: Transform3D) -> void:
+	if not _meshUsesRetroMaterial(meshInstance):
+		return
+	meshInstance.set_instance_shader_parameter("split_model_origin", modelTransform.origin)
+	meshInstance.set_instance_shader_parameter("split_model_basis_x", modelTransform.basis.x)
+	meshInstance.set_instance_shader_parameter("split_model_basis_y", modelTransform.basis.y)
+	meshInstance.set_instance_shader_parameter("split_model_basis_z", modelTransform.basis.z)
+
+
+static func _meshUsesRetroMaterial(meshInstance: MeshInstance3D) -> bool:
+	if (
+		meshInstance.material_override is ShaderMaterial and
+		meshInstance.material_override.has_meta(RETRO_MATERIAL_META)
+	):
+		return true
+	if meshInstance.mesh == null:
+		return false
+	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
+		var material = meshInstance.get_surface_override_material(surfaceIndex)
+		if material is ShaderMaterial and material.has_meta(RETRO_MATERIAL_META):
+			return true
+	return false
+
+
+static func _configureSplitBoundsRecursive(
+		node: Node,
+		boundsMin: Vector2,
+		boundsSize: Vector2) -> void:
+	if node is MeshInstance3D:
+		_configureSplitBoundsForMesh(node, boundsMin, boundsSize)
+	for child in node.get_children():
+		_configureSplitBoundsRecursive(child, boundsMin, boundsSize)
+
+
+static func _configureSplitBoundsForMesh(
+		meshInstance: MeshInstance3D,
+		boundsMin: Vector2,
+		boundsSize: Vector2) -> void:
+	if meshInstance.material_override is ShaderMaterial:
+		_setSplitBoundsOnMaterial(meshInstance.material_override, boundsMin, boundsSize)
+	if meshInstance.mesh == null:
+		return
+	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
+		var material = meshInstance.get_surface_override_material(surfaceIndex)
+		if material is ShaderMaterial:
+			_setSplitBoundsOnMaterial(material, boundsMin, boundsSize)
+
+
+static func _setSplitBoundsOnMaterial(
+		material: ShaderMaterial,
+		boundsMin: Vector2,
+		boundsSize: Vector2) -> void:
+	if not material.has_meta(RETRO_MATERIAL_META):
+		return
+	material.set_shader_parameter("split_bounds_min", boundsMin)
+	material.set_shader_parameter("split_bounds_size", boundsSize)
 
 
 static func updateMaterialsRecursive(node: Node) -> void:

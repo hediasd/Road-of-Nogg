@@ -75,6 +75,33 @@ func _run() -> void:
 	if scene.visual_adapter._monster_visuals.size() != 8:
 		_fail("monster visuals were not loaded after confirmation")
 		return
+	var dualElementID = -1
+	for monsterID in scene.sim.state.getAliveMonsterIDs():
+		if scene.sim.state.getMonster(monsterID).elements.size() >= 2:
+			dualElementID = monsterID
+			break
+	if dualElementID == -1:
+		_fail("default battle has no dual-element visual fixture")
+		return
+	var dualVisual: Node3D = scene.visual_adapter._monster_visuals[dualElementID]
+	var dualBody = dualVisual.get_child(1) as Node3D
+	var splitMeshes = dualBody.find_children("*", "MeshInstance3D", true, false)
+	var minimumSplitY = INF
+	var maximumSplitY = -INF
+	for splitMesh in splitMeshes:
+		var splitOrigin = splitMesh.get_instance_shader_parameter("split_model_origin")
+		if splitOrigin is Vector3:
+			minimumSplitY = minf(minimumSplitY, splitOrigin.y)
+			maximumSplitY = maxf(maximumSplitY, splitOrigin.y)
+	if maximumSplitY - minimumSplitY < 0.5:
+		_fail("dual-element components do not share whole-model coordinates")
+		return
+	var firstSplitMesh = splitMeshes[0] as MeshInstance3D
+	var splitMaterial = firstSplitMesh.material_override as ShaderMaterial
+	var splitBoundsSize = splitMaterial.get_shader_parameter("split_bounds_size")
+	if not splitBoundsSize is Vector2 or splitBoundsSize.y < 1.0:
+		_fail("dual-element shader does not use the complete model bounds")
+		return
 	if scene.camera.get_viewport() != scene.retro_renderer.world_viewport:
 		_fail("3D camera is not isolated in the world viewport")
 		return
@@ -154,6 +181,17 @@ func _run() -> void:
 		0.12
 	):
 		_fail("expanded CRT tuning did not reach the live display material")
+		return
+	scene.retro_renderer.reset_defaults(false)
+	scene._sync_rendering_options()
+	if scene.retro_renderer.render_preset != scene.retro_renderer.PRESET_PS1_SOFT:
+		_fail("graphics reset did not restore the default look")
+		return
+	if not is_equal_approx(scene.retro_renderer.brightness, 1.0):
+		_fail("graphics reset did not restore general tuning defaults")
+		return
+	if not is_equal_approx(scene.retro_renderer.crt_noise_strength, 0.03):
+		_fail("graphics reset did not restore CRT tuning defaults")
 		return
 	scene.battle_ui["graphics_button"].button_pressed = false
 	await process_frame
