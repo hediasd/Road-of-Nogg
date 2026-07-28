@@ -44,66 +44,16 @@ checks — this is the single largest avoidable cost in a session.
 # P5-2 — Split the two oversized presentation files
 
 `src/systems/BattlePresentationController.gd` (876 lines) and
-`src/presentation/GodotVisualAdapter.gd` (793) are where new features keep
-landing. Do this **before P4-2**, which adds resonance rendering to exactly
-these two files.
+`src/presentation/GodotVisualAdapter.gd` (724, down from 793 after P5-2a) are
+where new features keep landing. Do this **before P4-2**, which adds resonance
+rendering to exactly these two files.
 
-## P5-2a — Wire the extracted visual-action queue — IN PROGRESS
+## P5-2a — DONE 2026-07-28
 
-`src/presentation/VisualActionQueue.gd` **already exists** (written 2026-07-28)
-and is complete, but `GodotVisualAdapter` has not been changed to use it yet.
-The adapter still holds its own copy of the queue logic. This item is only the
-wiring.
-
-**Fix:** In `GodotVisualAdapter`, replace the inlined queue with an owned
-`VisualActionQueue`, constructed with four callables:
-
-| Constructor argument | Adapter method to pass |
-|---|---|
-| `startAction` | `_start_queued_animation` |
-| `finalizeAction` | `_finalize_animation` |
-| `recoverState` | `_synchronize_visual_occupancy` |
-| `treeProvider` | a small lambda returning `root_node.get_tree()` when `root_node` is valid, else `null` |
-
-Then delete from the adapter: `MAX_QUEUED_ANIMATIONS`,
-`ANIMATION_WATCHDOG_MARGIN`, `anim_queue`, `is_animating`, `anim_tween`,
-`_active_animation`, `_animation_serial`, `_enqueue_animation`,
-`_start_next_animation`, `_activate_tween`, `_complete_active_animation`, and
-`_recover_animation_queue`.
-
-Redirect the survivors:
-
-- `_enqueue_animation(action)` call sites → `_queue.enqueue(action)`
-- `_activate_tween(tween, action, d)` inside `_start_move_animation`,
-  `_start_bump_animation`, `_start_defeat_animation` → `_queue.activate(...)`
-- `isAnimationBusy()` → `_queue.isBusy()`
-- `activeAnimationKind()` → `_queue.activeActionKind()`
-- `queuedAnimationCount()` → `_queue.queuedCount()`
-- `dispose()` → call `_queue.dispose()` in place of the queue-clearing lines,
-  keeping every other line of `dispose()` as it is
-- `_disposed` stays on the adapter **only** if something outside the queue reads
-  it; check before deleting it
-
-The `animation_queue_drained` signal must keep working. Re-emit it from the
-adapter by connecting `VisualActionQueue.drained` in `_init`, so external
-listeners are unaffected.
-
-**Do not change any behaviour.** The queue class was written to preserve every
-invariant exactly: single active action, exactly-once completion via the serial
-guard, watchdog recovery, overflow recovery, and no scheduling after disposal.
-
-**Files:** `src/presentation/GodotVisualAdapter.gd`
-
-**Verify:** `unit` and `integration` must stay green. `scene` is the tier that
-would actually exercise this and is unreliable on this host — run it, and treat
-a red result as inconclusive rather than as proof either way. Then launch a real
-battle and confirm movement, attacks, spell casts, and defeats all animate.
-
-**Risk:** Medium. Cross-layer, and the tier that would catch a regression is the
-unreliable one. Manual confirmation in a real battle is not optional here.
-
-**Model:** Sonnet 5. The architectural decision is already made and the class is
-already written; this is a mechanical redirection against a stated end state.
+See [`docs/AUDIT_COMPLETED.md`](./docs/AUDIT_COMPLETED.md) § Phase 5. One item
+remains outstanding from this entry: manual in-game confirmation that
+movement, attacks, spell casts, and defeats still animate in a real battle —
+no native GUI automation was available this session to perform it.
 
 ## P5-2b — Extract the player-turn state machine
 

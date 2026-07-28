@@ -109,6 +109,27 @@ Decisions were taken against the proposals in
   than a flat bonus; `inflicts_status` weights by
   `duration * (damagePerTurn + 2)` instead of a flat `+10`. Verified by a
   regression test that picks the *weaker* buff when the scoring call is removed.
+- **P5-2a** — DONE 2026-07-28. `GodotVisualAdapter` now owns a `VisualActionQueue`
+  (constructed with `_start_queued_animation`, `_finalize_animation`,
+  `_synchronize_visual_occupancy`, and a tree-provider lambda) instead of its own
+  inlined queue. Deleted `MAX_QUEUED_ANIMATIONS`, `ANIMATION_WATCHDOG_MARGIN`,
+  `anim_queue`, `is_animating`, `anim_tween`, `_active_animation`,
+  `_animation_serial`, `_enqueue_animation`, `_start_next_animation`,
+  `_activate_tween`, `_complete_active_animation`, `_recover_animation_queue`,
+  and `_disposed` (nothing outside the deleted methods read it). `dispose()`
+  now delegates queue teardown to `_queue.dispose()`. `animation_queue_drained`
+  is re-emitted from a `_queue.drained` connection made in `_init`.
+  `tests/scene/test_capsule_features.gd` updated to reach the active tween via
+  `adapter._queue._tween` instead of the deleted `adapter.anim_tween`. `unit`
+  (18/18) and `integration` (16/16) green. `scene` hit the pre-existing Windows
+  output-capture defect (`BACKLOG_LONGTERM.md`) — inconclusive on this host, not
+  a new failure; corroborated instead by a full diff review confirming every
+  invariant (single active action, exactly-once completion via the serial guard,
+  watchdog recovery, overflow recovery, no scheduling after disposal) carried
+  over unchanged. **Manual in-game confirmation (movement/attack/spell/defeat
+  animating in a real battle) was not performed** — this session had no native
+  GUI automation available for the Windows Godot binary. Flagged to Henri as
+  outstanding; worth a quick manual check before relying on this further.
 
 ---
 

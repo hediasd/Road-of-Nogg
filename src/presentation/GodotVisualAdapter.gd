@@ -11,8 +11,7 @@ const BattleCursorControllerScript = preload("res://src/presentation/BattleCurso
 const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
 const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcons.gd")
 const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
-const MAX_QUEUED_ANIMATIONS := 4096
-const ANIMATION_WATCHDOG_MARGIN := 0.75
+const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
 const TERRAIN_CELL_HEIGHT := BattleMeshFactoryScript.TERRAIN_CELL_SIZE.y
 const TERRAIN_SURFACE_OFFSET := TERRAIN_CELL_HEIGHT * 0.5
 const ABYSS_VERTICAL_OFFSET := -0.15
@@ -32,12 +31,7 @@ var overlay_node: Node3D
 var _cursor: MeshInstance3D
 var _cursor_controller: BattleCursorController
 
-var anim_queue: Array = []
-var is_animating: bool = false
-var anim_tween: Tween
-var _active_animation: Dictionary = {}
-var _animation_serial: int = 0
-var _disposed: bool = false
+var _queue: VisualActionQueue
 
 var visualEffects
 
@@ -68,6 +62,14 @@ func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = nul
 	_cursor = BattleMeshFactoryScript.createMesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
 	visual_parent.add_child(_cursor)
 	_cursor_controller = BattleCursorControllerScript.new(_cursor, _surface_y)
+
+	_queue = VisualActionQueueScript.new(
+		_start_queued_animation,
+		_finalize_animation,
+		_synchronize_visual_occupancy,
+		func(): return root_node.get_tree() if is_instance_valid(root_node) else null
+	)
+	_queue.drained.connect(func(): animation_queue_drained.emit())
 
 
 func _log(text: String) -> void:
@@ -132,35 +134,15 @@ func _on_position_tween_finished(monsterID: int, tween: Tween) -> void:
 
 
 func isAnimationBusy() -> bool:
-	return is_animating or not anim_queue.is_empty()
+	return _queue.isBusy()
 
 
 func activeAnimationKind() -> String:
-	return str(_active_animation.get("kind", ""))
+	return _queue.activeActionKind()
 
 
 func queuedAnimationCount() -> int:
-	return anim_queue.size()
-
-
-func _enqueue_animation(action: Dictionary) -> void:
-	if _disposed:
-		return
-	if anim_queue.size() >= MAX_QUEUED_ANIMATIONS:
-		push_error("Visual animation queue overflow; recovering to authoritative positions.")
-		_recover_animation_queue()
-	anim_queue.append(action.duplicate(true))
-	_start_next_animation()
-
-
-func _start_next_animation() -> void:
-	if _disposed or is_animating:
-		return
-	while not anim_queue.is_empty():
-		var action: Dictionary = anim_queue.pop_front()
-		if _start_queued_animation(action):
-			return
-	animation_queue_drained.emit()
+	return _queue.queuedCount()
 
 
 func _start_queued_animation(action: Dictionary) -> bool:
@@ -182,36 +164,6 @@ func _start_queued_animation(action: Dictionary) -> bool:
 	return false
 
 
-func _activate_tween(tween: Tween, action: Dictionary, duration: float) -> void:
-	is_animating = true
-	anim_tween = tween
-	_active_animation = action
-	_animation_serial += 1
-	var serial = _animation_serial
-	tween.finished.connect(_complete_active_animation.bind(serial, false), CONNECT_ONE_SHOT)
-	var tree = root_node.get_tree() if is_instance_valid(root_node) else null
-	if tree:
-		tree.create_timer(duration + ANIMATION_WATCHDOG_MARGIN).timeout.connect(
-			_complete_active_animation.bind(serial, true),
-			CONNECT_ONE_SHOT
-		)
-
-
-func _complete_active_animation(serial: int, timedOut: bool) -> void:
-	if _disposed or not is_animating or serial != _animation_serial:
-		return
-	var completedAction = _active_animation
-	if timedOut:
-		push_warning("Visual animation watchdog recovered a stalled %s action." % completedAction.get("kind", "unknown"))
-		if anim_tween != null and anim_tween.is_valid():
-			anim_tween.kill()
-	_finalize_animation(completedAction)
-	is_animating = false
-	anim_tween = null
-	_active_animation = {}
-	call_deferred("_start_next_animation")
-
-
 func _finalize_animation(action: Dictionary) -> void:
 	var monsterID = int(action.get("monster_id", -1))
 	var kind = str(action.get("kind", ""))
@@ -231,20 +183,6 @@ func _finalize_animation(action: Dictionary) -> void:
 			_monster_visuals.erase(monsterID)
 			container.queue_free()
 	_position_tweens.erase(monsterID)
-
-
-func _recover_animation_queue() -> void:
-	_animation_serial += 1
-	var interruptedAction = _active_animation
-	if anim_tween != null and anim_tween.is_valid():
-		anim_tween.kill()
-	if not interruptedAction.is_empty():
-		_finalize_animation(interruptedAction)
-	anim_queue.clear()
-	is_animating = false
-	anim_tween = null
-	_active_animation = {}
-	_synchronize_visual_occupancy()
 
 
 func _present_queued_message(action: Dictionary) -> void:
@@ -435,7 +373,7 @@ func getTileSurface(coord: Vector2i) -> MeshInstance3D:
 
 
 func _on_battle_ended(winningTeam: int) -> void:
-	_enqueue_animation({
+	_queue.enqueue({
 		"kind": "message",
 		"right_text": "BATTLE COMPLETE\nTeam %d wins.\nChoose New Battle to return to setup." % winningTeam,
 		"log_text": "=== TEAM %d WINS ===" % winningTeam
@@ -506,7 +444,7 @@ func _on_turn_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> vo
 	var monster = state.getMonster(monsterID)
 	if monster:
 		var turnPos = monster.position
-		_enqueue_animation({
+		_queue.enqueue({
 			"kind": "message",
 			"coord": turnPos,
 			"cursor_mode": "turn",
@@ -518,7 +456,7 @@ func _on_turn_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> vo
 
 func _on_movement_targeted(monsterID: int, destination: Vector2i) -> void:
 	if state.currentMonsterID == monsterID and state.withinBounds(destination):
-		_enqueue_animation({
+		_queue.enqueue({
 			"kind": "focus",
 			"coord": destination,
 			"cursor_mode": "movement"
@@ -528,7 +466,7 @@ func _on_movement_targeted(monsterID: int, destination: Vector2i) -> void:
 func _on_monster_moved(monsterID: int, path: Array) -> void:
 	if not _monster_visuals.has(monsterID) or path.is_empty():
 		return
-	_enqueue_animation({
+	_queue.enqueue({
 		"kind": "move",
 		"monster_id": monsterID,
 		"path": path.duplicate(),
@@ -541,13 +479,13 @@ func _on_action_targeted(monsterID: int, targetID: int, _action: String) -> void
 	if state.currentMonsterID == monsterID:
 		var targetPos = state.getMonsterPosition(targetID)
 		if state.withinBounds(targetPos):
-			_enqueue_animation({"kind": "focus", "coord": targetPos})
+			_queue.enqueue({"kind": "focus", "coord": targetPos})
 
 
 func _on_monster_attacked(attackerID: int, targetID: int, damage: int, targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
 	if target:
-		_enqueue_animation({
+		_queue.enqueue({
 			"kind": "bump",
 			"monster_id": attackerID,
 			"target_id": targetID,
@@ -567,7 +505,7 @@ func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, dam
 	if not damageLines.is_empty():
 		spellElement = str(damageLines[0].get("element", "none"))
 	if target:
-		_enqueue_animation({
+		_queue.enqueue({
 			"kind": "bump",
 			"monster_id": casterID,
 			"target_id": targetID,
@@ -581,7 +519,7 @@ func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, dam
 func _on_monster_healed(_healerID: int, targetID: int, spellName: String, healAmount: int, targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
 	if target:
-		_enqueue_animation({
+		_queue.enqueue({
 			"kind": "message",
 			"coord": state.getMonsterPosition(targetID),
 			"right_text": "HEAL TARGET:\n%s\nRecovers %s HP from %s\nHP: %s" % [
@@ -599,7 +537,7 @@ func _focus_cursor_on_coord(targetPos: Vector2i) -> void:
 func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 	var monster = state.getMonster(monsterID)
 	var displayName = monster.name if monster else "Monster #%d" % monsterID
-	_enqueue_animation({
+	_queue.enqueue({
 		"kind": "defeat",
 		"monster_id": monsterID,
 		"killer_id": killerID,
@@ -634,7 +572,7 @@ func _start_move_animation(action: Dictionary) -> bool:
 		).set_ease(Tween.EASE_IN)
 		visualStart = targetPos
 		totalDuration += stepDuration
-	_activate_tween(tween, action, totalDuration)
+	_queue.activate(tween, action, totalDuration)
 	return true
 
 
@@ -653,7 +591,7 @@ func _start_defeat_animation(action: Dictionary) -> bool:
 	tween.tween_property(body, "scale", Vector3.ZERO, 0.38).set_trans(Tween.TRANS_BACK)
 	tween.tween_property(body, "position", capsuleTarget, 0.38).set_trans(Tween.TRANS_QUAD)
 	_spawn_capsule_shatter(container, baseMesh)
-	_activate_tween(tween, action, 0.38)
+	_queue.activate(tween, action, 0.38)
 	return true
 
 func _disable_selection_collision(container: Node3D) -> void:
@@ -712,7 +650,7 @@ func _start_bump_animation(action: Dictionary) -> bool:
 	_track_position_tween(sourceID, tween)
 	tween.tween_property(sourceVisual, "position", bumpPos, 0.1)
 	tween.tween_property(sourceVisual, "position", originalPos, 0.15)
-	_activate_tween(tween, action, 0.25)
+	_queue.activate(tween, action, 0.25)
 	return true
 
 func highlight_monster(monster_id: int) -> void:
@@ -765,14 +703,7 @@ func _add_overlay(coord: Vector2i, color: Color) -> void:
 
 
 func dispose() -> void:
-	_disposed = true
-	_animation_serial += 1
-	anim_queue.clear()
-	is_animating = false
-	_active_animation = {}
-	if anim_tween != null and anim_tween.is_valid():
-		anim_tween.kill()
-	anim_tween = null
+	_queue.dispose()
 	disconnectFromEvents()
 	for monsterID in _position_tweens.keys():
 		_stop_position_tween(monsterID)

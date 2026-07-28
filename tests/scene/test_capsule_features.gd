@@ -203,7 +203,7 @@ func run() -> void:
 		return
 	# Focused SceneTree scripts may not continuously tick bound tweens while
 	# headless, so step the tween explicitly to inspect the in-flight transform.
-	adapter.anim_tween.custom_step(0.12)
+	adapter._queue._tween.custom_step(0.12)
 	var movementInFlight: Vector3 = adapter._monster_visuals[300].position
 	if (
 		movementInFlight.x <= movementStart.x or
@@ -212,12 +212,12 @@ func run() -> void:
 	):
 		fail("uphill movement snapped instead of following its jump arc: start=%s in_flight=%s" % [movementStart, movementInFlight])
 		return
-	adapter.anim_tween.custom_step(0.3)
+	adapter._queue._tween.custom_step(0.3)
 	await nextFrame()
 	if adapter.activeAnimationKind() != "bump":
 		fail("attack animation did not wait for movement completion")
 		return
-	adapter.anim_tween.custom_step(0.3)
+	adapter._queue._tween.custom_step(0.3)
 	await nextFrame()
 	if adapter.isAnimationBusy() or adapter.queuedAnimationCount() != 0:
 		fail("visual animation queue did not drain")
@@ -228,7 +228,7 @@ func run() -> void:
 		return
 
 	adapter._on_monster_moved(300, [Vector2i(0, 0)])
-	adapter.anim_tween.pause()
+	adapter._queue._tween.pause()
 	await waitSeconds(1.2)
 	if adapter.isAnimationBusy() or not is_equal_approx(adapter._monster_visuals[300].position.x, 0.0):
 		fail("visual animation watchdog did not recover a stalled tween")
@@ -244,7 +244,7 @@ func run() -> void:
 	if adapter._monster_visuals[301].get_node_or_null("CapsuleShatter") == null:
 		fail("defeat did not create the capsule shatter effect")
 		return
-	adapter.anim_tween.custom_step(0.45)
+	adapter._queue._tween.custom_step(0.45)
 	await nextFrame()
 	if adapter.isAnimationBusy() or adapter._monster_visuals.has(301):
 		fail("defeat animation did not finish and release its visual")
