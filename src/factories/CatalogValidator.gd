@@ -121,3 +121,63 @@ static func _validateSpellCompatibility(monsterName: String, elements: Array, sp
 	for element in required:
 		if not elements.has(element):
 			errors.append("monster %s cannot cast %s because it lacks %s." % [monsterName, spell.get("NAME", ""), element])
+
+
+## --- Archetype stat bands (item 2.3) -----------------------------------------
+##
+## Deliberately NOT part of validateMonsters(), and therefore not part of
+## MonsterReferences.validateAll(). Those answer "is this data referentially
+## correct" — does this race exist, can this monster actually cast the spells it
+## owns. Those are facts. Stat bands are balance heuristics with headroom and
+## taste baked in, and folding them into the same gate would mean a deliberate
+## balance experiment fails identically to a typo, and that the runtime catalog
+## check starts enforcing opinion. Kept separate so the two can evolve — and be
+## overridden — independently.
+static func validateArchetypeBands(monsterList: Array) -> Dictionary:
+	## Returns {"success": bool, "errors": Array[String], "warnings": Array[String]}.
+	## Errors are out-of-band stats. Warnings are stats sitting exactly ON a bound,
+	## i.e. content with no headroom left in that direction.
+	var errors: Array[String] = []
+	var warnings: Array[String] = []
+	for reference in monsterList:
+		_validateOneBand(reference, errors, warnings)
+	return {"success": errors.is_empty(), "errors": errors, "warnings": warnings}
+
+
+static func _validateOneBand(reference: Dictionary, errors: Array[String], warnings: Array[String]) -> void:
+	var name := str(reference.get("NAME", ""))
+	var archetype := str(reference.get("ARCHETYPE", ""))
+	## A missing or unknown archetype is validateMonsters()'s error to report,
+	## not this one's — reporting it twice would double-count the same defect.
+	if not ArchetypeReferencesScript.hasReference(archetype):
+		return
+	var band: Dictionary = ArchetypeReferencesScript.getReference(archetype)
+
+	var attack := int(reference.get("ATK", 0))
+	var defense := int(reference.get("DEF", 0))
+	var spread := attack - defense
+
+	_checkFloor(name, archetype, band, "SPREAD_MIN", spread, "ATK-DEF spread", errors, warnings)
+	_checkCeiling(name, archetype, band, "SPREAD_MAX", spread, "ATK-DEF spread", errors, warnings)
+	_checkFloor(name, archetype, band, "DEF_MIN", defense, "DEF", errors, warnings)
+	_checkFloor(name, archetype, band, "SPD_MIN", int(reference.get("SPD", 0)), "SPD", errors, warnings)
+
+
+static func _checkFloor(name: String, archetype: String, band: Dictionary, key: String, actual: int, label: String, errors: Array[String], warnings: Array[String]) -> void:
+	if not band.has(key):
+		return
+	var floorValue := int(band[key])
+	if actual < floorValue:
+		errors.append("%s is a %s but its %s is %d, under the %d floor." % [name, archetype, label, actual, floorValue])
+	elif actual == floorValue:
+		warnings.append("%s sits exactly on the %s %s floor (%d)." % [name, archetype, label, floorValue])
+
+
+static func _checkCeiling(name: String, archetype: String, band: Dictionary, key: String, actual: int, label: String, errors: Array[String], warnings: Array[String]) -> void:
+	if not band.has(key):
+		return
+	var ceilingValue := int(band[key])
+	if actual > ceilingValue:
+		errors.append("%s is a %s but its %s is %d, over the %d ceiling." % [name, archetype, label, actual, ceilingValue])
+	elif actual == ceilingValue:
+		warnings.append("%s sits exactly on the %s %s ceiling (%d)." % [name, archetype, label, ceilingValue])

@@ -10,11 +10,48 @@
 
 class_name ArchetypeReferences
 
+## Stat bands (item 2.3). SPREAD means ATK minus DEF — the one dimension where
+## the four roles genuinely separate on the current roster:
+##
+##   defender   spread -4..+1   striker    spread +1..+5
+##   controller spread -2..+2   leader     spread -2..+3
+##
+## So the bands below encode "a defender must not out-attack its own defense,
+## a striker must", plus one viability floor for each melee-facing role. HP,
+## MOVE, and SPD bands were deliberately NOT added for controller/leader: those
+## roles overlap heavily on every other axis, so bands there would generate
+## false positives without catching anything a human would call drift.
+##
+## Bounds carry roughly one point of headroom past the observed range, except
+## where the bound IS the role's definition (striker SPREAD_MIN, the two
+## floors). A monster sitting exactly on a bound is reported as a warning, not
+## an error — see CatalogValidator.validateArchetypeBands(). Absent key means
+## unbounded in that direction.
 static var list = [
-	{"NAME": "defender", "DESCRIPTION": "Durable, holds ground, punishes attackers who ignore it"},
-	{"NAME": "striker", "DESCRIPTION": "Concentrated damage, mobility, burst"},
-	{"NAME": "controller", "DESCRIPTION": "Affects many enemies at once: zones, debuffs, action denial"},
-	{"NAME": "leader", "DESCRIPTION": "Heals, buffs, and enables allies"}
+	{
+		"NAME": "defender",
+		"DESCRIPTION": "Durable, holds ground, punishes attackers who ignore it",
+		"SPREAD_MAX": 2,
+		"DEF_MIN": 3
+	},
+	{
+		"NAME": "striker",
+		"DESCRIPTION": "Concentrated damage, mobility, burst",
+		"SPREAD_MIN": 1,
+		"SPD_MIN": 3
+	},
+	{
+		"NAME": "controller",
+		"DESCRIPTION": "Affects many enemies at once: zones, debuffs, action denial",
+		"SPREAD_MIN": -3,
+		"SPREAD_MAX": 3
+	},
+	{
+		"NAME": "leader",
+		"DESCRIPTION": "Heals, buffs, and enables allies",
+		"SPREAD_MIN": -3,
+		"SPREAD_MAX": 3
+	}
 ]
 
 
