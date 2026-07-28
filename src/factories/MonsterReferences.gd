@@ -8,37 +8,44 @@ static var _name_index: Dictionary = {}
 static var _load_error: String = ""
 
 static func _static_init():
-	reload()
+	reloadCatalog()
 
-static func reload() -> bool:
+## Named reloadCatalog(), not reload(): `MonsterReferences` is itself a
+## GDScript resource, and `Script.reload(keep_state: bool)` is a real engine
+## method on that base class. A static function named plain `reload()` gets
+## shadowed by it — calls resolve to the engine's reload and throw a
+## String-to-bool argument error instead of running this body.
+static func reloadCatalog(path: String = JSON_PATH) -> bool:
 	## Load from JSON, normalize, index, and validate. Returns true on success.
-	## On failure, list remains unchanged and _load_error is set.
+	## On failure, list/index are left at their prior value and _load_error is
+	## set. `path` is overridable so tests can exercise failure modes against
+	## fixtures without touching the production catalog.
 	var new_list: Array = []
 	var new_index: Dictionary = {}
 
 	# Load and parse JSON
-	if not ResourceLoader.exists(JSON_PATH):
-		_load_error = "JSON file not found at %s" % JSON_PATH
-		push_error("MonsterReferences: %s" % _load_error)
+	if not ResourceLoader.exists(path):
+		_load_error = "JSON file not found at %s" % path
+		push_warning("MonsterReferences: %s" % _load_error)
 		return false
 
-	var json_text = FileAccess.get_file_as_string(JSON_PATH)
+	var json_text = FileAccess.get_file_as_string(path)
 	if json_text == null or json_text.is_empty():
 		_load_error = "JSON file is empty or unreadable"
-		push_error("MonsterReferences: %s" % _load_error)
+		push_warning("MonsterReferences: %s" % _load_error)
 		return false
 
 	var parsed = JSON.parse_string(json_text)
 	if parsed == null or not parsed is Array:
 		_load_error = "JSON parse failed or root is not an array"
-		push_error("MonsterReferences: %s" % _load_error)
+		push_warning("MonsterReferences: %s" % _load_error)
 		return false
 
 	# Process each entry: int-coerce numerics, set defaults, build index
 	for entry in parsed:
 		if not entry is Dictionary:
 			_load_error = "JSON contains non-dictionary entry"
-			push_error("MonsterReferences: %s" % _load_error)
+			push_warning("MonsterReferences: %s" % _load_error)
 			return false
 
 		var reference := entry.duplicate(true) as Dictionary

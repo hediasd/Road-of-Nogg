@@ -740,7 +740,7 @@ func _input(event: InputEvent) -> void:
 		(event.keycode == KEY_R or event.physical_keycode == KEY_R)
 	):
 		var MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
-		if MonsterReferencesScript.reload():
+		if MonsterReferencesScript.reloadCatalog():
 			print("✓ Monster catalog reloaded from JSON")
 		else:
 			print("✗ Monster catalog reload failed; check logs")
