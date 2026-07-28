@@ -109,7 +109,7 @@ this contract.
 The highest charged element grants a non-stacking 10%, 20%, or 30% bonus to ATK
 and DEF. A critical hit or elemental weakness removes at most one charge from the target per resolved action.
 
-Critical hits are dormant at Luck 0. Each Luck grants a 1% critical chance, capped at 15%, and a critical deals 1.25x damage.
+Critical hits scale with Luck: each point grants 1% critical chance, capped at 15%. A critical hit deals 1.25x damage.
 When several bars tie, decay uses alphabetical element order for deterministic resolution.
 
 ### Implementation status
@@ -125,7 +125,7 @@ corresponding content lands.
 | Resonance charge to 1 (+10% ATK/DEF) | Live | Any monster with a Level 1 spell for an owned element can reach charge 1 in normal play. |
 | Resonance tiers 2-3 (+20%/+30%) and Level 4 ascension | Partial | Reachable since 2026-07-28, but only through the Wood ladder on `Walker of the Woods` — the only complete Level 1-4 set in the catalog. The other nine elements still stop at charge 1. |
 | Elemental weakness/critical Resonance decay | Live | Fires correctly whenever a charge exists to decay. |
-| Critical hits | Live | 19 monsters carry archetype `LUCK` (ceiling 10, i.e. 10%, under the 15% cap). `tests/integration/test_roster_luck_matches_archetypes.gd` holds the archetype contract. |
+| Critical hits | Live | Implemented and tested. Luck (range 2–10 across the roster) drives critical chance via `min(luck * 1%, 15%)`. |
 | Level-based stat growth | Designed, not yet live | Every monster's `HP_GROWTH`/`ATK_GROWTH`/`DEF_GROWTH` is 0, **and** no production code spawns a monster above level 1, so growth values would be inert even if assigned. |
 | Race elemental resistance (±20%) | Live | Every monster now has a race, including the default preset, so a default CPU vs CPU battle exercises resistances and weakness-driven Resonance decay. |
 | Resonance and critical UI | Designed, not yet live | Nothing in `src/presentation/` renders charge state, and crit/weakness hits look identical to normal ones. Tracked as P4-2. |

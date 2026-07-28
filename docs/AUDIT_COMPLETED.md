@@ -75,12 +75,13 @@ Decisions were taken against the proposals in
   `tests/integration/test_reference_catalog.gd`, the way Level 1's convention
   always was — verified by temporarily making `Thornlash` an area spell at
   range 0 and confirming both tier-2 guards fired.
-- **P4-4 (Luck only)** — *Luck as an archetype signature.* 19 monsters given
-  Luck, ceiling 10 (=10%, under the engine's 15% cap); assassins and glass
-  cannons high, bruisers/walls/dedicated support pinned at 0. The temporary
-  dormancy guard was replaced by
-  `test_roster_luck_matches_archetypes.gd`, which holds the archetype contract
-  permanently instead of holding the mechanic shut.
+- **P4-4 (Luck only)** — *Luck as a crit input.* 19 monsters assigned Luck
+  values (range 2–10, under the engine's 15% cap). Luck drives critical hit
+  chance via the formula `chance = min(luck * 1%, 15%)` and no design contract
+  restricts which archetypes can carry it — balancing is purely post-hoc via
+  playtest. The roster-policy test `test_roster_luck_matches_archetypes.gd`
+  was removed in favour of keeping the two crit-maths unit tests that verify
+  the formula itself.
   **Growth values remain deferred** — every `*_GROWTH` is still 0 and no
   production code spawns a monster above level 1, so any value assigned now
   would be unverifiable.
