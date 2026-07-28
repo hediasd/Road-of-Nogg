@@ -13,6 +13,24 @@
   healing, status duration, terrain interaction, and elemental interaction are
   preferable to universal raw-damage multipliers. Serialize active weather and
   validate its source through the reference catalog.
+## Code organization
+
+- `src/factories/CatalogValidator.gd` has no production caller. It's reached
+  only through `MonsterReferences.validateAll()`, and that in turn is only
+  called from `tests/integration/test_catalog_contains_expected_entries.gd`
+  and `tests/integration/test_roster_luck_matches_archetypes.gd` — no game
+  boot path or runtime code invokes it. It was written as "the single
+  authoritative implementation of monster-reference validation" (P2-3, see
+  `docs/AUDIT_COMPLETED.md`) specifically so tests and any future runtime
+  check couldn't disagree, so keeping it in `src/` as a reusable, testable
+  unit was a deliberate choice, not an oversight. Reconsider: fold it into a
+  test under `tests/` (it would need to stop being a `class_name` autoload
+  dependency of `MonsterReferences`, which calls `validateAll()` as public
+  API) if no runtime caller ever materializes, or leave it in `src/` if a
+  startup catalog sanity check is still wanted. Needs a decision, not just a
+  move — a straight relocation without also removing the `MonsterReferences`
+  coupling would break `validateAll()` for the two callers above.
+
 ## Tooling
 
 - Re-evaluate the Windows GUT access violation in an isolated run. Focused
