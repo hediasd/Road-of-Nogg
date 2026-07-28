@@ -720,6 +720,7 @@ func _update_action_buttons() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# Space: toggle battle UI visibility
 	if (
 		lifecycle in [Lifecycle.BATTLE, Lifecycle.COMPLETE] and
 		event is InputEventKey and
@@ -728,6 +729,21 @@ func _input(event: InputEvent) -> void:
 		(event.keycode == KEY_SPACE or event.physical_keycode == KEY_SPACE)
 	):
 		battle_ui["canvas"].visible = not battle_ui["canvas"].visible
+		get_viewport().set_input_as_handled()
+		return
+	# Ctrl+R: hot-reload monster catalog (Stage 1 feature)
+	if (
+		event is InputEventKey and
+		event.pressed and
+		not event.echo and
+		event.ctrl_pressed and
+		(event.keycode == KEY_R or event.physical_keycode == KEY_R)
+	):
+		var MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
+		if MonsterReferencesScript.reload():
+			print("✓ Monster catalog reloaded from JSON")
+		else:
+			print("✗ Monster catalog reload failed; check logs")
 		get_viewport().set_input_as_handled()
 		return
 	# A drag that began over the world keeps owning motion and its release even
