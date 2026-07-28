@@ -40,3 +40,10 @@ static func getReference(passiveName: String) -> Dictionary:
 			return ref
 	push_error("PassiveSkillReferences: Unknown passive '%s'" % passiveName)
 	return {}
+
+
+static func hasReference(passiveName: String) -> bool:
+	for ref in list:
+		if ref["NAME"] == passiveName:
+			return true
+	return false

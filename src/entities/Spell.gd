@@ -21,6 +21,15 @@ var buffs_atk: int = 0               # If > 0, grants a timed ATK buff to the ta
 var buff_duration: int = 0           # Duration in turns for any stat buff this spell provides
 var reverts_damage: bool = false     # If true, reverts damage dealt by target in previous turn
 var cooldown: int = 0                # Cooldown in turns before this spell can be cast again
+var sequence_level: int = 0
+var resonance_element: String = "none"
+var effects: Array = []
+var self_radius: int = 0
+var aoe_targets: String = "self"
+var heal_amount: int = 0
+
+
+
 
 var ownerID: int
 var castByTeam: int
@@ -30,7 +39,7 @@ func _init(parameterDictionary) -> void:
 
 	#uniqueID = _uniqueID
 
-	name = parameterDictionary["NAME"] if (parameterDictionary.has("NAME")) else 1
+	name = parameterDictionary["NAME"] if (parameterDictionary.has("NAME")) else "Dump"
 
 	radius = parameterDictionary["RADIUS"] if (parameterDictionary.has("RADIUS")) else 1
 	min_range = parameterDictionary["MIN_RANGE"] if (parameterDictionary.has("MIN_RANGE")) else 0
@@ -40,7 +49,9 @@ func _init(parameterDictionary) -> void:
 	element = parameterDictionary["ELEMENT"] if (parameterDictionary.has("ELEMENT")) else "none"
 
 	if parameterDictionary.has("DAMAGE_LINES"):
-		damage_lines = parameterDictionary["DAMAGE_LINES"]
+		## Copy rather than alias: reference catalogs are shared, read-only inputs
+		## and every Spell instance would otherwise point at the same array.
+		damage_lines = parameterDictionary["DAMAGE_LINES"].duplicate(true)
 		for line in damage_lines:
 			damage += line.get("damage", 0)
 	else:
@@ -56,6 +67,15 @@ func _init(parameterDictionary) -> void:
 	buff_duration = parameterDictionary["BUFF_DURATION"] if (parameterDictionary.has("BUFF_DURATION")) else 0
 	reverts_damage = parameterDictionary["REVERTS_DAMAGE"] if (parameterDictionary.has("REVERTS_DAMAGE")) else false
 	cooldown = parameterDictionary["COOLDOWN"] if (parameterDictionary.has("COOLDOWN")) else 0
+	sequence_level = clampi(int(parameterDictionary.get("SEQUENCE_LEVEL", 0)), 0, 4)
+	resonance_element = str(parameterDictionary.get("RESONANCE_ELEMENT", element))
+	effects = parameterDictionary.get("EFFECTS", []).duplicate(true)
+	self_radius = maxi(0, int(parameterDictionary.get("SELF_RADIUS", 0)))
+	aoe_targets = str(parameterDictionary.get("AOE_TARGETS", "self"))
+	heal_amount = maxi(0, int(parameterDictionary.get("HEAL_AMOUNT", 0)))
+
+
+
 
 	pass
 

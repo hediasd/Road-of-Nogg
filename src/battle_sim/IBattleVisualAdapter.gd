@@ -27,7 +27,7 @@ func connectToEvents(battleEvents: BattleEvents) -> void:
 	battleEvents.monster_attacked.connect(_on_monster_attacked)
 	battleEvents.monster_cast_spell.connect(_on_monster_cast_spell)
 	battleEvents.monster_healed.connect(_on_monster_healed)
-	battleEvents.monster_damaged.connect(_on_monster_damaged)
+	battleEvents.resonance_changed.connect(_on_resonance_changed)
 	battleEvents.monster_defeated.connect(_on_monster_defeated)
 	battleEvents.effect_applied.connect(_on_effect_applied)
 	battleEvents.effect_ticked.connect(_on_effect_ticked)
@@ -54,7 +54,7 @@ func disconnectFromEvents() -> void:
 	_disconnect(_connectedEvents.monster_attacked, _on_monster_attacked)
 	_disconnect(_connectedEvents.monster_cast_spell, _on_monster_cast_spell)
 	_disconnect(_connectedEvents.monster_healed, _on_monster_healed)
-	_disconnect(_connectedEvents.monster_damaged, _on_monster_damaged)
+	_disconnect(_connectedEvents.resonance_changed, _on_resonance_changed)
 	_disconnect(_connectedEvents.monster_defeated, _on_monster_defeated)
 	_disconnect(_connectedEvents.effect_applied, _on_effect_applied)
 	_disconnect(_connectedEvents.effect_ticked, _on_effect_ticked)
@@ -86,7 +86,7 @@ func _on_action_targeted(_monsterID: int, _targetID: int, _action: String) -> vo
 func _on_monster_attacked(_attackerID: int, _targetID: int, _damage: int, _targetNewHP: int) -> void: pass
 func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, damageLines: Array, targetNewHP: int) -> void: pass
 func _on_monster_healed(_healerID: int, _targetID: int, _spellName: String, _healAmount: int, _targetNewHP: int) -> void: pass
-func _on_monster_damaged(_monsterID: int, _newHP: int, _damageAmount: int) -> void: pass
+func _on_resonance_changed(_monsterID: int, _element: String, _oldCharge: int, _newCharge: int, _reason: String) -> void: pass
 func _on_monster_defeated(_monsterID: int, _killerID: int) -> void: pass
 func _on_effect_applied(_monsterID: int, _effectName: String, _duration: int, _sourceMonsterID: int, _sourceSpellName: String) -> void: pass
 func _on_effect_ticked(_monsterID: int, _effectName: String, _remainingTurns: int) -> void: pass

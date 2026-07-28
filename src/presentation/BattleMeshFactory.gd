@@ -28,10 +28,13 @@ static func configureRetro(
 static func elementColor(element: String) -> Color:
 	match element.to_lower():
 		"fire": return Color(0.9, 0.2, 0.2)
-		"water", "ice": return Color(0.2, 0.7, 0.9)
-		"earth", "nature", "wood": return Color(0.2, 0.7, 0.2)
-		"electric", "lightning", "thunder": return Color(0.9, 0.9, 0.1)
-		"dark", "darkness": return Color(0.4, 0.1, 0.6)
+		"water": return Color(0.1, 0.4, 0.9)
+		"ice": return Color(0.6, 0.9, 0.9)
+		"wind": return Color(0.55, 0.9, 0.78)
+		"earth": return Color(0.6, 0.4, 0.2)
+		"wood": return Color(0.2, 0.7, 0.2)
+		"thunder": return Color(0.9, 0.9, 0.1)
+		"darkness": return Color(0.4, 0.1, 0.6)
 		"light": return Color(0.9, 0.9, 0.8)
 		"steel": return Color(0.6, 0.6, 0.75)
 		_: return Color(0.5, 0.5, 0.5)

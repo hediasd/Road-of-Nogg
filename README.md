@@ -25,10 +25,17 @@ safeguards are in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md).
 Common focused checks:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 -Script res://run_playable_battle_check.gd -ExpectedMarker PLAYABLE_BATTLE_CORE_OK -TimeoutSeconds 45 -QuitAfter 45 -LogStem playable_core
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 -Script res://run_setup_ui_check.gd -ExpectedMarker PLAYABLE_BATTLE_UI_OK -TimeoutSeconds 45 -QuitAfter 45 -LogStem setup_ui
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 -Script res://tests/run_tests.gd -ScriptArgs unit -ExpectedMarker TESTS_OK -TimeoutSeconds 30 -QuitAfter 30 -LogStem tests_unit
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 -Script res://tests/run_tests.gd -ScriptArgs integration -ExpectedMarker TESTS_OK -TimeoutSeconds 60 -QuitAfter 60 -LogStem tests_integration
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_docs.ps1
 ```
+
+Run `scripts/install_hooks.ps1` once per clone to run the `unit` tier
+automatically before each commit and the full suite before each push. Every
+test lives under `tests/unit/`, `tests/integration/`, or `tests/scene/`; see
+[`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) for the full command set, the
+tier definitions, and a known Windows output-capture limitation affecting the
+`scene` tier.
 
 GUT remains intentionally isolated pending the investigation tracked in the
 [backlog](./docs/BACKLOG.md).

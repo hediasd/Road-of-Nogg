@@ -2,7 +2,7 @@
 
 class_name BattleStateSerializer
 
-const CURRENT_VERSION := 3
+const CURRENT_VERSION := 5
 const MIN_SUPPORTED_VERSION := 2
 
 const MonsterFactoryScript = preload("res://src/factories/MonsterFactory.gd")
@@ -86,6 +86,7 @@ static func deserialize(data: Dictionary) -> BattleState:
 		monster.atk = int(monsterData.get("atk", monster.atk))
 		monster.def = int(monsterData.get("def", monster.def))
 		monster.speed = int(monsterData.get("speed", monster.speed))
+		monster.luck = maxi(0, int(monsterData.get("luck", monster.luck)))
 		monster.level = maxi(1, int(monsterData.get("level", 1)))
 		monster.jump = maxi(0, int(monsterData.get("jump", 1)))
 		monster.base_hitpoints = int(monsterData.get("base_hitpoints", monster.max_hitpoints))
@@ -96,6 +97,14 @@ static func deserialize(data: Dictionary) -> BattleState:
 		monster.def_growth = maxi(0, int(monsterData.get("def_growth", 0)))
 		monster.elements.assign(monsterData.get("elements", []))
 		monster.race = monsterData.get("race", monster.race)
+		monster.family = str(monsterData.get("family", monster.family))
+		monster.ascends_from = str(monsterData.get("ascendsFrom", monster.ascends_from))
+		var restoredBars: Dictionary = monsterData.get("resonanceBars", {})
+		if not restoredBars.is_empty():
+			monster.resonance_bars.clear()
+			for element in restoredBars:
+				if monster.elements.has(str(element)):
+					monster.resonance_bars[str(element)] = clampi(int(restoredBars[element]), 0, 3)
 		monster.spell_cooldowns = monsterData.get("spellCooldowns", {}).duplicate(true)
 		monster.position = state.monsterPositions.get(monsterID, Vector2i(-1, -1))
 		state.monsters[monsterID] = monster

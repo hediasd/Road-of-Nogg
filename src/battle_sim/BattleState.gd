@@ -224,7 +224,7 @@ func isTeamDefeated(team: int) -> bool:
 
 func addEffect(monsterID: int, effectName: String, duration: int,
 		sourceMonsterID: int = -1, sourceSpellName: String = "",
-		damagePerTurn: int = 0) -> void:
+		damagePerTurn: int = 0, effectData: Dictionary = {}) -> void:
 	## Applies a status effect. Rich struct includes source and damage info.
 	if not activeEffects.has(monsterID):
 		activeEffects[monsterID] = []
@@ -236,37 +236,54 @@ func addEffect(monsterID: int, effectName: String, duration: int,
 			effect["sourceMonsterID"] = sourceMonsterID
 			effect["sourceSpellName"] = sourceSpellName
 			effect["damagePerTurn"] = damagePerTurn
+			for key in effectData:
+				effect[key] = _mergedEffectValue(effect.get(key), effectData[key])
 			return
 
-	activeEffects[monsterID].append({
+	var newEffect = {
 		"name": effectName,
 		"remainingTurns": duration,
 		"sourceMonsterID": sourceMonsterID,
 		"sourceSpellName": sourceSpellName,
 		"damagePerTurn": damagePerTurn
-	})
+	}
+	for key in effectData:
+		newEffect[key] = effectData[key]
+	activeEffects[monsterID].append(newEffect)
+
+
+func _mergedEffectValue(existingValue, incomingValue):
+	## On refresh, a numeric bonus keeps whichever value has the greater
+	## magnitude, preserving its sign, so re-casting a weaker buff or debuff
+	## cannot downgrade a stronger one already active. Anything non-numeric, or
+	## a key applied for the first time, always takes the incoming value.
+	var existingIsNumeric = existingValue is int or existingValue is float
+	var incomingIsNumeric = incomingValue is int or incomingValue is float
+	if not existingIsNumeric or not incomingIsNumeric:
+		return incomingValue
+	return incomingValue if absf(float(incomingValue)) >= absf(float(existingValue)) else existingValue
 
 
 func removeEffect(monsterID: int, effectName: String) -> void:
 	if not activeEffects.has(monsterID):
 		return
-	
+
 	var remaining = []
 	for effect in activeEffects[monsterID]:
 		if effect["name"] != effectName:
 			remaining.append(effect)
-	
+
 	activeEffects[monsterID] = remaining
 
 
 func hasEffect(monsterID: int, effectName: String) -> bool:
 	if not activeEffects.has(monsterID):
 		return false
-	
+
 	for effect in activeEffects[monsterID]:
 		if effect["name"] == effectName:
 			return true
-			
+
 	return false
 
 
@@ -289,12 +306,12 @@ func add_event(type: String, actor_id: int, target_id: int, data: Dictionary = {
 func get_events_for_actor_since_last_turn(actor_id: int, event_type: String) -> Array[Dictionary]:
 	var results: Array[Dictionary] = []
 	var start_idx = last_turn_start_index.get(actor_id, 0)
-	
+
 	for i in range(start_idx, history.size()):
 		var ev = history[i]
 		if ev["type"] == event_type and ev["actor_id"] == actor_id:
 			results.append(ev)
-			
+
 	return results
 
 

@@ -80,6 +80,8 @@ func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
 	# Calculate and apply damage
 	var damage = calculateBasicDamage(attacker, target)
 	var actualDamage = target.take_damage(damage)
+	if actualDamage > 0:
+		spellEffectResolver.consumeDamageEffects(attackerID, targetID)
 
 	state.add_event("damage", attackerID, targetID, {
 		"damage": actualDamage,
@@ -107,10 +109,13 @@ func calculateBasicDamage(
 	target: Monster,
 	is_simulation: bool = false,
 	attackerPos: Vector2i = Vector2i(-1, -1)) -> int:
-	var raw = max(1, attacker.atk - target.def)
-	## Apply atk_bonus from active buffs
+	var attackerBonus = 0
 	for effect in state.getActiveEffects(attacker.uniqueID):
-		raw += effect.get("atk_bonus", 0)
+		attackerBonus += int(effect.get("atk_bonus", 0))
+	var defenderBonus = 0
+	for effect in state.getActiveEffects(target.uniqueID):
+		defenderBonus += int(effect.get("def_bonus", 0))
+	var raw = max(1, attacker.get_effective_atk() + attackerBonus - target.get_effective_def() - defenderBonus)
 	raw = max(1, raw)
 	if state.withinBounds(attackerPos):
 		raw = DirectDamageRulesScript.applyElevationFromPositions(
@@ -118,6 +123,7 @@ func calculateBasicDamage(
 		)
 	else:
 		raw = applyElevationModifier(raw, attacker.uniqueID, target.uniqueID)
+	raw = spellEffectResolver.applyDamageEffectMultipliers(raw, attacker.uniqueID, target.uniqueID)
 	## Let PassiveSkillResolver apply damage reduction passives on the target
 	if passiveSkillResolver != null:
 		raw = passiveSkillResolver.applyDamageModifiers(raw, target.uniqueID, is_simulation)
@@ -227,7 +233,12 @@ func canSpellReachPositionFrom(
 		return false
 	if state.getHeightDifference(fromPos, targetPos) > spell.max_height_delta:
 		return false
-	return spell.bypass_los or _hasLoS(monsterID, fromPos, targetPos, -1)
+	if spell.bypass_los:
+		return true
+	## Pass the real occupant of targetPos, matching getSpellTargetsFrom(), so a
+	## target's own tile is never treated as its own LoS blocker.
+	var targetOccupantID = state.board.at(targetPos)
+	return _hasLoS(monsterID, fromPos, targetPos, targetOccupantID)
 
 
 func getSpellAffectedTargetsFrom(
@@ -240,14 +251,17 @@ func getSpellAffectedTargetsFrom(
 		return []
 	var caster = state.getMonster(casterID)
 	var spell = caster.spellSets[spellSetIndex][spellIndex]
-	if spell.targetType != "area":
+	if spell.targetType == "self" and spell.self_radius <= 0:
 		return [centerTargetID]
-	var centerPos = state.getMonsterPosition(centerTargetID)
+	if spell.targetType != "area" and spell.self_radius <= 0:
+		return [centerTargetID]
+	var centerPos = state.getMonsterPosition(casterID) if spell.targetType == "self" else state.getMonsterPosition(centerTargetID)
 	var affectedTiles = []
+	var radius = spell.self_radius if spell.targetType == "self" else spell.radius
 	match spell.area_shape:
-		"cross": affectedTiles = ShapeCaster.getCross(centerPos, spell.radius)
-		"line": affectedTiles = ShapeCaster.getLine(fromPos, centerPos, spell.radius)
-		"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, spell.radius)
+		"cross": affectedTiles = ShapeCaster.getCross(centerPos, radius)
+		"line": affectedTiles = ShapeCaster.getLine(fromPos, centerPos, radius)
+		"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, radius)
 	var result: Array = []
 	for pos in affectedTiles:
 		if not state.withinBounds(pos):
@@ -256,7 +270,14 @@ func getSpellAffectedTargetsFrom(
 		if otherID == 0:
 			continue
 		var isAlly = state.getMonster(otherID).team == caster.team
-		if (spell.heals and isAlly) or (not spell.heals and not isAlly):
+		if spell.targetType == "self":
+			if spell.aoe_targets == "allies" and isAlly:
+				result.append(otherID)
+			elif spell.aoe_targets == "enemies" and not isAlly:
+				result.append(otherID)
+			elif spell.aoe_targets == "all" or (spell.aoe_targets == "self" and otherID == casterID):
+				result.append(otherID)
+		elif (spell.heals and isAlly) or (not spell.heals and not isAlly):
 			result.append(otherID)
 	return result
 
@@ -304,17 +325,43 @@ func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellInd
 		if not caster.is_alive():
 			return { "success": false, "reason": "caster_died_to_passive" }
 
+	## "focus" (caster) is consumed once for the whole cast, regardless of how
+	## many targets an AOE hits. "guard" (defender) is consumed once per target
+	## that actually took damage. Consuming both per-target would let a single
+	## AOE cast strip the caster's focus once per affected target.
+	var casterDealtDamage = false
 	for tID in actualTargets:
-		_applySpellEffects(casterID, tID, spell)
+		if _applySpellEffects(casterID, tID, spell):
+			casterDealtDamage = true
+	if casterDealtDamage:
+		spellEffectResolver.consumeCasterDamageEffects(casterID)
 
+	var resonanceElement = spell.resonance_element
+	var oldCharge = caster.get_resonance(resonanceElement)
 	caster.record_cast(spell)
+	var newCharge = caster.get_resonance(resonanceElement)
+	if newCharge != oldCharge:
+		var reason = "ascension_cast" if spell.sequence_level == 4 else "sequence_advanced"
+		state.add_event("resonance_changed", casterID, casterID, {
+			"element": resonanceElement, "old_charge": oldCharge,
+			"new_charge": newCharge, "reason": reason
+		})
+		events.resonance_changed.emit(
+			casterID, resonanceElement, oldCharge, newCharge, reason
+		)
 
 	return { "success": true, "targetsHit": actualTargets.size(), "spellName": spell.name }
 
 
-func _applySpellEffects(casterID: int, targetID: int, spell: Spell) -> void:
-	if spellEffectResolver.applySpellEffects(casterID, targetID, spell, passiveSkillResolver):
+func _applySpellEffects(casterID: int, targetID: int, spell: Spell) -> bool:
+	## Returns true when this target actually took damage, so the caller can
+	## decide whether the caster's "focus" effect should be consumed.
+	var result = spellEffectResolver.applySpellEffects(casterID, targetID, spell, passiveSkillResolver)
+	if result["damageDealt"]:
+		spellEffectResolver.consumeTargetDamageEffects(targetID)
+	if result["defeated"]:
 		_handleDefeat(targetID, casterID)
+	return result["damageDealt"]
 
 func calculateSpellDamage(
 		caster: Monster,
@@ -322,7 +369,8 @@ func calculateSpellDamage(
 		base_damage: int,
 		element: String = "none",
 		is_simulation: bool = false,
-		casterPos: Vector2i = Vector2i(-1, -1)) -> int:
+		casterPos: Vector2i = Vector2i(-1, -1),
+		isCritical: bool = false) -> int:
 	return spellEffectResolver.calculateSpellDamage(
 		caster,
 		target,
@@ -330,7 +378,8 @@ func calculateSpellDamage(
 		element,
 		is_simulation,
 		passiveSkillResolver,
-		casterPos
+		casterPos,
+		isCritical
 	)
 
 func getElevationPercent(attackerID: int, targetID: int) -> int:
@@ -351,10 +400,8 @@ func calculateHeal(caster: Monster, spell: Spell) -> int:
 # --- Internal helpers ---
 
 func _handleDefeat(defeatedID: int, killerID: int) -> void:
-	## Fire ON_DEATH passives BEFORE removing from state (so Snowfall can read positions).
+	## PassiveSkillResolver.handleDefeat() is the single defeat path shared by
+	## every kill source (direct damage, status ticks, retaliation, AOE chains).
+	## passiveSkillResolver can be null only in tests that never resolve a kill.
 	if passiveSkillResolver != null:
-		passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_DEATH, defeatedID)
-	## Only emit defeated + remove if still in state (ON_DEATH aoe may have already cleared it)
-	if state.monsters.has(defeatedID) and not state.getMonster(defeatedID).is_alive():
-		events.monster_defeated.emit(defeatedID, killerID)
-		state.removeMonster(defeatedID)
+		passiveSkillResolver.handleDefeat(defeatedID, killerID)

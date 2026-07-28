@@ -1,6 +1,6 @@
 # Development and Verification
 
-Status: current for Godot 4.4 on Windows. Last verified: 2026-07-25.
+Status: current for Godot 4.4 on Windows. Last verified: 2026-07-27.
 
 This is the executable workflow reference. Start with a clean understanding of
 the working tree, but preserve unrelated user changes.
@@ -11,40 +11,41 @@ Use `scripts/run_godot_check.ps1` rather than relying on an interactive
 PowerShell launch of the non-console Godot executable. The helper starts one
 hidden process, captures stdout/stderr and a Godot log under the system temp
 directory, waits for the real exit code, enforces a timeout, and kills only the
-process object it launched if that timeout expires.
+process object it launched if that timeout expires. `-ScriptArgs` forwards
+values after Godot's `--`, which is how the test tier is selected below.
 
 ```powershell
-# Playable setup, all map/preset combinations, commands, JSON replay and restore
+# Fast tier: every tests/unit/*.gd file, one shared process, target < 10s
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 `
-  -Script res://run_playable_battle_check.gd `
-  -ExpectedMarker PLAYABLE_BATTLE_CORE_OK -TimeoutSeconds 45 -QuitAfter 45 `
-  -LogStem playable_core
+  -Script res://tests/run_tests.gd -ScriptArgs unit `
+  -ExpectedMarker TESTS_OK -TimeoutSeconds 30 -QuitAfter 30 `
+  -LogStem tests_unit
 
-# Setup overlay, deferred loading, Player vs CPU, cursor ownership, return to setup
+# Heavier tier: tests/integration/*.gd (full BattleSimulator, seconds each)
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 `
-  -Script res://run_setup_ui_check.gd `
-  -ExpectedMarker PLAYABLE_BATTLE_UI_OK -TimeoutSeconds 45 -QuitAfter 45 `
-  -LogStem setup_ui
+  -Script res://tests/run_tests.gd -ScriptArgs integration `
+  -ExpectedMarker TESTS_OK -TimeoutSeconds 60 -QuitAfter 60 `
+  -LogStem tests_integration
 
-# Deterministic simulation and replay snapshot
+# Scene tier: tests/scene/*.gd, needs a live SceneTree/presentation
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 `
-  -Script res://run_determinism_check.gd `
-  -ExpectedMarker DETERMINISM_OK -TimeoutSeconds 60 -QuitAfter 60 `
-  -LogStem determinism
+  -Script res://tests/run_tests.gd -ScriptArgs scene `
+  -ExpectedMarker TESTS_OK -TimeoutSeconds 60 -QuitAfter 60 `
+  -LogStem tests_scene
 
-# Tactical cursor ownership and placement
+# Everything (what scripts/hooks/pre-push runs)
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 `
-  -Script res://run_cursor_check.gd `
-  -ExpectedMarker CURSOR_CONTROLLER_OK -TimeoutSeconds 45 -QuitAfter 45 `
-  -LogStem cursor
+  -Script res://tests/run_tests.gd -ScriptArgs all `
+  -ExpectedMarker TESTS_OK -TimeoutSeconds 90 -QuitAfter 90 `
+  -LogStem tests_all
 
 # Default-scene parse/startup smoke
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 `
   -QuitAfter 5 -TimeoutSeconds 30 -LogStem default_scene
 
-# Seeded full-battle smoke
+# Seeded full-battle demo (not a test — prints a console battle log)
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 `
-  -Script res://run_battle.gd -ExpectedMarker "Battle complete!" `
+  -Script res://scripts/demo_battle.gd -ExpectedMarker "Battle complete!" `
   -TimeoutSeconds 60 -QuitAfter 60 -LogStem battle
 
 # Documentation integrity
@@ -53,6 +54,37 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_docs.ps1
 
 Choose checks from the risk matrix in [`POLICIES.md`](./POLICIES.md). A docs-only
 change does not require starting Godot.
+
+Every test is a `.gd` file under `tests/unit/`, `tests/integration/`, or
+`tests/scene/`, named `test_<behavior>.gd`, with one behavior per file. See
+`tests/TestCase.gd` for the assertion/fixture contract and
+`tests/TestRunner.gd` for discovery and the naming/placement rules it enforces
+on every run regardless of which tier is selected.
+
+**Known limitation:** `tests/scene/test_capsule_features.gd` reports a missing
+`TESTS_OK` marker on this Windows host even when every one of its assertions
+passes, and — because `scene`-tier tests share one Godot process — can swallow
+the other scene tests' output in the same run. This means `-ScriptArgs all`
+(and therefore `scripts/hooks/pre-push`) currently fails on every run
+regardless of real outcomes once that test executes. Corroborate with
+`-ScriptArgs unit` and `-ScriptArgs integration` (both reliable) before
+concluding there is a real regression. Full details and what has already been
+ruled out are in [`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md) under
+"Tooling."
+
+## Git hooks
+
+Run once per clone:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_hooks.ps1
+```
+
+This points `core.hooksPath` at the tracked hooks in `scripts/hooks/`:
+`pre-commit` runs the `unit` tier, `pre-push` runs `all` (see the known
+limitation above). Both skip with exit 0 and a clear message if the bundled
+Godot binary is missing, so a docs-only contributor is never blocked. Bypass
+intentionally with `git commit --no-verify` / `git push --no-verify`.
 
 ## GUT isolation
 

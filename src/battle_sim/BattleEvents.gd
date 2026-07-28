@@ -19,7 +19,7 @@ signal action_targeted(monsterID: int, targetID: int, action: String)
 signal monster_attacked(attackerID: int, targetID: int, damage: int, targetNewHP: int)
 signal monster_cast_spell(casterID: int, targetID: int, spellName: String, damageLines: Array, targetNewHP: int)
 signal monster_healed(healerID: int, targetID: int, spellName: String, healAmount: int, targetNewHP: int)
-signal monster_damaged(monsterID: int, newHP: int, damageAmount: int)
+signal resonance_changed(monsterID: int, element: String, oldCharge: int, newCharge: int, reason: String)
 signal monster_defeated(monsterID: int, killerID: int)
 
 signal effect_applied(monsterID: int, effectName: String, duration: int, sourceMonsterID: int, sourceSpellName: String)

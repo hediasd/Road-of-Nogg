@@ -1,0 +1,30 @@
+#!/bin/sh
+# Runs the full test suite (unit + integration + scene) before allowing a
+# push. Install once with scripts/install_hooks.ps1 (sets core.hooksPath).
+# Bypass intentionally with: git push --no-verify
+
+repo_root="$(git rev-parse --show-toplevel)"
+godot_exe="$repo_root/Godot_v4.4-stable_win64.exe"
+
+if [ ! -f "$godot_exe" ]; then
+	echo "pre-push: Godot binary not found at $godot_exe — skipping tests." >&2
+	exit 0
+fi
+
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$repo_root/scripts/run_godot_check.ps1" \
+	-Script res://tests/run_tests.gd \
+	-ScriptArgs all \
+	-ExpectedMarker TESTS_OK \
+	-TimeoutSeconds 120 \
+	-QuitAfter 120 \
+	-LogStem pre_push_all
+status=$?
+
+if [ $status -ne 0 ]; then
+	echo "" >&2
+	echo "pre-push: test suite failed (see failing test names and log path above)." >&2
+	echo "pre-push: bypass intentionally with 'git push --no-verify'." >&2
+	exit 1
+fi
+
+exit 0

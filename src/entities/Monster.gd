@@ -11,6 +11,7 @@ var move: int = 1
 var atk: int = 1
 var def: int = 1
 var speed: int = 1
+var luck: int = 0
 var level: int = 1
 var jump: int = 1
 var base_hitpoints: int = 1
@@ -25,10 +26,15 @@ var position: Vector2i
 var spellSets = []
 var elements: Array = []  # Array of String
 var race: String = "none"
+var family: String = "none"
+var species: String = "none"
+var ascends_from: String = ""
+
 var passives: Array = []  # Array of PassiveSkill instances
 var brain  # EntityBrain instance — assigned by BattleSimulator
 
 var spell_cooldowns: Dictionary = {} # Maps spell name (String) to remaining turns (int)
+var resonance_bars: Dictionary = {} # element -> charge from 0 through 3
 static func get_or_default(dict: Dictionary, key: String, default_value = 1):
 	return dict[key] if dict.has(key) else default_value
 
@@ -52,8 +58,15 @@ func _init(parameterDictionary, _uniqueID) -> void:
 	atk = derivedStats["atk"]
 	def = derivedStats["def"]
 	speed = get_or_default(parameterDictionary, "SPD", 1)
+	luck = maxi(0, int(get_or_default(parameterDictionary, "LUCK", 0)))
 	elements = get_or_default(parameterDictionary, "ELEMENTS", [])
 	race = get_or_default(parameterDictionary, "RACE", "none")
+	family = get_or_default(parameterDictionary, "FAMILY", "none")
+	species = get_or_default(parameterDictionary, "SPECIES", name)
+	ascends_from = get_or_default(parameterDictionary, "ASCENDS_FROM", "")
+
+	for element in elements:
+		resonance_bars[str(element)] = 0
 
 	var refSpellSetsList = get_or_default(parameterDictionary, "SPELLS", [])
 
@@ -98,18 +111,24 @@ func heal(amount: int) -> int:
 func can_cast(spell: Spell) -> bool:
 	if spell_cooldowns.has(spell.name) and spell_cooldowns[spell.name] > 0:
 		return false
-		
+
 	var required_elements = {}
 	if spell.element != "none":
 		required_elements[spell.element] = true
 	for line in spell.damage_lines:
 		if line.has("element") and line["element"] != "none":
 			required_elements[line["element"]] = true
-			
+
 	for req in required_elements.keys():
 		if not elements.has(req):
 			return false
+	if spell.sequence_level == 4:
+		return get_resonance(spell.resonance_element) == 3
 	return true
+
+
+func get_critical_chance() -> float:
+	return clampf(float(luck) * 0.01, 0.0, 0.15)
 
 func tick_cooldowns() -> void:
 	for spell_name in spell_cooldowns.keys():
@@ -119,6 +138,64 @@ func tick_cooldowns() -> void:
 func record_cast(spell: Spell) -> void:
 	if spell.cooldown > 0:
 		spell_cooldowns[spell.name] = spell.cooldown
+	if spell.sequence_level <= 0 or spell.resonance_element == "none":
+		return
+	var current = get_resonance(spell.resonance_element)
+	if spell.sequence_level == 4:
+		resonance_bars[spell.resonance_element] = 0
+	elif spell.sequence_level == current + 1:
+		resonance_bars[spell.resonance_element] = mini(3, current + 1)
+
+
+func get_resonance(element: String) -> int:
+	return clampi(int(resonance_bars.get(element, 0)), 0, 3)
+
+
+func would_advance_resonance(spell: Spell) -> bool:
+	return (
+		spell.sequence_level >= 1
+		and spell.sequence_level <= 3
+		and spell.sequence_level == get_resonance(spell.resonance_element) + 1
+	)
+
+
+func get_resonance_bonus_percent() -> int:
+	var highest_bar = 0
+	for element in resonance_bars:
+		highest_bar = maxi(highest_bar, get_resonance(element))
+	return highest_bar * 10
+
+
+func get_effective_atk() -> int:
+	return _apply_resonance_bonus(atk)
+
+
+func get_effective_def() -> int:
+	return _apply_resonance_bonus(def)
+
+
+func lose_one_resonance_bar() -> Dictionary:
+	var selected_element = ""
+	var selected_charge = 0
+	var sorted_elements: Array = resonance_bars.keys()
+	sorted_elements.sort()
+	for element in sorted_elements:
+		var charge = get_resonance(str(element))
+		if charge > selected_charge:
+			selected_element = str(element)
+			selected_charge = charge
+	if selected_element.is_empty():
+		return {}
+	resonance_bars[selected_element] = selected_charge - 1
+	return {
+		"element": selected_element,
+		"old_charge": selected_charge,
+		"new_charge": selected_charge - 1
+	}
+
+
+func _apply_resonance_bonus(value: int) -> int:
+	return int(round(float(value) * (1.0 + float(get_resonance_bonus_percent()) / 100.0)))
 
 func serialize() -> Dictionary:
 	var serializedSpellSets = []
@@ -143,6 +220,7 @@ func serialize() -> Dictionary:
 		"atk": atk,
 		"def": def,
 		"speed": speed,
+		"luck": luck,
 		"level": level,
 		"jump": jump,
 		"base_hitpoints": base_hitpoints,
@@ -153,6 +231,11 @@ func serialize() -> Dictionary:
 		"def_growth": def_growth,
 		"elements": elements.duplicate(),
 		"race": race,
+		"family": family,
+		"species": species,
+		"ascendsFrom": ascends_from,
+
+		"resonanceBars": resonance_bars.duplicate(true),
 		"spellSets": serializedSpellSets,
 		"spellCooldowns": spell_cooldowns.duplicate(true),
 		"passives": serializedPassives,

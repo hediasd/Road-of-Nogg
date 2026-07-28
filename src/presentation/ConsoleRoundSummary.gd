@@ -32,6 +32,7 @@ func getElementEmoji(element: String) -> String:
 	match element.to_lower():
 		"fire": return "🔥"
 		"water": return "💧"
+		"wind": return "WIND"
 		"earth": return "🪨"
 		"wood": return "🌿"
 		"steel": return "⚙️"

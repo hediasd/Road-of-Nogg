@@ -10,12 +10,12 @@ event bus, setup snapshot, command ledger, and optional visual adapter.
 
 ```text
 setup UI / replay tool / controller
-    -> BattleSetupConfig
-    -> BattleSetupFactory
-        -> BattleSimulator
-            -> BattleState + TurnManager + resolvers + brains
-            -> BattleEvents
-                -> IBattleVisualAdapter implementations
+	-> BattleSetupConfig
+	-> BattleSetupFactory
+		-> BattleSimulator
+			-> BattleState + TurnManager + resolvers + brains
+			-> BattleEvents
+				-> IBattleVisualAdapter implementations
 ```
 
 The simulation remains usable without a scene tree. Presentation submits
@@ -157,8 +157,7 @@ rewrite simulation results.
 
 - All gameplay randomness flows through `BattleState.rng`.
 - Equal-speed turn ties use deterministic monster ID ordering.
-- Schema version 3 records map revision, height, level, jump, base/growth fields,
-  and resolved stats; version 2 migrates to height 0, level 1, and jump 1.
+- Schema version 5 records map revision, height, level, jump, base/growth fields, resolved stats, family, ascension parent, Resonance bars, and Luck; version 2 migrates to height 0, level 1, and jump 1.
 - `BattleStateSerializer` produces and restores JSON-safe state, including RNG,
   IDs, board layers, rosters, effects, history, and monsters.
 - `BattleSimulator.createReplaySnapshot()` includes setup, initial/current state,

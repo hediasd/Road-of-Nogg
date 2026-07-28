@@ -20,7 +20,7 @@ func getReachablePositions(monsterID: int) -> Array:
 	if mon == null:
 		return []
 	var startPos = state.getMonsterPosition(monsterID)
-	return BFSFloodFill.getReachable(startPos, mon.move, _canTraverseBound.bind(monsterID))
+	return BFSFloodFill.getReachable(startPos, getEffectiveMove(monsterID), _canTraverseBound.bind(monsterID))
 
 
 func findPath(fromPos: Vector2i, toPos: Vector2i, maxSteps: int = 100) -> Array:
@@ -58,7 +58,7 @@ func validateMovePath(monsterID: int, path: Array) -> Dictionary:
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
 		return {"success": false, "reason": "invalid_monster"}
-	if path.size() > mon.move:
+	if path.size() > getEffectiveMove(monsterID):
 		return {"success": false, "reason": "path_exceeds_move"}
 	if path.is_empty():
 		return {"success": true, "destination": state.getMonsterPosition(monsterID)}
@@ -99,6 +99,15 @@ func executeMove(monsterID: int, path: Array) -> bool:
 	events.monster_moved.emit(monsterID, path)
 	return true
 
+
+func getEffectiveMove(monsterID: int) -> int:
+	var monster = state.getMonster(monsterID)
+	if monster == null:
+		return 0
+	var bonus = 0
+	for effect in state.getActiveEffects(monsterID):
+		bonus += int(effect.get("move_bonus", 0))
+	return maxi(0, monster.move + bonus)
 
 func _canTraverseBound(current: Vector2i, next: Vector2i, monsterID: int) -> bool:
 	return canTraverse(monsterID, current, next)

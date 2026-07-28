@@ -11,6 +11,9 @@ static func _static_init():
 
 static func createSpell(name : String):
 	var parameters = references.getReference(name)
+	assert(not parameters.is_empty(), "Unknown spell reference: %s." % name)
+	if parameters.is_empty():
+		return null
 	var newSpell = Spell.new(parameters)
 	#uniqueSpellIDMaker += 1
 	return newSpell

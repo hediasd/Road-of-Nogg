@@ -11,6 +11,10 @@ const ShapeCaster = preload("res://src/algorithms/ShapeCaster.gd")
 var state: BattleState
 var events: BattleEvents
 
+## IDs whose defeat is currently being resolved. An ON_DEATH chain can re-enter
+## handleDefeat for a monster already on the stack; this keeps that finite.
+var _resolvingDeaths: Dictionary = {}
+
 ## Trigger constants
 const ON_TURN_END  = "ON_TURN_END"
 const ON_DEATH     = "ON_DEATH"
@@ -74,7 +78,7 @@ func _onTurnEnd(monsterID: int) -> void:
 		events.status_damage_dealt.emit(monsterID, effect["name"], actualDamage, mon.hitpoints)
 		if not mon.is_alive():
 			var sourceID = effect.get("sourceMonsterID", -1)
-			_handleDefeat(monsterID, sourceID)
+			handleDefeat(monsterID, sourceID)
 			return
 
 	# --- ON_TURN_END passives (future: e.g. regeneration) ---
@@ -86,7 +90,7 @@ func _onTurnEnd(monsterID: int) -> void:
 
 func _onDeath(monsterID: int) -> void:
 	## Fires all ON_DEATH passives for the dying entity.
-	## Called by CombatResolver._handleDefeat() BEFORE removing the monster from state.
+	## Called by handleDefeat() BEFORE removing the monster from state.
 	var mon = state.getMonster(monsterID)
 	if mon == null:
 		return
@@ -115,7 +119,7 @@ func _onDeath(monsterID: int) -> void:
 				var actualDamage = target.take_damage(damage)
 				events.passive_aoe_damage.emit(monsterID, passive.name, occupantID, passive.element, actualDamage, target.hitpoints)
 				if not target.is_alive():
-					_handleDefeat(occupantID, monsterID)
+					handleDefeat(occupantID, monsterID)
 
 func fireOnTargeted(targetID: int, attackerID: int) -> void:
 	var target = state.getMonster(targetID)
@@ -132,8 +136,23 @@ func fireOnTargeted(targetID: int, attackerID: int) -> void:
 				# Use a generic retaliate event or just emit the damage
 				events.passive_aoe_damage.emit(targetID, passive.name, attackerID, passive.element, actualDamage, attacker.hitpoints)
 				if not attacker.is_alive():
-					_handleDefeat(attackerID, targetID)
+					handleDefeat(attackerID, targetID)
 
-func _handleDefeat(defeatedID: int, killerID: int) -> void:
-	events.monster_defeated.emit(defeatedID, killerID)
-	state.removeMonster(defeatedID)
+func handleDefeat(defeatedID: int, killerID: int) -> void:
+	## The single defeat path for every kill source: direct damage, status ticks,
+	## retaliation, and death-triggered AOE. ON_DEATH fires before removal so a
+	## dying monster's passive can still read its own board position.
+	if _resolvingDeaths.has(defeatedID):
+		return
+	_resolvingDeaths[defeatedID] = true
+
+	_onDeath(defeatedID)
+
+	## An ON_DEATH chain may already have removed this monster. monsterPositions
+	## is the authoritative "still on the board" test, because removeMonster
+	## deliberately keeps the entry in state.monsters for post-mortem reference.
+	if state.monsterPositions.has(defeatedID) and not state.getMonster(defeatedID).is_alive():
+		events.monster_defeated.emit(defeatedID, killerID)
+		state.removeMonster(defeatedID)
+
+	_resolvingDeaths.erase(defeatedID)

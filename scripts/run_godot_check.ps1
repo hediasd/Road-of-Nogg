@@ -6,7 +6,8 @@ param(
     [int]$TimeoutSeconds = 60,
     [ValidateRange(0, 100000)]
     [int]$QuitAfter = 0,
-    [string]$LogStem = "godot_check"
+    [string]$LogStem = "godot_check",
+    [string[]]$ScriptArgs = @()
 )
 
 Set-StrictMode -Version Latest
@@ -42,6 +43,11 @@ if ($QuitAfter -gt 0) {
 }
 if (-not [string]::IsNullOrWhiteSpace($Script)) {
     $arguments += @("-s", $Script)
+}
+if ($ScriptArgs.Count -gt 0) {
+    # Everything after "--" becomes the script's OS.get_cmdline_user_args().
+    $arguments += @("--")
+    $arguments += $ScriptArgs
 }
 
 $quotedArguments = ($arguments | ForEach-Object {

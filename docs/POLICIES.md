@@ -1,6 +1,6 @@
 # Road of Nogg Development Policies
 
-Status: current. Last reconciled: 2026-07-25.
+Status: current. Last reconciled: 2026-07-27.
 
 This document explains the project’s engineering guardrails. The concise rules
 for agents are in [`.agents/AGENTS.md`](../.agents/AGENTS.md); current commands
@@ -14,6 +14,7 @@ and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
   would make two plausible product directions meaningfully different.
 - Use repository evidence and reversible implementation judgment for ordinary
   technical details. Ambiguity alone is not a reason to stop.
+- **Lorekeeper Constraint**: When acting as the Lorekeeper persona (or utilizing the Lorekeeper subagent), you may **only** modify lore documents (e.g., `docs/LORE.md` and files within `docs/lore/`). You may never modify game code or non-lore documentation, even if requested.
 
 ## Runtime boundaries
 
@@ -97,10 +98,19 @@ Run the smallest set that covers the affected failure modes:
 | Change | Required checks |
 |---|---|
 | Documentation only | `scripts/check_docs.ps1` |
-| Simulation, state, AI, or resolver | Determinism check plus focused scripts/tests |
-| Presentation, cursor, or scene | Relevant focused smoke check plus default-scene launch |
-| Cross-layer behavior | Simulation and presentation checks |
+| Simulation, state, AI, or resolver | `tests/run_tests.gd -- unit` plus `-- integration` |
+| Presentation, cursor, or scene | `tests/run_tests.gd -- scene` plus default-scene launch |
+| Cross-layer behavior | All three test tiers |
 | GUT-specific work | Isolated opt-in GUT runner with watchdog |
+
+Every test is a `.gd` file under `tests/unit/`, `tests/integration/`, or
+`tests/scene/`, named `test_<behavior>.gd`, one behavior per file;
+`tests/TestRunner.gd` enforces this on every run. `scripts/hooks/pre-commit`
+runs the `unit` tier and `scripts/hooks/pre-push` runs all three after
+`scripts/install_hooks.ps1` is run once per clone — see
+[`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md) for a known Windows
+output-capture issue that currently makes the `scene` tier (and therefore
+`pre-push`) unreliable as an automatic gate.
 
 Read output and exit codes before reporting success. GUT is not part of routine
 verification while the reproducible Windows access violation remains open.

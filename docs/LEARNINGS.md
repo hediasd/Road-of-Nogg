@@ -88,6 +88,30 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   the heuristic before enabling diagonals, variable edge costs, or portals.
 - **Review when:** changing allowed movement directions or terrain costs.
 
+### Line-of-sight endpoints are never tested as blockers
+
+- **Verified observation:** `LineOfSight.hasLoS()` documents and implements
+  "source and target cells are never passed to isBlocker" — only strictly
+  intervening cells (plus diagonal corner-check cells) are evaluated. A prior
+  audit theorized that `CombatResolver.canSpellReachPositionFrom()` passing
+  `targetID = -1` to `_hasLoS()` let the target's own occupant block its own
+  tile; that specific mechanism is impossible given this traversal rule — the
+  endpoint is never sampled regardless of which ID is passed. The `-1` vs. real
+  `targetID` argument only matters if a *different*, bystander entity occupies
+  a strictly-intervening cell and happens to share an ID with whatever is
+  passed — a narrower and rarer case than originally described. The fix
+  applied (passing the real occupant ID instead of `-1`) is still correct and
+  harmless; the stated root cause in the audit was not.
+- **Reusable rule:** Before shipping a LoS/geometry bug fix, verify the
+  root-cause theory against the algorithm's actual documented traversal —
+  which cells get sampled, which are explicitly skipped — rather than reasoning
+  from the symptom alone. A theory that sounds mechanically plausible can still
+  describe a code path the algorithm never executes. Write the regression test
+  first if possible: constructing a concrete failing scenario forces the same
+  verification a pure read-through can skip.
+- **Review when:** touching `LineOfSight.gd`, `CombatResolver`'s LoS call
+  sites, or diagnosing a spell-targeting/preview mismatch.
+
 ## GDScript loading
 
 ### Global names do not repair invalid paths
@@ -138,6 +162,36 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   a fresh captured log, and an expected success marker. On timeout, terminate
   only the exact process object launched by the check.
 - **Review when:** the execution host or sandbox tooling changes.
+
+### A shared test process lets one test's shutdown bug swallow another's output
+
+- **Verified observation:** `tests/scene/test_capsule_features.gd`'s success
+  marker goes missing from every captured stream (`.stdout.log`, `.godot.log`,
+  and the live-combined text `run_godot_check.ps1` matches against) on this
+  Windows host, even when every one of its assertions passes — confirmed via
+  `git stash` bisection against a clean `HEAD`, and confirmed structural rather
+  than a timing race: an explicit multi-frame yield plus `OS.delay_msec(1500)`
+  before `quit()` did not surface it either. Because `tests/run_tests.gd`
+  batches an entire tier into one Godot process (deliberately, to keep the
+  `unit` tier under ~10 seconds for `pre-commit`), when this test's shutdown
+  path corrupts the buffer, the *other* scene tests in the same run
+  (`test_setup_ui_flow.gd`, `test_cursor_ownership.gd`, `test_status_icons.gd`)
+  lose their PASS lines and the batch's `TESTS_OK` marker too — verified by
+  running them without capsule present (all three passed cleanly) versus with
+  it (all four vanish from output, though none actually failed; confirmed via
+  zero `TEST_FAILED` lines when capsule ran alone).
+- **Reusable rule:** A test-runner design that shares one process across many
+  test files trades isolation for speed. Before adopting it, confirm the
+  environment's output capture is trustworthy per-test, not just per-process —
+  otherwise one test's shutdown-path bug becomes every co-batched test's
+  reporting failure, and a red result stops being attributable to any specific
+  file. A red batch is not evidence of a regression in any file until
+  corroborated by isolating the suspect test alone (rerun with only it present;
+  check the log for `TEST_FAILED` lines specifically, not just marker absence).
+- **Review when:** changing `tests/TestRunner.gd`'s batching strategy, adding a
+  scene-tier test that constructs Mesh/Material/Shader resources, or
+  investigating a red `scene`/`all` tier run. Full detail in
+  [`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md) under "Tooling."
 
 ## Cursor event semantics
 

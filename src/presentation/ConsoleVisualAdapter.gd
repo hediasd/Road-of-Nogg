@@ -223,6 +223,15 @@ func _on_effect_ticked(monsterID: int, effectName: String, remainingTurns: int) 
 	pass
 
 
+func _on_resonance_changed(monsterID: int, element: String, oldCharge: int, newCharge: int, reason: String) -> void:
+	var mon = state.getMonster(monsterID)
+	var monName = mon.name if mon != null else "???"
+	var emoji = _getElementEmoji(element)
+	_log("  [RESONANCE] %s #%s %s %s: %s -> %s (%s)" % [
+		monName, monsterID, emoji, element.to_upper(), oldCharge, newCharge, reason
+	])
+
+
 func _on_passive_triggered(monsterID: int, passiveName: String, trigger: String) -> void:
 	var mon = state.getMonster(monsterID)
 	var monName = mon.name if mon != null else "???"

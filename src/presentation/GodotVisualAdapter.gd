@@ -9,6 +9,8 @@ const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactor
 const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEffects.gd")
 const BattleCursorControllerScript = preload("res://src/presentation/BattleCursorController.gd")
 const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
+const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcons.gd")
+const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
 const MAX_QUEUED_ANIMATIONS := 4096
 const ANIMATION_WATCHDOG_MARGIN := 0.75
 const TERRAIN_CELL_HEIGHT := BattleMeshFactoryScript.TERRAIN_CELL_SIZE.y
@@ -338,6 +340,25 @@ func _add_selection_body(container: Node3D, monsterID: int) -> void:
 	container.add_child(selectionBody)
 
 
+func _status_icon_anchor_y(container: Node3D) -> float:
+	var accumulated = {"has_bounds": false, "bounds": AABB()}
+	_accumulate_visual_bounds(container, Transform3D.IDENTITY, accumulated)
+	if not accumulated["has_bounds"]:
+		return 1.25
+	return maxf(float(accumulated["bounds"].end.y) + 0.28, 0.75)
+
+
+func _refresh_status_icons(monsterID: int) -> void:
+	if not _monster_visuals.has(monsterID):
+		return
+	var container: Node3D = _monster_visuals[monsterID]
+	StatusEffectIconsScript.create_or_update(
+		container,
+		state.getActiveEffects(monsterID),
+		_status_icon_anchor_y(container)
+	)
+
+
 func _accumulate_visual_bounds(
 		node: Node,
 		fromContainer: Transform3D,
@@ -465,7 +486,20 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 
 	monsters_node.add_child(container)
 	_monster_visuals[monsterID] = container
+	_refresh_status_icons(monsterID)
 	_log("%s [#%s] spawned at %s" % [_name, monsterID, pos])
+
+
+func _on_effect_applied(monsterID: int, _effectName: String, _duration: int, _sourceMonsterID: int, _sourceSpellName: String) -> void:
+	_refresh_status_icons(monsterID)
+
+
+func _on_effect_ticked(monsterID: int, _effectName: String, _remainingTurns: int) -> void:
+	_refresh_status_icons(monsterID)
+
+
+func _on_effect_removed(monsterID: int, _effectName: String) -> void:
+	_refresh_status_icons(monsterID)
 
 
 func _on_turn_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> void:
@@ -528,12 +562,17 @@ func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, dam
 	var totalDamage = 0
 	for damageLine in damageLines:
 		totalDamage += damageLine.get("damage", 0)
+	# Extract the primary element from the first damage line for VFX tinting.
+	var spellElement := "none"
+	if not damageLines.is_empty():
+		spellElement = str(damageLines[0].get("element", "none"))
 	if target:
 		_enqueue_animation({
 			"kind": "bump",
 			"monster_id": casterID,
 			"target_id": targetID,
 			"coord": state.getMonsterPosition(targetID),
+			"element": spellElement,
 			"right_text": "SPELL TARGET:\n%s\nTakes %s Dmg from %s\nHP Left: %s" % [target.name, totalDamage, spellName, targetNewHP],
 			"log_text": "Casts %s on %s for %s damage! (HP: %s)" % [spellName, target.name, totalDamage, targetNewHP]
 		})
@@ -665,6 +704,10 @@ func _start_bump_animation(action: Dictionary) -> bool:
 	if bumpDirection.is_zero_approx():
 		bumpDirection = Vector3.FORWARD
 	var bumpPos = originalPos + bumpDirection.normalized() * 0.4
+	# Spawn ground aura at the caster's feet when this bump comes from a spell cast.
+	if action.has("element"):
+		var auraColor := BattleMeshFactoryScript.elementColor(str(action["element"]))
+		SpellCastAuraScript.spawn(visual_parent, originalPos, auraColor)
 	var tween = sourceVisual.create_tween()
 	_track_position_tween(sourceID, tween)
 	tween.tween_property(sourceVisual, "position", bumpPos, 0.1)
