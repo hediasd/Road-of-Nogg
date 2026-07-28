@@ -12,6 +12,7 @@
 		],
 		"RACE": "Frostkin",
 		"FAMILY": "Training Drake",
+		"ARCHETYPE": "defender",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
 			[
@@ -32,6 +33,7 @@
 		],
 		"RACE": "Helvengesk",
 		"FAMILY": "Frost Wyrm",
+		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
 			[
@@ -58,6 +60,7 @@
 		],
 		"RACE": "Shadogus",
 		"FAMILY": "Dark Mage",
+		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
 			[
@@ -78,6 +81,7 @@
 		],
 		"RACE": "Sephilim",
 		"FAMILY": "Light Mender",
+		"ARCHETYPE": "leader",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
 			[
@@ -99,6 +103,7 @@
 		],
 		"RACE": "Lizardon",
 		"FAMILY": "Flame Brawler",
+		"ARCHETYPE": "striker",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
 			[
@@ -120,6 +125,7 @@
 		],
 		"RACE": "Stormborn",
 		"FAMILY": "Storm Herald",
+		"ARCHETYPE": "striker",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
 			[
@@ -142,6 +148,7 @@
 		],
 		"RACE": "Nymph",
 		"FAMILY": "Elder Treant",
+		"ARCHETYPE": "defender",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
 			[
@@ -165,6 +172,7 @@
 		],
 		"RACE": "Frostkin",
 		"FAMILY": "Frost Titan",
+		"ARCHETYPE": "striker",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
 			[
@@ -187,6 +195,7 @@
 		],
 		"RACE": "Frostkin",
 		"FAMILY": "Frost Runt",
+		"ARCHETYPE": "defender",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": []
 	},
@@ -204,6 +213,7 @@
 		],
 		"RACE": "Terrorugon",
 		"FAMILY": "Smoke Fiend",
+		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
 			[
@@ -225,6 +235,7 @@
 		],
 		"RACE": "Sephilim",
 		"FAMILY": "Flame Oracle",
+		"ARCHETYPE": "controller",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
 			[
@@ -245,6 +256,7 @@
 		],
 		"RACE": "Terrorugon",
 		"FAMILY": "Sanctum Wing",
+		"ARCHETYPE": "leader",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
 			[
@@ -266,6 +278,7 @@
 		],
 		"RACE": "Mechans",
 		"FAMILY": "Chrono Sage",
+		"ARCHETYPE": "controller",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
 			[
@@ -287,6 +300,7 @@
 		],
 		"RACE": "Shadogus",
 		"FAMILY": "Extrafolk",
+		"ARCHETYPE": "defender",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
 			[
@@ -309,6 +323,7 @@
 		],
 		"RACE": "Helvengesk",
 		"FAMILY": "Hanansk",
+		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
 			[
@@ -333,6 +348,7 @@
 		],
 		"RACE": "Lizardon",
 		"FAMILY": "Exogator",
+		"ARCHETYPE": "striker",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
 			[
@@ -358,6 +374,7 @@
 		],
 		"RACE": "Nymph",
 		"FAMILY": "Woodsland Nymph",
+		"ARCHETYPE": "leader",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
 			[
@@ -387,6 +404,7 @@
 		],
 		"RACE": "Wingedos",
 		"FAMILY": "Crowned Birdo",
+		"ARCHETYPE": "striker",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [],
 		"DESCRIPTION": "Agile, crested avian, high-mobility scout"
@@ -404,6 +422,7 @@
 		],
 		"RACE": "Gel",
 		"FAMILY": "Blob",
+		"ARCHETYPE": "controller",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
 			[
@@ -428,6 +447,7 @@
 		],
 		"RACE": "Mechans",
 		"FAMILY": "Clock-Bird",
+		"ARCHETYPE": "striker",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
 			[
@@ -450,6 +470,7 @@
 		],
 		"RACE": "Kemetos",
 		"FAMILY": "Mumitomo",
+		"ARCHETYPE": "defender",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
 			[
@@ -471,6 +492,7 @@
 		],
 		"RACE": "Tigerfolk",
 		"FAMILY": "Night Panther",
+		"ARCHETYPE": "striker",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
 			[
@@ -494,6 +516,7 @@
 		],
 		"RACE": "Pondtenders",
 		"FAMILY": "Basic Kappa",
+		"ARCHETYPE": "defender",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
 			[
@@ -520,6 +543,7 @@
 		],
 		"RACE": "Paperfolk",
 		"FAMILY": "Paper Tiger",
+		"ARCHETYPE": "striker",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
 			[
@@ -546,6 +570,7 @@
 		],
 		"RACE": "Paperfolk",
 		"FAMILY": "Paper Tiger",
+		"ARCHETYPE": "striker",
 		"ASCENDS_FROM": "Paper Cat",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
@@ -571,6 +596,7 @@
 		],
 		"RACE": "Sephilim",
 		"FAMILY": "Wheel Watcher",
+		"ARCHETYPE": "leader",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
 			[
@@ -594,6 +620,7 @@
 		],
 		"RACE": "Terrorugon",
 		"FAMILY": "Winged Lion",
+		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
 			[
@@ -618,6 +645,7 @@
 		],
 		"RACE": "Golemfolk",
 		"FAMILY": "Brickamon",
+		"ARCHETYPE": "defender",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
 			[
