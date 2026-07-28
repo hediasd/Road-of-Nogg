@@ -13,6 +13,7 @@ const RaceReferencesScript = preload("res://src/factories/RaceReferences.gd")
 const ElementReferencesScript = preload("res://src/factories/ElementReferences.gd")
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
 const PassiveSkillReferencesScript = preload("res://src/factories/PassiveSkillReferences.gd")
+const ArchetypeReferencesScript = preload("res://src/factories/ArchetypeReferences.gd")
 
 
 static func validateMonsters(monsterList: Array) -> Dictionary:
@@ -43,13 +44,17 @@ static func _validateOne(reference: Dictionary, allNames: Dictionary, seenNames:
 	else:
 		seenNames[name] = true
 
-	for key in ["RACE", "FAMILY", "ELEMENTS", "SPELLS"]:
+	for key in ["RACE", "FAMILY", "ELEMENTS", "SPELLS", "ARCHETYPE"]:
 		if not reference.has(key):
 			errors.append("%s is missing %s." % [name, key])
 
 	var race := str(reference.get("RACE", "none"))
 	if not RaceReferencesScript.hasReference(race):
 		errors.append("%s has unknown race %s." % [name, race])
+
+	var archetype := str(reference.get("ARCHETYPE", ""))
+	if not archetype.is_empty() and not ArchetypeReferencesScript.hasReference(archetype):
+		errors.append("%s has unknown archetype %s." % [name, archetype])
 
 	var elements: Array = reference.get("ELEMENTS", [])
 	for element in elements:
