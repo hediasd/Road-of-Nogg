@@ -3,6 +3,16 @@
 
 class_name BattleSimulator
 
+## Which of the two turn phases resolved first. Recorded on every command so a
+## replay resolves them in the order they actually happened.
+const ORDER_MOVE_FIRST := "move_first"
+const ORDER_ACT_FIRST := "act_first"
+
+## Replay snapshots gained the `order` field at version 4. Version 3 snapshots
+## predate act-first turns and load with ORDER_MOVE_FIRST.
+const REPLAY_VERSION := 4
+const REPLAY_MIN_VERSION := 2
+
 const CombatResolverScript = preload("res://src/battle_sim/CombatResolver.gd")
 const PassiveSkillResolverScript = preload("res://src/battle_sim/PassiveSkillResolver.gd")
 const MapFactoryScript = preload("res://src/factories/MapFactory.gd")
@@ -19,6 +29,16 @@ var visualAdapter: IBattleVisualAdapter
 var brains: Dictionary = {}
 var initialStateSnapshot: Dictionary = {}
 var setupSnapshot: Dictionary = {}
+
+## Accumulates the phases of the turn currently in progress so that a turn
+## resolved incrementally still records exactly one `command` history event, at
+## finishTurn(). The interactive player path resolves movement and the action as
+## separate steps; CPU brains and replay submit both at once through
+## executeCommand(). Both routes land here.
+##
+## Empty when no turn is being accumulated. `origin` is the position the actor
+## occupied when the turn opened, which is what undoMovePhase() restores.
+var _turnAccumulator: Dictionary = {}
 
 
 func _init(seedValue: int = 0) -> void:
@@ -116,14 +136,25 @@ func validateCommand(monsterID: int, command: Dictionary) -> Dictionary:
 	var spellSetIndex: int = int(command.get("spell_set_index", 0))
 	var spellIndex: int = int(command.get("spell_index", 0))
 
+	var order: String = str(command.get("order", ORDER_MOVE_FIRST))
+	if order not in [ORDER_MOVE_FIRST, ORDER_ACT_FIRST]:
+		return {"success": false, "reason": "invalid_order"}
+	# An act-first turn resolves its action before the actor leaves the tile it
+	# started on, so range, line of sight, and elevation must be checked from
+	# there. Validating it from the destination would accept attacks the actor
+	# was never in a position to make.
+	var actionPos: Vector2i = (
+		state.getMonsterPosition(monsterID) if order == ORDER_ACT_FIRST else futurePos
+	)
+
 	if action == "attack":
-		if not combatResolver.getBasicAttackTargetsFrom(monsterID, futurePos).has(targetID):
+		if not combatResolver.getBasicAttackTargetsFrom(monsterID, actionPos).has(targetID):
 			return {"success": false, "reason": "invalid_attack_target"}
 	elif action == "spell":
 		if spellSetIndex < 0 or spellIndex < 0:
 			return {"success": false, "reason": "invalid_spell"}
 		var targets = combatResolver.getSpellTargetsFrom(
-			monsterID, spellSetIndex, spellIndex, futurePos
+			monsterID, spellSetIndex, spellIndex, actionPos
 		)
 		if not targets.has(targetID):
 			return {"success": false, "reason": "invalid_spell_target"}
@@ -135,12 +166,248 @@ func validateCommand(monsterID: int, command: Dictionary) -> Dictionary:
 			"action": action,
 			"target_id": targetID,
 			"spell_set_index": spellSetIndex,
-			"spell_index": spellIndex
+			"spell_index": spellIndex,
+			"order": order
 		}
 	}
 
 
+## --- Incremental turn execution -------------------------------------------
+##
+## A turn is made of at most one movement phase and at most one action phase,
+## in either order. The interactive player path resolves them one at a time so
+## each can animate before the next is chosen; CPU brains and replay submit
+## both together through executeCommand(). Either way the turn produces exactly
+## one `command` history event, written by finishTurn().
+
+
+func _ensureTurnAccumulator(monsterID: int, source: String) -> Dictionary:
+	if _turnAccumulator.get("monster_id", -1) != monsterID:
+		_turnAccumulator = {
+			"monster_id": monsterID,
+			"origin": state.getMonsterPosition(monsterID),
+			"move_path": [],
+			"has_moved": false,
+			"has_acted": false,
+			"action": "wait",
+			"target_id": -1,
+			"spell_set_index": 0,
+			"spell_index": 0,
+			"order": ORDER_MOVE_FIRST,
+			"source": source,
+			"acted": false,
+			"skipped": false,
+			"action_result": {"success": true}
+		}
+	return _turnAccumulator
+
+
+func _guardPhase(monsterID: int) -> Dictionary:
+	if state.currentMonsterID != monsterID:
+		return {"success": false, "reason": "not_current_turn"}
+	var mon = state.getMonster(monsterID)
+	if mon == null or not mon.is_alive():
+		return {"success": false, "reason": "invalid_monster"}
+	if state.hasEffect(monsterID, "petrify"):
+		return {"success": false, "reason": "petrify"}
+	return {"success": true}
+
+
+func turnPhaseState(monsterID: int) -> Dictionary:
+	## What the interactive controller needs to build its menu: which phases are
+	## still available, and whether the move can still be taken back.
+	var accumulator = _turnAccumulator
+	if accumulator.get("monster_id", -1) != monsterID:
+		return {"has_moved": false, "has_acted": false, "can_undo_move": false}
+	var hasMoved: bool = accumulator["has_moved"]
+	var hasActed: bool = accumulator["has_acted"]
+	return {
+		"has_moved": hasMoved,
+		"has_acted": hasActed,
+		"can_undo_move": hasMoved and not hasActed
+	}
+
+
+func executeMovePhase(monsterID: int, path: Array, source: String = "player") -> Dictionary:
+	var guard = _guardPhase(monsterID)
+	if not guard["success"]:
+		return _rejectPhase(monsterID, source, guard["reason"])
+
+	var accumulator = _ensureTurnAccumulator(monsterID, source)
+	if accumulator["has_moved"]:
+		return _rejectPhase(monsterID, source, "move_already_spent")
+
+	var normalizedPath = _normalizePath(path)
+	if normalizedPath == null:
+		return _rejectPhase(monsterID, source, "invalid_path_coordinate")
+	var moveValidation = movementResolver.validateMovePath(monsterID, normalizedPath)
+	if not moveValidation["success"]:
+		return _rejectPhase(monsterID, source, moveValidation["reason"])
+
+	var moved = false
+	if not normalizedPath.is_empty():
+		events.movement_targeted.emit(monsterID, normalizedPath.back())
+		moved = movementResolver.executeMove(monsterID, normalizedPath)
+
+	if not accumulator["has_acted"]:
+		accumulator["order"] = ORDER_MOVE_FIRST
+	accumulator["has_moved"] = true
+	accumulator["move_path"] = normalizedPath
+	accumulator["acted"] = accumulator["acted"] or moved
+	return {
+		"success": true,
+		"moved": moved,
+		"destination": moveValidation["destination"]
+	}
+
+
+func undoMovePhase(monsterID: int) -> Dictionary:
+	## Rewinds the movement phase to where the turn began. Only legal while the
+	## action phase is unspent: an attack or spell is validated against range,
+	## line of sight, and elevation from the tile it was made from, so rewinding
+	## that tile afterwards would retroactively falsify a resolution that has
+	## already dealt damage.
+	##
+	## Nothing in the game reacts to movement — PassiveSkillResolver triggers on
+	## ON_TURN_END, ON_DEATH, ON_DAMAGE_TAKEN, and ON_TARGETED only — so there
+	## are no side effects to unwind beyond the position itself.
+	var guard = _guardPhase(monsterID)
+	if not guard["success"]:
+		return {"success": false, "reason": guard["reason"]}
+
+	var accumulator = _turnAccumulator
+	if accumulator.get("monster_id", -1) != monsterID or not accumulator["has_moved"]:
+		return {"success": false, "reason": "no_move_to_undo"}
+	if accumulator["has_acted"]:
+		return {"success": false, "reason": "action_already_resolved"}
+
+	var origin: Vector2i = accumulator["origin"]
+	var currentPos = state.getMonsterPosition(monsterID)
+	if currentPos != origin:
+		state.moveMonsterTo(monsterID, origin)
+		state.add_event("undo_move", monsterID, -1, {"from": currentPos, "to": origin})
+		# Replayed through the ordinary movement event so presentation walks the
+		# actor back along the way it came rather than teleporting it.
+		var returnPath: Array = accumulator["move_path"].slice(
+			0, maxi(accumulator["move_path"].size() - 1, 0)
+		)
+		returnPath.reverse()
+		returnPath.append(origin)
+		events.monster_moved.emit(monsterID, returnPath)
+
+	accumulator["has_moved"] = false
+	accumulator["move_path"] = []
+	accumulator["order"] = ORDER_MOVE_FIRST
+	return {"success": true, "destination": origin}
+
+
+func executeActionPhase(
+		monsterID: int,
+		action: String,
+		targetID: int = -1,
+		spellSetIndex: int = 0,
+		spellIndex: int = 0,
+		source: String = "player") -> Dictionary:
+	var guard = _guardPhase(monsterID)
+	if not guard["success"]:
+		return _rejectPhase(monsterID, source, guard["reason"])
+	if action not in ["wait", "attack", "spell"]:
+		return _rejectPhase(monsterID, source, "invalid_action")
+
+	var accumulator = _ensureTurnAccumulator(monsterID, source)
+	if accumulator["has_acted"]:
+		return _rejectPhase(monsterID, source, "action_already_spent")
+
+	# The actor is standing where it is; validation reads authoritative state
+	# rather than projecting a destination the way the atomic path has to.
+	var fromPos = state.getMonsterPosition(monsterID)
+	if action == "attack":
+		if not combatResolver.getBasicAttackTargetsFrom(monsterID, fromPos).has(targetID):
+			return _rejectPhase(monsterID, source, "invalid_attack_target")
+	elif action == "spell":
+		if spellSetIndex < 0 or spellIndex < 0:
+			return _rejectPhase(monsterID, source, "invalid_spell")
+		if not combatResolver.getSpellTargetsFrom(
+			monsterID, spellSetIndex, spellIndex, fromPos
+		).has(targetID):
+			return _rejectPhase(monsterID, source, "invalid_spell_target")
+
+	var actionResult: Dictionary = {"success": true}
+	if action in ["attack", "spell"]:
+		events.action_targeted.emit(monsterID, targetID, action)
+	if action == "attack":
+		actionResult = combatResolver.executeBasicAttack(monsterID, targetID)
+	elif action == "spell":
+		actionResult = combatResolver.executeCastSpell(
+			monsterID, targetID, spellSetIndex, spellIndex
+		)
+
+	if not accumulator["has_moved"]:
+		accumulator["order"] = ORDER_ACT_FIRST
+	accumulator["has_acted"] = true
+	accumulator["action"] = action
+	accumulator["target_id"] = targetID
+	accumulator["spell_set_index"] = spellSetIndex
+	accumulator["spell_index"] = spellIndex
+	accumulator["action_result"] = actionResult
+	accumulator["acted"] = accumulator["acted"] or actionResult.get("success", false)
+	return {"success": true, "actionResult": actionResult}
+
+
+func finishTurn(monsterID: int, source: String = "player") -> Dictionary:
+	## Closes the turn: writes the single aggregate command event and fires the
+	## end-of-turn passives exactly once, however many phases actually ran.
+	var accumulator = _ensureTurnAccumulator(monsterID, source)
+	var normalized := {
+		"move_path": accumulator["move_path"],
+		"action": accumulator["action"],
+		"target_id": accumulator["target_id"],
+		"spell_set_index": accumulator["spell_set_index"],
+		"spell_index": accumulator["spell_index"],
+		"order": accumulator["order"]
+	}
+	state.add_event("command", monsterID, normalized["target_id"], {
+		"source": accumulator["source"],
+		"command": normalized.duplicate(true)
+	})
+
+	var skipped: bool = accumulator["skipped"]
+	var actionResult: Dictionary = accumulator["action_result"]
+	var acted: bool = accumulator["acted"]
+	_turnAccumulator = {}
+	passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
+	return {
+		"success": true,
+		"resolved": false if skipped else actionResult.get("success", true),
+		"acted": acted,
+		"skipped": skipped,
+		"command": normalized,
+		"actionResult": actionResult
+	}
+
+
+func _rejectPhase(monsterID: int, source: String, reason: String) -> Dictionary:
+	state.add_event("command_rejected", monsterID, -1, {"source": source, "reason": reason})
+	return {"success": false, "reason": reason}
+
+
+func _normalizePath(path):
+	## Returns the path as Vector2i steps, or null if any coordinate is unusable.
+	var normalizedPath: Array = []
+	for stepValue in path:
+		var step = stepValue
+		if stepValue is Dictionary:
+			step = Vector2i(int(stepValue.get("x", 0)), int(stepValue.get("y", 0)))
+		if not step is Vector2i:
+			return null
+		normalizedPath.append(step)
+	return normalizedPath
+
+
 func executeCommand(monsterID: int, command: Dictionary, source: String = "cpu") -> Dictionary:
+	## The atomic entry point CPU brains and replay use. Validates the whole turn
+	## up front, then resolves it through the same phase calls the interactive
+	## path uses, in the order the command records.
 	var validation = validateCommand(monsterID, command)
 	if not validation["success"]:
 		state.add_event("command_rejected", monsterID, int(command.get("target_id", -1)), {
@@ -150,55 +417,40 @@ func executeCommand(monsterID: int, command: Dictionary, source: String = "cpu")
 		return validation
 
 	var normalized: Dictionary = validation["command"]
-	state.add_event("command", monsterID, normalized["target_id"], {
-		"source": source,
-		"command": normalized.duplicate(true)
-	})
+	var accumulator = _ensureTurnAccumulator(monsterID, source)
+	accumulator["source"] = source
 
 	if state.hasEffect(monsterID, "petrify"):
 		events.monster_skipped_turn.emit(monsterID, "petrify")
-		passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
-		return {
-			"success": true,
-			"resolved": false,
-			"acted": false,
-			"skipped": true,
-			"command": normalized,
-			"actionResult": {"success": false, "reason": "petrify"}
-		}
-
-	var acted = false
-	var path: Array = normalized["move_path"]
-	if not path.is_empty():
-		events.movement_targeted.emit(monsterID, path.back())
-		acted = movementResolver.executeMove(monsterID, path) or acted
+		accumulator["skipped"] = true
+		accumulator["action_result"] = {"success": false, "reason": "petrify"}
+		var skippedResult = finishTurn(monsterID, source)
+		skippedResult["command"] = normalized
+		return skippedResult
 
 	var action: String = normalized["action"]
-	var targetID: int = normalized["target_id"]
-	var actionResult: Dictionary = {"success": true}
-	if action in ["attack", "spell"]:
-		events.action_targeted.emit(monsterID, targetID, action)
-
-	if action == "attack":
-		actionResult = combatResolver.executeBasicAttack(monsterID, targetID)
-		acted = actionResult.get("success", false) or acted
-	elif action == "spell":
-		actionResult = combatResolver.executeCastSpell(
+	if normalized["order"] == ORDER_ACT_FIRST:
+		executeActionPhase(
 			monsterID,
-			targetID,
+			action,
+			normalized["target_id"],
 			normalized["spell_set_index"],
-			normalized["spell_index"]
+			normalized["spell_index"],
+			source
 		)
-		acted = actionResult.get("success", false) or acted
+		executeMovePhase(monsterID, normalized["move_path"], source)
+	else:
+		executeMovePhase(monsterID, normalized["move_path"], source)
+		executeActionPhase(
+			monsterID,
+			action,
+			normalized["target_id"],
+			normalized["spell_set_index"],
+			normalized["spell_index"],
+			source
+		)
 
-	passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
-	return {
-		"success": true,
-		"resolved": actionResult.get("success", true),
-		"acted": acted,
-		"command": normalized,
-		"actionResult": actionResult
-	}
+	return finishTurn(monsterID, source)
 
 
 func executeTurn(monsterID: int) -> bool:
@@ -232,7 +484,7 @@ func createReplaySnapshot() -> Dictionary:
 			commands.append(BattleStateSerializerScript.jsonSafe(event))
 
 	return {
-		"version": 3,
+		"version": REPLAY_VERSION,
 		"seed": state.battleSeed,
 		"setup": setupSnapshot.duplicate(true),
 		"initialState": initialStateSnapshot if not initialStateSnapshot.is_empty() else state.serialize_state(),
@@ -244,8 +496,8 @@ func createReplaySnapshot() -> Dictionary:
 
 
 func restoreReplaySnapshot(snapshot: Dictionary) -> Dictionary:
-	var version = int(snapshot.get("version", 2))
-	if version < 2 or version > 3:
+	var version = int(snapshot.get("version", REPLAY_MIN_VERSION))
+	if version < REPLAY_MIN_VERSION or version > REPLAY_VERSION:
 		return {"success": false, "reason": "unsupported_replay_version", "version": version}
 	if not snapshot.has("currentState"):
 		return {"success": false, "reason": "missing_current_state"}
@@ -253,6 +505,7 @@ func restoreReplaySnapshot(snapshot: Dictionary) -> Dictionary:
 	if visualAdapter != null:
 		visualAdapter.disconnectFromEvents()
 	visualAdapter = null
+	_turnAccumulator = {}
 	state = BattleStateSerializerScript.deserialize(snapshot["currentState"])
 	events = BattleEvents.new()
 	turnManager = TurnManager.new(state, events)

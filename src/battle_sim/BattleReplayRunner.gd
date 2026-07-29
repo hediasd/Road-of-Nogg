@@ -3,11 +3,12 @@ extends RefCounted
 
 const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
+const BattleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
 
 
 static func replay(snapshot: Dictionary) -> Dictionary:
-	var version = int(snapshot.get("version", 2))
-	if version < 2 or version > 3:
+	var version = int(snapshot.get("version", BattleSimulatorScript.REPLAY_MIN_VERSION))
+	if version < BattleSimulatorScript.REPLAY_MIN_VERSION or version > BattleSimulatorScript.REPLAY_VERSION:
 		return {"success": false, "reason": "unsupported_replay_version", "version": version}
 	if snapshot.get("setup", {}).is_empty():
 		return {"success": false, "reason": "missing_setup"}

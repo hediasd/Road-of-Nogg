@@ -74,10 +74,17 @@ player state, hides battle controls, and restores the setup overlay over the sky
 ## Controller-neutral command contract
 
 CPU brains and the player controller submit the same command fields:
-`move_path`, `action`, `target_id`, `spell_set_index`, and `spell_index`.
-`BattleSimulator.validateCommand()` checks the current actor, the complete move
-path, the future destination, action type, spell availability, range, line of
-sight, team rules, and target validity against authoritative state.
+`move_path`, `action`, `target_id`, `spell_set_index`, `spell_index`, and
+`order`. `BattleSimulator.validateCommand()` checks the current actor, the
+complete move path, the destination, action type, spell availability, range,
+line of sight, team rules, and target validity against authoritative state.
+
+`order` is `move_first` or `act_first` and says which phase resolved first. It
+decides which position the action is validated from: a `move_first` action is
+checked against the move destination, an `act_first` action against the tile
+the actor started the turn on. Without it an act-then-move turn would replay
+as move-then-act and re-validate against a tile the actor was never in
+position to act from.
 
 Command outcome has two distinct stages:
 
@@ -91,8 +98,32 @@ Command outcome has two distinct stages:
   turn ends without generating a second fallback command.
 
 `executeTurn()` only asks a CPU brain for its proposal and delegates to this
-shared executor. The player controller waits for UI input and submits through
-the same method.
+shared executor.
+
+## Incremental turn execution
+
+A turn holds at most one movement phase and at most one action phase, in
+either order. `executeMovePhase()`, `executeActionPhase()`, and `finishTurn()`
+resolve them one at a time, which is what lets the interactive path animate a
+move to completion before the player chooses an action. `executeCommand()` is
+the atomic entry point CPU brains and replay use; it validates the whole turn
+up front and then drives the same phase calls in the order the command
+records.
+
+Both routes accumulate into one turn and produce exactly one `command` history
+event, written by `finishTurn()`. `finishTurn()` is also the sole caller of
+`PassiveSkillResolver.ON_TURN_END`, which must fire once per turn however many
+phases ran. An action phase validates from authoritative state rather than a
+projected destination, because by then the actor is already standing where it
+will act from.
+
+`undoMovePhase()` rewinds movement to the tile the turn began on. It is legal
+only while the action phase is unspent: an action is validated from the tile
+it was made from, so rewinding that tile afterwards would retroactively
+falsify a resolution that has already dealt damage. Movement itself has no
+side effects to unwind — no passive triggers on it — so the rewind is a
+position restore plus a `monster_moved` emission along the reverse path, which
+presentation animates as an ordinary move.
 
 ## Elevation, combat, and CPU planning
 
@@ -162,6 +193,9 @@ rewrite simulation results.
   IDs, board layers, rosters, effects, history, and monsters.
 - `BattleSimulator.createReplaySnapshot()` includes setup, initial/current state,
   pending turn order, brain classes, and the controller-neutral command ledger.
+- Replay snapshots are version 4, which added the command `order` field.
+  Version 3 and 2 snapshots still load, defaulting `order` to `move_first` —
+  they predate act-first turns, so every recorded turn was move-first anyway.
 - `BattleReplayRunner` reconstructs a battle from setup and replays recorded CPU
   and player commands through normal validation/execution.
 - `restoreReplaySnapshot()` restores current state and rebuilds resolvers,
