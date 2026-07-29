@@ -1,11 +1,11 @@
 ## VisualActionQueue — Owns the FIFO of pending visual actions, the tween
 ## currently playing, and the watchdog that recovers a stalled one.
 ##
-## Extracted from GodotVisualAdapter (AUDIT_REMEDIATION_PLAN.md P5-2). The queue
-## was already a distinct conceptual unit with its own invariants — docs/
-## LEARNINGS.md treats it as one — but it shared a file with event handling,
-## mesh construction, and cursor wiring, so those invariants were easy to break
-## by accident while editing something unrelated.
+## Extracted from GodotVisualAdapter. The queue was already a distinct
+## conceptual unit with its own invariants — docs/LEARNINGS.md treats it as
+## one — but it shared a file with event handling, mesh construction, and
+## cursor wiring, so those invariants were easy to break by accident while
+## editing something unrelated.
 ##
 ## The invariants this class exists to hold:
 ##

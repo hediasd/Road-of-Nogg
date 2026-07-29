@@ -4,9 +4,9 @@
 ##
 ## This is organizational metadata only: grouping, coloring, and filtering the
 ## catalog (e.g. the Stage 3 editor panel), and a basis for an optional
-## per-role stat-band lint. It carries no crit/Luck contract — see
-## GAME_DESIGN.md and AUDIT_COMPLETED.md for why Luck was deliberately kept
-## free of archetype rules.
+## per-role stat-band lint. It carries no crit/Luck contract: no design
+## contract restricts which archetypes may carry LUCK, so critical-hit
+## balancing is purely post-hoc via playtest rather than an archetype rule.
 
 class_name ArchetypeReferences
 

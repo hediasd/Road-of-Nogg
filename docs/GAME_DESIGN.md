@@ -14,8 +14,8 @@ Creative details and balance values not recorded here still require user input.
 - Duplicate monsters are allowed but should be discouraged by the UI.
 - Seeded random team presets must be reproducible.
 
-The detailed setup, dropdown, controller, cursor, and delivery decisions are in
-[`PLAYABLE_BATTLE_PLAN.md`](./PLAYABLE_BATTLE_PLAN.md).
+The detailed setup, dropdown, controller, and cursor contracts are in
+[`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Turn and victory flow
 

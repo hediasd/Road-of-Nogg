@@ -69,9 +69,9 @@ and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
 ## Documentation ownership
 
 - [`README.md`](../README.md): contributor entry point and common checks.
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md): current runtime ownership and data flow.
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md): current runtime ownership, data flow,
+  and the first-playable setup/player-control contract.
 - [`GAME_DESIGN.md`](./GAME_DESIGN.md): confirmed player-facing rules.
-- [`PLAYABLE_BATTLE_PLAN.md`](./PLAYABLE_BATTLE_PLAN.md): implemented first-playable setup/player-control contract.
 - [`BACKLOG.md`](./BACKLOG.md): durable, actionable work outside current scope.
 - [`LEARNINGS.md`](./LEARNINGS.md): verified reusable discoveries, not session history.
 - [`DEVELOPMENT.md`](./DEVELOPMENT.md): executable commands and environment safeguards.
