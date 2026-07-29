@@ -158,6 +158,23 @@ would corrupt passives and cooldowns silently.
 **Model:** Opus 5. Deciding where the turn boundary lives and how order is
 recorded without breaking replay determinism is the actual work.
 
+**Resolution (2026-07-29, commit `a7659a4`): done.** All seven items landed as
+written. `executeCommand()` is now a composition of the phase calls, so CPU
+brains and replay keep one entry point.
+
+Verified with `debug/verify_pc1.gd` (gitignored scratch, not reinstated test
+infrastructure): a seeded CPU vs CPU battle reproduces a byte-identical
+1373-line battle log against a pre-change baseline; a 205-command replay
+round-trips to identical HP, positions, alive sets, and turn count; and one
+command is accepted as `act_first` while the identical command declared
+`move_first` is refused with `invalid_attack_target`, confirming `order`
+actually gates validation rather than just being recorded.
+
+One trap for anyone extending this: `runFullBattle()` returns
+`_determineWinnerByNumbers()` when it hits the round cap, which is a points
+decision, not a wipeout. Comparing that return against a replay's
+`checkWinCondition()` produces a false mismatch.
+
 ---
 
 ## PC-2 — Extract `PlayerTurnController` on the new phase model
@@ -213,6 +230,30 @@ move-then-act and act-then-move orders.
 
 **Model:** Opus 5. The seam between the controller and the state machine is
 not yet drawn, and the phase model is a design decision.
+
+**Resolution (2026-07-29, commit `f1fe38b`): done, with one verification gap
+carried into PC-3.** `src/systems/PlayerTurnController.gd` owns the phases, the
+menu model (`menuEntries()`), and phase submission; the scene controller routes
+input and reacts to `menu_changed`, `status_changed`, and `turn_finished`.
+`BattleUIBuilder`'s rows were rewired onto the menu model as an interim
+rendering — `Wait` and `End Turn` became `Pass`, and `Undo Move` was added.
+
+Verified with `debug/verify_pc2.gd`, which drives the phase machine against a
+stub adapter: every order, all three Pass timings, undo then re-move, cancel
+from `MOVE_SELECT`/`TARGET_SELECT`/`CONFIRM_ACTION`, and the drain gate holding
+the menu shut mid-animation.
+
+**Still outstanding — the in-window playthrough.** No GUI automation is
+available in this environment, so mouse ray-casting, keyboard routing, the
+button wiring, and the animation confirmation carried over from the
+`VisualActionQueue` extraction were not exercised in a real battle. The
+headless harness covers the phase machine, not the input surface. PC-3 rebuilds
+that surface anyway, so do this check as part of PC-3 rather than twice.
+
+**Two notes for PC-3.** `menuEntries()` is the whole contract — id, label,
+`enabled`, `visible` — so the widget needs no rules of its own. And the undo
+window is exactly the gap between moving and acting: spending both phases ends
+the turn, so `Undo Move` is never visible next to a spent `Attack`.
 
 ---
 

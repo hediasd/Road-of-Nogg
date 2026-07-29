@@ -22,12 +22,17 @@ or misleading.
 
 ## Player command UI
 
-- **The Player vs CPU command UI is a two-row button bar with an atomic
-  move-plus-action submission**, so the player cannot act before moving and
-  never sees a phase resolve before choosing the next one. Pause also stops the
-  simulation rather than the visual queue. Planned as `PC-1` … `PC-5` in
-  `implementation_plan.md`, which carries the design, verification, and model
-  routing; four decisions there are blocking on the user.
+- **`PC-1` and `PC-2` are done** (2026-07-29). Turn execution is split into
+  order-aware phases and the player state machine lives in
+  `src/systems/PlayerTurnController.gd`. `PC-3` (vertical menu widget), `PC-4`
+  (pause the visual queue instead of the simulation), and `PC-5` (action
+  forecast) remain; see `implementation_plan.md`.
+- **The player input surface has never been exercised in a real battle.** PC-2
+  was verified headlessly against a stub adapter, which covers the phase
+  machine but not mouse ray-casting, keyboard routing, or the button wiring.
+  The animation confirmation carried over from the `VisualActionQueue`
+  extraction is still outstanding too. Both are folded into PC-3's
+  verification, since PC-3 rebuilds that surface.
 
 ## Content inconsistencies
 
