@@ -15,9 +15,7 @@ static var list = [
 	{"NAME": "Paperfolk", "RESISTANCES": {"steel": 0.8, "wind": 0.8, "darkness": 1.2, "water": 1.2}},
 	{"NAME": "Sephilim", "RESISTANCES": {"light": 0.8, "thunder": 0.8, "darkness": 1.2, "earth": 1.2}},
 	{"NAME": "Terrorugon", "RESISTANCES": {"darkness": 0.8, "fire": 0.8, "wood": 1.2, "thunder": 1.2}},
-	{"NAME": "Golemfolk", "RESISTANCES": {"earth": 0.8, "steel": 0.8, "water": 1.2, "wood": 1.2}},
-	{"NAME": "Frostkin", "RESISTANCES": {"ice": 0.8, "water": 0.8, "fire": 1.2, "wind": 1.2}},
-	{"NAME": "Stormborn", "RESISTANCES": {"thunder": 0.8, "wind": 0.8, "earth": 1.2, "steel": 1.2}}
+	{"NAME": "Golemfolk", "RESISTANCES": {"earth": 0.8, "steel": 0.8, "water": 1.2, "wood": 1.2}}
 ]
 static func getReference(name: String) -> Dictionary:
 	for race in list:
