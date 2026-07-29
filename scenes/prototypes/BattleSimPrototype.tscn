@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://vlju00t6gukr"]
+
+[ext_resource type="Script" path="res://scenes/prototypes/BattleSimPrototype.gd" id="1_proto"]
+
+[node name="BattleSimPrototype" type="Node"]
+script = ExtResource("1_proto")

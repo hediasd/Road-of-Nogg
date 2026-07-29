@@ -1,3 +1,5 @@
+## demo_battle — Headless console demo of a full seeded battle. Run manually
+## via Godot's -s flag; not a test and not part of any check.
 extends SceneTree
 
 func _init() -> void:
