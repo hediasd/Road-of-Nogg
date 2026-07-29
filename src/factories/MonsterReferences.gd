@@ -1,6 +1,5 @@
 class_name MonsterReferences
 
-const CatalogValidatorScript = preload("res://src/factories/CatalogValidator.gd")
 const JSON_PATH := "res://data/monsters.json"
 
 static var list: Array
@@ -94,13 +93,3 @@ static func getNames() -> Array[String]:
 		names.append(name)
 	names.sort()
 	return names
-
-
-static func validateAll() -> Dictionary:
-	## Validate the catalog. Include load errors if present.
-	var result = CatalogValidatorScript.validateMonsters(list)
-	if not _load_error.is_empty():
-		if result["errors"] is Array:
-			result["errors"].insert(0, "Catalog load error: %s" % _load_error)
-		result["success"] = false
-	return result

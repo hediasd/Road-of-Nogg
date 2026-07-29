@@ -24,9 +24,7 @@ class_name ArchetypeReferences
 ##
 ## Bounds carry roughly one point of headroom past the observed range, except
 ## where the bound IS the role's definition (striker SPREAD_MIN, the two
-## floors). A monster sitting exactly on a bound is reported as a warning, not
-## an error — see CatalogValidator.validateArchetypeBands(). Absent key means
-## unbounded in that direction.
+## floors). Absent key means unbounded in that direction.
 static var list = [
 	{
 		"NAME": "defender",
