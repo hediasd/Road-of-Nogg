@@ -1,7 +1,7 @@
 # Backlog
 
 Status: durable work outside the completed first-playable task. Last reviewed:
-2026-07-26.
+2026-07-29.
 
 Items belong here only when they are actionable, still relevant, and not already
 implemented by the playable battle flow.
@@ -31,14 +31,17 @@ implemented by the playable battle flow.
   pipeline for silhouettes visible through terrain without drawing over a
   monster's front faces. Treat this as a performance-sensitive rendering change.
 - **Prototype shell decision:** Restore purpose-built scripts for
-  `scenes/prototypes/Retro3DMapPrototype.tscn` and `Retro3DVisualTest.tscn`, or
-  remove the inert shells in an explicitly approved cleanup.
+  `scenes/prototypes/Retro3DMapPrototype.tscn` and
+  `Retro3DVisualPrototype.tscn`, or remove the inert shells in an explicitly
+  approved cleanup.
 
 ## Testing and maintenance
 
-- **Future GUT re-evaluation:** Keep GUT isolated until a later Godot or GUT
-  release. Re-test the current Windows `0xC0000005` failure with the shadow
-  project and 120-second watchdog before making it routine again.
+- **Build a fresh test suite:** The previous unit/integration/scene suite, the
+  GUT addon, and their check runners were removed entirely to start clean.
+  Design and add new unit, integration, and validator coverage (including
+  monster-catalog validation, previously `CatalogValidator.gd`) as a
+  deliberate decision, not a carryover of the old structure.
 - **Factory path audit:** Verify explicit `preload()`/`load()` paths when scripts
   move; `class_name` does not repair an invalid resource path.
 

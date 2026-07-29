@@ -17,7 +17,7 @@ Use this page to find the source of truth instead of searching every document.
 
 ## Authority and updates
 
-Current runtime behavior and tests override stale prose. When behavior changes,
+Current runtime behavior overrides stale prose. When behavior changes,
 update the one document that owns that truth and link to it elsewhere. Avoid
 copying whole sections between documents.
 

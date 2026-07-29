@@ -39,17 +39,13 @@
 
 ## Running the checks
 
-Tests are a gate, not a feedback loop. A full tier costs a Godot boot plus its
-whole output, and re-running an unchanged tier proves nothing.
+There is no automated test suite or git hooks in this repository right now;
+the previous suite and hooks were removed to be rebuilt fresh.
 
-- **Once per item, not once per edit.** Batch related edits, then verify.
-- **Match the tier to the change.** `unit` while iterating on simulation logic;
-  `integration` when catalog or resolver behavior changed; `scene` only for
-  presentation work.
-- **Full sweep only at an item boundary**, immediately before committing.
-- Trust the hooks: `pre-commit` already runs `unit` and `pre-push` runs every
-  tier, so a manual pre-commit sweep is usually redundant.
-- Do not re-run a tier to confirm a result already reported in this session.
+- Verify by launching the game manually and exercising the affected behavior,
+  once per item boundary rather than once per edit.
+- Do not claim an item complete without having actually exercised the affected
+  behavior in this session.
 
 ## Backlog maintenance
 

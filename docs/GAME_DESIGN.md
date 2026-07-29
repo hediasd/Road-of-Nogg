@@ -91,9 +91,9 @@ tiers it has been authored for.
 
 #### Tier contract
 
-Each Level has a fixed shape, enforced by
-`tests/integration/test_reference_catalog.gd` so the ladder cannot drift as it
-is extended to further elements:
+Each Level has a fixed shape so the ladder does not drift as it is extended to
+further elements. This is currently a design contract only — there is no
+automated check enforcing it (see [`MONSTER_CATALOG_SCHEMA.md`](./MONSTER_CATALOG_SCHEMA.md)):
 
 | Level | Role | Required shape |
 |---|---|---|

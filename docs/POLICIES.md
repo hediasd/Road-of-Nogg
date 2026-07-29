@@ -1,6 +1,6 @@
 # Road of Nogg Development Policies
 
-Status: current. Last reconciled: 2026-07-27.
+Status: current. Last reconciled: 2026-07-29.
 
 This document explains the project’s engineering guardrails. The concise rules
 for agents are in [`.agents/AGENTS.md`](../.agents/AGENTS.md); current commands
@@ -93,25 +93,9 @@ owns the reference roster and links to aspect studies. Aspect files should:
 
 ## Risk-based verification
 
-Run the smallest set that covers the affected failure modes:
-
-| Change | Required checks |
-|---|---|
-| Documentation only | `scripts/check_docs.ps1` |
-| Simulation, state, AI, or resolver | `tests/run_tests.gd -- unit` plus `-- integration` |
-| Presentation, cursor, or scene | `tests/run_tests.gd -- scene` plus default-scene launch |
-| Cross-layer behavior | All three test tiers |
-| GUT-specific work | Isolated opt-in GUT runner with watchdog |
-
-Every test is a `.gd` file under `tests/unit/`, `tests/integration/`, or
-`tests/scene/`, named `test_<behavior>.gd`, one behavior per file;
-`tests/TestRunner.gd` enforces this on every run. `scripts/hooks/pre-commit`
-runs the `unit` tier and `scripts/hooks/pre-push` runs all three after
-`scripts/install_hooks.ps1` is run once per clone — see
-[`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md) for a known Windows
-output-capture issue that currently makes the `scene` tier (and therefore
-`pre-push`) unreliable as an automatic gate.
-
-Read output and exit codes before reporting success. GUT is not part of routine
-verification while the reproducible Windows access violation remains open.
-Commands are maintained in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
+There is no automated test suite or check runner in this repository right now;
+the previous suite, GUT, and their runners were removed to be rebuilt fresh.
+Verify changes by launching the game manually and exercising the affected
+behavior — see [`DEVELOPMENT.md`](./DEVELOPMENT.md) for manual launch notes
+and Windows-specific safeguards. Do not claim completion without having
+actually exercised the affected behavior.

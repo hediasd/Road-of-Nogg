@@ -18,24 +18,9 @@ backlog, durable learnings, and comparative game references.
 
 ## Verification
 
-Run checks according to the change risk described in
-[`docs/POLICIES.md`](./docs/POLICIES.md). Verified commands and Windows-specific
-safeguards are in [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md).
-
-Common focused checks:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 -Script res://tests/run_tests.gd -ScriptArgs unit -ExpectedMarker TESTS_OK -TimeoutSeconds 30 -QuitAfter 30 -LogStem tests_unit
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_godot_check.ps1 -Script res://tests/run_tests.gd -ScriptArgs integration -ExpectedMarker TESTS_OK -TimeoutSeconds 60 -QuitAfter 60 -LogStem tests_integration
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check_docs.ps1
-```
-
-Run `scripts/install_hooks.ps1` once per clone to run the `unit` tier
-automatically before each commit and the full suite before each push. Every
-test lives under `tests/unit/`, `tests/integration/`, or `tests/scene/`; see
-[`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) for the full command set, the
-tier definitions, and a known Windows output-capture limitation affecting the
-`scene` tier.
-
-GUT remains intentionally isolated pending the investigation tracked in the
-[backlog](./docs/BACKLOG.md).
+There is no automated test suite or check runner in this repository right now;
+the previous suite and its runners were removed to be rebuilt fresh. Verify
+changes by running the game manually until a new suite lands — see
+[`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) for manual launch notes and
+Windows-specific safeguards, and [`docs/POLICIES.md`](./docs/POLICIES.md) for
+the current verification policy.

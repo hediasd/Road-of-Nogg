@@ -44,14 +44,8 @@ the rationale; this file is the concise operational contract.
 
 ## Verification
 
-Choose checks by affected risk:
-
-- Documentation only: run `scripts/check_docs.ps1`.
-- Simulation/state/resolvers: run deterministic and focused headless checks.
-- Presentation/cursor/scene: run the relevant focused smoke script and the
-  default-scene smoke check.
-- Cross-layer changes: run both simulation and presentation checks.
-
-Use the verified commands and Windows safeguards in `docs/DEVELOPMENT.md`.
-GUT remains isolated and opt-in until its recorded Windows crash is resolved.
-Do not claim completion without reading the command output and exit code.
+There is no automated test suite or check runner in this repository right now;
+the previous suite and its runners were removed to be rebuilt fresh. Verify
+changes by launching the game manually and exercising the affected behavior —
+see the Windows safeguards in `docs/DEVELOPMENT.md`. Do not claim completion
+without having actually exercised the affected behavior.

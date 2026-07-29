@@ -12,7 +12,7 @@ not a session log, policy copy, or backlog.
 | Turn order, movement, or pathfinding | Ordering and pathing |
 | Godot classes, loads, or factory paths | GDScript loading |
 | Console maps or diagnostic output | Text rendering |
-| Godot/GUT execution on Windows | Test and process behavior |
+| Running Godot scripts reliably on Windows | Process behavior |
 | Cursor ownership or tile intent | Cursor event semantics |
 | Presentation event sequencing or animation cancellation | Visual action playback |
 | Elevation rendering or map geometry | Elevation presentation |
@@ -140,58 +140,20 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   tactical grids; put descriptive names in a separate legend.
 - **Review when:** changing console board output or CI diagnostics.
 
-## Test and process behavior
-
-### GUT is an isolated failure boundary
-
-- **Verified observation:** Godot 4.4 starts and imports a fresh-cache project,
-  but GUT 9.4’s supported CLI reproducibly exits with Windows access violation
-  `0xC0000005` before useful stdout/stderr, including compatibility rendering,
-  dummy audio, isolated user data, and a populated global-class cache.
-- **Reusable rule:** Do not run GUT routinely. Use focused headless checks; only
-  re-evaluate through `run_headless_tests.ps1 -ForceGut` with the shadow project
-  and watchdog described in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
-- **Review when:** Godot, GUT, Windows, or the runner configuration changes.
+## Process behavior
 
 ### Bound native diagnostics
 
 - **Verified observation:** Direct PowerShell invocation of the bundled
   non-console Godot binary returned before its detached process completed, so a
   stale exit code hid parser errors and left the failed `SceneTree` alive.
-- **Reusable rule:** Use `scripts/run_godot_check.ps1`, a bounded waited process,
-  a fresh captured log, and an expected success marker. On timeout, terminate
-  only the exact process object launched by the check.
-- **Review when:** the execution host or sandbox tooling changes.
-
-### A shared test process lets one test's shutdown bug swallow another's output
-
-- **Verified observation:** `tests/scene/test_capsule_features.gd`'s success
-  marker goes missing from every captured stream (`.stdout.log`, `.godot.log`,
-  and the live-combined text `run_godot_check.ps1` matches against) on this
-  Windows host, even when every one of its assertions passes — confirmed via
-  `git stash` bisection against a clean `HEAD`, and confirmed structural rather
-  than a timing race: an explicit multi-frame yield plus `OS.delay_msec(1500)`
-  before `quit()` did not surface it either. Because `tests/run_tests.gd`
-  batches an entire tier into one Godot process (deliberately, to keep the
-  `unit` tier under ~10 seconds for `pre-commit`), when this test's shutdown
-  path corrupts the buffer, the *other* scene tests in the same run
-  (`test_setup_ui_flow.gd`, `test_cursor_ownership.gd`, `test_status_icons.gd`)
-  lose their PASS lines and the batch's `TESTS_OK` marker too — verified by
-  running them without capsule present (all three passed cleanly) versus with
-  it (all four vanish from output, though none actually failed; confirmed via
-  zero `TEST_FAILED` lines when capsule ran alone).
-- **Reusable rule:** A test-runner design that shares one process across many
-  test files trades isolation for speed. Before adopting it, confirm the
-  environment's output capture is trustworthy per-test, not just per-process —
-  otherwise one test's shutdown-path bug becomes every co-batched test's
-  reporting failure, and a red result stops being attributable to any specific
-  file. A red batch is not evidence of a regression in any file until
-  corroborated by isolating the suspect test alone (rerun with only it present;
-  check the log for `TEST_FAILED` lines specifically, not just marker absence).
-- **Review when:** changing `tests/TestRunner.gd`'s batching strategy, adding a
-  scene-tier test that constructs Mesh/Material/Shader resources, or
-  investigating a red `scene`/`all` tier run. Full detail in
-  [`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md) under "Tooling."
+- **Reusable rule:** Launch the Godot binary as a bounded, waited process (e.g.
+  `System.Diagnostics.Process` with `WaitForExit` and a timeout), capture
+  stdout/stderr to a fresh log rather than relying on console output, and check
+  for an explicit expected marker in that log rather than trusting the exit
+  code alone. On timeout, terminate only the exact process object launched.
+- **Review when:** the execution host or sandbox tooling changes, or when
+  building a new check/test runner against this Godot binary.
 
 ## Cursor event semantics
 

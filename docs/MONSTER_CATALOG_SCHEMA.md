@@ -4,12 +4,11 @@ Status: current. Introduced in Stage 1 of the MonsterReferences JSON migration.
 
 The monster catalog lives at `res://data/monsters.json`, a JSON array of
 monster reference objects. `MonsterReferences.gd` loads it at `_static_init()`
-and exposes it through `list`, `getReference()`, `hasReference()`,
-`getNames()`, and `validateAll()` — the same API the catalog exposed when it
-was a hardcoded GDScript array. `reloadCatalog(path: String = JSON_PATH)`
-re-reads the file at runtime (bound to **Ctrl+R** during a battle); a failed reload
-leaves the previously loaded catalog untouched and records the failure so
-`validateAll()` reports it.
+and exposes it through `list`, `getReference()`, `hasReference()`, and
+`getNames()` — the same API the catalog exposed when it was a hardcoded
+GDScript array. `reloadCatalog(path: String = JSON_PATH)` re-reads the file at
+runtime (bound to **Ctrl+R** during a battle); a failed reload leaves the
+previously loaded catalog untouched.
 
 ## Field reference
 
@@ -22,7 +21,7 @@ leaves the previously loaded catalog untouched and records the failure so
 | `RACE` | string | yes | Must exist in `RaceReferences`. Determines elemental resistance/weakness multipliers. |
 | `FAMILY` | string | no (defaults to `"none"`) | Flavor/grouping label, not mechanically enforced. |
 | `BRAIN` | string | yes | CPU behavior controller name (e.g. `TacticalBrain`, `MageBrain`, `SupportBrain`, `BerserkBrain`). |
-| `SPELLS` | array of array of string | yes | Each inner array is a "vertical set": at most one spell per sequence Level 1-4, staying on a single element (see `CatalogValidator._validateVerticalSet`). Max 4 sets per monster. `[]` is valid (no spells). |
+| `SPELLS` | array of array of string | yes | Each inner array is a "vertical set": at most one spell per sequence Level 1-4, staying on a single element. Max 4 sets per monster. `[]` is valid (no spells). |
 | `PASSIVES` | array of string | no (defaults to none) | Must exist in `PassiveSkillReferences`. |
 | `ASCENDS_FROM` | string | no (defaults to `""`) | Name of the monster this one ascends from. Validated against the full catalog name set, order-independent (a parent declared later in the file still resolves). |
 | `DESCRIPTION` | string | no | Free-text flavor, not validated. |
@@ -43,24 +42,27 @@ casts `HP`, `ATK`, `DEF`, `SPD`, `MOVE`, and `LUCK` back to `int` immediately
 after parsing, before any consumer sees the reference. If you extend the
 schema with a new integer stat field, add it to that coercion list in
 `MonsterReferences.gd` — omitting it means every reader downstream silently
-receives a float where an int is expected. `tests/unit/test_monsters_json_loads_with_int_types.gd`
-guards this.
+receives a float where an int is expected.
 
 ## Validation
 
-`CatalogValidator.validateMonsters()` is the single authority on catalog
-correctness (name uniqueness, race/element/spell/passive references, spell-set
-shape, spell-element compatibility, `ASCENDS_FROM` resolution). Both
-`MonsterReferences.validateAll()` and `tests/integration/test_reference_catalog.gd`
-delegate to it, so they cannot disagree.
+There is no automated catalog validator right now. The previous single
+authority on catalog correctness (name uniqueness, race/element/spell/passive
+references, spell-set shape, spell-element compatibility, `ASCENDS_FROM`
+resolution), `CatalogValidator.gd`, was removed along with the test suite that
+was its only caller. Malformed catalog entries currently fail at runtime,
+where the consuming code happens to notice, rather than being rejected up
+front. Rebuilding this validation is tracked in
+[`BACKLOG.md`](./BACKLOG.md).
 
 ## Editing the catalog
 
 Edit `res://data/monsters.json` directly, or use the browser-based catalog
 panel (Stage 3) to generate a replacement file. After editing:
 
-1. Run the unit/integration test tiers — `CatalogValidator` will reject
-   unknown races/elements/spells/passives and malformed spell sets.
+1. Manually confirm the roster loads and plays correctly — there is no
+   automated check to catch unknown races/elements/spells/passives or
+   malformed spell sets.
 2. In a running build, press **Ctrl+R** to hot-reload without restarting.
 3. Exported builds bundle `data/*.json` via `export_presets.cfg`'s
    `include_filter` — a `.json` file is not a Godot resource by default, so
