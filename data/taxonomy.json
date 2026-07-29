@@ -1,0 +1,86 @@
+{
+	"families": [
+		{
+			"NAME": "Basic Kappa"
+		},
+		{
+			"NAME": "Blob"
+		},
+		{
+			"NAME": "Brickamon"
+		},
+		{
+			"NAME": "Chrono Sage"
+		},
+		{
+			"NAME": "Clock-Bird"
+		},
+		{
+			"NAME": "Crowned Birdo"
+		},
+		{
+			"NAME": "Dark Mage"
+		},
+		{
+			"NAME": "Elder Treant"
+		},
+		{
+			"NAME": "Exogator"
+		},
+		{
+			"NAME": "Extrafolk"
+		},
+		{
+			"NAME": "Flame Brawler"
+		},
+		{
+			"NAME": "Flame Oracle"
+		},
+		{
+			"NAME": "Frost Runt"
+		},
+		{
+			"NAME": "Frost Titan"
+		},
+		{
+			"NAME": "Frost Wyrm"
+		},
+		{
+			"NAME": "Hanansk"
+		},
+		{
+			"NAME": "Light Mender"
+		},
+		{
+			"NAME": "Mumitomo"
+		},
+		{
+			"NAME": "Night Panther"
+		},
+		{
+			"NAME": "Paper Tiger"
+		},
+		{
+			"NAME": "Sanctum Wing"
+		},
+		{
+			"NAME": "Smoke Fiend"
+		},
+		{
+			"NAME": "Storm Herald"
+		},
+		{
+			"NAME": "Training Drake"
+		},
+		{
+			"NAME": "Wheel Watcher"
+		},
+		{
+			"NAME": "Winged Lion"
+		},
+		{
+			"NAME": "Woodsland Nymph"
+		}
+	],
+	"species": []
+}
