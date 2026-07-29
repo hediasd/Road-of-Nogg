@@ -19,13 +19,11 @@ thumbs.db
 .vscode/
 .idea/
 
-# Generated diagnostics and test reports
+# Generated diagnostics
 debug/
 builds/
 godot_final.txt
 test_out.txt
-gut_report.xml
-gut_report.txt
 
 # Godot executable (don't commit engine)
 Godot_v*.exe
