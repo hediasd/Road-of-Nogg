@@ -20,6 +20,15 @@ or misleading.
   tier. Sets may be partial, but each set must stay on one element and hold at
   most one spell per Level.
 
+## Player command UI
+
+- **The Player vs CPU command UI is a two-row button bar with an atomic
+  move-plus-action submission**, so the player cannot act before moving and
+  never sees a phase resolve before choosing the next one. Pause also stops the
+  simulation rather than the visual queue. Planned as `PC-1` … `PC-5` in
+  `implementation_plan.md`, which carries the design, verification, and model
+  routing; four decisions there are blocking on the user.
+
 ## Content inconsistencies
 
 - **`Purple Dungeon Slime` claims "immune to physical crits"** in its
