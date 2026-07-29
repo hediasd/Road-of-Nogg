@@ -11,8 +11,9 @@ const GodotVisualAdapterScript = preload("res://src/presentation/GodotVisualAdap
 const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderController.gd")
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 
+const PlayerTurnControllerScript = preload("res://src/systems/PlayerTurnController.gd")
+
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
-enum PlayerState { INACTIVE, UNIT_SELECTED, MOVE_PREVIEW, ACTION_MENU, TARGETING, CONFIRM }
 
 var sim: BattleSimulator
 var visual_adapter: GodotVisualAdapter
@@ -29,16 +30,9 @@ var battle_ui: Dictionary = {}
 var setup_ui: Dictionary = {}
 var current_config
 var lifecycle: Lifecycle = Lifecycle.SETUP
-var player_state: PlayerState = PlayerState.INACTIVE
-var active_player_id: int = -1
-var player_grid_cursor := Vector2i.ZERO
-var reachable_tiles: Array = []
-var valid_target_ids: Array = []
-var pending_move_path: Array = []
-var pending_action: String = "wait"
-var pending_target_id: int = -1
-var pending_spell_set: int = 0
-var pending_spell_index: int = 0
+## Owns the player-turn phase machine. Null outside a battle. This controller
+## routes input to it and reacts to its signals; it does not track phases.
+var player_turn: PlayerTurnControllerScript
 
 
 func _ready() -> void:
@@ -105,12 +99,12 @@ func _build_battle_ui() -> void:
 		"look_parameter_changed": Callable(self, "_on_look_parameter_changed"),
 		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed"),
 		"player_move": Callable(self, "_on_player_move"),
+		"player_undo_move": Callable(self, "_on_player_undo_move"),
 		"player_attack": Callable(self, "_on_player_attack"),
 		"player_spell": Callable(self, "_on_player_spell"),
-		"player_wait": Callable(self, "_on_player_wait"),
 		"player_confirm": Callable(self, "_on_player_confirm"),
 		"player_cancel": Callable(self, "_on_player_cancel"),
-		"player_end_turn": Callable(self, "_on_player_end_turn"),
+		"player_pass": Callable(self, "_on_player_pass"),
 		"spell_selected": Callable(self, "_on_spell_selected")
 	})
 	turn_timer = battle_ui["turn_timer"]
@@ -146,8 +140,7 @@ func _show_setup() -> void:
 	if camera:
 		camera.cancelDrag()
 	lifecycle = Lifecycle.SETUP
-	player_state = PlayerState.INACTIVE
-	active_player_id = -1
+	player_turn = null
 	if turn_timer:
 		turn_timer.stop()
 	if not battle_ui.is_empty():
@@ -358,8 +351,6 @@ func _start_battle(config) -> void:
 	setup_ui["canvas"].visible = false
 	battle_ui["canvas"].visible = true
 	lifecycle = Lifecycle.BATTLE
-	player_state = PlayerState.INACTIVE
-	active_player_id = -1
 	log_label.text = ""
 	left_ui_label.text = "Battle ready"
 	right_ui_label.text = "No target"
@@ -371,6 +362,15 @@ func _start_battle(config) -> void:
 	battle_ui["play_button"].disabled = false
 
 	sim = BattleSetupFactoryScript.createSimulator(config, Callable(self, "_create_visual_adapter"))
+	player_turn = PlayerTurnControllerScript.new(
+		sim,
+		visual_adapter,
+		Callable(visual_adapter, "isAnimationBusy"),
+		visual_adapter.animation_queue_drained
+	)
+	player_turn.menu_changed.connect(_on_player_menu_changed)
+	player_turn.status_changed.connect(_set_action_status)
+	player_turn.turn_finished.connect(_on_player_turn_finished)
 	var size = sim.state.boardSize
 	var highestTile = 0
 	for y in range(size.y):
@@ -404,7 +404,7 @@ func _on_play_toggled(buttonPressed: bool) -> void:
 		if buttonPressed else
 		"Start computer-controlled turns."
 	)
-	if lifecycle != Lifecycle.BATTLE or active_player_id != -1:
+	if lifecycle != Lifecycle.BATTLE or _player_turn_active():
 		return
 	if buttonPressed:
 		turn_timer.start()
@@ -423,7 +423,7 @@ func _on_turn_timer_timeout() -> void:
 
 
 func _advance_battle() -> void:
-	if lifecycle != Lifecycle.BATTLE or sim == null or active_player_id != -1:
+	if lifecycle != Lifecycle.BATTLE or sim == null or _player_turn_active():
 		return
 	if not sim.turnManager.hasNextTurn():
 		var winner = sim.checkWinCondition()
@@ -460,8 +460,7 @@ func _finish_battle(winner: int) -> void:
 	battle_ui["play_button"].text = "Play"
 	battle_ui["play_button"].tooltip_text = "Battle complete."
 	battle_ui["play_button"].disabled = true
-	active_player_id = -1
-	player_state = PlayerState.INACTIVE
+	player_turn = null
 	battle_ui["action_panel"].visible = false
 	visual_adapter.clear_tactical_overlays()
 	visual_adapter.release_player_cursor()
@@ -473,163 +472,15 @@ func _finish_battle(winner: int) -> void:
 func _begin_player_turn(monsterID: int) -> void:
 	turn_timer.stop()
 	battle_ui["play_button"].disabled = true
-	active_player_id = monsterID
-	pending_move_path = []
-	pending_action = "wait"
-	pending_target_id = -1
-	pending_spell_set = 0
-	pending_spell_index = 0
-	player_grid_cursor = sim.state.getMonsterPosition(monsterID)
 	battle_ui["action_panel"].visible = true
-	_populate_spell_options()
-	player_state = PlayerState.UNIT_SELECTED
-	visual_adapter.show_player_cursor(player_grid_cursor)
-	_enter_move_preview()
+	_populate_spell_options(monsterID)
+	player_turn.beginTurn(monsterID)
 
 
-func _enter_move_preview() -> void:
-	if active_player_id == -1:
-		return
-	player_state = PlayerState.MOVE_PREVIEW
-	var currentPos = sim.state.getMonsterPosition(active_player_id)
-	reachable_tiles = sim.movementResolver.getReachablePositions(active_player_id)
-	if not reachable_tiles.has(currentPos):
-		reachable_tiles.append(currentPos)
-	pending_move_path = []
-	player_grid_cursor = currentPos
-	visual_adapter.show_player_cursor(currentPos)
-	visual_adapter.show_movement_options(reachable_tiles)
-	_set_action_status("MOVE_PREVIEW — select a blue tile. Current height: %d." % sim.state.getHeight(currentPos))
-	_update_action_buttons()
-
-
-func _future_position() -> Vector2i:
-	if not pending_move_path.is_empty():
-		return pending_move_path.back()
-	return sim.state.getMonsterPosition(active_player_id)
-
-
-func _handle_grid_selection(pos: Vector2i) -> void:
-	if active_player_id == -1 or not sim.state.withinBounds(pos):
-		return
-	player_grid_cursor = pos
-	if player_state == PlayerState.MOVE_PREVIEW:
-		if not reachable_tiles.has(pos):
-			_set_action_status("That tile is not reachable.")
-			return
-		var currentPos = sim.state.getMonsterPosition(active_player_id)
-		pending_move_path = [] if pos == currentPos else sim.movementResolver.findPath(currentPos, pos, 100)
-		var validation = sim.movementResolver.validateMovePath(active_player_id, pending_move_path)
-		if not validation["success"]:
-			_set_action_status("Invalid path: %s" % validation["reason"])
-			return
-		player_state = PlayerState.ACTION_MENU
-		visual_adapter.show_player_cursor(pos)
-		visual_adapter.show_movement_options(reachable_tiles, pending_move_path)
-		_set_action_status("ACTION_MENU — height %d; attack, cast, wait, or revise movement." % sim.state.getHeight(pos))
-		_update_action_buttons()
-	elif player_state == PlayerState.TARGETING:
-		var target = sim.state.getMonsterAt(pos)
-		if target == null or not valid_target_ids.has(target.uniqueID):
-			_set_action_status("Choose one of the highlighted targets.")
-			return
-		pending_target_id = target.uniqueID
-		player_state = PlayerState.CONFIRM
-		visual_adapter.show_target_cursor(pos)
-		_set_action_status("CONFIRM — %s %s." % [pending_action.capitalize(), target.name])
-		_update_action_buttons()
-
-
-func _on_player_move() -> void:
-	_enter_move_preview()
-
-
-func _on_player_attack() -> void:
-	if active_player_id == -1:
-		return
-	pending_action = "attack"
-	pending_target_id = -1
-	valid_target_ids = sim.combatResolver.getBasicAttackTargetsFrom(active_player_id, _future_position())
-	_enter_targeting("ATTACK")
-
-
-func _on_player_spell() -> void:
-	if active_player_id == -1 or battle_ui["spell_option"].item_count == 0:
-		return
-	var spellOption: OptionButton = battle_ui["spell_option"]
-	var metadata = spellOption.get_item_metadata(spellOption.selected)
-	if not metadata is Vector2i or metadata.x < 0:
-		_set_action_status("No available spell selected.")
-		return
-	pending_spell_set = metadata.x
-	pending_spell_index = metadata.y
-	pending_action = "spell"
-	pending_target_id = -1
-	valid_target_ids = sim.combatResolver.getSpellTargetsFrom(
-		active_player_id, pending_spell_set, pending_spell_index, _future_position()
-	)
-	_enter_targeting("SPELL")
-
-
-func _enter_targeting(label: String) -> void:
-	if valid_target_ids.is_empty():
-		player_state = PlayerState.ACTION_MENU
-		_set_action_status("No valid %s targets from the previewed destination." % label.to_lower())
-		_update_action_buttons()
-		return
-	player_state = PlayerState.TARGETING
-	visual_adapter.show_target_options(valid_target_ids)
-	var firstTarget = valid_target_ids[0]
-	player_grid_cursor = sim.state.getMonsterPosition(firstTarget)
-	visual_adapter.show_target_cursor(player_grid_cursor)
-	_set_action_status("TARGETING — choose a highlighted %s target." % label.to_lower())
-	_update_action_buttons()
-
-
-func _on_player_wait() -> void:
-	if active_player_id == -1:
-		return
-	pending_action = "wait"
-	pending_target_id = -1
-	player_state = PlayerState.CONFIRM
-	visual_adapter.clear_tactical_overlays()
-	visual_adapter.show_player_cursor(_future_position())
-	_set_action_status("CONFIRM — move and wait without acting.")
-	_update_action_buttons()
-
-
-func _on_player_confirm() -> void:
-	if player_state == PlayerState.CONFIRM:
-		_submit_player_command()
-
-
-func _on_player_end_turn() -> void:
-	if active_player_id == -1:
-		return
-	pending_action = "wait"
-	pending_target_id = -1
-	_submit_player_command()
-
-
-func _submit_player_command() -> void:
-	var command = {
-		"move_path": pending_move_path,
-		"action": pending_action,
-		"target_id": pending_target_id,
-		"spell_set_index": pending_spell_set,
-		"spell_index": pending_spell_index
-	}
-	var result = sim.executeCommand(active_player_id, command, "player")
-	if not result.get("success", false):
-		_set_action_status("Command rejected: %s" % result.get("reason", "unknown"))
-		return
-
-	var completedID = active_player_id
-	visual_adapter.release_player_cursor()
-	visual_adapter.clear_tactical_overlays()
-	sim.turnManager.endTurn(completedID)
-	active_player_id = -1
-	player_state = PlayerState.INACTIVE
+func _on_player_turn_finished(_monsterID: int) -> void:
+	## The phase controller has closed the turn out. Everything from here is
+	## scene-level: turn order, win condition, and CPU pacing.
+	sim.turnManager.endTurn(_monsterID)
 	battle_ui["action_panel"].visible = false
 	battle_ui["play_button"].disabled = false
 	var winner = sim.checkWinCondition()
@@ -639,33 +490,40 @@ func _submit_player_command() -> void:
 		turn_timer.start()
 
 
+func _on_player_move() -> void:
+	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_MOVE)
+
+
+func _on_player_undo_move() -> void:
+	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_UNDO_MOVE)
+
+
+func _on_player_attack() -> void:
+	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_ATTACK)
+
+
+func _on_player_spell() -> void:
+	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_MAGIC)
+
+
+func _on_player_pass() -> void:
+	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_PASS)
+
+
+func _on_player_confirm() -> void:
+	player_turn.confirmSelection()
+
+
 func _on_player_cancel() -> void:
-	if active_player_id == -1:
-		return
-	match player_state:
-		PlayerState.CONFIRM:
-			if pending_action in ["attack", "spell"]:
-				_enter_targeting(pending_action.to_upper())
-			else:
-				player_state = PlayerState.ACTION_MENU
-		PlayerState.TARGETING:
-			player_state = PlayerState.ACTION_MENU
-			valid_target_ids = []
-			visual_adapter.show_movement_options(reachable_tiles, pending_move_path)
-			visual_adapter.show_player_cursor(_future_position())
-		PlayerState.ACTION_MENU:
-			_enter_move_preview()
-		_:
-			pass
-	if player_state == PlayerState.ACTION_MENU:
-		_set_action_status("ACTION_MENU — choose an action or revise movement.")
-	_update_action_buttons()
+	player_turn.cancel()
 
 
-func _populate_spell_options() -> void:
+func _populate_spell_options(monsterID: int) -> void:
 	var option: OptionButton = battle_ui["spell_option"]
 	option.clear()
-	var monster = sim.state.getMonster(active_player_id)
+	var monster = sim.state.getMonster(monsterID)
+	if monster == null:
+		return
 	var firstAvailable = -1
 	for setIndex in range(monster.spellSets.size()):
 		for spellIndex in range(monster.spellSets[setIndex].size()):
@@ -688,35 +546,48 @@ func _populate_spell_options() -> void:
 
 
 func _on_spell_selected(index: int) -> void:
-	if active_player_id == -1:
+	if player_turn == null or not player_turn.isActive():
 		return
 	var option: OptionButton = battle_ui["spell_option"]
 	var metadata = option.get_item_metadata(index)
 	if metadata is Vector2i and metadata.x >= 0:
-		var spell = sim.state.getMonster(active_player_id).spellSets[metadata.x][metadata.y]
-		_set_action_status("%s — range %d, minimum %d, height reach %d, cooldown %d." % [
-			spell.name,
-			spell.range,
-			spell.min_range,
-			spell.max_height_delta,
-			spell.cooldown
-		])
+		player_turn.selectSpell(metadata.x, metadata.y)
 
 
 func _set_action_status(text: String) -> void:
 	battle_ui["action_status"].text = text
 
 
-func _update_action_buttons() -> void:
-	var inActionMenu = player_state == PlayerState.ACTION_MENU
-	battle_ui["move_button"].disabled = active_player_id == -1
-	battle_ui["attack_button"].disabled = not inActionMenu
-	battle_ui["cast_button"].disabled = not inActionMenu
-	battle_ui["spell_option"].disabled = not inActionMenu
-	battle_ui["wait_button"].disabled = not inActionMenu
-	battle_ui["confirm_button"].disabled = player_state != PlayerState.CONFIRM
-	battle_ui["cancel_button"].disabled = player_state in [PlayerState.INACTIVE, PlayerState.MOVE_PREVIEW]
-	battle_ui["end_turn_button"].disabled = active_player_id == -1
+func _on_player_menu_changed() -> void:
+	## The menu model is authoritative; these buttons are a temporary rendering
+	## of it until PC-3 replaces them with the vertical menu.
+	if player_turn == null:
+		return
+	var buttonForEntry := {
+		PlayerTurnControllerScript.ENTRY_MOVE: "move_button",
+		PlayerTurnControllerScript.ENTRY_UNDO_MOVE: "undo_button",
+		PlayerTurnControllerScript.ENTRY_ATTACK: "attack_button",
+		PlayerTurnControllerScript.ENTRY_MAGIC: "cast_button",
+		PlayerTurnControllerScript.ENTRY_PASS: "pass_button"
+	}
+	for key in buttonForEntry.values():
+		battle_ui[key].disabled = true
+		battle_ui[key].visible = true
+	for entry in player_turn.menuEntries():
+		var button: Button = battle_ui[buttonForEntry[entry["id"]]]
+		button.visible = entry["visible"]
+		button.disabled = not entry["enabled"]
+
+	var phase = player_turn.phase
+	battle_ui["spell_option"].disabled = phase != PlayerTurnControllerScript.Phase.MENU
+	battle_ui["confirm_button"].disabled = (
+		phase != PlayerTurnControllerScript.Phase.CONFIRM_ACTION
+	)
+	battle_ui["cancel_button"].disabled = phase not in [
+		PlayerTurnControllerScript.Phase.MOVE_SELECT,
+		PlayerTurnControllerScript.Phase.TARGET_SELECT,
+		PlayerTurnControllerScript.Phase.CONFIRM_ACTION
+	]
 
 
 func _input(event: InputEvent) -> void:
@@ -760,49 +631,38 @@ func _unhandled_input(event: InputEvent) -> void:
 	if camera.handle_input(event, retro_renderer.screen_motion_scale()):
 		get_viewport().set_input_as_handled()
 		return
-	if active_player_id != -1:
+	if _player_turn_active():
 		if event.is_action_pressed("ui_cancel"):
-			_on_player_cancel()
+			player_turn.cancel()
 			get_viewport().set_input_as_handled()
 			return
-		if event.is_action_pressed("ui_accept"):
-			_handle_grid_selection(player_grid_cursor)
-			get_viewport().set_input_as_handled()
-			return
-		var direction = Vector2i.ZERO
-		if event.is_action_pressed("ui_left"): direction = Vector2i.LEFT
-		elif event.is_action_pressed("ui_right"): direction = Vector2i.RIGHT
-		elif event.is_action_pressed("ui_up"): direction = Vector2i.UP
-		elif event.is_action_pressed("ui_down"): direction = Vector2i.DOWN
-		if direction != Vector2i.ZERO:
-			_move_player_cursor(direction)
-			get_viewport().set_input_as_handled()
-			return
-		if event is InputEventKey and event.pressed and not event.echo:
-			match event.keycode:
-				KEY_M: _on_player_move()
-				KEY_A: _on_player_attack()
-				KEY_S: _on_player_spell()
-				KEY_W: _on_player_wait()
-				KEY_E: _on_player_end_turn()
+		# Grid keys only mean something while a tile or target is being aimed.
+		# PC-3 gives the menu itself keyboard navigation.
+		if player_turn.acceptsGridInput():
+			if event.is_action_pressed("ui_accept"):
+				player_turn.confirmSelection()
+				get_viewport().set_input_as_handled()
+				return
+			var direction = Vector2i.ZERO
+			if event.is_action_pressed("ui_left"): direction = Vector2i.LEFT
+			elif event.is_action_pressed("ui_right"): direction = Vector2i.RIGHT
+			elif event.is_action_pressed("ui_up"): direction = Vector2i.UP
+			elif event.is_action_pressed("ui_down"): direction = Vector2i.DOWN
+			if direction != Vector2i.ZERO:
+				player_turn.moveCursor(direction)
+				get_viewport().set_input_as_handled()
+				return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var pos = _mouse_to_battle_coord(event.position)
-		if active_player_id != -1:
-			_handle_grid_selection(pos)
+		if _player_turn_active() and player_turn.acceptsGridInput():
+			player_turn.selectGridPosition(pos)
 		else:
 			_handle_click_selection(pos)
 
 
-func _move_player_cursor(direction: Vector2i) -> void:
-	var next = player_grid_cursor + direction
-	next.x = clampi(next.x, 0, sim.state.boardSize.x - 1)
-	next.y = clampi(next.y, 0, sim.state.boardSize.y - 1)
-	player_grid_cursor = next
-	if player_state == PlayerState.TARGETING:
-		visual_adapter.show_target_cursor(next)
-	else:
-		visual_adapter.show_player_cursor(next)
+func _player_turn_active() -> bool:
+	return player_turn != null and player_turn.isActive()
 
 
 func _mouse_to_grid(mousePos: Vector2) -> Vector2i:

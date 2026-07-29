@@ -162,27 +162,29 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	actionStatus.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	actionColumn.add_child(actionStatus)
 
+	# Interim layout: PC-2 rewires these controls onto the phase model, PC-3
+	# replaces the rows with a navigable vertical menu.
 	var primaryActionRow = HBoxContainer.new()
 	primaryActionRow.alignment = BoxContainer.ALIGNMENT_CENTER
 	primaryActionRow.add_theme_constant_override("separation", 6)
 	actionColumn.add_child(primaryActionRow)
-	var moveButton = _addActionButton(primaryActionRow, "Move", "Choose another reachable destination.", callbacks["player_move"])
-	var attackButton = _addActionButton(primaryActionRow, "Attack", "Choose an adjacent enemy.", callbacks["player_attack"])
+	var moveButton = _addActionButton(primaryActionRow, "Move", "Move to a reachable tile. Resolves immediately.", callbacks["player_move"])
+	var undoButton = _addActionButton(primaryActionRow, "Undo Move", "Return to where this turn began. Unavailable once you act.", callbacks["player_undo_move"])
+	var attackButton = _addActionButton(primaryActionRow, "Attack", "Choose an enemy in range.", callbacks["player_attack"])
 	var spellOption = OptionButton.new()
 	spellOption.custom_minimum_size.x = 160
 	spellOption.tooltip_text = "Available spells, range, and remaining cooldown."
 	spellOption.item_selected.connect(callbacks["spell_selected"])
 	primaryActionRow.add_child(spellOption)
-	var castButton = _addActionButton(primaryActionRow, "Cast", "Target the selected spell.", callbacks["player_spell"])
-	var waitButton = _addActionButton(primaryActionRow, "Wait", "Prepare a wait command for confirmation.", callbacks["player_wait"])
+	var castButton = _addActionButton(primaryActionRow, "Magic", "Target the selected spell.", callbacks["player_spell"])
 
 	var commitActionRow = HBoxContainer.new()
 	commitActionRow.alignment = BoxContainer.ALIGNMENT_CENTER
 	commitActionRow.add_theme_constant_override("separation", 8)
 	actionColumn.add_child(commitActionRow)
-	var confirmButton = _addActionButton(commitActionRow, "Confirm", "Execute the previewed command.", callbacks["player_confirm"])
-	var cancelButton = _addActionButton(commitActionRow, "Cancel", "Return to the previous selection state.", callbacks["player_cancel"])
-	var endTurnButton = _addActionButton(commitActionRow, "End Turn", "Immediately finish with the selected movement and no action.", callbacks["player_end_turn"])
+	var confirmButton = _addActionButton(commitActionRow, "Confirm", "Commit the action being aimed.", callbacks["player_confirm"])
+	var cancelButton = _addActionButton(commitActionRow, "Cancel", "Step back to the command menu.", callbacks["player_cancel"])
+	var passButton = _addActionButton(commitActionRow, "Pass", "End the turn, keeping whatever has already resolved.", callbacks["player_pass"])
 
 	var rightPanel = PanelContainer.new()
 	rightPanel.custom_minimum_size = Vector2(220, 150)
@@ -214,13 +216,13 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		"action_panel": actionPanel,
 		"action_status": actionStatus,
 		"move_button": moveButton,
+		"undo_button": undoButton,
 		"attack_button": attackButton,
 		"spell_option": spellOption,
 		"cast_button": castButton,
-		"wait_button": waitButton,
 		"confirm_button": confirmButton,
 		"cancel_button": cancelButton,
-		"end_turn_button": endTurnButton,
+		"pass_button": passButton,
 		"screenshot_button": screenshotButton,
 		"dump_button": dumpButton
 	}

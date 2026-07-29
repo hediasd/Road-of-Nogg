@@ -27,7 +27,8 @@ commands and reacts to events; it does not edit battle state directly.
 |---|---|---|
 | Simulation and data | `src/battle_sim/`, `src/algorithms/`, `src/board/`, `src/entities/`, `src/entity_ai/`, `src/factories/` | Deterministic rules, state, setup construction, content, AI decisions |
 | Presentation | `src/presentation/` | Cameras, meshes, cursor, setup/battle UI helpers, visual registry and adapters |
-| Scene orchestration | `src/systems/BattlePresentationController.gd` | Godot lifecycle, pacing, input, player state machine, screenshots, adapter wiring |
+| Scene orchestration | `src/systems/BattlePresentationController.gd` | Godot lifecycle, pacing, input routing, screenshots, adapter wiring |
+| Player turn | `src/systems/PlayerTurnController.gd` | Player-turn phases, command menu model, phase submission |
 | Legacy rollback | `src/systems/BattleMaster.gd`, `src/systems/legacy/`, `scenes/main.tscn` | Frozen rollback path; no new gameplay features |
 
 Godot value types such as `Vector2i`, `Dictionary`, and
@@ -144,16 +145,33 @@ defeats, survival/threat, role utility, damage, position, and a stable tie key.
 Brain subclasses provide weights rather than separate legality formulas.
 ## Player interaction and cursor
 
-The first playable player state machine is:
+`PlayerTurnController` owns one player-controlled turn — its phase, the command
+menu model, and submission through the incremental turn API.
+`BattlePresentationController` routes input to it and reacts to its
+`menu_changed`, `status_changed`, and `turn_finished` signals; it does not
+track phases itself.
 
 ```text
-UNIT_SELECTED -> MOVE_PREVIEW -> ACTION_MENU -> TARGETING -> CONFIRM
+MENU -> MOVE_SELECT                     -> (resolve, animate) -> MENU
+MENU -> TARGET_SELECT -> CONFIRM_ACTION -> (resolve, animate) -> MENU
+MENU -> (Undo Move)                     -> (rewind, animate)  -> MENU
+MENU -> (Pass)                                                -> turn end
 ```
 
-Cancel walks back through the state machine. The presentation exposes reachable
-tiles, the selected path, valid targets, spell range/cooldown information,
-confirm, cancel, wait, and end-turn actions. Mouse ray-casting is the primary
-input. Cursor movement and selection APIs also accept the standard Godot UI
+Each phase resolves on its own and the menu reopens with that entry spent, in
+either order; spending both ends the turn. Movement has no confirm phase —
+selecting a reachable tile resolves it, and `Undo Move` is the safety net.
+That undo window is exactly the gap between moving and acting: once an action
+resolves, both phases are spent and the turn is over.
+
+A resolved phase animates before the menu reopens. Choosing a target while the
+model is still walking would mean aiming from a tile the unit has already left
+on screen.
+
+Cancel walks back one phase; the root menu is left only through Pass or by
+spending both phases. The presentation exposes reachable tiles, the previewed
+path, valid targets, and spell range/cooldown information. Mouse ray-casting is
+the primary input. Cursor movement and selection APIs also accept the standard Godot UI
 directions and accept/cancel actions, keeping keyboard and gamepad support at
 the same command boundary.
 
