@@ -33,6 +33,7 @@ var lifecycle: Lifecycle = Lifecycle.SETUP
 ## Owns the player-turn phase machine. Null outside a battle. This controller
 ## routes input to it and reacts to its signals; it does not track phases.
 var player_turn: PlayerTurnControllerScript
+var _pending_player_turn_id: int = -1
 
 
 func _ready() -> void:
@@ -97,15 +98,7 @@ func _build_battle_ui() -> void:
 		"graphics_preset_selected": Callable(self, "_on_battle_rendering_preset_selected"),
 		"graphics_feature_selected": Callable(self, "_on_battle_rendering_feature_selected"),
 		"look_parameter_changed": Callable(self, "_on_look_parameter_changed"),
-		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed"),
-		"player_move": Callable(self, "_on_player_move"),
-		"player_undo_move": Callable(self, "_on_player_undo_move"),
-		"player_attack": Callable(self, "_on_player_attack"),
-		"player_spell": Callable(self, "_on_player_spell"),
-		"player_confirm": Callable(self, "_on_player_confirm"),
-		"player_cancel": Callable(self, "_on_player_cancel"),
-		"player_pass": Callable(self, "_on_player_pass"),
-		"spell_selected": Callable(self, "_on_spell_selected")
+		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed")
 	})
 	turn_timer = battle_ui["turn_timer"]
 	left_ui_label = battle_ui["left_ui_label"]
@@ -113,6 +106,8 @@ func _build_battle_ui() -> void:
 	log_label = battle_ui["log_label"]
 	log_panel = battle_ui["log_panel"]
 	_sync_rendering_options()
+	battle_ui["command_menu"].entry_activated.connect(_on_command_menu_entry)
+	battle_ui["command_menu"].spell_activated.connect(_on_command_menu_spell)
 
 
 func _build_setup_ui() -> void:
@@ -348,6 +343,7 @@ func _on_setup_confirmed() -> void:
 
 func _start_battle(config) -> void:
 	current_config = config
+	_pending_player_turn_id = -1
 	setup_ui["canvas"].visible = false
 	battle_ui["canvas"].visible = true
 	lifecycle = Lifecycle.BATTLE
@@ -370,8 +366,10 @@ func _start_battle(config) -> void:
 	)
 	player_turn.menu_changed.connect(_on_player_menu_changed)
 	player_turn.status_changed.connect(_set_action_status)
+	player_turn.forecast_changed.connect(battle_ui["command_menu"].setForecast)
 	player_turn.turn_finished.connect(_on_player_turn_finished)
 	var size = sim.state.boardSize
+	visual_adapter.animation_queue_drained.connect(_on_animation_queue_drained)
 	var highestTile = 0
 	for y in range(size.y):
 		for x in range(size.x):
@@ -399,18 +397,14 @@ func _on_new_battle_pressed() -> void:
 
 func _on_play_toggled(buttonPressed: bool) -> void:
 	battle_ui["play_button"].text = "Pause" if buttonPressed else "Play"
-	battle_ui["play_button"].tooltip_text = (
-		"Pause computer-controlled turns."
-		if buttonPressed else
-		"Start computer-controlled turns."
-	)
-	if lifecycle != Lifecycle.BATTLE or _player_turn_active():
+	battle_ui["play_button"].tooltip_text = "Pause or resume visual playback; simulation continues with bounded run-ahead."
+	if visual_adapter != null:
+		visual_adapter.setVisualPaused(not buttonPressed)
+	if not buttonPressed:
 		return
-	if buttonPressed:
+	_try_begin_pending_player_turn()
+	if lifecycle == Lifecycle.BATTLE and not _player_turn_active() and _pending_player_turn_id == -1 and turn_timer.is_stopped():
 		turn_timer.start()
-	else:
-		turn_timer.stop()
-
 
 func _on_speed_changed(value: float) -> void:
 	turn_timer.wait_time = 1.0 / value
@@ -424,6 +418,10 @@ func _on_turn_timer_timeout() -> void:
 
 func _advance_battle() -> void:
 	if lifecycle != Lifecycle.BATTLE or sim == null or _player_turn_active():
+		return
+	# Keep a paused visual queue bounded instead of letting simulation overflow it.
+	if visual_adapter != null and visual_adapter.queuedAnimationCount() >= 180:
+		turn_timer.stop()
 		return
 	if not sim.turnManager.hasNextTurn():
 		var winner = sim.checkWinCondition()
@@ -442,7 +440,11 @@ func _advance_battle() -> void:
 		sim.turnManager.endTurn(monsterID)
 		return
 	if current_config.controllerForTeam(monster.team) == "player":
-		_begin_player_turn(monsterID)
+		if _presentation_ready_for_player_turn():
+			_begin_player_turn(monsterID)
+		else:
+			_pending_player_turn_id = monsterID
+			turn_timer.stop()
 		return
 
 	sim.executeTurn(monsterID)
@@ -452,9 +454,25 @@ func _advance_battle() -> void:
 		_finish_battle(winner)
 
 
+func _presentation_ready_for_player_turn() -> bool:
+	return visual_adapter == null or (
+		not visual_adapter.isAnimationBusy() and not visual_adapter.isVisualPaused()
+	)
+
+
+func _try_begin_pending_player_turn() -> void:
+	if _pending_player_turn_id == -1 or lifecycle != Lifecycle.BATTLE:
+		return
+	if not _presentation_ready_for_player_turn():
+		return
+	var monster_id = _pending_player_turn_id
+	_pending_player_turn_id = -1
+	_begin_player_turn(monster_id)
+
 func _finish_battle(winner: int) -> void:
-	camera.cancelDrag()
 	lifecycle = Lifecycle.COMPLETE
+	camera.cancelDrag()
+	_pending_player_turn_id = -1
 	turn_timer.stop()
 	battle_ui["play_button"].set_pressed_no_signal(false)
 	battle_ui["play_button"].text = "Play"
@@ -471,9 +489,8 @@ func _finish_battle(winner: int) -> void:
 
 func _begin_player_turn(monsterID: int) -> void:
 	turn_timer.stop()
-	battle_ui["play_button"].disabled = true
+	battle_ui["play_button"].disabled = false
 	battle_ui["action_panel"].visible = true
-	_populate_spell_options(monsterID)
 	player_turn.beginTurn(monsterID)
 
 
@@ -555,39 +572,17 @@ func _on_spell_selected(index: int) -> void:
 
 
 func _set_action_status(text: String) -> void:
-	battle_ui["action_status"].text = text
+	battle_ui["command_menu"].setStatus(text)
 
 
 func _on_player_menu_changed() -> void:
-	## The menu model is authoritative; these buttons are a temporary rendering
-	## of it until PC-3 replaces them with the vertical menu.
 	if player_turn == null:
 		return
-	var buttonForEntry := {
-		PlayerTurnControllerScript.ENTRY_MOVE: "move_button",
-		PlayerTurnControllerScript.ENTRY_UNDO_MOVE: "undo_button",
-		PlayerTurnControllerScript.ENTRY_ATTACK: "attack_button",
-		PlayerTurnControllerScript.ENTRY_MAGIC: "cast_button",
-		PlayerTurnControllerScript.ENTRY_PASS: "pass_button"
-	}
-	for key in buttonForEntry.values():
-		battle_ui[key].disabled = true
-		battle_ui[key].visible = true
-	for entry in player_turn.menuEntries():
-		var button: Button = battle_ui[buttonForEntry[entry["id"]]]
-		button.visible = entry["visible"]
-		button.disabled = not entry["enabled"]
-
-	var phase = player_turn.phase
-	battle_ui["spell_option"].disabled = phase != PlayerTurnControllerScript.Phase.MENU
-	battle_ui["confirm_button"].disabled = (
-		phase != PlayerTurnControllerScript.Phase.CONFIRM_ACTION
-	)
-	battle_ui["cancel_button"].disabled = phase not in [
-		PlayerTurnControllerScript.Phase.MOVE_SELECT,
-		PlayerTurnControllerScript.Phase.TARGET_SELECT,
-		PlayerTurnControllerScript.Phase.CONFIRM_ACTION
-	]
+	var command_menu = battle_ui["command_menu"]
+	if player_turn.phase == PlayerTurnControllerScript.Phase.MENU and not command_menu.isShowingSpells():
+		command_menu.showRoot(player_turn.menuEntries())
+	elif player_turn.phase != PlayerTurnControllerScript.Phase.MENU:
+		command_menu.closeSpells()
 
 
 func _input(event: InputEvent) -> void:
@@ -632,6 +627,27 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if _player_turn_active():
+		var command_menu = battle_ui["command_menu"]
+		if player_turn.phase == PlayerTurnControllerScript.Phase.MENU:
+			if event.is_action_pressed("ui_cancel") and command_menu.closeSpells():
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed("ui_up"):
+				command_menu.moveSelection(-1)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed("ui_down"):
+				command_menu.moveSelection(1)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed("ui_accept"):
+				command_menu.acceptSelection()
+				get_viewport().set_input_as_handled()
+				return
+		if player_turn.phase == PlayerTurnControllerScript.Phase.CONFIRM_ACTION and event.is_action_pressed("ui_accept"):
+			player_turn.confirmSelection()
+			get_viewport().set_input_as_handled()
+			return
 		if event.is_action_pressed("ui_cancel"):
 			player_turn.cancel()
 			get_viewport().set_input_as_handled()
@@ -653,6 +669,21 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and _player_turn_active():
+		if battle_ui["command_menu"].closeSpells():
+			get_viewport().set_input_as_handled()
+			return
+		player_turn.cancel()
+		get_viewport().set_input_as_handled()
+		return
+
+	if event is InputEventMouseMotion and _player_turn_active() and player_turn.phase == PlayerTurnControllerScript.Phase.MOVE_SELECT:
+		var hover_pos = _mouse_to_battle_coord(event.position)
+		if sim.state.withinBounds(hover_pos):
+			player_turn.setCursor(hover_pos)
+			get_viewport().set_input_as_handled()
+			return
+
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var pos = _mouse_to_battle_coord(event.position)
 		if _player_turn_active() and player_turn.acceptsGridInput():
@@ -665,49 +696,20 @@ func _player_turn_active() -> bool:
 	return player_turn != null and player_turn.isActive()
 
 
-func _mouse_to_grid(mousePos: Vector2) -> Vector2i:
-	if not camera:
-		return Vector2i(-1, -1)
-	var worldMousePos = retro_renderer.screen_to_world(mousePos)
-	if worldMousePos.x < 0.0:
-		return Vector2i(-1, -1)
-	var rayOrigin = camera.project_ray_origin(worldMousePos)
-	var rayNormal = camera.project_ray_normal(worldMousePos)
-	if rayNormal.y >= 0.0:
-		return Vector2i(-1, -1)
-	var distance = -rayOrigin.y / rayNormal.y
-	var intersection = rayOrigin + rayNormal * distance
-	return Vector2i(roundi(intersection.x), roundi(intersection.z))
-
-
 func _mouse_to_battle_coord(mousePos: Vector2) -> Vector2i:
-	var monsterID = _mouse_to_monster_id(mousePos)
-	if monsterID != -1 and sim != null:
-		var monsterPos = sim.state.getMonsterPosition(monsterID)
-		if sim.state.withinBounds(monsterPos):
-			return monsterPos
-	return _mouse_to_grid(mousePos)
-
-
-func _mouse_to_monster_id(mousePos: Vector2) -> int:
-	if not camera or visual_adapter == null:
-		return -1
-	var worldMousePos = retro_renderer.screen_to_world(mousePos)
-	if worldMousePos.x < 0.0:
-		return -1
-	var rayOrigin = camera.project_ray_origin(worldMousePos)
-	var rayNormal = camera.project_ray_normal(worldMousePos)
-	var query = PhysicsRayQueryParameters3D.create(
-		rayOrigin,
-		rayOrigin + rayNormal * 1000.0,
-		GodotVisualAdapterScript.MONSTER_PICK_COLLISION_LAYER
-	)
-	var hit = retro_renderer.world_root.get_world_3d().direct_space_state.intersect_ray(query)
+	if visual_adapter == null or sim == null:
+		return Vector2i(-1, -1)
+	var hit = _world_pick(mousePos)
 	var collider = hit.get("collider")
 	if is_instance_valid(collider) and collider.has_meta("monster_id"):
-		return int(collider.get_meta("monster_id"))
-	return -1
-
+		var monster_pos = sim.state.getMonsterPosition(int(collider.get_meta("monster_id")))
+		if sim.state.withinBounds(monster_pos):
+			return monster_pos
+	if is_instance_valid(collider) and collider.has_meta("battle_coord"):
+		var coord = collider.get_meta("battle_coord")
+		if coord is Vector2i and sim.state.withinBounds(coord):
+			return coord
+	return Vector2i(-1, -1)
 
 func _handle_click_selection(pos: Vector2i) -> void:
 	if sim == null or not sim.state.withinBounds(pos):
@@ -750,3 +752,43 @@ func _on_dump_state_pressed() -> void:
 		file.store_string(JSON.stringify(sim.createReplaySnapshot(), "\t"))
 		file.close()
 		print("Replay snapshot saved to debug/state_dump.json")
+
+func _on_command_menu_entry(entryID: String) -> void:
+	if not _player_turn_active():
+		return
+	if entryID == PlayerTurnControllerScript.ENTRY_MAGIC:
+		battle_ui["command_menu"].openSpells(player_turn.spellEntries())
+		return
+	player_turn.selectMenuEntry(entryID)
+
+
+func _on_command_menu_spell(setIndex: int, spellIndex: int) -> void:
+	if not _player_turn_active():
+		return
+	player_turn.selectSpell(setIndex, spellIndex)
+	battle_ui["command_menu"].closeSpells()
+	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_MAGIC)
+
+func _on_animation_queue_drained() -> void:
+	if lifecycle != Lifecycle.BATTLE:
+		return
+	_try_begin_pending_player_turn()
+	if _pending_player_turn_id != -1 or _player_turn_active():
+		return
+	if battle_ui["play_button"].button_pressed and turn_timer.is_stopped():
+		turn_timer.start()
+
+func _world_pick(mousePos: Vector2) -> Dictionary:
+	if not camera or visual_adapter == null:
+		return {}
+	var world_mouse_pos = retro_renderer.screen_to_world(mousePos)
+	if world_mouse_pos.x < 0.0:
+		return {}
+	var ray_origin = camera.project_ray_origin(world_mouse_pos)
+	var ray_normal = camera.project_ray_normal(world_mouse_pos)
+	var query = PhysicsRayQueryParameters3D.create(
+		ray_origin,
+		ray_origin + ray_normal * 1000.0,
+		GodotVisualAdapterScript.MONSTER_PICK_COLLISION_LAYER | GodotVisualAdapterScript.TILE_PICK_COLLISION_LAYER
+	)
+	return retro_renderer.world_root.get_world_3d().direct_space_state.intersect_ray(query)

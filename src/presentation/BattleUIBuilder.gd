@@ -3,6 +3,7 @@
 class_name BattleUIBuilder
 
 const BattleGraphicsMenuScript = preload("res://src/presentation/BattleGraphicsMenu.gd")
+const PlayerCommandMenuScript = preload("res://src/presentation/PlayerCommandMenu.gd")
 
 
 static func build(root: Node, callbacks: Dictionary) -> Dictionary:
@@ -142,49 +143,16 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	leftLabel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	leftPanel.add_child(leftLabel)
 
-	var actionSlot = Control.new()
-	actionSlot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	actionSlot.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	bottomHud.add_child(actionSlot)
-
 	var actionPanel = PanelContainer.new()
-	actionPanel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	actionPanel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	actionPanel.offset_left = 20
+	actionPanel.offset_top = 82
+	actionPanel.offset_right = 560
+	actionPanel.offset_bottom = 400
 	actionPanel.visible = false
-	_styleHudPanel(actionPanel, 10)
-	actionSlot.add_child(actionPanel)
-	var actionColumn = VBoxContainer.new()
-	actionColumn.alignment = BoxContainer.ALIGNMENT_CENTER
-	actionColumn.add_theme_constant_override("separation", 8)
-	actionPanel.add_child(actionColumn)
-	var actionStatus = Label.new()
-	actionStatus.text = "Select a destination."
-	actionStatus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	actionStatus.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	actionColumn.add_child(actionStatus)
-
-	# Interim layout: PC-2 rewires these controls onto the phase model, PC-3
-	# replaces the rows with a navigable vertical menu.
-	var primaryActionRow = HBoxContainer.new()
-	primaryActionRow.alignment = BoxContainer.ALIGNMENT_CENTER
-	primaryActionRow.add_theme_constant_override("separation", 6)
-	actionColumn.add_child(primaryActionRow)
-	var moveButton = _addActionButton(primaryActionRow, "Move", "Move to a reachable tile. Resolves immediately.", callbacks["player_move"])
-	var undoButton = _addActionButton(primaryActionRow, "Undo Move", "Return to where this turn began. Unavailable once you act.", callbacks["player_undo_move"])
-	var attackButton = _addActionButton(primaryActionRow, "Attack", "Choose an enemy in range.", callbacks["player_attack"])
-	var spellOption = OptionButton.new()
-	spellOption.custom_minimum_size.x = 160
-	spellOption.tooltip_text = "Available spells, range, and remaining cooldown."
-	spellOption.item_selected.connect(callbacks["spell_selected"])
-	primaryActionRow.add_child(spellOption)
-	var castButton = _addActionButton(primaryActionRow, "Magic", "Target the selected spell.", callbacks["player_spell"])
-
-	var commitActionRow = HBoxContainer.new()
-	commitActionRow.alignment = BoxContainer.ALIGNMENT_CENTER
-	commitActionRow.add_theme_constant_override("separation", 8)
-	actionColumn.add_child(commitActionRow)
-	var confirmButton = _addActionButton(commitActionRow, "Confirm", "Commit the action being aimed.", callbacks["player_confirm"])
-	var cancelButton = _addActionButton(commitActionRow, "Cancel", "Step back to the command menu.", callbacks["player_cancel"])
-	var passButton = _addActionButton(commitActionRow, "Pass", "End the turn, keeping whatever has already resolved.", callbacks["player_pass"])
+	canvas.add_child(actionPanel)
+	var commandMenu: PlayerCommandMenu = PlayerCommandMenuScript.new()
+	actionPanel.add_child(commandMenu)
 
 	var rightPanel = PanelContainer.new()
 	rightPanel.custom_minimum_size = Vector2(220, 150)
@@ -214,15 +182,7 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		"log_label": logLabel,
 		"log_panel": logPanel,
 		"action_panel": actionPanel,
-		"action_status": actionStatus,
-		"move_button": moveButton,
-		"undo_button": undoButton,
-		"attack_button": attackButton,
-		"spell_option": spellOption,
-		"cast_button": castButton,
-		"confirm_button": confirmButton,
-		"cancel_button": cancelButton,
-		"pass_button": passButton,
+		"command_menu": commandMenu,
 		"screenshot_button": screenshotButton,
 		"dump_button": dumpButton
 	}

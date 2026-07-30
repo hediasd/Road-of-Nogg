@@ -530,3 +530,22 @@ the immunity option is chosen.
 crit resolution).
 
 **Model:** Haiku 4.5 for a reword; Sonnet 5 if implementing real immunity.
+
+## BM-0 through BM-2 ? implementation resolution (2026-07-29)
+
+Implemented as one scoped follow-up after the player-menu audit; in-window
+verification remains outstanding.
+
+- **BM-0:** separated forecast output from instructions, removed obsolete menu
+  callback registrations, kept playback controls usable during player turns,
+  and made pending player turns wait for an unpaused, drained visual queue.
+- **BM-1:** replaced the `y = 0` click approximation with a dedicated collision
+  surface for every rendered board tile; mouse movement previews a move before
+  click commits it.
+- **BM-2:** renamed the root entry to `Spell`, made Spell a second visible
+  column, added `< Back`, preserved root/spell selections independently, and
+  added keyboard and right-click back paths.
+
+**Verification gap:** Headless Godot startup and `git diff --check` passed for
+the scoped changes. Real Player vs CPU checks at rotated cameras and differing
+elevations are still mandatory before any BM item is marked done.

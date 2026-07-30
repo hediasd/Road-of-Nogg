@@ -52,6 +52,8 @@ var _activeAction: Dictionary = {}
 var _serial: int = 0
 var _disposed: bool = false
 
+var _paused: bool = false
+var _watchdogDuration: float = 0.0
 
 func _init(
 		startAction: Callable,
@@ -75,6 +77,31 @@ func activeActionKind() -> String:
 func queuedCount() -> int:
 	return _queue.size()
 
+func isPaused() -> bool:
+	return _paused
+
+
+func setPaused(paused: bool) -> void:
+	if _disposed or _paused == paused:
+		return
+	_paused = paused
+	_serial += 1
+	if _tween != null and _tween.is_valid():
+		if _paused:
+			_tween.pause()
+		else:
+			_tween.play()
+			_armWatchdog(_serial)
+			_tween.finished.connect(_complete.bind(_serial, false), CONNECT_ONE_SHOT)
+	if not _paused and not _isAnimating:
+		startNext()
+
+
+func _armWatchdog(serial: int) -> void:
+	var tree: SceneTree = _treeProvider.call()
+	if tree and not _paused:
+
+		tree.create_timer(_watchdogDuration).timeout.connect(_complete.bind(serial, true), CONNECT_ONE_SHOT)
 
 func enqueue(action: Dictionary) -> void:
 	if _disposed:
@@ -87,7 +114,7 @@ func enqueue(action: Dictionary) -> void:
 
 
 func startNext() -> void:
-	if _disposed or _isAnimating:
+	if _disposed or _paused or _isAnimating:
 		return
 	while not _queue.is_empty():
 		var action: Dictionary = _queue.pop_front()
@@ -106,12 +133,8 @@ func activate(tween: Tween, action: Dictionary, duration: float) -> void:
 	_serial += 1
 	var serial := _serial
 	tween.finished.connect(_complete.bind(serial, false), CONNECT_ONE_SHOT)
-	var tree: SceneTree = _treeProvider.call()
-	if tree:
-		tree.create_timer(duration + WATCHDOG_MARGIN).timeout.connect(
-			_complete.bind(serial, true),
-			CONNECT_ONE_SHOT
-		)
+	_watchdogDuration = duration + WATCHDOG_MARGIN
+	_armWatchdog(serial)
 
 
 func recover() -> void:
@@ -145,6 +168,8 @@ func _complete(serial: int, timedOut: bool) -> void:
 	## The single completion path. `serial` makes whichever of the two racing
 	## sources arrives second a no-op instead of finalizing the action twice.
 	if _disposed or not _isAnimating or serial != _serial:
+		return
+	if timedOut and _paused:
 		return
 	var completed := _activeAction
 	if timedOut:

@@ -32,6 +32,8 @@ extends RefCounted
 signal menu_changed
 ## Player-facing status line for the current phase.
 signal status_changed(text: String)
+## Read-only outcome preview for the action awaiting confirmation.
+signal forecast_changed(text: String)
 ## Every phase is spent, or the player passed. The scene controller closes the
 ## turn out from here: end the turn, check the win condition, resume pacing.
 signal turn_finished(monsterID: int)
@@ -147,7 +149,7 @@ func menuEntries() -> Array:
 		},
 		{
 			"id": ENTRY_MAGIC,
-			"label": "Magic",
+			"label": "Spell",
 			"enabled": interactive and not phases["has_acted"] and not spellEntries().is_empty(),
 			"visible": true
 		},
@@ -284,6 +286,7 @@ func _enterMenu() -> void:
 	_validTargetIDs = []
 	_pendingAction = ""
 	_pendingTargetID = -1
+	forecast_changed.emit("")
 	var pos = _sim.state.getMonsterPosition(activeMonsterID)
 	gridCursor = pos
 	_adapter.clear_tactical_overlays()
@@ -355,6 +358,7 @@ func _undoMove() -> void:
 func _enterTargetSelect(action: String) -> void:
 	_pendingAction = action
 	_pendingTargetID = -1
+	forecast_changed.emit("")
 	var fromPos = _sim.state.getMonsterPosition(activeMonsterID)
 	if action == "attack":
 		_validTargetIDs = _sim.combatResolver.getBasicAttackTargetsFrom(activeMonsterID, fromPos)
@@ -393,9 +397,8 @@ func _commitTarget(pos: Vector2i) -> void:
 	_pendingTargetID = target.uniqueID
 	phase = Phase.CONFIRM_ACTION
 	_adapter.show_target_cursor(pos)
-	status_changed.emit("%s %s? Confirm to commit." % [
-		"Attack" if _pendingAction == "attack" else "Cast on", target.name
-	])
+	status_changed.emit("Confirm %s on %s, or cancel to choose again." % [_pendingAction.capitalize(), target.name])
+	forecast_changed.emit(_forecastText(target))
 	menu_changed.emit()
 
 
@@ -450,3 +453,19 @@ func _selectFirstAvailableSpell() -> void:
 			_selectedSpellSet = entry["set_index"]
 			_selectedSpellIndex = entry["spell_index"]
 			return
+
+func _forecastText(target: Monster) -> String:
+	var attacker = _sim.state.getMonster(activeMonsterID)
+	var elevation = _sim.combatResolver.getElevationPercent(activeMonsterID, target.uniqueID)
+	if _pendingAction == "attack":
+		var damage = mini(target.hitpoints, _sim.combatResolver.calculateBasicDamage(attacker, target))
+		return "Expected: %d damage / %d%% elevation" % [damage, elevation]
+	var spell = attacker.spellSets[_selectedSpellSet][_selectedSpellIndex]
+	if spell.heals:
+		var healing = mini(target.max_hitpoints - target.hitpoints, _sim.combatResolver.calculateHeal(attacker, spell))
+		return "Expected: %d healing" % healing
+	var damage = 0
+	for line in spell.damage_lines:
+		damage += _sim.combatResolver.calculateSpellDamage(attacker, target, int(line.get("damage", 0)), str(line.get("element", "none")), true)
+	damage = mini(target.hitpoints, damage)
+	return "Expected: %d damage / %d%% elevation" % [damage, elevation]

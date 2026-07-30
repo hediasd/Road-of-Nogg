@@ -5,6 +5,7 @@ class_name GodotVisualAdapter
 extends IBattleVisualAdapter
 
 const MONSTER_PICK_COLLISION_LAYER := 1 << 7
+const TILE_PICK_COLLISION_LAYER := 1 << 6
 const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
 const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEffects.gd")
 const BattleCursorControllerScript = preload("res://src/presentation/BattleCursorController.gd")
@@ -143,6 +144,14 @@ func activeAnimationKind() -> String:
 
 func queuedAnimationCount() -> int:
 	return _queue.queuedCount()
+
+
+func setVisualPaused(paused: bool) -> void:
+	_queue.setPaused(paused)
+
+
+func isVisualPaused() -> bool:
+	return _queue.isPaused()
 
 
 func _start_queued_animation(action: Dictionary) -> bool:
@@ -363,6 +372,19 @@ func _add_tile_column(coord: Vector2i, terrain: int, baseColor: Color) -> void:
 		if layer == logicalHeight:
 			_tile_surfaces[coord] = block
 
+
+	var tile_pick_body = StaticBody3D.new()
+	tile_pick_body.name = "TilePickBody"
+	tile_pick_body.collision_layer = TILE_PICK_COLLISION_LAYER
+	tile_pick_body.collision_mask = 0
+	tile_pick_body.set_meta("battle_coord", coord)
+	var tile_pick_shape = CollisionShape3D.new()
+	var tile_pick_box = BoxShape3D.new()
+	tile_pick_box.size = Vector3(1.0, 0.04, 1.0)
+	tile_pick_shape.shape = tile_pick_box
+	tile_pick_body.add_child(tile_pick_shape)
+	tile_pick_body.position.y = _surface_y(coord)
+	column.add_child(tile_pick_body)
 
 func getTileColumn(coord: Vector2i) -> Node3D:
 	return _tile_columns.get(coord) as Node3D

@@ -175,7 +175,16 @@ the primary input. Cursor movement and selection APIs also accept the standard G
 directions and accept/cancel actions, keeping keyboard and gamepad support at
 the same command boundary.
 
-`BattleCursorController` owns discrete grid intent for AI turns, movement
+`PlayerCommandMenu` renders root commands and Spell as independent columns. It
+keeps their selections separately, and Spell owns its visible `< Back` command;
+the scene controller routes Escape and right-click through the same transition.
+Status instructions and read-only action forecasts travel on separate signals.
+
+Every rendered tile also owns a pick-only surface collider with authoritative
+tile metadata. `BattlePresentationController` raycasts the combined tile/unit
+pick layers, so a mouse selection resolves the visible terrain surface rather than an artificial y=0 plane.
+
+BattleCursorController` owns discrete grid intent for AI turns, movement
 destinations, player selection, and targeting. Player ownership blocks older AI
 events from moving the cursor. Movement snaps to a destination cell; attacks,
 spells, and heals snap to the affected target cell. Camera orbit/pan gestures

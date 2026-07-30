@@ -24,12 +24,17 @@ or misleading.
 
 - **`PC-1` and `PC-2` are done** (2026-07-29). Turn execution is split into
   order-aware phases and the player state machine lives in
-  `src/systems/PlayerTurnController.gd`. `PC-3` (vertical menu widget), `PC-4`
-  (pause the visual queue instead of the simulation), and `PC-5` (action
-  forecast) remain; see `implementation_plan.md`.
+  `src/systems/PlayerTurnController.gd`. BM-0 through BM-2 stabilize the
+  command menu, playback pause, surface-accurate picking, and Spell/< Back
+  navigation. They await in-window verification; see `implementation_plan.md`.
+- **Spell target selection and the full clarity/accessibility pass remain.**
+  BM-3 must constrain selection to legal targets and preview affected areas;
+  BM-4 follows with camera-relative controls and visual accessibility work.
+- **Mouse tile picking now uses dedicated rendered-surface hitboxes.** Verify it
+  at multiple elevations and camera angles before considering it resolved.
 - **The player input surface has never been exercised in a real battle.** PC-2
   was verified headlessly against a stub adapter, which covers the phase
-  machine but not mouse ray-casting, keyboard routing, or the button wiring.
+  machine but not mouse ray-casting, keyboard routing, or menu-button wiring.
   The animation confirmation carried over from the `VisualActionQueue`
   extraction is still outstanding too. Both are folded into PC-3's
   verification, since PC-3 rebuilds that surface.

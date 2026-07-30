@@ -1,5 +1,15 @@
 # Long-term backlog
 
+## Empty-tile spell targeting
+
+- Area spells currently center on an occupied target identified by `target_id`.
+  Supporting casts centered on an empty tile requires a controller-neutral
+  `target_pos` command field, replay-schema migration, validation and resolution
+  changes, CPU target enumeration/scoring, area forecasts, and an explicit rule
+  for casts whose area contains no units. Treat this as an Opus 5 architectural
+  item; do not encode a fake monster target or implement it only in the player
+  presentation.
+
 ## Weather system
 
 - Design a competitive catalog of 5-10 weather states. Eligible monsters
