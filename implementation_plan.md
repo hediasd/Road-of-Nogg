@@ -637,3 +637,70 @@ verification remains outstanding.
 **Verification gap:** Headless Godot startup and `git diff --check` passed for
 the scoped changes. Real Player vs CPU checks at rotated cameras and differing
 elevations are still mandatory before any BM item is marked done.
+
+---
+
+## TD-1 — Headless input driver for the player command surface
+
+Every PC and BM item carries "in-window verification outstanding," and it has
+survived four sessions because no GUI automation was thought to be available.
+That premise is wrong: the real scene is fully drivable headless. This item
+builds the harness that closes the gap.
+
+**Confirmed by probe on 2026-07-30 — do not re-derive these:**
+
+- `load("res://scenes/Battle25D.tscn").instantiate()` added to `root` runs
+  headless. After ~20 `await process_frame`, calling `_on_setup_confirmed()`
+  reaches `lifecycle == BATTLE` with a live `sim`, 8 monsters, 16x8 board.
+- **`root.push_input(event)` genuinely reaches `_input()`** — verified by
+  pushing `KEY_SPACE` and observing `battle_ui["canvas"].visible` flip. This is
+  the whole premise of the item and it holds.
+- **Raycasts must use the SubViewport's world**:
+  `scene.retro_renderer.world_root.get_world_3d().direct_space_state`. That
+  returns `TilePickBody` for a downward ray. `scene.get_world_3d()` is the main
+  window's world and returns nothing — the board is not in it.
+- Default `battleMode` is `cpu_vs_cpu`. Select Player vs CPU before confirming,
+  via `_select_option_by_metadata(setup_ui["mode_option"], "player_vs_cpu")`.
+- **There is no rendering headless.** `get_texture().get_image()` returns null
+  under the dummy driver. Assert on state, never on pixels. Screenshots are
+  Tier 2 and out of scope here.
+
+**End state:** `debug/drive_battle.gd` (gitignored scratch, matching the
+existing `debug/verify_*.gd` pattern — this is not reinstated test
+infrastructure) starts a Player vs CPU battle and drives a full player turn
+through synthetic input only, asserting after each step. It must cover what the
+stub-adapter harnesses structurally cannot reach:
+
+1. Keyboard menu navigation — `ui_up`/`ui_down` move the selection,
+   `ui_accept` activates, `ui_cancel` backs out.
+2. The `Spell` column: opening it, `< Back`, right-click back, and that root
+   and spell selections are preserved independently (BM-2).
+3. Mouse tile picking through `_world_pick` at more than one elevation, using
+   the SubViewport world above (BM-1). Confirm a click on a reachable tile
+   commits the move and a click on an unreachable one is rejected.
+4. Target cycling: legal occupied targets only, no free grid roaming, invalid
+   clicks rejected (BM-3/PC-3).
+5. That `player_turn.phase` and `menuEntries()` track correctly across
+   move-then-act, act-then-move, undo, and pass.
+
+**Verify:** `./Godot_v4.4-stable_win64.exe --headless -s debug/drive_battle.gd`
+prints a pass/fail summary in the same shape as `verify_pc5.gd`. Then re-run
+`verify_pc1/pc2/pc4/pc5.gd` and the seeded `scripts/demo_battle.gd` log
+comparison to confirm nothing regressed.
+
+**Expect the first run to fail.** None of this path has ever been executed. The
+deliverable is the harness plus a written list of what it found — not a green
+check. Report failures; do not fix production code and the harness in the same
+session, or a harness bug and a real bug become indistinguishable.
+
+**Escalation guardrail:** if making input reach a handler requires restructuring
+input routing in `BattlePresentationController` (production code), stop and hand
+back. Reshaping the real input path is an architectural change and is not in
+scope for a test harness.
+
+**Files:** `debug/drive_battle.gd` only. No production code.
+
+**Risk:** Low. Gitignored scratch file, nothing ships.
+
+**Model:** Sonnet 5. Single file, stated end state, zero blast radius; the
+remaining unknowns are empirical iteration rather than design.
