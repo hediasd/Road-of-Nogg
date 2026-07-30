@@ -220,6 +220,36 @@ bounded watchdog recovery, while disposal invalidates callbacks and clears the
 queue. Presentation may lag behind authoritative state but cannot delay or
 rewrite simulation results.
 
+## Playback pause and run-ahead
+
+The play/pause toggle is a playback control over the visual queue, not a
+simulation control. `VisualActionQueue.setPaused()` stops dequeuing and pauses
+the tween in flight; the simulation keeps stepping.
+
+Two rules make that safe:
+
+- **Pause must not bump the queue's serial.** The active tween's `finished`
+  connection is bound to the serial it was activated with, and that connection
+  is the only one that fires — reconnecting under a new serial does not work.
+  Invalidating it leaves every resumed action to be completed by watchdog
+  recovery instead: three-quarters of a second late, with a spurious "stalled
+  action" warning each time. Because the serial deliberately survives a pause,
+  the `timedOut and _paused` guard in `_complete()` is what stops the
+  pre-pause watchdog from finalizing a frame the player froze on purpose. On
+  resume a fresh watchdog is armed under the same serial, so a tween that can
+  never finish — one killed from outside, which still reports `is_valid()` —
+  is still recovered rather than wedging the queue.
+- **The simulation runs ahead under a bound.** `_advance_battle()` yields while
+  the queue holds `RUN_AHEAD_LIMIT` actions, so a paused queue cannot run the
+  battle to its end and overflow `MAX_QUEUED_ACTIONS`, whose `recover()` would
+  discard precisely the animations the player paused to watch. The turn timer
+  keeps ticking and re-checks rather than stopping, so playback resumes as soon
+  as there is room instead of waiting for the queue to reach zero.
+
+A player turn opens only on a caught-up, unpaused board. When the simulation
+reaches a player-controlled unit while playback is behind, the turn is held in
+`_pending_player_turn_id` and started from the queue's `drained` signal.
+
 ## Determinism, replay, and restoration
 
 - All gameplay randomness flows through `BattleState.rng`.

@@ -15,6 +15,12 @@ const PlayerTurnControllerScript = preload("res://src/systems/PlayerTurnControll
 
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
 
+## How far the simulation may run ahead of visual playback before it waits for
+## room. Well under VisualActionQueue.MAX_QUEUED_ACTIONS so overflow recovery
+## never competes with a deliberate pause, and large enough that ordinary
+## playback lag never throttles a battle nobody has paused.
+const RUN_AHEAD_LIMIT := 180
+
 var sim: BattleSimulator
 var visual_adapter: GodotVisualAdapter
 var turn_timer: Timer
@@ -419,9 +425,16 @@ func _on_turn_timer_timeout() -> void:
 func _advance_battle() -> void:
 	if lifecycle != Lifecycle.BATTLE or sim == null or _player_turn_active():
 		return
-	# Keep a paused visual queue bounded instead of letting simulation overflow it.
-	if visual_adapter != null and visual_adapter.queuedAnimationCount() >= 180:
-		turn_timer.stop()
+	# Backpressure. Pausing playback does not pause the simulation, so without a
+	# bound a paused queue would run to the end of the battle and overflow
+	# MAX_QUEUED_ACTIONS, whose recover() discards exactly the animations the
+	# player paused to watch.
+	#
+	# The timer keeps running and re-checks each tick rather than stopping here:
+	# stopping would leave the restart to the `drained` signal, which only fires
+	# when the queue reaches zero, so the simulation would stall for a full
+	# playback of the backlog instead of resuming as soon as there is room.
+	if visual_adapter != null and visual_adapter.queuedAnimationCount() >= RUN_AHEAD_LIMIT:
 		return
 	if not sim.turnManager.hasNextTurn():
 		var winner = sim.checkWinCondition()

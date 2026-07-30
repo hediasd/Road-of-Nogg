@@ -355,6 +355,38 @@ what breaks quietly.
 items 1 and 2 alone would be Sonnet 5 work, but splitting the file across two
 sessions is not worth it.
 
+**Resolution (2026-07-30): done.** Items 1, 3, and 5 had already landed
+alongside PC-3. This session fixed item 2, corrected item 4, and verified the
+lot with `debug/verify_pc4.gd` (gitignored scratch), which drives the queue
+with real tweens and real frames.
+
+Two defects were found and fixed:
+
+- **`setPaused()` bumped `_serial`.** That orphaned the active tween's
+  `finished` connection — empirically the only one that fires; the replacement
+  connection the code added under the new serial never did. Every resumed
+  action was therefore completed by watchdog recovery: 1150ms instead of the
+  tween's own ~400ms, with a "stalled action" warning on every single resume.
+  Pause now leaves the serial alone, which in turn makes the `timedOut and
+  _paused` guard in `_complete()` load-bearing rather than defensive. Measured
+  resume latency went from watchdog-bound to 373ms, and the warning is gone.
+- **Backpressure stopped the turn timer.** Restarting it then depended on the
+  `drained` signal, which only fires when the queue reaches *zero*, so the
+  simulation stalled for a full playback of the backlog rather than resuming
+  as soon as there was room. The timer now keeps ticking and re-checks, which
+  is also self-healing if `drained` is ever missed. The bound is named
+  `RUN_AHEAD_LIMIT`.
+
+Worth knowing for anything else that touches tweens: **`Tween.is_valid()`
+returns `true` for a killed tween**, so it cannot be used to detect one. The
+resume path arms a watchdog specifically to cover that case.
+
+**Verification gap, unchanged from PC-2 and PC-3:** no GUI automation is
+available here, so the in-window checks in this item — pausing mid-move and
+watching the model freeze, the battle log stopping, resuming completing the
+same movement — were exercised headlessly at the queue level rather than by
+eye in a running battle.
+
 ---
 
 ## PC-5 — Action forecast on confirm

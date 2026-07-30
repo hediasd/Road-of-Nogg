@@ -77,22 +77,32 @@ func activeActionKind() -> String:
 func queuedCount() -> int:
 	return _queue.size()
 
+
 func isPaused() -> bool:
 	return _paused
 
 
 func setPaused(paused: bool) -> void:
+	## Freezes playback without touching the simulation. Deliberately does NOT
+	## bump `_serial`: the active tween's `finished` connection is bound to the
+	## serial it was activated with, and that connection is the only one that
+	## ever fires. Invalidating it here would leave every resumed action to be
+	## finished by the watchdog instead — a driver-visible three-quarter-second
+	## stall plus a spurious "stalled action" warning on every resume.
 	if _disposed or _paused == paused:
 		return
 	_paused = paused
-	_serial += 1
-	if _tween != null and _tween.is_valid():
+	if _isAnimating and _tween != null and _tween.is_valid():
 		if _paused:
 			_tween.pause()
 		else:
 			_tween.play()
+			# The watchdog armed at activation has very likely already come and
+			# gone during the pause, refused by the guard in _complete(). Arm a
+			# fresh one under the same serial so a tween that cannot finish —
+			# one killed from outside, which still reports is_valid() — is still
+			# recovered rather than wedging the queue.
 			_armWatchdog(_serial)
-			_tween.finished.connect(_complete.bind(_serial, false), CONNECT_ONE_SHOT)
 	if not _paused and not _isAnimating:
 		startNext()
 
@@ -100,8 +110,10 @@ func setPaused(paused: bool) -> void:
 func _armWatchdog(serial: int) -> void:
 	var tree: SceneTree = _treeProvider.call()
 	if tree and not _paused:
-
-		tree.create_timer(_watchdogDuration).timeout.connect(_complete.bind(serial, true), CONNECT_ONE_SHOT)
+		tree.create_timer(_watchdogDuration).timeout.connect(
+			_complete.bind(serial, true),
+			CONNECT_ONE_SHOT
+		)
 
 func enqueue(action: Dictionary) -> void:
 	if _disposed:
@@ -169,6 +181,9 @@ func _complete(serial: int, timedOut: bool) -> void:
 	## sources arrives second a no-op instead of finalizing the action twice.
 	if _disposed or not _isAnimating or serial != _serial:
 		return
+	# Load-bearing, not defensive: pause deliberately leaves the serial alone,
+	# so the watchdog armed before the pause still matches and would otherwise
+	# finalize an action the player has deliberately frozen mid-frame.
 	if timedOut and _paused:
 		return
 	var completed := _activeAction

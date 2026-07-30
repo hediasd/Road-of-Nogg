@@ -22,11 +22,14 @@ or misleading.
 
 ## Player command UI
 
-- **`PC-1` and `PC-2` are done** (2026-07-29). Turn execution is split into
-  order-aware phases and the player state machine lives in
-  `src/systems/PlayerTurnController.gd`. BM-0 through BM-2 stabilize the
-  command menu, playback pause, surface-accurate picking, and Spell/< Back
-  navigation. They await in-window verification; see `implementation_plan.md`.
+- **`PC-1`, `PC-2`, and `PC-4` are done** (PC-1/PC-2 2026-07-29, PC-4
+  2026-07-30). Turn execution is split into order-aware phases, the player
+  state machine lives in `src/systems/PlayerTurnController.gd`, and the
+  play/pause toggle now gates visual playback while the simulation runs ahead
+  under `RUN_AHEAD_LIMIT`. BM-0 through BM-2 stabilize the command menu,
+  playback pause, surface-accurate picking, and Spell/< Back navigation. They
+  await in-window verification; see `implementation_plan.md`.
+- **`PC-5` (action forecast on confirm) is the only PC item left.**
 - **PC-3/BM-3 is implemented but still needs in-window acceptance.** Legal
   occupied targets cycle without free grid roaming, invalid clicks are rejected,
   and area shapes preview from the authoritative resolver query. BM-4 remains
