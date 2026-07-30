@@ -18,6 +18,8 @@ enum Owner {
 }
 
 const CURSOR_LIFT := 0.015
+const DEFAULT_CURSOR_COLOR := Color(0.2, 0.6, 1.0, 0.5)
+const TARGET_CURSOR_COLOR := Color(1.0, 0.82, 0.12, 0.78)
 
 var mode: Mode = Mode.HIDDEN
 var owner: Owner = Owner.NONE
@@ -69,8 +71,19 @@ func _showAIIntent(coord: Vector2i, nextMode: Mode) -> void:
 func showAt(coord: Vector2i, nextMode: Mode) -> void:
 	mode = nextMode
 	grid_position = coord
+	_setCursorColor(
+		TARGET_CURSOR_COLOR if nextMode == Mode.TARGETING else DEFAULT_CURSOR_COLOR
+	)
 	_cursor.position = _worldPosition(coord)
 	_cursor.visible = true
+
+
+func _setCursorColor(color: Color) -> void:
+	var material = _cursor.material_override as ShaderMaterial
+	if material == null:
+		return
+	material.set_shader_parameter("color_a", color)
+	material.set_shader_parameter("color_b", color)
 
 
 func hide(clearOwner: bool = true) -> void:

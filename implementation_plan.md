@@ -271,30 +271,43 @@ driven by PC-2's menu model.
    meaningless before a move and forbidden after an action. Entries shifting
    position under the cursor is the cost; keep the cursor on a stable entry
    across a rebuild rather than resetting it to the top.
-3. `Magic` opens a second vertical column listing spells with name, range, and
+3. `Spell` opens a second vertical column listing spells with name, range, and
    remaining cooldown; unavailable spells are shown disabled rather than
    hidden. This replaces the `spell_option` `OptionButton` entirely.
 4. Input, modal by phase: `MENU` takes up/down plus accept/cancel in menu
    space; `MOVE_SELECT` takes the four directions as grid-cursor movement with
    a live path preview; `TARGET_SELECT` cycles the valid-target set rather
    than free-roaming the grid. Mouse click stays available in every phase.
-   Retire the `M`/`A`/`S`/`W`/`E` hotkeys, or rebind them to menu entries —
-   they must not bypass a phase.
+   Legal occupied target centers use yellow markers and a yellow cursor; the
+   selected area footprint previews the resolver's authoritative shape. Retire
+   the `M`/`A`/`S`/`W`/`E` hotkeys, or rebind them to menu entries — they must
+   not bypass a phase.
 5. Replace status text that names internal states with player-facing wording.
 
 **Files:** `src/presentation/BattleUIBuilder.gd`, new
 `src/presentation/PlayerCommandMenu.gd`,
-`src/systems/BattlePresentationController.gd`
+`src/presentation/BattleCursorController.gd`,
+`src/presentation/GodotVisualAdapter.gd`,
+`src/systems/BattlePresentationController.gd`,
+`src/systems/PlayerTurnController.gd`, `src/battle_sim/CombatResolver.gd`
 
 **Verify:** Drive one complete Player vs CPU turn using only the keyboard, and
-a second using only the mouse. Confirm spent entries grey out, `Magic` lists
+a second using only the mouse. Confirm spent entries grey out, `Spell` lists
 cooldowns correctly, and cancel from the spell column returns to the root
-menu.
+menu. Confirm target cycling visits only yellow legal centers and area previews
+match the tiles affected by resolution.
 
-**Risk:** Medium. Presentation only, but it is the entire player input
-surface.
+**Risk:** Medium-high. It is the entire player input surface and adds a
+read-only affected-position query that must remain identical to spell resolution.
 
 **Model:** Sonnet 5, once PC-2 has fixed the menu model and phase API.
+
+**Resolution (2026-07-30):** PC-3 and BM-3 are the same item. The code is
+implemented, including `Spell`, `< Back`, modal prompt-only targeting,
+legal-target cycling, yellow target markers/cursor, and authoritative area
+previews. Headless Godot startup and `git diff --check` pass; the full keyboard
+and mouse Player vs CPU verification above remains mandatory before this item is
+marked complete.
 
 ---
 

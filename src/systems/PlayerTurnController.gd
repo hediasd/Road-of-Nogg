@@ -234,7 +234,8 @@ func cancel() -> void:
 		Phase.MOVE_SELECT, Phase.TARGET_SELECT:
 			_enterMenu()
 		Phase.CONFIRM_ACTION:
-			_enterTargetSelect(_pendingAction)
+			var previous_target_id = _pendingTargetID
+			_enterTargetSelect(_pendingAction, previous_target_id)
 		_:
 			pass
 
@@ -250,18 +251,28 @@ func confirmSelection() -> void:
 			pass
 
 
-func setCursor(pos: Vector2i) -> void:
+func setCursor(pos: Vector2i) -> bool:
 	if not acceptsGridInput() or not _sim.state.withinBounds(pos):
-		return
-	gridCursor = pos
+		return false
 	if phase == Phase.TARGET_SELECT:
-		_adapter.show_target_cursor(pos)
-	else:
-		_adapter.show_player_cursor(pos)
-		_previewPath(pos)
+		var target_id = _targetIDAt(pos)
+		if not _validTargetIDs.has(target_id):
+			return false
+		if pos == gridCursor:
+			return true
+		gridCursor = pos
+		_refreshTargetPreview(target_id)
+		return true
+	gridCursor = pos
+	_adapter.show_player_cursor(pos)
+	_previewPath(pos)
+	return true
 
 
 func moveCursor(direction: Vector2i) -> void:
+	if phase == Phase.TARGET_SELECT:
+		_cycleTarget(-1 if direction in [Vector2i.LEFT, Vector2i.UP] else 1)
+		return
 	var next = gridCursor + direction
 	next.x = clampi(next.x, 0, _sim.state.boardSize.x - 1)
 	next.y = clampi(next.y, 0, _sim.state.boardSize.y - 1)
@@ -269,17 +280,19 @@ func moveCursor(direction: Vector2i) -> void:
 
 
 func selectGridPosition(pos: Vector2i) -> void:
-	## A click lands on a tile: aim at it, then accept it.
+	## Mouse selection may only commit a legal destination or occupied target.
 	if not acceptsGridInput():
 		return
-	setCursor(pos)
+	if not setCursor(pos):
+		if phase == Phase.TARGET_SELECT:
+			status_changed.emit("Choose one of the yellow target tiles.")
+		return
 	confirmSelection()
-
 
 # --- Phases ----------------------------------------------------------------
 
 
-func _enterMenu() -> void:
+func _enterMenu(statusOverride: String = "") -> void:
 	if activeMonsterID == -1:
 		return
 	phase = Phase.MENU
@@ -295,7 +308,9 @@ func _enterMenu() -> void:
 	if phases["has_moved"] and phases["has_acted"]:
 		endTurnNow()
 		return
-	status_changed.emit(_menuStatusText(phases))
+	status_changed.emit(
+		statusOverride if not statusOverride.is_empty() else _menuStatusText(phases)
+	)
 	menu_changed.emit()
 
 
@@ -355,7 +370,7 @@ func _undoMove() -> void:
 	_resolveThenReturnToMenu()
 
 
-func _enterTargetSelect(action: String) -> void:
+func _enterTargetSelect(action: String, preferredTargetID: int = -1) -> void:
 	_pendingAction = action
 	_pendingTargetID = -1
 	forecast_changed.emit("")
@@ -366,41 +381,100 @@ func _enterTargetSelect(action: String) -> void:
 		if _selectedSpellSet < 0:
 			_selectFirstAvailableSpell()
 		if _selectedSpellSet < 0:
-			status_changed.emit("No spell available.")
-			_enterMenu()
+			_enterMenu("No spell is ready.")
 			return
 		_validTargetIDs = _sim.combatResolver.getSpellTargetsFrom(
 			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, fromPos
 		)
 
 	if _validTargetIDs.is_empty():
-		status_changed.emit("No valid %s target from here." % (
+		_enterMenu("No valid %s target from here." % (
 			"attack" if action == "attack" else "spell"
 		))
-		_enterMenu()
 		return
 
+	_sortValidTargets()
 	phase = Phase.TARGET_SELECT
-	_adapter.clear_tactical_overlays()
-	_adapter.show_target_options(_validTargetIDs)
-	gridCursor = _sim.state.getMonsterPosition(_validTargetIDs[0])
-	_adapter.show_target_cursor(gridCursor)
-	status_changed.emit("Choose a target.")
+	var selected_target_id = (
+		preferredTargetID if _validTargetIDs.has(preferredTargetID) else _validTargetIDs[0]
+	)
+	gridCursor = _sim.state.getMonsterPosition(selected_target_id)
+	_refreshTargetPreview(selected_target_id)
 	menu_changed.emit()
 
 
 func _commitTarget(pos: Vector2i) -> void:
-	var target = _sim.state.getMonsterAt(pos)
-	if target == null or not _validTargetIDs.has(target.uniqueID):
-		status_changed.emit("Choose one of the highlighted targets.")
+	var target_id = _targetIDAt(pos)
+	if not _validTargetIDs.has(target_id):
+		status_changed.emit("Choose one of the yellow target tiles.")
 		return
-	_pendingTargetID = target.uniqueID
+	var target = _sim.state.getMonster(target_id)
+	_pendingTargetID = target_id
 	phase = Phase.CONFIRM_ACTION
-	_adapter.show_target_cursor(pos)
+	_refreshTargetPreview(target_id)
 	status_changed.emit("Confirm %s on %s, or cancel to choose again." % [_pendingAction.capitalize(), target.name])
 	forecast_changed.emit(_forecastText(target))
 	menu_changed.emit()
 
+
+func _targetIDAt(pos: Vector2i) -> int:
+	var target = _sim.state.getMonsterAt(pos)
+	return target.uniqueID if target != null else -1
+
+
+func _sortValidTargets() -> void:
+	_validTargetIDs.sort_custom(func(left_id: int, right_id: int) -> bool:
+		var left_pos = _sim.state.getMonsterPosition(left_id)
+		var right_pos = _sim.state.getMonsterPosition(right_id)
+		if left_pos.y != right_pos.y:
+			return left_pos.y < right_pos.y
+		if left_pos.x != right_pos.x:
+			return left_pos.x < right_pos.x
+		return left_id < right_id
+	)
+
+
+func _cycleTarget(step: int) -> void:
+	if _validTargetIDs.is_empty():
+		return
+	var current_id = _targetIDAt(gridCursor)
+	var index = _validTargetIDs.find(current_id)
+	index = 0 if index < 0 else posmod(index + step, _validTargetIDs.size())
+	var target_id = _validTargetIDs[index]
+	gridCursor = _sim.state.getMonsterPosition(target_id)
+	_refreshTargetPreview(target_id)
+
+
+func _refreshTargetPreview(targetID: int) -> void:
+	if not _validTargetIDs.has(targetID):
+		return
+	var target = _sim.state.getMonster(targetID)
+	if target == null:
+		return
+	var affected_positions: Array = [_sim.state.getMonsterPosition(targetID)]
+	var affected_target_ids: Array = [targetID]
+	var beneficial = false
+	if _pendingAction == "spell":
+		var caster = _sim.state.getMonster(activeMonsterID)
+		var spell = caster.spellSets[_selectedSpellSet][_selectedSpellIndex]
+		var from_pos = _sim.state.getMonsterPosition(activeMonsterID)
+		affected_positions = _sim.combatResolver.getSpellAffectedPositionsFrom(
+			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, from_pos, targetID
+		)
+		affected_target_ids = _sim.combatResolver.getSpellAffectedTargetsFrom(
+			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, from_pos, targetID
+		)
+		beneficial = spell.heals or spell.targetType == "self"
+	_adapter.show_target_options(
+		_validTargetIDs, affected_positions, beneficial
+	)
+	_adapter.show_target_cursor(gridCursor)
+	if affected_positions.size() > 1:
+		status_changed.emit("Choose a target: %s. %d unit(s) in the affected area." % [
+			target.name, affected_target_ids.size()
+		])
+	else:
+		status_changed.emit("Choose a target: %s." % target.name)
 
 func _commitAction() -> void:
 	var result = _sim.executeActionPhase(
@@ -412,8 +486,7 @@ func _commitAction() -> void:
 		"player"
 	)
 	if not result.get("success", false):
-		status_changed.emit("Action rejected: %s" % result.get("reason", "unknown"))
-		_enterMenu()
+		_enterMenu("Action rejected: %s" % result.get("reason", "unknown"))
 		return
 	_adapter.clear_tactical_overlays()
 	_selectFirstAvailableSpell()

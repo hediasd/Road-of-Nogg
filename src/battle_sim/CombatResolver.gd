@@ -250,22 +250,12 @@ func getSpellAffectedTargetsFrom(
 	if not getSpellTargetsFrom(casterID, spellSetIndex, spellIndex, fromPos).has(centerTargetID):
 		return []
 	var caster = state.getMonster(casterID)
+	if caster == null:
+		return []
 	var spell = caster.spellSets[spellSetIndex][spellIndex]
-	if spell.targetType == "self" and spell.self_radius <= 0:
-		return [centerTargetID]
-	if spell.targetType != "area" and spell.self_radius <= 0:
-		return [centerTargetID]
-	var centerPos = state.getMonsterPosition(casterID) if spell.targetType == "self" else state.getMonsterPosition(centerTargetID)
-	var affectedTiles = []
-	var radius = spell.self_radius if spell.targetType == "self" else spell.radius
-	match spell.area_shape:
-		"cross": affectedTiles = ShapeCaster.getCross(centerPos, radius)
-		"line": affectedTiles = ShapeCaster.getLine(fromPos, centerPos, radius)
-		"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, radius)
 	var result: Array = []
-	for pos in affectedTiles:
-		if not state.withinBounds(pos):
-			continue
+	for pos in getSpellAffectedPositionsFrom(
+			casterID, spellSetIndex, spellIndex, fromPos, centerTargetID):
 		var otherID = state.board.at(pos)
 		if otherID == 0:
 			continue
@@ -280,6 +270,38 @@ func getSpellAffectedTargetsFrom(
 		elif (spell.heals and isAlly) or (not spell.heals and not isAlly):
 			result.append(otherID)
 	return result
+
+
+func getSpellAffectedPositionsFrom(
+		casterID: int,
+		spellSetIndex: int,
+		spellIndex: int,
+		fromPos: Vector2i,
+		centerTargetID: int) -> Array:
+	## Read-only shape query shared by resolution, AI scoring, and presentation
+	## previews. The center remains an occupied legal target by command contract.
+	if not getSpellTargetsFrom(casterID, spellSetIndex, spellIndex, fromPos).has(centerTargetID):
+		return []
+	var caster = state.getMonster(casterID)
+	if caster == null:
+		return []
+	var spell = caster.spellSets[spellSetIndex][spellIndex]
+	var centerPos = (
+		state.getMonsterPosition(casterID)
+		if spell.targetType == "self" else
+		state.getMonsterPosition(centerTargetID)
+	)
+	var affectedTiles: Array
+	if (spell.targetType == "self" and spell.self_radius <= 0) or (
+			spell.targetType != "area" and spell.self_radius <= 0):
+		affectedTiles = [centerPos]
+	else:
+		var radius = spell.self_radius if spell.targetType == "self" else spell.radius
+		match spell.area_shape:
+			"cross": affectedTiles = ShapeCaster.getCross(centerPos, radius)
+			"line": affectedTiles = ShapeCaster.getLine(fromPos, centerPos, radius)
+			"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, radius)
+	return affectedTiles.filter(func(pos: Vector2i) -> bool: return state.withinBounds(pos))
 
 func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellIndex: int) -> Dictionary:
 	## Casts a spell. Routes to heal or damage logic based on spell.heals. Supports AOE.

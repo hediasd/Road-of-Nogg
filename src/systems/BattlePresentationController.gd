@@ -507,70 +507,6 @@ func _on_player_turn_finished(_monsterID: int) -> void:
 		turn_timer.start()
 
 
-func _on_player_move() -> void:
-	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_MOVE)
-
-
-func _on_player_undo_move() -> void:
-	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_UNDO_MOVE)
-
-
-func _on_player_attack() -> void:
-	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_ATTACK)
-
-
-func _on_player_spell() -> void:
-	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_MAGIC)
-
-
-func _on_player_pass() -> void:
-	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_PASS)
-
-
-func _on_player_confirm() -> void:
-	player_turn.confirmSelection()
-
-
-func _on_player_cancel() -> void:
-	player_turn.cancel()
-
-
-func _populate_spell_options(monsterID: int) -> void:
-	var option: OptionButton = battle_ui["spell_option"]
-	option.clear()
-	var monster = sim.state.getMonster(monsterID)
-	if monster == null:
-		return
-	var firstAvailable = -1
-	for setIndex in range(monster.spellSets.size()):
-		for spellIndex in range(monster.spellSets[setIndex].size()):
-			var spell = monster.spellSets[setIndex][spellIndex]
-			var remaining = int(monster.spell_cooldowns.get(spell.name, 0))
-			var ready = monster.can_cast(spell)
-			var suffix = "R%d" % spell.range if ready else "CD %d" % remaining
-			option.add_item("%s [%s]" % [spell.name, suffix])
-			var itemIndex = option.item_count - 1
-			option.set_item_metadata(itemIndex, Vector2i(setIndex, spellIndex))
-			option.set_item_disabled(itemIndex, not ready)
-			if ready and firstAvailable == -1:
-				firstAvailable = itemIndex
-	if option.item_count == 0:
-		option.add_item("No spells")
-		option.set_item_metadata(0, Vector2i(-1, -1))
-		option.set_item_disabled(0, true)
-	elif firstAvailable >= 0:
-		option.select(firstAvailable)
-
-
-func _on_spell_selected(index: int) -> void:
-	if player_turn == null or not player_turn.isActive():
-		return
-	var option: OptionButton = battle_ui["spell_option"]
-	var metadata = option.get_item_metadata(index)
-	if metadata is Vector2i and metadata.x >= 0:
-		player_turn.selectSpell(metadata.x, metadata.y)
-
-
 func _set_action_status(text: String) -> void:
 	battle_ui["command_menu"].setStatus(text)
 
@@ -582,7 +518,7 @@ func _on_player_menu_changed() -> void:
 	if player_turn.phase == PlayerTurnControllerScript.Phase.MENU and not command_menu.isShowingSpells():
 		command_menu.showRoot(player_turn.menuEntries())
 	elif player_turn.phase != PlayerTurnControllerScript.Phase.MENU:
-		command_menu.closeSpells()
+		command_menu.showPromptOnly()
 
 
 func _input(event: InputEvent) -> void:
@@ -623,6 +559,20 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE:
 		return
+	if (
+			event is InputEventMouseButton and
+			event.button_index == MOUSE_BUTTON_RIGHT and
+			event.pressed and
+			_player_turn_active()
+	):
+		var command_menu = battle_ui["command_menu"]
+		if command_menu.closeSpells():
+			get_viewport().set_input_as_handled()
+			return
+		if player_turn.phase != PlayerTurnControllerScript.Phase.MENU:
+			player_turn.cancel()
+			get_viewport().set_input_as_handled()
+			return
 	if camera.handle_input(event, retro_renderer.screen_motion_scale()):
 		get_viewport().set_input_as_handled()
 		return
@@ -669,18 +619,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 				return
 
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and _player_turn_active():
-		if battle_ui["command_menu"].closeSpells():
-			get_viewport().set_input_as_handled()
-			return
-		player_turn.cancel()
-		get_viewport().set_input_as_handled()
-		return
 
-	if event is InputEventMouseMotion and _player_turn_active() and player_turn.phase == PlayerTurnControllerScript.Phase.MOVE_SELECT:
+	if event is InputEventMouseMotion and _player_turn_active() and player_turn.acceptsGridInput():
 		var hover_pos = _mouse_to_battle_coord(event.position)
-		if sim.state.withinBounds(hover_pos):
-			player_turn.setCursor(hover_pos)
+		if player_turn.setCursor(hover_pos):
 			get_viewport().set_input_as_handled()
 			return
 

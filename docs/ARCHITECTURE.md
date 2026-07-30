@@ -182,9 +182,18 @@ Status instructions and read-only action forecasts travel on separate signals.
 
 Every rendered tile also owns a pick-only surface collider with authoritative
 tile metadata. `BattlePresentationController` raycasts the combined tile/unit
-pick layers, so a mouse selection resolves the visible terrain surface rather than an artificial y=0 plane.
+pick layers, so a mouse selection resolves the visible terrain surface rather
+than an artificial `y = 0` plane.
 
-BattleCursorController` owns discrete grid intent for AI turns, movement
+Target selection is limited to occupied legal targets because battle commands
+still identify their center with `target_id`. Legal centers use yellow markers
+and a yellow cursor. The selected spell footprint is derived from
+`CombatResolver.getSpellAffectedPositionsFrom()`, the same shape query used by
+resolution and AI scoring, and is overlaid red for harmful spells or green for
+beneficial spells. Empty-tile spell centers remain a separate command-contract
+change.
+
+`BattleCursorController` owns discrete grid intent for AI turns, movement
 destinations, player selection, and targeting. Player ownership blocks older AI
 events from moving the cursor. Movement snaps to a destination cell; attacks,
 spells, and heals snap to the affected target cell. Camera orbit/pan gestures

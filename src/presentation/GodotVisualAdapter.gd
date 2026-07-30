@@ -703,12 +703,23 @@ func show_movement_options(reachable: Array, path: Array = []) -> void:
 		_add_overlay(coord, Color(1.0, 0.85, 0.15, 0.72))
 
 
-func show_target_options(targetIDs: Array) -> void:
+func show_target_options(
+		targetIDs: Array,
+		affectedPositions: Array = [],
+		beneficial: bool = false) -> void:
 	clear_tactical_overlays()
 	for targetID in targetIDs:
 		var coord = state.getMonsterPosition(targetID)
 		if state.withinBounds(coord):
-			_add_overlay(coord, Color(1.0, 0.2, 0.25, 0.68))
+			_add_overlay(coord, Color(1.0, 0.78, 0.12, 0.52))
+	var preview_color = (
+		Color(0.2, 1.0, 0.45, 0.46)
+		if beneficial else
+		Color(1.0, 0.2, 0.18, 0.46)
+	)
+	for coord in affectedPositions:
+		if coord is Vector2i and state.withinBounds(coord):
+			_add_overlay(coord, preview_color, 0.006)
 
 
 func clear_tactical_overlays() -> void:
@@ -718,9 +729,11 @@ func clear_tactical_overlays() -> void:
 		child.free()
 
 
-func _add_overlay(coord: Vector2i, color: Color) -> void:
+func _add_overlay(coord: Vector2i, color: Color, extraLift: float = 0.0) -> void:
 	var marker = BattleMeshFactoryScript.createMesh("plane", color)
-	marker.position = Vector3(coord.x, _surface_y(coord) + OVERLAY_LIFT, coord.y)
+	marker.position = Vector3(
+		coord.x, _surface_y(coord) + OVERLAY_LIFT + extraLift, coord.y
+	)
 	overlay_node.add_child(marker)
 
 

@@ -27,9 +27,10 @@ or misleading.
   `src/systems/PlayerTurnController.gd`. BM-0 through BM-2 stabilize the
   command menu, playback pause, surface-accurate picking, and Spell/< Back
   navigation. They await in-window verification; see `implementation_plan.md`.
-- **Spell target selection and the full clarity/accessibility pass remain.**
-  BM-3 must constrain selection to legal targets and preview affected areas;
-  BM-4 follows with camera-relative controls and visual accessibility work.
+- **PC-3/BM-3 is implemented but still needs in-window acceptance.** Legal
+  occupied targets cycle without free grid roaming, invalid clicks are rejected,
+  and area shapes preview from the authoritative resolver query. BM-4 remains
+  for camera-relative controls and broader visual accessibility work.
 - **Mouse tile picking now uses dedicated rendered-surface hitboxes.** Verify it
   at multiple elevations and camera angles before considering it resolved.
 - **The player input surface has never been exercised in a real battle.** PC-2

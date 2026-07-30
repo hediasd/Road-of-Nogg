@@ -60,8 +60,15 @@ func setForecast(text: String) -> void:
 func showRoot(entries: Array) -> void:
 	_mode = ROOT
 	_entries = entries.duplicate(true)
+	_root_column.visible = true
 	_spell_column.visible = false
 	_rebuild_root()
+
+
+func showPromptOnly() -> void:
+	_mode = ROOT
+	_root_column.visible = false
+	_spell_column.visible = false
 
 
 func openSpells(spells: Array) -> void:
