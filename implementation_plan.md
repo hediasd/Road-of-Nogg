@@ -704,3 +704,397 @@ scope for a test harness.
 
 **Model:** Sonnet 5. Single file, stated end state, zero blast radius; the
 remaining unknowns are empirical iteration rather than design.
+
+**Resolution (2026-07-30): done.** `debug/drive_battle.gd` exists and passes
+all five numbered checks against the real `Battle25D` scene. Two corrections
+to the plan's own confirmed-by-probe notes, found while building it:
+
+- `push_input()` lives on `Viewport`/`Window`, not `SceneTree`. Call it as
+  `root.push_input(event)` (`root` is `SceneTree.root`, a `Window`) — not
+  `self.push_input(...)`. The plan's probe notes already said this correctly;
+  the first draft of the driver called it on the scene node by mistake, which
+  is a harness bug, not a finding.
+- `menuEntries()`'s `attack` entry is enabled whenever the action phase is
+  unspent, regardless of whether any target is actually in range —
+  `_enterTargetSelect()` falls back to `MENU` gracefully when
+  `getBasicAttackTargetsFrom()` is empty. A precondition of "Attack is
+  selectable, therefore an adjacent enemy exists" is wrong; the driver instead
+  places an enemy adjacent to the active unit via direct `state.moveMonsterTo`
+  surgery before giving any input (see `_forcePlayerAdjacentToEnemy()`),
+  matching how `verify_pc2.gd`/`verify_pc5.gd` already rig fixture geometry.
+  Default deployment slots put the two teams on opposite sides of the map, so
+  this is necessary for checks 4, 5a, and 5b regardless of harness design —
+  Attack is never actually reachable on turn one otherwise.
+
+**One genuine finding, not a harness bug — reported, not fixed, per this
+item's own instruction not to mix the two:** at headless's default viewport
+(`root.get_visible_rect()` settles to roughly 64x64 once a battle starts, not
+the 100x100 a very early probe saw), `BattleUIBuilder`'s HUD panels are
+positioned with fixed pixel offsets sized for a normal desktop window. At that
+tiny scale they cover nearly the whole screen, and since they carry Godot's
+default `MOUSE_FILTER_STOP`, Godot's GUI layer consumes a click or hover
+inside their rect during normal input processing — before
+`BattlePresentationController._unhandled_input()` ever sees the event. A
+screen point that `_mouse_to_battle_coord()` resolves correctly when called
+directly can therefore be **unreachable by any real `InputEvent`**, which is
+exactly what happened when check 3 first tried an elevated tile: the point the
+scan found sat under the top HUD strip.
+
+Confirmed by temporarily instrumenting `_unhandled_input()`'s mouse-motion
+branch with trace prints, observing they never fired for the occluded point,
+walking the `battle_ui["canvas"]` Control tree to find the two panels
+(`topHud`'s inner `PanelContainer` and the left info panel) whose
+`get_global_rect()` covered it, and reverting the instrumentation completely
+(`git status` clean before and after — verified both times) once the cause
+was located. The driver's `_buildTileScreenMap()` now excludes any point
+occluded by a non-`MOUSE_FILTER_IGNORE` Control, so it only offers the harness
+screen points a real click could also reach.
+
+This is real and structural — the top/bottom screen strips are permanently
+under the HUD at *any* window size, since the offsets are fixed pixels, not
+proportional — but its practical severity is scale-dependent. At a normal
+desktop window the clear board area dwarfs the HUD strips and this is
+unremarkable, ordinary HUD-over-3D-scene occlusion. It only became load-
+bearing here because headless's viewport is a tiny fraction of any real
+window. Whether it is worth a production fix (e.g., excluding HUD rects from
+`isWalkable`-adjacent tile picking, or simply accepting it as expected HUD
+behavior) is a product call, not something this item should decide — recorded
+in `BACKLOG_LONGTERM.md` rather than acted on.
+
+**Verify:** all four `verify_pc*.gd` harnesses and the seeded
+`scripts/demo_battle.gd` log comparison were re-run after `drive_battle.gd`
+was finished; all pass, and the demo log hash
+(`ed22caa8dfeb83728bd3d9a35803794b`) is unchanged from the very first baseline
+captured for PC-1 — nothing regressed.
+
+---
+
+## Battle UI restyle (UI-1 … UI-8)
+
+Added 2026-07-30. The visual and interaction contract is
+[`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) — read it before executing any item
+below; these items are the delivery schedule, not the specification.
+
+### Problem
+
+The battle HUD is procedurally built with no `Theme` resource anywhere in the
+repository. Every colour is a literal at its construction site, the same
+`StyleBoxFlat` is duplicated across `BattleUIBuilder._styleHudPanel()` and
+`PlayerCommandMenu._style_panel()`, and font colours are per-label
+`add_theme_color_override` calls. Restyling is therefore an N-file edit with no
+single source of truth.
+
+Two structural defects block the target design specifically:
+
+1. **Selection is a text string.** `PlayerCommandMenu` encodes the cursor as a
+   `"› "` prefix on the row's label, so `moveSelection()` calls
+   `_rebuild_root()`, which frees and reconstructs every row on each keypress.
+   No cursor can be animated across that rebuild.
+2. **Game UI and developer UI share one `CanvasLayer`.** `SPACEBAR` toggles
+   `battle_ui["canvas"].visible`, hiding the player's command menu along with
+   the debug bar, so there is no way to screenshot the game as a player sees it.
+
+Ordering below is a genuine dependency chain: UI-1 is the token source every
+later item reads, UI-2 must land before UI-5 or the two rewrite
+`BattleUIBuilder` in conflict, and UI-5 needs both UI-3 and UI-4 to exist.
+
+---
+
+## UI-1 — Theme foundation and design tokens
+
+Create `src/presentation/theme/NoggTheme.gd`: the token constants from
+`docs/UI_DESIGN.md` §3 plus `build_game_theme() -> Theme` and
+`build_dev_theme() -> Theme`.
+
+1. Declare every token in §3 as a `const`. These become the only colour
+   literals permitted anywhere under `src/presentation/`.
+2. `build_game_theme()` populates `Panel/panel`, `Label/font`,
+   `Label/font_size`, `Label/font_color`, `Label/font_outline_color`,
+   `Label/outline_size`, and the container separation constants. Load
+   `assets/Fonts/Shining Force 2.ttf` as a `FontFile` with antialiasing,
+   hinting, and subpixel positioning all disabled — it is a pixel font and will
+   smear otherwise. Integer sizes only.
+3. `build_dev_theme()` uses `Roboto-Regular.ttf` at 13, `DEV_FILL`,
+   `DEV_BORDER`, square corners, no outline. It must look plainly unlike the
+   game theme; that is its whole job.
+4. Add `GAME_LAYER = 10`, `DEV_LAYER = 20`, `CRT_LAYER = -20` as named
+   constants with the §10 rationale in a comment.
+5. Add `build_window_frame() -> NinePatchRect` returning the configured
+   `MenuFull.png` 9-patch: `patch_margin_*` 16, `draw_center = false`,
+   `mouse_filter = IGNORE`, `self_modulate = FRAME_ACTIVE`.
+
+Do not apply the themes to anything yet. This item ships a resource factory and
+nothing else, so a failure here cannot be confused with a layout failure later.
+
+**Files:** `src/presentation/theme/NoggTheme.gd` (new), `docs/UI_DESIGN.md`
+(correct §3 if a token proves unworkable).
+
+**Verify:** Add a throwaway `debug/preview_theme.gd` that instantiates one
+`PanelContainer` per theme with a few labels and a frame, and screenshot it.
+Confirm the pixel font is crisp at integer sizes, the outline is visible over a
+light background, and `draw_center = false` genuinely lets the fill show
+through the frame ring.
+
+**Risk:** Low in blast radius — nothing consumes it yet. High in leverage:
+every later item inherits these decisions, and a token set that reads badly
+over the 3D scene costs a rework of UI-3, UI-5, and UI-7.
+
+**Model:** Opus 5. Choosing a palette that survives an arbitrary 3D background,
+and committing to the tint-driven active/inactive scheme that traits 1 and 3
+both depend on, is a design decision rather than transcription.
+
+---
+
+## UI-2 — Split the game canvas from the developer canvas
+
+Restructure `BattleUIBuilder.build()` to return two `CanvasLayer`s and rebind
+`SPACEBAR`.
+
+1. Build `game_canvas` at `GAME_LAYER` and `dev_canvas` at `DEV_LAYER`, each
+   with its theme from UI-1 assigned to a root `Control`.
+2. Move the top bar (pause, speed slider, new battle, graphics, screenshot,
+   save replay) and the graphics menu onto `dev_canvas`. Move the command menu,
+   action panel, bottom HUD panels, and the battle log onto `game_canvas`.
+   Existing panel styling stays as-is here — UI-3 and UI-7 restyle it.
+3. Return both under `"game_canvas"` / `"dev_canvas"`. Keep every other
+   dictionary key the same so `BattlePresentationController`'s call sites keep
+   working.
+4. In `BattlePresentationController._input()`, `SPACEBAR` toggles
+   `dev_canvas.visible` only. Game UI visibility becomes lifecycle-driven, as
+   it already is via `action_panel`.
+5. The battle-log toggle and graphics toggle both live on the dev bar but the
+   log renders on the game canvas — keep the existing mutual exclusion between
+   them working across the layer boundary.
+
+**Files:** `src/presentation/BattleUIBuilder.gd`,
+`src/systems/BattlePresentationController.gd`.
+
+**Verify:** Start a battle, reach a player turn, press `SPACEBAR`. The debug
+bar and graphics menu must disappear while the command menu, bottom HUD, and
+cursor stay fully interactive — take a screenshot in that state and confirm it
+looks like a player-facing frame. Press `SPACEBAR` again and confirm the
+graphics menu returns in its prior toggle state, not forced open.
+
+**Risk:** Medium. Touches every UI wiring point in the controller. The failure
+mode is silent — a panel parented to the wrong canvas only reveals itself when
+`SPACEBAR` is pressed.
+
+**Model:** Sonnet 5. Multi-file with a fully stated end state and no open
+design questions.
+
+---
+
+## UI-3 — The `NoggWindow` widget
+
+Implement `src/presentation/theme/NoggWindow.gd` per `docs/UI_DESIGN.md` §4.
+
+1. `class_name NoggWindow extends PanelContainer`. Composition is exactly the
+   §4 diagram: `StyleBoxFlat` body, `MarginContainer` for content clearing the
+   16px frame, `NinePatchRect` frame added last so it draws on top.
+2. `set_active(active: bool)` tweens the frame's `self_modulate` between
+   `FRAME_ACTIVE` and `FRAME_INACTIVE` over 0.12 s.
+3. `open()` / `close()` with the §4 scale-and-fade tweens. `close()` must be
+   awaitable or emit `closed` so callers can sequence teardown.
+4. `set_row_capacity(rows: int)` fixes `custom_minimum_size.y` from the theme's
+   row height and font metrics, so a window's height is a function of capacity
+   and not of content. Trait 6 depends on this.
+5. `add_row(label: String, value: String = "", disabled: bool = false)`
+   building the two-column `HBoxContainer` of trait 4 — label left, value right
+   in `TEXT_ACCENT`, ellipsis truncation on overflow. Rows are plain `Control`s,
+   never `Button`s; §5 explains why.
+6. Expose `row_rect(index)` so UI-4's cursor can position against a row without
+   reaching into the window's children.
+
+**Files:** `src/presentation/theme/NoggWindow.gd` (new).
+
+**Verify:** Extend `debug/preview_theme.gd` to show two `NoggWindow`s side by
+side over the live 3D battle scene, one active and one inactive, one at 8-row
+capacity holding 3 rows. Confirm the fill is translucent and the frame is not,
+the capacity window does not shrink, long values ellipsise, and `set_active`
+reads clearly at a glance.
+
+**Risk:** Medium. Every game window is this widget; a layout bug here appears
+seven times over.
+
+**Model:** Sonnet 5. UI-1 settled the look and §4 fixes the composition, so
+what remains is careful Godot container work against a written spec.
+
+---
+
+## UI-4 — The `MenuCursor` node
+
+Implement `src/presentation/theme/MenuCursor.gd` per `docs/UI_DESIGN.md` §5.
+
+1. `class_name MenuCursor extends Control`, drawing the gold cursor in
+   `CURSOR`. Draw it with `_draw()` as a filled triangle roughly 10x12 px — no
+   art asset exists and none is required.
+2. Continuous idle bob: 2 px either side on `position.x`, 0.6 s period, sine,
+   looping, started in `_ready()` and never stopped.
+3. `move_to_row(rect: Rect2)` tweens `position.y` to the row's vertical centre
+   over 0.09 s with `EASE_OUT` / `TRANS_CUBIC`. Any in-flight move tween is
+   killed first, not queued — held arrow keys must track rather than drain a
+   queue. The bob tween is independent and must survive the kill.
+4. `snap_to_row(rect: Rect2)` for the no-animation case (window just opened,
+   page just turned).
+5. `set_visible_cursor(bool)` for handing focus to a child window.
+
+This item ships the node only. UI-5 is what parents it into a menu.
+
+**Files:** `src/presentation/theme/MenuCursor.gd` (new).
+
+**Verify:** In `debug/preview_theme.gd`, place a cursor in an 8-row
+`NoggWindow` and drive `move_to_row` from arrow keys. Confirm the bob never
+stops, holding an arrow key produces continuous tracking with no visible
+queueing, and killing the move tween mid-flight does not freeze the bob.
+
+**Risk:** Low. Self-contained node, no consumers until UI-5.
+
+**Model:** Haiku 4.5. Single new file, every number specified, no dependency
+beyond UI-1's `CURSOR` token.
+
+---
+
+## UI-5 — Rebuild `PlayerCommandMenu` on windows and cursor
+
+The architectural item. Replace the panel-with-two-columns with stacked sibling
+windows and a cursor, and separate rebuild from selection.
+
+1. **Enforce the §5 rule:** content changes rebuild rows, selection changes
+   move the cursor, and neither path calls the other. `moveSelection()` must
+   not call `_rebuild_root()`. Delete the `"› "` string-prefix mechanism
+   entirely.
+2. Replace `_root_column` / `_spell_column` with two `NoggWindow`s. The spell
+   window opens to the right of the command window; the command window calls
+   `set_active(false)` while it is open, and `set_active(true)` on close. It
+   does not hide, move, or resize.
+3. Each window owns a `MenuCursor`. Opening the spell window hides the command
+   window's cursor and snaps the spell cursor to its default row — the cursor
+   does not fly between windows.
+4. Rows become plain `Control`s. Disabled rows render in `TEXT_DIM`, are
+   skipped by keyboard movement, and are inert to hover and click, but stay
+   visible.
+5. **Mouse input, per §6.** Hover moves the cursor without activating; left
+   click moves then activates; wheel moves one row; right click cancels. The
+   cursor position stays the single selection truth — mouse and keyboard must
+   never disagree about what is selected.
+6. Keep `entry_activated` and `spell_activated` signal shapes unchanged so
+   `BattlePresentationController._on_command_menu_entry` /
+   `_on_command_menu_spell` need no edit. Mouse routing is new wiring in
+   `_unhandled_input` alongside the existing `ui_up` / `ui_down` / `ui_accept`
+   handling.
+
+**Files:** `src/presentation/PlayerCommandMenu.gd`,
+`src/systems/BattlePresentationController.gd`,
+`src/presentation/BattleUIBuilder.gd`.
+
+**Verify:** Reach a player turn. Drive the full tree — root, into `Magic`, back
+out, activate a spell — with the keyboard only, then repeat with the mouse
+only, then alternate mid-menu and confirm the cursor never disagrees with the
+last input device. Confirm the command window dims rather than disappears while
+the spell window is open. Confirm a spent `Move` stays visible and dim, and
+that keyboard movement skips it while the mouse cannot activate it.
+
+**Risk:** High. This is the interactive path for every player turn, and it
+replaces the input model rather than extending it. A cursor desync between
+mouse and keyboard is the specific regression to watch for.
+
+**Model:** Opus 5. Separating rebuild from selection is a structural change to
+the menu's state model, and the mouse/keyboard reconciliation in §6 is a design
+contract rather than a transcription.
+
+---
+
+## UI-6 — Paging
+
+Add fixed-capacity paging to `NoggWindow` per `docs/UI_DESIGN.md` §7.
+
+1. `NoggWindow` takes the full row set and slices it by `row_capacity` (8).
+   `page`, `page_count`, `next_page()`, `prev_page()`, circular in both
+   directions.
+2. The footer is its own small `NoggWindow` reading the page indicator,
+   horizontally centred and overlapping the parent's bottom border by half its
+   height. It is absent — not disabled — when `page_count == 1`.
+3. Cursor movement past a page boundary turns the page and snaps the cursor to
+   the first (or last) row of the new page. Use `snap_to_row`, not
+   `move_to_row`; tweening across a page turn reads as a glitch.
+4. `ui_left` / `ui_right` page. Clicking the footer arrows pages.
+5. Wire into UI-5's command and spell windows.
+
+**Files:** `src/presentation/theme/NoggWindow.gd`,
+`src/presentation/PlayerCommandMenu.gd`,
+`src/systems/BattlePresentationController.gd`.
+
+**Verify:** Give a monster enough spells to exceed 8 — temporarily, via a data
+edit reverted before commit — and confirm the footer appears, pages wrap in
+both directions, the cursor snaps rather than tweens across a turn, and the
+footer disappears entirely at 8 or fewer.
+
+**Risk:** Medium. Off-by-one page arithmetic interacting with disabled-row
+skipping is the likely bug, and it is only reachable with a long list.
+
+**Model:** Sonnet 5. Multi-file with a stated end state; the design questions
+were settled in §7.
+
+---
+
+## UI-7 — Restructure the bottom HUD as game windows
+
+Replace the two 220x150 `PanelContainer`s and their newline-joined labels with
+the docked windows of `docs/UI_DESIGN.md` §8.
+
+1. Actor status becomes a 6-row `NoggWindow` docked bottom-left; target becomes
+   its mirror bottom-right. Both are fixed size and never resize with content.
+2. Replace the single-string stat formatting in
+   `BattlePresentationController._update_selection_ui()` with real two-column
+   rows: name as a heading, then `HP`, `ATK/DEF`, `SPD/MOV`, `Elements`.
+3. With values now individually addressable, colour HP in `TEXT_ACCENT` below
+   one third and hold `TEXT_PRIMARY` above it. This is the payoff for dropping
+   the string formatting and is the acceptance criterion for trait 4.
+4. The target window shows an empty frame when there is no target — it does not
+   hide. A window appearing and disappearing at the corner of the eye during
+   cursor movement is worse than an empty one.
+5. Add the prompt window (top-centre, 1 row) and move the forecast out of
+   `PlayerCommandMenu` into its own window above the command window. Today
+   `setStatus` prints state-machine text into the menu panel; the prompt window
+   replaces that surface.
+
+**Files:** `src/presentation/BattleUIBuilder.gd`,
+`src/systems/BattlePresentationController.gd`,
+`src/presentation/PlayerCommandMenu.gd`.
+
+**Verify:** Run a battle through several turns. Confirm the actor window does
+not resize between a monster with 3 elements and one with none, the target
+window shows an empty frame with no target selected, HP recolours as a unit is
+damaged past one third, and the forecast appears only on a confirm step.
+
+**Risk:** Medium. `_update_selection_ui` is called from several event paths;
+missing one leaves a stale window rather than an obviously broken one.
+
+**Model:** Sonnet 5. Mechanical once §8 fixes the taxonomy, but it spans three
+files and several call sites.
+
+---
+
+## UI-8 — Make CRT layering deliberate
+
+1. Replace the literal layer numbers in `RetroRenderController` and
+   `BattleUIBuilder` with `NoggTheme.CRT_LAYER` / `GAME_LAYER` / `DEV_LAYER`,
+   carrying the §10 rationale as a comment at the constant, not at each use.
+2. Add a `ui_through_crt` toggle to the graphics menu. When on, the game canvas
+   moves below the CRT overlay so the UI takes scanlines, mask, and vignette.
+   Default off. The dev canvas is never affected.
+3. Persist it alongside the existing graphics parameters.
+
+**Files:** `src/presentation/RetroRenderController.gd`,
+`src/presentation/BattleGraphicsMenu.gd`,
+`src/presentation/BattleUIBuilder.gd`,
+`src/systems/BattlePresentationController.gd`.
+
+**Verify:** Toggle `ui_through_crt` during a player turn at high scanline
+strength. Confirm the game UI visibly gains and loses the CRT treatment, the
+dev bar never does, and the command menu stays interactive across the toggle.
+
+**Risk:** Low. Isolated, reversible, and visible the instant it is wrong.
+
+**Model:** Sonnet 5. Four files, but each edit is small and the end state is
+fully stated.

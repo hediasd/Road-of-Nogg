@@ -37,12 +37,17 @@ or misleading.
   for camera-relative controls and broader visual accessibility work.
 - **Mouse tile picking now uses dedicated rendered-surface hitboxes.** Verify it
   at multiple elevations and camera angles before considering it resolved.
-- **The player input surface has never been exercised in a real battle.** PC-2
-  was verified headlessly against a stub adapter, which covers the phase
-  machine but not mouse ray-casting, keyboard routing, or menu-button wiring.
-  The animation confirmation carried over from the `VisualActionQueue`
-  extraction is still outstanding too. Both are folded into PC-3's
-  verification, since PC-3 rebuilds that surface.
+- **The player input surface has now been exercised headlessly against the
+  real scene**, closing most of this gap. `TD-1` (2026-07-30,
+  `debug/drive_battle.gd`) drives `Battle25D` through synthetic `InputEvent`s
+  — keyboard menu navigation, the Spell column with `< Back` and right-click
+  back, mouse hover-preview and click-to-commit tile picking, target cycling,
+  and phase/menu tracking across every order. What it cannot cover: whether
+  any of this *looks* right (no rendering headless — see TD-1 in
+  `implementation_plan.md`) and true animation timing/feel, since headless
+  wall-clock timers are not the same as a human watching a real frame rate. A
+  real playthrough is still worth doing before calling PC-3/BM-3 fully
+  accepted, but it is no longer the only verification that exists.
 
 ## Content inconsistencies
 
