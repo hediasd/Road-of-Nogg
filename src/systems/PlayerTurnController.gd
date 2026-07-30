@@ -531,7 +531,14 @@ func _forecastText(target: Monster) -> String:
 	var attacker = _sim.state.getMonster(activeMonsterID)
 	var elevation = _sim.combatResolver.getElevationPercent(activeMonsterID, target.uniqueID)
 	if _pendingAction == "attack":
-		var damage = mini(target.hitpoints, _sim.combatResolver.calculateBasicDamage(attacker, target))
+		# is_simulation=true: every other estimator (BattleCommandEvaluator, the
+		# CPU brains) passes this so applyDamageModifiers() skips emitting
+		# passive_triggered. Omitting it here would fire that event — a real
+		# side effect, not a preview — the moment the player highlights a
+		# target, before Confirm.
+		var damage = mini(
+			target.hitpoints, _sim.combatResolver.calculateBasicDamage(attacker, target, true)
+		)
 		return "Expected: %d damage / %d%% elevation" % [damage, elevation]
 	var spell = attacker.spellSets[_selectedSpellSet][_selectedSpellIndex]
 	if spell.heals:

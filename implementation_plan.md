@@ -410,6 +410,49 @@ confirm the forecast tracks the damage actually dealt in the battle log.
 
 **Model:** Sonnet 5.
 
+**Resolution (2026-07-30): done.** The bulk of this item — `forecast_changed`,
+`CONFIRM_ACTION` wiring, and `_forecastText()` reading `calculateBasicDamage`
+/ `calculateSpellDamage` / `calculateHeal` / `getElevationPercent` off
+`CombatResolver` — had already landed in the same external session that did
+PC-1 through PC-3. Review found and fixed one real defect in it.
+
+**The bug:** the attack forecast called `calculateBasicDamage(attacker,
+target)` without `is_simulation=true`. Every other estimator in the codebase
+— `BattleCommandEvaluator`, `BerserkBrain`, `MageBrain`, `TacticalBrain`, and
+this file's own spell-damage forecast — passes that flag so
+`PassiveSkillResolver.applyDamageModifiers()` skips emitting
+`passive_triggered`. Without it, merely highlighting an attack target and
+reaching `CONFIRM_ACTION` fired a real `passive_triggered` event before
+Confirm was ever pressed — invisible today only because
+`GodotVisualAdapter._on_passive_triggered` happens to be an inherited no-op;
+wiring that handler for anything, which is a natural next step now that
+Resonance/crit UI is on the backlog, would have surfaced it as a false
+"passive triggered" toast fired by hovering a target.
+
+Verified with `debug/verify_pc5.gd` (gitignored scratch): forecast damage
+matches actual damage dealt for a basic attack, a spell, and a heal;
+elevation is checked with a matchup whose raw damage (5) is large enough for
+the ±10% modifier to survive rounding (`floor((raw*pct+50)/100)`) — the
+initial attempt used a raw-3 matchup where 100/110/90% all floor to the same
+number, which would have passed even if elevation were never applied; and,
+directly, that computing the forecast alone emits zero `passive_triggered`
+events and writes zero `state.history` entries. PC-1/PC-2/PC-4 checks and the
+seeded battle-log determinism check are unchanged.
+
+**Two things worth knowing if this is touched again:**
+- `Spell.targetType` defaults to `"single"` even for range-0 "Setup" spells
+  (e.g. Mage Dragon's `Think`) that are functionally self-only by the tier
+  contract in `docs/GAME_DESIGN.md` — `getSpellTargetsFrom` requires an enemy
+  at that distance, which a range-0 spell can never produce. Filtering
+  "is this spell aimable at the enemy" by `targetType == "self"` alone misses
+  these; filter on `range <= 0` too, or on `getSpellTargetsFrom` returning
+  something other than `[casterID]`.
+- A crit or elemental-weakness roll can make an actually-resolved spell
+  differ from its non-critical forecast — `calculateSpellDamage` deliberately
+  never calls `_rollCritical()` (that's the RNG draw, gated to real
+  resolution only), so the forecast is a floor, not always an exact
+  prediction, for spells.
+
 ---
 
 ## PC decisions — resolved 2026-07-29
