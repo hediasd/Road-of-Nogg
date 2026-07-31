@@ -11,7 +11,7 @@
 			"ice"
 		],
 		"RACE": "Helvengesk",
-		"FAMILY": "Training Drake",
+		"FAMILY": "none",
 		"ARCHETYPE": "defender",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
@@ -32,7 +32,7 @@
 			"ice"
 		],
 		"RACE": "Helvengesk",
-		"FAMILY": "Frost Wyrm",
+		"FAMILY": "none",
 		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
@@ -59,7 +59,7 @@
 			"darkness"
 		],
 		"RACE": "Shadogus",
-		"FAMILY": "Dark Mage",
+		"FAMILY": "none",
 		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
@@ -80,7 +80,7 @@
 			"light"
 		],
 		"RACE": "Sephilim",
-		"FAMILY": "Light Mender",
+		"FAMILY": "none",
 		"ARCHETYPE": "leader",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
@@ -102,7 +102,7 @@
 			"fire"
 		],
 		"RACE": "Lizardon",
-		"FAMILY": "Flame Brawler",
+		"FAMILY": "none",
 		"ARCHETYPE": "striker",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
@@ -147,7 +147,7 @@
 			"wood"
 		],
 		"RACE": "Nymph",
-		"FAMILY": "Elder Treant",
+		"FAMILY": "none",
 		"ARCHETYPE": "defender",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
@@ -171,7 +171,7 @@
 			"ice"
 		],
 		"RACE": "Helvengesk",
-		"FAMILY": "Frost Titan",
+		"FAMILY": "none",
 		"ARCHETYPE": "striker",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
@@ -194,7 +194,7 @@
 			"ice"
 		],
 		"RACE": "Helvengesk",
-		"FAMILY": "Frost Runt",
+		"FAMILY": "none",
 		"ARCHETYPE": "defender",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": []
@@ -234,7 +234,7 @@
 			"light"
 		],
 		"RACE": "Sephilim",
-		"FAMILY": "Flame Oracle",
+		"FAMILY": "none",
 		"ARCHETYPE": "controller",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
@@ -469,7 +469,7 @@
 			"earth"
 		],
 		"RACE": "Kemetos",
-		"FAMILY": "Mumitomo",
+		"FAMILY": "Mumitomos",
 		"ARCHETYPE": "defender",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [

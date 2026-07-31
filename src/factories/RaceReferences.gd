@@ -1,6 +1,6 @@
 class_name RaceReferences
 
-const JSON_PATH := "res://data/races.json"
+const JSON_PATH := "res://data/taxonomy.json"
 
 static var list: Array
 static var _name_index: Dictionary = {}
@@ -13,10 +13,10 @@ static func _static_init():
 ## Script.reload(keep_state: bool) is a real engine method that would shadow
 ## a plain `reload()` and throw a String-to-bool argument error instead.
 static func reloadCatalog(path: String = JSON_PATH) -> bool:
-	## Load from JSON, normalize, index. Returns true on success. On failure,
-	## list/index are left at their prior value and _load_error is set. `path`
-	## is overridable so tests can exercise failure modes against fixtures
-	## without touching the production catalog.
+	## Load the races tier of the taxonomy JSON, normalize, index. Returns true
+	## on success. On failure, list/index are left at their prior value and
+	## _load_error is set. `path` is overridable so tests can exercise failure
+	## modes against fixtures without touching the production catalog.
 	var new_list: Array = []
 	var new_index: Dictionary = {}
 
@@ -32,12 +32,28 @@ static func reloadCatalog(path: String = JSON_PATH) -> bool:
 		return false
 
 	var parsed = JSON.parse_string(json_text)
-	if parsed == null or not parsed is Array:
-		_load_error = "JSON parse failed or root is not an array"
+	if parsed == null or not parsed is Dictionary:
+		_load_error = "JSON parse failed or root is not a dictionary"
 		push_warning("RaceReferences: %s" % _load_error)
 		return false
 
-	for entry in parsed:
+	# The taxonomy catalog holds all three tiers — "races", "families" and
+	# "species" — under one root dictionary. Only the races tier is consumed
+	# here; the other two are authoring-side data with no runtime reader yet,
+	# so a malformed or absent "races" array is the only shape failure this
+	# loader can report on.
+	var races = parsed.get("races")
+	if races == null:
+		_load_error = "JSON root has no \"races\" key"
+		push_warning("RaceReferences: %s" % _load_error)
+		return false
+
+	if not races is Array:
+		_load_error = "JSON \"races\" value is not an array"
+		push_warning("RaceReferences: %s" % _load_error)
+		return false
+
+	for entry in races:
 		if not entry is Dictionary:
 			_load_error = "JSON contains non-dictionary entry"
 			push_warning("RaceReferences: %s" % _load_error)

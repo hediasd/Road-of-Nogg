@@ -1,85 +1,246 @@
 {
+	"races": [
+		{
+			"NAME": "none",
+			"RESISTANCES": {
+
+			}
+		},
+		{
+			"NAME": "Shadogus",
+			"RESISTANCES": {
+				"darkness": 0.8,
+				"light": 1.2,
+				"wind": 1.2,
+				"wood": 0.8
+			}
+		},
+		{
+			"NAME": "Helvengesk",
+			"RESISTANCES": {
+				"fire": 1.2,
+				"ice": 0.8,
+				"thunder": 1.2,
+				"wind": 0.8
+			}
+		},
+		{
+			"NAME": "Lizardon",
+			"RESISTANCES": {
+				"earth": 0.8,
+				"fire": 0.8,
+				"ice": 1.2,
+				"water": 1.2
+			}
+		},
+		{
+			"NAME": "Nymph",
+			"RESISTANCES": {
+				"fire": 1.2,
+				"steel": 1.2,
+				"water": 0.8,
+				"wood": 0.8
+			}
+		},
+		{
+			"NAME": "Wingedos",
+			"RESISTANCES": {
+				"earth": 1.2,
+				"light": 0.8,
+				"thunder": 1.2,
+				"wind": 0.8
+			}
+		},
+		{
+			"NAME": "Gel",
+			"RESISTANCES": {
+				"darkness": 0.8,
+				"light": 1.2,
+				"water": 0.8,
+				"wind": 1.2
+			}
+		},
+		{
+			"NAME": "Mechans",
+			"RESISTANCES": {
+				"earth": 0.8,
+				"steel": 0.8,
+				"water": 1.2,
+				"wind": 1.2
+			}
+		},
+		{
+			"NAME": "Kemetos",
+			"RESISTANCES": {
+				"earth": 0.8,
+				"ice": 0.8,
+				"light": 1.2,
+				"water": 1.2
+			}
+		},
+		{
+			"NAME": "Tigerfolk",
+			"RESISTANCES": {
+				"darkness": 0.8,
+				"light": 1.2,
+				"steel": 1.2,
+				"wind": 0.8
+			}
+		},
+		{
+			"NAME": "Pondtenders",
+			"RESISTANCES": {
+				"darkness": 1.2,
+				"fire": 1.2,
+				"water": 0.8,
+				"wood": 0.8
+			}
+		},
+		{
+			"NAME": "Paperfolk",
+			"RESISTANCES": {
+				"darkness": 1.2,
+				"steel": 0.8,
+				"water": 1.2,
+				"wind": 0.8
+			}
+		},
+		{
+			"NAME": "Sephilim",
+			"RESISTANCES": {
+				"darkness": 1.2,
+				"earth": 1.2,
+				"light": 0.8,
+				"thunder": 0.8
+			}
+		},
+		{
+			"NAME": "Terrorugon",
+			"RESISTANCES": {
+				"darkness": 0.8,
+				"fire": 0.8,
+				"thunder": 1.2,
+				"wood": 1.2
+			}
+		},
+		{
+			"NAME": "Golemfolk",
+			"RESISTANCES": {
+				"earth": 0.8,
+				"steel": 0.8,
+				"water": 1.2,
+				"wood": 1.2
+			}
+		}
+	],
 	"families": [
 		{
-			"NAME": "Basic Kappa"
+			"NAME": "Basic Kappa",
+			"RACE": "Pondtenders"
 		},
 		{
-			"NAME": "Blob"
+			"NAME": "Blob",
+			"RACE": "Gel"
 		},
 		{
-			"NAME": "Brickamon"
+			"NAME": "Brickamon",
+			"RACE": "Golemfolk"
 		},
 		{
-			"NAME": "Chrono Sage"
+			"NAME": "Chrono Sage",
+			"RACE": "Mechans"
 		},
 		{
-			"NAME": "Clock-Bird"
+			"NAME": "Clock-Bird",
+			"RACE": "Mechans"
 		},
 		{
-			"NAME": "Crowned Birdo"
+			"NAME": "Crowned Birdo",
+			"RACE": "Wingedos"
 		},
 		{
-			"NAME": "Dark Mage"
+			"NAME": "Dark Mage",
+			"RACE": "Shadogus"
 		},
 		{
-			"NAME": "Elder Treant"
+			"NAME": "Elder Treant",
+			"RACE": "Nymph"
 		},
 		{
-			"NAME": "Exogator"
+			"NAME": "Exogator",
+			"RACE": "Lizardon"
 		},
 		{
-			"NAME": "Extrafolk"
+			"NAME": "Extrafolk",
+			"RACE": "Shadogus"
 		},
 		{
-			"NAME": "Flame Brawler"
+			"NAME": "Flame Brawler",
+			"RACE": "Lizardon"
 		},
 		{
-			"NAME": "Flame Oracle"
+			"NAME": "Flame Oracle",
+			"RACE": "Sephilim"
 		},
 		{
-			"NAME": "Frost Runt"
+			"NAME": "Frost Runt",
+			"RACE": "Helvengesk"
 		},
 		{
-			"NAME": "Frost Titan"
+			"NAME": "Frost Titan",
+			"RACE": "Helvengesk"
 		},
 		{
-			"NAME": "Frost Wyrm"
+			"NAME": "Frost Wyrm",
+			"RACE": "Helvengesk"
 		},
 		{
-			"NAME": "Hanansk"
+			"NAME": "Hanansk",
+			"RACE": "Helvengesk"
 		},
 		{
-			"NAME": "Light Mender"
+			"NAME": "Light Mender",
+			"RACE": "Sephilim"
 		},
 		{
-			"NAME": "Mumitomo"
+			"NAME": "Mumitomos",
+			"RACE": "Kemetos"
 		},
 		{
-			"NAME": "Night Panther"
+			"NAME": "Night Panther",
+			"RACE": "Tigerfolk"
 		},
 		{
-			"NAME": "Paper Tiger"
+			"NAME": "Paper Tiger",
+			"RACE": "Paperfolk"
 		},
 		{
-			"NAME": "Sanctum Wing"
+			"NAME": "Sanctum Wing",
+			"RACE": "Terrorugon"
 		},
 		{
-			"NAME": "Smoke Fiend"
+			"NAME": "Smoke Fiend",
+			"RACE": "Terrorugon"
 		},
 		{
-			"NAME": "Storm Herald"
+			"NAME": "Storm Herald",
+			"RACE": "Sephilim"
 		},
 		{
-			"NAME": "Training Drake"
+			"NAME": "Training Drake",
+			"RACE": "Helvengesk"
 		},
 		{
-			"NAME": "Wheel Watcher"
+			"NAME": "Wheel Watcher",
+			"RACE": "Sephilim"
 		},
 		{
-			"NAME": "Winged Lion"
+			"NAME": "Winged Lion",
+			"RACE": "Terrorugon"
 		},
 		{
-			"NAME": "Woodsland Nymph"
+			"NAME": "Woodsland Nymph",
+			"RACE": "Nymph"
 		}
 	],
 	"species": []

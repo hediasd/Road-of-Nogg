@@ -62,7 +62,7 @@ func _init(parameterDictionary, _uniqueID) -> void:
 	elements = get_or_default(parameterDictionary, "ELEMENTS", [])
 	race = get_or_default(parameterDictionary, "RACE", "none")
 	family = get_or_default(parameterDictionary, "FAMILY", "none")
-	species = get_or_default(parameterDictionary, "SPECIES", name)
+	species = get_or_default(parameterDictionary, "SPECIES", "none")
 	ascends_from = get_or_default(parameterDictionary, "ASCENDS_FROM", "")
 
 	for element in elements:
