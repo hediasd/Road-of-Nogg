@@ -1728,6 +1728,7 @@ export_presets.cfg coverage; finish with git diff --check.
 **Risk:** Medium. This is the first integrated acceptance boundary for the
 catalog cutover, so failures may cross data, factory, AI, or presentation
 ownership even when each migration diff was mechanically straightforward.
+
 ---
 
 ## Typed and positional command contracts (TYPE-1, POS-1 … POS-3)
@@ -1797,6 +1798,7 @@ call `record_cast()`, consuming cooldown and Resonance. Positional action events
 carry real coordinates and `target_id = -1` for empty centers. The occupied-only
 player selector remains intentionally deferred to POS-3. A narrow headless
 project-load smoke passed; behavioral/replay acceptance remains POS-VALIDATE.
+
 ## POS-2 — AI positional targeting
 
 AI enumerates legal center positions rather than only unit IDs. Area spells are
@@ -1813,6 +1815,17 @@ same result.
 
 **Risk:** Medium-high. Candidate counts increase and inconsistent utility or
 tie-breaking would damage both performance and determinism.
+
+**Resolution (2026-07-31): implemented; pending end-of-plan validation.**
+`BattleCommandEvaluator` now enumerates sorted legal attack/spell coordinates
+from every destination. It derives occupants only for results/history, scores
+all units affected by an area center, and deduplicates equivalent affected-ID
+sets per spell and destination. Legal empty misses and zero-unit/no-utility
+casts score below the Wait candidate at the same destination. Tie keys include
+destination, action/spell identity, and target coordinate. The shared resolver
+also models the actor's projected destination/origin vacancy so pre-move AI
+queries match execution. A narrow headless project-load smoke passed; seeded
+choice and replay acceptance remain POS-VALIDATE.
 
 ## POS-3 — Player positional targeting and visuals
 

@@ -33,9 +33,10 @@ report of a tile being unclickable near the HUD edges.
 
 ## Empty-tile spell targeting
 
-- **POS-1 implemented 2026-07-31:** commands, validation, resolution, events,
-  and replay v5 now use canonical tile positions. Remaining work is POS-2 AI
-  enumeration/scoring and POS-3 forecasts/presentation.
+- **POS-1 and POS-2 implemented 2026-07-31:** commands, validation, resolution,
+  events,
+  replay v5, and POS-2 AI enumeration/scoring now use canonical tile
+  positions. Remaining work is POS-3 forecasts/presentation.
 - Every non-self spell exposes tile choices in the player UI. Each spell owns an
   explicit data flag controlling whether confirmation is legal when the chosen
   tile is empty; a false flag disables confirmation but does not hide the tile

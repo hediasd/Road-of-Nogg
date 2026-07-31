@@ -26,9 +26,7 @@ func chooseCommand(monsterID: int, weights: Dictionary) -> BattleCommand:
 	var destinations: Array = movementResolver.getReachablePositions(monsterID)
 	if not destinations.has(origin):
 		destinations.append(origin)
-	destinations.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		return a.y < b.y or (a.y == b.y and a.x < b.x)
-	)
+	_sortPositions(destinations)
 	var threat = ThreatMapScript.generate(
 		state, actor.team, movementResolver, combatResolver
 	)
@@ -36,6 +34,7 @@ func chooseCommand(monsterID: int, weights: Dictionary) -> BattleCommand:
 	for candidateID in state.getAliveMonsterIDs():
 		if state.getMonster(candidateID).team != actor.team:
 			enemyPositions.append(state.getMonsterPosition(candidateID))
+
 	var candidates: Array[Dictionary] = []
 	for destination in destinations:
 		var path: Array = (
@@ -47,20 +46,77 @@ func chooseCommand(monsterID: int, weights: Dictionary) -> BattleCommand:
 		if destination != origin and path.is_empty():
 			continue
 		candidates.append(_candidate(
-			actor, path, destination, "wait", -1, 0, 0, threat, weights, enemyPositions
+			actor,
+			path,
+			destination,
+			"wait",
+			Vector2i(-1, -1),
+			0,
+			0,
+			[],
+			threat,
+			weights,
+			enemyPositions
 		))
-		for targetID in combatResolver.getBasicAttackTargetsFrom(monsterID, destination):
+
+		var attackPositions = combatResolver.getBasicAttackTargetPositionsFrom(
+			monsterID, destination
+		)
+		_sortPositions(attackPositions)
+		var seenAttackOutcomes: Dictionary = {}
+		for targetPos in attackPositions:
+			var targetID = combatResolver.getProjectedOccupantID(
+				monsterID, destination, targetPos
+			)
+			var outcomeKey = "unit:%d" % targetID if targetID != 0 else "empty"
+			if seenAttackOutcomes.has(outcomeKey):
+				continue
+			seenAttackOutcomes[outcomeKey] = true
 			candidates.append(_candidate(
-				actor, path, destination, "attack", targetID, 0, 0,
-				threat, weights, enemyPositions
+				actor,
+				path,
+				destination,
+				"attack",
+				targetPos,
+				0,
+				0,
+				[],
+				threat,
+				weights,
+				enemyPositions
 			))
+
 		for spellSetIndex in range(actor.spellSets.size()):
 			for spellIndex in range(actor.spellSets[spellSetIndex].size()):
-				for targetID in combatResolver.getSpellTargetsFrom(
-						monsterID, spellSetIndex, spellIndex, destination):
+				var targetPositions = combatResolver.getSpellTargetPositionsFrom(
+					monsterID, spellSetIndex, spellIndex, destination
+				)
+				_sortPositions(targetPositions)
+				var seenSpellOutcomes: Dictionary = {}
+				for centerPos in targetPositions:
+					var affected = combatResolver.getSpellAffectedTargetsFrom(
+						monsterID,
+						spellSetIndex,
+						spellIndex,
+						destination,
+						centerPos
+					)
+					var outcomeKey = _affectedOutcomeKey(affected)
+					if seenSpellOutcomes.has(outcomeKey):
+						continue
+					seenSpellOutcomes[outcomeKey] = true
 					candidates.append(_candidate(
-						actor, path, destination, "spell", targetID,
-						spellSetIndex, spellIndex, threat, weights, enemyPositions
+						actor,
+						path,
+						destination,
+						"spell",
+						centerPos,
+						spellSetIndex,
+						spellIndex,
+						affected,
+						threat,
+						weights,
+						enemyPositions
 					))
 
 	if candidates.is_empty():
@@ -72,44 +128,54 @@ func chooseCommand(monsterID: int, weights: Dictionary) -> BattleCommand:
 	)
 	return candidates[0]["command"]
 
-
 func _candidate(
 		actor: Monster,
 		path: Array,
 		destination: Vector2i,
 		action: String,
-		targetID: int,
+		targetPos: Vector2i,
 		spellSetIndex: int,
 		spellIndex: int,
+		affectedTargets: Array,
 		threat: Dictionary,
 		weights: Dictionary,
 		enemyPositions: Array[Vector2i]) -> Dictionary:
-	var targetPos = (
-		state.getMonsterPosition(targetID)
-		if targetID >= 0 else
-		Vector2i(-1, -1)
-	)
+	var projectedOccupantID = combatResolver.getProjectedOccupantID(
+		actor.uniqueID, destination, targetPos
+	) if state.withinBounds(targetPos) else 0
+	var targetID = -1 if projectedOccupantID == 0 else projectedOccupantID
 	var command = BattleCommand.new(
-		path, action, targetID, spellSetIndex, spellIndex, "move_first", targetPos
+		path,
+		action,
+		targetID,
+		spellSetIndex,
+		spellIndex,
+		"move_first",
+		targetPos
 	)
 	var defeats = 0
 	var defeatedValue = 0
 	var expectedDamage = 0
 	var utility = 0
-	if action == "attack":
+	var hasUsefulOutcome = action == "wait"
+	if action == "attack" and targetID >= 0:
 		var target = state.getMonster(targetID)
-		expectedDamage = combatResolver.calculateBasicDamage(actor, target, true, destination)
+		expectedDamage = combatResolver.calculateBasicDamage(
+			actor, target, true, destination
+		)
+		hasUsefulOutcome = expectedDamage > 0
 		if expectedDamage >= target.hitpoints:
 			defeats = 1
 			defeatedValue = target.max_hitpoints
 	elif action == "spell":
 		var spell = actor.spellSets[spellSetIndex][spellIndex]
-		var affected = combatResolver.getSpellAffectedTargetsFrom(
-			actor.uniqueID, spellSetIndex, spellIndex, destination, targetPos
-		)
-		for affectedID in affected:
+		for affectedID in affectedTargets:
 			var target = state.getMonster(affectedID)
 			utility += _declaredEffectUtility(spell, affectedID)
+			if spell.buffs_atk > 0 or spell.removes_status != "" or spell.reverts_damage:
+				utility += 10
+			if spell.inflicts_status != "":
+				utility += _statusSeverity(spell.inflicts_status)
 			if spell.heals:
 				utility += mini(
 					target.max_hitpoints - target.hitpoints,
@@ -133,14 +199,14 @@ func _candidate(
 			if targetDamage >= target.hitpoints:
 				defeats += 1
 				defeatedValue += target.max_hitpoints
-		if spell.buffs_atk > 0 or spell.removes_status != "" or spell.reverts_damage:
-			utility += 10
-		if spell.inflicts_status != "":
-			utility += _statusSeverity(spell.inflicts_status)
-		if actor.would_advance_resonance(spell):
-			utility += 20
-		elif spell.sequence_level == 4:
-			utility += 30
+		if not affectedTargets.is_empty():
+			if actor.would_advance_resonance(spell):
+				utility += 20
+			elif spell.sequence_level == 4:
+				utility += 30
+		hasUsefulOutcome = not affectedTargets.is_empty() and (
+			expectedDamage > 0 or utility > 0
+		)
 
 	var winsBattle = defeats > 0 and defeats >= enemyPositions.size()
 	var score = (
@@ -153,18 +219,37 @@ func _candidate(
 	)
 	var nearestEnemyDistance = _nearestEnemyDistance(destination, enemyPositions)
 	score -= nearestEnemyDistance * int(weights.get("distance", 1))
+	var waitPenalty = int(weights.get("wait_penalty", 5))
 	if action == "wait":
-		score -= int(weights.get("wait_penalty", 5))
-	var tieKey = "%02d:%02d:%s:%08d:%02d:%02d" % [
+		score -= waitPenalty
+	elif not hasUsefulOutcome:
+		# Legal misses/no-op casts remain candidates for controller consistency,
+		# but cannot beat Wait at an otherwise identical destination.
+		score -= waitPenalty + 1
+	var tieKey = "%02d:%02d:%s:%02d:%02d:%02d:%02d" % [
 		destination.y,
 		destination.x,
 		action,
-		maxi(targetID, 0),
 		spellSetIndex,
-		spellIndex
+		spellIndex,
+		targetPos.y + 1,
+		targetPos.x + 1
 	]
 	return {"score": score, "tie_key": tieKey, "command": command}
 
+func _sortPositions(positions: Array) -> void:
+	positions.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+
+
+func _affectedOutcomeKey(affectedTargets: Array) -> String:
+	var sortedTargets = affectedTargets.duplicate()
+	sortedTargets.sort()
+	var parts := PackedStringArray()
+	for targetID in sortedTargets:
+		parts.append(str(targetID))
+	return "none" if parts.is_empty() else ",".join(parts)
 
 func _declaredEffectUtility(spell: Spell, affectedID: int) -> int:
 	## Scores spell.effects (guard/focus/atk_buff/def_buff/spd_buff/move_buff/

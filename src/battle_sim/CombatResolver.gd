@@ -246,6 +246,21 @@ func _hasLoS(casterID: int, fromPos: Vector2i, toPos: Vector2i, targetID: int) -
 			return blockerTop
 	)
 
+func getProjectedOccupantID(
+		monsterID: int,
+		fromPos: Vector2i,
+		queryPos: Vector2i) -> int:
+	## AI and atomic validation query an action before its move phase resolves.
+	## Model only the acting unit's already-validated move; no other occupancy can
+	## change between the query and execution.
+	var currentPos = state.getMonsterPosition(monsterID)
+	if currentPos != fromPos:
+		if queryPos == currentPos:
+			return 0
+		if queryPos == fromPos:
+			return monsterID
+	return state.board.at(queryPos) if state.withinBounds(queryPos) else 0
+
 func canBasicAttackPositionFrom(
 		monsterID: int,
 		fromPos: Vector2i,
@@ -257,7 +272,8 @@ func canBasicAttackPositionFrom(
 		return false
 	if state.getHeightDifference(fromPos, targetPos) > 1:
 		return false
-	var occupant = state.getMonsterAt(targetPos)
+	var occupantID = getProjectedOccupantID(monsterID, fromPos, targetPos)
+	var occupant = state.getMonster(occupantID)
 	return occupant == null or (occupant.is_alive() and occupant.team != attacker.team)
 
 
@@ -290,7 +306,7 @@ func canSpellReachPositionFrom(
 		return false
 	if spell.bypass_los:
 		return true
-	var targetOccupantID = state.board.at(targetPos)
+	var targetOccupantID = getProjectedOccupantID(monsterID, fromPos, targetPos)
 	return _hasLoS(monsterID, fromPos, targetPos, targetOccupantID)
 
 
@@ -308,7 +324,8 @@ func canSpellTargetPositionFrom(
 	var spell = mon.spellSets[spellSetIndex][spellIndex]
 	if spell.targetType == "self":
 		return targetPos == fromPos
-	var occupant = state.getMonsterAt(targetPos)
+	var occupantID = getProjectedOccupantID(monsterID, fromPos, targetPos)
+	var occupant = state.getMonster(occupantID)
 	if occupant == null:
 		return spell.can_target_empty or includeUncastableEmpty
 	if not occupant.is_alive():
@@ -343,7 +360,7 @@ func getSpellAffectedTargetsFrom(
 			fromPos,
 			centerPos,
 			includeUncastableEmpty):
-		var otherID = state.board.at(pos)
+		var otherID = getProjectedOccupantID(casterID, fromPos, pos)
 		if otherID == 0:
 			continue
 		var isAlly = state.getMonster(otherID).team == caster.team

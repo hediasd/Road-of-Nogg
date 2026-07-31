@@ -149,7 +149,7 @@ func validateCommand(monsterID: int, command: BattleCommand) -> BattleCommandRes
 			return BattleCommandResult.rejected("invalid_spell_target")
 
 	var targetID = _targetIDAtActionCenter(
-		monsterID, action, spellSetIndex, spellIndex, targetPos
+		monsterID, action, spellSetIndex, spellIndex, actionPos, targetPos
 	)
 	return BattleCommandResult.accepted(BattleCommand.new(
 		normalizedPath,
@@ -319,7 +319,7 @@ func executeActionPhase(
 			return _rejectPhase(monsterID, source, "invalid_spell_target")
 
 	var targetID = _targetIDAtActionCenter(
-		monsterID, action, spellSetIndex, spellIndex, targetPos
+		monsterID, action, spellSetIndex, spellIndex, fromPos, targetPos
 	)
 	var actionResult: Dictionary = {"success": true}
 	if action in ["attack", "spell"]:
@@ -396,6 +396,7 @@ func _targetIDAtActionCenter(
 		action: String,
 		spellSetIndex: int,
 		spellIndex: int,
+		actionPos: Vector2i,
 		targetPos: Vector2i) -> int:
 	if action == "spell":
 		var monster = state.getMonster(monsterID)
@@ -409,7 +410,9 @@ func _targetIDAtActionCenter(
 		):
 			return monsterID
 	if state.withinBounds(targetPos):
-		var occupantID = state.board.at(targetPos)
+		var occupantID = combatResolver.getProjectedOccupantID(
+			monsterID, actionPos, targetPos
+		)
 		return -1 if occupantID == 0 else occupantID
 	return -1
 

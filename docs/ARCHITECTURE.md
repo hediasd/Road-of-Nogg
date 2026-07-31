@@ -144,10 +144,17 @@ surface, obstacle, and intervening-unit tops. `DirectDamageRules` owns the
 110/100/90-percent elevation arithmetic used by real attacks, spells, and pure
 CPU estimates; healing, ticks, and reflected damage do not call it.
 
-`BattleCommandEvaluator` builds one context per CPU decision, enumerates legal
-controller-neutral movement/action candidates, and orders them by battle win,
-defeats, survival/threat, role utility, damage, position, and a stable tie key.
+`BattleCommandEvaluator` builds one context per CPU decision and enumerates
+legal target positions from every reachable destination. Area spells score all
+units affected around each center; centers with the same affected-unit outcome
+are deduplicated. Empty attacks and casts with no useful affected-unit outcome
+remain legal candidates but score one point below Wait at the same destination.
+Destinations and centers are sorted by coordinate, and the final tie key includes
+destination, action/spell identity, and center coordinate. Projected-occupancy
+queries treat the actor as having vacated its origin and reached the candidate
+destination, so validation, scoring, and later execution see the same board.
 Brain subclasses provide weights rather than separate legality formulas.
+
 ## Player interaction and cursor
 
 `PlayerTurnController` owns one player-controlled turn — its phase, the command
