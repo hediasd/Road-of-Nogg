@@ -4,6 +4,7 @@ class_name BattleGraphicsMenu
 extends RefCounted
 
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
+const BattleGraphicsMenuRefsScript = preload("res://src/presentation/BattleGraphicsMenuRefs.gd")
 
 
 ## `canvas` only ever receives `add_child()`, so it accepts any Node. UI-2
@@ -11,7 +12,8 @@ const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCa
 static func build(
 		canvas: Node,
 		toggleButton: BaseButton,
-		callbacks: Dictionary) -> Dictionary:
+		callbacks: Dictionary) -> BattleGraphicsMenuRefs:
+	var refs: BattleGraphicsMenuRefs = BattleGraphicsMenuRefsScript.new()
 	var panel = PanelContainer.new()
 	panel.name = "GraphicsPanel"
 	panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -194,17 +196,16 @@ static func build(
 		callbacks["crt_parameter_changed"], "glow"
 	)
 
-	return {
-		"panel": panel,
-		"look_option": lookOption,
-		"preset_description": presetDescription,
-		"geometry_option": geometryOption,
-		"upscale_option": upscaleOption,
-		"look_sliders": lookSliders,
-		"crt_hint": crtHint,
-		"crt_sliders": crtSliders,
-		"ui_through_crt_button": uiThroughCrtButton
-	}
+	refs.panel = panel
+	refs.look_option = lookOption
+	refs.preset_description = presetDescription
+	refs.geometry_option = geometryOption
+	refs.upscale_option = upscaleOption
+	refs.look_sliders = lookSliders
+	refs.crt_hint = crtHint
+	refs.crt_sliders = crtSliders
+	refs.ui_through_crt_button = uiThroughCrtButton
+	return refs
 
 
 static func _add_option(

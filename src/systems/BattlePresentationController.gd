@@ -33,8 +33,8 @@ var target_window: NoggWindow
 var log_label: RichTextLabel
 var log_panel: PanelContainer
 
-var battle_ui: Dictionary = {}
-var setup_ui: Dictionary = {}
+var battle_ui: BattleUIRefs
+var setup_ui: BattleSetupUIRefs
 var current_config
 var lifecycle: Lifecycle = Lifecycle.SETUP
 ## Owns the player-turn phase machine. Null outside a battle. This controller
@@ -108,14 +108,14 @@ func _build_battle_ui() -> void:
 		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed"),
 		"ui_through_crt_toggled": Callable(self, "_on_ui_through_crt_toggled")
 	})
-	turn_timer = battle_ui["turn_timer"]
-	actor_window = battle_ui["actor_window"]
-	target_window = battle_ui["target_window"]
-	log_label = battle_ui["log_label"]
-	log_panel = battle_ui["log_panel"]
+	turn_timer = battle_ui.turn_timer
+	actor_window = battle_ui.actor_window
+	target_window = battle_ui.target_window
+	log_label = battle_ui.log_label
+	log_panel = battle_ui.log_panel
 	_sync_rendering_options()
-	battle_ui["command_menu"].entry_activated.connect(_on_command_menu_entry)
-	battle_ui["command_menu"].spell_activated.connect(_on_command_menu_spell)
+	battle_ui.command_menu.entry_activated.connect(_on_command_menu_entry)
+	battle_ui.command_menu.spell_activated.connect(_on_command_menu_spell)
 
 
 func _build_setup_ui() -> void:
@@ -139,6 +139,14 @@ func _build_setup_ui() -> void:
 	_update_duplicate_note()
 
 
+func _setup_team_preset(team: int) -> OptionButton:
+	return setup_ui.team_1_preset if team == 1 else setup_ui.team_2_preset
+
+
+func _setup_team_slots(team: int) -> Array[OptionButton]:
+	return setup_ui.team_1_slots if team == 1 else setup_ui.team_2_slots
+
+
 func _show_setup() -> void:
 	if camera:
 		camera.cancelDrag()
@@ -146,27 +154,27 @@ func _show_setup() -> void:
 	player_turn = null
 	if turn_timer:
 		turn_timer.stop()
-	if not battle_ui.is_empty():
-		battle_ui["graphics_button"].set_pressed_no_signal(false)
-		battle_ui["graphics_panel"].visible = false
-		battle_ui["play_button"].set_pressed_no_signal(true)
-		battle_ui["play_button"].text = "Pause"
-		battle_ui["play_button"].tooltip_text = "Pause computer-controlled turns."
-		battle_ui["play_button"].disabled = false
+	if battle_ui != null:
+		battle_ui.graphics_button.set_pressed_no_signal(false)
+		battle_ui.graphics.panel.visible = false
+		battle_ui.play_button.set_pressed_no_signal(true)
+		battle_ui.play_button.text = "Pause"
+		battle_ui.play_button.tooltip_text = "Pause computer-controlled turns."
+		battle_ui.play_button.disabled = false
 	if visual_adapter:
 		visual_adapter.dispose()
 	visual_adapter = null
 	sim = null
-	battle_ui["game_canvas"].visible = false
-	battle_ui["dev_canvas"].visible = false
-	battle_ui["action_panel"].visible = false
-	setup_ui["canvas"].visible = true
-	setup_ui["error_label"].text = ""
-	setup_ui["confirm_button"].call_deferred("grab_focus")
+	battle_ui.game_canvas.visible = false
+	battle_ui.dev_canvas.visible = false
+	battle_ui.action_panel.visible = false
+	setup_ui.canvas.visible = true
+	setup_ui.error_label.text = ""
+	setup_ui.confirm_button.call_deferred("grab_focus")
 
 
 func _on_preset_selected(index: int, team: int) -> void:
-	var presetOption: OptionButton = setup_ui["team_%d_preset" % team]
+	var presetOption: OptionButton = _setup_team_preset(team)
 	var presetName: String = presetOption.get_item_metadata(index)
 	_apply_preset(team, presetName)
 
@@ -174,53 +182,53 @@ func _on_preset_selected(index: int, team: int) -> void:
 func _apply_preset(team: int, presetName: String) -> void:
 	if presetName == BattleSetupPresetsScript.PRESET_CUSTOM:
 		return
-	var roster = BattleSetupPresetsScript.getRoster(presetName, team, int(setup_ui["seed_input"].value))
-	var slots: Array = setup_ui["team_%d_slots" % team]
+	var roster = BattleSetupPresetsScript.getRoster(presetName, team, int(setup_ui.seed_input.value))
+	var slots: Array[OptionButton] = _setup_team_slots(team)
 	for index in range(min(roster.size(), slots.size())):
 		_select_option_by_metadata(slots[index], roster[index])
 	_update_duplicate_note()
 
 
 func _on_monster_selected(_selectedIndex: int, team: int, _slotIndex: int) -> void:
-	var preset: OptionButton = setup_ui["team_%d_preset" % team]
+	var preset: OptionButton = _setup_team_preset(team)
 	_select_option_by_metadata(preset, BattleSetupPresetsScript.PRESET_CUSTOM)
 	_update_duplicate_note()
 
 
 func _sync_rendering_options() -> void:
-	if not setup_ui.is_empty():
+	if setup_ui != null:
 		_select_option_by_metadata(
-			setup_ui["render_mode_option"],
+			setup_ui.render_mode_option,
 			retro_renderer.render_preset
 		)
 		_select_option_by_metadata(
-			setup_ui["geometry_option"],
+			setup_ui.geometry_option,
 			"jitter" if retro_renderer.vertex_snap_enabled else "stable"
 		)
 		_select_option_by_metadata(
-			setup_ui["upscale_option"],
+			setup_ui.upscale_option,
 			"nearest" if retro_renderer.nearest_filter_enabled else "linear"
 		)
 
-	if battle_ui.is_empty():
+	if battle_ui == null:
 		return
 	_select_option_by_metadata(
-		battle_ui["graphics_look_option"],
+		battle_ui.graphics.look_option,
 		retro_renderer.render_preset
 	)
-	battle_ui["graphics_preset_description"].text = (
+	battle_ui.graphics.preset_description.text = (
 		RenderPresetCatalogScript.description(retro_renderer.render_preset)
 	)
 	_select_option_by_metadata(
-		battle_ui["graphics_geometry_option"],
+		battle_ui.graphics.geometry_option,
 		"jitter" if retro_renderer.vertex_snap_enabled else "stable"
 	)
 	_select_option_by_metadata(
-		battle_ui["graphics_upscale_option"],
+		battle_ui.graphics.upscale_option,
 		"nearest" if retro_renderer.nearest_filter_enabled else "linear"
 	)
-	for parameter in battle_ui["graphics_look_sliders"]:
-		var lookSliderData: Dictionary = battle_ui["graphics_look_sliders"][parameter]
+	for parameter in battle_ui.graphics.look_sliders:
+		var lookSliderData: Dictionary = battle_ui.graphics.look_sliders[parameter]
 		var lookSlider: HSlider = lookSliderData["slider"]
 		var lookValue = retro_renderer.get_look_parameter(parameter)
 		lookSlider.set_value_no_signal(lookValue)
@@ -231,14 +239,14 @@ func _sync_rendering_options() -> void:
 		)
 		lookSliderData["value_label"].text = "%.2f" % lookValue
 	var crtActive = retro_renderer.crt_enabled
-	battle_ui["graphics_crt_hint"].modulate = (
+	battle_ui.graphics.crt_hint.modulate = (
 		Color(0.82, 0.9, 1.0) if crtActive else Color(0.48, 0.54, 0.64)
 	)
-	battle_ui["graphics_ui_through_crt_button"].set_pressed_no_signal(
+	battle_ui.graphics.ui_through_crt_button.set_pressed_no_signal(
 		retro_renderer.ui_through_crt
 	)
-	for parameter in battle_ui["graphics_crt_sliders"]:
-		var sliderData: Dictionary = battle_ui["graphics_crt_sliders"][parameter]
+	for parameter in battle_ui.graphics.crt_sliders:
+		var sliderData: Dictionary = battle_ui.graphics.crt_sliders[parameter]
 		var slider: HSlider = sliderData["slider"]
 		var value = retro_renderer.get_crt_parameter(parameter)
 		slider.set_value_no_signal(value)
@@ -247,14 +255,14 @@ func _sync_rendering_options() -> void:
 
 
 func _on_rendering_preset_selected(_index: int) -> void:
-	var renderMode: OptionButton = setup_ui["render_mode_option"]
+	var renderMode: OptionButton = setup_ui.render_mode_option
 	retro_renderer.set_preset(renderMode.get_item_metadata(renderMode.selected))
 	_sync_rendering_options()
 
 
 func _on_rendering_feature_selected(_index: int) -> void:
-	var geometry: OptionButton = setup_ui["geometry_option"]
-	var upscale: OptionButton = setup_ui["upscale_option"]
+	var geometry: OptionButton = setup_ui.geometry_option
+	var upscale: OptionButton = setup_ui.upscale_option
 	retro_renderer.set_features(
 		geometry.get_item_metadata(geometry.selected) == "jitter",
 		upscale.get_item_metadata(upscale.selected) == "nearest"
@@ -268,14 +276,14 @@ func _on_graphics_reset_pressed() -> void:
 
 
 func _on_battle_rendering_preset_selected(_index: int) -> void:
-	var option: OptionButton = battle_ui["graphics_look_option"]
+	var option: OptionButton = battle_ui.graphics.look_option
 	retro_renderer.set_preset(option.get_item_metadata(option.selected))
 	_sync_rendering_options()
 
 
 func _on_battle_rendering_feature_selected(_index: int) -> void:
-	var geometry: OptionButton = battle_ui["graphics_geometry_option"]
-	var upscale: OptionButton = battle_ui["graphics_upscale_option"]
+	var geometry: OptionButton = battle_ui.graphics.geometry_option
+	var upscale: OptionButton = battle_ui.graphics.upscale_option
 	retro_renderer.set_features(
 		geometry.get_item_metadata(geometry.selected) == "jitter",
 		upscale.get_item_metadata(upscale.selected) == "nearest"
@@ -300,7 +308,7 @@ func _on_ui_through_crt_toggled(enabled: bool) -> void:
 
 func _on_seed_changed(_value: float) -> void:
 	for team in [1, 2]:
-		var preset: OptionButton = setup_ui["team_%d_preset" % team]
+		var preset: OptionButton = _setup_team_preset(team)
 		var presetName: String = preset.get_item_metadata(preset.selected)
 		if presetName == BattleSetupPresetsScript.PRESET_RANDOM_BALANCED:
 			_apply_preset(team, presetName)
@@ -315,13 +323,13 @@ func _select_option_by_metadata(option: OptionButton, value) -> void:
 
 func _read_roster(team: int) -> Array[String]:
 	var roster: Array[String] = []
-	for option in setup_ui["team_%d_slots" % team]:
+	for option in _setup_team_slots(team):
 		roster.append(option.get_item_metadata(option.selected))
 	return roster
 
 
 func _update_duplicate_note() -> void:
-	if setup_ui.is_empty():
+	if setup_ui == null:
 		return
 	var hasDuplicates = false
 	for roster in [_read_roster(1), _read_roster(2)]:
@@ -330,7 +338,7 @@ func _update_duplicate_note() -> void:
 			if seen.has(monsterName):
 				hasDuplicates = true
 			seen[monsterName] = true
-	setup_ui["duplicate_note"].text = (
+	setup_ui.duplicate_note.text = (
 		"Duplicates selected — allowed, but varied teams are recommended."
 		if hasDuplicates else
 		"Duplicates are allowed, but varied teams are recommended."
@@ -339,11 +347,11 @@ func _update_duplicate_note() -> void:
 
 func _read_setup_config():
 	var config = BattleSetupConfigScript.new()
-	var modeOption: OptionButton = setup_ui["mode_option"]
-	var mapOption: OptionButton = setup_ui["map_option"]
+	var modeOption: OptionButton = setup_ui.mode_option
+	var mapOption: OptionButton = setup_ui.map_option
 	config.battleMode = modeOption.get_item_metadata(modeOption.selected)
 	config.mapName = mapOption.get_item_metadata(mapOption.selected)
-	config.seed = int(setup_ui["seed_input"].value)
+	config.seed = int(setup_ui.seed_input.value)
 	config.team1 = _read_roster(1)
 	config.team2 = _read_roster(2)
 	return config
@@ -353,7 +361,7 @@ func _on_setup_confirmed() -> void:
 	var config = _read_setup_config()
 	var validation = config.validate()
 	if not validation["success"]:
-		setup_ui["error_label"].text = "\n".join(validation["errors"])
+		setup_ui.error_label.text = "\n".join(validation["errors"])
 		return
 	_start_battle(config)
 
@@ -361,19 +369,19 @@ func _on_setup_confirmed() -> void:
 func _start_battle(config) -> void:
 	current_config = config
 	_pending_player_turn_id = -1
-	setup_ui["canvas"].visible = false
-	battle_ui["game_canvas"].visible = true
-	battle_ui["dev_canvas"].visible = true
+	setup_ui.canvas.visible = false
+	battle_ui.game_canvas.visible = true
+	battle_ui.dev_canvas.visible = true
 	lifecycle = Lifecycle.BATTLE
 	log_label.text = ""
 	_renderStatusWindow(actor_window, -1)
 	_renderStatusWindow(target_window, -1)
-	battle_ui["graphics_button"].set_pressed_no_signal(false)
-	battle_ui["graphics_panel"].visible = false
-	battle_ui["play_button"].set_pressed_no_signal(true)
-	battle_ui["play_button"].text = "Pause"
-	battle_ui["play_button"].tooltip_text = "Pause computer-controlled turns."
-	battle_ui["play_button"].disabled = false
+	battle_ui.graphics_button.set_pressed_no_signal(false)
+	battle_ui.graphics.panel.visible = false
+	battle_ui.play_button.set_pressed_no_signal(true)
+	battle_ui.play_button.text = "Pause"
+	battle_ui.play_button.tooltip_text = "Pause computer-controlled turns."
+	battle_ui.play_button.disabled = false
 
 	sim = BattleSetupFactoryScript.createSimulator(config, Callable(self, "_create_visual_adapter"))
 	player_turn = PlayerTurnControllerScript.new(
@@ -384,7 +392,7 @@ func _start_battle(config) -> void:
 	)
 	player_turn.menu_changed.connect(_on_player_menu_changed)
 	player_turn.status_changed.connect(_set_action_status)
-	player_turn.forecast_changed.connect(battle_ui["command_menu"].setForecast)
+	player_turn.forecast_changed.connect(battle_ui.command_menu.setForecast)
 	player_turn.turn_finished.connect(_on_player_turn_finished)
 	var size = sim.state.boardSize
 	visual_adapter.animation_queue_drained.connect(_on_animation_queue_drained)
@@ -414,8 +422,8 @@ func _on_new_battle_pressed() -> void:
 
 
 func _on_play_toggled(buttonPressed: bool) -> void:
-	battle_ui["play_button"].text = "Pause" if buttonPressed else "Play"
-	battle_ui["play_button"].tooltip_text = "Pause or resume visual playback; simulation continues with bounded run-ahead."
+	battle_ui.play_button.text = "Pause" if buttonPressed else "Play"
+	battle_ui.play_button.tooltip_text = "Pause or resume visual playback; simulation continues with bounded run-ahead."
 	if visual_adapter != null:
 		visual_adapter.setVisualPaused(not buttonPressed)
 	if not buttonPressed:
@@ -499,12 +507,12 @@ func _finish_battle(winner: int) -> void:
 	camera.cancelDrag()
 	_pending_player_turn_id = -1
 	turn_timer.stop()
-	battle_ui["play_button"].set_pressed_no_signal(false)
-	battle_ui["play_button"].text = "Play"
-	battle_ui["play_button"].tooltip_text = "Battle complete."
-	battle_ui["play_button"].disabled = true
+	battle_ui.play_button.set_pressed_no_signal(false)
+	battle_ui.play_button.text = "Play"
+	battle_ui.play_button.tooltip_text = "Battle complete."
+	battle_ui.play_button.disabled = true
 	player_turn = null
-	battle_ui["action_panel"].visible = false
+	battle_ui.action_panel.visible = false
 	visual_adapter.clear_tactical_overlays()
 	visual_adapter.release_player_cursor()
 	# The adapter queues the victory message after every preceding visual action;
@@ -514,8 +522,8 @@ func _finish_battle(winner: int) -> void:
 
 func _begin_player_turn(monsterID: int) -> void:
 	turn_timer.stop()
-	battle_ui["play_button"].disabled = false
-	battle_ui["action_panel"].visible = true
+	battle_ui.play_button.disabled = false
+	battle_ui.action_panel.visible = true
 	player_turn.beginTurn(monsterID)
 
 
@@ -523,23 +531,23 @@ func _on_player_turn_finished(_monsterID: int) -> void:
 	## The phase controller has closed the turn out. Everything from here is
 	## scene-level: turn order, win condition, and CPU pacing.
 	sim.turnManager.endTurn(_monsterID)
-	battle_ui["action_panel"].visible = false
-	battle_ui["play_button"].disabled = false
+	battle_ui.action_panel.visible = false
+	battle_ui.play_button.disabled = false
 	var winner = sim.checkWinCondition()
 	if winner != -1:
 		_finish_battle(winner)
-	elif battle_ui["play_button"].button_pressed:
+	elif battle_ui.play_button.button_pressed:
 		turn_timer.start()
 
 
 func _set_action_status(text: String) -> void:
-	battle_ui["command_menu"].setStatus(text)
+	battle_ui.command_menu.setStatus(text)
 
 
 func _on_player_menu_changed() -> void:
 	if player_turn == null:
 		return
-	var command_menu = battle_ui["command_menu"]
+	var command_menu = battle_ui.command_menu
 	if player_turn.phase == PlayerTurnControllerScript.Phase.MENU and not command_menu.isShowingSpells():
 		command_menu.showRoot(player_turn.menuEntries())
 	elif player_turn.phase != PlayerTurnControllerScript.Phase.MENU:
@@ -556,7 +564,7 @@ func _input(event: InputEvent) -> void:
 		not event.echo and
 		(event.keycode == KEY_SPACE or event.physical_keycode == KEY_SPACE)
 	):
-		battle_ui["dev_canvas"].visible = not battle_ui["dev_canvas"].visible
+		battle_ui.dev_canvas.visible = not battle_ui.dev_canvas.visible
 		get_viewport().set_input_as_handled()
 		return
 	# Ctrl+R: hot-reload monster catalog (Stage 1 feature)
@@ -591,7 +599,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			event.pressed and
 			_player_turn_active()
 	):
-		var command_menu = battle_ui["command_menu"]
+		var command_menu = battle_ui.command_menu
 		if command_menu.closeSpells():
 			get_viewport().set_input_as_handled()
 			return
@@ -603,7 +611,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 	if _player_turn_active():
-		var command_menu = battle_ui["command_menu"]
+		var command_menu = battle_ui.command_menu
 		if player_turn.phase == PlayerTurnControllerScript.Phase.MENU:
 			if event.is_action_pressed("ui_cancel") and command_menu.closeSpells():
 				get_viewport().set_input_as_handled()
@@ -777,7 +785,7 @@ func _on_command_menu_entry(entryID: String) -> void:
 	if not _player_turn_active():
 		return
 	if entryID == PlayerTurnControllerScript.ENTRY_MAGIC:
-		battle_ui["command_menu"].openSpells(player_turn.spellEntries())
+		battle_ui.command_menu.openSpells(player_turn.spellEntries())
 		return
 	player_turn.selectMenuEntry(entryID)
 
@@ -786,7 +794,7 @@ func _on_command_menu_spell(setIndex: int, spellIndex: int) -> void:
 	if not _player_turn_active():
 		return
 	player_turn.selectSpell(setIndex, spellIndex)
-	battle_ui["command_menu"].closeSpells()
+	battle_ui.command_menu.closeSpells()
 	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_MAGIC)
 
 func _on_animation_queue_drained() -> void:
@@ -795,7 +803,7 @@ func _on_animation_queue_drained() -> void:
 	_try_begin_pending_player_turn()
 	if _pending_player_turn_id != -1 or _player_turn_active():
 		return
-	if battle_ui["play_button"].button_pressed and turn_timer.is_stopped():
+	if battle_ui.play_button.button_pressed and turn_timer.is_stopped():
 		turn_timer.start()
 
 func _world_pick(mousePos: Vector2) -> Dictionary:

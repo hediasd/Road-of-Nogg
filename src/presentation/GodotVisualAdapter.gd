@@ -95,8 +95,8 @@ func _update_target_panel(monsterID: int) -> void:
 ## Prose that is not about any one monster's stats (battle-complete, etc.)
 ## goes to the prompt window instead of a status panel.
 func _update_prompt(text: String) -> void:
-	if root_node and "battle_ui" in root_node and root_node.battle_ui.has("command_menu"):
-		root_node.battle_ui["command_menu"].setStatus(text)
+	if root_node and "battle_ui" in root_node and root_node.battle_ui != null:
+		root_node.battle_ui.command_menu.setStatus(text)
 
 # --- HELPERS ---
 

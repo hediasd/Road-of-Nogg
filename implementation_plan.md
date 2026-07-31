@@ -1761,6 +1761,31 @@ result lookups. Resolver-specific action payloads remain dictionaries. A narrow
 headless project-load smoke passed; behavioral and replay acceptance remain the
 final validation item's responsibility.
 
+## TYPE-2 — Typed UI reference bundles
+
+Replace the string-keyed `battle_ui` and `setup_ui` orchestration dictionaries
+with `BattleUIRefs` and `BattleSetupUIRefs`. The graphics-menu builder returns
+its own typed child bundle, while renderer-parameter maps remain dictionaries
+because their keys are dynamic authored settings. Update every consumer,
+including visual prompt status, to use typed fields.
+
+**Model:** Sonnet 5 / GPT Terra.
+
+**Verify:** Run the headless Godot editor load command; inspect that no
+`battle_ui[...]` or `setup_ui[...]` access remains. Consolidated manual
+acceptance covers setup, graphics toggles, status windows, command menu, and
+new-battle lifecycle.
+
+**Risk:** Medium. The reference bundles are constructed during scene startup;
+a missing assignment would fail only when a particular setup or HUD interaction
+is used.
+
+**Resolution (2026-07-31): implemented; pending consolidated presentation
+acceptance.** `BattleUIRefs`, `BattleSetupUIRefs`, and the nested
+`BattleGraphicsMenuRefs` now make the stable UI contract explicit. The
+controller and visual adapter use typed fields only; dynamic renderer parameter
+maps remain local to graphics synchronization.
+
 ## POS-1 — Position-based simulation contract
 
 Extend `BattleCommand` with canonical `target_pos`; `target_id` becomes the

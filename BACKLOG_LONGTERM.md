@@ -78,3 +78,13 @@ block the restyle; revisit after the first playable pass.
   audio. No audio system exists yet; noted here so the `open()`/`close()`
   hooks in `NoggWindow` are not designed away before there is something to
   play.
+
+## Typed presentation contracts
+
+- **TYPE-2 implemented 2026-07-31:** stable battle, setup, and graphics-menu
+  references now use typed `RefCounted` bundles instead of string-keyed
+  orchestration dictionaries. Its setup/HUD lifecycle acceptance remains for a
+  consolidated presentation pass.
+- **TYPE-3 deferred:** replace the visual action queue's dictionary action
+  payloads with a typed action contract only if its internal variants become
+  difficult to evolve. Keep this as a separate refactor from gameplay work.

@@ -11,6 +11,7 @@
 class_name BattleUIBuilder
 
 const BattleGraphicsMenuScript = preload("res://src/presentation/BattleGraphicsMenu.gd")
+const BattleUIRefsScript = preload("res://src/presentation/BattleUIRefs.gd")
 const PlayerCommandMenuScript = preload("res://src/presentation/PlayerCommandMenu.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
@@ -21,7 +22,8 @@ const STATUS_WINDOW_WIDTH := 540.0
 const STATUS_WINDOW_CAPACITY := 6
 
 
-static func build(root: Node, callbacks: Dictionary) -> Dictionary:
+static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
+	var refs: BattleUIRefs = BattleUIRefsScript.new()
 	var game_canvas = CanvasLayer.new()
 	game_canvas.name = "GameCanvas"
 	game_canvas.layer = NoggThemeScript.GAME_LAYER
@@ -139,7 +141,7 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		}
 	)
 	graphicsButton.toggled.connect(func(pressed):
-		graphicsMenu["panel"].visible = pressed
+		graphicsMenu.panel.visible = pressed
 		if pressed:
 			logButton.button_pressed = false
 	)
@@ -206,30 +208,21 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	game_root.resized.connect(reposition_status_windows)
 	reposition_status_windows.call()
 
-	return {
-		"game_canvas": game_canvas,
-		"dev_canvas": dev_canvas,
-		"turn_timer": turnTimer,
-		"play_button": playButton,
-		"graphics_button": graphicsButton,
-		"graphics_panel": graphicsMenu["panel"],
-		"graphics_look_option": graphicsMenu["look_option"],
-		"graphics_preset_description": graphicsMenu["preset_description"],
-		"graphics_geometry_option": graphicsMenu["geometry_option"],
-		"graphics_upscale_option": graphicsMenu["upscale_option"],
-		"graphics_look_sliders": graphicsMenu["look_sliders"],
-		"graphics_crt_hint": graphicsMenu["crt_hint"],
-		"graphics_crt_sliders": graphicsMenu["crt_sliders"],
-		"graphics_ui_through_crt_button": graphicsMenu["ui_through_crt_button"],
-		"actor_window": actorWindow,
-		"target_window": targetWindow,
-		"log_label": logLabel,
-		"log_panel": logPanel,
-		"action_panel": actionPanel,
-		"command_menu": commandMenu,
-		"screenshot_button": screenshotButton,
-		"dump_button": dumpButton
-	}
+	refs.game_canvas = game_canvas
+	refs.dev_canvas = dev_canvas
+	refs.turn_timer = turnTimer
+	refs.play_button = playButton
+	refs.graphics_button = graphicsButton
+	refs.graphics = graphicsMenu
+	refs.actor_window = actorWindow
+	refs.target_window = targetWindow
+	refs.log_label = logLabel
+	refs.log_panel = logPanel
+	refs.action_panel = actionPanel
+	refs.command_menu = commandMenu
+	refs.screenshot_button = screenshotButton
+	refs.dump_button = dumpButton
+	return refs
 
 
 ## A themed root Control under a CanvasLayer. `Theme` lives on `Control`, not

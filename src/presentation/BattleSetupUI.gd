@@ -3,6 +3,7 @@ extends RefCounted
 
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
+const BattleSetupUIRefsScript = preload("res://src/presentation/BattleSetupUIRefs.gd")
 
 
 static func build(
@@ -10,7 +11,8 @@ static func build(
 		callbacks: Dictionary,
 		mapNames: Array[String],
 		monsterNames: Array[String],
-		presetNames: Array[String]) -> Dictionary:
+		presetNames: Array[String]) -> BattleSetupUIRefs:
+	var refs: BattleSetupUIRefs = BattleSetupUIRefsScript.new()
 	var canvas = CanvasLayer.new()
 	canvas.layer = 20
 	root.add_child(canvas)
@@ -139,22 +141,21 @@ static func build(
 	content.add_child(confirmButton)
 	confirmButton.call_deferred("grab_focus")
 
-	return {
-		"canvas": canvas,
-		"mode_option": modeOption,
-		"map_option": mapOption,
-		"render_mode_option": renderModeOption,
-		"geometry_option": geometryOption,
-		"upscale_option": upscaleOption,
-		"seed_input": seedInput,
-		"team_1_preset": team1["preset"],
-		"team_2_preset": team2["preset"],
-		"team_1_slots": team1["slots"],
-		"team_2_slots": team2["slots"],
-		"duplicate_note": duplicateNote,
-		"error_label": errorLabel,
-		"confirm_button": confirmButton
-	}
+	refs.canvas = canvas
+	refs.mode_option = modeOption
+	refs.map_option = mapOption
+	refs.render_mode_option = renderModeOption
+	refs.geometry_option = geometryOption
+	refs.upscale_option = upscaleOption
+	refs.seed_input = seedInput
+	refs.team_1_preset = team1["preset"]
+	refs.team_2_preset = team2["preset"]
+	refs.team_1_slots = team1["slots"]
+	refs.team_2_slots = team2["slots"]
+	refs.duplicate_note = duplicateNote
+	refs.error_label = errorLabel
+	refs.confirm_button = confirmButton
+	return refs
 
 
 static func _buildTeamColumn(
