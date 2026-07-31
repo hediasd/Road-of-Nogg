@@ -6,8 +6,10 @@ extends RefCounted
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 
 
+## `canvas` only ever receives `add_child()`, so it accepts any Node. UI-2
+## passes the dev canvas's themed root Control here, not a CanvasLayer.
 static func build(
-		canvas: CanvasLayer,
+		canvas: Node,
 		toggleButton: BaseButton,
 		callbacks: Dictionary) -> Dictionary:
 	var panel = PanelContainer.new()

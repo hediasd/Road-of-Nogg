@@ -8,6 +8,7 @@ Use this page to find the source of truth instead of searching every document.
 | [Policies](./POLICIES.md) | Engineering guardrails and verification policy |
 | [Architecture](./ARCHITECTURE.md) | Current runtime ownership, boundaries, and data flow |
 | [Game design](./GAME_DESIGN.md) | Confirmed player-facing mechanics and constraints |
+| [UI / UX design](./UI_DESIGN.md) | Battle UI visual language, theme tokens, cursor and input model |
 | [Backlog](./BACKLOG.md) | Durable future work not in the active task |
 | [Learnings](./LEARNINGS.md) | Verified reusable discoveries and review triggers |
 | [Development](./DEVELOPMENT.md) | Commands, Windows safeguards, and completion checks |

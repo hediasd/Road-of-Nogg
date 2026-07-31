@@ -13,10 +13,12 @@
 
 ## Implementation plans
 
-- Every plan item must carry an explicit model assignment: Haiku 4.5 for
-  single-file, fully-specified, mechanical work; Sonnet 5 for multi-file work
-  with a stated end state; Opus 5 for architectural boundaries, extraction, and
-  balance or design decisions. Assign per item, never per phase.
+- Every plan item must carry an explicit model assignment, drawn from exactly
+  two tiers: **Sonnet 5 / GPT Terra** for single-file mechanical work and for
+  multi-file work with a stated end state; **Opus 5 / GPT Sol** for
+  architectural boundaries, extraction, and balance or design decisions.
+  Assign per item, never per phase. Do not route work below the Sonnet 5 /
+  GPT Terra tier — smaller models are not used on this project.
 - Every item names its own verification command and its risk.
 - Mark items that require a user decision as blocking, and say so plainly rather
   than proceeding on an assumption.

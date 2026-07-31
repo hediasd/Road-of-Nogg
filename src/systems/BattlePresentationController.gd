@@ -155,7 +155,8 @@ func _show_setup() -> void:
 		visual_adapter.dispose()
 	visual_adapter = null
 	sim = null
-	battle_ui["canvas"].visible = false
+	battle_ui["game_canvas"].visible = false
+	battle_ui["dev_canvas"].visible = false
 	battle_ui["action_panel"].visible = false
 	setup_ui["canvas"].visible = true
 	setup_ui["error_label"].text = ""
@@ -351,7 +352,8 @@ func _start_battle(config) -> void:
 	current_config = config
 	_pending_player_turn_id = -1
 	setup_ui["canvas"].visible = false
-	battle_ui["canvas"].visible = true
+	battle_ui["game_canvas"].visible = true
+	battle_ui["dev_canvas"].visible = true
 	lifecycle = Lifecycle.BATTLE
 	log_label.text = ""
 	left_ui_label.text = "Battle ready"
@@ -535,7 +537,8 @@ func _on_player_menu_changed() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	# Space: toggle battle UI visibility
+	# Space: toggle developer UI visibility only. Game UI (command menu,
+	# actor/target panels, battle log) is lifecycle-driven and stays visible.
 	if (
 		lifecycle in [Lifecycle.BATTLE, Lifecycle.COMPLETE] and
 		event is InputEventKey and
@@ -543,7 +546,7 @@ func _input(event: InputEvent) -> void:
 		not event.echo and
 		(event.keycode == KEY_SPACE or event.physical_keycode == KEY_SPACE)
 	):
-		battle_ui["canvas"].visible = not battle_ui["canvas"].visible
+		battle_ui["dev_canvas"].visible = not battle_ui["dev_canvas"].visible
 		get_viewport().set_input_as_handled()
 		return
 	# Ctrl+R: hot-reload monster catalog (Stage 1 feature)

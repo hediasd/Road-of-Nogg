@@ -1,16 +1,34 @@
 ## Constructs the in-battle HUD and player command controls.
+##
+## Splits across two canvases (UI-2): `game_canvas` for player-facing HUD —
+## command menu, actor/target panels, battle log — and `dev_canvas` for
+## developer tooling — pause/speed, graphics menu, screenshot, save replay.
+## Each canvas carries its own themed root Control from `NoggTheme`, so every
+## Label/PanelContainer added beneath it inherits fonts and styling
+## automatically. `BattlePresentationController` toggles the two canvases
+## independently: SPACEBAR affects `dev_canvas` only.
 
 class_name BattleUIBuilder
 
 const BattleGraphicsMenuScript = preload("res://src/presentation/BattleGraphicsMenu.gd")
 const PlayerCommandMenuScript = preload("res://src/presentation/PlayerCommandMenu.gd")
+const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 
 static func build(root: Node, callbacks: Dictionary) -> Dictionary:
-	var canvas = CanvasLayer.new()
-	canvas.layer = 10
-	canvas.visible = false
-	root.add_child(canvas)
+	var game_canvas = CanvasLayer.new()
+	game_canvas.name = "GameCanvas"
+	game_canvas.layer = NoggThemeScript.GAME_LAYER
+	game_canvas.visible = false
+	root.add_child(game_canvas)
+	var game_root = _buildThemedRoot(game_canvas, NoggThemeScript.build_game_theme())
+
+	var dev_canvas = CanvasLayer.new()
+	dev_canvas.name = "DevCanvas"
+	dev_canvas.layer = NoggThemeScript.DEV_LAYER
+	dev_canvas.visible = false
+	root.add_child(dev_canvas)
+	var dev_root = _buildThemedRoot(dev_canvas, NoggThemeScript.build_dev_theme())
 
 	var topHud = HBoxContainer.new()
 	topHud.set_anchors_preset(Control.PRESET_TOP_WIDE)
@@ -18,7 +36,7 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	topHud.offset_top = 20
 	topHud.offset_right = -20
 	topHud.add_theme_constant_override("separation", 10)
-	canvas.add_child(topHud)
+	dev_root.add_child(topHud)
 
 	var topPanel = PanelContainer.new()
 	_styleHudPanel(topPanel, 6)
@@ -100,10 +118,10 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	var logLabel = RichTextLabel.new()
 	logLabel.scroll_following = true
 	logPanel.add_child(logLabel)
-	canvas.add_child(logPanel)
+	game_root.add_child(logPanel)
 
 	var graphicsMenu = BattleGraphicsMenuScript.build(
-		canvas,
+		dev_root,
 		graphicsButton,
 		{
 			"reset_pressed": callbacks["graphics_reset_pressed"],
@@ -131,7 +149,7 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	bottomHud.offset_right = -20
 	bottomHud.offset_bottom = -20
 	bottomHud.add_theme_constant_override("separation", 12)
-	canvas.add_child(bottomHud)
+	game_root.add_child(bottomHud)
 
 	var leftPanel = PanelContainer.new()
 	leftPanel.custom_minimum_size = Vector2(220, 150)
@@ -143,15 +161,20 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	leftLabel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	leftPanel.add_child(leftLabel)
 
-	var actionPanel = PanelContainer.new()
-	actionPanel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	actionPanel.offset_left = 20
-	actionPanel.offset_top = 82
-	actionPanel.offset_right = 560
-	actionPanel.offset_bottom = 400
+	# A plain full-rect Control, not a styled PanelContainer: the command menu
+	# now draws its own NoggWindow frames and docks its windows itself per
+	# docs/UI_DESIGN.md §8. A Container here would force-fit the menu into one
+	# rect and a StyleBoxFlat would put a second, competing border around it.
+	# Kept as a node (rather than folded away) purely so the controller's
+	# existing `action_panel` visibility calls keep working untouched.
+	var actionPanel = Control.new()
+	actionPanel.name = "ActionPanel"
+	actionPanel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	actionPanel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	actionPanel.visible = false
-	canvas.add_child(actionPanel)
+	game_root.add_child(actionPanel)
 	var commandMenu: PlayerCommandMenu = PlayerCommandMenuScript.new()
+	commandMenu.set_anchors_preset(Control.PRESET_FULL_RECT)
 	actionPanel.add_child(commandMenu)
 
 	var rightPanel = PanelContainer.new()
@@ -165,7 +188,8 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	rightPanel.add_child(rightLabel)
 
 	return {
-		"canvas": canvas,
+		"game_canvas": game_canvas,
+		"dev_canvas": dev_canvas,
 		"turn_timer": turnTimer,
 		"play_button": playButton,
 		"graphics_button": graphicsButton,
@@ -186,6 +210,20 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		"screenshot_button": screenshotButton,
 		"dump_button": dumpButton
 	}
+
+
+## A themed root Control under a CanvasLayer. `Theme` lives on `Control`, not
+## `CanvasLayer`, so every game/dev panel needs one common ancestor carrying it
+## for fonts and styleboxes to cascade. `mouse_filter = IGNORE` keeps the root
+## itself out of the way of clicks; children still receive input normally.
+static func _buildThemedRoot(canvas: CanvasLayer, theme: Theme) -> Control:
+	var root = Control.new()
+	root.name = "ThemedRoot"
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.theme = theme
+	canvas.add_child(root)
+	return root
 
 
 static func _addActionButton(parent: Control, text: String, tooltip: String, callback: Callable) -> Button:

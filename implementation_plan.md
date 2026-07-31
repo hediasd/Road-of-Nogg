@@ -155,7 +155,7 @@ confirm here only that it rejects when `hasActed` is set.
 player, and replay all share; `ON_TURN_END` firing zero or twice per turn
 would corrupt passives and cooldowns silently.
 
-**Model:** Opus 5. Deciding where the turn boundary lives and how order is
+**Model:** Opus 5 / GPT Sol. Deciding where the turn boundary lives and how order is
 recorded without breaking replay determinism is the actual work.
 
 **Resolution (2026-07-29, commit `a7659a4`): done.** All seven items landed as
@@ -228,7 +228,7 @@ move-then-act and act-then-move orders.
 
 **Risk:** Medium-high. Interactive path, no automated coverage.
 
-**Model:** Opus 5. The seam between the controller and the state machine is
+**Model:** Opus 5 / GPT Sol. The seam between the controller and the state machine is
 not yet drawn, and the phase model is a design decision.
 
 **Resolution (2026-07-29, commit `f1fe38b`): done, with one verification gap
@@ -300,7 +300,7 @@ match the tiles affected by resolution.
 **Risk:** Medium-high. It is the entire player input surface and adds a
 read-only affected-position query that must remain identical to spell resolution.
 
-**Model:** Sonnet 5, once PC-2 has fixed the menu model and phase API.
+**Model:** Sonnet 5 / GPT Terra, once PC-2 has fixed the menu model and phase API.
 
 **Resolution (2026-07-30):** PC-3 and BM-3 are the same item. The code is
 implemented, including `Spell`, `< Back`, modal prompt-only targeting,
@@ -351,7 +351,8 @@ and confirm the player menu opens only on a fully-caught-up board.
 to hold at the top of the file; the serial/watchdog interaction is exactly
 what breaks quietly.
 
-**Model:** Opus 5 for the pacing and drain-gate design in items 3 and 4;
+**Model:** Opus 5 / GPT Sol for the pacing and drain-gate design in items 3
+and 4;
 items 1 and 2 alone would be Sonnet 5 work, but splitting the file across two
 sessions is not worth it.
 
@@ -408,7 +409,7 @@ confirm the forecast tracks the damage actually dealt in the battle log.
 
 **Risk:** Low. Read-only against existing rules.
 
-**Model:** Sonnet 5.
+**Model:** Sonnet 5 / GPT Terra.
 
 **Resolution (2026-07-30): done.** The bulk of this item — `forecast_changed`,
 `CONFIRM_ACTION` wiring, and `_forecastText()` reading `calculateBasicDamage`
@@ -519,7 +520,7 @@ its full spell ladder and confirming the indicator tracks 0->1->2->3->0.
 
 **Risk:** Low. Additive presentation; no simulation code changes.
 
-**Model:** Sonnet 5. The design decision is made and the data path already
+**Model:** Sonnet 5 / GPT Terra. The design decision is made and the data path already
 exists.
 
 **Note:** a dedicated element-coloured charge bar under the HP bar, plus
@@ -560,7 +561,7 @@ and confirm the ladder advances 0->1->2->3->0 as designed.
 right now (see `docs/MONSTER_CATALOG_SCHEMA.md`), so a malformed spell set
 will only surface at runtime.
 
-**Model:** Sonnet 5 per element, given the contract above is fixed. Flag any
+**Model:** Sonnet 5 / GPT Terra per element, given the contract above is fixed. Flag any
 case that seems to need a contract exception rather than resolving it
 unilaterally.
 
@@ -597,7 +598,7 @@ corrected to 5 (or some other value)?
 
 **Risk:** Low — a single data value.
 
-**Model:** Haiku 4.5, once the value is confirmed.
+**Model:** Sonnet 5 / GPT Terra, once the value is confirmed.
 
 ---
 
@@ -617,7 +618,8 @@ the immunity option is chosen.
 **Risk:** Low if reworded; Medium if implemented as a new mechanic (touches
 crit resolution).
 
-**Model:** Haiku 4.5 for a reword; Sonnet 5 if implementing real immunity.
+**Model:** Sonnet 5 / GPT Terra either way — a reword and a real immunity
+mechanic sit in the same tier.
 
 ## BM-0 through BM-2 ? implementation resolution (2026-07-29)
 
@@ -702,7 +704,7 @@ scope for a test harness.
 
 **Risk:** Low. Gitignored scratch file, nothing ships.
 
-**Model:** Sonnet 5. Single file, stated end state, zero blast radius; the
+**Model:** Sonnet 5 / GPT Terra. Single file, stated end state, zero blast radius; the
 remaining unknowns are empirical iteration rather than design.
 
 **Resolution (2026-07-30): done.** `debug/drive_battle.gd` exists and passes
@@ -769,7 +771,7 @@ captured for PC-1 — nothing regressed.
 
 ---
 
-## Battle UI restyle (UI-1 … UI-8)
+## Battle UI restyle (UI-1 … UI-9)
 
 Added 2026-07-30. The visual and interaction contract is
 [`docs/UI_DESIGN.md`](docs/UI_DESIGN.md) — read it before executing any item
@@ -811,7 +813,8 @@ Create `src/presentation/theme/NoggTheme.gd`: the token constants from
 2. `build_game_theme()` populates `Panel/panel`, `Label/font`,
    `Label/font_size`, `Label/font_color`, `Label/font_outline_color`,
    `Label/outline_size`, and the container separation constants. Load
-   `assets/Fonts/Shining Force 2.ttf` as a `FontFile` with antialiasing,
+   `assets/Fonts/shining-force-ii-small.otf` at body size 24 as a `FontFile`
+   with antialiasing,
    hinting, and subpixel positioning all disabled — it is a pixel font and will
    smear otherwise. Integer sizes only.
 3. `build_dev_theme()` uses `Roboto-Regular.ttf` at 13, `DEV_FILL`,
@@ -839,9 +842,78 @@ through the frame ring.
 every later item inherits these decisions, and a token set that reads badly
 over the 3D scene costs a rework of UI-3, UI-5, and UI-7.
 
-**Model:** Opus 5. Choosing a palette that survives an arbitrary 3D background,
+**Model:** Opus 5 / GPT Sol. Choosing a palette that survives an arbitrary 3D background,
 and committing to the tint-driven active/inactive scheme that traits 1 and 3
 both depend on, is a design decision rather than transcription.
+
+**Resolution (2026-07-30): done.** All five items landed.
+`src/presentation/theme/NoggTheme.gd` holds the tokens, both Theme factories,
+the layer constants, and `build_window_frame()`. Verified by rendering
+`debug/PreviewTheme.tscn` (gitignored scratch, not reinstated test
+infrastructure) over a green-to-yellow gradient plus a pure-white block — the
+worst case for both the translucent fill and the font outline.
+
+Confirmed working: the pixel font is crisp at 16px with smoothing disabled; the
+outline carries white text directly on white; `draw_center = false` genuinely
+lets the translucent body show through the frame ring; the frame's
+active/inactive tint is legible at a glance; and an 8-capacity window holding 3
+rows does not shrink.
+
+Three findings changed the spec, all folded into `docs/UI_DESIGN.md` and into
+UI-3 and UI-6 above:
+
+1. **A `Container` cannot be the window root.** `PanelContainer` force-fits
+   every child into its content rect — including the frame — so the ring drew
+   16px inboard and covered the first and last glyph of every row. The window
+   root is now a plain `Control`. This fails visually, never throws.
+2. **`FRAME_MARGIN` and `CONTENT_INSET` had to split.** The 9-patch edge tiles
+   carry opaque art across their whole 16px rather than a thin bevel line, so
+   content inset by exactly `FRAME_MARGIN` sits flush against the ring.
+   `CONTENT_INSET` is 22 and is the tunable one; `FRAME_MARGIN` is an art fact.
+3. **The font was wrong.** `Shining Force 2.ttf` loads without error and is a
+   real Shining Force face, but it reports as "Shining Force 2 b" and is the
+   thin 1px-stroke variant — it does not match the reference. The shipping
+   font is now `shining-force-ii-small.otf` ("Shining Force II (Small)"), the
+   chunky 2px-stroke face, confirmed against a user-supplied reference on
+   2026-07-30. Both files load silently, so verify with `get_font_name()`
+   (`debug/preview_font.gd` prints it), never by filename.
+4. **The shipping font is ASCII-only.** Established with `Font.has_char()`,
+   not by eye — Godot substitutes a Windows system font rather than drawing
+   tofu, so a missing glyph looks merely *wrong*, not broken. Missing:
+   `‹ › ◀ ▶ ▲ ▼ … — ✓ •`. Every UI symbol is therefore drawn with
+   `_draw()` instead of typed — which UI-4's cursor already did and UI-6's
+   pager now must — and truncation uses `OVERRUN_TRIM_CHAR`, since `…` is
+   among the missing glyphs.
+5. **`MenuFull.png` is a whole window, not a bare frame.** It carries a baked
+   translucent black body, `(0, 0, 0, α=155)`, across the centre patch *and*
+   the inner part of all four edge tiles. `draw_center = false` skips only the
+   centre, so the 16px band inside the ring rendered as `WINDOW_FILL` plus
+   baked black while the centre rendered as `WINDOW_FILL` alone — two
+   different shades of the same window. `_frame_ring_texture()` strips the
+   baked body once at load, keying on fractional alpha (the only colour in the
+   file that has any), leaving a true ring. Do not replace it with a raw
+   `load()`; the two-tone returns immediately.
+6. **The body must be a 9-patch layer, not a `StyleBoxFlat`.** Stripping the
+   baked body to transparent and filling with a rounded-rect stylebox behind it
+   left the fill poking out past the ring at every corner — visible as a dark
+   wedge outside the frame. A rounded rect cannot reproduce a pixel-art corner
+   staircase. `_masked_frame_texture()` now emits *two* 9-patches from the same
+   source, body and ring, so their corners match by construction. Confirmed by
+   reading the rendered corner pixels before and after, not by eye.
+7. **Window widths are measured, not chosen, and size 24 is near the ceiling.**
+   The .otf runs ~2x the advance width of the .ttf and the body size settled at
+   24, so every width this plan originally implied was too narrow.
+   `debug/preview_theme.gd` prints the requirement for each window's worst-case
+   real catalogue content; §8 carries the results. Command + Spell is 948 of
+   the 1152px default viewport and Actor + Target is 1080 — both fit, neither
+   with much slack. Rerun the harness if the font, font size, or
+   `CONTENT_INSET` changes.
+
+One trap for UI-3: the `CONTENT_INSET` inset must be applied as explicit
+offsets on the body, because the theme's stylebox content margins only affect
+`PanelContainer` children, and the window root is no longer a `PanelContainer`.
+The stylebox margins are kept anyway so incidental `PanelContainer` use (the
+battle log) still clears its own frame.
 
 ---
 
@@ -879,8 +951,56 @@ graphics menu returns in its prior toggle state, not forced open.
 mode is silent — a panel parented to the wrong canvas only reveals itself when
 `SPACEBAR` is pressed.
 
-**Model:** Sonnet 5. Multi-file with a fully stated end state and no open
+**Model:** Sonnet 5 / GPT Terra. Multi-file with a fully stated end state and no open
 design questions.
+
+**Resolution (2026-07-30): done.** `BattleUIBuilder.build()` now returns
+`game_canvas`/`dev_canvas` instead of a single `canvas`; every other returned
+key is unchanged. `_buildThemedRoot()` adds a plain `Control` under each
+CanvasLayer carrying `NoggTheme.build_game_theme()` /
+`build_dev_theme()` — necessary because `Theme` lives on `Control`, not
+`CanvasLayer`, and the prior code parented every panel directly under the
+CanvasLayer with no such root. `BattleGraphicsMenu.build()`'s first parameter
+was widened from `CanvasLayer` to `Node` (it only ever called `add_child` on
+it) so the graphics panel could be parented under `dev_root` and inherit the
+dev theme. `BattlePresentationController` now sets both canvases together at
+the two lifecycle boundaries (`_show_setup()`, `_start_battle()`) and toggles
+`dev_canvas` alone on SPACEBAR.
+
+Verified with three separate single-shot windowed processes
+(`debug/verify_ui2_spacebar.gd -- STATE=a|b|c`, real scene, synthetic
+`InputEventKey` for SPACE via `root.push_input()`) plus a full rerun of the
+existing headless suite (`drive_battle.gd`, `verify_pc1.gd`, `verify_pc2.gd`)
+for regressions — all pass. State b's screenshot shows the dev bar and
+graphics panel fully gone while the command menu and bottom HUD render and
+report `is_visible_in_tree() == true`; state c shows the dev bar back with the
+graphics panel still open, proving SPACEBAR does not reset dev-bar sub-state.
+
+Two findings:
+
+1. **`debug/drive_battle.gd` (TD-1) read the old `"canvas"` key** for its
+   click-occlusion check and would have broken silently (dictionary miss ->
+   null -> crash on the first `get_children()`). Fixed to check both
+   `game_canvas` and `dev_canvas`, since either can now occlude a click.
+2. **Capturing two screenshots in one running SceneTree process returns a
+   stale image the second time.** `root.get_texture().get_image()` after a
+   `CanvasLayer.visible` flip returned pixels byte-identical to the
+   pre-toggle capture — confirmed by sampling fixed opaque button pixels, not
+   by eye — even though the property read correctly and more `await
+   process_frame` / `RenderingServer.frame_post_draw` did not fix it. A
+   single capture per process, immediately after the toggle, is correct every
+   time. This is a Godot capture quirk, not a bug in the canvas split; anyone
+   writing another windowed before/after screenshot harness in this repo
+   should capture once per process rather than "fix" a stale second capture
+   with more waiting.
+
+As flagged when this item was planned: assigning the theme to `game_root`
+immediately changed every existing Label under it to the pixel font at size
+24 with a black outline — visible in the screenshots on the command menu and
+the bottom-left status panel, whose "CURRENT TURN: Envoy of Lightnin…" now
+wraps and overflows its fixed 220×150 box. This is expected and is exactly
+what UI-7 (restructure the bottom HUD as game windows) resolves; panel
+*geometry* was deliberately left as-is per this item's own scope.
 
 ---
 
@@ -888,19 +1008,31 @@ design questions.
 
 Implement `src/presentation/theme/NoggWindow.gd` per `docs/UI_DESIGN.md` §4.
 
-1. `class_name NoggWindow extends PanelContainer`. Composition is exactly the
-   §4 diagram: `StyleBoxFlat` body, `MarginContainer` for content clearing the
-   16px frame, `NinePatchRect` frame added last so it draws on top.
+1. `class_name NoggWindow extends Control` — a plain `Control`, **not** a
+   `PanelContainer`. Composition is exactly the §4 diagram:
+   `NoggTheme.build_window_body()`, a `VBoxContainer` inset by `CONTENT_INSET`,
+   then `NoggTheme.build_window_frame()` added last so it draws on top.
+
+   Two traps here, both found by UI-1 on screen and both of which fail visually
+   rather than throwing. A `Container` root force-fits the frame into its
+   content rect, and the ring then covers the first and last glyph of every
+   row. And the body must be the 9-patch layer, **not** a `StyleBoxFlat` — a
+   rounded rect cannot reproduce the art's pixel corner staircase, so the fill
+   leaks past the ring at all four corners.
 2. `set_active(active: bool)` tweens the frame's `self_modulate` between
    `FRAME_ACTIVE` and `FRAME_INACTIVE` over 0.12 s.
 3. `open()` / `close()` with the §4 scale-and-fade tweens. `close()` must be
    awaitable or emit `closed` so callers can sequence teardown.
 4. `set_row_capacity(rows: int)` fixes `custom_minimum_size.y` from the theme's
    row height and font metrics, so a window's height is a function of capacity
-   and not of content. Trait 6 depends on this.
+   and not of content. Trait 6 depends on this. Width is set by the caller from
+   the measured table in §8 — do not size a window to its content.
 5. `add_row(label: String, value: String = "", disabled: bool = false)`
    building the two-column `HBoxContainer` of trait 4 — label left, value right
-   in `TEXT_ACCENT`, ellipsis truncation on overflow. Rows are plain `Control`s,
+   in `TEXT_ACCENT`. Truncate with `TextServer.OVERRUN_TRIM_CHAR`, not
+   `OVERRUN_TRIM_ELLIPSIS` (§3). **Reserve the value column's width before
+   laying out the label**, or a long label runs straight into its value with no
+   gap — UI-1's preview reproduced exactly that. Rows are plain `Control`s,
    never `Button`s; §5 explains why.
 6. Expose `row_rect(index)` so UI-4's cursor can position against a row without
    reaching into the window's children.
@@ -916,8 +1048,47 @@ reads clearly at a glance.
 **Risk:** Medium. Every game window is this widget; a layout bug here appears
 seven times over.
 
-**Model:** Sonnet 5. UI-1 settled the look and §4 fixes the composition, so
+**Model:** Sonnet 5 / GPT Terra. UI-1 settled the look and §4 fixes the composition, so
 what remains is careful Godot container work against a written spec.
+
+**Resolution (2026-07-30): done.** `src/presentation/theme/NoggWindow.gd`
+implements the §4 composition exactly — body/content/frame, `Control` root,
+`set_active()`, `open()`/`close()`, `set_row_capacity()`, `add_row()`,
+`clear_rows()`, `row_rect()`.
+
+Verified by extending `debug/preview_theme.gd` to build the mock windows from
+the real class instead of a hand-rolled look-alike, then reading pixels back
+out of the rendered screenshot rather than trusting the thumbnail:
+
+- Active window ring sampled `(168, 216, 255)`, inactive `(74, 90, 114)` —
+  both **exact** matches to `FRAME_ACTIVE`/`FRAME_INACTIVE` converted to
+  8-bit. `set_active(false)` genuinely retints the shared frame texture.
+- The 8-capacity command window holding 4 rows stayed at capacity height, not
+  content height.
+- The spell window's 30-char outlier and the actor window's three-element
+  `Elements` row both hard-truncated exactly as §8 predicts, not before.
+
+One finding that matters beyond this item: **a brand-new `class_name` is not
+resolvable as a bare static type until Godot's project has scanned it once.**
+`var x: NoggWindow` inside `debug/preview_theme.gd` failed with `Could not
+find type "NoggWindow" in the current scope` on the very first run after the
+class was created, even though `load()`-ing the same script and calling
+`.new()` on it worked fine. Root cause, confirmed by comparing the two: a
+script's `class_name` only becomes a usable bare type after Godot generates
+its `.gd.uid` sidecar, which happens on a project filesystem scan — and
+neither `--headless -s script.gd` nor `--path . scene.tscn` reliably triggers
+that scan for a file created moments earlier in the same session.
+`NoggTheme.gd` (older, has `NoggTheme.gd.uid`) resolved fine as a bare type
+the whole time; `NoggWindow.gd`/`MenuCursor.gd` (no `.uid` yet) did not. Fixed
+by typing the harness's variables as `Control` instead — method calls still
+resolve at runtime regardless of the static type, so this costs nothing.
+**Any script that both defines a new `class_name` and uses it as a bare
+static type in the same session should expect this** until an editor session
+(or another full project scan) has run at least once. UI-5 will hit the same
+trap the first time it types a variable as `NoggWindow`/`MenuCursor` if that
+session starts before this repo's `.godot/` cache has seen them — check for
+`src/presentation/theme/NoggWindow.gd.uid` first, or just use `Control`/`Node`
+typing defensively the way this item's harness now does.
 
 ---
 
@@ -949,8 +1120,36 @@ queueing, and killing the move tween mid-flight does not freeze the bob.
 
 **Risk:** Low. Self-contained node, no consumers until UI-5.
 
-**Model:** Haiku 4.5. Single new file, every number specified, no dependency
-beyond UI-1's `CURSOR` token.
+**Model:** Sonnet 5 / GPT Terra. Single new file, every number specified, no
+dependency beyond UI-1's `CURSOR` token.
+
+**Resolution (2026-07-30): done.** `src/presentation/theme/MenuCursor.gd`
+draws a filled right-pointing triangle, bobs `position.x` continuously via a
+looping tween, and moves/snaps `position.y` via a second, independent tween
+per row. Bob and move deliberately animate different sub-properties
+(`position:x` vs `position:y`) of the same Vector2 so `move_to_row()`'s
+kill-before-tween never touches the bob — the two cannot conflict by
+construction, not by careful sequencing.
+
+**Found and fixed one real ordering bug while wiring the harness demo:** the
+bob's centre is captured as `position.x` inside `_ready()`, which the spec
+requires fire in `_ready()`. If a caller sets `position.x` to the frame-gutter
+offset *after* `add_child()`, `_ready()` has already captured `0` (the
+pre-add-child default) as the bob's centre, and the bob's next tick silently
+drags the cursor back toward `x=0` regardless of what the caller just set —
+wrong, and it fails visually with no error. Fixed by setting `position.x`
+*before* `add_child()` in the harness, and documented as a hard requirement at
+the top of `MenuCursor.gd` so UI-5 does not rediscover it.
+
+Verified in `debug/preview_theme.gd -- shot`: two synthetic Down presses
+before capture moved the cursor from `Move` to `Attack` (row 0 → row 2),
+visible in the screenshot as the gold triangle sitting beside `Attack`, not
+`Move` — confirming `move_to_row()` and `NoggWindow.row_rect()` both return
+correct geometry immediately after `add_row()`, with no extra frame needed to
+wait out `VBoxContainer`'s deferred sort (worth having actually checked rather
+than assumed — Godot's container layout is deferred in general, and a stale
+`row_rect()` would have looked identical to a working one for row 0 by pure
+coincidence).
 
 ---
 
@@ -998,9 +1197,125 @@ that keyboard movement skips it while the mouse cannot activate it.
 replaces the input model rather than extending it. A cursor desync between
 mouse and keyboard is the specific regression to watch for.
 
-**Model:** Opus 5. Separating rebuild from selection is a structural change to
+**Model:** Opus 5 / GPT Sol. Separating rebuild from selection is a structural change to
 the menu's state model, and the mouse/keyboard reconciliation in §6 is a design
 contract rather than a transcription.
+
+**Resolution (2026-07-31): done.** `PlayerCommandMenu` is rebuilt on
+`NoggWindow` + `MenuCursor`. The `"› "` string-prefix mechanism is gone;
+selection is now `_root_index` / `_spell_index` (cursor position) and
+`moveSelection()` never calls a `_rebuild_*`. Prompt and forecast became their
+own small windows, so the last `StyleBoxFlat` left the game layer.
+`BattleUIBuilder`'s `action_panel` went from a styled `PanelContainer` to a
+plain full-rect `Control` — a Container there would force-fit the menu into one
+rect and its stylebox would draw a second border competing with the frame.
+
+Verified windowed, one screenshot per process, then **pixel-sampled rather than
+eyeballed** — the frame ring was read straight out of the captures:
+
+| | command ring | spell ring |
+|---|---|---|
+| root focused | `(168,216,255)` ACTIVE | — |
+| spell open | `(74,90,114)` INACTIVE | `(168,216,255)` ACTIVE |
+
+Both exact matches to the tokens. Trait 3 asserted structurally too: with the
+spell window open the command window is still `visible`, still at `x=20`, and
+the spell window sits to its right — it dims, it does not hide, move, or
+resize. TD-1 passes.
+
+Four findings:
+
+1. **A new `class_name` never registers under headless/scripted runs.** UI-3
+   worked around `Could not find type "NoggWindow"` by typing everything as
+   `Control`; that then broke *here* as `Cannot infer the type of "row"`, since
+   a `Control`-typed receiver has no `add_row()` to infer from. Root fix, which
+   also retires UI-3's workaround: **`--headless --editor --quit-after 200`
+   forces the project scan** that writes the `.gd.uid` sidecars and populates
+   `.godot/global_script_class_cache.cfg`. After one such run all three classes
+   resolve as bare types normally. Run it once after adding any `class_name`.
+2. **`clear_rows()` needed `remove_child` before `queue_free`.** `queue_free`
+   alone defers removal to end-of-frame, so a rebuild-then-measure in one call
+   sees the VBoxContainer holding stale *and* new rows.
+3. **`row_rect()` had to become arithmetic, not a node read.** `Container`
+   sorting is deferred, so a row's `position` is stale on the frame it was
+   added — a cursor snapped right after a rebuild would land on the wrong row
+   and, since nothing re-runs, silently stay there. Now derived from
+   `ROW_HEIGHT` + index, which the fixed-capacity layout guarantees agrees.
+4. **`close()` must not await `tween.finished`.** A killed tween never emits
+   it, so an `open()` interrupting a `close()` stranded the coroutine forever.
+   Now waits on a SceneTree timer with a generation counter, so a stale close
+   drops instead of hiding a just-reopened window.
+
+Two deliberate deviations from `docs/UI_DESIGN.md` §8, both recorded there:
+
+- **Forecast is left-aligned with the command window, not right-aligned to
+  it.** At size 24 the forecast needs ~460px and the command window's right
+  edge is x=300, so right-aligning would push it off the left of the screen.
+  §8's dock spec predates the size-24 metrics.
+- **`debug/drive_battle.gd` now pins `root.size` to 1152x648.** Headless
+  defaults to 100x100, which was merely awkward when the HUD was small fixed
+  panels but is fatal once the command window docks by *screen* geometry — a
+  280x252 window covers the whole 100x100 viewport and `_occludedByUI()` then
+  reports every tile unclickable. Two checks failed exactly that way before the
+  pin. The same change made `_buildTileScreenMap`'s 1px scan ~750k probes
+  (a raycast plus a UI-tree walk each), pushing a *passing* run past two
+  minutes; its step is now viewport-relative and the run is back to ~20s.
+
+The harness also stopped reaching into menu internals: it read
+`_root_selected_id` / `_root_selectable_ids()`, which the state-model change
+deleted. Rather than re-couple it to the new private shape, `PlayerCommandMenu`
+now exposes read-only `selectedEntryId()` / `selectableEntryIds()` /
+`selectedSpellId()`.
+
+**Follow-up in the same session (2026-07-31), from design review of the first
+screenshots:** two adjustments, both in `docs/UI_DESIGN.md`.
+
+- **Windows were reserving space they could never use.** The command window
+  held 4 rows in an 8-row frame — 104px, half the window, empty. §4's sizing
+  rule was too strong: what traits 5 and 6 need is that a window never resizes
+  *while being navigated*, not that it reserve maximum capacity up front. Now
+  "size on open, then hold": the command window is 5 rows (its true maximum,
+  and it can never page), and the spell window sizes to
+  `clampi(spells + 1, 1, 8)` so a one-spell monster gets a 2-row window instead
+  of eight. Docked readouts keep fixed capacity — they are the no-jitter case.
+  `NoggWindow.set_row_capacity()` now assigns `size.y` outright rather than
+  only growing it, since a shrinking capacity has no parent container to re-fit
+  these free-floating windows.
+- **Command labels render uppercase.** `MOVE / UNDO MOVE / ATTACK / SPELL /
+  PASS`, and `< BACK`; spell and monster names stay mixed-case, because
+  all-caps strips the word-shape cues that make an unfamiliar name scannable
+  and names are the strings most likely to truncate. Verified the font is
+  **monospace** first — every command label measures identical in both cases,
+  so §8's widths are untouched and the choice is purely aesthetic. Applied at
+  render time via `UPPERCASE_COMMANDS`, never to the model, since those strings
+  also feed logs and harness assertions.
+
+**Second design-review pass (2026-07-31):** three more adjustments.
+
+- **The cursor was sitting on the frame ring.** Cursor-hosting windows now
+  indent their rows by `CURSOR_GUTTER_WIDTH` on top of `CONTENT_INSET`, giving
+  `ring 0-12 | cursor 16-28 incl. bob | text 34+`. `CURSOR_WIDTH` /
+  `CURSOR_INSET` / `CURSOR_GUTTER_WIDTH` moved into `NoggTheme` — `NoggWindow`
+  reserves space for a cursor it never sees, so a private copy inside
+  `MenuCursor` would have let the two drift. Windows with no cursor keep a zero
+  indent.
+- **Inactive windows now dim their content, not just their border.** A lit list
+  inside a greyed frame reads as a glitch rather than as loss of focus.
+  `set_active()` tweens `_content.modulate` alongside the frame tint; measured
+  on screen, command text goes `(255,255,255)` focused → `(115,120,133)` while
+  the spell window holds focus. Modulating the container (not restyling rows)
+  makes a disabled row in an inactive window compound to the dimmest state for
+  free.
+- **`Undo Move` → `Undo`.** A move is the only undoable thing and the row sits
+  directly under `MOVE`, so the long form bought nothing. It was also the
+  binding constraint on `COMMAND_WIDTH`: dropping it moved the longest label to
+  `ATTACK` and let the window come down from 300 to **220**. The id stays
+  `undo_move`, so every harness assertion was unaffected.
+
+**Not yet exercised:** the mouse path (hover-to-move, click-to-activate, wheel)
+is implemented per §6 and compiles, but every check above drove the keyboard.
+§6's real risk — cursor desync between devices — needs a human alternating
+mouse and keyboard mid-menu, which no harness here simulates.
 
 ---
 
@@ -1014,6 +1329,10 @@ Add fixed-capacity paging to `NoggWindow` per `docs/UI_DESIGN.md` §7.
 2. The footer is its own small `NoggWindow` reading the page indicator,
    horizontally centred and overlapping the parent's bottom border by half its
    height. It is absent — not disabled — when `page_count == 1`.
+   **Draw the arrows with `_draw()`, do not type them.** `◀` and `▶` are
+   absent from the shipping font and silently fall back to a Windows system
+   font, which renders as thin outline triangles beside a pixel font (§3).
+   Mirror `MenuCursor`'s triangle so pager and cursor read as one family.
 3. Cursor movement past a page boundary turns the page and snaps the cursor to
    the first (or last) row of the new page. Use `snap_to_row`, not
    `move_to_row`; tweening across a page turn reads as a glitch.
@@ -1032,7 +1351,7 @@ footer disappears entirely at 8 or fewer.
 **Risk:** Medium. Off-by-one page arithmetic interacting with disabled-row
 skipping is the likely bug, and it is only reachable with a long list.
 
-**Model:** Sonnet 5. Multi-file with a stated end state; the design questions
+**Model:** Sonnet 5 / GPT Terra. Multi-file with a stated end state; the design questions
 were settled in §7.
 
 ---
@@ -1070,7 +1389,7 @@ damaged past one third, and the forecast appears only on a confirm step.
 **Risk:** Medium. `_update_selection_ui` is called from several event paths;
 missing one leaves a stale window rather than an obviously broken one.
 
-**Model:** Sonnet 5. Mechanical once §8 fixes the taxonomy, but it spans three
+**Model:** Sonnet 5 / GPT Terra. Mechanical once §8 fixes the taxonomy, but it spans three
 files and several call sites.
 
 ---
@@ -1096,5 +1415,64 @@ dev bar never does, and the command menu stays interactive across the toggle.
 
 **Risk:** Low. Isolated, reversible, and visible the instant it is wrong.
 
-**Model:** Sonnet 5. Four files, but each edit is small and the end state is
+**Model:** Sonnet 5 / GPT Terra. Four files, but each edit is small and the end state is
 fully stated.
+
+---
+
+## UI-9 — Scroll the focused row when its label overflows
+
+Truncation (§3) is the resting state for a row that does not fit, and it stays
+that way. But truncation hides information the player needs — `Closing of the
+Third San` and `Closing of the Third Sanc` are indistinguishable — so the row
+under the cursor reveals the rest by scrolling. Specified in
+`docs/UI_DESIGN.md` §7b; that section is the contract, this item is the build.
+
+1. Add the timing tokens to `NoggTheme.gd` alongside the existing animation
+   block: `MARQUEE_DELAY` 1.2, `MARQUEE_SPEED` 40.0 (pixels per second),
+   `MARQUEE_END_HOLD` 1.0. They belong there for the same reason the tween
+   timings do — nothing else in `src/presentation/` may hold a timing literal.
+2. Wrap the **label column only** in a `clip_contents = true` Control and tween
+   the label's `position.x`. The value column (`Rng 3`, `CD 12`) is
+   right-aligned against the frame and must stay anchored; scrolling the whole
+   row slides the two columns across each other.
+3. Duration is **distance ÷ `MARQUEE_SPEED`**, never a fixed duration. A fixed
+   duration makes a long name scroll fast and a barely-overflowing one crawl.
+4. Cycle: hold `MARQUEE_DELAY`, scroll to reveal the tail, hold
+   `MARQUEE_END_HOLD`, **snap** back to the start, repeat. Snap, not a reverse
+   tween — reversing reads as indecision and doubles the time before the start
+   is legible again.
+5. Only the row under the cursor scrolls, ever. Wire it to the same selection
+   change that moves `MenuCursor`, so a row starts its cycle when the cursor
+   arrives and **resets immediately** when the cursor leaves — no easing out,
+   no finishing the cycle. If the reset lands after the cursor's move tween the
+   two animations visibly fight.
+6. A row whose label fits must never scroll and must never wait out the delay.
+   Compare against the clip rect, not against a character count.
+7. Applies to any `NoggWindow` row, not just spells. The actor status window's
+   `Elements` row overflows on three-element monsters (§8) and gets the same
+   behaviour for free if this lives in the row, not in the spell list.
+
+**Files:** `src/presentation/theme/NoggWindow.gd`,
+`src/presentation/theme/NoggTheme.gd`,
+`src/presentation/PlayerCommandMenu.gd`.
+
+**Verify:** Open the spell window on a monster with `Closing of the Third
+Sanctuary`. Confirm the row is truncated at rest; that it begins scrolling only
+after the delay; that it snaps rather than reverses; and that the value column
+never moves. Then arrow up and down through the list at speed and confirm no
+row is left mid-scroll and nothing animates except the row under the cursor.
+Finally select a three-element monster and confirm its `Elements` row scrolls
+in the actor window with no extra wiring.
+
+**Risk:** Low. Additive and self-contained — if it misbehaves the row still
+reads as a truncated row, which is the current behaviour. The one thing that
+can look broken is a stale scroll left behind by a cursor move, which item 5
+exists to prevent.
+
+**Model:** Sonnet 5 / GPT Terra. Three files, and §7b already settled the
+timings and the five behavioural rules, so what remains is wiring against a
+written contract.
+
+**Depends on:** UI-3 (rows) and UI-5 (the cursor's selection change is the
+trigger). Independent of UI-6, UI-7, and UI-8 — it can run any time after UI-5.

@@ -137,7 +137,10 @@ func menuEntries() -> Array:
 		},
 		{
 			"id": ENTRY_UNDO_MOVE,
-			"label": "Undo Move",
+			# "Undo" not "Undo Move": a move is the only thing undoable, the row
+			# sits directly under Move, and the short form lets the command window
+			# size to ATTACK instead of to this label. Id stays `undo_move`.
+			"label": "Undo",
 			"enabled": interactive,
 			"visible": phases["can_undo_move"]
 		},
