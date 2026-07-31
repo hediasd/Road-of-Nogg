@@ -14,6 +14,7 @@ var radius: int = 0
 var area_shape: String = "circle" # "circle", "cross", "line", "cone"
 
 var heals: bool = false              # If true, restores HP instead of dealing damage
+var can_target_empty: bool = false   # If true, an empty non-self center may be confirmed
 var inflicts_status: String = ""     # e.g. "burn", "poison". Empty = no status.
 var removes_status: String = ""      # e.g. "petrify". Empty = no status removal.
 var bypass_los: bool = false         # If true, LoS check is skipped for this spell
@@ -60,6 +61,7 @@ func _init(parameterDictionary) -> void:
 	targetType = parameterDictionary["TARGET_TYPE"] if (parameterDictionary.has("TARGET_TYPE")) else "single"
 	area_shape = parameterDictionary["AREA_SHAPE"] if (parameterDictionary.has("AREA_SHAPE")) else "circle"
 	heals = parameterDictionary["HEALS"] if (parameterDictionary.has("HEALS")) else false
+	can_target_empty = bool(parameterDictionary.get("CAN_TARGET_EMPTY", false))
 	inflicts_status = parameterDictionary["INFLICTS_STATUS"] if (parameterDictionary.has("INFLICTS_STATUS")) else ""
 	removes_status = parameterDictionary["REMOVES_STATUS"] if (parameterDictionary.has("REMOVES_STATUS")) else ""
 	bypass_los = parameterDictionary["BYPASS_LOS"] if (parameterDictionary.has("BYPASS_LOS")) else false

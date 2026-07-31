@@ -462,10 +462,10 @@ func _refreshTargetPreview(targetID: int) -> void:
 		var spell = caster.spellSets[_selectedSpellSet][_selectedSpellIndex]
 		var from_pos = _sim.state.getMonsterPosition(activeMonsterID)
 		affected_positions = _sim.combatResolver.getSpellAffectedPositionsFrom(
-			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, from_pos, targetID
+			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, from_pos, gridCursor
 		)
 		affected_target_ids = _sim.combatResolver.getSpellAffectedTargetsFrom(
-			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, from_pos, targetID
+			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, from_pos, gridCursor
 		)
 		beneficial = spell.heals or spell.targetType == "self"
 	_adapter.show_target_options(
@@ -483,7 +483,7 @@ func _commitAction() -> void:
 	var result = _sim.executeActionPhase(
 		activeMonsterID,
 		_pendingAction,
-		_pendingTargetID,
+		gridCursor,
 		_selectedSpellSet if _pendingAction == "spell" else 0,
 		_selectedSpellIndex if _pendingAction == "spell" else 0,
 		"player"

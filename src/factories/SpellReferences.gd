@@ -17,6 +17,7 @@ const INTEGER_DEFAULTS := {
 }
 const BOOLEAN_DEFAULTS := {
 	"HEALS": false,
+	"CAN_TARGET_EMPTY": false,
 	"BYPASS_LOS": false,
 	"REVERTS_DAMAGE": false
 }

@@ -107,15 +107,28 @@ func _on_monster_moved(monsterID: int, path: Array) -> void:
 	_roundPaths.append({"id": monsterID, "path": path.duplicate()})
 
 
-func _on_monster_attacked(attackerID: int, targetID: int, damage: int, targetNewHP: int) -> void:
+func _on_monster_attacked(
+		attackerID: int,
+		targetPos: Vector2i,
+		targetID: int,
+		damage: int,
+		targetNewHP: int) -> void:
 	var attacker = state.getMonster(attackerID)
 	var target = state.getMonster(targetID)
-	var targetName = target.name if target != null else "???"
-	
-	_log("  [ATTACK] %s #%s  👊━━━▶  %s #%s (💥 %s dmg | ❤️ %s)" % [
-		attacker.name, attackerID, targetName, targetID, damage, targetNewHP
+	if target == null:
+		_log("  [ATTACK] %s #%s misses at %s" % [attacker.name, attackerID, targetPos])
+		_roundEvents.append({
+			"score": 0,
+			"type": "attack",
+			"attacker": attacker,
+			"target": null,
+			"element": "",
+			"defeated": false
+		})
+		return
+	_log("  [ATTACK] %s #%s attacks %s #%s (%s dmg | HP %s)" % [
+		attacker.name, attackerID, target.name, targetID, damage, targetNewHP
 	])
-	
 	_roundEvents.append({
 		"score": damage * 2,
 		"type": "attack",
@@ -126,58 +139,73 @@ func _on_monster_attacked(attackerID: int, targetID: int, damage: int, targetNew
 	})
 
 
-func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, damageLines: Array, targetNewHP: int) -> void:
+func _on_spell_cast_started(
+		casterID: int,
+		centerPos: Vector2i,
+		spellName: String,
+		_element: String,
+		targetsHit: int) -> void:
+	if targetsHit == 0:
+		var caster = state.getMonster(casterID)
+		_log("  [SPELL] %s #%s casts '%s' at %s; no units affected" % [
+			caster.name, casterID, spellName, centerPos
+		])
+
+
+func _on_monster_cast_spell(
+		casterID: int,
+		_centerPos: Vector2i,
+		targetID: int,
+		spellName: String,
+		damageLines: Array,
+		targetNewHP: int) -> void:
 	var caster = state.getMonster(casterID)
 	var target = state.getMonster(targetID)
 	var targetName = target.name if target != null else "???"
-	
-	var dmg_texts = []
-	var primary_element = "none"
-	var total_damage = 0
-	
+	var damageTexts = []
+	var primaryElement = "none"
+	var totalDamage = 0
 	if damageLines.is_empty():
-		dmg_texts.append("0")
+		damageTexts.append("0")
 	else:
-		primary_element = damageLines[0].get("element", "none")
+		primaryElement = damageLines[0].get("element", "none")
 		for line in damageLines:
-			var el = line.get("element", "none")
-			var d = line.get("damage", 0)
-			total_damage += d
-			if el != "none":
-				dmg_texts.append("%s %s" % [d, el.to_upper()])
-			else:
-				dmg_texts.append("%s" % d)
-	
-	var combined_dmg_str = " + ".join(dmg_texts)
+			var element = line.get("element", "none")
+			var damage = line.get("damage", 0)
+			totalDamage += damage
+			damageTexts.append("%s %s" % [damage, str(element).to_upper()] if element != "none" else str(damage))
+	var combinedDamage = " + ".join(damageTexts)
 	if damageLines.size() > 1:
-		combined_dmg_str += " = %s" % total_damage
-	combined_dmg_str += " dmg"
-		
-	var emoji = _getElementEmoji(primary_element)
-	
-	_log("  [SPELL] %s #%s  %s━━━▶  %s #%s with '%s' (💥 %s | ❤️ %s)" % [
-		caster.name, casterID, emoji, targetName, targetID, spellName, combined_dmg_str, targetNewHP
+		combinedDamage += " = %s" % totalDamage
+	combinedDamage += " dmg"
+	var emoji = _getElementEmoji(primaryElement)
+	_log("  [SPELL] %s #%s %s -> %s #%s with '%s' (%s | HP %s)" % [
+		caster.name, casterID, emoji, targetName, targetID, spellName,
+		combinedDamage, targetNewHP
 	])
-	
 	_roundEvents.append({
-		"score": total_damage * 2 + 5,
+		"score": totalDamage * 2 + 5,
 		"type": "spell",
 		"attacker": caster,
 		"target": target,
-		"element": primary_element,
+		"element": primaryElement,
 		"defeated": targetNewHP <= 0
 	})
 
 
-func _on_monster_healed(casterID: int, targetID: int, spellName: String, amount: int, targetNewHP: int) -> void:
+func _on_monster_healed(
+		casterID: int,
+		_centerPos: Vector2i,
+		targetID: int,
+		spellName: String,
+		amount: int,
+		targetNewHP: int) -> void:
 	var caster = state.getMonster(casterID)
 	var target = state.getMonster(targetID)
 	var targetName = target.name if target != null else "???"
-	
-	_log("  [HEAL] %s #%s  ❤️━━━▶  %s #%s with '%s' (+%s HP | ❤️ %s)" % [
+	_log("  [HEAL] %s #%s -> %s #%s with '%s' (+%s HP | HP %s)" % [
 		caster.name, casterID, targetName, targetID, spellName, amount, targetNewHP
 	])
-	
 	_roundEvents.append({
 		"score": amount * 3,
 		"type": "heal",
@@ -186,7 +214,6 @@ func _on_monster_healed(casterID: int, targetID: int, spellName: String, amount:
 		"element": "",
 		"defeated": false
 	})
-
 
 func _on_status_damage_dealt(monsterID: int, effectName: String, damage: int, targetNewHP: int) -> void:
 	var mon = state.getMonster(monsterID)

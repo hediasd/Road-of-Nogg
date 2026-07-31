@@ -1786,6 +1786,17 @@ version becomes 5.
 **Risk:** High. Simulation validation, resolution, events, history, and replay
 must agree on one canonical coordinate without diverging between controllers.
 
+**Resolution (2026-07-31): implemented; pending end-of-plan validation.**
+`target_pos` is canonical in typed commands, validation, phase accumulation,
+history, and replay v5; replay v2-v4 derives positions just before legacy
+commands execute. Basic attacks accept legal empty adjacent tiles without
+firing target passives. Spell targeting separates displayed reachable centers
+from confirmable centers, and all 59 spells explicitly declare
+`CAN_TARGET_EMPTY`. Legal zero-unit casts emit a positional cast event and still
+call `record_cast()`, consuming cooldown and Resonance. Positional action events
+carry real coordinates and `target_id = -1` for empty centers. The occupied-only
+player selector remains intentionally deferred to POS-3. A narrow headless
+project-load smoke passed; behavioral/replay acceptance remains POS-VALIDATE.
 ## POS-2 — AI positional targeting
 
 AI enumerates legal center positions rather than only unit IDs. Area spells are

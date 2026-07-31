@@ -1,5 +1,6 @@
 [
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 3,
 		"ELEMENT": "ice",
 		"MAX_HEIGHT_DELTA": 1,
@@ -8,6 +9,7 @@
 		"RANGE": 1
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 5,
 		"ELEMENT": "ice",
 		"MAX_HEIGHT_DELTA": 1,
@@ -16,6 +18,7 @@
 		"RANGE": 5
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 4,
 		"ELEMENT": "ice",
 		"MAX_HEIGHT_DELTA": 1,
@@ -24,6 +27,7 @@
 		"RANGE": 3
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 4,
 		"DESC": "Fires a dark bolt from afar.",
 		"ELEMENT": "darkness",
@@ -32,6 +36,7 @@
 		"RANGE": 4
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 6,
 		"DESC": "A burst of darkness in an area.",
 		"ELEMENT": "darkness",
@@ -41,6 +46,7 @@
 		"TARGET_TYPE": "area"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"BYPASS_LOS": true,
 		"DAMAGE": 5,
 		"DESC": "Restores HP to an ally.",
@@ -52,6 +58,7 @@
 		"TARGET_TYPE": "single"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 3,
 		"DESC": "A fiery blow that inflicts burn.",
 		"ELEMENT": "fire",
@@ -61,6 +68,7 @@
 		"RANGE": 2
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 4,
 		"DESC": "A blast of fire that inflicts burn.",
 		"ELEMENT": "fire",
@@ -70,6 +78,7 @@
 		"RANGE": 3
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 4,
 		"ELEMENT": "earth",
 		"MAX_HEIGHT_DELTA": 1,
@@ -77,6 +86,7 @@
 		"RANGE": 3
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 5,
 		"ELEMENT": "steel",
 		"MAX_HEIGHT_DELTA": 1,
@@ -84,6 +94,7 @@
 		"RANGE": 1
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 3,
 		"ELEMENT": "water",
 		"MAX_HEIGHT_DELTA": 1,
@@ -91,6 +102,7 @@
 		"RANGE": 4
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 3,
 		"ELEMENT": "wood",
 		"MAX_HEIGHT_DELTA": 1,
@@ -98,6 +110,7 @@
 		"RANGE": 3
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"BUFFS_ATK": 3,
 		"BUFF_DURATION": 2,
 		"BYPASS_LOS": true,
@@ -111,6 +124,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -127,6 +141,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -143,6 +158,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -159,6 +175,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -180,6 +197,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -196,6 +214,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -212,6 +231,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -228,6 +248,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"ELEMENT": "ice",
 		"HEALS": true,
@@ -239,6 +260,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"AOE_TARGETS": "enemies",
 		"DAMAGE": 1,
 		"EFFECTS": [
@@ -258,6 +280,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -274,6 +297,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -290,6 +314,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -304,6 +329,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"AOE_TARGETS": "allies",
 		"DAMAGE": 0,
 		"EFFECTS": [
@@ -322,6 +348,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -338,6 +365,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -353,6 +381,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"AOE_TARGETS": "allies",
 		"DAMAGE": 0,
 		"EFFECTS": [
@@ -371,6 +400,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -387,6 +417,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -401,6 +432,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -422,6 +454,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -438,6 +471,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -454,6 +488,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -470,6 +505,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -489,6 +525,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"EFFECTS": [
 			{
@@ -505,6 +542,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"AOE_TARGETS": "allies",
 		"DAMAGE": 0,
 		"ELEMENT": "wood",
@@ -518,6 +556,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 4,
 		"DESC": "Lashes a single foe with a barbed vine.",
 		"ELEMENT": "wood",
@@ -528,6 +567,7 @@
 		"TARGET_TYPE": "single"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"COOLDOWN": 4,
 		"DAMAGE": 5,
 		"DESC": "Erupts a ring of thorned briar that poisons everything it encircles.",
@@ -541,6 +581,7 @@
 		"TARGET_TYPE": "area"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"COOLDOWN": 8,
 		"DAMAGE": 7,
 		"DESC": "The last bloom of the season opens in full glory and withers all it touches.",
@@ -554,6 +595,7 @@
 		"TARGET_TYPE": "area"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE_LINES": [
 			{
 				"damage": 4,
@@ -571,6 +613,7 @@
 		"RANGE": 3
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"COOLDOWN": 5,
 		"DAMAGE": 0,
 		"DESC": "Applies petrification to enemies in a 3-cell radius.",
@@ -583,6 +626,7 @@
 		"TARGET_TYPE": "area"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 2,
 		"DESC": "Removes petrification and heals allies in a 3-cell radius.",
 		"ELEMENT": "light",
@@ -595,6 +639,7 @@
 		"TARGET_TYPE": "area"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"AREA_SHAPE": "cross",
 		"DAMAGE": 4,
 		"DESC": "A cross-shaped burst of holy energy.",
@@ -606,6 +651,7 @@
 		"TARGET_TYPE": "area"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"AREA_SHAPE": "cross",
 		"DAMAGE": 4,
 		"DESC": "A cross-shaped pillar of smoke and fire that inflicts burn.",
@@ -618,6 +664,7 @@
 		"TARGET_TYPE": "area"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 3,
 		"DESC": "A sharp, quick beak attack infused with wind.",
 		"ELEMENT": "wind",
@@ -626,6 +673,7 @@
 		"RANGE": 1
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE_LINES": [
 			{
 				"damage": 3,
@@ -642,6 +690,7 @@
 		"RANGE": 4
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 5,
 		"DESC": "Conjures a violent, localized windstorm to batter enemies.",
 		"ELEMENT": "wind",
@@ -652,6 +701,7 @@
 		"TARGET_TYPE": "area"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"AOE_TARGETS": "allies",
 		"DAMAGE": 0,
 		"DESC": "Coats nearby allies in a resilient layer of gel, increasing their defense.",
@@ -669,6 +719,7 @@
 		"TARGET_TYPE": "self"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 3,
 		"DESC": "Lobs a chunk of dark, toxic slime that poisons enemies in a small area.",
 		"ELEMENT": "darkness",
@@ -680,6 +731,7 @@
 		"TARGET_TYPE": "area"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"DESC": "A potent single-target ally buff/heal. Heals target for 4 HP and grants +1 ATK for 3 turns.",
 		"EFFECTS": [
@@ -698,6 +750,7 @@
 		"TARGET_TYPE": "single"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 2,
 		"DESC": "Inspired by the curse of Erysichthon. Single target ranged attack that inflicts poison.",
 		"ELEMENT": "wood",
@@ -708,6 +761,7 @@
 		"TARGET_TYPE": "single"
 	},
 	{
+		"CAN_TARGET_EMPTY": false,
 		"DAMAGE": 0,
 		"DESC": "Heals the target but permanently reduces their speed.",
 		"EFFECTS": [
@@ -726,6 +780,7 @@
 		"TARGET_TYPE": "single"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 2,
 		"DESC": "Strikes the target with lightning from a long range.",
 		"ELEMENT": "thunder",
@@ -735,6 +790,7 @@
 		"TARGET_TYPE": "single"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"COOLDOWN": 8,
 		"DAMAGE": 0,
 		"DESC": "Reverts the damage dealt by the target on their last turn. Cooldown: 8 turns.",
@@ -746,6 +802,7 @@
 		"TARGET_TYPE": "single"
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 0,
 		"ELEMENT": "none",
 		"MAX_HEIGHT_DELTA": 1,
@@ -754,6 +811,7 @@
 		"RANGE": 0
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 0,
 		"ELEMENT": "none",
 		"MAX_HEIGHT_DELTA": 1,
@@ -762,6 +820,7 @@
 		"RANGE": 0
 	},
 	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 0,
 		"ELEMENT": "none",
 		"MAX_HEIGHT_DELTA": 1,

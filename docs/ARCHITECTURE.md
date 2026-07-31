@@ -76,8 +76,8 @@ player state, hides battle controls, and restores the setup overlay over the sky
 
 CPU brains, replay, and the simulator exchange typed `BattleCommand` values;
 validation and execution return `BattleCommandResult`. Commands expose
-`move_path`, `action`, `target_id`, `spell_set_index`, `spell_index`, and
-`order`. Explicit `to_dictionary()` / `from_dictionary()` adapters keep dynamic
+`move_path`, `action`, canonical `target_pos`, derived `target_id`,
+`spell_set_index`, `spell_index`, and `order`. Explicit `to_dictionary()` / `from_dictionary()` adapters keep dynamic
 keys at command-history and replay serialization edges rather than in the
 public orchestration API. Resolver-specific action details remain a dictionary
 inside the typed result because their shape legitimately varies by action.
@@ -190,13 +190,15 @@ tile metadata. `BattlePresentationController` raycasts the combined tile/unit
 pick layers, so a mouse selection resolves the visible terrain surface rather
 than an artificial `y = 0` plane.
 
-Target selection is limited to occupied legal targets because battle commands
-still identify their center with `target_id`. Legal centers use yellow markers
-and a yellow cursor. The selected spell footprint is derived from
-`CombatResolver.getSpellAffectedPositionsFrom()`, the same shape query used by
-resolution and AI scoring, and is overlaid red for harmful spells or green for
-beneficial spells. Empty-tile spell centers remain a separate command-contract
-change.
+The simulation command contract identifies action centers with `target_pos`;
+`target_id` is only the occupant derived when validation executes. Basic attacks
+can therefore resolve against adjacent empty tiles, and every non-self spell can
+query tile centers. `CAN_TARGET_EMPTY` controls confirmation on an empty center
+without controlling whether presentation displays that center. The current
+player controller still limits selection to occupied targets until POS-3 moves
+its cursor and overlays to coordinates. Spell footprints already come from
+`CombatResolver.getSpellAffectedPositionsFrom()`, shared by resolution, AI, and
+presentation.
 
 `BattleCursorController` owns discrete grid intent for AI turns, movement
 destinations, player selection, and targeting. Player ownership blocks older AI
@@ -264,9 +266,10 @@ reaches a player-controlled unit while playback is behind, the turn is held in
   IDs, board layers, rosters, effects, history, and monsters.
 - `BattleSimulator.createReplaySnapshot()` includes setup, initial/current state,
   pending turn order, brain classes, and the controller-neutral command ledger.
-- Replay snapshots are version 4, which added the command `order` field.
-  Version 3 and 2 snapshots still load, defaulting `order` to `move_first` —
-  they predate act-first turns, so every recorded turn was move-first anyway.
+- Replay snapshots are version 5, which makes command `target_pos` canonical.
+  Versions 2-4 derive it from the recorded `target_id` immediately before each
+  legacy command executes; version 4 introduced `order`, while versions 2-3
+  still default it to `move_first`.
 - `BattleReplayRunner` reconstructs a battle from setup and replays recorded CPU
   and player commands through normal validation/execution.
 - `restoreReplaySnapshot()` restores current state and rebuilds resolvers,

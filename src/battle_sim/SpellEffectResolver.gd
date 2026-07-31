@@ -18,7 +18,12 @@ func _init(_state: BattleState, _events: BattleEvents) -> void:
 	events = _events
 
 
-func applySpellEffects(casterID: int, targetID: int, spell: Spell, passiveSkillResolver) -> Dictionary:
+func applySpellEffects(
+		casterID: int,
+		targetID: int,
+		spell: Spell,
+		passiveSkillResolver,
+		centerPos: Vector2i) -> Dictionary:
 	## Applies one spell to one target. Returns {"defeated": bool, "damageDealt": bool}.
 	## damageDealt tells the caller whether to consume this target's "guard"; the
 	## caller consumes the caster's "focus" once after every target is resolved,
@@ -37,7 +42,9 @@ func applySpellEffects(casterID: int, targetID: int, spell: Spell, passiveSkillR
 	if spell.heals:
 		var healAmount = calculateHeal(caster, spell)
 		var actualHeal = target.heal(healAmount)
-		events.monster_healed.emit(casterID, targetID, spell.name, actualHeal, target.hitpoints)
+		events.monster_healed.emit(
+			casterID, centerPos, targetID, spell.name, actualHeal, target.hitpoints
+		)
 	elif spell.reverts_damage:
 		var targetDamageHistory = state.get_events_for_actor_since_last_turn(targetID, "damage")
 		for entry in targetDamageHistory:
@@ -46,7 +53,9 @@ func applySpellEffects(casterID: int, targetID: int, spell: Spell, passiveSkillR
 			var victim = state.getMonster(victimID)
 			if victim != null and victim.is_alive():
 				var actualHeal = victim.heal(dmgAmount)
-				events.monster_healed.emit(casterID, victimID, spell.name, actualHeal, victim.hitpoints)
+				events.monster_healed.emit(
+				casterID, centerPos, victimID, spell.name, actualHeal, victim.hitpoints
+			)
 	else:
 		var actualDamageLines = []
 		var shouldDecayResonance = false
@@ -84,7 +93,9 @@ func applySpellEffects(casterID: int, targetID: int, spell: Spell, passiveSkillR
 		damageDealt = not actualDamageLines.is_empty()
 		if shouldDecayResonance:
 			_decayResonance(targetID)
-		events.monster_cast_spell.emit(casterID, targetID, spell.name, actualDamageLines, target.hitpoints)
+		events.monster_cast_spell.emit(
+			casterID, centerPos, targetID, spell.name, actualDamageLines, target.hitpoints
+		)
 
 	## Every payload below is independent of the heal/revert/damage branch above:
 	## a healing spell can still inflict a status or grant a buff (e.g. Timeoff).

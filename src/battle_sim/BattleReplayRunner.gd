@@ -45,6 +45,8 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 
 		var data: Dictionary = entry.get("data", {})
 		var command = BattleCommand.from_dictionary(data.get("command", {}))
+		if version < 5:
+			command.target_pos = _legacyTargetPosition(simulator, actorID, command)
 		var result = simulator.executeCommand(
 			actorID, command, data.get("source", "replay")
 		)
@@ -58,3 +60,18 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 		simulator.turnManager.endTurn(actorID)
 
 	return {"success": true, "simulator": simulator}
+
+static func _legacyTargetPosition(
+		simulator,
+		actorID: int,
+		command: BattleCommand) -> Vector2i:
+	## Versions 2-4 identified action centers by occupant. Resolve that occupant
+	## immediately before executing each command, after all prior replay movement.
+	if command.action == "wait":
+		return Vector2i(-1, -1)
+	if command.target_id == actorID:
+		return simulator.state.getMonsterPosition(actorID)
+	var target = simulator.state.getMonster(command.target_id)
+	if target == null:
+		return Vector2i(-1, -1)
+	return simulator.state.getMonsterPosition(command.target_id)

@@ -8,9 +8,9 @@ class_name BattleSimulator
 const ORDER_MOVE_FIRST := "move_first"
 const ORDER_ACT_FIRST := "act_first"
 
-## Replay snapshots gained the `order` field at version 4. Version 3 snapshots
-## predate act-first turns and load with ORDER_MOVE_FIRST.
-const REPLAY_VERSION := 4
+## Replay version 5 makes target_pos canonical. Versions 2-4 derive it from
+## target_id immediately before each legacy command executes.
+const REPLAY_VERSION := 5
 const REPLAY_MIN_VERSION := 2
 
 const CombatResolverScript = preload("res://src/battle_sim/CombatResolver.gd")
@@ -128,35 +128,37 @@ func validateCommand(monsterID: int, command: BattleCommand) -> BattleCommandRes
 	var action: String = command.action
 	if action not in ["wait", "attack", "spell"]:
 		return BattleCommandResult.rejected("invalid_action")
-	var targetID: int = command.target_id
+	var targetPos: Vector2i = command.target_pos
 	var spellSetIndex: int = command.spell_set_index
 	var spellIndex: int = command.spell_index
-
 	var order: String = command.order
 	if order not in [ORDER_MOVE_FIRST, ORDER_ACT_FIRST]:
 		return BattleCommandResult.rejected("invalid_order")
-	# An act-first turn resolves its action before the actor leaves the tile it
-	# started on, so range, line of sight, and elevation must be checked from
-	# there. Validating it from the destination would accept attacks the actor
-	# was never in a position to make.
 	var actionPos: Vector2i = (
 		state.getMonsterPosition(monsterID) if order == ORDER_ACT_FIRST else futurePos
 	)
 
 	if action == "attack":
-		if not combatResolver.getBasicAttackTargetsFrom(monsterID, actionPos).has(targetID):
+		if not combatResolver.canBasicAttackPositionFrom(monsterID, actionPos, targetPos):
 			return BattleCommandResult.rejected("invalid_attack_target")
 	elif action == "spell":
 		if spellSetIndex < 0 or spellIndex < 0:
 			return BattleCommandResult.rejected("invalid_spell")
-		var targets = combatResolver.getSpellTargetsFrom(
-			monsterID, spellSetIndex, spellIndex, actionPos
-		)
-		if not targets.has(targetID):
+		if not combatResolver.canSpellTargetPositionFrom(
+				monsterID, spellSetIndex, spellIndex, actionPos, targetPos):
 			return BattleCommandResult.rejected("invalid_spell_target")
 
+	var targetID = _targetIDAtActionCenter(
+		monsterID, action, spellSetIndex, spellIndex, targetPos
+	)
 	return BattleCommandResult.accepted(BattleCommand.new(
-		normalizedPath, action, targetID, spellSetIndex, spellIndex, order
+		normalizedPath,
+		action,
+		targetID,
+		spellSetIndex,
+		spellIndex,
+		order,
+		targetPos
 	))
 
 ## --- Incremental turn execution -------------------------------------------
@@ -178,6 +180,7 @@ func _ensureTurnAccumulator(monsterID: int, source: String) -> Dictionary:
 			"has_acted": false,
 			"action": "wait",
 			"target_id": -1,
+			"target_pos": Vector2i(-1, -1),
 			"spell_set_index": 0,
 			"spell_index": 0,
 			"order": ORDER_MOVE_FIRST,
@@ -291,7 +294,7 @@ func undoMovePhase(monsterID: int) -> Dictionary:
 func executeActionPhase(
 		monsterID: int,
 		action: String,
-		targetID: int = -1,
+		targetPos: Vector2i = Vector2i(-1, -1),
 		spellSetIndex: int = 0,
 		spellIndex: int = 0,
 		source: String = "player") -> Dictionary:
@@ -304,29 +307,28 @@ func executeActionPhase(
 	var accumulator = _ensureTurnAccumulator(monsterID, source)
 	if accumulator["has_acted"]:
 		return _rejectPhase(monsterID, source, "action_already_spent")
-
-	# The actor is standing where it is; validation reads authoritative state
-	# rather than projecting a destination the way the atomic path has to.
 	var fromPos = state.getMonsterPosition(monsterID)
 	if action == "attack":
-		if not combatResolver.getBasicAttackTargetsFrom(monsterID, fromPos).has(targetID):
+		if not combatResolver.canBasicAttackPositionFrom(monsterID, fromPos, targetPos):
 			return _rejectPhase(monsterID, source, "invalid_attack_target")
 	elif action == "spell":
 		if spellSetIndex < 0 or spellIndex < 0:
 			return _rejectPhase(monsterID, source, "invalid_spell")
-		if not combatResolver.getSpellTargetsFrom(
-			monsterID, spellSetIndex, spellIndex, fromPos
-		).has(targetID):
+		if not combatResolver.canSpellTargetPositionFrom(
+				monsterID, spellSetIndex, spellIndex, fromPos, targetPos):
 			return _rejectPhase(monsterID, source, "invalid_spell_target")
 
+	var targetID = _targetIDAtActionCenter(
+		monsterID, action, spellSetIndex, spellIndex, targetPos
+	)
 	var actionResult: Dictionary = {"success": true}
 	if action in ["attack", "spell"]:
-		events.action_targeted.emit(monsterID, targetID, action)
+		events.action_targeted.emit(monsterID, targetPos, targetID, action)
 	if action == "attack":
-		actionResult = combatResolver.executeBasicAttack(monsterID, targetID)
+		actionResult = combatResolver.executeBasicAttack(monsterID, targetPos)
 	elif action == "spell":
 		actionResult = combatResolver.executeCastSpell(
-			monsterID, targetID, spellSetIndex, spellIndex
+			monsterID, targetPos, spellSetIndex, spellIndex
 		)
 
 	if not accumulator["has_moved"]:
@@ -334,12 +336,12 @@ func executeActionPhase(
 	accumulator["has_acted"] = true
 	accumulator["action"] = action
 	accumulator["target_id"] = targetID
+	accumulator["target_pos"] = targetPos
 	accumulator["spell_set_index"] = spellSetIndex
 	accumulator["spell_index"] = spellIndex
 	accumulator["action_result"] = actionResult
 	accumulator["acted"] = accumulator["acted"] or actionResult.get("success", false)
 	return {"success": true, "actionResult": actionResult}
-
 
 func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResult:
 	## Closes the turn: writes the single aggregate command event and fires the
@@ -351,7 +353,8 @@ func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResul
 		accumulator["target_id"],
 		accumulator["spell_set_index"],
 		accumulator["spell_index"],
-		accumulator["order"]
+		accumulator["order"],
+		accumulator["target_pos"]
 	)
 	state.add_event("command", monsterID, normalized.target_id, {
 		"source": accumulator["source"],
@@ -388,6 +391,28 @@ func _normalizePath(path):
 	return normalizedPath
 
 
+func _targetIDAtActionCenter(
+		monsterID: int,
+		action: String,
+		spellSetIndex: int,
+		spellIndex: int,
+		targetPos: Vector2i) -> int:
+	if action == "spell":
+		var monster = state.getMonster(monsterID)
+		if (
+			monster != null
+			and spellSetIndex >= 0
+			and spellSetIndex < monster.spellSets.size()
+			and spellIndex >= 0
+			and spellIndex < monster.spellSets[spellSetIndex].size()
+			and monster.spellSets[spellSetIndex][spellIndex].targetType == "self"
+		):
+			return monsterID
+	if state.withinBounds(targetPos):
+		var occupantID = state.board.at(targetPos)
+		return -1 if occupantID == 0 else occupantID
+	return -1
+
 func executeCommand(
 		monsterID: int,
 		command: BattleCommand,
@@ -421,7 +446,7 @@ func executeCommand(
 		executeActionPhase(
 			monsterID,
 			action,
-			normalized.target_id,
+			normalized.target_pos,
 			normalized.spell_set_index,
 			normalized.spell_index,
 			source
@@ -432,7 +457,7 @@ func executeCommand(
 		executeActionPhase(
 			monsterID,
 			action,
-			normalized.target_id,
+			normalized.target_pos,
 			normalized.spell_set_index,
 			normalized.spell_index,
 			source

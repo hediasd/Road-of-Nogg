@@ -27,57 +27,67 @@ func getBasicAttackTargets(monsterID: int) -> Array:
 	return getBasicAttackTargetsFrom(monsterID, state.getMonsterPosition(monsterID))
 
 
-func getBasicAttackTargetsFrom(monsterID: int, fromPos: Vector2i) -> Array:
+func getBasicAttackTargetPositions(monsterID: int) -> Array:
+	return getBasicAttackTargetPositionsFrom(
+		monsterID, state.getMonsterPosition(monsterID)
+	)
+
+
+func getBasicAttackTargetPositionsFrom(monsterID: int, fromPos: Vector2i) -> Array:
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
 		return []
-
-	var targets = []
+	var positions: Array = []
 	for direction in DIRECTIONS:
-		var neighbor = fromPos + direction
-		if not state.withinBounds(neighbor):
-			continue
-		var targetMon = state.getMonsterAt(neighbor)
-		if (
-			targetMon != null
-			and targetMon.team != mon.team
-			and targetMon.is_alive()
-			and state.getHeightDifference(fromPos, neighbor) <= 1
-		):
-			targets.append(targetMon.uniqueID)
+		var targetPos = fromPos + direction
+		if canBasicAttackPositionFrom(monsterID, fromPos, targetPos):
+			positions.append(targetPos)
+	return positions
+
+
+func getBasicAttackTargetsFrom(monsterID: int, fromPos: Vector2i) -> Array:
+	## Compatibility query for occupied-target presentation code. The canonical
+	## command/evaluator query is getBasicAttackTargetPositionsFrom().
+	var targets: Array = []
+	for targetPos in getBasicAttackTargetPositionsFrom(monsterID, fromPos):
+		var targetID = state.board.at(targetPos)
+		if targetID != 0:
+			targets.append(targetID)
 	return targets
 
 
-func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
-	## Executes a basic melee attack. Returns result dict.
+func executeBasicAttack(attackerID: int, targetPos: Vector2i) -> Dictionary:
 	var attacker = state.getMonster(attackerID)
-	var target = state.getMonster(targetID)
-
-	if attacker == null or target == null:
-		return { "success": false, "reason": "invalid_monster" }
-	if not attacker.is_alive() or not target.is_alive():
-		return { "success": false, "reason": "dead_monster" }
-	if attacker.team == target.team:
-		return { "success": false, "reason": "invalid_target" }
-
-	# Validate range (must be adjacent)
+	if attacker == null or not attacker.is_alive():
+		return {"success": false, "reason": "invalid_monster"}
 	var attackerPos = state.getMonsterPosition(attackerID)
-	var targetPos = state.getMonsterPosition(targetID)
-	var distance = abs(attackerPos.x - targetPos.x) + abs(attackerPos.y - targetPos.y)
+	if not canBasicAttackPositionFrom(attackerID, attackerPos, targetPos):
+		return {"success": false, "reason": "invalid_target"}
 
-	if distance > 1:
-		return { "success": false, "reason": "out_of_range" }
-	if state.getHeightDifference(attackerPos, targetPos) > 1:
-		return { "success": false, "reason": "height_out_of_range" }
+	var targetID = state.board.at(targetPos)
+	if targetID == 0:
+		state.add_event("attack_miss", attackerID, -1, {"target_pos": targetPos})
+		events.monster_attacked.emit(attackerID, targetPos, -1, 0, 0)
+		return {
+			"success": true,
+			"damage": 0,
+			"targetHP": 0,
+			"defeated": false,
+			"target_id": -1,
+			"target_pos": targetPos
+		}
+
+	var target = state.getMonster(targetID)
+	if target == null or not target.is_alive():
+		return {"success": false, "reason": "dead_monster"}
 
 	if passiveSkillResolver != null:
 		passiveSkillResolver.fireOnTargeted(targetID, attackerID)
 		if not attacker.is_alive():
-			return { "success": false, "reason": "attacker_died_to_passive" }
+			return {"success": false, "reason": "attacker_died_to_passive"}
 		if not target.is_alive():
-			return { "success": true, "damage": 0, "targetHP": 0, "defeated": true }
+			return {"success": true, "damage": 0, "targetHP": 0, "defeated": true}
 
-	# Calculate and apply damage
 	var damage = calculateBasicDamage(attacker, target)
 	var actualDamage = target.take_damage(damage)
 	if actualDamage > 0:
@@ -86,23 +96,25 @@ func executeBasicAttack(attackerID: int, targetID: int) -> Dictionary:
 	state.add_event("damage", attackerID, targetID, {
 		"damage": actualDamage,
 		"type": "physical",
+		"target_pos": targetPos,
 		"elevation_percent": getElevationPercent(attackerID, targetID)
 	})
 	
-	events.monster_attacked.emit(attackerID, targetID, actualDamage, target.hitpoints)
+	events.monster_attacked.emit(
+		attackerID, targetPos, targetID, actualDamage, target.hitpoints
+	)
 
 	var result = {
 		"success": true,
 		"damage": actualDamage,
 		"targetHP": target.hitpoints,
-		"defeated": not target.is_alive()
+		"defeated": not target.is_alive(),
+		"target_id": targetID,
+		"target_pos": targetPos
 	}
-
 	if not target.is_alive():
 		_handleDefeat(targetID, attackerID)
-
 	return result
-
 
 func calculateBasicDamage(
 	attacker: Monster,
@@ -135,18 +147,30 @@ func calculateBasicDamage(
 
 func getSpellTargets(monsterID: int, spellSetIndex: int, spellIndex: int) -> Array:
 	return getSpellTargetsFrom(
-		monsterID,
-		spellSetIndex,
-		spellIndex,
-		state.getMonsterPosition(monsterID)
+		monsterID, spellSetIndex, spellIndex, state.getMonsterPosition(monsterID)
 	)
 
 
-func getSpellTargetsFrom(
+func getSpellTargetPositions(
 		monsterID: int,
 		spellSetIndex: int,
 		spellIndex: int,
-		fromPos: Vector2i) -> Array:
+		includeUncastableEmpty: bool = false) -> Array:
+	return getSpellTargetPositionsFrom(
+		monsterID,
+		spellSetIndex,
+		spellIndex,
+		state.getMonsterPosition(monsterID),
+		includeUncastableEmpty
+	)
+
+
+func getSpellTargetPositionsFrom(
+		monsterID: int,
+		spellSetIndex: int,
+		spellIndex: int,
+		fromPos: Vector2i,
+		includeUncastableEmpty: bool = false) -> Array:
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
 		return []
@@ -154,37 +178,53 @@ func getSpellTargetsFrom(
 		return []
 	if spellIndex < 0 or spellIndex >= mon.spellSets[spellSetIndex].size():
 		return []
-
 	var spell = mon.spellSets[spellSetIndex][spellIndex]
 	if not mon.can_cast(spell):
 		return []
 	if spell.targetType == "self":
-		return [monsterID]
+		return [fromPos]
 
-	var targets = []
-	for candidateID in state.monsters:
-		var candidate = state.monsters[candidateID]
-		if not candidate.is_alive():
-			continue
+	var positions: Array = []
+	for y in range(state.boardSize.y):
+		for x in range(state.boardSize.x):
+			var targetPos = Vector2i(x, y)
+			if canSpellTargetPositionFrom(
+					monsterID,
+					spellSetIndex,
+					spellIndex,
+					fromPos,
+					targetPos,
+					includeUncastableEmpty):
+				positions.append(targetPos)
+	return positions
 
-		var isAlly = candidate.team == mon.team
-		if spell.heals and not isAlly:
-			continue
-		if not spell.heals and isAlly:
-			continue
 
-		var candidatePos = state.getMonsterPosition(candidateID)
-		var distance = abs(fromPos.x - candidatePos.x) + abs(fromPos.y - candidatePos.y)
-		if distance < spell.min_range or distance > spell.range:
-			continue
-		if state.getHeightDifference(fromPos, candidatePos) > spell.max_height_delta:
-			continue
-		if not spell.bypass_los and not _hasLoS(monsterID, fromPos, candidatePos, candidateID):
-			continue
-		targets.append(candidateID)
-
+func getSpellTargetsFrom(
+		monsterID: int,
+		spellSetIndex: int,
+		spellIndex: int,
+		fromPos: Vector2i) -> Array:
+	## Compatibility query for occupied-target presentation code. POS-3 moves
+	## presentation to getSpellTargetPositionsFrom(..., true).
+	var mon = state.getMonster(monsterID)
+	if (
+		mon != null
+		and spellSetIndex >= 0
+		and spellSetIndex < mon.spellSets.size()
+		and spellIndex >= 0
+		and spellIndex < mon.spellSets[spellSetIndex].size()
+		and mon.spellSets[spellSetIndex][spellIndex].targetType == "self"
+	):
+		return [monsterID] if canSpellTargetPositionFrom(
+			monsterID, spellSetIndex, spellIndex, fromPos, fromPos
+		) else []
+	var targets: Array = []
+	for targetPos in getSpellTargetPositionsFrom(
+			monsterID, spellSetIndex, spellIndex, fromPos):
+		var targetID = state.board.at(targetPos)
+		if targetID != 0:
+			targets.append(targetID)
 	return targets
-
 
 func _hasLoS(casterID: int, fromPos: Vector2i, toPos: Vector2i, targetID: int) -> bool:
 	var sourceEye = float(state.getHeight(fromPos)) + 1.0
@@ -206,12 +246,19 @@ func _hasLoS(casterID: int, fromPos: Vector2i, toPos: Vector2i, targetID: int) -
 			return blockerTop
 	)
 
-func canBasicAttackPositionFrom(monsterID: int, fromPos: Vector2i, targetPos: Vector2i) -> bool:
-	return (
-		state.withinBounds(targetPos)
-		and abs(fromPos.x - targetPos.x) + abs(fromPos.y - targetPos.y) == 1
-		and state.getHeightDifference(fromPos, targetPos) <= 1
-	)
+func canBasicAttackPositionFrom(
+		monsterID: int,
+		fromPos: Vector2i,
+		targetPos: Vector2i) -> bool:
+	var attacker = state.getMonster(monsterID)
+	if attacker == null or not attacker.is_alive() or not state.withinBounds(targetPos):
+		return false
+	if abs(fromPos.x - targetPos.x) + abs(fromPos.y - targetPos.y) != 1:
+		return false
+	if state.getHeightDifference(fromPos, targetPos) > 1:
+		return false
+	var occupant = state.getMonsterAt(targetPos)
+	return occupant == null or (occupant.is_alive() and occupant.team != attacker.team)
 
 
 func canSpellReachPositionFrom(
@@ -221,13 +268,21 @@ func canSpellReachPositionFrom(
 		fromPos: Vector2i,
 		targetPos: Vector2i) -> bool:
 	var mon = state.getMonster(monsterID)
-	if mon == null or spellSetIndex < 0 or spellSetIndex >= mon.spellSets.size():
+	if (
+		mon == null
+		or not mon.is_alive()
+		or not state.withinBounds(targetPos)
+		or spellSetIndex < 0
+		or spellSetIndex >= mon.spellSets.size()
+	):
 		return false
 	if spellIndex < 0 or spellIndex >= mon.spellSets[spellSetIndex].size():
 		return false
 	var spell = mon.spellSets[spellSetIndex][spellIndex]
 	if not mon.can_cast(spell):
 		return false
+	if spell.targetType == "self":
+		return targetPos == fromPos
 	var distance = abs(fromPos.x - targetPos.x) + abs(fromPos.y - targetPos.y)
 	if distance < spell.min_range or distance > spell.range:
 		return false
@@ -235,19 +290,46 @@ func canSpellReachPositionFrom(
 		return false
 	if spell.bypass_los:
 		return true
-	## Pass the real occupant of targetPos, matching getSpellTargetsFrom(), so a
-	## target's own tile is never treated as its own LoS blocker.
 	var targetOccupantID = state.board.at(targetPos)
 	return _hasLoS(monsterID, fromPos, targetPos, targetOccupantID)
 
+
+func canSpellTargetPositionFrom(
+		monsterID: int,
+		spellSetIndex: int,
+		spellIndex: int,
+		fromPos: Vector2i,
+		targetPos: Vector2i,
+		includeUncastableEmpty: bool = false) -> bool:
+	if not canSpellReachPositionFrom(
+			monsterID, spellSetIndex, spellIndex, fromPos, targetPos):
+		return false
+	var mon = state.getMonster(monsterID)
+	var spell = mon.spellSets[spellSetIndex][spellIndex]
+	if spell.targetType == "self":
+		return targetPos == fromPos
+	var occupant = state.getMonsterAt(targetPos)
+	if occupant == null:
+		return spell.can_target_empty or includeUncastableEmpty
+	if not occupant.is_alive():
+		return false
+	var isAlly = occupant.team == mon.team
+	return (spell.heals and isAlly) or (not spell.heals and not isAlly)
 
 func getSpellAffectedTargetsFrom(
 		casterID: int,
 		spellSetIndex: int,
 		spellIndex: int,
 		fromPos: Vector2i,
-		centerTargetID: int) -> Array:
-	if not getSpellTargetsFrom(casterID, spellSetIndex, spellIndex, fromPos).has(centerTargetID):
+		centerPos: Vector2i,
+		includeUncastableEmpty: bool = false) -> Array:
+	if not canSpellTargetPositionFrom(
+			casterID,
+			spellSetIndex,
+			spellIndex,
+			fromPos,
+			centerPos,
+			includeUncastableEmpty):
 		return []
 	var caster = state.getMonster(casterID)
 	if caster == null:
@@ -255,7 +337,12 @@ func getSpellAffectedTargetsFrom(
 	var spell = caster.spellSets[spellSetIndex][spellIndex]
 	var result: Array = []
 	for pos in getSpellAffectedPositionsFrom(
-			casterID, spellSetIndex, spellIndex, fromPos, centerTargetID):
+			casterID,
+			spellSetIndex,
+			spellIndex,
+			fromPos,
+			centerPos,
+			includeUncastableEmpty):
 		var otherID = state.board.at(pos)
 		if otherID == 0:
 			continue
@@ -265,7 +352,8 @@ func getSpellAffectedTargetsFrom(
 				result.append(otherID)
 			elif spell.aoe_targets == "enemies" and not isAlly:
 				result.append(otherID)
-			elif spell.aoe_targets == "all" or (spell.aoe_targets == "self" and otherID == casterID):
+			elif spell.aoe_targets == "all" or (
+					spell.aoe_targets == "self" and otherID == casterID):
 				result.append(otherID)
 		elif (spell.heals and isAlly) or (not spell.heals and not isAlly):
 			result.append(otherID)
@@ -277,20 +365,24 @@ func getSpellAffectedPositionsFrom(
 		spellSetIndex: int,
 		spellIndex: int,
 		fromPos: Vector2i,
-		centerTargetID: int) -> Array:
-	## Read-only shape query shared by resolution, AI scoring, and presentation
-	## previews. The center remains an occupied legal target by command contract.
-	if not getSpellTargetsFrom(casterID, spellSetIndex, spellIndex, fromPos).has(centerTargetID):
+		centerPos: Vector2i,
+		includeUncastableEmpty: bool = false) -> Array:
+	## Read-only shape query shared by resolution, AI scoring, and presentation.
+	## Presentation may request unconfirmable empty centers for preview only.
+	if not canSpellTargetPositionFrom(
+			casterID,
+			spellSetIndex,
+			spellIndex,
+			fromPos,
+			centerPos,
+			includeUncastableEmpty):
 		return []
 	var caster = state.getMonster(casterID)
 	if caster == null:
 		return []
 	var spell = caster.spellSets[spellSetIndex][spellIndex]
-	var centerPos = (
-		state.getMonsterPosition(casterID)
-		if spell.targetType == "self" else
-		state.getMonsterPosition(centerTargetID)
-	)
+	if spell.targetType == "self":
+		centerPos = fromPos
 	var affectedTiles: Array
 	if (spell.targetType == "self" and spell.self_radius <= 0) or (
 			spell.targetType != "area" and spell.self_radius <= 0):
@@ -303,57 +395,49 @@ func getSpellAffectedPositionsFrom(
 			"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, radius)
 	return affectedTiles.filter(func(pos: Vector2i) -> bool: return state.withinBounds(pos))
 
-func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellIndex: int) -> Dictionary:
-	## Casts a spell. Routes to heal or damage logic based on spell.heals. Supports AOE.
-	var caster = state.getMonster(casterID)
-	var centerTarget = state.getMonster(targetID)
 
-	if caster == null or centerTarget == null:
-		return { "success": false, "reason": "invalid_monster" }
-	if not caster.is_alive() or not centerTarget.is_alive():
-		return { "success": false, "reason": "dead_monster" }
+func executeCastSpell(
+		casterID: int,
+		centerPos: Vector2i,
+		spellSetIndex: int,
+		spellIndex: int) -> Dictionary:
+	var caster = state.getMonster(casterID)
+	if caster == null or not caster.is_alive():
+		return {"success": false, "reason": "invalid_monster"}
 	if spellSetIndex < 0 or spellSetIndex >= caster.spellSets.size():
-		return { "success": false, "reason": "invalid_spell_set" }
+		return {"success": false, "reason": "invalid_spell_set"}
 	if spellIndex < 0 or spellIndex >= caster.spellSets[spellSetIndex].size():
-		return { "success": false, "reason": "invalid_spell" }
+		return {"success": false, "reason": "invalid_spell"}
 
 	var spell = caster.spellSets[spellSetIndex][spellIndex]
 	if not caster.can_cast(spell):
-		return { "success": false, "reason": "unavailable_spell" }
-	if not getSpellTargets(casterID, spellSetIndex, spellIndex).has(targetID):
-		return { "success": false, "reason": "invalid_target" }
-
-	# Validate range to center
+		return {"success": false, "reason": "unavailable_spell"}
 	var casterPos = state.getMonsterPosition(casterID)
-	var centerPos = state.getMonsterPosition(targetID)
-	var distance = abs(casterPos.x - centerPos.x) + abs(casterPos.y - centerPos.y)
+	if not canSpellTargetPositionFrom(
+			casterID, spellSetIndex, spellIndex, casterPos, centerPos):
+		return {"success": false, "reason": "invalid_target"}
 
-	if distance < spell.min_range or distance > spell.range:
-		return { "success": false, "reason": "out_of_range" }
-
+	var targetID = state.board.at(centerPos)
+	if spell.targetType == "self":
+		targetID = casterID
 	var actualTargets = getSpellAffectedTargetsFrom(
-		casterID, spellSetIndex, spellIndex, casterPos, targetID
+		casterID, spellSetIndex, spellIndex, casterPos, centerPos
 	)
-	if actualTargets.is_empty():
-		return { "success": false, "reason": "no_valid_targets" }
+	events.spell_cast_started.emit(
+		casterID, centerPos, spell.name, spell.element, actualTargets.size()
+	)
 
 	if passiveSkillResolver != null:
-		# Fire targeted for all valid targets (some could die, attacker could die)
-		for tID in actualTargets:
-			var t = state.getMonster(tID)
-			if t != null and t.is_alive():
-				passiveSkillResolver.fireOnTargeted(tID, casterID)
-		
+		for affectedID in actualTargets:
+			var target = state.getMonster(affectedID)
+			if target != null and target.is_alive():
+				passiveSkillResolver.fireOnTargeted(affectedID, casterID)
 		if not caster.is_alive():
-			return { "success": false, "reason": "caster_died_to_passive" }
+			return {"success": false, "reason": "caster_died_to_passive"}
 
-	## "focus" (caster) is consumed once for the whole cast, regardless of how
-	## many targets an AOE hits. "guard" (defender) is consumed once per target
-	## that actually took damage. Consuming both per-target would let a single
-	## AOE cast strip the caster's focus once per affected target.
 	var casterDealtDamage = false
-	for tID in actualTargets:
-		if _applySpellEffects(casterID, tID, spell):
+	for affectedID in actualTargets:
+		if _applySpellEffects(casterID, affectedID, spell, centerPos):
 			casterDealtDamage = true
 	if casterDealtDamage:
 		spellEffectResolver.consumeCasterDamageEffects(casterID)
@@ -361,6 +445,11 @@ func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellInd
 	var resonanceElement = spell.resonance_element
 	var oldCharge = caster.get_resonance(resonanceElement)
 	caster.record_cast(spell)
+	state.add_event("spell_cast", casterID, targetID, {
+		"spell": spell.name,
+		"target_pos": centerPos,
+		"targets_hit": actualTargets.size()
+	})
 	var newCharge = caster.get_resonance(resonanceElement)
 	if newCharge != oldCharge:
 		var reason = "ascension_cast" if spell.sequence_level == 4 else "sequence_advanced"
@@ -372,13 +461,24 @@ func executeCastSpell(casterID: int, targetID: int, spellSetIndex: int, spellInd
 			casterID, resonanceElement, oldCharge, newCharge, reason
 		)
 
-	return { "success": true, "targetsHit": actualTargets.size(), "spellName": spell.name }
+	return {
+		"success": true,
+		"targetsHit": actualTargets.size(),
+		"spellName": spell.name,
+		"target_id": targetID,
+		"target_pos": centerPos
+	}
 
-
-func _applySpellEffects(casterID: int, targetID: int, spell: Spell) -> bool:
+func _applySpellEffects(
+		casterID: int,
+		targetID: int,
+		spell: Spell,
+		centerPos: Vector2i) -> bool:
 	## Returns true when this target actually took damage, so the caller can
 	## decide whether the caster's "focus" effect should be consumed.
-	var result = spellEffectResolver.applySpellEffects(casterID, targetID, spell, passiveSkillResolver)
+	var result = spellEffectResolver.applySpellEffects(
+		casterID, targetID, spell, passiveSkillResolver, centerPos
+	)
 	if result["damageDealt"]:
 		spellEffectResolver.consumeTargetDamageEffects(targetID)
 	if result["defeated"]:

@@ -22,9 +22,13 @@ before the JSON migration. Authored values are coerced at the catalog boundary:
 | Group | Keys |
 |---|---|
 | Integers | `RADIUS`, `MIN_RANGE`, `RANGE`, `MAX_HEIGHT_DELTA`, `DAMAGE`, `BUFFS_ATK`, `BUFF_DURATION`, `COOLDOWN`, `SEQUENCE_LEVEL`, `SELF_RADIUS`, `HEAL_AMOUNT` |
-| Booleans | `HEALS`, `BYPASS_LOS`, `REVERTS_DAMAGE` |
+| Booleans | `HEALS`, `CAN_TARGET_EMPTY`, `BYPASS_LOS`, `REVERTS_DAMAGE` |
 | Strings | `ELEMENT`, `TARGET_TYPE`, `AREA_SHAPE`, `INFLICTS_STATUS`, `REMOVES_STATUS`, `RESONANCE_ELEMENT`, `AOE_TARGETS`, `DESC` |
 
+`CAN_TARGET_EMPTY` is explicit on every spell. For non-self spells it controls
+whether an empty reachable center is legally confirmable. It does not remove
+that center from the player targeting display. Self and healing spells are
+currently `false`; offensive non-self spells are `true`.
 ## Collection fields
 
 - `DAMAGE_LINES` is optional. When present it is an array of objects with

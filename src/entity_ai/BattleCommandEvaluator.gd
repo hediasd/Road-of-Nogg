@@ -84,8 +84,13 @@ func _candidate(
 		threat: Dictionary,
 		weights: Dictionary,
 		enemyPositions: Array[Vector2i]) -> Dictionary:
+	var targetPos = (
+		state.getMonsterPosition(targetID)
+		if targetID >= 0 else
+		Vector2i(-1, -1)
+	)
 	var command = BattleCommand.new(
-		path, action, targetID, spellSetIndex, spellIndex
+		path, action, targetID, spellSetIndex, spellIndex, "move_first", targetPos
 	)
 	var defeats = 0
 	var defeatedValue = 0
@@ -100,7 +105,7 @@ func _candidate(
 	elif action == "spell":
 		var spell = actor.spellSets[spellSetIndex][spellIndex]
 		var affected = combatResolver.getSpellAffectedTargetsFrom(
-			actor.uniqueID, spellSetIndex, spellIndex, destination, targetID
+			actor.uniqueID, spellSetIndex, spellIndex, destination, targetPos
 		)
 		for affectedID in affected:
 			var target = state.getMonster(affectedID)

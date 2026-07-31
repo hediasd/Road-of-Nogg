@@ -25,6 +25,7 @@ func connectToEvents(battleEvents: BattleEvents) -> void:
 	battleEvents.monster_moved.connect(_on_monster_moved)
 	battleEvents.action_targeted.connect(_on_action_targeted)
 	battleEvents.monster_attacked.connect(_on_monster_attacked)
+	battleEvents.spell_cast_started.connect(_on_spell_cast_started)
 	battleEvents.monster_cast_spell.connect(_on_monster_cast_spell)
 	battleEvents.monster_healed.connect(_on_monster_healed)
 	battleEvents.resonance_changed.connect(_on_resonance_changed)
@@ -52,6 +53,7 @@ func disconnectFromEvents() -> void:
 	_disconnect(_connectedEvents.monster_moved, _on_monster_moved)
 	_disconnect(_connectedEvents.action_targeted, _on_action_targeted)
 	_disconnect(_connectedEvents.monster_attacked, _on_monster_attacked)
+	_disconnect(_connectedEvents.spell_cast_started, _on_spell_cast_started)
 	_disconnect(_connectedEvents.monster_cast_spell, _on_monster_cast_spell)
 	_disconnect(_connectedEvents.monster_healed, _on_monster_healed)
 	_disconnect(_connectedEvents.resonance_changed, _on_resonance_changed)
@@ -82,10 +84,11 @@ func _on_turn_ended(_monsterID: int) -> void: pass
 func _on_monster_spawned(_monsterID: int, _name: String, _team: int, _pos: Vector2i, _stats: Dictionary) -> void: pass
 func _on_movement_targeted(_monsterID: int, _destination: Vector2i) -> void: pass
 func _on_monster_moved(_monsterID: int, _path: Array) -> void: pass
-func _on_action_targeted(_monsterID: int, _targetID: int, _action: String) -> void: pass
-func _on_monster_attacked(_attackerID: int, _targetID: int, _damage: int, _targetNewHP: int) -> void: pass
-func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, damageLines: Array, targetNewHP: int) -> void: pass
-func _on_monster_healed(_healerID: int, _targetID: int, _spellName: String, _healAmount: int, _targetNewHP: int) -> void: pass
+func _on_action_targeted(_monsterID: int, _targetPos: Vector2i, _targetID: int, _action: String) -> void: pass
+func _on_monster_attacked(_attackerID: int, _targetPos: Vector2i, _targetID: int, _damage: int, _targetNewHP: int) -> void: pass
+func _on_spell_cast_started(_casterID: int, _centerPos: Vector2i, _spellName: String, _element: String, _targetsHit: int) -> void: pass
+func _on_monster_cast_spell(_casterID: int, _centerPos: Vector2i, _targetID: int, _spellName: String, _damageLines: Array, _targetNewHP: int) -> void: pass
+func _on_monster_healed(_healerID: int, _centerPos: Vector2i, _targetID: int, _spellName: String, _healAmount: int, _targetNewHP: int) -> void: pass
 func _on_resonance_changed(_monsterID: int, _element: String, _oldCharge: int, _newCharge: int, _reason: String) -> void: pass
 func _on_monster_defeated(_monsterID: int, _killerID: int) -> void: pass
 func _on_effect_applied(_monsterID: int, _effectName: String, _duration: int, _sourceMonsterID: int, _sourceSpellName: String) -> void: pass

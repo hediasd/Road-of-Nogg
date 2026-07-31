@@ -510,33 +510,71 @@ func _on_monster_moved(monsterID: int, path: Array) -> void:
 
 
 # The model follows its path visually; the cursor teleports to the destination.
-func _on_action_targeted(monsterID: int, targetID: int, _action: String) -> void:
-	if state.currentMonsterID == monsterID:
-		var targetPos = state.getMonsterPosition(targetID)
-		if state.withinBounds(targetPos):
-			_queue.enqueue({"kind": "focus", "coord": targetPos})
+func _on_action_targeted(
+		monsterID: int,
+		targetPos: Vector2i,
+		_targetID: int,
+		_action: String) -> void:
+	if state.currentMonsterID == monsterID and state.withinBounds(targetPos):
+		_queue.enqueue({"kind": "focus", "coord": targetPos})
 
 
-func _on_monster_attacked(attackerID: int, targetID: int, damage: int, targetNewHP: int) -> void:
+func _on_monster_attacked(
+		attackerID: int,
+		targetPos: Vector2i,
+		targetID: int,
+		damage: int,
+		targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
-	if target:
-		_queue.enqueue({
-			"kind": "bump",
-			"monster_id": attackerID,
-			"target_id": targetID,
-			"coord": state.getMonsterPosition(targetID),
-			"left_monster_id": attackerID,
-			"right_monster_id": targetID,
-			"log_text": "Attacks %s for %s damage! (HP: %s)" % [target.name, damage, targetNewHP]
-		})
+	var action = {
+		"kind": "bump",
+		"monster_id": attackerID,
+		"target_id": targetID,
+		"coord": targetPos,
+		"left_monster_id": attackerID
+	}
+	if target != null:
+		action["right_monster_id"] = targetID
+		action["log_text"] = "Attacks %s for %s damage! (HP: %s)" % [
+			target.name, damage, targetNewHP
+		]
+	else:
+		action["log_text"] = "Attacks %s and misses!" % str(targetPos)
+	_queue.enqueue(action)
 
 
-func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, damageLines: Array, targetNewHP: int) -> void:
+func _on_spell_cast_started(
+		casterID: int,
+		centerPos: Vector2i,
+		spellName: String,
+		element: String,
+		targetsHit: int) -> void:
+	if targetsHit > 0:
+		return
+	_queue.enqueue({
+		"kind": "bump",
+		"monster_id": casterID,
+		"target_id": -1,
+		"coord": centerPos,
+		"element": element,
+		"left_monster_id": casterID,
+		"log_text": "Casts %s at %s; no units are affected." % [
+			spellName, centerPos
+		]
+	})
+
+
+func _on_monster_cast_spell(
+		casterID: int,
+		_centerPos: Vector2i,
+		targetID: int,
+		spellName: String,
+		damageLines: Array,
+		targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
 	var totalDamage = 0
 	for damageLine in damageLines:
 		totalDamage += damageLine.get("damage", 0)
-	# Extract the primary element from the first damage line for VFX tinting.
 	var spellElement := "none"
 	if not damageLines.is_empty():
 		spellElement = str(damageLines[0].get("element", "none"))
@@ -553,7 +591,13 @@ func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, dam
 		})
 
 
-func _on_monster_healed(healerID: int, targetID: int, spellName: String, healAmount: int, targetNewHP: int) -> void:
+func _on_monster_healed(
+		healerID: int,
+		_centerPos: Vector2i,
+		targetID: int,
+		spellName: String,
+		healAmount: int,
+		targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
 	if target:
 		_queue.enqueue({
@@ -563,8 +607,6 @@ func _on_monster_healed(healerID: int, targetID: int, spellName: String, healAmo
 			"right_monster_id": targetID,
 			"log_text": "Casts %s on %s, recovering %s HP! (HP: %s)" % [spellName, target.name, healAmount, targetNewHP]
 		})
-
-
 
 func _focus_cursor_on_coord(targetPos: Vector2i) -> void:
 	if state.withinBounds(targetPos):
@@ -668,18 +710,23 @@ func _spawn_capsule_shatter(container: Node3D, baseMesh: MeshInstance3D) -> void
 func _start_bump_animation(action: Dictionary) -> bool:
 	var sourceID = int(action.get("monster_id", -1))
 	var targetID = int(action.get("target_id", -1))
-	if not _monster_visuals.has(sourceID) or not _monster_visuals.has(targetID):
+	if not _monster_visuals.has(sourceID):
 		return false
 	var sourceVisual: Node3D = _monster_visuals[sourceID]
-	var targetVisual: Node3D = _monster_visuals[targetID]
 	var originalPos = sourceVisual.position
 	action["origin"] = originalPos
-	var targetPos = targetVisual.position
-	var bumpDirection = targetPos - originalPos
+	var targetWorldPos: Vector3
+	if _monster_visuals.has(targetID):
+		targetWorldPos = _monster_visuals[targetID].position
+	else:
+		var targetCoord = action.get("coord", Vector2i(-1, -1))
+		if not targetCoord is Vector2i or not state.withinBounds(targetCoord):
+			return false
+		targetWorldPos = _coord_to_surface_pos3d(targetCoord)
+	var bumpDirection = targetWorldPos - originalPos
 	if bumpDirection.is_zero_approx():
 		bumpDirection = Vector3.FORWARD
 	var bumpPos = originalPos + bumpDirection.normalized() * 0.4
-	# Spawn ground aura at the caster's feet when this bump comes from a spell cast.
 	if action.has("element"):
 		var auraColor := BattleMeshFactoryScript.elementColor(str(action["element"]))
 		SpellCastAuraScript.spawn(visual_parent, originalPos, auraColor)
