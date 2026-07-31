@@ -180,6 +180,53 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Review when:** the execution host or sandbox tooling changes, or when
   building a new check/test runner against this Godot binary.
 
+### Stop retrying a broken patch boundary
+
+- **Verified observation:** The workspace patch helper repeatedly failed with
+  `windows sandbox failed: helper_unknown_error` before reading the target.
+  Attempts to synthesize a fallback with `git diff --no-index` then introduced
+  separate Windows absolute-path and patch-context failures. None of those
+  retries produced new evidence about the requested code change.
+- **Reusable rule:** After the same patch-infrastructure failure recurs, inspect
+  the target and stop retrying equivalent helper/temp variants. If the target
+  is unchanged, make one exact, asserted workspace-scoped replacement, inspect
+  its focused diff immediately, and continue. Keep fallback temp files beside
+  the target; a no-index diff against an external Windows temp path can encode
+  a drive-qualified filename that `git apply` rejects.
+- **Review when:** the patch helper, filesystem sandbox, Git runtime, or Windows
+  temp-path behavior changes.
+
+### Nested command layers consume each other's escapes
+
+- **Verified observation:** Source passed through JavaScript into PowerShell and
+  then Python/GDScript lost inner `\"` and `\n` intent before reaching the
+  final language. That produced invalid quoted GDScript diagnostics and an
+  unterminated Python string. Separately, Windows newline translation rewrote
+  generated JSON to CRLF, and `git diff --check` reported every added line as
+  trailing whitespace.
+- **Reusable rule:** Avoid inline multi-language payloads for nontrivial source.
+  Prefer a short workspace-scoped helper file, use single-quoted diagnostics
+  where supported, express control characters with `[char]10` / `chr(10)`, and
+  open generated text with an explicit LF newline policy. Always inspect a
+  small output sample and run `git diff --check` after a mechanical rewrite.
+- **Review when:** generating JSON/code through more than one command language,
+  changing shells, or changing repository line-ending policy.
+
+### Prove the execution environment before diagnosing Godot
+
+- **Verified observation:** Sandboxed Godot editor/checker launches could not
+  create their AppData cache/log directories and sometimes detached or exited
+  with an access-violation code. Those environment failures obscured the real
+  project error. Once Godot ran with normal AppData access, its application log
+  identified the originating `RaceReferences.gd:27` parse error immediately.
+- **Reusable rule:** Separate environment evidence from code evidence. If Godot
+  reports AppData denial, detaches, or lacks an expected completion marker,
+  rerun the same bounded command with the needed permission and inspect its
+  captured output/application log before editing project code. Never interpret
+  a blank launch or zero exit code as a successful check.
+- **Review when:** sandbox permissions, Godot executable type, AppData location,
+  or process-launch tooling changes.
+
 ### Capturing a second screenshot in one running process returns a stale image
 
 - **Verified observation:** `root.get_texture().get_image().save_png(...)`

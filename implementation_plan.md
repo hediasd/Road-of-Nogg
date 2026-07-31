@@ -1666,9 +1666,8 @@ schema. Do not combine this item with other catalog migrations.
 
 **Model:** Sonnet 5 / GPT Terra.
 
-**Verify:** From a clean status, launch Godot, construct every spell through
-SpellFactory, exercise catalog reload rejection/preservation plus a successful
-reload, and run scripts/demo_battle.gd to completion; run git diff --check.
+**Final validation coverage:** Construct every spell through SpellFactory and
+exercise rejected/preserved and successful spell-catalog reloads.
 
 **Risk:** Medium. Spell data feeds validation, AI, forecasts, resolution,
 cooldowns, Resonance, and presentation; a coercion mismatch can remain latent
@@ -1685,11 +1684,30 @@ than content.
 
 **Model:** Sonnet 5 / GPT Terra.
 
-**Verify:** From a clean status, launch Godot, enumerate and construct every
-migrated reference through its public factory/lookup API, exercise atomic reload
-failure for each catalog shape, run scripts/demo_battle.gd to completion, and
-run git diff --check.
+**Final validation coverage:** Enumerate and construct every migrated reference
+through its public API and exercise atomic reload failure for each catalog shape.
 
 **Risk:** Medium. The mechanical migrations are broad and missing export
 inclusion or string-to-type coercion can break only selected content. Keep the
 item to its stated end state and do not redesign gameplay registries here.
+
+## DATA-VALIDATE — Validate the completed catalog migrations
+
+Run one consolidated validation after DATA-2 and DATA-3 are committed. Cover
+the shared loader, every migrated public lookup/factory API, reload atomicity,
+export inclusion, spell construction, and an integrated battle. Fix integration
+defects here and update DATA-2/DATA-3 Resolutions from pending validation to
+done only after the combined flow passes.
+
+**Model:** Sonnet 5 / GPT Terra.
+
+**Depends on:** DATA-2 and DATA-3.
+
+**Verify:** Start from a clean status; launch Godot; run one focused catalog
+harness that enumerates and constructs every migrated reference and exercises
+failed/successful reloads; run scripts/demo_battle.gd to completion; inspect
+export_presets.cfg coverage; finish with git diff --check.
+
+**Risk:** Medium. This is the first integrated acceptance boundary for the
+catalog cutover, so failures may cross data, factory, AI, or presentation
+ownership even when each migration diff was mechanically straightforward.

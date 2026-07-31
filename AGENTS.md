@@ -19,7 +19,14 @@
   architectural boundaries, extraction, and balance or design decisions.
   Assign per item, never per phase. Do not route work below the Sonnet 5 /
   GPT Terra tier — smaller models are not used on this project.
-- Every item names its own verification command and its risk.
+- Every implementation item names its risk and the behavior its change adds to
+  the plan's final validation coverage. Consolidate and deduplicate the actual
+  validation commands in the final validation item instead of rerunning them
+  after every implementation item.
+- Every multi-item implementation plan ends with an explicit validation item
+  that depends on all implementation items. Assign that item its own model
+  according to scope. It is the only item that performs the plan's full manual
+  gameplay and integration validation.
 - Mark items that require a user decision as blocking, and say so plainly rather
   than proceeding on an assumption.
 - Where a fix legitimately changes a passing check's reported numbers, say so in
@@ -36,6 +43,16 @@
 - Commit at every item boundary. Item state belongs in the plan's Resolution
   notes and in `git log`, not in conversation history; a fresh session must be
   able to continue from those two sources alone.
+- An implementation item's Resolution is **implemented; pending end-of-plan
+  validation**. Only the final validation item changes covered items to done and
+  claims the plan complete.
+- Do not launch the game, replay the full demo, or repeat manual acceptance flows
+  after each implementation item. A narrow compile/load probe is allowed only
+  when later items cannot safely build on potentially unusable code; record it
+  as an intermediate smoke check, not acceptance evidence.
+- Cheap local integrity checks remain appropriate at an item boundary: inspect
+  the focused diff, run `git diff --check`, and confirm only task-owned files
+  are staged.
 - Read narrowly. Locate with a content search, then read a bounded range. Read a
   file end to end only when editing throughout it.
 
@@ -44,10 +61,17 @@
 There is no automated test suite or git hooks in this repository right now;
 the previous suite and hooks were removed to be rebuilt fresh.
 
-- Verify by launching the game manually and exercising the affected behavior,
-  once per item boundary rather than once per edit.
-- Do not claim an item complete without having actually exercised the affected
-  behavior in this session.
+- For a multi-item plan, perform full validation once in the final validation
+  item, after every implementation item is committed. Exercise the union of the
+  plan's affected behaviors and reuse one integrated flow where it covers
+  several items.
+- If final validation finds a defect, fix it in that validation session, rerun
+  the relevant consolidated checks, and record the fix and evidence in the
+  plan. Do not reopen every prior item merely to repeat the same validation.
+- Do not claim the plan complete until the final validation item has actually
+  launched the game and exercised the affected behavior.
+- A single-item plan validates at the end of that item because there is no
+  repeated per-item validation to avoid.
 
 ## Backlog maintenance
 

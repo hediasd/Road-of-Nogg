@@ -95,7 +95,9 @@ owns the reference roster and links to aspect studies. Aspect files should:
 
 There is no automated test suite or check runner in this repository right now;
 the previous suite, GUT, and their runners were removed to be rebuilt fresh.
-Verify changes by launching the game manually and exercising the affected
-behavior — see [`DEVELOPMENT.md`](./DEVELOPMENT.md) for manual launch notes
-and Windows-specific safeguards. Do not claim completion without having
-actually exercised the affected behavior.
+For a multi-item implementation plan, record each implementation item as
+**implemented; pending end-of-plan validation** and exercise the combined
+affected behavior once in the plan's final validation item. A single-item plan
+validates at the end of that item. See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for
+the executable workflow and Windows safeguards. Do not claim the plan complete
+until that final manual validation has run.
