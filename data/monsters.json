@@ -1,12 +1,18 @@
 [
 	{
 		"NAME": "Defaultgon",
-		"HP": 30,
-		"ATK": 4,
-		"DEF": 4,
-		"SPD": 3,
-		"MOVE": 2,
-		"LUCK": 2,
+		"STATS": {
+			"HP": 30,
+			"ATK": 4,
+			"DEF": 4,
+			"SPD": 3,
+			"MOVE": 2,
+			"LUCK": 2,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"ice"
 		],
@@ -22,12 +28,18 @@
 	},
 	{
 		"NAME": "Mage Dragon",
-		"HP": 50,
-		"ATK": 4,
-		"DEF": 3,
-		"SPD": 3,
-		"MOVE": 3,
-		"LUCK": 2,
+		"STATS": {
+			"HP": 50,
+			"ATK": 4,
+			"DEF": 3,
+			"SPD": 3,
+			"MOVE": 3,
+			"LUCK": 2,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"ice"
 		],
@@ -49,12 +61,18 @@
 	},
 	{
 		"NAME": "Magemornus",
-		"HP": 28,
-		"ATK": 3,
-		"DEF": 3,
-		"SPD": 5,
-		"MOVE": 2,
-		"LUCK": 5,
+		"STATS": {
+			"HP": 28,
+			"ATK": 3,
+			"DEF": 3,
+			"SPD": 5,
+			"MOVE": 2,
+			"LUCK": 5,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"darkness"
 		],
@@ -71,11 +89,18 @@
 	},
 	{
 		"NAME": "Healer Mage",
-		"HP": 50,
-		"ATK": 2,
-		"DEF": 4,
-		"SPD": 2,
-		"MOVE": 2,
+		"STATS": {
+			"HP": 50,
+			"ATK": 2,
+			"DEF": 4,
+			"SPD": 2,
+			"MOVE": 2,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"light"
 		],
@@ -92,12 +117,18 @@
 	},
 	{
 		"NAME": "Megidos",
-		"HP": 50,
-		"ATK": 5,
-		"DEF": 3,
-		"SPD": 3,
-		"MOVE": 3,
-		"LUCK": 3,
+		"STATS": {
+			"HP": 50,
+			"ATK": 5,
+			"DEF": 3,
+			"SPD": 3,
+			"MOVE": 3,
+			"LUCK": 3,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"fire"
 		],
@@ -114,12 +145,18 @@
 	},
 	{
 		"NAME": "Envoy of Lightning",
-		"HP": 40,
-		"ATK": 3,
-		"DEF": 2,
-		"SPD": 4,
-		"MOVE": 3,
-		"LUCK": 4,
+		"STATS": {
+			"HP": 40,
+			"ATK": 3,
+			"DEF": 2,
+			"SPD": 4,
+			"MOVE": 3,
+			"LUCK": 4,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"thunder"
 		],
@@ -138,11 +175,18 @@
 	},
 	{
 		"NAME": "Gigasaurus",
-		"HP": 50,
-		"ATK": 6,
-		"DEF": 5,
-		"SPD": 2,
-		"MOVE": 4,
+		"STATS": {
+			"HP": 50,
+			"ATK": 6,
+			"DEF": 5,
+			"SPD": 2,
+			"MOVE": 4,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"wood"
 		],
@@ -161,12 +205,18 @@
 	},
 	{
 		"NAME": "Snowzilla",
-		"HP": 28,
-		"ATK": 7,
-		"DEF": 3,
-		"SPD": 3,
-		"MOVE": 3,
-		"LUCK": 6,
+		"STATS": {
+			"HP": 28,
+			"ATK": 7,
+			"DEF": 3,
+			"SPD": 3,
+			"MOVE": 3,
+			"LUCK": 6,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"ice"
 		],
@@ -185,11 +235,18 @@
 	},
 	{
 		"NAME": "Dump",
-		"HP": 28,
-		"ATK": 3,
-		"DEF": 3,
-		"SPD": 2,
-		"MOVE": 2,
+		"STATS": {
+			"HP": 28,
+			"ATK": 3,
+			"DEF": 3,
+			"SPD": 2,
+			"MOVE": 2,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"ice"
 		],
@@ -201,12 +258,18 @@
 	},
 	{
 		"NAME": "Smoke Cloud",
-		"HP": 45,
-		"ATK": 4,
-		"DEF": 3,
-		"SPD": 4,
-		"MOVE": 3,
-		"LUCK": 3,
+		"STATS": {
+			"HP": 45,
+			"ATK": 4,
+			"DEF": 3,
+			"SPD": 4,
+			"MOVE": 3,
+			"LUCK": 3,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"fire",
 			"darkness"
@@ -223,12 +286,18 @@
 	},
 	{
 		"NAME": "Oracle of Megnos",
-		"HP": 50,
-		"ATK": 3,
-		"DEF": 2,
-		"SPD": 4,
-		"MOVE": 3,
-		"LUCK": 2,
+		"STATS": {
+			"HP": 50,
+			"ATK": 3,
+			"DEF": 2,
+			"SPD": 4,
+			"MOVE": 3,
+			"LUCK": 2,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"fire",
 			"light"
@@ -245,11 +314,18 @@
 	},
 	{
 		"NAME": "Wing of Sanctum",
-		"HP": 50,
-		"ATK": 2,
-		"DEF": 4,
-		"SPD": 3,
-		"MOVE": 2,
+		"STATS": {
+			"HP": 50,
+			"ATK": 2,
+			"DEF": 4,
+			"SPD": 3,
+			"MOVE": 2,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"light",
 			"darkness"
@@ -267,11 +343,18 @@
 	},
 	{
 		"NAME": "Oracle of Ages",
-		"HP": 40,
-		"ATK": 2,
-		"DEF": 4,
-		"SPD": 5,
-		"MOVE": 3,
+		"STATS": {
+			"HP": 40,
+			"ATK": 2,
+			"DEF": 4,
+			"SPD": 5,
+			"MOVE": 3,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"wood",
 			"steel"
@@ -289,12 +372,18 @@
 	},
 	{
 		"NAME": "Grid Demon",
-		"HP": 38,
-		"ATK": 4,
-		"DEF": 5,
-		"SPD": 4,
-		"MOVE": 3,
-		"LUCK": 3,
+		"STATS": {
+			"HP": 38,
+			"ATK": 4,
+			"DEF": 5,
+			"SPD": 4,
+			"MOVE": 3,
+			"LUCK": 3,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"darkness"
 		],
@@ -312,12 +401,18 @@
 	},
 	{
 		"NAME": "Polar Weather Wizard",
-		"HP": 34,
-		"ATK": 5,
-		"DEF": 3,
-		"SPD": 3,
-		"MOVE": 3,
-		"LUCK": 2,
+		"STATS": {
+			"HP": 34,
+			"ATK": 5,
+			"DEF": 3,
+			"SPD": 3,
+			"MOVE": 3,
+			"LUCK": 2,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"ice"
 		],
@@ -336,12 +431,18 @@
 	},
 	{
 		"NAME": "Fireblood Lizard",
-		"HP": 42,
-		"ATK": 6,
-		"DEF": 3,
-		"SPD": 5,
-		"MOVE": 4,
-		"LUCK": 6,
+		"STATS": {
+			"HP": 42,
+			"ATK": 6,
+			"DEF": 3,
+			"SPD": 5,
+			"MOVE": 4,
+			"LUCK": 6,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"fire",
 			"thunder"
@@ -363,11 +464,18 @@
 	},
 	{
 		"NAME": "Walker of the Woods",
-		"HP": 40,
-		"ATK": 3,
-		"DEF": 4,
-		"SPD": 3,
-		"MOVE": 3,
+		"STATS": {
+			"HP": 40,
+			"ATK": 3,
+			"DEF": 4,
+			"SPD": 3,
+			"MOVE": 3,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"wood",
 			"wind"
@@ -393,12 +501,18 @@
 	},
 	{
 		"NAME": "Blue Crowned Pidgeon",
-		"HP": 30,
-		"ATK": 4,
-		"DEF": 2,
-		"SPD": 6,
-		"MOVE": 5,
-		"LUCK": 5,
+		"STATS": {
+			"HP": 30,
+			"ATK": 4,
+			"DEF": 2,
+			"SPD": 6,
+			"MOVE": 5,
+			"LUCK": 5,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"wind"
 		],
@@ -411,11 +525,18 @@
 	},
 	{
 		"NAME": "Purple Dungeon Slime",
-		"HP": 46,
-		"ATK": 3,
-		"DEF": 4,
-		"SPD": 2,
-		"MOVE": 2,
+		"STATS": {
+			"HP": 46,
+			"ATK": 3,
+			"DEF": 4,
+			"SPD": 2,
+			"MOVE": 2,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"water",
 			"darkness"
@@ -435,12 +556,18 @@
 	},
 	{
 		"NAME": "Kickatoo",
-		"HP": 34,
-		"ATK": 5,
-		"DEF": 3,
-		"SPD": 5,
-		"MOVE": 8,
-		"LUCK": 5,
+		"STATS": {
+			"HP": 34,
+			"ATK": 5,
+			"DEF": 3,
+			"SPD": 5,
+			"MOVE": 8,
+			"LUCK": 5,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"steel",
 			"wind"
@@ -460,11 +587,18 @@
 	},
 	{
 		"NAME": "Lord of the Mine",
-		"HP": 55,
-		"ATK": 5,
-		"DEF": 6,
-		"SPD": 1,
-		"MOVE": 2,
+		"STATS": {
+			"HP": 55,
+			"ATK": 5,
+			"DEF": 6,
+			"SPD": 1,
+			"MOVE": 2,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"earth"
 		],
@@ -481,12 +615,18 @@
 	},
 	{
 		"NAME": "Night Hunter Panther",
-		"HP": 32,
-		"ATK": 6,
-		"DEF": 2,
-		"SPD": 6,
-		"MOVE": 4,
-		"LUCK": 9,
+		"STATS": {
+			"HP": 32,
+			"ATK": 6,
+			"DEF": 2,
+			"SPD": 6,
+			"MOVE": 4,
+			"LUCK": 9,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"darkness"
 		],
@@ -504,12 +644,18 @@
 	},
 	{
 		"NAME": "Lilypad Tender",
-		"HP": 44,
-		"ATK": 4,
-		"DEF": 4,
-		"SPD": 3,
-		"MOVE": 3,
-		"LUCK": 3,
+		"STATS": {
+			"HP": 44,
+			"ATK": 4,
+			"DEF": 4,
+			"SPD": 3,
+			"MOVE": 3,
+			"LUCK": 3,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"water",
 			"wood"
@@ -531,12 +677,18 @@
 	},
 	{
 		"NAME": "Paper Cat",
-		"HP": 28,
-		"ATK": 7,
-		"DEF": 2,
-		"SPD": 5,
-		"MOVE": 4,
-		"LUCK": 8,
+		"STATS": {
+			"HP": 28,
+			"ATK": 7,
+			"DEF": 2,
+			"SPD": 5,
+			"MOVE": 4,
+			"LUCK": 8,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"steel",
 			"fire"
@@ -558,12 +710,18 @@
 	},
 	{
 		"NAME": "Samarkand Stalker",
-		"HP": 42,
-		"ATK": 8,
-		"DEF": 4,
-		"SPD": 6,
-		"MOVE": 5,
-		"LUCK": 10,
+		"STATS": {
+			"HP": 42,
+			"ATK": 8,
+			"DEF": 4,
+			"SPD": 6,
+			"MOVE": 5,
+			"LUCK": 10,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"steel",
 			"fire"
@@ -585,12 +743,18 @@
 	},
 	{
 		"NAME": "Warden of the Dunes",
-		"HP": 36,
-		"ATK": 6,
-		"DEF": 3,
-		"SPD": 3,
-		"MOVE": 3,
-		"LUCK": 2,
+		"STATS": {
+			"HP": 36,
+			"ATK": 6,
+			"DEF": 3,
+			"SPD": 3,
+			"MOVE": 3,
+			"LUCK": 2,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"light"
 		],
@@ -608,12 +772,18 @@
 	},
 	{
 		"NAME": "Six-Winged Terror",
-		"HP": 48,
-		"ATK": 5,
-		"DEF": 4,
-		"SPD": 4,
-		"MOVE": 4,
-		"LUCK": 3,
+		"STATS": {
+			"HP": 48,
+			"ATK": 5,
+			"DEF": 4,
+			"SPD": 4,
+			"MOVE": 4,
+			"LUCK": 3,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"darkness",
 			"earth"
@@ -635,11 +805,18 @@
 	},
 	{
 		"NAME": "Brickamount",
-		"HP": 60,
-		"ATK": 4,
-		"DEF": 8,
-		"SPD": 1,
-		"MOVE": 1,
+		"STATS": {
+			"HP": 60,
+			"ATK": 4,
+			"DEF": 8,
+			"SPD": 1,
+			"MOVE": 1,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
 		"ELEMENTS": [
 			"earth"
 		],

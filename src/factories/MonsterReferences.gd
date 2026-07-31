@@ -1,87 +1,103 @@
 class_name MonsterReferences
 
 const JSON_PATH := "res://data/monsters.json"
+const JsonCatalogLoaderScript = preload("res://src/factories/JsonCatalogLoader.gd")
+const REQUIRED_STATS := ["HP", "ATK", "DEF", "SPD", "MOVE"]
+const STAT_DEFAULTS := {
+	"HP": 1,
+	"ATK": 1,
+	"DEF": 1,
+	"SPD": 1,
+	"MOVE": 1,
+	"LUCK": 0,
+	"JUMP": 1,
+	"HP_GROWTH": 0,
+	"ATK_GROWTH": 0,
+	"DEF_GROWTH": 0
+}
+const LEGACY_TOP_LEVEL_STATS := [
+	"HP", "ATK", "DEF", "SPD", "MOVE", "LUCK", "JUMP",
+	"BASE_HP", "BASE_ATK", "BASE_DEF",
+	"HP_GROWTH", "ATK_GROWTH", "DEF_GROWTH"
+]
 
-static var list: Array
+static var list: Array = []
 static var _name_index: Dictionary = {}
 static var _load_error: String = ""
+
 
 static func _static_init():
 	reloadCatalog()
 
-## Named reloadCatalog(), not reload(): `MonsterReferences` is itself a
-## GDScript resource, and `Script.reload(keep_state: bool)` is a real engine
-## method on that base class. A static function named plain `reload()` gets
-## shadowed by it — calls resolve to the engine's reload and throw a
-## String-to-bool argument error instead of running this body.
+
+## Named reloadCatalog(), not reload(): MonsterReferences is itself a
+## GDScript resource, and Script.reload(keep_state: bool) is an engine method.
 static func reloadCatalog(path: String = JSON_PATH) -> bool:
-	## Load from JSON, normalize, index, and validate. Returns true on success.
-	## On failure, list/index are left at their prior value and _load_error is
-	## set. `path` is overridable so tests can exercise failure modes against
-	## fixtures without touching the production catalog.
-	var new_list: Array = []
-	var new_index: Dictionary = {}
+	var loaded := JsonCatalogLoaderScript.loadNamedCatalog(path)
+	if not loaded["success"]:
+		return _fail(str(loaded["error"]))
 
-	# Load and parse JSON
-	if not ResourceLoader.exists(path):
-		_load_error = "JSON file not found at %s" % path
-		push_warning("MonsterReferences: %s" % _load_error)
-		return false
+	var newList: Array = []
+	var newIndex: Dictionary = {}
+	for reference in loaded["list"]:
+		var normalized := _normalizeReference(reference)
+		if not normalized["success"]:
+			return _fail(str(normalized["error"]))
+		var catalogEntry: Dictionary = normalized["reference"]
+		newList.append(catalogEntry)
+		newIndex[catalogEntry["NAME"]] = catalogEntry
 
-	var json_text = FileAccess.get_file_as_string(path)
-	if json_text == null or json_text.is_empty():
-		_load_error = "JSON file is empty or unreadable"
-		push_warning("MonsterReferences: %s" % _load_error)
-		return false
-
-	var parsed = JSON.parse_string(json_text)
-	if parsed == null or not parsed is Array:
-		_load_error = "JSON parse failed or root is not an array"
-		push_warning("MonsterReferences: %s" % _load_error)
-		return false
-
-	# Process each entry: int-coerce numerics, set defaults, build index
-	for entry in parsed:
-		if not entry is Dictionary:
-			_load_error = "JSON contains non-dictionary entry"
-			push_warning("MonsterReferences: %s" % _load_error)
-			return false
-
-		var reference := entry.duplicate(true) as Dictionary
-
-		# Int-coerce all numeric stat fields (JSON.parse_string returns floats)
-		for key in ["HP", "ATK", "DEF", "SPD", "MOVE", "LUCK"]:
-			if reference.has(key):
-				reference[key] = int(reference[key])
-
-		# Set normalized defaults
-		reference["BASE_HP"] = int(reference.get("BASE_HP", reference.get("HP", 1)))
-		reference["BASE_ATK"] = int(reference.get("BASE_ATK", reference.get("ATK", 1)))
-		reference["BASE_DEF"] = int(reference.get("BASE_DEF", reference.get("DEF", 1)))
-		reference["HP_GROWTH"] = int(reference.get("HP_GROWTH", 0))
-		reference["ATK_GROWTH"] = int(reference.get("ATK_GROWTH", 0))
-		reference["DEF_GROWTH"] = int(reference.get("DEF_GROWTH", 0))
-		reference["JUMP"] = int(reference.get("JUMP", 1))
-		reference["FAMILY"] = str(reference.get("FAMILY", "none"))
-		reference["ASCENDS_FROM"] = str(reference.get("ASCENDS_FROM", ""))
-
-		new_list.append(reference)
-		var name_key = str(reference.get("NAME", ""))
-		if not name_key.is_empty():
-			new_index[name_key] = reference
-
-	# Atomically commit: only update state on success
-	list = new_list
-	_name_index = new_index
+	list = newList
+	_name_index = newIndex
 	_load_error = ""
 	return true
 
+
+static func _normalizeReference(reference: Dictionary) -> Dictionary:
+	var nameKey := str(reference.get("NAME", ""))
+	for key in LEGACY_TOP_LEVEL_STATS:
+		if reference.has(key):
+			return _normalizationFailure(
+				"Monster '%s' uses legacy top-level stat '%s'" % [nameKey, key]
+			)
+
+	var statsValue = reference.get("STATS")
+	if not statsValue is Dictionary:
+		return _normalizationFailure(
+			"Monster '%s' has no STATS dictionary" % nameKey
+		)
+	var stats: Dictionary = statsValue.duplicate(true)
+	for key in REQUIRED_STATS:
+		if not stats.has(key):
+			return _normalizationFailure(
+				"Monster '%s' STATS has no '%s'" % [nameKey, key]
+			)
+	for key in STAT_DEFAULTS:
+		stats[key] = int(stats.get(key, STAT_DEFAULTS[key]))
+
+	reference["STATS"] = stats
+	reference["FAMILY"] = str(reference.get("FAMILY", "none"))
+	reference["SPECIES"] = str(reference.get("SPECIES", "none"))
+	reference["ASCENDS_FROM"] = str(reference.get("ASCENDS_FROM", ""))
+	return {"success": true, "reference": reference, "error": ""}
+
+
+static func _normalizationFailure(message: String) -> Dictionary:
+	return {"success": false, "reference": {}, "error": message}
+
+
+static func _fail(message: String) -> bool:
+	_load_error = message
+	push_warning("MonsterReferences: %s" % _load_error)
+	return false
+
+
 static func getReference(name: String) -> Dictionary:
-	## O(1) lookup via index. Returns empty dict if not found.
 	if _name_index.has(name):
 		return _name_index[name]
 	push_error("MonsterReferences: Unknown monster '%s'." % name)
 	return {}
+
 
 static func hasReference(name: String) -> bool:
 	return _name_index.has(name)

@@ -12,11 +12,11 @@ static func derive(baseValue: int, growthHundredths: int, level: int) -> int:
 
 
 static func deriveFromReference(reference: Dictionary, level: int) -> Dictionary:
-	var baseHP = int(reference.get("BASE_HP", reference.get("HP", 1)))
-	var baseATK = int(reference.get("BASE_ATK", reference.get("ATK", 1)))
-	var baseDEF = int(reference.get("BASE_DEF", reference.get("DEF", 1)))
+	var statsValue = reference.get("STATS", {})
+	assert(statsValue is Dictionary, "Monster reference STATS must be a dictionary.")
+	var stats: Dictionary = statsValue
 	return {
-		"hp": derive(baseHP, int(reference.get("HP_GROWTH", 0)), level),
-		"atk": derive(baseATK, int(reference.get("ATK_GROWTH", 0)), level),
-		"def": derive(baseDEF, int(reference.get("DEF_GROWTH", 0)), level)
+		"hp": derive(int(stats.get("HP", 1)), int(stats.get("HP_GROWTH", 0)), level),
+		"atk": derive(int(stats.get("ATK", 1)), int(stats.get("ATK_GROWTH", 0)), level),
+		"def": derive(int(stats.get("DEF", 1)), int(stats.get("DEF_GROWTH", 0)), level)
 	}

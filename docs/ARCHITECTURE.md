@@ -273,6 +273,10 @@ reaches a player-controlled unit while playback is behind, the turn is held in
 
 - Add content in reference data and teach a general resolver only when the
   existing effect vocabulary cannot express it.
+- Keep JSON file/parse/shape/index handling in JsonCatalogLoader; domain wrappers
+  own schema coercion and commit catalog state only after full validation.
+- Author monster combat and movement values only inside the STATS dictionary;
+  runtime serialization remains a separate resolved-state contract.
 - Add state fields together with JSON serialization, restoration, and
   deterministic verification.
 - Add movement variants through `BattleState`/`MovementResolver` so all position

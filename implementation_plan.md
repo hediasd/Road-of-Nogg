@@ -1624,3 +1624,72 @@ overflow case is common 2-element combos. The behaviour works identically
 either way (`BattlePresentationController._renderStatusWindow` already calls
 `set_focused_row()` on the Elements row unconditionally, per UI-7's own
 notes); only the illustrative example was wrong.
+
+---
+
+## DATA-1 — Centralize atomic JSON loading and nest monster stats
+
+Create one shared JSON boundary for file access, parse diagnostics, array/entry
+shape, unique non-empty names, deep copies, and name indexing. Keep
+monster/race-specific coercion in their wrappers. Move all monster base,
+movement, Luck, Jump, and growth values into STATS; reject legacy top-level
+stat keys and adapt every consumer without changing the runtime replay schema.
+
+**Model:** Opus 5 / GPT Sol.
+
+**Verify:** Run the headless project launch; run a focused Godot verifier that
+checks all 28 entries, monster construction, setup labels, atomic failed reload,
+successful production reload, and race resistance behavior; then run
+scripts/demo_battle.gd to battle completion. Finish with git diff --check.
+
+**Risk:** Medium. A schema cutover touches data, factories, simulation, and setup
+presentation simultaneously. Atomic reload and rejecting the old schema reduce
+the risk of partial or ambiguous state.
+
+**Resolution (2026-07-31): done.** JsonCatalogLoader now owns the shared
+file/parse/shape/name-index boundary. MonsterReferences and RaceReferences keep
+domain normalization and commit only complete catalogs. Every monsters.json
+entry has an explicit STATS dictionary; Monster, MonsterStatCalculator, and
+BattleSetupUI consume it. Runtime serialization remains unchanged because
+BattleStateSerializer restores resolved monster state after catalog-backed
+construction. The focused verifier passed all checks, the seeded demo reached
+Team 1 victory, the project launched without script errors, and git diff
+--check passed.
+
+## DATA-2 — Move spell references to JSON
+
+Move the authored SpellReferences catalog to a JSON file loaded through
+JsonCatalogLoader. Preserve SpellFactory/Spell runtime behavior, normalize
+spell-specific numeric, boolean, collection, and targeting fields in the domain
+wrapper, reject duplicate or malformed names atomically, and document the
+schema. Do not combine this item with other catalog migrations.
+
+**Model:** Sonnet 5 / GPT Terra.
+
+**Verify:** From a clean status, launch Godot, construct every spell through
+SpellFactory, exercise catalog reload rejection/preservation plus a successful
+reload, and run scripts/demo_battle.gd to completion; run git diff --check.
+
+**Risk:** Medium. Spell data feeds validation, AI, forecasts, resolution,
+cooldowns, Resonance, and presentation; a coercion mismatch can remain latent
+until a specific effect is cast.
+
+## DATA-3 — Move remaining authored reference catalogs to JSON
+
+Inventory the remaining hardcoded reference-data classes, migrate them to
+explicit JSON catalogs through JsonCatalogLoader, and retain small domain
+wrappers only where coercion or behavioral lookup is required. The stated end
+state is no authored content arrays embedded in GDScript reference classes;
+engine class/registry mappings remain code where they represent behavior rather
+than content.
+
+**Model:** Sonnet 5 / GPT Terra.
+
+**Verify:** From a clean status, launch Godot, enumerate and construct every
+migrated reference through its public factory/lookup API, exercise atomic reload
+failure for each catalog shape, run scripts/demo_battle.gd to completion, and
+run git diff --check.
+
+**Risk:** Medium. The mechanical migrations are broad and missing export
+inclusion or string-to-type coercion can break only selected content. Keep the
+item to its stated end state and do not redesign gameplay registries here.

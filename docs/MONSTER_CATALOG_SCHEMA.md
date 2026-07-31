@@ -1,70 +1,72 @@
 # Monster Catalog Schema
 
-Status: current. Introduced in Stage 1 of the MonsterReferences JSON migration.
+Status: current after DATA-1.
 
-The monster catalog lives at `res://data/monsters.json`, a JSON array of
-monster reference objects. `MonsterReferences.gd` loads it at `_static_init()`
-and exposes it through `list`, `getReference()`, `hasReference()`, and
-`getNames()` — the same API the catalog exposed when it was a hardcoded
-GDScript array. `reloadCatalog(path: String = JSON_PATH)` re-reads the file at
-runtime (bound to **Ctrl+R** during a battle); a failed reload leaves the
-previously loaded catalog untouched.
+The monster catalog lives at res://data/monsters.json. Its root is an array of
+monster reference objects. MonsterReferences loads it through the shared
+JsonCatalogLoader and exposes list, getReference(), hasReference(), and
+getNames(). reloadCatalog() commits a new catalog only after the entire file
+has parsed, normalized, and indexed successfully; failure preserves the last
+working catalog.
 
 ## Field reference
 
 | Key | Type | Required | Notes |
 |---|---|---|---|
-| `NAME` | string | yes | Unique across the catalog. Primary key for `getReference()`/`hasReference()`. |
-| `HP`, `ATK`, `DEF`, `SPD`, `MOVE` | int | yes | Level 1 base stats. JSON numbers parse as float in Godot; the loader casts these to `int` before exposing them — see "Numeric coercion" below. |
-| `LUCK` | int | no (defaults to 0) | Drives critical hit chance only: `min(luck * 1%, 15%)`. No design contract restricts which monsters may carry it (see [GAME_DESIGN.md](GAME_DESIGN.md)). |
-| `ELEMENTS` | array of string | yes | Must be valid per `ElementReferences.isValid()` and not `"none"`. A monster can only cast spells whose required elements are all present here. |
-| `RACE` | string | yes | Must exist in `RaceReferences`. Determines elemental resistance/weakness multipliers. |
-| `FAMILY` | string | no (defaults to `"none"`) | Flavor/grouping label, not mechanically enforced. |
-| `BRAIN` | string | yes | CPU behavior controller name (e.g. `TacticalBrain`, `MageBrain`, `SupportBrain`, `BerserkBrain`). |
-| `SPELLS` | array of array of string | yes | Each inner array is a "vertical set": at most one spell per sequence Level 1-4, staying on a single element. Max 4 sets per monster. `[]` is valid (no spells). |
-| `PASSIVES` | array of string | no (defaults to none) | Must exist in `PassiveSkillReferences`. |
-| `ASCENDS_FROM` | string | no (defaults to `""`) | Name of the monster this one ascends from. Validated against the full catalog name set, order-independent (a parent declared later in the file still resolves). |
-| `DESCRIPTION` | string | no | Free-text flavor, not validated. |
+| NAME | string | yes | Unique primary key. Empty or duplicate names reject the full reload. |
+| STATS | dictionary | yes | Owns every authored base, movement, luck, jump, and growth value. See below. |
+| ELEMENTS | array of string | yes | Each value must be a supported element other than none. |
+| RACE | string | yes | Determines elemental resistance and weakness multipliers. |
+| FAMILY | string | no | Defaults to none. |
+| SPECIES | string | no | Defaults to none. |
+| ARCHETYPE | string | no | Tactical role used by AI scoring where supported. |
+| BRAIN | string | yes | CPU controller name. |
+| SPELLS | array of arrays of string | yes | Each inner array is a vertical spell set. An empty array is valid. |
+| PASSIVES | array of string | no | Passive names owned by the monster. |
+| ASCENDS_FROM | string | no | Defaults to an empty string. |
+| DESCRIPTION | string | no | Free-text flavor. |
 
-### Derived fields (do not author these)
+### STATS dictionary
 
-`BASE_HP`, `BASE_ATK`, `BASE_DEF`, `HP_GROWTH`, `ATK_GROWTH`, `DEF_GROWTH`,
-and `JUMP` are set by the loader from `HP`/`ATK`/`DEF` (or explicit overrides)
-and default to `0`/`1` when absent. They exist for the level-growth system
-described in `GAME_DESIGN.md`, which is designed but not yet live — every
-`*_GROWTH` should stay `0` until that system ships.
+The following integer keys are authored inside STATS:
+
+| Key | Required | Default | Meaning |
+|---|---|---:|---|
+| HP, ATK, DEF, SPD, MOVE | yes | n/a | Required Level 1 combat and movement values. |
+| LUCK | no | 0 | Critical-hit chance input, capped by combat rules. |
+| JUMP | no | 1 | Maximum supported elevation step. |
+| HP_GROWTH, ATK_GROWTH, DEF_GROWTH | no | 0 | Hundredths of one point gained per level after Level 1. |
+
+All ten keys are written explicitly in the production catalog for easy
+authoring and diff review. The loader still supplies the optional defaults for
+fixtures and future content tools.
+
+Old top-level stat keys, including BASE_HP, BASE_ATK, and BASE_DEF, are
+rejected. There is one schema only: consumers read STATS, while runtime replay
+serialization continues to store resolved monster state independently.
 
 ## Numeric coercion
 
-Godot's `JSON.parse_string()` returns **every** number as a `float`, including
-integer-looking literals like `30`. `MonsterReferences.reloadCatalog()` explicitly
-casts `HP`, `ATK`, `DEF`, `SPD`, `MOVE`, and `LUCK` back to `int` immediately
-after parsing, before any consumer sees the reference. If you extend the
-schema with a new integer stat field, add it to that coercion list in
-`MonsterReferences.gd` — omitting it means every reader downstream silently
-receives a float where an int is expected.
+Godot JSON numbers do not preserve an integer-specific schema. During reload,
+MonsterReferences casts every recognized STATS value to int before publishing
+the new catalog. Add future authored integer stats to STAT_DEFAULTS in
+MonsterReferences so coercion and defaults remain centralized.
 
-## Validation
+## Validation boundary
 
-There is no automated catalog validator right now. The previous single
-authority on catalog correctness (name uniqueness, race/element/spell/passive
-references, spell-set shape, spell-element compatibility, `ASCENDS_FROM`
-resolution), `CatalogValidator.gd`, was removed along with the test suite that
-was its only caller. Malformed catalog entries currently fail at runtime,
-where the consuming code happens to notice, rather than being rejected up
-front. Rebuilding this validation is tracked in
-[`BACKLOG.md`](./BACKLOG.md).
+JsonCatalogLoader owns file access, JSON parse diagnostics, root/entry shape,
+unique non-empty NAME validation, deep copying, and construction of the
+constant-time name index. MonsterReferences owns the monster-specific STATS
+schema and normalization. RaceReferences uses the same loader and owns
+resistance coercion.
+
+Broader cross-catalog semantic validation is not currently automated. Rebuilding
+it is tracked in docs/BACKLOG.md.
 
 ## Editing the catalog
 
-Edit `res://data/monsters.json` directly, or use the browser-based catalog
-panel (Stage 3) to generate a replacement file. After editing:
-
-1. Manually confirm the roster loads and plays correctly — there is no
-   automated check to catch unknown races/elements/spells/passives or
-   malformed spell sets.
-2. In a running build, press **Ctrl+R** to hot-reload without restarting.
-3. Exported builds bundle `data/*.json` via `export_presets.cfg`'s
-   `include_filter` — a `.json` file is not a Godot resource by default, so
-   it must be explicitly included even though `export_filter="all_resources"`
-   is set.
+1. Edit res://data/monsters.json and keep all monster stats under STATS.
+2. Launch the game and exercise catalog loading plus affected battle behavior.
+3. In a running battle, Ctrl+R hot-reloads the catalog; a rejected reload leaves
+   the previous data active.
+4. Exported builds include data/*.json through export_presets.cfg.

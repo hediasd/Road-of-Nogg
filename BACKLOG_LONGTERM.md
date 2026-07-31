@@ -33,13 +33,18 @@ report of a tile being unclickable near the HUD edges.
 
 ## Empty-tile spell targeting
 
-- Area spells currently center on an occupied target identified by `target_id`.
-  Supporting casts centered on an empty tile requires a controller-neutral
-  `target_pos` command field, replay-schema migration, validation and resolution
-  changes, CPU target enumeration/scoring, area forecasts, and an explicit rule
-  for casts whose area contains no units. Treat this as an Opus 5 architectural
-  item; do not encode a fake monster target or implement it only in the player
-  presentation.
+- Replace the occupied-unit-only target contract with a controller-neutral tile
+  target position carried through commands, validation, replay migration,
+  resolution, forecasts, AI enumeration/scoring, and presentation.
+- Every non-self spell exposes tile choices in the player UI. Each spell owns an
+  explicit data flag controlling whether confirmation is legal when the chosen
+  tile is empty; a false flag disables confirmation but does not hide the tile
+  options.
+- A legal empty-tile cast that affects zero units still consumes the action,
+  cooldown, and Resonance. AI must score that outcome consistently rather than
+  receiving a separate execution rule.
+- Treat this as an Opus 5 / GPT Sol architectural item. Do not encode a fake
+  monster target or implement player-only behavior.
 
 ## Weather system
 

@@ -200,11 +200,12 @@ static func _monsterLabels(monsterNames: Array[String]) -> Array[String]:
 	var labels: Array[String] = []
 	for monsterName in monsterNames:
 		var reference = MonsterReferencesScript.getReference(monsterName)
+		var stats: Dictionary = reference.get("STATS", {})
 		labels.append("%s [Lv1 HP%s A%s D%s]" % [
 			monsterName,
-			reference.get("BASE_HP", reference.get("HP", 1)),
-			reference.get("BASE_ATK", reference.get("ATK", 1)),
-			reference.get("BASE_DEF", reference.get("DEF", 1))
+			stats.get("HP", 1),
+			stats.get("ATK", 1),
+			stats.get("DEF", 1)
 		])
 	return labels
 

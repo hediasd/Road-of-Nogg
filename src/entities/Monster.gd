@@ -44,21 +44,24 @@ func _init(parameterDictionary, _uniqueID) -> void:
 
 	name = get_or_default(parameterDictionary, "NAME", "Dump")
 	level = maxi(1, int(get_or_default(parameterDictionary, "LEVEL", 1)))
-	jump = maxi(0, int(get_or_default(parameterDictionary, "JUMP", 1)))
-	base_hitpoints = int(get_or_default(parameterDictionary, "BASE_HP", get_or_default(parameterDictionary, "HP", 1)))
-	base_atk = int(get_or_default(parameterDictionary, "BASE_ATK", get_or_default(parameterDictionary, "ATK", 1)))
-	base_def = int(get_or_default(parameterDictionary, "BASE_DEF", get_or_default(parameterDictionary, "DEF", 1)))
-	hp_growth = maxi(0, int(get_or_default(parameterDictionary, "HP_GROWTH", 0)))
-	atk_growth = maxi(0, int(get_or_default(parameterDictionary, "ATK_GROWTH", 0)))
-	def_growth = maxi(0, int(get_or_default(parameterDictionary, "DEF_GROWTH", 0)))
+	var statsValue = get_or_default(parameterDictionary, "STATS", {})
+	assert(statsValue is Dictionary, "Monster STATS must be a dictionary.")
+	var stats: Dictionary = statsValue
+	jump = maxi(0, int(stats.get("JUMP", 1)))
+	base_hitpoints = int(stats.get("HP", 1))
+	base_atk = int(stats.get("ATK", 1))
+	base_def = int(stats.get("DEF", 1))
+	hp_growth = maxi(0, int(stats.get("HP_GROWTH", 0)))
+	atk_growth = maxi(0, int(stats.get("ATK_GROWTH", 0)))
+	def_growth = maxi(0, int(stats.get("DEF_GROWTH", 0)))
 	var derivedStats = MonsterStatCalculatorScript.deriveFromReference(parameterDictionary, level)
 	hitpoints = derivedStats["hp"]
 	max_hitpoints = hitpoints
-	move = get_or_default(parameterDictionary, "MOVE", 1)
+	move = int(stats.get("MOVE", 1))
 	atk = derivedStats["atk"]
 	def = derivedStats["def"]
-	speed = get_or_default(parameterDictionary, "SPD", 1)
-	luck = maxi(0, int(get_or_default(parameterDictionary, "LUCK", 0)))
+	speed = int(stats.get("SPD", 1))
+	luck = maxi(0, int(stats.get("LUCK", 0)))
 	elements = get_or_default(parameterDictionary, "ELEMENTS", [])
 	race = get_or_default(parameterDictionary, "RACE", "none")
 	family = get_or_default(parameterDictionary, "FAMILY", "none")
