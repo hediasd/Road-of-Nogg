@@ -204,8 +204,8 @@ func getSpellTargetsFrom(
 		spellSetIndex: int,
 		spellIndex: int,
 		fromPos: Vector2i) -> Array:
-	## Compatibility query for occupied-target presentation code. POS-3 moves
-	## presentation to getSpellTargetPositionsFrom(..., true).
+	## Compatibility query for older occupied-target consumers. Current player
+	## presentation uses getSpellTargetPositionsFrom(..., true).
 	var mon = state.getMonster(monsterID)
 	if (
 		mon != null

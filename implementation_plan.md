@@ -1847,9 +1847,9 @@ firing target passives. Spell targeting separates displayed reachable centers
 from confirmable centers, and all 59 spells explicitly declare
 `CAN_TARGET_EMPTY`. Legal zero-unit casts emit a positional cast event and still
 call `record_cast()`, consuming cooldown and Resonance. Positional action events
-carry real coordinates and `target_id = -1` for empty centers. The occupied-only
-player selector remains intentionally deferred to POS-3. A narrow headless
-project-load smoke passed; behavioral/replay acceptance remains POS-VALIDATE.
+carry real coordinates and `target_id = -1` for empty centers. POS-3 now owns
+the coordinate-based player selector. A narrow headless project-load smoke
+passed; behavioral/replay acceptance remains POS-VALIDATE.
 
 ## POS-2 — AI positional targeting
 
@@ -1897,20 +1897,35 @@ both phase orders, multiple elevations, and camera angles.
 **Risk:** High. This is the input/presentation half of the positional contract
 and absorbs the outstanding player-command visual acceptance work.
 
-## POS-VALIDATE — Validate typed positional targeting
+**Resolution (2026-07-31): implemented; pending POS-VALIDATE.**
+`PlayerTurnController` now stores, sorts, cycles, cancels back to, and submits
+canonical target positions. Attack selection includes legal empty adjacent
+tiles. Spell selection displays reachable empty centers regardless of
+`CAN_TARGET_EMPTY`, while resolver-backed confirmation blocks disallowed empty
+centers. The preview keeps all legal centers visible, overlays the selected
+spell footprint, clears target status for empty centers, and aggregates forecast
+damage/healing/unit counts with explicit zero-unit warnings. Godot presentation
+accepts target positions directly. A narrow parser/runtime smoke passed; mixed
+in-window input, camera/elevation coverage, and integrated replay acceptance
+remain POS-VALIDATE.
 
-Run one consolidated acceptance pass after POS-1 through POS-3 are committed.
-Cover TYPE-1's serialization boundary, POS-1's simulation/replay cases, POS-2's
-seeded AI choices, and POS-3's in-window player flow. Update pending resolutions
-to done only after this combined pass succeeds.
+## POS-VALIDATE — Validate typed presentation and positional targeting
+
+Run one consolidated acceptance pass after TYPE-1 through TYPE-3 and POS-1
+through POS-3 are committed. Cover TYPE-1's serialization boundary, TYPE-2's
+setup/HUD reference lifecycle, TYPE-3's queued animation contract, POS-1's
+simulation/replay cases, POS-2's seeded AI choices, and POS-3's in-window player
+flow. Update pending resolutions to done only after this combined pass succeeds.
 
 **Model:** Opus 5 / GPT Sol.
 
-**Depends on:** TYPE-1 and POS-1 through POS-3.
+**Depends on:** TYPE-1 through TYPE-3 and POS-1 through POS-3.
 
 **Verify:** Run focused typed-command and replay-v2-v5 harnesses, seeded AI
-scenarios, a full deterministic battle/replay round-trip, and the specified
-in-window player playthrough; finish with `git diff --check`.
+scenarios, and a full deterministic battle/replay round-trip. In-window, cover
+setup/confirm/new-battle lifecycle, graphics toggles, command and status windows,
+focus/move/attack/spell/heal/defeat/victory animations, pause/resume, and the
+specified mixed-input positional playthrough; finish with `git diff --check`.
 
 **Risk:** High. This is the first integrated acceptance boundary for all
 controllers sharing coordinate-based targeting.

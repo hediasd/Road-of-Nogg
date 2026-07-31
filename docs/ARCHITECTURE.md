@@ -201,10 +201,10 @@ The simulation command contract identifies action centers with `target_pos`;
 `target_id` is only the occupant derived when validation executes. Basic attacks
 can therefore resolve against adjacent empty tiles, and every non-self spell can
 query tile centers. `CAN_TARGET_EMPTY` controls confirmation on an empty center
-without controlling whether presentation displays that center. The current
-player controller still limits selection to occupied targets until POS-3 moves
-its cursor and overlays to coordinates. Spell footprints already come from
-`CombatResolver.getSpellAffectedPositionsFrom()`, shared by resolution, AI, and
+without controlling whether presentation displays that center. The player
+controller stores and cycles coordinates, displays all reachable empty spell
+centers, and asks the resolver again before confirmation. Spell footprints and
+aggregate forecasts use `CombatResolver` queries shared by resolution, AI, and
 presentation.
 
 `BattleCursorController` owns discrete grid intent for AI turns, movement

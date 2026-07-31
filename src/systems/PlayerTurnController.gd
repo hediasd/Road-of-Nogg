@@ -59,9 +59,9 @@ var _isAnimating: Callable
 var _drainedSignal: Signal
 
 var _reachableTiles: Array = []
-var _validTargetIDs: Array = []
+var _validTargetPositions: Array = []
 var _pendingAction: String = ""
-var _pendingTargetID: int = -1
+var _pendingTargetPos := Vector2i(-1, -1)
 var _pendingSpellSet: int = 0
 var _pendingSpellIndex: int = 0
 var _selectedSpellSet: int = -1
@@ -90,11 +90,11 @@ func acceptsGridInput() -> bool:
 func beginTurn(monsterID: int) -> void:
 	activeMonsterID = monsterID
 	_pendingAction = ""
-	_pendingTargetID = -1
+	_pendingTargetPos = Vector2i(-1, -1)
 	_selectedSpellSet = -1
 	_selectedSpellIndex = -1
 	_reachableTiles = []
-	_validTargetIDs = []
+	_validTargetPositions = []
 	_waitingForDrain = false
 	gridCursor = _sim.state.getMonsterPosition(monsterID)
 	_selectFirstAvailableSpell()
@@ -113,7 +113,7 @@ func endTurnNow() -> void:
 	activeMonsterID = -1
 	phase = Phase.INACTIVE
 	_reachableTiles = []
-	_validTargetIDs = []
+	_validTargetPositions = []
 	menu_changed.emit()
 	turn_finished.emit(completedID)
 
@@ -237,8 +237,8 @@ func cancel() -> void:
 		Phase.MOVE_SELECT, Phase.TARGET_SELECT:
 			_enterMenu()
 		Phase.CONFIRM_ACTION:
-			var previous_target_id = _pendingTargetID
-			_enterTargetSelect(_pendingAction, previous_target_id)
+			var previous_target_pos := _pendingTargetPos
+			_enterTargetSelect(_pendingAction, previous_target_pos)
 		_:
 			pass
 
@@ -258,13 +258,12 @@ func setCursor(pos: Vector2i) -> bool:
 	if not acceptsGridInput() or not _sim.state.withinBounds(pos):
 		return false
 	if phase == Phase.TARGET_SELECT:
-		var target_id = _targetIDAt(pos)
-		if not _validTargetIDs.has(target_id):
+		if not _validTargetPositions.has(pos):
 			return false
 		if pos == gridCursor:
 			return true
 		gridCursor = pos
-		_refreshTargetPreview(target_id)
+		_refreshTargetPreview(pos)
 		return true
 	gridCursor = pos
 	_adapter.show_player_cursor(pos)
@@ -274,7 +273,7 @@ func setCursor(pos: Vector2i) -> bool:
 
 func moveCursor(direction: Vector2i) -> void:
 	if phase == Phase.TARGET_SELECT:
-		_cycleTarget(-1 if direction in [Vector2i.LEFT, Vector2i.UP] else 1)
+		_cycleTargetPosition(-1 if direction in [Vector2i.LEFT, Vector2i.UP] else 1)
 		return
 	var next = gridCursor + direction
 	next.x = clampi(next.x, 0, _sim.state.boardSize.x - 1)
@@ -283,7 +282,7 @@ func moveCursor(direction: Vector2i) -> void:
 
 
 func selectGridPosition(pos: Vector2i) -> void:
-	## Mouse selection may only commit a legal destination or occupied target.
+	## Mouse selection may only commit a legal destination or displayed center.
 	if not acceptsGridInput():
 		return
 	if not setCursor(pos):
@@ -299,9 +298,9 @@ func _enterMenu(statusOverride: String = "") -> void:
 	if activeMonsterID == -1:
 		return
 	phase = Phase.MENU
-	_validTargetIDs = []
+	_validTargetPositions = []
 	_pendingAction = ""
-	_pendingTargetID = -1
+	_pendingTargetPos = Vector2i(-1, -1)
 	forecast_changed.emit("")
 	var pos = _sim.state.getMonsterPosition(activeMonsterID)
 	gridCursor = pos
@@ -373,117 +372,150 @@ func _undoMove() -> void:
 	_resolveThenReturnToMenu()
 
 
-func _enterTargetSelect(action: String, preferredTargetID: int = -1) -> void:
+func _enterTargetSelect(
+		action: String,
+		preferredTargetPos: Vector2i = Vector2i(-1, -1)) -> void:
 	_pendingAction = action
-	_pendingTargetID = -1
+	_pendingTargetPos = Vector2i(-1, -1)
 	forecast_changed.emit("")
 	var fromPos = _sim.state.getMonsterPosition(activeMonsterID)
 	if action == "attack":
-		_validTargetIDs = _sim.combatResolver.getBasicAttackTargetsFrom(activeMonsterID, fromPos)
+		_validTargetPositions = _sim.combatResolver.getBasicAttackTargetPositionsFrom(
+			activeMonsterID, fromPos
+		)
 	else:
 		if _selectedSpellSet < 0:
 			_selectFirstAvailableSpell()
 		if _selectedSpellSet < 0:
 			_enterMenu("No spell is ready.")
 			return
-		_validTargetIDs = _sim.combatResolver.getSpellTargetsFrom(
-			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, fromPos
+		# Empty centers are always displayed for non-self spells. The authored
+		# CAN_TARGET_EMPTY flag is checked separately when the player confirms.
+		_validTargetPositions = _sim.combatResolver.getSpellTargetPositionsFrom(
+			activeMonsterID,
+			_selectedSpellSet,
+			_selectedSpellIndex,
+			fromPos,
+			true
 		)
 
-	if _validTargetIDs.is_empty():
+	if _validTargetPositions.is_empty():
 		_enterMenu("No valid %s target from here." % (
 			"attack" if action == "attack" else "spell"
 		))
 		return
 
-	_sortValidTargets()
+	_sortValidTargetPositions()
 	phase = Phase.TARGET_SELECT
-	var selected_target_id = (
-		preferredTargetID if _validTargetIDs.has(preferredTargetID) else _validTargetIDs[0]
+	gridCursor = (
+		preferredTargetPos
+		if _validTargetPositions.has(preferredTargetPos)
+		else _validTargetPositions[0]
 	)
-	gridCursor = _sim.state.getMonsterPosition(selected_target_id)
-	_refreshTargetPreview(selected_target_id)
+	_refreshTargetPreview(gridCursor)
 	menu_changed.emit()
 
 
 func _commitTarget(pos: Vector2i) -> void:
-	var target_id = _targetIDAt(pos)
-	if not _validTargetIDs.has(target_id):
+	if not _validTargetPositions.has(pos):
 		status_changed.emit("Choose one of the yellow target tiles.")
 		return
-	var target = _sim.state.getMonster(target_id)
-	_pendingTargetID = target_id
+	if not _canConfirmTarget(pos):
+		status_changed.emit("This spell cannot be cast on an empty tile.")
+		forecast_changed.emit(_forecastText(pos))
+		return
+	_pendingTargetPos = pos
 	phase = Phase.CONFIRM_ACTION
-	_refreshTargetPreview(target_id)
-	status_changed.emit("Confirm %s on %s, or cancel to choose again." % [_pendingAction.capitalize(), target.name])
-	forecast_changed.emit(_forecastText(target))
+	_refreshTargetPreview(pos)
+	var target = _sim.state.getMonsterAt(pos)
+	var target_label = target.name if target != null else "tile %s" % str(pos)
+	status_changed.emit("Confirm %s at %s, or cancel to choose again." % [
+		_pendingAction.capitalize(), target_label
+	])
 	menu_changed.emit()
 
 
-func _targetIDAt(pos: Vector2i) -> int:
-	var target = _sim.state.getMonsterAt(pos)
-	return target.uniqueID if target != null else -1
-
-
-func _sortValidTargets() -> void:
-	_validTargetIDs.sort_custom(func(left_id: int, right_id: int) -> bool:
-		var left_pos = _sim.state.getMonsterPosition(left_id)
-		var right_pos = _sim.state.getMonsterPosition(right_id)
-		if left_pos.y != right_pos.y:
-			return left_pos.y < right_pos.y
-		if left_pos.x != right_pos.x:
-			return left_pos.x < right_pos.x
-		return left_id < right_id
+func _canConfirmTarget(pos: Vector2i) -> bool:
+	if not _validTargetPositions.has(pos):
+		return false
+	if _pendingAction == "attack":
+		return true
+	var from_pos = _sim.state.getMonsterPosition(activeMonsterID)
+	return _sim.combatResolver.canSpellTargetPositionFrom(
+		activeMonsterID,
+		_selectedSpellSet,
+		_selectedSpellIndex,
+		from_pos,
+		pos
 	)
 
 
-func _cycleTarget(step: int) -> void:
-	if _validTargetIDs.is_empty():
-		return
-	var current_id = _targetIDAt(gridCursor)
-	var index = _validTargetIDs.find(current_id)
-	index = 0 if index < 0 else posmod(index + step, _validTargetIDs.size())
-	var target_id = _validTargetIDs[index]
-	gridCursor = _sim.state.getMonsterPosition(target_id)
-	_refreshTargetPreview(target_id)
+func _sortValidTargetPositions() -> void:
+	_validTargetPositions.sort_custom(func(left_pos: Vector2i, right_pos: Vector2i) -> bool:
+		if left_pos.y != right_pos.y:
+			return left_pos.y < right_pos.y
+		return left_pos.x < right_pos.x
+	)
 
 
-func _refreshTargetPreview(targetID: int) -> void:
-	if not _validTargetIDs.has(targetID):
+func _cycleTargetPosition(step: int) -> void:
+	if _validTargetPositions.is_empty():
 		return
-	var target = _sim.state.getMonster(targetID)
-	if target == null:
+	var index = _validTargetPositions.find(gridCursor)
+	index = 0 if index < 0 else posmod(index + step, _validTargetPositions.size())
+	gridCursor = _validTargetPositions[index]
+	_refreshTargetPreview(gridCursor)
+
+
+func _refreshTargetPreview(centerPos: Vector2i) -> void:
+	if not _validTargetPositions.has(centerPos):
 		return
-	var affected_positions: Array = [_sim.state.getMonsterPosition(targetID)]
-	var affected_target_ids: Array = [targetID]
+	var target = _sim.state.getMonsterAt(centerPos)
+	var target_id = target.uniqueID if target != null else -1
+	var affected_positions: Array = [centerPos]
+	var affected_target_ids: Array = [] if target == null else [target_id]
 	var beneficial = false
 	if _pendingAction == "spell":
 		var caster = _sim.state.getMonster(activeMonsterID)
 		var spell = caster.spellSets[_selectedSpellSet][_selectedSpellIndex]
 		var from_pos = _sim.state.getMonsterPosition(activeMonsterID)
 		affected_positions = _sim.combatResolver.getSpellAffectedPositionsFrom(
-			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, from_pos, gridCursor
+			activeMonsterID,
+			_selectedSpellSet,
+			_selectedSpellIndex,
+			from_pos,
+			centerPos,
+			true
 		)
 		affected_target_ids = _sim.combatResolver.getSpellAffectedTargetsFrom(
-			activeMonsterID, _selectedSpellSet, _selectedSpellIndex, from_pos, gridCursor
+			activeMonsterID,
+			_selectedSpellSet,
+			_selectedSpellIndex,
+			from_pos,
+			centerPos,
+			true
 		)
 		beneficial = spell.heals or spell.targetType == "self"
-	_adapter.show_target_options(
-		_validTargetIDs, affected_positions, beneficial
-	)
-	_adapter.show_target_cursor(gridCursor)
-	if affected_positions.size() > 1:
+	_adapter.show_target_options(_validTargetPositions, affected_positions, beneficial)
+	_adapter.show_target_cursor(centerPos)
+	_adapter.show_target_status(target_id)
+	forecast_changed.emit(_forecastText(centerPos))
+	if target != null:
 		status_changed.emit("Choose a target: %s. %d unit(s) in the affected area." % [
 			target.name, affected_target_ids.size()
 		])
+	elif not _canConfirmTarget(centerPos):
+		status_changed.emit("Preview tile %s. Empty-center casting is disabled." % str(centerPos))
+	elif affected_target_ids.is_empty():
+		status_changed.emit("Choose a target tile. No units are in the affected area.")
 	else:
-		status_changed.emit("Choose a target: %s." % target.name)
+		status_changed.emit("Choose a target tile. %d unit(s) in the affected area." % affected_target_ids.size())
 
 func _commitAction() -> void:
 	var result = _sim.executeActionPhase(
 		activeMonsterID,
 		_pendingAction,
-		gridCursor,
+		_pendingTargetPos,
 		_selectedSpellSet if _pendingAction == "spell" else 0,
 		_selectedSpellIndex if _pendingAction == "spell" else 0,
 		"player"
@@ -530,25 +562,90 @@ func _selectFirstAvailableSpell() -> void:
 			_selectedSpellIndex = entry["spell_index"]
 			return
 
-func _forecastText(target: Monster) -> String:
+func _forecastText(centerPos: Vector2i) -> String:
 	var attacker = _sim.state.getMonster(activeMonsterID)
-	var elevation = _sim.combatResolver.getElevationPercent(activeMonsterID, target.uniqueID)
+	if attacker == null:
+		return ""
+	var center_target = _sim.state.getMonsterAt(centerPos)
 	if _pendingAction == "attack":
-		# is_simulation=true: every other estimator (BattleCommandEvaluator, the
-		# CPU brains) passes this so applyDamageModifiers() skips emitting
-		# passive_triggered. Omitting it here would fire that event — a real
-		# side effect, not a preview — the moment the player highlights a
-		# target, before Confirm.
+		if center_target == null:
+			return "Expected: miss (0 units affected)\nAction will be spent"
+		# is_simulation=true prevents passive_triggered from firing during a
+		# read-only preview.
 		var damage = mini(
-			target.hitpoints, _sim.combatResolver.calculateBasicDamage(attacker, target, true)
+			center_target.hitpoints,
+			_sim.combatResolver.calculateBasicDamage(attacker, center_target, true)
+		)
+		var elevation = _sim.combatResolver.getElevationPercent(
+			activeMonsterID, center_target.uniqueID
 		)
 		return "Expected: %d damage / %d%% elevation" % [damage, elevation]
+
 	var spell = attacker.spellSets[_selectedSpellSet][_selectedSpellIndex]
+	var from_pos = _sim.state.getMonsterPosition(activeMonsterID)
+	var affected_target_ids = _sim.combatResolver.getSpellAffectedTargetsFrom(
+		activeMonsterID,
+		_selectedSpellSet,
+		_selectedSpellIndex,
+		from_pos,
+		centerPos,
+		true
+	)
+	if affected_target_ids.is_empty():
+		if not _canConfirmTarget(centerPos):
+			return "Expected: 0 units affected\nEmpty-center casting is disabled"
+		return "Expected: 0 units affected\nCast spends action, cooldown & Resonance"
+
+	var total := 0
+	var minimum_elevation := 0
+	var maximum_elevation := 0
+	var has_elevation := false
+	for target_id in affected_target_ids:
+		var target = _sim.state.getMonster(target_id)
+		if target == null:
+			continue
+		if spell.heals:
+			total += mini(
+				target.max_hitpoints - target.hitpoints,
+				_sim.combatResolver.calculateHeal(attacker, spell)
+			)
+		elif not spell.damage_lines.is_empty():
+			var target_damage := 0
+			for line in spell.damage_lines:
+				target_damage += _sim.combatResolver.calculateSpellDamage(
+					attacker,
+					target,
+					int(line.get("damage", 0)),
+					str(line.get("element", "none")),
+					true
+				)
+			total += mini(target.hitpoints, target_damage)
+			var elevation = _sim.combatResolver.getElevationPercent(
+				activeMonsterID, target.uniqueID
+			)
+			if not has_elevation:
+				minimum_elevation = elevation
+				maximum_elevation = elevation
+				has_elevation = true
+			else:
+				minimum_elevation = mini(minimum_elevation, elevation)
+				maximum_elevation = maxi(maximum_elevation, elevation)
+
+	var unit_count = affected_target_ids.size()
+	var summary: String
 	if spell.heals:
-		var healing = mini(target.max_hitpoints - target.hitpoints, _sim.combatResolver.calculateHeal(attacker, spell))
-		return "Expected: %d healing" % healing
-	var damage = 0
-	for line in spell.damage_lines:
-		damage += _sim.combatResolver.calculateSpellDamage(attacker, target, int(line.get("damage", 0)), str(line.get("element", "none")), true)
-	damage = mini(target.hitpoints, damage)
-	return "Expected: %d damage / %d%% elevation" % [damage, elevation]
+		summary = "Expected: %d healing across %d unit(s)" % [total, unit_count]
+	elif not spell.damage_lines.is_empty():
+		summary = "Expected: %d damage across %d unit(s)" % [total, unit_count]
+	else:
+		summary = "Expected: %d unit(s) affected" % unit_count
+	if not _canConfirmTarget(centerPos):
+		return summary + "\nEmpty-center casting is disabled"
+	if has_elevation:
+		var elevation_text = (
+			"%d%%" % minimum_elevation
+			if minimum_elevation == maximum_elevation
+			else "%d%% to %d%%" % [minimum_elevation, maximum_elevation]
+		)
+		return summary + "\nElevation: " + elevation_text
+	return summary

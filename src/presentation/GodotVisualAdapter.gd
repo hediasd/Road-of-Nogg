@@ -749,6 +749,10 @@ func show_target_cursor(coord: Vector2i) -> void:
 	_cursor_controller.focusPlayerTarget(coord)
 
 
+func show_target_status(monsterID: int) -> void:
+	_update_target_panel(monsterID)
+
+
 func release_player_cursor() -> void:
 	_cursor_controller.releasePlayerOwnership()
 
@@ -766,13 +770,12 @@ func show_movement_options(reachable: Array, path: Array = []) -> void:
 
 
 func show_target_options(
-		targetIDs: Array,
+		targetPositions: Array,
 		affectedPositions: Array = [],
 		beneficial: bool = false) -> void:
 	clear_tactical_overlays()
-	for targetID in targetIDs:
-		var coord = state.getMonsterPosition(targetID)
-		if state.withinBounds(coord):
+	for coord in targetPositions:
+		if coord is Vector2i and state.withinBounds(coord):
 			_add_overlay(coord, Color(1.0, 0.78, 0.12, 0.52))
 	var preview_color = (
 		Color(0.2, 1.0, 0.45, 0.46)

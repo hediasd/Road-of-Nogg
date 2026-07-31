@@ -31,23 +31,21 @@ or misleading.
   BM-0 through BM-2 stabilize the command menu, playback pause,
   surface-accurate picking, and Spell/< Back navigation. They await
   in-window verification; see `implementation_plan.md`.
-- **PC-3/BM-3 is implemented but still needs in-window acceptance.** Legal
-  occupied targets cycle without free grid roaming, invalid clicks are rejected,
-  and area shapes preview from the authoritative resolver query. BM-4 remains
-  for camera-relative controls and broader visual accessibility work.
+- **PC-3/BM-3 and POS-3 are implemented but still need in-window acceptance.**
+  Legal empty and occupied centers cycle without free grid roaming; disallowed
+  empty spell centers preview but cannot confirm, and area shapes/forecasts use
+  authoritative resolver queries. BM-4 remains for camera-relative controls
+  and broader visual accessibility work.
 - **Mouse tile picking now uses dedicated rendered-surface hitboxes.** Verify it
   at multiple elevations and camera angles before considering it resolved.
 - **The player input surface has now been exercised headlessly against the
-  real scene**, closing most of this gap. `TD-1` (2026-07-30,
-  `debug/drive_battle.gd`) drives `Battle25D` through synthetic `InputEvent`s
-  — keyboard menu navigation, the Spell column with `< Back` and right-click
-  back, mouse hover-preview and click-to-commit tile picking, target cycling,
-  and phase/menu tracking across every order. What it cannot cover: whether
-  any of this *looks* right (no rendering headless — see TD-1 in
-  `implementation_plan.md`) and true animation timing/feel, since headless
-  wall-clock timers are not the same as a human watching a real frame rate. A
-  real playthrough is still worth doing before calling PC-3/BM-3 fully
-  accepted, but it is no longer the only verification that exists.
+  real scene**, closing most of the original gap. `TD-1` (2026-07-30,
+  `debug/drive_battle.gd`) drives `Battle25D` through synthetic `InputEvent`s,
+  but its occupied-only target assertions predate POS-3. POS-VALIDATE must
+  replace those assertions with empty attack, empty-center spell, blocked-empty
+  confirmation, zero-hit cast, and occupied-center coverage. Headless input
+  still cannot establish appearance, animation feel, or camera-angle usability,
+  so the specified in-window playthrough remains required.
 
 ## Content inconsistencies
 

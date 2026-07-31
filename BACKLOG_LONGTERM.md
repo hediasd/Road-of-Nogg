@@ -31,22 +31,6 @@ nobody has decided. Revisit if a resizable/small-window use case is ever
 prioritized, or if real play at a normal resolution ever turns up an actual
 report of a tile being unclickable near the HUD edges.
 
-## Empty-tile spell targeting
-
-- **POS-1 and POS-2 implemented 2026-07-31:** commands, validation, resolution,
-  events,
-  replay v5, and POS-2 AI enumeration/scoring now use canonical tile
-  positions. Remaining work is POS-3 forecasts/presentation.
-- Every non-self spell exposes tile choices in the player UI. Each spell owns an
-  explicit data flag controlling whether confirmation is legal when the chosen
-  tile is empty; a false flag disables confirmation but does not hide the tile
-  options.
-- A legal empty-tile cast that affects zero units still consumes the action,
-  cooldown, and Resonance. AI must score that outcome consistently rather than
-  receiving a separate execution rule.
-- Treat this as an Opus 5 / GPT Sol architectural item. Do not encode a fake
-  monster target or implement player-only behavior.
-
 ## Weather system
 
 - Design a competitive catalog of 5-10 weather states. Eligible monsters
@@ -78,10 +62,3 @@ block the restyle; revisit after the first playable pass.
   audio. No audio system exists yet; noted here so the `open()`/`close()`
   hooks in `NoggWindow` are not designed away before there is something to
   play.
-
-## Typed presentation contracts
-
-- **TYPE-2 and TYPE-3 implemented 2026-07-31:** stable UI references and queued
-  visual actions now use typed contracts instead of string-keyed orchestration
-  dictionaries. Setup/HUD lifecycle and animation acceptance remain for a
-  consolidated presentation pass.
