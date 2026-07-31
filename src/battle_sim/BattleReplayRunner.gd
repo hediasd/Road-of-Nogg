@@ -44,16 +44,15 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 			}
 
 		var data: Dictionary = entry.get("data", {})
+		var command = BattleCommand.from_dictionary(data.get("command", {}))
 		var result = simulator.executeCommand(
-			actorID,
-			data.get("command", {}),
-			data.get("source", "replay")
+			actorID, command, data.get("source", "replay")
 		)
-		if not result.get("success", false):
+		if not result.success:
 			return {
 				"success": false,
 				"reason": "command_rejected",
-				"detail": result
+				"detail": result.to_dictionary()
 			}
 		simulator.state.assertValidOccupancy()
 		simulator.turnManager.endTurn(actorID)

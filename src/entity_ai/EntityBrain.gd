@@ -24,7 +24,7 @@ func _init(_state: BattleState, _movementResolver: MovementResolver, _combatReso
 	commandEvaluator = BattleCommandEvaluatorScript.new(state, movementResolver, combatResolver)
 
 
-func decideTurn(monsterID: int) -> Dictionary:
+func decideTurn(monsterID: int) -> BattleCommand:
 	return commandEvaluator.chooseCommand(monsterID, _evaluationWeights())
 
 

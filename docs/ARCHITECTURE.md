@@ -74,11 +74,16 @@ player state, hides battle controls, and restores the setup overlay over the sky
 
 ## Controller-neutral command contract
 
-CPU brains and the player controller submit the same command fields:
+CPU brains, replay, and the simulator exchange typed `BattleCommand` values;
+validation and execution return `BattleCommandResult`. Commands expose
 `move_path`, `action`, `target_id`, `spell_set_index`, `spell_index`, and
-`order`. `BattleSimulator.validateCommand()` checks the current actor, the
-complete move path, the destination, action type, spell availability, range,
-line of sight, team rules, and target validity against authoritative state.
+`order`. Explicit `to_dictionary()` / `from_dictionary()` adapters keep dynamic
+keys at command-history and replay serialization edges rather than in the
+public orchestration API. Resolver-specific action details remain a dictionary
+inside the typed result because their shape legitimately varies by action.
+`BattleSimulator.validateCommand()` checks the current actor, the complete move
+path, the destination, action type, spell availability, range, line of sight,
+team rules, and target validity against authoritative state.
 
 `order` is `move_first` or `act_first` and says which phase resolved first. It
 decides which position the action is validated from: a `move_first` action is

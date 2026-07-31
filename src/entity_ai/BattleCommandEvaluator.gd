@@ -20,7 +20,7 @@ func _init(
 	combatResolver = _combatResolver
 
 
-func chooseCommand(monsterID: int, weights: Dictionary) -> Dictionary:
+func chooseCommand(monsterID: int, weights: Dictionary) -> BattleCommand:
 	var actor = state.getMonster(monsterID)
 	var origin = state.getMonsterPosition(monsterID)
 	var destinations: Array = movementResolver.getReachablePositions(monsterID)
@@ -64,7 +64,7 @@ func chooseCommand(monsterID: int, weights: Dictionary) -> Dictionary:
 					))
 
 	if candidates.is_empty():
-		return {"move_path": [], "action": "wait", "target_id": -1}
+		return BattleCommand.wait()
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if a["score"] != b["score"]:
 			return a["score"] > b["score"]
@@ -84,13 +84,9 @@ func _candidate(
 		threat: Dictionary,
 		weights: Dictionary,
 		enemyPositions: Array[Vector2i]) -> Dictionary:
-	var command = {
-		"move_path": path.duplicate(),
-		"action": action,
-		"target_id": targetID,
-		"spell_set_index": spellSetIndex,
-		"spell_index": spellIndex
-	}
+	var command = BattleCommand.new(
+		path, action, targetID, spellSetIndex, spellIndex
+	)
 	var defeats = 0
 	var defeatedValue = 0
 	var expectedDamage = 0

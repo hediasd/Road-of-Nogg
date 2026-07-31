@@ -1728,3 +1728,113 @@ export_presets.cfg coverage; finish with git diff --check.
 **Risk:** Medium. This is the first integrated acceptance boundary for the
 catalog cutover, so failures may cross data, factory, AI, or presentation
 ownership even when each migration diff was mechanically straightforward.
+---
+
+## Typed and positional command contracts (TYPE-1, POS-1 … POS-3)
+
+Recovered from the 2026-07-31 architecture plan. These items deliberately add
+small value objects rather than merging cohesive classes: class count is not a
+problem, while string-keyed public orchestration contracts are.
+
+## TYPE-1 — Typed battle command boundary
+
+Add typed `BattleCommand` and `BattleCommandResult` value objects with explicit
+`to_dictionary()` / `from_dictionary()` adapters. Update AI, player control,
+simulator, replay, and command history without changing behavior. Internal
+scoring and resolver payload dictionaries remain internal; JSON catalogs remain
+dictionaries after validation. Replay version stays 4 for this item.
+
+**Model:** Opus 5 / GPT Sol.
+
+**Final validation coverage:** Replay round-trip plus one player/CPU command of
+every action type. Serialized fields and behavior must remain unchanged.
+
+**Risk:** Medium-high. This changes the public controller-neutral command seam
+shared by player control, CPU brains, history, and replay.
+
+**Resolution (2026-07-31): implemented; pending end-of-plan validation.**
+`BattleCommand` and `BattleCommandResult` now own the public orchestration
+contract. AI and simulator exchange typed commands, command history and replay
+use explicit dictionary adapters, and typed execution results replace dynamic
+result lookups. Resolver-specific action payloads remain dictionaries. A narrow
+headless project-load smoke passed; behavioral and replay acceptance remain the
+final validation item's responsibility.
+
+## POS-1 — Position-based simulation contract
+
+Extend `BattleCommand` with canonical `target_pos`; `target_id` becomes the
+derived occupant/result field rather than targeting identity. Basic Attack may
+target any adjacent in-bounds, height-reachable empty or enemy tile, but not an
+allied tile. An empty attack spends the action, animates a miss toward the tile,
+deals no damage, and fires no target passive.
+
+Every non-self spell exposes positional centers. Every spell has an explicit
+`CAN_TARGET_EMPTY` catalog flag controlling whether an empty center can be
+confirmed; the flag does not control whether the center is shown by the player
+UI. A legal zero-unit cast consumes the action, cooldown, and Resonance. Resolver
+queries take `center_pos`, targeting/cast events include positions, and replay
+bumps to version 5. Replay v2-v4 commands derive `target_pos` from `target_id` at
+the moment each legacy command executes. No fake monster IDs are introduced.
+
+**Model:** Opus 5 / GPT Sol.
+
+**Final validation coverage:** Occupied/empty attack, occupied/empty spell
+center, zero-hit cast, LoS/elevation, cooldown and Resonance consumption, plus
+v2-v5 replay. Expected values change: legal center counts increase and replay
+version becomes 5.
+
+**Risk:** High. Simulation validation, resolution, events, history, and replay
+must agree on one canonical coordinate without diverging between controllers.
+
+## POS-2 — AI positional targeting
+
+AI enumerates legal center positions rather than only unit IDs. Area spells are
+scored from every affected unit around a center; centers producing equivalent
+outcomes are deduplicated. Empty attacks and zero-effect spells remain legal but
+score below Wait unless authored effects make the position useful. Preserve
+deterministic tie-breaking by coordinate and action identity.
+
+**Model:** Opus 5 / GPT Sol.
+
+**Final validation coverage:** Seeded AI chooses an empty-centered area spell
+that affects multiple units, declines a useless empty cast, and replays to the
+same result.
+
+**Risk:** Medium-high. Candidate counts increase and inconsistent utility or
+tie-breaking would damage both performance and determinism.
+
+## POS-3 — Player positional targeting and visuals
+
+Replace occupied target IDs in the player controller with legal target
+positions. Mouse and keyboard/gamepad can select empty or occupied centers;
+legal centers remain yellow and affected area remains red/green. Empty centers
+leave target status blank, forecasts aggregate affected units and warn on zero
+units, and empty attacks animate a miss toward the chosen tile. Preserve cancel,
+confirm, camera ownership, and both phase orders.
+
+**Model:** Opus 5 / GPT Sol.
+
+**Final validation coverage:** In-window mixed mouse/keyboard playthrough of
+empty attack, empty-centered area spell, zero-hit cast, occupied target, cancel,
+both phase orders, multiple elevations, and camera angles.
+
+**Risk:** High. This is the input/presentation half of the positional contract
+and absorbs the outstanding player-command visual acceptance work.
+
+## POS-VALIDATE — Validate typed positional targeting
+
+Run one consolidated acceptance pass after POS-1 through POS-3 are committed.
+Cover TYPE-1's serialization boundary, POS-1's simulation/replay cases, POS-2's
+seeded AI choices, and POS-3's in-window player flow. Update pending resolutions
+to done only after this combined pass succeeds.
+
+**Model:** Opus 5 / GPT Sol.
+
+**Depends on:** TYPE-1 and POS-1 through POS-3.
+
+**Verify:** Run focused typed-command and replay-v2-v5 harnesses, seeded AI
+scenarios, a full deterministic battle/replay round-trip, and the specified
+in-window player playthrough; finish with `git diff --check`.
+
+**Risk:** High. This is the first integrated acceptance boundary for all
+controllers sharing coordinate-based targeting.

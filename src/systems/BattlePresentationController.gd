@@ -461,7 +461,7 @@ func _advance_battle() -> void:
 		return
 	var monster = sim.state.getMonster(monsterID)
 	if sim.state.hasEffect(monsterID, "petrify"):
-		sim.executeCommand(monsterID, {"move_path": [], "action": "wait"}, "system")
+		sim.executeCommand(monsterID, BattleCommand.wait(), "system")
 		sim.turnManager.endTurn(monsterID)
 		return
 	if current_config.controllerForTeam(monster.team) == "player":

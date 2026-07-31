@@ -1,5 +1,5 @@
 ## Canonical headless battle orchestrator.
-## AI and player controllers submit the same validated command dictionaries.
+## AI and player controllers submit the same validated BattleCommand values.
 
 class_name BattleSimulator
 
@@ -108,37 +108,33 @@ func _resolveBrainClass(name: String):
 		_: return load("res://src/entity_ai/TacticalBrain.gd")
 
 
-func validateCommand(monsterID: int, command: Dictionary) -> Dictionary:
+func validateCommand(monsterID: int, command: BattleCommand) -> BattleCommandResult:
+	if command == null:
+		return BattleCommandResult.rejected("missing_command")
 	if state.currentMonsterID != monsterID:
-		return {"success": false, "reason": "not_current_turn"}
+		return BattleCommandResult.rejected("not_current_turn")
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
-		return {"success": false, "reason": "invalid_monster"}
+		return BattleCommandResult.rejected("invalid_monster")
 
-	var normalizedPath: Array = []
-	for stepValue in command.get("move_path", []):
-		var step = stepValue
-		if stepValue is Dictionary:
-			step = Vector2i(int(stepValue.get("x", 0)), int(stepValue.get("y", 0)))
-		if not step is Vector2i:
-			return {"success": false, "reason": "invalid_path_coordinate"}
-		normalizedPath.append(step)
-
+	var normalizedPath = _normalizePath(command.move_path)
+	if normalizedPath == null:
+		return BattleCommandResult.rejected("invalid_path_coordinate")
 	var moveValidation = movementResolver.validateMovePath(monsterID, normalizedPath)
 	if not moveValidation["success"]:
-		return moveValidation
+		return BattleCommandResult.rejected(moveValidation.get("reason", "invalid_move"))
 	var futurePos: Vector2i = moveValidation["destination"]
 
-	var action: String = command.get("action", "wait")
+	var action: String = command.action
 	if action not in ["wait", "attack", "spell"]:
-		return {"success": false, "reason": "invalid_action"}
-	var targetID: int = int(command.get("target_id", -1))
-	var spellSetIndex: int = int(command.get("spell_set_index", 0))
-	var spellIndex: int = int(command.get("spell_index", 0))
+		return BattleCommandResult.rejected("invalid_action")
+	var targetID: int = command.target_id
+	var spellSetIndex: int = command.spell_set_index
+	var spellIndex: int = command.spell_index
 
-	var order: String = str(command.get("order", ORDER_MOVE_FIRST))
+	var order: String = command.order
 	if order not in [ORDER_MOVE_FIRST, ORDER_ACT_FIRST]:
-		return {"success": false, "reason": "invalid_order"}
+		return BattleCommandResult.rejected("invalid_order")
 	# An act-first turn resolves its action before the actor leaves the tile it
 	# started on, so range, line of sight, and elevation must be checked from
 	# there. Validating it from the destination would accept attacks the actor
@@ -149,28 +145,19 @@ func validateCommand(monsterID: int, command: Dictionary) -> Dictionary:
 
 	if action == "attack":
 		if not combatResolver.getBasicAttackTargetsFrom(monsterID, actionPos).has(targetID):
-			return {"success": false, "reason": "invalid_attack_target"}
+			return BattleCommandResult.rejected("invalid_attack_target")
 	elif action == "spell":
 		if spellSetIndex < 0 or spellIndex < 0:
-			return {"success": false, "reason": "invalid_spell"}
+			return BattleCommandResult.rejected("invalid_spell")
 		var targets = combatResolver.getSpellTargetsFrom(
 			monsterID, spellSetIndex, spellIndex, actionPos
 		)
 		if not targets.has(targetID):
-			return {"success": false, "reason": "invalid_spell_target"}
+			return BattleCommandResult.rejected("invalid_spell_target")
 
-	return {
-		"success": true,
-		"command": {
-			"move_path": normalizedPath,
-			"action": action,
-			"target_id": targetID,
-			"spell_set_index": spellSetIndex,
-			"spell_index": spellIndex,
-			"order": order
-		}
-	}
-
+	return BattleCommandResult.accepted(BattleCommand.new(
+		normalizedPath, action, targetID, spellSetIndex, spellIndex, order
+	))
 
 ## --- Incremental turn execution -------------------------------------------
 ##
@@ -354,21 +341,21 @@ func executeActionPhase(
 	return {"success": true, "actionResult": actionResult}
 
 
-func finishTurn(monsterID: int, source: String = "player") -> Dictionary:
+func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResult:
 	## Closes the turn: writes the single aggregate command event and fires the
 	## end-of-turn passives exactly once, however many phases actually ran.
 	var accumulator = _ensureTurnAccumulator(monsterID, source)
-	var normalized := {
-		"move_path": accumulator["move_path"],
-		"action": accumulator["action"],
-		"target_id": accumulator["target_id"],
-		"spell_set_index": accumulator["spell_set_index"],
-		"spell_index": accumulator["spell_index"],
-		"order": accumulator["order"]
-	}
-	state.add_event("command", monsterID, normalized["target_id"], {
+	var normalized = BattleCommand.new(
+		accumulator["move_path"],
+		accumulator["action"],
+		accumulator["target_id"],
+		accumulator["spell_set_index"],
+		accumulator["spell_index"],
+		accumulator["order"]
+	)
+	state.add_event("command", monsterID, normalized.target_id, {
 		"source": accumulator["source"],
-		"command": normalized.duplicate(true)
+		"command": normalized.to_dictionary()
 	})
 
 	var skipped: bool = accumulator["skipped"]
@@ -376,15 +363,12 @@ func finishTurn(monsterID: int, source: String = "player") -> Dictionary:
 	var acted: bool = accumulator["acted"]
 	_turnAccumulator = {}
 	passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
-	return {
-		"success": true,
-		"resolved": false if skipped else actionResult.get("success", true),
-		"acted": acted,
-		"skipped": skipped,
-		"command": normalized,
-		"actionResult": actionResult
-	}
-
+	var result = BattleCommandResult.accepted(normalized)
+	result.resolved = false if skipped else actionResult.get("success", true)
+	result.acted = acted
+	result.skipped = skipped
+	result.action_result = actionResult
+	return result
 
 func _rejectPhase(monsterID: int, source: String, reason: String) -> Dictionary:
 	state.add_event("command_rejected", monsterID, -1, {"source": source, "reason": reason})
@@ -404,19 +388,23 @@ func _normalizePath(path):
 	return normalizedPath
 
 
-func executeCommand(monsterID: int, command: Dictionary, source: String = "cpu") -> Dictionary:
+func executeCommand(
+		monsterID: int,
+		command: BattleCommand,
+		source: String = "cpu") -> BattleCommandResult:
 	## The atomic entry point CPU brains and replay use. Validates the whole turn
 	## up front, then resolves it through the same phase calls the interactive
 	## path uses, in the order the command records.
 	var validation = validateCommand(monsterID, command)
-	if not validation["success"]:
-		state.add_event("command_rejected", monsterID, int(command.get("target_id", -1)), {
+	if not validation.success:
+		var rejectedTargetID = command.target_id if command != null else -1
+		state.add_event("command_rejected", monsterID, rejectedTargetID, {
 			"source": source,
-			"reason": validation.get("reason", "invalid_command")
+			"reason": validation.reason if not validation.reason.is_empty() else "invalid_command"
 		})
 		return validation
 
-	var normalized: Dictionary = validation["command"]
+	var normalized: BattleCommand = validation.command
 	var accumulator = _ensureTurnAccumulator(monsterID, source)
 	accumulator["source"] = source
 
@@ -425,52 +413,50 @@ func executeCommand(monsterID: int, command: Dictionary, source: String = "cpu")
 		accumulator["skipped"] = true
 		accumulator["action_result"] = {"success": false, "reason": "petrify"}
 		var skippedResult = finishTurn(monsterID, source)
-		skippedResult["command"] = normalized
+		skippedResult.command = normalized
 		return skippedResult
 
-	var action: String = normalized["action"]
-	if normalized["order"] == ORDER_ACT_FIRST:
+	var action: String = normalized.action
+	if normalized.order == ORDER_ACT_FIRST:
 		executeActionPhase(
 			monsterID,
 			action,
-			normalized["target_id"],
-			normalized["spell_set_index"],
-			normalized["spell_index"],
+			normalized.target_id,
+			normalized.spell_set_index,
+			normalized.spell_index,
 			source
 		)
-		executeMovePhase(monsterID, normalized["move_path"], source)
+		executeMovePhase(monsterID, normalized.move_path, source)
 	else:
-		executeMovePhase(monsterID, normalized["move_path"], source)
+		executeMovePhase(monsterID, normalized.move_path, source)
 		executeActionPhase(
 			monsterID,
 			action,
-			normalized["target_id"],
-			normalized["spell_set_index"],
-			normalized["spell_index"],
+			normalized.target_id,
+			normalized.spell_set_index,
+			normalized.spell_index,
 			source
 		)
 
 	return finishTurn(monsterID, source)
-
 
 func executeTurn(monsterID: int) -> bool:
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
 		return false
 	if state.hasEffect(monsterID, "petrify"):
-		return executeCommand(monsterID, {"move_path": [], "action": "wait"}, "cpu").get("acted", false)
+		return executeCommand(monsterID, BattleCommand.wait(), "cpu").acted
 
 	var brain = brains.get(monsterID)
 	if brain == null:
 		return false
-	var decision = brain.decideTurn(monsterID)
-	state.add_event("decision", monsterID, decision.get("target_id", -1), decision.duplicate(true))
+	var decision: BattleCommand = brain.decideTurn(monsterID)
+	state.add_event("decision", monsterID, decision.target_id, decision.to_dictionary())
 	var result = executeCommand(monsterID, decision, "cpu")
-	if not result.get("success", false):
-		push_error("AI command rejected for monster %d: %s" % [monsterID, result.get("reason", "unknown")])
-		result = executeCommand(monsterID, {"move_path": [], "action": "wait"}, "cpu_fallback")
-	return result.get("acted", false)
-
+	if not result.success:
+		push_error("AI command rejected for monster %d: %s" % [monsterID, result.reason])
+		result = executeCommand(monsterID, BattleCommand.wait(), "cpu_fallback")
+	return result.acted
 
 func createReplaySnapshot() -> Dictionary:
 	var brainClasses = {}
