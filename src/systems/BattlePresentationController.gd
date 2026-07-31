@@ -745,11 +745,10 @@ func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
 		"Elements",
 		", ".join(monster.elements) if not monster.elements.is_empty() else "None"
 	)
-	# This window has no cursor to drive set_focused_row(), so it always
-	# "focuses" its own last row instead — a real, reachable case (§7b/UI-9
-	# notes): several ordinary 2-element combos already overflow this window's
-	# fixed width, not just the hypothetical 3-element case §8 once assumed.
-	window.set_focused_row(window.row_count() - 1)
+	# Deliberately NOT set_focused_row() here: marquee is reserved for content
+	# the player is actively choosing between (spell names), not a passive
+	# status readout. An overflowing Elements combo just stays truncated —
+	# see docs/UI_DESIGN.md §7b's note on this reversal.
 
 
 func _tint_row_value(row: Control, colour: Color) -> void:

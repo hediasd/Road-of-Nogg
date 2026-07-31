@@ -149,22 +149,21 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 			graphicsButton.button_pressed = false
 	)
 
-	# Docked bottom-left/bottom-right per §8, fixed size and position — they
-	# never resize or reflow with content (item 4). Positioned directly rather
-	# than via an HBoxContainer: a NoggWindow already has its own fixed size and
-	# a flex container would fight that the moment the two windows' widths
-	# differ, which they do not today but item 4 forbids relying on that.
-	var viewport_size := game_root.get_viewport_rect().size
+	# Docked bottom-left/bottom-right per §8, fixed size — they never resize or
+	# reflow with content (item 4). Positioned directly rather than via an
+	# HBoxContainer: a NoggWindow already has its own fixed size and a flex
+	# container would fight that the moment the two windows' widths differ,
+	# which they do not today but item 4 forbids relying on that.
 	var status_window_size := Vector2(
 		STATUS_WINDOW_WIDTH, NoggThemeScript.window_height(STATUS_WINDOW_CAPACITY)
 	)
+	const STATUS_WINDOW_MARGIN := 20.0
 
 	var actorWindow: NoggWindow = NoggWindowScript.new()
 	game_root.add_child(actorWindow)
 	actorWindow.name = "ActorWindow"
 	actorWindow.set_row_capacity(STATUS_WINDOW_CAPACITY)
 	actorWindow.size = status_window_size
-	actorWindow.position = Vector2(20, viewport_size.y - status_window_size.y - 20)
 
 	# A plain full-rect Control, not a styled PanelContainer: the command menu
 	# now draws its own NoggWindow frames and docks its windows itself per
@@ -187,9 +186,25 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	targetWindow.name = "TargetWindow"
 	targetWindow.set_row_capacity(STATUS_WINDOW_CAPACITY)
 	targetWindow.size = status_window_size
-	targetWindow.position = Vector2(
-		viewport_size.x - status_window_size.x - 20, viewport_size.y - status_window_size.y - 20
-	)
+
+	# Positioned from the viewport size on `resized` rather than read once at
+	# build time: `game_root.get_viewport_rect()` immediately after the canvas
+	# is built is not reliably the final displayed size — the same class of
+	# layout-not-settled-yet timing this codebase has hit repeatedly this
+	# session (see docs/LEARNINGS.md, Process behavior). A one-shot read left
+	# both windows sitting well above the true bottom margin. Mirrors
+	# PlayerCommandMenu's own resized-driven `_layout_windows()`.
+	var reposition_status_windows := func() -> void:
+		var viewport_size = game_root.get_viewport_rect().size
+		actorWindow.position = Vector2(
+			STATUS_WINDOW_MARGIN, viewport_size.y - status_window_size.y - STATUS_WINDOW_MARGIN
+		)
+		targetWindow.position = Vector2(
+			viewport_size.x - status_window_size.x - STATUS_WINDOW_MARGIN,
+			viewport_size.y - status_window_size.y - STATUS_WINDOW_MARGIN
+		)
+	game_root.resized.connect(reposition_status_windows)
+	reposition_status_windows.call()
 
 	return {
 		"game_canvas": game_canvas,

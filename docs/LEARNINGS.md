@@ -13,6 +13,7 @@ not a session log, policy copy, or backlog.
 | Godot classes, loads, or factory paths | GDScript loading |
 | Console maps or diagnostic output | Text rendering |
 | Running Godot scripts reliably on Windows | Process behavior |
+| Tween-based UI animation | UI animation |
 | Cursor ownership or tile intent | Cursor event semantics |
 | Presentation event sequencing or animation cancellation | Visual action playback |
 | Elevation rendering or map geometry | Elevation presentation |
@@ -130,6 +131,30 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   behavior belongs in presentation code.
 - **Review when:** adding event ownership, connection lifetimes, or adapters.
 
+### A brand-new `class_name` is not a usable bare type until the project rescans it
+
+- **Verified observation:** A freshly created script's `class_name` fails with
+  `Could not find type "X" in the current scope` the first time another script
+  both defines and uses it as a static type (`var w: NoggWindow`) in the same
+  session — even though `load("res://.../NoggWindow.gd").new()` on the exact
+  same class works fine. The difference is a `.gd.uid` sidecar: an
+  already-registered class (`NoggTheme.gd`, which had one from an earlier
+  session) resolved as a bare type immediately; two classes created moments
+  earlier in the same session (`NoggWindow.gd`, `MenuCursor.gd`) did not, until
+  a project-wide scan generated their `.uid` files. Neither `--headless -s
+  script.gd` nor `--path . scene.tscn` reliably triggers that scan for a file
+  created in the same session; `--headless --editor --quit-after 200` does.
+- **Reusable rule:** After adding a new `class_name`, either run `--headless
+  --editor --quit-after 200` once before relying on it as a bare static type
+  elsewhere, or check for its `.gd.uid` sidecar first. Typing the reference as
+  `Control`/`Node`/`RefCounted` instead avoids the error but only defers it —
+  a caller of that reference that itself needs static inference (e.g. `var row
+  := window.add_row(...)`) will hit a *different* error (`Cannot infer the
+  type of "row"`) the first time it's typed against the workaround value
+  instead of the real class.
+- **Review when:** adding a new `class_name` and using it as a static type
+  (not just via `preload().new()`) in the same session it was created.
+
 ## Text rendering
 
 ### Terminal width is not portable for emoji
@@ -154,6 +179,42 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   code alone. On timeout, terminate only the exact process object launched.
 - **Review when:** the execution host or sandbox tooling changes, or when
   building a new check/test runner against this Godot binary.
+
+### Capturing a second screenshot in one running process returns a stale image
+
+- **Verified observation:** `root.get_texture().get_image().save_png(...)`
+  called a second time in the same `SceneTree` process — after a genuine state
+  change (a `CanvasLayer.visible` flip, confirmed correct by reading the
+  property directly) and after `await RenderingServer.frame_post_draw` plus
+  several `await process_frame`s — returned an image byte-identical to the
+  first capture. Sampling fixed opaque button pixels confirmed it: the second
+  "before/after" pair was pixel-for-pixel the same PNG. A single capture per
+  process, immediately after the state change, was correct every time.
+- **Reusable rule:** A windowed before/after screenshot harness needs one
+  process per captured state, not one process capturing several states in
+  sequence. Do not "fix" a stale second capture by awaiting more frames or more
+  post-draw signals — it does not go away with more waiting.
+- **Review when:** writing or extending a `debug/verify_*.gd` harness that
+  captures more than one visual state.
+
+### A node's `_ready()` is not synchronous within `add_child()` before the tree's first frame
+
+- **Verified observation:** `NoggWindowScript.new(); parent.add_child(window);
+  window.add_row(...)` — a sequence that works correctly everywhere in the
+  actual game (`BattleUIBuilder.gd`, `PlayerCommandMenu.gd`, all called deep
+  into an already-running scene tree) — threw `Cannot call method 'add_child'
+  on a null value` inside `NoggWindow.add_row()` when the identical sequence
+  ran at the very start of a fresh `SceneTree` script's `_initialize()`, before
+  any frame had been awaited. `_content` (built in `_ready()`) was still null;
+  `add_child()` had not yet triggered it.
+- **Reusable rule:** `_ready()` fires synchronously within `add_child()` once
+  the tree is already several frames into its main loop, but not reliably
+  before the very first frame. A minimal verification harness that builds
+  scene-tree nodes at the top of `_initialize()` needs at least one `await
+  process_frame` before treating a freshly `add_child()`-ed custom node as
+  fully constructed.
+- **Review when:** writing a `debug/verify_*.gd`/`probe_*.gd` script that
+  builds nodes immediately in `_initialize()` with no prior `await`.
 
 ## Cursor event semantics
 
@@ -259,3 +320,32 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   simulate a candidate.
 - **Review when:** changing viewport resolution, letterboxing, camera controls,
   mouse picking, world shaders, shadows, or the UI/world composition.
+
+## UI animation
+
+### A killed `Tween` never emits `finished`, and a live one keeps animating regardless of who created it
+
+- **Verified observation, twice, in the same session.** `NoggWindow.close()`
+  originally awaited `_open_tween.finished`; an `open()` call arriving while a
+  `close()` was still in flight killed that tween to start its own, which
+  meant the waiting `close()` coroutine — awaiting a signal that a killed tween
+  never sends — would have hung forever. Caught before shipping and fixed with
+  a `SceneTree` timer plus a generation counter instead. The *same* class of
+  bug then shipped anyway in the row-marquee feature: the scroll tween created
+  inside the marquee loop was never stored anywhere, so when a row lost focus
+  and `set_focused_row()` set `label.position.x = 0.0` to reset it, the
+  still-running, un-killed tween overwrote that reset on the very next frame,
+  since nothing had ever told it to stop. Confirmed on screen — a row
+  refocused away mid-scroll stayed visibly scrolled instead of snapping back —
+  not caught by reading the code, because the reset call was right there and
+  looked correct.
+- **Reusable rule:** Any `Tween` that can be superseded (a new open/close, a
+  new focus target, a new selection) must be stored in a member variable and
+  explicitly `.kill()`ed at the point of supersession, even if nothing appears
+  to await it. Never `await tween.finished` on a tween that can be killed by
+  something other than its own natural completion — use a `SceneTree` timer of
+  matching duration instead, guarded by a generation counter so a
+  now-irrelevant wakeup can cleanly no-op.
+- **Review when:** adding or modifying any tweened UI state (open/close,
+  focus/dim, cursor movement, marquee/scroll) that a later call can interrupt
+  before it finishes.

@@ -453,6 +453,15 @@ Five rules, each of which exists because the obvious alternative reads badly:
 Rows that fit never scroll and never delay; the behaviour is invisible until it
 is needed.
 
+**Marquee is reserved for content the player is choosing between — spell
+names — not for passive status readouts.** The actor/target windows' `Elements`
+row was briefly wired to marquee too (UI-9's original notes), on the reasoning
+that any overflowing row should get the same treatment "for free." Reversed on
+design review: a status window is read, not navigated, and there is no cursor
+to justify drawing the eye to one row over the others. An overflowing
+`Elements` combo (`water, darkness`, `fire, darkness` — see §8) simply stays
+truncated, like every other value in that window.
+
 Implementation is a `clip_contents = true` wrapper around the label with its
 `position.x` tweened. It applies to the **label column only** — the value column
 (`Rng 3`, `CD 12`) is right-aligned against the frame and must stay anchored, or
