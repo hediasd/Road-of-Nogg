@@ -1,39 +1,47 @@
-## StatusEffectReferences — Static registry of every status/buff/debuff effect
-## name the battle simulation knows about. Same data-driven pattern as
-## SpellReferences.gd/RaceReferences.gd: content is data, resolvers stay
-## general. Owns default DURATION/DAMAGE_PER_TURN and whether an effect counts
-## as NEGATIVE for cleanse purposes.
-
 class_name StatusEffectReferences
 
-static var list: Array = [
-	{"NAME": "burn",       "DURATION": 3, "DAMAGE_PER_TURN": 2, "NEGATIVE": true},
-	{"NAME": "poison",     "DURATION": 4, "DAMAGE_PER_TURN": 1, "NEGATIVE": true},
-	{"NAME": "petrify",    "DURATION": 2, "DAMAGE_PER_TURN": 0, "NEGATIVE": true},
-	{"NAME": "spd_debuff", "DURATION": 4, "DAMAGE_PER_TURN": 0, "NEGATIVE": true},
-	{"NAME": "chill",      "DURATION": 3, "DAMAGE_PER_TURN": 0, "NEGATIVE": true},
-	{"NAME": "guard",      "DURATION": 4, "DAMAGE_PER_TURN": 0, "NEGATIVE": false},
-	{"NAME": "focus",      "DURATION": 4, "DAMAGE_PER_TURN": 0, "NEGATIVE": false},
-	{"NAME": "atk_buff",   "DURATION": 3, "DAMAGE_PER_TURN": 0, "NEGATIVE": false},
-	{"NAME": "def_buff",   "DURATION": 3, "DAMAGE_PER_TURN": 0, "NEGATIVE": false},
-	{"NAME": "spd_buff",   "DURATION": 4, "DAMAGE_PER_TURN": 0, "NEGATIVE": false},
-	{"NAME": "move_buff",  "DURATION": 4, "DAMAGE_PER_TURN": 0, "NEGATIVE": false}
-]
+const JSON_PATH := "res://data/status_effects.json"
+const JsonCatalogLoaderScript = preload("res://src/factories/JsonCatalogLoader.gd")
+
+static var list: Array = []
+static var _name_index: Dictionary = {}
+
+
+static func _static_init():
+	reloadCatalog()
+
+
+static func reloadCatalog(path: String = JSON_PATH) -> bool:
+	var loaded := JsonCatalogLoaderScript.loadNamedCatalog(path)
+	if not loaded["success"]:
+		return _fail(str(loaded["error"]))
+	var newList: Array = []
+	var newIndex: Dictionary = {}
+	for reference in loaded["list"]:
+		reference["DURATION"] = int(reference.get("DURATION", 2))
+		reference["DAMAGE_PER_TURN"] = int(reference.get("DAMAGE_PER_TURN", 0))
+		reference["NEGATIVE"] = bool(reference.get("NEGATIVE", false))
+		newList.append(reference)
+		newIndex[reference["NAME"]] = reference
+	list = newList
+	_name_index = newIndex
+	return true
+
+
+static func _fail(message: String) -> bool:
+	push_warning("StatusEffectReferences: %s" % message)
+	return false
 
 
 static func getReference(name: String) -> Dictionary:
-	for reference in list:
-		if reference["NAME"] == name:
-			return reference
+	if _name_index.has(name):
+		return _name_index[name]
 	push_error("StatusEffectReferences: Unknown status effect '%s'." % name)
 	return {"NAME": name, "DURATION": 2, "DAMAGE_PER_TURN": 0, "NEGATIVE": false}
 
 
 static func hasReference(name: String) -> bool:
-	for reference in list:
-		if reference["NAME"] == name:
-			return true
-	return false
+	return _name_index.has(name)
 
 
 static func isNegative(name: String) -> bool:

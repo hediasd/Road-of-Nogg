@@ -1,49 +1,46 @@
-## PassiveSkillReferences — Static registry of all passive skill definitions.
-## Same data-driven pattern as SpellReferences.gd.
-## Add new passives here; the engine will read them automatically.
-
 class_name PassiveSkillReferences
 
-static var list: Array
+const JSON_PATH := "res://data/passives.json"
+const JsonCatalogLoaderScript = preload("res://src/factories/JsonCatalogLoader.gd")
+
+static var list: Array = []
+static var _name_index: Dictionary = {}
+
 
 static func _static_init() -> void:
-	list = [
-		{
-			"NAME"        = "Tough Skin",
-			"TRIGGER"     = "ON_DAMAGE_TAKEN",
-			"EFFECT_TYPE" = "damage_reduction",
-			"VALUE"       = 0.10,       # Reduces incoming damage by 10%
-			"ELEMENT"     = "none",
-			"RADIUS"      = 0
-		},{
-			"NAME"        = "Snowfall",
-			"TRIGGER"     = "ON_DEATH",
-			"EFFECT_TYPE" = "aoe_damage",
-			"VALUE"       = 15.0,       # Flat ICE damage dealt to all in radius
-			"ELEMENT"     = "ice",
-			"RADIUS"      = 3
-		},{
-			"NAME"        = "Storm Surge",
-			"TRIGGER"     = "ON_TARGETED",
-			"EFFECT_TYPE" = "retaliate_damage",
-			"VALUE"       = 3,          # Flat THUNDER damage back to attacker
-			"ELEMENT"     = "thunder",
-			"RADIUS"      = 0
-		}
-	]
-	pass
+	reloadCatalog()
+
+
+static func reloadCatalog(path: String = JSON_PATH) -> bool:
+	var loaded := JsonCatalogLoaderScript.loadNamedCatalog(path)
+	if not loaded["success"]:
+		return _fail(str(loaded["error"]))
+	var newList: Array = []
+	var newIndex: Dictionary = {}
+	for reference in loaded["list"]:
+		reference["TRIGGER"] = str(reference.get("TRIGGER", ""))
+		reference["EFFECT_TYPE"] = str(reference.get("EFFECT_TYPE", ""))
+		reference["VALUE"] = float(reference.get("VALUE", 0.0))
+		reference["ELEMENT"] = str(reference.get("ELEMENT", "none"))
+		reference["RADIUS"] = int(reference.get("RADIUS", 0))
+		newList.append(reference)
+		newIndex[reference["NAME"]] = reference
+	list = newList
+	_name_index = newIndex
+	return true
+
+
+static func _fail(message: String) -> bool:
+	push_warning("PassiveSkillReferences: %s" % message)
+	return false
 
 
 static func getReference(passiveName: String) -> Dictionary:
-	for ref in list:
-		if ref["NAME"] == passiveName:
-			return ref
+	if _name_index.has(passiveName):
+		return _name_index[passiveName]
 	push_error("PassiveSkillReferences: Unknown passive '%s'" % passiveName)
 	return {}
 
 
 static func hasReference(passiveName: String) -> bool:
-	for ref in list:
-		if ref["NAME"] == passiveName:
-			return true
-	return false
+	return _name_index.has(passiveName)

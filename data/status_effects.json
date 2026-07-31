@@ -1,0 +1,68 @@
+[
+	{
+		"DAMAGE_PER_TURN": 2,
+		"DURATION": 3,
+		"NAME": "burn",
+		"NEGATIVE": true
+	},
+	{
+		"DAMAGE_PER_TURN": 1,
+		"DURATION": 4,
+		"NAME": "poison",
+		"NEGATIVE": true
+	},
+	{
+		"DAMAGE_PER_TURN": 0,
+		"DURATION": 2,
+		"NAME": "petrify",
+		"NEGATIVE": true
+	},
+	{
+		"DAMAGE_PER_TURN": 0,
+		"DURATION": 4,
+		"NAME": "spd_debuff",
+		"NEGATIVE": true
+	},
+	{
+		"DAMAGE_PER_TURN": 0,
+		"DURATION": 3,
+		"NAME": "chill",
+		"NEGATIVE": true
+	},
+	{
+		"DAMAGE_PER_TURN": 0,
+		"DURATION": 4,
+		"NAME": "guard",
+		"NEGATIVE": false
+	},
+	{
+		"DAMAGE_PER_TURN": 0,
+		"DURATION": 4,
+		"NAME": "focus",
+		"NEGATIVE": false
+	},
+	{
+		"DAMAGE_PER_TURN": 0,
+		"DURATION": 3,
+		"NAME": "atk_buff",
+		"NEGATIVE": false
+	},
+	{
+		"DAMAGE_PER_TURN": 0,
+		"DURATION": 3,
+		"NAME": "def_buff",
+		"NEGATIVE": false
+	},
+	{
+		"DAMAGE_PER_TURN": 0,
+		"DURATION": 4,
+		"NAME": "spd_buff",
+		"NEGATIVE": false
+	},
+	{
+		"DAMAGE_PER_TURN": 0,
+		"DURATION": 4,
+		"NAME": "move_buff",
+		"NEGATIVE": false
+	}
+]

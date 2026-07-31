@@ -1,0 +1,26 @@
+[
+	{
+		"EFFECT_TYPE": "damage_reduction",
+		"ELEMENT": "none",
+		"NAME": "Tough Skin",
+		"RADIUS": 0,
+		"TRIGGER": "ON_DAMAGE_TAKEN",
+		"VALUE": 0.1
+	},
+	{
+		"EFFECT_TYPE": "aoe_damage",
+		"ELEMENT": "ice",
+		"NAME": "Snowfall",
+		"RADIUS": 3,
+		"TRIGGER": "ON_DEATH",
+		"VALUE": 15.0
+	},
+	{
+		"EFFECT_TYPE": "retaliate_damage",
+		"ELEMENT": "thunder",
+		"NAME": "Storm Surge",
+		"RADIUS": 0,
+		"TRIGGER": "ON_TARGETED",
+		"VALUE": 3
+	}
+]

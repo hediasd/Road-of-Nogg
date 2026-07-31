@@ -1,151 +1,102 @@
 class_name MapReferences
 
-static var list: Array[Dictionary]
+const JSON_PATH := "res://data/maps.json"
+const JsonCatalogLoaderScript = preload("res://src/factories/JsonCatalogLoader.gd")
+
+static var list: Array[Dictionary] = []
+static var _name_index: Dictionary = {}
+
 
 static func _static_init():
-	list = [
-		{
-			"NAME": "Meadow",
-			"REVISION": 3,
-			# A neutral central mound creates two-step high ground around the pond.
-			"HEIGHTS": [
-				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-				[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-				[0, 0, 0, 0, 1, 1, 2, 1, 1, 2, 1, 1, 0, 0, 0, 0],
-				[0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-				[0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-				[0, 0, 0, 0, 1, 1, 2, 1, 1, 2, 1, 1, 0, 0, 0, 0],
-				[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-			],
-			"SIZE": Vector2i(16, 8),
-			"TEAM_1_SLOTS": [
-				Vector2i(2, 6), Vector2i(1, 7),
-				Vector2i(1, 6), Vector2i(2, 7)
-			],
-			"TEAM_2_SLOTS": [
-				Vector2i(13, 0), Vector2i(14, 1),
-				Vector2i(14, 0), Vector2i(13, 1)
-			],
-			"LAYOUT": [
-				"................",
-				".TT.............",
-				".T..............",
-				".......WW.......",
-				".......WW.......",
-				"..............T.",
-				".............TT.",
-				"................"
-			]
-		},
-		{
-			"NAME": "Crossroads",
-			"REVISION": 3,
-			# The intersection rises into a central bridge approached from four sides.
-			"HEIGHTS": [
-				[0, 0, 0, 0, 0, 0, 0, 0],
-				[0, 0, 0, 1, 1, 0, 0, 0],
-				[0, 0, 0, 1, 1, 0, 0, 0],
-				[0, 0, 1, 2, 2, 1, 0, 0],
-				[0, 0, 1, 2, 2, 1, 0, 0],
-				[0, 0, 0, 1, 1, 0, 0, 0],
-				[0, 0, 0, 1, 1, 0, 0, 0],
-				[0, 0, 0, 0, 0, 0, 0, 0]
-			],
-			"SIZE": Vector2i(8, 8),
-			"TEAM_1_SLOTS": [
-				Vector2i(0, 5), Vector2i(0, 6),
-				Vector2i(1, 5), Vector2i(1, 6)
-			],
-			"TEAM_2_SLOTS": [
-				Vector2i(7, 1), Vector2i(7, 2),
-				Vector2i(6, 1), Vector2i(6, 2)
-			],
-			"LAYOUT": [
-				"........",
-				"..W..W..",
-				"..W..W..",
-				"........",
-				"........",
-				"..W..W..",
-				"..W..W..",
-				"........"
-			]
-		},
-		{
-			"NAME": "Forest",
-			"REVISION": 3,
-			# A broad, symmetric wooded rise makes the central clearings valuable.
-			"HEIGHTS": [
-				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-				[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-				[0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-				[0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-				[0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-				[0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0],
-				[0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0],
-				[0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0],
-				[0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0],
-				[0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0],
-				[0, 0, 0, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 0, 0, 0],
-				[0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0],
-				[0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-				[0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0],
-				[0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0],
-				[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-			],
-			"SIZE": Vector2i(16, 16),
-			"TEAM_1_SLOTS": [
-				Vector2i(1, 13), Vector2i(1, 14),
-				Vector2i(2, 13), Vector2i(2, 14)
-			],
-			"TEAM_2_SLOTS": [
-				Vector2i(14, 1), Vector2i(14, 2),
-				Vector2i(13, 1), Vector2i(13, 2)
-			],
-			"LAYOUT": [
-				"...............T",
-				"T..............T",
-				"T..TT......TT..T",
-				"T..TT......TT..T",
-				"T..............T",
-				"T....TT..TT....T",
-				"T....T....T....T",
-				"T..............T",
-				"T..............T",
-				"T....T....T....T",
-				"T....TT..TT....T",
-				"T..............T",
-				"T..TT......TT..T",
-				"T..TT......TT..T",
-				"T..............T",
-				"T..............."
-			]
-		}
-	]
-	pass
+	reloadCatalog()
 
-static func _flatHeights(size: Vector2i) -> Array:
-	var rows: Array = []
-	for _y in range(size.y):
+
+static func reloadCatalog(path: String = JSON_PATH) -> bool:
+	var loaded := JsonCatalogLoaderScript.loadNamedCatalog(path)
+	if not loaded["success"]:
+		return _fail(str(loaded["error"]))
+	var newList: Array[Dictionary] = []
+	var newIndex: Dictionary = {}
+	for rawReference in loaded["list"]:
+		var normalized := _normalizeReference(rawReference)
+		if not normalized["success"]:
+			return _fail(str(normalized["error"]))
+		var reference: Dictionary = normalized["reference"]
+		newList.append(reference)
+		newIndex[reference["NAME"]] = reference
+	list = newList
+	_name_index = newIndex
+	return true
+
+
+static func _normalizeReference(reference: Dictionary) -> Dictionary:
+	var mapName := str(reference["NAME"])
+	reference["REVISION"] = int(reference.get("REVISION", 1))
+	var sizeResult := _vectorFromJson(reference.get("SIZE"), "SIZE", mapName)
+	if not sizeResult["success"]:
+		return sizeResult
+	reference["SIZE"] = sizeResult["value"]
+
+	var heightsValue = reference.get("HEIGHTS", [])
+	if not heightsValue is Array:
+		return _failure("Map '%s' HEIGHTS is not an array" % mapName)
+	var heights: Array = []
+	for rawRow in heightsValue:
+		if not rawRow is Array:
+			return _failure("Map '%s' HEIGHTS contains a non-array row" % mapName)
 		var row: Array = []
-		row.resize(size.x)
-		row.fill(0)
-		rows.append(row)
-	return rows
+		for value in rawRow:
+			row.append(int(value))
+		heights.append(row)
+	reference["HEIGHTS"] = heights
+
+	var layoutValue = reference.get("LAYOUT", [])
+	if not layoutValue is Array:
+		return _failure("Map '%s' LAYOUT is not an array" % mapName)
+	var layout: Array = []
+	for rowValue in layoutValue:
+		layout.append(str(rowValue))
+	reference["LAYOUT"] = layout
+
+	for key in ["TEAM_1_SLOTS", "TEAM_2_SLOTS"]:
+		var slotsValue = reference.get(key, [])
+		if not slotsValue is Array:
+			return _failure("Map '%s' %s is not an array" % [mapName, key])
+		var slots: Array = []
+		for rawSlot in slotsValue:
+			var slotResult := _vectorFromJson(rawSlot, key, mapName)
+			if not slotResult["success"]:
+				return slotResult
+			slots.append(slotResult["value"])
+		reference[key] = slots
+	return {"success": true, "reference": reference, "error": ""}
+
+
+static func _vectorFromJson(value, fieldName: String, mapName: String) -> Dictionary:
+	if not value is Array or value.size() != 2:
+		return _failure("Map '%s' %s must be a [x, y] pair" % [mapName, fieldName])
+	return {"success": true, "value": Vector2i(int(value[0]), int(value[1])), "error": ""}
+
+
+static func _failure(message: String) -> Dictionary:
+	return {"success": false, "reference": {}, "value": Vector2i.ZERO, "error": message}
+
+
+static func _fail(message: String) -> bool:
+	push_warning("MapReferences: %s" % message)
+	return false
+
 
 static func getReference(name: String) -> Dictionary:
-	for reference in list:
-		if reference["NAME"] == name:
-			return reference
-	# Fallback to the first map if not found
+	if _name_index.has(name):
+		return _name_index[name]
+	if list.is_empty():
+		return {}
 	return list[0]
 
+
 static func hasReference(name: String) -> bool:
-	for reference in list:
-		if reference["NAME"] == name:
-			return true
-	return false
+	return _name_index.has(name)
 
 
 static func getNames() -> Array[String]:
@@ -156,6 +107,6 @@ static func getNames() -> Array[String]:
 
 
 static func getDeploymentSlots(name: String, team: int) -> Array:
-	var reference = getReference(name)
-	var key = "TEAM_1_SLOTS" if team == 1 else "TEAM_2_SLOTS"
+	var reference := getReference(name)
+	var key := "TEAM_1_SLOTS" if team == 1 else "TEAM_2_SLOTS"
 	return reference.get(key, []).duplicate()

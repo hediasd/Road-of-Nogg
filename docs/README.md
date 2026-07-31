@@ -13,6 +13,7 @@ Use this page to find the source of truth instead of searching every document.
 | [Learnings](./LEARNINGS.md) | Verified reusable discoveries and review triggers |
 | [Development](./DEVELOPMENT.md) | Commands, Windows safeguards, and completion checks |
 | [Spell catalog schema](./SPELL_CATALOG_SCHEMA.md) | Authored spell-data shape and normalization boundary |
+| [Reference catalogs](./REFERENCE_CATALOGS.md) | JSON ownership and runtime conversion rules for authored catalogs |
 | [Game reference index](../gamerefs/tactical_rpg_turn_systems.md) | Comparative research and aspect studies |
 
 ## Authority and updates

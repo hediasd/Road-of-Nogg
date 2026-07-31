@@ -1,0 +1,35 @@
+[
+	{
+		"NAME": "fire"
+	},
+	{
+		"NAME": "ice"
+	},
+	{
+		"NAME": "wood"
+	},
+	{
+		"NAME": "steel"
+	},
+	{
+		"NAME": "darkness"
+	},
+	{
+		"NAME": "light"
+	},
+	{
+		"NAME": "earth"
+	},
+	{
+		"NAME": "water"
+	},
+	{
+		"NAME": "thunder"
+	},
+	{
+		"NAME": "wind"
+	},
+	{
+		"NAME": "none"
+	}
+]

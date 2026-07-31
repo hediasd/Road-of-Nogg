@@ -1699,6 +1699,15 @@ through its public API and exercise atomic reload failure for each catalog shape
 inclusion or string-to-type coercion can break only selected content. Keep the
 item to its stated end state and do not redesign gameplay registries here.
 
+**Resolution (2026-07-31): implemented; pending end-of-plan validation.** The
+remaining authored reference catalogs now live in elements.json, archetypes.json,
+passives.json, status_effects.json, and maps.json. Their wrappers retain only
+domain coercion and public lookup behavior. Maps encode `SIZE` and deployment
+slots as `[x, y]` in JSON and restore `Vector2i` at the wrapper boundary. The
+reference-catalog guide and documentation index were updated. Narrow headless
+project/load smokes passed; cross-catalog enumeration, reload failure behavior,
+export coverage, and integrated battle acceptance remain DATA-VALIDATE work.
+
 ## DATA-VALIDATE — Validate the completed catalog migrations
 
 Run one consolidated validation after DATA-2 and DATA-3 are committed. Cover

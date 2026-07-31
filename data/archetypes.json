@@ -1,0 +1,26 @@
+[
+	{
+		"DEF_MIN": 3,
+		"DESCRIPTION": "Durable, holds ground, punishes attackers who ignore it",
+		"NAME": "defender",
+		"SPREAD_MAX": 2
+	},
+	{
+		"DESCRIPTION": "Concentrated damage, mobility, burst",
+		"NAME": "striker",
+		"SPD_MIN": 3,
+		"SPREAD_MIN": 1
+	},
+	{
+		"DESCRIPTION": "Affects many enemies at once: zones, debuffs, action denial",
+		"NAME": "controller",
+		"SPREAD_MAX": 3,
+		"SPREAD_MIN": -3
+	},
+	{
+		"DESCRIPTION": "Heals, buffs, and enables allies",
+		"NAME": "leader",
+		"SPREAD_MAX": 3,
+		"SPREAD_MIN": -3
+	}
+]
