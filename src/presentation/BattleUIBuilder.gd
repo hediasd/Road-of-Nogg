@@ -13,6 +13,12 @@ class_name BattleUIBuilder
 const BattleGraphicsMenuScript = preload("res://src/presentation/BattleGraphicsMenu.gd")
 const PlayerCommandMenuScript = preload("res://src/presentation/PlayerCommandMenu.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
+const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
+
+## docs/UI_DESIGN.md §8: 540 wide, 6 rows (heading + HP + ATK/DEF + SPD/MOV +
+## Elements, with one spare row).
+const STATUS_WINDOW_WIDTH := 540.0
+const STATUS_WINDOW_CAPACITY := 6
 
 
 static func build(root: Node, callbacks: Dictionary) -> Dictionary:
@@ -128,7 +134,8 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 			"preset_selected": callbacks["graphics_preset_selected"],
 			"feature_selected": callbacks["graphics_feature_selected"],
 			"look_parameter_changed": callbacks["look_parameter_changed"],
-			"crt_parameter_changed": callbacks["crt_parameter_changed"]
+			"crt_parameter_changed": callbacks["crt_parameter_changed"],
+			"ui_through_crt_toggled": callbacks["ui_through_crt_toggled"]
 		}
 	)
 	graphicsButton.toggled.connect(func(pressed):
@@ -142,24 +149,22 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 			graphicsButton.button_pressed = false
 	)
 
-	var bottomHud = HBoxContainer.new()
-	bottomHud.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bottomHud.offset_left = 20
-	bottomHud.offset_top = -170
-	bottomHud.offset_right = -20
-	bottomHud.offset_bottom = -20
-	bottomHud.add_theme_constant_override("separation", 12)
-	game_root.add_child(bottomHud)
+	# Docked bottom-left/bottom-right per §8, fixed size and position — they
+	# never resize or reflow with content (item 4). Positioned directly rather
+	# than via an HBoxContainer: a NoggWindow already has its own fixed size and
+	# a flex container would fight that the moment the two windows' widths
+	# differ, which they do not today but item 4 forbids relying on that.
+	var viewport_size := game_root.get_viewport_rect().size
+	var status_window_size := Vector2(
+		STATUS_WINDOW_WIDTH, NoggThemeScript.window_height(STATUS_WINDOW_CAPACITY)
+	)
 
-	var leftPanel = PanelContainer.new()
-	leftPanel.custom_minimum_size = Vector2(220, 150)
-	_styleHudPanel(leftPanel, 12)
-	bottomHud.add_child(leftPanel)
-	var leftLabel = Label.new()
-	leftLabel.text = "Waiting for turn..."
-	leftLabel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	leftLabel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	leftPanel.add_child(leftLabel)
+	var actorWindow: NoggWindow = NoggWindowScript.new()
+	game_root.add_child(actorWindow)
+	actorWindow.name = "ActorWindow"
+	actorWindow.set_row_capacity(STATUS_WINDOW_CAPACITY)
+	actorWindow.size = status_window_size
+	actorWindow.position = Vector2(20, viewport_size.y - status_window_size.y - 20)
 
 	# A plain full-rect Control, not a styled PanelContainer: the command menu
 	# now draws its own NoggWindow frames and docks its windows itself per
@@ -177,15 +182,14 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 	commandMenu.set_anchors_preset(Control.PRESET_FULL_RECT)
 	actionPanel.add_child(commandMenu)
 
-	var rightPanel = PanelContainer.new()
-	rightPanel.custom_minimum_size = Vector2(220, 150)
-	_styleHudPanel(rightPanel, 12)
-	bottomHud.add_child(rightPanel)
-	var rightLabel = Label.new()
-	rightLabel.text = "No target"
-	rightLabel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	rightLabel.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	rightPanel.add_child(rightLabel)
+	var targetWindow: NoggWindow = NoggWindowScript.new()
+	game_root.add_child(targetWindow)
+	targetWindow.name = "TargetWindow"
+	targetWindow.set_row_capacity(STATUS_WINDOW_CAPACITY)
+	targetWindow.size = status_window_size
+	targetWindow.position = Vector2(
+		viewport_size.x - status_window_size.x - 20, viewport_size.y - status_window_size.y - 20
+	)
 
 	return {
 		"game_canvas": game_canvas,
@@ -201,8 +205,9 @@ static func build(root: Node, callbacks: Dictionary) -> Dictionary:
 		"graphics_look_sliders": graphicsMenu["look_sliders"],
 		"graphics_crt_hint": graphicsMenu["crt_hint"],
 		"graphics_crt_sliders": graphicsMenu["crt_sliders"],
-		"left_ui_label": leftLabel,
-		"right_ui_label": rightLabel,
+		"graphics_ui_through_crt_button": graphicsMenu["ui_through_crt_button"],
+		"actor_window": actorWindow,
+		"target_window": targetWindow,
 		"log_label": logLabel,
 		"log_panel": logPanel,
 		"action_panel": actionPanel,

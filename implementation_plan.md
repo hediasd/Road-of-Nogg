@@ -1392,6 +1392,72 @@ missing one leaves a stale window rather than an obviously broken one.
 **Model:** Sonnet 5 / GPT Terra. Mechanical once §8 fixes the taxonomy, but it spans three
 files and several call sites.
 
+**Resolution (2026-07-31): done, with scope expanded beyond the stated files**
+**by explicit user direction.** Item 5 (prompt/forecast windows) turned out to
+already exist — UI-5 built `_prompt_window`/`_forecast_window` while wiring the
+command menu, since the design called for them at the same time. So this item
+was really just 1–4: the actor/target windows.
+
+Discovered before writing any code: `left_ui_label`/`right_ui_label` were not
+simple stat displays. `_update_selection_ui` (click-to-inspect) only ever
+touched the LEFT label; the right one was hardcoded to `"No target"` at the two
+lifecycle boundaries and **never updated again** — dead since before this UI
+work started. The actual live driver of both labels turned out to be
+`GodotVisualAdapter.gd`, which pushes preformatted multi-line strings
+(`"TARGET:
+%s
+Takes %s Damage..."`) through `_update_left_ui`/`_update_right_ui`
+as combat plays back — a second, separate data path the plan's file list
+(`BattleUIBuilder.gd`, `BattlePresentationController.gd`, `PlayerCommandMenu.gd`)
+didn't anticipate. Asked the user how the target window should behave rather
+than guess; the answer was both: click-to-inspect **and** a live
+attacker/target override during combat. Delivered:
+
+- `BattleUIBuilder.gd`: `actor_window`/`target_window`, two 540×6 `NoggWindow`s
+  docked bottom-left/bottom-right, replacing the old `PanelContainer`s.
+- `BattlePresentationController.gd`: one renderer, `_renderStatusWindow(window,
+  monsterID)`, building the heading + HP + ATK/DEF + SPD/MOV + Elements rows
+  from `sim.state` (or leaving the window empty at `-1` — item 4). Click
+  routing now splits by team: same team as the active monster → actor window,
+  otherwise → target window; with no active turn it always goes to actor,
+  matching the old single-inspector behaviour.
+- `GodotVisualAdapter.gd` (added to scope): every `left_text`/`right_text`
+  producer (`_on_turn_started`, `_on_monster_attacked`, `_on_monster_cast_spell`,
+  `_on_monster_healed`, `_on_monster_defeated`, `_on_battle_ended`) now emits
+  `left_monster_id`/`right_monster_id` — a monster reference, not a frozen
+  string — resolved fresh against `sim.state` at the moment the queued visual
+  action actually plays. This is strictly more correct than the string it
+  replaces: the old text was baked at queue time, so a second event landing
+  before the first finished animating could show stale HP; resolving at
+  display time cannot. `"BATTLE COMPLETE..."` moved to a new `prompt_text` key
+  routed to the prompt window instead — it was never about a monster's stats
+  and didn't belong in a stat panel. Precedence between the two writers (click
+  vs. live combat push) is last-write-wins, same relationship the two paths
+  already had before this item, just split across two windows instead of one.
+- HP colours `TEXT_ACCENT` below one third, `TEXT_PRIMARY` above — inverted
+  from every other value column, which defaults to accent. Healthy HP is
+  meant to blend in as unremarkable; only low HP should compete for the eye.
+
+Verified with three single-shot windowed processes (`debug/verify_ui7_hud.gd
+-- STATE=turn|attack|click`, real scene, synthetic input) plus the full
+headless regression suite. `STATE=attack` first failed
+(`_pressAction("ui_accept")` twice reaches `CONFIRM_ACTION` and stops there;
+`confirmSelection()` needs a THIRD accept to actually call `_commitAction()`
+and resolve) — fixed in the harness, not the game. All three now pass and the
+attack screenshot shows the defender's real post-hit HP (45→44) in the target
+window, sourced live rather than typed into a test assertion.
+
+**One inaccuracy in §8 found and corrected, not chased.** The doc claimed
+Elements-row truncation was rare ("only a three-element list"). Measuring the
+real catalogue found **no monster has 3 elements at all** (2 is the observed
+maximum), while several ordinary 2-element monsters — `water, darkness`,
+`fire, darkness` — already need ~584px against the window's 496px content
+area and do truncate today (seen live in the `attack`/`click` screenshots:
+`Elemen  fire, darkness`). Not fixed, because there is no room to fix it:
+Actor + Target already spend the entire 1152px budget with zero slack (540 +
+540 + 32 gap + 40 margins = 1152). §8 now states the measured reality instead
+of the wrong assumption.
+
 ---
 
 ## UI-8 — Make CRT layering deliberate
@@ -1417,6 +1483,39 @@ dev bar never does, and the command menu stays interactive across the toggle.
 
 **Model:** Sonnet 5 / GPT Terra. Four files, but each edit is small and the end state is
 fully stated.
+
+**Resolution (2026-07-31): done.** The CRT shader (`crt_display.gdshader`)
+reads `hint_screen_texture` — it distorts whatever was already drawn to
+screen at the moment ITS canvas item draws. That means making the game UI
+take the CRT treatment is about where the SHADER's own layer sits relative to
+the game canvas, not about moving the game canvas itself (which stays the
+stable `NoggTheme.GAME_LAYER` constant other code already depends on).
+
+So `crt_overlay` moved out of `display_layer` (which now holds only the
+backdrop and world texture) into its own `crt_overlay_layer` CanvasLayer,
+toggled between `NoggTheme.CRT_OVERLAY_LAYER_DEFAULT` (-10, below the game UI
+— today's behaviour) and `CRT_OVERLAY_LAYER_THROUGH_UI` (`GAME_LAYER + 1`,
+above it). Both stay below `DEV_LAYER`, so the dev bar is never affected
+either way — confirmed on screen, not just by the layer arithmetic.
+
+One persistence subtlety: `RetroRenderController._init()` calls
+`_load_settings()` **before** `_build_render_target()`, so
+`set_ui_through_crt()` cannot run during load — `crt_overlay_layer` does not
+exist yet, and would hit the same null-node trap NoggWindow's marquee tween
+almost did. `_load_settings()` now sets the raw `ui_through_crt` bool only;
+`_apply_settings()` (which runs after the build, like every other
+loaded-then-applied value here) is what actually sets the layer. Persisted
+outside the `PRESET_CUSTOM` gate that guards the look/CRT numeric values —
+whether the UI takes the CRT pass is orthogonal to which visual preset is
+active, not a property of the preset itself.
+
+Verified with two single-shot windowed processes at cranked CRT strength
+(`debug/verify_ui8_crt.gd -- STATE=off|on`) rather than eyeballing a toggle
+mid-session — `off` shows a crisp menu over a scanlined board; `on` shows the
+same menu visibly scanlined and desaturated along with it. Both confirm the
+command menu stays genuinely interactive (`selectedEntryId() == "move"`, not
+merely `visible`) across the toggle.
+
 
 ---
 
@@ -1476,3 +1575,52 @@ written contract.
 
 **Depends on:** UI-3 (rows) and UI-5 (the cursor's selection change is the
 trigger). Independent of UI-6, UI-7, and UI-8 — it can run any time after UI-5.
+
+**Resolution (2026-07-31): done.** `NoggTheme.gd` gained the three timing
+tokens. `NoggWindow.add_row()`'s label now sits inside a `clip_contents`
+wrapper sized to the label's full natural width (`Label.get_minimum_size()`,
+correct immediately — a pure function of font/text/theme, no layout pass
+needed), rather than relying on `Label.clip_text`/`OVERRUN_TRIM_CHAR` alone;
+the wrapper is what makes `position:x` a meaningful thing to tween. A new
+`set_focused_row(index)` drives it: kill whatever was scrolling, snap it to 0,
+and if the newly focused row's label overflows its arithmetically-computed
+available width (same reasoning as `row_rect()` — Container sorting is
+deferred, so a live-read size would be stale on the same frame), start the
+delay-scroll-hold-snap loop, guarded by a generation counter exactly like
+`close()`'s. `PlayerCommandMenu._select()` calls it on every selection change,
+alongside the cursor move.
+
+**One real bug found and fixed by the verification, not by inspection.** The
+scroll tween created inside the marquee loop was never stored, so
+`set_focused_row()`'s reset (`label.position.x = 0.0`) was correct for exactly
+one frame — the still-running tween then overwrote it on the very next frame,
+since nothing had ever told it to stop. Confirmed on screen: a row refocused
+away mid-scroll stayed visibly scrolled instead of snapping back, which is
+precisely the failure item 5 was written to prevent. Fixed by storing the
+tween and killing it in `set_focused_row()`, matching the pattern `set_active()`
+and `open()`/`close()` already use. This would not have been caught by reading
+the code; the reset call was right there and looked correct.
+
+Verified directly against the widget (`debug/verify_ui9_marquee.gd`, four
+single-shot states: `rest`/`mid`/`fits`/`reset`) rather than through a full
+battle. Reaching it through `Battle25D` first, to exercise the real catalogue's
+`Closing of the Third Sanctuary` on `Walker of the Woods`, hit an unrelated
+setup bug: forcing that monster into a roster slot via
+`_select_option_by_metadata` left `player_turn` permanently inactive after 500+
+`_advance_battle()` ticks, for reasons that have nothing to do with anything
+this item touches. Not chased down — the marquee lives entirely in
+`NoggWindow`/`NoggTheme`, needs no battle at all to verify, and the existing
+mock windows in `debug/preview_theme.gd` already carry the exact same
+30-character catalogue outlier. Screenshots confirm: `rest` shows
+`Closing of tl` (truncated, not yet scrolling); `mid` shows `losing of the`
+(genuinely slid left, later characters visible); `fits` shows the unfocused
+row unchanged after waiting past the full cycle, confirming rule 6; `reset`
+confirms rule 5 after the tween-kill fix.
+
+Also corrects a stale example while touching this: item 7 originally cited
+"three-element monsters" for the actor window's Elements row as a case this
+would help — UI-7 already found no monster has 3 elements, and the real
+overflow case is common 2-element combos. The behaviour works identically
+either way (`BattlePresentationController._renderStatusWindow` already calls
+`set_focused_row()` on the Elements row unconditionally, per UI-7's own
+notes); only the illustrative example was wrong.

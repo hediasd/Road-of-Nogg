@@ -143,6 +143,19 @@ static func build(
 	crtHint.text = "Available while the active look includes CRT."
 	crtHint.modulate = Color(0.72, 0.8, 0.92)
 	crtTab.add_child(crtHint)
+
+	# UI-8: whether the CRT pass also distorts the game UI (command menu,
+	# status windows, log). Off by default — see docs/UI_DESIGN.md §10. Never
+	# affects the dev bar, which always renders above both.
+	var uiThroughCrtButton = CheckButton.new()
+	uiThroughCrtButton.text = "UI through CRT"
+	uiThroughCrtButton.tooltip_text = (
+		"Apply scanlines, mask, and vignette to the game UI too. " +
+		"The dev bar is never affected."
+	)
+	uiThroughCrtButton.toggled.connect(callbacks["ui_through_crt_toggled"])
+	crtTab.add_child(uiThroughCrtButton)
+
 	var crtSliders: Dictionary = {}
 	crtSliders["scanline"] = _add_slider(
 		crtTab, "Scanlines", 0.0, 0.5, 0.01, 0.22,
@@ -189,7 +202,8 @@ static func build(
 		"upscale_option": upscaleOption,
 		"look_sliders": lookSliders,
 		"crt_hint": crtHint,
-		"crt_sliders": crtSliders
+		"crt_sliders": crtSliders,
+		"ui_through_crt_button": uiThroughCrtButton
 	}
 
 

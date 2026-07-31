@@ -17,11 +17,20 @@ extends RefCounted
 # Game UI renders ABOVE the CRT overlay and therefore takes no scanlines, mask,
 # or vignette. That is deliberate (docs/UI_DESIGN.md §10): crisp menus over a
 # filtered scene keep the pixel font readable at every scanline strength and
-# stop the 16px bevel shimmering as mask size changes. UI-8 adds an opt-in
-# toggle for the alternative; these constants are the default.
+# stop the 16px bevel shimmering as mask size changes.
 const CRT_LAYER := -20
 const GAME_LAYER := 10
 const DEV_LAYER := 20
+
+## UI-8's `ui_through_crt` toggle. The CRT shader (`crt_display.gdshader`)
+## reads `hint_screen_texture`, i.e. it distorts whatever was already drawn to
+## screen at the moment ITS canvas item draws — so making the game UI take
+## the CRT treatment is a matter of where the shader's OWN layer sits relative
+## to GAME_LAYER, not of moving the game canvas itself (which stays a stable
+## constant other code depends on). Both values stay below DEV_LAYER, so the
+## dev bar is never affected either way — see docs/UI_DESIGN.md §10.
+const CRT_OVERLAY_LAYER_DEFAULT := -10
+const CRT_OVERLAY_LAYER_THROUGH_UI := GAME_LAYER + 1
 
 # --- Game palette ---------------------------------------------------------
 
@@ -127,6 +136,13 @@ const WINDOW_OPEN_SCALE := 0.94
 const TWEEN_CURSOR_MOVE := 0.09
 const CURSOR_BOB_PIXELS := 2.0
 const CURSOR_BOB_PERIOD := 0.6
+
+## Row label overflow marquee (docs/UI_DESIGN.md §7b). Distance / speed, never
+## a fixed duration — a fixed duration makes a long name whip past and a
+## barely-overflowing one crawl.
+const MARQUEE_DELAY := 1.2
+const MARQUEE_SPEED := 40.0
+const MARQUEE_END_HOLD := 1.0
 
 # --- Cursor gutter --------------------------------------------------------
 #

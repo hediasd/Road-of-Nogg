@@ -12,6 +12,7 @@ const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderC
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 
 const PlayerTurnControllerScript = preload("res://src/systems/PlayerTurnController.gd")
+const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
 
@@ -27,8 +28,8 @@ var turn_timer: Timer
 var camera: BattleCameraController
 var retro_renderer
 
-var left_ui_label: Label
-var right_ui_label: Label
+var actor_window: NoggWindow
+var target_window: NoggWindow
 var log_label: RichTextLabel
 var log_panel: PanelContainer
 
@@ -104,11 +105,12 @@ func _build_battle_ui() -> void:
 		"graphics_preset_selected": Callable(self, "_on_battle_rendering_preset_selected"),
 		"graphics_feature_selected": Callable(self, "_on_battle_rendering_feature_selected"),
 		"look_parameter_changed": Callable(self, "_on_look_parameter_changed"),
-		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed")
+		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed"),
+		"ui_through_crt_toggled": Callable(self, "_on_ui_through_crt_toggled")
 	})
 	turn_timer = battle_ui["turn_timer"]
-	left_ui_label = battle_ui["left_ui_label"]
-	right_ui_label = battle_ui["right_ui_label"]
+	actor_window = battle_ui["actor_window"]
+	target_window = battle_ui["target_window"]
 	log_label = battle_ui["log_label"]
 	log_panel = battle_ui["log_panel"]
 	_sync_rendering_options()
@@ -232,6 +234,9 @@ func _sync_rendering_options() -> void:
 	battle_ui["graphics_crt_hint"].modulate = (
 		Color(0.82, 0.9, 1.0) if crtActive else Color(0.48, 0.54, 0.64)
 	)
+	battle_ui["graphics_ui_through_crt_button"].set_pressed_no_signal(
+		retro_renderer.ui_through_crt
+	)
 	for parameter in battle_ui["graphics_crt_sliders"]:
 		var sliderData: Dictionary = battle_ui["graphics_crt_sliders"][parameter]
 		var slider: HSlider = sliderData["slider"]
@@ -285,6 +290,11 @@ func _on_look_parameter_changed(value: float, parameter: String) -> void:
 
 func _on_crt_parameter_changed(value: float, parameter: String) -> void:
 	retro_renderer.set_crt_parameter(parameter, value)
+	_sync_rendering_options()
+
+
+func _on_ui_through_crt_toggled(enabled: bool) -> void:
+	retro_renderer.set_ui_through_crt(enabled)
 	_sync_rendering_options()
 
 
@@ -356,8 +366,8 @@ func _start_battle(config) -> void:
 	battle_ui["dev_canvas"].visible = true
 	lifecycle = Lifecycle.BATTLE
 	log_label.text = ""
-	left_ui_label.text = "Battle ready"
-	right_ui_label.text = "No target"
+	_renderStatusWindow(actor_window, -1)
+	_renderStatusWindow(target_window, -1)
 	battle_ui["graphics_button"].set_pressed_no_signal(false)
 	battle_ui["graphics_panel"].visible = false
 	battle_ui["play_button"].set_pressed_no_signal(true)
@@ -669,30 +679,83 @@ func _mouse_to_battle_coord(mousePos: Vector2) -> Vector2i:
 			return coord
 	return Vector2i(-1, -1)
 
+## Clicking the board is a free-look inspector, independent of whose turn it
+## is: ally goes to the actor (left) window, enemy to the target (right) one,
+## "ally" meaning same team as whoever's turn is active. Outside an active
+## player turn there is no ally/enemy frame of reference, so it always goes to
+## the actor window — the single-inspector behaviour this replaces.
+##
+## This is one of two writers of these windows; the other is the live
+## attacker/target push from GodotVisualAdapter (`_setActorPanelMonster` /
+## `_setTargetPanelMonster`) as combat actually plays out. Whichever fires most
+## recently wins — the same last-write-wins relationship these two paths
+## already had before UI-7, just now split across two windows instead of one.
 func _handle_click_selection(pos: Vector2i) -> void:
 	if sim == null or not sim.state.withinBounds(pos):
 		return
 	var monster = sim.state.getMonsterAt(pos)
-	if monster:
-		visual_adapter.highlight_monster(monster.uniqueID)
-		_update_selection_ui(monster.uniqueID)
-	else:
+	if monster == null:
 		visual_adapter.highlight_monster(-1)
-		_update_selection_ui(-1)
+		_renderStatusWindow(actor_window, -1)
+		_renderStatusWindow(target_window, -1)
+		return
+	visual_adapter.highlight_monster(monster.uniqueID)
+	var active_team := -1
+	if _player_turn_active():
+		var active_monster = sim.state.getMonster(player_turn.activeMonsterID)
+		if active_monster:
+			active_team = active_monster.team
+	if active_team != -1 and monster.team != active_team:
+		_renderStatusWindow(target_window, monster.uniqueID)
+	else:
+		_renderStatusWindow(actor_window, monster.uniqueID)
 
 
-func _update_selection_ui(monsterID: int) -> void:
-	if monsterID == -1:
-		left_ui_label.text = "Waiting for turn..."
+func _setActorPanelMonster(monsterID: int) -> void:
+	_renderStatusWindow(actor_window, monsterID)
+
+
+func _setTargetPanelMonster(monsterID: int) -> void:
+	_renderStatusWindow(target_window, monsterID)
+
+
+## The single renderer for both docked status windows (item 2/3). `-1` leaves
+## the window empty rather than showing placeholder text — an empty frame
+## reads as "nothing selected" without inventing a second visual language for
+## the same idea (item 4).
+func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
+	window.clear_rows()
+	if monsterID == -1 or sim == null:
 		return
 	var monster = sim.state.getMonster(monsterID)
 	if monster == null:
 		return
-	left_ui_label.text = "[ %s ]\nHP: %d/%d\nATK: %d | DEF: %d\nSPD: %d | MOV: %d\nElements: %s" % [
-		monster.name, monster.hitpoints, monster.max_hitpoints,
-		monster.atk, monster.def, monster.speed, monster.move,
+	window.add_row(monster.name)
+	var hp_row = window.add_row("HP", "%d / %d" % [monster.hitpoints, monster.max_hitpoints])
+	# TEXT_ACCENT (gold) only below one third: healthy HP should blend in as an
+	# unremarkable stat, not compete with it for the eye every single turn.
+	_tint_row_value(
+		hp_row,
+		NoggThemeScript.TEXT_ACCENT if monster.hitpoints * 3 < monster.max_hitpoints
+		else NoggThemeScript.TEXT_PRIMARY
+	)
+	window.add_row("ATK / DEF", "%d / %d" % [monster.atk, monster.def])
+	window.add_row("SPD / MOV", "%d / %d" % [monster.speed, monster.move])
+	window.add_row(
+		"Elements",
 		", ".join(monster.elements) if not monster.elements.is_empty() else "None"
-	]
+	)
+	# This window has no cursor to drive set_focused_row(), so it always
+	# "focuses" its own last row instead — a real, reachable case (§7b/UI-9
+	# notes): several ordinary 2-element combos already overflow this window's
+	# fixed width, not just the hypothetical 3-element case §8 once assumed.
+	window.set_focused_row(window.row_count() - 1)
+
+
+func _tint_row_value(row: Control, colour: Color) -> void:
+	var children := row.get_children()
+	if children.size() >= 2 and children[1] is Label:
+		children[1].add_theme_color_override("font_color", colour)
 
 
 func _on_screenshot_pressed() -> void:

@@ -6,6 +6,7 @@ extends RefCounted
 
 const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
+const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const CRT_DISPLAY_SHADER = preload("res://assets/shaders/crt_display.gdshader")
 const SETTINGS_PATH := "user://rendering.cfg"
 const MIN_VIEWPORT_SIZE := Vector2i(2, 2)
@@ -41,8 +42,10 @@ var world_viewport: SubViewport
 var world_root: Node3D
 var display_layer: CanvasLayer
 var world_texture: TextureRect
+var crt_overlay_layer: CanvasLayer
 var crt_overlay: ColorRect
 var crt_material: ShaderMaterial
+var ui_through_crt: bool = false
 var render_preset: String = PRESET_NONE
 var render_size := Vector2i(640, 480)
 var retro_enabled: bool = false
@@ -90,7 +93,7 @@ func _build_render_target() -> void:
 
 	display_layer = CanvasLayer.new()
 	display_layer.name = "BattleWorldDisplay"
-	display_layer.layer = -20
+	display_layer.layer = NoggThemeScript.CRT_LAYER
 	host.add_child(display_layer)
 
 	var backdrop = ColorRect.new()
@@ -109,6 +112,16 @@ func _build_render_target() -> void:
 	world_texture.texture = world_viewport.get_texture()
 	display_layer.add_child(world_texture)
 
+	# The CRT shader lives in ITS OWN CanvasLayer, separate from display_layer,
+	# specifically so its layer number can move independently: below the game
+	# UI by default, above it when ui_through_crt is on. It samples
+	# hint_screen_texture, so whatever is drawn before it (lower layer) is what
+	# it distorts — see docs/UI_DESIGN.md §10 and NoggTheme's layer constants.
+	crt_overlay_layer = CanvasLayer.new()
+	crt_overlay_layer.name = "CRTOverlayLayer"
+	crt_overlay_layer.layer = NoggThemeScript.CRT_OVERLAY_LAYER_DEFAULT
+	host.add_child(crt_overlay_layer)
+
 	crt_overlay = ColorRect.new()
 	crt_overlay.name = "CRTOverlay"
 	crt_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -116,7 +129,7 @@ func _build_render_target() -> void:
 	crt_material = ShaderMaterial.new()
 	crt_material.shader = CRT_DISPLAY_SHADER
 	crt_overlay.material = crt_material
-	display_layer.add_child(crt_overlay)
+	crt_overlay_layer.add_child(crt_overlay)
 
 	host.get_viewport().size_changed.connect(_on_main_viewport_size_changed)
 
@@ -225,6 +238,19 @@ func set_crt_parameter(parameter: String, value: float, persist: bool = true) ->
 			return
 	_mark_custom()
 	_apply_display_parameters()
+	if persist:
+		_save_settings()
+
+
+## Moves the CRT shader's own layer above or below the game UI (item 2). The
+## dev canvas (`NoggTheme.DEV_LAYER`) is always the topmost of the three, so it
+## is never affected by this toggle either way.
+func set_ui_through_crt(enabled: bool, persist: bool = true) -> void:
+	ui_through_crt = enabled
+	crt_overlay_layer.layer = (
+		NoggThemeScript.CRT_OVERLAY_LAYER_THROUGH_UI if enabled
+		else NoggThemeScript.CRT_OVERLAY_LAYER_DEFAULT
+	)
 	if persist:
 		_save_settings()
 
@@ -405,6 +431,10 @@ func _apply_settings(persist: bool) -> void:
 		CanvasItem.TEXTURE_FILTER_LINEAR
 	)
 	crt_overlay.visible = true
+	crt_overlay_layer.layer = (
+		NoggThemeScript.CRT_OVERLAY_LAYER_THROUGH_UI if ui_through_crt
+		else NoggThemeScript.CRT_OVERLAY_LAYER_DEFAULT
+	)
 	_apply_display_parameters()
 	BattleMeshFactoryScript.configureRetro(
 		vertex_snap_enabled,
@@ -488,6 +518,18 @@ func _load_settings() -> void:
 	))
 	if not _apply_preset_values(savedPreset):
 		_apply_preset_values(PRESET_NONE)
+	# Not gated on PRESET_CUSTOM like the look/CRT values below: whether the UI
+	# takes the CRT pass is orthogonal to which visual preset is active, not a
+	# property of the preset itself.
+	#
+	# Set directly rather than via set_ui_through_crt(): _load_settings() runs
+	# in _init() BEFORE _build_render_target(), so crt_overlay_layer does not
+	# exist yet. _apply_settings() (which runs after the build) is what
+	# applies this value to the actual node — the same split every other
+	# loaded-then-applied setting here already follows.
+	ui_through_crt = bool(config.get_value(
+		"rendering", "ui_through_crt", ui_through_crt
+	))
 	if render_preset != PRESET_CUSTOM:
 		return
 	retro_enabled = bool(config.get_value(
@@ -579,6 +621,7 @@ func _save_settings() -> void:
 	config.set_value("rendering", "vertex_snap_enabled", vertex_snap_enabled)
 	config.set_value("rendering", "nearest_filter_enabled", nearest_filter_enabled)
 	config.set_value("rendering", "affine_mapping_enabled", affine_mapping_enabled)
+	config.set_value("rendering", "ui_through_crt", ui_through_crt)
 	config.set_value("look", "render_scale", render_scale)
 	config.set_value("look", "vertex_snap_strength", vertex_snap_strength)
 	config.set_value("look", "brightness", brightness)

@@ -305,6 +305,10 @@ func _select(index: int, animate: bool) -> void:
 		cursor.move_to_row(window.row_rect(index))
 	else:
 		cursor.snap_to_row(window.row_rect(index))
+	# §7b: the row under the cursor marquees if its label overflows. Every
+	# selection change goes through here, so this is the one place that needs
+	# to know about it.
+	window.set_focused_row(index)
 
 
 func _selectable_indices(rows: Array) -> Array:

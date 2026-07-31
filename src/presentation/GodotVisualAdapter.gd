@@ -77,13 +77,26 @@ func _log(text: String) -> void:
 	if root_node and "log_label" in root_node and root_node.log_label:
 		root_node.log_label.text += text + "\n"
 
-func _update_left_ui(text: String) -> void:
-	if root_node and "left_ui_label" in root_node and root_node.left_ui_label:
-		root_node.left_ui_label.text = text
+## Actor (left) and target (right) status windows now render live monster
+## stats resolved from `state` at DISPLAY time, not a frozen string baked when
+## the action was queued -- correctly reflects any state change between
+## queueing and playback (e.g. a second hit landing before this one animates),
+## and is strictly more current than the old text ever was. `-1` clears the
+## window to an empty frame rather than a placeholder string (docs/UI_DESIGN.md
+## §8, item 4).
+func _update_actor_panel(monsterID: int) -> void:
+	if root_node and root_node.has_method("_setActorPanelMonster"):
+		root_node._setActorPanelMonster(monsterID)
 
-func _update_right_ui(text: String) -> void:
-	if root_node and "right_ui_label" in root_node and root_node.right_ui_label:
-		root_node.right_ui_label.text = text
+func _update_target_panel(monsterID: int) -> void:
+	if root_node and root_node.has_method("_setTargetPanelMonster"):
+		root_node._setTargetPanelMonster(monsterID)
+
+## Prose that is not about any one monster's stats (battle-complete, etc.)
+## goes to the prompt window instead of a status panel.
+func _update_prompt(text: String) -> void:
+	if root_node and "battle_ui" in root_node and root_node.battle_ui.has("command_menu"):
+		root_node.battle_ui["command_menu"].setStatus(text)
 
 # --- HELPERS ---
 
@@ -204,12 +217,12 @@ func _present_queued_message(action: Dictionary) -> void:
 				_cursor_controller.focusMovementDestination(coord)
 			_:
 				_focus_cursor_on_coord(coord)
-	var leftText = str(action.get("left_text", ""))
-	if not leftText.is_empty():
-		_update_left_ui(leftText)
-	var rightText = str(action.get("right_text", ""))
-	if not rightText.is_empty():
-		_update_right_ui(rightText)
+	if action.has("left_monster_id"):
+		_update_actor_panel(int(action["left_monster_id"]))
+	if action.has("right_monster_id"):
+		_update_target_panel(int(action["right_monster_id"]))
+	if action.has("prompt_text"):
+		_update_prompt(str(action["prompt_text"]))
 	var logText = str(action.get("log_text", ""))
 	if not logText.is_empty():
 		_log(logText)
@@ -397,7 +410,7 @@ func getTileSurface(coord: Vector2i) -> MeshInstance3D:
 func _on_battle_ended(winningTeam: int) -> void:
 	_queue.enqueue({
 		"kind": "message",
-		"right_text": "BATTLE COMPLETE\nTeam %d wins.\nChoose New Battle to return to setup." % winningTeam,
+		"prompt_text": "Battle complete. Team %d wins." % winningTeam,
 		"log_text": "=== TEAM %d WINS ===" % winningTeam
 	})
 
@@ -470,8 +483,8 @@ func _on_turn_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> vo
 			"kind": "message",
 			"coord": turnPos,
 			"cursor_mode": "turn",
-			"left_text": "CURRENT TURN:\n%s  Lv.%s\nHP: %s/%s\nATK %s | DEF %s | SPD %s\nMOVE %s | JUMP %s | HEIGHT %s" % [monster.name, monster.level, monster.hitpoints, monster.max_hitpoints, monster.atk, monster.def, monster.speed, monster.move, monster.jump, state.getHeight(turnPos)],
-			"right_text": "Waiting for action...",
+			"left_monster_id": monsterID,
+			"right_monster_id": -1,
 			"log_text": "\n--- TURN: %s [#%s] ---" % [monster.name, monsterID]
 		})
 
@@ -512,7 +525,8 @@ func _on_monster_attacked(attackerID: int, targetID: int, damage: int, targetNew
 			"monster_id": attackerID,
 			"target_id": targetID,
 			"coord": state.getMonsterPosition(targetID),
-			"right_text": "TARGET:\n%s\nTakes %s Damage\nHP Left: %s" % [target.name, damage, targetNewHP],
+			"left_monster_id": attackerID,
+			"right_monster_id": targetID,
 			"log_text": "Attacks %s for %s damage! (HP: %s)" % [target.name, damage, targetNewHP]
 		})
 
@@ -533,20 +547,21 @@ func _on_monster_cast_spell(casterID: int, targetID: int, spellName: String, dam
 			"target_id": targetID,
 			"coord": state.getMonsterPosition(targetID),
 			"element": spellElement,
-			"right_text": "SPELL TARGET:\n%s\nTakes %s Dmg from %s\nHP Left: %s" % [target.name, totalDamage, spellName, targetNewHP],
+			"left_monster_id": casterID,
+			"right_monster_id": targetID,
 			"log_text": "Casts %s on %s for %s damage! (HP: %s)" % [spellName, target.name, totalDamage, targetNewHP]
 		})
 
 
-func _on_monster_healed(_healerID: int, targetID: int, spellName: String, healAmount: int, targetNewHP: int) -> void:
+func _on_monster_healed(healerID: int, targetID: int, spellName: String, healAmount: int, targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
 	if target:
 		_queue.enqueue({
 			"kind": "message",
 			"coord": state.getMonsterPosition(targetID),
-			"right_text": "HEAL TARGET:\n%s\nRecovers %s HP from %s\nHP: %s" % [
-				target.name, healAmount, spellName, targetNewHP
-			]
+			"left_monster_id": healerID,
+			"right_monster_id": targetID,
+			"log_text": "Casts %s on %s, recovering %s HP! (HP: %s)" % [spellName, target.name, healAmount, targetNewHP]
 		})
 
 
@@ -563,7 +578,7 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 		"kind": "defeat",
 		"monster_id": monsterID,
 		"killer_id": killerID,
-		"right_text": "%s was DEFEATED!" % displayName,
+		"right_monster_id": monsterID,
 		"log_text": "%s was DEFEATED!" % displayName
 	})
 

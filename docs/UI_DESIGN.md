@@ -494,9 +494,17 @@ not fit the budget above:
   — and hard-truncates the two 30-char
   `…of the Third Sanctuary` outliers. Renaming those two is the cleaner fix and
   is worth doing when the catalogue is next touched.
-- **Actor status** would need **608px** for `Elements` beside `Fire, Wind, Ice`.
-  540 covers the longest monster name (524) and the stat rows (488), and
-  truncates only a three-element list, which is the rarest case.
+- **Actor status** truncates the `Elements` row for several real 2-element
+  combos — `water, darkness`, `fire, darkness`, `light, darkness`,
+  `darkness, earth` all need **~584px** against a 496px content area. The
+  original note here said "truncates only a three-element list, which is the
+  rarest case"; that was wrong on both counts — no monster in the catalogue
+  has 3 elements (2 is the observed maximum), and several ordinary 2-element
+  monsters already truncate at 540. There is no slack left to fix it: Actor +
+  Target already spend the full 1152px budget (540 + 540 + 32 gap + 40
+  margins), so widening either window collides with the other. Left as a
+  known, measured truncation rather than a design goal — verified 2026-07-31
+  against the real catalogue, not assumed.
 
 Truncating an outlier is normal in this genre; a half-screen menu is not.
 
@@ -544,19 +552,30 @@ Dev UI is off by default in a release build.
 
 ## 10. CRT layering
 
-The CRT overlay lives on a `CanvasLayer` at layer `-20`; the UI canvas is at
-layer `10`. The UI therefore renders **above** the CRT pass and receives no
-scanlines, mask, or vignette. This is currently an accident of two independent
-layer choices, not a decision.
+The world (backdrop + 3D scene texture) renders on a `CanvasLayer` at
+`NoggTheme.CRT_LAYER` (-20). The CRT shader itself — `crt_display.gdshader`,
+which reads `hint_screen_texture` and therefore distorts whatever was already
+drawn to screen at the moment its own canvas item draws — lives on a
+**separate** `CanvasLayer`, `crt_overlay_layer`, precisely so its layer number
+can move independently of both the world and the game UI.
 
-**It is now a decision: game UI stays outside the CRT pass.** Crisp menus over
-a filtered scene is the standard retro-styled-modern convention, it keeps the
-pixel font readable at every scanline strength, and it prevents the frame's
-16px bevel from shimmering as the mask size changes.
+By default `crt_overlay_layer` sits at `CRT_OVERLAY_LAYER_DEFAULT` (-10):
+above the world, below the game UI (`GAME_LAYER`, 10). The UI therefore
+renders after the CRT pass has already finished and receives no scanlines,
+mask, or vignette. **This is a decision, not an accident of layer numbers:**
+crisp menus over a filtered scene is the standard retro-styled-modern
+convention, it keeps the pixel font readable at every scanline strength, and
+it prevents the frame's 12px ring from shimmering as the mask size changes.
 
-The layer constants are moved to named constants in `NoggTheme.gd` with the
-rationale attached, and a `ui_through_crt` toggle is added to the graphics menu
-so the alternative is one click away for evaluation. Default off.
+A `ui_through_crt` toggle in the graphics menu's CRT tab moves
+`crt_overlay_layer` to `CRT_OVERLAY_LAYER_THROUGH_UI` (`GAME_LAYER + 1`)
+instead — now the game UI draws *before* the CRT pass, so its
+`hint_screen_texture` sampling captures and distorts the UI too. Both layer
+values stay below `DEV_LAYER` (20), so the dev bar is never affected by this
+toggle either way. Default off; persisted alongside the other rendering
+settings, independent of which visual preset is active — see UI-8's
+resolution notes for the `_load_settings()`/`_apply_settings()` ordering trap
+this ran into (the setting loads before the node that would apply it exists).
 
 ---
 

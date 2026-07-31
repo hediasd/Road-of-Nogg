@@ -30,6 +30,19 @@ var _visibility_generation := 0
 ## that host no cursor (prompt, forecast, docked readouts).
 var _content_indent := 0.0
 
+# --- Row overflow marquee (§7b, UI-9) --------------------------------------
+#
+# Parallel to `_rows` rather than looked up from it: the label sits one level
+# deeper now (inside a clip wrapper), and the available width a row's label
+# gets is computed arithmetically at add_row() time, for the same reason
+# row_rect() is arithmetic — Container sorting is deferred, so reading a live
+# node's size back on the same frame it was built is stale.
+var _row_labels: Array[Label] = []
+var _row_available_widths: Array[float] = []
+var _marquee_generation := 0
+var _marquee_label: Label
+var _marquee_tween: Tween
+
 
 func _ready() -> void:
 	# Root is a plain Control, NOT a PanelContainer — see docs/UI_DESIGN.md
@@ -150,25 +163,42 @@ func set_row_capacity(rows: int) -> void:
 
 ## Two-column row: label left, value right in TEXT_ACCENT (TEXT_DIM if
 ## disabled). A plain HBoxContainer, never a Button — see docs/UI_DESIGN.md §5.
-## The value is given its natural width by the container's own minimum-size
-## pass before the label's SIZE_EXPAND_FILL claims what's left, which is what
-## keeps a long label from running straight into its value with no gap.
+##
+## The label lives inside a `clip_contents` wrapper rather than relying on
+## `Label.clip_text`/`OVERRUN_TRIM_CHAR` alone: the wrapper clips visually
+## regardless of the label's own size, which is what lets the label be sized
+## to its FULL natural width and then have `position.x` tweened to reveal the
+## hidden tail — the marquee (§7b). A row whose label fits looks identical to
+## before; nothing here changes what a non-overflowing row renders.
+##
+## The value is given its natural width before the label's SIZE_EXPAND_FILL
+## wrapper claims what's left, which is what keeps a long label from running
+## straight into its value with no gap.
 func add_row(label_text: String, value_text: String = "", disabled: bool = false) -> Control:
 	var row := HBoxContainer.new()
 	row.custom_minimum_size.y = NoggThemeScript.ROW_HEIGHT
 	_content.add_child(row)
 
+	var clip := Control.new()
+	clip.clip_contents = true
+	clip.custom_minimum_size.y = NoggThemeScript.ROW_HEIGHT
+	clip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(clip)
+
 	var label := Label.new()
 	label.text = label_text
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	# Hard cut, not ellipsis: the shipping font has no ellipsis glyph (§3).
-	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_CHAR
-	label.clip_text = true
 	if disabled:
 		label.add_theme_color_override("font_color", NoggThemeScript.TEXT_DIM)
-	row.add_child(label)
+	# Sized to its full natural width, not the clip's — the clip is what
+	# truncates. get_minimum_size() is a pure function of font/text/theme, so
+	# unlike a Container-assigned size it is correct immediately, before any
+	# layout pass.
+	label.size = label.get_minimum_size()
+	label.position.y = (NoggThemeScript.ROW_HEIGHT - label.size.y) / 2.0
+	clip.add_child(label)
 
+	var value_width := 0.0
 	if not value_text.is_empty():
 		var value := Label.new()
 		value.text = value_text
@@ -178,8 +208,12 @@ func add_row(label_text: String, value_text: String = "", disabled: bool = false
 			NoggThemeScript.TEXT_DIM if disabled else NoggThemeScript.TEXT_ACCENT
 		)
 		row.add_child(value)
+		value_width = value.get_minimum_size().x
 
 	_rows.append(row)
+	_row_labels.append(label)
+	var content_width: float = size.x - NoggThemeScript.CONTENT_INSET * 2.0 - _content_indent
+	_row_available_widths.append(maxf(content_width - value_width, 0.0))
 	return row
 
 
@@ -192,14 +226,77 @@ func add_row(label_text: String, value_text: String = "", disabled: bool = false
 ## the new rows — and any row_rect() taken in between would be measured
 ## against that doubled list.
 func clear_rows() -> void:
+	# Stop any marquee and snap-reset first: the label it targets is about to
+	# be freed, and set_focused_row(-1) is the one place that already knows
+	# how to unwind that safely.
+	set_focused_row(-1)
 	for row in _rows:
 		_content.remove_child(row)
 		row.queue_free()
 	_rows.clear()
+	_row_labels.clear()
+	_row_available_widths.clear()
 
 
 func row_count() -> int:
 	return _rows.size()
+
+
+## Marks which row is "focused" for the overflow marquee (§7b) — driven by
+## selection change in an interactive window, or set once by a caller that
+## wants a specific row (e.g. a status window's Elements row, which has no
+## cursor at all) to marquee unconditionally. `-1` clears focus.
+##
+## Resets whatever was scrolling IMMEDIATELY — no easing out, no finishing the
+## cycle (rule 5): leaving the reset for later is what lets a superseding
+## selection change and the old row's snap-back visibly fight.
+func set_focused_row(index: int) -> void:
+	_marquee_generation += 1
+	# The scroll tween is independent of _runMarquee's own generation checks —
+	# it keeps animating position.x on its own once created, regardless of
+	# what the coroutine does next. Without this kill, the reset below is
+	# overwritten on the very next frame by the tween still running toward
+	# wherever it was headed — confirmed on screen: a row refocused away
+	# mid-scroll stayed visibly scrolled instead of snapping back.
+	if _marquee_tween and _marquee_tween.is_valid():
+		_marquee_tween.kill()
+	if _marquee_label:
+		_marquee_label.position.x = 0.0
+	_marquee_label = null
+	if index < 0 or index >= _row_labels.size():
+		return
+	var label := _row_labels[index]
+	var overflow: float = label.get_minimum_size().x - _row_available_widths[index]
+	# Rule 6: a row whose label fits must never scroll and must never wait out
+	# the delay. Compared against the clip width, not a character count.
+	if overflow <= 0.0:
+		return
+	_marquee_label = label
+	_runMarquee(label, overflow, _marquee_generation)
+
+
+## Delay, scroll left at MARQUEE_SPEED, hold, snap, repeat — forever, until a
+## later set_focused_row() bumps the generation and this loop notices and
+## exits. Every wait is a SceneTree timer, not a tween signal: a killed tween
+## never emits `finished` (see close()'s note above), and set_focused_row()
+## does not go through this tween at all, so awaiting it here would strand
+## the coroutine the moment a new row takes focus.
+func _runMarquee(label: Label, distance: float, generation: int) -> void:
+	while generation == _marquee_generation:
+		await get_tree().create_timer(NoggThemeScript.MARQUEE_DELAY).timeout
+		if generation != _marquee_generation:
+			return
+		_marquee_tween = create_tween()
+		_marquee_tween.tween_property(
+			label, "position:x", -distance, distance / NoggThemeScript.MARQUEE_SPEED
+		).set_trans(Tween.TRANS_LINEAR)
+		await get_tree().create_timer(distance / NoggThemeScript.MARQUEE_SPEED).timeout
+		if generation != _marquee_generation:
+			return
+		await get_tree().create_timer(NoggThemeScript.MARQUEE_END_HOLD).timeout
+		if generation != _marquee_generation:
+			return
+		label.position.x = 0.0
 
 
 ## A row's rect in this window's own coordinate space, for MenuCursor
