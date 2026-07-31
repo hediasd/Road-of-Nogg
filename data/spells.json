@@ -1,0 +1,772 @@
+[
+	{
+		"DAMAGE": 3,
+		"ELEMENT": "ice",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Ice Punch",
+		"RADIUS": 1,
+		"RANGE": 1
+	},
+	{
+		"DAMAGE": 5,
+		"ELEMENT": "ice",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Ice Plume",
+		"RADIUS": 1,
+		"RANGE": 5
+	},
+	{
+		"DAMAGE": 4,
+		"ELEMENT": "ice",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Ice Plow",
+		"RADIUS": 2,
+		"RANGE": 3
+	},
+	{
+		"DAMAGE": 4,
+		"DESC": "Fires a dark bolt from afar.",
+		"ELEMENT": "darkness",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Dark Bolt",
+		"RANGE": 4
+	},
+	{
+		"DAMAGE": 6,
+		"DESC": "A burst of darkness in an area.",
+		"ELEMENT": "darkness",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Dark Nova",
+		"RANGE": 3,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"BYPASS_LOS": true,
+		"DAMAGE": 5,
+		"DESC": "Restores HP to an ally.",
+		"ELEMENT": "light",
+		"HEALS": true,
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Mending",
+		"RANGE": 5,
+		"TARGET_TYPE": "single"
+	},
+	{
+		"DAMAGE": 3,
+		"DESC": "A fiery blow that inflicts burn.",
+		"ELEMENT": "fire",
+		"INFLICTS_STATUS": "burn",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Ember Strike",
+		"RANGE": 2
+	},
+	{
+		"DAMAGE": 4,
+		"DESC": "A blast of fire that inflicts burn.",
+		"ELEMENT": "fire",
+		"INFLICTS_STATUS": "burn",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Pyre Blast",
+		"RANGE": 3
+	},
+	{
+		"DAMAGE": 4,
+		"ELEMENT": "earth",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Earth Spike",
+		"RANGE": 3
+	},
+	{
+		"DAMAGE": 5,
+		"ELEMENT": "steel",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Steel Blade",
+		"RANGE": 1
+	},
+	{
+		"DAMAGE": 3,
+		"ELEMENT": "water",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Splash",
+		"RANGE": 4
+	},
+	{
+		"DAMAGE": 3,
+		"ELEMENT": "wood",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Wood Splinter",
+		"RANGE": 3
+	},
+	{
+		"BUFFS_ATK": 3,
+		"BUFF_DURATION": 2,
+		"BYPASS_LOS": true,
+		"DAMAGE": 0,
+		"DAMAGE_LINES": [],
+		"DESC": "Channels wood energy to temporarily empower the caster's strength (+3 ATK for 2 turns).",
+		"ELEMENT": "wood",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Empower",
+		"RANGE": 0,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DAMAGE_MULTIPLIER": 0.75,
+				"DURATION": 4,
+				"NAME": "guard"
+			}
+		],
+		"ELEMENT": "darkness",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Anticipate",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DAMAGE_MULTIPLIER": 1.25,
+				"DURATION": 4,
+				"NAME": "focus"
+			}
+		],
+		"ELEMENT": "darkness",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Plot",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DEF_BONUS": 2,
+				"DURATION": 3,
+				"NAME": "def_buff"
+			}
+		],
+		"ELEMENT": "earth",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Pillar",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DEF_BONUS": 1,
+				"DURATION": 4,
+				"NAME": "def_buff"
+			},
+			{
+				"DAMAGE_MULTIPLIER": 0.75,
+				"DURATION": 4,
+				"NAME": "guard"
+			}
+		],
+		"ELEMENT": "earth",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Stand",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"ATK_BONUS": 2,
+				"DURATION": 3,
+				"NAME": "atk_buff"
+			}
+		],
+		"ELEMENT": "fire",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Enrage",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DAMAGE_MULTIPLIER": 1.25,
+				"DURATION": 4,
+				"NAME": "focus"
+			}
+		],
+		"ELEMENT": "fire",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Predict",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DURATION": 4,
+				"NAME": "spd_buff",
+				"SPD_BONUS": 1
+			}
+		],
+		"ELEMENT": "fire",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Lantern",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"ELEMENT": "ice",
+		"HEALS": true,
+		"HEAL_AMOUNT": 3,
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Triage",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"AOE_TARGETS": "enemies",
+		"DAMAGE": 1,
+		"EFFECTS": [
+			{
+				"DURATION": 3,
+				"NAME": "chill",
+				"NEGATIVE": true,
+				"SPD_BONUS": -1
+			}
+		],
+		"ELEMENT": "ice",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Chill",
+		"RANGE": 0,
+		"SELF_RADIUS": 1,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DAMAGE_MULTIPLIER": 0.75,
+				"DURATION": 4,
+				"NAME": "guard"
+			}
+		],
+		"ELEMENT": "ice",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Dutiful",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DAMAGE_MULTIPLIER": 1.25,
+				"DURATION": 4,
+				"NAME": "focus"
+			}
+		],
+		"ELEMENT": "light",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Prelude",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"NAME": "cleanse"
+			}
+		],
+		"ELEMENT": "light",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Elucidate",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"AOE_TARGETS": "allies",
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DEF_BONUS": 1,
+				"DURATION": 3,
+				"NAME": "def_buff"
+			}
+		],
+		"ELEMENT": "light",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Shine",
+		"RANGE": 0,
+		"SELF_RADIUS": 2,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"NAME": "cleanse"
+			}
+		],
+		"ELEMENT": "light",
+		"HEALS": true,
+		"HEAL_AMOUNT": 3,
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Prayer",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"NAME": "cooldown_reduction",
+				"VALUE": 1
+			}
+		],
+		"ELEMENT": "steel",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Iterate",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"AOE_TARGETS": "allies",
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"ATK_BONUS": 1,
+				"DURATION": 3,
+				"NAME": "atk_buff"
+			}
+		],
+		"ELEMENT": "thunder",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Cheers",
+		"RANGE": 0,
+		"SELF_RADIUS": 2,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DEF_BONUS": 1,
+				"DURATION": 4,
+				"NAME": "def_buff"
+			}
+		],
+		"ELEMENT": "water",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Ponder",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"NAME": "cleanse"
+			}
+		],
+		"ELEMENT": "water",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Dissolve",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DAMAGE_MULTIPLIER": 0.75,
+				"DURATION": 4,
+				"NAME": "guard"
+			},
+			{
+				"DEF_BONUS": 1,
+				"DURATION": 4,
+				"NAME": "def_buff"
+			}
+		],
+		"ELEMENT": "water",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Moderation",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DURATION": 4,
+				"MOVE_BONUS": 1,
+				"NAME": "move_buff"
+			}
+		],
+		"ELEMENT": "wind",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Breeze",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DURATION": 4,
+				"NAME": "spd_buff",
+				"SPD_BONUS": 1
+			}
+		],
+		"ELEMENT": "wind",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Stroll",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DAMAGE_MULTIPLIER": 1.25,
+				"DURATION": 4,
+				"NAME": "focus"
+			}
+		],
+		"ELEMENT": "wind",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Follow Up",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"NAME": "cleanse"
+			},
+			{
+				"DURATION": 4,
+				"MOVE_BONUS": 1,
+				"NAME": "move_buff"
+			}
+		],
+		"ELEMENT": "wind",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Flow",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 0,
+		"EFFECTS": [
+			{
+				"DEF_BONUS": 2,
+				"DURATION": 3,
+				"NAME": "def_buff"
+			}
+		],
+		"ELEMENT": "wood",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Barricade",
+		"RANGE": 0,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"AOE_TARGETS": "allies",
+		"DAMAGE": 0,
+		"ELEMENT": "wood",
+		"HEALS": true,
+		"HEAL_AMOUNT": 2,
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Gather",
+		"RANGE": 0,
+		"SELF_RADIUS": 2,
+		"SEQUENCE_LEVEL": 1,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 4,
+		"DESC": "Lashes a single foe with a barbed vine.",
+		"ELEMENT": "wood",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Thornlash",
+		"RANGE": 3,
+		"SEQUENCE_LEVEL": 2,
+		"TARGET_TYPE": "single"
+	},
+	{
+		"COOLDOWN": 4,
+		"DAMAGE": 5,
+		"DESC": "Erupts a ring of thorned briar that poisons everything it encircles.",
+		"ELEMENT": "wood",
+		"INFLICTS_STATUS": "poison",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Bramble Crown",
+		"RADIUS": 2,
+		"RANGE": 3,
+		"SEQUENCE_LEVEL": 3,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"COOLDOWN": 8,
+		"DAMAGE": 7,
+		"DESC": "The last bloom of the season opens in full glory and withers all it touches.",
+		"ELEMENT": "wood",
+		"INFLICTS_STATUS": "poison",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Roses at Summers End",
+		"RADIUS": 2,
+		"RANGE": 4,
+		"SEQUENCE_LEVEL": 4,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"DAMAGE_LINES": [
+			{
+				"damage": 4,
+				"element": "fire"
+			},
+			{
+				"damage": 4,
+				"element": "light"
+			}
+		],
+		"DESC": "A medium-close range fire/light damage spell.",
+		"MAX_HEIGHT_DELTA": 1,
+		"MIN_RANGE": 2,
+		"NAME": "Eschatology",
+		"RANGE": 3
+	},
+	{
+		"COOLDOWN": 5,
+		"DAMAGE": 0,
+		"DESC": "Applies petrification to enemies in a 3-cell radius.",
+		"ELEMENT": "darkness",
+		"INFLICTS_STATUS": "petrify",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Closing of the Third Sanctuary",
+		"RADIUS": 3,
+		"RANGE": 5,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"DAMAGE": 2,
+		"DESC": "Removes petrification and heals allies in a 3-cell radius.",
+		"ELEMENT": "light",
+		"HEALS": true,
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Opening of the Third Sanctuary",
+		"RADIUS": 3,
+		"RANGE": 5,
+		"REMOVES_STATUS": "petrify",
+		"TARGET_TYPE": "area"
+	},
+	{
+		"AREA_SHAPE": "cross",
+		"DAMAGE": 4,
+		"DESC": "A cross-shaped burst of holy energy.",
+		"ELEMENT": "light",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Holy Cross",
+		"RADIUS": 2,
+		"RANGE": 4,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"AREA_SHAPE": "cross",
+		"DAMAGE": 4,
+		"DESC": "A cross-shaped pillar of smoke and fire that inflicts burn.",
+		"ELEMENT": "fire",
+		"INFLICTS_STATUS": "burn",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Smoke Tower",
+		"RADIUS": 1,
+		"RANGE": 4,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"DAMAGE": 3,
+		"DESC": "A sharp, quick beak attack infused with wind.",
+		"ELEMENT": "wind",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Peck",
+		"RANGE": 1
+	},
+	{
+		"DAMAGE_LINES": [
+			{
+				"damage": 3,
+				"element": "steel"
+			},
+			{
+				"damage": 3,
+				"element": "wind"
+			}
+		],
+		"DESC": "Unleashes a flurry of metallic feathers, striking with both steel and wind.",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Feather Time",
+		"RANGE": 4
+	},
+	{
+		"DAMAGE": 5,
+		"DESC": "Conjures a violent, localized windstorm to batter enemies.",
+		"ELEMENT": "wind",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Sudden Storm",
+		"RADIUS": 2,
+		"RANGE": 4,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"AOE_TARGETS": "allies",
+		"DAMAGE": 0,
+		"DESC": "Coats nearby allies in a resilient layer of gel, increasing their defense.",
+		"EFFECTS": [
+			{
+				"DEF_BONUS": 2,
+				"DURATION": 3,
+				"NAME": "def_buff"
+			}
+		],
+		"ELEMENT": "water",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Ooze Shield",
+		"SELF_RADIUS": 2,
+		"TARGET_TYPE": "self"
+	},
+	{
+		"DAMAGE": 3,
+		"DESC": "Lobs a chunk of dark, toxic slime that poisons enemies in a small area.",
+		"ELEMENT": "darkness",
+		"INFLICTS_STATUS": "poison",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Corrupting Splatter",
+		"RADIUS": 1,
+		"RANGE": 3,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"DAMAGE": 0,
+		"DESC": "A potent single-target ally buff/heal. Heals target for 4 HP and grants +1 ATK for 3 turns.",
+		"EFFECTS": [
+			{
+				"ATK_BONUS": 1,
+				"DURATION": 3,
+				"NAME": "atk_buff"
+			}
+		],
+		"ELEMENT": "wood",
+		"HEALS": true,
+		"HEAL_AMOUNT": 4,
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Flourish",
+		"RANGE": 4,
+		"TARGET_TYPE": "single"
+	},
+	{
+		"DAMAGE": 2,
+		"DESC": "Inspired by the curse of Erysichthon. Single target ranged attack that inflicts poison.",
+		"ELEMENT": "wood",
+		"INFLICTS_STATUS": "poison",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Insatiable Famine",
+		"RANGE": 4,
+		"TARGET_TYPE": "single"
+	},
+	{
+		"DAMAGE": 0,
+		"DESC": "Heals the target but permanently reduces their speed.",
+		"EFFECTS": [
+			{
+				"DURATION": 999,
+				"NAME": "spd_debuff",
+				"NEGATIVE": true,
+				"SPD_BONUS": -2
+			}
+		],
+		"ELEMENT": "wood",
+		"HEALS": true,
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Timeoff",
+		"RANGE": 4,
+		"TARGET_TYPE": "single"
+	},
+	{
+		"DAMAGE": 2,
+		"DESC": "Strikes the target with lightning from a long range.",
+		"ELEMENT": "thunder",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Lightningbolt",
+		"RANGE": 6,
+		"TARGET_TYPE": "single"
+	},
+	{
+		"COOLDOWN": 8,
+		"DAMAGE": 0,
+		"DESC": "Reverts the damage dealt by the target on their last turn. Cooldown: 8 turns.",
+		"ELEMENT": "steel",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Ages Ago",
+		"RANGE": 4,
+		"REVERTS_DAMAGE": true,
+		"TARGET_TYPE": "single"
+	},
+	{
+		"DAMAGE": 0,
+		"ELEMENT": "none",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Think",
+		"RADIUS": 0,
+		"RANGE": 0
+	},
+	{
+		"DAMAGE": 0,
+		"ELEMENT": "none",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Thought",
+		"RADIUS": 0,
+		"RANGE": 0
+	},
+	{
+		"DAMAGE": 0,
+		"ELEMENT": "none",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Dump",
+		"RADIUS": 0,
+		"RANGE": 0
+	}
+]

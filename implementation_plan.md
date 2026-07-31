@@ -1673,6 +1673,14 @@ exercise rejected/preserved and successful spell-catalog reloads.
 cooldowns, Resonance, and presentation; a coercion mismatch can remain latent
 until a specific effect is cast.
 
+**Resolution (2026-07-31): implemented; pending end-of-plan validation.** The
+59 authored spell definitions now live in data/spells.json. SpellReferences
+uses JsonCatalogLoader, preserves atomic catalog replacement and constant-time
+lookup, and normalizes scalar, damage-line, and effect values before Spell
+construction. The spell schema and documentation index were added. A narrow
+headless load smoke completed without parser errors; spell construction,
+reload behavior, and battle acceptance remain DATA-VALIDATE coverage.
+
 ## DATA-3 — Move remaining authored reference catalogs to JSON
 
 Inventory the remaining hardcoded reference-data classes, migrate them to
