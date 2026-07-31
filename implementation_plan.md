@@ -1673,13 +1673,13 @@ exercise rejected/preserved and successful spell-catalog reloads.
 cooldowns, Resonance, and presentation; a coercion mismatch can remain latent
 until a specific effect is cast.
 
-**Resolution (2026-07-31): implemented; pending end-of-plan validation.** The
+**Resolution (2026-07-31): done.** The
 59 authored spell definitions now live in data/spells.json. SpellReferences
 uses JsonCatalogLoader, preserves atomic catalog replacement and constant-time
 lookup, and normalizes scalar, damage-line, and effect values before Spell
-construction. The spell schema and documentation index were added. A narrow
-headless load smoke completed without parser errors; spell construction,
-reload behavior, and battle acceptance remain DATA-VALIDATE coverage.
+construction. The spell schema and documentation index were added. Validated
+under DATA-VALIDATE, which found and fixed one coercion defect in this item
+(the `RESONANCE_ELEMENT` default — see that item's Resolution).
 
 ## DATA-3 — Move remaining authored reference catalogs to JSON
 
@@ -1699,14 +1699,13 @@ through its public API and exercise atomic reload failure for each catalog shape
 inclusion or string-to-type coercion can break only selected content. Keep the
 item to its stated end state and do not redesign gameplay registries here.
 
-**Resolution (2026-07-31): implemented; pending end-of-plan validation.** The
+**Resolution (2026-07-31): done.** The
 remaining authored reference catalogs now live in elements.json, archetypes.json,
 passives.json, status_effects.json, and maps.json. Their wrappers retain only
 domain coercion and public lookup behavior. Maps encode `SIZE` and deployment
 slots as `[x, y]` in JSON and restore `Vector2i` at the wrapper boundary. The
-reference-catalog guide and documentation index were updated. Narrow headless
-project/load smokes passed; cross-catalog enumeration, reload failure behavior,
-export coverage, and integrated battle acceptance remain DATA-VALIDATE work.
+reference-catalog guide and documentation index were updated. Validated under
+DATA-VALIDATE with no defects found in this item.
 
 ## DATA-VALIDATE — Validate the completed catalog migrations
 
@@ -1728,6 +1727,65 @@ export_presets.cfg coverage; finish with git diff --check.
 **Risk:** Medium. This is the first integrated acceptance boundary for the
 catalog cutover, so failures may cross data, factory, AI, or presentation
 ownership even when each migration diff was mechanically straightforward.
+
+**Resolution (2026-07-31): done.** Validated with
+`debug/verify_data_validate.gd` (gitignored scratch, matching the existing
+`debug/verify_*.gd` pattern — not reinstated test infrastructure), plus the
+headless project launch, two `scripts/demo_battle.gd` runs, an
+`export_presets.cfg` inspection, and `git diff --check`.
+
+Coverage that passed: the shared loader rejects all ten malformed shapes
+(missing file, empty, unparseable, non-array root, non-dictionary entry,
+missing/empty/duplicate `NAME`, missing root key, non-array root key value)
+with a diagnostic each; all eight catalogs enumerate and round-trip through
+their own lookup APIs (59 spells, 28 monsters, 15 races, 11 elements, 4
+archetypes, 3 passives, 11 status effects, 3 maps); every spell, monster, map,
+and passive constructs through its factory with its authored scalar, boolean,
+and collection fields intact; no monster reference retains a legacy top-level
+stat key; map `SIZE` and both deployment slot arrays come back as `Vector2i`;
+every race resistance is a float matching `getDamageMultiplier`; each of the
+eight catalogs rejects both a missing file and a malformed file **without
+changing its live entry count** and then reloads the production file; and a
+catalog-backed CPU battle reaches a winner with zero rejected commands.
+`export_presets.cfg` covers all eight files via `include_filter="data/*.json"`
+with `export_filter="all_resources"`.
+
+**One real defect found and fixed, in DATA-2.** `SpellReferences.STRING_DEFAULTS`
+carried `"RESONANCE_ELEMENT": ""`, so normalization wrote the key with a blank
+value into every reference. `Spell._init` reads it as
+`str(parameterDictionary.get("RESONANCE_ELEMENT", element))` — a fallback that
+only applies when the key is **absent**. No authored spell declares the field
+(none did before the migration either), so all 59 spells were built with
+`resonance_element == ""` instead of their own element.
+
+The consequence was not cosmetic. `Monster.record_cast()` bails on
+`resonance_element == "none"`, not `""`, so all 28 sequenced spells charged a
+single shared `""` bar regardless of element. `Walker of the Woods` — the one
+monster with a complete ladder, and the one P4-2 names for verifying it — also
+carries `Stroll` (wind, Level 1); casting it charged the wood ladder, and
+`would_advance_resonance(Thornlash)` then returned true, unlocking the wood
+Level 2 spell off a wind cast. Confirmed empirically before the fix:
+`resonance_bars == {"wood": 0, "wind": 0, "": 1}`.
+
+Fixed by removing `RESONANCE_ELEMENT` from `STRING_DEFAULTS` and normalizing it
+explicitly to the spell's own `ELEMENT` when absent or blank, which restores
+pre-migration semantics and keeps the resolved value in the reference rather
+than in `Spell`'s implicit fallback. After the fix the same cast yields
+`{"wood": 0, "wind": 1}` and the ladder gate holds.
+
+**Worth knowing before touching a catalog wrapper again:** a `*_DEFAULTS` table
+is not equivalent to the entity's own `get(key, fallback)` default whenever
+that fallback is *derived from another field*. The table always writes the key,
+which permanently wins over the derived fallback. This class of defect is
+invisible at load time and survives a full battle without an error, so check
+derived defaults specifically rather than relying on the catalog loading
+cleanly.
+
+**Expected value change:** the DATA-VALIDATE harness's own integrated battle
+(seed 1234, `Walker of the Woods` on team 1) went from 94 turns to 214 turns
+once resonance stopped accumulating on one shared bar. The seeded
+`scripts/demo_battle.gd` log hash is unchanged (`cbb6ce50…`) because that
+roster casts no sequenced spell.
 
 ---
 

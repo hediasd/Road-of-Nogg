@@ -27,7 +27,6 @@ const STRING_DEFAULTS := {
 	"AREA_SHAPE": "circle",
 	"INFLICTS_STATUS": "",
 	"REMOVES_STATUS": "",
-	"RESONANCE_ELEMENT": "",
 	"AOE_TARGETS": "self",
 	"DESC": ""
 }
@@ -73,6 +72,15 @@ static func _normalizeReference(reference: Dictionary) -> Dictionary:
 		reference[key] = bool(reference.get(key, BOOLEAN_DEFAULTS[key]))
 	for key in STRING_DEFAULTS:
 		reference[key] = str(reference.get(key, STRING_DEFAULTS[key]))
+
+	## A spell resonates on its own element unless it explicitly names another.
+	## This default cannot live in STRING_DEFAULTS: a blank value would still be
+	## written into the reference, which overrides the fallback and collapses
+	## every sequenced spell onto one shared "" resonance bar.
+	var resonanceElement := str(reference.get("RESONANCE_ELEMENT", "")).strip_edges()
+	reference["RESONANCE_ELEMENT"] = (
+		resonanceElement if not resonanceElement.is_empty() else reference["ELEMENT"]
+	)
 
 	var linesValue = reference.get("DAMAGE_LINES", null)
 	if linesValue != null:
