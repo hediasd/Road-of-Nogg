@@ -81,10 +81,7 @@ block the restyle; revisit after the first playable pass.
 
 ## Typed presentation contracts
 
-- **TYPE-2 implemented 2026-07-31:** stable battle, setup, and graphics-menu
-  references now use typed `RefCounted` bundles instead of string-keyed
-  orchestration dictionaries. Its setup/HUD lifecycle acceptance remains for a
+- **TYPE-2 and TYPE-3 implemented 2026-07-31:** stable UI references and queued
+  visual actions now use typed contracts instead of string-keyed orchestration
+  dictionaries. Setup/HUD lifecycle and animation acceptance remain for a
   consolidated presentation pass.
-- **TYPE-3 deferred:** replace the visual action queue's dictionary action
-  payloads with a typed action contract only if its internal variants become
-  difficult to evolve. Keep this as a separate refactor from gameplay work.

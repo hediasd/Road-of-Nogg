@@ -224,9 +224,11 @@ world Y from the same presentation surface query.
 
 `BattleEvents` describes lifecycle, movement intent/results, action targets,
 combat, healing, effects, passives, and victory. `IBattleVisualAdapter` connects
-a consumer to that bus. `GodotVisualAdapter` copies position-bearing event data
-into a FIFO visual-action queue, so movement, targeting, attacks, spells, heals,
-defeat, and victory play in event order without blocking the simulation.
+a consumer to that bus. `GodotVisualAdapter` copies position-bearing event data into typed
+`VisualAction` snapshots in a FIFO queue, so movement, targeting, attacks,
+spells, heals, defeat, and victory play in event order without blocking the
+simulation. The queue clones each snapshot at enqueue time, preventing later
+producer mutations from changing delayed playback.
 Playback never re-reads a later monster position to start a queued action.
 Movement begins at the model's current rendered transform and animates every
 horizontal and vertical step through a bounded jump arc. Each tween has a

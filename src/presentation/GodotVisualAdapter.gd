@@ -13,6 +13,7 @@ const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisua
 const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcons.gd")
 const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
 const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
+const VisualActionScript = preload("res://src/presentation/VisualAction.gd")
 const TERRAIN_CELL_HEIGHT := BattleMeshFactoryScript.TERRAIN_CELL_SIZE.y
 const TERRAIN_SURFACE_OFFSET := TERRAIN_CELL_HEIGHT * 0.5
 const ABYSS_VERTICAL_OFFSET := -0.15
@@ -167,38 +168,34 @@ func isVisualPaused() -> bool:
 	return _queue.isPaused()
 
 
-func _start_queued_animation(action: Dictionary) -> bool:
-	match str(action.get("kind", "")):
-		"focus":
+func _start_queued_animation(action: VisualAction) -> bool:
+	match action.kind:
+		VisualAction.Kind.FOCUS:
 			_present_queued_message(action)
-		"message":
+		VisualAction.Kind.MESSAGE:
 			_present_queued_message(action)
-		"move":
+		VisualAction.Kind.MOVE:
 			return _start_move_animation(action)
-		"bump":
+		VisualAction.Kind.BUMP:
 			_present_queued_message(action)
 			return _start_bump_animation(action)
-		"defeat":
+		VisualAction.Kind.DEFEAT:
 			_present_queued_message(action)
 			return _start_defeat_animation(action)
 		_:
-			push_warning("Ignoring unknown visual animation kind: %s" % action.get("kind"))
+			push_warning("Ignoring unknown visual animation kind: %s" % action.kind_name())
 	return false
 
 
-func _finalize_animation(action: Dictionary) -> void:
-	var monsterID = int(action.get("monster_id", -1))
-	var kind = str(action.get("kind", ""))
-	if kind == "move" and _monster_visuals.has(monsterID):
-		var path: Array = action.get("path", [])
-		if not path.is_empty():
-			_monster_visuals[monsterID].position = _coord_to_surface_pos3d(path.back())
-	elif kind == "bump" and _monster_visuals.has(monsterID):
-		_monster_visuals[monsterID].position = action.get(
-			"origin",
-			_monster_visuals[monsterID].position
-		)
-	elif kind == "defeat":
+func _finalize_animation(action: VisualAction) -> void:
+	var monsterID := action.monster_id
+	if action.kind == VisualAction.Kind.MOVE and _monster_visuals.has(monsterID):
+		if not action.path.is_empty():
+			_monster_visuals[monsterID].position = _coord_to_surface_pos3d(action.path.back())
+	elif action.kind == VisualAction.Kind.BUMP and _monster_visuals.has(monsterID):
+		if action.has_origin:
+			_monster_visuals[monsterID].position = action.origin
+	elif action.kind == VisualAction.Kind.DEFEAT:
 		_defeat_tweens.erase(monsterID)
 		if _monster_visuals.has(monsterID):
 			var container: Node3D = _monster_visuals[monsterID]
@@ -207,25 +204,23 @@ func _finalize_animation(action: Dictionary) -> void:
 	_position_tweens.erase(monsterID)
 
 
-func _present_queued_message(action: Dictionary) -> void:
-	var coord = action.get("coord", Vector2i(-1, -1))
-	if coord is Vector2i and state.withinBounds(coord):
-		match str(action.get("cursor_mode", "target")):
-			"turn":
-				_cursor_controller.focusTurn(coord)
-			"movement":
-				_cursor_controller.focusMovementDestination(coord)
+func _present_queued_message(action: VisualAction) -> void:
+	if state.withinBounds(action.coord):
+		match action.cursor_mode:
+			VisualAction.CursorMode.TURN:
+				_cursor_controller.focusTurn(action.coord)
+			VisualAction.CursorMode.MOVEMENT:
+				_cursor_controller.focusMovementDestination(action.coord)
 			_:
-				_focus_cursor_on_coord(coord)
-	if action.has("left_monster_id"):
-		_update_actor_panel(int(action["left_monster_id"]))
-	if action.has("right_monster_id"):
-		_update_target_panel(int(action["right_monster_id"]))
-	if action.has("prompt_text"):
-		_update_prompt(str(action["prompt_text"]))
-	var logText = str(action.get("log_text", ""))
-	if not logText.is_empty():
-		_log(logText)
+				_focus_cursor_on_coord(action.coord)
+	if action.has_left_monster:
+		_update_actor_panel(action.left_monster_id)
+	if action.has_right_monster:
+		_update_target_panel(action.right_monster_id)
+	if not action.prompt_text.is_empty():
+		_update_prompt(action.prompt_text)
+	if not action.log_text.is_empty():
+		_log(action.log_text)
 
 
 func _buildPlaceholderBody(material: Material) -> Node3D:
@@ -408,11 +403,10 @@ func getTileSurface(coord: Vector2i) -> MeshInstance3D:
 
 
 func _on_battle_ended(winningTeam: int) -> void:
-	_queue.enqueue({
-		"kind": "message",
-		"prompt_text": "Battle complete. Team %d wins." % winningTeam,
-		"log_text": "=== TEAM %d WINS ===" % winningTeam
-	})
+	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.MESSAGE)
+	action.prompt_text = "Battle complete. Team %d wins." % winningTeam
+	action.log_text = "=== TEAM %d WINS ===" % winningTeam
+	_queue.enqueue(action)
 
 
 static func tileColorFor(baseColor: Color, coord: Vector2i, _terrain: int) -> Color:
@@ -479,34 +473,33 @@ func _on_turn_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> vo
 	var monster = state.getMonster(monsterID)
 	if monster:
 		var turnPos = monster.position
-		_queue.enqueue({
-			"kind": "message",
-			"coord": turnPos,
-			"cursor_mode": "turn",
-			"left_monster_id": monsterID,
-			"right_monster_id": -1,
-			"log_text": "\n--- TURN: %s [#%s] ---" % [monster.name, monsterID]
-		})
+		var action: VisualAction = VisualActionScript.new(VisualAction.Kind.MESSAGE)
+		action.coord = turnPos
+		action.cursor_mode = VisualAction.CursorMode.TURN
+		action.left_monster_id = monsterID
+		action.has_left_monster = true
+		action.right_monster_id = -1
+		action.has_right_monster = true
+		action.log_text = "\n--- TURN: %s [#%s] ---" % [monster.name, monsterID]
+		_queue.enqueue(action)
 
 
 func _on_movement_targeted(monsterID: int, destination: Vector2i) -> void:
 	if state.currentMonsterID == monsterID and state.withinBounds(destination):
-		_queue.enqueue({
-			"kind": "focus",
-			"coord": destination,
-			"cursor_mode": "movement"
-		})
+		var action: VisualAction = VisualActionScript.new(VisualAction.Kind.FOCUS)
+		action.coord = destination
+		action.cursor_mode = VisualAction.CursorMode.MOVEMENT
+		_queue.enqueue(action)
 
 
 func _on_monster_moved(monsterID: int, path: Array) -> void:
 	if not _monster_visuals.has(monsterID) or path.is_empty():
 		return
-	_queue.enqueue({
-		"kind": "move",
-		"monster_id": monsterID,
-		"path": path.duplicate(),
-		"log_text": "Moved to %s" % [path.back()]
-	})
+	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.MOVE)
+	action.monster_id = monsterID
+	action.path = path.duplicate()
+	action.log_text = "Moved to %s" % [path.back()]
+	_queue.enqueue(action)
 
 
 # The model follows its path visually; the cursor teleports to the destination.
@@ -516,7 +509,9 @@ func _on_action_targeted(
 		_targetID: int,
 		_action: String) -> void:
 	if state.currentMonsterID == monsterID and state.withinBounds(targetPos):
-		_queue.enqueue({"kind": "focus", "coord": targetPos})
+		var action: VisualAction = VisualActionScript.new(VisualAction.Kind.FOCUS)
+		action.coord = targetPos
+		_queue.enqueue(action)
 
 
 func _on_monster_attacked(
@@ -526,20 +521,20 @@ func _on_monster_attacked(
 		damage: int,
 		targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
-	var action = {
-		"kind": "bump",
-		"monster_id": attackerID,
-		"target_id": targetID,
-		"coord": targetPos,
-		"left_monster_id": attackerID
-	}
+	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.BUMP)
+	action.monster_id = attackerID
+	action.target_id = targetID
+	action.coord = targetPos
+	action.left_monster_id = attackerID
+	action.has_left_monster = true
 	if target != null:
-		action["right_monster_id"] = targetID
-		action["log_text"] = "Attacks %s for %s damage! (HP: %s)" % [
+		action.right_monster_id = targetID
+		action.has_right_monster = true
+		action.log_text = "Attacks %s for %s damage! (HP: %s)" % [
 			target.name, damage, targetNewHP
 		]
 	else:
-		action["log_text"] = "Attacks %s and misses!" % str(targetPos)
+		action.log_text = "Attacks %s and misses!" % str(targetPos)
 	_queue.enqueue(action)
 
 
@@ -551,17 +546,15 @@ func _on_spell_cast_started(
 		targetsHit: int) -> void:
 	if targetsHit > 0:
 		return
-	_queue.enqueue({
-		"kind": "bump",
-		"monster_id": casterID,
-		"target_id": -1,
-		"coord": centerPos,
-		"element": element,
-		"left_monster_id": casterID,
-		"log_text": "Casts %s at %s; no units are affected." % [
-			spellName, centerPos
-		]
-	})
+	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.BUMP)
+	action.monster_id = casterID
+	action.target_id = -1
+	action.coord = centerPos
+	action.element = element
+	action.left_monster_id = casterID
+	action.has_left_monster = true
+	action.log_text = "Casts %s at %s; no units are affected." % [spellName, centerPos]
+	_queue.enqueue(action)
 
 
 func _on_monster_cast_spell(
@@ -579,16 +572,19 @@ func _on_monster_cast_spell(
 	if not damageLines.is_empty():
 		spellElement = str(damageLines[0].get("element", "none"))
 	if target:
-		_queue.enqueue({
-			"kind": "bump",
-			"monster_id": casterID,
-			"target_id": targetID,
-			"coord": state.getMonsterPosition(targetID),
-			"element": spellElement,
-			"left_monster_id": casterID,
-			"right_monster_id": targetID,
-			"log_text": "Casts %s on %s for %s damage! (HP: %s)" % [spellName, target.name, totalDamage, targetNewHP]
-		})
+		var action: VisualAction = VisualActionScript.new(VisualAction.Kind.BUMP)
+		action.monster_id = casterID
+		action.target_id = targetID
+		action.coord = state.getMonsterPosition(targetID)
+		action.element = spellElement
+		action.left_monster_id = casterID
+		action.has_left_monster = true
+		action.right_monster_id = targetID
+		action.has_right_monster = true
+		action.log_text = "Casts %s on %s for %s damage! (HP: %s)" % [
+			spellName, target.name, totalDamage, targetNewHP
+		]
+		_queue.enqueue(action)
 
 
 func _on_monster_healed(
@@ -600,13 +596,16 @@ func _on_monster_healed(
 		targetNewHP: int) -> void:
 	var target = state.getMonster(targetID)
 	if target:
-		_queue.enqueue({
-			"kind": "message",
-			"coord": state.getMonsterPosition(targetID),
-			"left_monster_id": healerID,
-			"right_monster_id": targetID,
-			"log_text": "Casts %s on %s, recovering %s HP! (HP: %s)" % [spellName, target.name, healAmount, targetNewHP]
-		})
+		var action: VisualAction = VisualActionScript.new(VisualAction.Kind.MESSAGE)
+		action.coord = state.getMonsterPosition(targetID)
+		action.left_monster_id = healerID
+		action.has_left_monster = true
+		action.right_monster_id = targetID
+		action.has_right_monster = true
+		action.log_text = "Casts %s on %s, recovering %s HP! (HP: %s)" % [
+			spellName, target.name, healAmount, targetNewHP
+		]
+		_queue.enqueue(action)
 
 func _focus_cursor_on_coord(targetPos: Vector2i) -> void:
 	if state.withinBounds(targetPos):
@@ -616,18 +615,18 @@ func _focus_cursor_on_coord(targetPos: Vector2i) -> void:
 func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 	var monster = state.getMonster(monsterID)
 	var displayName = monster.name if monster else "Monster #%d" % monsterID
-	_queue.enqueue({
-		"kind": "defeat",
-		"monster_id": monsterID,
-		"killer_id": killerID,
-		"right_monster_id": monsterID,
-		"log_text": "%s was DEFEATED!" % displayName
-	})
+	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.DEFEAT)
+	action.monster_id = monsterID
+	action.killer_id = killerID
+	action.right_monster_id = monsterID
+	action.has_right_monster = true
+	action.log_text = "%s was DEFEATED!" % displayName
+	_queue.enqueue(action)
 
 
-func _start_move_animation(action: Dictionary) -> bool:
-	var monsterID = int(action.get("monster_id", -1))
-	var path: Array = action.get("path", [])
+func _start_move_animation(action: VisualAction) -> bool:
+	var monsterID := action.monster_id
+	var path: Array = action.path
 	if not _monster_visuals.has(monsterID) or path.is_empty():
 		return false
 	_present_queued_message(action)
@@ -655,8 +654,8 @@ func _start_move_animation(action: Dictionary) -> bool:
 	return true
 
 
-func _start_defeat_animation(action: Dictionary) -> bool:
-	var monsterID = int(action.get("monster_id", -1))
+func _start_defeat_animation(action: VisualAction) -> bool:
+	var monsterID := action.monster_id
 	if not _monster_visuals.has(monsterID):
 		return false
 	_stop_position_tween(monsterID)
@@ -707,28 +706,29 @@ func _spawn_capsule_shatter(container: Node3D, baseMesh: MeshInstance3D) -> void
 	baseMesh.visible = false
 	particles.emitting = true
 
-func _start_bump_animation(action: Dictionary) -> bool:
-	var sourceID = int(action.get("monster_id", -1))
-	var targetID = int(action.get("target_id", -1))
+func _start_bump_animation(action: VisualAction) -> bool:
+	var sourceID := action.monster_id
+	var targetID := action.target_id
 	if not _monster_visuals.has(sourceID):
 		return false
 	var sourceVisual: Node3D = _monster_visuals[sourceID]
 	var originalPos = sourceVisual.position
-	action["origin"] = originalPos
+	action.origin = originalPos
+	action.has_origin = true
 	var targetWorldPos: Vector3
 	if _monster_visuals.has(targetID):
 		targetWorldPos = _monster_visuals[targetID].position
 	else:
-		var targetCoord = action.get("coord", Vector2i(-1, -1))
-		if not targetCoord is Vector2i or not state.withinBounds(targetCoord):
+		var targetCoord := action.coord
+		if not state.withinBounds(targetCoord):
 			return false
 		targetWorldPos = _coord_to_surface_pos3d(targetCoord)
 	var bumpDirection = targetWorldPos - originalPos
 	if bumpDirection.is_zero_approx():
 		bumpDirection = Vector3.FORWARD
 	var bumpPos = originalPos + bumpDirection.normalized() * 0.4
-	if action.has("element"):
-		var auraColor := BattleMeshFactoryScript.elementColor(str(action["element"]))
+	if not action.element.is_empty():
+		var auraColor := BattleMeshFactoryScript.elementColor(action.element)
 		SpellCastAuraScript.spawn(visual_parent, originalPos, auraColor)
 	var tween = sourceVisual.create_tween()
 	_track_position_tween(sourceID, tween)

@@ -19,7 +19,7 @@
 ## - After disposal nothing schedules further work.
 ##
 ## Owner-supplied callables keep this class free of any knowledge of monsters,
-## meshes, or the board: it schedules opaque action dictionaries.
+## meshes, or the board: it schedules typed presentation snapshots.
 
 class_name VisualActionQueue
 extends RefCounted
@@ -30,11 +30,11 @@ signal drained
 const MAX_QUEUED_ACTIONS := 4096
 const WATCHDOG_MARGIN := 0.75
 
-## (action: Dictionary) -> bool — begin the action; return true if it activated
+## (action: VisualAction) -> bool — begin the action; return true if it activated
 ## a tween (via activate()) and false if it resolved instantly, in which case
 ## the queue moves straight on to the next action.
 var _startAction: Callable
-## (action: Dictionary) -> void — snap whatever the action was animating to its
+## (action: VisualAction) -> void — snap whatever the action was animating to its
 ## final state. Runs on normal completion, watchdog recovery, and overflow.
 var _finalizeAction: Callable
 ## () -> void — re-derive visuals from authoritative state after a recovery.
@@ -43,10 +43,10 @@ var _recoverState: Callable
 ## once the owner has left the tree.
 var _treeProvider: Callable
 
-var _queue: Array = []
+var _queue: Array[VisualAction] = []
 var _isAnimating: bool = false
 var _tween: Tween
-var _activeAction: Dictionary = {}
+var _activeAction: VisualAction
 ## Bumped on every activation, recovery, and disposal so that a late `finished`
 ## signal or watchdog timeout from a superseded tween is ignored.
 var _serial: int = 0
@@ -71,7 +71,7 @@ func isBusy() -> bool:
 
 
 func activeActionKind() -> String:
-	return str(_activeAction.get("kind", ""))
+	return _activeAction.kind_name() if _activeAction != null else ""
 
 
 func queuedCount() -> int:
@@ -115,13 +115,13 @@ func _armWatchdog(serial: int) -> void:
 			CONNECT_ONE_SHOT
 		)
 
-func enqueue(action: Dictionary) -> void:
+func enqueue(action: VisualAction) -> void:
 	if _disposed:
 		return
 	if _queue.size() >= MAX_QUEUED_ACTIONS:
 		push_error("Visual animation queue overflow; recovering to authoritative positions.")
 		recover()
-	_queue.append(action.duplicate(true))
+	_queue.append(action.clone())
 	startNext()
 
 
@@ -129,13 +129,13 @@ func startNext() -> void:
 	if _disposed or _paused or _isAnimating:
 		return
 	while not _queue.is_empty():
-		var action: Dictionary = _queue.pop_front()
+		var action: VisualAction = _queue.pop_front()
 		if _startAction.call(action):
 			return
 	drained.emit()
 
 
-func activate(tween: Tween, action: Dictionary, duration: float) -> void:
+func activate(tween: Tween, action: VisualAction, duration: float) -> void:
 	## Called by the owner's start handler once it has built a tween for the
 	## action. Arms both completion paths: the tween's own `finished` signal and
 	## a watchdog timer sized to the expected duration plus a margin.
@@ -156,12 +156,12 @@ func recover() -> void:
 	var interrupted := _activeAction
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
-	if not interrupted.is_empty():
+	if interrupted != null:
 		_finalizeAction.call(interrupted)
 	_queue.clear()
 	_isAnimating = false
 	_tween = null
-	_activeAction = {}
+	_activeAction = null
 	_recoverState.call()
 
 
@@ -170,7 +170,7 @@ func dispose() -> void:
 	_serial += 1
 	_queue.clear()
 	_isAnimating = false
-	_activeAction = {}
+	_activeAction = null
 	if _tween != null and _tween.is_valid():
 		_tween.kill()
 	_tween = null
@@ -188,13 +188,13 @@ func _complete(serial: int, timedOut: bool) -> void:
 		return
 	var completed := _activeAction
 	if timedOut:
-		push_warning("Visual animation watchdog recovered a stalled %s action." % completed.get("kind", "unknown"))
+		push_warning("Visual animation watchdog recovered a stalled %s action." % completed.kind_name())
 		if _tween != null and _tween.is_valid():
 			_tween.kill()
 	_finalizeAction.call(completed)
 	_isAnimating = false
 	_tween = null
-	_activeAction = {}
+	_activeAction = null
 	## Deferred so a completion that fires mid-frame does not start the next
 	## action inside the previous one's signal emission.
 	startNext.call_deferred()

@@ -1786,6 +1786,33 @@ acceptance.** `BattleUIRefs`, `BattleSetupUIRefs`, and the nested
 controller and visual adapter use typed fields only; dynamic renderer parameter
 maps remain local to graphics synchronization.
 
+## TYPE-3 — Typed visual action queue contract
+
+Replace the visual queue's string-keyed action dictionaries with a typed
+`VisualAction` value object. Use enums for action and cursor modes, explicit
+flags for optional status-panel updates, and cloning at the enqueue boundary.
+Preserve FIFO ordering, pause/watchdog behavior, run-ahead accounting, and all
+existing animation/log/status semantics.
+
+**Model:** Sonnet 5 / GPT Terra.
+
+**Verify:** Run the headless Godot editor load and runtime startup commands;
+inspect that no queued action dictionary construction or lookup remains.
+Consolidated presentation acceptance covers focus, movement, occupied and empty
+attacks, spell damage/healing/no-target casts, defeat, victory, pause, and
+watchdog recovery.
+
+**Risk:** Medium. Visual actions intentionally snapshot event-time data for
+later playback. Losing optional-field presence or cloning semantics would cause
+status panels or animations to display later authoritative state incorrectly.
+
+**Resolution (2026-07-31): implemented; pending consolidated presentation
+acceptance.** `VisualAction` now owns action/cursor enums and typed payload
+fields. `VisualActionQueue` stores cloned typed actions, and
+`GodotVisualAdapter` produces and consumes the contract without string-keyed
+action access. Queue scheduling, pause, watchdog, recovery, and disposal logic
+remain unchanged.
+
 ## POS-1 — Position-based simulation contract
 
 Extend `BattleCommand` with canonical `target_pos`; `target_id` becomes the
