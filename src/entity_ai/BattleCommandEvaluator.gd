@@ -3,7 +3,6 @@
 class_name BattleCommandEvaluator
 extends RefCounted
 
-const ThreatMapScript = preload("res://src/algorithms/ThreatMap.gd")
 const StatusEffectReferencesScript = preload("res://src/factories/StatusEffectReferences.gd")
 
 var state: BattleState
@@ -20,115 +19,23 @@ func _init(
 	combatResolver = _combatResolver
 
 
+## Runs a decision to completion. CPU brains, executeTurn(), runFullBattle(),
+## and every headless harness use this and stay synchronous; the presentation
+## controller drives beginDeliberation() a slice at a time instead so a decision
+## cannot cost a frame. Both go through the same CommandDeliberation, so they
+## cannot produce different answers.
 func chooseCommand(monsterID: int, weights: Dictionary) -> BattleCommand:
-	var actor = state.getMonster(monsterID)
-	var origin = state.getMonsterPosition(monsterID)
-	var destinations: Array = movementResolver.getReachablePositions(monsterID)
-	if not destinations.has(origin):
-		destinations.append(origin)
-	_sortPositions(destinations)
-	var threat = ThreatMapScript.generate(
-		state, actor.team, movementResolver, combatResolver
-	)
-	var enemyPositions: Array[Vector2i] = []
-	for candidateID in state.getAliveMonsterIDs():
-		if state.getMonster(candidateID).team != actor.team:
-			enemyPositions.append(state.getMonsterPosition(candidateID))
+	return beginDeliberation(monsterID, weights).run()
 
-	var candidates: Array[Dictionary] = []
-	for destination in destinations:
-		var path: Array = (
-			[] if destination == origin else
-			movementResolver.findPath(
-				origin, destination, movementResolver.getEffectiveMove(monsterID)
-			)
-		)
-		if destination != origin and path.is_empty():
-			continue
-		candidates.append(_candidate(
-			actor,
-			path,
-			destination,
-			"wait",
-			Vector2i(-1, -1),
-			0,
-			0,
-			[],
-			threat,
-			weights,
-			enemyPositions
-		))
 
-		var attackPositions = combatResolver.getBasicAttackTargetPositionsFrom(
-			monsterID, destination
-		)
-		_sortPositions(attackPositions)
-		var seenAttackOutcomes: Dictionary = {}
-		for targetPos in attackPositions:
-			var targetID = combatResolver.getProjectedOccupantID(
-				monsterID, destination, targetPos
-			)
-			var outcomeKey = "unit:%d" % targetID if targetID != 0 else "empty"
-			if seenAttackOutcomes.has(outcomeKey):
-				continue
-			seenAttackOutcomes[outcomeKey] = true
-			candidates.append(_candidate(
-				actor,
-				path,
-				destination,
-				"attack",
-				targetPos,
-				0,
-				0,
-				[],
-				threat,
-				weights,
-				enemyPositions
-			))
+func beginDeliberation(monsterID: int, weights: Dictionary) -> CommandDeliberation:
+	return CommandDeliberation.new(self, state, monsterID, weights)
 
-		for spellSetIndex in range(actor.spellSets.size()):
-			for spellIndex in range(actor.spellSets[spellSetIndex].size()):
-				var targetPositions = combatResolver.getSpellTargetPositionsFrom(
-					monsterID, spellSetIndex, spellIndex, destination
-				)
-				_sortPositions(targetPositions)
-				var seenSpellOutcomes: Dictionary = {}
-				for centerPos in targetPositions:
-					var affected = combatResolver.getSpellAffectedTargetsFrom(
-						monsterID,
-						spellSetIndex,
-						spellIndex,
-						destination,
-						centerPos
-					)
-					var outcomeKey = _affectedOutcomeKey(affected)
-					if seenSpellOutcomes.has(outcomeKey):
-						continue
-					seenSpellOutcomes[outcomeKey] = true
-					candidates.append(_candidate(
-						actor,
-						path,
-						destination,
-						"spell",
-						centerPos,
-						spellSetIndex,
-						spellIndex,
-						affected,
-						threat,
-						weights,
-						enemyPositions
-					))
 
-	if candidates.is_empty():
-		return BattleCommand.wait()
-	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		if a["score"] != b["score"]:
-			return a["score"] > b["score"]
-		return a["tie_key"] < b["tie_key"]
-	)
-	return candidates[0]["command"]
-
-func _candidate(
+## Scores one candidate. Public because CommandDeliberation owns the iteration
+## and this class owns the scoring; they are one unit split along a resumability
+## seam, not two independent collaborators.
+func scoreCandidate(
 		actor: Monster,
 		path: Array,
 		destination: Vector2i,
@@ -237,13 +144,13 @@ func _candidate(
 	]
 	return {"score": score, "tie_key": tieKey, "command": command}
 
-func _sortPositions(positions: Array) -> void:
+func sortPositions(positions: Array) -> void:
 	positions.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		return a.y < b.y or (a.y == b.y and a.x < b.x)
 	)
 
 
-func _affectedOutcomeKey(affectedTargets: Array) -> String:
+func affectedOutcomeKey(affectedTargets: Array) -> String:
 	var sortedTargets = affectedTargets.duplicate()
 	sortedTargets.sort()
 	var parts := PackedStringArray()

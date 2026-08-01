@@ -2285,6 +2285,47 @@ changing anything observable until a replay or a seeded log diverges.
 **Model:** Opus 5 / GPT Sol. Drawing the resumable seam through a hot loop
 while holding candidate order and tie-breaking exactly is the actual work.
 
+**Resolution (2026-08-01): implemented; pending end-of-plan validation.**
+`src/entity_ai/CommandDeliberation.gd` owns the cursor and the accumulators;
+`BattleCommandEvaluator` keeps the scoring and is now a thin wrapper —
+`chooseCommand()` is `beginDeliberation(...).run()`, so the synchronous and
+sliced paths cannot drift because they are the same code. `_candidate`,
+`_sortPositions`, and `_affectedOutcomeKey` became `scoreCandidate`,
+`sortPositions`, and `affectedOutcomeKey`: they now have a caller outside the
+class and are part of a real contract rather than private helpers.
+
+`ThreatMap` gained `beginMap()`, `threateningEnemies()`, and
+`accumulateEnemy()`; `generate()` is now those three composed, so the 2-argument
+fallback callers in `EntityBrain`/`MageBrain`/`SupportBrain`/`TacticalBrain` are
+untouched. Per-enemy was the right slice boundary — the map cost 9-20 ms per
+turn after the 2026-08-01 optimization, which is a frame on its own.
+
+Slices are wall-clock budgeted rather than counted, because a wait-and-attack
+slice and a long-range area-spell slice differ by an order of magnitude in
+cost. Which slices land in which frame is therefore machine-dependent, and that
+is safe: the candidate list is accumulated in a fixed order and sorted once at
+the end, so the split cannot reach the result.
+
+Verified with `debug/verify_deliberation.gd` (gitignored scratch): across 60
+consecutive turns of the seeded battle, a zero-budget stepped deliberation and
+`chooseCommand()` returned identical action, target position, target id, spell
+indices, order, and move path every time — with every one of those 60 turns
+genuinely slicing (max 145 slices, 2809 total), so the comparison is not
+vacuous. A negative budget still completes. The incremental threat map equals
+`generate()` for both teams. The seeded `scripts/demo_battle.gd` log is
+byte-identical at `fde2e984…`, and the whole headless suite passes.
+
+**One trap, and it is not specific to this item.** A new `class_name` is
+invisible to every other script until Godot's global class cache is rebuilt,
+and `.godot/` is gitignored. Adding `CommandDeliberation.gd` outside the editor
+produced `Parse Error: Could not find type "CommandDeliberation"`, which
+cascaded into every brain failing to compile — and `scripts/demo_battle.gd`
+still exited 0 while writing a truncated log, so it read as a decision
+divergence rather than a build failure. Fix is
+`./Godot_v4.4-stable_win64.exe --headless --editor --quit` once after adding any
+`class_name` file. Check the run output for `Parse Error` before believing a
+hash mismatch.
+
 ---
 
 ## FRAME-3 — Frame-budgeted turn driver
