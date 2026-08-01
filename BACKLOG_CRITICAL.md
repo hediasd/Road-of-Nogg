@@ -51,6 +51,37 @@ or misleading.
   future animation harness must cover that path indirectly (the battle log
   growing) rather than by polling the queue.
 
+## AI deliberation blocks the frame
+
+Reported from play on 2026-08-01 as "the game is lagging" in CPU vs CPU, and
+confirmed by measurement. The contract is in `docs/ARCHITECTURE.md` under
+"Frame budget: deliberation must not block presentation" — read that before
+acting on this.
+
+`_advance_battle()` runs on the main thread and calls `brain.decideTurn()`
+inline, so every AI turn is computed inside a frame and the frame lasts as long
+as the decision. Measured headless (so excluding render cost) on seed 42:
+idle frames 6.9 ms median, frames carrying a turn 24 ms median at 1 turn/s and
+31 ms median / 75 ms max at 8 turns/s. At the higher playback speeds 4.1% of
+frames miss 60fps and 1.9% miss 30fps.
+
+A first pass on 2026-08-01 cut the cost per decision from 103 ms to 36.5 ms
+(bounded spell-center scans, hoisted per-tile revalidation, short-circuited
+threat map) with a byte-identical seeded demo log. That bought headroom; it did
+not remove the coupling, and the coupling is what matters, because candidate
+counts grow every time the AI gets smarter.
+
+**The fix is affordable because the seam already exists.** `decideTurn()` is
+verified pure — six consecutive calls mutate nothing, draw no RNG, emit no
+events, and return the same command — so a decision can be computed off the
+frame and applied through `executeCommand()` on the main thread in turn order,
+with determinism and the replay ledger untouched.
+
+**Not started.** It is an architectural change (worker task or time-sliced
+evaluator, plus the ownership rules for reading `BattleState` while a task is
+in flight) and wants a planned item with a model assignment, not an incidental
+edit. Do it before, not after, the next significant increase in AI depth.
+
 ## Content inconsistencies
 
 - **`Purple Dungeon Slime` claims "immune to physical crits"** in its

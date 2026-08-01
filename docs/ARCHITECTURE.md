@@ -266,6 +266,82 @@ A player turn opens only on a caught-up, unpaused board. When the simulation
 reaches a player-controlled unit while playback is behind, the turn is held in
 `_pending_player_turn_id` and started from the queue's `drained` signal.
 
+## Frame budget: deliberation must not block presentation
+
+**A turn may take as long as it needs. A frame may not.** These are different
+budgets and the distinction is the whole point of this section: a unit that
+appears to think for a moment before acting is fine, and arguably good. A
+renderer, camera, or animation that stutters while it thinks is not, and no
+amount of AI quality buys it back.
+
+The two are currently coupled. `_advance_battle()` runs on the turn timer, on
+the main thread, and calls `sim.executeTurn()` — which calls
+`brain.decideTurn()` inline. Deliberation therefore happens *inside* a frame,
+and the frame is as long as the decision.
+
+Measured on a real CPU vs CPU battle (`Battle25D`, seed 42, headless, so these
+numbers exclude render cost and understate a real window):
+
+| | idle frames | frames carrying a turn |
+|---|---|---|
+| median | 6.9 ms | 24 ms at 1 turn/s, 31 ms at 8 turns/s |
+| max | — | 46 ms at 1 turn/s, 75 ms at 8 turns/s |
+
+Every AI turn overruns the 16.7 ms budget for 60fps, by 1.5x to 4.5x. At the
+higher playback speeds the speed slider offers, 4.1% of all frames miss 60fps
+and 1.9% miss even 30fps. This scales directly with AI complexity: candidate
+enumeration grew by roughly an order of magnitude when POS-2 made targeting
+positional, and the frame cost grew with it.
+
+### The seam that makes this fixable
+
+Deliberation and mutation are already separate operations, and deliberation is
+already side-effect free:
+
+- `brain.decideTurn(id)` is a pure query. It reads `BattleState` and returns a
+  `BattleCommand`. Verified directly: six consecutive calls change nothing in
+  `state.history`, monster HP, positions, cooldowns, Resonance bars, or active
+  effects, consume no RNG (`state.rng.state` is untouched), emit no events, and
+  return the same decision every time. The `is_simulation` flag that damage
+  estimation threads through `PassiveSkillResolver` exists precisely to keep it
+  that way.
+- `sim.executeCommand(id, command, source)` is the mutating half, and is the
+  only half that must run on the main thread.
+
+So the work can move off the frame without touching determinism: the RNG is
+never drawn during deliberation, so moving *when* a decision is computed cannot
+change *what* it computes, and the replay ledger records the resulting command
+either way.
+
+### Rules for anything that makes the AI think harder
+
+1. **Never add work to the frame that scales with AI complexity.** If a new
+   heuristic, deeper search, or larger candidate set lands on the main thread
+   inside `_advance_battle()`, it is a rendering regression regardless of how
+   good the decisions get.
+2. **Keep `decideTurn()` pure.** No state mutation, no RNG draws, no event
+   emission, no history writes. This is not a style preference — it is the
+   precondition for ever computing a decision off the main thread or across
+   several frames, and it is cheap to verify (see the probe described above).
+3. **Measure frames, not turns.** A profile that reports milliseconds per
+   decision does not tell you whether the game stutters. Sample the wall-clock
+   gap between consecutive frames during a real battle and correlate the spikes
+   with turn starts.
+4. **Deliberation may be deferred; resolution may not be reordered.** Whatever
+   scheme computes a decision early or in the background, the command must
+   still be applied through `executeCommand()` on the main thread, in turn
+   order, so history and replay are unchanged.
+
+### Intended direction, not yet built
+
+Compute the decision for the next actor off the frame — a `WorkerThreadPool`
+task or a time-sliced evaluator — and apply the returned `BattleCommand` on the
+main thread when it is ready. The window between turns is safe for a reader,
+because `_advance_battle()` is the only thing that mutates simulation state and
+it is not running during that window; the visual queue in the meantime only
+animates already-recorded events. This is recorded in `BACKLOG_CRITICAL.md`; it
+is a real architectural change and should be planned, not slipped in.
+
 ## Determinism, replay, and restoration
 
 - All gameplay randomness flows through `BattleState.rng`.
@@ -300,6 +376,9 @@ reaches a player-controlled unit while playback is behind, the turn is held in
   mirrors stay synchronized.
 - Add presentation behavior through events or the adapter; never mutate state
   from an animation callback.
+- Keep CPU deliberation free of state mutation, RNG draws, and event emission,
+  and keep work that scales with AI complexity off the frame — see "Frame
+  budget: deliberation must not block presentation".
 - Preserve `success` versus `resolved` when adding reactions or action types.
 - Add or change events by updating `BattleEvents`, `IBattleVisualAdapter`, every
   active adapter, and focused event-contract checks together.
