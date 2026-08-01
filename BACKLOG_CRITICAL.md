@@ -54,6 +54,12 @@ or misleading.
 ## Content inconsistencies
 
 - **`Purple Dungeon Slime` claims "immune to physical crits"** in its
-  description, but no such mechanic exists. Now that Luck is live this is a
-  visible inconsistency. Either implement the immunity or reword the
-  description.
+  `DESCRIPTION`, but no such mechanic exists. **Decided 2026-08-01: reword it**,
+  do not build the immunity — physical attacks cannot crit at all
+  (`_rollCritical()` is only reached from the spell path), so the immunity
+  would guard a code path that does not exist. See `implementation_plan.md`.
+- **No monster `DESCRIPTION` is read by any production code.** 11 of 28
+  monsters carry one and no player has ever seen them, which is how the Slime's
+  claim drifted from the implementation unnoticed. The other 10 have never been
+  checked against actual mechanics; worth a sweep when descriptions are
+  surfaced in the UI.

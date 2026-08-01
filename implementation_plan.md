@@ -575,13 +575,13 @@ calls `spawnMonster(name, team, pos)` with the default `level = 1`. Growth
 values are doubly inert: even non-zero growth would change nothing until
 something varies level.
 
-**Recommendation: keep deferring** until there's a reason for level to vary
-(campaign progression, a level control in setup, or an ascension system).
-Assigning growth numbers now would be unverifiable and untestable.
+**Resolved by the user 2026-08-01: add a level control to battle setup.** Level
+comes from the player choosing it per roster slot, not from campaign
+progression or ascension. That is the smallest thing that makes growth values
+mean something and lets them be tuned in a real battle, and it unblocks
+authoring them.
 
-**Blocking decision needed from the user:** where does monster level come
-from? This is a product question, not a balance table, and nothing below it
-can proceed without an answer.
+Superseded by **LVL-1 … LVL-VALIDATE** below, which carry the work.
 
 ---
 
@@ -591,14 +591,17 @@ can proceed without an answer.
 is 5. Never confirmed as intentional — plausible as a deliberate
 high-mobility scout, plausible as a typo for 5.
 
-**Blocking decision needed from the user:** intentional, or should it be
-corrected to 5 (or some other value)?
+**Resolved by the user 2026-08-01: intentional. Keep `MOVE = 8`.** Kickatoo is
+a deliberate high-mobility scout and the roster's only one. No change to
+`data/monsters.json`; this item is closed.
 
-**Files:** `data/monsters.json`
-
-**Risk:** Low — a single data value.
-
-**Model:** Sonnet 5 / GPT Terra, once the value is confirmed.
+**Worth watching in play, not acting on now:** Kickatoo also carries
+`Sudden Storm` (radius-2 circle, range 4, 5 damage, no cooldown) and runs a
+`MageBrain`. Eight movement plus a no-cooldown area spell is the strongest
+reach-and-hit combination on the roster, and POS-2 made the AI good at finding
+empty centers that catch several units. If one unit starts dominating CPU
+battles, this is the first pairing to look at — the mobility is intended, the
+*combination* has never been balanced deliberately.
 
 ---
 
@@ -609,17 +612,40 @@ such immunity mechanic exists anywhere in the codebase. This was a dormant
 inconsistency before Luck/criticals went live; now that critical hits are
 live, it is a visible one.
 
-**Blocking decision needed from the user:** implement the immunity as a real
-mechanic, or reword the description to match actual behavior?
+**Resolved by the user 2026-08-01: reword the description.** No immunity
+mechanic is to be built.
 
-**Files:** `data/monsters.json`, and `src/battle_sim/CombatResolver.gd` only if
-the immunity option is chosen.
+Two findings from 2026-08-01 that make the reword clearly correct rather than
+merely cheaper:
 
-**Risk:** Low if reworded; Medium if implemented as a new mechanic (touches
-crit resolution).
+1. **Physical attacks cannot crit at all.** `_rollCritical()` is called from
+   exactly one place, `SpellEffectResolver`, on the spell-damage path.
+   `CombatResolver.calculateBasicDamage()` never rolls one and takes no
+   `isCritical` argument. So "immune to physical crits" describes immunity to
+   something that happens to nobody, and building the immunity would have been
+   a no-op against a code path that does not exist.
+2. **No monster `DESCRIPTION` is read by any production code.** The only
+   consumer of that key anywhere is `ArchetypeReferences`, for archetypes. 11
+   of 28 monsters carry one; no player has ever seen any of them. Nothing is
+   visibly broken today — this is authored design intent drifting from the
+   implementation, which is exactly why it went unnoticed.
 
-**Model:** Sonnet 5 / GPT Terra either way — a reword and a real immunity
-mechanic sit in the same tier.
+**Change:** in `data/monsters.json`, `Purple Dungeon Slime`'s `DESCRIPTION` is
+`"Amorphous gelatinous mass, adaptable utility, immune to physical crits"`.
+Drop the crit clause. Suggested replacement, adjust the flavour freely but do
+not reintroduce a mechanical claim the code does not implement:
+`"Amorphous gelatinous mass; slow and durable, with adaptable utility"`.
+
+**Verify:** `debug/verify_data_validate.gd` (the catalog still loads and all 28
+monsters construct), and grep the roster for any other `DESCRIPTION` asserting
+a mechanic — this one was found by accident, and 10 others have never been
+checked against the implementation.
+
+**Files:** `data/monsters.json`
+
+**Risk:** Low. Data-only, and the field is not read at runtime.
+
+**Model:** Sonnet 5 / GPT Terra.
 
 ## BM-0 through BM-2 ? implementation resolution (2026-07-29)
 
@@ -2527,5 +2553,186 @@ became a gate rather than a report.
 determinism target. That hash predates commit `01c17a4`, which intentionally
 changed one battle-log line ("permanently" instead of "for 999 turns"). The
 correct target throughout this plan is `fde2e984…`.
+
+---
+
+---
+
+## Monster level and growth (LVL-1 … LVL-VALIDATE)
+
+Added 2026-08-01, from the user's decision that monster level comes from a
+control in battle setup. Supersedes **Growth values — blocked on a
+prerequisite** above, which was blocked on exactly that question.
+
+### Why this order
+
+Growth values are inert twice over today: every `HP_GROWTH`/`ATK_GROWTH`/
+`DEF_GROWTH` is `0`, *and* nothing ever spawns a monster above level 1, so even
+non-zero growth would change nothing. Authoring the numbers first would be
+authoring blind. LVL-1 and LVL-2 make level vary; LVL-3 then has something to
+tune against and a way to see it.
+
+### Facts established 2026-08-01 — do not re-derive
+
+- `MonsterStatCalculator.derive(base, growthHundredths, level)` is
+  `base + floor(growth * (level - 1) / 100)`. **Growth is in hundredths**: a
+  growth of `100` is +1 per level, `50` is +1 every two levels. Level 1 always
+  yields the base value, whatever the growth.
+- Only **HP, ATK, and DEF** derive from level. `SPD`, `MOVE`, `JUMP`, and
+  `LUCK` are read flat from `STATS` and are unaffected by it.
+- `BattleSetupConfig` holds `battleMode`, `mapName`, `seed`, and `team1`/
+  `team2` as `Array[String]` of exactly `TEAM_SIZE` (4) monster names.
+- `BattleStateSerializer` already records and restores `level` per monster —
+  schema version 5 covers it. Nothing is needed there.
+- **The replay path is the trap.** `BattleReplayRunner.replay()` rebuilds the
+  battle by calling `BattleSetupConfig.fromDictionary(snapshot["setup"])` and
+  then `BattleSetupFactory.createSimulator(config)` — it reconstructs monsters
+  from the *setup*, not from `initialState`. A level that does not survive
+  `BattleSetupConfig.serialize()` therefore does not survive replay, and every
+  recorded command would then resolve against wrong stats.
+
+### Decided: no replay version bump
+
+The snapshot stays at version 5. An absent `levels` key means every monster is
+level 1 — which is exactly what every already-recorded v5 snapshot actually
+contained, so old snapshots remain correct by construction rather than by a
+migration rule. Do not bump to 6 for this; there is nothing for a version 6
+reader to do differently.
+
+---
+
+## LVL-1 — Per-slot level in the setup contract
+
+Carry a level per roster slot from `BattleSetupConfig` through to
+`spawnMonster()`, and make it survive serialization.
+
+1. `BattleSetupConfig` gains `team1Levels: Array[int]` and `team2Levels:
+   Array[int]`, parallel to `team1`/`team2`. Default every entry to `1`, and
+   keep them at `TEAM_SIZE` whenever the roster arrays are assigned so a
+   half-filled config cannot index out of range.
+2. `validate()` rejects a level below 1 and any levels array whose size does
+   not match its roster. Add the errors to the existing list; do not throw.
+3. `serialize()` writes both arrays. `fromDictionary()` reads them, defaulting
+   a missing or short array to `1` per slot — this is what keeps existing
+   replays correct without a version bump.
+4. `BattleSetupFactory` passes the slot's level to
+   `spawnMonster(name, team, pos, level)`. That parameter already exists and
+   already defaults to 1; nothing in `BattleSimulator` or `Monster` needs
+   changing.
+5. Nothing else may read level from the config. `MonsterStatCalculator` stays
+   the single place stats are derived.
+
+**Files:** `src/battle_sim/BattleSetupConfig.gd`,
+`src/battle_sim/BattleSetupFactory.gd`, `docs/ARCHITECTURE.md`.
+
+**Final validation coverage:** a battle configured with mixed levels spawns
+monsters at those levels; its replay reproduces them; a snapshot with no
+`levels` key still replays as all level 1.
+
+**Risk:** Medium. The blast radius is small but the replay reconstruction path
+is easy to miss, and getting it wrong produces a replay that diverges silently
+rather than an error.
+
+**Model:** Sonnet 5 / GPT Terra. Multi-file with a fully stated end state; the
+one design question (no version bump) is decided above.
+
+---
+
+## LVL-2 — Level control in the setup UI
+
+Expose the level of each roster slot in battle setup.
+
+1. `BattleSetupUI` adds a level `SpinBox` beside each of the eight monster
+   slots, minimum 1, integer steps, defaulting to 1. Add it to
+   `BattleSetupUIRefs` as `team_1_levels` / `team_2_levels`, typed
+   `Array[SpinBox]`, mirroring how `team_1_slots` already works — TYPE-2 made
+   that bundle the contract, so a new control belongs in it rather than in a
+   loose dictionary.
+2. `_read_setup_config()` reads the spinboxes into the config's level arrays.
+3. Choose and state a maximum. Nothing in the code caps level, but an unbounded
+   spinner invites a level-9999 monster that no balance pass will ever cover.
+   Pick a ceiling the UI enforces and note it in `docs/GAME_DESIGN.md`.
+4. Preset selection and the duplicate-name note keep working unchanged; levels
+   are independent of which monster occupies a slot and must not be reset when
+   a preset repopulates the roster.
+
+**Files:** `src/presentation/BattleSetupUI.gd`,
+`src/presentation/BattleSetupUIRefs.gd`,
+`src/systems/BattlePresentationController.gd`, `docs/GAME_DESIGN.md`.
+
+**Final validation coverage:** setting a level in the UI reaches the spawned
+monster's derived stats; the new-battle lifecycle round trip preserves the
+controls; `debug/drive_battle.gd`'s setup-refs check covers the new fields.
+
+**Risk:** Low-medium. UI wiring with a stated end state. The likely bug is
+levels being reset by a preset repopulating the roster.
+
+**Model:** Sonnet 5 / GPT Terra.
+
+---
+
+## LVL-3 — Author growth values
+
+Give every monster non-zero `HP_GROWTH`/`ATK_GROWTH`/`DEF_GROWTH` in
+hundredths, so level actually changes a unit.
+
+1. Growth should follow the monster's role, not a flat rate: an archetype's
+   `SPREAD_MIN`/`SPREAD_MAX`/`DEF_MIN`/`SPD_MIN` fields in `archetypes.json`
+   already encode intended stat shape, and growth is the same statement over
+   time. A striker growing ATK faster than DEF is the point.
+2. Keep level 1 exactly as it is today. Growth only affects level 2 and above,
+   so no existing battle, seeded log, or balance observation changes — and the
+   seeded demo log hash must prove it.
+3. State the intended level band the numbers are tuned for. Growth that reads
+   well from 1-10 will not read well from 1-100, and the LVL-2 ceiling should
+   agree with whatever is chosen here.
+
+**Files:** `data/monsters.json`, `docs/GAME_DESIGN.md`.
+
+**Final validation coverage:** a level-1 battle is byte-identical to today; a
+levelled battle produces visibly different stats in the direction the
+archetype implies.
+
+**Risk:** Medium. Balance work across 28 monsters with no automated balance
+coverage. The mitigation is item 2 — because growth cannot affect level 1,
+every existing check stays a valid regression gate.
+
+**Model:** Opus 5 / GPT Sol. Assigning the numbers is a balance decision, which
+is the tier's stated boundary; the mechanical edit underneath it is trivial.
+
+---
+
+## LVL-VALIDATE — Validate monster level and growth
+
+Run one consolidated pass after LVL-1 through LVL-3 are committed.
+
+**Depends on:** LVL-1 through LVL-3.
+
+**Verify:** Start from a clean `git status`. Launch headless. Then:
+
+- **Nothing at level 1 changed.** `scripts/demo_battle.gd` twice, hashing
+  byte-identically to `fde2e984…`. This is the gate on LVL-3 item 2, and the
+  reason the whole existing suite stays meaningful.
+- **Levels reach the monster.** A config with mixed levels spawns monsters
+  whose HP/ATK/DEF match `MonsterStatCalculator.derive()` for their level, and
+  whose SPD/MOVE/JUMP/LUCK are unchanged from base.
+- **Levels survive replay.** A levelled battle snapshot replays to identical
+  HP, positions, and winner. Separately, a snapshot with the `levels` key
+  removed still replays as all level 1 — the compatibility rule LVL-1 decided.
+- **No regressions.** The full harness suite: `verify_pc1/pc2/pc4/pc5`,
+  `verify_data_validate`, `verify_pos_validate`, `verify_deliberation`,
+  `verify_turn_driver`, `verify_frame_pacing`, `drive_battle`.
+- **In-window.** Set levels in setup, start a battle, and confirm the status
+  windows show the derived stats and the battle plays normally.
+- Finish with `git diff --check`.
+
+**Expected value change:** none at level 1 — that is the point. Any levelled
+fixture is new and has no baseline to compare against.
+
+**Risk:** Medium. The integration point is narrow, but a level that reaches
+construction and not replay is invisible until a saved replay is loaded.
+
+**Model:** Opus 5 / GPT Sol. Judging whether the growth curve reads well in
+play, rather than merely computing, is the work.
 
 ---
