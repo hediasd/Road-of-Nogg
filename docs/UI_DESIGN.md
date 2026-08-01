@@ -42,7 +42,7 @@ aspiration.
 | 1 | **Beveled 9-slice frame** | Every game window uses the shared `NoggWindow` frame. No ad-hoc `StyleBoxFlat` borders in game UI. |
 | 2 | **Gutter cursor sprite** | Selection is a cursor node's position, never a background fill and never a text prefix. The cursor bobs continuously and tweens between rows, and sits in a reserved gutter clear of both the ring and the text. |
 | 3 | **Stacked sibling windows** | A submenu is its own window opening to the right of its parent. The parent stays on screen with **both its frame and its content** tinted to the inactive state. |
-| 4 | **Two-column rows** | Label left-aligned, value right-aligned against the frame's inner edge. Never centred, never wrapped — hard-truncate instead (`OVERRUN_TRIM_CHAR`; the font has no ellipsis glyph, see §3). |
+| 4 | **List rows and status cells** | Lists keep a left label and right-aligned value against the frame's inner edge; never centre or wrap them — hard-truncate instead (`OVERRUN_TRIM_CHAR`; the font has no ellipsis glyph, see §3). Docked status readouts are the exception: fixed cells start at x=0, 192, and 384, keeping each label/value unit together. |
 | 5 | **Paging, not scrolling** | Windows are fixed-height. Overflow pages, with a `n / m` footer window straddling the parent's bottom border, its arrows drawn rather than typed (§7). |
 | 6 | **Docked context windows** | Secondary readouts (actor status, target info) dock to fixed screen corners and never move or resize with content. |
 
@@ -491,8 +491,8 @@ mapping remains in the root viewport's logical coordinate space.
 |---|---|---|---|
 | **Command** | Left, vertically centred | 220 × 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS` — longest is `ATTACK` at 144 + 56 overhead; 5 is the list's true maximum |
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
-| **Actor status** | Bottom-left, fixed | 540 × 6 rows | Name heading in `TEXT_ACCENT`; `HP`, `ATK/DEF`, `SPD/MOV`, `Elements` as two-column rows |
-| **Target** | Bottom-right, fixed | 540 × 6 rows | Same shape as actor status; shows an empty frame, not a hidden window, when there is no target |
+| **Actor status** | Bottom-left, fixed | 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with column 3 reserved for element state |
+| **Target** | Bottom-right, fixed | 540 × 6 rows | Same fixed-cell shape as actor status; shows an empty frame, not a hidden window, when there is no target |
 | **Forecast** | Above Command, **left-aligned** with it | 460 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible only during confirm |
 | **Prompt** | Top-centre | auto, 1 row | `Select a destination`, `Select a target` — replaces today's status label |
 | **Battle log** | Right edge, full height | scrolling | The one deliberate exception to trait 5; a log is a scrollback, not a menu |
@@ -531,12 +531,11 @@ needs ~460px and the command window's right edge is at x=300, so right-aligning
 would place its left edge off-screen. Corrected against the real metrics once
 the body font size was settled at 24.
 
-The bottom HUD is being restructured into this taxonomy. Today it is two
-undifferentiated 220×150 `PanelContainer`s holding a single `\n`-joined `Label`
-each (`"[ %s ]\nHP: %d/%d\nATK: %d | DEF: %d\n…"`). That string formatting is
-replaced by real two-column rows so trait 4 holds and values can be
-individually coloured — for example HP turning `TEXT_ACCENT` under a
-threshold.
+The bottom HUD uses fixed status cells rather than list rows: `HP` occupies the
+first cell, `ATK`/`DEF` and `SPD`/`MOV` hold vertical columns at 0 and 192px,
+and the 384px cell stays reserved for element state. Text values remain separate
+Labels, so HP can still turn `TEXT_ACCENT` under its threshold without treating
+the readout as an interactive menu.
 
 ---
 

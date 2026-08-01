@@ -304,6 +304,12 @@ above; what remains is wiring it, with the one known trap called out in item 5.
 
 ## UI-13 — Resonance bars as a third column
 
+**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+Added the fixed-cell status-row API with direct value handles, migrated
+HP/ATK/DEF/SPD/MOV, and left list rows untouched. The headless editor
+parse/load smoke check passed; low-HP tint, name fit, spell/command-row
+preservation, and actual layout appearance remain for UI-VALIDATE.
+
 `Elements  fire` tells the player something the monster's spell list already
 implies. What is invisible is charge, which drives the only always-on stat
 bonus in the game. Replace the row with an element column beside the stats —

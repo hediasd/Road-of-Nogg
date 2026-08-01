@@ -281,8 +281,74 @@ func add_row(label_text: String, value_text: String = "", disabled: bool = false
 	return row
 
 
-## Removes every row added so far. Pairs with add_row() to satisfy the §5
-## rule: content changes rebuild rows; they never touch cursor position.
+## Fixed-column cells for passive status readouts. The builder is deliberately
+## separate from add_row(): list rows retain their two-column HBox and marquee
+## contract, while a status row puts label/value units beside one another.
+##
+## Every cell has a String label and exactly one of `value` (a String) or
+## `control` (a caller-supplied Control). The returned handles expose the created
+## nodes so callers never depend on a child index for value tinting.
+func add_stat_row(cells: Array[Dictionary]) -> Array[Dictionary]:
+	if cells.is_empty() or cells.size() > NoggThemeScript.STATUS_CELL_OFFSETS.size():
+		push_error("NoggWindow: status row has an invalid cell count")
+		return []
+	for cell in cells:
+		var has_label := cell.has("label") and cell["label"] is String
+		var has_value := cell.has("value") and cell["value"] is String
+		var has_control := cell.has("control") and cell["control"] is Control
+		if not has_label or has_value == has_control:
+			push_error("NoggWindow: status cells need a label and exactly one value/control")
+			return []
+
+	var row := Control.new()
+	row.custom_minimum_size.y = NoggThemeScript.ROW_HEIGHT
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if _input_transparent:
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_content.add_child(row)
+
+	var handles: Array[Dictionary] = []
+	for index in cells.size():
+		var cell: Dictionary = cells[index]
+		var cell_root := Control.new()
+		cell_root.position.x = NoggThemeScript.STATUS_CELL_OFFSETS[index]
+		cell_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(cell_root)
+
+		var label := Label.new()
+		label.text = str(cell["label"])
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.size = label.get_minimum_size()
+		label.position.y = (NoggThemeScript.ROW_HEIGHT - label.size.y) / 2.0
+		cell_root.add_child(label)
+
+		var value: Control
+		if cell.has("value"):
+			var value_label := Label.new()
+			value_label.text = str(cell["value"])
+			value_label.add_theme_color_override("font_color", NoggThemeScript.TEXT_ACCENT)
+			value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			value_label.size = value_label.get_minimum_size()
+			value = value_label
+		else:
+			value = cell["control"] as Control
+			value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		value.position = Vector2(
+			label.size.x + (
+				NoggThemeScript.STATUS_CELL_TEXT_GAP if cell.has("value")
+				else NoggThemeScript.STATUS_CELL_CONTROL_GAP
+			),
+			(NoggThemeScript.ROW_HEIGHT - value.get_combined_minimum_size().y) / 2.0
+		)
+		cell_root.add_child(value)
+		handles.append({"cell": cell_root, "label": label, "value": value})
+
+	_rows.append(row)
+	return handles
+
+
+## Removes every row added so far. Pairs with add_row() to satisfy the §5 rule:
+## content changes rebuild rows; they never touch cursor position.
 ##
 ## `remove_child` before `queue_free`: queue_free alone defers the actual
 ## removal to the end of the frame, so a clear_rows()/add_row() pair in the

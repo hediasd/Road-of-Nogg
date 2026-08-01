@@ -820,30 +820,28 @@ func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
 	if monster == null:
 		return
 	window.add_row(monster.name)
-	var hp_row = window.add_row("HP", "%d / %d" % [monster.hitpoints, monster.max_hitpoints])
+	var hp_cells := window.add_stat_row([
+		{"label": "HP", "value": "%d / %d" % [monster.hitpoints, monster.max_hitpoints]}
+	])
 	# TEXT_ACCENT (gold) only below one third: healthy HP should blend in as an
 	# unremarkable stat, not compete with it for the eye every single turn.
-	_tint_row_value(
-		hp_row,
+	_tint_value_label(
+		hp_cells[0]["value"] as Label,
 		NoggThemeScript.TEXT_ACCENT if monster.hitpoints * 3 < monster.max_hitpoints
 		else NoggThemeScript.TEXT_PRIMARY
 	)
-	window.add_row("ATK / DEF", "%d / %d" % [monster.atk, monster.def])
-	window.add_row("SPD / MOV", "%d / %d" % [monster.speed, monster.move])
-	window.add_row(
-		"Elements",
-		", ".join(monster.elements) if not monster.elements.is_empty() else "None"
-	)
-	# Deliberately NOT set_focused_row() here: marquee is reserved for content
-	# the player is actively choosing between (spell names), not a passive
-	# status readout. An overflowing Elements combo just stays truncated —
-	# see docs/UI_DESIGN.md §7b's note on this reversal.
+	window.add_stat_row([
+		{"label": "ATK", "value": str(monster.atk)},
+		{"label": "DEF", "value": str(monster.def)}
+	])
+	window.add_stat_row([
+		{"label": "SPD", "value": str(monster.speed)},
+		{"label": "MOV", "value": str(monster.move)}
+	])
 
 
-func _tint_row_value(row: Control, colour: Color) -> void:
-	var children := row.get_children()
-	if children.size() >= 2 and children[1] is Label:
-		children[1].add_theme_color_override("font_color", colour)
+func _tint_value_label(value_label: Label, colour: Color) -> void:
+	value_label.add_theme_color_override("font_color", colour)
 
 
 func _on_screenshot_pressed() -> void:

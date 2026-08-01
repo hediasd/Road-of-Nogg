@@ -115,6 +115,13 @@ const CONTENT_INSET := FRAME_RING_PX + 10
 ## It cannot go below the font height; the Label enforces its own minimum.
 const ROW_HEIGHT := FONT_SIZE_BODY + 2
 const ROW_CAPACITY_DEFAULT := 8
+## Fixed left edges for the docked status-window grid. The third column is
+## reserved for element state; list rows keep their independent HBox layout.
+const STATUS_CELL_OFFSETS := [0.0, 192.0, 384.0]
+const STATUS_CELL_TEXT_GAP := FONT_SIZE_BODY
+## Compact gap between a two-character element code and its drawn bar.
+const STATUS_CELL_CONTROL_GAP := 8.0
+
 ## Matches the scaled corner curve so the fill never pokes outside the ring.
 const WINDOW_CORNER_RADIUS := 12
 ## Horizontal gap between a parent window and the child stacked to its right.
