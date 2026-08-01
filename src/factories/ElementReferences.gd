@@ -20,13 +20,14 @@ static func reloadCatalog(path: String = JSON_PATH) -> bool:
 	var newList: Array = []
 	var newStandard: Array[String] = []
 	var newCodes: Dictionary = {}
+	var usedCodes: Dictionary = {}
 	for reference in loaded["list"]:
 		var nameKey := str(reference["NAME"]).to_lower()
 		var codeKey := str(reference.get("CODE", "")).to_upper()
 		if nameKey.is_empty() or newStandard.has(nameKey):
 			push_warning("ElementReferences: invalid or duplicate element '%s'" % nameKey)
 			return false
-		if codeKey.length() != 2 or newCodes.has(codeKey):
+		if codeKey.length() != 2 or usedCodes.has(codeKey):
 			push_warning(
 				"ElementReferences: invalid or duplicate code '%s' for element '%s'"
 				% [codeKey, nameKey]
@@ -36,6 +37,7 @@ static func reloadCatalog(path: String = JSON_PATH) -> bool:
 		reference["CODE"] = codeKey
 		newList.append(reference)
 		newStandard.append(nameKey)
+		usedCodes[codeKey] = true
 		newCodes[nameKey] = codeKey
 	list = newList
 	STANDARD = newStandard

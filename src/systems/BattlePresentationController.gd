@@ -856,6 +856,7 @@ func _append_resonance_cell(cells: Array[Dictionary], monster: Monster, element_
 		return
 	var element := str(monster.elements[element_index])
 	cells.append({
+		"column": 2,
 		"label": ElementReferencesScript.code(element),
 		"control": ResonanceBarScript.new(element, monster.get_resonance(element))
 	})

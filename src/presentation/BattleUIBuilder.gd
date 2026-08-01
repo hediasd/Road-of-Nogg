@@ -16,8 +16,8 @@ const PlayerCommandMenuScript = preload("res://src/presentation/PlayerCommandMen
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 
-## docs/UI_DESIGN.md §8: 540 wide, 6 rows (heading + HP + ATK/DEF + SPD/MOV +
-## Elements, with one spare row).
+## docs/UI_DESIGN.md §8: 540 wide, 6 rows (heading + HP + ATK/DEF + SPD/MOV,
+## with two spare rows).
 const STATUS_WINDOW_WIDTH := 540.0
 const STATUS_WINDOW_CAPACITY := 6
 

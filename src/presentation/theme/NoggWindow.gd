@@ -287,12 +287,15 @@ func add_row(label_text: String, value_text: String = "", disabled: bool = false
 ##
 ## Every cell has a String label and exactly one of `value` (a String) or
 ## `control` (a caller-supplied Control). The returned handles expose the created
-## nodes so callers never depend on a child index for value tinting.
+## nodes so callers never depend on a child index for value tinting. An optional
+## `column` selects one of the fixed offsets; otherwise input order is used.
 func add_stat_row(cells: Array[Dictionary]) -> Array[Dictionary]:
 	if cells.is_empty() or cells.size() > NoggThemeScript.STATUS_CELL_OFFSETS.size():
 		push_error("NoggWindow: status row has an invalid cell count")
 		return []
-	for cell in cells:
+	var used_columns: Dictionary = {}
+	for index in cells.size():
+		var cell: Dictionary = cells[index]
 		var has_label := cell.has("label") and cell["label"] is String
 		var has_value := cell.has("value") and cell["value"] is String
 		var has_control := cell.has("control") and cell["control"] is Control
@@ -300,6 +303,11 @@ func add_stat_row(cells: Array[Dictionary]) -> Array[Dictionary]:
 			push_error("NoggWindow: status cells need a label and exactly one value/control")
 			return []
 
+		var column = cell.get("column", index)
+		if not column is int or column < 0 or column >= NoggThemeScript.STATUS_CELL_OFFSETS.size() or used_columns.has(column):
+			push_error("NoggWindow: status cell has an invalid or duplicate column")
+			return []
+		used_columns[column] = true
 	var row := Control.new()
 	row.custom_minimum_size.y = NoggThemeScript.ROW_HEIGHT
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -311,7 +319,8 @@ func add_stat_row(cells: Array[Dictionary]) -> Array[Dictionary]:
 	for index in cells.size():
 		var cell: Dictionary = cells[index]
 		var cell_root := Control.new()
-		cell_root.position.x = NoggThemeScript.STATUS_CELL_OFFSETS[index]
+		var column: int = int(cell.get("column", index))
+		cell_root.position.x = NoggThemeScript.STATUS_CELL_OFFSETS[column]
 		cell_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(cell_root)
 

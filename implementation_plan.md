@@ -165,7 +165,7 @@ but because the failure modes are cross-cutting and none of them throw:
 picking drifts, the 3D softens, the font smears. Judging "does this read as
 retro or as broken" across several window sizes is the actual work.
 
-**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-01):** Done; validated in the consolidated final pass.
 Configured `canvas_items` + `expand`, kept the non-retro world SubViewport at
 the real window resolution, documented the logical coordinate contract, and
 updated the high-resolution frame-scale backlog note to await the consolidated
@@ -231,7 +231,7 @@ contract, not a new failure mode.
 **Model:** Sonnet 5 / GPT Terra. One data file and one loader, with the
 validation shape already established by the `NAME` handling directly above it.
 
-**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-01):** Done; validated in the consolidated final pass.
 Added all eleven codes, including `NO` for the sentinel, and kept reload atomic
 across names and codes. The catalog documentation and colour-migration backlog
 now describe the split. The focused headless catalog smoke check passed;
@@ -304,7 +304,7 @@ above; what remains is wiring it, with the one known trap called out in item 5.
 
 ## UI-13 — Resonance bars as a third column
 
-**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-01):** Done; validated in the consolidated final pass.
 Added the fixed-cell status-row API with direct value handles, migrated
 HP/ATK/DEF/SPD/MOV, and left list rows untouched. The headless editor
 parse/load smoke check passed; low-HP tint, name fit, spell/command-row
@@ -382,7 +382,7 @@ changes from `["ice"]` to empty, but it owns no spells, and race — not this ar
 drawing, `elementColor()` for the palette, `ElementReferences.code()` for the
 labels, and `get_resonance()` for the data — every design decision is made
 above.
-**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-01):** Done; validated in the consolidated final pass.
 Added the drawn three-cell bar, catalog-driven element codes, and authored-order
 status cells; an empty `ELEMENTS` array is now explicitly documented and Dump
 remains the no-element fixture. The headless editor parse/load smoke check
@@ -479,7 +479,7 @@ integrity gates are the GDScript diff assertion in item 7 and the repository
 identifier assertion in item 8.
 
 **Risk:** Low, but wide: 27 persistent source/policy files plus one backlog
-**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-01):** Done; validated in the consolidated final pass.
 Removed plan labels from tracked source comments and persistent Markdown, and
 recorded the legacy harness-filename cleanup in the long-term backlog. The
 ignored local debug harnesses now use descriptive comments and result labels so
@@ -560,5 +560,23 @@ softened 3D render is invisible in a diff and only shows up here.
 **Model:** Opus 5 / GPT Sol. The pass is mostly judgement calls about how the
 scaled UI reads — font smear, scanline weight, density of the new three-column
 row — which is the tier's stated boundary.
+
+**Resolution (2026-08-01):** Done.
+Validated real game windows at 900 × 600, 1377 × 777, and 1920 × 1080. Setup,
+game windows, developer bar, graphics panel, and battle log scaled together.
+Physical clicks on monsters moved to all four board corners selected the intended
+units at 1377 × 777. Retro-off 3D stayed sharp, maximum CRT read as scanlines
+rather than broad banding, and the fractional pixel font stayed legible; retain
+fractional scaling rather than switching to integer-only steps.
+
+The status pass covered clean HP/ATK/DEF/SPD/MOV columns, low-HP accent colour,
+the 20-character heading, zero-, one-, and two-element fixtures, and rendered
+charges 0/1/2/3. Simulator actions exercised the full wood ladder back to zero.
+The spell window, right-aligned values, paging, and marquee remained intact.
+Temporary catalog edits proved that status codes come from data and that a
+duplicate code is rejected while preserving the prior catalog; both edits were
+reverted exactly. Validation found and fixed the first element's column placement
+and the duplicate-code value check. The persistent-identifier assertion and
+`git diff --check` both passed; `Dump.elements == []` is the expected value.
 
 ---
