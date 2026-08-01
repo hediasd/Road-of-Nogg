@@ -2088,3 +2088,261 @@ hash, which is unchanged at `cbb6ce50…` across the whole session.
   columns 6-9, rows 6-9. Fixtures needing a bigger clearing will not find one,
   and the attack height gate has to be exercised by raising a tile through
   `state.heightBoard.set_at` because no authored map contains a 2-step break.
+
+---
+
+## Frame-budgeted AI deliberation (FRAME-1 … FRAME-4)
+
+Added 2026-08-01, from a player report of "lagging" in CPU vs CPU and the
+measurement that followed. The constraint these items protect is written up in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) under "Frame budget:
+deliberation must not block presentation" — read that section before executing
+any item here; these items are the delivery schedule, not the specification.
+
+### Problem
+
+**A turn may take as long as it needs. A frame may not.** Right now they are
+the same thing. `BattlePresentationController._advance_battle()` runs on the
+turn timer, on the main thread, and calls `sim.executeTurn()`, which calls
+`brain.decideTurn()` inline. Deliberation therefore happens inside a frame and
+the frame is as long as the decision.
+
+Measured on `Battle25D`, seed 42, headless — so these numbers exclude render
+cost and understate a real window:
+
+| | idle frames | frames carrying a turn |
+|---|---|---|
+| median | 6.9 ms | 24 ms at 1 turn/s, 31 ms at 8 turns/s |
+| max | — | 46 ms at 1 turn/s, 75 ms at 8 turns/s |
+
+Every AI turn overruns the 16.7 ms budget for 60fps by 1.5x to 4.5x. At the
+higher playback speeds the speed slider offers, 4.1% of frames miss 60fps and
+1.9% miss 30fps.
+
+The 2026-08-01 optimization pass (bounded spell-center scans, hoisted per-tile
+revalidation, short-circuited threat map) cut cost per decision from 103 ms to
+36.5 ms with a byte-identical seeded demo log. That bought headroom. It did not
+remove the coupling, and the coupling is the actual defect: candidate counts
+grow every time the AI gets smarter, so any future depth lands straight on the
+frame.
+
+### What makes this affordable
+
+Deliberation and mutation are already separate operations, and deliberation is
+already side-effect free. Verified directly on 2026-08-01: six consecutive
+`decideTurn()` calls changed nothing in `state.history`, HP, positions,
+cooldowns, Resonance bars, or active effects, consumed no RNG (`state.rng.state`
+untouched), emitted no events, and returned the identical command each time.
+
+So *when* a decision is computed cannot change *what* it computes. Moving the
+work off the frame is a scheduling change, not a simulation change, and the
+seeded demo log hash is a hard gate on that claim.
+
+### Decided approach — incremental deliberation on the main thread
+
+Recorded 2026-08-01. **Not** a background thread, though the seam this plan
+builds would accept one later without further restructuring.
+
+Reasoning: determinism and replay fidelity are load-bearing in this repository
+— there is a command ledger, a v2-v5 replay contract, and a byte-identical
+seeded log used as a validation gate. Time-slicing keeps all of that trivially
+auditable and keeps every headless harness working with no special casing,
+because `chooseCommand()` stays a synchronous run-to-completion call for them.
+A `WorkerThreadPool` task would need every harness to pump a task loop, and a
+data race would surface as nondeterminism — the single hardest class of bug to
+localize here, and precisely the failure this project's validation can detect
+but not diagnose. Time-slicing also bounds the frame no matter how heavy the AI
+becomes, which is the stated future concern; threading bounds it too, but a
+decision heavier than one timer interval needs the same in-flight machinery
+either way, so FRAME-3's controller work is shared between both designs.
+
+**If the user prefers a worker thread, FRAME-2 is the item that changes**
+(the evaluator would not need to become resumable); FRAME-1, FRAME-3, and
+FRAME-4 stand roughly as written.
+
+### The invariant every item here depends on
+
+**Simulation state must not change while a deliberation is in flight.** A
+decision spanning several frames is computed against the state as it stood when
+the turn started; a mutation landing mid-deliberation would make the back half
+of the candidate scan disagree with the front half. Today `_advance_battle()`
+is the only thing that mutates simulation state, and the visual queue only
+animates already-recorded events, so the window is naturally safe — but it is
+safe by accident, not by construction, and every item below must keep it that
+way deliberately.
+
+---
+
+## FRAME-1 — Frame-pacing harness and a purity guard
+
+Build the measuring instrument before changing anything, and capture the
+"before" numbers with it. Nothing in this item touches production code.
+
+1. New `debug/verify_frame_pacing.gd` (gitignored scratch, matching the
+   existing `debug/verify_*.gd` pattern — this is not reinstated test
+   infrastructure). It starts a real `Battle25D` CPU vs CPU battle under the
+   real `turn_timer`, samples the wall-clock gap between consecutive frames,
+   and reports median / p95 / p99 / max plus the count over 16.7 ms and
+   33.3 ms. It must correlate spikes with turn starts by setting a flag from
+   `sim.events.turn_started` and clearing it each loop iteration —
+   `Engine.get_frames_drawn()` does not advance under `--headless` and will
+   silently mark every frame as a turn frame.
+2. Sample at both 1 turn/s and 8 turns/s, selectable so the harness can be run
+   either way, since a stall that is tolerable once a second is not tolerable
+   eight times a second.
+3. Discard the first ~10 frames: scene startup is not steady-state pacing.
+4. Add a purity guard in the same file: call `decideTurn()` several times in a
+   row on a mid-battle state and assert `state.history` size, every monster's
+   HP / position / cooldowns / Resonance bars, `state.activeEffects`, and
+   `state.rng.state` are all unchanged, that no gameplay event was emitted, and
+   that the returned command is identical each time. This is the precondition
+   the whole plan rests on; it must be a standing check, not a one-off probe.
+5. Record the baseline numbers in this item's Resolution.
+
+**Files:** `debug/verify_frame_pacing.gd` (new). No production code.
+
+**Verify:** Run it and confirm it reports the pre-change profile above (frames
+carrying a turn well over budget, idle frames well under) and that the purity
+guard passes.
+
+**Risk:** Low. Gitignored scratch, nothing ships.
+
+**Model:** Sonnet 5 / GPT Terra. Single file, stated end state, zero blast
+radius; the empirical shape is already known from the 2026-08-01 probes.
+
+---
+
+## FRAME-2 — Resumable command evaluation
+
+Make `BattleCommandEvaluator` able to produce a decision in bounded slices
+without changing which decision it produces.
+
+1. New `src/entity_ai/CommandDeliberation.gd`: a value object holding one
+   in-progress decision — the actor, the weights, the destination list, the
+   threat map, the accumulated candidates, and a cursor. It exposes
+   `step(work_budget: int) -> bool` (true when finished) and `result() ->
+   BattleCommand`.
+2. Phase the work so no single slice is unbounded: gather destinations, build
+   the threat map, then walk destinations generating candidates, then sort and
+   pick. **The threat map needs slicing too** — it measured 9-20 ms per turn
+   after the 2026-08-01 optimization, which is already a frame on its own, so
+   chunk it per enemy.
+3. `chooseCommand()` becomes a run-to-completion wrapper over the same object:
+   construct, `step()` until done, return `result()`. Every existing caller —
+   `EntityBrain.decideTurn()`, `BattleSimulator.executeTurn()`,
+   `runFullBattle()`, `scripts/demo_battle.gd`, and the harnesses that call
+   `decideTurn()` directly — keeps working untouched and stays synchronous.
+4. **Candidate order and tie-breaking must be byte-identical.** Candidates are
+   accumulated in destination order and sorted once at the end with a total tie
+   key; chunking by destination preserves that exactly. Do not sort
+   incrementally, do not deduplicate across slices differently than the current
+   per-destination `seenAttackOutcomes` / `seenSpellOutcomes` dictionaries do.
+5. The deliberation object holds no reference to anything it may mutate. It
+   reads `BattleState` and writes only its own accumulators.
+
+**Files:** `src/entity_ai/BattleCommandEvaluator.gd`, new
+`src/entity_ai/CommandDeliberation.gd`, `docs/ARCHITECTURE.md`.
+
+**Verify:** For at least 50 consecutive turns of a seeded battle, a stepped
+deliberation and a run-to-completion `chooseCommand()` on the same state must
+return the same action, target position, spell indices, move path, and order.
+Then the seeded `scripts/demo_battle.gd` log must hash byte-identically to
+`cbb6ce50…`. Both before FRAME-3 starts: FRAME-3 has no other way to tell a
+scheduling bug from an evaluation bug.
+
+**Risk:** High. This is the determinism-critical core. A reordered candidate
+list or a differently-scoped dedup dictionary changes AI decisions without
+changing anything observable until a replay or a seeded log diverges.
+
+**Model:** Opus 5 / GPT Sol. Drawing the resumable seam through a hot loop
+while holding candidate order and tie-breaking exactly is the actual work.
+
+---
+
+## FRAME-3 — Frame-budgeted turn driver
+
+Teach the presentation controller to spread a CPU decision across frames and
+apply it when it is ready.
+
+1. Add an incremental entry point on `BattleSimulator` alongside
+   `executeTurn()` — begin deliberation for a monster, step it, and apply the
+   finished command through the existing `executeCommand()` path so the
+   `decision` history event, the rejection fallback, and `acted` semantics are
+   unchanged. `executeTurn()` stays as the synchronous composition of those
+   calls, exactly as `executeCommand()` is a composition of the phase calls.
+2. `_advance_battle()` starts a deliberation instead of resolving the turn, and
+   a per-frame step drives it under a budget. Only one deliberation may be in
+   flight, and no turn may start while one is.
+3. **Nothing may mutate simulation state while a deliberation is in flight** —
+   see the invariant above. `startNewRound()`, `startNextTurn()`, `endTurn()`,
+   effect ticking, and the win check all stay on the completion path.
+4. Cancellation is explicit and total: battle end, New Battle, a player turn
+   becoming active, and scene teardown must each discard an in-flight
+   deliberation without applying it. A discarded deliberation must leave no
+   history event.
+5. Compose with what already exists rather than working around it: the
+   `RUN_AHEAD_LIMIT` backpressure check, playback pause (the simulation keeps
+   running ahead while paused, so deliberation continues too), and the
+   `_pending_player_turn_id` handoff all keep their current behaviour.
+6. Make the budget a named constant next to `RUN_AHEAD_LIMIT`, with the
+   reasoning in a comment. Do not tune it by feel — tune it against FRAME-1's
+   harness.
+
+**Files:** `src/systems/BattlePresentationController.gd`,
+`src/battle_sim/BattleSimulator.gd`, `docs/ARCHITECTURE.md`.
+
+**Verify:** FRAME-1's harness at 1 and 8 turns/s; `debug/drive_battle.gd` for
+the player-turn handoff and the full input surface; pause and resume with a
+decision in flight; New Battle pressed mid-deliberation; a battle that ends
+mid-deliberation.
+
+**Risk:** High. It restructures the turn lifecycle in the controller, and the
+failure modes are a wedged battle (a deliberation that never completes and a
+timer that never advances), a double-applied command, or a turn resolved
+against state that moved underneath it.
+
+**Model:** Opus 5 / GPT Sol. Where the turn boundary lives once a decision
+spans frames, and what cancellation must guarantee, are design decisions.
+
+---
+
+## FRAME-4 — Validate frame-budgeted deliberation
+
+Run one consolidated acceptance pass after FRAME-1 through FRAME-3 are
+committed. Fix integration defects here and update the covered items'
+Resolutions from pending to done only after the combined flow passes.
+
+**Depends on:** FRAME-1 through FRAME-3.
+
+**Verify:** Start from a clean `git status`. Launch headless. Then:
+
+- **Pacing, the point of the plan.** FRAME-1's harness at 1 and 8 turns/s.
+  Frames carrying a turn must no longer be distinguishable from idle frames by
+  median, and the p99 must sit inside the 60fps budget. **These numbers are
+  expected to change and that is the deliverable** — do not try to restore the
+  pre-change profile.
+- **Determinism, the gate on "scheduling change, not simulation change".**
+  `scripts/demo_battle.gd` twice, hashing byte-identically to `cbb6ce50…` both
+  times and against the pre-change value.
+- **No regressions.** `debug/verify_pc1/pc2/pc4/pc5.gd`,
+  `debug/verify_data_validate.gd`, `debug/verify_pos_validate.gd`, and
+  `debug/drive_battle.gd`.
+- **Lifecycle under the new driver.** Pause and resume with a decision in
+  flight; New Battle mid-deliberation; a battle ending mid-deliberation; a
+  player turn opening while a CPU deliberation is in flight. None may wedge,
+  double-apply, or write a history event for a discarded deliberation.
+- **In-window.** A real Player vs CPU battle: CPU turns visibly resolve, the
+  camera and animations stay smooth through them, and the player menu still
+  opens only on a caught-up board.
+- Finish with `git diff --check`.
+
+**Risk:** Medium-high. It is the first integrated boundary where turn
+scheduling, playback pacing, and the player handoff all share a frame budget,
+so a failure may cross simulation and presentation ownership even when each
+diff was locally clean.
+
+**Model:** Opus 5 / GPT Sol. Judging whether the pacing result is actually good
+— rather than merely different — and localizing a defect across the
+scheduling/playback seam is the work.
+
+---

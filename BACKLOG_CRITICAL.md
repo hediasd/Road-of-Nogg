@@ -77,10 +77,12 @@ events, and return the same command — so a decision can be computed off the
 frame and applied through `executeCommand()` on the main thread in turn order,
 with determinism and the replay ledger untouched.
 
-**Not started.** It is an architectural change (worker task or time-sliced
-evaluator, plus the ownership rules for reading `BattleState` while a task is
-in flight) and wants a planned item with a model assignment, not an incidental
-edit. Do it before, not after, the next significant increase in AI depth.
+**Planned, not started.** `implementation_plan.md` carries it as FRAME-1
+through FRAME-4: a frame-pacing harness and purity guard, a resumable
+evaluator, a frame-budgeted turn driver, and a consolidated validation pass.
+The approach is decided (incremental deliberation on the main thread, not a
+worker thread — reasoning is in the plan). Do it before, not after, the next
+significant increase in AI depth.
 
 ## Content inconsistencies
 
