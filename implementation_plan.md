@@ -479,6 +479,14 @@ integrity gates are the GDScript diff assertion in item 7 and the repository
 identifier assertion in item 8.
 
 **Risk:** Low, but wide: 27 persistent source/policy files plus one backlog
+**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+Removed plan labels from tracked source comments and persistent Markdown, and
+recorded the legacy harness-filename cleanup in the long-term backlog. The
+ignored local debug harnesses now use descriptive comments and result labels so
+the repository-wide zero-hit assertion passes; their assertion logic and flow
+are unchanged. The production GDScript diff assertion also passed with comments
+only. Full gameplay and integration validation remain for UI-VALIDATE.
+
 entry. The only behavioural risk is clipping a GDScript code line along with a
 comment, which item 7 catches before commit.
 

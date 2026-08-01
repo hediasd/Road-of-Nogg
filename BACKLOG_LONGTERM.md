@@ -59,6 +59,15 @@ changing anything.
 
 ## Weather system
 
+
+## Rename legacy debug harness filenames
+
+Several ignored `debug/verify_*.gd` and driver filenames still encode obsolete
+planning labels. Their comments and result labels now describe behaviour, but
+renaming the files would churn local commands and any external invocations.
+When a maintainer elects to do that path cleanup, rename each harness after the
+behaviour it verifies and update every caller in the same change.
+
 - Design a competitive catalog of 5-10 weather states. Eligible monsters
   establish them according to their element and/or race; each weather needs a
   clear duration, owner, replacement rule, and visible battle-state

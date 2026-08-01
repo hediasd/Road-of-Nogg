@@ -694,7 +694,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				command_menu.moveSelection(1)
 				get_viewport().set_input_as_handled()
 				return
-			# Paging (UI-6, §7a item 4). A no-op when the spell column is not
+			# Paging (§7a). A no-op when the spell column is not
 			# open or has only one page; always consumed either way, matching
 			# every other branch here — before this, ui_left/right fell through
 			# to the acceptsGridInput() block below, which is gated false during
@@ -720,7 +720,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		# Grid keys only mean something while a tile or target is being aimed.
-		# PC-3 gives the menu itself keyboard navigation.
+		# The menu owns keyboard navigation before grid input begins.
 		if player_turn.acceptsGridInput():
 			if event.is_action_pressed("ui_accept"):
 				player_turn.confirmSelection()
@@ -780,7 +780,7 @@ func _mouse_to_battle_coord(mousePos: Vector2) -> Vector2i:
 ## attacker/target push from GodotVisualAdapter (`_setActorPanelMonster` /
 ## `_setTargetPanelMonster`) as combat actually plays out. Whichever fires most
 ## recently wins — the same last-write-wins relationship these two paths
-## already had before UI-7, just now split across two windows instead of one.
+## already had before the status readout was split into two windows.
 func _handle_click_selection(pos: Vector2i) -> void:
 	if sim == null or not sim.state.withinBounds(pos):
 		return

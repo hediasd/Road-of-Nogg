@@ -1,5 +1,5 @@
 ## Filled triangle button for a NoggWindow page footer (docs/UI_DESIGN.md §7a,
-## UI-6). Same size and colour as MenuCursor's triangle, mirrored horizontally
+## pagination). Same size and colour as MenuCursor's triangle, mirrored horizontally
 ## for the "previous page" direction — "Draw the arrows with `_draw()`... Mirror
 ## MenuCursor's triangle so pager and cursor read as one family."
 ##

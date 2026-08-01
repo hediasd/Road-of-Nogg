@@ -7,7 +7,7 @@
 ##
 ## Nothing here applies itself. `build_game_theme()` and `build_dev_theme()`
 ## return Theme resources for a caller to assign; `build_window_frame()`
-## returns a configured NinePatchRect. Consumers arrive in UI-2 and UI-3.
+## returns a configured NinePatchRect. The UI builders consume these factories.
 
 class_name NoggTheme
 extends RefCounted
@@ -22,7 +22,7 @@ const CRT_LAYER := -20
 const GAME_LAYER := 10
 const DEV_LAYER := 20
 
-## UI-8's `ui_through_crt` toggle. The CRT shader (`crt_display.gdshader`)
+## The `ui_through_crt` toggle. The CRT shader (`crt_display.gdshader`)
 ## reads `hint_screen_texture`, i.e. it distorts whatever was already drawn to
 ## screen at the moment ITS canvas item draws — so making the game UI take
 ## the CRT treatment is a matter of where the shader's OWN layer sits relative
@@ -137,7 +137,7 @@ const WINDOW_STACK_GAP := 8
 # --- Animation ------------------------------------------------------------
 #
 # Owned here rather than at each call site for the same reason as the colours:
-# UI-3, UI-4, and UI-6 all read these, and drift between them would read as
+# Several window behaviours read these, and drift between them would read as
 # three different menus.
 
 ## Frame tint crossfade. The only thing telling the player which window their
@@ -211,7 +211,7 @@ static func build_game_theme(
 	window_style.set_border_width_all(0)
 	# The inset lives on the stylebox rather than in a MarginContainer, so any
 	# PanelContainer under this theme clears its own frame automatically.
-	# NoggWindow (UI-3) cannot use a Container root and applies CONTENT_INSET
+	# NoggWindow cannot use a Container root and applies CONTENT_INSET
 	# as explicit offsets instead — see build_window_frame().
 	window_style.content_margin_left = CONTENT_INSET
 	window_style.content_margin_right = CONTENT_INSET

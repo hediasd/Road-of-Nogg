@@ -1,6 +1,6 @@
 ## Constructs the in-battle HUD and player command controls.
 ##
-## Splits across two canvases (UI-2): `game_canvas` for player-facing HUD —
+## Splits across two canvases: `game_canvas` for player-facing HUD —
 ## command menu, actor/target panels, battle log — and `dev_canvas` for
 ## developer tooling — pause/speed, graphics menu, screenshot, save replay.
 ## Each canvas carries its own themed root Control from `NoggTheme`, so every

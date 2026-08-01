@@ -62,8 +62,8 @@ being executed, and nothing else.
 
 ### Nothing persistent may cite a plan item
 
-`implementation_plan.md` is transitory. Its item identifiers — `P4-2`, `UI-9`,
-`DATA-1`, and every one like them — live and die with a single cycle, so a
+`implementation_plan.md` is transitory. Its short-lived item labels live and
+die with a single cycle, so a
 reference to one from a file that outlives the cycle is a dangling pointer the
 moment the plan is reset.
 
@@ -71,8 +71,8 @@ moment the plan is reset.
   covers `docs/`, `BACKLOG_CRITICAL.md`, `BACKLOG_LONGTERM.md`, `README`s,
   source comments, and commit messages. Nothing is exempt, including a plan
   item that is currently open.
-- Describe the work instead of citing it. "Corrected during UI-5" becomes
-  "corrected once the body font size was settled"; "Tracked as P4-2" becomes a
+- Describe the work instead of citing it. "Corrected once the body font size
+  was settled" is durable; "Tracked in the current plan" becomes a
   statement of what is actually missing. The description survives the reset;
   the identifier does not.
 - Do not link to `implementation_plan.md` as a destination for detail either.

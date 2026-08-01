@@ -31,7 +31,7 @@ var _visibility_generation := 0
 ## that host no cursor (prompt, forecast, docked readouts).
 var _content_indent := 0.0
 
-# --- Row overflow marquee (§7b, UI-9) --------------------------------------
+# --- Row overflow marquee (§7b) ---------------------------------------------
 #
 # Parallel to `_rows` rather than looked up from it: the label sits one level
 # deeper now (inside a clip wrapper), and the available width a row's label
@@ -52,7 +52,7 @@ var _marquee_tween: Tween
 ## the default, because its rows are the input surface.
 var _input_transparent := false
 
-# --- Paging (§7a, UI-6) ------------------------------------------------------
+# --- Paging (§7a) -------------------------------------------------------------
 #
 # Opt-in: only set_full_rows() engages this. A window built the old way, via
 # direct add_row()/clear_rows() calls (the docked status windows, the prompt,
@@ -430,7 +430,7 @@ func _runMarquee(label: Label, distance: float, generation: int) -> void:
 
 
 ## A row's rect in this window's own coordinate space, for MenuCursor
-## positioning (UI-4) without reaching into the row's children.
+## positioning without reaching into the row's children.
 ##
 ## Computed from ROW_HEIGHT and the index rather than read off the row node,
 ## deliberately. `Container` sorting is deferred in Godot, so a row's

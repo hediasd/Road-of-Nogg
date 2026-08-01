@@ -7,7 +7,7 @@ const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCa
 const BattleGraphicsMenuRefsScript = preload("res://src/presentation/BattleGraphicsMenuRefs.gd")
 
 
-## `canvas` only ever receives `add_child()`, so it accepts any Node. UI-2
+## `canvas` only ever receives `add_child()`, so it accepts any Node. The
 ## passes the dev canvas's themed root Control here, not a CanvasLayer.
 static func build(
 		canvas: Node,
@@ -146,7 +146,7 @@ static func build(
 	crtHint.modulate = Color(0.72, 0.8, 0.92)
 	crtTab.add_child(crtHint)
 
-	# UI-8: whether the CRT pass also distorts the game UI (command menu,
+	# Whether the CRT pass also distorts the game UI (command menu,
 	# status windows, log). Off by default — see docs/UI_DESIGN.md §10. Never
 	# affects the dev bar, which always renders above both.
 	var uiThroughCrtButton = CheckButton.new()

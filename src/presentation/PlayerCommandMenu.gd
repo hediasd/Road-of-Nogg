@@ -101,7 +101,7 @@ func _ready() -> void:
 
 	_command_window.gui_input.connect(_on_window_gui_input.bind(ROOT))
 	_spell_window.gui_input.connect(_on_window_gui_input.bind(SPELLS))
-	# Row construction moved inside NoggWindow (UI-6, for paging); it reports
+	# Row construction lives inside NoggWindow for paging; it reports
 	# each built Control back so wiring can still happen here, per row, exactly
 	# as it did when this file built rows itself.
 	_command_window.row_built.connect(_on_root_row_built)
@@ -312,7 +312,7 @@ func _rebuild_spell_rows() -> void:
 
 	# Size to content, capped at the page size: a 1-spell monster should not
 	# get an 8-row window with seven empty rows, and a monster with more spells
-	# than fit gets exactly one page's worth per screen (UI-6). Capacity must
+	# than fit gets exactly one page's worth per screen. Capacity must
 	# be set before set_full_rows(), which computes page_count from it — and
 	# held for the lifetime of the opening: paging must never resize a window
 	# mid-navigation, but sizing it as it appears is free.
@@ -517,7 +517,7 @@ func _layout_windows() -> void:
 	# Directly above the command window and left-aligned with it. §8 asks for
 	# right-aligned, which cannot hold at this font size: the forecast needs
 	# ~460px and the command window's right edge is at x=300, so right-aligning
-	# would push it off the left of the screen. Recorded in the UI-5 notes.
+	# would push it off the left of the screen. Recorded in the design notes.
 	var forecast_height := NoggThemeScript.window_height(2)
 	_forecast_window.position = Vector2(left, command_y - forecast_height - 8.0)
 
