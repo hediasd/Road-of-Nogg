@@ -71,6 +71,15 @@ changing anything.
   preferable to universal raw-damage multipliers. Serialize active weather and
   validate its source through the reference catalog.
 
+## Element catalog visual palette
+
+Element abbreviations now come from `elements.json`, but
+`BattleMeshFactory.elementColor()` still owns the visual palette. A newly
+authored element can therefore display its catalog code while its model, aura,
+and future Resonance bar fall back to grey. Move the colour into the element
+catalog only as a deliberate 3D/presentation migration, with every current
+material consumer updated in the same change.
+
 ## In-world Resonance and critical-hit feedback
 
 The docked status windows are the selected-monster home for Resonance charge,

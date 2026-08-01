@@ -184,14 +184,15 @@ code. That mapping is authored content, not presentation logic: it belongs in
 is a data edit rather than a code edit.
 
 The catalog already exists and is already loaded atomically.
-`data/elements.json` holds ten bare `{"NAME": "fire"}` entries and
+`data/elements.json` holds eleven bare `{"NAME": "fire"}`-shaped entries,
+including the `none` sentinel, and
 `src/factories/ElementReferences.gd` validates them, so this item is a field
 addition, not new machinery.
 
 1. Add `"CODE"` to every entry in `data/elements.json`: `FI` fire, `IC` ice,
    `WA` water, `WI` wind, `EA` earth, `WO` wood, `TH` thunder, `DA` darkness,
-   `LI` light, `ST` steel. All ten are unique on first-two-letters, so no
-   invented spellings are needed.
+   `LI` light, `ST` steel, `NO` none. All eleven are unique, so no invented
+   spellings are needed.
 2. Validate `CODE` in `ElementReferences.reloadCatalog()` with the same
    strictness `NAME` already gets: present, exactly two characters, and unique
    across the catalog, rejecting the whole load otherwise. Uniqueness is the
@@ -229,6 +230,12 @@ contract, not a new failure mode.
 
 **Model:** Sonnet 5 / GPT Terra. One data file and one loader, with the
 validation shape already established by the `NAME` handling directly above it.
+
+**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+Added all eleven codes, including `NO` for the sentinel, and kept reload atomic
+across names and codes. The catalog documentation and colour-migration backlog
+now describe the split. The focused headless catalog smoke check passed;
+malformed and duplicate-code rejection remains covered by UI-VALIDATE.
 
 ---
 

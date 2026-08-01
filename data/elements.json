@@ -1,35 +1,46 @@
 [
 	{
-		"NAME": "fire"
+		"NAME": "fire",
+		"CODE": "FI"
 	},
 	{
-		"NAME": "ice"
+		"NAME": "ice",
+		"CODE": "IC"
 	},
 	{
-		"NAME": "wood"
+		"NAME": "wood",
+		"CODE": "WO"
 	},
 	{
-		"NAME": "steel"
+		"NAME": "steel",
+		"CODE": "ST"
 	},
 	{
-		"NAME": "darkness"
+		"NAME": "darkness",
+		"CODE": "DA"
 	},
 	{
-		"NAME": "light"
+		"NAME": "light",
+		"CODE": "LI"
 	},
 	{
-		"NAME": "earth"
+		"NAME": "earth",
+		"CODE": "EA"
 	},
 	{
-		"NAME": "water"
+		"NAME": "water",
+		"CODE": "WA"
 	},
 	{
-		"NAME": "thunder"
+		"NAME": "thunder",
+		"CODE": "TH"
 	},
 	{
-		"NAME": "wind"
+		"NAME": "wind",
+		"CODE": "WI"
 	},
 	{
-		"NAME": "none"
+		"NAME": "none",
+		"CODE": "NO"
 	}
 ]

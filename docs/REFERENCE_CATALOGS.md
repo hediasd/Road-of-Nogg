@@ -13,7 +13,7 @@ and runtime representation conversion.
 | Monsters | `monsters.json` | Nested `STATS` coercion and monster metadata defaults. |
 | Races | `taxonomy.json` (`races`) | Resistance multiplier coercion. |
 | Spells | `spells.json` | Spell scalars, damage lines, and effect definitions. |
-| Elements | `elements.json` | Ordered normalized element-name list. |
+| Elements | `elements.json` | Ordered normalized names plus a required, unique two-character uppercase `CODE`; includes the `none` sentinel. |
 | Archetypes | `archetypes.json` | Optional integer stat-band values. |
 | Passives | `passives.json` | Trigger/effect fields, value, and radius. |
 | Status effects | `status_effects.json` | Duration, damage-per-turn, and negative flag. |
