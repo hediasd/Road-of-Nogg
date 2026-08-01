@@ -238,7 +238,11 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 func _on_effect_applied(monsterID: int, effectName: String, duration: int, _sourceMonsterID: int, _sourceSpellName: String) -> void:
 	var mon = state.getMonster(monsterID)
 	var emoji = "🔥" if effectName == "burn" else "🌀"
-	_log("  [EFFECT+] %s #%s gained %s '%s' for %s turns" % [mon.name, monsterID, emoji, effectName.to_upper(), duration])
+	var span = (
+		"permanently" if BattleState.isPermanentDuration(duration)
+		else "for %s turns" % duration
+	)
+	_log("  [EFFECT+] %s #%s gained %s '%s' %s" % [mon.name, monsterID, emoji, effectName.to_upper(), span])
 
 
 func _on_effect_removed(monsterID: int, effectName: String) -> void:

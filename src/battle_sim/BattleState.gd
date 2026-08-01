@@ -222,6 +222,19 @@ func isTeamDefeated(team: int) -> bool:
 
 # --- Status effects ---
 
+## Some effects are authored as permanent by giving them a duration no battle can
+## outlast — `Timeoff`'s speed debuff is the current example, at 999. That is a
+## real mechanic and the ticking is correct, but the raw number is not something
+## to show a player, and it counts down (998, 997, ...) as the battle runs.
+## Anything at or above this threshold is a sentinel, not a turn count: authored
+## durations are single digits and `runFullBattle` caps well below it.
+const PERMANENT_EFFECT_THRESHOLD := 100
+
+
+static func isPermanentDuration(remainingTurns: int) -> bool:
+	return remainingTurns >= PERMANENT_EFFECT_THRESHOLD
+
+
 func addEffect(monsterID: int, effectName: String, duration: int,
 		sourceMonsterID: int = -1, sourceSpellName: String = "",
 		damagePerTurn: int = 0, effectData: Dictionary = {}) -> void:

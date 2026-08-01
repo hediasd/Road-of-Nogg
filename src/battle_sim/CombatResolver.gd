@@ -184,14 +184,29 @@ func getSpellTargetPositionsFrom(
 	if spell.targetType == "self":
 		return [fromPos]
 
+	## Only tiles within the spell's range can pass, so walk the bounding box of
+	## that range rather than the whole board. Row-major order over a sub-rectangle
+	## is a subsequence of row-major order over the board, so the returned
+	## sequence is identical to a full scan's — which matters, because AI
+	## tie-breaking and the player's target cycling both depend on it.
+	##
+	## The AI asks this once per spell per candidate destination, so a full 16x16
+	## scan with the monster/spell/can_cast lookups repeated per tile was costing
+	## more than everything else in a CPU turn combined.
 	var positions: Array = []
-	for y in range(state.boardSize.y):
-		for x in range(state.boardSize.x):
+	var minY: int = maxi(0, fromPos.y - spell.range)
+	var maxY: int = mini(state.boardSize.y - 1, fromPos.y + spell.range)
+	var minX: int = maxi(0, fromPos.x - spell.range)
+	var maxX: int = mini(state.boardSize.x - 1, fromPos.x + spell.range)
+	for y in range(minY, maxY + 1):
+		for x in range(minX, maxX + 1):
 			var targetPos = Vector2i(x, y)
-			if canSpellTargetPositionFrom(
-					monsterID,
-					spellSetIndex,
-					spellIndex,
+			var distance: int = absi(fromPos.x - x) + absi(fromPos.y - y)
+			if distance < spell.min_range or distance > spell.range:
+				continue
+			if _canSpellTargetPositionResolved(
+					mon,
+					spell,
 					fromPos,
 					targetPos,
 					includeUncastableEmpty):
@@ -284,30 +299,10 @@ func canSpellReachPositionFrom(
 		fromPos: Vector2i,
 		targetPos: Vector2i) -> bool:
 	var mon = state.getMonster(monsterID)
-	if (
-		mon == null
-		or not mon.is_alive()
-		or not state.withinBounds(targetPos)
-		or spellSetIndex < 0
-		or spellSetIndex >= mon.spellSets.size()
-	):
+	var spell = _resolveSpell(mon, spellSetIndex, spellIndex)
+	if spell == null:
 		return false
-	if spellIndex < 0 or spellIndex >= mon.spellSets[spellSetIndex].size():
-		return false
-	var spell = mon.spellSets[spellSetIndex][spellIndex]
-	if not mon.can_cast(spell):
-		return false
-	if spell.targetType == "self":
-		return targetPos == fromPos
-	var distance = abs(fromPos.x - targetPos.x) + abs(fromPos.y - targetPos.y)
-	if distance < spell.min_range or distance > spell.range:
-		return false
-	if state.getHeightDifference(fromPos, targetPos) > spell.max_height_delta:
-		return false
-	if spell.bypass_los:
-		return true
-	var targetOccupantID = getProjectedOccupantID(monsterID, fromPos, targetPos)
-	return _hasLoS(monsterID, fromPos, targetPos, targetOccupantID)
+	return _canSpellReachPositionResolved(mon, spell, fromPos, targetPos)
 
 
 func canSpellTargetPositionFrom(
@@ -317,14 +312,62 @@ func canSpellTargetPositionFrom(
 		fromPos: Vector2i,
 		targetPos: Vector2i,
 		includeUncastableEmpty: bool = false) -> bool:
-	if not canSpellReachPositionFrom(
-			monsterID, spellSetIndex, spellIndex, fromPos, targetPos):
-		return false
 	var mon = state.getMonster(monsterID)
+	var spell = _resolveSpell(mon, spellSetIndex, spellIndex)
+	if spell == null:
+		return false
+	return _canSpellTargetPositionResolved(
+		mon, spell, fromPos, targetPos, includeUncastableEmpty
+	)
+
+
+func _resolveSpell(mon, spellSetIndex: int, spellIndex: int):
+	## Shared precondition check for the caster/spell pair. Hoisting it out of the
+	## per-tile loops matters: the AI evaluates hundreds of centers per spell per
+	## destination, and none of these checks depend on the center.
+	if mon == null or not mon.is_alive():
+		return null
+	if spellSetIndex < 0 or spellSetIndex >= mon.spellSets.size():
+		return null
+	if spellIndex < 0 or spellIndex >= mon.spellSets[spellSetIndex].size():
+		return null
 	var spell = mon.spellSets[spellSetIndex][spellIndex]
+	if not mon.can_cast(spell):
+		return null
+	return spell
+
+
+func _canSpellReachPositionResolved(
+		mon,
+		spell: Spell,
+		fromPos: Vector2i,
+		targetPos: Vector2i) -> bool:
+	if not state.withinBounds(targetPos):
+		return false
 	if spell.targetType == "self":
 		return targetPos == fromPos
-	var occupantID = getProjectedOccupantID(monsterID, fromPos, targetPos)
+	var distance = absi(fromPos.x - targetPos.x) + absi(fromPos.y - targetPos.y)
+	if distance < spell.min_range or distance > spell.range:
+		return false
+	if state.getHeightDifference(fromPos, targetPos) > spell.max_height_delta:
+		return false
+	if spell.bypass_los:
+		return true
+	var targetOccupantID = getProjectedOccupantID(mon.uniqueID, fromPos, targetPos)
+	return _hasLoS(mon.uniqueID, fromPos, targetPos, targetOccupantID)
+
+
+func _canSpellTargetPositionResolved(
+		mon,
+		spell: Spell,
+		fromPos: Vector2i,
+		targetPos: Vector2i,
+		includeUncastableEmpty: bool) -> bool:
+	if not _canSpellReachPositionResolved(mon, spell, fromPos, targetPos):
+		return false
+	if spell.targetType == "self":
+		return targetPos == fromPos
+	var occupantID = getProjectedOccupantID(mon.uniqueID, fromPos, targetPos)
 	var occupant = state.getMonster(occupantID)
 	if occupant == null:
 		return spell.can_target_empty or includeUncastableEmpty
@@ -340,26 +383,18 @@ func getSpellAffectedTargetsFrom(
 		fromPos: Vector2i,
 		centerPos: Vector2i,
 		includeUncastableEmpty: bool = false) -> Array:
-	if not canSpellTargetPositionFrom(
-			casterID,
-			spellSetIndex,
-			spellIndex,
-			fromPos,
-			centerPos,
-			includeUncastableEmpty):
-		return []
 	var caster = state.getMonster(casterID)
-	if caster == null:
+	var spell = _resolveSpell(caster, spellSetIndex, spellIndex)
+	if spell == null:
 		return []
-	var spell = caster.spellSets[spellSetIndex][spellIndex]
+	if not _canSpellTargetPositionResolved(
+			caster, spell, fromPos, centerPos, includeUncastableEmpty):
+		return []
 	var result: Array = []
-	for pos in getSpellAffectedPositionsFrom(
-			casterID,
-			spellSetIndex,
-			spellIndex,
-			fromPos,
-			centerPos,
-			includeUncastableEmpty):
+	## The shape query is called with the center already validated, so it uses the
+	## unchecked core. Going back through the public entry point would repeat the
+	## whole reach check — including line of sight — for every center the AI scores.
+	for pos in _spellAffectedPositions(caster, spell, fromPos, centerPos):
 		var otherID = getProjectedOccupantID(casterID, fromPos, pos)
 		if otherID == 0:
 			continue
@@ -386,18 +421,22 @@ func getSpellAffectedPositionsFrom(
 		includeUncastableEmpty: bool = false) -> Array:
 	## Read-only shape query shared by resolution, AI scoring, and presentation.
 	## Presentation may request unconfirmable empty centers for preview only.
-	if not canSpellTargetPositionFrom(
-			casterID,
-			spellSetIndex,
-			spellIndex,
-			fromPos,
-			centerPos,
-			includeUncastableEmpty):
-		return []
 	var caster = state.getMonster(casterID)
-	if caster == null:
+	var spell = _resolveSpell(caster, spellSetIndex, spellIndex)
+	if spell == null:
 		return []
-	var spell = caster.spellSets[spellSetIndex][spellIndex]
+	if not _canSpellTargetPositionResolved(
+			caster, spell, fromPos, centerPos, includeUncastableEmpty):
+		return []
+	return _spellAffectedPositions(caster, spell, fromPos, centerPos)
+
+
+func _spellAffectedPositions(
+		caster,
+		spell: Spell,
+		fromPos: Vector2i,
+		centerPos: Vector2i) -> Array:
+	## Shape-only core, with the center taken as already validated.
 	if spell.targetType == "self":
 		centerPos = fromPos
 	var affectedTiles: Array

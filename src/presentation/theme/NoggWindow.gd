@@ -43,6 +43,14 @@ var _marquee_generation := 0
 var _marquee_label: Label
 var _marquee_tween: Tween
 
+## Display-only windows must not eat mouse input. A `Control` defaults to
+## `MOUSE_FILTER_STOP`, so a docked readout silently consumes every click
+## landing in its rect — and Godot's GUI layer resolves that before
+## `_unhandled_input()` ever runs, so the board underneath becomes unclickable
+## rather than merely covered. The command menu is the opposite case and keeps
+## the default, because its rows are the input surface.
+var _input_transparent := false
+
 
 func _ready() -> void:
 	# Root is a plain Control, NOT a PanelContainer — see docs/UI_DESIGN.md
@@ -66,6 +74,24 @@ func _ready() -> void:
 	add_child(_frame)
 
 	set_row_capacity(_row_capacity)
+	set_input_transparent(_input_transparent)
+
+
+## Marks this window as a readout that never takes mouse input, so clicks pass
+## through to whatever is behind it — for the docked status windows that is the
+## board, which they overlap heavily at the default resolution.
+##
+## Only the window root and the rows need changing: the body, frame, content
+## container, and row clip are already IGNORE, and `Label` defaults to IGNORE.
+## Safe to call before `_ready()`; the flag is re-applied there.
+func set_input_transparent(transparent: bool) -> void:
+	_input_transparent = transparent
+	var filter := (
+		Control.MOUSE_FILTER_IGNORE if transparent else Control.MOUSE_FILTER_STOP
+	)
+	mouse_filter = filter
+	for row in _rows:
+		row.mouse_filter = filter
 
 
 ## Tweens the frame tint AND the content tint between their active and
@@ -177,6 +203,8 @@ func set_row_capacity(rows: int) -> void:
 func add_row(label_text: String, value_text: String = "", disabled: bool = false) -> Control:
 	var row := HBoxContainer.new()
 	row.custom_minimum_size.y = NoggThemeScript.ROW_HEIGHT
+	if _input_transparent:
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_content.add_child(row)
 
 	var clip := Control.new()

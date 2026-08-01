@@ -88,7 +88,12 @@ static func _make_badge(effect: Dictionary, is_overflow: bool) -> Node3D:
 	if duration > 0:
 		var label = Label3D.new()
 		label.name = "Duration"
-		label.text = str(duration)
+		# A permanent effect shows the infinity sign rather than its sentinel
+		# turn count. This Label3D deliberately sets no font, so it renders with
+		# Godot's built-in fallback (Open Sans), which carries the glyph — do not
+		# give it NoggTheme's pixel font without checking has_char() first, since
+		# that face is ASCII-only and Godot substitutes silently.
+		label.text = "∞" if BattleState.isPermanentDuration(duration) else str(duration)
 		label.font_size = 34
 		label.outline_size = 5
 		label.modulate = Color.WHITE

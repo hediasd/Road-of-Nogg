@@ -1,35 +1,40 @@
 # Long-term backlog
 
-## Fixed HUD panels occlude board tiles at small window sizes
+## Fixed HUD panels occlude board tiles
 
-Found 2026-07-30 while building `TD-1`'s headless input driver
-(`debug/drive_battle.gd`, see `implementation_plan.md`). `BattleUIBuilder`'s
-HUD panels (top strip: Play/Pause, Speed, New Battle; bottom-left: unit info)
-are positioned with fixed pixel offsets sized for a normal desktop window and
-carry Godot's default `MOUSE_FILTER_STOP`. A click or hover landing inside
-their rect is consumed by Godot's GUI layer before
-`BattlePresentationController._unhandled_input()` ever sees it — confirmed by
-temporarily tracing `_unhandled_input()`'s mouse-motion branch and observing
-it never fires for an occluded point, then walking the `battle_ui["canvas"]`
-Control tree to find the panels whose `get_global_rect()` covered it.
+Found 2026-07-30 while building `TD-1`'s headless input driver; the serious
+half was **fixed on 2026-08-01** after a player report that clicking some
+models did not light their selection aura.
 
-This is real and structural, not a headless artifact: the top and bottom
-screen strips are permanently under the HUD at *any* window size, since the
-offsets are fixed pixels, not proportional to viewport size. It only became
-load-bearing enough to trip a test because headless's default viewport
-(~64x64) is a tiny fraction of any real window, so the HUD strips cover most
-of the visible board there. At a normal desktop resolution the clear board
-area dwarfs the HUD strips and this is unremarkable, ordinary HUD-over-3D-
-scene occlusion — a player would rarely need to click precisely under it,
-since the camera orbits and pans freely.
+Godot's GUI layer resolves a click against any visible `Control` whose
+`mouse_filter` is not `IGNORE` *before* `_unhandled_input()` runs, so a HUD
+panel over the board does not merely cover it — it makes it unclickable. A
+`Control` defaults to `MOUSE_FILTER_STOP`, so this is the behaviour a readout
+gets for free without anyone choosing it.
 
-**Not acted on, because it's a product call, not a bug fix:** whether this is
-worth addressing (excluding HUD rects from tile-picking somehow, warning when
-a reachable tile has no clickable area, or simply accepting it as expected HUD
-behavior) depends on how small a window the game is meant to support, which
-nobody has decided. Revisit if a resizable/small-window use case is ever
-prioritized, or if real play at a normal resolution ever turns up an actual
-report of a tile being unclickable near the HUD edges.
+The original note guessed this was only a small-window problem and
+"unremarkable at a normal desktop resolution". That was wrong. At the project's
+own default 1152x648, `ActorWindow` (20, 428, 540x200) and `TargetWindow`
+(592, 428, 540x200) together covered the bottom third of the viewport,
+including the near edge of the board where team 1 deploys. Measured on a fresh
+CPU vs CPU battle: two of the eight starting monsters had **zero** clickable
+screen points, and every point that resolved to their tile was under a status
+window.
+
+Both windows are pure readouts, so `NoggWindow.set_input_transparent(true)`
+now marks them and `BattleUIBuilder` applies it. All eight monsters are
+clickable at every resolvable point afterwards. `PlayerCommandMenu` keeps the
+default filter — its rows *are* the input surface.
+
+**Still open, and genuinely minor:** the dev bar across the top is an
+`HBoxContainer` at `MOUSE_FILTER_PASS`, so only its actual buttons consume
+clicks, and it is hidden by SPACEBAR anyway. Whether the thin strip under those
+buttons is worth reclaiming is a product call nobody needs to make yet.
+
+**The general rule worth remembering:** any new `Control` laid over the 3D
+board must be `MOUSE_FILTER_IGNORE` unless it is meant to be clicked. Testing
+this by eye does not work — the panel looks correct and the board underneath
+looks reachable; only a click proves otherwise.
 
 ## Weather system
 

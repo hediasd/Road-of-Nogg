@@ -166,6 +166,10 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	actorWindow.name = "ActorWindow"
 	actorWindow.set_row_capacity(STATUS_WINDOW_CAPACITY)
 	actorWindow.size = status_window_size
+	# Readout only. Between them these two windows cover the bottom third of the
+	# viewport, including the near edge of the board where team 1 deploys, and a
+	# Control consumes clicks by default — leaving those units unselectable.
+	actorWindow.set_input_transparent(true)
 
 	# A plain full-rect Control, not a styled PanelContainer: the command menu
 	# now draws its own NoggWindow frames and docks its windows itself per
@@ -188,6 +192,7 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	targetWindow.name = "TargetWindow"
 	targetWindow.set_row_capacity(STATUS_WINDOW_CAPACITY)
 	targetWindow.size = status_window_size
+	targetWindow.set_input_transparent(true)
 
 	# Positioned from the viewport size on `resized` rather than read once at
 	# build time: `game_root.get_viewport_rect()` immediately after the canvas
