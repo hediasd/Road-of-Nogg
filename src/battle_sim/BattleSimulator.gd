@@ -468,17 +468,49 @@ func executeCommand(
 
 	return finishTurn(monsterID, source)
 
+## Resolves a CPU turn start to finish. Deliberation happens inline, so the
+## call lasts as long as the decision — fine for headless tools and replay,
+## which have no frame to protect. Interactive presentation uses
+## beginTurnDeliberation()/applyDeliberatedTurn() instead so a decision can be
+## spread across frames; both compose the same two halves, so they resolve a
+## turn identically. See docs/ARCHITECTURE.md, "Frame budget: deliberation must
+## not block presentation".
 func executeTurn(monsterID: int) -> bool:
+	if state.hasEffect(monsterID, "petrify"):
+		var mon = state.getMonster(monsterID)
+		if mon == null or not mon.is_alive():
+			return false
+		return executeCommand(monsterID, BattleCommand.wait(), "cpu").acted
+	var deliberation := beginTurnDeliberation(monsterID)
+	if deliberation == null:
+		return false
+	deliberation.run()
+	return applyDeliberatedTurn(monsterID, deliberation)
+
+
+## Opens a CPU decision without resolving anything. Returns null when the
+## monster cannot deliberate at all — dead, or brainless — in which case the
+## caller must close the turn itself, exactly as executeTurn()'s `false` return
+## already required.
+##
+## Deliberation is a read-only query, so nothing observable happens between this
+## call and applyDeliberatedTurn(). The caller does, however, own the invariant
+## that simulation state must not change in that window: the decision is
+## computed against the board as it stood here.
+func beginTurnDeliberation(monsterID: int) -> CommandDeliberation:
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
-		return false
-	if state.hasEffect(monsterID, "petrify"):
-		return executeCommand(monsterID, BattleCommand.wait(), "cpu").acted
-
+		return null
 	var brain = brains.get(monsterID)
 	if brain == null:
-		return false
-	var decision: BattleCommand = brain.decideTurn(monsterID)
+		return null
+	return brain.beginDeliberation(monsterID)
+
+
+## Records and resolves a finished decision. This is the only half that mutates,
+## and it must run wherever turn order is owned.
+func applyDeliberatedTurn(monsterID: int, deliberation: CommandDeliberation) -> bool:
+	var decision: BattleCommand = deliberation.result()
 	state.add_event("decision", monsterID, decision.target_id, decision.to_dictionary())
 	var result = executeCommand(monsterID, decision, "cpu")
 	if not result.success:

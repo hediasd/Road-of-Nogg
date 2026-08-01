@@ -22,6 +22,14 @@ enum Lifecycle { SETUP, BATTLE, COMPLETE }
 ## playback lag never throttles a battle nobody has paused.
 const RUN_AHEAD_LIMIT := 180
 
+## How much of each frame a CPU decision may consume. A turn may take as long as
+## it needs; a frame may not — see docs/ARCHITECTURE.md, "Frame budget:
+## deliberation must not block presentation". Roughly a quarter of a 16.7ms
+## frame, which leaves room for rendering and the visual queue on the same
+## frame. Raising it trades smoothness for turns that resolve in fewer frames;
+## tune it against debug/verify_frame_pacing.gd, not by feel.
+const DELIBERATION_BUDGET_MSEC := 4.0
+
 var sim: BattleSimulator
 var visual_adapter: GodotVisualAdapter
 var turn_timer: Timer
@@ -41,6 +49,11 @@ var lifecycle: Lifecycle = Lifecycle.SETUP
 ## routes input to it and reacts to its signals; it does not track phases.
 var player_turn: PlayerTurnControllerScript
 var _pending_player_turn_id: int = -1
+## The CPU decision currently being computed across frames, and whose turn it
+## belongs to. While this is set the turn is already open — startNextTurn() has
+## run — so no other turn may begin until it resolves or is cancelled.
+var _deliberation: CommandDeliberation = null
+var _deliberating_monster_id: int = -1
 
 
 func _ready() -> void:
@@ -152,6 +165,7 @@ func _show_setup() -> void:
 		camera.cancelDrag()
 	lifecycle = Lifecycle.SETUP
 	player_turn = null
+	_cancel_deliberation()
 	if turn_timer:
 		turn_timer.stop()
 	if battle_ui != null:
@@ -369,6 +383,7 @@ func _on_setup_confirmed() -> void:
 func _start_battle(config) -> void:
 	current_config = config
 	_pending_player_turn_id = -1
+	_cancel_deliberation()
 	setup_ui.canvas.visible = false
 	battle_ui.game_canvas.visible = true
 	battle_ui.dev_canvas.visible = true
@@ -445,6 +460,10 @@ func _on_turn_timer_timeout() -> void:
 func _advance_battle() -> void:
 	if lifecycle != Lifecycle.BATTLE or sim == null or _player_turn_active():
 		return
+	# A decision in flight already owns an open turn. Starting another here
+	# would run two turns at once and resolve them out of order.
+	if _deliberation != null:
+		return
 	# Backpressure. Pausing playback does not pause the simulation, so without a
 	# bound a paused queue would run to the end of the battle and overflow
 	# MAX_QUEUED_ACTIONS, whose recover() discards exactly the animations the
@@ -480,11 +499,59 @@ func _advance_battle() -> void:
 			turn_timer.stop()
 		return
 
-	sim.executeTurn(monsterID)
+	# Deliberation is deferred to _process() under a frame budget; the turn is
+	# closed on the frame it finishes.
+	var deliberation := sim.beginTurnDeliberation(monsterID)
+	if deliberation == null:
+		# Nothing can act. Close the turn exactly as executeTurn()'s false
+		# return required of its caller.
+		sim.turnManager.endTurn(monsterID)
+		_check_battle_finished()
+		return
+	_deliberation = deliberation
+	_deliberating_monster_id = monsterID
+
+
+func _process(_delta: float) -> void:
+	_step_deliberation()
+
+
+## Spends one frame's budget on the decision in flight and closes the turn when
+## it finishes. Deliberately not gated on RUN_AHEAD_LIMIT or playback pause:
+## those gate whether a *new* turn may start, and this turn is already open —
+## abandoning it half-computed would strand turnManager mid-turn.
+func _step_deliberation() -> void:
+	if _deliberation == null:
+		return
+	if lifecycle != Lifecycle.BATTLE or sim == null:
+		_cancel_deliberation()
+		return
+	if not _deliberation.step(DELIBERATION_BUDGET_MSEC):
+		return
+	var monsterID := _deliberating_monster_id
+	var finished := _deliberation
+	# Cleared before applying: applyDeliberatedTurn() emits events that can
+	# reach back into this controller, and they must not see a stale in-flight
+	# decision.
+	_deliberation = null
+	_deliberating_monster_id = -1
+	sim.applyDeliberatedTurn(monsterID, finished)
 	sim.turnManager.endTurn(monsterID)
+	_check_battle_finished()
+
+
+func _check_battle_finished() -> void:
 	var winner = sim.checkWinCondition()
 	if winner != -1:
 		_finish_battle(winner)
+
+
+## Discards a decision in flight without applying it. A discarded deliberation
+## writes no history: the `decision` event and the command both belong to
+## applyDeliberatedTurn(), which never runs.
+func _cancel_deliberation() -> void:
+	_deliberation = null
+	_deliberating_monster_id = -1
 
 
 func _presentation_ready_for_player_turn() -> bool:
@@ -506,6 +573,7 @@ func _finish_battle(winner: int) -> void:
 	lifecycle = Lifecycle.COMPLETE
 	camera.cancelDrag()
 	_pending_player_turn_id = -1
+	_cancel_deliberation()
 	turn_timer.stop()
 	battle_ui.play_button.set_pressed_no_signal(false)
 	battle_ui.play_button.text = "Play"

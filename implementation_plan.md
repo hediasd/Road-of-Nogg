@@ -2373,6 +2373,62 @@ against state that moved underneath it.
 **Model:** Opus 5 / GPT Sol. Where the turn boundary lives once a decision
 spans frames, and what cancellation must guarantee, are design decisions.
 
+**Resolution (2026-08-01): implemented; pending end-of-plan validation.**
+`BattleSimulator` gained `beginTurnDeliberation()` and
+`applyDeliberatedTurn()`; `executeTurn()` is now those two composed, so replay,
+`runFullBattle()`, and every headless caller stay synchronous and unchanged.
+`EntityBrain.beginDeliberation()` keeps `_evaluationWeights()` behind the seam,
+so a subclass override applies to both paths automatically.
+
+`BattlePresentationController._advance_battle()` now *starts* a CPU turn and
+returns; `_process()` spends `DELIBERATION_BUDGET_MSEC` (4.0) per frame and
+closes the turn on the frame the decision finishes. Three properties make that
+safe, and each has a check: `_advance_battle()` returns immediately while
+`_deliberation != null` so no second turn can open inside the window;
+`_cancel_deliberation()` runs at all three lifecycle boundaries
+(`_show_setup`, `_start_battle`, `_finish_battle`); and stepping is
+deliberately *not* gated on `RUN_AHEAD_LIMIT` or playback pause, because those
+gate whether a **new** turn may start and this turn is already open —
+abandoning it half-computed would strand `turnManager` mid-turn.
+
+**Measured result, the deliverable.** `debug/verify_frame_pacing.gd`, same seed
+and method as FRAME-1's baseline:
+
+| | turn frames before | turn frames after |
+|---|---|---|
+| 1 turn/s | median 24.36 ms, max 45.22 ms | median 2.77 ms, max 15.92 ms |
+| 8 turns/s | median 29.18 ms, max 80.10 ms | median 10.44 ms, max 17.72 ms |
+
+Frames over the 30fps budget went from 0.2% / 2.2% to **0.0% / 0.0%**; worst
+frame in the whole run fell from 80.10 ms to 17.72 ms. At 1 turn/s a turn frame
+is now *cheaper* than an idle frame, because the frame that starts a turn only
+opens the deliberation. The seeded `scripts/demo_battle.gd` log is unchanged at
+`fde2e984…`, so this is a scheduling change and nothing else.
+
+Verified with `debug/verify_turn_driver.gd` (gitignored scratch): a decision
+genuinely spans frames (3 at the 4 ms budget); 25 hammered `_advance_battle()`
+calls during the window neither replace the actor nor advance `turnCount`; New
+Battle and battle end both discard an unfinished decision with no `decision`
+history event written; a paused board still resolves an already-open turn; and
+over 900 frames 49 `turn_started`, 49 `decision`, and 49 `command` events —
+exactly one each, so nothing resolved twice.
+
+**One consequence for harnesses, and it is load-bearing.** `_advance_battle()`
+no longer resolves a CPU turn by itself, so the several harnesses that pumped
+it in a tight loop to reach a player turn would spin without ever completing
+one. `drive_battle.gd`, `verify_ui2_spacebar.gd`, `verify_ui5_menu.gd`,
+`verify_ui7_hud.gd`, and `verify_ui8_crt.gd` gained a `_drainDeliberation()`
+helper that steps the in-flight decision to completion, and `drive_battle.gd`'s
+header note claiming turns resolve synchronously was corrected. Any new harness
+driving `_advance_battle()` directly needs the same drain.
+
+**Expected value change:** at high playback speeds a battle can now advance
+slightly slower than the requested turns/second, because a decision spanning
+more frames than the timer interval self-throttles. That is the intended
+trade — the simulation cannot outrun its own deliberation — and it is why
+`_advance_battle()` returning early while in flight is correct rather than a
+missed tick.
+
 ---
 
 ## FRAME-4 — Validate frame-budgeted deliberation

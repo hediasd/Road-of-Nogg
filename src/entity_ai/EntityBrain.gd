@@ -25,7 +25,13 @@ func _init(_state: BattleState, _movementResolver: MovementResolver, _combatReso
 
 
 func decideTurn(monsterID: int) -> BattleCommand:
-	return commandEvaluator.chooseCommand(monsterID, _evaluationWeights())
+	return beginDeliberation(monsterID).run()
+
+
+## The same decision, resumable. Weights stay behind this seam so a subclass
+## overriding _evaluationWeights() applies to both paths automatically.
+func beginDeliberation(monsterID: int) -> CommandDeliberation:
+	return commandEvaluator.beginDeliberation(monsterID, _evaluationWeights())
 
 
 func _evaluationWeights() -> Dictionary:
