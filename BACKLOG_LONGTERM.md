@@ -36,6 +36,26 @@ board must be `MOUSE_FILTER_IGNORE` unless it is meant to be clicked. Testing
 this by eye does not work — the panel looks correct and the board underneath
 looks reachable; only a click proves otherwise.
 
+## Baseline frame cost outside deliberation
+
+Found 2026-08-01 while gating FRAME-4's pacing check. With CPU deliberation
+fully off the frame, roughly 3-4% of frames at 8 turns/sec still exceed the
+16.7 ms 60fps budget, and *idle* frames — ones carrying no turn start and no
+deliberation — reach ~21 ms on their own. So the residue is ordinary scene
+cost: the visual queue, tweens, physics, and per-frame presentation work.
+
+Nothing here is a hitch: no frame in a 900-frame run reaches the 33.3 ms 30fps
+floor, which is why FRAME-4 gates on that and reports the 60fps figure without
+asserting on it. But it is the next thing standing between the game and a solid
+60fps, and it is unrelated to AI, so it will not improve as deliberation gets
+smarter.
+
+Measured headless, which has no rendering at all — a real window adds its own
+cost on top, so treat these as a floor rather than an estimate. Anyone picking
+this up should start by re-measuring in a window with
+`debug/verify_frame_pacing.gd` and attributing the idle-frame cost before
+changing anything.
+
 ## Weather system
 
 - Design a competitive catalog of 5-10 weather states. Eligible monsters

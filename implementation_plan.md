@@ -2285,7 +2285,7 @@ changing anything observable until a replay or a seeded log diverges.
 **Model:** Opus 5 / GPT Sol. Drawing the resumable seam through a hot loop
 while holding candidate order and tie-breaking exactly is the actual work.
 
-**Resolution (2026-08-01): implemented; pending end-of-plan validation.**
+**Resolution (2026-08-01): done.**
 `src/entity_ai/CommandDeliberation.gd` owns the cursor and the accumulators;
 `BattleCommandEvaluator` keeps the scoring and is now a thin wrapper —
 `chooseCommand()` is `beginDeliberation(...).run()`, so the synchronous and
@@ -2373,7 +2373,7 @@ against state that moved underneath it.
 **Model:** Opus 5 / GPT Sol. Where the turn boundary lives once a decision
 spans frames, and what cancellation must guarantee, are design decisions.
 
-**Resolution (2026-08-01): implemented; pending end-of-plan validation.**
+**Resolution (2026-08-01): done.**
 `BattleSimulator` gained `beginTurnDeliberation()` and
 `applyDeliberatedTurn()`; `executeTurn()` is now those two composed, so replay,
 `runFullBattle()`, and every headless caller stay synchronous and unchanged.
@@ -2469,5 +2469,63 @@ diff was locally clean.
 **Model:** Opus 5 / GPT Sol. Judging whether the pacing result is actually good
 — rather than merely different — and localizing a defect across the
 scheduling/playback seam is the work.
+
+**Resolution (2026-08-01): done.** The whole suite passes, the seeded demo log
+hashes identically twice, and `git diff --check` is clean.
+
+**Pacing, before and after**, same seed and method:
+
+| | frames past the 30fps floor | worst frame | p99 |
+|---|---|---|---|
+| 1 turn/s before | 0.2% | 45.22 ms | — |
+| 1 turn/s after | **0.0%** | 19.8 ms | 16.1 ms |
+| 8 turns/s before | 2.2% | 80.10 ms | >33 ms |
+| 8 turns/s after | **0.0%** | 20.9 ms | 18.9 ms |
+
+No frame in a 900-frame run at either speed reaches the 30fps floor any more,
+against a worst frame of 80 ms before. Confirmed stable over repeated runs.
+
+**One correction to this item's own stated criterion.** It asked that "frames
+carrying a turn must no longer be distinguishable from idle frames by median".
+That is the wrong instrument *after* FRAME-3, and the gate was rewritten to
+measure the distribution instead. Two reasons, both found by running it:
+
+1. FRAME-3 works precisely by moving deliberation off the frame that starts the
+   turn and into the following few. "Turn frame" therefore stops containing the
+   deliberation cost — the split no longer isolates what it was invented to
+   isolate, and a passing result would mean nothing.
+2. At 1 turn/s only ~6 of 900 frames carry a turn start, and a median of six is
+   noise. Across three consecutive runs of *identical* code the turn-frame
+   median swung 2.77 -> 6.91 -> 15.45 ms, while the distribution stats moved by
+   under a millisecond.
+
+The gate is now "no more than 0.5% of frames past the 30fps floor, and p99
+within 25 ms", which is stable run to run and separates before (2.2%, p99 above
+33 ms) from after (0.0%, p99 ~19 ms) decisively. The turn/idle split is still
+printed as a diagnostic.
+
+**The 60fps budget is deliberately not gated, and this is a real limitation.**
+Roughly 3-4% of frames at 8 turns/s exceed 16.7 ms *including idle ones* — idle
+max is ~21 ms with no deliberation involved at all. That is ordinary scene cost
+(visual queue, tweens, physics), it predates this plan, and nothing here claimed
+to address it. Gating on it would fail for reasons unrelated to deliberation.
+Recorded in `BACKLOG_LONGTERM.md` as separate work.
+
+**Coverage added while validating.** `debug/verify_turn_driver.gd` gained check
+7: a real `player_vs_cpu` battle under the real timer, asserting a player turn
+is never active while a decision is in flight, that CPU turns resolve on their
+own and a player turn is actually reached, that no frame in the run passes the
+30fps floor, and that the menu opens on a drained board. `verify_frame_pacing`
+became a gate rather than a report.
+
+**Everything re-run and green:** `verify_pc1/pc2/pc4/pc5`,
+`verify_data_validate`, `verify_pos_validate`, `verify_deliberation`,
+`verify_turn_driver`, `verify_frame_pacing`, `drive_battle`, plus
+`scripts/demo_battle.gd` twice at `fde2e984…`.
+
+**A stale reference corrected:** this item originally named `cbb6ce50…` as the
+determinism target. That hash predates commit `01c17a4`, which intentionally
+changed one battle-log line ("permanently" instead of "for 999 turns"). The
+correct target throughout this plan is `fde2e984…`.
 
 ---
