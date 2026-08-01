@@ -86,10 +86,13 @@ this presentation-only; the simulation and event data already exist.
 Recorded 2026-07-30 alongside `docs/UI_DESIGN.md` section 11. None of these
 block the restyle; revisit after the first playable pass.
 
-- **Frame scale at high resolution.** The `MenuFull.png` 9-patch border is 16
-  physical px and reads thin above 1440p. Options are a pre-scaled 96x96 asset
-  or an integer `Control` scale on the frame node. Do not decide before the
-  new layout has been seen on screen at target resolution.
+- **Frame scale at high resolution.** Global canvas scaling now grows the
+  `MenuFull.png` 9-patch border from the 1152 × 648 logical base instead of
+  leaving it at a fixed 16 physical pixels. Keep this open until the
+  consolidated in-window pass judges the border and pixel font at maximized and
+  awkward fractional sizes. If either still reads too thin or blurred, compare
+  a pre-scaled 96 × 96 asset with integer stretch scaling before changing the
+  frame node independently.
 - **Row capacity.** The 8-row window capacity is a guess. If spell lists
   routinely run 9-12 entries, a taller spell window may beat paging for that
   window specifically; measure against real rosters rather than adjusting by

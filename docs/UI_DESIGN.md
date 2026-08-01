@@ -479,7 +479,13 @@ Widths are **measured, not chosen** — `debug/preview_theme.gd` prints the
 requirement for each window's worst-case real catalogue content at the shipping
 font and size. Rerun it if the font, the font size, or `CONTENT_INSET` changes;
 all three move these numbers. The figures below are at **size 24**, and the
-budget they have to fit inside is Godot's default **1152 × 648** viewport.
+budget they have to fit inside is Godot's default **1152 × 648** logical base.
+The project uses `canvas_items` stretch mode with `expand` aspect: every 2D
+panel scales from that base while the logical rect expands with the window's
+aspect ratio, so the existing resize-driven docks remain active and no
+letterbox bars appear. The world SubViewport uses the real window size when
+retro rendering is disabled, preserving native 3D sharpness; screen/world input
+mapping remains in the root viewport's logical coordinate space.
 
 | Window | Dock | Size | Contents |
 |---|---|---|---|

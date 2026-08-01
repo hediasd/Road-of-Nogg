@@ -449,7 +449,7 @@ func _apply_settings(persist: bool) -> void:
 
 func _resize_world_viewport() -> void:
 	var baseSize = render_size if retro_enabled else Vector2i(
-		host.get_viewport().get_visible_rect().size
+		host.get_window().size
 	)
 	world_viewport.size = Vector2i(
 		maxi(roundi(baseSize.x * render_scale), MIN_VIEWPORT_SIZE.x),

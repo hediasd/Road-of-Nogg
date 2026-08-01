@@ -147,7 +147,7 @@ instead, which is what "every panel, consistently" actually requires.
    say so.
 
 **Files:** `project.godot`, `src/presentation/RetroRenderController.gd`,
-`docs/UI_DESIGN.md`.
+`docs/UI_DESIGN.md`, `BACKLOG_LONGTERM.md`.
 
 **Adds to validation coverage:** every panel on every canvas scales with the
 window; board picking still resolves to the correct tile at a non-default
@@ -164,6 +164,14 @@ offset reads as a misclick rather than as a bug and can survive a casual look.
 but because the failure modes are cross-cutting and none of them throw:
 picking drifts, the 3D softens, the font smears. Judging "does this read as
 retro or as broken" across several window sizes is the actual work.
+
+**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+Configured `canvas_items` + `expand`, kept the non-retro world SubViewport at
+the real window resolution, documented the logical coordinate contract, and
+updated the high-resolution frame-scale backlog note to await the consolidated
+visual decision. The headless editor parse/load smoke check passed; window
+scaling, picking, fractional pixel-font quality, scanlines, and 3D sharpness
+remain for UI-VALIDATE's in-window pass.
 
 ---
 
