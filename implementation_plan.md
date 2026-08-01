@@ -1811,13 +1811,12 @@ every action type. Serialized fields and behavior must remain unchanged.
 **Risk:** Medium-high. This changes the public controller-neutral command seam
 shared by player control, CPU brains, history, and replay.
 
-**Resolution (2026-07-31): implemented; pending end-of-plan validation.**
+**Resolution (2026-07-31): done.**
 `BattleCommand` and `BattleCommandResult` now own the public orchestration
 contract. AI and simulator exchange typed commands, command history and replay
 use explicit dictionary adapters, and typed execution results replace dynamic
-result lookups. Resolver-specific action payloads remain dictionaries. A narrow
-headless project-load smoke passed; behavioral and replay acceptance remain the
-final validation item's responsibility.
+result lookups. Resolver-specific action payloads remain dictionaries. Validated under
+POS-VALIDATE with no defects found in this item.
 
 ## TYPE-2 — Typed UI reference bundles
 
@@ -1838,11 +1837,11 @@ new-battle lifecycle.
 a missing assignment would fail only when a particular setup or HUD interaction
 is used.
 
-**Resolution (2026-07-31): implemented; pending consolidated presentation
-acceptance.** `BattleUIRefs`, `BattleSetupUIRefs`, and the nested
+**Resolution (2026-07-31): done.** `BattleUIRefs`, `BattleSetupUIRefs`, and the nested
 `BattleGraphicsMenuRefs` now make the stable UI contract explicit. The
 controller and visual adapter use typed fields only; dynamic renderer parameter
-maps remain local to graphics synchronization.
+maps remain local to graphics synchronization. Validated under POS-VALIDATE
+check 9 with no defects found in this item.
 
 ## TYPE-3 — Typed visual action queue contract
 
@@ -1864,12 +1863,12 @@ watchdog recovery.
 later playback. Losing optional-field presence or cloning semantics would cause
 status panels or animations to display later authoritative state incorrectly.
 
-**Resolution (2026-07-31): implemented; pending consolidated presentation
-acceptance.** `VisualAction` now owns action/cursor enums and typed payload
+**Resolution (2026-07-31): done.** `VisualAction` now owns action/cursor enums and typed payload
 fields. `VisualActionQueue` stores cloned typed actions, and
 `GodotVisualAdapter` produces and consumes the contract without string-keyed
 action access. Queue scheduling, pause, watchdog, recovery, and disposal logic
-remain unchanged.
+remain unchanged. Validated under POS-VALIDATE with no defects found in this
+item.
 
 ## POS-1 — Position-based simulation contract
 
@@ -1897,7 +1896,7 @@ version becomes 5.
 **Risk:** High. Simulation validation, resolution, events, history, and replay
 must agree on one canonical coordinate without diverging between controllers.
 
-**Resolution (2026-07-31): implemented; pending end-of-plan validation.**
+**Resolution (2026-07-31): done.**
 `target_pos` is canonical in typed commands, validation, phase accumulation,
 history, and replay v5; replay v2-v4 derives positions just before legacy
 commands execute. Basic attacks accept legal empty adjacent tiles without
@@ -1906,8 +1905,9 @@ from confirmable centers, and all 59 spells explicitly declare
 `CAN_TARGET_EMPTY`. Legal zero-unit casts emit a positional cast event and still
 call `record_cast()`, consuming cooldown and Resonance. Positional action events
 carry real coordinates and `target_id = -1` for empty centers. POS-3 now owns
-the coordinate-based player selector. A narrow headless project-load smoke
-passed; behavioral/replay acceptance remains POS-VALIDATE.
+the coordinate-based player selector. Validated under POS-VALIDATE, which found
+and fixed two defects in this item (the pre-v5 self-cast center and the
+`spell_cast` empty-center `target_id` — see that item's Resolution).
 
 ## POS-2 — AI positional targeting
 
@@ -1926,7 +1926,7 @@ same result.
 **Risk:** Medium-high. Candidate counts increase and inconsistent utility or
 tie-breaking would damage both performance and determinism.
 
-**Resolution (2026-07-31): implemented; pending end-of-plan validation.**
+**Resolution (2026-07-31): done.**
 `BattleCommandEvaluator` now enumerates sorted legal attack/spell coordinates
 from every destination. It derives occupants only for results/history, scores
 all units affected by an area center, and deduplicates equivalent affected-ID
@@ -1934,8 +1934,8 @@ sets per spell and destination. Legal empty misses and zero-unit/no-utility
 casts score below the Wait candidate at the same destination. Tie keys include
 destination, action/spell identity, and target coordinate. The shared resolver
 also models the actor's projected destination/origin vacancy so pre-move AI
-queries match execution. A narrow headless project-load smoke passed; seeded
-choice and replay acceptance remain POS-VALIDATE.
+queries match execution. Validated under POS-VALIDATE with no defects found in
+this item.
 
 ## POS-3 — Player positional targeting and visuals
 
@@ -1955,7 +1955,7 @@ both phase orders, multiple elevations, and camera angles.
 **Risk:** High. This is the input/presentation half of the positional contract
 and absorbs the outstanding player-command visual acceptance work.
 
-**Resolution (2026-07-31): implemented; pending POS-VALIDATE.**
+**Resolution (2026-07-31): done.**
 `PlayerTurnController` now stores, sorts, cycles, cancels back to, and submits
 canonical target positions. Attack selection includes legal empty adjacent
 tiles. Spell selection displays reachable empty centers regardless of
@@ -1963,9 +1963,8 @@ tiles. Spell selection displays reachable empty centers regardless of
 centers. The preview keeps all legal centers visible, overlays the selected
 spell footprint, clears target status for empty centers, and aggregates forecast
 damage/healing/unit counts with explicit zero-unit warnings. Godot presentation
-accepts target positions directly. A narrow parser/runtime smoke passed; mixed
-in-window input, camera/elevation coverage, and integrated replay acceptance
-remain POS-VALIDATE.
+accepts target positions directly. Validated under POS-VALIDATE with no defects
+found in this item.
 
 ## POS-VALIDATE — Validate typed presentation and positional targeting
 
@@ -1987,3 +1986,105 @@ specified mixed-input positional playthrough; finish with `git diff --check`.
 
 **Risk:** High. This is the first integrated acceptance boundary for all
 controllers sharing coordinate-based targeting.
+
+**Resolution (2026-07-31): done.** Validated with two harnesses, both
+gitignored scratch in the existing `debug/verify_*.gd` pattern —
+`debug/verify_pos_validate.gd` (15 headless checks covering TYPE-1, POS-1, and
+POS-2) and `debug/drive_battle.gd`, extended from TD-1's five checks to ten so
+it also covers TYPE-2, TYPE-3, and POS-3's in-window flow against the real
+`Battle25D` scene. Alongside them: the headless project launch,
+`debug/verify_pc1/pc2/pc4/pc5.gd`, two `scripts/demo_battle.gd` runs, and
+`git diff --check`.
+
+**Headless coverage that passed.** `BattleCommand` and `BattleCommandResult`
+round-trip through dictionaries and through a real `JSON.stringify` /
+`parse_string` pass with `target_pos`, `move_path`, and `order` intact; the
+serialized `command` history event carries exactly the seven expected keys and
+no others; wait, attack, and spell each execute from both a `player` and a
+`cpu` source. Positionally: an empty adjacent tile is a legal attack center,
+spends the action, deals no damage, fires no target passive, writes one
+`attack_miss`, and aggregates with `target_id = -1`; allied, diagonal,
+distant, and out-of-bounds centers are all refused; `CAN_TARGET_EMPTY` gates
+confirmation without gating preview (`Opening of the Third Sanctuary` offers 39
+centers but confirms 1); a zero-unit `Bramble Crown` cast still advances
+Resonance 2 -> 3 and takes its 4-turn cooldown; the height gate accepts +1 and
+refuses +2 for attacks and honours `MAX_HEIGHT_DELTA` for spells. The AI picks
+the empty tile between two enemies over either occupied center when only the
+empty one hits both, declines every empty attack and zero-unit cast when no
+enemy is in reach, and decides identically twice on identical state. Replay v5
+round-trips a 70-command battle containing 8 empty-center commands through a
+JSON file; v2, v3, and v4 all re-derive positions from occupants; versions
+below 2 and above 5 are refused.
+
+**In-window coverage that passed** (real scene, synthetic `InputEvent`s through
+`root.push_input()`, 1152x648): keyboard menu navigation and cancel; the
+`Spell` column with `< Back`, right-click back, and independent root/spell
+selection; mouse tile picking across two elevations with reachable committed
+and unreachable rejected; target cycling that visits every legal center and
+only legal centers, with non-center clicks refused; move-then-attack,
+attack-then-move (recorded `act_first`), undo-then-pass, and immediate pass;
+an empty attack center selected and confirmed with the target window left at
+zero rows, and an occupied center dealing damage with the window populated;
+`Dark Nova` confirmed on an empty center with the forecast warning
+"0 units affected"; screen-to-tile picking round-tripping at two rotated camera
+yaws plus a rotated click that commits a move; every `BattleUIRefs`,
+`BattleSetupUIRefs`, and `BattleGraphicsMenuRefs` field non-null, the graphics
+toggle, SPACEBAR hiding only the dev canvas without resetting the graphics
+panel's own state, status windows rendering and clearing, and a
+SETUP -> BATTLE -> SETUP -> BATTLE round trip; `move` and `bump` actions
+animating through the real queue across 45 moves, 5 attacks, 27 casts, 11
+heals and a defeat; pause holding the active action and the backlog at
+`RUN_AHEAD_LIMIT` (181 queued, unchanged over 120 ticks) with resume draining;
+and the victory transition reaching `COMPLETE` and the battle log.
+
+**Two real defects found and fixed, both in POS-1.**
+
+1. **Pre-v5 replay broke on the most common CPU turn there is.**
+   `BattleReplayRunner._legacyTargetPosition()` resolved a v2-v4 command whose
+   `target_id` is the actor itself — every self-targeted spell, which is the
+   whole Level 1 "Setup" tier — to `state.getMonsterPosition(actorID)`. That is
+   evaluated *before* the command executes, so on a `move_first` turn it
+   returns the **pre-move** tile while the action resolves from the
+   destination. `canSpellTargetPositionFrom` requires `targetPos == fromPos`
+   for a self spell, so the command was rejected and the whole replay aborted
+   with `command_rejected` / `invalid_spell_target`. Reproduced at command 6 of
+   a real battle: `Gigasaurus` casting `Empower` after walking from (1, 14) to
+   (2, 11). The self-target case is now resolved order-aware — destination for
+   `move_first`, current position for `act_first` — via a new `_actionOrigin()`
+   helper that also normalizes the JSON round trip's `{x, y}` path steps back
+   to `Vector2i`. Only the self-target branch needed it: another unit's tile
+   does not move during the actor's turn.
+
+2. **`spell_cast` reported occupant `0` for an empty center.**
+   `CombatResolver.executeCastSpell()` took `targetID` straight from
+   `state.board.at(centerPos)`, which answers `0` — not `-1` — for an empty
+   tile, and wrote that into both the history event and the action result.
+   Every other empty-center path (the empty-attack result,
+   `_targetIDAtActionCenter`, the aggregate command) uses `-1`, so this
+   contradicted POS-1's own stated contract. Nothing reads it today, which is
+   why it was silent; P4-2's Resonance/crit UI is the next thing that would,
+   and `0` reads as a monster id. Normalized to `-1`.
+
+**Expected value changes.** None to the seeded `scripts/demo_battle.gd` log
+hash, which is unchanged at `cbb6ce50…` across the whole session.
+
+**Three things worth knowing before extending these harnesses.**
+
+- **A harness that dies mid-check still prints "all checks passed."** A GDScript
+  runtime error (a wrong argument type, a stub adapter missing a method) aborts
+  the calling function without recording a failure. `verify_pc1.gd` checks 4
+  and 5 and `verify_pc4.gd`'s three checks had been silently skipping since the
+  typed-boundary refactor, and `verify_pc5.gd`'s stub adapter was missing
+  `show_target_status()`, which aborted `_refreshTargetPreview` and left the
+  forecast empty. All were stale-harness bugs, not production defects, but they
+  read as green. Grep the run output for `SCRIPT ERROR` as well as the summary
+  line.
+- **`activeActionKind()` can never report `focus` or `message`.** Those kinds
+  resolve inside `_start_queued_animation` and return false, so they never
+  become the active action. Only `move`, `bump`, and `defeat` are observable
+  that way; the focus/message path is covered by the battle log growing.
+- **Forest has no flat 5x5 block and no height step larger than one.** Its
+  largest level, walkable, unobstructed square is the 4x4 height-2 plateau at
+  columns 6-9, rows 6-9. Fixtures needing a bigger clearing will not find one,
+  and the attack height gate has to be exercised by raising a tile through
+  `state.heightBoard.set_at` because no authored map contains a 2-step break.

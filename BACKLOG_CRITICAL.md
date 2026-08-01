@@ -29,23 +29,27 @@ or misleading.
   under `RUN_AHEAD_LIMIT`, and `CONFIRM_ACTION` shows a damage/heal/elevation
   forecast sourced from the same `CombatResolver` math real resolution uses.
   BM-0 through BM-2 stabilize the command menu, playback pause,
-  surface-accurate picking, and Spell/< Back navigation. They await
-  in-window verification; see `implementation_plan.md`.
-- **PC-3/BM-3 and POS-3 are implemented but still need in-window acceptance.**
-  Legal empty and occupied centers cycle without free grid roaming; disallowed
-  empty spell centers preview but cannot confirm, and area shapes/forecasts use
-  authoritative resolver queries. BM-4 remains for camera-relative controls
-  and broader visual accessibility work.
-- **Mouse tile picking now uses dedicated rendered-surface hitboxes.** Verify it
-  at multiple elevations and camera angles before considering it resolved.
-- **The player input surface has now been exercised headlessly against the
-  real scene**, closing most of the original gap. `TD-1` (2026-07-30,
-  `debug/drive_battle.gd`) drives `Battle25D` through synthetic `InputEvent`s,
-  but its occupied-only target assertions predate POS-3. POS-VALIDATE must
-  replace those assertions with empty attack, empty-center spell, blocked-empty
-  confirmation, zero-hit cast, and occupied-center coverage. Headless input
-  still cannot establish appearance, animation feel, or camera-angle usability,
-  so the specified in-window playthrough remains required.
+  surface-accurate picking, and Spell/< Back navigation, and their in-window
+  verification landed with POS-VALIDATE on 2026-07-31; see
+  `implementation_plan.md`.
+- **PC-3/BM-3 and POS-3 have passed headless in-window acceptance.**
+  POS-VALIDATE (2026-07-31) drove the real `Battle25D` scene through synthetic
+  input for legal empty and occupied centers, target cycling with no free grid
+  roaming, blocked-empty confirmation, a zero-hit `Dark Nova` cast, mouse
+  picking across two elevations and two rotated camera yaws, and both phase
+  orders. BM-4 remains for camera-relative controls and broader visual
+  accessibility work.
+- **`debug/drive_battle.gd` now covers ten checks, not TD-1's five.** Its
+  occupied-only target assertions were replaced with positional ones, and it
+  gained TYPE-2 reference/lifecycle coverage, TYPE-3 animation-flow and
+  pause/resume coverage, and POS-3's empty-center flow.
+- **What headless input still cannot establish:** appearance, animation feel,
+  and camera-angle usability. A human pass at a normal window remains the only
+  way to judge those, and no such pass has been done.
+- **`activeActionKind()` cannot observe `focus` or `message` actions.** They
+  resolve inside the start handler and never become the active action, so any
+  future animation harness must cover that path indirectly (the battle log
+  growing) rather than by polling the queue.
 
 ## Content inconsistencies
 

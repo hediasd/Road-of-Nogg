@@ -434,7 +434,11 @@ func executeCastSpell(
 			casterID, spellSetIndex, spellIndex, casterPos, centerPos):
 		return {"success": false, "reason": "invalid_target"}
 
-	var targetID = state.board.at(centerPos)
+	## An empty center has no occupant. Report it as -1, matching the command's
+	## own target_id and the empty-attack path — board.at() answers 0 for an empty
+	## tile, which reads as a monster id everywhere else.
+	var occupantID = state.board.at(centerPos)
+	var targetID = -1 if occupantID == 0 else occupantID
 	if spell.targetType == "self":
 		targetID = casterID
 	var actualTargets = getSpellAffectedTargetsFrom(

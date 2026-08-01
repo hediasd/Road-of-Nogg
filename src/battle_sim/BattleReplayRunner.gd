@@ -70,8 +70,28 @@ static func _legacyTargetPosition(
 	if command.action == "wait":
 		return Vector2i(-1, -1)
 	if command.target_id == actorID:
-		return simulator.state.getMonsterPosition(actorID)
+		## The actor targeting itself — every Level 1 "Setup" spell does — is the
+		## one case whose center moves with the actor. It must resolve to the tile
+		## the action is made from, which for a move-first turn is the
+		## destination, not the position the actor is standing on right now.
+		return _actionOrigin(simulator, actorID, command)
 	var target = simulator.state.getMonster(command.target_id)
 	if target == null:
 		return Vector2i(-1, -1)
 	return simulator.state.getMonsterPosition(command.target_id)
+
+
+static func _actionOrigin(
+		simulator,
+		actorID: int,
+		command: BattleCommand) -> Vector2i:
+	if command.order == BattleSimulatorScript.ORDER_ACT_FIRST:
+		return simulator.state.getMonsterPosition(actorID)
+	if command.move_path.is_empty():
+		return simulator.state.getMonsterPosition(actorID)
+	var destination = command.move_path.back()
+	if destination is Dictionary:
+		destination = Vector2i(int(destination.get("x", 0)), int(destination.get("y", 0)))
+	if not destination is Vector2i:
+		return simulator.state.getMonsterPosition(actorID)
+	return destination
