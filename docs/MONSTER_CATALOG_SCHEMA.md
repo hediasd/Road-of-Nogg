@@ -1,6 +1,6 @@
 # Monster Catalog Schema
 
-Status: current after DATA-1.
+Status: current as of the monster-catalog migration to JSON.
 
 The monster catalog lives at res://data/monsters.json. Its root is an array of
 monster reference objects. MonsterReferences loads it through the shared

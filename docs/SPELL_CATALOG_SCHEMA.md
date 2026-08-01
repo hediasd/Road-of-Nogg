@@ -1,6 +1,6 @@
 # Spell Catalog Schema
 
-Status: current after DATA-2.
+Status: current as of the spell-catalog migration to JSON.
 
 The spell catalog lives at `res://data/spells.json`. Its root is an array of
 spell reference objects. `SpellReferences` loads it through `JsonCatalogLoader`,
@@ -44,5 +44,6 @@ currently `false`; offensive non-self spells are `true`.
 Edit `res://data/spells.json` directly. A rejected hot reload leaves the
 previous catalog live. Gameplay semantics remain owned by `Spell`,
 `SpellEffectResolver`, command validation, AI, and presentation; this catalog
-only defines authored input. The consolidated DATA-VALIDATE plan item covers
-spell construction, atomic reload behavior, and an integrated battle.
+only defines authored input. Spell construction, atomic reload behavior, and
+integrated battle behavior are validated against those owners, not against this
+schema.

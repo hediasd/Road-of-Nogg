@@ -34,6 +34,57 @@
 - Plans are delegation contracts executed by other models. One item per session,
   starting from a clean `git status`.
 
+## Plan file lifecycle
+
+`implementation_plan.md` holds **one plan at a time** — the cycle currently
+being executed, and nothing else.
+
+- When a plan's final validation item passes and the plan is complete, delete
+  the file's entire contents in the same session. Do not append the next plan
+  underneath the finished one, and do not keep resolution logs, decision
+  records, or completed items "for reference". `git log` and `git show` are the
+  history; the plan file is the working contract.
+- Before deleting, move any item that is still genuinely open — never started,
+  or started and abandoned — into `BACKLOG_CRITICAL.md` or
+  `BACKLOG_LONGTERM.md` per the backlog rules below. Name those items
+  explicitly to the user rather than relocating them silently, so a deliberate
+  drop is distinguishable from an oversight.
+- Deleting the file is safe precisely because it is committed: recover any
+  prior contents with `git show <ref>:implementation_plan.md`. Say so when
+  reporting the deletion.
+- A fresh plan opens with a dated one-paragraph preamble recording what the
+  previous contents were and what happened to the still-open items, so the
+  reset is auditable from the file alone.
+- Never let the file accumulate more than one cycle. A plan file carrying
+  finished work makes the next executing agent read hundreds of lines of
+  settled history to find its one item, which is exactly the cost this rule
+  exists to remove.
+
+### Nothing persistent may cite a plan item
+
+`implementation_plan.md` is transitory. Its item identifiers — `P4-2`, `UI-9`,
+`DATA-1`, and every one like them — live and die with a single cycle, so a
+reference to one from a file that outlives the cycle is a dangling pointer the
+moment the plan is reset.
+
+- **No file outside `implementation_plan.md` may name a plan item.** That
+  covers `docs/`, `BACKLOG_CRITICAL.md`, `BACKLOG_LONGTERM.md`, `README`s,
+  source comments, and commit messages. Nothing is exempt, including a plan
+  item that is currently open.
+- Describe the work instead of citing it. "Corrected during UI-5" becomes
+  "corrected once the body font size was settled"; "Tracked as P4-2" becomes a
+  statement of what is actually missing. The description survives the reset;
+  the identifier does not.
+- Do not link to `implementation_plan.md` as a destination for detail either.
+  A persistent doc may note that open build work is tracked there and that the
+  file is reset per cycle, but must not depend on its contents to be
+  understood.
+- Plan items may freely cite persistent files — `docs/UI_DESIGN.md` §8,
+  `BACKLOG_CRITICAL.md`, source paths. The dependency runs one way only, from
+  the transitory file to the durable ones.
+- When closing out a cycle, grep for the cycle's identifiers across the repo
+  before deleting the plan, and rewrite any hit as a description.
+
 ## Executing a plan item
 
 - **Check the model before starting.** Compare the item's **Model** field to the

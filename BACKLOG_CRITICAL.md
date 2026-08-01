@@ -20,29 +20,39 @@ or misleading.
   tier. Sets may be partial, but each set must stay on one element and hold at
   most one spell per Level.
 
+## Monster level and growth
+
+- **Battle setup cannot choose monster level.** The runtime already derives
+  HP, ATK, and DEF from a monster's level, and battle-state serialization
+  records that level, but every setup still constructs every roster slot at
+  level 1. Add a per-slot level to the setup contract and UI, preserve it
+  through replay reconstruction, and default older setup snapshots to level 1.
+- **All authored growth values are zero.** After level can vary through setup,
+  choose a bounded level range and author role-shaped HP/ATK/DEF growth for all
+  monsters. Level 1 must remain unchanged; mixed-level construction, replay,
+  and the visible setup-to-status-window path need integrated validation.
+
 ## Player command UI
 
-- **`PC-1` through `PC-5` are all done** (PC-1/PC-2 2026-07-29, PC-4/PC-5
-  2026-07-30). Turn execution is split into order-aware phases, the player
-  state machine lives in `src/systems/PlayerTurnController.gd`, the
-  play/pause toggle gates visual playback while the simulation runs ahead
-  under `RUN_AHEAD_LIMIT`, and `CONFIRM_ACTION` shows a damage/heal/elevation
-  forecast sourced from the same `CombatResolver` math real resolution uses.
-  BM-0 through BM-2 stabilize the command menu, playback pause,
-  surface-accurate picking, and Spell/< Back navigation, and their in-window
-  verification landed with POS-VALIDATE on 2026-07-31; see
-  `implementation_plan.md`.
-- **PC-3/BM-3 and POS-3 have passed headless in-window acceptance.**
-  POS-VALIDATE (2026-07-31) drove the real `Battle25D` scene through synthetic
+- **The command UI rework is done** (2026-07-29 through 2026-07-31). Turn
+  execution is split into order-aware phases, the player state machine lives in
+  `src/systems/PlayerTurnController.gd`, the play/pause toggle gates visual
+  playback while the simulation runs ahead under `RUN_AHEAD_LIMIT`, and
+  `CONFIRM_ACTION` shows a damage/heal/elevation forecast sourced from the same
+  `CombatResolver` math real resolution uses. The command menu, playback pause,
+  surface-accurate picking, and Spell/`< BACK` navigation are stabilized.
+- **Positional targeting has passed headless in-window acceptance**
+  (2026-07-31). The pass drove the real `Battle25D` scene through synthetic
   input for legal empty and occupied centers, target cycling with no free grid
   roaming, blocked-empty confirmation, a zero-hit `Dark Nova` cast, mouse
   picking across two elevations and two rotated camera yaws, and both phase
-  orders. BM-4 remains for camera-relative controls and broader visual
-  accessibility work.
-- **`debug/drive_battle.gd` now covers ten checks, not TD-1's five.** Its
+  orders.
+- **Still open: camera-relative controls and broader visual accessibility.**
+  Cursor movement is board-relative, so it does not follow a rotated camera.
+- **`debug/drive_battle.gd` now covers ten checks, up from five.** Its
   occupied-only target assertions were replaced with positional ones, and it
-  gained TYPE-2 reference/lifecycle coverage, TYPE-3 animation-flow and
-  pause/resume coverage, and POS-3's empty-center flow.
+  gained typed reference/lifecycle coverage, animation-flow and pause/resume
+  coverage, and the empty-center targeting flow.
 - **What headless input still cannot establish:** appearance, animation feel,
   and camera-angle usability. A human pass at a normal window remains the only
   way to judge those, and no such pass has been done.
@@ -57,7 +67,7 @@ or misleading.
   `DESCRIPTION`, but no such mechanic exists. **Decided 2026-08-01: reword it**,
   do not build the immunity — physical attacks cannot crit at all
   (`_rollCritical()` is only reached from the spell path), so the immunity
-  would guard a code path that does not exist. See `implementation_plan.md`.
+  would guard a code path that does not exist.
 - **No monster `DESCRIPTION` is read by any production code.** 11 of 28
   monsters carry one and no player has ever seen them, which is how the Slime's
   claim drifted from the implementation unnoticed. The other 10 have never been

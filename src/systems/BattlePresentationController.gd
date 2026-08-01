@@ -692,6 +692,19 @@ func _unhandled_input(event: InputEvent) -> void:
 				command_menu.moveSelection(1)
 				get_viewport().set_input_as_handled()
 				return
+			# Paging (UI-6, §7a item 4). A no-op when the spell column is not
+			# open or has only one page; always consumed either way, matching
+			# every other branch here — before this, ui_left/right fell through
+			# to the acceptsGridInput() block below, which is gated false during
+			# MENU, so this changes nothing observable when there is no page.
+			if event.is_action_pressed("ui_left"):
+				command_menu.pageSpells(-1)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed("ui_right"):
+				command_menu.pageSpells(1)
+				get_viewport().set_input_as_handled()
+				return
 			if event.is_action_pressed("ui_accept"):
 				command_menu.acceptSelection()
 				get_viewport().set_input_as_handled()

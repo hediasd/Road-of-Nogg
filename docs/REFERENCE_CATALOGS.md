@@ -1,6 +1,6 @@
 # Reference Catalogs
 
-Status: current after DATA-3.
+Status: current as of the reference-catalog migration to JSON.
 
 Authored gameplay content belongs in JSON under `res://data/`. Each catalog is
 loaded through `JsonCatalogLoader`, which owns file access, parse diagnostics,

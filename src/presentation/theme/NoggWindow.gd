@@ -16,6 +16,7 @@ extends Control
 signal closed
 
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
+const PagerArrowScript = preload("res://src/presentation/theme/PagerArrow.gd")
 
 var _content: VBoxContainer
 var _frame: NinePatchRect
@@ -50,6 +51,41 @@ var _marquee_tween: Tween
 ## rather than merely covered. The command menu is the opposite case and keeps
 ## the default, because its rows are the input surface.
 var _input_transparent := false
+
+# --- Paging (§7a, UI-6) ------------------------------------------------------
+#
+# Opt-in: only set_full_rows() engages this. A window built the old way, via
+# direct add_row()/clear_rows() calls (the docked status windows, the prompt,
+# the forecast), is completely unaffected — _page_count stays 1 and no footer
+# is ever built. row_capacity is the page size, the same number that already
+# governs window height (trait 6), so a page is always exactly the window's
+# own height.
+
+## Emitted once per row Control constructed — by set_full_rows() and by every
+## page turn — so a caller needing per-row interactivity (PlayerCommandMenu)
+## can wire hover/click using the FULL-LIST index, the id space its own
+## selection state already lives in, regardless of which page produced the row.
+signal row_built(row: Control, full_index: int)
+
+## Emitted when a footer pager arrow is clicked; direction is -1 (previous) or
+## +1 (next). Deliberately NOT auto-handled: paging changes selection too, and
+## selection is the caller's job per this file's own rule at the top. This
+## widget reports the input; it does not decide what it means.
+signal page_arrow_pressed(direction: int)
+
+## "12 / 15" at FONT_SIZE_FOOTER is 140px (measured); single digits (the only
+## case reachable without 73+ total rows at the current row_capacity of 8) are
+## 100px. Sized for the single-digit case with real margin, not guessed —
+## nothing in the shipping catalog pages at all today, so there is no real
+## content to measure against per docs/UI_DESIGN.md §8's usual rule.
+const PAGER_WIDTH := 190.0
+const PAGER_ARROW_GAP := 6.0
+
+var _full_rows: Array[Dictionary] = []
+var _page := 0
+var _page_count := 1
+var _footer: NoggWindow
+var _footer_label: Label
 
 
 func _ready() -> void:
@@ -349,3 +385,131 @@ func row_rect(index: int) -> Rect2:
 			float(NoggThemeScript.ROW_HEIGHT)
 		)
 	)
+
+
+## Replaces the row set with `rows` (dictionaries with "label", optional
+## "value", optional "disabled"), slices it into pages of `row_capacity`, and
+## renders the first page. Always resets to page 0, even when reopening
+## identical content — matching how every other rebuild in this codebase snaps
+## rather than remembers (§5): a caller that wants to reopen mid-list has to
+## say so explicitly via focus_index(), not get it for free here.
+func set_full_rows(rows: Array) -> void:
+	_full_rows.clear()
+	for row in rows:
+		_full_rows.append(row as Dictionary)
+	_page = 0
+	var capacity := maxi(_row_capacity, 1)
+	_page_count = maxi(1, (_full_rows.size() + capacity - 1) / capacity)
+	_render_page()
+
+
+func page() -> int:
+	return _page
+
+
+func page_count() -> int:
+	return _page_count
+
+
+## First full-list index shown on `page_index`.
+func page_start_index(page_index: int) -> int:
+	return page_index * maxi(_row_capacity, 1)
+
+
+## One-past-last full-list index shown on `page_index`.
+func page_end_index(page_index: int) -> int:
+	return mini(page_start_index(page_index) + maxi(_row_capacity, 1), _full_rows.size())
+
+
+func next_page() -> void:
+	if _page_count > 1:
+		_go_to_page(posmod(_page + 1, _page_count))
+
+
+func prev_page() -> void:
+	if _page_count > 1:
+		_go_to_page(posmod(_page - 1, _page_count))
+
+
+## Brings `full_index`'s page on screen if it is not already (turning,
+## rebuilding that page's rows and re-firing row_built), applies the overflow
+## marquee to it (§7b), and returns its rect plus whether a page turn
+## happened — the caller's signal to snap the cursor instead of tweening it.
+## "Cursor movement past the last row of a page advances to the next page...
+## tweening across a page turn reads as a glitch" (§7a, item 3).
+func focus_index(full_index: int) -> Dictionary:
+	var capacity := maxi(_row_capacity, 1)
+	var target_page := clampi(full_index / capacity, 0, maxi(_page_count - 1, 0))
+	var turned := target_page != _page
+	if turned:
+		_go_to_page(target_page)
+	var relative := full_index - _page * capacity
+	set_focused_row(relative)
+	return {"rect": row_rect(relative), "turned": turned}
+
+
+func _go_to_page(target: int) -> void:
+	if target == _page:
+		return
+	_page = target
+	_render_page()
+
+
+func _render_page() -> void:
+	clear_rows()
+	var start := page_start_index(_page)
+	var end := page_end_index(_page)
+	for i in range(start, end):
+		var d: Dictionary = _full_rows[i]
+		var row := add_row(
+			str(d.get("label", "")), str(d.get("value", "")), bool(d.get("disabled", false))
+		)
+		row_built.emit(row, i)
+	_update_footer()
+
+
+func _update_footer() -> void:
+	if _page_count <= 1:
+		if _footer:
+			_footer.visible = false
+		return
+	if not _footer:
+		_build_footer()
+	_footer_label.text = "%d / %d" % [_page + 1, _page_count]
+	_footer.position = Vector2(
+		(size.x - PAGER_WIDTH) / 2.0, size.y - NoggThemeScript.window_height(1) / 2.0
+	)
+	_footer.visible = true
+
+
+## The footer is its own small NoggWindow, horizontally centred and
+## overlapping the parent's bottom border by half its height (§7a) — built
+## lazily, the first time a window actually needs to page, so a window that
+## never pages carries no extra nodes for one it will never show.
+func _build_footer() -> void:
+	_footer = NoggWindow.new()
+	add_child(_footer)  # after _frame, added in _ready() — draws on top of it
+	_footer.set_row_capacity(1)
+	_footer.size.x = PAGER_WIDTH
+	# Only the two arrows are clickable; everything else in the footer's rect
+	# (including the label and the space around it) passes clicks through.
+	_footer.set_input_transparent(true)
+
+	var bar := HBoxContainer.new()
+	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.add_theme_constant_override("separation", PAGER_ARROW_GAP)
+	_footer._content.add_child(bar)
+
+	var prev_arrow := PagerArrowScript.new(false)
+	prev_arrow.pressed.connect(func(): page_arrow_pressed.emit(-1))
+	bar.add_child(prev_arrow)
+
+	_footer_label = Label.new()
+	_footer_label.add_theme_font_size_override("font_size", NoggThemeScript.FONT_SIZE_FOOTER)
+	_footer_label.add_theme_color_override("font_color", NoggThemeScript.TEXT_ACCENT)
+	bar.add_child(_footer_label)
+
+	var next_arrow := PagerArrowScript.new(true)
+	next_arrow.pressed.connect(func(): page_arrow_pressed.emit(1))
+	bar.add_child(next_arrow)

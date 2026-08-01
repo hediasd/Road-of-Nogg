@@ -247,9 +247,7 @@
 			"ATK_GROWTH": 0,
 			"DEF_GROWTH": 0
 		},
-		"ELEMENTS": [
-			"ice"
-		],
+		"ELEMENTS": [],
 		"RACE": "Helvengesk",
 		"FAMILY": "none",
 		"ARCHETYPE": "defender",

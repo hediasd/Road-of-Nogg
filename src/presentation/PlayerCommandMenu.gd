@@ -101,6 +101,16 @@ func _ready() -> void:
 
 	_command_window.gui_input.connect(_on_window_gui_input.bind(ROOT))
 	_spell_window.gui_input.connect(_on_window_gui_input.bind(SPELLS))
+	# Row construction moved inside NoggWindow (UI-6, for paging); it reports
+	# each built Control back so wiring can still happen here, per row, exactly
+	# as it did when this file built rows itself.
+	_command_window.row_built.connect(_on_root_row_built)
+	_spell_window.row_built.connect(_on_spell_row_built)
+	# Only the spell window can ever page (the command list's true maximum is
+	# 5, under COMMAND_CAPACITY), but wiring both costs nothing and needs no
+	# special-casing later if that ever changes.
+	_command_window.page_arrow_pressed.connect(func(direction): pageSpells(direction))
+	_spell_window.page_arrow_pressed.connect(func(direction): pageSpells(direction))
 
 	resized.connect(_layout_windows)
 	_layout_windows()
@@ -227,19 +237,53 @@ func acceptSelection() -> void:
 		_activate_root_row(_root_index)
 
 
+## Explicit page navigation (§7a, item 4): ui_left/ui_right and the footer's
+## arrow buttons both call this, direction -1 or +1. Distinct from a cursor
+## crossing a page boundary during moveSelection() — that case already lands
+## on the correct row via the ordinary selectable-index cycle over the full
+## list, and window.focus_index() turns the page as a side effect; this is an
+## unconditional "show me the next/previous page" request with no target row
+## in mind yet, so it picks one: the first enabled row on the page it lands on.
+func pageSpells(direction: int) -> void:
+	if _mode != SPELLS or _spell_window.page_count() <= 1:
+		return
+	if direction > 0:
+		_spell_window.next_page()
+	else:
+		_spell_window.prev_page()
+	var start := _spell_window.page_start_index(_spell_window.page())
+	var end := _spell_window.page_end_index(_spell_window.page())
+	var landing := start
+	for i in range(start, end):
+		if _spell_rows[i]["enabled"]:
+			landing = i
+			break
+	_spell_index = landing
+	# The window is already on the right page (next_page()/prev_page() above),
+	# so focus_index() here only positions the cursor and the marquee — it does
+	# not turn a page a second time.
+	var focus: Dictionary = _spell_window.focus_index(landing)
+	_spell_cursor.snap_to_row(focus["rect"])
+
+
 # --- rows -------------------------------------------------------------------
 
 func _rebuild_root_rows() -> void:
 	var preserved := _id_at(_root_rows, _root_index)
-	_command_window.clear_rows()
 	_root_rows.clear()
+	var descriptors: Array = []
 	for entry in _entries:
 		if not entry["visible"]:
 			continue
 		var enabled := bool(entry["enabled"])
-		var row := _command_window.add_row(_display(str(entry["label"])), "", not enabled)
+		descriptors.append({
+			"label": _display(str(entry["label"])), "value": "", "disabled": not enabled
+		})
 		_root_rows.append({"id": str(entry["id"]), "enabled": enabled})
-		_wire_row(row, ROOT, _root_rows.size() - 1, enabled)
+	# _root_rows must be complete before set_full_rows() renders — it fires
+	# row_built synchronously per row, and _on_root_row_built reads _root_rows
+	# by the same index.
+	_command_window.set_full_rows(descriptors)
 	# Restore the player's selection by id where the row survived the rebuild;
 	# snap rather than tween, because this is a content change, not a move.
 	var restored := _index_of_id(_root_rows, preserved)
@@ -250,30 +294,38 @@ func _rebuild_root_rows() -> void:
 
 
 func _rebuild_spell_rows() -> void:
-	_spell_window.clear_rows()
 	_spell_rows.clear()
-	# Size to content, capped at the page size: a 1-spell monster should not
-	# get an 8-row window with seven empty rows. Sized here, on open, and then
-	# held for the lifetime of the opening — paging must never resize a window
-	# mid-navigation, but sizing it as it appears is free.
-	_spell_window.set_row_capacity(
-		clampi(_spells.size() + 1, 1, SPELL_MAX_CAPACITY)
-	)
+	var descriptors: Array = []
 	for spell in _spells:
 		var ready := bool(spell["ready"])
-		var row := _spell_window.add_row(
-			str(spell["name"]), _spell_value(spell), not ready
-		)
+		descriptors.append({
+			"label": str(spell["name"]), "value": _spell_value(spell), "disabled": not ready
+		})
 		_spell_rows.append({
 			"id": _spell_id(spell),
 			"enabled": ready,
 			"set_index": int(spell["set_index"]),
 			"spell_index": int(spell["spell_index"])
 		})
-		_wire_row(row, SPELLS, _spell_rows.size() - 1, ready)
-	var back := _spell_window.add_row(_display("< Back"))
+	descriptors.append({"label": _display("< Back"), "value": "", "disabled": false})
 	_spell_rows.append({"id": BACK_ID, "enabled": true})
-	_wire_row(back, SPELLS, _spell_rows.size() - 1, true)
+
+	# Size to content, capped at the page size: a 1-spell monster should not
+	# get an 8-row window with seven empty rows, and a monster with more spells
+	# than fit gets exactly one page's worth per screen (UI-6). Capacity must
+	# be set before set_full_rows(), which computes page_count from it — and
+	# held for the lifetime of the opening: paging must never resize a window
+	# mid-navigation, but sizing it as it appears is free.
+	_spell_window.set_row_capacity(clampi(descriptors.size(), 1, SPELL_MAX_CAPACITY))
+	_spell_window.set_full_rows(descriptors)
+
+
+func _on_root_row_built(row: Control, full_index: int) -> void:
+	_wire_row(row, ROOT, full_index, bool(_root_rows[full_index]["enabled"]))
+
+
+func _on_spell_row_built(row: Control, full_index: int) -> void:
+	_wire_row(row, SPELLS, full_index, bool(_spell_rows[full_index]["enabled"]))
 
 
 ## Cooldown is shown rather than hidden so the player can see what is coming
@@ -292,6 +344,12 @@ func _spell_id(spell: Dictionary) -> String:
 
 ## The single place cursor position is written. `animate` distinguishes a
 ## selection move (tween) from a content rebuild or a window handover (snap).
+##
+## `index` is always a FULL-LIST index, spanning every page — window.focus_index()
+## is what turns the page if `index` is not on the one currently shown, and
+## reports that back so a page turn always snaps rather than tweens (§7a, item
+## 3: "tweening across a page turn reads as a glitch"), even when the caller
+## asked to animate.
 func _select(index: int, animate: bool) -> void:
 	if index < 0:
 		return
@@ -301,14 +359,14 @@ func _select(index: int, animate: bool) -> void:
 		_spell_index = index
 	else:
 		_root_index = index
-	if animate:
-		cursor.move_to_row(window.row_rect(index))
-	else:
-		cursor.snap_to_row(window.row_rect(index))
 	# §7b: the row under the cursor marquees if its label overflows. Every
-	# selection change goes through here, so this is the one place that needs
-	# to know about it.
-	window.set_focused_row(index)
+	# selection change goes through here (via focus_index()), so this is the
+	# one place that needs to know about it.
+	var focus: Dictionary = window.focus_index(index)
+	if animate and not focus["turned"]:
+		cursor.move_to_row(focus["rect"])
+	else:
+		cursor.snap_to_row(focus["rect"])
 
 
 func _selectable_indices(rows: Array) -> Array:

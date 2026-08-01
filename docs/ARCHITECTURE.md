@@ -290,7 +290,7 @@ numbers exclude render cost and understate a real window):
 Every AI turn overruns the 16.7 ms budget for 60fps, by 1.5x to 4.5x. At the
 higher playback speeds the speed slider offers, 4.1% of all frames miss 60fps
 and 1.9% miss even 30fps. This scales directly with AI complexity: candidate
-enumeration grew by roughly an order of magnitude when POS-2 made targeting
+enumeration grew by roughly an order of magnitude when AI targeting became
 positional, and the frame cost grew with it.
 
 ### The seam that makes this fixable

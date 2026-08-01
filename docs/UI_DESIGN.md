@@ -9,8 +9,10 @@ semantics — turn structure and command meaning live in
 [`GAME_DESIGN.md`](./GAME_DESIGN.md), and node ownership lives in
 [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
-Implementation is tracked as items **UI-1 … UI-9** in
-[`implementation_plan.md`](../implementation_plan.md).
+This document is the contract. Whatever build work is currently open against it
+is tracked in [`implementation_plan.md`](../implementation_plan.md), which holds
+one cycle at a time and is reset when that cycle completes — so nothing here
+cites a plan item by name.
 
 ---
 
@@ -123,8 +125,8 @@ Layout tokens that matter to more than one item:
 minimum, so a smaller value is silently ignored rather than tightening further.
 
 Animation timings live in `NoggTheme.gd` for the same reason the colours do:
-UI-3, UI-4, and UI-6 all read them, and drift between them would read as three
-different menus.
+the window, the cursor, and the pager all read them, and drift between them
+would read as three different menus.
 
 `FRAME_ACTIVE` → `FRAME_INACTIVE` is a **tween over 0.12 s**, not a snap. It is
 the only thing telling the player which window their arrow keys are driving.
@@ -455,7 +457,7 @@ is needed.
 
 **Marquee is reserved for content the player is choosing between — spell
 names — not for passive status readouts.** The actor/target windows' `Elements`
-row was briefly wired to marquee too (UI-9's original notes), on the reasoning
+row was briefly wired to marquee too, on the reasoning
 that any overflowing row should get the same treatment "for free." Reversed on
 design review: a status window is read, not navigated, and there is no cursor
 to justify drawing the eye to one row over the others. An overflowing
@@ -520,8 +522,8 @@ Truncating an outlier is normal in this genre; a half-screen menu is not.
 **The forecast is left-aligned, not right-aligned.** This table originally said
 right-aligned to the command window; that cannot hold at size 24. The forecast
 needs ~460px and the command window's right edge is at x=300, so right-aligning
-would place its left edge off-screen. Corrected during UI-5 against the real
-metrics.
+would place its left edge off-screen. Corrected against the real metrics once
+the body font size was settled at 24.
 
 The bottom HUD is being restructured into this taxonomy. Today it is two
 undifferentiated 220×150 `PanelContainer`s holding a single `\n`-joined `Label`
@@ -582,9 +584,10 @@ instead — now the game UI draws *before* the CRT pass, so its
 `hint_screen_texture` sampling captures and distorts the UI too. Both layer
 values stay below `DEV_LAYER` (20), so the dev bar is never affected by this
 toggle either way. Default off; persisted alongside the other rendering
-settings, independent of which visual preset is active — see UI-8's
-resolution notes for the `_load_settings()`/`_apply_settings()` ordering trap
-this ran into (the setting loads before the node that would apply it exists).
+settings, independent of which visual preset is active. Watch the
+`_load_settings()`/`_apply_settings()` ordering trap this ran into: the setting
+loads before the node that would apply it exists, so applying it at load time
+silently does nothing.
 
 ---
 

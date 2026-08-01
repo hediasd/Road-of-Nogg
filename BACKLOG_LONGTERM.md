@@ -2,7 +2,7 @@
 
 ## Fixed HUD panels occlude board tiles
 
-Found 2026-07-30 while building `TD-1`'s headless input driver; the serious
+Found 2026-07-30 while building the headless input driver; the serious
 half was **fixed on 2026-08-01** after a player report that clicking some
 models did not light their selection aura.
 
@@ -38,15 +38,16 @@ looks reachable; only a click proves otherwise.
 
 ## Baseline frame cost outside deliberation
 
-Found 2026-08-01 while gating FRAME-4's pacing check. With CPU deliberation
+Found 2026-08-01 while gating the frame-pacing check that validated
+frame-budgeted deliberation. With CPU deliberation
 fully off the frame, roughly 3-4% of frames at 8 turns/sec still exceed the
 16.7 ms 60fps budget, and *idle* frames — ones carrying no turn start and no
 deliberation — reach ~21 ms on their own. So the residue is ordinary scene
 cost: the visual queue, tweens, physics, and per-frame presentation work.
 
 Nothing here is a hitch: no frame in a 900-frame run reaches the 33.3 ms 30fps
-floor, which is why FRAME-4 gates on that and reports the 60fps figure without
-asserting on it. But it is the next thing standing between the game and a solid
+floor, which is why that check gates on the 30fps floor and reports the 60fps
+figure without asserting on it. But it is the next thing standing between the game and a solid
 60fps, and it is unrelated to AI, so it will not improve as deliberation gets
 smarter.
 
@@ -70,7 +71,17 @@ changing anything.
   preferable to universal raw-damage multipliers. Serialize active weather and
   validate its source through the reference catalog.
 
-## Battle UI knobs deferred from UI-1..UI-8
+## In-world Resonance and critical-hit feedback
+
+The docked status windows are the selected-monster home for Resonance charge,
+but the board still has no transient feedback when charge changes during an
+animation, and critical or weakness hits look like ordinary hits. If play shows
+that selection-only visibility is insufficient, extend the existing
+`StatusEffectBillboard` badge row with the highest charged element and its 0-3
+charge, then give critical/weakness events a distinct presentation cue. Keep
+this presentation-only; the simulation and event data already exist.
+
+## Battle UI knobs deferred from the battle UI restyle
 
 Recorded 2026-07-30 alongside `docs/UI_DESIGN.md` section 11. None of these
 block the restyle; revisit after the first playable pass.

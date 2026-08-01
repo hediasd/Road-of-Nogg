@@ -128,7 +128,7 @@ corresponding content lands.
 | Critical hits | Live | Implemented and tested. Luck (range 2–10 across the roster) drives critical chance via `min(luck * 1%, 15%)`. |
 | Level-based stat growth | Designed, not yet live | Every monster's `HP_GROWTH`/`ATK_GROWTH`/`DEF_GROWTH` is 0, **and** no production code spawns a monster above level 1, so growth values would be inert even if assigned. |
 | Race elemental resistance (±20%) | Live | Every monster now has a race, including the default preset, so a default CPU vs CPU battle exercises resistances and weakness-driven Resonance decay. |
-| Resonance and critical UI | Designed, not yet live | Nothing in `src/presentation/` renders charge state, and crit/weakness hits look identical to normal ones. Tracked as P4-2. |
+| Resonance and critical UI | Designed, not yet live | Nothing in `src/presentation/` renders charge state, and crit/weakness hits look identical to normal ones. |
 
 ## Scalability constraints
 
