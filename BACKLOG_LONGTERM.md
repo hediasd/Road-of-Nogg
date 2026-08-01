@@ -89,6 +89,17 @@ and future Resonance bar fall back to grey. Move the colour into the element
 catalog only as a deliberate 3D/presentation migration, with every current
 material consumer updated in the same change.
 
+## Ascension base presentation
+
+Differentiate the material of each model's base from the model itself so the
+base reads as a deliberate platform rather than part of the creature mesh.
+Keep basic models at the current single base layer, but stack two or more base
+layers for monsters that have ascended. Reduce each layer's thickness as the
+stack grows so the total base remains close to the current height and does not
+push the model noticeably upward. Use the monster's existing ascension state
+as the source of truth and preserve the presentation across setup, replay, and
+any board refresh that rebuilds the model.
+
 ## In-world Resonance and critical-hit feedback
 
 The docked status windows are the selected-monster home for Resonance charge,
