@@ -2210,6 +2210,34 @@ guard passes.
 **Model:** Sonnet 5 / GPT Terra. Single file, stated end state, zero blast
 radius; the empirical shape is already known from the 2026-08-01 probes.
 
+**Resolution (2026-08-01): done.** `debug/verify_frame_pacing.gd` exists and
+passes both checks. Baseline captured on seed 42, `Battle25D`, headless (so
+excluding render cost):
+
+| | idle frames | turn frames |
+|---|---|---|
+| 1 turn/s (n=893 idle / 7 turn) | median 6.90 ms, p95 15.99 ms, max 17.43 ms | median 24.36 ms, p95 35.70 ms, max 45.22 ms |
+| 8 turns/s (n=850 idle / 50 turn) | median 2.00 ms, p95 16.14 ms, max 20.73 ms | median 29.18 ms, p95 63.36 ms, max 80.10 ms |
+
+Frames over the 16.7ms 60fps budget: 0.9% at 1 turn/s, 5.9% at 8 turns/s.
+Frames over the 33.3ms 30fps budget: 0.2% at 1 turn/s, 2.2% at 8 turns/s. This
+matches the shape reported when the constraint was first written up in
+`docs/ARCHITECTURE.md` — idle frames well under budget, turn frames well over,
+worsening at higher playback speed. The purity guard passed: six consecutive
+`decideTurn()` calls left `state.history` size, every monster's HP/position/
+cooldowns/Resonance bars, `state.activeEffects`, and `state.rng.state`
+unchanged, emitted zero gameplay events, and returned an identical command
+each time.
+
+One addition beyond the item's own spec: the per-scene teardown between the
+1 turn/s and 8 turns/s runs originally logged `SCRIPT ERROR: ... previously
+freed` — a live tween and an armed `VisualActionQueue` watchdog outliving
+`scene.free()`. Cosmetic (nothing this harness asserts on was affected), but
+noisy enough to mask a real failure in a future run, so teardown now calls
+`scene.visual_adapter.dispose()` before `scene.free()`. Worth reusing in any
+later harness that frees a `Battle25D` scene mid-battle rather than after
+`_waitWhileResolving()`.
+
 ---
 
 ## FRAME-2 — Resumable command evaluation
