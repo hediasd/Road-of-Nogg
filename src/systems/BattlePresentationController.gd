@@ -11,9 +11,11 @@ const GodotVisualAdapterScript = preload("res://src/presentation/GodotVisualAdap
 const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderController.gd")
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 
+const ElementReferencesScript = preload("res://src/factories/ElementReferences.gd")
 const PlayerTurnControllerScript = preload("res://src/systems/PlayerTurnController.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
+const ResonanceBarScript = preload("res://src/presentation/theme/ResonanceBar.gd")
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
 
 ## How far the simulation may run ahead of visual playback before it waits for
@@ -820,24 +822,43 @@ func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
 	if monster == null:
 		return
 	window.add_row(monster.name)
-	var hp_cells := window.add_stat_row([
+	if monster.elements.size() > NoggThemeScript.STATUS_CELL_OFFSETS.size():
+		push_warning("BattlePresentationController: status window shows only the first three elements for %s" % monster.name)
+
+	var hp_cells: Array[Dictionary] = [
 		{"label": "HP", "value": "%d / %d" % [monster.hitpoints, monster.max_hitpoints]}
-	])
+	]
+	_append_resonance_cell(hp_cells, monster, 0)
+	var hp_handles := window.add_stat_row(hp_cells)
 	# TEXT_ACCENT (gold) only below one third: healthy HP should blend in as an
 	# unremarkable stat, not compete with it for the eye every single turn.
 	_tint_value_label(
-		hp_cells[0]["value"] as Label,
+		hp_handles[0]["value"] as Label,
 		NoggThemeScript.TEXT_ACCENT if monster.hitpoints * 3 < monster.max_hitpoints
 		else NoggThemeScript.TEXT_PRIMARY
 	)
-	window.add_stat_row([
+	var attack_cells: Array[Dictionary] = [
 		{"label": "ATK", "value": str(monster.atk)},
 		{"label": "DEF", "value": str(monster.def)}
-	])
-	window.add_stat_row([
+	]
+	_append_resonance_cell(attack_cells, monster, 1)
+	window.add_stat_row(attack_cells)
+	var movement_cells: Array[Dictionary] = [
 		{"label": "SPD", "value": str(monster.speed)},
 		{"label": "MOV", "value": str(monster.move)}
-	])
+	]
+	_append_resonance_cell(movement_cells, monster, 2)
+	window.add_stat_row(movement_cells)
+
+
+func _append_resonance_cell(cells: Array[Dictionary], monster: Monster, element_index: int) -> void:
+	if element_index >= monster.elements.size():
+		return
+	var element := str(monster.elements[element_index])
+	cells.append({
+		"label": ElementReferencesScript.code(element),
+		"control": ResonanceBarScript.new(element, monster.get_resonance(element))
+	})
 
 
 func _tint_value_label(value_label: Label, colour: Color) -> void:

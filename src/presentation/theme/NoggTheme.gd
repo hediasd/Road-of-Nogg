@@ -120,6 +120,13 @@ const ROW_CAPACITY_DEFAULT := 8
 const STATUS_CELL_OFFSETS := [0.0, 192.0, 384.0]
 const STATUS_CELL_TEXT_GAP := FONT_SIZE_BODY
 ## Compact gap between a two-character element code and its drawn bar.
+## Three-step Resonance bars fit beside a two-character code in the third
+## status cell. Keep these together: changing their width changes that grid.
+const RESONANCE_BAR_CELLS := 3
+const RESONANCE_CELL_SIZE := 10.0
+const RESONANCE_CELL_GAP := 3.0
+const RESONANCE_BAR_WIDTH := RESONANCE_BAR_CELLS * RESONANCE_CELL_SIZE + (RESONANCE_BAR_CELLS - 1) * RESONANCE_CELL_GAP
+
 const STATUS_CELL_CONTROL_GAP := 8.0
 
 ## Matches the scaled corner curve so the fill never pokes outside the ring.

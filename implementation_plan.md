@@ -382,6 +382,13 @@ changes from `["ice"]` to empty, but it owns no spells, and race — not this ar
 drawing, `elementColor()` for the palette, `ElementReferences.code()` for the
 labels, and `get_resonance()` for the data — every design decision is made
 above.
+**Resolution (2026-08-01):** Implemented; pending end-of-plan validation.
+Added the drawn three-cell bar, catalog-driven element codes, and authored-order
+status cells; an empty `ELEMENTS` array is now explicitly documented and Dump
+remains the no-element fixture. The headless editor parse/load smoke check
+passed; live charge changes, bar colours, two-element layout, and the empty
+fixture remain for UI-VALIDATE.
+
 
 ---
 

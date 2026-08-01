@@ -491,7 +491,7 @@ mapping remains in the root viewport's logical coordinate space.
 |---|---|---|---|
 | **Command** | Left, vertically centred | 220 × 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS` — longest is `ATTACK` at 144 + 56 overhead; 5 is the list's true maximum |
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
-| **Actor status** | Bottom-left, fixed | 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with column 3 reserved for element state |
+| **Actor status** | Bottom-left, fixed | 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3 |
 | **Target** | Bottom-right, fixed | 540 × 6 rows | Same fixed-cell shape as actor status; shows an empty frame, not a hidden window, when there is no target |
 | **Forecast** | Above Command, **left-aligned** with it | 460 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible only during confirm |
 | **Prompt** | Top-centre | auto, 1 row | `Select a destination`, `Select a target` — replaces today's status label |
@@ -511,17 +511,9 @@ not fit the budget above:
   — and hard-truncates the two 30-char
   `…of the Third Sanctuary` outliers. Renaming those two is the cleaner fix and
   is worth doing when the catalogue is next touched.
-- **Actor status** truncates the `Elements` row for several real 2-element
-  combos — `water, darkness`, `fire, darkness`, `light, darkness`,
-  `darkness, earth` all need **~584px** against a 496px content area. The
-  original note here said "truncates only a three-element list, which is the
-  rarest case"; that was wrong on both counts — no monster in the catalogue
-  has 3 elements (2 is the observed maximum), and several ordinary 2-element
-  monsters already truncate at 540. There is no slack left to fix it: Actor +
-  Target already spend the full 1152px budget (540 + 540 + 32 gap + 40
-  margins), so widening either window collides with the other. Left as a
-  known, measured truncation rather than a design goal — verified 2026-07-31
-  against the real catalogue, not assumed.
+- **Actor status** no longer renders a prose `Elements` list: each authored
+  element occupies the third fixed cell beside its matching stat row, so a
+  two-element monster has two compact code-and-bar readouts without widening.
 
 Truncating an outlier is normal in this genre; a half-screen menu is not.
 
@@ -533,7 +525,8 @@ the body font size was settled at 24.
 
 The bottom HUD uses fixed status cells rather than list rows: `HP` occupies the
 first cell, `ATK`/`DEF` and `SPD`/`MOV` hold vertical columns at 0 and 192px,
-and the 384px cell stays reserved for element state. Text values remain separate
+and the 384px cell displays authored element codes beside drawn three-cell
+Resonance bars. Text values remain separate
 Labels, so HP can still turn `TEXT_ACCENT` under its threshold without treating
 the readout as an interactive menu.
 

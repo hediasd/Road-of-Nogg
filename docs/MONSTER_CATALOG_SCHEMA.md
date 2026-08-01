@@ -15,7 +15,7 @@ working catalog.
 |---|---|---|---|
 | NAME | string | yes | Unique primary key. Empty or duplicate names reject the full reload. |
 | STATS | dictionary | yes | Owns every authored base, movement, luck, jump, and growth value. See below. |
-| ELEMENTS | array of string | yes | Each value must be a supported element other than none. |
+| ELEMENTS | array of string | yes | May be empty; each present value must be a supported element other than none. |
 | RACE | string | yes | Determines elemental resistance and weakness multipliers. |
 | FAMILY | string | no | Defaults to none. |
 | SPECIES | string | no | Defaults to none. |
