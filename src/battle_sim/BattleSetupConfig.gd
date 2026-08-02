@@ -36,7 +36,7 @@ func serialize() -> Dictionary:
 	}
 
 
-func validate() -> Dictionary:
+func validate() -> BattleSetupValidationResult:
 	var errors: Array[String] = []
 	if battleMode not in [MODE_CPU_VS_CPU, MODE_PLAYER_VS_CPU]:
 		errors.append("Unknown battle mode.")
@@ -74,14 +74,14 @@ func validate() -> Dictionary:
 				else:
 					occupiedSlots[slot] = team
 
-	return {
-		"success": errors.is_empty(),
-		"errors": errors
-	}
+	return BattleSetupValidationResult.fromErrors(errors)
 
 
-static func fromDictionary(data: Dictionary):
-	var config = load("res://src/battle_sim/BattleSetupConfig.gd").new()
+## The serialization edge stays a Dictionary on purpose: this reconstructs a
+## config from a stored setup snapshot, and the defaults below keep old
+## snapshots loadable.
+static func fromDictionary(data: Dictionary) -> BattleSetupConfig:
+	var config: BattleSetupConfig = load("res://src/battle_sim/BattleSetupConfig.gd").new()
 	config.battleMode = data.get("battleMode", MODE_CPU_VS_CPU)
 	config.mapName = data.get("mapName", "Meadow")
 	config.seed = int(data.get("seed", 42))

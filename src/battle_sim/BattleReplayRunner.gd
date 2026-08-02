@@ -13,12 +13,12 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 	if snapshot.get("setup", {}).is_empty():
 		return {"success": false, "reason": "missing_setup"}
 
-	var config = BattleSetupConfigScript.fromDictionary(snapshot["setup"])
-	var validation = config.validate()
-	if not validation["success"]:
-		return {"success": false, "reason": "invalid_setup", "errors": validation["errors"]}
+	var config: BattleSetupConfig = BattleSetupConfigScript.fromDictionary(snapshot["setup"])
+	var validation := config.validate()
+	if not validation.success:
+		return {"success": false, "reason": "invalid_setup", "errors": validation.errors}
 
-	var simulator = BattleSetupFactoryScript.createSimulator(config)
+	var simulator: BattleSimulator = BattleSetupFactoryScript.createSimulator(config)
 	if version >= 3:
 		var initialState: Dictionary = snapshot.get("initialState", {})
 		var recordedRevision = int(initialState.get("mapRevision", simulator.state.mapRevision))

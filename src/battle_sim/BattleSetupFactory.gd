@@ -5,9 +5,11 @@ const BattleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
 const MapReferencesScript = preload("res://src/factories/MapReferences.gd")
 
 
-static func createSimulator(config, adapterFactory: Callable = Callable()):
-	var validation = config.validate()
-	assert(validation["success"], "Invalid battle setup: %s" % str(validation["errors"]))
+static func createSimulator(
+		config: BattleSetupConfig,
+		adapterFactory: Callable = Callable()) -> BattleSimulator:
+	var validation := config.validate()
+	assert(validation.success, "Invalid battle setup: %s" % validation.errorText())
 
 	var simulator = BattleSimulatorScript.new(config.seed)
 	simulator.loadMap(config.mapName)
@@ -15,7 +17,12 @@ static func createSimulator(config, adapterFactory: Callable = Callable()):
 	simulator.setSetupSnapshot(config.serialize())
 
 	if adapterFactory.is_valid():
-		simulator.setVisualAdapter(adapterFactory.call(simulator.state))
+		var adapter = adapterFactory.call(simulator.state)
+		assert(
+			adapter is IBattleVisualAdapter,
+			"adapterFactory must return an IBattleVisualAdapter."
+		)
+		simulator.setVisualAdapter(adapter)
 
 	for team in [1, 2]:
 		var roster: Array = config.team1 if team == 1 else config.team2

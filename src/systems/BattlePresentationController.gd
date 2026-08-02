@@ -45,7 +45,7 @@ var log_panel: PanelContainer
 
 var battle_ui: BattleUIRefs
 var setup_ui: BattleSetupUIRefs
-var current_config
+var current_config: BattleSetupConfig
 var lifecycle: Lifecycle = Lifecycle.SETUP
 ## Owns the player-turn phase machine. Null outside a battle. This controller
 ## routes input to it and reacts to its signals; it does not track phases.
@@ -361,8 +361,8 @@ func _update_duplicate_note() -> void:
 	)
 
 
-func _read_setup_config():
-	var config = BattleSetupConfigScript.new()
+func _read_setup_config() -> BattleSetupConfig:
+	var config: BattleSetupConfig = BattleSetupConfigScript.new()
 	var modeOption: OptionButton = setup_ui.mode_option
 	var mapOption: OptionButton = setup_ui.map_option
 	config.battleMode = modeOption.get_item_metadata(modeOption.selected)
@@ -374,15 +374,15 @@ func _read_setup_config():
 
 
 func _on_setup_confirmed() -> void:
-	var config = _read_setup_config()
-	var validation = config.validate()
-	if not validation["success"]:
-		setup_ui.error_label.text = "\n".join(validation["errors"])
+	var config := _read_setup_config()
+	var validation := config.validate()
+	if not validation.success:
+		setup_ui.error_label.text = validation.errorText()
 		return
 	_start_battle(config)
 
 
-func _start_battle(config) -> void:
+func _start_battle(config: BattleSetupConfig) -> void:
 	current_config = config
 	_pending_player_turn_id = -1
 	_cancel_deliberation()
@@ -429,7 +429,7 @@ func _start_battle(config) -> void:
 	turn_timer.start()
 
 
-func _create_visual_adapter(state: BattleState):
+func _create_visual_adapter(state: BattleState) -> IBattleVisualAdapter:
 	visual_adapter = GodotVisualAdapterScript.new(state, self, retro_renderer.world_root)
 	return visual_adapter
 

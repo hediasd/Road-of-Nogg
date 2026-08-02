@@ -65,9 +65,14 @@ On Confirm:
 1. `BattleSetupUI` produces a `BattleSetupConfig` containing mode, map, seed,
    controller ownership, and both four-monster rosters.
 2. `BattleSetupConfig.validate()` checks catalogs, roster sizes, the versioned
-   terrain/height schema, and every map-owned deployment slot.
-3. `BattleSetupFactory` creates and seeds the simulator, loads the selected map,
-   attaches the visual adapter, and deploys both teams.
+   terrain/height schema, and every map-owned deployment slot. It returns a
+   typed `BattleSetupValidationResult` (`success`, `errors`, `errorText()`),
+   not a dictionary.
+3. `BattleSetupFactory.createSimulator(config: BattleSetupConfig, adapterFactory)
+   -> BattleSimulator` creates and seeds the simulator, loads the selected map,
+   attaches the visual adapter, and deploys both teams. It asserts that a
+   supplied `adapterFactory` returns an `IBattleVisualAdapter` before attaching
+   it.
 4. `MonsterVisualRegistry` supplies an authored scene when registered;
    `GodotVisualAdapter` creates a procedural fallback otherwise.
 5. The controller starts the battle and round, then dispatches CPU turns or
@@ -75,6 +80,14 @@ On Confirm:
 
 Returning to setup disposes the active visual adapter, clears the simulator and
 player state, hides battle controls, and restores the setup overlay over the sky.
+
+The setup lifecycle is typed end to end — `BattleSetupConfig`,
+`BattleSetupValidationResult`, `BattleSimulator`, `IBattleVisualAdapter`. The
+deliberate exception is the serialization edge: `serialize()` and
+`fromDictionary()` exchange a `Dictionary` because the setup snapshot is stored
+in replay files, and the defaults in `fromDictionary()` keep older snapshots
+loadable. Catalog payloads, event history, and variable-shape resolver results
+likewise stay dictionaries.
 
 ## Controller-neutral command contract
 
