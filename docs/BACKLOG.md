@@ -19,6 +19,13 @@ implemented by the playable battle flow.
   tile-entered triggers after the command/effect contracts stabilize.
 - **Terrain and trajectory:** Add variable movement costs, specialized traversal,
   and explicitly designed lobbed/homing projectile clearance using `heightBoard`.
+- **`ThreatMap` sits in the wrong directory:** Every other file in
+  `src/algorithms/` depends only on `src/board/`, but `ThreatMap` takes
+  `BattleState` and the movement/combat resolvers, and is consumed only by
+  `src/entity_ai/`. There is no dependency cycle today, so this is a naming and
+  discoverability problem rather than a correctness one. Consider moving it to
+  `src/entity_ai/` so `algorithms/` can keep a single, enforceable dependency
+  rule.
 
 ## Presentation
 

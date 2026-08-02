@@ -34,6 +34,11 @@ Godot value types such as `Vector2i`, `Dictionary`, and
 `RandomNumberGenerator` are valid in the headless layer. Scene nodes, cameras,
 controls, and visual resources are not.
 
+For the per-directory breakdown — public entry points, allowed and forbidden
+dependencies, and a "where to make a change" table — see
+[`MODULE_MAP.md`](./MODULE_MAP.md). This section stays the authority on what
+the layers *mean*; the map is the routing detail.
+
 ## Authoritative state
 
 `BattleState` owns:

@@ -6,6 +6,7 @@ Use this page to find the source of truth instead of searching every document.
 |---|---|
 | [Project instructions](../AGENTS.md) | Concise operational rules for repository work |
 | [Policies](./POLICIES.md) | Engineering guardrails and verification policy |
+| [Module map](./MODULE_MAP.md) | Directory ownership, allowed dependencies, and where to make a change |
 | [Architecture](./ARCHITECTURE.md) | Current runtime ownership, boundaries, and data flow |
 | [Game design](./GAME_DESIGN.md) | Confirmed player-facing mechanics and constraints |
 | [UI / UX design](./UI_DESIGN.md) | Battle UI visual language, theme tokens, cursor and input model |
