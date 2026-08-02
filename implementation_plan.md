@@ -125,7 +125,21 @@ source imports after legacy removal.
 **Files:** new `docs/MODULE_MAP.md`, `docs/README.md`,
 `docs/ARCHITECTURE.md`; `docs/BACKLOG.md` only if needed.
 
-**Resolution:** Pending.
+**Resolution:** Implemented; pending end-of-plan validation. Added
+`docs/MODULE_MAP.md` with one row per production directory (responsibility,
+entry points, allowed/forbidden dependencies, owning doc), a dependency
+diagram, and a "where to make a change" table; linked it from
+`docs/README.md` and `docs/ARCHITECTURE.md`'s layer-boundaries section. The
+import audit found the headless layer clean — no `src/battle_sim/` or
+sibling directory imports `src/presentation/`, and only `src/factories/`
+reads `data/`. It also found one real asymmetry the map could not
+truthfully hide: `ThreatMap` (unlike the other five files in
+`src/algorithms/`) depends on `BattleState` and the movement/combat
+resolvers, because an accurate influence map needs the same rules combat
+uses. It creates no cycle — `src/battle_sim/` never imports it, only
+`src/entity_ai/` does — so the map documents it as a stated exception and
+`docs/BACKLOG.md` records the option of moving it to `src/entity_ai/`.
+Commit `b833f63`.
 
 ---
 
@@ -174,7 +188,21 @@ catalog and `serialize()`/`fromDictionary()` edges.
 **Behavior intentionally unchanged:** modes, seed defaults, team size,
 map/deployment checks, serialized keys, and replay-version support.
 
-**Resolution:** Pending.
+**Resolution:** Implemented; pending end-of-plan validation. Added
+`BattleSetupValidationResult` with typed `success`/`errors` and an
+`errorText()` helper; `BattleSetupConfig.validate()` now returns it,
+preserving every existing check and message. Typed
+`BattleSetupConfig.fromDictionary()` and
+`BattleSetupFactory.createSimulator(config, adapterFactory)`, which now
+asserts a non-null adapter-factory result implements
+`IBattleVisualAdapter` before attaching it. Typed the setup locals and
+signatures in `BattleReplayRunner` and `BattlePresentationController`
+(`current_config`, `_read_setup_config()`, `_start_battle()`). Dictionaries
+remain only at the catalog and `serialize()`/`fromDictionary()` edges, as
+scoped. A narrow headless probe confirmed a valid config validates and
+builds an 8-monster simulator, an invalid one reports typed errors, and a
+serialize/fromDictionary round trip preserves map, seed, and both rosters —
+an intermediate smoke check, not acceptance evidence. Commit `4798366`.
 
 ---
 
@@ -220,7 +248,22 @@ needed.
 **Behavior intentionally unchanged:** phases, queue pacing, animation order,
 cursor/overlay visuals, and battle-event signatures.
 
-**Resolution:** Pending.
+**Resolution:** Implemented; pending end-of-plan validation. Added
+`src/presentation/IPlayerTurnVisualAdapter.gd` extending
+`IBattleVisualAdapter`, owning `animation_queue_drained` and declaring only
+busy state, player/target cursor, target status, movement/target options,
+release, and overlay clearing. `GodotVisualAdapter` now extends it and
+inherits the drain signal rather than redeclaring it.
+`PlayerTurnController._adapter` and its constructor parameter are typed to
+the port; the separate `isAnimating` callable and drained-signal parameters
+are gone, so `_init` now takes exactly `(sim, adapter)`.
+`BattlePresentationController`'s construction/lifecycle wiring was updated
+to match while preserving disposal and disconnection. A narrow registration
+probe confirmed the port exposes all eight interactive methods,
+`GodotVisualAdapter`'s base resolves to it, the drain signal is declared
+exactly once, and `ConsoleVisualAdapter` is correctly not an interactive
+port — an intermediate smoke check, not acceptance evidence. Commit
+`99b641a`.
 
 ---
 
@@ -262,7 +305,20 @@ implementation; Git history is the old path's archive.
 **Files updated:** `README.md`, architecture/module docs,
 `docs/BACKLOG.md`; other backlogs only if stale.
 
-**Resolution:** Pending.
+**Resolution:** Implemented; pending end-of-plan validation. The reference
+closure audit found no autoload, no `res://` path, and no UID reference to
+any deletion target outside the closure itself — `project.godot`'s
+`run/main_scene` already pointed at `scenes/Battle25D.tscn`. Deleted
+`scenes/main.tscn`; the loose `BattleMaster`, `BattleSample`,
+`GameBoardVisual`, `Input`, `MainCamera`, `Spin`, and `SpinOnDemand`
+scripts; `src/systems/legacy/`; `src/presentation/legacy/`; and
+`scenes/prototypes/`, all with their tracked UID sidecars.
+`scripts/demo_battle.gd` was retained and re-verified clean of legacy
+references. Retired the rollback prose in `README.md` and
+`docs/ARCHITECTURE.md` (restated as a single-runtime section), dropped the
+settled prototype-shell entry from `docs/BACKLOG.md`, and reworded the
+`docs/UI_DESIGN.md` note about the menu tiles. A full repo sweep afterward
+found zero references to any removed path or class. Commit `3468d58`.
 
 ---
 
@@ -361,7 +417,25 @@ identified by the trace, and focused debug coverage if needed.
 **Behavior intentionally unchanged:** Ascension rules, combat stats, logical
 elevation, collision/selection geometry, and replay semantics.
 
-**Resolution:** Pending.
+**Resolution:** Implemented; pending end-of-plan validation. Added
+`MonsterReferences.ascensionTier()` as the single tier source: it walks the
+catalog's `ASCENDS_FROM` chain, guards against a cyclic or
+self-referential chain, and works unchanged for chains longer than the
+one link the data currently has. Added
+`BattleMeshFactory.createModelBase()`, which builds `ascensionTier + 1`
+stacked layers with their own darkened material inside a fixed
+`BASE_TOTAL_HEIGHT` budget, thinning each layer as the stack grows so
+footprint and origin stay fixed and total height never changes.
+`GodotVisualAdapter._on_monster_spawned()` now derives tier from the
+catalog by monster name rather than the spawned instance, so setup, replay
+reconstruction, and board refresh all build the same stack. The now-unused
+`capsule_base` mesh type was removed. A focused probe over tiers 0-3 caught
+a real defect on first run — the inter-layer gap was also applied above the
+top layer, leaving every stacked base 0.006 short of budget — fixed by
+placing gaps only between layers; the probe then passed with the stack top
+landing exactly on budget at every tier, footprint unchanged, and each base
+carrying its own material. Full visual acceptance was left to
+STRUCT-VALIDATE. Commit `a3ecff8`.
 
 ---
 
@@ -429,4 +503,49 @@ resource/icon resolution, and ascension-base visual layering.
    that deletion. Recover the plan with
    `git show <validation-ref>:implementation_plan.md`.
 
-**Resolution:** Pending.
+**Resolution:** Done. Static checks: root `AGENTS.md` is the only tracked
+instruction file; zero `STRUCT-` identifiers or `implementation_plan.md`
+links outside this file; zero references to any removed path or class
+anywhere in tracked files; every `res://` path (including the icon) and
+every Markdown link resolves; the four orphan images are untracked; no
+simulation-to-presentation import exists; the module map matches the
+tracked tree. Executable checks: the headless `--editor --quit` import
+probe exited clean with no parse/script errors;
+`scripts/demo_battle.gd` produced its `Battle complete!` marker; a
+fixed-seed setup/serialize/reconstruct/replay run reproduced the same
+round, winner, and zero monster-state mismatches. A real-window run
+(`debug/drive_battle.gd`, a synthetic-input driver over the actual
+`Battle25D.tscn` scene) covered CPU vs CPU start, pause/resume/playback,
+return-to-setup and a second battle, both Player vs CPU phase orders,
+undo, basic and spell targeting, pass, drain-before-menu, and
+cursor/overlay cleanup, with empty stderr and no icon/resource warnings.
+Ascension bases were verified through the real spawn path — tier 0 (Paper
+Cat) at 1 layer and tier 1 (Samarkand Stalker) at 2 layers, both landing
+exactly on the height budget — and confirmed visually in a rendered
+screenshot.
+
+Validation also found and fixed a defect outside any single item's diff:
+the local, gitignored Godot editor cache (`.godot/editor/editor_layout.cfg`
+and `project_metadata.cfg`) still listed `scenes/main.tscn` as an open tab
+from before STRUCT-5 deleted it. Any editor launch — including the import
+probe above — restored that tab, silently regenerating a bare copy of the
+deleted scene from cached state, with its `uid=` references to the three
+now-deleted scripts dropped because they no longer resolve. Loading a
+scene with dangling script references is the exact shape of bug behind a
+`Invalid access to property or key 'position' on a base object of type
+'Nil'` error reported mid-session. Removed the stale references from both
+cache files and the orphaned folding-state cache file, and deleted the
+regenerated scene; `git status` is clean of it. This is local machine
+state, not tracked history, so no separate commit was needed for it.
+
+The one open item genuinely outside this plan's scope: the monster catalog
+has exactly one ascension link, so a tier-2+ stacked base has been checked
+by direct construction (probed up to four layers) and via the spawn path
+at tier 1, but never rendered from a real multiply-ascended monster in
+battle. Recorded in `docs/BACKLOG.md` under Simulation and architecture as
+"No multiply-ascended monster exists to look at," naming that as the
+trigger to re-check proportions at that depth.
+
+All three backlogs were reconciled; no other stale entries were found.
+`git diff --check` was clean throughout. `implementation_plan.md` is
+cleared in this same commit.

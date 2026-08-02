@@ -37,6 +37,12 @@ implemented by the playable battle flow.
 - **Screen-space tactical outline:** Investigate a secondary viewport or mask
   pipeline for silhouettes visible through terrain without drawing over a
   monster's front faces. Treat this as a performance-sensitive rendering change.
+- **No multiply-ascended monster exists to look at:** The catalog has exactly
+  one ascension link (Paper Cat to Samarkand Stalker), so stacked bases beyond
+  two layers are only exercised by constructing them directly, never by a real
+  battle. The layering itself is tier-agnostic and was checked up to four
+  layers, but if a second ascension step is ever authored, look at it in the
+  real window before trusting the proportions at that depth.
 
 ## Testing and maintenance
 
