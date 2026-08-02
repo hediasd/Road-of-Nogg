@@ -3,7 +3,7 @@
 Status: current. Last reconciled: 2026-07-29.
 
 This document explains the project’s engineering guardrails. The concise rules
-for agents are in [`.agents/AGENTS.md`](../.agents/AGENTS.md); current commands
+for agents are in [`AGENTS.md`](../AGENTS.md); current commands
 and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
 
 ## Decision authority

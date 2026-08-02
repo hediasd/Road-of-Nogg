@@ -9,10 +9,11 @@ semantics — turn structure and command meaning live in
 [`GAME_DESIGN.md`](./GAME_DESIGN.md), and node ownership lives in
 [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
-This document is the contract. Whatever build work is currently open against it
-is tracked in [`implementation_plan.md`](../implementation_plan.md), which holds
-one cycle at a time and is reset when that cycle completes — so nothing here
-cites a plan item by name.
+This document is the contract: the six traits below are settled and
+implemented. Any future build work against this document belongs in
+[`BACKLOG_CRITICAL.md`](../BACKLOG_CRITICAL.md) or
+[`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md) depending on urgency, not in a
+transitory plan file, so nothing here cites a plan item by name.
 
 ---
 

@@ -4,7 +4,7 @@ Use this page to find the source of truth instead of searching every document.
 
 | Document | Owns |
 |---|---|
-| [Project instructions](../.agents/AGENTS.md) | Concise operational rules for repository work |
+| [Project instructions](../AGENTS.md) | Concise operational rules for repository work |
 | [Policies](./POLICIES.md) | Engineering guardrails and verification policy |
 | [Architecture](./ARCHITECTURE.md) | Current runtime ownership, boundaries, and data flow |
 | [Game design](./GAME_DESIGN.md) | Confirmed player-facing mechanics and constraints |
