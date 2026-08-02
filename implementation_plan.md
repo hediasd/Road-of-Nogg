@@ -261,7 +261,56 @@ that obeys §5 and §6.
 **Files:** `src/presentation/PlayerCommandMenu.gd`,
 `src/systems/BattlePresentationController.gd`, `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+`PlayerCommandMenu` gained a third cursor-driven surface: a `CONFIRM_CAPACITY`
+(2) window at `COMMAND_WIDTH` with its own `MenuCursor` and the standard gutter
+indent, docked at the command window's *own* origin in `_layout_windows()` so
+the cursor does not travel across the screen on a phase change. A `CONFIRM`
+mode joins `ROOT`/`SPELLS`, and rather than branch on `_mode` at each call
+site, the shared paths now read through two helpers (`_rows_for_mode()`,
+`_index_for_mode()`); `moveSelection`, `acceptSelection`, `_select`, hover,
+click, and wheel all route through them, so `moveSelection` still never
+rebuilds rows. `openConfirm()`/`closeConfirm()` mirror the spell pair, except
+they hide the command window rather than dimming it, per the settled decision.
+Activation goes out through the existing `entry_activated` signal with two new
+ids next to `BACK_ID`, and `_on_command_menu_entry` maps them to
+`confirmSelection()`/`cancel()` — `PlayerTurnController` gained no new API.
+
+Three things the item's Work list did not anticipate, all decided here:
+
+1. **The keyboard branch could not stay as written.** It called
+   `player_turn.confirmSelection()` directly on `ui_accept`. With a cursor now
+   in the phase, parking on `CANCEL` and pressing Enter would have committed
+   the action the player was backing out of. It now routes through
+   `command_menu.acceptSelection()`, which is also what makes the
+   "must not double-fire" requirement hold trivially: the menu emits
+   `entry_activated` exactly once and the controller owns what each id means.
+   `ui_up`/`ui_down` were added for the same reason — the phase had no cursor
+   before, so nothing moved one.
+2. **FEEL-5's skip binding had to be narrowed.** It claimed `ui_accept`
+   whenever `isAnimationBusy()`, on the reasoning that confirm is always over
+   before an animation starts. That is wrong when the queue is still draining
+   from the previous turn as a player turn opens — the stale animation would
+   eat the player's first confirm. It now also requires that no player turn is
+   active, or that the phase is `RESOLVING`. Recorded here rather than
+   silently, because it revises a shipped item.
+3. **Stranding is prevented structurally, not by enumeration.** Instead of
+   closing the window at each of confirm/cancel/rejection/turn-end,
+   `showRoot()` and `showPromptOnly()` — the only two ways any other phase
+   reaches the screen — both hide it unconditionally. A phase transition added
+   later cannot strand one.
+
+**Verified by a narrow parse probe** (`--check-only`), which `AGENTS.md` allows
+when later items cannot safely build on possibly-unparseable code, as five
+queued items build directly on this. It caught a real defect **in FEEL-4's
+already-committed code**, not in this item: `_pan_camera_to_active_unit()` used
+`:=` on two values returned from the deliberately untyped `retro_renderer`,
+which GDScript cannot infer, so `BattlePresentationController.gd` failed to
+parse entirely — FEEL-4 as committed did not load. Fixed here with explicit
+`Vector2`/`Rect2` annotations and a comment naming the cause. Every other file
+touched this cycle was then parse-checked and was clean, and both edited
+shaders were confirmed to compile and accept their new uniforms.
 
 ---
 

@@ -13,6 +13,7 @@ const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCa
 
 const ElementReferencesScript = preload("res://src/factories/ElementReferences.gd")
 const PlayerTurnControllerScript = preload("res://src/systems/PlayerTurnController.gd")
+const PlayerCommandMenuScript = preload("res://src/presentation/PlayerCommandMenu.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 const ResonanceBarScript = preload("res://src/presentation/theme/ResonanceBar.gd")
@@ -627,8 +628,11 @@ func _pan_camera_to_active_unit(monsterID: int) -> void:
 		camera.panFocusTo(worldPos)
 		return
 	var viewportPos := camera.unproject_position(worldPos)
-	var screenPos := retro_renderer.world_to_screen(viewportPos)
-	var visibleRect := retro_renderer.get_display_rect().grow(-CAMERA_FOCUS_EDGE_MARGIN)
+	# Annotated rather than inferred: `retro_renderer` is deliberately untyped
+	# (it is constructed with `_init(self)` and has no class_name), so its
+	# return values arrive as Variant and `:=` cannot infer from them.
+	var screenPos: Vector2 = retro_renderer.world_to_screen(viewportPos)
+	var visibleRect: Rect2 = retro_renderer.get_display_rect().grow(-CAMERA_FOCUS_EDGE_MARGIN)
 	if visibleRect.has_point(screenPos):
 		return
 	camera.panFocusTo(worldPos)
@@ -658,6 +662,8 @@ func _on_player_menu_changed() -> void:
 	var command_menu = battle_ui.command_menu
 	if player_turn.phase == PlayerTurnControllerScript.Phase.MENU and not command_menu.isShowingSpells():
 		command_menu.showRoot(player_turn.menuEntries())
+	elif player_turn.phase == PlayerTurnControllerScript.Phase.CONFIRM_ACTION:
+		command_menu.openConfirm()
 	elif player_turn.phase != PlayerTurnControllerScript.Phase.MENU:
 		command_menu.showPromptOnly()
 
@@ -726,17 +732,24 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE:
 		return
-	# Per-action animation skip. Bound to ui_accept rather than a new key: while
-	# an animation is playing, ui_accept is otherwise idle — CONFIRM_ACTION's own
-	# ui_accept branch below only fires in that phase, which is always over
-	# before an animation starts, and a CPU turn has no PlayerTurnController
-	# phase at all. Left un-echo-filtered on purpose: repeated presses (or the
-	# OS's own key-repeat while held) are exactly how "held or pressed" fast-
-	# forwards through several queued actions in a row.
+	# Per-action animation skip, bound to ui_accept rather than its own key.
+	# Only claims the key when ui_accept has no menu meaning: either no player
+	# turn is open (CPU playback, where skipping matters most) or the player's
+	# own action is resolving. During MENU, MOVE_SELECT, TARGET_SELECT, and
+	# CONFIRM_ACTION the key belongs to the command surface — the queue can
+	# still be draining from the previous turn when a player turn opens, so
+	# gating on isAnimationBusy() alone would let a stale animation swallow the
+	# player's first confirm. Left un-echo-filtered on purpose: repeated presses
+	# (or the OS's key-repeat while held) are how this fast-forwards through
+	# several queued actions in a row.
 	if (
 			event.is_action_pressed("ui_accept") and
 			visual_adapter != null and
-			visual_adapter.isAnimationBusy()
+			visual_adapter.isAnimationBusy() and
+			(
+				not _player_turn_active() or
+				player_turn.phase == PlayerTurnControllerScript.Phase.RESOLVING
+			)
 	):
 		visual_adapter.skipCurrentAnimation()
 		get_viewport().set_input_as_handled()
@@ -789,10 +802,26 @@ func _unhandled_input(event: InputEvent) -> void:
 				command_menu.acceptSelection()
 				get_viewport().set_input_as_handled()
 				return
-		if player_turn.phase == PlayerTurnControllerScript.Phase.CONFIRM_ACTION and event.is_action_pressed("ui_accept"):
-			player_turn.confirmSelection()
-			get_viewport().set_input_as_handled()
-			return
+		# The confirm phase is cursor-driven now, so ui_accept must activate
+		# whichever row the cursor is on rather than hardcoding a confirm — with
+		# the cursor parked on CANCEL, calling confirmSelection() here would
+		# commit the very action the player was backing out of. Routing through
+		# acceptSelection() is also what keeps this from double-firing: the menu
+		# emits entry_activated exactly once, and _on_command_menu_entry owns
+		# what each id means.
+		if player_turn.phase == PlayerTurnControllerScript.Phase.CONFIRM_ACTION:
+			if event.is_action_pressed("ui_up"):
+				command_menu.moveSelection(-1)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed("ui_down"):
+				command_menu.moveSelection(1)
+				get_viewport().set_input_as_handled()
+				return
+			if event.is_action_pressed("ui_accept"):
+				command_menu.acceptSelection()
+				get_viewport().set_input_as_handled()
+				return
 		if event.is_action_pressed("ui_cancel"):
 			player_turn.cancel()
 			get_viewport().set_input_as_handled()
@@ -962,6 +991,15 @@ func _on_dump_state_pressed() -> void:
 
 func _on_command_menu_entry(entryID: String) -> void:
 	if not _player_turn_active():
+		return
+	# The confirm window emits through this same signal, so confirming and
+	# cancelling stay on the one activation path every other command uses.
+	# `PlayerTurnController` gains no new API for them: both already exist.
+	if entryID == PlayerCommandMenuScript.CONFIRM_ID:
+		player_turn.confirmSelection()
+		return
+	if entryID == PlayerCommandMenuScript.CANCEL_ID:
+		player_turn.cancel()
 		return
 	if entryID == PlayerTurnControllerScript.ENTRY_MAGIC:
 		battle_ui.command_menu.openSpells(player_turn.spellEntries())

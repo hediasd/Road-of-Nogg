@@ -28,7 +28,13 @@ const MenuCursorScript = preload("res://src/presentation/theme/MenuCursor.gd")
 
 const ROOT := "root"
 const SPELLS := "spells"
+const CONFIRM := "confirm"
 const BACK_ID := "__back"
+## Emitted through the existing `entry_activated` signal rather than a new one,
+## so the controller keeps a single activation path for every command surface.
+## Prefixed like BACK_ID to stay clear of `PlayerTurnController`'s own entry ids.
+const CONFIRM_ID := "__confirm"
+const CANCEL_ID := "__cancel"
 
 # Widths from docs/UI_DESIGN.md §8 — measured against the shipping font at
 # size 24, not chosen. Do not tune without rerunning debug/preview_theme.gd.
@@ -50,6 +56,8 @@ const COMMAND_CAPACITY := 5
 ## actual contents on open (see `_rebuild_spell_rows`) rather than always
 ## reserving the maximum.
 const SPELL_MAX_CAPACITY := 8
+## CONFIRM / CANCEL, and it can never be anything else.
+const CONFIRM_CAPACITY := 2
 
 ## Uppercase is applied to command labels at render time, never to the model.
 ## `PlayerTurnController.menuEntries()` keeps returning "Undo" — that
@@ -64,8 +72,10 @@ var _prompt_window: NoggWindow
 var _forecast_window: NoggWindow
 var _command_window: NoggWindow
 var _spell_window: NoggWindow
+var _confirm_window: NoggWindow
 var _command_cursor: MenuCursor
 var _spell_cursor: MenuCursor
+var _confirm_cursor: MenuCursor
 
 var _entries: Array = []
 var _spells: Array = []
@@ -74,8 +84,10 @@ var _spells: Array = []
 ## set/spell indices needed to emit `spell_activated`.
 var _root_rows: Array = []
 var _spell_rows: Array = []
+var _confirm_rows: Array = []
 var _root_index := -1
 var _spell_index := -1
+var _confirm_index := -1
 var _mode := ROOT
 var _prompt_text := ""
 
@@ -90,22 +102,32 @@ func _ready() -> void:
 	_command_window = _build_window(COMMAND_WIDTH, COMMAND_CAPACITY)
 	_spell_window = _build_window(SPELL_WIDTH, SPELL_MAX_CAPACITY)
 	_spell_window.visible = false
-	# Only the two cursor-driven windows reserve the gutter. The prompt and
+	# Same width as the command window, and docked on top of it, so the cursor
+	# does not travel when the phase changes (§5: the cursor snaps between
+	# windows, it does not fly).
+	_confirm_window = _build_window(COMMAND_WIDTH, CONFIRM_CAPACITY)
+	_confirm_window.visible = false
+	# Only the cursor-driven windows reserve the gutter. The prompt and
 	# forecast have no cursor, so indenting them would just look misaligned.
 	_command_window.set_content_indent(NoggThemeScript.CURSOR_GUTTER_WIDTH)
 	_spell_window.set_content_indent(NoggThemeScript.CURSOR_GUTTER_WIDTH)
+	_confirm_window.set_content_indent(NoggThemeScript.CURSOR_GUTTER_WIDTH)
 
 	_command_cursor = _build_cursor(_command_window)
 	_spell_cursor = _build_cursor(_spell_window)
 	_spell_cursor.set_visible_cursor(false)
+	_confirm_cursor = _build_cursor(_confirm_window)
+	_confirm_cursor.set_visible_cursor(false)
 
 	_command_window.gui_input.connect(_on_window_gui_input.bind(ROOT))
 	_spell_window.gui_input.connect(_on_window_gui_input.bind(SPELLS))
+	_confirm_window.gui_input.connect(_on_window_gui_input.bind(CONFIRM))
 	# Row construction lives inside NoggWindow for paging; it reports
 	# each built Control back so wiring can still happen here, per row, exactly
 	# as it did when this file built rows itself.
 	_command_window.row_built.connect(_on_root_row_built)
 	_spell_window.row_built.connect(_on_spell_row_built)
+	_confirm_window.row_built.connect(_on_confirm_row_built)
 	# Only the spell window can ever page (the command list's true maximum is
 	# 5, under COMMAND_CAPACITY), but wiring both costs nothing and needs no
 	# special-casing later if that ever changes.
@@ -140,6 +162,12 @@ func setForecast(text: String) -> void:
 func showRoot(entries: Array) -> void:
 	_mode = ROOT
 	_entries = entries.duplicate(true)
+	# Unconditional rather than gated on `_mode == CONFIRM`: this and
+	# `showPromptOnly()` are the two ways any phase other than confirm reaches
+	# the screen, so hiding the confirm window in both makes it impossible to
+	# strand one on a path nobody anticipated — a rejected action, a turn
+	# ending early, or a phase transition added later.
+	_hide_confirm_window()
 	_command_window.visible = true
 	_command_cursor.set_visible_cursor(true)
 	_command_window.set_active(true)
@@ -152,11 +180,23 @@ func showRoot(entries: Array) -> void:
 ## what they are aiming at.
 func showPromptOnly() -> void:
 	_mode = ROOT
+	_hide_confirm_window()
 	_command_window.visible = false
 	_spell_window.visible = false
 	_command_cursor.set_visible_cursor(false)
 	_spell_cursor.set_visible_cursor(false)
 	_refresh_prompt()
+
+
+## Hides instantly rather than through `NoggWindow.close()`, unlike the spell
+## column. Every caller is a phase transition that immediately shows a
+## different window at this same origin, and cross-fading two windows over one
+## another there reads as a smear; `close()`'s await would also let a stale
+## hide land after the next phase had already opened. `open()` resets alpha and
+## scale on the way back in, so an interrupted open self-heals.
+func _hide_confirm_window() -> void:
+	_confirm_window.visible = false
+	_confirm_cursor.set_visible_cursor(false)
 
 
 func openSpells(spells: Array) -> void:
@@ -191,6 +231,45 @@ func isShowingSpells() -> bool:
 	return _mode == SPELLS
 
 
+## The confirm phase's own surface. Unlike `openSpells()`, which leaves its
+## parent on screen and dimmed, this *hides* the command and spell windows:
+## confirm replaces the command list rather than descending from it, so leaving
+## a dimmed parent behind would imply a hierarchy that is not there.
+func openConfirm() -> void:
+	if _mode == CONFIRM:
+		return
+	_mode = CONFIRM
+	_command_window.visible = false
+	_command_cursor.set_visible_cursor(false)
+	_spell_window.visible = false
+	_spell_cursor.set_visible_cursor(false)
+	_rebuild_confirm_rows()
+	_confirm_window.open()
+	_confirm_cursor.set_visible_cursor(true)
+	# Snap, never tween: the cursor does not fly between windows (§5).
+	_select(_first_selectable(_confirm_rows), false)
+	_refresh_prompt()
+
+
+## Restores the command window exactly as the player left it. Deliberately no
+## rebuild of its rows and no cursor move — its content did not change while
+## the confirm window was up.
+func closeConfirm() -> bool:
+	if _mode != CONFIRM:
+		return false
+	_mode = ROOT
+	_hide_confirm_window()
+	_command_window.visible = true
+	_command_window.set_active(true)
+	_command_cursor.set_visible_cursor(true)
+	_refresh_prompt()
+	return true
+
+
+func isShowingConfirm() -> bool:
+	return _mode == CONFIRM
+
+
 # --- read-only selection observation ---------------------------------------
 #
 # Exists so harnesses (debug/drive_battle.gd) can assert on what is selected
@@ -218,23 +297,45 @@ func selectedSpellId() -> String:
 	return _id_at(_spell_rows, _spell_index)
 
 
+## Id of the row the confirm cursor is on: CONFIRM_ID, CANCEL_ID, or "".
+func selectedConfirmId() -> String:
+	return _id_at(_confirm_rows, _confirm_index)
+
+
 ## Selection-only path. Must not rebuild rows — see the note at the top.
 func moveSelection(direction: int) -> void:
-	var rows := _spell_rows if _mode == SPELLS else _root_rows
+	var rows := _rows_for_mode()
 	var selectable := _selectable_indices(rows)
 	if selectable.is_empty():
 		return
-	var current := _spell_index if _mode == SPELLS else _root_index
+	var current := _index_for_mode()
 	var at := selectable.find(current)
 	at = 0 if at < 0 else posmod(at + direction, selectable.size())
 	_select(selectable[at], true)
 
 
 func acceptSelection() -> void:
-	if _mode == SPELLS:
-		_activate_spell_row(_spell_index)
-	else:
-		_activate_root_row(_root_index)
+	match _mode:
+		SPELLS: _activate_spell_row(_spell_index)
+		CONFIRM: _activate_confirm_row(_confirm_index)
+		_: _activate_root_row(_root_index)
+
+
+## The three cursor-driven surfaces differ only in which arrays they read, so
+## every shared path (movement, selection, hover, click, wheel) goes through
+## these rather than branching on `_mode` at each site.
+func _rows_for_mode() -> Array:
+	match _mode:
+		SPELLS: return _spell_rows
+		CONFIRM: return _confirm_rows
+		_: return _root_rows
+
+
+func _index_for_mode() -> int:
+	match _mode:
+		SPELLS: return _spell_index
+		CONFIRM: return _confirm_index
+		_: return _root_index
 
 
 ## Explicit page navigation (§7a, item 4): ui_left/ui_right and the footer's
@@ -320,8 +421,26 @@ func _rebuild_spell_rows() -> void:
 	_spell_window.set_full_rows(descriptors)
 
 
+func _rebuild_confirm_rows() -> void:
+	_confirm_rows.clear()
+	var descriptors: Array = []
+	for row in [
+		{"id": CONFIRM_ID, "label": "Confirm"},
+		{"id": CANCEL_ID, "label": "Cancel"}
+	]:
+		descriptors.append({
+			"label": _display(str(row["label"])), "value": "", "disabled": false
+		})
+		_confirm_rows.append({"id": str(row["id"]), "enabled": true})
+	_confirm_window.set_full_rows(descriptors)
+
+
 func _on_root_row_built(row: Control, full_index: int) -> void:
 	_wire_row(row, ROOT, full_index, bool(_root_rows[full_index]["enabled"]))
+
+
+func _on_confirm_row_built(row: Control, full_index: int) -> void:
+	_wire_row(row, CONFIRM, full_index, bool(_confirm_rows[full_index]["enabled"]))
 
 
 func _on_spell_row_built(row: Control, full_index: int) -> void:
@@ -353,12 +472,19 @@ func _spell_id(spell: Dictionary) -> String:
 func _select(index: int, animate: bool) -> void:
 	if index < 0:
 		return
-	var window := _spell_window if _mode == SPELLS else _command_window
-	var cursor := _spell_cursor if _mode == SPELLS else _command_cursor
-	if _mode == SPELLS:
-		_spell_index = index
-	else:
-		_root_index = index
+	var window := _command_window
+	var cursor := _command_cursor
+	match _mode:
+		SPELLS:
+			window = _spell_window
+			cursor = _spell_cursor
+			_spell_index = index
+		CONFIRM:
+			window = _confirm_window
+			cursor = _confirm_cursor
+			_confirm_index = index
+		_:
+			_root_index = index
 	# §7b: the row under the cursor marquees if its label overflows. Every
 	# selection change goes through here (via focus_index()), so this is the
 	# one place that needs to know about it.
@@ -409,6 +535,14 @@ func _activate_root_row(index: int) -> void:
 	entry_activated.emit(str(_root_rows[index]["id"]))
 
 
+func _activate_confirm_row(index: int) -> void:
+	if index < 0 or index >= _confirm_rows.size():
+		return
+	# Both rows are always enabled, and both leave the phase, so the controller
+	# — not this node — decides what confirming or cancelling means.
+	entry_activated.emit(str(_confirm_rows[index]["id"]))
+
+
 func _activate_spell_row(index: int) -> void:
 	if index < 0 or index >= _spell_rows.size():
 		return
@@ -450,10 +584,12 @@ func _on_row_gui_input(event: InputEvent, which: String, index: int) -> void:
 	match event.button_index:
 		MOUSE_BUTTON_LEFT:
 			_select(index, true)
-			if _mode == SPELLS:
-				_activate_spell_row(index)
-			else:
-				_activate_root_row(index)
+			# Same dispatch as acceptSelection()'s, so a click and a keypress on
+			# the same row can never mean two different things.
+			match _mode:
+				SPELLS: _activate_spell_row(index)
+				CONFIRM: _activate_confirm_row(index)
+				_: _activate_root_row(index)
 			accept_event()
 		MOUSE_BUTTON_WHEEL_UP:
 			moveSelection(-1)
@@ -513,6 +649,10 @@ func _layout_windows() -> void:
 	_spell_window.position = Vector2(
 		left + COMMAND_WIDTH + NoggThemeScript.WINDOW_STACK_GAP, command_y
 	)
+	# Directly on top of the command window's own origin, not beside it: the
+	# confirm window replaces the command list, so the cursor stays exactly
+	# where the player last saw it instead of travelling across the screen.
+	_confirm_window.position = Vector2(left, command_y)
 
 	# Directly above the command window and left-aligned with it. §8 asks for
 	# right-aligned, which cannot hold at this font size: the forecast needs

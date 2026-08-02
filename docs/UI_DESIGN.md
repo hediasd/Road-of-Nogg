@@ -494,7 +494,8 @@ mapping remains in the root viewport's logical coordinate space.
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
 | **Actor status** | Bottom-left, fixed | 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3 |
 | **Target** | Bottom-right, fixed | 540 × 6 rows | Same fixed-cell shape as actor status; shows an empty frame, not a hidden window, when there is no target |
-| **Forecast** | Above Command, **left-aligned** with it | 460 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible only during confirm |
+| **Confirm** | Same origin as Command, replacing it | 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
+| **Forecast** | Above Command, **left-aligned** with it | 460 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible while aiming *and* while confirming |
 | **Prompt** | Top-centre | auto, 1 row | `Select a destination`, `Select a target` — replaces today's status label |
 | **Battle log** | Right edge, full height | scrolling | The one deliberate exception to trait 5; a log is a scrollback, not a menu |
 
