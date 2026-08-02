@@ -650,7 +650,49 @@ whatever the pacing.
 `src/systems/BattlePresentationController.gd`, the battle UI scene for the
 setting.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+`GodotVisualAdapter._animation_speed_scale` (clamped 0.1–8.0) is applied
+through a single new choke point, `_activateScaled()`, which every timed
+animation now calls instead of `_queue.activate()` directly (move, bump,
+defeat — the three sites that existed). It calls `Tween.set_speed_scale()` on
+the action's own tween and divides the duration handed to
+`VisualActionQueue.activate()` by the same factor, since that duration only
+ever sizes the watchdog margin — leaving it unscaled would let slow motion's
+longer real playback time outrun a watchdog armed for the original speed and
+misreport a stall. The defeat animation's capsule-shatter `GPUParticles3D`
+also gets `speed_scale` set from the same value, in-scope since it's built
+inline in the same file; `SpellCastAura`'s own independent tween is not, and
+is left to FEEL-13, which already owns reconciling effect lifetimes with the
+queue.
+
+Skip is a new `VisualActionQueue.skipActive()`: finalizes the active action
+and bumps the queue's serial exactly as the watchdog path does, but without
+its warning, then advances via the existing deferred `startNext()` — which is
+what actually emits `drained` when the queue empties, so
+`_resolveThenReturnToMenu`'s wait is satisfied. Bound in
+`BattlePresentationController._unhandled_input` to `ui_accept` (not a new key)
+whenever `visual_adapter.isAnimationBusy()`, deliberately not filtered on
+`event.echo` so a held key's OS repeat cascades through several queued
+actions. This is broader than the item's literal "during `RESOLVING`" wording:
+`RESOLVING` is a `PlayerTurnController` phase and does not exist during a CPU
+turn, but `isAnimationBusy()` covers both, and nothing in `ui_accept`'s
+existing handling conflicts — `CONFIRM_ACTION`'s own `ui_accept` branch has
+already resolved to a different phase by the time an animation is playing.
+
+The speed control is a second slider in the dev canvas's existing top row,
+next to the CPU-pacing slider it is not to be confused with (that one paces
+`turn_timer`, i.e. how often a CPU turn *begins*; this one paces how long one
+action's animation *takes*), wired through
+`BattleUIBuilder`/`BattleUIRefs`/`_on_anim_speed_changed`.
+
+Every file touched (`GodotVisualAdapter.gd`, `VisualActionQueue.gd`,
+`BattleCameraController.gd` from FEEL-4, `BattlePresentationController.gd`,
+`BattleUIBuilder.gd`, `BattleUIRefs.gd`) is presentation or scene-level; no
+`src/battle_sim/` or `src/entities/` file was touched, so the simulation is
+untouched by construction. Per `AGENTS.md`'s per-item execution rule — full
+manual/replay validation runs once, in the plan's own final validation item,
+not after each implementation item — the actual replay-diff called for by
+this item's Work step 5 is deferred to `PLAN-VALIDATE` rather than run now.
 
 ---
 

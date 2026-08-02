@@ -149,6 +149,26 @@ func activate(tween: Tween, action: VisualAction, duration: float) -> void:
 	_armWatchdog(serial)
 
 
+func skipActive() -> void:
+	## Player-requested fast-forward of only the active action; unlike
+	## recover(), the queue behind it is untouched. Mirrors the watchdog's own
+	## completion path — finalize, clear, advance — but prints no warning: this
+	## is the player asking, not the queue failing. Bumping the serial (as
+	## recover() also does) invalidates the watchdog armed for this action, so
+	## it cannot later fire against whatever activates next.
+	if _disposed or not _isAnimating:
+		return
+	_serial += 1
+	var completed := _activeAction
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	_finalizeAction.call(completed)
+	_isAnimating = false
+	_tween = null
+	_activeAction = null
+	startNext.call_deferred()
+
+
 func recover() -> void:
 	## Abandons the in-flight action and everything queued behind it, then hands
 	## back to the owner to re-derive visuals from authoritative state.

@@ -171,6 +171,34 @@ func isVisualPaused() -> bool:
 	return _queue.isPaused()
 
 
+## Presentation-only pacing: never read by the simulation, never affects event
+## ordering or replay input. Floored well above zero so a slider dragged to its
+## minimum cannot produce a zero-duration tween, which Tween.set_speed_scale()
+## would turn into an instant, watchdog-defeating jump.
+var _animation_speed_scale: float = 1.0
+
+func setAnimationSpeedScale(scale: float) -> void:
+	_animation_speed_scale = clampf(scale, 0.1, 8.0)
+
+
+func getAnimationSpeedScale() -> float:
+	return _animation_speed_scale
+
+
+## The one path every timed animation activates through. Scales the tween's
+## own playback rate and, by the same factor, the duration handed to the
+## queue — that duration only ever drives the watchdog margin, so if it were
+## left unscaled, slow motion would let the watchdog fire before the (now
+## longer) tween actually finishes and misreport a stall.
+func _activateScaled(tween: Tween, action: VisualAction, duration: float) -> void:
+	tween.set_speed_scale(_animation_speed_scale)
+	_queue.activate(tween, action, duration / _animation_speed_scale)
+
+
+func skipCurrentAnimation() -> void:
+	_queue.skipActive()
+
+
 func _start_queued_animation(action: VisualAction) -> bool:
 	match action.kind:
 		VisualAction.Kind.FOCUS:
@@ -656,7 +684,7 @@ func _start_move_animation(action: VisualAction) -> bool:
 		).set_ease(Tween.EASE_IN)
 		visualStart = targetPos
 		totalDuration += stepDuration
-	_queue.activate(tween, action, totalDuration)
+	_activateScaled(tween, action, totalDuration)
 	return true
 
 
@@ -675,7 +703,7 @@ func _start_defeat_animation(action: VisualAction) -> bool:
 	tween.tween_property(body, "scale", Vector3.ZERO, 0.38).set_trans(Tween.TRANS_BACK)
 	tween.tween_property(body, "position", capsuleTarget, 0.38).set_trans(Tween.TRANS_QUAD)
 	_spawn_capsule_shatter(container, baseMesh)
-	_queue.activate(tween, action, 0.38)
+	_activateScaled(tween, action, 0.38)
 	return true
 
 func _disable_selection_collision(container: Node3D) -> void:
@@ -708,6 +736,7 @@ func _spawn_capsule_shatter(container: Node3D, baseMesh: MeshInstance3D) -> void
 	fragment.size = Vector3(0.07, 0.035, 0.07)
 	particles.draw_pass_1 = fragment
 	particles.material_override = baseMesh.material_override
+	particles.speed_scale = _animation_speed_scale
 	container.add_child(particles)
 	baseMesh.visible = false
 	particles.emitting = true
@@ -740,7 +769,7 @@ func _start_bump_animation(action: VisualAction) -> bool:
 	_track_position_tween(sourceID, tween)
 	tween.tween_property(sourceVisual, "position", bumpPos, 0.1)
 	tween.tween_property(sourceVisual, "position", originalPos, 0.15)
-	_queue.activate(tween, action, 0.25)
+	_activateScaled(tween, action, 0.25)
 	return true
 
 func highlight_monster(monster_id: int) -> void:

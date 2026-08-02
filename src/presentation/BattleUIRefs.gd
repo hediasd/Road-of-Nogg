@@ -6,6 +6,7 @@ var game_canvas: CanvasLayer
 var dev_canvas: CanvasLayer
 var turn_timer: Timer
 var play_button: Button
+var anim_speed_slider: HSlider
 var graphics_button: Button
 var graphics: BattleGraphicsMenuRefs
 var actor_window: NoggWindow

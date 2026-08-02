@@ -73,6 +73,21 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	speedSlider.value_changed.connect(callbacks["speed_changed"])
 	topRow.add_child(speedSlider)
 
+	# A second, independent pacing control: `speedSlider` above paces how often
+	# a CPU turn begins, not how long any one action's animation takes to play.
+	var animSpeedLabel = Label.new()
+	animSpeedLabel.text = "  Anim:"
+	topRow.add_child(animSpeedLabel)
+	var animSpeedSlider = HSlider.new()
+	animSpeedSlider.custom_minimum_size = Vector2(100, 20)
+	animSpeedSlider.min_value = 0.25
+	animSpeedSlider.max_value = 4.0
+	animSpeedSlider.step = 0.25
+	animSpeedSlider.value = 1.0
+	animSpeedSlider.tooltip_text = "Action/spell/defeat animation playback speed."
+	animSpeedSlider.value_changed.connect(callbacks["anim_speed_changed"])
+	topRow.add_child(animSpeedSlider)
+
 	var newBattleButton = Button.new()
 	newBattleButton.text = "New Battle"
 	newBattleButton.tooltip_text = "Return to setup and discard the current battle."
@@ -217,6 +232,7 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	refs.dev_canvas = dev_canvas
 	refs.turn_timer = turnTimer
 	refs.play_button = playButton
+	refs.anim_speed_slider = animSpeedSlider
 	refs.graphics_button = graphicsButton
 	refs.graphics = graphicsMenu
 	refs.actor_window = actorWindow

@@ -120,6 +120,7 @@ func _build_battle_ui() -> void:
 	battle_ui = BattleUIBuilderScript.build(self, {
 		"play_toggled": Callable(self, "_on_play_toggled"),
 		"speed_changed": Callable(self, "_on_speed_changed"),
+		"anim_speed_changed": Callable(self, "_on_anim_speed_changed"),
 		"turn_timeout": Callable(self, "_on_turn_timer_timeout"),
 		"new_battle_pressed": Callable(self, "_on_new_battle_pressed"),
 		"screenshot_pressed": Callable(self, "_on_screenshot_pressed"),
@@ -458,6 +459,11 @@ func _on_speed_changed(value: float) -> void:
 		turn_timer.start()
 
 
+func _on_anim_speed_changed(value: float) -> void:
+	if visual_adapter != null:
+		visual_adapter.setAnimationSpeedScale(value)
+
+
 func _on_turn_timer_timeout() -> void:
 	_advance_battle()
 
@@ -689,6 +695,21 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE:
+		return
+	# Per-action animation skip. Bound to ui_accept rather than a new key: while
+	# an animation is playing, ui_accept is otherwise idle — CONFIRM_ACTION's own
+	# ui_accept branch below only fires in that phase, which is always over
+	# before an animation starts, and a CPU turn has no PlayerTurnController
+	# phase at all. Left un-echo-filtered on purpose: repeated presses (or the
+	# OS's own key-repeat while held) are exactly how "held or pressed" fast-
+	# forwards through several queued actions in a row.
+	if (
+			event.is_action_pressed("ui_accept") and
+			visual_adapter != null and
+			visual_adapter.isAnimationBusy()
+	):
+		visual_adapter.skipCurrentAnimation()
+		get_viewport().set_input_as_handled()
 		return
 	if (
 			event is InputEventMouseButton and
