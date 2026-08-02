@@ -1052,7 +1052,54 @@ not one the presentation layer hopes for.
 `src/battle_sim/CombatResolver.gd`, `src/battle_sim/DirectDamageRules.gd`, plus
 whatever the sweep in step 1 turns up.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation. **This item turned
+out to be far lower risk than it was written as**, for two reasons found by
+inspection rather than assumed.
+
+**The sweep found only one file, not four.** Every write to the six stats is
+either in `Monster.gd` itself (construction from derived stats; `take_damage`'s
+`max(0, ...)`; `heal`'s `min(max_hitpoints, ...)`) or in
+`BattleStateSerializer.gd`'s deserialization. `CombatResolver`,
+`SpellEffectResolver`, and `DirectDamageRules` only *read* these fields to
+populate events; they mutate HP exclusively through `take_damage`/`heal`.
+
+**The item's "one real design decision" is moot.** Buffs never write a stat.
+`_applyAttackBuff()` stores `{"atk_bonus": N}` as a status effect, and
+`_statBonus()` sums those at damage time on top of `get_effective_atk()`. So
+there is no stored absolute to clamp and nothing for expiry to restore — the
+feared "expiry restores a value the clamp already discarded" is structurally
+impossible, not merely avoided.
+
+**Mechanism:** property setters on the six fields, not a helper. A helper only
+binds callers who remember it; a setter cannot be bypassed, including by code
+written later. Assigning to a property inside its own setter does not re-enter
+it in GDScript 4 — verified with a throwaway probe before relying on it, since
+a wrong assumption there is a runtime stack overflow that no parse check would
+catch.
+
+**Scope held deliberately at stored stats.** `get_effective_atk()`'s Resonance
+multiplier and the buff bonus can still carry a *derived* total past 999. Those
+are not clamped: the status windows FEEL-10 formats render the stored fields,
+and bounding combat math would change outcomes rather than what a readout can
+show — a balance change this item does not own.
+
+**Floors checked (step 4), nothing raised.** `TurnManager.sortBySpeed()` only
+sorts, with an id tie-break and no division, so a 0-speed unit still takes
+turns, last. `move` 0 leaves a unit only its own tile, which
+`_enterMoveSelect()` already appends unconditionally. Neither is reachable from
+authored data today; both degrade sensibly if they ever are.
+
+**Replay divergence: none is possible on current data**, so step 6's "explain
+every divergence" has nothing to explain. The whole catalogue tops out at
+HP 60 / ATK 8 / DEF 8 with every growth at 0 (identical at levels 1, 50, and
+99) — more than an order of magnitude below the bound. A focused probe
+confirmed all six stats clamp on write, that ordinary damage, death at exactly
+0, and healing after death are unchanged, and that **no** catalogue monster at
+levels 1/50/99 lands on or beyond either bound. The clamp is therefore a
+guarantee for future data and for FEEL-10's three-digit assumption, not a
+change to any battle that can currently be played. `PLAN-VALIDATE`'s replay
+diff should accordingly expect **zero** divergence from this item, not
+clamp-explained divergence.
 
 ---
 

@@ -5,12 +5,41 @@ const MonsterStatCalculatorScript = preload("res://src/battle_sim/MonsterStatCal
 var uniqueID: int
 var name: String = "Dump"
 
-var hitpoints: int = 1
-var max_hitpoints: int = 1
-var move: int = 1
-var atk: int = 1
-var def: int = 1
-var speed: int = 1
+## Every battle stat is bounded to what the status windows can display without
+## reflowing. The bound is enforced by property setters rather than a helper
+## every caller must remember to route through: a setter cannot be bypassed,
+## including by code written later, and there is no second "unclamped" door.
+##
+## Assigning to a property inside its own setter does not re-enter the setter
+## in GDScript 4 — it writes the backing value directly — so these do not
+## recurse.
+##
+## Deliberately bounds the *stored* stats only, the ones the status windows
+## render. Derived values are left alone: `get_effective_atk()`'s Resonance
+## multiplier and the `atk_bonus` that buffs contribute at damage time can
+## still carry a total past 999, and clamping those would change combat
+## outcomes rather than what a readout can show.
+const STAT_MIN := 0
+const STAT_MAX := 999
+
+var hitpoints: int = 1:
+	set(value):
+		hitpoints = clampi(value, STAT_MIN, STAT_MAX)
+var max_hitpoints: int = 1:
+	set(value):
+		max_hitpoints = clampi(value, STAT_MIN, STAT_MAX)
+var move: int = 1:
+	set(value):
+		move = clampi(value, STAT_MIN, STAT_MAX)
+var atk: int = 1:
+	set(value):
+		atk = clampi(value, STAT_MIN, STAT_MAX)
+var def: int = 1:
+	set(value):
+		def = clampi(value, STAT_MIN, STAT_MAX)
+var speed: int = 1:
+	set(value):
+		speed = clampi(value, STAT_MIN, STAT_MAX)
 var luck: int = 0
 var level: int = 1
 var jump: int = 1
