@@ -78,7 +78,15 @@ the wrong architecture, validation, or plan-lifecycle rules.
 **Files:** `AGENTS.md`, `.agents/AGENTS.md`, `docs/README.md`,
 `docs/POLICIES.md`, `docs/UI_DESIGN.md`; backlogs only if necessary.
 
-**Resolution:** Pending.
+**Resolution:** Implemented; pending end-of-plan validation. Merged
+`.agents/AGENTS.md`'s architecture, working-safety, doc-routing, and
+verification rules into root `AGENTS.md`; deleted `.agents/AGENTS.md` (the
+directory was then empty). Retargeted `docs/README.md` and
+`docs/POLICIES.md` at `../AGENTS.md`. Rewrote `docs/UI_DESIGN.md`'s opening
+to state its durable status and route open work to the backlogs instead of
+`implementation_plan.md`. Repo-wide sweep found no other alternative
+instruction file, old-path reference, or persistent plan link; no backlog
+entry was needed. Commit `525f3a6`.
 
 ---
 
@@ -295,7 +303,18 @@ preserved and excluded.
 `pawn.jpg`, `pawn.jpg.import`, `turbosquid.jpg`,
 `turbosquid.jpg.import`; other hygiene/docs/backlog files only if needed.
 
-**Resolution:** Pending.
+**Resolution:** Implemented; pending end-of-plan validation. Pointed
+`project.godot`'s icon config at `res://assets/textures/icon.png` (the root
+`res://icon.png` it previously named does not exist). Confirmed
+`pawn.jpg`/`turbosquid.jpg` and their `.import` sidecars were tracked but
+referenced nowhere else and deleted all four; Git history recovers them.
+Added a focused `.gitattributes` (LF for authored `.gd`/`.tscn`/`.godot`/
+`.cfg`/`.json`/`.md`/`.gdshader`; binary for `.png`/`.ttf`/`.otf`/`.blend`/
+`.gltf`/`.dae`/`.mtl`/`.material`) without renormalizing existing tracked
+files. `git status --ignored` showed every currently-ignored local path
+already covered by `.gitignore`, so no ignore-rule edit was needed;
+`docs/DEVELOPMENT.md` names no specific executable path, so nothing there
+needed updating. Commit `77c6ef6`.
 
 ---
 
