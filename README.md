@@ -7,7 +7,6 @@ A tactical RPG project built with Godot 4.4.
 - Default scene: `scenes/Battle25D.tscn`
 - Canonical simulation: `src/battle_sim/BattleSimulator.gd`
 - Presentation controller: `src/systems/BattlePresentationController.gd`
-- Legacy rollback scene: `scenes/main.tscn`
 - Playable setup: CPU vs CPU or Player vs CPU, map/team dropdowns, seeded defaults
 
 ## Documentation

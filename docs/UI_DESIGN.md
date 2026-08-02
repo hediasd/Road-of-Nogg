@@ -221,9 +221,9 @@ every truncated row would pull in a fallback font for its final character.
 
 `assets/ui/MenuFull.png` is a 48×48 grayscale 9-patch source: 16px corners,
 16px edges, 16px centre. `MenuCorner`, `MenuLine`, `MenuLine2`, and
-`MenuMiddle` are the same tiles split out individually. They are referenced by
-the legacy `scenes/main.tscn` as raw `Texture2D` and have never been used as
-9-slices.
+`MenuMiddle` are the same tiles split out individually. They were referenced
+by the since-removed rollback scene as raw `Texture2D` and have never been
+used as 9-slices.
 
 Because the art is grayscale it **tints cleanly**, which is what makes the
 active/inactive frame state cheap: one texture, two `self_modulate` values.

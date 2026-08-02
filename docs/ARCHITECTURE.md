@@ -29,7 +29,6 @@ commands and reacts to events; it does not edit battle state directly.
 | Presentation | `src/presentation/` | Cameras, meshes, cursor, setup/battle UI helpers, visual registry and adapters |
 | Scene orchestration | `src/systems/BattlePresentationController.gd` | Godot lifecycle, pacing, input routing, screenshots, adapter wiring |
 | Player turn | `src/systems/PlayerTurnController.gd` | Player-turn phases, command menu model, phase submission |
-| Legacy rollback | `src/systems/BattleMaster.gd`, `src/systems/legacy/`, `scenes/main.tscn` | Frozen rollback path; no new gameplay features |
 
 Godot value types such as `Vector2i`, `Dictionary`, and
 `RandomNumberGenerator` are valid in the headless layer. Scene nodes, cameras,
@@ -383,10 +382,10 @@ is a real architectural change and should be planned, not slipped in.
 - Add or change events by updating `BattleEvents`, `IBattleVisualAdapter`, every
   active adapter, and focused event-contract checks together.
 
-## Legacy boundary
+## Single runtime
 
 `project.godot` launches `scenes/Battle25D.tscn`, which uses the canonical
-presentation controller. `scenes/main.tscn` and the `BattleMaster` flow are a
-frozen rollback path. A scene must never bind both runtimes to one battle.
-Removing the legacy stack requires an explicitly approved cleanup after the
-new runtime covers the needed behavior.
+presentation controller. This is the only battle runtime: the earlier
+rollback scene and its board/camera/input scripts were removed once the
+current runtime covered their behavior, and `git log` is their archive. A
+scene must never bind a second battle runtime alongside this one.

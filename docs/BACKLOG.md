@@ -30,10 +30,6 @@ implemented by the playable battle flow.
 - **Screen-space tactical outline:** Investigate a secondary viewport or mask
   pipeline for silhouettes visible through terrain without drawing over a
   monster's front faces. Treat this as a performance-sensitive rendering change.
-- **Prototype shell decision:** Restore purpose-built scripts for
-  `scenes/prototypes/Retro3DMapPrototype.tscn` and
-  `Retro3DVisualPrototype.tscn`, or remove the inert shells in an explicitly
-  approved cleanup.
 
 ## Testing and maintenance
 
