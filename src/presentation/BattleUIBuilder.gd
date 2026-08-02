@@ -6,7 +6,7 @@
 ## Each canvas carries its own themed root Control from `NoggTheme`, so every
 ## Label/PanelContainer added beneath it inherits fonts and styling
 ## automatically. `BattlePresentationController` toggles the two canvases
-## independently: SPACEBAR affects `dev_canvas` only.
+## independently: F1 affects `dev_canvas` only.
 
 class_name BattleUIBuilder
 

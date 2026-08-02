@@ -620,14 +620,17 @@ func _on_player_menu_changed() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	# Space: toggle developer UI visibility only. Game UI (command menu,
+	# F1: toggle developer UI visibility only. Game UI (command menu,
 	# actor/target panels, battle log) is lifecycle-driven and stays visible.
+	# Deliberately not Space: Space is one of Godot's default ui_accept binds,
+	# and _input runs ahead of _unhandled_input, so a dev toggle bound to it
+	# would swallow the player's accept action during a battle.
 	if (
 		lifecycle in [Lifecycle.BATTLE, Lifecycle.COMPLETE] and
 		event is InputEventKey and
 		event.pressed and
 		not event.echo and
-		(event.keycode == KEY_SPACE or event.physical_keycode == KEY_SPACE)
+		(event.keycode == KEY_F1 or event.physical_keycode == KEY_F1)
 	):
 		battle_ui.dev_canvas.visible = not battle_ui.dev_canvas.visible
 		get_viewport().set_input_as_handled()

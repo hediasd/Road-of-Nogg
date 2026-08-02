@@ -28,7 +28,7 @@ default filter — its rows *are* the input surface.
 
 **Still open, and genuinely minor:** the dev bar across the top is an
 `HBoxContainer` at `MOUSE_FILTER_PASS`, so only its actual buttons consume
-clicks, and it is hidden by SPACEBAR anyway. Whether the thin strip under those
+clicks, and it is hidden by F1 anyway. Whether the thin strip under those
 buttons is worth reclaiming is a product call nobody needs to make yet.
 
 **The general rule worth remembering:** any new `Control` laid over the 3D

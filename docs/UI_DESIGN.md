@@ -549,12 +549,13 @@ Two `CanvasLayer`s, two themes, one rule.
 | Layer | `10` | `20` (always above) |
 | Theme | `build_game_theme()` | `build_dev_theme()` |
 | Holds | Command, Spell, Actor, Target, Forecast, Prompt, Log | Top bar, graphics menu, screenshot, save replay |
-| `SPACEBAR` | **unaffected** | toggles visibility |
+| `F1` | **unaffected** | toggles visibility |
 
-Today `SPACEBAR` toggles `battle_ui["canvas"].visible`, which hides everything
-including the player's own command menu. After the split it toggles the dev
-layer only, so a clean screenshot still shows the game UI as a player sees it —
-which is the actual reason the key exists.
+`F1` toggles the dev layer only, so a clean screenshot still shows the game UI
+as a player sees it — which is the actual reason the key exists. It was
+`SPACEBAR` until Space turned out to be one of Godot's default `ui_accept`
+binds: a dev-only toggle bound to it was swallowing the player's own accept
+action during a battle.
 
 Dev UI is off by default in a release build.
 

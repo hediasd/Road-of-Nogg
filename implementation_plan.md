@@ -1,0 +1,1235 @@
+# Implementation Plan
+
+Opened 2026-08-02. The file was empty when this plan opened: the previous cycle
+covered repository structure and typed-boundary maintenance, completed its
+final validation, and was cleared in commit `35c9f40` with no unstarted or
+abandoned items to relocate. Recover it with
+`git show 35c9f40~1:implementation_plan.md`. This file now holds one cycle in
+two phases: repairing the player's action-confirmation path (CAST-1 through
+CAST-5), then adding the tactical-legibility affordances the genre has settled
+on (FEEL-1 through FEEL-14), closed by a single PLAN-VALIDATE.
+
+The two phases are ordered, not independent. CAST fixes a shipping defect and
+comes first; FEEL builds on the surfaces CAST establishes. An executing agent
+that reaches FEEL-1 with any CAST item unresolved should stop and say so.
+
+The worktree carried one untracked file when this plan was opened —
+`scenes/main.tscn`. It is unrelated to this cycle. Resolve it (commit or
+remove) before starting CAST-1 so each item still begins from a clean
+`git status`.
+
+Execute one item per session, in file order, committing at each item boundary.
+Implementation items stop after focused diff review, `git diff --check`,
+backlog maintenance, and their commit. Only CAST-VALIDATE performs full
+import, replay, runtime, and manual gameplay validation.
+
+## Scope and settled decisions
+
+A player casting a self-targeted spell — `Empower` is the reproducing case —
+has no usable way to confirm the cast. Five defects compound:
+
+1. `BattlePresentationController._on_player_menu_changed` collapses the command
+   surface to `showPromptOnly()` for every non-`MENU` phase, so `CONFIRM_ACTION`
+   renders one line of top-centre text and no interactive control.
+2. `PlayerTurnController.acceptsGridInput()` is false in `CONFIRM_ACTION`, so a
+   left click falls through to `_handle_click_selection` — the inspect path —
+   and silently re-renders the target status window instead of confirming.
+3. `BattlePresentationController._input` claims `KEY_SPACE` for the dev-canvas
+   toggle across the whole battle lifecycle and marks it handled. `_input`
+   precedes `_unhandled_input`, so Space — one of Godot's three default
+   `ui_accept` binds, and the one players reach for — never arrives at confirm.
+4. A self/range-0 spell has exactly one legal target: the caster's own tile,
+   under its own model. `TARGET_SELECT` presents a chooser with one option, and
+   the player pays two confirmations for a decision with one outcome.
+5. Player-facing copy calls the caster a "target" and renders `Rng 0` for a
+   self spell, which reads as a data bug.
+
+This cycle fixes all five. Together they restore the guarantee
+`docs/UI_DESIGN.md` §6 already makes and the confirm phase currently breaks:
+keyboard and mouse resolve to the same state.
+
+**Settled decisions**, so no item needs to reopen them:
+
+- The confirm surface is a **new window**, not a reused command window: two
+  cursor-driven rows, `CONFIRM` and `CANCEL`, docked at the command window's
+  position and size so the player's cursor does not travel. It joins the §8
+  taxonomy as a new row.
+- The command window **hides** during confirm rather than dimming. Dimming is
+  the parent-window idiom for the spell column opening beside it; confirm
+  replaces the command list rather than descending from it.
+- The **forecast window stays visible** through both `TARGET_SELECT` and
+  `CONFIRM_ACTION`. §8 says "visible only during confirm"; the shipping code
+  already shows it while aiming, that is the better behaviour, and CAST-2
+  corrects the doc rather than the code.
+- Grid click during confirm: a click **on the pending target tile confirms**;
+  a click **anywhere else on the board cancels** back to target select. Clicks
+  never fall through to unit inspection while a confirmation is pending.
+- The dev-canvas toggle moves to **F1**. It is a developer key and must not
+  outrank the game's accept action.
+- Self/range-0 spells **skip `TARGET_SELECT` entirely** and enter
+  `CONFIRM_ACTION` with the caster as the pending target. Cancelling from there
+  returns to the **spell list**, not to a chooser that was never shown.
+
+**Deliberately out of scope.** `PlayerTurnController._forecastText` branches on
+`spell.heals` then `spell.damage_lines`; a pure buff such as `Empower`
+(`BUFFS_ATK: 3`, `BUFF_DURATION: 2`) matches neither and falls through to
+`"Expected: N unit(s) affected"`, so the forecast says nothing about what the
+spell does. Every buff, debuff, and status spell in the catalogue has this
+hole. It is a real gap, it is not in this cycle, and CAST-VALIDATE records it
+in `BACKLOG_CRITICAL.md` as a described behaviour rather than as a plan item.
+
+### Phase two: tactical legibility
+
+The FEEL items come from a survey of how the genre solves the same problems —
+Fire Emblem, Into the Breach, Final Fantasy Tactics. Each is a legibility fix,
+not a rules change: the simulation's behaviour is identical before and after,
+and only what the player can see about it changes. Anything that alters what a
+mistake costs is excluded below.
+
+**Settled decisions for phase two:**
+
+- The threat overlay is **held, not toggled**. A held key cannot be left on by
+  accident and needs no state to communicate.
+- The camera may **guarantee visibility, never take authorship**: pan only when
+  the active unit is off-screen or within the edge margin, never re-zoom, never
+  rotate, and abandon the pan on any camera input. This is deliberately the
+  weak version. Final Fantasy Tactics ships the strong version — the camera
+  re-orients on every unit change — and its own players describe re-fixing the
+  camera each turn as the game's most persistent irritation.
+- Re-arming from target select rebinds `ui_up`/`ui_down` to spell cycling.
+  Today all four directions cycle targets via `_cycleTargetPosition`; after
+  FEEL-2 the horizontal pair keeps that job and the vertical pair changes the
+  spell. This is a deliberate break with the current input contract.
+- Animation pacing is a **global setting with a per-action override**, not one
+  or the other.
+- Picking resolves from an **ordered list of every hit along the ray**, not from
+  the nearest one. What the player pointed at is a question about intent, and
+  intent is phase-dependent; the nearest collider only answers it by accident.
+- The turn order is **shown, not derived**. The simulator already sorts and
+  emits it; making the player infer it from a speed stat is a puzzle nobody
+  asked for.
+- Status values are **zero-padded to three digits** and the status windows keep
+  every stat they carry today. Fixed-width values do not reflow as they change,
+  so the eye can park on a position instead of re-finding it each turn. This is
+  a deliberate choice of a uniform, slightly odd-looking `004` over a stable
+  layout's alternative, and it is not up for re-litigation mid-cycle.
+- Every monster stat is **clamped to 0–999 inclusive in the simulation**, so
+  three digits is a guarantee rather than an assumption. This is the single
+  exception to the rule that this cycle does not change simulation behaviour,
+  and it is called out again in the item that makes it.
+- Model bases separate from creature bodies by **surface finish, not colour** —
+  dark and metallic against matte bodies. A finish difference survives every
+  team colour; a hue shift does not.
+- A queued visual action is held until its animation is **mostly** through, not
+  fully. Waiting for every effect to finish completely turns a battle into a
+  slideshow; the overlap is what keeps it moving.
+- Damage numbers use the **menu font with a hard offset shadow** — black drawn
+  once, white drawn over it offset up and diagonally — not a symmetric outline.
+  The offset is the look; an outline is a different one.
+- Models the player is not choosing between render with **screen-space dither**,
+  never alpha fade. It holds depth, needs no transparency sorting, matches the
+  hardware era the scene imitates, and — unlike fading — never makes a unit
+  ambiguous about whether it is still there.
+
+**Not scheduled, and not to be started without a decision.** One candidate from
+the same survey changes the game's difficulty contract rather than its
+legibility, so it is not an item here: a charge-limited rewind of whole turns
+(Fire Emblem's Turnwheel / Divine Pulse). Movement `Undo` already covers the
+common case, and anything beyond it changes what a mistake costs.
+
+**Dropped after checking the code.** "Jump to the next unmoved unit", standard
+in Fire Emblem, has no meaning here: `TurnManager` sorts a turn order and pops
+one unit at a time, so the player never chooses who acts.
+
+No item needs a product or balance decision. A discovered dependency that would
+force one of the settled decisions to change is blocking: record it and ask.
+
+## Conventions
+
+Every item has an explicit minimum **Model**, **Risk**, and behavior it **Adds
+to validation coverage**. The executing session must verify its running model
+before starting, and stop if the running model is more capable than the item
+needs. Every item reviews `BACKLOG_CRITICAL.md`, `BACKLOG_LONGTERM.md`, and
+`docs/BACKLOG.md` for stale, completed, or newly discovered work.
+Implementation Resolutions become **implemented; pending end-of-plan
+validation**; only CAST-VALIDATE marks them done.
+
+---
+
+## CAST-1 — Free the accept key
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** none.
+
+**Risk:** Low. A single input branch moves. The one hazard is rebinding to a key
+another handler already claims, which would trade one swallowed action for
+another.
+
+**Adds to validation coverage:** Space reaches `ui_accept` in every player-turn
+phase, and F1 toggles the developer canvas in `BATTLE` and `COMPLETE`.
+
+**End state:** No developer affordance consumes a default `ui_accept` bind
+during a player turn.
+
+### Work
+
+1. In `BattlePresentationController._input`, change the dev-canvas toggle from
+   `KEY_SPACE` to `KEY_F1`, keeping the existing `lifecycle` guard, the
+   `pressed`/`not echo` guards, and `set_input_as_handled()`.
+2. Sweep `_input` and `_unhandled_input` for any other handler that consumes a
+   default `ui_accept` bind (Space, Enter, KP Enter) ahead of the player-turn
+   branches. Report anything found; do not rebind beyond the dev toggle.
+3. Update the comment above the branch — it currently documents Space by name —
+   and any on-screen or documented reference to the Space toggle.
+4. Confirm no `[input]` section in `project.godot` rebinds `ui_accept`; the
+   project relies on Godot's defaults, and this item does not change that.
+5. Review the backlogs.
+
+**Files:** `src/systems/BattlePresentationController.gd`; `docs/UI_DESIGN.md`
+only if it names the Space toggle.
+
+**Resolution:** Implemented; pending end-of-plan validation. Rebound the
+dev-canvas toggle in `_input` from `KEY_SPACE` to `KEY_F1`, keeping the
+`lifecycle`, `pressed`/`not echo` guards and `set_input_as_handled()`
+unchanged, and rewrote the comment above it to state the rebind and why.
+Swept `_input` and `_unhandled_input`: the only other handler in `_input` is
+Ctrl+R for the monster-catalog hot-reload, which does not collide with
+`ui_accept`'s default binds (Enter, KP Enter, Space); no other handler claims
+`KEY_SPACE`, `KEY_ENTER`, or `KEY_KP_ENTER`. `project.godot` has no `[input]`
+rebind of `ui_accept`, so Godot's defaults apply. Updated the remaining
+`SPACEBAR` references: the doc comment in `BattleUIBuilder.gd`, the §9 table
+and prose in `docs/UI_DESIGN.md`, and one incidental mention in
+`BACKLOG_LONGTERM.md`.
+
+---
+
+## CAST-2 — Give the confirm phase a real window
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** none. Order after CAST-1 so the phase is reachable by hand.
+
+**Risk:** High. This adds a third cursor-driven window to a file whose central
+rule is that content changes rebuild rows, selection changes move the cursor,
+and neither path calls the other. Violating it reintroduces the
+rebuild-per-keypress defect the file exists to prevent. A confirm window that
+fails to hide on phase exit would also occlude the command list for the rest of
+the turn.
+
+**Adds to validation coverage:** `CONFIRM_ACTION` presents `CONFIRM` / `CANCEL`
+rows; the cursor lands on `CONFIRM`; keyboard and mouse both activate either
+row; the window disappears on confirm, on cancel, and on turn end; and the
+command window returns with its prior selection intact.
+
+**End state:** Confirmation is a first-class, visible, clickable phase surface
+that obeys §5 and §6.
+
+### Work
+
+1. In `PlayerCommandMenu`, add a confirm window built by `_build_window` at
+   `COMMAND_WIDTH` with a capacity of 2, its own `MenuCursor`, and the standard
+   `set_content_indent(CURSOR_GUTTER_WIDTH)`. Dock it at the command window's
+   position in `_layout_windows` so the cursor does not travel between phases.
+   Hidden by default.
+2. Add a `CONFIRM` mode alongside `ROOT` and `SPELLS`, and route `_mode` through
+   the existing `moveSelection`, `acceptSelection`, `_select`, hover, click, and
+   wheel paths rather than adding parallel ones. Selection stays an index into a
+   row-metadata array; `moveSelection` must not rebuild rows.
+3. Add `openConfirm()` / `closeConfirm()` mirroring `openSpells()` /
+   `closeSpells()`: hide the command and spell windows and their cursors, show
+   the confirm window, snap the cursor to `CONFIRM`. Closing restores the
+   command window and its cursor without rebuilding its rows.
+4. Emit through the existing `entry_activated` signal with two new ids so the
+   controller keeps one activation path. Add the ids as constants next to
+   `BACK_ID`.
+5. In `BattlePresentationController._on_player_menu_changed`, branch
+   `CONFIRM_ACTION` to `openConfirm()` before the existing non-`MENU`
+   `showPromptOnly()` fallback, and ensure every exit from the phase — confirm,
+   cancel, rejected action, turn end — closes it.
+6. In `BattlePresentationController`, map the two new ids to
+   `player_turn.confirmSelection()` and `player_turn.cancel()` wherever
+   `entry_activated` is currently handled. `PlayerTurnController` gains no new
+   public API and no new rules.
+7. Keep the existing `CONFIRM_ACTION` + `ui_accept` keyboard branch working; it
+   must not double-fire with the menu's own `acceptSelection`.
+8. Add the confirm window to the `docs/UI_DESIGN.md` §8 taxonomy table with its
+   dock, size, and contents, and correct the forecast row to state that the
+   forecast is visible while aiming as well as while confirming.
+9. Review the backlogs.
+
+**Files:** `src/presentation/PlayerCommandMenu.gd`,
+`src/systems/BattlePresentationController.gd`, `docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## CAST-3 — Make the grid agree with the menu during confirm
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** CAST-2.
+
+**Risk:** Medium. Widening what the confirm phase accepts from the mouse means a
+misrouted click could commit an action the player meant only to inspect. The
+tile-equality test is the whole safety margin.
+
+**Adds to validation coverage:** During `CONFIRM_ACTION`, clicking the pending
+target tile casts; clicking any other board tile returns to target select; and
+no click reaches unit inspection while a confirmation is pending.
+
+**End state:** §6's promise — mouse and keyboard resolve to the same state —
+holds in the confirm phase, the one phase where it currently fails.
+
+### Work
+
+1. Add a read-only accessor to `PlayerTurnController` exposing the pending
+   target position (the existing `_pendingTargetPos`), so the controller can
+   compare a clicked tile without reaching into private state — follow the
+   pattern already set by the read-only selection observers in
+   `PlayerCommandMenu`.
+2. In `BattlePresentationController`'s left-click branch, handle
+   `CONFIRM_ACTION` before the `acceptsGridInput()` test: resolve the clicked
+   tile, call `confirmSelection()` when it equals the pending target, and
+   `cancel()` otherwise. Consume the event in both cases.
+3. Leave `acceptsGridInput()` unchanged. It gates cursor movement, and the
+   confirm phase must not accept cursor movement; this item routes clicks
+   around it rather than widening it.
+4. Leave hover behaviour alone during confirm. The pending target is committed;
+   moving a highlight over it would contradict that.
+5. Record the confirm-phase click semantics in the `docs/UI_DESIGN.md` §6 input
+   table.
+6. Review the backlogs.
+
+**Files:** `src/systems/BattlePresentationController.gd`,
+`src/systems/PlayerTurnController.gd`, `docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## CAST-4 — Stop asking for a choice that does not exist
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** CAST-2.
+
+**Risk:** High. This adds a second entry path into `CONFIRM_ACTION` and a second
+exit path out of `cancel()`, in a state machine whose phases are its entire
+contract. A self-cast entering confirm without its overlays or forecast
+populated would confirm blind; a `cancel()` returning to a chooser that was
+never shown would strand the player.
+
+**Adds to validation coverage:** Selecting a self/range-0 spell enters
+`CONFIRM_ACTION` directly with the caster as pending target, affected-area
+overlays and forecast populated; cancelling returns to the spell list; and
+ranged, area, and self spells with a non-zero radius keep the target-select
+step unchanged.
+
+**End state:** A spell with exactly one possible target costs the player one
+decision, not two.
+
+### Work
+
+1. Add a private predicate to `PlayerTurnController` for "this spell offers no
+   target choice". Derive it from the authored spell — `targetType == "self"`
+   with range 0 — and not from `_validTargetPositions.size() == 1`, which is a
+   board-state coincidence that would silently skip aiming for a ranged spell
+   with one enemy left in reach.
+2. In `_enterTargetSelect`, when the predicate holds for the selected spell, set
+   the pending target to the caster's position, call `_refreshTargetPreview` so
+   overlays, target status, and forecast populate exactly as they do on the
+   normal path, set `phase = CONFIRM_ACTION`, emit the confirm status text, and
+   `menu_changed.emit()`. Do not duplicate `_commitTarget`'s body — factor the
+   shared tail if that is cleaner than branching.
+3. Preserve the guard behaviour: a self spell that is not castable must still
+   route to `_enterMenu("No spell is ready.")` rather than into confirm.
+4. Teach `cancel()` that leaving `CONFIRM_ACTION` returns to the spell list when
+   the confirm was entered without a target-select step, and to
+   `_enterTargetSelect` otherwise. Track which path was taken explicitly; do not
+   re-derive it from the spell.
+5. Confirm `_commitAction` needs no change — it already reads `_pendingTargetPos`
+   and the selected spell indices.
+6. Verify against the catalogue that the predicate selects the intended spells
+   and no others, and state in the Resolution which spells it matches.
+7. Review the backlogs.
+
+**Files:** `src/systems/PlayerTurnController.gd`;
+`src/presentation/PlayerCommandMenu.gd` and
+`src/systems/BattlePresentationController.gd` only if reopening the spell list
+on cancel requires it.
+
+**Resolution:** _pending_
+
+---
+
+## CAST-5 — Say what a self spell is
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** CAST-4, so the copy is written against the phase flow that
+ships.
+
+**Risk:** Low. Player-facing strings and one derived label, contained by the
+existing rule that command chrome is uppercased at render time and proper nouns
+are not.
+
+**Adds to validation coverage:** A self spell lists `Self` rather than `Rng 0`,
+and no player-facing string describes the caster as its own target.
+
+**End state:** The self-cast path reads as a self-cast throughout.
+
+### Work
+
+1. In `PlayerCommandMenu._spell_value`, render a ready range-0 spell as `Self`
+   instead of `Rng 0`. Keep the `CD n` branch unchanged. Take the range from the
+   existing spell entry dictionary; do not add a field the controller does not
+   already supply.
+2. In `PlayerTurnController._refreshTargetPreview` and `_commitTarget`, use
+   self-directed phrasing when the pending target is the caster — the status
+   line currently emits `"Choose a target: <name>."` and
+   `"Confirm Spell at <name>."` about the player's own unit.
+3. Keep `selectSpell`'s status line honest for a range-0 spell; it currently
+   reports `range 0`.
+4. Check `ConsoleVisualAdapter` and `ConsoleRoundSummary` for the same
+   assumption and fix only what is player-facing.
+5. Leave `docs/SPELL_CATALOG_SCHEMA.md` and the authored `RANGE: 0` data alone.
+   This is presentation, not schema.
+6. Review the backlogs.
+
+**Files:** `src/presentation/PlayerCommandMenu.gd`,
+`src/systems/PlayerTurnController.gd`, console adapters if affected.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-1 — Show what the enemy can reach
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** CAST-5.
+
+**Risk:** High. This is the first overlay drawn from a source other than the
+active unit's own phase, and the first that must compose with the overlays
+already on screen rather than replace them. Recomputing every enemy's reach on
+each frame of a held key would also make the key itself feel like a stall.
+
+**Adds to validation coverage:** Holding the threat key during any player-turn
+phase draws the union of living enemy reach; releasing it restores the previous
+overlay exactly; the tactical overlays owned by move and target select are
+never clobbered; and the key is inert during CPU turns and after battle end.
+
+**End state:** The player can see the danger before stepping into it, without
+counting tiles by hand.
+
+### Work
+
+1. Read `src/algorithms/ThreatMap.gd` first and use what it already computes.
+   Add a new traversal only if the existing one cannot answer "every tile any
+   living enemy can reach or strike this round".
+2. Decide and record whether threat means movement reach, attack reach from
+   that movement, or their union. Fire Emblem's danger zone is the union, and
+   the union is the number a player actually needs; state the choice in the
+   Resolution either way.
+3. Compute once per press, not per frame. The board does not change while the
+   key is held.
+4. Add an adapter entry point for the overlay alongside `show_movement_options`
+   and `show_target_options`, and give it a tint distinct from both. Restore
+   the prior overlay on release rather than clearing to nothing — a player
+   holding the key mid-aim must get their target tiles back.
+5. Bind a held key that no existing handler claims, and verify it against the
+   sweep CAST-1 performed.
+6. Add the overlay and its tint to `docs/UI_DESIGN.md`.
+7. Review the backlogs.
+
+**Files:** `src/algorithms/ThreatMap.gd`,
+`src/systems/BattlePresentationController.gd`,
+`src/presentation/GodotVisualAdapter.gd`, `src/battle_sim/IBattleVisualAdapter.gd`,
+`docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-2 — Re-arm without leaving the aim
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** CAST-4, FEEL-1 (ordering only, to keep overlay changes serial).
+
+**Risk:** Medium. Changing the spell mid-aim invalidates the target set that
+was computed for the previous spell. A cursor left on a tile the new spell
+cannot reach would let the player confirm an illegal cast, or strand them on a
+tile with no valid neighbours.
+
+**Adds to validation coverage:** During `TARGET_SELECT`, vertical input cycles
+ready spells with overlays, forecast, and status recomputed for each; the
+cursor lands on a legal target for the newly selected spell every time;
+horizontal input still cycles targets; and a spell whose target set is empty
+from the current tile is skipped rather than entered.
+
+**End state:** "Which spell" and "which target" are one decision made in one
+place, as the genre's combat forecast has worked since Genealogy of the Holy
+War.
+
+### Work
+
+1. In `PlayerTurnController`, add spell cycling for `TARGET_SELECT`: step to the
+   next entry of `spellEntries()` that is ready, set the selection, recompute
+   `_validTargetPositions` from the current position, and refresh the preview.
+2. Preserve the aimed tile across the change when the new spell can also target
+   it; otherwise fall to the sorted target set's first entry. Never leave the
+   cursor on an invalid tile.
+3. Skip a ready spell with no valid target from the current position rather than
+   entering it with an empty set — `_enterTargetSelect` treats an empty set as a
+   reason to abandon the phase, which mid-cycle would be a surprise.
+4. Do not enter spell cycling when the phase was reached from `Attack`. Attacks
+   have no spell to cycle.
+5. Rebind `ui_up`/`ui_down` in the `acceptsGridInput()` branch of
+   `BattlePresentationController` per the settled decision, leaving
+   `ui_left`/`ui_right` on target cycling.
+6. Surface the currently armed spell in the status or forecast text. Cycling
+   spells with no on-screen name for the armed one is worse than not cycling.
+7. Update the `docs/UI_DESIGN.md` §6 input table.
+8. Review the backlogs.
+
+**Files:** `src/systems/PlayerTurnController.gd`,
+`src/systems/BattlePresentationController.gd`, `docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-3 — Draw reach and threat as one shape
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** FEEL-1, whose overlay tint and adapter entry point this reuses.
+
+**Risk:** Medium. Attack reach from every reachable tile is a larger
+computation than reachability alone, and it runs on entry to move select where
+the player is waiting on it.
+
+**Adds to validation coverage:** Move select draws reachable tiles and the
+tiles attackable from them in two distinguishable tints; the path preview still
+renders over both; and entering move select stays responsive on the largest
+shipping board.
+
+**End state:** A player choosing where to stand can see what they will threaten
+from there, without walking the cursor tile by tile.
+
+### Work
+
+1. Compute attack reach as the union over the reachable set, using the existing
+   `combatResolver.getBasicAttackTargetPositionsFrom`, which already takes a
+   from-position.
+2. Exclude reachable tiles from the attack tint so the two sets do not overlap;
+   reachability is the stronger signal and wins the tile.
+3. Extend `show_movement_options` with the second set rather than adding a
+   parallel call, keeping the existing path-preview argument working.
+4. Measure entry time into move select on the largest board before and after,
+   and record both numbers in the Resolution. If the computation is visibly
+   slow, cache per phase entry rather than optimising the traversal.
+5. Add the second tint to `docs/UI_DESIGN.md`.
+6. Review the backlogs.
+
+**Files:** `src/systems/PlayerTurnController.gd`,
+`src/presentation/GodotVisualAdapter.gd`, `src/battle_sim/IBattleVisualAdapter.gd`,
+`src/presentation/ConsoleVisualAdapter.gd`, `docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-4 — The camera assists, never authors
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** none. Order here to keep camera work clear of the overlay items.
+
+**Risk:** Medium. A camera that moves when the player did not ask is the single
+most complained-about behaviour in this genre's back catalogue. The risk is not
+that the feature breaks; it is that it works as specified and is still
+unpleasant.
+
+**Adds to validation coverage:** A player turn beginning with the active unit
+off-screen or in the edge margin pans it into view; a turn beginning with it
+comfortably in view moves the camera not at all; zoom and rotation are never
+touched; and any camera input during a pan cancels the pan immediately.
+
+**End state:** The player never hunts for whose turn it is, and never fights
+the camera for control of it.
+
+### Work
+
+1. In `_begin_player_turn`, test the active unit's screen position against the
+   viewport rect inset by an edge margin. Pan only on failure.
+2. Pan position only. Do not touch zoom, rotation, or any other camera property,
+   per the settled decision.
+3. Cancel an in-flight pan on any camera input. `camera.handle_input` is already
+   routed ahead of the player-turn branches in `_unhandled_input`, so the
+   player wins ties by construction; verify that holds during the pan.
+4. Keep the pan short and make its duration a named constant, not a literal.
+5. Do not extend this to CPU turns in this item. Whether the camera follows
+   enemy actions is a pacing decision, not a legibility one; note it and leave
+   it.
+6. Review the backlogs.
+
+**Files:** `src/systems/BattlePresentationController.gd`, the camera script it
+drives.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-5 — Let the player set the pace
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** none.
+
+**Risk:** Medium. `_resolveThenReturnToMenu` waits on
+`animation_queue_drained` before reopening the menu. A skip that empties the
+queue without emitting that signal hangs the turn in `RESOLVING` with no menu
+and no way out.
+
+**Adds to validation coverage:** A speed setting scales action animations; a
+skip resolves the current action immediately; the menu reopens correctly after
+both; and the simulation's outcome, event log, and replay are byte-identical
+whatever the pacing.
+
+**End state:** Pacing is the player's choice, and the model never notices.
+
+### Work
+
+1. Add a speed multiplier to the visual adapter's animation timing. Presentation
+   only — no simulation timing, no event ordering, and no replay input may
+   depend on it.
+2. Add a skip that drains the queue to its final state and **still emits**
+   `animation_queue_drained`. Trace `_resolveThenReturnToMenu` and
+   `_onQueueDrained` before writing it; that signal is the turn's only way back
+   to the menu.
+3. Expose the speed setting in the developer canvas alongside the existing speed
+   slider rather than building a new options surface.
+4. Add the per-action skip as a held or pressed key during `RESOLVING`.
+5. Run a replay before and after and diff the event history to prove the
+   simulation is untouched.
+6. Review the backlogs.
+
+**Files:** `src/presentation/GodotVisualAdapter.gd`,
+`src/systems/BattlePresentationController.gd`, the battle UI scene for the
+setting.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-6 — Make a spent phase legible on the board
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** none.
+
+**Risk:** Low. A presentation tint driven by state the simulator already
+exposes through `turnPhaseState`.
+
+**Adds to validation coverage:** A unit that has spent both phases renders
+distinctly from one that has not; the state clears at turn end and on undo; and
+the treatment matches the dimming already used for spent command rows.
+
+**End state:** The rule the command window already follows — a spent option
+stays visible and dim rather than disappearing — holds on the board too.
+
+### Work
+
+1. Drive the tint from `turnPhaseState`, not from a presentation-side copy of
+   turn state.
+2. Match `TEXT_DIM`'s intent from `NoggTheme` so the board and the menu agree
+   about what "spent" looks like.
+3. Clear the treatment on turn end and after an undo restores a phase.
+4. Confirm it does not fight the existing selection highlight or the FEEL-1
+   threat overlay when both apply to one unit.
+5. Review the backlogs.
+
+**Files:** `src/presentation/GodotVisualAdapter.gd`,
+`src/systems/BattlePresentationController.gd`.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-7 — Resolve picking and occlusion from the whole ray
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** FEEL-4, whose camera work shares the camera-to-focus ray.
+
+**Risk:** High. `_world_pick` is the single translation from a screen position
+to a board position, and every mouse interaction in the game runs through it —
+hover, target selection, unit inspection, and after CAST-3 the confirm click. A
+priority rule that resolves differently from the current nearest-hit behaviour
+in an unanticipated case changes what every click in the game means. It also
+runs on `InputEventMouseMotion`, so its cost is per-motion-event, not per-turn.
+
+**Adds to validation coverage:** A tile whose view is blocked by another
+model or by terrain can still be hovered and clicked; during target select the
+resolved tile prefers a legal target over a nearer illegal one; unit inspection
+outside a player turn still resolves to the unit actually under the pointer;
+and hover remains smooth with the pointer swept across a crowded board.
+
+**End state:** What the player pointed at is decided by an explicit rule over
+every candidate along the ray, and geometry between the camera and the focus
+stops hiding it.
+
+### Work
+
+1. Replace the single `intersect_ray` in `_world_pick` with an ordered list of
+   hits. Two approaches — evaluate both and record the choice:
+   - **Per-layer casts.** `MONSTER_PICK_COLLISION_LAYER` and
+     `TILE_PICK_COLLISION_LAYER` are already separate, so two fixed queries
+     yield the two candidates that matter at constant cost. Sufficient for
+     picking, and the cheaper option on the hover path.
+   - **Exclude-loop.** Repeat `intersect_ray`, accumulating hit RIDs in the
+     query's `exclude`, to get every collider in depth order. Needed for the
+     occlusion half, where the question is "everything between these two
+     points", not "which of two layers".
+   Use the cheap one on the hover path and the full one only where the full
+   list is genuinely required.
+2. Write the priority rule down before implementing it, as a comment at
+   `_world_pick`. It must be deterministic and stated in one place. The
+   phase-aware clause is the point of the item: while a target set exists,
+   a hit resolving to a tile inside `_validTargetPositions` outranks a nearer
+   hit that does not.
+3. Keep the existing translation from a monster collider to that monster's tile
+   position. It is correct — the player aiming at a body means the tile it
+   stands on — and only its precedence changes.
+4. Do not let the rule depend on private phase state. Pass the candidate set in,
+   or ask `PlayerTurnController` through a read-only accessor, following
+   CAST-3's precedent.
+5. For the occlusion half, cast from the camera to the active unit or cursor and
+   collect the intervening colliders. **Do not implement fading here.** FEEL-12
+   hides non-chosen models by dither and covers this case better; two systems
+   hiding geometry from the camera would fight. Build the query if a later item
+   needs it, ship no visual change from it, and read the note below.
+6. Measure the hover path's cost before and after with the pointer swept across
+   the most crowded shipping board, and record both numbers. If the full list is
+   needed on hover and is not free, cache per pointer position rather than
+   per event.
+7. Review the backlogs.
+
+**Fading is only half the fix, and not the half that bit us.** Two distinct
+failures hide a highlight, and this item must not conflate them. *Scene
+occlusion* — terrain or another model between the camera and the tile — is what
+fading addresses, and the genre's own experience is that fading alone is not
+sufficient. *Self-occlusion* — a unit's own model covering the ground-plane quad
+`_add_overlay` draws beneath it — is not a camera problem at all and fading is
+the wrong tool: dissolving the unit the player is looking at costs more than it
+returns. If self-occlusion is addressed here, address it by how the highlight is
+drawn — a ring at the tile border rather than a filled quad, a vertical marker
+no ground-level model can cover, depth-test-off rendering for the cursor, or
+reusing `highlight_monster` when the target tile is occupied. Any of those is in
+scope; fading a unit to reveal its own tile is not.
+
+**Files:** `src/systems/BattlePresentationController.gd`,
+`src/presentation/GodotVisualAdapter.gd`,
+`src/systems/PlayerTurnController.gd` for the read-only accessor,
+`docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-8 — Show the turn order
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** CAST-5. Independent of the other FEEL items.
+
+**Risk:** Medium. A turn-order display that drifts from the simulator's actual
+order is worse than none: the player plans against it and is punished for
+trusting it. Death, and any future effect that reorders turns mid-round, are
+where it will drift.
+
+**Adds to validation coverage:** The displayed order matches
+`TurnManager.turnOrder` at every point in a round; it updates when a unit dies
+mid-round; it survives save/load and replay; and it never shows a dead unit as
+upcoming.
+
+**End state:** The player can see who acts next without inferring it from speed
+stats.
+
+### Work
+
+1. Read `src/battle_sim/TurnManager.gd` first. `turnOrder` is sorted once per
+   round and popped from the front, and `BattleEvents.round_started` already
+   emits the full order — build the display from those, and add no second copy
+   of turn state in the presentation layer.
+2. Render the upcoming order as a window per the §8 taxonomy. Dock it where it
+   does not collide with the command window (left), the status pair (bottom), or
+   the prompt (top-centre); state the chosen dock and its measured width in the
+   Resolution, and add the row to the §8 table.
+3. Show the acting unit distinctly from those queued behind it, and show enough
+   entries to be useful without becoming a second battle log — cap the count
+   and say what the cap is.
+4. Subscribe to the events that change the order: round start, turn end, and
+   death. Do not poll.
+5. Verify against a unit dying mid-round that its entry leaves the display, and
+   that the entry for the unit currently acting is correct at every step.
+6. Confirm the display is presentation-only: replaying a battle with and without
+   it produces an identical event history.
+7. Review the backlogs.
+
+**Files:** `src/systems/BattlePresentationController.gd`,
+`src/presentation/` for the window, `docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-9 — Bound every stat to the displayable range
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** none. Execute before FEEL-10, which formats to the range this
+item guarantees.
+
+**Risk:** High, and of a different kind from every other item in this phase.
+**This is the one item in the cycle that changes simulation behaviour.** A stat
+that today reaches 1004 or -2 will resolve differently afterwards, so combat
+outcomes, recorded event histories, and any stored replay that exercises an
+out-of-range value legitimately change. An executing agent must not treat a
+changed replay number here as a regression to be restored — but must confirm
+each change traces to a clamp and not to an unrelated defect.
+
+**Adds to validation coverage:** No monster stat is ever below 0 or above 999
+at any point in a battle, including immediately after buff application, buff
+expiry, damage, healing, and level or ascension growth; and a replay diff
+against a pre-clamp run is explained entirely by clamping.
+
+**End state:** The displayable range is a property the simulation guarantees,
+not one the presentation layer hopes for.
+
+### Work
+
+1. Find every write to `hitpoints`, `max_hitpoints`, `atk`, `def`, `speed`, and
+   `move` on `Monster`. Start from `src/entities/Monster.gd`,
+   `src/battle_sim/SpellEffectResolver.gd`, `src/battle_sim/CombatResolver.gd`,
+   and `src/battle_sim/DirectDamageRules.gd`, then sweep for the rest — a clamp
+   applied at four of five write sites is worse than none, because the one gap
+   becomes the case nobody expects.
+2. Clamp at the point of write, in the entity, so no caller can bypass it. A
+   helper on `Monster` that every mutation routes through is preferable to a
+   `clampi` repeated at each call site.
+3. **Bounds are 0 and 999 inclusive**, per the settled decision. Buff
+   application, buff expiry, and growth all clamp; expiry in particular must not
+   restore a value the clamp already discarded — decide whether buffs are stored
+   as modifiers over an unclamped base or as clamped absolute values, and say
+   which in the Resolution. This is the item's one real design decision.
+4. Check the floor against gameplay meaning before finalising. `speed` feeds
+   `TurnManager`'s sort and `move` feeds reachability; verify a 0 in either
+   degrades sensibly rather than producing an unreachable or unorderable unit.
+   Report what you find; do not raise the floor to 1 without asking.
+5. Leave `hitpoints` reaching 0 alone as the death condition. Clamping must not
+   change what death is.
+6. Run a replay before and after and diff the event history. Explain **every**
+   divergence, line by line, in the Resolution. An unexplained one is a defect.
+7. Review the backlogs.
+
+**Files:** `src/entities/Monster.gd`, `src/battle_sim/SpellEffectResolver.gd`,
+`src/battle_sim/CombatResolver.gd`, `src/battle_sim/DirectDamageRules.gd`, plus
+whatever the sweep in step 1 turns up.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-10 — Fixed-width stat values
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** FEEL-9, which makes three digits sufficient by construction.
+
+**Risk:** Low. Formatting inside one render function. The only hazard is a value
+that does not fit the assumed width.
+
+**Adds to validation coverage:** Every numeric stat in the actor and target
+status windows renders three digits wide; values do not reflow horizontally as
+they change; and a value outside three digits degrades legibly rather than
+truncating.
+
+**End state:** A stat sits at a fixed screen position for the whole battle.
+
+### Work
+
+1. In `BattlePresentationController._renderStatusWindow`, zero-pad to three
+   digits: both sides of the `HP` pair, and `ATK`, `DEF`, `SPD`, `MOV`. Use one
+   small helper rather than repeating a format string six times.
+2. FEEL-9 makes three digits sufficient by construction, so no out-of-range
+   branch is needed for correctness. Still assert rather than assume: if a value
+   arrives outside 0–999, render its true value and take the extra column, and
+   `push_warning` — a stat that escaped the clamp is a FEEL-9 defect and the
+   status window should say so instead of hiding it behind a format string.
+3. Keep every stat currently in the windows. This item changes formatting only —
+   no row is dropped, added, or reordered.
+4. Confirm the change is width-neutral. The body font is monospace and §8's
+   widths were measured against real content, so padding must not push the
+   540px status windows over budget; re-run `debug/preview_theme.gd` and record
+   the numbers.
+5. Leave the HP threshold tint at [BattlePresentationController.gd:830](src/systems/BattlePresentationController.gd:830)
+   working — it reads the model, not the string, so padding must not disturb it.
+   Verify rather than assume.
+6. **Scope boundary:** the forecast window, the prompt, and the battle log keep
+   their unpadded numbers. Padding is for values that sit in a fixed cell and
+   are re-read every turn; prose and one-shot readouts are neither. Do not
+   propagate this to `_forecastText`.
+7. Update the §8 note on the status windows' fixed-cell shape.
+8. Review the backlogs.
+
+**Files:** `src/systems/BattlePresentationController.gd`, `docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-11 — Give the base its own material
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** none.
+
+**Risk:** Medium. `retro_surface.gdshader` is shared by every mesh in the scene,
+so new uniforms must default to today's hardcoded values or the whole board
+changes appearance at once. The aesthetic risk is the larger one: a
+physically-correct metal would read as a modern material dropped into a
+deliberately PS1-era scene.
+
+**Adds to validation coverage:** A model base is distinguishable from the
+creature body standing on it at a glance and at gameplay camera distance; every
+other mesh in the scene is pixel-identical to before; and the ascension stack
+stays countable.
+
+**End state:** The base reads as a manufactured plinth the creature stands on,
+not as more creature.
+
+### Work
+
+1. `retro_surface.gdshader` hardcodes `ROUGHNESS = 1.0`, `METALLIC = 0.0`, and
+   `SPECULAR = 0.25` in `fragment()`. Promote all three to uniforms defaulting
+   to exactly those values, so every existing material is unchanged until it
+   opts in.
+2. Extend `createMaterial` with an optional surface-finish argument, and give
+   `createModelBase` a finish distinct from creature bodies: **metallic, low
+   roughness, dark**. Combined with the existing `BASE_COLOR_DARKEN`, the base
+   becomes dark-but-polished — pewter or oiled bronze — which separates from a
+   matte body by *how it catches light*, not by being brighter. That distinction
+   survives any team colour, which a hue shift would not.
+3. Make the finish carry the ascension tier. The stack already lightens each
+   layer up ([BattleMeshFactory.gd:165](src/presentation/BattleMeshFactory.gd:165));
+   ramp metallic up and roughness down alongside it, so a higher tier reads as
+   *more refined metal* rather than only *more layers*. Two signals for one
+   fact, both derived from `layerIndex`, no new state.
+4. Keep it era-appropriate. The scene commits to vertex snapping and affine
+   texture mapping; a full PBR metal fights that. Aim for a raised specular
+   response and, if it helps the base's edge separate against a dark board, a
+   cheap fresnel rim term — not physical accuracy. If a rim term is added, put
+   it behind its own uniform, default off.
+5. Verify at gameplay camera distance under the retro pipeline, not just in a
+   close-up preview. An effect that only reads when zoomed in has not solved the
+   problem; say so plainly if that is what you find.
+6. Confirm the ascension-tier probe from `createModelBase` still passes: layer
+   count, stack top landing on `BASE_TOTAL_HEIGHT`, unchanged footprint, and the
+   base carrying its own material.
+7. Review the backlogs.
+
+**Files:** `assets/shaders/retro_surface.gdshader`,
+`src/presentation/BattleMeshFactory.gd`, `docs/UI_DESIGN.md` if it records
+material language.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-12 — Dither away what the player is not choosing
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** FEEL-7, whose picking work supplies the hovered-model identity
+this item needs, and whose scene-occlusion half this item largely replaces.
+
+**Risk:** High. This changes how every model in the scene renders, driven by
+phase state that lives in a different layer. The failure modes are a model left
+dithered after the phase ends, the active unit dithering itself, and hover
+thrash — a model flickering between solid and dithered as the pointer crosses
+its edge.
+
+**Adds to validation coverage:** During move select and target select every
+model dithers except the active unit and the model currently under the pointer;
+hovering any model — target or not — restores it solid for as long as the
+pointer is on it; all models return solid on leaving the phase, on turn end, and
+at battle end; and the dither pattern is stable in screen space as the camera
+moves.
+
+**End state:** The board reads through the units standing on it while the player
+is choosing a tile, without anything vanishing.
+
+### Work
+
+1. Implement as **screen-door transparency**: a Bayer-matrix threshold on
+   `FRAGCOORD` with `discard` below it, in `retro_surface.gdshader` behind a
+   `dither_amount` uniform defaulting to 0. Do **not** route this through
+   `retro_surface_transparent.gdshader` — `discard` keeps depth writes and needs
+   no transparency sorting, and screen-door is what the hardware this scene
+   imitates actually did. The pattern must be anchored to `FRAGCOORD`, not to
+   UV: a screen-space grid reads as a stable pixel dither, while a UV-space one
+   swims across the model as it moves and looks like a texture bug.
+2. Drive it from one rule, stated in one place: a model renders solid if it is
+   the active unit **or** the model currently under the pointer; otherwise it
+   dithers. Everything else follows.
+3. Take the hovered model from FEEL-7's resolved pick, not from a second
+   raycast. One source of "what is under the pointer" for the whole game.
+4. Apply hysteresis or a small dwell before a hover restores a model, and verify
+   by sweeping the pointer rapidly across a crowded board. Flicker is the defect
+   most likely to survive to acceptance, because it does not appear when testing
+   one careful hover at a time.
+5. Gate on `MOVE_SELECT` and `TARGET_SELECT` only. `MENU`, `CONFIRM_ACTION`, and
+   `RESOLVING` all render solid — during confirm the player is reading a
+   committed choice, and during resolution they are watching it happen.
+6. Restore every model on phase exit through a single path, so a new phase or an
+   early turn end cannot strand one dithered. Prefer clearing all, not tracking
+   who was dithered.
+7. Check interaction with FEEL-6's spent-unit treatment and FEEL-1's threat
+   overlay: a spent, dithered, threatened unit must still be legible as all
+   three. Report if the combination does not hold rather than tuning it silently.
+8. Confirm against the CRT and retro pipeline that the dither survives
+   downsampling. A one-pixel checker at 320×240 upscaled through the CRT shader
+   may read as a haze rather than a pattern; if so, use a coarser matrix and say
+   which.
+9. **This supersedes FEEL-7's fade half.** Record that in FEEL-7's Resolution if
+   FEEL-7 has already run, or drop the fade from FEEL-7's scope if it has not.
+   Do not ship both — two systems hiding geometry from the camera will fight.
+10. Review the backlogs.
+
+**Files:** `assets/shaders/retro_surface.gdshader`,
+`src/presentation/BattleMeshFactory.gd`,
+`src/presentation/GodotVisualAdapter.gd`,
+`src/systems/BattlePresentationController.gd`, `docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-13 — Let an action finish before the next one starts
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** FEEL-5, whose speed multiplier every duration here must respect.
+
+**Risk:** High. `VisualActionQueue` has four documented invariants and a
+serial-number race between a tween's `finished` signal and its watchdog. Any
+change to how long an action is considered active moves the watchdog's arming
+window, and a watchdog that fires early turns a normal completion into a
+"stalled action" warning plus a forced finalize. The queue is also what
+`PlayerTurnController._resolveThenReturnToMenu` waits on, so a hold that never
+ends strands the player's turn in `RESOLVING` with no menu.
+
+**Adds to validation coverage:** An attack, a spell cast, and a defeat each
+remain visible through the substantial part of their effect before the next
+queued action begins; no watchdog warning appears during normal play; the
+`drained` signal still fires and the command menu still reopens after every
+resolved phase; and holds scale with the FEEL-5 speed setting and are cut by
+its skip.
+
+**End state:** The queue advances on how long an action actually looks like it
+takes, not on the duration of the one tween that happens to represent it.
+
+### Work
+
+1. Read `src/presentation/VisualActionQueue.gd` end to end before editing,
+   including the `setPaused` comment explaining why pause deliberately does not
+   bump `_serial`. That reasoning constrains this change.
+2. The defect is concrete: `activate(tween, action, duration)` is told the tween
+   duration, but start handlers spawn effects outside the tween.
+   `_start_bump_animation` runs a 0.25s tween and also calls
+   `SpellCastAuraScript.spawn`; `_start_defeat_animation` runs a 0.38s tween
+   alongside `GPUParticles3D` with `lifetime = 0.42`. Read
+   `src/presentation/effects/SpellCastAura.gd` for its real lifetime rather
+   than assuming.
+3. Let a start handler declare a **hold** — the duration the action should
+   occupy regardless of its tween — and have the queue advance on
+   `max(tween, hold)`. Prefer this to padding tweens with dead trailing time,
+   which would make the tween lie about what it animates.
+4. **Recompute `_watchdogDuration` from the same maximum.** It is currently
+   `duration + WATCHDOG_MARGIN`; if a hold outlasts the tween and the watchdog
+   is still armed against the tween, it fires mid-hold and reports a stall that
+   did not happen. This is the most likely way to get this item wrong.
+5. Keep the single completion path in `_complete` and the serial guard exactly
+   as they are. Add the hold before completion, not a second completion route.
+6. "Mostly through", not "fully through", per the settled decision. Overlapping
+   the tail of one effect with the start of the next is what keeps a battle from
+   feeling like a slideshow; pick the fraction, make it a named constant, and
+   say what you picked.
+7. Make the hold obey FEEL-5: scaled by the speed multiplier, and cut by the
+   skip. A hold that ignores the speed setting makes the setting look broken.
+8. Verify `_resolveThenReturnToMenu` and `_onQueueDrained` still return the
+   player to the menu after a move, an attack, a spell, and a defeat.
+9. Review the backlogs.
+
+**Files:** `src/presentation/VisualActionQueue.gd`,
+`src/presentation/GodotVisualAdapter.gd`,
+`src/presentation/effects/SpellCastAura.gd` if it must report its lifetime.
+
+**Resolution:** _pending_
+
+---
+
+## FEEL-14 — Damage numbers over the models
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** FEEL-13, which is what stops a number appearing after the queue
+has already moved on to the next action.
+
+**Risk:** Medium. A pixel font drawn in 3D space smears at fractional sizes —
+`NoggTheme` states the integer-size rule explicitly — and this is the first
+text the project renders in the world rather than in a window. Numbers that
+outlive their unit, or that stack into an unreadable pile on a multi-target
+spell, are the other two failure modes.
+
+**Adds to validation coverage:** Every unit taking damage shows a number above
+it; the number is legible at gameplay camera distance through the retro and CRT
+pipeline; several units damaged by one spell each show their own readable
+number; and no number survives its unit's defeat or the end of the battle.
+
+**End state:** Damage is something the player reads off the board, not
+something they infer from a health bar moving.
+
+### Work
+
+1. Follow `src/presentation/StatusEffectBillboard.gd` as the precedent — it is
+   already a `Node3D` that re-orients to the active camera each frame — rather
+   than inventing a second way to put something above a model.
+2. Use the menu font, `NoggTheme.GAME_FONT_PATH`
+   (`shining-force-ii-small.otf`), at an integer size. `NoggTheme` is the single
+   source of truth for fonts; do not load the file path directly from here.
+3. Draw the number **twice**: a black copy, and a white copy offset slightly up
+   and diagonally over it. This is a hard offset shadow, not a symmetric
+   outline — `Label3D.outline_size` produces the wrong look and must not be
+   substituted for it. Two `Label3D` nodes with an offset is the intended
+   construction.
+4. Set `fixed_size` on the labels so the glyphs hold a constant screen size and
+   the pixel font never lands on a fractional scale, whatever the camera
+   distance.
+5. Animate: pop up, then pop down and fade out. Overshoot on the way up reads as
+   impact — `TRANS_BACK` is already used for the defeat animation and is the
+   consistent choice. Make the durations named constants and scale them by
+   FEEL-5's speed multiplier.
+6. Stack or offset simultaneous numbers so a multi-target spell produces several
+   readable numbers rather than one overlapping pile. State the rule you chose.
+7. Free every number on its own completion, and also when its unit is defeated
+   or the battle ends. A billboard parented to a container that `_finalize_animation`
+   calls `queue_free()` on will go with it — verify that rather than assume it.
+8. Count the number's lifetime in the FEEL-13 hold for the action that caused
+   it, so the queue does not advance out from under it.
+9. Drive it from the damage the adapter already receives for its health-bar
+   update. Do not add a second event subscription for the same fact.
+10. Confirm legibility at gameplay distance through the retro downsample and the
+    CRT shader, not only in a close-up. Report plainly if the font is unreadable
+    at 320×240 rather than quietly enlarging it past the theme's sizes.
+11. Review the backlogs.
+
+**Files:** `src/presentation/` for the new billboard,
+`src/presentation/GodotVisualAdapter.gd`,
+`src/presentation/theme/NoggTheme.gd` if a size constant belongs there,
+`docs/UI_DESIGN.md`.
+
+**Resolution:** _pending_
+
+---
+
+## PLAN-VALIDATE — Full validation
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** CAST-1, CAST-2, CAST-3, CAST-4, CAST-5, FEEL-1, FEEL-2, FEEL-3,
+FEEL-4, FEEL-5, FEEL-6, FEEL-7, FEEL-8, FEEL-9, FEEL-10, FEEL-11, FEEL-12,
+FEEL-13, FEEL-14.
+
+**Risk:** Medium. The cycle's whole value is a path that only manual play
+exercises; a validation stopping at import and replay would miss exactly the
+defect that opened it.
+
+**Adds to validation coverage:** nothing new — this item consolidates and runs
+the cycle's coverage.
+
+**End state:** The plan is complete and every covered item is done.
+
+### Work
+
+1. Run the project's standard import, replay, and runtime checks per
+   `AGENTS.md`.
+2. Play a Player vs CPU battle and verify, by hand:
+   - Casting `Empower` end to end **with the mouse only** — no keyboard.
+   - Casting `Empower` end to end **with the keyboard only**, using Space as
+     accept.
+   - A ranged single-target spell and a basic attack still aim, confirm, and
+     cancel through the unchanged two-step path.
+   - Cancelling a confirm returns to the spell list for a self spell and to
+     target select for a ranged one.
+   - Right-click and `ui_cancel` behave identically in confirm.
+   - The command window returns with its prior selection after a cancel.
+   - `Move` → `Undo` → act, and act → move, both still complete a turn.
+   - F1 toggles the developer canvas; Space does not.
+3. In the same battle, verify the phase-two behaviour:
+   - The threat key draws enemy reach from every phase and restores the prior
+     overlay on release, including mid-aim.
+   - Vertical input during target select cycles spells with the forecast and
+     overlays following; horizontal input still cycles targets; the cursor
+     never rests on an illegal tile.
+   - Move select shows reachable and attackable tiles as two distinguishable
+     sets, with the path preview still readable over both.
+   - A turn beginning with the active unit already in view moves the camera not
+     at all; one beginning off-screen pans without zooming or rotating; any
+     camera input during a pan wins.
+   - Animation speed and per-action skip both return control to the menu.
+   - A unit with both phases spent reads as spent on the board.
+   - A tile visually blocked by another model or by terrain can still be
+     hovered and clicked, and during target select the pointer resolves to a
+     legal target rather than a nearer illegal one.
+   - The turn order display matches the simulator's order at every step of a
+     round, including after a mid-round death.
+   - Every status-window stat renders three digits and holds its horizontal
+     position as values change, and no stat leaves the 0–999 range during a
+     full battle including buffs, debuffs, and their expiry.
+   - A model base is distinguishable from the body standing on it at gameplay
+     camera distance, and the ascension stack is still countable.
+   - During move and target select every model dithers except the active unit
+     and the one under the pointer; hover restores solid without flicker; and
+     all models are solid again on leaving the phase and at battle end.
+   - An attack, a spell and a defeat each stay on screen through the bulk of
+     their effect before the next queued action starts, with no watchdog
+     warning during normal play.
+   - Damaged units show a readable number at gameplay camera distance through
+     the retro and CRT pipeline, including several at once from one spell, and
+     no number outlives its unit.
+4. Confirm no window is left on screen after a turn ends, after a rejected
+   action, and at battle end.
+5. Replay a recorded battle and diff the event history against a pre-cycle run.
+   Every item in this cycle except FEEL-9 is presentation work, so the only
+   admissible divergences are ones FEEL-9's Resolution already explains as stat
+   clamping. Anything else is a defect, not a changed expectation.
+6. Record the buff-forecast gap described under **Deliberately out of scope** in
+   `BACKLOG_CRITICAL.md`, as a description of the missing behaviour with its
+   file and function named — never as a plan item identifier. Record the
+   unscheduled candidate under **Not scheduled** in `BACKLOG_LONGTERM.md` the
+   same way, as a description carrying its open decision.
+7. Grep the repository for `CAST-`, `FEEL-`, and `PLAN-VALIDATE` before closing;
+   rewrite any hit outside this file as a description.
+8. Mark CAST-1 through FEEL-14 done, then clear this file's contents in the same
+   session per the plan file lifecycle.
+
+**Files:** `implementation_plan.md`, `BACKLOG_CRITICAL.md`,
+`BACKLOG_LONGTERM.md`.
+
+**Resolution:** _pending_
