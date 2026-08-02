@@ -241,7 +241,23 @@ world Y from the same presentation surface query.
 
 `BattleEvents` describes lifecycle, movement intent/results, action targets,
 combat, healing, effects, passives, and victory. `IBattleVisualAdapter` connects
-a consumer to that bus. `GodotVisualAdapter` copies position-bearing event data into typed
+a consumer to that bus.
+
+There are two adapter contracts, and the split matters:
+
+- **`IBattleVisualAdapter`** (`src/battle_sim/`) is the general, *observational*
+  surface — enough to watch a battle. `ConsoleVisualAdapter` implements exactly
+  this and stays non-interactive.
+- **`IPlayerTurnVisualAdapter`** (`src/presentation/`) extends it with the
+  narrow *interactive* additions a player turn needs: busy state, the
+  `animation_queue_drained` signal, player/target cursor, target status,
+  movement and target overlays, cursor release, and overlay clearing.
+  `GodotVisualAdapter` implements this one, and `PlayerTurnController` holds it
+  as its adapter type.
+
+Implementations inherit `animation_queue_drained` and must not redeclare it: a
+redeclared signal is a distinct signal, so a controller connected through the
+port would never be notified. `GodotVisualAdapter` copies position-bearing event data into typed
 `VisualAction` snapshots in a FIFO queue, so movement, targeting, attacks,
 spells, heals, defeat, and victory play in event order without blocking the
 simulation. The queue clones each snapshot at enqueue time, preventing later

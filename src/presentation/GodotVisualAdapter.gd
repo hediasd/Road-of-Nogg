@@ -2,7 +2,7 @@
 ## for the underlying headless battle simulation.
 
 class_name GodotVisualAdapter
-extends IBattleVisualAdapter
+extends IPlayerTurnVisualAdapter
 
 const MONSTER_PICK_COLLISION_LAYER := 1 << 7
 const TILE_PICK_COLLISION_LAYER := 1 << 6
@@ -22,7 +22,9 @@ const MOVE_STEP_DURATION := 0.28
 const MOVE_HEIGHT_DURATION_FACTOR := 0.08
 const MOVE_ARC_CLEARANCE := 0.3
 
-signal animation_queue_drained
+## animation_queue_drained is inherited from IPlayerTurnVisualAdapter and must
+## not be redeclared here: a redeclared signal is a different signal, and a
+## controller connected through the port would never be notified.
 
 var state: BattleState
 var root_node: Node3D

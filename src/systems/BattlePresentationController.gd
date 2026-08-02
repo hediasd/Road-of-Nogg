@@ -401,12 +401,7 @@ func _start_battle(config: BattleSetupConfig) -> void:
 	battle_ui.play_button.disabled = false
 
 	sim = BattleSetupFactoryScript.createSimulator(config, Callable(self, "_create_visual_adapter"))
-	player_turn = PlayerTurnControllerScript.new(
-		sim,
-		visual_adapter,
-		Callable(visual_adapter, "isAnimationBusy"),
-		visual_adapter.animation_queue_drained
-	)
+	player_turn = PlayerTurnControllerScript.new(sim, visual_adapter)
 	player_turn.menu_changed.connect(_on_player_menu_changed)
 	player_turn.status_changed.connect(_set_action_status)
 	player_turn.forecast_changed.connect(battle_ui.command_menu.setForecast)

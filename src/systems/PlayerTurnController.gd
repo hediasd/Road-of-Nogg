@@ -51,12 +51,10 @@ var activeMonsterID: int = -1
 var gridCursor := Vector2i.ZERO
 
 var _sim: BattleSimulator
-var _adapter
-## () -> bool — true while the visual queue still has work to play. Kept as a
-## callable so this class does not depend on a concrete adapter type.
-var _isAnimating: Callable
-## Signal the adapter emits when its queue empties.
-var _drainedSignal: Signal
+## The interactive visual port. Busy state and the drain signal come from here
+## directly; they used to be passed separately as a Callable and a Signal so
+## this class could stay adapter-agnostic, which the typed port now provides.
+var _adapter: IPlayerTurnVisualAdapter
 
 var _reachableTiles: Array = []
 var _validTargetPositions: Array = []
@@ -69,11 +67,9 @@ var _selectedSpellIndex: int = -1
 var _waitingForDrain: bool = false
 
 
-func _init(sim: BattleSimulator, adapter, isAnimating: Callable, drainedSignal: Signal) -> void:
+func _init(sim: BattleSimulator, adapter: IPlayerTurnVisualAdapter) -> void:
 	_sim = sim
 	_adapter = adapter
-	_isAnimating = isAnimating
-	_drainedSignal = drainedSignal
 
 
 func isActive() -> bool:
@@ -537,13 +533,13 @@ func _resolveThenReturnToMenu() -> void:
 	## has already left on screen.
 	phase = Phase.RESOLVING
 	menu_changed.emit()
-	if not _isAnimating.call():
+	if not _adapter.isAnimationBusy():
 		_enterMenu()
 		return
 	if _waitingForDrain:
 		return
 	_waitingForDrain = true
-	_drainedSignal.connect(_onQueueDrained, CONNECT_ONE_SHOT)
+	_adapter.animation_queue_drained.connect(_onQueueDrained, CONNECT_ONE_SHOT)
 
 
 func _onQueueDrained() -> void:
