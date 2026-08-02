@@ -15,7 +15,7 @@ validation.
 
 ## Scope and settled decisions
 
-This cycle implements five outcomes:
+This cycle implements six outcomes:
 
 1. Root `AGENTS.md` becomes the sole agent instruction source.
 2. A compact module map makes ownership and dependency discovery cheap.
@@ -28,6 +28,8 @@ This cycle implements five outcomes:
    bundled Godot executable, Blender backups, temporary scenes, builds, and
    `debug/`—remain untouched because normal Git/`rg` discovery already excludes
    them and the executable supports the documented Windows workflow.
+6. Ascended monster models gain a differentiated, stacked base presentation
+   while preserving the current overall model height.
 
 No item needs a product or balance decision. A newly discovered live dependency
 on a scheduled deletion is blocking: record it and ask whether to migrate or
@@ -297,6 +299,53 @@ preserved and excluded.
 
 ---
 
+## STRUCT-7 - Differentiate ascension base presentation
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** STRUCT-6.
+
+**Risk:** Medium. A presentation-only mesh change can misrepresent ascension
+state, alter perceived model height, or break rebuilt/replayed visuals if the
+layer count is not derived consistently.
+
+**Adds to validation coverage:** Basic, once-ascended, and multiply-ascended
+monsters spawn with the expected base material and layer count; stacked bases
+preserve the current total base height and survive setup, replay, and board
+refresh paths.
+
+**End state:** Model bases are visually distinct from creature meshes. Basic
+models keep one base layer; ascended models stack one layer per ascension tier,
+with thinner layers as the stack grows so overall model height stays bounded.
+
+### Work
+
+1. Trace the existing ascension catalog/runtime relationship and define one
+   presentation tier source that works for basic and repeatedly ascended models.
+2. Extend the mesh/presentation construction so the base uses its own material
+   and creates the required number of layers without changing creature-body
+   geometry or simulation state.
+3. Allocate a fixed total base-height budget and reduce per-layer thickness as
+   the layer count grows; keep layer spacing, footprint, and origin stable.
+4. Ensure setup, replay reconstruction, and any board refresh all use the same
+   tier and material inputs, including placeholder visuals.
+5. Add focused runtime or harness assertions for layer count, material
+   distinction, and bounded height; leave full visual acceptance to
+   STRUCT-VALIDATE.
+6. Review all backlogs and remove or rewrite any entry made stale by this
+   implementation.
+
+**Files:** `src/presentation/BattleMeshFactory.gd`,
+`src/presentation/GodotVisualAdapter.gd`, the ascension data/runtime file(s)
+identified by the trace, and focused debug coverage if needed.
+
+**Behavior intentionally unchanged:** Ascension rules, combat stats, logical
+elevation, collision/selection geometry, and replay semantics.
+
+**Resolution:** Pending.
+
+---
+
 ## STRUCT-VALIDATE — Consolidated validation
 
 **Model:** Opus 5 / GPT Sol
@@ -309,7 +358,7 @@ deletion, and configuration changes still make a playable project.
 **Adds to validation coverage:** Instruction discovery, dependency hygiene,
 Godot import, setup validation/construction, deterministic replay, CPU play,
 interactive player phases, visual queue coordination, new-battle lifecycle, and
-resource/icon resolution.
+resource/icon resolution, and ascension-base visual layering.
 
 ### Preconditions
 
@@ -343,6 +392,9 @@ resource/icon resolution.
 5. In Player vs CPU, cover both phase orders, undo, basic and spell targeting,
    pass, drain-before-menu behavior, and cursor/overlay cleanup.
 6. Confirm logs have no missing icon or removed-resource warning.
+7. Spawn basic, once-ascended, and multiply-ascended monsters in the real
+   window; verify distinct bases, expected layer counts, and bounded total
+   base/model height after setup, replay, and a board refresh.
 
 ### Completion and plan lifecycle
 
