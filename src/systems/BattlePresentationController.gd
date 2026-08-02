@@ -18,6 +18,14 @@ const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const ResonanceBarScript = preload("res://src/presentation/theme/ResonanceBar.gd")
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
 
+## Margin, in the same logical screen space `docs/UI_DESIGN.md` §8 measures
+## windows against, that keeps the active unit clear of the displayed view's
+## edge rather than merely inside it. `RetroRenderController.get_display_rect()`
+## is used rather than the raw viewport rect because retro rendering can
+## letterbox the world image inside the window; a unit sitting in the letterbox
+## bar would otherwise read as "visible".
+const CAMERA_FOCUS_EDGE_MARGIN := 64.0
+
 ## How far the simulation may run ahead of visual playback before it waits for
 ## room. Well under VisualActionQueue.MAX_QUEUED_ACTIONS so overflow recovery
 ## never competes with a deliberate pause, and large enough that ordinary
@@ -589,7 +597,28 @@ func _begin_player_turn(monsterID: int) -> void:
 	turn_timer.stop()
 	battle_ui.play_button.disabled = false
 	battle_ui.action_panel.visible = true
+	_pan_camera_to_active_unit(monsterID)
 	player_turn.beginTurn(monsterID)
+
+
+## Guarantees the active unit is on screen; never re-authors the view. Only
+## pans when the unit is genuinely off-screen or inside the edge margin — a
+## turn beginning with it already comfortably framed moves the camera not at
+## all. Deliberately does not extend to CPU turns; whether the camera follows
+## enemy actions is a pacing decision, left open.
+func _pan_camera_to_active_unit(monsterID: int) -> void:
+	if camera == null or visual_adapter == null or retro_renderer == null:
+		return
+	var worldPos := visual_adapter.get_monster_world_position(monsterID)
+	if camera.is_position_behind(worldPos):
+		camera.panFocusTo(worldPos)
+		return
+	var viewportPos := camera.unproject_position(worldPos)
+	var screenPos := retro_renderer.world_to_screen(viewportPos)
+	var visibleRect := retro_renderer.get_display_rect().grow(-CAMERA_FOCUS_EDGE_MARGIN)
+	if visibleRect.has_point(screenPos):
+		return
+	camera.panFocusTo(worldPos)
 
 
 func _on_player_turn_finished(_monsterID: int) -> void:

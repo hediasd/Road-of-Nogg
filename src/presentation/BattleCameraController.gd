@@ -22,6 +22,14 @@ var max_zoom: float = 30.0
 var zoom_step: float = 1.0
 var _dragMode: DragMode = DragMode.NONE
 
+## Turn-start framing pan. Tweens `focus_point` only — never `current_yaw`,
+## `current_pitch`, or `size` — so a pan can never rotate or zoom the camera,
+## per the rule that the camera may guarantee visibility but never take
+## authorship of the view. `_update_camera_transform()` re-derives `position`
+## from `focus_point` every frame, so this is a plain translation.
+const FOCUS_PAN_DURATION := 0.35
+var _focusPanTween: Tween
+
 func _ready() -> void:
 	# Calculate initial spherical coords from starting position relative to focus
 	var offset = position - focus_point
@@ -43,6 +51,19 @@ func _process(_delta: float) -> void:
 
 
 func handle_input(event: InputEvent, motionScale: Vector2 = Vector2.ONE) -> bool:
+	## Any event this function recognizes as its own — zoom, orbit, pan, or a
+	## reset — is player-authored camera input, and the settled rule is that a
+	## framing pan abandons immediately in favour of it. Hover and grid clicks
+	## fall through to `false` below and must not cancel a pan; wrapping the
+	## original logic here, rather than scattering cancelPanFocus() at each
+	## `return true`, keeps that distinction in one place.
+	var handled := _handle_camera_input(event, motionScale)
+	if handled:
+		cancelPanFocus()
+	return handled
+
+
+func _handle_camera_input(event: InputEvent, motionScale: Vector2) -> bool:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
 			_zoom_camera(-zoom_step)
@@ -84,6 +105,26 @@ func isDragging() -> bool:
 
 func cancelDrag() -> void:
 	_dragMode = DragMode.NONE
+
+
+## Pans the orbit's focus point to `target`, keeping yaw, pitch, and zoom
+## exactly as they are. Position only — see the field comment above
+## `_focusPanTween`.
+func panFocusTo(target: Vector3, duration: float = FOCUS_PAN_DURATION) -> void:
+	cancelPanFocus()
+	_focusPanTween = create_tween()
+	_focusPanTween.tween_property(self, "focus_point", target, duration) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+
+
+func cancelPanFocus() -> void:
+	if _focusPanTween != null and _focusPanTween.is_valid():
+		_focusPanTween.kill()
+	_focusPanTween = null
+
+
+func isPanningFocus() -> bool:
+	return _focusPanTween != null and _focusPanTween.is_valid()
 
 
 func _notification(what: int) -> void:

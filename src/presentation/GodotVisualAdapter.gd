@@ -747,6 +747,18 @@ func highlight_monster(monster_id: int) -> void:
 	visualEffects.highlightMonster(monster_id)
 
 
+## World position of a monster's visual, for callers that need where a unit
+## actually is on screen (the camera pan, for one) rather than its board
+## coordinate. Prefers the live visual — mid-tween or bumped off-tile — over
+## the authoritative tile position, since those are exactly the moments a
+## caller like a camera pan cares about.
+func get_monster_world_position(monster_id: int) -> Vector3:
+	if _monster_visuals.has(monster_id):
+		return _monster_visuals[monster_id].position
+	var coord := state.getMonsterPosition(monster_id)
+	return _coord_to_surface_pos3d(coord)
+
+
 func show_player_cursor(coord: Vector2i) -> void:
 	_cursor_controller.focusPlayerSelection(coord)
 

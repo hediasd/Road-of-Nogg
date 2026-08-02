@@ -580,7 +580,35 @@ the camera for control of it.
 **Files:** `src/systems/BattlePresentationController.gd`, the camera script it
 drives.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation. Added
+`BattleCameraController.panFocusTo()` / `cancelPanFocus()`, tweening
+`focus_point` only under a named `FOCUS_PAN_DURATION` — `_update_camera_transform()`
+re-derives `position` from `focus_point` every frame, so yaw, pitch, and `size`
+are untouched by construction. `handle_input()` was split into a thin wrapper
+plus the original logic renamed `_handle_camera_input()`; the wrapper cancels
+an in-flight pan whenever the inner call reports it handled the event (zoom,
+orbit/pan drag start or stop, or the double-click reset), which composes
+correctly with both `_input`'s drag-continuation gate and `_unhandled_input`'s
+routing, since both already call through the one `handle_input()` entry point.
+Hover motion and grid clicks fall through to `false` and do not cancel a pan.
+
+`BattlePresentationController._begin_player_turn` calls the new
+`_pan_camera_to_active_unit()`, which pans only when the active unit's
+projected position falls outside `RetroRenderController.get_display_rect()`
+inset by `CAMERA_FOCUS_EDGE_MARGIN` (64px) — `get_display_rect()` rather than
+the raw viewport rect, because retro rendering can letterbox the world image
+inside the window, and a unit sitting in the letterbox bar must still count as
+off-screen. A `camera.is_position_behind()` check handles the case of a unit
+directly behind the camera, where an unprojected position would otherwise be
+unreliable.
+
+Getting the unit's actual world position required a small addition:
+`GodotVisualAdapter.get_monster_world_position()`, which prefers the live
+visual (mid-tween or bumped off-tile) over the authoritative tile position,
+since a pan is exactly the case that cares where the unit visually is.
+
+This item does not extend to CPU turns, per its own scope note — left as an
+open pacing question, not built.
 
 ---
 
