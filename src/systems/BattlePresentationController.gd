@@ -863,11 +863,61 @@ func _player_turn_active() -> bool:
 	return player_turn != null and player_turn.isActive()
 
 
+## Translates a screen position into the board tile the player *meant*, which
+## is not always the nearest thing the ray touched.
+##
+## **The priority rule, stated once:**
+##
+## 1. The nearest hit on either pick layer wins by default. This is the whole
+##    rule outside an aiming phase, and it is what this function has always
+##    done.
+## 2. While a target set is on screen, a tile *inside that set* outranks a
+##    nearer hit that is not. A model standing between the camera and a legal
+##    target would otherwise steal every click meant for the tile behind it,
+##    and the player has no way to reach that tile at all.
+##
+## Rule 2 is deliberately scoped to `TARGET_SELECT` and not to `MOVE_SELECT`.
+## Move select accepts a cursor on *any* in-bounds tile — `_previewPath()`
+## handles an unreachable one — so preferring reachable tiles there would make
+## the cursor jump away from what the pointer is actually over, which is a
+## different behaviour rather than a fix.
+##
+## Cost: rule 1 is one raycast, exactly as before. The second cast is paid only
+## when the nearest hit is *not* a legal target, which is precisely the case
+## where it can change the answer.
 func _mouse_to_battle_coord(mousePos: Vector2) -> Vector2i:
 	if visual_adapter == null or sim == null:
 		return Vector2i(-1, -1)
-	var hit = _world_pick(mousePos)
+	var nearest := _coord_from_hit(_world_pick(mousePos))
+	var candidates: Array = _current_target_candidates()
+	if candidates.is_empty() or candidates.has(nearest):
+		return nearest
+	# The nearest hit is not a legal target. Look past whatever is in front by
+	# casting the tile layer alone; a monster body is the only thing that can
+	# occlude a tile it does not itself stand on.
+	var behind := _coord_from_hit(
+		_world_pick(mousePos, GodotVisualAdapterScript.TILE_PICK_COLLISION_LAYER)
+	)
+	if candidates.has(behind):
+		return behind
+	return nearest
+
+
+## The tile set the player is currently choosing among, or empty when they are
+## not choosing one. Read through the controller's public accessor rather than
+## its private phase state, following CAST-3's precedent.
+func _current_target_candidates() -> Array:
+	if not _player_turn_active():
+		return []
+	if player_turn.phase != PlayerTurnControllerScript.Phase.TARGET_SELECT:
+		return []
+	return player_turn.validTargetPositions()
+
+
+func _coord_from_hit(hit: Dictionary) -> Vector2i:
 	var collider = hit.get("collider")
+	# A monster body resolves to the tile it stands on: aiming at a unit means
+	# aiming at its tile. Only this translation's *precedence* changed.
 	if is_instance_valid(collider) and collider.has_meta("monster_id"):
 		var monster_pos = sim.state.getMonsterPosition(int(collider.get_meta("monster_id")))
 		if sim.state.withinBounds(monster_pos):
@@ -1033,17 +1083,25 @@ func _on_animation_queue_drained() -> void:
 	if battle_ui.play_button.button_pressed and turn_timer.is_stopped():
 		turn_timer.start()
 
-func _world_pick(mousePos: Vector2) -> Dictionary:
+## `layerMask` defaults to both pick layers, which is the ordinary "what is
+## nearest under the pointer" query. `_mouse_to_battle_coord()` narrows it to
+## the tile layer alone to see past a model that is occluding a legal target.
+func _world_pick(mousePos: Vector2, layerMask: int = -1) -> Dictionary:
 	if not camera or visual_adapter == null:
 		return {}
 	var world_mouse_pos = retro_renderer.screen_to_world(mousePos)
 	if world_mouse_pos.x < 0.0:
 		return {}
+	if layerMask == -1:
+		layerMask = (
+			GodotVisualAdapterScript.MONSTER_PICK_COLLISION_LAYER
+			| GodotVisualAdapterScript.TILE_PICK_COLLISION_LAYER
+		)
 	var ray_origin = camera.project_ray_origin(world_mouse_pos)
 	var ray_normal = camera.project_ray_normal(world_mouse_pos)
 	var query = PhysicsRayQueryParameters3D.create(
 		ray_origin,
 		ray_origin + ray_normal * 1000.0,
-		GodotVisualAdapterScript.MONSTER_PICK_COLLISION_LAYER | GodotVisualAdapterScript.TILE_PICK_COLLISION_LAYER
+		layerMask
 	)
 	return retro_renderer.world_root.get_world_3d().direct_space_state.intersect_ray(query)

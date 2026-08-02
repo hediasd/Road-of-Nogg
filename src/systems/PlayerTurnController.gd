@@ -201,6 +201,13 @@ func spellEntries() -> Array:
 	return entries
 
 
+## The tiles the player may currently aim at, as a copy. Exists so the scene
+## controller can resolve an ambiguous mouse pick toward a legal target
+## without reaching into private phase state; empty outside `TARGET_SELECT`.
+func validTargetPositions() -> Array:
+	return _validTargetPositions.duplicate()
+
+
 func selectedSpell() -> Vector2i:
 	return Vector2i(_selectedSpellSet, _selectedSpellIndex)
 

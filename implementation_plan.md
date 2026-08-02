@@ -948,7 +948,52 @@ scope; fading a unit to reveal its own tile is not.
 `src/systems/PlayerTurnController.gd` for the read-only accessor,
 `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+**Neither of the two offered approaches, and deliberately so.** The item framed
+this as per-layer casts vs an exclude-loop, and worried about the cost of
+either on a path that runs per motion event. Both framings assume the extra
+work is always paid. It need not be: the nearest hit is *already* the right
+answer in every case except the one this item exists to fix. So
+`_mouse_to_battle_coord()` casts the combined mask once, exactly as before, and
+only when that nearest hit is **not** in the current target set does it pay a
+second, tile-layer-only cast to see past whatever is in front. The common path
+is bit-for-bit the old cost, and the extra cast is spent only where it can
+change the answer. `_world_pick()` gained an optional `layerMask` to serve
+both.
+
+The priority rule is written once, as a doc comment on
+`_mouse_to_battle_coord()`: nearest hit wins by default; while a target set is
+on screen, a tile inside that set outranks a nearer hit that is not. The
+monster-collider-to-tile translation is unchanged — only its precedence moved.
+`_coord_from_hit()` factors that translation out so both casts interpret a hit
+identically.
+
+**Scoped to `TARGET_SELECT`, not `MOVE_SELECT`.** Move select accepts a cursor
+on any in-bounds tile (`_previewPath()` handles an unreachable one), so
+preferring reachable tiles there would pull the cursor away from what the
+pointer is actually over — a behaviour change, not a fix. Recorded because the
+item's wording ("while a target set exists") could be read either way.
+
+The candidate set is read through a new
+`PlayerTurnController.validTargetPositions()`, which returns a copy, per step
+4's requirement not to depend on private phase state.
+
+**Two things this item asked for that were not built, each with a reason:**
+
+- **No occlusion query.** Step 5 says to build it "if a later item needs it"
+  and to ship no visual change from it. FEEL-12 supersedes the fade and needs
+  the *pick* result, not a camera-to-focus ray, so nothing consumes such a
+  query — building it now would be dead code. FEEL-12 will take the hovered
+  identity from this pick, as step 3 of that item requires.
+- **No before/after hover measurement.** Step 6 asks for two recorded numbers.
+  Obtaining them means launching the game and sweeping a pointer, which
+  `docs/DEVELOPMENT.md` reserves for the final validation item. Rather than
+  invent figures, the design was changed so the measurement is not the
+  deciding factor: the hover path's cast count is unchanged at one.
+  `PLAN-VALIDATE` should still confirm hover feels smooth on a crowded board.
+
+Parse-checked with `--check-only`.
 
 ---
 
