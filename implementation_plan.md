@@ -354,7 +354,38 @@ holds in the confirm phase, the one phase where it currently fails.
 **Files:** `src/systems/BattlePresentationController.gd`,
 `src/systems/PlayerTurnController.gd`, `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+`PlayerTurnController.pendingTargetPosition()` returns `_pendingTargetPos`
+directly, mirroring `validTargetPositions()`'s pattern. The left-click handler
+in `_unhandled_input` gained a `CONFIRM_ACTION` branch ahead of the
+`acceptsGridInput()` check — exactly as specified, since that gate is false in
+this phase by design and must stay that way. A click on the pending tile
+confirms; anything else, including a click that misses the board entirely,
+cancels. Both branches call `get_viewport().set_input_as_handled()`, which the
+item's Work list did not mention but every sibling branch in this function
+does; leaving it off would have let the click fall through further than
+intended. `acceptsGridInput()` and the hover branch (which already only runs
+when that gate is true) are untouched.
+
+**This is additive, not a replacement for CAST-2's window.** CONFIRM_ACTION
+now has two independent paths to the same two outcomes: click `CONFIRM`/`CANCEL`
+in the window, or click the target tile / anywhere else on the board.
+`cancel()` already knows which phase to return to via CAST-4's
+`_confirmSkippedTargetSelect` flag, so this item did not need to special-case
+that — both entry points converge on the same `confirmSelection()`/`cancel()`
+calls the window's rows use.
+
+Added a §6 input-table entry for the two board-click rows, with a note on why
+they cannot disagree with the window: during `CONFIRM_ACTION` the cursor no
+longer moves, so §5's "cursor position is the only selection truth" has
+nothing left to contradict — there is only a commit to make, not a target to
+aim.
+
+Checked `debug/drive_battle.gd` for a confirm reached by clicking the same
+tile twice: every `CONFIRM_ACTION` case in it confirms via `ui_accept`
+assertions, never a second click, so this item adds a capability without
+touching harness behavior. Parse-checked with `--check-only`.
 
 ---
 

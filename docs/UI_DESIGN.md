@@ -392,10 +392,20 @@ This is what keeps the two devices from disagreeing.
 | Left click on `◀` / `▶` | Page |
 | Right click | Same as `ui_cancel` |
 | Mouse wheel over a window | Move cursor one row |
+| Left click on the pending target tile, during `CONFIRM_ACTION` | Confirm — same as clicking `CONFIRM` |
+| Left click anywhere else on the board, during `CONFIRM_ACTION` | Cancel — same as clicking `CANCEL` |
 
 Disabled rows are skipped by keyboard movement and are inert to hover and
 click. They render in `TEXT_DIM` and are never hidden — a spent `Move` must
 stay visible so the player can see *why* it is unavailable.
+
+The two board-click rows are a second path to the same two outcomes the
+confirm window already offers, not a competing one: during `CONFIRM_ACTION`
+the cursor no longer moves (§5's cursor-position-is-truth rule does not apply
+to the board — there is nothing left to aim, only to commit), so a board click
+cannot disagree with the window. Clicking the target tile and clicking
+`CONFIRM` reach `confirmSelection()`; anything else on the board and clicking
+`CANCEL` both reach `cancel()`.
 
 ---
 

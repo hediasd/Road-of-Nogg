@@ -925,6 +925,23 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var pos = _mouse_to_battle_coord(event.position)
+		# CONFIRM_ACTION is handled ahead of acceptsGridInput(), which is false
+		# in this phase by design (it gates cursor movement, and confirm must
+		# not accept cursor movement) — this routes clicks around that gate
+		# rather than widening it. A click on the tile the player is about to
+		# commit to confirms it; a click anywhere else on the board cancels
+		# back to wherever cancel() already knows to go (CAST-4 may have
+		# skipped target select entirely, and cancel() already tracks that).
+		# Either way the event is consumed here, so it can never fall through
+		# to _handle_click_selection and silently re-render the inspector
+		# instead of confirming.
+		if _player_turn_active() and player_turn.phase == PlayerTurnControllerScript.Phase.CONFIRM_ACTION:
+			if pos == player_turn.pendingTargetPosition():
+				player_turn.confirmSelection()
+			else:
+				player_turn.cancel()
+			get_viewport().set_input_as_handled()
+			return
 		if _player_turn_active() and player_turn.acceptsGridInput():
 			player_turn.selectGridPosition(pos)
 		else:

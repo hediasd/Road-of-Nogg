@@ -208,6 +208,15 @@ func validTargetPositions() -> Array:
 	return _validTargetPositions.duplicate()
 
 
+## The tile a click must land on to confirm during `CONFIRM_ACTION`. Follows
+## `validTargetPositions()`'s pattern — a read-only view of private phase
+## state, so the scene controller can compare a clicked tile without reaching
+## in. `Vector2i(-1, -1)` outside `CONFIRM_ACTION`, matching the sentinel
+## `_pendingTargetPos` itself uses before a target is committed.
+func pendingTargetPosition() -> Vector2i:
+	return _pendingTargetPos
+
+
 func selectedSpell() -> Vector2i:
 	return Vector2i(_selectedSpellSet, _selectedSpellIndex)
 
