@@ -255,6 +255,35 @@ static func _setSplitBoundsOnMaterial(
 	material.set_shader_parameter("split_bounds_size", boundsSize)
 
 
+## Sets `dim_amount` on every retro material under `node` — used to mark a
+## unit whose turn has spent a phase, mirroring the command menu's own
+## treatment of a spent row. Non-retro materials (StandardMaterial3D, none)
+## are left alone rather than converted; dimming is presentation on top of
+## whatever material a mesh already has, not a material-identity change.
+static func setDimAmountRecursive(node: Node, amount: float) -> void:
+	if node is MeshInstance3D:
+		_setDimAmountForMesh(node, amount)
+	for child in node.get_children():
+		setDimAmountRecursive(child, amount)
+
+
+static func _setDimAmountForMesh(meshInstance: MeshInstance3D, amount: float) -> void:
+	if meshInstance.material_override is ShaderMaterial:
+		_setDimAmountOnMaterial(meshInstance.material_override, amount)
+	if meshInstance.mesh == null:
+		return
+	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
+		var material = meshInstance.get_surface_override_material(surfaceIndex)
+		if material is ShaderMaterial:
+			_setDimAmountOnMaterial(material, amount)
+
+
+static func _setDimAmountOnMaterial(material: ShaderMaterial, amount: float) -> void:
+	if not material.has_meta(RETRO_MATERIAL_META):
+		return
+	material.set_shader_parameter("dim_amount", amount)
+
+
 static func updateMaterialsRecursive(node: Node) -> void:
 	if node is MeshInstance3D:
 		_updateMeshMaterials(node)

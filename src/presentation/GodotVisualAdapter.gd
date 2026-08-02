@@ -776,6 +776,17 @@ func highlight_monster(monster_id: int) -> void:
 	visualEffects.highlightMonster(monster_id)
 
 
+## Marks a unit as having spent a phase of its turn, matching the command
+## menu's own treatment of a spent row (dim, not hidden). Presentation only —
+## does not touch selection state, unlike highlight_monster.
+func set_monster_dimmed(monster_id: int, dimmed: bool) -> void:
+	if not _monster_visuals.has(monster_id):
+		return
+	BattleMeshFactoryScript.setDimAmountRecursive(
+		_monster_visuals[monster_id], 1.0 if dimmed else 0.0
+	)
+
+
 ## World position of a monster's visual, for callers that need where a unit
 ## actually is on screen (the camera pan, for one) rather than its board
 ## coordinate. Prefers the live visual — mid-tween or bumped off-tile — over

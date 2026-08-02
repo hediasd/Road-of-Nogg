@@ -726,7 +726,56 @@ stays visible and dim rather than disappearing — holds on the board too.
 **Files:** `src/presentation/GodotVisualAdapter.gd`,
 `src/systems/BattlePresentationController.gd`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation, with one discovery
+that changed the item's scope.
+
+**Discovery:** the "both phases spent" state this item was written against
+never reaches the screen. `PlayerTurnController._enterMenu()` calls
+`endTurnNow()` the instant `has_moved and has_acted` are both true, before
+`menu_changed` even emits for that state — so a board treatment gated on
+literally both phases would be unobservable and untestable. Retargeted to dim
+a unit once it has spent *either* phase (Move or Act), which is the real,
+persistent state already visible in the command menu's own row-level dimming,
+and is what makes this legible at all. The "both spent" case is still covered
+as a trivial subset — it's just never on screen long enough to notice, exactly
+as before this item.
+
+**Mechanism:** rather than re-tint each material's `color_a`/`color_b` (which
+would require remembering an original colour per material to undo), added a
+`dim_amount` uniform to both `retro_surface.gdshader` and
+`retro_surface_transparent.gdshader` (kept in sync; a monster body converted
+from an imported `StandardMaterial3D` can legitimately land on either),
+defaulting to 0.0 so every material is pixel-identical until it opts in.
+`ALBEDO` is darkened by up to 55% in place — a plain darken, not a shift
+toward `TEXT_DIM`'s specific blue-grey, since recolouring a monster's body
+toward a UI text colour would fight its own team/element identity; read
+`TEXT_DIM`'s *intent* (legible-but-muted, not hidden) rather than its literal
+value. `BattleMeshFactory.setDimAmountRecursive()` walks a monster's visual
+container the same way `updateMaterialsRecursive()`/`_configureSplitBoundsRecursive()`
+already do, touching only materials tagged `RETRO_MATERIAL_META` and leaving
+anything else alone. `GodotVisualAdapter.set_monster_dimmed()` is the public
+entry point.
+
+`BattlePresentationController._update_active_unit_dim()` — called from
+`_on_player_menu_changed()` (which already fires on every phase transition)
+and once more from `_finish_battle()` as a direct safety net — reads
+`sim.turnPhaseState(activeMonsterID)` and tracks the single dimmed unit by id
+in `_dimmedMonsterID`, mirroring how `BattleVisualEffects` tracks
+`selectedMonsterID` for `highlight_monster`. Clears on turn end (`activeMonsterID`
+already reads -1 by the time `endTurnNow()`'s `menu_changed` fires), on Undo
+restoring `has_moved` to false, and at battle end.
+
+**Composability, checked:** `highlight_monster`'s selection ring is a separate
+additive aura mesh parented alongside the body; `dim_amount` only darkens the
+body's own `ALBEDO`. The two do not fight and a unit can carry both at once.
+The ascension base's layers share the monster's visual container and use the
+same tagged materials, so they dim along with the body — read as more
+thorough, not a conflict, and orthogonal to FEEL-11's later `METALLIC`/`ROUGHNESS`
+uniforms on the same shader. FEEL-1's threat overlay is a ground-plane tile
+marker, not a per-monster material, so it should not interact with this
+either — but FEEL-1 has not been built yet in this session, so that
+composability is asserted from the overlay's known construction, not verified
+against running code; PLAN-VALIDATE should confirm it once FEEL-1 lands.
 
 ---
 

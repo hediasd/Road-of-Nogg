@@ -46,6 +46,12 @@ var turn_timer: Timer
 var camera: BattleCameraController
 var retro_renderer
 
+## The one unit currently rendered dim for a spent turn phase, or -1. Tracked
+## explicitly, the same way BattleVisualEffects tracks `selectedMonsterID` for
+## highlight_monster, so the previous unit's dim is always cleared by id
+## rather than inferred from board state.
+var _dimmedMonsterID: int = -1
+
 var actor_window: NoggWindow
 var target_window: NoggWindow
 var log_label: RichTextLabel
@@ -591,6 +597,7 @@ func _finish_battle(winner: int) -> void:
 	battle_ui.play_button.tooltip_text = "Battle complete."
 	battle_ui.play_button.disabled = true
 	player_turn = null
+	_update_active_unit_dim()
 	battle_ui.action_panel.visible = false
 	visual_adapter.clear_tactical_overlays()
 	visual_adapter.release_player_cursor()
@@ -645,6 +652,7 @@ func _set_action_status(text: String) -> void:
 
 
 func _on_player_menu_changed() -> void:
+	_update_active_unit_dim()
 	if player_turn == null:
 		return
 	var command_menu = battle_ui.command_menu
@@ -652,6 +660,28 @@ func _on_player_menu_changed() -> void:
 		command_menu.showRoot(player_turn.menuEntries())
 	elif player_turn.phase != PlayerTurnControllerScript.Phase.MENU:
 		command_menu.showPromptOnly()
+
+
+## A unit is dim for the rest of its turn once it has spent a phase (Move or
+## Act), not only once both are spent — `PlayerTurnController._enterMenu()`
+## calls `endTurnNow()` the instant both are spent, so that combined state
+## never actually reaches the screen. Dimming on the first spent phase is what
+## makes this legible at all, and it generalizes the same signal the command
+## menu already dims its Move/Attack/Spell rows from.
+func _update_active_unit_dim() -> void:
+	if visual_adapter == null:
+		return
+	var monsterID := player_turn.activeMonsterID if player_turn != null else -1
+	var shouldDim := false
+	if monsterID != -1 and sim != null:
+		var phases = sim.turnPhaseState(monsterID)
+		shouldDim = bool(phases["has_moved"]) or bool(phases["has_acted"])
+	if _dimmedMonsterID != -1 and (_dimmedMonsterID != monsterID or not shouldDim):
+		visual_adapter.set_monster_dimmed(_dimmedMonsterID, false)
+		_dimmedMonsterID = -1
+	if shouldDim and monsterID != -1 and _dimmedMonsterID != monsterID:
+		visual_adapter.set_monster_dimmed(monsterID, true)
+		_dimmedMonsterID = monsterID
 
 
 func _input(event: InputEvent) -> void:

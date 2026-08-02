@@ -17,6 +17,11 @@ uniform float vertex_snap_strength : hint_range(0.0, 1.0) = 1.0;
 uniform bool affine_mapping_enabled = true;
 uniform vec2 snap_resolution = vec2(320.0, 240.0);
 uniform float emission_strength = 0.0;
+// Darkens ALBEDO/EMISSION in place, toward the same TEXT_DIM-style treatment
+// the command menu already uses for a spent row. Defaults to 0.0 so every
+// material is pixel-identical until something opts in. Mirrors
+// retro_surface.gdshader's uniform of the same name; keep the two in sync.
+uniform float dim_amount : hint_range(0.0, 1.0) = 0.0;
 
 varying vec2 split_model_xy;
 varying vec2 affine_uv_times_w;
@@ -59,7 +64,7 @@ void fragment() {
 	if (split_color && split_uv.y - split_uv.x >= 0.0) {
 		tint = color_b;
 	}
-	ALBEDO = tint.rgb * texel.rgb;
+	ALBEDO = tint.rgb * texel.rgb * (1.0 - dim_amount * 0.55);
 	ALPHA = tint.a * texel.a;
 	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
