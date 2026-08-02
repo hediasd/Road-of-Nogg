@@ -1411,7 +1411,50 @@ takes, not on the duration of the one tween that happens to represent it.
 `src/presentation/GodotVisualAdapter.gd`,
 `src/presentation/effects/SpellCastAura.gd` if it must report its lifetime.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+**`VisualActionQueue.gd` was not modified at all** — which was this item's whole
+High-risk surface.
+
+The item proposed teaching the queue a hold and recomputing `_watchdogDuration`
+from `max(tween, hold)`. That works, but it puts the change inside the four
+documented invariants and the serial race, and step 4 correctly identified the
+watchdog as the most likely thing to get wrong. The hold does not need to live
+there. `_activateScaled()` now appends the remainder to the action's **own
+tween** as an explicit `tween_interval`, so the tween genuinely *is* as long as
+the action looks — and the queue advancing on `tween.finished` becomes correct
+by construction rather than by a second mechanism. The item's End state is met
+exactly; the invariants are untouched.
+
+Appending to the tween also satisfies step 7 for free, where a parallel
+`SceneTree` timer (the obvious alternative) would have silently broken two
+things: `setPaused()` pauses this tween, so the hold freezes with everything
+else; `set_speed_scale()` compresses the interval, so the hold obeys the speed
+setting; and `skipActive()`'s `kill()` cuts the hold short, so skip works on
+it. A timer reaches none of those. Step 3's objection — that padding "would
+make the tween lie about what it animates" — does not apply to
+`tween_interval`, which is the engine's explicit "then wait" tweener and states
+the intent plainly.
+
+**Measured, not assumed.** `SpellCastAura`'s visible run is 1.1s (its
+`lifetime_progress` tween and wisp particles), now a public `VISIBLE_DURATION`
+used by both rather than two copies of a literal, while the bump tween is
+0.25s — the queue was advancing with roughly three-quarters of the aura still
+playing. `ACTION_HOLD_FRACTION` is 0.6, so a spell now occupies 0.66s. A probe
+against the real tween shape (0.10 + 0.15 property tweens, then
+`chain().tween_interval(0.41)`) measured 0.655s, and confirmed `set_speed_scale`
+compresses a hold proportionally and `kill()` prevents `finished` from firing.
+`chain()` is used so the interval waits for every preceding step, including on
+the defeat animation's parallel tween.
+
+Defeat is deliberately unchanged: its shatter particles
+(`CAPSULE_SHATTER_LIFETIME`, now named rather than a literal) run 0.42s against
+a 0.38s tween, so the 0.6 fraction yields 0.252s and no interval is appended.
+The relationship is stated at the call site anyway, so it stays correct if
+either constant moves.
+
+Step 8's check that the menu still reopens is left to `PLAN-VALIDATE` with the
+rest of the manual flows; the mechanism it depends on — `drained` firing from
+`tween.finished` — is the one that was deliberately not altered.
 
 ---
 

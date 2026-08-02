@@ -17,7 +17,15 @@ class_name SpellCastAura
 
 const _SPELL_AURA_SHADER = preload("res://assets/shaders/spell_aura.gdshader")
 
-## Total duration. Should be ≥ the lifetime_progress tween duration.
+## How long the aura is actually *visible* — the `lifetime_progress` tween and
+## the wisp particles both run for this long. Public because the animation
+## queue has to know how long this effect occupies the screen; it spawns
+## outside the caster's own tween, so the tween's duration says nothing about
+## it.
+const VISIBLE_DURATION := 1.1
+
+## Total duration before the container frees itself. Must stay ≥
+## VISIBLE_DURATION so cleanup never cuts the animation short.
 const _CLEANUP_DELAY := 1.4
 
 ## Shared noise texture — created once across all aura instances.
@@ -115,7 +123,7 @@ static func _add_ground_decal(parent: Node3D, color: Color) -> void:
 	# Tween lifetime_progress from 0 → 1 over the aura's lifespan.
 	# The shader handles everything: flash → ring expand → fade.
 	var tween := parent.create_tween()
-	tween.tween_property(mat, "shader_parameter/lifetime_progress", 1.0, 1.1) \
+	tween.tween_property(mat, "shader_parameter/lifetime_progress", 1.0, VISIBLE_DURATION) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
@@ -127,7 +135,7 @@ static func _add_rising_wisps(parent: Node3D, color: Color) -> void:
 	var particles := GPUParticles3D.new()
 	particles.name = "RisingWisps"
 	particles.amount = 7
-	particles.lifetime = 1.1
+	particles.lifetime = VISIBLE_DURATION
 	particles.one_shot = true
 	particles.explosiveness = 0.5
 	particles.randomness = 0.6

@@ -185,14 +185,55 @@ func getAnimationSpeedScale() -> float:
 	return _animation_speed_scale
 
 
-## The one path every timed animation activates through. Scales the tween's
-## own playback rate and, by the same factor, the duration handed to the
-## queue — that duration only ever drives the watchdog margin, so if it were
-## left unscaled, slow motion would let the watchdog fire before the (now
-## longer) tween actually finishes and misreport a stall.
-func _activateScaled(tween: Tween, action: VisualAction, duration: float) -> void:
+## Fraction of a spawned effect's own runtime that an action is held on screen
+## for. "Mostly through", not "fully through": overlapping the tail of one
+## effect with the start of the next is what keeps a battle from reading as a
+## slideshow. Applied to the effect's duration, never to the tween's.
+const ACTION_HOLD_FRACTION := 0.6
+
+## Lifetime of the defeat animation's capsule-shatter particles. Named so the
+## hold below is derived from it rather than from a second copy of the number.
+const CAPSULE_SHATTER_LIFETIME := 0.42
+
+
+## The one path every timed animation activates through.
+##
+## `holdDuration` is how long the action's *spawned effects* occupy the screen.
+## Those effects — a SpellCastAura, a particle burst — are not part of the
+## caster's tween, so the tween's own duration says nothing about them, and the
+## queue advancing on it alone cut them off mid-play. When the hold outlasts
+## the tween, the remainder is appended to that same tween as an explicit
+## `tween_interval`.
+##
+## Appending to the tween rather than teaching `VisualActionQueue` a separate
+## hold is deliberate, and buys four things for free: the queue keeps exactly
+## one completion source (`tween.finished`) and all four of its documented
+## invariants untouched; `setPaused()` freezes the hold because it pauses this
+## very tween; `set_speed_scale()` compresses the hold along with everything
+## else, so the hold obeys the speed setting; and `skipActive()`'s `kill()`
+## cuts the hold short, so skip works on it too. A parallel SceneTree timer —
+## the obvious alternative — would silently break pause and skip, because
+## neither reaches a timer.
+##
+## `tween_interval` is an explicit wait, not padding disguised as animation:
+## it declares "then hold", which is exactly what is meant.
+func _activateScaled(
+		tween: Tween,
+		action: VisualAction,
+		duration: float,
+		holdDuration: float = 0.0) -> void:
+	var visibleDuration := duration
+	if holdDuration > duration:
+		# chain() so this waits for every preceding step, including on a
+		# parallel tween where an appended step would otherwise run alongside.
+		tween.chain().tween_interval(holdDuration - duration)
+		visibleDuration = holdDuration
 	tween.set_speed_scale(_animation_speed_scale)
-	_queue.activate(tween, action, duration / _animation_speed_scale)
+	# The queue uses this only to size its watchdog margin, so it must be the
+	# real elapsed time: the full visible duration, divided by the speed scale
+	# the tween is now running at. Left unscaled, slow motion would let the
+	# watchdog fire before the tween finished and misreport a stall.
+	_queue.activate(tween, action, visibleDuration / _animation_speed_scale)
 
 
 func skipCurrentAnimation() -> void:
@@ -703,7 +744,12 @@ func _start_defeat_animation(action: VisualAction) -> bool:
 	tween.tween_property(body, "scale", Vector3.ZERO, 0.38).set_trans(Tween.TRANS_BACK)
 	tween.tween_property(body, "position", capsuleTarget, 0.38).set_trans(Tween.TRANS_QUAD)
 	_spawn_capsule_shatter(container, baseMesh)
-	_activateScaled(tween, action, 0.38)
+	# The shatter particles outlive the 0.38s collapse only slightly, so this
+	# hold works out shorter than the tween and changes nothing today. Stated
+	# anyway so the relationship is explicit if either constant moves.
+	_activateScaled(
+		tween, action, 0.38, CAPSULE_SHATTER_LIFETIME * ACTION_HOLD_FRACTION
+	)
 	return true
 
 func _disable_selection_collision(container: Node3D) -> void:
@@ -719,7 +765,7 @@ func _spawn_capsule_shatter(container: Node3D, baseMesh: MeshInstance3D) -> void
 	var particles = GPUParticles3D.new()
 	particles.name = "CapsuleShatter"
 	particles.amount = 12
-	particles.lifetime = 0.42
+	particles.lifetime = CAPSULE_SHATTER_LIFETIME
 	particles.one_shot = true
 	particles.explosiveness = 1.0
 	particles.position = baseMesh.position
@@ -762,14 +808,19 @@ func _start_bump_animation(action: VisualAction) -> bool:
 	if bumpDirection.is_zero_approx():
 		bumpDirection = Vector3.FORWARD
 	var bumpPos = originalPos + bumpDirection.normalized() * 0.4
+	# A spell cast spawns an aura that outlives the 0.25s lunge by more than
+	# four times over. Hold the action for most of the aura rather than
+	# advancing the queue while it is still playing.
+	var holdDuration := 0.0
 	if not action.element.is_empty():
 		var auraColor := BattleMeshFactoryScript.elementColor(action.element)
 		SpellCastAuraScript.spawn(visual_parent, originalPos, auraColor)
+		holdDuration = SpellCastAuraScript.VISIBLE_DURATION * ACTION_HOLD_FRACTION
 	var tween = sourceVisual.create_tween()
 	_track_position_tween(sourceID, tween)
 	tween.tween_property(sourceVisual, "position", bumpPos, 0.1)
 	tween.tween_property(sourceVisual, "position", originalPos, 0.15)
-	_activateScaled(tween, action, 0.25)
+	_activateScaled(tween, action, 0.25, holdDuration)
 	return true
 
 func highlight_monster(monster_id: int) -> void:
