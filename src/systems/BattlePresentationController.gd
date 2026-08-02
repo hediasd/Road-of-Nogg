@@ -422,6 +422,7 @@ func _start_battle(config: BattleSetupConfig) -> void:
 	player_turn.status_changed.connect(_set_action_status)
 	player_turn.forecast_changed.connect(battle_ui.command_menu.setForecast)
 	player_turn.turn_finished.connect(_on_player_turn_finished)
+	player_turn.spell_list_requested.connect(_on_spell_list_requested)
 	var size = sim.state.boardSize
 	visual_adapter.animation_queue_drained.connect(_on_animation_queue_drained)
 	var highestTile = 0
@@ -1005,6 +1006,15 @@ func _on_command_menu_entry(entryID: String) -> void:
 		battle_ui.command_menu.openSpells(player_turn.spellEntries())
 		return
 	player_turn.selectMenuEntry(entryID)
+
+
+## Cancelling a confirm that never showed a target chooser returns the player
+## to the spell list. `PlayerTurnController` asks for this rather than opening
+## the window itself; it owns phases, not windows.
+func _on_spell_list_requested() -> void:
+	if not _player_turn_active():
+		return
+	battle_ui.command_menu.openSpells(player_turn.spellEntries())
 
 
 func _on_command_menu_spell(setIndex: int, spellIndex: int) -> void:

@@ -37,6 +37,10 @@ signal forecast_changed(text: String)
 ## Every phase is spent, or the player passed. The scene controller closes the
 ## turn out from here: end the turn, check the win condition, resume pacing.
 signal turn_finished(monsterID: int)
+## Cancelling a confirm that never showed a target chooser should land the
+## player back where they actually made their last choice — the spell list.
+## This controller does not own that window, so it asks rather than reaches.
+signal spell_list_requested
 
 enum Phase { INACTIVE, MENU, MOVE_SELECT, TARGET_SELECT, CONFIRM_ACTION, RESOLVING }
 
@@ -65,6 +69,11 @@ var _pendingSpellIndex: int = 0
 var _selectedSpellSet: int = -1
 var _selectedSpellIndex: int = -1
 var _waitingForDrain: bool = false
+## Which path reached CONFIRM_ACTION. Tracked explicitly rather than
+## re-derived from the spell, because `cancel()` must undo the transition that
+## actually happened: re-entering target select for a spell that never showed
+## it would strand the player in a chooser with one option.
+var _confirmSkippedTargetSelect: bool = false
 
 
 func _init(sim: BattleSimulator, adapter: IPlayerTurnVisualAdapter) -> void:
@@ -92,6 +101,7 @@ func beginTurn(monsterID: int) -> void:
 	_reachableTiles = []
 	_validTargetPositions = []
 	_waitingForDrain = false
+	_confirmSkippedTargetSelect = false
 	gridCursor = _sim.state.getMonsterPosition(monsterID)
 	_selectFirstAvailableSpell()
 	_enterMenu()
@@ -233,8 +243,18 @@ func cancel() -> void:
 		Phase.MOVE_SELECT, Phase.TARGET_SELECT:
 			_enterMenu()
 		Phase.CONFIRM_ACTION:
-			var previous_target_pos := _pendingTargetPos
-			_enterTargetSelect(_pendingAction, previous_target_pos)
+			# Undo the transition that actually happened. A confirm reached
+			# without a chooser goes back to the spell list — the last place
+			# the player made a real choice — not into a one-option chooser
+			# they were deliberately spared.
+			if _confirmSkippedTargetSelect:
+				_enterMenu()
+				# After _enterMenu(), so the root window is on screen and the
+				# spell column opens beside it rather than over nothing.
+				spell_list_requested.emit()
+			else:
+				var previous_target_pos := _pendingTargetPos
+				_enterTargetSelect(_pendingAction, previous_target_pos)
 		_:
 			pass
 
@@ -297,6 +317,7 @@ func _enterMenu(statusOverride: String = "") -> void:
 	_validTargetPositions = []
 	_pendingAction = ""
 	_pendingTargetPos = Vector2i(-1, -1)
+	_confirmSkippedTargetSelect = false
 	forecast_changed.emit("")
 	var pos = _sim.state.getMonsterPosition(activeMonsterID)
 	gridCursor = pos
@@ -373,6 +394,7 @@ func _enterTargetSelect(
 		preferredTargetPos: Vector2i = Vector2i(-1, -1)) -> void:
 	_pendingAction = action
 	_pendingTargetPos = Vector2i(-1, -1)
+	_confirmSkippedTargetSelect = false
 	forecast_changed.emit("")
 	var fromPos = _sim.state.getMonsterPosition(activeMonsterID)
 	if action == "attack":
@@ -402,6 +424,14 @@ func _enterTargetSelect(
 		return
 
 	_sortValidTargetPositions()
+	# A spell with no target choice goes straight to confirm. The guards above
+	# still ran, so an unready spell has already been turned away and
+	# `_validTargetPositions` is populated — which `_refreshTargetPreview()`
+	# requires, and which is why this branch sits here rather than earlier.
+	if action == "spell" and _selectedSpellOffersNoTargetChoice():
+		_enterConfirmAction(fromPos, true)
+		return
+
 	phase = Phase.TARGET_SELECT
 	gridCursor = (
 		preferredTargetPos
@@ -409,6 +439,39 @@ func _enterTargetSelect(
 		else _validTargetPositions[0]
 	)
 	_refreshTargetPreview(gridCursor)
+	menu_changed.emit()
+
+
+## True when the selected spell can only ever be aimed at one tile, so asking
+## the player to choose is ceremony rather than a decision.
+##
+## Derived from the authored spell, never from `_validTargetPositions.size()`:
+## a ranged spell with one enemy left in reach also has a single entry, and
+## silently skipping aiming for it would be wrong the moment a second enemy
+## walks into range.
+func _selectedSpellOffersNoTargetChoice() -> bool:
+	if _selectedSpellSet < 0 or _selectedSpellIndex < 0:
+		return false
+	var caster = _sim.state.getMonster(activeMonsterID)
+	if caster == null:
+		return false
+	var spell = caster.spellSets[_selectedSpellSet][_selectedSpellIndex]
+	return spell.targetType == "self" and spell.range == 0
+
+
+## The tail shared by the ordinary target-select commit and the no-choice
+## spell path. Factored rather than duplicated so the two can never drift on
+## what entering confirm means.
+func _enterConfirmAction(pos: Vector2i, skippedTargetSelect: bool) -> void:
+	_pendingTargetPos = pos
+	_confirmSkippedTargetSelect = skippedTargetSelect
+	phase = Phase.CONFIRM_ACTION
+	_refreshTargetPreview(pos)
+	var target = _sim.state.getMonsterAt(pos)
+	var target_label = target.name if target != null else "tile %s" % str(pos)
+	status_changed.emit("Confirm %s at %s, or cancel to choose again." % [
+		_pendingAction.capitalize(), target_label
+	])
 	menu_changed.emit()
 
 
@@ -420,15 +483,7 @@ func _commitTarget(pos: Vector2i) -> void:
 		status_changed.emit("This spell cannot be cast on an empty tile.")
 		forecast_changed.emit(_forecastText(pos))
 		return
-	_pendingTargetPos = pos
-	phase = Phase.CONFIRM_ACTION
-	_refreshTargetPreview(pos)
-	var target = _sim.state.getMonsterAt(pos)
-	var target_label = target.name if target != null else "tile %s" % str(pos)
-	status_changed.emit("Confirm %s at %s, or cancel to choose again." % [
-		_pendingAction.capitalize(), target_label
-	])
-	menu_changed.emit()
+	_enterConfirmAction(pos, false)
 
 
 func _canConfirmTarget(pos: Vector2i) -> bool:

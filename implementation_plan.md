@@ -409,7 +409,50 @@ decision, not two.
 `src/systems/BattlePresentationController.gd` only if reopening the spell list
 on cancel requires it.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+`_selectedSpellOffersNoTargetChoice()` reads the authored spell —
+`targetType == "self" and range == 0` — exactly as specified, not
+`_validTargetPositions.size() == 1`. `_enterTargetSelect()` branches to the new
+`_enterConfirmAction(pos, skippedTargetSelect)` *after* `_sortValidTargetPositions()`,
+so every existing guard still runs first: an unready spell is still turned away
+to `_enterMenu("No spell is ready.")`, and `_validTargetPositions` is populated,
+which `_refreshTargetPreview()` requires in order to render overlays, target
+status and forecast. `_commitTarget()`'s tail was factored into that same
+function rather than duplicated, so the two entry paths cannot drift.
+`_commitAction()` needed no change, as predicted — it reads `_pendingTargetPos`
+and the spell indices, all of which the new path sets.
+
+`cancel()` branches on a new `_confirmSkippedTargetSelect` flag, set at the one
+place confirm is entered and cleared in `beginTurn()`, `_enterMenu()`, and
+`_enterTargetSelect()`. Returning to the spell list needed a window this
+controller does not own, so it emits a new `spell_list_requested` signal after
+`_enterMenu()` (ordering matters: the root window must be on screen before the
+spell column opens beside it), which `BattlePresentationController` answers
+with `openSpells()`.
+
+**The catalogue check found the item's own validation line to be unsatisfiable.**
+All 27 self-target spells in `data/spells.json` have `RANGE: 0`, so the
+specified predicate matches every one of them — including the five with a
+non-zero `SELF_RADIUS` (`Chill` 1, `Shine` 2, `Cheers` 2, `Gather` 2,
+`Ooze Shield` 2). This item's **Adds to validation coverage** says "self spells
+with a non-zero radius keep the target-select step unchanged"; with the
+specified predicate they do not, and no predicate could both match the stated
+rule and spare them. Implemented as specified rather than quietly narrowed,
+because skipping is still correct for them: `getSpellTargetPositionsFrom()`
+returns `[fromPos]` for *any* self spell whatever its radius, so target select
+would offer one option regardless, and the affected area still renders in
+`CONFIRM_ACTION` through the same `_refreshTargetPreview()` call. **PLAN-VALIDATE
+should treat that clause as withdrawn**, and verify instead that a self spell
+with a radius enters confirm with its full area overlay drawn.
+
+**Note for CAST-5:** the confirm status text it is scoped to reword
+("Confirm Spell at <name>.") now lives in `_enterConfirmAction()`, not
+`_commitTarget()`.
+
+Parse-checked with `--check-only`. `debug/drive_battle.gd` needs no update: its
+spell coverage filters for `targetType == "area"` with `can_target_empty`, so
+it never drives a self spell and its `CONFIRM_ACTION` assertions are unaffected.
 
 ---
 
