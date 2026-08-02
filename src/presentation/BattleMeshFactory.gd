@@ -319,6 +319,37 @@ static func _setDimAmountOnMaterial(material: ShaderMaterial, amount: float) -> 
 	material.set_shader_parameter("dim_amount", amount)
 
 
+## Sets screen-door `dither_amount` on every retro material under `node`, used
+## to fade back the models the player is not currently choosing between.
+## Same traversal and same "tagged materials only" rule as the dim setter.
+static func setDitherAmountRecursive(node: Node, amount: float) -> void:
+	if node is MeshInstance3D:
+		_setShaderParameterForMesh(node, "dither_amount", amount)
+	for child in node.get_children():
+		setDitherAmountRecursive(child, amount)
+
+
+## Shared by the dither setter; `dim_amount` keeps its own pair above only
+## because they were written first and their call sites are stable.
+static func _setShaderParameterForMesh(
+		meshInstance: MeshInstance3D, parameter: String, value: Variant) -> void:
+	if meshInstance.material_override is ShaderMaterial:
+		_setShaderParameterOnMaterial(meshInstance.material_override, parameter, value)
+	if meshInstance.mesh == null:
+		return
+	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
+		var material = meshInstance.get_surface_override_material(surfaceIndex)
+		if material is ShaderMaterial:
+			_setShaderParameterOnMaterial(material, parameter, value)
+
+
+static func _setShaderParameterOnMaterial(
+		material: ShaderMaterial, parameter: String, value: Variant) -> void:
+	if not material.has_meta(RETRO_MATERIAL_META):
+		return
+	material.set_shader_parameter(parameter, value)
+
+
 static func updateMaterialsRecursive(node: Node) -> void:
 	if node is MeshInstance3D:
 		_updateMeshMaterials(node)

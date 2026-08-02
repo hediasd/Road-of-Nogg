@@ -1347,7 +1347,61 @@ is choosing a tile, without anything vanishing.
 `src/presentation/GodotVisualAdapter.gd`,
 `src/systems/BattlePresentationController.gd`, `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+Screen-door transparency as specified: a Bayer threshold on `FRAGCOORD` with
+`discard`, behind a `dither_amount` uniform defaulting to 0, in
+`retro_surface.gdshader` — not routed through the transparent variant. The
+matrix is **4×4 rather than 2×2**, chosen up front against step 8's concern:
+a one-pixel checker at 320×240 through the CRT upscale flattens into haze,
+where a 4×4 cell stays a visible weave. `DITHER_STRENGTH` is 0.55, not 1.0 —
+a fully discarded model is invisible, and the intent is to see *past* units,
+not to remove them.
+
+The rule lives in one place, `_update_model_dither()`: solid if the active
+unit or the model under the pointer, dithered otherwise, and only during
+`MOVE_SELECT`/`TARGET_SELECT`. `set_models_dithered(dithered, solidIDs)` takes
+the whole exception list and rewrites every model each call rather than
+diffing — step 6 asked for restoration through a single path, and clearing all
+is what makes stranding impossible, since a diff needs remembered state and
+remembered state is exactly what strands a model on an unenumerated exit.
+Called from `_on_player_menu_changed()` (every phase transition) and
+`_finish_battle()`.
+
+Hover identity comes from FEEL-7's already-resolved tile via
+`monster_id_at_position()`, not a second raycast, per step 3. Step 4's
+hysteresis is a dwell (`DITHER_HOVER_DWELL_SECONDS`, 80ms) applied only to
+*gaining* hover; losing it is immediate, since a model no longer under the
+pointer should not linger solid.
+
+**A latent bug was found and closed while wiring this.** A pointer miss
+resolves to `Vector2i(-1, -1)`, and `Matrix.at()` indexes its backing arrays
+directly — GDScript's negative indexing would have returned the board's far
+corner, so "pointer over nothing" would have read as "pointer over whichever
+unit stands at the last tile". `monster_id_at_position()` bounds-checks first.
+
+**Step 7, composability:** FEEL-6's dim and this dither cannot co-occur on one
+model. FEEL-6 only ever dims the *active* unit, and the active unit is
+permanently in the solid list, so a spent unit is dim but never dithered. They
+are independent uniforms regardless (`dim_amount` scales ALBEDO,
+`dither_amount` discards fragments) and would compose if that ever changed.
+FEEL-1's threat overlay could not be checked: it is blocked on CAST-5 and does
+not exist yet. It draws ground-plane tile markers rather than per-monster
+material state, so no interaction is expected, but that is reasoned from its
+specified construction, not verified — `PLAN-VALIDATE` should confirm once
+FEEL-1 lands.
+
+**Step 9 was already satisfied by FEEL-7**, which ran earlier this session and
+recorded in its own Resolution that no occlusion query and no fade were built
+because this item supersedes them. Nothing to reconcile; the two do not ship
+overlapping systems.
+
+Shader compilation was probed directly — worth doing, because a shader error
+does not surface in a GDScript `--check-only` pass, and the first attempt used
+an invalid array-literal form that only the compile caught. All four touched
+files parse clean. The visual questions this item raises — whether the weave
+survives the CRT at gameplay distance, and whether the dwell is long enough on
+a crowded board — need a real window and belong to `PLAN-VALIDATE`.
 
 ---
 

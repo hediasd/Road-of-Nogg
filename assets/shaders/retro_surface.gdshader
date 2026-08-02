@@ -35,6 +35,27 @@ uniform float surface_specular : hint_range(0.0, 1.0) = 0.25;
 uniform float rim_amount : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 rim_color : source_color = vec4(1.0);
 
+// Screen-door transparency: a Bayer threshold on FRAGCOORD with discard,
+// rather than blended alpha. Keeps depth writes, needs no transparency
+// sorting, and is what the hardware this scene imitates actually did.
+//
+// Anchored to FRAGCOORD, never to UV: a screen-space grid reads as a stable
+// pixel dither the model moves behind, while a UV-space one swims across the
+// surface as it turns and looks like a texture bug.
+//
+// DITHER_MATRIX_SIZE is 4 (a 4x4 Bayer cell) rather than 2, so the pattern
+// survives the retro pipeline's downsample to 320x240 and the CRT upscale as
+// a visible weave instead of a flat haze.
+uniform float dither_amount : hint_range(0.0, 1.0) = 0.0;
+
+const int DITHER_MATRIX_SIZE = 4;
+const float DITHER_THRESHOLDS[16] = float[16](
+	 0.0 / 16.0,  8.0 / 16.0,  2.0 / 16.0, 10.0 / 16.0,
+	12.0 / 16.0,  4.0 / 16.0, 14.0 / 16.0,  6.0 / 16.0,
+	 3.0 / 16.0, 11.0 / 16.0,  1.0 / 16.0,  9.0 / 16.0,
+	15.0 / 16.0,  7.0 / 16.0, 13.0 / 16.0,  5.0 / 16.0
+);
+
 varying vec2 split_model_xy;
 varying vec2 affine_uv_times_w;
 varying float affine_clip_w;
@@ -61,6 +82,12 @@ void vertex() {
 }
 
 void fragment() {
+	if (dither_amount > 0.0) {
+		ivec2 cell = ivec2(FRAGCOORD.xy) % DITHER_MATRIX_SIZE;
+		if (dither_amount > DITHER_THRESHOLDS[cell.y * DITHER_MATRIX_SIZE + cell.x]) {
+			discard;
+		}
+	}
 	vec2 sample_uv = UV;
 	if (affine_mapping_enabled && abs(affine_clip_w) > 0.00001) {
 		sample_uv = affine_uv_times_w / affine_clip_w;

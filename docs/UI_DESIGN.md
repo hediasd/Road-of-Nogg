@@ -592,6 +592,37 @@ silently does nothing.
 
 ---
 
+## 10a. Board-space model treatments
+
+Two treatments read *on the models themselves* rather than in a window, both
+as uniforms on `retro_surface.gdshader` that default to inert so nothing
+changes until something opts in.
+
+| Treatment | Uniform | Applied to | Means |
+|---|---|---|---|
+| **Spent** | `dim_amount` | the active unit, once it has spent Move or Act | the same thing a dimmed command row means: still there, no longer available |
+| **Not being chosen between** | `dither_amount` | every model except the active unit and the one under the pointer, during move and target select only | the board reads *through* the units while a tile is being picked |
+
+**Dither, not alpha fade.** The treatment is screen-door transparency — a 4×4
+Bayer threshold on `FRAGCOORD` with `discard` — not blended alpha. It holds
+depth writes, needs no transparency sorting, and is what the hardware this
+scene imitates actually did. Two details are load-bearing: the pattern is
+anchored to `FRAGCOORD` rather than UV, because a UV-space pattern swims
+across a model as it turns and reads as a texture bug; and the cell is 4×4
+rather than 2×2 so the weave survives the render downsample and the CRT
+upscale instead of flattening into a haze.
+
+**Dither strength is deliberately partial** (`DITHER_STRENGTH`, 0.55). A fully
+discarded model is an invisible one, and the point is that the player can see
+past the units, not that units vanish.
+
+Gaining hover waits out a short dwell before a model is restored to solid;
+losing it takes effect immediately. Without the dwell, a pointer swept across
+a crowded board restores each model it crosses for a frame or two, which reads
+as flicker.
+
+---
+
 ## 11. Open knobs
 
 Deliberately unresolved; revisit after the first playable pass.

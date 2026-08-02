@@ -53,6 +53,17 @@ var retro_renderer
 ## rather than inferred from board state.
 var _dimmedMonsterID: int = -1
 
+## The model the pointer is currently over, kept solid while everything else
+## dithers. -1 when the pointer is not over a model.
+var _hoveredMonsterID: int = -1
+## Guards against hover thrash. A pointer swept across a crowded board crosses
+## model edges constantly, and restoring each one for a single frame reads as
+## flicker; a model must be under the pointer for this long before it is
+## restored. Losing hover is immediate — only *gaining* it waits.
+const DITHER_HOVER_DWELL_SECONDS := 0.08
+var _hoverCandidateMonsterID: int = -1
+var _hoverCandidateSince: int = 0
+
 var actor_window: NoggWindow
 var target_window: NoggWindow
 var log_label: RichTextLabel
@@ -600,6 +611,7 @@ func _finish_battle(winner: int) -> void:
 	battle_ui.play_button.disabled = true
 	player_turn = null
 	_update_active_unit_dim()
+	_update_model_dither()
 	battle_ui.action_panel.visible = false
 	visual_adapter.clear_tactical_overlays()
 	visual_adapter.release_player_cursor()
@@ -658,6 +670,7 @@ func _set_action_status(text: String) -> void:
 
 func _on_player_menu_changed() -> void:
 	_update_active_unit_dim()
+	_update_model_dither()
 	if player_turn == null:
 		return
 	var command_menu = battle_ui.command_menu
@@ -689,6 +702,62 @@ func _update_active_unit_dim() -> void:
 	if shouldDim and monsterID != -1 and _dimmedMonsterID != monsterID:
 		visual_adapter.set_monster_dimmed(monsterID, true)
 		_dimmedMonsterID = monsterID
+
+
+## Fades back everything the player is not choosing between, so the board reads
+## through the units standing on it while a tile is being picked.
+##
+## **The rule, stated once:** a model renders solid if it is the active unit or
+## the model under the pointer; every other model dithers. Everything else here
+## is bookkeeping for that sentence.
+##
+## Gated to MOVE_SELECT and TARGET_SELECT only. In MENU the player is reading a
+## list, in CONFIRM_ACTION a committed choice, and in RESOLVING they are
+## watching it happen — none of those is choosing a tile.
+func _update_model_dither() -> void:
+	if visual_adapter == null:
+		return
+	var aiming := (
+		_player_turn_active() and
+		player_turn.phase in [
+			PlayerTurnControllerScript.Phase.MOVE_SELECT,
+			PlayerTurnControllerScript.Phase.TARGET_SELECT
+		]
+	)
+	if not aiming:
+		# Restores every model, so leaving the phase — by any route, including
+		# an early turn end or a route added later — cannot strand one.
+		_hoveredMonsterID = -1
+		_hoverCandidateMonsterID = -1
+		visual_adapter.set_models_dithered(false)
+		return
+	var solid: Array = [player_turn.activeMonsterID]
+	if _hoveredMonsterID != -1:
+		solid.append(_hoveredMonsterID)
+	visual_adapter.set_models_dithered(true, solid)
+
+
+## Tracks which model the pointer is over, applying the dwell before a newly
+## hovered model is allowed to become solid. Losing hover takes effect at once:
+## a model that is no longer under the pointer should not linger solid.
+func _update_hovered_monster(monsterID: int) -> void:
+	if monsterID == _hoveredMonsterID:
+		_hoverCandidateMonsterID = monsterID
+		return
+	if monsterID == -1:
+		_hoveredMonsterID = -1
+		_hoverCandidateMonsterID = -1
+		_update_model_dither()
+		return
+	var now := Time.get_ticks_msec()
+	if monsterID != _hoverCandidateMonsterID:
+		_hoverCandidateMonsterID = monsterID
+		_hoverCandidateSince = now
+		return
+	if now - _hoverCandidateSince < int(DITHER_HOVER_DWELL_SECONDS * 1000.0):
+		return
+	_hoveredMonsterID = monsterID
+	_update_model_dither()
 
 
 func _input(event: InputEvent) -> void:
@@ -847,6 +916,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseMotion and _player_turn_active() and player_turn.acceptsGridInput():
 		var hover_pos = _mouse_to_battle_coord(event.position)
+		# One source of "what is under the pointer" for the whole game: the
+		# tile FEEL-7 already resolved, not a second raycast of our own.
+		_update_hovered_monster(visual_adapter.monster_id_at_position(hover_pos))
 		if player_turn.setCursor(hover_pos):
 			get_viewport().set_input_as_handled()
 			return

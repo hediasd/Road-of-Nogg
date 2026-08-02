@@ -838,6 +838,44 @@ func set_monster_dimmed(monster_id: int, dimmed: bool) -> void:
 	)
 
 
+## How much of a dithered model is discarded. Not 1.0: a fully discarded model
+## is invisible, and the point is that the board reads *through* the units
+## rather than that they disappear.
+const DITHER_STRENGTH := 0.55
+
+
+## Applies the dither rule to every model at once. `solidMonsterIDs` is the
+## whole exception list — the active unit and whatever the pointer is over —
+## so callers never track who was dithered and no model can be stranded: any
+## id not named here is restored to solid on every call.
+##
+## Clearing all and re-applying, rather than diffing, is deliberate. A diff
+## needs remembered state, and remembered state is exactly what strands a
+## model when a phase ends on a path nobody enumerated.
+func set_models_dithered(dithered: bool, solidMonsterIDs: Array = []) -> void:
+	for monsterID in _monster_visuals.keys():
+		var amount := 0.0
+		if dithered and not solidMonsterIDs.has(monsterID):
+			amount = DITHER_STRENGTH
+		BattleMeshFactoryScript.setDitherAmountRecursive(
+			_monster_visuals[monsterID], amount
+		)
+
+
+## The monster standing on `coord`, or -1. Shares the one pick the rest of the
+## game uses; see BattlePresentationController._mouse_to_battle_coord().
+##
+## The bounds check is load-bearing, not defensive: a miss resolves to
+## Vector2i(-1, -1), and `Matrix.at()` indexes its backing arrays directly, so
+## GDScript's negative indexing would quietly hand back the far corner of the
+## board instead of "nothing there".
+func monster_id_at_position(coord: Vector2i) -> int:
+	if not state.withinBounds(coord):
+		return -1
+	var monster = state.getMonsterAt(coord)
+	return monster.uniqueID if monster != null else -1
+
+
 ## World position of a monster's visual, for callers that need where a unit
 ## actually is on screen (the camera pan, for one) rather than its board
 ## coordinate. Prefers the live visual — mid-tween or bumped off-tile — over
