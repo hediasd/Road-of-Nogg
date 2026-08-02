@@ -14,6 +14,7 @@ const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcon
 const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
 const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
 const VisualActionScript = preload("res://src/presentation/VisualAction.gd")
+const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const TERRAIN_CELL_HEIGHT := BattleMeshFactoryScript.TERRAIN_CELL_SIZE.y
 const TERRAIN_SURFACE_OFFSET := TERRAIN_CELL_HEIGHT * 0.5
 const ABYSS_VERTICAL_OFFSET := -0.15
@@ -434,9 +435,12 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 	var container = Node3D.new()
 	container.position = _coord_to_surface_pos3d(pos)
 
-	var base_mesh = BattleMeshFactoryScript.createMesh("capsule_base", team_color)
-	base_mesh.position.y = 0.1
-	container.add_child(base_mesh)
+	## Tier comes from the catalog chain, not the spawned instance, so setup,
+	## replay reconstruction, and any board refresh all build the same stack.
+	var ascensionTier: int = MonsterReferencesScript.ascensionTier(_name)
+	container.add_child(
+		BattleMeshFactoryScript.createModelBase(team_color, ascensionTier)
+	)
 
 	var bodyVisual = MonsterVisualRegistryScript.instantiateVisual(_name)
 	if bodyVisual == null:

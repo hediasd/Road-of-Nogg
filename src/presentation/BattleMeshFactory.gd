@@ -8,6 +8,19 @@ const RETRO_TRANSPARENT_SHADER = preload("res://assets/shaders/retro_surface_tra
 const RETRO_MATERIAL_META := "road_of_nogg_retro_material"
 const TERRAIN_CELL_SIZE := Vector3(1.0, 0.5, 1.0)
 
+## Total height every model base occupies, however many ascension layers it is
+## split into. Fixed on purpose: a twice-ascended monster reads as a taller
+## *stack* without standing any taller, so ascension never changes model height,
+## camera framing, or the apparent size of a unit on the board.
+const BASE_TOTAL_HEIGHT := 0.2
+const BASE_RADIUS := 0.45
+## Gap between stacked layers, taken out of each layer's own thickness so the
+## total stays BASE_TOTAL_HEIGHT.
+const BASE_LAYER_GAP := 0.012
+## Bases are deliberately darker and flatter than any creature body so the plate
+## never reads as part of the monster.
+const BASE_COLOR_DARKEN := 0.34
+
 static var vertex_snap_enabled: bool = true
 static var vertex_snap_strength: float = 1.0
 static var affine_mapping_enabled: bool = true
@@ -92,11 +105,6 @@ static func createMesh(type: String, color: Color) -> MeshInstance3D:
 			meshInstance.mesh.height = 1.0
 			meshInstance.mesh.top_radius = 0.3
 			meshInstance.mesh.bottom_radius = 0.3
-		"capsule_base":
-			meshInstance.mesh = CylinderMesh.new()
-			meshInstance.mesh.height = 0.2
-			meshInstance.mesh.top_radius = 0.45
-			meshInstance.mesh.bottom_radius = 0.45
 		"shape_sphere":
 			meshInstance.mesh = SphereMesh.new()
 			meshInstance.mesh.radius = 0.4
@@ -118,6 +126,50 @@ static func createMesh(type: String, color: Color) -> MeshInstance3D:
 
 	meshInstance.material_override = createMaterial(color, transparent, emissionStrength)
 	return meshInstance
+
+
+## Builds the model base as a stack of `ascensionTier + 1` layers inside a fixed
+## total height, and returns the container to parent at the model's origin.
+##
+## A basic monster gets one layer and looks exactly as it always has. Each
+## further ascension adds a layer and makes every layer proportionally thinner,
+## so the stack gains visible strata without gaining height. Footprint, origin,
+## and the surface the body sits on are identical at every tier.
+static func createModelBase(teamColor: Color, ascensionTier: int) -> Node3D:
+	var container := Node3D.new()
+	container.name = "ModelBase"
+	var layerCount: int = maxi(1, ascensionTier + 1)
+	## Single-layer bases keep the original solid plate; only a real stack needs
+	## the seam between layers to be readable.
+	var gap: float = BASE_LAYER_GAP if layerCount > 1 else 0.0
+	## Gaps sit *between* layers, never above the top one, so the stack's top
+	## surface lands exactly on BASE_TOTAL_HEIGHT at every tier. Solving
+	## `count * height + (count - 1) * gap = BASE_TOTAL_HEIGHT` keeps the body
+	## sitting at the same world height whether it has one layer or five.
+	var totalGap: float = gap * float(layerCount - 1)
+	var layerHeight: float = (BASE_TOTAL_HEIGHT - totalGap) / float(layerCount)
+
+	for layerIndex in range(layerCount):
+		var layer := MeshInstance3D.new()
+		var mesh := CylinderMesh.new()
+		mesh.height = layerHeight
+		## Each layer up the stack is slightly narrower, which reads as a plinth
+		## rather than a smooth cylinder while the footprint stays put.
+		var inset: float = 0.035 * float(layerIndex)
+		mesh.top_radius = BASE_RADIUS - inset
+		mesh.bottom_radius = BASE_RADIUS - inset
+		layer.mesh = mesh
+		layer.position.y = float(layerIndex) * (layerHeight + gap) + layerHeight * 0.5
+		## Higher layers lighten a little so the tier count is countable at a
+		## glance even against a dark board.
+		var layerColor: Color = teamColor.darkened(BASE_COLOR_DARKEN).lightened(
+			0.12 * float(layerIndex)
+		)
+		layer.material_override = createMaterial(layerColor)
+		layer.name = "BaseLayer%d" % layerIndex
+		container.add_child(layer)
+
+	return container
 
 
 static func prepareNodeMaterials(node: Node) -> void:

@@ -109,3 +109,24 @@ static func getNames() -> Array[String]:
 		names.append(name)
 	names.sort()
 	return names
+
+
+## How many times this monster has ascended: 0 for a basic monster, 1 for one
+## that ascends from a basic one, and so on up the ASCENDS_FROM chain.
+##
+## This is the single tier source for presentation. It walks the catalog rather
+## than reading a stored depth so a longer chain needs no data migration, and it
+## guards against a malformed self-referential or cyclic chain instead of
+## hanging. An unknown ancestor ends the walk at the depth reached so far.
+static func ascensionTier(name: String) -> int:
+	var tier := 0
+	var seen := {name: true}
+	var current := name
+	while _name_index.has(current):
+		var ancestor := str(_name_index[current].get("ASCENDS_FROM", ""))
+		if ancestor.is_empty() or seen.has(ancestor):
+			break
+		seen[ancestor] = true
+		current = ancestor
+		tier += 1
+	return tier
