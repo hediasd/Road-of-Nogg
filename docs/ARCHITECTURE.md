@@ -232,15 +232,19 @@ acquire explicit ownership on mouse press and retain motion delivery until the
 matching release, independent of moving models or controls under the pointer.
 
 Every monster model stands on a base built by
-`BattleMeshFactory.createModelBase()`. The base is deliberately darker than any
-creature body so it never reads as part of the monster, and it is split into
+`BattleMeshFactory.createModelBase()`. The base is deliberately darker and more
+metallic than any creature body — a matte body defaults to roughness 1.0,
+metallic 0.0, and the base is always polished and metallic in comparison, at
+every team colour — so it never reads as part of the monster, and it is split
+into
 `ascensionTier + 1` stacked layers — one for a basic monster, one more per
 ascension. `MonsterReferences.ascensionTier()` walks the catalog's
 `ASCENDS_FROM` chain and is the single tier source, so setup, replay
 reconstruction, and board refresh all build the same stack, placeholder visuals
 included. The layers share a fixed `BASE_TOTAL_HEIGHT` budget and get thinner as
-the stack grows, so ascension changes what a base *reads* as without changing
-model height, footprint, or origin.
+the stack grows, and each layer up the stack is also more metallic and less
+rough than the one below it, so ascension changes what a base *reads* as
+without changing model height, footprint, or origin.
 
 Each coordinate renders a contiguous column of `height + 1` exact
 `1 x 0.5 x 1` terrain blocks. Logical elevation stays integer-based while its

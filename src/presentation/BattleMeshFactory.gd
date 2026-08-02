@@ -20,6 +20,16 @@ const BASE_LAYER_GAP := 0.012
 ## Bases are deliberately darker and flatter than any creature body so the plate
 ## never reads as part of the monster.
 const BASE_COLOR_DARKEN := 0.34
+## The base separates from a matte creature body (roughness 1.0, metallic 0.0)
+## by surface finish rather than hue, so the distinction survives any team
+## colour: dark and polished, like pewter or oiled bronze, rather than bright.
+## Ramped per layer alongside the existing colour lightening so a higher
+## ascension tier reads as more refined metal, not only as a taller stack —
+## both derived from the same `layerIndex`, no separate state to keep in sync.
+const BASE_METALLIC_START := 0.55
+const BASE_METALLIC_PER_LAYER := 0.10
+const BASE_ROUGHNESS_START := 0.35
+const BASE_ROUGHNESS_PER_LAYER := 0.05
 
 static var vertex_snap_enabled: bool = true
 static var vertex_snap_strength: float = 1.0
@@ -53,11 +63,23 @@ static func elementColor(element: String) -> Color:
 		_: return Color(0.5, 0.5, 0.5)
 
 
+## `roughness`/`metallic`/`specular`/`rimAmount`/`rimColor` default to exactly
+## what `retro_surface.gdshader` itself defaults to, so an ordinary call — one
+## that does not know these finish parameters exist — produces a byte-identical
+## material to before they existed. Only `createModelBase` overrides them
+## today. The transparent shader has no matching uniforms; `set_shader_parameter`
+## on a material that does not declare one is a documented no-op, so passing a
+## finish through a transparent `createMaterial` call is harmless, not an error.
 static func createMaterial(
 		color: Color,
 		transparent: bool = false,
 		emissionStrength: float = 0.0,
-		texture: Texture2D = null) -> ShaderMaterial:
+		texture: Texture2D = null,
+		roughness: float = 1.0,
+		metallic: float = 0.0,
+		specular: float = 0.25,
+		rimAmount: float = 0.0,
+		rimColor: Color = Color.WHITE) -> ShaderMaterial:
 	var material = ShaderMaterial.new()
 	material.shader = RETRO_TRANSPARENT_SHADER if transparent else RETRO_SURFACE_SHADER
 	material.set_meta(RETRO_MATERIAL_META, true)
@@ -68,6 +90,11 @@ static func createMaterial(
 	if texture != null:
 		material.set_shader_parameter("albedo_texture", texture)
 	material.set_shader_parameter("emission_strength", emissionStrength)
+	material.set_shader_parameter("surface_roughness", roughness)
+	material.set_shader_parameter("surface_metallic", metallic)
+	material.set_shader_parameter("surface_specular", specular)
+	material.set_shader_parameter("rim_amount", rimAmount)
+	material.set_shader_parameter("rim_color", rimColor)
 	_updateRetroMaterial(material)
 	return material
 
@@ -165,7 +192,15 @@ static func createModelBase(teamColor: Color, ascensionTier: int) -> Node3D:
 		var layerColor: Color = teamColor.darkened(BASE_COLOR_DARKEN).lightened(
 			0.12 * float(layerIndex)
 		)
-		layer.material_override = createMaterial(layerColor)
+		var layerMetallic: float = clampf(
+			BASE_METALLIC_START + BASE_METALLIC_PER_LAYER * float(layerIndex), 0.0, 1.0
+		)
+		var layerRoughness: float = clampf(
+			BASE_ROUGHNESS_START - BASE_ROUGHNESS_PER_LAYER * float(layerIndex), 0.05, 1.0
+		)
+		layer.material_override = createMaterial(
+			layerColor, false, 0.0, null, layerRoughness, layerMetallic
+		)
 		layer.name = "BaseLayer%d" % layerIndex
 		container.add_child(layer)
 

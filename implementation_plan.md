@@ -1066,7 +1066,35 @@ not as more creature.
 `src/presentation/BattleMeshFactory.gd`, `docs/UI_DESIGN.md` if it records
 material language.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation. `docs/UI_DESIGN.md`
+had no material language to update; `docs/ARCHITECTURE.md`'s existing
+paragraph on `createModelBase()` did, and was touched instead — see below.
+`retro_surface.gdshader`'s previously hardcoded `ROUGHNESS = 1.0`,
+`METALLIC = 0.0`, `SPECULAR = 0.25` are now uniforms (`surface_roughness`,
+`surface_metallic`, `surface_specular`) defaulting to those exact values, so
+every existing material is unchanged until it opts in. Added a cheap fresnel
+rim (`rim_amount`/`rim_color`, off by default) behind its own uniform per the
+item's "if it helps" phrasing — deliberately left off for the base itself in
+this pass, since judging whether it helps separation against the board needs a
+real window, which this session does not have; available for `PLAN-VALIDATE`
+to turn on if the plain finish change is not enough.
+
+`BattleMeshFactory.createMaterial()` gained matching optional trailing
+parameters, all defaulting to the shader's own defaults, so no existing call
+site's behaviour changes. `createModelBase()` now derives `metallic`/`roughness`
+from `layerIndex` via two new constant pairs (`BASE_METALLIC_START`/`_PER_LAYER`,
+`BASE_ROUGHNESS_START`/`_PER_LAYER`, clamped), alongside the colour-lightening
+it already did — dark and polished at tier 0 (metallic 0.55, roughness 0.35),
+ramping to metallic 0.85/roughness 0.20 by tier 3, the highest tier the
+existing probe exercises, without saturating either clamp.
+
+**Deferred to `PLAN-VALIDATE`, per `docs/DEVELOPMENT.md`'s validation-timing
+rule** (no relaunching the game or repeating acceptance flows after each
+item): actually running `debug/probe_ascension_base.gd`, and judging the
+result at gameplay camera distance through the retro pipeline. Verified
+instead by static review against the probe's own assertions — layer count,
+height budget, footprint, and a non-null, distinct-instance base material are
+all untouched by this change, and none of the new parameters affect geometry.
 
 ---
 

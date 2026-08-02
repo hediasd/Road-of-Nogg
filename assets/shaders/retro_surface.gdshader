@@ -21,6 +21,20 @@ uniform float emission_strength = 0.0;
 // material is pixel-identical until something opts in.
 uniform float dim_amount : hint_range(0.0, 1.0) = 0.0;
 
+// Surface finish, promoted from what used to be hardcoded in fragment() so a
+// material can opt into a different finish (the model base's metallic plinth,
+// for one) without every other material in the scene changing appearance.
+// Defaults are exactly the old hardcoded values.
+uniform float surface_roughness : hint_range(0.0, 1.0) = 1.0;
+uniform float surface_metallic : hint_range(0.0, 1.0) = 0.0;
+uniform float surface_specular : hint_range(0.0, 1.0) = 0.25;
+// Cheap fresnel edge glow, not physically based — a raised specular response
+// alone reads as flat at this vertex-snapped, affine-mapped resolution, and a
+// full PBR metal would fight the deliberately low-fidelity look elsewhere in
+// the scene. Off by default; nothing opts in without also setting rim_amount.
+uniform float rim_amount : hint_range(0.0, 1.0) = 0.0;
+uniform vec4 rim_color : source_color = vec4(1.0);
+
 varying vec2 split_model_xy;
 varying vec2 affine_uv_times_w;
 varying float affine_clip_w;
@@ -63,8 +77,12 @@ void fragment() {
 		tint = color_b;
 	}
 	ALBEDO = tint.rgb * texel.rgb * (1.0 - dim_amount * 0.55);
-	ROUGHNESS = 1.0;
-	METALLIC = 0.0;
-	SPECULAR = 0.25;
+	ROUGHNESS = surface_roughness;
+	METALLIC = surface_metallic;
+	SPECULAR = surface_specular;
 	EMISSION = ALBEDO * emission_strength;
+	if (rim_amount > 0.0) {
+		float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 4.0);
+		EMISSION += rim_color.rgb * fresnel * rim_amount;
+	}
 }
