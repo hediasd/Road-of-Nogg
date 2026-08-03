@@ -724,7 +724,19 @@ from there, without walking the cursor tile by tile.
 `src/presentation/GodotVisualAdapter.gd`, `src/battle_sim/IBattleVisualAdapter.gd`,
 `src/presentation/ConsoleVisualAdapter.gd`, `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+During spell target selection, vertical ui input now cycles the flattened list
+of ready spell entries only when the pending action is a spell; attacks retain
+four-direction target cycling. Each candidate recomputes its legal target
+positions from the active unit's current tile, skips candidates with no legal
+center, preserves the aimed tile when legal, and otherwise selects the first
+sorted legal center. The target prompt now includes the armed spell name, so
+the forecast and overlays are visibly tied to the spell being cycled. The
+controller input branch consumes vertical input only for spell targeting; no
+project input-map bindings changed. No backlog item was added. Full keyboard,
+overlay, and invalid-target validation remains at the plan's final validation
+boundary.
 
 ---
 

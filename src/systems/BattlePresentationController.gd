@@ -910,6 +910,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				player_turn.confirmSelection()
 				get_viewport().set_input_as_handled()
 				return
+			if player_turn.canCycleTargetSpell() and event.is_action_pressed("ui_up"):
+				player_turn.cycleTargetSpell(-1)
+				get_viewport().set_input_as_handled()
+				return
+			if player_turn.canCycleTargetSpell() and event.is_action_pressed("ui_down"):
+				player_turn.cycleTargetSpell(1)
+				get_viewport().set_input_as_handled()
+				return
 			var direction = Vector2i.ZERO
 			if event.is_action_pressed("ui_left"): direction = Vector2i.LEFT
 			elif event.is_action_pressed("ui_right"): direction = Vector2i.RIGHT

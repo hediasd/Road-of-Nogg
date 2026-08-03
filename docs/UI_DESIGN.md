@@ -396,6 +396,8 @@ This is what keeps the two devices from disagreeing.
 | Left click on the pending target tile, during `CONFIRM_ACTION` | Confirm — same as clicking `CONFIRM` |
 | Left click anywhere else on the board, during `CONFIRM_ACTION` | Cancel — same as clicking `CANCEL` |
 
+During TARGET_SELECT, spell aiming gives the vertical pair a different meaning: up and down cycle ready spells, recompute the legal target set, and keep the current tile only when it remains legal. Left and right continue cycling legal targets. Attack aiming keeps all four directions on target cycling.
+
 Disabled rows are skipped by keyboard movement and are inert to hover and
 click. They render in `TEXT_DIM` and are never hidden — a spent `Move` must
 stay visible so the player can see *why* it is unavailable.

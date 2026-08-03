@@ -89,6 +89,12 @@ func acceptsGridInput() -> bool:
 	return phase in [Phase.MOVE_SELECT, Phase.TARGET_SELECT]
 
 
+## Vertical target-select input has spell meaning only while aiming a spell.
+## Attack targeting keeps all four directions on legal-target cycling.
+func canCycleTargetSpell() -> bool:
+	return phase == Phase.TARGET_SELECT and _pendingAction == "spell"
+
+
 # --- Turn lifecycle --------------------------------------------------------
 
 
@@ -325,6 +331,57 @@ func moveCursor(direction: Vector2i) -> void:
 	next.x = clampi(next.x, 0, _sim.state.boardSize.x - 1)
 	next.y = clampi(next.y, 0, _sim.state.boardSize.y - 1)
 	setCursor(next)
+
+
+func cycleTargetSpell(step: int) -> void:
+	if not canCycleTargetSpell():
+		return
+	var ready_entries: Array = []
+	for entry in spellEntries():
+		if bool(entry["ready"]):
+			ready_entries.append(entry)
+	if ready_entries.size() <= 1:
+		return
+
+	var current_index := -1
+	for index in range(ready_entries.size()):
+		var entry = ready_entries[index]
+		if (
+			int(entry["set_index"]) == _selectedSpellSet and
+			int(entry["spell_index"]) == _selectedSpellIndex
+		):
+			current_index = index
+			break
+	if current_index < 0:
+		current_index = 0
+
+	var previous_target := gridCursor
+	var from_pos := _sim.state.getMonsterPosition(activeMonsterID)
+	for offset in range(1, ready_entries.size() + 1):
+		var candidate_index := posmod(
+			current_index + step * offset, ready_entries.size()
+		)
+		var candidate = ready_entries[candidate_index]
+		var candidate_positions: Array = _sim.combatResolver.getSpellTargetPositionsFrom(
+			activeMonsterID,
+			int(candidate["set_index"]),
+			int(candidate["spell_index"]),
+			from_pos,
+			true
+		)
+		if candidate_positions.is_empty():
+			continue
+		_selectedSpellSet = int(candidate["set_index"])
+		_selectedSpellIndex = int(candidate["spell_index"])
+		_validTargetPositions = candidate_positions
+		_sortValidTargetPositions()
+		gridCursor = (
+			previous_target
+			if _validTargetPositions.has(previous_target)
+			else _validTargetPositions[0]
+		)
+		_refreshTargetPreview(gridCursor)
+		return
 
 
 func selectGridPosition(pos: Vector2i) -> void:
@@ -572,6 +629,13 @@ func _refreshTargetPreview(centerPos: Vector2i) -> void:
 	var affected_positions: Array = [centerPos]
 	var affected_target_ids: Array = [] if target == null else [target_id]
 	var beneficial = false
+	var armed_spell_name := ""
+	if _pendingAction == "spell":
+		var armed_caster = _sim.state.getMonster(activeMonsterID)
+		if armed_caster != null:
+			armed_spell_name = armed_caster.spellSets[
+				_selectedSpellSet
+			][_selectedSpellIndex].name
 	if _pendingAction == "spell":
 		var caster = _sim.state.getMonster(activeMonsterID)
 		var spell = caster.spellSets[_selectedSpellSet][_selectedSpellIndex]
@@ -597,21 +661,22 @@ func _refreshTargetPreview(centerPos: Vector2i) -> void:
 	_adapter.show_target_cursor(centerPos)
 	_adapter.show_target_status(target_id)
 	forecast_changed.emit(_forecastText(centerPos))
+	var armed_prefix := ("%s: " % armed_spell_name) if not armed_spell_name.is_empty() else ""
 	if target != null:
-		# A self-heal or self-buff deliberately aimed at one's own tile (not
-		# only the no-choice self spells that skip aiming — an ally-heal cycled
-		# onto the caster reaches this too, since a caster is its own ally) should
-		# not read as if the caster were a target found elsewhere.
 		var target_name = "yourself" if target.uniqueID == activeMonsterID else target.name
-		status_changed.emit("Choose a target: %s. %d unit(s) in the affected area." % [
-			target_name, affected_target_ids.size()
+		status_changed.emit("%sChoose a target: %s. %d unit(s) in the affected area." % [
+			armed_prefix, target_name, affected_target_ids.size()
 		])
 	elif not _canConfirmTarget(centerPos):
-		status_changed.emit("Preview tile %s. Empty-center casting is disabled." % str(centerPos))
+		status_changed.emit("%sPreview tile %s. Empty-center casting is disabled." % [
+			armed_prefix, str(centerPos)
+		])
 	elif affected_target_ids.is_empty():
-		status_changed.emit("Choose a target tile. No units are in the affected area.")
+		status_changed.emit("%sChoose a target tile. No units are in the affected area." % armed_prefix)
 	else:
-		status_changed.emit("Choose a target tile. %d unit(s) in the affected area." % affected_target_ids.size())
+		status_changed.emit("%sChoose a target tile. %d unit(s) in the affected area." % [
+			armed_prefix, affected_target_ids.size()
+		])
 
 func _commitAction() -> void:
 	var result = _sim.executeActionPhase(
