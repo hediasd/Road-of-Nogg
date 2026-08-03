@@ -173,7 +173,17 @@ from `docs/LEARNINGS.md`.
 **Files:** `src/presentation/theme/NoggTheme.gd`,
 `src/presentation/theme/NoggWindow.gd`.
 
-**Resolution:** Not started.
+**Resolution:** Implemented; pending end-of-plan validation.
+
+`NoggTheme` now owns the XenoText path, 2 px outline, near-black palette, thin
+pale-violet rim, and derived halo geometry. It replaces the `MenuFull.png`
+mask/9-patch factories with centralized anti-aliased `StyleBoxFlat` factories
+for a concentric halo, body, and rim. `NoggWindow` builds them in documented
+draw order, keeps decorative panels input-transparent, explicitly leaves
+clipping disabled for the halo, and tints only the rim during focus changes.
+Existing content inset, cursor gutter, paging, dock locations, and root input
+semantics remain intact. A narrow headless project load passed after correcting
+a malformed first halo-constant insertion; no new backlog item was found.
 
 ---
 

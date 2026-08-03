@@ -7,7 +7,7 @@
 ##
 ## Nothing here applies itself. `build_game_theme()` and `build_dev_theme()`
 ## return Theme resources for a caller to assign; `build_window_frame()`
-## returns a configured NinePatchRect. The UI builders consume these factories.
+## returns a configured rim Panel. The UI builders consume these factories.
 
 class_name NoggTheme
 extends RefCounted
@@ -17,7 +17,7 @@ extends RefCounted
 # Game UI renders ABOVE the CRT overlay and therefore takes no scanlines, mask,
 # or vignette. That is deliberate (docs/UI_DESIGN.md §10): crisp menus over a
 # filtered scene keep the pixel font readable at every scanline strength and
-# stop the 16px bevel shimmering as mask size changes.
+# stop the thin rim shimmering as mask size changes.
 const CRT_LAYER := -20
 ## Transient board annotations render above the world and default CRT pass, but
 ## below every player-facing or developer-facing UI element.
@@ -37,21 +37,25 @@ const CRT_OVERLAY_LAYER_THROUGH_UI := GAME_LAYER + 1
 
 # --- Game palette ---------------------------------------------------------
 
-## Translucent window body. The board reads through it.
-const WINDOW_FILL := Color(0.024, 0.059, 0.149, 0.86)
+## Near-black translucent window body. The board reads through it.
+const WINDOW_FILL := Color(0.012, 0.012, 0.020, 0.76)
 ## For windows that must not be read through (confirm prompts).
-const WINDOW_FILL_DEEP := Color(0.016, 0.035, 0.102, 0.94)
-## Frame tint for the window holding focus.
-const FRAME_ACTIVE := Color(0.659, 0.847, 1.0)
-## Frame tint for a parent window whose child has focus.
-const FRAME_INACTIVE := Color(0.290, 0.353, 0.447)
+const WINDOW_FILL_DEEP := Color(0.004, 0.004, 0.008, 0.90)
+## Expanded black backplate and soft shadow outside the visible rim.
+const HALO_FILL := Color(0.0, 0.0, 0.0, 0.28)
+const HALO_SHADOW := Color(0.0, 0.0, 0.0, 0.58)
 
-const TEXT_PRIMARY := Color(1.0, 1.0, 1.0)
+## Frame tint for the window holding focus.
+const FRAME_ACTIVE := Color(0.902, 0.878, 1.0)
+## Frame tint for a parent window whose child has focus.
+const FRAME_INACTIVE := Color(0.384, 0.357, 0.471)
+
+const TEXT_PRIMARY := Color(0.957, 0.945, 1.0)
 ## Disabled entries: spent commands, spells on cooldown. Dim, never hidden.
-const TEXT_DIM := Color(0.494, 0.576, 0.690)
+const TEXT_DIM := Color(0.510, 0.486, 0.588)
 ## Right-column values and headings.
 const TEXT_ACCENT := Color(1.0, 0.843, 0.400)
-const TEXT_FORECAST := Color(0.608, 0.906, 1.0)
+const TEXT_FORECAST := Color(0.722, 0.851, 1.0)
 const TEXT_HEAL := Color(0.62, 1.0, 0.65, 1.0)
 const CURSOR := Color(1.0, 0.776, 0.227)
 ## Font outline. Always opaque, always on — it is what makes text survive an
@@ -68,55 +72,33 @@ const DEV_TEXT := Color(0.776, 0.808, 0.847)
 
 # --- Typography -----------------------------------------------------------
 
-## `shining-force-ii-small.otf` (reports itself as "Shining Force II (Small)"),
-## NOT `Shining Force 2.ttf`. Both are real Shining Force faces and both load
-## without error, but the .ttf is the thin 1px-stroke variant ("Shining Force
-## 2 b") and reads weak in a menu. The .otf is the chunky 2px-stroke face.
-## Compared side by side 2026-07-30 via `debug/preview_font.gd`; the .otf runs
-## roughly twice the advance width of the .ttf, which ROW_HEIGHT and the window
-## widths below are sized against.
-const GAME_FONT_PATH := "res://assets/Fonts/shining-force-ii-small.otf"
+## XenoText reports a 12px monospace advance at size 24, about half the width
+## of the outgoing Shining Force face. Existing windows retain their widths as
+## deliberate breathing room; do not re-dock panels around the narrower text.
+const GAME_FONT_PATH := "res://assets/Fonts/xenotext.otf"
 const DEV_FONT_PATH := "res://assets/Fonts/Roboto-Regular.ttf"
 
 ## Integer sizes only. A pixel font at a fractional size smears.
-## 24 chosen against a reference screenshot 2026-07-30; ROW_HEIGHT and every
-## window width in docs/UI_DESIGN.md §8 are measured at this size, so changing
-## it means rerunning `debug/preview_theme.gd` and updating both.
+## Keep XenoText at integer sizes. The final visual pass owns any decision to
+## enable smoothing, along with rerunning `debug/preview_theme.gd` metrics.
 const FONT_SIZE_BODY := 24
 const FONT_SIZE_HEADING := 24
 const FONT_SIZE_FOOTER := 20
 const FONT_SIZE_DEV := 13
-const OUTLINE_SIZE := 4
+const OUTLINE_SIZE := 2
 
 # --- Window geometry ------------------------------------------------------
 
-const FRAME_TEXTURE_PATH := "res://assets/ui/MenuFull.png"
-## The 9-patch slice size in *source* pixels. MenuFull.png is 48x48: 16px
-## corners, 16px edges, 16px centre. This is an art fact, not a layout choice —
-## do not tune it. Tune FRAME_SCALE instead.
-const FRAME_SOURCE_MARGIN := 16
-## Integer upscale applied to the frame art with nearest-neighbour filtering.
-##
-## The authored ring is only 4 source pixels thick — 1 dark, 2 white, 1 dark —
-## which renders far too thin for the JRPG window it is imitating. Scaling the
-## texture (rather than stretching the NinePatchRect, which would not thicken
-## the corners) turns each source pixel into a crisp NxN block, so 3 gives a
-## 12px ring that still reads as pixel art.
-const FRAME_SCALE := 3
-## Patch margin in screen pixels, after the upscale.
-const FRAME_MARGIN := FRAME_SOURCE_MARGIN * FRAME_SCALE
-## Thickness of the ring the player actually sees: 4 authored pixels, scaled.
-const FRAME_RING_PX := 4 * FRAME_SCALE
-## Where content starts, measured from the window edge: the visible ring plus
-## breathing room. It is deliberately *not* FRAME_MARGIN — most of the patch
-## margin is the stripped body and draws nothing, so insetting content by the
-## full margin would waste 36px a side. Tune the padding term, never
-## FRAME_SOURCE_MARGIN.
+## Thin smooth rim and a deliberately larger exterior black halo. The halo's
+## rect draws beyond layout bounds but does not affect them or receive input.
+const FRAME_RING_PX := 2
+const WINDOW_CORNER_RADIUS := 6
+const HALO_OUTSET := 6
+const HALO_SPREAD := 10
+const HALO_SHADOW_OFFSET := Vector2(1.0, 2.0)
+## Where content starts: visible rim plus breathing room.
 const CONTENT_INSET := FRAME_RING_PX + 10
 ## A window's height is a function of capacity, not of content (trait 6).
-## The font measures exactly FONT_SIZE_BODY px tall, so this is the glyph box
-## plus 2px of air — deliberately tight, the way a JRPG command list stacks.
-## It cannot go below the font height; the Label enforces its own minimum.
 const ROW_HEIGHT := FONT_SIZE_BODY + 2
 const ROW_CAPACITY_DEFAULT := 8
 ## Fixed left edges for the docked status-window grid. The third column is
@@ -124,17 +106,11 @@ const ROW_CAPACITY_DEFAULT := 8
 const STATUS_CELL_OFFSETS := [0.0, 192.0, 384.0]
 const STATUS_CELL_TEXT_GAP := FONT_SIZE_BODY
 ## Compact gap between a two-character element code and its drawn bar.
-## Three-step Resonance bars fit beside a two-character code in the third
-## status cell. Keep these together: changing their width changes that grid.
 const RESONANCE_BAR_CELLS := 3
 const RESONANCE_CELL_SIZE := 10.0
 const RESONANCE_CELL_GAP := 3.0
 const RESONANCE_BAR_WIDTH := RESONANCE_BAR_CELLS * RESONANCE_CELL_SIZE + (RESONANCE_BAR_CELLS - 1) * RESONANCE_CELL_GAP
-
 const STATUS_CELL_CONTROL_GAP := 8.0
-
-## Matches the scaled corner curve so the fill never pokes outside the ring.
-const WINDOW_CORNER_RADIUS := 12
 ## Horizontal gap between a parent window and the child stacked to its right.
 const WINDOW_STACK_GAP := 8
 
@@ -286,118 +262,61 @@ static func build_dev_theme() -> Theme:
 	return theme
 
 
-## The window frame: MenuFull.png as a 9-patch with its opaque grey centre
-## discarded, so the translucent body behind it shows through. `draw_center =
-## false` is what makes a translucent body with an opaque bevel possible at
-## all — a single StyleBoxTexture modulate cannot do both.
-##
-## The art is greyscale, so `self_modulate` alone switches the frame between
-## its focused and unfocused states.
-##
-## **The parent must be a plain Control, never a Container.** A Container
-## force-fits every child into its content rect, which insets the frame by
-## CONTENT_INSET and leaves the ring covering the first and last glyph of each
-## row. Verified against `debug/preview_theme.gd` on 2026-07-30. The window
-## composition that works is a `Control` root holding a full-rect `Panel` for
-## the fill, a content container inset by CONTENT_INSET, and this frame last.
-static func build_window_frame() -> NinePatchRect:
-	var frame := NinePatchRect.new()
-	frame.name = "Frame"
-	frame.texture = _frame_ring_texture()
-	frame.draw_center = false
-	frame.patch_margin_left = FRAME_MARGIN
-	frame.patch_margin_right = FRAME_MARGIN
-	frame.patch_margin_top = FRAME_MARGIN
-	frame.patch_margin_bottom = FRAME_MARGIN
-	frame.self_modulate = FRAME_ACTIVE
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-	return frame
+## Shared smooth window layers. Each Panel receives a local stylebox built from
+## centralized tokens; callers never construct a frame, body, or halo directly.
+static func _rounded_window_style(fill: Color, corner_radius: int) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = fill
+	style.set_border_width_all(0)
+	style.set_corner_radius_all(corner_radius)
+	style.anti_aliasing = true
+	return style
 
 
-## `MenuFull.png` ships as a complete window, not a bare frame: alongside the
-## white bevel and the near-black outer edge it carries a baked translucent
-## black body, `(0, 0, 0, 155)`, filling both the centre patch *and* the inner
-## part of all four edge tiles.
-##
-## We split that one image into two 9-patch layers — body and ring — and stack
-## them. Both are sliced from the same source at the same patch margins, so
-## their corners are identical *by construction*.
-##
-## That matters more than it sounds. The first version drew the body as a
-## `StyleBoxFlat` rounded rect instead, and a rounded rect cannot reproduce a
-## pixel-art corner staircase: the fill poked out past the ring around all four
-## corners, showing as a dark wedge outside the frame. Any approach that
-## describes the body geometry a second time will reintroduce that gap. Do not
-## replace either layer with a StyleBox.
-##
-## The body is the only colour in the file with fractional alpha, which makes
-## the split unambiguous and leaves the bevel and outer edge untouched.
-##
-## Cached: each mask is a pixel walk plus an upscale, run once per process
-## rather than once per window.
-static var _ring_texture: ImageTexture = null
-static var _body_texture: ImageTexture = null
+static func _base_window_panel(name: String) -> Panel:
+	var panel := Panel.new()
+	panel.name = name
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	return panel
 
 
-## The bevel and outer edge, with the baked body removed. Tinted per focus
-## state, so it must not carry the fill colour.
-static func _frame_ring_texture() -> Texture2D:
-	if _ring_texture == null:
-		_ring_texture = _masked_frame_texture(false)
-	return _ring_texture
+## Deliberately overdraws the layout bounds to give the box a quiet black
+## silhouette. Its corner radius grows by the same outset, keeping the halo
+## concentric with the body and rim rather than producing a second shape.
+static func build_window_halo() -> Panel:
+	var halo := _base_window_panel("Halo")
+	halo.offset_left = -HALO_OUTSET
+	halo.offset_top = -HALO_OUTSET
+	halo.offset_right = HALO_OUTSET
+	halo.offset_bottom = HALO_OUTSET
+	var style := _rounded_window_style(HALO_FILL, WINDOW_CORNER_RADIUS + HALO_OUTSET)
+	style.shadow_color = HALO_SHADOW
+	style.shadow_size = HALO_SPREAD
+	style.shadow_offset = HALO_SHADOW_OFFSET
+	halo.add_theme_stylebox_override("panel", style)
+	return halo
 
 
-## The body only, flattened to opaque white so `self_modulate` reproduces
-## WINDOW_FILL exactly, alpha included.
-static func _frame_body_texture() -> Texture2D:
-	if _body_texture == null:
-		_body_texture = _masked_frame_texture(true)
-	return _body_texture
-
-
-static func _masked_frame_texture(keep_body: bool) -> ImageTexture:
-	var source: Texture2D = load(FRAME_TEXTURE_PATH)
-	var image: Image = source.get_image()
-	image.convert(Image.FORMAT_RGBA8)
-	for y in image.get_height():
-		for x in image.get_width():
-			var pixel := image.get_pixel(x, y)
-			var is_body := pixel.a > 0.0 and pixel.a < 1.0
-			if is_body == keep_body:
-				# Keep. The body flattens to white so a modulate lands exactly.
-				if keep_body:
-					image.set_pixel(x, y, Color(1.0, 1.0, 1.0, 1.0))
-			else:
-				image.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
-	# Nearest-neighbour upscale so each authored pixel becomes a crisp block.
-	# Scaling the texture rather than stretching the NinePatchRect is what
-	# thickens the corners too; stretching would only thicken the edges.
-	if FRAME_SCALE != 1:
-		image.resize(
-			image.get_width() * FRAME_SCALE,
-			image.get_height() * FRAME_SCALE,
-			Image.INTERPOLATE_NEAREST
-		)
-	return ImageTexture.create_from_image(image)
-
-
-## The window body: the art's own fill shape, tinted to WINDOW_FILL. Pair it
-## with `build_window_frame()` and add the frame last so it draws on top.
-static func build_window_body() -> NinePatchRect:
-	var body := NinePatchRect.new()
-	body.name = "Body"
-	body.texture = _frame_body_texture()
-	body.draw_center = true
-	body.patch_margin_left = FRAME_MARGIN
-	body.patch_margin_right = FRAME_MARGIN
-	body.patch_margin_top = FRAME_MARGIN
-	body.patch_margin_bottom = FRAME_MARGIN
-	body.self_modulate = WINDOW_FILL
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	body.set_anchors_preset(Control.PRESET_FULL_RECT)
+## The translucent near-black body. Its geometry exactly matches the rim.
+static func build_window_body() -> Panel:
+	var body := _base_window_panel("Body")
+	body.add_theme_stylebox_override(
+		"panel", _rounded_window_style(WINDOW_FILL, WINDOW_CORNER_RADIUS)
+	)
 	return body
 
+
+## Transparent, thin pale rim. Focus tints this panel only; the halo remains
+## stable while the content dims, so focus reads as state rather than glow.
+static func build_window_frame() -> Panel:
+	var rim := _base_window_panel("Rim")
+	var style := _rounded_window_style(Color(0.0, 0.0, 0.0, 0.0), WINDOW_CORNER_RADIUS)
+	style.border_color = Color.WHITE
+	style.set_border_width_all(FRAME_RING_PX)
+	rim.add_theme_stylebox_override("panel", style)
+	rim.self_modulate = FRAME_ACTIVE
+	return rim
 
 ## Loads a TTF with every smoothing feature off. A pixel font rendered with
 ## antialiasing, hinting, or subpixel positioning turns to mush.

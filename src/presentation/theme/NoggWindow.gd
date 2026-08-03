@@ -19,7 +19,7 @@ const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const PagerArrowScript = preload("res://src/presentation/theme/PagerArrow.gd")
 
 var _content: VBoxContainer
-var _frame: NinePatchRect
+var _rim: Panel
 var _rows: Array[Control] = []
 var _row_capacity: int = NoggThemeScript.ROW_CAPACITY_DEFAULT
 var _active_tween: Tween
@@ -89,9 +89,11 @@ var _footer_label: Label
 
 
 func _ready() -> void:
-	# Root is a plain Control, NOT a PanelContainer — see docs/UI_DESIGN.md
-	# §4. A Container force-fits the frame into its content rect and the ring
-	# ends up covering the first and last glyph of every row.
+	clip_contents = false
+
+	var halo := NoggThemeScript.build_window_halo()
+	add_child(halo)
+
 	var body := NoggThemeScript.build_window_body()
 	add_child(body)
 
@@ -106,8 +108,8 @@ func _ready() -> void:
 	add_child(_content)
 
 	# Added last so it draws over the body and the rows.
-	_frame = NoggThemeScript.build_window_frame()
-	add_child(_frame)
+	_rim = NoggThemeScript.build_window_frame()
+	add_child(_rim)
 
 	set_row_capacity(_row_capacity)
 	set_input_transparent(_input_transparent)
@@ -130,7 +132,7 @@ func set_input_transparent(transparent: bool) -> void:
 		row.mouse_filter = filter
 
 
-## Tweens the frame tint AND the content tint between their active and
+## Tweens the rim tint AND the content tint between their active and
 ## inactive values. This is the only signal telling the player which window
 ## their arrow keys are driving — see docs/UI_DESIGN.md §4 "Behaviour". A
 ## window never moves to show focus.
@@ -151,7 +153,7 @@ func set_active(active: bool) -> void:
 	_active_tween = create_tween()
 	_active_tween.set_parallel(true)
 	_active_tween.tween_property(
-		_frame, "self_modulate", frame_target, NoggThemeScript.TWEEN_FOCUS
+		_rim, "self_modulate", frame_target, NoggThemeScript.TWEEN_FOCUS
 	)
 	_active_tween.tween_property(
 		_content, "modulate", content_target, NoggThemeScript.TWEEN_FOCUS
@@ -563,7 +565,7 @@ func _update_footer() -> void:
 ## never pages carries no extra nodes for one it will never show.
 func _build_footer() -> void:
 	_footer = NoggWindow.new()
-	add_child(_footer)  # after _frame, added in _ready() — draws on top of it
+	add_child(_footer)  # after the rim, added in _ready() — draws on top of it
 	_footer.set_row_capacity(1)
 	_footer.size.x = PAGER_WIDTH
 	# Only the two arrows are clickable; everything else in the footer's rect
