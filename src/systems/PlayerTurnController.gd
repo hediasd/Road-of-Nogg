@@ -61,6 +61,7 @@ var _sim: BattleSimulator
 var _adapter: IPlayerTurnVisualAdapter
 
 var _reachableTiles: Array = []
+var _attackableTiles: Array = []
 var _validTargetPositions: Array = []
 var _pendingAction: String = ""
 var _pendingTargetPos := Vector2i(-1, -1)
@@ -105,6 +106,7 @@ func beginTurn(monsterID: int) -> void:
 	_selectedSpellSet = -1
 	_selectedSpellIndex = -1
 	_reachableTiles = []
+	_attackableTiles = []
 	_validTargetPositions = []
 	_waitingForDrain = false
 	_confirmSkippedTargetSelect = false
@@ -125,6 +127,7 @@ func endTurnNow() -> void:
 	activeMonsterID = -1
 	phase = Phase.INACTIVE
 	_reachableTiles = []
+	_attackableTiles = []
 	_validTargetPositions = []
 	menu_changed.emit()
 	turn_finished.emit(completedID)
@@ -401,6 +404,8 @@ func _enterMenu(statusOverride: String = "") -> void:
 	if activeMonsterID == -1:
 		return
 	phase = Phase.MENU
+	_reachableTiles = []
+	_attackableTiles = []
 	_validTargetPositions = []
 	_pendingAction = ""
 	_pendingTargetPos = Vector2i(-1, -1)
@@ -434,18 +439,35 @@ func _enterMoveSelect() -> void:
 	_reachableTiles = _sim.movementResolver.getReachablePositions(activeMonsterID)
 	if not _reachableTiles.has(currentPos):
 		_reachableTiles.append(currentPos)
+	_attackableTiles = _getAttackableTiles(_reachableTiles)
 	gridCursor = currentPos
 	_adapter.show_player_cursor(currentPos)
-	_adapter.show_movement_options(_reachableTiles)
+	_adapter.show_movement_options(_reachableTiles, [], _attackableTiles)
 	status_changed.emit("Select a destination. Height %d." % _sim.state.getHeight(currentPos))
 	menu_changed.emit()
 
 
 func _previewPath(pos: Vector2i) -> void:
 	if not _reachableTiles.has(pos):
-		_adapter.show_movement_options(_reachableTiles)
+		_adapter.show_movement_options(_reachableTiles, [], _attackableTiles)
 		return
-	_adapter.show_movement_options(_reachableTiles, _pathTo(pos))
+	_adapter.show_movement_options(
+		_reachableTiles, _pathTo(pos), _attackableTiles
+	)
+
+
+func _getAttackableTiles(reachable: Array) -> Array:
+	var attackable: Array = []
+	var seen: Dictionary = {}
+	for from_pos in reachable:
+		for target_pos in _sim.combatResolver.getBasicAttackTargetPositionsFrom(
+			activeMonsterID, from_pos
+		):
+			if seen.has(target_pos):
+				continue
+			seen[target_pos] = true
+			attackable.append(target_pos)
+	return attackable
 
 
 func _pathTo(pos: Vector2i) -> Array:

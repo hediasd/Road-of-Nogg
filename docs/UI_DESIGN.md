@@ -644,6 +644,14 @@ as flicker.
 
 ---
 
+Move select draws reachable tiles in blue. It also draws the union of tiles
+that can be attacked from any reachable destination in purple, excluding
+tiles already reachable so movement remains the stronger signal. The hovered
+path is drawn in yellow over both sets. These are presentation-only previews
+and use the same movement and combat resolver queries as command validation.
+
+---
+
 ## 10b. Threat overlay
 
 The held T key shows the **danger zone**: the union of every tile that a

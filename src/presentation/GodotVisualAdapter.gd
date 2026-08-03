@@ -13,6 +13,7 @@ const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisua
 const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcons.gd")
 const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
 const DamageNumberBillboardScript = preload("res://src/presentation/effects/DamageNumberBillboard.gd")
+const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
 const VisualActionScript = preload("res://src/presentation/VisualAction.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
@@ -35,6 +36,8 @@ var grid_node: Node3D
 var monsters_node: Node3D
 var overlay_node: Node3D
 var threat_overlay_node: Node3D
+var damage_number_layer: CanvasLayer
+var damage_number_root: Control
 var _cursor: MeshInstance3D
 var _cursor_controller: BattleCursorController
 
@@ -65,6 +68,16 @@ func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = nul
 	overlay_node = Node3D.new()
 	overlay_node.name = "TacticalOverlays"
 	visual_parent.add_child(overlay_node)
+
+	damage_number_layer = CanvasLayer.new()
+	damage_number_layer.name = "DamageNumbers"
+	damage_number_layer.layer = NoggThemeScript.WORLD_EFFECT_LAYER
+	root_node.add_child(damage_number_layer)
+	damage_number_root = Control.new()
+	damage_number_root.name = "DamageNumberRoot"
+	damage_number_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	damage_number_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	damage_number_layer.add_child(damage_number_root)
 
 	threat_overlay_node = Node3D.new()
 	threat_overlay_node.name = "ThreatOverlays"
@@ -323,9 +336,11 @@ func _start_message_damage_number(action: VisualAction) -> bool:
 	var targetVisual := _liveMonsterVisual(targetID)
 	if targetVisual == null:
 		return false
-	DamageNumberBillboardScript.spawn(
-		visual_parent, targetVisual.position, action.damage_number, action.is_heal_number
+	var damageTween: Tween = _spawn_damage_number(
+		targetVisual.position, action.damage_number, action.is_heal_number
 	)
+	if damageTween == null:
+		return false
 	var hold: float = (
 		DamageNumberBillboardScript.visible_duration(action.is_heal_number)
 		* ACTION_HOLD_FRACTION
@@ -894,17 +909,16 @@ func _start_bump_animation(action: VisualAction) -> bool:
 		SpellCastAuraScript.spawn(visual_parent, originalPos, auraColor)
 		holdDuration = SpellCastAuraScript.VISIBLE_DURATION * ACTION_HOLD_FRACTION
 	if action.has_damage_number:
-		DamageNumberBillboardScript.spawn(
-			visual_parent, targetWorldPos, action.damage_number, action.is_heal_number
+		var damageTween: Tween = _spawn_damage_number(
+			targetWorldPos, action.damage_number, action.is_heal_number
 		)
-		# Not scaled by ACTION_HOLD_FRACTION like the aura above: the number's
-		# own duration already ends with its fade fully resolved, so holding for
-		# a *fraction* of it would cut the fade off mid-flight — the queue would
-		# advance while the number was still visibly there.
-		holdDuration = maxf(
-			holdDuration,
-			DamageNumberBillboardScript.visible_duration(action.is_heal_number)
-		)
+		# The number appears immediately and owns its pump/disappear timing. Hold
+		# the action until it has completed so the next hit cannot cover it.
+		if damageTween != null:
+			holdDuration = maxf(
+				holdDuration,
+				DamageNumberBillboardScript.visible_duration(action.is_heal_number)
+			)
 	var tween = sourceVisual.create_tween()
 	_track_position_tween(sourceID, tween)
 	tween.tween_property(sourceVisual, "position", bumpPos, 0.1)
@@ -965,6 +979,33 @@ func monster_id_at_position(coord: Vector2i) -> int:
 	return monster.uniqueID if monster != null else -1
 
 
+## Project into the host viewport instead of drawing a Label3D in the world.
+## The camera returns coordinates in the battle SubViewport; the renderer then
+## maps those through its aspect-preserving display rectangle so letterboxing
+## and low-resolution presets keep the anchor exact.
+func _spawn_damage_number(worldPos: Vector3, amount: int, isHeal: bool) -> Tween:
+	if damage_number_root == null or not is_instance_valid(damage_number_root):
+		return null
+	var camera := visual_parent.get_viewport().get_camera_3d()
+	if camera == null or camera.is_position_behind(worldPos):
+		return null
+	var viewportPos: Vector2 = camera.unproject_position(
+		worldPos + Vector3.UP * DamageNumberBillboardScript.SPAWN_HEIGHT
+	)
+	var renderer = root_node.get("retro_renderer")
+	var screenPos: Vector2 = viewportPos
+	if renderer != null:
+		screenPos = renderer.world_to_screen(viewportPos)
+		var visibleRect: Rect2 = renderer.get_display_rect()
+		if not visibleRect.grow(NoggThemeScript.FONT_SIZE_BODY).has_point(screenPos):
+			return null
+	var tween: Tween = DamageNumberBillboardScript.spawn(
+		damage_number_root, screenPos, amount, isHeal
+	)
+	if tween != null:
+		tween.set_speed_scale(_animation_speed_scale)
+	return tween
+
 ## World position of a monster's visual, for callers that need where a unit
 ## actually is on screen (the camera pan, for one) rather than its board
 ## coordinate. Prefers the live visual — mid-tween or bumped off-tile — over
@@ -998,10 +1039,18 @@ func hide_cursor() -> void:
 	_cursor_controller.hide()
 
 
-func show_movement_options(reachable: Array, path: Array = []) -> void:
+func show_movement_options(
+		reachable: Array,
+		path: Array = [],
+		attackable: Array = []) -> void:
 	clear_tactical_overlays()
 	for coord in reachable:
 		_add_overlay(coord, Color(0.15, 0.75, 1.0, 0.32))
+	for coord in attackable:
+		if not reachable.has(coord):
+			# Purple distinguishes attack reach from movement blue and the
+			# yellow path preview; the path is drawn last when they overlap.
+			_add_overlay(coord, Color(0.72, 0.28, 1.0, 0.44))
 	for coord in path:
 		_add_overlay(coord, Color(1.0, 0.85, 0.15, 0.72))
 
@@ -1073,7 +1122,7 @@ func dispose() -> void:
 		if tween != null and tween.is_valid():
 			tween.kill()
 	_defeat_tweens.clear()
-	for node in [grid_node, monsters_node, overlay_node, threat_overlay_node, _cursor]:
+	for node in [grid_node, monsters_node, overlay_node, threat_overlay_node, damage_number_layer, _cursor]:
 		if is_instance_valid(node):
 			node.queue_free()
 	_monster_visuals.clear()

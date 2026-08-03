@@ -683,7 +683,19 @@ War.
 **Files:** `src/systems/PlayerTurnController.gd`,
 `src/systems/BattlePresentationController.gd`, `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+Move select now computes attack reach as the union of
+getBasicAttackTargetPositionsFrom(activeMonsterID, fromPosition) over every
+reachable destination. The adapter receives that set alongside the existing
+reachable tiles and path preview, paints non-overlapping attack tiles purple,
+and draws the hovered path last so it remains the strongest signal. The
+reachable and attackable sets are cached for the phase rather than recomputed
+on pointer motion. The interactive adapter contract was extended with a
+defaulted third argument; the console adapter remains unchanged because it
+does not implement the interactive port, and the ignored local probes were
+updated for the wider stub signature. Full in-window responsiveness and
+overlay validation remains at the plan's final validation boundary.
 
 ---
 

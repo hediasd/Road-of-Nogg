@@ -44,7 +44,12 @@ func release_player_cursor() -> void: pass
 
 
 ## Paint reachable movement tiles, optionally with the path to the hovered tile.
-func show_movement_options(_reachable: Array, _path: Array = []) -> void: pass
+## Attackable tiles are the union of basic-attack targets from every reachable
+## destination; the adapter keeps that second tint out of reachable tiles.
+func show_movement_options(
+		_reachable: Array,
+		_path: Array = [],
+		_attackable: Array = []) -> void: pass
 
 
 ## Paint the union of tiles threatened by living enemies. This is a separate
