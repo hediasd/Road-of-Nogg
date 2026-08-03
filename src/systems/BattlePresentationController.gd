@@ -68,6 +68,7 @@ var _threat_overlay_active: bool = false
 
 var actor_window: NoggWindow
 var target_window: NoggWindow
+var turn_order_window: NoggWindow
 var log_label: RichTextLabel
 var log_panel: PanelContainer
 
@@ -79,6 +80,8 @@ var lifecycle: Lifecycle = Lifecycle.SETUP
 ## routes input to it and reacts to its signals; it does not track phases.
 var player_turn: PlayerTurnControllerScript
 var _pending_player_turn_id: int = -1
+var _turn_order_ids: Array = []
+var _active_turn_order_id: int = -1
 ## The CPU decision currently being computed across frames, and whose turn it
 ## belongs to. While this is set the turn is already open — startNextTurn() has
 ## run — so no other turn may begin until it resolves or is cancelled.
@@ -155,6 +158,7 @@ func _build_battle_ui() -> void:
 	turn_timer = battle_ui.turn_timer
 	actor_window = battle_ui.actor_window
 	target_window = battle_ui.target_window
+	turn_order_window = battle_ui.turn_order_window
 	log_label = battle_ui.log_label
 	log_panel = battle_ui.log_panel
 	_sync_rendering_options()
@@ -194,6 +198,8 @@ func _setup_team_slots(team: int) -> Array[OptionButton]:
 func _show_setup() -> void:
 	if camera:
 		camera.cancelDrag()
+	_disconnect_turn_order_events()
+	_clear_turn_order_display()
 	lifecycle = Lifecycle.SETUP
 	player_turn = null
 	_cancel_deliberation()
@@ -419,6 +425,9 @@ func _start_battle(config: BattleSetupConfig) -> void:
 	battle_ui.game_canvas.visible = true
 	battle_ui.dev_canvas.visible = true
 	lifecycle = Lifecycle.BATTLE
+	_turn_order_ids.clear()
+	_active_turn_order_id = -1
+	_clear_turn_order_display()
 	log_label.text = ""
 	_renderStatusWindow(actor_window, -1)
 	_renderStatusWindow(target_window, -1)
@@ -430,6 +439,11 @@ func _start_battle(config: BattleSetupConfig) -> void:
 	battle_ui.play_button.disabled = false
 
 	sim = BattleSetupFactoryScript.createSimulator(config, Callable(self, "_create_visual_adapter"))
+	sim.events.round_started.connect(_on_turn_order_round_started)
+	sim.events.turn_started.connect(_on_turn_order_started)
+	sim.events.turn_ended.connect(_on_turn_order_ended)
+	sim.events.monster_skipped_turn.connect(_on_turn_order_skipped)
+	sim.events.monster_defeated.connect(_on_turn_order_defeated)
 	player_turn = PlayerTurnControllerScript.new(sim, visual_adapter)
 	player_turn.menu_changed.connect(_on_player_menu_changed)
 	player_turn.status_changed.connect(_set_action_status)
@@ -604,6 +618,7 @@ func _try_begin_pending_player_turn() -> void:
 func _finish_battle(winner: int) -> void:
 	lifecycle = Lifecycle.COMPLETE
 	_clear_threat_overlay()
+	_clear_turn_order_display()
 	camera.cancelDrag()
 	_pending_player_turn_id = -1
 	_cancel_deliberation()
@@ -1233,6 +1248,94 @@ func _on_command_menu_spell(setIndex: int, spellIndex: int) -> void:
 	player_turn.selectSpell(setIndex, spellIndex)
 	battle_ui.command_menu.closeSpells()
 	player_turn.selectMenuEntry(PlayerTurnControllerScript.ENTRY_MAGIC)
+
+func _disconnect_turn_order_events() -> void:
+	if sim == null:
+		return
+	var events = sim.events
+	if events.round_started.is_connected(_on_turn_order_round_started):
+		events.round_started.disconnect(_on_turn_order_round_started)
+	if events.turn_started.is_connected(_on_turn_order_started):
+		events.turn_started.disconnect(_on_turn_order_started)
+	if events.turn_ended.is_connected(_on_turn_order_ended):
+		events.turn_ended.disconnect(_on_turn_order_ended)
+	if events.monster_skipped_turn.is_connected(_on_turn_order_skipped):
+		events.monster_skipped_turn.disconnect(_on_turn_order_skipped)
+	if events.monster_defeated.is_connected(_on_turn_order_defeated):
+		events.monster_defeated.disconnect(_on_turn_order_defeated)
+
+
+func _on_turn_order_round_started(_roundNumber: int, orderIDs: Array) -> void:
+	_turn_order_ids = orderIDs.duplicate()
+	_active_turn_order_id = -1
+	_refresh_turn_order_display()
+
+
+func _on_turn_order_started(monsterID: int, _roundNumber: int, _turnNumber: int) -> void:
+	_turn_order_ids.erase(monsterID)
+	_turn_order_ids.push_front(monsterID)
+	_active_turn_order_id = monsterID
+	_refresh_turn_order_display()
+
+
+func _on_turn_order_ended(monsterID: int) -> void:
+	_turn_order_ids.erase(monsterID)
+	if _active_turn_order_id == monsterID:
+		_active_turn_order_id = -1
+	_refresh_turn_order_display()
+
+
+func _on_turn_order_skipped(monsterID: int, _reason: String) -> void:
+	_on_turn_order_ended(monsterID)
+
+
+func _on_turn_order_defeated(monsterID: int, _killerID: int) -> void:
+	_turn_order_ids.erase(monsterID)
+	if _active_turn_order_id == monsterID:
+		_active_turn_order_id = -1
+	_refresh_turn_order_display()
+
+
+func _clear_turn_order_display() -> void:
+	if turn_order_window == null:
+		return
+	turn_order_window.clear_rows()
+	turn_order_window.visible = false
+
+
+func _refresh_turn_order_display() -> void:
+	if turn_order_window == null or sim == null:
+		return
+	turn_order_window.clear_rows()
+	var shown := 0
+	for monsterID in _turn_order_ids:
+		if shown >= BattleUIBuilderScript.TURN_ORDER_CAPACITY:
+			break
+		var monster = sim.state.getMonster(int(monsterID))
+		if monster == null or not monster.is_alive():
+			continue
+		var marker := "NOW" if int(monsterID) == _active_turn_order_id else (
+			"NEXT" if shown == 0 else "UP"
+		)
+		var row := turn_order_window.add_row(
+			"%s  %s" % [marker, monster.name],
+			"#%d" % int(monsterID)
+		)
+		_tint_turn_order_row(
+			row,
+			NoggThemeScript.TEXT_ACCENT if int(monsterID) == _active_turn_order_id
+			else NoggThemeScript.TEXT_PRIMARY
+		)
+		shown += 1
+	turn_order_window.visible = shown > 0
+
+
+func _tint_turn_order_row(node: Node, color: Color) -> void:
+	for child in node.get_children():
+		if child is Label:
+			child.add_theme_color_override("font_color", color)
+		elif child.get_child_count() > 0:
+			_tint_turn_order_row(child, color)
 
 func _on_animation_queue_drained() -> void:
 	if lifecycle != Lifecycle.BATTLE:

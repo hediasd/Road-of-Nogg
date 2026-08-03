@@ -20,6 +20,11 @@ const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 ## with two spare rows).
 const STATUS_WINDOW_WIDTH := 540.0
 const STATUS_WINDOW_CAPACITY := 6
+## Upper-left, below the prompt and above the centred command window.
+## Three rows show the active unit plus the next two queued units.
+const TURN_ORDER_WIDTH := 300.0
+const TURN_ORDER_CAPACITY := 3
+const TURN_ORDER_TOP := 100.0
 
 
 static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
@@ -209,6 +214,17 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	targetWindow.size = status_window_size
 	targetWindow.set_input_transparent(true)
 
+	var turnOrderWindow: NoggWindow = NoggWindowScript.new()
+	game_root.add_child(turnOrderWindow)
+	turnOrderWindow.name = "TurnOrderWindow"
+	turnOrderWindow.set_row_capacity(TURN_ORDER_CAPACITY)
+	turnOrderWindow.size = Vector2(
+		TURN_ORDER_WIDTH,
+		NoggThemeScript.window_height(TURN_ORDER_CAPACITY)
+	)
+	turnOrderWindow.set_input_transparent(true)
+	turnOrderWindow.visible = false
+
 	# Positioned from the viewport size on `resized` rather than read once at
 	# build time: `game_root.get_viewport_rect()` immediately after the canvas
 	# is built is not reliably the final displayed size — the same class of
@@ -225,6 +241,9 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 			viewport_size.x - status_window_size.x - STATUS_WINDOW_MARGIN,
 			viewport_size.y - status_window_size.y - STATUS_WINDOW_MARGIN
 		)
+		turnOrderWindow.position = Vector2(
+			STATUS_WINDOW_MARGIN, TURN_ORDER_TOP
+		)
 	game_root.resized.connect(reposition_status_windows)
 	reposition_status_windows.call()
 
@@ -237,6 +256,7 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	refs.graphics = graphicsMenu
 	refs.actor_window = actorWindow
 	refs.target_window = targetWindow
+	refs.turn_order_window = turnOrderWindow
 	refs.log_label = logLabel
 	refs.log_panel = logPanel
 	refs.action_panel = actionPanel

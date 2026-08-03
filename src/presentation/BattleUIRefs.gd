@@ -11,6 +11,7 @@ var graphics_button: Button
 var graphics: BattleGraphicsMenuRefs
 var actor_window: NoggWindow
 var target_window: NoggWindow
+var turn_order_window: NoggWindow
 var log_label: RichTextLabel
 var log_panel: PanelContainer
 var action_panel: Control

@@ -1157,7 +1157,18 @@ stats.
 **Files:** `src/systems/BattlePresentationController.gd`,
 `src/presentation/` for the window, `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+Added an input-transparent 300 x 3-row NoggWindow at the upper-left
+(x=20, y=100), below the prompt and above the centred command window. It
+shows up to three living entries: NOW for the active unit, NEXT for the next
+queued unit, and UP for the following queued unit. The list is driven by
+round_started, turn_started, turn_ended, monster_skipped_turn, and
+monster_defeated events; it does not poll or copy simulator ordering into a
+second turn manager. Dead entries are filtered during each render and are
+removed immediately on defeat. Setup, battle completion, and new rounds clear
+or replace the display. The event-history/replay equivalence and in-window
+placement remain at the plan's final validation boundary.
 
 ---
 

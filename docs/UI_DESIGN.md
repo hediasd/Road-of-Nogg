@@ -505,6 +505,7 @@ mapping remains in the root viewport's logical coordinate space.
 |---|---|---|---|
 | **Command** | Left, vertically centred | 220 × 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS` — longest is `ATTACK` at 144 + 56 overhead; 5 is the list's true maximum |
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
+| **Turn order** | Upper-left, x=20 / y=100 | 300 × 3 rows | Up to three entries: NOW for the active unit, NEXT for the next unit, and UP for the following queued unit |
 | **Actor status** | Bottom-left, fixed | 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3 |
 | **Target** | Bottom-right, fixed | 540 × 6 rows | Same fixed-cell shape as actor status; shows an empty frame, not a hidden window, when there is no target |
 | **Confirm** | Same origin as Command, replacing it | 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
