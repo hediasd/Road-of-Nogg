@@ -3,6 +3,19 @@
 Items here need prompt resolution because they leave current gameplay incomplete
 or misleading.
 
+## Finish battle-window restyle validation
+
+The shared XenoText, translucent body, thin pale rim, and exterior halo are
+implemented, but the preview harness was not updated and the consolidated
+normal-window visual pass did not run before the user redirected work to the
+ice-storm cycle. Update debug/preview_theme.gd so it exercises the shipping
+NoggWindow renderer over hostile bright/dark backgrounds, active/inactive
+focus states, paging, docked status boxes, and a viewport edge. Then run the
+integrated 1152x648 Player vs CPU pass in normal and UI-through-CRT modes,
+covering every battle window, click-through/clickable behavior, damage numbers,
+interruption, and teardown. Obtain user approval of the resulting reference
+match before treating the restyle as complete.
+
 ## The action forecast says nothing about a buff or debuff spell
 
 `PlayerTurnController._forecastText()` branches on `spell.heals`, then on
