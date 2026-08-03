@@ -509,8 +509,8 @@ func _enterConfirmAction(pos: Vector2i, skippedTargetSelect: bool) -> void:
 	var target = _sim.state.getMonsterAt(pos)
 	var confirm_text: String
 	if target != null and target.uniqueID == activeMonsterID:
-		# "on yourself", not "at <own name>" — the wording CAST-5 exists to
-		# remove: it read as if the caster were a target found elsewhere.
+		# "on yourself", not "at <own name>": the latter read as if the caster
+		# were a target that had been found somewhere else on the board.
 		confirm_text = "Confirm %s on yourself, or cancel to choose again." % _pendingAction.capitalize()
 	else:
 		var target_label = target.name if target != null else "tile %s" % str(pos)
@@ -599,8 +599,8 @@ func _refreshTargetPreview(centerPos: Vector2i) -> void:
 	forecast_changed.emit(_forecastText(centerPos))
 	if target != null:
 		# A self-heal or self-buff deliberately aimed at one's own tile (not
-		# only CAST-4's no-choice self spells — an ally-heal cycled onto the
-		# caster reaches this too, since the caster is its own ally) should
+		# only the no-choice self spells that skip aiming — an ally-heal cycled
+		# onto the caster reaches this too, since a caster is its own ally) should
 		# not read as if the caster were a target found elsewhere.
 		var target_name = "yourself" if target.uniqueID == activeMonsterID else target.name
 		status_changed.emit("Choose a target: %s. %d unit(s) in the affected area." % [

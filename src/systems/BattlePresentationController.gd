@@ -917,7 +917,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and _player_turn_active() and player_turn.acceptsGridInput():
 		var hover_pos = _mouse_to_battle_coord(event.position)
 		# One source of "what is under the pointer" for the whole game: the
-		# tile FEEL-7 already resolved, not a second raycast of our own.
+		# tile the shared pick already resolved, not a second raycast here.
 		_update_hovered_monster(visual_adapter.monster_id_at_position(hover_pos))
 		if player_turn.setCursor(hover_pos):
 			get_viewport().set_input_as_handled()
@@ -930,8 +930,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		# not accept cursor movement) — this routes clicks around that gate
 		# rather than widening it. A click on the tile the player is about to
 		# commit to confirms it; a click anywhere else on the board cancels
-		# back to wherever cancel() already knows to go (CAST-4 may have
-		# skipped target select entirely, and cancel() already tracks that).
+		# back to wherever cancel() already knows to go (a no-choice spell may
+		# have skipped target select entirely, and cancel() already tracks it).
 		# Either way the event is consumed here, so it can never fall through
 		# to _handle_click_selection and silently re-render the inspector
 		# instead of confirming.
@@ -994,7 +994,7 @@ func _mouse_to_battle_coord(mousePos: Vector2) -> Vector2i:
 
 ## The tile set the player is currently choosing among, or empty when they are
 ## not choosing one. Read through the controller's public accessor rather than
-## its private phase state, following CAST-3's precedent.
+## its private phase state, matching how the confirm-click path reads it.
 func _current_target_candidates() -> Array:
 	if not _player_turn_active():
 		return []
@@ -1100,11 +1100,12 @@ func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
 
 ## Zero-padded to three digits so a stat holds its horizontal position in its
 ## fixed cell as it changes — the eye can park on a position instead of
-## re-finding it each turn. `Monster.STAT_MIN`/`STAT_MAX` (FEEL-9) clamp every
+## re-finding it each turn. `Monster.STAT_MIN`/`STAT_MAX` clamp every
 ## stat to 0-999 at the point of write, which is what makes three digits
 ## sufficient by construction; this still renders the true value and warns
 ## rather than truncating if one ever arrives outside that range, because a
-## stat that escaped the clamp is a FEEL-9 defect and this window should say
+## stat that escaped that clamp is a defect at the write site, and this window
+## should say
 ## so instead of hiding it behind a format string.
 func _statText(value: int) -> String:
 	if value < Monster.STAT_MIN or value > Monster.STAT_MAX:

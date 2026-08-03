@@ -3,6 +3,19 @@
 Items here need prompt resolution because they leave current gameplay incomplete
 or misleading.
 
+## The action forecast says nothing about a buff or debuff spell
+
+`PlayerTurnController._forecastText()` branches on `spell.heals`, then on
+`spell.damage_lines`. A spell that is neither — every pure buff, debuff, and
+status spell in the catalogue — matches no branch and falls through to
+`"Expected: N unit(s) affected"`. `Empower` is the clearest case: it grants
+`BUFFS_ATK: 3` for `BUFF_DURATION: 2`, and the one window whose entire job is
+to tell the player what an action will do reports only that one unit is
+affected. The confirm step is therefore blind for a whole class of spells: the
+player is asked to commit to an effect the UI never states. The authored fields
+are already on `Spell` and the affected-target list is already computed, so
+this is a presentation gap, not a missing mechanic.
+
 ## Monster spell kits
 
 - **Blue Crowned Pidgeon:** has no spells at all. Assign at least one Wind set

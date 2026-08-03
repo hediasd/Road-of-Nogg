@@ -134,3 +134,46 @@ also a cataloged spell nothing references as a kit entry the same way). Confirm
 with the content owner whether `Mage Dragon`'s kit is missing its intended
 first spells, or whether `Think`/`Thought` are meant to do something and are
 simply unfinished.
+
+## Turn rewind is an open design decision, not scheduled work
+
+Surveyed alongside the battle-UI legibility pass and deliberately left
+unbuilt. Fire Emblem's Mila's Turnwheel / Divine Pulse give the player a
+charge-limited rewind of whole turns, and the genre's own stated reason is
+that new players will make mistakes and letting them experiment without
+permanent loss is what keeps them playing. Movement `Undo` already covers the
+common case here — a misjudged destination, undoable until an action is spent.
+Anything beyond that changes what a mistake *costs*, which is a difficulty
+decision rather than a legibility one, and it should be made deliberately
+rather than arrived at by adding one more convenience. `BattleStateSerializer`
+and `BattleReplayRunner` already snapshot enough state that the mechanism
+would be cheap to build, which is exactly why it is worth deciding on purpose.
+
+## Visual playback can no longer keep up with an unpaced simulation
+
+Found while validating the animation-hold work. A player turn only opens once
+the visual queue is completely empty
+(`BattlePresentationController._presentation_ready_for_player_turn()`), and
+actions now occupy the queue substantially longer than they used to, because
+each one is held until its spawned effects are mostly through rather than
+until its own tween ends. In the real game this self-regulates: `turn_timer`
+paces CPU turns and stops entirely once a player turn is pending. But any
+caller that drives `_advance_battle()` in a loop without that pacing enqueues
+faster than playback drains, and the pending player turn never gets its
+opening. Every headless harness under `debug/` that drives battles had to be
+taught the same two rules — stop advancing while a turn is pending, and yield
+a frame per tick. Worth revisiting if the run-ahead limit or the hold fraction
+is ever tuned, and worth remembering before writing a new driver.
+
+## Defeat animation's child-index assumptions are still fragile
+
+`GodotVisualAdapter._start_defeat_animation()` reaches into the monster
+container by index: child 0 for the base, child 1 for the body. Child 0 stopped
+being a mesh when the base became a stacked `Node3D` for ascension tiers, and
+the resulting `as MeshInstance3D` cast silently produced null — the whole
+defeat animation threw the first time one actually played, and went unnoticed
+because no harness reached a defeat until now. Fixed, but the underlying
+pattern remains: the container's layout is an unwritten contract between
+`_spawn_monster_visual()` and everything that later picks it apart by index.
+Named children, or a small typed accessor, would make the next layout change
+fail loudly instead of silently.
