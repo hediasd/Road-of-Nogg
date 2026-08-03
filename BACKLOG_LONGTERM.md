@@ -119,3 +119,18 @@ block the restyle; revisit after the first playable pass.
   audio. No audio system exists yet; noted here so the `open()`/`close()`
   hooks in `NoggWindow` are not designed away before there is something to
   play.
+
+## `Think` / `Thought` look like placeholder spells shipped on a real monster
+
+Found while implementing self-cast presentation fixes. `data/spells.json`
+carries two spells named `Think` and `Thought` — zero damage, `ELEMENT: "none"`,
+no `TARGET_TYPE` (so it defaults to `"single"`) — and `Mage Dragon` in
+`data/monsters.json` has one as the first entry in each of its two spell sets.
+Both have `RANGE: 0`, so despite not being `targetType: "self"` they can only
+ever legally target the caster's own tile — the same reachable set as a self
+spell, without being tagged as one. The names read like debug fixtures (compare
+`Spell.gd`'s own placeholder default, `var name: String = "Dump"`, which is
+also a cataloged spell nothing references as a kit entry the same way). Confirm
+with the content owner whether `Mage Dragon`'s kit is missing its intended
+first spells, or whether `Think`/`Thought` are meant to do something and are
+simply unfinished.

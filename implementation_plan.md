@@ -524,7 +524,49 @@ and no player-facing string describes the caster as its own target.
 **Files:** `src/presentation/PlayerCommandMenu.gd`,
 `src/systems/PlayerTurnController.gd`, console adapters if affected.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+**The literal instruction in Work step 1 — "take the range from the existing
+spell entry dictionary" — would have mislabelled real spells.** All 27 true
+self spells have `RANGE: 0`, but so do `Think` and `Thought`, two spells
+genuinely attached to `Mage Dragon`'s kit in `data/monsters.json` with
+`targetType == "single"` (the default; the data sets no `TARGET_TYPE` for
+either). `range == 0` is not a safe proxy for "self" — using it would have
+shown `Self` on two spells that are not self-targeted by the data, even though
+they happen to be reachable only from the caster's own tile. Added a
+`self_targeted` field to `spellEntries()`'s dictionary instead, computed by a
+new `static func spellOffersNoTargetChoice(spell: Spell)` that both this and
+CAST-4's `_selectedSpellOffersNoTargetChoice()` now call — one predicate, so
+a spell can never be labelled `Self` in the list and still show a chooser when
+picked, or the reverse. `Think`/`Thought` still read `Rng 0`, honestly.
+
+`_spell_value()` checks `self_targeted` before falling to `Rng %d`.
+`selectSpell()`'s status line substitutes `"self"` for `"range %d"` on the
+same field. `_refreshTargetPreview()` and `_enterConfirmAction()` (renamed
+from `_commitTarget`'s inline tail by CAST-4) both compare
+`target.uniqueID == activeMonsterID` rather than reading `_confirmSkippedTargetSelect`
+— deliberately not CAST-4's flag, because a deliberate self-heal cycled onto
+one's own tile during ordinary `TARGET_SELECT` (the caster is its own ally,
+so this is reachable for any heal spell) hits this same phrasing and never
+skipped target select at all. `_enterConfirmAction()`'s line reads "Confirm
+Spell **on** yourself" rather than "at yourself", the one place the
+preposition changes with the subject.
+
+**Console adapters left untouched, and why.** `ConsoleVisualAdapter` and
+`ConsoleRoundSummary` render fixed `Attacker -> Target` log lines with both
+names and ids always shown, so a self-cast already reads as `Grubb #3 -> Grubb
+#3` — identical name and id make it unambiguous without any special-casing.
+The confusion CAST-5 exists to fix was specific to the live UI's phrasing,
+which implied *choosing* an external target; a static log line makes no such
+claim. Judged not player-facing in the sense this item means, and left alone
+per its own conditional Files entry.
+
+`docs/SPELL_CATALOG_SCHEMA.md` and the authored `RANGE: 0` data are untouched,
+as scoped. Recorded `Think`/`Thought` in `BACKLOG_LONGTERM.md` — the naming and
+zero-damage/no-element data read like an unfinished or placeholder kit entry
+on a real monster, a content question this item has no authority to resolve.
+
+Parse-checked with `--check-only`.
 
 ---
 

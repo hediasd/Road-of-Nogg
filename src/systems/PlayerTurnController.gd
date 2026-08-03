@@ -189,6 +189,13 @@ func spellEntries() -> Array:
 				"spell_index": spellIndex,
 				"name": spell.name,
 				"range": spell.range,
+				# Not the same question as "range == 0". `Think`/`Thought` on
+				# Mage Dragon are `targetType == "single"` with `RANGE: 0` —
+				# real, monster-attached spells that can only ever reach the
+				# caster's own tile, the same as a self spell functionally,
+				# but not one by the data. Labelling those "Self" would claim
+				# a targeting rule the spell does not have.
+				"self_targeted": spellOffersNoTargetChoice(spell),
 				"cooldown_remaining": int(monster.spell_cooldowns.get(spell.name, 0)),
 				"ready": ready,
 				"label": "%s [%s]" % [
@@ -226,8 +233,15 @@ func selectSpell(setIndex: int, spellIndex: int) -> void:
 	_selectedSpellIndex = spellIndex
 	for entry in spellEntries():
 		if entry["set_index"] == setIndex and entry["spell_index"] == spellIndex:
-			status_changed.emit("%s — range %d, cooldown %d." % [
-				entry["name"], entry["range"], entry["cooldown_remaining"]
+			# "Range 0" is honest for a spell that genuinely has one (Think,
+			# Thought — see spellEntries()) but wrong for a true self spell,
+			# where the concept of range does not apply at all.
+			var range_text = (
+				"self" if bool(entry["self_targeted"])
+				else "range %d" % int(entry["range"])
+			)
+			status_changed.emit("%s — %s, cooldown %d." % [
+				entry["name"], range_text, entry["cooldown_remaining"]
 			])
 			return
 
@@ -472,6 +486,15 @@ func _selectedSpellOffersNoTargetChoice() -> bool:
 	if caster == null:
 		return false
 	var spell = caster.spellSets[_selectedSpellSet][_selectedSpellIndex]
+	return spellOffersNoTargetChoice(spell)
+
+
+## Shared with `spellEntries()`'s `self_targeted` label, which is what
+## `PlayerCommandMenu` renders `Self` from. One predicate, so a spell can never
+## be labelled `Self` in the list and still show a chooser when picked, or the
+## reverse. Static and spell-only — no read of controller state — so both call
+## sites can use it without one depending on the other's context.
+static func spellOffersNoTargetChoice(spell: Spell) -> bool:
 	return spell.targetType == "self" and spell.range == 0
 
 
@@ -484,10 +507,17 @@ func _enterConfirmAction(pos: Vector2i, skippedTargetSelect: bool) -> void:
 	phase = Phase.CONFIRM_ACTION
 	_refreshTargetPreview(pos)
 	var target = _sim.state.getMonsterAt(pos)
-	var target_label = target.name if target != null else "tile %s" % str(pos)
-	status_changed.emit("Confirm %s at %s, or cancel to choose again." % [
-		_pendingAction.capitalize(), target_label
-	])
+	var confirm_text: String
+	if target != null and target.uniqueID == activeMonsterID:
+		# "on yourself", not "at <own name>" — the wording CAST-5 exists to
+		# remove: it read as if the caster were a target found elsewhere.
+		confirm_text = "Confirm %s on yourself, or cancel to choose again." % _pendingAction.capitalize()
+	else:
+		var target_label = target.name if target != null else "tile %s" % str(pos)
+		confirm_text = "Confirm %s at %s, or cancel to choose again." % [
+			_pendingAction.capitalize(), target_label
+		]
+	status_changed.emit(confirm_text)
 	menu_changed.emit()
 
 
@@ -568,8 +598,13 @@ func _refreshTargetPreview(centerPos: Vector2i) -> void:
 	_adapter.show_target_status(target_id)
 	forecast_changed.emit(_forecastText(centerPos))
 	if target != null:
+		# A self-heal or self-buff deliberately aimed at one's own tile (not
+		# only CAST-4's no-choice self spells — an ally-heal cycled onto the
+		# caster reaches this too, since the caster is its own ally) should
+		# not read as if the caster were a target found elsewhere.
+		var target_name = "yourself" if target.uniqueID == activeMonsterID else target.name
 		status_changed.emit("Choose a target: %s. %d unit(s) in the affected area." % [
-			target.name, affected_target_ids.size()
+			target_name, affected_target_ids.size()
 		])
 	elif not _canConfirmTarget(centerPos):
 		status_changed.emit("Preview tile %s. Empty-center casting is disabled." % str(centerPos))

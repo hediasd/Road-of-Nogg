@@ -449,10 +449,14 @@ func _on_spell_row_built(row: Control, full_index: int) -> void:
 
 ## Cooldown is shown rather than hidden so the player can see what is coming
 ## back. Range only matters for a spell that can actually be cast now.
+## `self_targeted` (not `range == 0`) picks the `Self` label — see the comment
+## where `spellEntries()` sets that key.
 func _spell_value(spell: Dictionary) -> String:
-	if bool(spell["ready"]):
-		return "Rng %d" % int(spell["range"])
-	return "CD %d" % int(spell["cooldown_remaining"])
+	if not bool(spell["ready"]):
+		return "CD %d" % int(spell["cooldown_remaining"])
+	if bool(spell.get("self_targeted", false)):
+		return "Self"
+	return "Rng %d" % int(spell["range"])
 
 
 func _spell_id(spell: Dictionary) -> String:
