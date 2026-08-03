@@ -69,6 +69,11 @@ func _showAIIntent(coord: Vector2i, nextMode: Mode) -> void:
 
 
 func showAt(coord: Vector2i, nextMode: Mode) -> void:
+	# The adapter's dispose() frees the cursor node, but a queued visual action
+	# draining afterwards still calls through here. Without this the teardown
+	# path throws on every remaining action.
+	if not is_instance_valid(_cursor):
+		return
 	mode = nextMode
 	grid_position = coord
 	_setCursorColor(
@@ -79,6 +84,8 @@ func showAt(coord: Vector2i, nextMode: Mode) -> void:
 
 
 func _setCursorColor(color: Color) -> void:
+	if not is_instance_valid(_cursor):
+		return
 	var material = _cursor.material_override as ShaderMaterial
 	if material == null:
 		return

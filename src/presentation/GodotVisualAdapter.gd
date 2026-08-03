@@ -134,7 +134,9 @@ func _synchronize_visual_occupancy(exceptMonsterID: int = -1) -> void:
 		if monsterID == exceptMonsterID:
 			continue
 		_stop_position_tween(monsterID)
-		var visual: Node3D = _monster_visuals[monsterID]
+		var visual := _liveMonsterVisual(monsterID)
+		if visual == null:
+			continue
 		var authoritativePos = state.getMonsterPosition(monsterID)
 		if not state.withinBounds(authoritativePos):
 			visual.visible = false
@@ -263,18 +265,18 @@ func _start_queued_animation(action: VisualAction) -> bool:
 
 func _finalize_animation(action: VisualAction) -> void:
 	var monsterID := action.monster_id
-	if action.kind == VisualAction.Kind.MOVE and _monster_visuals.has(monsterID):
+	var visual := _liveMonsterVisual(monsterID)
+	if action.kind == VisualAction.Kind.MOVE and visual != null:
 		if not action.path.is_empty():
-			_monster_visuals[monsterID].position = _coord_to_surface_pos3d(action.path.back())
-	elif action.kind == VisualAction.Kind.BUMP and _monster_visuals.has(monsterID):
+			visual.position = _coord_to_surface_pos3d(action.path.back())
+	elif action.kind == VisualAction.Kind.BUMP and visual != null:
 		if action.has_origin:
-			_monster_visuals[monsterID].position = action.origin
+			visual.position = action.origin
 	elif action.kind == VisualAction.Kind.DEFEAT:
 		_defeat_tweens.erase(monsterID)
-		if _monster_visuals.has(monsterID):
-			var container: Node3D = _monster_visuals[monsterID]
+		if visual != null:
 			_monster_visuals.erase(monsterID)
-			container.queue_free()
+			visual.queue_free()
 	_position_tweens.erase(monsterID)
 
 
@@ -300,24 +302,47 @@ func _present_queued_message(action: VisualAction) -> void:
 ## A heal is a MESSAGE-kind action with no tween of its own — `_present_queued_message`
 ## is a synchronous state update, and the queue has always advanced past it
 ## instantly. That is still correct for every other MESSAGE action; a heal
-## carrying a damage number is the one case that now needs to hold, so the
-## queue does not advance while the number is still on screen. `visual_parent`
-## hosts a tween with nothing to animate but the hold itself — `_activateScaled`
-## needs a real Tween to extend via `tween_interval`, and this is the plainest
-## way to give it one without inventing a second hold mechanism.
+## carrying a number is the one case that must hold, so the queue does not
+## advance while the number is still on screen.
+##
+## The number is spawned fire-and-forget and runs on its own tween, exactly as
+## `SpellCastAura` does for a bump; what the queue waits on is a short interval
+## tween representing the *hold*, not the number's whole animation. Handing the
+## queue the number's own tween instead would block it for the full drift and
+## fade — and the settled rule is "mostly through, not fully through", so the
+## tail of the fade is meant to overlap whatever comes next.
 func _start_message_damage_number(action: VisualAction) -> bool:
 	if not action.has_damage_number:
 		return false
 	var targetID := action.right_monster_id if action.has_right_monster else action.target_id
-	if not _monster_visuals.has(targetID):
+	var targetVisual := _liveMonsterVisual(targetID)
+	if targetVisual == null:
 		return false
-	var targetWorldPos: Vector3 = _monster_visuals[targetID].position
 	DamageNumberBillboardScript.spawn(
-		visual_parent, targetWorldPos, action.damage_number, action.is_heal_number
+		visual_parent, targetVisual.position, action.damage_number, action.is_heal_number
+	)
+	var hold: float = (
+		DamageNumberBillboardScript.visible_duration(action.is_heal_number)
+		* ACTION_HOLD_FRACTION
 	)
 	var tween := visual_parent.create_tween()
-	_activateScaled(tween, action, 0.0, DamageNumberBillboardScript.VISIBLE_DURATION)
+	tween.tween_interval(hold)
+	_activateScaled(tween, action, hold)
 	return true
+
+
+## `_monster_visuals` can hold an entry whose node has already been freed —
+## `Dictionary.has()` answers true for it and every property access then throws.
+## Callers that only need "is this unit still on the board" must go through
+## here rather than testing `has()`.
+func _liveMonsterVisual(monsterID: int) -> Node3D:
+	if not _monster_visuals.has(monsterID):
+		return null
+	var visual = _monster_visuals[monsterID]
+	if not is_instance_valid(visual):
+		_monster_visuals.erase(monsterID)
+		return null
+	return visual
 
 
 func _buildPlaceholderBody(material: Material) -> Node3D:
@@ -401,9 +426,9 @@ func _status_icon_anchor_y(container: Node3D) -> float:
 
 
 func _refresh_status_icons(monsterID: int) -> void:
-	if not _monster_visuals.has(monsterID):
+	var container := _liveMonsterVisual(monsterID)
+	if container == null:
 		return
-	var container: Node3D = _monster_visuals[monsterID]
 	StatusEffectIconsScript.create_or_update(
 		container,
 		state.getActiveEffects(monsterID),
@@ -593,7 +618,7 @@ func _on_movement_targeted(monsterID: int, destination: Vector2i) -> void:
 
 
 func _on_monster_moved(monsterID: int, path: Array) -> void:
-	if not _monster_visuals.has(monsterID) or path.is_empty():
+	if _liveMonsterVisual(monsterID) == null or path.is_empty():
 		return
 	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.MOVE)
 	action.monster_id = monsterID
@@ -734,11 +759,11 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 func _start_move_animation(action: VisualAction) -> bool:
 	var monsterID := action.monster_id
 	var path: Array = action.path
-	if not _monster_visuals.has(monsterID) or path.is_empty():
+	var visual := _liveMonsterVisual(monsterID)
+	if visual == null or path.is_empty():
 		return false
 	_present_queued_message(action)
 	_stop_position_tween(monsterID)
-	var visual: Node3D = _monster_visuals[monsterID]
 	var tween = visual.create_tween()
 	_track_position_tween(monsterID, tween)
 	var visualStart: Vector3 = visual.position
@@ -763,19 +788,27 @@ func _start_move_animation(action: VisualAction) -> bool:
 
 func _start_defeat_animation(action: VisualAction) -> bool:
 	var monsterID := action.monster_id
-	if not _monster_visuals.has(monsterID):
+	var container := _liveMonsterVisual(monsterID)
+	if container == null:
 		return false
 	_stop_position_tween(monsterID)
-	var container: Node3D = _monster_visuals[monsterID]
 	_disable_selection_collision(container)
-	var baseMesh = container.get_child(0) as MeshInstance3D
+	# Child 0 is the ModelBase *container* built by
+	# BattleMeshFactory.createModelBase(), which is a Node3D holding one
+	# MeshInstance3D per ascension layer — not a mesh itself. This used to cast
+	# it straight to MeshInstance3D, which has silently been null ever since
+	# the base became a stack, taking the whole defeat animation down with it
+	# the moment a defeat actually played.
+	var modelBase := container.get_child(0) as Node3D
 	var body = container.get_child(1) as Node3D
-	var capsuleTarget = baseMesh.position + Vector3(0, 0.08, 0)
+	if modelBase == null or body == null:
+		return false
+	var capsuleTarget = modelBase.position + Vector3(0, 0.08, 0)
 	var tween = container.create_tween().set_parallel(true)
 	_defeat_tweens[monsterID] = tween
 	tween.tween_property(body, "scale", Vector3.ZERO, 0.38).set_trans(Tween.TRANS_BACK)
 	tween.tween_property(body, "position", capsuleTarget, 0.38).set_trans(Tween.TRANS_QUAD)
-	_spawn_capsule_shatter(container, baseMesh)
+	_spawn_capsule_shatter(container, modelBase)
 	# The shatter particles outlive the 0.38s collapse only slightly, so this
 	# hold works out shorter than the tween and changes nothing today. Stated
 	# anyway so the relationship is explicit if either constant moves.
@@ -793,14 +826,18 @@ func _disable_selection_collision(container: Node3D) -> void:
 		shape.set_deferred("disabled", true)
 
 
-func _spawn_capsule_shatter(container: Node3D, baseMesh: MeshInstance3D) -> void:
+## `modelBase` is the ModelBase container, not a mesh: it holds one
+## MeshInstance3D per ascension layer. The fragments borrow the bottom layer's
+## material so a shattered base still reads as the same plinth, and the whole
+## stack is hidden at once rather than just its first layer.
+func _spawn_capsule_shatter(container: Node3D, modelBase: Node3D) -> void:
 	var particles = GPUParticles3D.new()
 	particles.name = "CapsuleShatter"
 	particles.amount = 12
 	particles.lifetime = CAPSULE_SHATTER_LIFETIME
 	particles.one_shot = true
 	particles.explosiveness = 1.0
-	particles.position = baseMesh.position
+	particles.position = modelBase.position
 	var processMaterial = ParticleProcessMaterial.new()
 	processMaterial.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 	processMaterial.emission_sphere_radius = 0.16
@@ -813,24 +850,27 @@ func _spawn_capsule_shatter(container: Node3D, baseMesh: MeshInstance3D) -> void
 	var fragment = BoxMesh.new()
 	fragment.size = Vector3(0.07, 0.035, 0.07)
 	particles.draw_pass_1 = fragment
-	particles.material_override = baseMesh.material_override
+	var bottomLayer := modelBase.get_child(0) as MeshInstance3D if modelBase.get_child_count() > 0 else null
+	if bottomLayer != null:
+		particles.material_override = bottomLayer.material_override
 	particles.speed_scale = _animation_speed_scale
 	container.add_child(particles)
-	baseMesh.visible = false
+	modelBase.visible = false
 	particles.emitting = true
 
 func _start_bump_animation(action: VisualAction) -> bool:
 	var sourceID := action.monster_id
 	var targetID := action.target_id
-	if not _monster_visuals.has(sourceID):
+	var sourceVisual := _liveMonsterVisual(sourceID)
+	if sourceVisual == null:
 		return false
-	var sourceVisual: Node3D = _monster_visuals[sourceID]
 	var originalPos = sourceVisual.position
 	action.origin = originalPos
 	action.has_origin = true
 	var targetWorldPos: Vector3
-	if _monster_visuals.has(targetID):
-		targetWorldPos = _monster_visuals[targetID].position
+	var targetVisual := _liveMonsterVisual(targetID)
+	if targetVisual != null:
+		targetWorldPos = targetVisual.position
 	else:
 		var targetCoord := action.coord
 		if not state.withinBounds(targetCoord):
@@ -853,10 +893,13 @@ func _start_bump_animation(action: VisualAction) -> bool:
 			visual_parent, targetWorldPos, action.damage_number, action.is_heal_number
 		)
 		# Not scaled by ACTION_HOLD_FRACTION like the aura above: the number's
-		# own VISIBLE_DURATION already ends with its fade fully resolved, so
-		# holding for a *fraction* of it would cut the fade off mid-flight —
-		# the queue would advance while the number was still visibly there.
-		holdDuration = maxf(holdDuration, DamageNumberBillboardScript.VISIBLE_DURATION)
+		# own duration already ends with its fade fully resolved, so holding for
+		# a *fraction* of it would cut the fade off mid-flight — the queue would
+		# advance while the number was still visibly there.
+		holdDuration = maxf(
+			holdDuration,
+			DamageNumberBillboardScript.visible_duration(action.is_heal_number)
+		)
 	var tween = sourceVisual.create_tween()
 	_track_position_tween(sourceID, tween)
 	tween.tween_property(sourceVisual, "position", bumpPos, 0.1)
@@ -872,11 +915,10 @@ func highlight_monster(monster_id: int) -> void:
 ## menu's own treatment of a spent row (dim, not hidden). Presentation only —
 ## does not touch selection state, unlike highlight_monster.
 func set_monster_dimmed(monster_id: int, dimmed: bool) -> void:
-	if not _monster_visuals.has(monster_id):
+	var visual := _liveMonsterVisual(monster_id)
+	if visual == null:
 		return
-	BattleMeshFactoryScript.setDimAmountRecursive(
-		_monster_visuals[monster_id], 1.0 if dimmed else 0.0
-	)
+	BattleMeshFactoryScript.setDimAmountRecursive(visual, 1.0 if dimmed else 0.0)
 
 
 ## How much of a dithered model is discarded. Not 1.0: a fully discarded model
@@ -895,12 +937,13 @@ const DITHER_STRENGTH := 0.55
 ## model when a phase ends on a path nobody enumerated.
 func set_models_dithered(dithered: bool, solidMonsterIDs: Array = []) -> void:
 	for monsterID in _monster_visuals.keys():
+		var visual := _liveMonsterVisual(monsterID)
+		if visual == null:
+			continue
 		var amount := 0.0
 		if dithered and not solidMonsterIDs.has(monsterID):
 			amount = DITHER_STRENGTH
-		BattleMeshFactoryScript.setDitherAmountRecursive(
-			_monster_visuals[monsterID], amount
-		)
+		BattleMeshFactoryScript.setDitherAmountRecursive(visual, amount)
 
 
 ## The monster standing on `coord`, or -1. Shares the one pick the rest of the
@@ -923,8 +966,9 @@ func monster_id_at_position(coord: Vector2i) -> int:
 ## the authoritative tile position, since those are exactly the moments a
 ## caller like a camera pan cares about.
 func get_monster_world_position(monster_id: int) -> Vector3:
-	if _monster_visuals.has(monster_id):
-		return _monster_visuals[monster_id].position
+	var visual := _liveMonsterVisual(monster_id)
+	if visual != null:
+		return visual.position
 	var coord := state.getMonsterPosition(monster_id)
 	return _coord_to_surface_pos3d(coord)
 
