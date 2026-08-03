@@ -1,5 +1,4 @@
-## DamageNumberBillboard — a pixel-perfect, screen-space number anchored above
-## the unit that was hit.
+## DamageNumberBillboard - a compact JRPG-style screen-space hit number.
 ##
 ## The number is deliberately not a Label3D. World-space text inherits camera
 ## scale and depth ordering, which made the old value look oversized and let it
@@ -7,10 +6,10 @@
 ## CanvasLayer instead: its position is projected from the hit unit once, its
 ## size is the same as menu text, and UI CanvasLayers remain above it.
 ##
-## Every digit owns five Labels: four opaque black copies shifted by one pixel in
-## the cardinal directions, then one white copy at the centre. The digit roots
-## pump independently, so a multi-digit value still reads as separate chunky
-## glyphs rather than one large transforming string.
+## Each digit is drawn directly as five pixel passes: four opaque black copies
+## shifted by one pixel in the cardinal directions, then one white copy in the
+## centre. Drawing the glyphs directly keeps the number tightly kerned instead
+## of making it look like several centered UI labels placed side by side.
 
 class_name DamageNumberBillboard
 extends Control
@@ -18,14 +17,16 @@ extends Control
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 const SPAWN_HEIGHT := 0.85
-const PUMP_SCALE := 1.25
-const PUMP_UP_DURATION := 0.08
-const PUMP_DOWN_DURATION := 0.13
-const HOLD_DURATION := 0.16
-const DISAPPEAR_DURATION := 0.12
+const PUMP_SCALE := 1.15
+const PUMP_UP_DURATION := 0.07
+const PUMP_DOWN_DURATION := 0.12
+const DIGIT_STAGGER := 0.025
+const HOLD_DURATION := 0.18
+const DISAPPEAR_DURATION := 0.14
 
 const DAMAGE_VISIBLE_DURATION := (
-	PUMP_UP_DURATION + PUMP_DOWN_DURATION + HOLD_DURATION + DISAPPEAR_DURATION
+	PUMP_UP_DURATION + PUMP_DOWN_DURATION + DIGIT_STAGGER * 2.0
+	+ HOLD_DURATION + DISAPPEAR_DURATION
 )
 const HEAL_VISIBLE_DURATION := DAMAGE_VISIBLE_DURATION
 
@@ -41,6 +42,59 @@ const OUTLINE_OFFSETS := [
 ]
 
 static var _font: Font = null
+
+
+## A single digit owns its five direct draw passes, so scaling it for the one
+## pump does not introduce Label layout padding or per-label centering drift.
+class DamageGlyph:
+	extends Control
+
+	var font: Font
+	var glyph: String = ""
+	var glyph_width: int = 1
+	var font_size: int = 24
+	var front_color := Color.WHITE
+
+	func configure(
+			font_value: Font,
+			glyph_value: String,
+			width_value: int,
+			size_value: int,
+			color_value: Color) -> void:
+		font = font_value
+		glyph = glyph_value
+		glyph_width = width_value
+		font_size = size_value
+		front_color = color_value
+		size = Vector2(glyph_width, font_size)
+		pivot_offset = size * 0.5
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		queue_redraw()
+
+	func _draw() -> void:
+		if font == null or glyph.is_empty():
+			return
+		var baseline := Vector2(0, font.get_ascent(font_size))
+		for offset in DamageNumberBillboard.OUTLINE_OFFSETS:
+			draw_string(
+				font,
+				baseline + offset,
+				glyph,
+				HORIZONTAL_ALIGNMENT_LEFT,
+				-1.0,
+				font_size,
+				NoggThemeScript.OUTLINE
+			)
+		draw_string(
+			font,
+			baseline,
+			glyph,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1.0,
+			font_size,
+			front_color
+		)
 
 
 ## `screen_position` is in the host viewport's native screen coordinates, not
@@ -106,75 +160,52 @@ func _build(screen_position: Vector2, amount: int, is_heal: bool) -> Tween:
 
 	var x := 0
 	for index in range(text.length()):
-		var digit := Control.new()
+		var digit := DamageGlyph.new()
 		digit.name = "Digit_%d" % index
 		digit.position = Vector2(x, 0)
-		digit.size = Vector2(advances[index], NoggThemeScript.FONT_SIZE_BODY)
-		digit.pivot_offset = digit.size * 0.5
-		digit.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		digit.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		for offset in OUTLINE_OFFSETS:
-			digit.add_child(_build_label(
-				text.substr(index, 1),
-				digit.size,
-				offset,
-				NoggThemeScript.OUTLINE,
-				0
-			))
-		digit.add_child(_build_label(
+		digit.configure(
+			_font,
 			text.substr(index, 1),
-				digit.size,
-			Vector2.ZERO,
-			front_color,
-			1
-		))
+			advances[index],
+			NoggThemeScript.FONT_SIZE_BODY,
+			front_color
+		)
 		add_child(digit)
 		x += advances[index]
 
 	return _animate()
 
 
-func _build_label(
-		glyph: String,
-		glyph_size: Vector2,
-		offset: Vector2,
-		color: Color,
-		draw_order: int) -> Label:
-	var label := Label.new()
-	label.text = glyph
-	label.position = offset
-	label.size = glyph_size
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	label.add_theme_font_override("font", _font)
-	label.add_theme_font_size_override("font_size", NoggThemeScript.FONT_SIZE_BODY)
-	label.add_theme_color_override("font_color", color)
-	label.z_index = draw_order
-	return label
-
-
 func _animate() -> Tween:
 	var tween := create_tween()
+	var digits := get_children()
+
+	# A tiny left-to-right wave makes the value feel struck into the scene while
+	# keeping the whole number readable as one compact object.
 	tween.set_parallel(true)
-	for digit in get_children():
-		tween.tween_property(digit, "scale", Vector2.ONE * PUMP_SCALE, PUMP_UP_DURATION) \
+	for index in range(digits.size()):
+		tween.tween_property(
+			digits[index], "scale", Vector2.ONE * PUMP_SCALE, PUMP_UP_DURATION
+		).set_delay(index * DIGIT_STAGGER) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	tween.set_parallel(false)
-	# Keep this phase boundary explicit. Godot's parallel tween groups have
-	# previously dropped elapsed time when a group changed mode without a
-	# callback between them.
 	tween.tween_callback(func() -> void: pass)
+
+	# Return in the opposite order: the last digit settles first, giving the
+	# number the compact arcade/JRPG hit cadence without moving its anchor.
 	tween.set_parallel(true)
-	for digit in get_children():
-		tween.tween_property(digit, "scale", Vector2.ONE, PUMP_DOWN_DURATION) \
+	for index in range(digits.size()):
+		var reverse_delay := (digits.size() - 1 - index) * DIGIT_STAGGER
+		tween.tween_property(
+			digits[index], "scale", Vector2.ONE, PUMP_DOWN_DURATION
+		).set_delay(reverse_delay) \
 			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
 	tween.set_parallel(false)
 	tween.tween_callback(func() -> void: pass)
 	tween.tween_interval(HOLD_DURATION)
+
 	tween.set_parallel(true)
-	for digit in get_children():
+	for digit in digits:
 		tween.tween_property(digit, "modulate:a", 0.0, DISAPPEAR_DURATION) \
 			.set_trans(Tween.TRANS_LINEAR)
 	tween.set_parallel(false)
