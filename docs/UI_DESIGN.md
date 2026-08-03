@@ -542,6 +542,14 @@ Resonance bars. Text values remain separate
 Labels, so HP can still turn `TEXT_ACCENT` under its threshold without treating
 the readout as an interactive menu.
 
+Every numeric value in these cells is zero-padded to three digits (`004`, not
+`4`) — the range `Monster.STAT_MIN`/`STAT_MAX` clamp every stat to, so a value
+never grows or shrinks a fixed cell's content width as it changes turn to
+turn. Measured against the shipping font: `ATK`/`DEF`/`SPD`/`MOV` each need
+168px of their 192px column, and `HP`'s combined `999 / 999` needs 288px of
+the 384px it has before the Resonance cell begins — both comfortably inside
+budget with real font metrics, not estimated.
+
 ---
 
 ## 9. Game UI vs developer UI

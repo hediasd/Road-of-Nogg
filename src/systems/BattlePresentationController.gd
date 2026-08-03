@@ -1073,7 +1073,7 @@ func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
 		push_warning("BattlePresentationController: status window shows only the first three elements for %s" % monster.name)
 
 	var hp_cells: Array[Dictionary] = [
-		{"label": "HP", "value": "%d / %d" % [monster.hitpoints, monster.max_hitpoints]}
+		{"label": "HP", "value": "%s / %s" % [_statText(monster.hitpoints), _statText(monster.max_hitpoints)]}
 	]
 	_append_resonance_cell(hp_cells, monster, 0)
 	var hp_handles := window.add_stat_row(hp_cells)
@@ -1085,17 +1085,33 @@ func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
 		else NoggThemeScript.TEXT_PRIMARY
 	)
 	var attack_cells: Array[Dictionary] = [
-		{"label": "ATK", "value": str(monster.atk)},
-		{"label": "DEF", "value": str(monster.def)}
+		{"label": "ATK", "value": _statText(monster.atk)},
+		{"label": "DEF", "value": _statText(monster.def)}
 	]
 	_append_resonance_cell(attack_cells, monster, 1)
 	window.add_stat_row(attack_cells)
 	var movement_cells: Array[Dictionary] = [
-		{"label": "SPD", "value": str(monster.speed)},
-		{"label": "MOV", "value": str(monster.move)}
+		{"label": "SPD", "value": _statText(monster.speed)},
+		{"label": "MOV", "value": _statText(monster.move)}
 	]
 	_append_resonance_cell(movement_cells, monster, 2)
 	window.add_stat_row(movement_cells)
+
+
+## Zero-padded to three digits so a stat holds its horizontal position in its
+## fixed cell as it changes — the eye can park on a position instead of
+## re-finding it each turn. `Monster.STAT_MIN`/`STAT_MAX` (FEEL-9) clamp every
+## stat to 0-999 at the point of write, which is what makes three digits
+## sufficient by construction; this still renders the true value and warns
+## rather than truncating if one ever arrives outside that range, because a
+## stat that escaped the clamp is a FEEL-9 defect and this window should say
+## so instead of hiding it behind a format string.
+func _statText(value: int) -> String:
+	if value < Monster.STAT_MIN or value > Monster.STAT_MAX:
+		push_warning(
+			"BattlePresentationController: stat value %d is outside the clamped 0-999 range" % value
+		)
+	return "%03d" % value
 
 
 func _append_resonance_cell(cells: Array[Dictionary], monster: Monster, element_index: int) -> void:

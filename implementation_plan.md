@@ -1265,7 +1265,46 @@ truncating.
 
 **Files:** `src/systems/BattlePresentationController.gd`, `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+Added one helper, `_statText(value: int) -> String`, used by all six numeric
+cells (`HP`'s pair, `ATK`, `DEF`, `SPD`, `MOV`). It checks
+`value < Monster.STAT_MIN or value > Monster.STAT_MAX` (FEEL-9's clamp
+constants) and `push_warning`s rather than truncating if a value ever escapes
+that range — the out-of-range branch the item anticipated turned out to need
+no special formatting, since `%03d` already renders a wider value in full;
+the only thing worth adding was the warning, because an escaped clamp is a
+FEEL-9 defect this window should surface, not silently format around.
+
+**Width-neutrality verified with real font metrics, not estimated**, since
+`debug/preview_theme.gd` is interactive (needs a rendering context to judge
+visually) and this cycle's convention has been to defer that class of check to
+`PLAN-VALIDATE`. Instead wrote a temporary headless probe — same technique as
+`preview_theme.gd`'s own `_required_width()`, `Font.get_string_size()` against
+the real shipping font and theme, no rendering required — measured, recorded
+the numbers below, and deleted it; it is scratch, not part of this diff.
+
+The first pass compared every cell against the single-column width
+(`STATUS_CELL_OFFSETS[1] - [0]`, 192px) and flagged `HP` as a failure: `"999 /
+999"` needs 288px, over 192px. **That comparison was wrong for `HP`
+specifically.** `HP`'s row only ever places one cell at column 0 —
+`ATK`/`DEF` and `SPD`/`MOV` are the rows that fill both column 0 and column 1,
+which is what actually bounds them to 192px each. `HP`'s real ceiling is
+column 2, where the Resonance cell sits when present (`STATUS_CELL_OFFSETS[2] -
+[0]`, 384px) — `add_stat_row()` positions each cell at its column offset and
+never clips or wraps, so a too-wide value bleeds into whatever's next, and for
+`HP` that is empty space unless a Resonance cell occupies column 2 for that
+monster. Corrected numbers: `HP` needs 288px of 384px available (96px to
+spare); `ATK`/`DEF`/`SPD`/`MOV` each need 168px of their 192px column (24px to
+spare). All four comfortably fit. Recorded in the new §8 paragraph rather than
+only here, since a future change to any of these strings should be checked
+against the same two numbers.
+
+The HP threshold tint at [BattlePresentationController.gd:1084](src/systems/BattlePresentationController.gd:1084)
+needed no change and none was made — verified rather than assumed: it reads
+`monster.hitpoints` and `monster.max_hitpoints` directly, never the formatted
+string. `_forecastText`, the prompt, and the battle log are untouched, per the
+item's scope boundary.
 
 ---
 
