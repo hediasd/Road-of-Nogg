@@ -12,6 +12,7 @@ const BattleCursorControllerScript = preload("res://src/presentation/BattleCurso
 const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
 const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcons.gd")
 const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
+const DamageNumberBillboardScript = preload("res://src/presentation/effects/DamageNumberBillboard.gd")
 const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
 const VisualActionScript = preload("res://src/presentation/VisualAction.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
@@ -246,6 +247,7 @@ func _start_queued_animation(action: VisualAction) -> bool:
 			_present_queued_message(action)
 		VisualAction.Kind.MESSAGE:
 			_present_queued_message(action)
+			return _start_message_damage_number(action)
 		VisualAction.Kind.MOVE:
 			return _start_move_animation(action)
 		VisualAction.Kind.BUMP:
@@ -293,6 +295,29 @@ func _present_queued_message(action: VisualAction) -> void:
 		_update_prompt(action.prompt_text)
 	if not action.log_text.is_empty():
 		_log(action.log_text)
+
+
+## A heal is a MESSAGE-kind action with no tween of its own — `_present_queued_message`
+## is a synchronous state update, and the queue has always advanced past it
+## instantly. That is still correct for every other MESSAGE action; a heal
+## carrying a damage number is the one case that now needs to hold, so the
+## queue does not advance while the number is still on screen. `visual_parent`
+## hosts a tween with nothing to animate but the hold itself — `_activateScaled`
+## needs a real Tween to extend via `tween_interval`, and this is the plainest
+## way to give it one without inventing a second hold mechanism.
+func _start_message_damage_number(action: VisualAction) -> bool:
+	if not action.has_damage_number:
+		return false
+	var targetID := action.right_monster_id if action.has_right_monster else action.target_id
+	if not _monster_visuals.has(targetID):
+		return false
+	var targetWorldPos: Vector3 = _monster_visuals[targetID].position
+	DamageNumberBillboardScript.spawn(
+		visual_parent, targetWorldPos, action.damage_number, action.is_heal_number
+	)
+	var tween := visual_parent.create_tween()
+	_activateScaled(tween, action, 0.0, DamageNumberBillboardScript.VISIBLE_DURATION)
+	return true
 
 
 func _buildPlaceholderBody(material: Material) -> Node3D:
@@ -605,6 +630,8 @@ func _on_monster_attacked(
 	if target != null:
 		action.right_monster_id = targetID
 		action.has_right_monster = true
+		action.has_damage_number = true
+		action.damage_number = damage
 		action.log_text = "Attacks %s for %s damage! (HP: %s)" % [
 			target.name, damage, targetNewHP
 		]
@@ -656,6 +683,8 @@ func _on_monster_cast_spell(
 		action.has_left_monster = true
 		action.right_monster_id = targetID
 		action.has_right_monster = true
+		action.has_damage_number = true
+		action.damage_number = totalDamage
 		action.log_text = "Casts %s on %s for %s damage! (HP: %s)" % [
 			spellName, target.name, totalDamage, targetNewHP
 		]
@@ -677,6 +706,9 @@ func _on_monster_healed(
 		action.has_left_monster = true
 		action.right_monster_id = targetID
 		action.has_right_monster = true
+		action.has_damage_number = true
+		action.damage_number = healAmount
+		action.is_heal_number = true
 		action.log_text = "Casts %s on %s, recovering %s HP! (HP: %s)" % [
 			spellName, target.name, healAmount, targetNewHP
 		]
@@ -816,6 +848,15 @@ func _start_bump_animation(action: VisualAction) -> bool:
 		var auraColor := BattleMeshFactoryScript.elementColor(action.element)
 		SpellCastAuraScript.spawn(visual_parent, originalPos, auraColor)
 		holdDuration = SpellCastAuraScript.VISIBLE_DURATION * ACTION_HOLD_FRACTION
+	if action.has_damage_number:
+		DamageNumberBillboardScript.spawn(
+			visual_parent, targetWorldPos, action.damage_number, action.is_heal_number
+		)
+		# Not scaled by ACTION_HOLD_FRACTION like the aura above: the number's
+		# own VISIBLE_DURATION already ends with its fade fully resolved, so
+		# holding for a *fraction* of it would cut the fade off mid-flight —
+		# the queue would advance while the number was still visibly there.
+		holdDuration = maxf(holdDuration, DamageNumberBillboardScript.VISIBLE_DURATION)
 	var tween = sourceVisual.create_tween()
 	_track_position_tween(sourceID, tween)
 	tween.tween_property(sourceVisual, "position", bumpPos, 0.1)

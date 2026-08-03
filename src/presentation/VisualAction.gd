@@ -24,6 +24,12 @@ var right_monster_id: int = -1
 var has_right_monster: bool = false
 var prompt_text: String = ""
 var log_text: String = ""
+## A damage/heal number to show above `target_id`'s tile during playback. Unset
+## (has_damage_number false) on a miss or an empty-tile cast — there is no
+## target to show a number above.
+var has_damage_number: bool = false
+var damage_number: int = 0
+var is_heal_number: bool = false
 
 
 func _init(action_kind: Kind) -> void:
@@ -47,6 +53,9 @@ func clone() -> VisualAction:
 	copy.has_right_monster = has_right_monster
 	copy.prompt_text = prompt_text
 	copy.log_text = log_text
+	copy.has_damage_number = has_damage_number
+	copy.damage_number = damage_number
+	copy.is_heal_number = is_heal_number
 	return copy
 
 

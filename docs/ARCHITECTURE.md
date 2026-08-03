@@ -284,6 +284,17 @@ bounded watchdog recovery, while disposal invalidates callbacks and clears the
 queue. Presentation may lag behind authoritative state but cannot delay or
 rewrite simulation results.
 
+An attack, spell hit, or heal carries its numeric amount on the `VisualAction`
+snapshot (`damage_number`/`is_heal_number`), and `DamageNumberBillboard.spawn()`
+draws it above the affected unit at playback time — not at enqueue time, since
+the queue can be several actions behind the simulation. Its full visible
+lifetime (pop, hold, fade) is folded into that action's hold via the same
+`_activateScaled()` mechanism `SpellCastAura` uses, so the queue does not
+advance to the next action while a number is still on screen. Because the
+queue plays exactly one action at a time, this also means two numbers from one
+multi-target spell are never visible simultaneously — each fully completes
+before the next target's action begins.
+
 ## Playback pause and run-ahead
 
 The play/pause toggle is a playback control over the visual queue, not a

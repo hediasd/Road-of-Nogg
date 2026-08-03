@@ -1684,7 +1684,116 @@ something they infer from a health bar moving.
 `src/presentation/theme/NoggTheme.gd` if a size constant belongs there,
 `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+`src/presentation/effects/DamageNumberBillboard.gd` follows
+`StatusEffectBillboard.gd` as instructed — it IS the container (a
+`StatusEffectBillboardScript.new()` instance), not a re-derivation of its
+camera-facing logic. Two `Label3D` children, black then white, offset up and
+diagonally (`_SHADOW_OFFSET`/`_FRONT_OFFSET`, the white also nudged toward the
+camera in local +Z so draw order never depends on child-add order), both
+`billboard = BILLBOARD_DISABLED` (the container already billboards the whole
+group) and `fixed_size = true`. Font comes from
+`NoggThemeScript.build_game_theme().default_font`, cached in a static var
+after the first call rather than rebuilding a `Theme` per spawn. `spawn(parent,
+world_pos, amount, is_heal)` mirrors `SpellCastAura.spawn`'s exact signature
+shape and parenting convention (a shared `visual_parent`, world-space
+position) rather than parenting to the target's own container — deliberate,
+see the lifecycle note below. A heal is `+amount`, not a separate colour: the
+item's own spec is a single black+white scheme for every number, and adding a
+colour axis for heals would be a second visual language it did not ask for.
+
+**A real, reproducible defect was found and fixed before this could be
+trusted, and it is worth another engineer's five minutes to read.** The first
+version chained phases with `tween.chain().set_parallel(true)` — mirroring
+what looked like FEEL-13's own pattern. Measured against real elapsed time
+(a temporary headless probe; not part of this diff) it completed in ~47-57%
+of its declared `VISIBLE_DURATION`, reproducibly. Rewriting to use only the
+persistent `set_parallel(bool)` toggle (no `chain()`/`parallel()` one-shot
+calls) fixed the *sequencing*, verified against an isolated reproduction —
+but the real file, unchanged in structure, still measured short. The actual
+cause, found by bisecting `_build_label`'s properties down to nothing and
+back up: **the file needs a `tween_callback()` with an empty body at every
+phase boundary.** Without one, a `set_parallel` transition with no callback
+between it and the next tweener group loses time — empirically roughly 30% of
+the fade phase, reproducible across repeated runs, fixed by adding the
+no-op callbacks and reproducibly correct (0.783–0.790s measured against a
+declared 0.800s) across repeated runs afterward. The three no-op callbacks in
+`_animate()` are that fix, not debug residue — the comment above the function
+says so explicitly, because a future reader stripping them as pointless would
+reintroduce this. No complete theoretical explanation for *why* was found;
+the fix is verified empirically against real elapsed time, the same standard
+FEEL-13 held itself to for its own tween work.
+
+**Wiring:** `VisualAction` gained `has_damage_number`/`damage_number`/`is_heal_number`,
+copied in `clone()`. `_on_monster_attacked`, `_on_monster_cast_spell`, and
+`_on_monster_healed` set them; a miss or an empty-tile cast leaves
+`has_damage_number` false, so no number shows where there is no target.
+`_start_bump_animation` (attacks and spell damage) spawns the number and folds
+`DamageNumberBillboardScript.VISIBLE_DURATION` into `holdDuration` via `maxf`
+— unlike the aura's `ACTION_HOLD_FRACTION` scaling, the number's hold is
+**not** fractioned, because the aura is allowed to still be playing when the
+queue moves on but a number's fade must fully resolve first, per the item's
+own step 8.
+
+**Heals needed a mechanism that did not exist.** `_on_monster_healed` builds a
+`MESSAGE`-kind action, and `_present_queued_message` — correctly, for every
+other `MESSAGE` action — is a synchronous state update with no tween, so the
+queue has always advanced past it instantly. A heal carrying a number is the
+one case that now needs to hold. Added `_start_message_damage_number()`,
+called from `_start_queued_animation`'s `MESSAGE` branch: it returns `false`
+unchanged for every other `MESSAGE` action (`has_damage_number` unset), and
+for a heal it spawns the number and gives `_activateScaled` a real `Tween` —
+created on `visual_parent` with nothing to animate but the hold itself, the
+plainest way to satisfy `_activateScaled`'s requirement without inventing a
+second hold mechanism next to FEEL-13's.
+
+**Step 6 (stacking) is moot, verified against the simulator, not assumed.**
+`CombatResolver.executeCastSpell` (`for affectedID in actualTargets:
+_applySpellEffects(...)`) emits one damage/heal event per affected target, each
+becoming its own queued action. `VisualActionQueue`'s first documented
+invariant is "exactly one action animates at a time." With the hold correctly
+folded in (this item's own step 8), a second target's action cannot begin
+until the first target's number has *fully* finished, including its fade —
+so two numbers from one multi-target spell are structurally never
+simultaneous, and stacking/offset logic would be unreachable dead code. Noted
+in `docs/ARCHITECTURE.md` rather than built.
+
+**Step 7 (free on defeat/battle end), reasoned rather than specially
+handled.** During ordinary playback the same serialization guarantee applies:
+a defeat action for the same target cannot begin until this one's number has
+finished and freed itself, so there is nothing to race. The one narrow
+exception is an explicit player **skip**: `skipCurrentAnimation()` kills the
+*queue's* carrier/hold tween, not the billboard's own independent tween
+(`DamageNumberBillboard._animate` creates its own), so a skip lets the queue
+advance while the number keeps fading in the background — this is not a new
+gap; `SpellCastAura` already has the identical property (its own
+`_CLEANUP_DELAY` timer is independent of the queue too), and this item does
+not go further than that precedent. At battle-end teardown, freeing the
+scene tree kills any in-flight tween on a freed node automatically — standard
+Godot node/tween lifecycle, not code this item had to write.
+
+**Parenting to `visual_parent`, not the target's own container, was a
+deliberate choice against the double-offset trap.** The target's own
+container's `.position` already *is* its world position within its parent;
+parenting there and then setting `billboard.position = world_pos + offset`
+would apply that offset twice. `SpellCastAura.spawn(visual_parent, worldPos,
+...)` already establishes world-space-position-under-a-shared-parent as this
+codebase's convention for transient VFX; this follows it rather than
+inventing per-target parenting, and per the note above, the serialization
+guarantee makes the "does it outlive its target" concern the target-container
+approach would have solved for free a non-issue anyway.
+
+**Sizing (`_FONT_SIZE`, `_PIXEL_SIZE`) and legibility through the retro/CRT
+downsample are judgment calls, stated as such**, and deferred to
+`PLAN-VALIDATE` per `docs/DEVELOPMENT.md` — this session has no rendering
+context to judge them in. `docs/UI_DESIGN.md` documents no 3D/world-space
+effect (`SpellCastAura` and `StatusEffectIcons` have no entry there either);
+the architectural note went in `docs/ARCHITECTURE.md` instead, beside the
+`VisualAction`/queue paragraph it extends.
+
+Parse-checked with `--check-only`. Tween timing verified against real elapsed
+time via a temporary headless probe (not part of this diff, deleted).
 
 ---
 
