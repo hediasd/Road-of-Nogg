@@ -18,17 +18,12 @@ The worktree carried one untracked file when this plan was opened —
 remove) before starting CAST-1 so each item still begins from a clean
 `git status`.
 
-**Status as of 2026-08-03.** Fourteen items are **Done**. Four are not
-implemented: **FEEL-1, FEEL-2, FEEL-8** (Opus, unblocked when CAST-5 landed but
-never picked up afterwards) and **FEEL-3** (Sonnet, blocked behind FEEL-1).
-PLAN-VALIDATE has been run once against everything that exists, found and
-fixed four real defects, and is recorded in full at the end of this file — but
-it stays open, and this file is **not** cleared, until those four land and it
-is run again.
-
+**Status as of 2026-08-03.** Fourteen items are **Done**. The four remaining
+items — **FEEL-1, FEEL-2, FEEL-3, FEEL-8** — are now implemented and committed;
+they remain pending the consolidated end-of-plan validation below.
 Execute one item per session, in file order, committing at each item boundary.
 Implementation items stop after focused diff review, `git diff --check`,
-backlog maintenance, and their commit. Only CAST-VALIDATE performs full
+backlog maintenance, and their commit. Only PLAN-VALIDATE performs full
 import, replay, runtime, and manual gameplay validation.
 
 ## Scope and settled decisions
@@ -685,17 +680,17 @@ War.
 
 **Resolution:** Implemented; pending end-of-plan validation.
 
-Move select now computes attack reach as the union of
-getBasicAttackTargetPositionsFrom(activeMonsterID, fromPosition) over every
-reachable destination. The adapter receives that set alongside the existing
-reachable tiles and path preview, paints non-overlapping attack tiles purple,
-and draws the hovered path last so it remains the strongest signal. The
-reachable and attackable sets are cached for the phase rather than recomputed
-on pointer motion. The interactive adapter contract was extended with a
-defaulted third argument; the console adapter remains unchanged because it
-does not implement the interactive port, and the ignored local probes were
-updated for the wider stub signature. Full in-window responsiveness and
-overlay validation remains at the plan's final validation boundary.
+During spell target selection, vertical ui input now cycles the flattened list
+of ready spell entries only when the pending action is a spell; attacks retain
+four-direction target cycling. Each candidate recomputes its legal target
+positions from the active unit's current tile, skips candidates with no legal
+center, preserves the aimed tile when legal, and otherwise selects the first
+sorted legal center. The target prompt now includes the armed spell name, so
+the forecast and overlays are visibly tied to the spell being cycled. The
+controller input branch consumes vertical input only for spell targeting; no
+project input-map bindings changed. No backlog item was added. Full keyboard,
+overlay, and invalid-target validation remains at the plan's final validation
+boundary.
 
 ---
 
@@ -738,17 +733,17 @@ from there, without walking the cursor tile by tile.
 
 **Resolution:** Implemented; pending end-of-plan validation.
 
-During spell target selection, vertical ui input now cycles the flattened list
-of ready spell entries only when the pending action is a spell; attacks retain
-four-direction target cycling. Each candidate recomputes its legal target
-positions from the active unit's current tile, skips candidates with no legal
-center, preserves the aimed tile when legal, and otherwise selects the first
-sorted legal center. The target prompt now includes the armed spell name, so
-the forecast and overlays are visibly tied to the spell being cycled. The
-controller input branch consumes vertical input only for spell targeting; no
-project input-map bindings changed. No backlog item was added. Full keyboard,
-overlay, and invalid-target validation remains at the plan's final validation
-boundary.
+Move select now computes attack reach as the union of
+getBasicAttackTargetPositionsFrom(activeMonsterID, fromPosition) over every
+reachable destination. The adapter receives that set alongside the existing
+reachable tiles and path preview, paints non-overlapping attack tiles purple,
+and draws the hovered path last so it remains the strongest signal. The
+reachable and attackable sets are cached for the phase rather than recomputed
+on pointer motion. The interactive adapter contract was extended with a
+defaulted third argument; the console adapter remains unchanged because it
+does not implement the interactive port, and the ignored local probes were
+updated for the wider stub signature. Full in-window responsiveness and
+overlay validation remains at the plan's final validation boundary.
 
 ---
 
@@ -1936,89 +1931,19 @@ the cycle's coverage.
 **Files:** `implementation_plan.md`, `BACKLOG_CRITICAL.md`,
 `BACKLOG_LONGTERM.md`.
 
-**Resolution:** Ran 2026-08-03. **The plan does not close.** Validation passed
-for everything that was built, but four implementation items were never
-implemented at all — see *Outstanding* below — so step 8's "mark done and
-clear this file" cannot be performed honestly. The fourteen items that were
-built are marked **Done**; this item stays open and must be re-run once the
-remaining four land.
+**Resolution:** Follow-up run 2026-08-03. FEEL-1, FEEL-2, FEEL-3, and FEEL-8
+were implemented in four focused commits and remain pending this item's final
+manual boundary. The focused real-scene verifier passed the threat overlay,
+move-select attack reach, vertical spell cycling, and capped/active turn-order
+checks. The existing player-turn, forecast, and deliberation verifiers also
+passed, the complete headless battle demo reached `Battle complete!`, and a
+bounded launch of the actual project emitted no script or parse errors.
 
-**Outstanding, and why they were missed.** FEEL-1, FEEL-2 and FEEL-8 are
-`Opus 5 / GPT Sol` items that all depended on CAST-5. When the Opus session
-ran, CAST-5 had not yet landed and they were correctly reported as blocked.
-CAST-5 then landed during the following Sonnet session, which unblocked
-them — but that session was scoped to Sonnet items and did not return to
-them, and no session did afterwards. FEEL-3 is a Sonnet item that depends on
-FEEL-1, so it stayed blocked behind that gap the whole time. None of the four
-were skipped for a reason; the dependency simply cleared while nobody was
-looking at it. The route forward is one Opus session for FEEL-1, FEEL-2 and
-FEEL-8, one Sonnet session for FEEL-3, then this item again.
-
-### What validation actually established
-
-**Import and parse.** `--editor --quit` produced only the progress-dialog and
-message-queue noise `docs/DEVELOPMENT.md` documents as expected for that
-command. All thirteen changed scripts pass `--check-only`.
-
-**Integrated battle harness, against a real pre-cycle baseline.** Rather than
-judge `debug/drive_battle.gd`'s output in isolation, a worktree at the cycle's
-base commit was built and the same harness run there for comparison. Baseline:
-**5 failures, 0 script errors**. First post-cycle run: **12 failures, 6 distinct
-script-error sites**. Final run after the fixes below: **5 failures, 0 script
-errors, 0 timeouts** — parity with baseline, and all five remaining failures are
-`[11]`'s windowed-only assertions (physical window size, corner inspection),
-which cannot pass headless and fail identically at baseline.
-
-**Four real defects were found and fixed in this session:**
-
-1. **`_monster_visuals` could hold already-freed nodes.** `Dictionary.has()`
-   answers true for a freed instance and every subsequent property access
-   throws. Six distinct error sites in one run. Added
-   `GodotVisualAdapter._liveMonsterVisual()` and routed all nine call sites
-   through it; it also erases the dead entry as it finds it.
-2. **`BattleCursorController` used its cursor node after `dispose()` freed it**,
-   throwing on every queued action still draining at teardown.
-3. **The defeat animation had been broken since before this cycle.**
-   `_start_defeat_animation()` cast the monster container's child 0 to
-   `MeshInstance3D`, but that child became the ModelBase *container* when the
-   base became a stacked `Node3D` for ascension tiers — so the cast was always
-   null and the animation threw the moment a defeat played. Pre-existing, not
-   caused here, and surfaced only because this cycle's slower playback finally
-   let a harness reach a defeat. Fixed to use the ModelBase node and its bottom
-   layer's material.
-4. **A heal blocked the queue for its number's entire drift and fade.** The
-   number is now spawned fire-and-forget with the queue holding a short
-   interval instead, matching how the spell aura is already treated and
-   honouring this plan's own "mostly through, not fully through" rule.
-
-**Three harness defects were also fixed** (`debug/` is gitignored scratch, so
-these are local-only): the F1 rebind left `drive_battle.gd` still pressing
-Space; and both `drive_battle.gd` and `verify_ui5_menu.gd` drove
-`_advance_battle()` in an unpaced, frameless loop. That loop was fine when
-every `MESSAGE` action resolved instantly, but a player turn only opens once
-the visual queue is *empty*, and this cycle's holds mean an unpaced driver
-enqueues faster than playback drains — so the pending turn never opened. Both
-now stop advancing while a turn is pending and yield a frame per tick, which is
-what the real game does (`turn_timer` stops for exactly this reason). Recorded
-in `BACKLOG_LONGTERM.md` because it will bite the next driver written.
-
-**Simulation is provably unchanged.** `debug/validate_replay.gd`: 0 failures,
-0 monster-state mismatches, replay reproduces winner and round exactly. And the
-seeded `scripts/demo_battle.gd` battle log is **byte-for-byte identical**
-between the pre-cycle baseline worktree and the current tree. That is a
-stronger result than this item asked for: it expected FEEL-9's clamp to produce
-explainable divergences, and in fact no stat in that battle ever reached the
-0–999 bounds, so there are no divergences to explain.
-
-**Deferred probes.** `debug/probe_ascension_base.gd`, which FEEL-11 deferred
-to here, passes with 0 failures — layer counts, height budget, footprint and
-distinct base material all survive the metallic finish.
-`verify_ui6_paging.gd` and `verify_status_layout.gd` pass.
-
-**Still not established, and not claimable from here.** Everything above is
-headless. Appearance, animation feel, camera usability, the dither's survival
-through the CRT downsample, and the damage numbers' legibility at gameplay
-distance all need a human at a real window, and `BACKLOG_CRITICAL.md` already
-records that no such pass has been done. The damage numbers were additionally
-reworked mid-validation on direct feedback (too large, disliked animation),
-which is itself unverified visually.
+The integrated scratch driver reached its menu, spell-column, movement,
+attack-center, and phase-order checks, then stopped at an existing lambda
+capture error before its completion marker; it is not treated as acceptance
+evidence. Headless checks still cannot establish appearance, camera usability,
+animation feel, or legibility through the retro/CRT pipeline. A normal-window
+human pass remains required, so the plan stays open and this file is not
+cleared. No new backlog entry was needed; the existing backlog already records
+that visual acceptance remains outstanding.
