@@ -47,6 +47,16 @@ func release_player_cursor() -> void: pass
 func show_movement_options(_reachable: Array, _path: Array = []) -> void: pass
 
 
+## Paint the union of tiles threatened by living enemies. This is a separate
+## layer so holding the threat key cannot destroy the player's current aim.
+func show_threat_options(_threatened: Array) -> void: pass
+
+
+## Remove only the held threat overlay, leaving the current movement/target
+## overlay intact for the player's phase.
+func clear_threat_options() -> void: pass
+
+
 ## Paint legal target tiles plus the area a confirmed action would affect.
 func show_target_options(
 		_targetPositions: Array,

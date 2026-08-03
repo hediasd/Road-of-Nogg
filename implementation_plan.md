@@ -622,7 +622,19 @@ counting tiles by hand.
 `src/presentation/GodotVisualAdapter.gd`, `src/battle_sim/IBattleVisualAdapter.gd`,
 `docs/UI_DESIGN.md`.
 
-**Resolution:** _pending_
+**Resolution:** Implemented; pending end-of-plan validation.
+
+The threat zone reuses the existing ThreatMap generator and deliberately means
+the union of every living enemy's movement reach and its damaging
+spell/basic-attack reach from those destinations. The controller computes it
+once on a non-repeat T key press during an active player turn, and release
+removes only the separate threat overlay layer, preserving movement, target,
+and affected-area overlays. The key is cleared at player-turn and battle end,
+and is inert during CPU turns. The magenta-red tint is documented alongside
+the input contract and tactical overlay taxonomy. No backlog item was added:
+this item found no durable, out-of-scope work beyond the existing backlog. The
+editor import/parse smoke check passed with Godot 4.4 headless; full input and
+visual validation remains at the plan's final validation boundary.
 
 ---
 

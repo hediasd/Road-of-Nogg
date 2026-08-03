@@ -34,6 +34,7 @@ var visual_parent: Node3D
 var grid_node: Node3D
 var monsters_node: Node3D
 var overlay_node: Node3D
+var threat_overlay_node: Node3D
 var _cursor: MeshInstance3D
 var _cursor_controller: BattleCursorController
 
@@ -64,6 +65,10 @@ func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = nul
 	overlay_node = Node3D.new()
 	overlay_node.name = "TacticalOverlays"
 	visual_parent.add_child(overlay_node)
+
+	threat_overlay_node = Node3D.new()
+	threat_overlay_node.name = "ThreatOverlays"
+	visual_parent.add_child(threat_overlay_node)
 
 	_cursor = BattleMeshFactoryScript.createMesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
 	visual_parent.add_child(_cursor)
@@ -1001,6 +1006,22 @@ func show_movement_options(reachable: Array, path: Array = []) -> void:
 		_add_overlay(coord, Color(1.0, 0.85, 0.15, 0.72))
 
 
+func show_threat_options(threatened: Array) -> void:
+	clear_threat_options()
+	for coord in threatened:
+		if coord is Vector2i and state.withinBounds(coord):
+			# Magenta-red is intentionally distinct from movement blue,
+			# target yellow, and affected-area red/green.
+			_add_threat_overlay(coord, Color(0.95, 0.16, 0.48, 0.40))
+
+
+func clear_threat_options() -> void:
+	if not is_instance_valid(threat_overlay_node):
+		return
+	for child in threat_overlay_node.get_children():
+		child.free()
+
+
 func show_target_options(
 		targetPositions: Array,
 		affectedPositions: Array = [],
@@ -1034,6 +1055,14 @@ func _add_overlay(coord: Vector2i, color: Color, extraLift: float = 0.0) -> void
 	overlay_node.add_child(marker)
 
 
+func _add_threat_overlay(coord: Vector2i, color: Color) -> void:
+	var marker = BattleMeshFactoryScript.createMesh("plane", color)
+	marker.position = Vector3(
+		coord.x, _surface_y(coord) + OVERLAY_LIFT + 0.003, coord.y
+	)
+	threat_overlay_node.add_child(marker)
+
+
 func dispose() -> void:
 	_queue.dispose()
 	disconnectFromEvents()
@@ -1044,7 +1073,7 @@ func dispose() -> void:
 		if tween != null and tween.is_valid():
 			tween.kill()
 	_defeat_tweens.clear()
-	for node in [grid_node, monsters_node, overlay_node, _cursor]:
+	for node in [grid_node, monsters_node, overlay_node, threat_overlay_node, _cursor]:
 		if is_instance_valid(node):
 			node.queue_free()
 	_monster_visuals.clear()

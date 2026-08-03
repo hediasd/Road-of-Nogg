@@ -387,6 +387,7 @@ This is what keeps the two devices from disagreeing.
 | `ui_left` / `ui_right` | Previous / next page |
 | `ui_accept` | Activate the cursor's row |
 | `ui_cancel` | Close the focused child window; if root, cancel the phase |
+| `T` (held during a player turn) | Show the enemy danger zone; release to restore the current movement/target overlays |
 | Mouse motion over a row | Move the cursor to that row (no activation) |
 | Left click on a row | Move the cursor there, then activate |
 | Left click on `◀` / `▶` | Page |
@@ -638,6 +639,21 @@ Gaining hover waits out a short dwell before a model is restored to solid;
 losing it takes effect immediately. Without the dwell, a pointer swept across
 a crowded board restores each model it crosses for a frame or two, which reads
 as flicker.
+
+---
+
+## 10b. Threat overlay
+
+The held T key shows the **danger zone**: the union of every tile that a
+living enemy can reach with movement and then threaten with a damaging spell or
+basic attack this round. It is computed once when the key is pressed, not every
+frame. The overlay uses a magenta-red tint (0.95, 0.16, 0.48, 0.40),
+distinct from movement blue, target yellow, and affected-area red/green.
+
+The threat layer is additive to the current tactical layer. Releasing T
+removes only the danger zone, so a player holding it during movement or target
+selection gets the exact overlay they were already using back. The key is inert
+outside an active player turn and is cleared at turn end and battle end.
 
 ---
 

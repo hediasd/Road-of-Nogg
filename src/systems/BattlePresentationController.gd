@@ -8,6 +8,7 @@ const BattleSetupPresetsScript = preload("res://src/factories/BattleSetupPresets
 const MapReferencesScript = preload("res://src/factories/MapReferences.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const GodotVisualAdapterScript = preload("res://src/presentation/GodotVisualAdapter.gd")
+const ThreatMapScript = preload("res://src/algorithms/ThreatMap.gd")
 const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderController.gd")
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 
@@ -63,6 +64,7 @@ var _hoveredMonsterID: int = -1
 const DITHER_HOVER_DWELL_SECONDS := 0.08
 var _hoverCandidateMonsterID: int = -1
 var _hoverCandidateSince: int = 0
+var _threat_overlay_active: bool = false
 
 var actor_window: NoggWindow
 var target_window: NoggWindow
@@ -601,6 +603,7 @@ func _try_begin_pending_player_turn() -> void:
 
 func _finish_battle(winner: int) -> void:
 	lifecycle = Lifecycle.COMPLETE
+	_clear_threat_overlay()
 	camera.cancelDrag()
 	_pending_player_turn_id = -1
 	_cancel_deliberation()
@@ -654,6 +657,7 @@ func _pan_camera_to_active_unit(monsterID: int) -> void:
 func _on_player_turn_finished(_monsterID: int) -> void:
 	## The phase controller has closed the turn out. Everything from here is
 	## scene-level: turn order, win condition, and CPU pacing.
+	_clear_threat_overlay()
 	sim.turnManager.endTurn(_monsterID)
 	battle_ui.action_panel.visible = false
 	battle_ui.play_button.disabled = false
@@ -802,6 +806,9 @@ func _input(event: InputEvent) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE:
 		return
+	if _handle_threat_input(event):
+		get_viewport().set_input_as_handled()
+		return
 	# Per-action animation skip, bound to ui_accept rather than its own key.
 	# Only claims the key when ui_accept has no menu meaning: either no player
 	# turn is open (CPU playback, where skipping matters most) or the player's
@@ -946,6 +953,45 @@ func _unhandled_input(event: InputEvent) -> void:
 			player_turn.selectGridPosition(pos)
 		else:
 			_handle_click_selection(pos)
+
+
+func _handle_threat_input(event: InputEvent) -> bool:
+	if not event is InputEventKey:
+		return false
+	var key_event := event as InputEventKey
+	if key_event.keycode != KEY_T and key_event.physical_keycode != KEY_T:
+		return false
+	if key_event.pressed:
+		if key_event.echo or _threat_overlay_active or not _player_turn_active():
+			return false
+		var active_monster = sim.state.getMonster(player_turn.activeMonsterID)
+		if active_monster == null:
+			return false
+		var threat_map := ThreatMapScript.generate(
+			sim.state,
+			active_monster.team,
+			sim.movementResolver,
+			sim.combatResolver
+		)
+		var threatened: Array = []
+		for coord in threat_map:
+			if int(threat_map[coord]) > 0:
+				threatened.append(coord)
+		visual_adapter.show_threat_options(threatened)
+		_threat_overlay_active = true
+		return true
+	if _threat_overlay_active:
+		_clear_threat_overlay()
+		return true
+	return false
+
+
+func _clear_threat_overlay() -> void:
+	if not _threat_overlay_active:
+		return
+	if visual_adapter != null:
+		visual_adapter.clear_threat_options()
+	_threat_overlay_active = false
 
 
 func _player_turn_active() -> bool:
