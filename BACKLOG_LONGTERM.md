@@ -104,14 +104,11 @@ this presentation-only; the simulation and event data already exist.
 Recorded 2026-07-30 alongside `docs/UI_DESIGN.md` section 11. None of these
 block the restyle; revisit after the first playable pass.
 
-- **Frame scale at high resolution.** Global canvas scaling now grows the
-  `MenuFull.png` 9-patch border from the 1152 × 648 logical base instead of
-  leaving it at a fixed 16 physical pixels. Keep this open until the
-  consolidated in-window pass judges the border and pixel font at maximized and
-  awkward fractional sizes. If either still reads too thin or blurred, compare
-  a pre-scaled 96 × 96 asset with integer stretch scaling before changing the
-  frame node independently.
-- **Row capacity.** The 8-row window capacity is a guess. If spell lists
+- **Thin rim and halo at high resolution.** The shared smooth rim and exterior
+  halo scale from the 1152 x 648 logical base. Keep this open until the
+  consolidated in-window pass judges their weight and softness at maximized and
+  awkward fractional sizes. Tune only centralized `NoggTheme` tokens; do not
+  add a resolution-specific frame asset or a local panel style.`n`n- **Row capacity.** The 8-row window capacity is a guess. If spell lists
   routinely run 9-12 entries, a taller spell window may beat paging for that
   window specifically; measure against real rosters rather than adjusting by
   feel.

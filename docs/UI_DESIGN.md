@@ -1,6 +1,6 @@
 # UI / UX Design
 
-Status: authoritative for battle UI presentation. Written 2026-07-30.
+Status: authoritative for battle UI presentation. Last restyled 2026-08-03.
 
 This document owns the *visual and interaction language* of the battle HUD:
 the window frame, the selection cursor, the input model, the theme tokens, and
@@ -19,32 +19,32 @@ transitory plan file, so nothing here cites a plan item by name.
 
 ## 1. Reference and intent
 
-The target is the Dragon Quest XI command-window language: translucent
-navy windows with a heavy beveled light-blue frame, a gold cursor sprite that
-lives in the frame's gutter, nested menus that open as *stacked sibling
-windows*, and fixed-height panes that page rather than scroll.
+The target is the supplied PS1-era dialogue-window language: a narrow
+cool-white rim with a restrained violet cast, a near-black transparent body,
+and a soft black silhouette that leaks beyond the frame. The first supplied
+reference contributes the faint cool glow and compactness; the second supplies
+the quiet deep body and smooth exterior overdraw.
 
 We are adopting it because it solves three problems the current HUD has:
 
-- **Legibility over a 3D scene.** A heavy frame with an outlined font reads on
-  any background; a 1px flat border does not.
-- **Selection without occlusion.** A gutter cursor never covers the row text
-  and never fights the frame for contrast, unlike a filled highlight bar.
+- **Legibility over a 3D scene.** A thin outlined rim, dark translucent body,
+  and hard text outline keep the board visible without losing the UI.
+- **Selection without occlusion.** A gutter cursor never covers row text or
+  fights the rim for contrast, unlike a filled highlight bar.
 - **Depth without modality.** Stacked windows show the player where they are in
   a menu tree without dimming or replacing the board.
 
 ### The six traits
 
-All six are in scope. They are listed here as acceptance criteria, not as
-aspiration.
+All six are in scope. They are acceptance criteria, not aspiration.
 
 | # | Trait | Rule |
 |---|---|---|
-| 1 | **Beveled 9-slice frame** | Every game window uses the shared `NoggWindow` frame. No ad-hoc `StyleBoxFlat` borders in game UI. |
-| 2 | **Gutter cursor sprite** | Selection is a cursor node's position, never a background fill and never a text prefix. The cursor bobs continuously and tweens between rows, and sits in a reserved gutter clear of both the ring and the text. |
-| 3 | **Stacked sibling windows** | A submenu is its own window opening to the right of its parent. The parent stays on screen with **both its frame and its content** tinted to the inactive state. |
-| 4 | **List rows and status cells** | Lists keep a left label and right-aligned value against the frame's inner edge; never centre or wrap them — hard-truncate instead (`OVERRUN_TRIM_CHAR`; the font has no ellipsis glyph, see §3). Docked status readouts are the exception: fixed cells start at x=0, 192, and 384, keeping each label/value unit together. |
-| 5 | **Paging, not scrolling** | Windows are fixed-height. Overflow pages, with a `n / m` footer window straddling the parent's bottom border, its arrows drawn rather than typed (§7). |
+| 1 | **Thin shared halo frame** | Every game window uses the shared `NoggWindow` halo, body, and rim from `NoggTheme`. No local border, shadow, or colour literal appears in game UI. |
+| 2 | **Gutter cursor sprite** | Selection is a cursor node's position, never a background fill and never a text prefix. The cursor bobs continuously and tweens between rows, and sits in a reserved gutter clear of both the rim and the text. |
+| 3 | **Stacked sibling windows** | A submenu is its own window opening to the right of its parent. The parent stays on screen with **both its rim and its content** tinted to the inactive state. |
+| 4 | **List rows and status cells** | Lists keep a left label and right-aligned value against the frame's inner edge; never centre or wrap them - hard-truncate instead (`OVERRUN_TRIM_CHAR`). Docked status readouts are the exception: fixed cells start at x=0, 192, and 384, keeping each label/value unit together. |
+| 5 | **Paging, not scrolling** | Windows are fixed-height. Overflow pages, with a `n / m` footer window straddling the parent's bottom border, its arrows drawn rather than typed. |
 | 6 | **Docked context windows** | Secondary readouts (actor status, target info) dock to fixed screen corners and never move or resize with content. |
 
 ---
@@ -66,13 +66,10 @@ Three kinds of entries matter to us:
   survive over a bright 3D scene.
 - **Constants** — separations, margins, and paddings.
 
-Today the project has **no `Theme` anywhere**. Every visual value is a literal
-at its construction site: `BattleUIBuilder._styleHudPanel()` and
-`PlayerCommandMenu._style_panel()` each build a near-identical `StyleBoxFlat`
-with the same magic colours duplicated, and font colours are set with
-`add_theme_color_override` per label. The practical consequence is that
-"change the window look" is an N-file GDScript edit with no single source of
-truth, and any two panels drift apart the moment someone edits one of them.
+The project uses a code-built `Theme` at the game UI root. `NoggTheme.gd` is
+the single source of truth for game-window colours, fonts, spacings, and
+styleboxes; the practical consequence is that a restyle stays a shared-system
+change instead of a collection of drifting local edits.
 
 ### How we author it
 
@@ -99,38 +96,40 @@ whole restyle a one-file edit next time.
 
 | Token | Value | Use |
 |---|---|---|
-| `WINDOW_FILL` | `#060F26` @ `0.86` | Translucent window body; the board reads through it |
-| `WINDOW_FILL_DEEP` | `#04091A` @ `0.94` | Modal / confirm windows that must not be read through |
-| `FRAME_ACTIVE` | `#A8D8FF` | Frame tint for the window holding focus |
-| `FRAME_INACTIVE` | `#4A5A72` | Frame tint for a parent window whose child has focus |
-| `TEXT_PRIMARY` | `#FFFFFF` | Row labels |
-| `TEXT_DIM` | `#7E93B0` | Disabled entries (spent commands, spells on cooldown) |
-| `TEXT_ACCENT` | `#FFD766` | Right-column values, headings |
-| `TEXT_FORECAST` | `#9BE7FF` | Damage/hit forecast line |
+| `WINDOW_FILL` | `#030305` @ `0.76` | Near-black translucent body; the board reads through it |
+| `WINDOW_FILL_DEEP` | `#010102` @ `0.90` | Confirm/modal body that must not be read through |
+| `HALO_FILL` | `#000000` @ `0.28` | Expanded soft backplate outside the rim |
+| `HALO_SHADOW` | `#000000` @ `0.58` | Smooth exterior shadow, never neon glow |
+| `FRAME_ACTIVE` | `#E6E0FF` | Pale-violet rim for the window holding focus |
+| `FRAME_INACTIVE` | `#625B78` | Subdued rim for a parent window whose child has focus |
+| `TEXT_PRIMARY` | `#F4F1FF` | Row labels |
+| `TEXT_DIM` | `#827C96` | Disabled entries |
+| `TEXT_ACCENT` | `#FFD766` | Right-column values and headings |
+| `TEXT_FORECAST` | `#B8D9FF` | Damage/hit forecast line |
 | `CURSOR` | `#FFC63A` | Selection cursor |
-| `OUTLINE` | `#000000` | Font outline, opaque, always on |
+| `OUTLINE` | `#000000` | Opaque font outline |
 
 Layout tokens that matter to more than one item:
 
 | Token | Value | Meaning |
 |---|---|---|
-| `FRAME_SOURCE_MARGIN` | 16 | 9-patch slice in *source* pixels — an art fact, never tuned |
-| `FRAME_SCALE` | 3 | Integer nearest-neighbour upscale of the frame art |
-| `FRAME_MARGIN` | 48 | Patch margin in screen pixels, after the upscale |
-| `FRAME_RING_PX` | 12 | Thickness of the ring the player actually sees |
-| `CONTENT_INSET` | 22 | `FRAME_RING_PX` + 10 padding — where content starts |
-| `ROW_HEIGHT` | 26 | `FONT_SIZE_BODY` + 2; the font measures exactly 24px tall |
+| `FRAME_RING_PX` | 2 | Thin rim thickness in screen pixels |
+| `WINDOW_CORNER_RADIUS` | 6 | Shared rounded geometry for halo, body, and rim |
+| `HALO_OUTSET` | 6 | Extra backplate extent beyond the layout bounds |
+| `HALO_SPREAD` | 10 | Soft black shadow spread in screen pixels |
+| `CONTENT_INSET` | 12 | Rim plus 10 px breathing room; where content starts |
+| `ROW_HEIGHT` | 26 | Body-font line box plus 2 px air |
 | `ROW_CAPACITY_DEFAULT` | 8 | Rows per window before paging |
 
-`ROW_HEIGHT` cannot go below the font height — a `Label` enforces its own
+`ROW_HEIGHT` cannot go below the font height - a `Label` enforces its own
 minimum, so a smaller value is silently ignored rather than tightening further.
 
-Animation timings live in `NoggTheme.gd` for the same reason the colours do:
+Animation timings live in `NoggTheme.gd` for the same reason as the colours:
 the window, the cursor, and the pager all read them, and drift between them
 would read as three different menus.
 
-`FRAME_ACTIVE` → `FRAME_INACTIVE` is a **tween over 0.12 s**, not a snap. It is
-the only thing telling the player which window their arrow keys are driving.
+`FRAME_ACTIVE` -> `FRAME_INACTIVE` is a **tween over 0.12 s**, not a snap. It
+is the only thing telling the player which window their arrow keys are driving.
 
 ### Dev palette
 
@@ -145,49 +144,34 @@ be mistakable for game affordances.
 
 ### Typography
 
-- **Game:** `assets/Fonts/shining-force-ii-small.otf`, which reports itself as
-  "Shining Force II (Small)". Pixel font — antialiasing off, hinting off,
-  subpixel positioning disabled, integer sizes only. Body `24`, heading `24`,
-  footer `20`. `font_outline_color = OUTLINE`, `outline_size = 4` on every game
-  text entry. 24 was chosen against a reference screenshot; every width in §8
-  is measured at it, so changing the size means remeasuring.
+- **Game:** `assets/Fonts/xenotext.otf`, reporting `XenoText` Regular. Render
+  at integer sizes with antialiasing, hinting, and subpixel positioning disabled
+  by default: its 24 px body face is 19 px tall and carries a 12 px monospace
+  advance. Body `24`, heading `24`, footer `20`; `font_outline_color = OUTLINE`
+  and `outline_size = 2` on every game text entry. The disabled smoothing is a
+  visual calibration decision; final normal-window validation may enable it
+  only if XenoText proves materially less legible without it.
 - **Dev:** `assets/Fonts/Roboto-Regular.ttf` at `13`, no outline.
 
-**Not `Shining Force 2.ttf`.** Both files are genuine Shining Force faces and
-both load without error, so this is easy to get wrong silently. The `.ttf`
-reports as "Shining Force 2 b" and is the thin 1px-stroke variant, which reads
-weak in a menu; the `.otf` is the chunky 2px-stroke face. Compared side by side
-2026-07-30 with `debug/preview_font.gd`, which prints `get_font_name()` for
-each candidate — check that, not the filename.
+At 24 px, XenoText's longest authored spell name measures about 360 px before
+its value column, compared with roughly 720 px in the outgoing Shining Force
+face. Existing window widths and docks stay fixed; the recovered space is
+intentional breathing room, not permission to grow or move panels.
 
-The `.otf` runs roughly **twice the advance width** of the `.ttf`. Every window
-width in §8 is measured against it.
-
-`PressStart2P` was evaluated and rejected: its glyph advance is too wide for
-two-column rows, which forces truncation on ordinary spell names.
+`shining-force-ii-small.otf` remains available as a comparison font but is no
+longer the game UI face. `Shining Force 2.ttf` and `PressStart2P` remain
+non-shipping candidates for the reasons recorded before this migration.
 
 ### Glyph coverage is a hard constraint
 
-Verified 2026-07-30 with `Font.has_char()` against the shipping font, not by
-eye. **The face is ASCII-only.** Present: `< > / : 0-9` and the basic Latin
-set. Missing: `‹ › ◀ ▶ ▲ ▼ … — ✓ •` — every non-ASCII symbol tried.
+Validate XenoText with `Font.has_char()` in the preview harness rather than by
+eye. A missing glyph does not render as a visible tofu box: Godot silently
+substitutes a system font, so the mismatch can look merely wrong rather than
+broken.
 
-A missing glyph does not render as a visible tofu box — Godot silently
-substitutes a Windows system font, so `◀` renders as a thin outline triangle
-sitting next to a pixel font and looks merely *wrong* rather than broken. This
-is the failure mode to watch for: it will not throw, and it will not be obvious
-in a code review.
-
-**Rule: every UI symbol is drawn with `_draw()`, never typed.** The cursor
-(§5) and the pager arrows (§7) are both filled triangles in code. That
-guarantees they match each other, match the font's weight, and never depend on
-what fonts the player's machine happens to have.
-
-This is not a quirk of one face. `debug/preview_theme.gd -- cycle` walks all 12
-pixel fonts in `assets/Fonts` and reports coverage: **`◀`, `▶`, and `✓` are
-missing from every single one of them.** No font choice rescues typed symbols,
-so the rule holds regardless of what §3 settles on later.
-
+**Rule: every UI symbol is drawn with `_draw()`, never typed.** The cursor and
+pager arrows remain drawn even if XenoText provides a matching glyph. This
+keeps UI weight and fallback behavior independent of the installed font.
 ### Casing: caps for chrome, mixed for names
 
 Command labels and menu chrome render in **UPPERCASE** (`MOVE`, `UNDO`,
@@ -217,127 +201,62 @@ every truncated row would pull in a fallback font for its final character.
 
 ## 4. The window system
 
-### Existing art, used as-is
+### Smooth shared geometry
 
-`assets/ui/MenuFull.png` is a 48×48 grayscale 9-patch source: 16px corners,
-16px edges, 16px centre. `MenuCorner`, `MenuLine`, `MenuLine2`, and
-`MenuMiddle` are the same tiles split out individually. They were referenced
-by the since-removed rollback scene as raw `Texture2D` and have never been
-used as 9-slices.
+`assets/ui/MenuFull.png` remains in the repository but is no longer a runtime
+window dependency. It was authored for a thick pixel-art bevel; scaling it down
+cannot produce the smooth, restrained frame this contract now requires.
 
-Because the art is grayscale it **tints cleanly**, which is what makes the
-active/inactive frame state cheap: one texture, two `self_modulate` values.
-
-### `NoggWindow` anatomy
-
-`MenuFull.png` is a complete window, not a bare frame. It is RGBA with exactly
-six colours: a white bevel, a near-black outer edge, transparent corners, and a
-**baked translucent black body `(0, 0, 0, α=155)`** filling the centre patch and
-the inner part of all four edge tiles.
-
-We split that one image into **two 9-patch layers off the same source**, sliced
-at the same patch margins, and stack them:
+Every `NoggWindow` instead uses four procedural layers from `NoggTheme`, in
+this draw order:
 
 ```text
-NoggWindow (Control)               ← plain Control, NOT a Container
-├── Body (NinePatchRect)           draw_center = true,  self_modulate = WINDOW_FILL
-├── Content (VBoxContainer)        full rect, inset by CONTENT_INSET
-└── Frame (NinePatchRect)          draw_center = false, self_modulate = FRAME_ACTIVE
-                                   [added last, draws on top]
+NoggWindow (Control; clip_contents = false)  <- plain Control, never a Container
+|- Halo (Panel): expanded translucent-black backplate and soft shadow
+|- Body (Panel): near-black translucent rounded rectangle
+|- Content (VBoxContainer): full rect, inset by CONTENT_INSET
+`- Rim (Panel): transparent rounded rectangle with thin pale-violet border
 ```
 
-`NoggTheme._masked_frame_texture()` produces both by keying on fractional
-alpha — the body is the only colour in the file that has any, so the split is
-unambiguous. The body mask is flattened to opaque white so `self_modulate`
-reproduces `WINDOW_FILL` exactly, alpha included; the ring mask keeps the bevel
-and outer edge and is tinted per focus state.
+The halo deliberately extends beyond the root Control, but has
+`MOUSE_FILTER_IGNORE` and never contributes to layout. Halo, body, and rim take
+the same `WINDOW_CORNER_RADIUS` from the theme. That single geometry source
+prevents seams while allowing the halo to leak outside the box intentionally.
 
-**Both layers must come from the same source.** The first version drew the body
-as a `StyleBoxFlat` rounded rect instead, and a rounded rect cannot reproduce a
-pixel-art corner staircase: around all four corners the fill poked out past the
-ring and showed as a dark wedge outside the frame. Sharing the source makes the
-corners identical *by construction*. Any approach that describes the body
-geometry a second time reintroduces the gap — do not replace either layer with
-a StyleBox.
-
-**The root must not be a Container.** A `PanelContainer` force-fits *every*
-child into its stylebox content rect, including the frame — which insets the
-frame and leaves the ring covering the first and last glyph of every row. This
-also fails visually rather than throwing.
-
-### The ring is thickened by scaling the art
-
-The authored ring is **4 source pixels**: 1 dark, 2 white, 1 dark. At 1:1 that
-renders far too thin for the window it is imitating. The masks are upscaled by
-`FRAME_SCALE` (3) with `Image.INTERPOLATE_NEAREST`, giving a 12px ring where
-every authored pixel is a crisp 3×3 block.
-
-**Scale the texture, do not stretch the `NinePatchRect`.** A 9-patch draws its
-corner patches at native size, so stretching thickens the edges and leaves the
-corners thin — the seam shows immediately.
+The root must not be a `Container`. A `PanelContainer` force-fits every child
+into its stylebox content rect, which would inset the rim and cover the first
+and last glyph of each row. Decorative panels are always input-transparent;
+only interactive rows may stop pointer input.
 
 ### The cursor gets a reserved gutter
 
 A window that hosts a `MenuCursor` indents its rows by `CURSOR_GUTTER_WIDTH`
-(12px) on top of `CONTENT_INSET`, so the arrow occupies clear space rather
-than overlapping the frame:
+on top of `CONTENT_INSET`, so the arrow occupies clear space rather than
+overlapping the thin rim:
 
 ```text
-0 ............ 12 .... 16 ......... 28 ...... 34 ............
-  |<-- ring -->|      |<- cursor ->|         |<- text
-                       (incl. bob)
+0 .. 2 .... 6 ......... 16 ....... 24 ............
+  |rim|      |<- cursor ->|        |<- text
+                     (including bob)
 ```
 
-Windows with no cursor — prompt, forecast, docked readouts — leave the indent
+Windows with no cursor - prompt, forecast, docked readouts - leave the indent
 at zero; indenting them would only look misaligned. `CURSOR_WIDTH`,
 `CURSOR_INSET`, and `CURSOR_GUTTER_WIDTH` all live in `NoggTheme` rather than
 inside `MenuCursor`, because `NoggWindow` has to reserve space for a cursor it
-never sees: if the two disagree the arrow either sits on the ring or floats in
-dead space.
-
-**`FRAME_MARGIN` and `CONTENT_INSET` are different numbers on purpose.**
-`FRAME_SOURCE_MARGIN` (16) is the 9-patch slice — an art fact, never tuned.
-`FRAME_MARGIN` (48) is that slice after the upscale. `CONTENT_INSET` (22) is
-the visible ring plus padding, and deliberately does **not** follow the scale:
-most of the patch margin is body that the ring layer draws as nothing, so
-insetting content by the full 48 would waste 36px a side.
+never sees.
 
 ### Behaviour
 
-- **Open:** scale `0.94 → 1.0` and alpha `0 → 1` over 0.10 s, `EASE_OUT`.
-  Close is the reverse over 0.08 s. Fast enough not to be in the way, present
-  enough to sell the window as an object.
-- **Focus:** `set_active(bool)` tweens **the frame tint and the content tint
-  together**, over `TWEEN_FOCUS`. A window never moves to show focus.
-
-  Dimming the border alone is not enough: a fully-lit list inside a greyed
-  frame reads as a rendering glitch rather than as "this window is not
-  listening". `CONTENT_INACTIVE_MODULATE` drops the content to roughly the
-  same ~44% brightness the frame takes, so the two read as one effect.
-  Measured on screen: command-window text peaks at `(255,255,255)` focused and
-  `(115,120,133)` while the spell window holds focus.
-
-  It is applied as a `modulate` on the content container rather than as a
-  restyle of each row, which means a *disabled* row inside an *inactive*
-  window compounds to the dimmest state automatically, with no extra state to
-  track.
-- **Sizing: size on open, then hold.** A window's height is fixed for the
-  lifetime of one opening, but it is sized to what it will actually show:
-  `min(row count, max capacity)`.
-
-  The earlier wording here — *"a 6-row window is the same height whether it
-  holds 6 entries or 2"* — overshot. What traits 5 and 6 actually require is
-  that a window **never resizes while the player is navigating it**: paging
-  must not shrink the window on a partial last page, and a docked readout must
-  not jitter as an HP string changes length. Neither of those needs a window to
-  reserve space it will never use. Sizing as it appears is free.
-
-  Applied: the command list can never page and tops out at five entries, so it
-  is a 5-row window — at `ROW_CAPACITY_DEFAULT` it was reserving four empty
-  rows, half the window. The spell list can page, so it keeps the 8-row
-  ceiling, but a monster with one spell gets a 2-row window, not eight.
-  Docked readouts (actor, target) stay at fixed capacity: they are the case the
-  no-jitter rule was written for.
+- **Open:** scale `0.94 -> 1.0` and alpha `0 -> 1` over 0.10 s, `EASE_OUT`.
+  Close is the reverse over 0.08 s. The halo follows the root's existing
+  animation rather than receiving an independent lifecycle.
+- **Focus:** `set_active(bool)` tweens the **rim tint and content tint**
+  together over `TWEEN_FOCUS`. The black halo stays stable; it is depth, not a
+  second focus indicator. A window never moves to show focus.
+- **Sizing:** size on open, then hold. A window's height is fixed for the
+  lifetime of one opening and pages never shrink it. Docked readouts keep their
+  fixed capacity so changing values cannot jitter the layout.
 
 ---
 
@@ -358,8 +277,7 @@ animated across a rebuild.
 
 ### Spec
 
-- A single `MenuCursor` node per menu, parented to the window's frame gutter
-  (the 16px left margin), sibling to the row list rather than a child of any
+- A single `MenuCursor` node per menu, parented to the window's reserved gutter, sibling to the row list rather than a child of any
   row.
 - Idle bob: `±2 px` horizontal, 0.6 s period, sine, looping.
 - Move: tween `position.y` to the target row's centre over **0.09 s**,
@@ -503,7 +421,7 @@ mapping remains in the root viewport's logical coordinate space.
 
 | Window | Dock | Size | Contents |
 |---|---|---|---|
-| **Command** | Left, vertically centred | 220 × 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS` — longest is `ATTACK` at 144 + 56 overhead; 5 is the list's true maximum |
+| **Command** | Left, vertically centred | 220 x 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS` - existing width retained for compatibility and deliberate breathing room; 5 is the list's true maximum |
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
 | **Turn order** | Upper-left, x=20 / y=100 | 300 × 3 rows | Up to three entries: NOW for the active unit, NEXT for the next unit, and UP for the following queued unit |
 | **Actor status** | Bottom-left, fixed | 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3 |
@@ -518,21 +436,12 @@ but the status pair has little room left — **size 24 is close to the ceiling
 this viewport supports** for the two-window layouts. Going larger means either a
 bigger default window size or dropping to one status window at a time.
 
-**Two windows deliberately under-fit.** Sized to the true worst case they would
-not fit the budget above:
-
-- **Spell** would need **~950px** to hold `Closing of the Third Sanctuary`
-  beside its `CD 12` once the cursor gutter is counted. 680 covers every other
-  spell in the catalogue — the next longest, `Corrupting Splatter`, needs 644
-  — and hard-truncates the two 30-char
-  `…of the Third Sanctuary` outliers. Renaming those two is the cleaner fix and
-  is worth doing when the catalogue is next touched.
-- **Actor status** no longer renders a prose `Elements` list: each authored
-  element occupies the third fixed cell beside its matching stat row, so a
-  two-element monster has two compact code-and-bar readouts without widening.
-
-Truncating an outlier is normal in this genre; a half-screen menu is not.
-
+XenoText at size 24 leaves materially more horizontal room while the logical
+1152 x 648 layout stays unchanged. The longest authored spell name is expected
+to fit inside the existing 680 px spell window beside `CD 12`; the preview
+harness owns the final Godot measurement. Status-cell columns likewise retain
+their current positions, using the extra width for scanability rather than a
+layout migration.
 **The forecast is left-aligned, not right-aligned.** This table originally said
 right-aligned to the command window; that cannot hold at size 24. The forecast
 needs ~460px and the command window's right edge is at x=300, so right-aligning
@@ -558,9 +467,7 @@ budget with real font metrics, not estimated.
 
 ## 9. Game UI vs developer UI
 
-Dragon Quest's window language works partly *because* that game has no debug
-HUD. Ours does: pause, a speed slider, new battle, graphics, screenshot, save
-replay, battle log. Skinning a frame-pacing slider in ornate JRPG chrome would
+The game-window language stays distinct from the debug HUD so player controls never read as developer affordances. The developer layer holds pause, a speed slider, new battle, graphics, screenshot, save replay, and the battle log. Skinning a frame-pacing slider in ornate JRPG chrome would
 teach the player it is a game mechanic.
 
 ### The split
@@ -599,7 +506,7 @@ renders after the CRT pass has already finished and receives no scanlines,
 mask, or vignette. **This is a decision, not an accident of layer numbers:**
 crisp menus over a filtered scene is the standard retro-styled-modern
 convention, it keeps the pixel font readable at every scanline strength, and
-it prevents the frame's 12px ring from shimmering as the mask size changes.
+it prevents the thin rim from shimmering as the mask size changes.
 
 A `ui_through_crt` toggle in the graphics menu's CRT tab moves
 `crt_overlay_layer` to `CRT_OVERLAY_LAYER_THROUGH_UI` (`GAME_LAYER + 1`)

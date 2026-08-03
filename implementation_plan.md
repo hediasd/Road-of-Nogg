@@ -10,9 +10,9 @@ reference screenshots.
 
 The supplied task asset is `assets/Fonts/xenotext.otf`; Godot generated its
 matching `.import` metadata during the accepted visual pass. Both belong to
-this cycle. The unrelated untracked `vfx_plan.md` remains user-owned. Resolve
-it (commit or remove it) before beginning UIBOX-1, so every implementation
-item begins from a clean `git status` as required.
+this cycle. The unrelated untracked `vfx_plan.md` remains user-owned. On
+2026-08-03 the user explicitly directed this cycle to preserve and ignore that
+file; commits in this cycle stage only the named task-owned files.
 
 Execute one item per session, in file order, committing at each item boundary.
 Implementation items stop after focused diff review, `git diff --check`,
@@ -117,7 +117,18 @@ XenoText rather than assumed.
 **Files:** `docs/UI_DESIGN.md`, `assets/Fonts/xenotext.otf`,
 `assets/Fonts/xenotext.otf.import`.
 
-**Resolution:** Not started.
+**Resolution:** Implemented; pending end-of-plan validation.
+
+Adopted the supplied `xenotext.otf` and its Godot-generated import metadata as
+cycle-owned assets. Rewrote the authoritative battle-window contract from the
+retired heavy 9-slice bevel to the shared smooth halo, near-black body, and
+thin pale-violet rim. XenoText remains 24 px with a 2 px opaque outline, while
+existing window docks and widths are retained as deliberate breathing room.
+The cursor, paging, focus, and game/dev split remain unchanged. Replaced the
+stale high-resolution 9-slice backlog note with the new centralized thin-rim
+and halo review trigger; no new unresolved backlog item was found. The user
+explicitly authorized preserving and ignoring unrelated `vfx_plan.md` while
+this cycle stages only its own files.
 
 ---
 
