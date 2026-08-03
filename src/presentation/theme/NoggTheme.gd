@@ -19,6 +19,9 @@ extends RefCounted
 # filtered scene keep the pixel font readable at every scanline strength and
 # stop the 16px bevel shimmering as mask size changes.
 const CRT_LAYER := -20
+## Transient board annotations render above the world and default CRT pass, but
+## below every player-facing or developer-facing UI element.
+const WORLD_EFFECT_LAYER := 9
 const GAME_LAYER := 10
 const DEV_LAYER := 20
 
@@ -49,6 +52,7 @@ const TEXT_DIM := Color(0.494, 0.576, 0.690)
 ## Right-column values and headings.
 const TEXT_ACCENT := Color(1.0, 0.843, 0.400)
 const TEXT_FORECAST := Color(0.608, 0.906, 1.0)
+const TEXT_HEAL := Color(0.62, 1.0, 0.65, 1.0)
 const CURSOR := Color(1.0, 0.776, 0.227)
 ## Font outline. Always opaque, always on — it is what makes text survive an
 ## arbitrary 3D background.

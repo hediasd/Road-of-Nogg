@@ -295,6 +295,8 @@ queue plays exactly one action at a time, this also means two numbers from one
 multi-target spell are never visible simultaneously — each fully completes
 before the next target's action begins.
 
+The damage number is a native screen-space Control in NoggTheme.WORLD_EFFECT_LAYER (9): above the world and default CRT pass, below both UI CanvasLayers. The camera projection is mapped through RetroRenderController's aspect-preserving display rectangle, so its menu-font-sized glyphs stay aligned with the affected model across letterboxing and low-resolution render presets. Each digit is composed from four one-pixel black offset copies and one white centre copy, then pumps once and disappears without moving across the screen.
+
 ## Playback pause and run-ahead
 
 The play/pause toggle is a playback control over the visual queue, not a
