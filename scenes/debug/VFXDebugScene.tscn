@@ -44,6 +44,7 @@ surface_material_override/0 = SubResource("3_ground_mat")
 layer = 20
 
 [node name="PanelContainer" type="PanelContainer" parent="HUD"]
+anchors_preset = 9
 anchor_bottom = 1.0
 offset_left = 12.0
 offset_top = 12.0
@@ -171,7 +172,6 @@ text = "Layers"
 layout_mode = 2
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 4
-columns = 1
 
 [node name="RenderSeparator" type="HSeparator" parent="HUD/PanelContainer/VBoxContainer"]
 layout_mode = 2
@@ -219,5 +219,5 @@ value = 2.0
 
 [node name="HintLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
 layout_mode = 2
-text = "P play | U pause | T settle | O overlap | C capture | M mode"
+text = "P play | U pause | T settle | O overlap | C capture | H hud | M mode"
 autowrap_mode = 3

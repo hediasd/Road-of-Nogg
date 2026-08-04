@@ -2,7 +2,10 @@
 ##
 ## Core shortcuts intentionally use letters because project.godot defines no
 ## custom input actions and the built-in UI owns Enter, Escape, Space, arrows.
-## P play | U pause/resume | T settle | O overlap | C capture | M mode
+## P play | U pause/resume | T settle | O overlap | C capture | H hide hud | M mode
+##
+## CLI flags for unattended capture: --capture-at=<0..1>, --effect=<profile id>
+## (e.g. ice_area_storm; defaults to the catalog's first entry), --hide-hud.
 
 extends Node3D
 
@@ -85,6 +88,9 @@ func _ready() -> void:
 	set_process(true)
 	_updateStatus()
 
+	if _hasFlagArgument("--hide-hud"):
+		$HUD.visible = false
+
 	var captureAt := _captureAtArgument()
 	if captureAt >= 0.0:
 		call_deferred("_runCaptureMode", captureAt)
@@ -117,6 +123,8 @@ func _input(event: InputEvent) -> void:
 			_onOverlapPressed()
 		KEY_C:
 			_captureOnce(false)
+		KEY_H:
+			$HUD.visible = not $HUD.visible
 		KEY_M:
 			_modeToggle.set_pressed_no_signal(not _modeToggle.button_pressed)
 			_updateModeToggleText()
@@ -140,7 +148,7 @@ func _configurePlaybackControls() -> void:
 		_elementOption.add_item(element.capitalize())
 		_elementOption.set_item_metadata(_elementOption.item_count - 1, element)
 	_elementOption.select(_ELEMENTS.find("ice"))
-	_effectOption.select(0)
+	_effectOption.select(_resolveInitialEffectIndex())
 	_updateModeToggleText()
 
 	_effectOption.item_selected.connect(_onEffectSelected)
@@ -154,6 +162,24 @@ func _configurePlaybackControls() -> void:
 	_overlapButton.pressed.connect(_onOverlapPressed)
 	_screenshotButton.pressed.connect(_captureOnce.bind(false))
 	_scrub.value_changed.connect(_onScrubChanged)
+
+
+## `--effect=<profile id>` (e.g. `--effect=ice_area_storm`) selects which
+## catalog entry the scene opens with -- and, combined with `--capture-at`,
+## which effect an unattended capture actually exercises. Previously the only
+## way to preview or capture anything but the catalog's first entry was to
+## hand-edit this file's `select(0)` call and revert it afterward. Falls back
+## to index 0 when the flag is absent or names no matching profile, same as
+## the prior hardcoded default.
+func _resolveInitialEffectIndex() -> int:
+	var requested := _stringArgument("--effect=")
+	if requested.is_empty():
+		return 0
+	for index: int in range(_catalogEntries.size()):
+		if str(_catalogEntries[index]["profile_id"]) == requested:
+			return index
+	push_warning("Unknown --effect=%s; falling back to the first catalog entry." % requested)
+	return 0
 
 
 func _onEffectSelected(_index: int) -> void:
@@ -405,16 +431,31 @@ func _updateStatus() -> void:
 	]
 
 
-func _captureAtArgument() -> float:
+func _cmdlineArguments() -> PackedStringArray:
 	var arguments: PackedStringArray = OS.get_cmdline_args()
 	arguments.append_array(OS.get_cmdline_user_args())
-	for argument: String in arguments:
+	return arguments
+
+
+func _captureAtArgument() -> float:
+	for argument: String in _cmdlineArguments():
 		if argument.begins_with("--capture-at="):
 			var rawValue := argument.trim_prefix("--capture-at=")
 			if rawValue.is_valid_float():
 				return clampf(rawValue.to_float(), 0.0, 1.0)
 			push_warning("Invalid --capture-at value: %s" % rawValue)
 	return -1.0
+
+
+func _stringArgument(prefix: String) -> String:
+	for argument: String in _cmdlineArguments():
+		if argument.begins_with(prefix):
+			return argument.trim_prefix(prefix)
+	return ""
+
+
+func _hasFlagArgument(flag: String) -> bool:
+	return _cmdlineArguments().has(flag)
 
 
 func _runCaptureMode(normalizedTime: float) -> void:
