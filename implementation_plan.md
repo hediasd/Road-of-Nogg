@@ -436,7 +436,53 @@ Recorded here so a later session does not read these as oversights:
 *(Executing sessions append here. One entry per item: what was done, what was
 decided, what was verified, and any finding a later item depends on.)*
 
-- **ICE-1** — not started
+- **ICE-1** — implemented; pending end-of-plan validation. `AREA_SHAPE` now
+  flows `SpellReferences` → `VisualAction.vfx_area_shape` →
+  `IceStormEffect.setFootprint`'s third parameter. The flurry shader samples a
+  square rotated -45°, drifts/wraps in that pre-rotation frame, then rotates
+  the result back +45° — a square rotated 45° is exactly the
+  `ShapeCaster.getCircle` diamond, so every particle lands inside it with none
+  rejected; `diamond_shape = 0.0` collapses the whole path back to the original
+  square field unchanged (verified algebraically, not just by inspection).
+  Ground wash gained a Manhattan-falloff texture variant, swapped in by
+  `_updateFootprintGeometry` based on the same shape classification
+  (`IceStormEffect._isDiamondShape`, mirroring `CombatResolver`'s own
+  `cross`/`line`/else match). `cross`/`line` carriers keep the legacy square
+  field/disc — none ship today, recorded in `BACKLOG_LONGTERM.md`.
+  `VFXDebugController`'s radius spinbox now calls `setFootprint` on the active
+  and overlap playbacks (it never did before), and the guide mesh is a diamond
+  outline instead of a `TorusMesh` circle.
+  **Also fixed, discovered while capturing verification screenshots:** the HUD
+  panel covered ~80% of the window at every resolution tried, because an
+  unwrapped `HintLabel` was silently forcing the panel's minimum width — the
+  literal cause was invisible without dumping `get_combined_minimum_size()` per
+  row, since panel width visually appeared driven by unrelated wide rows.
+  Fixed with `autowrap_mode = 3` (matching `StatusLabel`'s existing
+  convention), the panel converted to a full-height left-anchored sidebar, and
+  `LayerToggles` changed from a one-row `HBoxContainer` to a single-column
+  `GridContainer` so it doesn't reintroduce an overflow as more layers are
+  added. User-requested mid-item; not in the original item text.
+  **Smoke-checked, not accepted:** `VFXDebugScene` launched clean via
+  `--capture-at=` at several scrub points and radii 2 and 4, generic aura and
+  ice storm, no shader/script errors, `particles 180` / `flurry: exact` /
+  `nodes 11` all match pre-existing budgets. Full radius sweep, guide-vs-render
+  agreement across the whole 1–5 range, and battle-integration verification are
+  `ICE-5`'s job, not this item's.
+  **Found, not fixed here (owned by other work):** (1) the automated
+  `--capture-at` path always exercises the catalog's first entry (the generic
+  aura, index 0) — there is no CLI way to select `Ice Area Storm` for an
+  unattended capture; verification screenshots for this item were taken with a
+  temporary, reverted `_effectOption.select(1)` edit, never committed. (2)
+  Quitting the debug scene while the generic aura (`SpellCastAura`) is the
+  active playback throws `Object is locked and can't be freed` from
+  `SpellCastAura.dispose`; reproduces on the pre-ICE-1 commit too, so it
+  predates this plan — recorded in `BACKLOG_LONGTERM.md`, not fixed here. (3)
+  `git add` on the two tracked files under `src/presentation/debug/` and
+  `scenes/debug/` prints a `paths are ignored by one of your .gitignore files`
+  warning and a nonzero exit even though both are already tracked and the add
+  succeeds — `.gitignore:23`'s bare `debug/` rule predates these files being
+  committed. Harmless (confirmed via `git diff --cached --stat` after), but
+  worth knowing before assuming the warning means the files were dropped.
 - **ICE-2** — not started (droppable; confirm with user before executing)
 - **ICE-3** — not started
 - **ICE-4** — not started

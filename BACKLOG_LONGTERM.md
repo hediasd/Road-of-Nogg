@@ -184,6 +184,36 @@ and the dominant claim about the footprint's shape comes from the ground wash
 and the dense flurry field, both of which are now correct. Worth revisiting
 only if a shard is ever seen landing visibly outside the footprint in play.
 
+## Generic spell-cast aura throws on dispose during app quit
+
+Found 2026-08-04 while smoke-checking `VFXDebugScene` after an unrelated fix.
+Quitting the process (or the debug scene's `_exit_tree()` disposing its active
+playback) while a `SpellCastAura` instance is the live playback prints
+`ERROR: Object is locked and can't be freed.` /
+`SCRIPT ERROR: Attempted to free a locked object (calling or emitting).` at
+`SpellCastAura.dispose` (`src/presentation/effects/SpellCastAura.gd:117`).
+Reproduces the same way against the pre-existing committed code, so it is not
+a regression from any recent change — likely a tween or particle system still
+mid-signal-emission when `dispose()` calls `queue_free`/`free` on it. Does not
+reproduce with `IceStormEffect` as the active playback. Only observed at
+process/scene teardown, never during normal play, so it has not visibly broken
+anything — worth a proper fix (defer the free with `call_deferred`, or wait for
+the lock to clear) next time `SpellCastAura.gd` is touched.
+
+## `git add` warns on already-tracked files under any `debug/` directory
+
+`.gitignore:23`'s bare `debug/` rule (no leading slash, so it matches at any
+depth) predates `scenes/debug/VFXDebugScene.tscn` and
+`src/presentation/debug/VFXDebugController.gd` being committed. Both remain
+correctly tracked, and `git add <path>` on either still stages the change, but
+it also prints `The following paths are ignored by one of your .gitignore
+files` and returns a nonzero exit — easy to misread as "the add failed" when
+it did not. Confirm with `git diff --cached --stat` rather than trusting the
+exit code when staging anything under a `debug/` directory. Fixing the
+ignore rule (e.g. anchoring it to the specific scratch paths it was meant for)
+is the real fix, if the rule's original intent can be confirmed with whoever
+added it.
+
 ## Defeat animation's child-index assumptions are still fragile
 
 `GodotVisualAdapter._start_defeat_animation()` reaches into the monster
