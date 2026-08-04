@@ -501,9 +501,7 @@ func _updateHeroShards(normalizedTime: float) -> void:
 
 func _shardLife(shard: Dictionary, normalizedTime: float) -> float:
 	var spawn: float = shard["spawn"]
-	var lifetimeFraction := (
-			IceStormProfile.HERO_SHARD_LIFETIME_SECONDS
-			/ IceStormProfile.REFERENCE_DURATION_SECONDS)
+	var lifetimeFraction := IceStormProfile.HERO_SHARD_LIFETIME_FRACTION
 	if normalizedTime < spawn or normalizedTime >= spawn + lifetimeFraction:
 		return -1.0
 	return (normalizedTime - spawn) / lifetimeFraction

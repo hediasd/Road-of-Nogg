@@ -268,6 +268,15 @@ func _on_live_effect_exiting(instance_id: int) -> void:
 		):
 			_live_effects.remove_at(index)
 	_live_effect_profiles.erase(instance_id)
+	# The one place `_active_cast_effect` is cleared: when the effect it points
+	# at is the one actually exiting the tree, not when the action's queue hold
+	# expires. The hold (~0.6x the effect's duration) is deliberately shorter
+	# than some effects' full runtime, so clearing on the action boundary let
+	# `skipCurrentAnimation()` lose the reference while the effect was still
+	# playing out its tail.
+	var active_effect := _live_effect_from_ref(_active_cast_effect)
+	if active_effect == null or active_effect.get_instance_id() == instance_id:
+		_active_cast_effect = null
 	_rebalance_live_effect_intensity()
 
 
@@ -432,7 +441,11 @@ func _start_queued_animation(action: VisualAction) -> bool:
 
 func _finalize_animation(action: VisualAction) -> void:
 	if action.kind == VisualAction.Kind.CAST_AREA:
-		_active_cast_effect = null
+		# `_active_cast_effect` is intentionally not cleared here. The queue
+		# hold this action finalizes on is shorter than some effects' full
+		# runtime; the effect itself clears the reference on exiting the tree
+		# (`_on_live_effect_exiting`), so `skipCurrentAnimation()` can still
+		# reach a storm still playing out after its action has finalized.
 		return
 	var monsterID := action.monster_id
 	var visual := _liveMonsterVisual(monsterID)

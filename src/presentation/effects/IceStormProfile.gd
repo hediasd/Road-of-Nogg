@@ -71,7 +71,14 @@ const HERO_SHARD_MIN_SIZE_U := 0.15
 ## MEASURED from S1 against unit height approximately 1.0 u.
 const HERO_SHARD_MAX_SIZE_U := 0.30
 ## ESTIMATED from the secondary footage's individually brief shard silhouettes.
-const HERO_SHARD_LIFETIME_SECONDS := 1.25
+## Stored as a fraction of the whole timeline (1.25 / REFERENCE_DURATION_SECONDS
+## = 4.5), not a literal second count: `_shardLife()` uses it directly as a
+## normalized-time span, so a shard's actual lifetime scales with whichever
+## duration is active — about 1.25 s in reference mode, about 0.61 s in battle
+## mode (2.2 s total). The previous `_SECONDS` name and the division that used
+## to live in `_shardLife()` implied an absolute duration that was never true
+## once battle mode compressed the timeline.
+const HERO_SHARD_LIFETIME_FRACTION := 0.27778
 ## ESTIMATED from S1's clearly tumbling, not rapidly spinning, polygons.
 const HERO_SHARD_MIN_TURNS_PER_LIFETIME := 0.55
 ## ESTIMATED from S1's varied shard orientations.
