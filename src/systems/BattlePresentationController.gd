@@ -11,6 +11,7 @@ const GodotVisualAdapterScript = preload("res://src/presentation/GodotVisualAdap
 const ThreatMapScript = preload("res://src/algorithms/ThreatMap.gd")
 const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderController.gd")
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
+const BattleEnvironmentFactoryScript = preload("res://src/presentation/BattleEnvironmentFactory.gd")
 
 const ElementReferencesScript = preload("res://src/factories/ElementReferences.gd")
 const PlayerTurnControllerScript = preload("res://src/systems/PlayerTurnController.gd")
@@ -110,16 +111,8 @@ func _setup_background() -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bgCanvas.add_child(background)
 
-	var environment = Environment.new()
-	environment.background_mode = Environment.BG_CANVAS
-	environment.background_canvas_max_layer = -1
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color(0.8, 0.8, 0.8)
-	environment.ssao_enabled = false
-	environment.ssil_enabled = false
-	environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	var worldEnvironment = WorldEnvironment.new()
-	worldEnvironment.environment = environment
+	worldEnvironment.environment = BattleEnvironmentFactoryScript.createBattleEnvironment()
 	retro_renderer.world_root.add_child(worldEnvironment)
 
 

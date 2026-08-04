@@ -1160,10 +1160,27 @@ WORK
 
 FILES: scenes/debug/VFXDebugScene.tscn,
        src/presentation/debug/VFXDebugController.gd,
-       possibly src/systems/BattlePresentationController.gd
+       src/presentation/BattleEnvironmentFactory.gd,
+       src/systems/BattlePresentationController.gd
        (environment-factory extraction only)
 
-RESOLUTION: Not started.
+RESOLUTION: Implemented; pending end-of-plan validation. VFXDebugScene now
+constructs RetroRenderController against its Node3D host and reparents the
+editable camera, light, ground, and spawn anchor into the isolated world at
+runtime. Its orthographic camera uses the shipping Vector3(6, 15, 14) relative
+offset and the 15.55 size produced by the default 16-cell maps' camera formula.
+A shared presentation factory now supplies the exact battle Environment to both
+the battle controller and debug scene without introducing a battle-simulation
+dependency. Native (the shipping default), 640x480, 480x360, and 320x240
+controls refresh through RetroRenderController's existing look-parameter path;
+retro and CRT toggles remain independently inspectable. The scene includes real
+BattleMeshFactory terrain blocks, 0.2 u model bases with gameplay-scale bodies,
+flat and uneven samples, a target-centre marker, and a radius-driven footprint
+ring. The ignored debug paths are deliberately task-owned artifacts and will be
+force-added at this boundary. A bounded editor/import probe and a five-frame
+headless scene run both exited 0 with no parse or runtime errors. This is an
+intermediate smoke check, not manual visual acceptance. Backlogs were reviewed;
+no new unresolved work was found.
 
 
 ================================================================================
@@ -1603,7 +1620,7 @@ RESOLUTION: Not started.
 --------------------------------------------------------------------------------
 
   SG-1         - Implemented; pending end-of-plan validation
-  SG-2         - Not started
+  SG-2         - Implemented; pending end-of-plan validation
   SG-3         - Not started
   SG-4         - Not started
   SG-5         - Not started
@@ -1644,11 +1661,13 @@ BLOCKING USER DECISIONS
      caster to the target centre is a deliberate, user-visible change beyond
      the carrier spell, and needs sign-off.
 
-INSTALLATION STATUS: ACTIVE; SG-1 IMPLEMENTED
+INSTALLATION STATUS: ACTIVE; SG-1 AND SG-2 IMPLEMENTED
   The user explicitly authorized replacing the unfinished battle-window cycle.
   Its open preview and integrated visual-acceptance outcomes are preserved in
-  BACKLOG_CRITICAL.md. The user later authorized secondary-source calibration;
-  execution may continue from SG-2 in the next session.
+  BACKLOG_CRITICAL.md. The user later authorized secondary-source calibration
+  and explicitly authorized the current GPT Sol tier for every remaining item,
+  overriding the plan's lower cost-routing assignments. Execution may continue
+  from SG-3 in the next session.
 
 --------------------------------------------------------------------------------
 SOURCES
