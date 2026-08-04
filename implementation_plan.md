@@ -454,7 +454,8 @@ are marked [!].
 
 Observation vs inference is marked per row. THE TIMING FIELD IS THE WEAKEST -
 entries marked (INFERENCE) are derived from wiki mechanics or reasoned from
-structure, NOT measured from footage. SG-1 must confirm or correct every one.
+structure, NOT measured from classic footage. The user-authorized secondary-
+source calibration records them as estimates in IceStormProfile.gd.
 
 Scale reference throughout: unit height approx 1.0u, tile width = 1.0u.
 
@@ -609,8 +610,8 @@ ROW 9 - PULSE CADENCE
   Motion      : brightness/density surge
   Confidence  : MED-LOW AS ANIMATION TIMING
   Translation : Repeating brightness + density accent on a fixed interval.
-                SG-1 MUST VERIFY THE VISUAL BEAT ACTUALLY TRACKS THE DAMAGE
-                BEAT. Cosmetic only - emits nothing.
+                Authorized secondary footage supports a repeating beat but
+                cannot prove exact classic timing. Cosmetic only - emits nothing.
 
 ROW 10 - FADE-OUT / SETTLE
   Observation : NOT OBSERVABLE IN STILLS
@@ -639,7 +640,7 @@ ROW 12 - FOOTPRINT AND VERTICAL VOLUME
   Confidence  : MED
   Translation : Width = (RADIUS * 2 + 1) tiles, approx 5.0u for the RADIUS 2
                 carrier. Height approx 3.5-4.0u, canopy topping out around
-                3.0-3.5u. (ESTIMATES - SG-1 calibrates.)
+                3.0-3.5u. (ESTIMATES recorded in IceStormProfile.gd.)
 
 ROW 13 - SILHOUETTE READABILITY
   Observation : S2 - units are fully readable black/white silhouettes; HP
@@ -667,7 +668,8 @@ COMPARISON CHECKPOINTS (normalised t, for matched captures):
   t = 0.50   mid-storm, full density
   t = 0.75   late pulse
   t = 0.95   staggered fade
-SG-1 may revise these to land on measured pulse boundaries.
+These remain estimated checkpoints under the user-authorized secondary-source
+calibration.
 
 
 --------------------------------------------------------------------------------
@@ -1081,26 +1083,28 @@ WORK
 
 FILES: src/presentation/effects/IceStormProfile.gd (+ .uid)
 
-BLOCKING USER DECISION: none. If no footage proves to be classic stock, STOP
-AND REPORT rather than calibrating from modernised effects.
+BLOCKING USER DECISION: Resolved 2026-08-03. The user explicitly authorized
+calibration from the inspected post-Renewal/Zero footage after the candidate
+set failed to prove classic-stock motion.
 
-RESOLUTION: Blocked before calibration; no constants file was created.
+RESOLUTION: Implemented; pending end-of-plan validation.
 
-Candidate footage was inspected on 2026-08-03. The two Zeoh "Nostalgia"
-videos visibly identify the player as a Shadow Chaser (levels 137-140), a
-post-Renewal third job, so neither can prove classic/pre-Renewal stock timing.
-The first contains usable secondary structure around 1:58-2:06: the storm
-appears as repeated bright flake-and-shard pulses over a ground-centred area,
-but its server/client version remains unresolved. The second is the same
-post-Renewal series and is likewise secondary. The RagnarokZero clip identifies
-itself as Zero and therefore remains secondary under section 4.3. The 5.96 s
-Ginger clip is static channel artwork for a sound sample and contains no visual
-animation to measure. No candidate proves classic/pre-Renewal stock motion, so
-the item's blocking rule requires stopping rather than turning modern or
-version-ambiguous timing into shipping constants. SG-2 and later work must not
-start until a qualifying motion source is supplied or the user explicitly
-changes that evidence requirement.
-
+Added IceStormProfile.gd as a presentation-only constants script. It records
+the S1/S2 authority split in its header and labels every duration, cadence,
+phase, scale, density, motion, palette, alpha, checkpoint, readability target,
+and performance cap with its source and measured/estimated status. The profile
+uses the wiki-sourced 4.5 s reference duration, an estimated 2.2 s battle mode,
+0.45/0.44 s pulse intervals, 8/74/18 percent phases, a measured five-tile
+carrier footprint, an estimated 3.8 u vertical volume, 180 gappy flurry
+particles, and at most eight alpha-blended hero shards. The inspected secondary
+footage informs motion estimates only; the file makes no classic-client frame
+measurement claim. No runtime effect or gameplay behavior exists yet, and
+vfx_plan.md remains untouched. Backlog review found no additional unresolved
+work beyond the already-preserved battle-window validation. A bounded Godot
+editor/import smoke probe exited 0 and generated the script UID; it emitted only
+the documented headless-editor progress-dialog noise, with no parse error. A
+separate bounded load probe then emitted ICE_STORM_PROFILE_LOAD_OK with the
+expected 4.5 s reference duration.
 
 ================================================================================
 SG-2 - MAKE VFXDebugScene RENDER THROUGH THE REAL BATTLE PIPELINE
@@ -1598,7 +1602,7 @@ RESOLUTION: Not started.
 13. RESOLUTION PLACEHOLDERS
 --------------------------------------------------------------------------------
 
-  SG-1         - Blocked: no candidate proves classic/pre-Renewal stock motion
+  SG-1         - Implemented; pending end-of-plan validation
   SG-2         - Not started
   SG-3         - Not started
   SG-4         - Not started
@@ -1625,12 +1629,11 @@ SELECTED TECHNICAL DIRECTION
   REJECTED, on reference grounds and whole-game risk.
 
 HIGHEST-RISK ASSUMPTION
-  That the visual pulse cadence tracks the wiki-documented 0.5 s damage
-  interval. The candidate footage is now inspected, but none proves
-  classic/pre-Renewal stock motion, so section 6's timing column remains
-  INFERENCE FROM MECHANICS AND STRUCTURE, NOT MEASUREMENT. No later item may
-  treat that column as measured until a qualifying source is available or the
-  user explicitly changes the evidence requirement.
+  The visual pulse cadence is still estimated rather than measured from a
+  classic/pre-Renewal client. The user explicitly accepted secondary-source
+  calibration on 2026-08-03, so IceStormProfile.gd records the estimate and its
+  provenance instead of presenting it as measured fact. Final visual validation
+  may tune it, but must preserve the distinction.
 
 BLOCKING USER DECISIONS
   1. CARRIER SPELL (SG-6): this plan uses ICE PLOW unchanged. Adding or
@@ -1641,12 +1644,11 @@ BLOCKING USER DECISIONS
      caster to the target centre is a deliberate, user-visible change beyond
      the carrier spell, and needs sign-off.
 
-INSTALLATION STATUS: ACTIVE, BLOCKED AT SG-1
+INSTALLATION STATUS: ACTIVE; SG-1 IMPLEMENTED
   The user explicitly authorized replacing the unfinished battle-window cycle.
   Its open preview and integrated visual-acceptance outcomes are preserved in
-  BACKLOG_CRITICAL.md. No implementation item after SG-1 may start until a
-  qualifying classic/pre-Renewal stock motion source is available or the user
-  explicitly changes the evidence requirement.
+  BACKLOG_CRITICAL.md. The user later authorized secondary-source calibration;
+  execution may continue from SG-2 in the next session.
 
 --------------------------------------------------------------------------------
 SOURCES
