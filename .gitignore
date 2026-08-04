@@ -20,7 +20,7 @@ thumbs.db
 .idea/
 
 # Generated diagnostics
-debug/
+/debug/
 builds/
 godot_final.txt
 test_out.txt
