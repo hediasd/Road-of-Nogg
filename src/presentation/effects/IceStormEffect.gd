@@ -12,6 +12,11 @@ const LAYER_FLURRY := "flurry"
 const LAYER_GUST := "gust"
 const LAYER_HERO_SHARDS := "hero_shards"
 const LAYER_PULSE_ACCENTS := "pulse_accents"
+## MEASURED acceptance cap from S1/S2 (see `IceStormProfile`'s provenance
+## rule): hero silhouettes remain individually countable at this count. This
+## constant, together with the `spawn` schedule in `_configureSeed()` below,
+## is the authoritative shard count and timing — no separate rate constant
+## drives it, so there is nothing else to keep in sync when tuning either.
 const _SHARD_COUNT := 8
 const _SHARDS_PER_VARIANT := 2
 
@@ -275,6 +280,7 @@ func _buildLayers() -> void:
 	set_process(false)
 	assert(get_live_node_count() <= IceStormProfile.MAX_EFFECT_NODES)
 	assert(getDrawCallBudgetEstimate() <= IceStormProfile.MAX_DRAW_CALLS)
+	assert(_flurry.amount <= IceStormProfile.MAX_LIVE_PARTICLES)
 
 
 func _buildGroundWash() -> void:
@@ -451,8 +457,14 @@ func _updateVisuals(normalizedTime: float) -> void:
 				cos(normalizedTime * TAU * 0.7 + phase) * IceStormProfile.CANOPY_DRIFT_DISTANCE_U * 0.35)
 		_canopyNodes[index].scale = Vector3.ONE * breath
 		var canopyFade := onset * (1.0 - _smoothstep(0.91, 1.0, normalizedTime))
-		_setMaterialOpacity(
-				_canopyMaterials[index], IceStormProfile.CANOPY_CORE_COLOR, canopyFade)
+		# Larger-index quads are the larger ones (see the size ramp in
+		# `_updateFootprintGeometry`), so they carry more of the edge tint —
+		# index 0 stays pure core color, the largest quad leans toward the edge
+		# color, giving the canopy a core-to-edge falloff instead of one flat tint.
+		var edgeAmount := float(index) / float(maxi(_canopyNodes.size() - 1, 1))
+		var canopyColor := IceStormProfile.CANOPY_CORE_COLOR.lerp(
+				IceStormProfile.CANOPY_EDGE_COLOR, edgeAmount)
+		_setMaterialOpacity(_canopyMaterials[index], canopyColor, canopyFade)
 		_canopyMaterials[index].emission_energy_multiplier = pulseBrightness
 
 	_updateHeroShards(normalizedTime)
@@ -510,6 +522,13 @@ func _setMaterialOpacity(
 	var color := baseColor
 	color.a *= clampf(visibility * _intensityScale, 0.0, 1.0)
 	material.albedo_color = color
+	# `VfxTextures._createMaterial` bakes `emission` once from the material's
+	# original construction-time color and never revisits it, so a caller that
+	# varies `baseColor` per call (the canopy's core-to-edge lerp) would
+	# otherwise see the tint only in the unlit albedo, not in the additive glow
+	# that actually reads as brightness. Every existing caller passes the same
+	# constant color every frame, so this is a no-op for them.
+	material.emission = Color(baseColor.r, baseColor.g, baseColor.b, 1.0)
 
 
 func _pulseAccent() -> float:

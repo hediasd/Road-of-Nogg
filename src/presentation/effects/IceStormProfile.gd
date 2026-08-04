@@ -22,10 +22,6 @@ const REFERENCE_PULSE_INTERVAL_SECONDS := 0.45
 const BATTLE_PULSE_INTERVAL_SECONDS := 0.44
 ## ESTIMATED from S2's already-dense onset and the inspected secondary footage.
 const ONSET_FRACTION := 0.08
-## ESTIMATED from the sustained-field structure in S2 and wiki duration.
-const SUSTAIN_FRACTION := 0.74
-## ESTIMATED because no qualifying classic footage exposes the full settle.
-const SETTLE_FRACTION := 0.18
 ## ESTIMATED derivative of onset plus sustain; the stagger begins at this phase.
 const SETTLE_START_FRACTION := 0.82
 ## ESTIMATED from the queue-pacing decision to hold onset plus two early pulses.
@@ -33,12 +29,8 @@ const ACTION_HOLD_FRACTION := 0.45
 ## ESTIMATED short accent window around each pulse, judged from secondary motion.
 const PULSE_ACCENT_FRACTION := 0.18
 
-## MEASURED from S2 against tile = 1.0 u and unit height approximately 1.0 u.
-const REFERENCE_UNIT_HEIGHT_U := 1.0
 ## MEASURED from the selected radius-two carrier's authored footprint.
 const REFERENCE_CARRIER_RADIUS_TILES := 2
-## MEASURED from radius * 2 + 1 at tile width 1.0 u.
-const REFERENCE_FOOTPRINT_DIAMETER_U := 5.0
 ## ESTIMATED from S2's roughly four-character-height storm volume.
 const STORM_VOLUME_HEIGHT_U := 3.8
 ## ESTIMATED from S2; the canopy stays well above one-unit silhouettes.
@@ -54,8 +46,6 @@ const CANOPY_QUAD_COUNT := 3
 const CANOPY_DRIFT_DISTANCE_U := 0.24
 ## ESTIMATED from S1's restrained breathing rather than modern volumetric swell.
 const CANOPY_SCALE_BREATH_FRACTION := 0.06
-## MEASURED from S1's single branching frost-vein backdrop.
-const VEIN_LAYER_COUNT := 1
 
 ## ESTIMATED from S2's dense-but-gappy field under the 220-particle hard budget.
 const FLURRY_PARTICLE_AMOUNT := 180
@@ -76,14 +66,10 @@ const GUST_BAND_PERIOD_SECONDS := 0.45
 ## ESTIMATED from S1's broad curved density bands across the footprint.
 const GUST_BAND_WIDTH_FRACTION := 0.30
 
-## MEASURED acceptance cap from S1/S2: hero silhouettes remain countable.
-const HERO_SHARD_MAX_VISIBLE := 8
 ## MEASURED from S1 against unit height approximately 1.0 u.
 const HERO_SHARD_MIN_SIZE_U := 0.15
 ## MEASURED from S1 against unit height approximately 1.0 u.
 const HERO_SHARD_MAX_SIZE_U := 0.30
-## ESTIMATED to show about eight shards across the 4.5 s reference sequence.
-const HERO_SHARD_SPAWN_RATE_PER_SECOND := 1.8
 ## ESTIMATED from the secondary footage's individually brief shard silhouettes.
 const HERO_SHARD_LIFETIME_SECONDS := 1.25
 ## ESTIMATED from S1's clearly tumbling, not rapidly spinning, polygons.
@@ -108,11 +94,9 @@ const GROUND_WASH_COLOR := Color(0.52, 0.74, 0.94, 0.18)
 ## ESTIMATED from S2's restrained bright core without environment glow.
 const PULSE_BRIGHTNESS_MULTIPLIER := 1.22
 
-## MEASURED acceptance ceiling from S2; at least forty percent remains readable.
-const MAX_FULLY_OBSCURED_FRACTION := 0.60
-## ESTIMATED tuning target below the hard ceiling to preserve obvious gaps.
-const TARGET_FILLED_FRACTION := 0.48
-## ESTIMATED engineering ceiling recorded in the plan for one storm.
+## ESTIMATED engineering ceiling recorded in the plan for one storm. Enforced at
+## build time in `IceStormEffect._buildLayers()`, alongside the node and
+## draw-call budgets below.
 const MAX_LIVE_PARTICLES := 220
 ## ESTIMATED reference-faithful cap settled by the plan for live storms.
 const MAX_LIVE_STORMS := 2
@@ -120,7 +104,3 @@ const MAX_LIVE_STORMS := 2
 const MAX_DRAW_CALLS := 14
 ## ESTIMATED engineering node-count ceiling recorded in the plan.
 const MAX_EFFECT_NODES := 12
-
-## Source: authorized decomposition and secondary motion; final visual validation
-## ESTIMATED checkpoints may change only with recorded replacement evidence.
-const COMPARISON_CHECKPOINTS := [0.08, 0.25, 0.50, 0.75, 0.95]
