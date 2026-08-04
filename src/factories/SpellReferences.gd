@@ -28,6 +28,7 @@ const STRING_DEFAULTS := {
 	"INFLICTS_STATUS": "",
 	"REMOVES_STATUS": "",
 	"AOE_TARGETS": "self",
+	"VFX_PROFILE": "",
 	"DESC": ""
 }
 const EFFECT_INTEGER_FIELDS := [

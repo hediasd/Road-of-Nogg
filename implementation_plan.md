@@ -1540,13 +1540,26 @@ FILES: src/factories/SpellReferences.gd,
        docs/SPELL_CATALOG_SCHEMA.md,
        possibly src/entities/Spell.gd
 
-BLOCKING USER DECISION - CARRIER CONFIRMATION.
-  This plan selects ICE PLOW (ice, RADIUS 2, RANGE 3, ground-targetable) as
-  the temporary carrier and changes none of its gameplay. IF THE USER WANTS A
-  DIFFERENTLY-NAMED OR NEWLY-ADDED SPELL INSTEAD, THAT IS A CONTENT DECISION
-  REQUIRING EXPLICIT AUTHORISATION - STOP AND ASK RATHER THAN ADDING ONE.
+CARRIER DECISION - RESOLVED.
+  The user authorised ICE PLOW (ice, RADIUS 2, RANGE 3, ground-targetable) as
+  the temporary carrier. It remains otherwise unchanged; no spell was added or
+  renamed.
 
-RESOLUTION: Not started.
+RESOLUTION: Implemented; pending end-of-plan validation. SpellReferences now
+normalises the optional VFX_PROFILE string to "", and Ice Plow alone authors
+`ice_area_storm`. Spell.gd remains untouched because presentation reads the
+normalised reference directly. The schema documents the field as presentation
+metadata with no gameplay effect and the generic fallback for empty or unknown
+values.
+
+A narrow headless Godot catalog probe emitted
+`SPELL_VFX_PROFILE_PROBE_OK spells=59 generic=58 carrier=Ice Plow`: reload
+succeeded, Ice Plow retained NAME, DAMAGE 4, RADIUS 2, RANGE 3, ELEMENT ice,
+and CAN_TARGET_EMPTY true, and all other 58 spells received the empty default.
+The probe also confirmed that the generic and `ice_area_storm` profile IDs are
+registered. This is catalog-load smoke evidence, not integrated acceptance.
+The user authorised Ice Plow unchanged as the carrier. Both backlogs were
+reviewed; no new unresolved work was found.
 
 
 ================================================================================
@@ -1708,7 +1721,7 @@ RESOLUTION: Not started.
   SG-3         - Implemented; pending end-of-plan validation
   SG-4         - Implemented; pending end-of-plan validation
   SG-5         - Implemented; pending end-of-plan validation
-  SG-6         - Not started
+  SG-6         - Implemented; pending end-of-plan validation
   SG-7         - Not started
   SG-VALIDATE  - Not started
 
@@ -1737,21 +1750,21 @@ HIGHEST-RISK ASSUMPTION
   may tune it, but must preserve the distinction.
 
 BLOCKING USER DECISIONS
-  1. CARRIER SPELL (SG-6): this plan uses ICE PLOW unchanged. Adding or
-     renaming a spell would require explicit authorisation.
+  1. CARRIER SPELL: resolved on 2026-08-04; the user authorised ICE PLOW
+     unchanged. No spell was added or renamed.
   2. BATTLE-SPEED DURATION (SG-VALIDATE): approx 2.2 s with a preserved 0.44 s
      pulse interval is an ESTIMATE requiring approval.
   3. AURA RELOCATION (SG-VALIDATE): moving EVERY spell's generic aura from the
      caster to the target centre is a deliberate, user-visible change beyond
      the carrier spell, and needs sign-off.
 
-INSTALLATION STATUS: ACTIVE; SG-1 THROUGH SG-5 IMPLEMENTED
+INSTALLATION STATUS: ACTIVE; SG-1 THROUGH SG-6 IMPLEMENTED
   The user explicitly authorized replacing the unfinished battle-window cycle.
   Its open preview and integrated visual-acceptance outcomes are preserved in
   BACKLOG_CRITICAL.md. The user later authorized secondary-source calibration
   and explicitly authorized the current GPT Sol tier for every remaining item,
   overriding the plan's lower cost-routing assignments. Execution may continue
-  from SG-6 in the next session.
+  from SG-7 in the next session.
 
 --------------------------------------------------------------------------------
 SOURCES

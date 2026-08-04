@@ -23,12 +23,18 @@ before the JSON migration. Authored values are coerced at the catalog boundary:
 |---|---|
 | Integers | `RADIUS`, `MIN_RANGE`, `RANGE`, `MAX_HEIGHT_DELTA`, `DAMAGE`, `BUFFS_ATK`, `BUFF_DURATION`, `COOLDOWN`, `SEQUENCE_LEVEL`, `SELF_RADIUS`, `HEAL_AMOUNT` |
 | Booleans | `HEALS`, `CAN_TARGET_EMPTY`, `BYPASS_LOS`, `REVERTS_DAMAGE` |
-| Strings | `ELEMENT`, `TARGET_TYPE`, `AREA_SHAPE`, `INFLICTS_STATUS`, `REMOVES_STATUS`, `RESONANCE_ELEMENT`, `AOE_TARGETS`, `DESC` |
+| Strings | `ELEMENT`, `TARGET_TYPE`, `AREA_SHAPE`, `INFLICTS_STATUS`, `REMOVES_STATUS`, `RESONANCE_ELEMENT`, `AOE_TARGETS`, `VFX_PROFILE`, `DESC` |
 
 `CAN_TARGET_EMPTY` is explicit on every spell. For non-self spells it controls
 whether an empty reachable center is legally confirmable. It does not remove
 that center from the player targeting display. Self and healing spells are
 currently `false`; offensive non-self spells are `true`.
+
+`VFX_PROFILE` is optional presentation metadata with no gameplay effect. An
+empty or unknown value falls back to the generic spell aura; a recognized value
+selects a registered presentation effect without changing damage, targeting,
+range, radius, or any other spell rule.
+
 ## Collection fields
 
 - `DAMAGE_LINES` is optional. When present it is an array of objects with

@@ -24,7 +24,8 @@
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Ice Plow",
 		"RADIUS": 2,
-		"RANGE": 3
+		"RANGE": 3,
+		"VFX_PROFILE": "ice_area_storm"
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
