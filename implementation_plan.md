@@ -1458,10 +1458,42 @@ WORK
  10. Review the backlogs.
 
 FILES: src/presentation/effects/IceStormEffect.gd (+ .uid),
-       assets/shaders/ice_storm_*.gdshader as needed (+ .uid),
+       assets/shaders/effects/ice_storm_*.gdshader (+ .uid),
        src/presentation/effects/SpellVfxCatalog.gd (registration)
 
-RESOLUTION: Not started.
+RESOLUTION: Implemented; pending end-of-plan validation. IceStormEffect now
+implements VfxPlayback around one effect-local elapsed clock and a local seeded
+RandomNumberGenerator. Its flat 11-node composition contains a vertically
+thickened ground wash, one frost-vein backdrop, three drifting/breathing canopy
+quads, one fixed-seed 180-particle flurry, and four two-instance shard
+MultiMeshes. Ground span and radius are configurable before playback.
+
+The flurry particle shader never reads global TIME: it derives varied-depth
+descent, lateral velocity, wrapping, a travelling density band, pulse density,
+and staggered opacity from playback_time plus the effect seed. Hero-shard
+placement, descent, roll, color, and fade are pure functions of normalized time
+and deterministic CPU descriptors. Seven logical debug layers independently
+control ground, veins, canopy, flurry, gust structure, shards, and pulse
+accents. setIntensityScale() applies the overlap intensity contract to additive
+layers without flattening the alpha-blended shard contrast.
+
+The retained catalog factory supports debug/owner-managed lifecycle, while the
+spawn helper opts into timer-free self-disposal at completion. Pause, seek,
+skip-to-settle, replay, and explicit disposal all use the same clock. A rendered
+teardown probe found that tree-exit disposal could attempt to free a locked
+node; the final branch now queues nodes that still have a parent, and the
+post-fix lifecycle probe passes.
+
+A Godot contract probe passed catalog selection, all layer toggles, same-seed
+reproduction and different-seed variation, reference/battle durations,
+pause/resume, all five checkpoints, staggered settle, automatic cleanup, and
+budgets of 180 particles, 11 nodes, and an estimated 10 draw calls. Independent
+rendered processes passed native, 640x480, 480x360, and 320x240 with retro and
+CRT off/on represented. Five separate raw 320x240 reference captures at t =
+0.08, 0.25, 0.50, 0.75, and 0.95 were preserved for final validation; their
+live shard counts were 1, 3, 4, 2, and 0, with flurry particles gone before the
+canopy's final fade. This is focused harness evidence, not final integrated
+visual approval. Backlogs were reviewed; no new unresolved work was found.
 
 
 ================================================================================
@@ -1675,7 +1707,7 @@ RESOLUTION: Not started.
   SG-2         - Implemented; pending end-of-plan validation
   SG-3         - Implemented; pending end-of-plan validation
   SG-4         - Implemented; pending end-of-plan validation
-  SG-5         - Not started
+  SG-5         - Implemented; pending end-of-plan validation
   SG-6         - Not started
   SG-7         - Not started
   SG-VALIDATE  - Not started
@@ -1713,13 +1745,13 @@ BLOCKING USER DECISIONS
      caster to the target centre is a deliberate, user-visible change beyond
      the carrier spell, and needs sign-off.
 
-INSTALLATION STATUS: ACTIVE; SG-1 THROUGH SG-4 IMPLEMENTED
+INSTALLATION STATUS: ACTIVE; SG-1 THROUGH SG-5 IMPLEMENTED
   The user explicitly authorized replacing the unfinished battle-window cycle.
   Its open preview and integrated visual-acceptance outcomes are preserved in
   BACKLOG_CRITICAL.md. The user later authorized secondary-source calibration
   and explicitly authorized the current GPT Sol tier for every remaining item,
   overriding the plan's lower cost-routing assignments. Execution may continue
-  from SG-5 in the next session.
+  from SG-6 in the next session.
 
 --------------------------------------------------------------------------------
 SOURCES

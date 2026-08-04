@@ -4,15 +4,23 @@ class_name SpellVfxCatalog
 extends RefCounted
 
 const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
+const IceStormEffectScript = preload("res://src/presentation/effects/IceStormEffect.gd")
 const GENERIC_AURA_PROFILE_ID := ""
 
 
 static func entries() -> Array[Dictionary]:
-	return [{
-		"profile_id": GENERIC_AURA_PROFILE_ID,
-		"display_name": "Spell Cast Aura",
-		"factory": Callable(SpellCastAuraScript, "createPlayback")
-	}]
+	return [
+		{
+			"profile_id": GENERIC_AURA_PROFILE_ID,
+			"display_name": "Spell Cast Aura",
+			"factory": Callable(SpellCastAuraScript, "createPlayback")
+		},
+		{
+			"profile_id": IceStormProfile.PROFILE_ID,
+			"display_name": "Ice Area Storm",
+			"factory": Callable(IceStormEffectScript, "createPlayback")
+		},
+	]
 
 
 static func create(
