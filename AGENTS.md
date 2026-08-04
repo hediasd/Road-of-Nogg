@@ -127,10 +127,11 @@ moment the plan is reset.
 
 ## Executing a plan item
 
-- **Check the model before starting.** Compare the item's **Model** field to the
-  model actually running. If the running model is more capable than the item
-  needs, say so and stop rather than executing it — routing that is only ever
-  written and never checked at execution time costs real money for no benefit.
+- **Note the model fit before starting.** Compare the item's **Model** field to
+  the model actually running. If the running model is more capable than the
+  item needs, say so in one line — this is a cost signal for the user to act on
+  if they choose, not a gate — and continue executing the item. Never route
+  work below the Sonnet 5 / GPT Terra tier regardless of fit.
 - Commit at every item boundary. Item state belongs in the plan's Resolution
   notes and in `git log`, not in conversation history; a fresh session must be
   able to continue from those two sources alone.
