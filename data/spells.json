@@ -25,6 +25,7 @@
 		"NAME": "Ice Plow",
 		"RADIUS": 2,
 		"RANGE": 3,
+		"TARGET_TYPE": "area",
 		"VFX_PROFILE": "ice_area_storm"
 	},
 	{

@@ -50,6 +50,20 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Command acceptance and resolution
 
+### Spell radius does not select area semantics
+
+- **Verified observation:** Ice Plow carried radius 2 and an area-sized visual
+  profile while its omitted `TARGET_TYPE` normalized to `single`.
+  `CombatResolver._spellAffectedPositions()` consequently returned only the
+  selected centre; radius is consulted only for spells explicitly authored as
+  `area` (or for a self spell with `SELF_RADIUS`).
+- **Reusable rule:** Do not infer multi-target gameplay from `RADIUS`, targetable
+  empty cells, or a presentation footprint. When a feature expects several
+  affected units, verify `TARGET_TYPE: "area"` in the catalog and exercise the
+  real resolver with several occupants before accepting the carrier.
+- **Review when:** assigning an area VFX profile, selecting a carrier spell,
+  changing spell schema defaults, or changing spell-target previews.
+
 ### A valid command can still fizzle during resolution
 
 - **Verified observation:** A command can pass authoritative target/range

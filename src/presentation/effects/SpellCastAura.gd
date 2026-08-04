@@ -1,7 +1,8 @@
 ## Element-tinted ground aura implementing the uniform VFX playback contract.
 ##
-## Gameplay call sites keep using SpellCastAura.spawn(...). The debug catalog
-## uses createPlayback(...) and controls the same visual through VfxPlayback.
+## Runtime and debug callers both create this effect through SpellVfxCatalog,
+## so target-centred battle playback and authoring controls share one
+## implementation.
 
 class_name SpellCastAura
 extends "res://src/presentation/effects/VfxPlayback.gd"
