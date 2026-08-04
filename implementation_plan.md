@@ -484,6 +484,43 @@ decided, what was verified, and any finding a later item depends on.)*
   committed. Harmless (confirmed via `git diff --cached --stat` after), but
   worth knowing before assuming the warning means the files were dropped.
 - **ICE-2** — not started (droppable; confirm with user before executing)
-- **ICE-3** — not started
+- **ICE-3** — implemented; pending end-of-plan validation. `ICE-2` was not
+  executed (user only requested `ICE-1`, `ICE-3`, `ICE-4`), so this edited
+  `IceStormProfile.gd`'s const class directly, per the item's documented
+  fallback. Wired `CANOPY_EDGE_COLOR` as a per-quad core→edge lerp keyed to
+  canopy index (matching the existing size ramp); also extended
+  `_setMaterialOpacity` to update `material.emission` (previously frozen at
+  construction time from the material's original color, so the lerp would
+  otherwise only ever show in unlit albedo, not the additive glow that
+  actually reads as brightness on screen) — no-op for every other caller,
+  which all pass one constant color every frame. Verified visually with all
+  other layers hidden: a genuine bright-core-to-dim-cool-rim falloff, not the
+  previous flat tint. This is the plan's one intended visual change; it is not
+  a regression.
+  Deleted `HERO_SHARD_SPAWN_RATE_PER_SECOND`/`HERO_SHARD_MAX_VISIBLE` (chose
+  "delete, document the hardcoded schedule as authoritative" over "derive from
+  them" — deriving would have changed shard spawn timing, a second unplanned
+  visual change the plan's risk note explicitly scoped out). Carried the
+  acceptance-cap provenance note over to `_SHARD_COUNT` in `IceStormEffect.gd`
+  so it isn't lost. Enforced `MAX_LIVE_PARTICLES` as a build-time assert next
+  to the existing node/draw-call asserts (180 ≤ 220, passes cleanly).
+  **Decision:** `COMPARISON_CHECKPOINTS`, `MAX_FULLY_OBSCURED_FRACTION`, and
+  `TARGET_FILLED_FRACTION` were deleted outright rather than relocated to
+  `docs/` prose, which the item allowed ("if anywhere"). They are acceptance
+  criteria for the original reference-match validation, which already
+  happened and already shipped — not durable forward-looking guidance in the
+  sense `docs/LEARNINGS.md`'s own stated purpose requires, and forcing them
+  into that file's "Verified observation / Reusable rule / Review when" format
+  would misrepresent settled history as live guidance. Deleted
+  `SUSTAIN_FRACTION`, `SETTLE_FRACTION`, `VEIN_LAYER_COUNT`,
+  `REFERENCE_UNIT_HEIGHT_U`, `REFERENCE_FOOTPRINT_DIAMETER_U` outright per the
+  item text. Confirmed zero references to any of the ten removed constants
+  before committing.
+  **Smoke-checked, not accepted:** `VFXDebugScene` launched clean via
+  `--capture-at=`, generic aura and ice storm, no shader/script/assert errors
+  beyond the pre-existing `SpellCastAura` dispose issue noted under `ICE-1`
+  (unrelated, reproduces identically). Canopy tint judged only by eye in the
+  debug scene with layers isolated — the user should confirm the new look in
+  `ICE-5`.
 - **ICE-4** — not started
 - **ICE-5** — not started
