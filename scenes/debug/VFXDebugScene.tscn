@@ -13,14 +13,14 @@ content_margin_left = 12.0
 content_margin_top = 8.0
 content_margin_right = 12.0
 content_margin_bottom = 8.0
-bg_color = Color(0, 0, 0, 0.72)
+bg_color = Color(0, 0, 0, 0.78)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 
 [sub_resource type="LabelSettings" id="5_label_settings"]
-font_size = 16
+font_size = 15
 
 [node name="VFXDebugScene" type="Node3D"]
 script = ExtResource("1_controller")
@@ -48,21 +48,133 @@ layer = 20
 [node name="PanelContainer" type="PanelContainer" parent="HUD"]
 offset_left = 12.0
 offset_top = 12.0
-offset_right = 500.0
-offset_bottom = 214.0
+offset_right = 620.0
+offset_bottom = 636.0
 theme_override_styles/panel = SubResource("6_panel_style")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="HUD/PanelContainer"]
 layout_mode = 2
-theme_override_constants/separation = 6
+theme_override_constants/separation = 5
 
 [node name="StatusLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
 layout_mode = 2
-text = "Loading..."
+text = "No effect selected"
 label_settings = SubResource("5_label_settings")
 autowrap_mode = 3
 
-[node name="Separator" type="HSeparator" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="PlaybackSeparator" type="HSeparator" parent="HUD/PanelContainer/VBoxContainer"]
+layout_mode = 2
+
+[node name="PlaybackGrid" type="GridContainer" parent="HUD/PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 4
+columns = 2
+
+[node name="EffectLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+text = "Effect"
+
+[node name="EffectOption" type="OptionButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ElementLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+text = "Element tint"
+
+[node name="ElementOption" type="OptionButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ModeLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+text = "Timing mode"
+
+[node name="ModeToggle" type="CheckButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+button_pressed = true
+text = "Battle speed"
+
+[node name="ScaleLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+text = "Playback scale"
+
+[node name="ScaleSetting" type="SpinBox" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+min_value = 0.1
+max_value = 2.0
+step = 0.1
+value = 1.0
+allow_greater = false
+allow_lesser = false
+
+[node name="SeedLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+text = "Seed"
+
+[node name="SeedRow" type="HBoxContainer" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+layout_mode = 2
+
+[node name="SeedPin" type="CheckButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow"]
+layout_mode = 2
+text = "Pin"
+
+[node name="SeedSetting" type="SpinBox" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+max_value = 2147483647.0
+value = 1.0
+allow_greater = false
+allow_lesser = false
+
+[node name="CycleSeedButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow"]
+layout_mode = 2
+text = "+1"
+
+[node name="CoreButtons" type="HBoxContainer" parent="HUD/PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="PlayButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+layout_mode = 2
+text = "Play"
+
+[node name="PauseButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+layout_mode = 2
+disabled = true
+text = "Pause"
+
+[node name="SettleButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+layout_mode = 2
+text = "Settle"
+
+[node name="OverlapButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+layout_mode = 2
+text = "Overlap"
+
+[node name="ScreenshotButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+layout_mode = 2
+text = "Capture once"
+
+[node name="ScrubLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Timeline scrub"
+
+[node name="Scrub" type="HSlider" parent="HUD/PanelContainer/VBoxContainer"]
+layout_mode = 2
+max_value = 1.0
+step = 0.01
+
+[node name="LayersLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
+layout_mode = 2
+text = "Layers"
+
+[node name="LayerToggles" type="HBoxContainer" parent="HUD/PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="RenderSeparator" type="HSeparator" parent="HUD/PanelContainer/VBoxContainer"]
 layout_mode = 2
 
 [node name="Controls" type="GridContainer" parent="HUD/PanelContainer/VBoxContainer"]
@@ -109,4 +221,4 @@ allow_lesser = false
 
 [node name="HintLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
 layout_mode = 2
-text = "Left / Right: element    Space: retrigger"
+text = "P play | U pause | T settle | O overlap | C capture | M mode"

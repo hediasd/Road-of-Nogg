@@ -319,6 +319,22 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Render isolation
 
+### Previewable GPU effects need one effect-local clock
+
+- **Verified observation:** In Godot 4.4, `GPUParticles3D.use_fixed_seed`,
+  `seed`, `restart(true)`, and `request_particles_process(t)` reproduce a
+  particle system at a requested timeline position, while `speed_scale = 0`
+  pauses it. A spatial shader using global `TIME` continues animating even
+  while that particle system and its GDScript timeline are paused. See the
+  [Godot 4.4 GPUParticles3D contract](https://docs.godotengine.org/en/4.4/classes/class_gpuparticles3d.html).
+- **Reusable rule:** Give every previewable effect one local elapsed-time
+  source. Seek fixed-seed GPU particles by restarting with the seed preserved
+  and requesting the target process time; pause them with zero speed. Drive
+  companion shaders from that same elapsed-time uniform rather than `TIME`, so
+  Play, Pause, Resume, scrub, and screenshot frames cannot disagree by layer.
+- **Review when:** adding a previewable GPU particle layer, timeline scrub,
+  pause/resume, deterministic replay visuals, or checkpoint capture.
+
 ### Standalone SubViewports need explicit display and input mapping
 
 - **Verified observation:** A standalone `SubViewport` does not display itself

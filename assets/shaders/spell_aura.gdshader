@@ -9,6 +9,7 @@
 //   0.0 = just spawned (tiny, bright center flash)
 //   0.5 = ring fully expanded
 //   1.0 = fully faded out
+// playback_time is the effect-local clock for noise and freezes with it.
 
 shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_disabled;
@@ -20,6 +21,7 @@ render_mode unshaded, blend_add, depth_draw_never, cull_disabled;
 uniform vec4 aura_color : source_color = vec4(0.2, 0.6, 1.0, 1.0);
 uniform sampler2D noise_tex : repeat_enable, filter_linear;
 uniform float lifetime_progress : hint_range(0.0, 1.0) = 0.0;
+uniform float playback_time = 0.0;
 uniform float intensity : hint_range(0.0, 12.0) = 6.0;
 uniform float ring_width : hint_range(0.01, 0.3) = 0.12;
 uniform float edge_distortion : hint_range(0.0, 0.15) = 0.07;
@@ -38,13 +40,13 @@ void fragment() {
 	// --- Scrolling noise in polar space ---
 	// Wrapping the angle / TAU gives a seamless horizontal scroll around the ring.
 	vec2 noise_uv = vec2(
-		angle / (2.0 * 3.14159265) + TIME * scroll_speed,
+		angle / (2.0 * 3.14159265) + playback_time * scroll_speed,
 		dist * 2.5
 	);
 	float noise_val = texture(noise_tex, noise_uv).r;
 	// Also sample at a different scale for layered detail.
 	vec2 noise_uv2 = vec2(
-		-angle / (2.0 * 3.14159265) + TIME * scroll_speed * 0.6,
+		-angle / (2.0 * 3.14159265) + playback_time * scroll_speed * 0.6,
 		dist * 4.0 + 0.37
 	);
 	float noise_val2 = texture(noise_tex, noise_uv2).r;

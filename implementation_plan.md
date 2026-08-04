@@ -1265,9 +1265,42 @@ FILES: src/presentation/effects/VfxPlayback.gd (+ .uid),
        src/presentation/effects/SpellVfxCatalog.gd (+ .uid),
        src/presentation/debug/VFXDebugController.gd,
        scenes/debug/VFXDebugScene.tscn,
-       src/presentation/effects/SpellCastAura.gd
+       src/presentation/effects/SpellCastAura.gd,
+       assets/shaders/spell_aura.gdshader,
+       docs/LEARNINGS.md
 
-RESOLUTION: Not started.
+RESOLUTION: Implemented; pending end-of-plan validation. VfxPlayback defines
+the shared play, scale, seek, settle, time, finish, layer, count, and disposal
+contract. SpellVfxCatalog maps the empty profile id to Spell Cast Aura through
+a factory Callable, with no spell-name conditional. SpellCastAura now adapts
+the same gameplay-facing spawn API to that contract and retains automatic
+cleanup for ordinary battle use.
+
+A local Godot 4.4 property probe and the official 4.4 GPUParticles3D contract
+confirmed exact deterministic seeking: use_fixed_seed plus seed,
+restart(true), request_particles_process(t), and speed_scale 0 for pause. The
+aura's ground shader was also changed from global TIME to the effect-local
+playback_time uniform; otherwise its noise would continue moving while the
+particles and timeline were paused. This reusable rule is recorded in
+docs/LEARNINGS.md.
+
+The developer-layer panel now provides registry selection without auto-play,
+unambiguous restart, Pause/Resume without Engine.time_scale, reference/battle
+mode, slow motion, scrub, seed pin/cycle, dynamic layer toggles, overlap,
+resolution/retro/CRT controls, status counts, exactness, and letter-key
+shortcuts. Screenshot capture is hard-limited to once per process.
+--capture-at=<t> seeks, captures once to user://vfx_debug_capture.png, and
+quits; headless capture fails fast because no post-draw signal exists.
+
+A bounded editor/import probe passed. Two six-cycle probes covered selection-
+without-autoplay cleanup and Play/Pause/50%-seek/Resume/Overlap/Restart, proving
+fixed seeds, exact GPU and shader pause, exact
+0.55 s seek, overlap cleanup, zero residual effect nodes, and unchanged
+Engine.time_scale. The gameplay SpellCastAura.spawn entry point still
+auto-cleans. A hidden offscreen rendered --capture-at=0.5 process produced a
+fresh nonempty PNG and exited 0. This remains intermediate contract evidence,
+not final manual visual acceptance. Backlogs were reviewed; no new unresolved
+work was found.
 
 
 ================================================================================
@@ -1621,7 +1654,7 @@ RESOLUTION: Not started.
 
   SG-1         - Implemented; pending end-of-plan validation
   SG-2         - Implemented; pending end-of-plan validation
-  SG-3         - Not started
+  SG-3         - Implemented; pending end-of-plan validation
   SG-4         - Not started
   SG-5         - Not started
   SG-6         - Not started
@@ -1661,13 +1694,13 @@ BLOCKING USER DECISIONS
      caster to the target centre is a deliberate, user-visible change beyond
      the carrier spell, and needs sign-off.
 
-INSTALLATION STATUS: ACTIVE; SG-1 AND SG-2 IMPLEMENTED
+INSTALLATION STATUS: ACTIVE; SG-1, SG-2, AND SG-3 IMPLEMENTED
   The user explicitly authorized replacing the unfinished battle-window cycle.
   Its open preview and integrated visual-acceptance outcomes are preserved in
   BACKLOG_CRITICAL.md. The user later authorized secondary-source calibration
   and explicitly authorized the current GPT Sol tier for every remaining item,
   overriding the plan's lower cost-routing assignments. Execution may continue
-  from SG-3 in the next session.
+  from SG-4 in the next session.
 
 --------------------------------------------------------------------------------
 SOURCES
