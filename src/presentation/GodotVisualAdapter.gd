@@ -11,7 +11,8 @@ const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEf
 const BattleCursorControllerScript = preload("res://src/presentation/BattleCursorController.gd")
 const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
 const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcons.gd")
-const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
+const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
+const SpellVfxCatalogScript = preload("res://src/presentation/effects/SpellVfxCatalog.gd")
 const DamageNumberBillboardScript = preload("res://src/presentation/effects/DamageNumberBillboard.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
@@ -42,6 +43,9 @@ var _cursor: MeshInstance3D
 var _cursor_controller: BattleCursorController
 
 var _queue: VisualActionQueue
+var _live_effects: Array[WeakRef] = []
+var _live_effect_profiles: Dictionary = {}
+var _active_cast_effect: WeakRef
 
 var visualEffects
 
@@ -137,6 +141,23 @@ func _coord_to_surface_pos3d(coord: Vector2i) -> Vector3:
 	return Vector3(coord.x, _surface_y(coord), coord.y)
 
 
+func _footprint_ground_span(center: Vector2i, radius: int) -> float:
+	var footprint_radius := maxi(radius, 0)
+	var minimum_y := INF
+	var maximum_y := -INF
+	for offset_x: int in range(-footprint_radius, footprint_radius + 1):
+		for offset_y: int in range(-footprint_radius, footprint_radius + 1):
+			if absi(offset_x) + absi(offset_y) > footprint_radius:
+				continue
+			var coord := center + Vector2i(offset_x, offset_y)
+			if not state.withinBounds(coord):
+				continue
+			var surface_y := _surface_y(coord)
+			minimum_y = minf(minimum_y, surface_y)
+			maximum_y = maxf(maximum_y, surface_y)
+	return 0.0 if minimum_y == INF else maximum_y - minimum_y
+
+
 func _stop_position_tween(monsterID: int) -> void:
 	if not _position_tweens.has(monsterID):
 		return
@@ -186,6 +207,7 @@ func queuedAnimationCount() -> int:
 
 func setVisualPaused(paused: bool) -> void:
 	_queue.setPaused(paused)
+	_set_live_effect_playback_scale(0.0 if paused else _animation_speed_scale)
 
 
 func isVisualPaused() -> bool:
@@ -200,10 +222,131 @@ var _animation_speed_scale: float = 1.0
 
 func setAnimationSpeedScale(scale: float) -> void:
 	_animation_speed_scale = clampf(scale, 0.1, 8.0)
+	if not isVisualPaused():
+		_set_live_effect_playback_scale(_animation_speed_scale)
 
 
 func getAnimationSpeedScale() -> float:
 	return _animation_speed_scale
+
+
+func _live_effect_from_ref(effect_ref: WeakRef) -> VfxPlayback:
+	if effect_ref == null:
+		return null
+	var effect = effect_ref.get_ref()
+	if (
+			effect == null
+			or not is_instance_valid(effect)
+			or not (effect is VfxPlayback)
+			or effect.is_queued_for_deletion()
+	):
+		return null
+	return effect as VfxPlayback
+
+
+func _prune_live_effects() -> void:
+	var live_ids: Dictionary = {}
+	for index: int in range(_live_effects.size() - 1, -1, -1):
+		var effect := _live_effect_from_ref(_live_effects[index])
+		if effect == null:
+			_live_effects.remove_at(index)
+			continue
+		live_ids[effect.get_instance_id()] = true
+	for instance_id in _live_effect_profiles.keys():
+		if not live_ids.has(instance_id):
+			_live_effect_profiles.erase(instance_id)
+
+
+func _on_live_effect_exiting(instance_id: int) -> void:
+	for index: int in range(_live_effects.size() - 1, -1, -1):
+		var effect_ref := _live_effects[index]
+		var effect = effect_ref.get_ref() if effect_ref != null else null
+		if (
+				effect == null
+				or not is_instance_valid(effect)
+				or effect.get_instance_id() == instance_id
+		):
+			_live_effects.remove_at(index)
+	_live_effect_profiles.erase(instance_id)
+	_rebalance_live_effect_intensity()
+
+
+func _remove_live_effect(instance_id: int) -> VfxPlayback:
+	var removed: VfxPlayback = null
+	for index: int in range(_live_effects.size() - 1, -1, -1):
+		var effect_ref := _live_effects[index]
+		var effect = effect_ref.get_ref() if effect_ref != null else null
+		if effect == null or not is_instance_valid(effect):
+			_live_effects.remove_at(index)
+		elif effect.get_instance_id() == instance_id:
+			removed = effect as VfxPlayback
+			_live_effects.remove_at(index)
+	_live_effect_profiles.erase(instance_id)
+	return removed
+
+
+func _enforce_live_effect_cap(profile_id: String, maximum_live: int) -> void:
+	if maximum_live <= 0:
+		return
+	_prune_live_effects()
+	var matching_effects: Array = []
+	for effect_ref: WeakRef in _live_effects:
+		var effect := _live_effect_from_ref(effect_ref)
+		if (
+				effect != null
+				and _live_effect_profiles.get(effect.get_instance_id(), "") == profile_id
+		):
+			matching_effects.append(effect)
+	while matching_effects.size() >= maximum_live:
+		var oldest := matching_effects.pop_front() as VfxPlayback
+		var removed := _remove_live_effect(oldest.get_instance_id())
+		if removed != null:
+			removed.dispose()
+
+
+func _track_live_effect(effect: VfxPlayback, profile_id: String) -> WeakRef:
+	var effect_ref: WeakRef = weakref(effect)
+	var instance_id := effect.get_instance_id()
+	_live_effects.append(effect_ref)
+	_live_effect_profiles[instance_id] = profile_id
+	effect.tree_exiting.connect(
+		_on_live_effect_exiting.bind(instance_id), CONNECT_ONE_SHOT
+	)
+	_rebalance_live_effect_intensity()
+	return effect_ref
+
+
+func _rebalance_live_effect_intensity() -> void:
+	_prune_live_effects()
+	var scalable_effects: Array = []
+	for effect_ref: WeakRef in _live_effects:
+		var effect := _live_effect_from_ref(effect_ref)
+		if effect != null and effect.has_method("setIntensityScale"):
+			scalable_effects.append(effect)
+	var intensity := 1.0 / float(maxi(scalable_effects.size(), 1))
+	for effect: VfxPlayback in scalable_effects:
+		effect.call("setIntensityScale", intensity)
+
+
+func _set_live_effect_playback_scale(scale: float) -> void:
+	_prune_live_effects()
+	for effect_ref: WeakRef in _live_effects:
+		var effect := _live_effect_from_ref(effect_ref)
+		if effect != null:
+			effect.set_playback_scale(scale)
+
+
+func _dispose_live_effects() -> void:
+	var effects: Array = []
+	for effect_ref: WeakRef in _live_effects:
+		var effect := _live_effect_from_ref(effect_ref)
+		if effect != null:
+			effects.append(effect)
+	_live_effects.clear()
+	_live_effect_profiles.clear()
+	_active_cast_effect = null
+	for effect: VfxPlayback in effects:
+		effect.dispose()
 
 
 ## Fraction of a spawned effect's own runtime that an action is held on screen
@@ -220,7 +363,7 @@ const CAPSULE_SHATTER_LIFETIME := 0.42
 ## The one path every timed animation activates through.
 ##
 ## `holdDuration` is how long the action's *spawned effects* occupy the screen.
-## Those effects — a SpellCastAura, a particle burst — are not part of the
+## Those effects — cast-area playback, a particle burst — are not part of the
 ## caster's tween, so the tween's own duration says nothing about them, and the
 ## queue advancing on it alone cut them off mid-play. When the hold outlasts
 ## the tween, the remainder is appended to that same tween as an explicit
@@ -258,6 +401,9 @@ func _activateScaled(
 
 
 func skipCurrentAnimation() -> void:
+	var effect := _live_effect_from_ref(_active_cast_effect)
+	if effect != null:
+		effect.skip_to_settle()
 	_queue.skipActive()
 
 
@@ -273,6 +419,9 @@ func _start_queued_animation(action: VisualAction) -> bool:
 		VisualAction.Kind.BUMP:
 			_present_queued_message(action)
 			return _start_bump_animation(action)
+		VisualAction.Kind.CAST_AREA:
+			_present_queued_message(action)
+			return _start_cast_area_animation(action)
 		VisualAction.Kind.DEFEAT:
 			_present_queued_message(action)
 			return _start_defeat_animation(action)
@@ -282,6 +431,9 @@ func _start_queued_animation(action: VisualAction) -> bool:
 
 
 func _finalize_animation(action: VisualAction) -> void:
+	if action.kind == VisualAction.Kind.CAST_AREA:
+		_active_cast_effect = null
+		return
 	var monsterID := action.monster_id
 	var visual := _liveMonsterVisual(monsterID)
 	if action.kind == VisualAction.Kind.MOVE and visual != null:
@@ -324,7 +476,8 @@ func _present_queued_message(action: VisualAction) -> void:
 ## advance while the number is still on screen.
 ##
 ## The number is spawned fire-and-forget and runs on its own tween, exactly as
-## `SpellCastAura` does for a bump; what the queue waits on is a short interval
+## a `CAST_AREA` action does for spell playback; what the queue waits on is a
+## short interval
 ## tween representing the *hold*, not the number's whole animation. Handing the
 ## queue the number's own tween instead would block it for the full drift and
 ## fade — and the settled rule is "mostly through, not fully through", so the
@@ -691,16 +844,29 @@ func _on_spell_cast_started(
 		spellName: String,
 		element: String,
 		targetsHit: int) -> void:
-	if targetsHit > 0:
-		return
-	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.BUMP)
+	assert(state.withinBounds(centerPos), "Spell cast centre is outside the board.")
+	var reference := SpellReferencesScript.getReference(spellName)
+	assert(not reference.is_empty(), "Spell cast lacks a catalog reference: %s" % spellName)
+	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.CAST_AREA)
 	action.monster_id = casterID
 	action.target_id = -1
 	action.coord = centerPos
 	action.element = element
+	action.vfx_profile = str(reference["VFX_PROFILE"])
+	action.vfx_radius = int(reference["RADIUS"])
+	action.vfx_seed = (
+		int(hash(spellName))
+		^ (casterID * 73856093)
+		^ (centerPos.x * 19349663)
+		^ (centerPos.y * 83492791)
+	)
+	action.vfx_ground_span = _footprint_ground_span(centerPos, action.vfx_radius)
+	action.origin = _coord_to_surface_pos3d(centerPos)
+	action.has_origin = true
 	action.left_monster_id = casterID
 	action.has_left_monster = true
-	action.log_text = "Casts %s at %s; no units are affected." % [spellName, centerPos]
+	if targetsHit <= 0:
+		action.log_text = "Casts %s at %s; no units are affected." % [spellName, centerPos]
 	_queue.enqueue(action)
 
 
@@ -878,6 +1044,35 @@ func _spawn_capsule_shatter(container: Node3D, modelBase: Node3D) -> void:
 	modelBase.visible = false
 	particles.emitting = true
 
+func _start_cast_area_animation(action: VisualAction) -> bool:
+	if not action.has_origin:
+		return false
+	var resolved_profile := SpellVfxCatalogScript.resolvedProfileId(action.vfx_profile)
+	_enforce_live_effect_cap(
+		resolved_profile, SpellVfxCatalogScript.maxLive(action.vfx_profile)
+	)
+	var aura_color := BattleMeshFactoryScript.elementColor(action.element)
+	var effect := SpellVfxCatalogScript.create(
+		action.vfx_profile, visual_parent, action.origin, aura_color
+	)
+	if effect == null:
+		return false
+	if effect.has_method("setFootprint"):
+		effect.call("setFootprint", action.vfx_radius, action.vfx_ground_span)
+	effect.set("_autoDispose", true)
+	effect.set_playback_scale(0.0 if isVisualPaused() else _animation_speed_scale)
+	_active_cast_effect = _track_live_effect(effect, resolved_profile)
+	effect.play(action.vfx_seed, VfxPlayback.MODE_BATTLE)
+	var hold_duration := (
+		effect.get_total_duration()
+		* SpellVfxCatalogScript.actionHoldFraction(action.vfx_profile)
+	)
+	var tween := visual_parent.create_tween()
+	tween.tween_interval(hold_duration)
+	_activateScaled(tween, action, hold_duration)
+	return true
+
+
 func _start_bump_animation(action: VisualAction) -> bool:
 	var sourceID := action.monster_id
 	var targetID := action.target_id
@@ -900,14 +1095,7 @@ func _start_bump_animation(action: VisualAction) -> bool:
 	if bumpDirection.is_zero_approx():
 		bumpDirection = Vector3.FORWARD
 	var bumpPos = originalPos + bumpDirection.normalized() * 0.4
-	# A spell cast spawns an aura that outlives the 0.25s lunge by more than
-	# four times over. Hold the action for most of the aura rather than
-	# advancing the queue while it is still playing.
 	var holdDuration := 0.0
-	if not action.element.is_empty():
-		var auraColor := BattleMeshFactoryScript.elementColor(action.element)
-		SpellCastAuraScript.spawn(visual_parent, originalPos, auraColor)
-		holdDuration = SpellCastAuraScript.VISIBLE_DURATION * ACTION_HOLD_FRACTION
 	if action.has_damage_number:
 		var damageTween: Tween = _spawn_damage_number(
 			targetWorldPos, action.damage_number, action.is_heal_number
@@ -1114,6 +1302,8 @@ func _add_threat_overlay(coord: Vector2i, color: Color) -> void:
 
 func dispose() -> void:
 	_queue.dispose()
+	_queue = null
+	_dispose_live_effects()
 	disconnectFromEvents()
 	for monsterID in _position_tweens.keys():
 		_stop_position_tween(monsterID)

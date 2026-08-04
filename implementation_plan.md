@@ -1614,7 +1614,37 @@ FILES: src/presentation/VisualAction.gd,
        src/presentation/GodotVisualAdapter.gd,
        src/presentation/effects/SpellVfxCatalog.gd
 
-RESOLUTION: Not started.
+RESOLUTION: Implemented; pending end-of-plan validation. VisualAction now owns
+CAST_AREA plus cloned profile, radius, deterministic seed, and uneven-ground
+span fields. `spell_cast_started` always enqueues exactly one immutable action
+at the snapshotted target-centre surface for zero, one, or several targets. The
+catalog resolves empty or unknown profile IDs to the generic aura and supplies
+profile-specific hold and live-cap metadata.
+
+GodotVisualAdapter now creates cast playback through SpellVfxCatalog, holds the
+queue through onset and the configured early pulse window, and tracks live
+effects by WeakRef after their queue slot ends. Pause, speed, skip-to-settle,
+and dispose reach every live effect. Ice storms cap at two, a third disposes the
+oldest, and overlap intensity is 1 / live storm count. CAST_AREA finalisation
+returns before any monster lookup or position-tween mutation. Disposing the
+adapter also releases its disposed queue reference, breaking the RefCounted
+callable cycle exposed by the focused teardown probe.
+
+THIS DELIBERATELY MOVES EVERY SPELL'S AURA FROM THE CASTER TO THE TARGET CENTRE.
+Per-target BUMP actions keep their lunge and damage numbers but no longer spawn
+an aura, eliminating one aura per hit on multi-target spells. The battle-event
+and adapter-port signatures did not change; ConsoleVisualAdapter still matches
+the five-argument spell-cast handler and no headless production file changed.
+
+A headless editor load succeeded. A focused Godot adapter probe emitted
+`SG7_CAST_AREA_PROBE_OK clone=1 casts=3 target_counts=0,1,3 live_cap=2
+intensity=0.5 fallback=generic teardown=clean`. It covered clone preservation,
+deterministic seeds, centre/ground-span snapshots, zero/one/several-target cast
+actions, pause/resume and speed forwarding, skip-to-settle, the two-storm cap,
+overlap scaling, unknown-profile fallback, queue-cycle release, and clean node
+and resource teardown. This is narrow contract smoke, not integrated gameplay
+or visual acceptance. Both backlogs were reviewed; no new unresolved work was
+found.
 
 
 --------------------------------------------------------------------------------
@@ -1722,7 +1752,7 @@ RESOLUTION: Not started.
   SG-4         - Implemented; pending end-of-plan validation
   SG-5         - Implemented; pending end-of-plan validation
   SG-6         - Implemented; pending end-of-plan validation
-  SG-7         - Not started
+  SG-7         - Implemented; pending end-of-plan validation
   SG-VALIDATE  - Not started
 
 
@@ -1758,13 +1788,13 @@ BLOCKING USER DECISIONS
      caster to the target centre is a deliberate, user-visible change beyond
      the carrier spell, and needs sign-off.
 
-INSTALLATION STATUS: ACTIVE; SG-1 THROUGH SG-6 IMPLEMENTED
+INSTALLATION STATUS: ACTIVE; SG-1 THROUGH SG-7 IMPLEMENTED
   The user explicitly authorized replacing the unfinished battle-window cycle.
   Its open preview and integrated visual-acceptance outcomes are preserved in
   BACKLOG_CRITICAL.md. The user later authorized secondary-source calibration
   and explicitly authorized the current GPT Sol tier for every remaining item,
   overriding the plan's lower cost-routing assignments. Execution may continue
-  from SG-7 in the next session.
+  from SG-VALIDATE in the next session.
 
 --------------------------------------------------------------------------------
 SOURCES
