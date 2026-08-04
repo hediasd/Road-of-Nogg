@@ -854,6 +854,7 @@ func _on_spell_cast_started(
 	action.element = element
 	action.vfx_profile = str(reference["VFX_PROFILE"])
 	action.vfx_radius = int(reference["RADIUS"])
+	action.vfx_area_shape = str(reference["AREA_SHAPE"])
 	action.vfx_seed = (
 		int(hash(spellName))
 		^ (casterID * 73856093)
@@ -1058,7 +1059,9 @@ func _start_cast_area_animation(action: VisualAction) -> bool:
 	if effect == null:
 		return false
 	if effect.has_method("setFootprint"):
-		effect.call("setFootprint", action.vfx_radius, action.vfx_ground_span)
+		effect.call(
+			"setFootprint", action.vfx_radius, action.vfx_ground_span, action.vfx_area_shape
+		)
 	effect.set("_autoDispose", true)
 	effect.set_playback_scale(0.0 if isVisualPaused() else _animation_speed_scale)
 	_active_cast_effect = _track_live_effect(effect, resolved_profile)

@@ -17,7 +17,8 @@ static var _softFlake: ImageTexture
 static var _shardMasks: Array[ImageTexture] = []
 static var _canopyPuff: ImageTexture
 static var _frostVein: ImageTexture
-static var _groundWash: ImageTexture
+static var _groundWashDisc: ImageTexture
+static var _groundWashDiamond: ImageTexture
 
 static var _flurryMaterial: StandardMaterial3D
 static var _shardMaterials: Array[StandardMaterial3D] = []
@@ -49,10 +50,19 @@ static func frostVein() -> Texture2D:
 	return _frostVein
 
 
-static func groundWash() -> Texture2D:
-	if _groundWash == null:
-		_groundWash = _createGroundWash()
-	return _groundWash
+## `diamond` selects the falloff shape: true for the Manhattan-diamond area
+## (matches `ShapeCaster.getCircle`, the gameplay shape most carriers use),
+## false for the original radial disc, kept for the `cross`/`line` carriers
+## that still use a square-field flurry (see the ice-storm profile's shape
+## handling). Cached separately per shape.
+static func groundWash(diamond: bool = true) -> Texture2D:
+	if diamond:
+		if _groundWashDiamond == null:
+			_groundWashDiamond = _createGroundWashDiamond()
+		return _groundWashDiamond
+	if _groundWashDisc == null:
+		_groundWashDisc = _createGroundWashDisc()
+	return _groundWashDisc
 
 
 static func flurryMaterial() -> StandardMaterial3D:
@@ -93,11 +103,15 @@ static func frostVeinMaterial() -> StandardMaterial3D:
 	return _frostVeinMaterial
 
 
+## Built once with the diamond texture, since that is the shape a freshly
+## constructed effect starts with before its real footprint is known. The
+## effect swaps `albedo_texture`/`emission_texture` on its own duplicate via
+## `groundWash()` directly once `setFootprint` reports the actual area shape.
 static func groundWashMaterial() -> StandardMaterial3D:
 	if _groundWashMaterial == null:
 		_groundWashMaterial = _createMaterial(
 				"IceGroundWashMaterial",
-				groundWash(),
+				groundWash(true),
 				IceStormProfile.GROUND_WASH_COLOR,
 				true,
 				BaseMaterial3D.TEXTURE_FILTER_LINEAR)
@@ -250,7 +264,7 @@ static func _createFrostVein() -> ImageTexture:
 	return ImageTexture.create_from_image(image)
 
 
-static func _createGroundWash() -> ImageTexture:
+static func _createGroundWashDisc() -> ImageTexture:
 	var image := Image.create(
 			_GROUND_WASH_SIZE, _GROUND_WASH_SIZE, false, Image.FORMAT_RGBA8)
 	for y: int in range(_GROUND_WASH_SIZE):
@@ -258,6 +272,22 @@ static func _createGroundWash() -> ImageTexture:
 			var point := _normalizedPoint(x, y, _GROUND_WASH_SIZE)
 			point.y *= 1.18
 			var radial := clampf(1.0 - point.length(), 0.0, 1.0)
+			var alpha := radial * radial * 0.24
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+	return ImageTexture.create_from_image(image)
+
+
+## Manhattan falloff instead of Euclidean: `radial` reaches zero exactly on the
+## `|x| + |y| = 1` diamond boundary, so the wash matches the tiles the spell
+## actually affects rather than claiming the diagonal corners a disc would.
+static func _createGroundWashDiamond() -> ImageTexture:
+	var image := Image.create(
+			_GROUND_WASH_SIZE, _GROUND_WASH_SIZE, false, Image.FORMAT_RGBA8)
+	for y: int in range(_GROUND_WASH_SIZE):
+		for x: int in range(_GROUND_WASH_SIZE):
+			var point := _normalizedPoint(x, y, _GROUND_WASH_SIZE)
+			var manhattan := absf(point.x) + absf(point.y)
+			var radial := clampf(1.0 - manhattan, 0.0, 1.0)
 			var alpha := radial * radial * 0.24
 			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
 	return ImageTexture.create_from_image(image)

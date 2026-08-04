@@ -20,7 +20,10 @@ uniform float intensity_scale = 1.0;
 uniform float gust_enabled = 1.0;
 uniform float pulse_enabled = 1.0;
 uniform float vfx_seed = 1.0;
+uniform float diamond_shape = 1.0;
 uniform vec4 flake_color : source_color = vec4(0.90, 0.96, 1.0, 0.62);
+
+const float SQRT1_2 = 0.70710678;
 
 
 float hash_value(float value) {
@@ -35,15 +38,33 @@ float wrap_span(float value, float span) {
 
 void process() {
 	float index = float(INDEX);
-	float base_x = (hash_value(index + 1.0) - 0.5) * footprint_width;
-	float base_z = (hash_value(index + 41.0) - 0.5) * footprint_width;
+	// The gameplay footprint is a Manhattan diamond (|x| + |z| <= radius), not a
+	// square. Particles are sampled uniformly in a square rotated -45 degrees
+	// from world space, then rotated back +45 degrees at the end: a square
+	// rotated 45 degrees is exactly that diamond, so every sampled particle
+	// lands inside it with none rejected. Drift and wrap happen before the final
+	// rotation so wrapping stays axis-aligned in the pre-rotation frame; gust
+	// is rotated -45 degrees to compensate, so the visible drift direction still
+	// matches the authored world-space direction. diamond_shape = 0.0 collapses
+	// all of this back to the original axis-aligned square field unchanged.
+	float shape_scale = mix(1.0, SQRT1_2, diamond_shape);
+	float square_width = footprint_width * shape_scale;
+	float sx = (hash_value(index + 1.0) - 0.5) * square_width;
+	float sz = (hash_value(index + 41.0) - 0.5) * square_width;
 	float phase = hash_value(index + 83.0);
 	float down_speed = mix(min_down_speed, max_down_speed, hash_value(index + 127.0));
 	float scale = mix(min_scale, max_scale, hash_value(index + 173.0));
+
 	vec2 gust = normalize(gust_direction);
+	vec2 gust_rotated = vec2(gust.x + gust.y, gust.y - gust.x) * SQRT1_2;
+	vec2 gust_square = mix(gust, gust_rotated, diamond_shape);
 	float lateral_distance = playback_time * lateral_speed * gust_enabled;
-	float x = wrap_span(base_x + gust.x * lateral_distance, footprint_width);
-	float z = wrap_span(base_z + gust.y * lateral_distance, footprint_width);
+	sx = wrap_span(sx + gust_square.x * lateral_distance, square_width);
+	sz = wrap_span(sz + gust_square.y * lateral_distance, square_width);
+
+	float x = mix(sx, (sx - sz) * SQRT1_2, diamond_shape);
+	float z = mix(sz, (sx + sz) * SQRT1_2, diamond_shape);
+
 	float cycle = fract(phase + playback_time * down_speed / storm_height);
 	float y = mix(storm_height, 0.04, cycle);
 

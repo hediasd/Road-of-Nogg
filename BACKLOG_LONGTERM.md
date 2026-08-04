@@ -162,6 +162,28 @@ taught the same two rules — stop advancing while a turn is pending, and yield
 a frame per tick. Worth revisiting if the run-ahead limit or the hold fraction
 is ever tuned, and worth remembering before writing a new driver.
 
+## Area VFX footprint shape only matches diamond-shaped carriers
+
+The area ice storm's ground wash and particle flurry now sample a Manhattan
+diamond (`|x| + |z| <= radius`) to match `ShapeCaster.getCircle`, which is what
+every `area`-targeting spell uses unless it explicitly sets `AREA_SHAPE` to
+`cross` or `line`. No spell carries `cross` or `line` with an area VFX profile
+today, so the flurry and ground wash still fall back to their original
+axis-aligned square field and radial disc for those two shapes — a real
+over-claim of the footprint, just not one any shipped spell currently exposes.
+If a `cross`- or `line`-shaped area spell is ever given a VFX profile, extend
+`IceStormEffect._isDiamondShape()`'s false branch with a matching particle
+field and ground-wash texture for each shape before shipping it, rather than
+letting the existing square stand in silently.
+
+Separately: `IceStormEffect._configureSeed()`'s hero-shard spawn positions
+(`start`) are still sampled uniformly across the full square bounding box, not
+masked to the diamond. Left alone deliberately — shards are sparse (8 per
+storm), already fade in from height rather than reading as ground coverage,
+and the dominant claim about the footprint's shape comes from the ground wash
+and the dense flurry field, both of which are now correct. Worth revisiting
+only if a shard is ever seen landing visibly outside the footprint in play.
+
 ## Defeat animation's child-index assumptions are still fragile
 
 `GodotVisualAdapter._start_defeat_animation()` reaches into the monster

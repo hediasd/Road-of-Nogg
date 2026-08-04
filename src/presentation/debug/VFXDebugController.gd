@@ -63,7 +63,7 @@ var _footprintRing: MeshInstance3D
 @onready var _overlapButton: Button = $HUD/PanelContainer/VBoxContainer/CoreButtons/OverlapButton
 @onready var _screenshotButton: Button = $HUD/PanelContainer/VBoxContainer/CoreButtons/ScreenshotButton
 @onready var _scrub: HSlider = $HUD/PanelContainer/VBoxContainer/Scrub
-@onready var _layerToggles: HBoxContainer = $HUD/PanelContainer/VBoxContainer/LayerToggles
+@onready var _layerToggles: GridContainer = $HUD/PanelContainer/VBoxContainer/LayerToggles
 @onready var _resolutionOption: OptionButton = $HUD/PanelContainer/VBoxContainer/Controls/ResolutionOption
 @onready var _retroToggle: CheckButton = $HUD/PanelContainer/VBoxContainer/Controls/RetroToggle
 @onready var _crtToggle: CheckButton = $HUD/PanelContainer/VBoxContainer/Controls/CRTToggle
@@ -187,6 +187,7 @@ func _onPlayPressed() -> void:
 	_activeSeed = int(_seedSetting.value)
 	_activePlayback = _createSelectedPlayback()
 	_applyLayerVisibility(_activePlayback)
+	_applyFootprintTo(_activePlayback)
 	_activePlayback.set_playback_scale(float(_scaleSetting.value))
 	_activeMode = _selectedMode()
 	_activePlayback.play(_activeSeed, _activeMode)
@@ -248,6 +249,7 @@ func _onOverlapPressed() -> void:
 	var overlapSeed := int(_seedSetting.value)
 	var overlap = _createSelectedPlayback()
 	_applyLayerVisibility(overlap)
+	_applyFootprintTo(overlap)
 	overlap.set_playback_scale(
 		0.0 if _playbackState == _STATE_PAUSED else float(_scaleSetting.value)
 	)
@@ -486,7 +488,18 @@ func _onRenderToggleChanged(_enabled: bool) -> void:
 func _onRadiusChanged(value: float) -> void:
 	_footprintRadius = maxi(1, roundi(value))
 	_updateFootprintRing()
+	_applyFootprintTo(_activePlayback)
+	for overlap in _overlapPlaybacks:
+		_applyFootprintTo(overlap)
 	_updateStatus()
+
+
+## No-op for playbacks (like the generic aura) that don't expose a footprint.
+## The guide always draws the diamond `ShapeCaster.getCircle` shape, which is
+## every carrier's shape except `cross`/`line` — see `IceStormEffect._isDiamondShape`.
+func _applyFootprintTo(playback) -> void:
+	if playback != null and is_instance_valid(playback) and playback.has_method("setFootprint"):
+		playback.call("setFootprint", _footprintRadius, 0.0, "circle")
 
 
 func _applyRenderControls() -> void:
@@ -603,13 +616,41 @@ func _buildTargetGuides() -> void:
 	_updateFootprintRing()
 
 
+## A flat diamond band (`|x| + |z| <= radius`, the shape `ShapeCaster.getCircle`
+## actually casts, and the shape `IceStormEffect` now renders for it) rather
+## than the previous `TorusMesh` circle, which claimed tiles the spell never
+## affects. Built double-sided (each triangle added in both windings) so it
+## reads correctly regardless of the debug camera's orbit, without depending on
+## `BattleMeshFactoryScript.createMaterial`'s cull mode.
 func _updateFootprintRing() -> void:
 	if _footprintRing == null:
 		return
-	var ring := TorusMesh.new()
-	ring.inner_radius = maxf(float(_footprintRadius) - 0.045, 0.05)
-	ring.outer_radius = float(_footprintRadius) + 0.045
-	_footprintRing.mesh = ring
+	var inner := maxf(float(_footprintRadius) - 0.045, 0.05)
+	var outer := float(_footprintRadius) + 0.045
+	var innerPoints := _diamondPoints(inner)
+	var outerPoints := _diamondPoints(outer)
+	var surfaceTool := SurfaceTool.new()
+	surfaceTool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for edge in range(4):
+		var nextEdge := (edge + 1) % 4
+		var quad := [innerPoints[edge], outerPoints[edge], outerPoints[nextEdge], innerPoints[nextEdge]]
+		for triangle in [[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]:
+			surfaceTool.add_vertex(triangle[0])
+			surfaceTool.add_vertex(triangle[1])
+			surfaceTool.add_vertex(triangle[2])
+			surfaceTool.add_vertex(triangle[0])
+			surfaceTool.add_vertex(triangle[2])
+			surfaceTool.add_vertex(triangle[1])
+	_footprintRing.mesh = surfaceTool.commit()
+
+
+func _diamondPoints(radius: float) -> Array[Vector3]:
+	return [
+		Vector3(radius, 0.0, 0.0),
+		Vector3(0.0, 0.0, radius),
+		Vector3(-radius, 0.0, 0.0),
+		Vector3(0.0, 0.0, -radius),
+	]
 
 
 func _surfaceY(height: int) -> float:

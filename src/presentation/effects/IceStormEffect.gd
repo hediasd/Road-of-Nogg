@@ -27,6 +27,11 @@ var _autoDispose := false
 var _intensityScale := 1.0
 var _footprintRadius := IceStormProfile.REFERENCE_CARRIER_RADIUS_TILES
 var _groundSpan := 0.0
+## Matches `Spell.area_shape` / `data/spells.json`'s `AREA_SHAPE`. Defaults to
+## "circle", the same default `SpellReferences` normalizes onto every spell
+## reference, which `ShapeCaster.getCircle` actually renders as a Manhattan
+## diamond. See `_isDiamondShape()`.
+var _areaShape := "circle"
 
 var _groundWash: MeshInstance3D
 var _groundMesh: CylinderMesh
@@ -208,9 +213,10 @@ func getIntensityScale() -> float:
 	return _intensityScale
 
 
-func setFootprint(radius: int, groundSpan: float) -> void:
+func setFootprint(radius: int, groundSpan: float, areaShape: String = "circle") -> void:
 	_footprintRadius = maxi(radius, 1)
 	_groundSpan = maxf(groundSpan, 0.0)
+	_areaShape = areaShape
 	_updateFootprintGeometry()
 	_configureSeed(_activeSeed)
 	_updateVisuals(get_normalized_time())
@@ -366,6 +372,9 @@ func _updateFootprintGeometry() -> void:
 	_groundMesh.bottom_radius = diameter * 0.5
 	_groundMesh.height = maxf(_groundSpan + 0.06, 0.06)
 	_groundWash.position.y = 0.0
+	var groundTexture := VfxTextures.groundWash(_isDiamondShape(_areaShape))
+	_groundMaterial.albedo_texture = groundTexture
+	_groundMaterial.emission_texture = groundTexture
 	_frostVeinMesh.size = Vector2(diameter, IceStormProfile.STORM_VOLUME_HEIGHT_U)
 	for index: int in range(_canopyMeshes.size()):
 		_canopyMeshes[index].size = Vector2(
@@ -557,6 +566,8 @@ func _updateFlurryUniforms() -> void:
 			"pulse_enabled",
 			1.0 if bool(_layerVisibility[LAYER_PULSE_ACCENTS]) else 0.0)
 	_flurryShaderMaterial.set_shader_parameter("vfx_seed", float(_activeSeed))
+	_flurryShaderMaterial.set_shader_parameter(
+			"diamond_shape", 1.0 if _isDiamondShape(_areaShape) else 0.0)
 	_flurryShaderMaterial.set_shader_parameter("flake_color", IceStormProfile.FLAKE_COLOR)
 
 
@@ -565,6 +576,16 @@ static func _smoothstep(edge0: float, edge1: float, value: float) -> float:
 		return 1.0 if value >= edge1 else 0.0
 	var amount := clampf((value - edge0) / (edge1 - edge0), 0.0, 1.0)
 	return amount * amount * (3.0 - 2.0 * amount)
+
+
+## Mirrors `CombatResolver._spellAffectedPositions`'s own shape match: only
+## `cross` and `line` are special-cased there, and everything else — including
+## `circle` and any unrecognized value — falls through to `ShapeCaster.getCircle`,
+## which is a Manhattan diamond, not a Euclidean circle. `cross`/`line` carriers
+## keep the legacy square flurry field and disc wash; no carrier uses either
+## with this profile today (tracked in `BACKLOG_LONGTERM.md`).
+static func _isDiamondShape(areaShape: String) -> bool:
+	return areaShape != "cross" and areaShape != "line"
 
 
 static func _countNodes(node: Node) -> int:

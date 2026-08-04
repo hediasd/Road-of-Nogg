@@ -26,17 +26,15 @@ font_size = 15
 script = ExtResource("1_controller")
 
 [node name="DirectionalLight" type="DirectionalLight3D" parent="."]
-rotation_degrees = Vector3(-45, 45, 0)
-light_energy = 1.0
-shadow_enabled = false
+transform = Transform3D(0.707107, -0.5, 0.5, 0, 0.707107, 0.707107, -0.707107, -0.5, 0.5, 0, 0, 0)
 
 [node name="Camera3D" type="Camera3D" parent="."]
-position = Vector3(6, 15, 14)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 15, 14)
 projection = 1
 size = 15.55
 
 [node name="Ground" type="MeshInstance3D" parent="."]
-position = Vector3(0, -0.26, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.26, 0)
 mesh = SubResource("2_plane")
 surface_material_override/0 = SubResource("3_ground_mat")
 
@@ -46,10 +44,11 @@ surface_material_override/0 = SubResource("3_ground_mat")
 layer = 20
 
 [node name="PanelContainer" type="PanelContainer" parent="HUD"]
+anchor_bottom = 1.0
 offset_left = 12.0
 offset_top = 12.0
-offset_right = 620.0
-offset_bottom = 636.0
+offset_right = 380.0
+offset_bottom = -12.0
 theme_override_styles/panel = SubResource("6_panel_style")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="HUD/PanelContainer"]
@@ -78,6 +77,7 @@ text = "Effect"
 [node name="EffectOption" type="OptionButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 size_flags_horizontal = 3
+clip_text = true
 
 [node name="ElementLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
@@ -86,6 +86,7 @@ text = "Element tint"
 [node name="ElementOption" type="OptionButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 size_flags_horizontal = 3
+clip_text = true
 
 [node name="ModeLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
@@ -106,8 +107,6 @@ min_value = 0.1
 max_value = 2.0
 step = 0.1
 value = 1.0
-allow_greater = false
-allow_lesser = false
 
 [node name="SeedLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
@@ -123,10 +122,8 @@ text = "Pin"
 [node name="SeedSetting" type="SpinBox" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-max_value = 2147483647.0
+max_value = 2.14748e+09
 value = 1.0
-allow_greater = false
-allow_lesser = false
 
 [node name="CycleSeedButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow"]
 layout_mode = 2
@@ -170,9 +167,11 @@ step = 0.01
 layout_mode = 2
 text = "Layers"
 
-[node name="LayerToggles" type="HBoxContainer" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="LayerToggles" type="GridContainer" parent="HUD/PanelContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 4
+columns = 1
 
 [node name="RenderSeparator" type="HSeparator" parent="HUD/PanelContainer/VBoxContainer"]
 layout_mode = 2
@@ -190,6 +189,7 @@ text = "Resolution"
 [node name="ResolutionOption" type="OptionButton" parent="HUD/PanelContainer/VBoxContainer/Controls"]
 layout_mode = 2
 size_flags_horizontal = 3
+clip_text = true
 
 [node name="RetroLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/Controls"]
 layout_mode = 2
@@ -216,9 +216,8 @@ layout_mode = 2
 min_value = 1.0
 max_value = 5.0
 value = 2.0
-allow_greater = false
-allow_lesser = false
 
 [node name="HintLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
 layout_mode = 2
 text = "P play | U pause | T settle | O overlap | C capture | M mode"
+autowrap_mode = 3

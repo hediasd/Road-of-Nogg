@@ -18,6 +18,7 @@ var path: Array = []
 var element: String = ""
 var vfx_profile: String = ""
 var vfx_radius: int = 0
+var vfx_area_shape: String = "circle"
 var vfx_seed: int = 0
 var vfx_ground_span: float = 0.0
 var origin: Vector3 = Vector3.ZERO
@@ -51,6 +52,7 @@ func clone() -> VisualAction:
 	copy.element = element
 	copy.vfx_profile = vfx_profile
 	copy.vfx_radius = vfx_radius
+	copy.vfx_area_shape = vfx_area_shape
 	copy.vfx_seed = vfx_seed
 	copy.vfx_ground_span = vfx_ground_span
 	copy.origin = origin
