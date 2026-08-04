@@ -522,5 +522,27 @@ decided, what was verified, and any finding a later item depends on.)*
   (unrelated, reproduces identically). Canopy tint judged only by eye in the
   debug scene with layers isolated — the user should confirm the new look in
   `ICE-5`.
-- **ICE-4** — not started
+- **ICE-4** — implemented; pending end-of-plan validation. `ICE-2` not
+  executed, so edited `IceStormProfile.gd`/`IceStormEffect.gd` directly, same
+  as `ICE-3`. `HERO_SHARD_LIFETIME_SECONDS` → `HERO_SHARD_LIFETIME_FRACTION`
+  (`0.27778`, matching `1.25 / 4.5` to five decimal places — negligible
+  rounding, not a tuning change); `_shardLife()` uses it directly and no
+  longer divides. `_active_cast_effect` is now cleared in
+  `_on_live_effect_exiting` (when the effect it actually points at exits the
+  tree) instead of in `_finalize_animation` (when the action's queue hold
+  expires, which is shorter than some effects' full runtime) — so
+  `skipCurrentAnimation()` can reach a storm still playing past its action's
+  hold. Confirmed via re-read that `_dispose_live_effects()`'s own
+  `_active_cast_effect = null` (full adapter teardown) is unaffected and still
+  correct.
+  **Smoke-checked, not accepted:** the shard-lifetime half was verified in
+  `VFXDebugScene` (visually unchanged, as expected). The
+  `_active_cast_effect`/skip half touches only `GodotVisualAdapter.gd`, which
+  `VFXDebugScene` never loads — a normal capture would not have caught a
+  syntax error in it. Forced a compile-check via a temporary `preload()` in
+  the debug controller (reverted before commit, confirmed absent via `grep
+  TEMP-ICE` returning nothing): no parse/compile error. The actual skip
+  behavior change is only exercisable through the battle scene and is
+  explicitly `ICE-5`'s job ("Skip, pause, speed" in its consolidated checks) —
+  not exercised here.
 - **ICE-5** — not started
