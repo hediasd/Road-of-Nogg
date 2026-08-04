@@ -148,9 +148,10 @@ Zero references: `CANOPY_EDGE_COLOR`, `COMPARISON_CHECKPOINTS`,
 
 Per `AGENTS.md` — this section does not restate it, only what is easy to miss:
 
-- **One item per session, from a clean `git status`.** Check the item's **Model**
+- **One item per session, from a clean `git status`.** Note the item's **Model**
   against the running model before starting; if the running model is more
-  capable than the item needs, say so and stop.
+  capable than the item needs, say so and continue (advisory, not blocking —
+  see `AGENTS.md`).
 - Implementation items resolve to **implemented; pending end-of-plan
   validation**. Only `ICE-5` marks items done.
 - Do not launch the game after each implementation item. `ICE-1`, `ICE-3`, and
