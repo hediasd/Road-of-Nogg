@@ -1369,7 +1369,26 @@ WORK
 
 FILES: src/presentation/effects/VfxTextures.gd (+ .uid)
 
-RESOLUTION: Not started.
+RESOLUTION: Implemented; pending end-of-plan validation. VfxTextures now owns
+five cached runtime-generated texture families: a 16x16 soft radial flake,
+four distinct 32x32 hard-alpha shard silhouettes, a 64x64 low-frequency
+FBM-masked canopy puff, a 128x128 low-alpha branching frost filament, and a
+64x64 very-low-alpha ground wash. No image asset or import setting was added.
+
+Layer-specific shared StandardMaterial3D resources centralize the render
+contract: nearest filtering for flurry and hero shards, linear filtering for
+canopy, frost veins, and ground wash; additive blending for every soft layer;
+alpha/mix blending for hero shards; and unshaded, shadow-receive-disabled,
+depth-draw-disabled, vertex-color-enabled rendering with emission energy 1.0.
+
+A Godot 4.4 integrity probe confirmed cache identity, exact dimensions,
+nonempty alpha coverage, four byte-distinct binary-alpha shard masks, the low
+ground/vein alpha ceilings, and every material property. A hidden rendered
+VFXDebugScene probe then selected the 320x240 retro viewport, created one
+preview layer per texture (including all four shards), drove all eight actual
+CheckButton toggle signals off and on, and captured an exact 320x240 frame with
+175 sampled colors. This is focused resource evidence, not final integrated
+visual acceptance. Backlogs were reviewed; no new unresolved work was found.
 
 
 ================================================================================
@@ -1655,7 +1674,7 @@ RESOLUTION: Not started.
   SG-1         - Implemented; pending end-of-plan validation
   SG-2         - Implemented; pending end-of-plan validation
   SG-3         - Implemented; pending end-of-plan validation
-  SG-4         - Not started
+  SG-4         - Implemented; pending end-of-plan validation
   SG-5         - Not started
   SG-6         - Not started
   SG-7         - Not started
@@ -1694,13 +1713,13 @@ BLOCKING USER DECISIONS
      caster to the target centre is a deliberate, user-visible change beyond
      the carrier spell, and needs sign-off.
 
-INSTALLATION STATUS: ACTIVE; SG-1, SG-2, AND SG-3 IMPLEMENTED
+INSTALLATION STATUS: ACTIVE; SG-1 THROUGH SG-4 IMPLEMENTED
   The user explicitly authorized replacing the unfinished battle-window cycle.
   Its open preview and integrated visual-acceptance outcomes are preserved in
   BACKLOG_CRITICAL.md. The user later authorized secondary-source calibration
   and explicitly authorized the current GPT Sol tier for every remaining item,
   overriding the plan's lower cost-routing assignments. Execution may continue
-  from SG-4 in the next session.
+  from SG-5 in the next session.
 
 --------------------------------------------------------------------------------
 SOURCES
