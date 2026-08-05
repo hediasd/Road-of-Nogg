@@ -470,4 +470,42 @@ Recorded so a later session does not read these as oversights:
   multi-frame reading. Nothing has been seen in battle, at 640×480 through the
   CRT pass, at the `cross` footprint its real carrier uses (the debug harness
   always passes `"circle"`), or at radii other than 2.
-- **FIRE-3** — not started
+- **FIRE-3** — **in progress; the plan is NOT complete and no item is marked
+  done.** The automatable half passed. The half that needs interactive UI or a
+  battle has not run, and cannot be driven from the CLI as the harness stands.
+
+  **Passed:**
+  - **Determinism, objectively.** Two separate processes capturing `t = 0.55`
+    produced **byte-identical PNGs** (md5 `5e6dd16d…`). This is a stronger
+    result than the HUD's `exact` readout: it proves the whole effect, not just
+    the particle seek, reproduces across process boundaries.
+  - **Phase structure**, captured at t = 0.12 / 0.35 / 0.55 / 0.85: embers build
+    from the floor, peak mid-timeline, then cool and thin under a browner smoke
+    crown as the ground wash fades.
+  - **Colour cooling with height** and **density thinning toward the crown** —
+    two of the seven poetic criteria — read clearly in stills.
+  - Shader compiles; build-time node/draw-call/particle asserts hold;
+    `--effect=fire_area_storm` resolves; `spells.json` parses (59 spells);
+    **ice storm renders unchanged**.
+
+  **Not run, and why:**
+  - **Battle integration (plan step 4) — the significant gap.** `Smoke Tower`
+    has never been cast. Nothing has been seen at 640×480 through the CRT pass,
+    against real terrain, or composited with units.
+  - **The `cross` footprint has never rendered.** `VFXDebugController.
+    _applyFootprintTo()` hardcodes `"circle"`, so every capture above is the
+    diamond path. Smoke Tower is a `cross` carrier, so the shape its only
+    carrier actually uses is entirely unexercised — including the new cross
+    ground-wash mask, which has never been seen on screen.
+  - **Radius sweep, layer toggles, overlap/cap, skip/pause/speed, leak check,
+    and the carried-over ice checks (steps 5–6)** are UI-driven; the harness
+    exposes no CLI for them.
+  - **Four poetic criteria — differential rotation, taper, shrink, lean — are
+    inherently multi-frame or motion-dependent** and cannot be confirmed from
+    stills. The winding spiral is the effect's whole premise and remains
+    unjudged.
+
+  **To finish this item**, either drive the harness interactively, or extend it
+  with CLI flags for footprint radius, area shape, and layer isolation — the
+  same investment that turned `--effect`/`--hide-hud` from a repeated manual
+  edit into one command, and the reason the automatable half above was cheap.
