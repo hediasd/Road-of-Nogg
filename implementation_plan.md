@@ -393,6 +393,37 @@ Recorded so a later session does not read these as oversights:
 
 ## 6. Resolution notes
 
-- **FIRE-1** — not started
+- **FIRE-1** — implemented; pending end-of-plan validation.
+  Three new files: `fire_storm_vortex.gdshader`, `FireStormProfile.gd`,
+  `FireStormEffect.gd`, with `.uid` sidecars.
+
+  **Built as specified.** The shader is the plan's math verbatim, including the
+  exact diamond polar form. Layer roster is the planned six; frost veins and
+  hero shards are gone. Actuals: **6 nodes, 5 draw calls, 180 particles**
+  (140 column + 40 motes) against budgets of 12 / 14 / 220.
+
+  **Two decisions made in-item:**
+  1. The ember draw material neutralises albedo and emission to white before
+     use. `VfxTextures.flurryMaterial()` is built ice-tinted and sets
+     `vertex_color_use_as_albedo`, so its albedo would have multiplied against
+     the per-ember colour the shader writes to `COLOR` and skewed the whole
+     hot-to-cool gradient blue. Without this the palette work is invisible.
+  2. The smoke crown fades in on `smoothstep(0.10, 0.34)` rather than tracking
+     `onset` like every ice layer, and lingers past the ember die-off — smoke
+     that appears simultaneously with its own fire reads wrong.
+
+  **Smoke check, and what it does not cover.** `--import --headless` generated
+  both `.uid` sidecars and registered `FireStormEffect`/`FireStormProfile` in
+  the global class cache, which confirms both scripts parse. The progress-dialog
+  errors that run printed are the known import-harness noise documented in
+  `docs/DEVELOPMENT.md`, not project errors.
+
+  **An earlier probe was inconclusive and is recorded so it is not repeated:**
+  launching `VFXDebugScene` directly does *not* rescan the filesystem, so
+  nothing referenced the new files and they were never parsed — it printed clean
+  while proving nothing. A new `class_name` script needs the import pass, not a
+  scene launch. **The shader has still never been compiled by the GPU** (that
+  needs a live instance, which requires the catalog row in FIRE-2) and nothing
+  has been seen on screen.
 - **FIRE-2** — not started
 - **FIRE-3** — not started
