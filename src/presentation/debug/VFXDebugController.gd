@@ -4,8 +4,37 @@
 ## custom input actions and the built-in UI owns Enter, Escape, Space, arrows.
 ## P play | U pause/resume | T settle | O overlap | C capture | H hide hud | M mode
 ##
-## CLI flags for unattended capture: --capture-at=<0..1>, --effect=<profile id>
-## (e.g. ice_area_storm; defaults to the catalog's first entry), --hide-hud.
+## Every interactive control below is also reachable from the command line, so
+## a validation pass is scriptable rather than a sequence of clicks. That parity
+## is deliberate: twice now an item has stalled because the harness could not
+## produce an observation its own plan asked for.
+##
+## Scene selection and framing:
+##   --effect=<profile id>   catalog entry to open with (default: first entry)
+##   --radius=<n>            footprint radius in tiles (default 2)
+##   --shape=<circle|cross|line>  area shape, matching AREA_SHAPE (default circle)
+##   --layers=<a,b,...>      isolate: show only these layers, hide the rest
+##   --seed=<n>              pin the seed instead of cycling it
+##   --scale=<f>             playback scale
+##   --retro / --crt         enable the retro viewport / CRT pass
+##   --hide-hud              start with the HUD panel hidden (H toggles it)
+##
+## Capture:
+##   --capture-at=<t>[,<t>...]  one or more normalized times; a list captures
+##                              the whole series in ONE process rather than
+##                              paying a fresh engine boot per frame
+##   --capture-out=<prefix>     output path prefix (default user://vfx_debug_capture)
+##   --capture-sheet            also tile the series into <prefix>_sheet.png
+##   --sheet-scale=<f>          per-frame scale in the sheet (default 0.5)
+##
+## Golden-frame regression, which the effects' determinism guarantee earns:
+##   --golden=<dir>          compare each capture against <dir>/<name>.png and
+##                           print MATCH/DIFF/MISSING; exits non-zero on failure
+##   --golden-write          write the captures into <dir> as new references
+##
+## Determinism is what makes the golden comparison meaningful: a given effect,
+## seed and timestamp reproduce exactly across processes, so a DIFF is a real
+## regression rather than sampling noise.
 
 extends Node3D
 
@@ -21,6 +50,36 @@ const CAMERA_OFFSET := Vector3(6.0, 15.0, 14.0)
 const REPRESENTATIVE_CAMERA_SIZE := 15.55
 const DEFAULT_FOOTPRINT_RADIUS := 2
 const SCREENSHOT_PATH := "user://vfx_debug_capture.png"
+const CAPTURE_PREFIX_DEFAULT := "user://vfx_debug_capture"
+## Exit code for a golden-frame mismatch, distinct from the engine's own
+## failure codes so a CI caller can tell a regression from a crash.
+const EXIT_GOLDEN_FAILED := 3
+## Full draw cycles to settle after seeking before a capture is read back.
+## Two is enough for the shader uniforms and the draw to land; more does not
+## improve stability (measured), because the residual variation is GPU particle
+## scheduling rather than anything that settles with time.
+const _CAPTURE_SETTLE_FRAMES := 2
+## Golden comparison downsamples to this square before differencing. Comparing
+## at full resolution is both slow in GDScript and needlessly brittle: it is
+## structure — layer positions, palette, footprint shape — that a regression
+## test should defend, not the exact pixel a given ember landed on.
+const _GOLDEN_COMPARE_SIZE := 256
+## Mean per-channel difference (0-255) tolerated before a capture counts as a
+## regression.
+##
+## Calibrated from measurement, not taste. Repeat runs of the *same* effect
+## differ by **0.00-0.03** (GPU particle scheduling). Swapping the effect
+## entirely — ice storm against fire goldens — scores only **3.2**, because a
+## mean taken over the whole frame is heavily diluted by the identical dark
+## background and terrain that fill most of it. 0.5 sits roughly 16x above the
+## noise and 6x below a total change.
+##
+## That dilution is this metric's real weakness: an effect occupying a small
+## share of the frame produces a small mean even when it changes completely.
+## Capture goldens framed so the effect fills a decent portion of the image, and
+## treat a diff that is merely *near* tolerance as worth looking at rather than
+## as a pass.
+const _GOLDEN_TOLERANCE_DEFAULT := 0.5
 const _STATE_PLAYING := "playing"
 const _STATE_PAUSED := "paused"
 const _STATE_STOPPED := "stopped"
@@ -48,7 +107,12 @@ var _syncingScrub: bool = false
 var _captureUsed: bool = false
 var _captureMessage: String = ""
 var _footprintRadius: int = DEFAULT_FOOTPRINT_RADIUS
+## Matches `data/spells.json`'s `AREA_SHAPE`. Drives both the effect's own
+## footprint and the on-screen guide, so the two cannot disagree about which
+## tiles a spell claims.
+var _areaShape: String = "circle"
 var _footprintRing: MeshInstance3D
+var _goldenFailures: int = 0
 
 @onready var _spawnAnchor: Node3D = $SpawnAnchor
 @onready var _camera: Camera3D = $Camera3D
@@ -88,12 +152,11 @@ func _ready() -> void:
 	set_process(true)
 	_updateStatus()
 
-	if _hasFlagArgument("--hide-hud"):
-		$HUD.visible = false
+	_applyCommandLineOverrides()
 
-	var captureAt := _captureAtArgument()
-	if captureAt >= 0.0:
-		call_deferred("_runCaptureMode", captureAt)
+	var captureTimes := _captureTimesArgument()
+	if not captureTimes.is_empty():
+		call_deferred("_runCaptureMode", captureTimes)
 
 
 func _process(_delta: float) -> void:
@@ -437,14 +500,104 @@ func _cmdlineArguments() -> PackedStringArray:
 	return arguments
 
 
-func _captureAtArgument() -> float:
-	for argument: String in _cmdlineArguments():
-		if argument.begins_with("--capture-at="):
-			var rawValue := argument.trim_prefix("--capture-at=")
-			if rawValue.is_valid_float():
-				return clampf(rawValue.to_float(), 0.0, 1.0)
-			push_warning("Invalid --capture-at value: %s" % rawValue)
-	return -1.0
+## Accepts either a single time or a comma-separated series. A series is
+## captured within one process: the engine boot dominates the cost of a single
+## capture, so paying it once for five frames instead of five times is the
+## difference between a phase sweep being routine and being avoided.
+func _captureTimesArgument() -> PackedFloat32Array:
+	var times := PackedFloat32Array()
+	var raw := _stringArgument("--capture-at=")
+	if raw.is_empty():
+		return times
+	for piece: String in raw.split(",", false):
+		var trimmed := piece.strip_edges()
+		if trimmed.is_valid_float():
+			times.append(clampf(trimmed.to_float(), 0.0, 1.0))
+		else:
+			push_warning("Invalid --capture-at value: %s" % trimmed)
+	return times
+
+
+func _floatArgument(prefix: String, fallback: float) -> float:
+	var raw := _stringArgument(prefix)
+	if raw.is_empty():
+		return fallback
+	if not raw.is_valid_float():
+		push_warning("Invalid %s value: %s" % [prefix, raw])
+		return fallback
+	return raw.to_float()
+
+
+func _intArgument(prefix: String, fallback: int) -> int:
+	var raw := _stringArgument(prefix)
+	if raw.is_empty():
+		return fallback
+	if not raw.is_valid_int():
+		push_warning("Invalid %s value: %s" % [prefix, raw])
+		return fallback
+	return raw.to_int()
+
+
+## Applied after the controls are built but before any capture, so a scripted
+## run sees exactly the state an interactive session would after setting the
+## same controls by hand.
+func _applyCommandLineOverrides() -> void:
+	var radius := _intArgument("--radius=", DEFAULT_FOOTPRINT_RADIUS)
+	if radius != DEFAULT_FOOTPRINT_RADIUS:
+		_radiusSetting.set_value_no_signal(radius)
+		_footprintRadius = maxi(1, radius)
+
+	var shape := _stringArgument("--shape=")
+	if not shape.is_empty():
+		if shape in ["circle", "cross", "line"]:
+			_areaShape = shape
+		else:
+			push_warning("Unknown --shape=%s; keeping circle." % shape)
+	_updateFootprintRing()
+
+	var seedValue := _intArgument("--seed=", -1)
+	if seedValue >= 0:
+		# Pin, or `_onPlayPressed` would cycle straight past the requested seed.
+		_seedSetting.set_value_no_signal(seedValue)
+		_seedPin.set_pressed_no_signal(true)
+
+	var scale := _floatArgument("--scale=", -1.0)
+	if scale > 0.0:
+		_scaleSetting.set_value_no_signal(scale)
+
+	if _hasFlagArgument("--retro"):
+		_retroToggle.set_pressed_no_signal(true)
+	if _hasFlagArgument("--crt"):
+		_crtToggle.set_pressed_no_signal(true)
+	if _hasFlagArgument("--retro") or _hasFlagArgument("--crt"):
+		_applyRenderControls()
+
+	if _hasFlagArgument("--hide-hud"):
+		$HUD.visible = false
+
+
+## Isolation runs after `_onPlayPressed`, because that call rebuilds the toggle
+## row from the live playback's own layer list — applying it earlier would be
+## overwritten.
+func _applyLayerIsolation() -> void:
+	var requested := _stringArgument("--layers=")
+	if requested.is_empty() or _activePlayback == null:
+		return
+	var wanted := requested.split(",", false)
+	# Explicitly typed: `_activePlayback` is untyped, so the return type of
+	# `get_layer_names()` cannot be inferred at parse time.
+	var known: Array[String] = _activePlayback.get_layer_names()
+	for name: String in wanted:
+		if not known.has(name.strip_edges()):
+			push_warning("Unknown --layers entry '%s'; known: %s" % [name, ", ".join(known)])
+	for layerName: String in known:
+		var visible := false
+		for name: String in wanted:
+			if name.strip_edges() == layerName:
+				visible = true
+		_layerVisibility[layerName] = visible
+		_activePlayback.set_layer_visible(layerName, visible)
+	_rebuildLayerToggles(known)
 
 
 func _stringArgument(prefix: String) -> String:
@@ -458,18 +611,177 @@ func _hasFlagArgument(flag: String) -> bool:
 	return _cmdlineArguments().has(flag)
 
 
-func _runCaptureMode(normalizedTime: float) -> void:
+func _runCaptureMode(times: PackedFloat32Array) -> void:
 	if DisplayServer.get_name() == "headless":
 		push_error("--capture-at requires a rendered display; headless capture is unsupported.")
 		get_tree().quit(2)
 		return
 	_onPlayPressed()
-	_activePlayback.set_playback_scale(0.0)
-	_activePlayback.seek_normalized(normalizedTime)
-	_playbackState = _STATE_PAUSED if normalizedTime < 1.0 else _STATE_STOPPED
-	await get_tree().process_frame
-	await get_tree().process_frame
-	await _captureOnce(true)
+	_applyLayerIsolation()
+
+	var prefix := _stringArgument("--capture-out=")
+	if prefix.is_empty():
+		prefix = CAPTURE_PREFIX_DEFAULT
+	var single := times.size() == 1
+	var frames: Array[Image] = []
+	var lastError := OK
+
+	for index: int in range(times.size()):
+		var normalizedTime := times[index]
+		# Replay from zero before every seek, so each frame is the *first* seek
+		# of a fresh timeline. Measured: repeated seeks within one process do
+		# not reproduce — a second seek drifts run to run and differs from a
+		# solo capture of the same timestamp, because `GPUParticles3D.restart()`
+		# plus `request_particles_process()` is serviced asynchronously and how
+		# many real frames elapse in between varies. Replaying costs a few
+		# milliseconds per frame and makes a series byte-reproducible, which is
+		# what golden comparison depends on.
+		_activePlayback.play(_activeSeed, _activeMode)
+		_activePlayback.set_playback_scale(0.0)
+		_activePlayback.seek_normalized(normalizedTime)
+		_playbackState = _STATE_PAUSED if normalizedTime < 1.0 else _STATE_STOPPED
+		_updateStatus()
+		# `GPUParticles3D.request_particles_process()` is serviced asynchronously
+		# by the rendering server, so a capture taken too eagerly samples a
+		# partially-advanced system. Measured: with a single settle frame the
+		# same timestamp reproduced only intermittently. Settling across several
+		# full draw cycles is what makes the result byte-stable, and byte
+		# stability is the whole basis of the golden comparison below.
+		for _settle: int in range(_CAPTURE_SETTLE_FRAMES):
+			await get_tree().process_frame
+			await RenderingServer.frame_post_draw
+		var image := get_viewport().get_texture().get_image()
+		frames.append(image)
+		# A lone capture keeps the historical single-file path so existing
+		# invocations and any stored reference paths still resolve.
+		var name := (
+				prefix.get_file()
+				if single
+				else "%s_t%s" % [prefix.get_file(), String.num(normalizedTime, 2)])
+		var path := "%s.png" % (prefix if single else prefix.get_base_dir().path_join(name))
+		var error := image.save_png(path)
+		if error != OK:
+			lastError = error
+		print("VFX_DEBUG_CAPTURE path=%s error=%d" % [
+			ProjectSettings.globalize_path(path), error
+		])
+		_checkGolden(name, image)
+
+	if _hasFlagArgument("--capture-sheet") and frames.size() > 1:
+		var sheetPath := "%s_sheet.png" % prefix
+		var sheetError := _writeContactSheet(frames, sheetPath)
+		if sheetError != OK:
+			lastError = sheetError
+		print("VFX_DEBUG_SHEET path=%s error=%d frames=%d" % [
+			ProjectSettings.globalize_path(sheetPath), sheetError, frames.size()
+		])
+
+	if _goldenFailures > 0:
+		print("VFX_GOLDEN_RESULT failures=%d" % _goldenFailures)
+		get_tree().quit(EXIT_GOLDEN_FAILED)
+		return
+	get_tree().quit(lastError)
+
+
+## Tiles the series into one image so a phase sweep can be judged in a single
+## look, side by side, instead of by holding four separate frames in memory.
+## Four columns keeps a typical sweep on one row; motion reads left to right.
+func _writeContactSheet(frames: Array[Image], path: String) -> int:
+	var scale := clampf(_floatArgument("--sheet-scale=", 0.5), 0.05, 1.0)
+	var cellWidth := maxi(int(float(frames[0].get_width()) * scale), 1)
+	var cellHeight := maxi(int(float(frames[0].get_height()) * scale), 1)
+	var columns := mini(frames.size(), 4)
+	var rows := int(ceil(float(frames.size()) / float(columns)))
+	var sheet := Image.create(
+			cellWidth * columns, cellHeight * rows, false, Image.FORMAT_RGBA8)
+	for index: int in range(frames.size()):
+		var cell := frames[index].duplicate() as Image
+		cell.resize(cellWidth, cellHeight, Image.INTERPOLATE_BILINEAR)
+		cell.convert(Image.FORMAT_RGBA8)
+		sheet.blit_rect(
+				cell,
+				Rect2i(Vector2i.ZERO, cell.get_size()),
+				Vector2i((index % columns) * cellWidth, (index / columns) * cellHeight))
+	return sheet.save_png(path)
+
+
+## Compares a capture against a stored reference, or records a new one.
+##
+## **Tolerance-based, not byte-exact, and that is a measured decision.** The
+## GDScript timeline is deterministic — the same effect, seed and timestamp
+## produce the same uniforms every run — but `GPUParticles3D` is not: its
+## `restart()` / `request_particles_process()` work is scheduled on the
+## rendering server, and identical runs were observed producing different
+## frames for the same timestamp. Replaying from zero before each seek made it
+## much closer, and additional settle frames did not help at all, which is what
+## identifies the residue as scheduling rather than a race that time fixes.
+##
+## So the comparison defends structure instead of pixels: both images are
+## downsampled and differenced, and anything under `_GOLDEN_TOLERANCE_DEFAULT`
+## passes. That still fails loudly on the regressions worth catching — a wrong
+## palette, a dropped layer, a footprint of the wrong shape — while ignoring
+## which exact pixel an individual ember landed on.
+##
+## Raw pixel data is compared rather than encoded PNG bytes, so a future
+## encoder change cannot masquerade as a regression.
+func _checkGolden(name: String, image: Image) -> void:
+	var goldenDir := _stringArgument("--golden=")
+	if goldenDir.is_empty():
+		return
+	var goldenPath := goldenDir.path_join("%s.png" % name)
+	if _hasFlagArgument("--golden-write"):
+		DirAccess.make_dir_recursive_absolute(goldenDir)
+		var writeError := image.save_png(goldenPath)
+		print("VFX_GOLDEN name=%s status=%s path=%s" % [
+			name,
+			"WROTE" if writeError == OK else "WRITE_FAILED",
+			ProjectSettings.globalize_path(goldenPath)
+		])
+		if writeError != OK:
+			_goldenFailures += 1
+		return
+	if not FileAccess.file_exists(goldenPath):
+		print("VFX_GOLDEN name=%s status=MISSING path=%s" % [
+			name, ProjectSettings.globalize_path(goldenPath)
+		])
+		_goldenFailures += 1
+		return
+	var golden := Image.load_from_file(goldenPath)
+	if golden == null:
+		print("VFX_GOLDEN name=%s status=UNREADABLE path=%s" % [
+			name, ProjectSettings.globalize_path(goldenPath)
+		])
+		_goldenFailures += 1
+		return
+	var tolerance := _floatArgument("--golden-tolerance=", _GOLDEN_TOLERANCE_DEFAULT)
+	var difference := _meanImageDifference(golden, image)
+	var matched := difference <= tolerance
+	print("VFX_GOLDEN name=%s status=%s diff=%.2f tolerance=%.2f" % [
+		name, "MATCH" if matched else "DIFF", difference, tolerance
+	])
+	if not matched:
+		_goldenFailures += 1
+
+
+## Mean absolute per-channel difference between two images, 0-255, computed on
+## a downsampled copy of each. Returns a large sentinel when the images cannot
+## be compared at all, so a size or format surprise fails rather than passing
+## silently.
+func _meanImageDifference(first: Image, second: Image) -> float:
+	var a := first.duplicate() as Image
+	var b := second.duplicate() as Image
+	a.convert(Image.FORMAT_RGBA8)
+	b.convert(Image.FORMAT_RGBA8)
+	a.resize(_GOLDEN_COMPARE_SIZE, _GOLDEN_COMPARE_SIZE, Image.INTERPOLATE_BILINEAR)
+	b.resize(_GOLDEN_COMPARE_SIZE, _GOLDEN_COMPARE_SIZE, Image.INTERPOLATE_BILINEAR)
+	var dataA := a.get_data()
+	var dataB := b.get_data()
+	if dataA.size() != dataB.size() or dataA.is_empty():
+		return 255.0
+	var total := 0.0
+	for index: int in range(dataA.size()):
+		total += absf(float(dataA[index]) - float(dataB[index]))
+	return total / float(dataA.size())
 
 
 func _captureOnce(quitAfter: bool = false) -> void:
@@ -540,7 +852,7 @@ func _onRadiusChanged(value: float) -> void:
 ## every carrier's shape except `cross`/`line` — see `IceStormEffect._isDiamondShape`.
 func _applyFootprintTo(playback) -> void:
 	if playback != null and is_instance_valid(playback) and playback.has_method("setFootprint"):
-		playback.call("setFootprint", _footprintRadius, 0.0, "circle")
+		playback.call("setFootprint", _footprintRadius, 0.0, _areaShape)
 
 
 func _applyRenderControls() -> void:
@@ -650,48 +962,78 @@ func _buildTargetGuides() -> void:
 	_footprintRing = MeshInstance3D.new()
 	_footprintRing.name = "FootprintGuide"
 	_footprintRing.position.y = 0.035
+	# Far more translucent than the outline band this replaced: it now fills the
+	# whole footprint rather than tracing its edge, so it has to sit under the
+	# effect without competing with it.
 	_footprintRing.material_override = BattleMeshFactoryScript.createMaterial(
-		Color(0.42, 0.82, 1.0, 0.72), true, 1.0
+		Color(0.42, 0.82, 1.0, 0.16), true, 0.6
 	)
 	retroRenderer.world_root.add_child(_footprintRing)
 	_updateFootprintRing()
 
 
-## A flat diamond band (`|x| + |z| <= radius`, the shape `ShapeCaster.getCircle`
-## actually casts, and the shape `IceStormEffect` now renders for it) rather
-## than the previous `TorusMesh` circle, which claimed tiles the spell never
-## affects. Built double-sided (each triangle added in both windings) so it
-## reads correctly regardless of the debug camera's orbit, without depending on
-## `BattleMeshFactoryScript.createMaterial`'s cull mode.
+## A flat translucent polygon covering exactly the tiles the spell affects.
+##
+## Filled rather than an outline band because the guide must now follow any
+## `AREA_SHAPE`, and offsetting a non-convex outline (the cross) into a clean
+## band is far more work than triangulating the region itself. Built
+## double-sided — each triangle added in both windings — so it reads regardless
+## of the camera's orbit, without depending on the material's cull mode.
 func _updateFootprintRing() -> void:
 	if _footprintRing == null:
 		return
-	var inner := maxf(float(_footprintRadius) - 0.045, 0.05)
-	var outer := float(_footprintRadius) + 0.045
-	var innerPoints := _diamondPoints(inner)
-	var outerPoints := _diamondPoints(outer)
+	var polygon := _footprintPolygon(_footprintRadius, _areaShape)
+	var indices := Geometry2D.triangulate_polygon(polygon)
 	var surfaceTool := SurfaceTool.new()
 	surfaceTool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for edge in range(4):
-		var nextEdge := (edge + 1) % 4
-		var quad := [innerPoints[edge], outerPoints[edge], outerPoints[nextEdge], innerPoints[nextEdge]]
-		for triangle in [[quad[0], quad[1], quad[2]], [quad[0], quad[2], quad[3]]]:
-			surfaceTool.add_vertex(triangle[0])
-			surfaceTool.add_vertex(triangle[1])
-			surfaceTool.add_vertex(triangle[2])
-			surfaceTool.add_vertex(triangle[0])
-			surfaceTool.add_vertex(triangle[2])
-			surfaceTool.add_vertex(triangle[1])
+	for triangle: int in range(0, indices.size(), 3):
+		var a := _groundPoint(polygon[indices[triangle]])
+		var b := _groundPoint(polygon[indices[triangle + 1]])
+		var c := _groundPoint(polygon[indices[triangle + 2]])
+		surfaceTool.add_vertex(a)
+		surfaceTool.add_vertex(b)
+		surfaceTool.add_vertex(c)
+		surfaceTool.add_vertex(a)
+		surfaceTool.add_vertex(c)
+		surfaceTool.add_vertex(b)
 	_footprintRing.mesh = surfaceTool.commit()
 
 
-func _diamondPoints(radius: float) -> Array[Vector3]:
-	return [
-		Vector3(radius, 0.0, 0.0),
-		Vector3(0.0, 0.0, radius),
-		Vector3(-radius, 0.0, 0.0),
-		Vector3(0.0, 0.0, -radius),
-	]
+func _groundPoint(point: Vector2) -> Vector3:
+	return Vector3(point.x, 0.0, point.y)
+
+
+## The tiles each `AREA_SHAPE` actually covers, in world units with tile = 1.0.
+## A radius-R footprint reaches R + 0.5 from centre because the outermost tile
+## contributes its own half-width — the same `radius + 0.5` the effects use for
+## their own boundaries, so guide and effect agree by construction.
+func _footprintPolygon(radius: int, shape: String) -> PackedVector2Array:
+	var extent := float(radius) + 0.5
+	match shape:
+		"cross":
+			# Twelve corners tracing a plus: arms one tile wide (half-width 0.5)
+			# reaching `extent` along each axis. Matches ShapeCaster.getCross.
+			var arm := 0.5
+			return PackedVector2Array([
+				Vector2(extent, arm), Vector2(arm, arm), Vector2(arm, extent),
+				Vector2(-arm, extent), Vector2(-arm, arm), Vector2(-extent, arm),
+				Vector2(-extent, -arm), Vector2(-arm, -arm), Vector2(-arm, -extent),
+				Vector2(arm, -extent), Vector2(arm, -arm), Vector2(extent, -arm),
+			])
+		"line":
+			# Direction-dependent in play and unknown here, so the guide shows
+			# the reachable band rather than claiming a specific orientation.
+			return PackedVector2Array([
+				Vector2(extent, 0.5), Vector2(-extent, 0.5),
+				Vector2(-extent, -0.5), Vector2(extent, -0.5),
+			])
+		_:
+			# Manhattan diamond — ShapeCaster.getCircle, the default for every
+			# area spell that does not set AREA_SHAPE.
+			return PackedVector2Array([
+				Vector2(extent, 0.0), Vector2(0.0, extent),
+				Vector2(-extent, 0.0), Vector2(0.0, -extent),
+			])
 
 
 func _surfaceY(height: int) -> float:
