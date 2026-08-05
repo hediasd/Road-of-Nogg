@@ -505,7 +505,41 @@ Recorded so a later session does not read these as oversights:
     stills. The winding spiral is the effect's whole premise and remains
     unjudged.
 
-  **To finish this item**, either drive the harness interactively, or extend it
-  with CLI flags for footprint radius, area shape, and layer isolation — the
-  same investment that turned `--effect`/`--hide-hud` from a repeated manual
-  edit into one command, and the reason the automatable half above was cheap.
+  **Update — the harness was extended, and most of the above is now closed.**
+  A tooling pass added CLI parity (`--radius`, `--shape`, `--layers`, `--seed`,
+  `--scale`, `--retro`, `--crt`), multi-timestamp capture in one process,
+  contact sheets, and golden-frame regression. Newly verified with it:
+
+  - **The `cross` footprint renders**, at `Smoke Tower`'s real configuration
+    (cross, radius 1) — the shape its only carrier uses, previously never once
+    drawn. The new cross ground-wash mask is exercised.
+  - **The retro path**: 640×480 through the CRT pass, scanlines present, the
+    column survives the downscale and still reads as fire.
+  - **Baseline goldens recorded for both effects** at their carriers' real
+    configurations (`debug/vfx_golden/`, 3 timestamps each), and re-verified
+    reproducing at diff 0.00.
+  - Ice re-confirmed unchanged at Ice Plow's own config.
+
+  **A correction to this item's earlier determinism claim.** It reported the
+  effect byte-identical across processes. That was true of the single capture
+  measured, but is **not true in general**: building the golden comparison
+  showed `GPUParticles3D` schedules `restart()`/`request_particles_process()`
+  on the rendering server, so identical runs differ slightly (mean per-channel
+  0.00–0.03). Replaying from zero before each seek removes most of it; extra
+  settle frames removed none, identifying the residue as scheduling rather than
+  a race. Golden comparison is therefore tolerance-based, calibrated against
+  measurement: noise 0.00–0.03, a whole-effect swap 3.2, tolerance 0.5. The
+  GDScript timeline is deterministic; the particle system is not quite.
+
+  **Still genuinely open:**
+  - **Battle integration.** `Smoke Tower` has still never been cast in
+    `Battle25D` — no terrain, no units, no queue pacing, no CRT compositing in
+    a real battle.
+  - **Overlap/cap, skip, pause, speed, and the leak check** (plan step 6, which
+    also carries the ice cycle's lifecycle checks). These need a battle or an
+    interactive session; the harness can spawn overlaps but not exercise the
+    adapter's cap and skip paths.
+  - **Radius sweep** covered 1 and 2, not 3–5.
+  - **The four motion-dependent poetic criteria** — winding, taper, shrink,
+    lean. Contact-sheet frames 0.2 apart are far too coarse to read rotation; a
+    tight series (0.40/0.42/0.44) would settle it and now costs one command.
