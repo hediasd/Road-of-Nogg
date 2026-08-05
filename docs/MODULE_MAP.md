@@ -21,7 +21,7 @@ disagree, ARCHITECTURE wins and this file is the one to correct.
 | `src/battle_sim/` | Canonical runtime: state, turn order, resolvers, setup, replay, event bus, adapter port | `BattleSimulator`, `BattleState`, `BattleSetupConfig`, `BattleSetupValidationResult`, `BattleSetupFactory`, `BattleCommand`, `BattleEvents`, `IBattleVisualAdapter`, `BattleStateSerializer`, `BattleReplayRunner` | every headless directory above | `src/presentation/`, `src/systems/`, scene tree | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | `src/presentation/` | Observe simulation and draw it: camera, meshes, cursor, UI, effects, adapters | `IPlayerTurnVisualAdapter`, `GodotVisualAdapter`, `ConsoleVisualAdapter`, `BattleMeshFactory`, `BattleCameraController`, `BattleUIBuilder`, `BattleSetupUI`, `VisualActionQueue` | all simulation directories (read-only) | mutating `BattleState`; being imported by simulation | [`UI_DESIGN.md`](./UI_DESIGN.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | `src/presentation/theme/` | Reusable HUD widgets and theme tokens | `NoggTheme`, `NoggWindow`, `MenuCursor`, `PagerArrow`, `ResonanceBar` | Godot `Control` API | simulation | [`UI_DESIGN.md`](./UI_DESIGN.md) |
-| `src/presentation/effects/` | Transient visual effects | `SpellCastAura` | Godot 3D API | simulation | [`UI_DESIGN.md`](./UI_DESIGN.md) |
+| `src/presentation/effects/` | Transient visual effects | `VfxPlayback` (the contract), `SpellVfxCatalog`, `SpellCastAura`, `IceStormEffect`/`IceStormProfile`, `FireStormEffect`/`FireStormProfile`, `VfxTextures`, `DamageNumberBillboard` | Godot 3D API | simulation | [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
 | `src/systems/` | Scene lifecycle and player-turn orchestration | `BattlePresentationController` (scene root), `PlayerTurnController` | simulation and presentation | being imported by either | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | `scenes/` | Godot scenes | `Battle25D.tscn` (the entry scene), `Monster.tscn`, `map01.tscn` | `src/systems/`, `src/presentation/` | — | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | `scripts/` | Headless tooling, run via `SceneTree` | `demo_battle.gd`, `update_gamerefs.gd` | simulation | being imported by runtime code | [`DEVELOPMENT.md`](./DEVELOPMENT.md) |
@@ -78,7 +78,7 @@ presentation is a read, not a dependency inversion, and is allowed.
 | Battle HUD, menus, windows, fonts | `src/presentation/BattleUIBuilder.gd`, `PlayerCommandMenu.gd`, `src/presentation/theme/` |
 | Setup screen | `src/presentation/BattleSetupUI.gd` |
 | Monster/board meshes and materials | `src/presentation/BattleMeshFactory.gd` |
-| Visual effects, animation pacing | `src/presentation/BattleVisualEffects.gd`, `VisualActionQueue.gd`, `src/presentation/effects/` |
+| Visual effects, animation pacing | `src/presentation/BattleVisualEffects.gd`, `VisualActionQueue.gd`, `src/presentation/effects/` — see [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
 | Camera | `src/presentation/BattleCameraController.gd` |
 | Player-turn phases, cursor ownership, undo | `src/systems/PlayerTurnController.gd` |
 | Scene lifecycle, pacing, adapter wiring | `src/systems/BattlePresentationController.gd` |
