@@ -425,5 +425,49 @@ Recorded so a later session does not read these as oversights:
   scene launch. **The shader has still never been compiled by the GPU** (that
   needs a live instance, which requires the catalog row in FIRE-2) and nothing
   has been seen on screen.
-- **FIRE-2** — not started
+- **FIRE-2** — implemented; pending end-of-plan validation.
+  Catalog row added, ground-wash shape selector generalized, `Smoke Tower`
+  wired. First frames of the fire storm rendered.
+
+  **Ground wash went further than "add a cross variant."** The `groundWash()`
+  bool became a `GroundWashShape` enum with a `groundWashShapeFor(areaShape)`
+  mapper, and the three near-identical generator functions collapsed into one
+  that computes a normalized distance per shape and shares a single falloff and
+  opacity — so the shapes cannot drift apart in visual weight as they are
+  tuned. Cross arms are one tile wide regardless of reach, so unlike the
+  diamond and disc that mask is *not* self-similar across radii and is cached
+  per `(shape, radius)`.
+
+  **`line` deliberately has no mask.** Its footprint depends on cast direction,
+  which the ground wash never receives, so it falls back to the disc. Recorded
+  in the mapper's own comment.
+
+  **Tuning discovered in-item — the column is not a field.** Two values had to
+  move a long way off their ice-derived starting points, both for the same
+  reason: a vortex concentrates its particles into a fraction of the volume a
+  flat storm field spreads them across, so per-pixel additive overlap is far
+  higher at equal counts.
+  - Ember alpha at ice's 0.62 clipped the core to flat white and made the
+    entire hot-to-cool gradient invisible. Now `EMBER_ALPHA = 0.34`, promoted
+    to its own uniform: it had been read from `ember_hot_color.a`, which
+    silently ignored the mid/cool alphas and would have wasted a later tuning
+    session.
+  - Particle count at ice's 180 was a continuous haze with no individual ember
+    and therefore no legible spiral. Now **80 + 24 = 104**. Density here is a
+    *readability* constraint, not a performance one — worth knowing before
+    anyone "restores" it toward the budget.
+  - Ground wash dropped to alpha 0.13, below even the ice storm's 0.18: the
+    column already spills its own glow downward and a stronger wash flattened
+    the footprint into one orange sheet.
+
+  **Verified:** shader compiles and runs; build-time node/draw-call/particle
+  asserts hold; `--effect=fire_area_storm` resolves through the catalog;
+  `spells.json` parses (59 spells) with `Smoke Tower` carrying the profile;
+  **ice storm renders unchanged** after the shared-signature change.
+
+  **Not yet verified — left to FIRE-3:** the spiral has only been judged from
+  single static frames, and winding/differential rotation is inherently a
+  multi-frame reading. Nothing has been seen in battle, at 640×480 through the
+  CRT pass, at the `cross` footprint its real carrier uses (the debug harness
+  always passes `"circle"`), or at radii other than 2.
 - **FIRE-3** — not started

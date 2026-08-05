@@ -378,7 +378,8 @@ func _updateFootprintGeometry() -> void:
 	_groundMesh.bottom_radius = diameter * 0.5
 	_groundMesh.height = maxf(_groundSpan + 0.06, 0.06)
 	_groundWash.position.y = 0.0
-	var groundTexture := VfxTextures.groundWash(_isDiamondShape(_areaShape))
+	var groundTexture := VfxTextures.groundWash(
+			VfxTextures.groundWashShapeFor(_areaShape), _footprintRadius)
 	_groundMaterial.albedo_texture = groundTexture
 	_groundMaterial.emission_texture = groundTexture
 	_frostVeinMesh.size = Vector2(diameter, IceStormProfile.STORM_VOLUME_HEIGHT_U)

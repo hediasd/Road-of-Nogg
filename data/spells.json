@@ -663,7 +663,8 @@
 		"NAME": "Smoke Tower",
 		"RADIUS": 1,
 		"RANGE": 4,
-		"TARGET_TYPE": "area"
+		"TARGET_TYPE": "area",
+		"VFX_PROFILE": "fire_area_storm"
 	},
 	{
 		"CAN_TARGET_EMPTY": true,

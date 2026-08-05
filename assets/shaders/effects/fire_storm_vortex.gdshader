@@ -35,9 +35,17 @@ uniform float swirl_enabled = 1.0;
 uniform float flicker_enabled = 1.0;
 uniform float diamond_shape = 1.0;
 uniform float vfx_seed = 1.0;
-uniform vec4 ember_hot_color : source_color = vec4(1.0, 0.94, 0.72, 0.85);
-uniform vec4 ember_mid_color : source_color = vec4(1.0, 0.55, 0.16, 0.85);
-uniform vec4 ember_cool_color : source_color = vec4(0.72, 0.16, 0.09, 0.85);
+// Peak per-ember opacity. Separate from the colour uniforms because these
+// layers blend additively: a column packs its particles into a far smaller
+// volume than a storm field spreads them across, so dozens overlap per pixel
+// and clip to white long before any single ember looks bright. This is the
+// value to lower when the column saturates -- not the colours, which only
+// control hue.
+uniform float ember_alpha = 0.34;
+// RGB only; alpha is ignored in favour of ember_alpha above.
+uniform vec4 ember_hot_color : source_color = vec4(1.0, 0.94, 0.72, 1.0);
+uniform vec4 ember_mid_color : source_color = vec4(1.0, 0.55, 0.16, 1.0);
+uniform vec4 ember_cool_color : source_color = vec4(0.72, 0.16, 0.09, 1.0);
 
 const float SQRT1_2 = 0.70710678;
 const float TAU_C = 6.28318531;
@@ -110,6 +118,6 @@ void process() {
 
 	VELOCITY = vec3(-sin(angle) * radius * omega, rise_speed, cos(angle) * radius * omega);
 
-	COLOR = vec4(tint, ember_hot_color.a);
+	COLOR = vec4(tint, ember_alpha);
 	COLOR.a *= clamp(birth * death * flicker * onset * settle * intensity_scale, 0.0, 1.0);
 }

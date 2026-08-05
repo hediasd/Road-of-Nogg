@@ -373,7 +373,8 @@ func _updateFootprintGeometry() -> void:
 	_groundMesh.bottom_radius = diameter * 0.5
 	_groundMesh.height = maxf(_groundSpan + 0.06, 0.06)
 	_groundWash.position.y = 0.0
-	var groundTexture := VfxTextures.groundWash(_isDiamondShape(_areaShape))
+	var groundTexture := VfxTextures.groundWash(
+			VfxTextures.groundWashShapeFor(_areaShape), _footprintRadius)
 	_groundMaterial.albedo_texture = groundTexture
 	_groundMaterial.emission_texture = groundTexture
 	for index: int in range(_crownMeshes.size()):
@@ -547,6 +548,7 @@ func _applyEmitterUniforms(
 	material.set_shader_parameter(
 			"diamond_shape", 1.0 if _isDiamondShape(_areaShape) else 0.0)
 	material.set_shader_parameter("vfx_seed", float(_activeSeed))
+	material.set_shader_parameter("ember_alpha", FireStormProfile.EMBER_ALPHA)
 	material.set_shader_parameter("ember_hot_color", FireStormProfile.EMBER_HOT_COLOR)
 	material.set_shader_parameter("ember_mid_color", FireStormProfile.EMBER_MID_COLOR)
 	material.set_shader_parameter("ember_cool_color", FireStormProfile.EMBER_COOL_COLOR)

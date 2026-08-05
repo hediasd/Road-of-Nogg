@@ -5,6 +5,7 @@ extends RefCounted
 
 const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
 const IceStormEffectScript = preload("res://src/presentation/effects/IceStormEffect.gd")
+const FireStormEffectScript = preload("res://src/presentation/effects/FireStormEffect.gd")
 const GENERIC_AURA_PROFILE_ID := ""
 const GENERIC_ACTION_HOLD_FRACTION := 0.6
 
@@ -24,6 +25,13 @@ static func entries() -> Array[Dictionary]:
 			"factory": Callable(IceStormEffectScript, "createPlayback"),
 			"action_hold_fraction": IceStormProfile.ACTION_HOLD_FRACTION,
 			"max_live": IceStormProfile.MAX_LIVE_STORMS,
+		},
+		{
+			"profile_id": FireStormProfile.PROFILE_ID,
+			"display_name": "Fire Area Storm",
+			"factory": Callable(FireStormEffectScript, "createPlayback"),
+			"action_hold_fraction": FireStormProfile.ACTION_HOLD_FRACTION,
+			"max_live": FireStormProfile.MAX_LIVE_STORMS,
 		},
 	]
 

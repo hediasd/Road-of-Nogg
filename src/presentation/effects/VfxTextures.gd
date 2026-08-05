@@ -1,10 +1,27 @@
-## Cached procedural textures and immutable shared materials for ice VFX layers.
+## Cached procedural textures and immutable shared materials for area VFX layers.
 ##
 ## Callers may share the returned resources but must not mutate them. Per-layer
 ## tint and fade should be supplied through vertex colors.
+##
+## The shape masks here are alpha-only silhouettes with no colour baked into
+## their geometry, which is what lets the ice and fire storms share them and
+## apply their own palettes on their own duplicated materials.
 
 class_name VfxTextures
 extends RefCounted
+
+## Ground-wash footprint silhouettes, matching the area shapes
+## `CombatResolver._spellAffectedPositions` actually casts.
+enum GroundWashShape {
+	## Manhattan diamond — what `ShapeCaster.getCircle` casts, and the shape of
+	## every area spell that does not explicitly set `AREA_SHAPE`.
+	DIAMOND,
+	## Plus/cross arms — `ShapeCaster.getCross`, used by `AREA_SHAPE: "cross"`.
+	CROSS,
+	## Radial falloff, matching no gameplay shape. Retained as the neutral
+	## fallback for shapes without a dedicated mask (currently `line`).
+	DISC,
+}
 
 const _SOFT_FLAKE_SIZE := 16
 const _SHARD_MASK_SIZE := 32
@@ -17,8 +34,7 @@ static var _softFlake: ImageTexture
 static var _shardMasks: Array[ImageTexture] = []
 static var _canopyPuff: ImageTexture
 static var _frostVein: ImageTexture
-static var _groundWashDisc: ImageTexture
-static var _groundWashDiamond: ImageTexture
+static var _groundWashByShape: Dictionary = {}
 
 static var _flurryMaterial: StandardMaterial3D
 static var _shardMaterials: Array[StandardMaterial3D] = []
@@ -50,19 +66,40 @@ static func frostVein() -> Texture2D:
 	return _frostVein
 
 
-## `diamond` selects the falloff shape: true for the Manhattan-diamond area
-## (matches `ShapeCaster.getCircle`, the gameplay shape most carriers use),
-## false for the original radial disc, kept for the `cross`/`line` carriers
-## that still use a square-field flurry (see the ice-storm profile's shape
-## handling). Cached separately per shape.
-static func groundWash(diamond: bool = true) -> Texture2D:
-	if diamond:
-		if _groundWashDiamond == null:
-			_groundWashDiamond = _createGroundWashDiamond()
-		return _groundWashDiamond
-	if _groundWashDisc == null:
-		_groundWashDisc = _createGroundWashDisc()
-	return _groundWashDisc
+## Footprint silhouette for the ground wash, cached per shape.
+##
+## `footprintRadiusTiles` only affects `CROSS`, whose arms are one tile wide
+## regardless of how far they reach — so the arm's *proportion* of the texture
+## changes with radius, unlike the diamond and disc, which are self-similar at
+## every size. Passing a different radius for a cross therefore yields a
+## different cached texture; that is intended, not a cache miss.
+static func groundWash(
+		shape: GroundWashShape = GroundWashShape.DIAMOND,
+		footprintRadiusTiles: int = 1) -> Texture2D:
+	var key := (
+			"%d" % shape
+			if shape != GroundWashShape.CROSS
+			else "%d:%d" % [shape, maxi(footprintRadiusTiles, 1)])
+	if not _groundWashByShape.has(key):
+		_groundWashByShape[key] = _createGroundWash(shape, maxi(footprintRadiusTiles, 1))
+	return _groundWashByShape[key]
+
+
+## Maps a `data/spells.json` `AREA_SHAPE` string onto a mask. Mirrors
+## `CombatResolver._spellAffectedPositions`'s own match: only `cross` and
+## `line` are special-cased there, and everything else — including `circle` and
+## any unrecognized value — falls through to `ShapeCaster.getCircle`, which is a
+## Manhattan diamond rather than a Euclidean circle. `line` has no dedicated
+## mask because its footprint depends on the cast direction, which the ground
+## wash does not receive; it falls back to the neutral disc.
+static func groundWashShapeFor(areaShape: String) -> GroundWashShape:
+	match areaShape:
+		"cross":
+			return GroundWashShape.CROSS
+		"line":
+			return GroundWashShape.DISC
+		_:
+			return GroundWashShape.DIAMOND
 
 
 static func flurryMaterial() -> StandardMaterial3D:
@@ -107,11 +144,15 @@ static func frostVeinMaterial() -> StandardMaterial3D:
 ## constructed effect starts with before its real footprint is known. The
 ## effect swaps `albedo_texture`/`emission_texture` on its own duplicate via
 ## `groundWash()` directly once `setFootprint` reports the actual area shape.
+##
+## The construction-time colour is likewise only a default: both storms
+## duplicate this material and drive `albedo_color`/`emission` from their own
+## profile every frame, so the ice tint baked in here never reaches the screen.
 static func groundWashMaterial() -> StandardMaterial3D:
 	if _groundWashMaterial == null:
 		_groundWashMaterial = _createMaterial(
-				"IceGroundWashMaterial",
-				groundWash(true),
+				"AreaGroundWashMaterial",
+				groundWash(GroundWashShape.DIAMOND),
 				IceStormProfile.GROUND_WASH_COLOR,
 				true,
 				BaseMaterial3D.TEXTURE_FILTER_LINEAR)
@@ -264,32 +305,37 @@ static func _createFrostVein() -> ImageTexture:
 	return ImageTexture.create_from_image(image)
 
 
-static func _createGroundWashDisc() -> ImageTexture:
+## One generator for every footprint silhouette. Each branch produces a
+## normalized distance that reaches 1.0 exactly on its shape's boundary, so the
+## shared falloff and opacity below apply identically to all of them and the
+## shapes cannot drift apart in weight as they are tuned.
+static func _createGroundWash(
+		shape: GroundWashShape, footprintRadiusTiles: int) -> ImageTexture:
 	var image := Image.create(
 			_GROUND_WASH_SIZE, _GROUND_WASH_SIZE, false, Image.FORMAT_RGBA8)
+	# The texture spans the footprint's bounding box, `2 * radius + 1` tiles
+	# across, mapped to [-1, 1]. A cross arm is one tile wide, so its half-width
+	# in normalized units is 0.5 tiles over the half-span of `radius + 0.5`.
+	var armHalfWidth := 0.5 / (float(footprintRadiusTiles) + 0.5)
 	for y: int in range(_GROUND_WASH_SIZE):
 		for x: int in range(_GROUND_WASH_SIZE):
 			var point := _normalizedPoint(x, y, _GROUND_WASH_SIZE)
-			point.y *= 1.18
-			var radial := clampf(1.0 - point.length(), 0.0, 1.0)
-			var alpha := radial * radial * 0.24
-			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
-	return ImageTexture.create_from_image(image)
-
-
-## Manhattan falloff instead of Euclidean: `radial` reaches zero exactly on the
-## `|x| + |y| = 1` diamond boundary, so the wash matches the tiles the spell
-## actually affects rather than claiming the diagonal corners a disc would.
-static func _createGroundWashDiamond() -> ImageTexture:
-	var image := Image.create(
-			_GROUND_WASH_SIZE, _GROUND_WASH_SIZE, false, Image.FORMAT_RGBA8)
-	for y: int in range(_GROUND_WASH_SIZE):
-		for x: int in range(_GROUND_WASH_SIZE):
-			var point := _normalizedPoint(x, y, _GROUND_WASH_SIZE)
-			var manhattan := absf(point.x) + absf(point.y)
-			var radial := clampf(1.0 - manhattan, 0.0, 1.0)
-			var alpha := radial * radial * 0.24
-			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+			var distance := 0.0
+			match shape:
+				GroundWashShape.CROSS:
+					# Union of a horizontal and a vertical bar: each bar's
+					# distance is whichever runs out first, its width or its
+					# reach, and the union takes the nearer of the two bars.
+					var horizontal := maxf(absf(point.y) / armHalfWidth, absf(point.x))
+					var vertical := maxf(absf(point.x) / armHalfWidth, absf(point.y))
+					distance = minf(horizontal, vertical)
+				GroundWashShape.DISC:
+					point.y *= 1.18
+					distance = point.length()
+				_:
+					distance = absf(point.x) + absf(point.y)
+			var falloff := clampf(1.0 - distance, 0.0, 1.0)
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, falloff * falloff * 0.24))
 	return ImageTexture.create_from_image(image)
 
 
