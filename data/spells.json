@@ -830,5 +830,25 @@
 		"NAME": "Dump",
 		"RADIUS": 0,
 		"RANGE": 0
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
+		"DAMAGE_LINES": [
+			{
+				"damage": 3,
+				"element": "water"
+			},
+			{
+				"damage": 3,
+				"element": "fire"
+			}
+		],
+		"DESC": "Boils seawater against open flame, scalding the target with both water and fire.",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Magenta Reduction",
+		"RADIUS": 3,
+		"RANGE": 3,
+		"TARGET_TYPE": "area",
+		"VFX_PROFILE": "magenta_reduction"
 	}
 ]

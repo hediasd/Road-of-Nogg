@@ -6,6 +6,8 @@ extends RefCounted
 const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
 const IceStormEffectScript = preload("res://src/presentation/effects/IceStormEffect.gd")
 const FireStormEffectScript = preload("res://src/presentation/effects/FireStormEffect.gd")
+const MagentaReductionEffectScript = preload(
+		"res://src/presentation/effects/MagentaReductionEffect.gd")
 const GENERIC_AURA_PROFILE_ID := ""
 const GENERIC_ACTION_HOLD_FRACTION := 0.6
 
@@ -32,6 +34,13 @@ static func entries() -> Array[Dictionary]:
 			"factory": Callable(FireStormEffectScript, "createPlayback"),
 			"action_hold_fraction": FireStormProfile.ACTION_HOLD_FRACTION,
 			"max_live": FireStormProfile.MAX_LIVE_STORMS,
+		},
+		{
+			"profile_id": MagentaReductionProfile.PROFILE_ID,
+			"display_name": "Magenta Reduction",
+			"factory": Callable(MagentaReductionEffectScript, "createPlayback"),
+			"action_hold_fraction": MagentaReductionProfile.ACTION_HOLD_FRACTION,
+			"max_live": MagentaReductionProfile.MAX_LIVE_IMPLOSIONS,
 		},
 	]
 

@@ -209,6 +209,37 @@ process/scene teardown, never during normal play, so it has not visibly broken
 anything — worth a proper fix (defer the free with `call_deferred`, or wait for
 the lock to clear) next time `SpellCastAura.gd` is touched.
 
+## Extract a shared `SpellVfxProfile` resource — deferred at the third effect
+
+`docs/VFX_DESIGN.md` §4 names **the third elemental effect** as the trigger to
+stop forking and extract a `SpellVfxProfile` resource, after which a new element
+would be a `.tres` rather than a forked file. `MagentaReductionEffect` was that
+third effect, built 2026-08-08, and the extraction was **deliberately declined**
+at that point with the user's agreement.
+
+The reason is that the trigger counted files, not shapes. The shared structure
+proven by the first two is the structure of a *storm*: a ground wash, a particle
+field that pushes outward and upward, a canopy or crown above it, and one
+continuous motion from onset to settle. Magenta Reduction is not one. It pulls
+inward, it has a four-beat timeline with a charge beat that holds before
+anything is released, and it carries a core and a discharge layer that neither
+storm has and drops the crown that both do. A resource abstracted from three
+files where the third only barely fits would have been abstracted from the wrong
+thing, and every later effect would have inherited that shape.
+
+**Restated trigger: the next effect that is structurally a storm.** At that
+point there are three genuine instances of one shape — outward particle field,
+crown, wash, single-arc timeline — and the abstraction has something real to be
+drawn from. `IceStormProfile` and `FireStormProfile` are the two to generalize
+over; `MagentaReductionProfile` should be checked against the result rather than
+allowed to define it, and it is an acceptable outcome for the implosion to stay
+a forked file.
+
+Worth knowing before starting: `IceStormProfile` carries `MEASURED` constants
+from reference-footage decomposition, and §4 is explicit that those labels mean
+something. Any migration has to carry the provenance labels across, not flatten
+them into an untyped resource.
+
 ## Defeat animation's child-index assumptions are still fragile
 
 `GodotVisualAdapter._start_defeat_animation()` reaches into the monster
