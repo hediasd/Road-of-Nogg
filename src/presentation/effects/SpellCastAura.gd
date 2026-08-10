@@ -111,7 +111,7 @@ func dispose() -> void:
 	if _particles != null:
 		_particles.emitting = false
 		_particles.speed_scale = 0.0
-	if is_inside_tree():
+	if is_inside_tree() or get_parent() != null:
 		queue_free()
 	else:
 		free()
