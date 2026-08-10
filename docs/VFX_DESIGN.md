@@ -193,6 +193,48 @@ Layers blend additively via `VfxTextures._createMaterial`. Two traps:
   | `sparkleFrames()` | Hand-drawn four-frame sparkle. The one authored texture here. |
   | `pixelDot()` | Small hard dots, for a field that must be *countable*. |
 
+### Sharp lines need the camera's plane, not the world's
+
+"Pixel-perfect" only means something relative to a pixel grid, and a quad
+rotated to an arbitrary angle in world space sits on no grid at all. It either
+reads soft (wide enough to see, with a ramped cross-section) or drops out into
+dashes (thin enough to be sharp, below the raster's reach). No texture fixes
+this; it is geometry.
+
+What does fix it, as built for the magenta implosion's discharge:
+
+- **Build the layer in the camera's plane.** Pass the camera's right and up axes
+  in as uniforms — a particles process shader has no access to the camera matrix
+  — and lay the geometry out in the 2D coordinates they span. A heading in that
+  plane *is* a screen heading.
+- **Quantize headings to 8 or 16 notches.** Axis-aligned and 45-degree runs are
+  what hand-drawn pixel lightning is made of. Quantizing in world space and then
+  projecting through an isometric camera does not work: a world 45 is not a
+  screen 45.
+- **Turn in whole notches, never by snapping a continuous angle.** Snapping the
+  result of a ±31-degree random kink against a 22.5-degree half-step rounded
+  ~70% of turns back to their original heading, and the bolts rendered as
+  straight rays with the jag apparently missing.
+- **Pull each turn back toward the launch heading.** An unbiased walk over
+  notches does not preserve direction — bolts curled and folded instead of
+  radiating. The roll supplies the jag; the restoring pull supplies the heading.
+- **Binary alpha.** A partial-alpha sheath under additive blending is a glow,
+  and a glow is the opposite of a sharp line.
+- **Fix the width in world units, not as a footprint fraction.** A sharp line is
+  defined in pixels, so scaling thickness with the footprint means only one
+  radius is ever the crisp one.
+
+Two consequences to accept up front: the layer stops being spatially grounded —
+it no longer crawls over terrain — and it needs `no_depth_test`, because
+geometry heading *downward on screen* passes below the board and gets
+depth-tested away by whatever terrain happens to stand in front, which ate close
+to half the burst asymmetrically. Depth testing buys nothing for a layer with no
+spatial grounding.
+
+At the project's native render this yields **crisp**, not pixelated: there is no
+chunky grid to align to at 1400x900. True pixel-art lightning needs the effect
+seen through the retro viewport.
+
 ### Authored textures and frame animation
 
 `VfxTextures` generates everything procedurally, with one exception:

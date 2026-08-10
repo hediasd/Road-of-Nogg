@@ -91,8 +91,15 @@ uniform float bright_size_scale = 1.9;
 uniform float bright_alpha_scale = 1.7;
 
 // --- Discharge --------------------------------------------------------------
-uniform float discharge_width_fraction = 0.046;
-uniform float discharge_width_min = 0.08;
+// Fixed world width, not a footprint fraction: a sharp line is defined in
+// pixels. See DISCHARGE_WIDTH_U in the profile.
+uniform float discharge_width = 0.075;
+uniform float bolt_angle_steps = 8.0;
+// The camera's right and up axes, in this effect's local basis, supplied by
+// GDScript. Bolts are built in the plane these span so their quantized headings
+// are screen headings.
+uniform vec3 camera_right = vec3(1.0, 0.0, 0.0);
+uniform vec3 camera_up = vec3(0.0, 1.0, 0.0);
 uniform float discharge_length_fraction = 0.30;
 uniform float discharge_lance_count = 14.0;
 uniform float discharge_speed = 1.8;
@@ -102,7 +109,6 @@ uniform float discharge_height_fraction = 0.17;
 uniform float discharge_alpha = 0.52;
 // Radians of outward curl over a lance's full travel. Non-zero makes each lance
 // an arc rather than a spoke, so the release reads as the spiral unwinding.
-uniform float discharge_curl = 0.55;
 uniform float discharge_length_variance = 0.45;
 uniform float discharge_alpha_variance = 0.40;
 uniform float discharge_height_variance = 0.05;
@@ -111,7 +117,8 @@ uniform float discharge_height_variance = 0.05;
 // Each bolt is a chain of segment quads laid end to end. MAX_SEGMENTS bounds
 // the accumulation loop at compile time; bolt_segments is the live count.
 uniform float bolt_segments = 5.0;
-uniform float bolt_jag = 0.55;
+uniform float bolt_turn_chance = 0.65;
+uniform float bolt_straighten = 0.55;
 uniform float bolt_length_overshoot = 1.45;
 uniform float bolt_color_bias = 0.45;
 uniform float bolt_tip_width_fraction = 0.35;
@@ -159,38 +166,89 @@ float hash_value(float value) {
 }
 
 
-// Angular kink applied at the start of segment `seg` of bolt `bolt_id`. The
-// curl term is divided across the segments so the bolt's *mean* path still
-// curves the way the old smooth lance did, with the jag riding on top of it
-// rather than replacing it.
-float bolt_kink(float bolt_id, float seg) {
-	float jag = (hash_value(bolt_id * 31.0 + seg * 7.0 + 601.0) - 0.5) * 2.0 * bolt_jag;
-	return jag + discharge_curl / max(bolt_segments, 1.0);
+// How many quantization steps segment `seg` of bolt `bolt_id` turns by: -1, 0,
+// or +1. Never more, so a bolt bends by exactly one 45-degree notch at a time
+// and reads as drawn rather than as scribbled.
+//
+// Turning in whole steps is the correction that made the quantization work. The
+// first version kept a continuous random kink and snapped the *result*: with
+// kinks of about 31 degrees against a 22.5-degree half-step, roughly seven in
+// ten rounded back to the heading they started from, and the bolts came out as
+// straight rays. Choosing the turn in the quantized domain instead guarantees
+// every intended bend survives.
+//
+// `drift` is how many notches the bolt has already wandered from its launch
+// heading, and it biases the next turn back toward zero. Without it the chain is
+// an unbiased random walk, which does not preserve a direction: bolts curled
+// around and folded back on themselves instead of radiating, and the burst
+// bunched to one side of the core. Real lightning jogs hard while still going
+// somewhere, and this is what buys that -- jag from the roll, heading from the
+// pull.
+float bolt_turn(float bolt_id, float seg, float drift) {
+	float roll = hash_value(bolt_id * 31.0 + seg * 7.0 + 601.0);
+	float half_chance = clamp(bolt_turn_chance, 0.0, 1.0) * 0.5;
+	float pull = clamp(drift * bolt_straighten, -1.0, 1.0);
+	// A positive drift widens the window that turns back negative and shrinks
+	// the one that drifts further positive.
+	float low_edge = half_chance * (1.0 + pull);
+	float high_edge = 1.0 - half_chance * (1.0 - pull);
+	if (roll < low_edge) {
+		return -1.0;
+	}
+	if (roll > high_edge) {
+		return 1.0;
+	}
+	return 0.0;
 }
 
 
-// Start position of segment `seg` along a bolt, walking the chain from its
-// origin and accumulating each kink. `out_angle` receives that segment's own
-// direction.
+// Size of one heading notch, in radians.
+//
+// The whole scheme lives in the camera's plane, which is the only place it means
+// anything: pixel-art lightning is built from axis-aligned and 45-degree runs
+// *on screen*, and a world-space 45 projected through an isometric camera is not
+// 45 to the viewer.
+float bolt_step_size() {
+	return TAU_C / max(bolt_angle_steps, 1.0);
+}
+
+
+// Start position of segment `seg` along a bolt, in the camera plane's 2D
+// coordinates, walking the chain from its origin and accumulating each turn.
+// `out_angle` receives that segment's own heading.
 //
 // This is what keeps the bolt continuous: every particle recomputes the same
 // prefix of the same path from INDEX alone, so segment N always begins exactly
 // where segment N-1 ended, with no shared state between particles and nothing
-// accumulated across frames.
-vec3 bolt_segment_start(
+// accumulated across frames. Headings are tracked as an integer notch count and
+// only converted to an angle at the end, so a bolt can never drift a fraction of
+// a notch off the grid however many segments it runs for.
+vec2 bolt_segment_start(
 		float bolt_id, float launch, float seg_length, float seg, out float out_angle) {
-	float angle = launch;
-	vec3 point = vec3(0.0);
+	float step_size = bolt_step_size();
+	float launch_notch = floor(launch / step_size + 0.5);
+	float notch = launch_notch;
+	vec2 point = vec2(0.0);
 	for (int i = 0; i < MAX_SEGMENTS; i++) {
 		float step_index = float(i);
-		angle += bolt_kink(bolt_id, step_index);
+		notch += bolt_turn(bolt_id, step_index, notch - launch_notch);
+		float heading = notch * step_size;
 		if (step_index >= seg) {
-			break;
+			out_angle = heading;
+			return point;
 		}
-		point += vec3(cos(angle), 0.0, sin(angle)) * seg_length;
+		point += vec2(cos(heading), sin(heading)) * seg_length;
 	}
-	out_angle = angle;
+	out_angle = notch * step_size;
 	return point;
+}
+
+
+// Lifts a point from the camera plane's 2D coordinates into local 3D space.
+// `camera_right` / `camera_up` arrive from GDScript already expressed in this
+// effect's local basis.
+vec3 plane_point(vec2 point) {
+	return camera_right * point.x + camera_up * point.y;
 }
 
 
@@ -342,7 +400,7 @@ void process() {
 		// Overshoot because a jagged path spends much of its arc length moving
 		// sideways; without it the bolts reach only about half the field.
 		float bolt_length = field_limit() * length_scale * bolt_length_overshoot;
-		vec3 origin = vec3(0.0);
+		vec2 origin = vec2(0.0);
 		float launch = bolt_launch_angle(bolt_id);
 		float reveal_offset = 0.0;
 		float width_scale = 1.0;
@@ -385,35 +443,34 @@ void process() {
 
 		float seg_length = bolt_length / segments;
 		float seg_angle = 0.0;
-		vec3 start = origin + bolt_segment_start(
+		vec2 start = origin + bolt_segment_start(
 				bolt_id, launch, seg_length, seg_index, seg_angle);
-
-		vec3 forward = vec3(cos(seg_angle), 0.0, sin(seg_angle));
-		// Note the handedness: cross(forward, side) must come out as +Y to match
-		// the normal set on TRANSFORM[2]. The opposite sign makes the basis
-		// left-handed, flips the quad's winding, and gets every segment
-		// backface-culled when seen from above -- invisible, no error, every
-		// other value correct.
-		vec3 side = vec3(forward.z, 0.0, -forward.x);
 
 		float chain_position = (reveal_offset + seg_index) / max(reveal_total, 1.0);
 		float drawn_length = seg_length * extend;
-		float lance_width = max(
-				discharge_width_fraction * footprint_radius_u, discharge_width_min)
+		float lance_width = discharge_width
 				* width_scale
 				* mix(1.0, bolt_tip_width_fraction, chain_position);
 
 		// The quad spans -0.5..0.5 in its own X, so it is centred on the segment
 		// it represents rather than starting at it.
-		vec3 centre = start + forward * drawn_length * 0.5;
+		vec2 heading = vec2(cos(seg_angle), sin(seg_angle));
+		vec2 centre = start + heading * drawn_length * 0.5;
+
+		// Built in the camera's plane, so the quantized heading above is a screen
+		// heading. `side` is that heading rotated 90 degrees within the same
+		// plane, which makes cross(forward, side) come out along the plane's
+		// normal -- toward the viewer, given Godot's right-handed camera basis.
+		// Reversing the rotation flips the winding and backface-culls the whole
+		// layer: invisible, no error, every other value correct.
+		vec3 forward = plane_point(heading);
+		vec3 side = plane_point(vec2(-heading.y, heading.x));
 
 		TRANSFORM[0].xyz = forward * drawn_length;
 		TRANSFORM[1].xyz = side * lance_width;
-		TRANSFORM[2].xyz = vec3(0.0, lance_width, 0.0);
-		TRANSFORM[3].xyz = vec3(
-				centre.x,
-				discharge_height_fraction * footprint_radius_u + height_offset,
-				centre.z);
+		TRANSFORM[2].xyz = cross(forward, side) * lance_width;
+		TRANSFORM[3].xyz = plane_point(centre)
+				+ vec3(0.0, discharge_height_fraction * footprint_radius_u + height_offset, 0.0);
 
 		// Yellow-white at the core end of the chain, cooling to fuchsia at the
 		// tip.
@@ -463,17 +520,19 @@ void process() {
 		float seg_length = bolt_length / segments;
 
 		float seg_angle = 0.0;
-		vec3 seg_start = bolt_segment_start(
+		vec2 seg_start = bolt_segment_start(
 				bolt_id, bolt_launch_angle(bolt_id), seg_length, seg_pick, seg_angle);
-		vec3 position = seg_start
-				+ vec3(cos(seg_angle), 0.0, sin(seg_angle)) * seg_length * along;
+		vec2 path_point = seg_start
+				+ vec2(cos(seg_angle), sin(seg_angle)) * seg_length * along;
 
 		// Scattered slightly off the path, so the trail reads as thrown sparks
-		// rather than as beads threaded on a wire.
+		// rather than as beads threaded on a wire. Scattered within the camera
+		// plane too, so a spark cannot drift visually off the bolt it came from.
 		float scatter_angle = hash_value(index + 769.0) * TAU_C;
 		float scatter_distance = hash_value(index + 811.0)
 				* spark_scatter * footprint_radius_u;
-		position += vec3(cos(scatter_angle), 0.0, sin(scatter_angle)) * scatter_distance;
+		path_point += vec2(cos(scatter_angle), sin(scatter_angle)) * scatter_distance;
+		vec3 position = plane_point(path_point);
 
 		float height = mix(
 				spark_height_min_fraction,
@@ -495,7 +554,9 @@ void process() {
 		TRANSFORM[0].xyz = vec3(scale, 0.0, 0.0);
 		TRANSFORM[1].xyz = vec3(0.0, scale, 0.0);
 		TRANSFORM[2].xyz = vec3(0.0, 0.0, scale);
-		TRANSFORM[3].xyz = vec3(position.x, height, position.z);
+		// The path is already a 3D point in the camera plane; `height` only lifts
+		// the whole plane to the bolts' anchor so the two layers coincide.
+		TRANSFORM[3].xyz = position + vec3(0.0, height, 0.0);
 
 		// Frame selection. The draw material is BILLBOARD_PARTICLES with
 		// `particles_anim_h_frames` set, and its generated shader picks the frame

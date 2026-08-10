@@ -407,6 +407,22 @@ func _buildEmitters() -> void:
 			VfxTextures.sparkleFramesMaterial(),
 			BaseMaterial3D.BILLBOARD_PARTICLES)
 	_sparksMaterial = _sparks.process_material as ShaderMaterial
+	# The two camera-plane layers ignore depth. Both are built in the plane the
+	# viewer sees rather than in the world, and a bolt heading *downward* on
+	# screen passes below the board and gets depth-tested away by terrain in
+	# front of it — which ate close to half the burst, asymmetrically, chosen by
+	# whatever happened to be standing nearby. Depth testing buys nothing for a
+	# layer that already has no spatial grounding, and costs the release its
+	# shape. The motes, core and ground wash keep theirs; they are world-space
+	# and are supposed to sit among the terrain.
+	_disableDepthTest(_discharge)
+	_disableDepthTest(_sparks)
+
+
+static func _disableDepthTest(emitter: GPUParticles3D) -> void:
+	var drawMesh := emitter.draw_pass_1 as QuadMesh
+	var drawMaterial := drawMesh.material as StandardMaterial3D
+	drawMaterial.no_depth_test = true
 
 
 ## `billboardMode` is DISABLED for the discharge alone. Its shader builds an
@@ -502,6 +518,37 @@ func _updateFootprintGeometry() -> void:
 	for emitter: GPUParticles3D in _liveEmitters():
 		emitter.visibility_aabb = _footprintAabb()
 	_updateEmitterUniforms()
+
+
+## The camera's right and up axes, expressed in this effect's local basis, which
+## is the plane the discharge bolts are built in.
+##
+## Screen-space angle quantization is the whole reason this is needed: the bolts
+## snap their headings to 45-degree steps, and those steps only land on the pixel
+## grid if they are measured in the plane the viewer actually sees. Passing the
+## basis as a uniform is the only route — a particles process shader has no
+## access to the camera matrix.
+##
+## This does make the bolts' shape depend on where the camera is pointing, which
+## is inherent to any camera-facing effect and harmless for a fixed battle
+## camera. Determinism is unaffected: the basis is read from scene state, never
+## accumulated, so a given camera and timestamp still reproduce exactly — which
+## is what golden capture relies on.
+##
+## Falls back to world axes when there is no camera, which is the case during
+## `--import` parsing and in headless harnesses.
+func _cameraPlaneBasis() -> Array:
+	var camera: Camera3D = null
+	if is_inside_tree():
+		camera = get_viewport().get_camera_3d()
+	if camera == null:
+		return [Vector3.RIGHT, Vector3.UP]
+	var localise := global_transform.basis.inverse()
+	var cameraBasis := camera.global_transform.basis
+	return [
+		(localise * cameraBasis.x).normalized(),
+		(localise * cameraBasis.y).normalized(),
+	]
 
 
 ## The mote field, the core and the discharge all derive their variation inside
@@ -702,10 +749,12 @@ func _applyEmitterUniforms(material: ShaderMaterial, layerMode: float) -> void:
 			"mote_inner_color", MagentaReductionProfile.MOTE_INNER_COLOR)
 
 	material.set_shader_parameter(
-			"discharge_width_fraction",
-			MagentaReductionProfile.DISCHARGE_WIDTH_FRACTION)
+			"discharge_width", MagentaReductionProfile.DISCHARGE_WIDTH_U)
 	material.set_shader_parameter(
-			"discharge_width_min", MagentaReductionProfile.DISCHARGE_WIDTH_MIN_U)
+			"bolt_angle_steps", float(MagentaReductionProfile.BOLT_ANGLE_STEPS))
+	var planeBasis := _cameraPlaneBasis()
+	material.set_shader_parameter("camera_right", planeBasis[0])
+	material.set_shader_parameter("camera_up", planeBasis[1])
 	material.set_shader_parameter(
 			"discharge_length_fraction",
 			MagentaReductionProfile.DISCHARGE_LENGTH_FRACTION)
@@ -725,8 +774,6 @@ func _applyEmitterUniforms(material: ShaderMaterial, layerMode: float) -> void:
 	material.set_shader_parameter(
 			"discharge_alpha", MagentaReductionProfile.DISCHARGE_ALPHA)
 	material.set_shader_parameter(
-			"discharge_curl", MagentaReductionProfile.DISCHARGE_CURL)
-	material.set_shader_parameter(
 			"discharge_length_variance",
 			MagentaReductionProfile.DISCHARGE_LENGTH_VARIANCE)
 	material.set_shader_parameter(
@@ -738,7 +785,10 @@ func _applyEmitterUniforms(material: ShaderMaterial, layerMode: float) -> void:
 
 	material.set_shader_parameter(
 			"bolt_segments", float(MagentaReductionProfile.BOLT_SEGMENTS))
-	material.set_shader_parameter("bolt_jag", MagentaReductionProfile.BOLT_JAG)
+	material.set_shader_parameter(
+			"bolt_turn_chance", MagentaReductionProfile.BOLT_TURN_CHANCE)
+	material.set_shader_parameter(
+			"bolt_straighten", MagentaReductionProfile.BOLT_STRAIGHTEN)
 	material.set_shader_parameter(
 			"bolt_length_overshoot", MagentaReductionProfile.BOLT_LENGTH_OVERSHOOT)
 	material.set_shader_parameter(

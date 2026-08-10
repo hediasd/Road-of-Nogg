@@ -376,12 +376,6 @@ const CORE_FLASH_DECAY_FRACTION := 0.55
 ## read as a burst rather than as a denser wheel. Still nowhere near filling the
 ## field, which is what would turn it into the dome the look rules out.
 const DISCHARGE_LANCE_COUNT := 14
-## AUTHORED radians of outward curl over a lance's full travel. The single
-## biggest thing separating a burst from a spoke diagram: at 0 every lance is a
-## straight radial line and the release reads as clip art, and a modest arc
-## makes it look like the spiral is unwinding into the discharge, which is what
-## the effect is actually depicting.
-const DISCHARGE_CURL := 0.55
 ## AUTHORED per-lance length variation, as the fraction by which the shortest
 ## lance falls short of the longest. Identical lengths are the other half of
 ## what made the first version read as a diagram.
@@ -404,11 +398,29 @@ const DISCHARGE_HEIGHT_VARIANCE := 0.05
 ## compile time, so this must not exceed that. More segments buy a finer jag and
 ## cost a particle per bolt each.
 const BOLT_SEGMENTS := 5
-## AUTHORED maximum angular kink at each joint, in radians. The single value
-## that decides whether the discharge reads as lightning or as a bent stick: at
-## 0 the chain is a straight lance again, and far above this the bolt folds back
-## on itself and stops travelling outward.
-const BOLT_JAG := 0.55
+## AUTHORED probability that a joint turns at all, rather than continuing
+## straight. Each turn is exactly one BOLT_ANGLE_STEPS notch, never more.
+##
+## Turning in whole notches replaced an earlier continuous-kink-then-snap scheme
+## that quietly cancelled itself: kinks of about 31 degrees against a
+## 22.5-degree half-step rounded back to the original heading roughly seven times
+## in ten, and the bolts rendered as straight rays with the jag apparently
+## missing. Choosing the turn already in the quantized domain is what makes every
+## intended bend survive.
+##
+## At 0 the chain is a straight lance again; at 1 every joint turns and the bolt
+## folds back on itself instead of travelling outward.
+const BOLT_TURN_CHANCE := 0.65
+## AUTHORED strength of the pull back toward a bolt's launch heading, per notch
+## of accumulated drift.
+##
+## Without it the chain is an unbiased random walk, and a random walk does not
+## preserve a direction: the bolts curled around and folded back instead of
+## radiating, bunching the whole burst to one side of the core. This is what
+## makes a bolt jag hard and still arrive somewhere — the roll supplies the jag,
+## this supplies the heading. At 0 they wander; at 1 a single notch of drift is
+## corrected immediately and the jag flattens into a straight line with jitter.
+const BOLT_STRAIGHTEN := 0.55
 ## AUTHORED multiplier on a bolt's total path length.
 ##
 ## A jagged path covers far less *radial* distance than its own arc length,
@@ -551,22 +563,32 @@ const DISCHARGE_ALPHA := 0.85
 ## half-length — but landing on the boundary having barely travelled is not the
 ## same effect.
 const DISCHARGE_LENGTH_FRACTION := 0.30
-## AUTHORED lance thickness across its travel direction, as a fraction of the
-## footprint's world half-extent. "Thin means thin" — with DISCHARGE_LENGTH_
-## FRACTION this sets the ratio that decides whether the release reads as a
-## lance or as a smear; the pair hold about 6.5:1 at every radius. The drawn
-## lance is thinner than this: the texture tapers inside the quad and only
-## `_LANCE_CORE_FRACTION` of the half-width is solid.
-## Thinned from 0.055. A hard-edged sprite reads as heavier than a soft one of
-## the same width, so the pixel pass made the bolts look fatter without any
-## number changing; this takes that back and then some.
-const DISCHARGE_WIDTH_FRACTION := 0.035
-## AUTHORED floor on the drawn thickness, in world units. Unlike the fraction
-## above this does not scale, because it is a legibility limit rather than a
-## proportion: below roughly this the solid core of the streak lands on under a
-## pixel at the battle camera's distance and the lance stops being a lance. Only
-## reached at radius 1.
-const DISCHARGE_WIDTH_MIN_U := 0.055
+## AUTHORED bolt thickness in world units, and deliberately **not** a fraction
+## of the footprint — the one dimension here that must not scale.
+##
+## A sharp line is defined in *pixels*, not in world units: the whole point is
+## that it lands on a small whole number of them. Scaling thickness with the
+## footprint made a radius-5 bolt three times heavier than a radius-1 one, so
+## only one radius could ever be the crisp one. At the debug harness's
+## representative camera size this is a little under four pixels, of which
+## `_BOLT_CORE_FRACTION` draws about 80%.
+##
+## The caveat worth knowing: the shipping camera size varies with board size, so
+## "four pixels" holds for a given board rather than universally. A constant
+## world width is still much closer to constant screen width than a footprint
+## fraction was.
+const DISCHARGE_WIDTH_U := 0.075
+## AUTHORED number of directions a bolt segment may point, spread evenly around
+## the circle. Eight gives the axis-aligned and 45-degree runs that hand-drawn
+## pixel lightning is made of.
+##
+## This is the single change that makes the discharge read as *drawn* rather
+## than rendered, and it only works because the bolts are built in the camera's
+## plane: quantizing in world space and then projecting through an isometric
+## camera lands the segments back off the pixel grid at uneven angles. Raise it
+## for a smoother, less deliberately pixelated bolt; 16 still reads as drawn,
+## 32 does not.
+const BOLT_ANGLE_STEPS := 8
 ## AUTHORED travel-rate multiplier over the discharge beat. Above 1.0 the streak
 ## reaches the boundary before the timeline ends and the tail has room to fade,
 ## which is what makes it read as fast. Raised from 1.35 so the lances clear the

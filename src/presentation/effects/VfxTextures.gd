@@ -58,9 +58,15 @@ const _LANCE_CORE_FRACTION := 0.45
 ## — a larger source would only average the steps away again.
 const _BOLT_SEGMENT_WIDTH := 16
 const _BOLT_SEGMENT_HEIGHT := 8
-## Fraction of the half-width that stays fully opaque. Tighter than the lance's:
-## lightning wants a hot thin filament inside a dimmer sheath, not an even bar.
-const _BOLT_CORE_FRACTION := 0.30
+## Fraction of the half-width that stays fully opaque.
+##
+## Raised from 0.30, and paired with a *binary* posterize below, so the segment
+## is a hard bar with no sheath at all. The earlier hot-filament-in-a-sheath
+## cross-section was the single largest source of softness in the discharge:
+## under additive blending the sheath's partial alpha is exactly a glow, and a
+## glow is the opposite of a sharp line. The texture now contributes only the
+## line's width; every pixel it covers is fully opaque.
+const _BOLT_CORE_FRACTION := 0.80
 
 ## Small hard dot — the plainest sprite here, and the one to reach for when a
 ## field needs to be *countable*. `softFlake()` at the same size is a soft haze
@@ -87,7 +93,8 @@ const _POSTERIZE_LEVELS := 3
 ## and left a bare core, with nothing in the code looking wrong. Keep a clear
 ## margin under `1.0 / _POSTERIZE_LEVELS` when either changes.
 const _POSTERIZE_CUTOFF := 0.28
-const _BOLT_POSTERIZE_LEVELS := 2
+## One level: fully on or fully off, no intermediate. See `_BOLT_CORE_FRACTION`.
+const _BOLT_POSTERIZE_LEVELS := 1
 const _DOT_POSTERIZE_LEVELS := 2
 
 static var _softFlake: ImageTexture
