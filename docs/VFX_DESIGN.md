@@ -18,17 +18,17 @@ data/spells.json  VFX_PROFILE: "ice_area_storm"
         │
 SpellReferences   normalizes the row; VFX_PROFILE defaults to ""
         │
-CombatResolver    resolves gameplay targets and the live spell footprint,
+CombatResolver    resolves ordered target IDs and the live spell footprint,
         │         then emits spell_cast_started for every cast
         │
 GodotVisualAdapter._on_spell_cast_started
         │         reads only VFX_PROFILE from the catalog; copies the event's
-        │         resolved radius and shape onto a CAST_AREA VisualAction,
-        │         derives a deterministic vfx_seed, and measures terrain span
+        │         resolved radius, shape, and event-time source/target snapshot
+        │         onto a CAST_AREA VisualAction; derives a deterministic seed
         │
 GodotVisualAdapter._start_cast_area_animation
         │         resolves the profile, enforces the live cap, spawns,
-        │         setFootprint(radius, groundSpan, areaShape), plays, and
+        │         configures VfxCastContext and the optional footprint, plays,
         │         holds the visual queue for duration x action_hold_fraction
         │
 SpellVfxCatalog   profile id -> factory
@@ -50,6 +50,14 @@ presentation from `CombatResolver`; presentation must not re-read the immutable
 catalog radius. A single-target cast reports radius 0. An area cast and a
 self-area cast report the same radius and shape used by `ShapeCaster`.
 
+**The cast context owns target-bound presentation geometry.** Every profile
+receives a `VfxCastContext` before `play()`, containing the source and impact
+world positions plus stable target IDs, event-time target positions, and
+body-only local bounds. Effects that do not need those values inherit the
+default no-op. The simulation never imports this context or any visual node.
+When a target visual is missing or already defeated, the adapter supplies a
+standard authored body box centered at the event impact.
+
 ---
 
 ## 2. The `VfxPlayback` contract
@@ -58,6 +66,7 @@ Every effect extends `src/presentation/effects/VfxPlayback.gd` and implements:
 
 | Member | Obligation |
 | --- | --- |
+| `configure_cast_context(context)` | Receive the standard target/source snapshot before `play()`. The base implementation is a no-op. |
 | `play(seed, mode)` | Start from zero. `mode` is `MODE_BATTLE` or `MODE_REFERENCE`, selecting which duration applies. |
 | `seek_normalized(t)` | Present the exact frame at `t` in 0..1, forwards or backwards. |
 | `set_playback_scale(f)` | `0.0` freezes. Drives pause and the game's animation-speed setting. |

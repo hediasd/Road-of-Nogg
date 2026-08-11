@@ -494,6 +494,9 @@ func executeCastSpell(
 	var actualTargets = getSpellAffectedTargetsFrom(
 		casterID, spellSetIndex, spellIndex, casterPos, centerPos
 	)
+	var resolvedTargetIDs: Array[int] = []
+	for affectedID in actualTargets:
+		resolvedTargetIDs.append(int(affectedID))
 	events.spell_cast_started.emit(
 		casterID,
 		centerPos,
@@ -501,7 +504,8 @@ func executeCastSpell(
 		spell.element,
 		actualTargets.size(),
 		_resolvedSpellRadius(spell),
-		spell.area_shape
+		spell.area_shape,
+		resolvedTargetIDs
 	)
 
 	if passiveSkillResolver != null:

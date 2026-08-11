@@ -7,6 +7,12 @@ const MODE_REFERENCE := "reference"
 const MODE_BATTLE := "battle"
 
 
+## All profiles receive the same presentation-only cast snapshot. Profiles
+## without source- or target-bound geometry intentionally ignore it.
+func configure_cast_context(_context: VfxCastContext) -> void:
+	pass
+
+
 func play(_seed: int, _mode: String) -> void:
 	assert(false, "VfxPlayback.play() must be implemented by the effect.")
 

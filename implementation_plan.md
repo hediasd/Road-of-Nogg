@@ -535,3 +535,26 @@ Git history; do not leave its resolution log in the working contract.
   not a storm and does not prove that abstraction.
 - No broad shared hit-confirm framework until another effect demonstrates the
   same contact-accent structure.
+
+## 7. Resolution notes
+
+### Target-bound cast context transport
+
+Implemented 2026-08-11; pending end-of-plan validation.
+
+- `spell_cast_started` now carries ordered resolved target identities alongside
+  its existing live footprint, without importing presentation data into the
+  simulation layer.
+- `VisualAction` snapshots source and impact world positions, target identities,
+  target positions, and body-only local bounds before delayed playback.
+- Every `VfxPlayback` receives the same typed `VfxCastContext` through a default
+  no-op method before `play()`. Existing optional `setFootprint` delivery is
+  unchanged.
+- Missing target visuals use the standard authored body box at the event impact.
+- Architecture and VFX contracts were updated. Both backlogs were reviewed;
+  the long-term radius entry now distinguishes stable target identities from
+  still-open exact affected-tile transport, and no critical backlog change was
+  warranted.
+- Focused diff inspection and `git diff --check` passed. Godot 4.4 completed a
+  headless editor import and a five-frame project load with the compatibility
+  renderer and dummy audio. No battle was launched, as required for this item.

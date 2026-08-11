@@ -17,6 +17,7 @@ const DamageNumberBillboardScript = preload("res://src/presentation/effects/Dama
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
 const VisualActionScript = preload("res://src/presentation/VisualAction.gd")
+const VfxCastContextScript = preload("res://src/presentation/effects/VfxCastContext.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const TERRAIN_CELL_HEIGHT := BattleMeshFactoryScript.TERRAIN_CELL_SIZE.y
 const TERRAIN_SURFACE_OFFSET := TERRAIN_CELL_HEIGHT * 0.5
@@ -642,6 +643,24 @@ func _accumulate_visual_bounds(
 		_accumulate_visual_bounds(childNode, childTransform, accumulated)
 
 
+func _target_body_bounds(monsterID: int) -> AABB:
+	var container := _liveMonsterVisual(monsterID)
+	if container == null or container.get_child_count() < 2:
+		return VfxCastContextScript.DEFAULT_TARGET_BODY_BOUNDS
+	var body := container.get_child(1) as Node3D
+	if body == null:
+		return VfxCastContextScript.DEFAULT_TARGET_BODY_BOUNDS
+	var accumulated = {"has_bounds": false, "bounds": AABB()}
+	var bodyMesh := body as MeshInstance3D
+	if bodyMesh != null and bodyMesh.mesh != null:
+		accumulated["bounds"] = body.transform * bodyMesh.get_aabb()
+		accumulated["has_bounds"] = true
+	_accumulate_visual_bounds(body, body.transform, accumulated)
+	if not accumulated["has_bounds"]:
+		return VfxCastContextScript.DEFAULT_TARGET_BODY_BOUNDS
+	return accumulated["bounds"]
+
+
 # --- EVENTS ---
 
 func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
@@ -858,8 +877,13 @@ func _on_spell_cast_started(
 		element: String,
 		targetsHit: int,
 		resolvedRadius: int,
-		areaShape: String) -> void:
+		areaShape: String,
+		resolvedTargetIDs: Array) -> void:
 	assert(state.withinBounds(centerPos), "Spell cast centre is outside the board.")
+	assert(
+		targetsHit == resolvedTargetIDs.size(),
+		"Spell cast target count does not match its resolved target identities."
+	)
 	var reference := SpellReferencesScript.getReference(spellName)
 	assert(not reference.is_empty(), "Spell cast lacks a catalog reference: %s" % spellName)
 	assert(resolvedRadius >= 0, "Resolved spell radius cannot be negative.")
@@ -878,7 +902,31 @@ func _on_spell_cast_started(
 		^ (centerPos.y * 83492791)
 	)
 	action.vfx_ground_span = _footprint_ground_span(centerPos, action.vfx_radius)
-	action.origin = _coord_to_surface_pos3d(centerPos)
+	var impactWorldPosition := _coord_to_surface_pos3d(centerPos)
+	var sourceCoord := state.getMonsterPosition(casterID)
+	action.vfx_source_world_position = (
+		_coord_to_surface_pos3d(sourceCoord)
+		if state.withinBounds(sourceCoord)
+		else impactWorldPosition
+	)
+	action.vfx_impact_world_position = impactWorldPosition
+	for resolvedTargetID in resolvedTargetIDs:
+		var targetID := int(resolvedTargetID)
+		action.vfx_target_ids.append(targetID)
+		if _liveMonsterVisual(targetID) == null:
+			action.vfx_target_world_positions.append(impactWorldPosition)
+			action.vfx_target_body_bounds.append(
+				VfxCastContextScript.DEFAULT_TARGET_BODY_BOUNDS
+			)
+			continue
+		var targetCoord := state.getMonsterPosition(targetID)
+		action.vfx_target_world_positions.append(
+			_coord_to_surface_pos3d(targetCoord)
+			if state.withinBounds(targetCoord)
+			else impactWorldPosition
+		)
+		action.vfx_target_body_bounds.append(_target_body_bounds(targetID))
+	action.origin = impactWorldPosition
 	action.has_origin = true
 	action.left_monster_id = casterID
 	action.has_left_monster = true
@@ -1074,6 +1122,15 @@ func _start_cast_area_animation(action: VisualAction) -> bool:
 	)
 	if effect == null:
 		return false
+	var castContext := VfxCastContextScript.new()
+	castContext.source_monster_id = action.monster_id
+	castContext.source_world_position = action.vfx_source_world_position
+	castContext.impact_world_position = action.vfx_impact_world_position
+	castContext.target_ids.assign(action.vfx_target_ids)
+	castContext.target_world_positions.assign(action.vfx_target_world_positions)
+	castContext.target_body_bounds.assign(action.vfx_target_body_bounds)
+	castContext.assert_valid()
+	effect.configure_cast_context(castContext)
 	if effect.has_method("setFootprint"):
 		effect.call(
 			"setFootprint", action.vfx_radius, action.vfx_ground_span, action.vfx_area_shape

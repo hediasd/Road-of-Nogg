@@ -21,6 +21,11 @@ var vfx_radius: int = 0
 var vfx_area_shape: String = "circle"
 var vfx_seed: int = 0
 var vfx_ground_span: float = 0.0
+var vfx_source_world_position: Vector3 = Vector3.ZERO
+var vfx_impact_world_position: Vector3 = Vector3.ZERO
+var vfx_target_ids: Array[int] = []
+var vfx_target_world_positions: Array[Vector3] = []
+var vfx_target_body_bounds: Array[AABB] = []
 var origin: Vector3 = Vector3.ZERO
 var has_origin: bool = false
 var left_monster_id: int = -1
@@ -55,6 +60,11 @@ func clone() -> VisualAction:
 	copy.vfx_area_shape = vfx_area_shape
 	copy.vfx_seed = vfx_seed
 	copy.vfx_ground_span = vfx_ground_span
+	copy.vfx_source_world_position = vfx_source_world_position
+	copy.vfx_impact_world_position = vfx_impact_world_position
+	copy.vfx_target_ids.assign(vfx_target_ids)
+	copy.vfx_target_world_positions.assign(vfx_target_world_positions)
+	copy.vfx_target_body_bounds.assign(vfx_target_body_bounds)
 	copy.origin = origin
 	copy.has_origin = has_origin
 	copy.left_monster_id = left_monster_id

@@ -146,7 +146,8 @@ func _on_spell_cast_started(
 		_element: String,
 		targetsHit: int,
 		_resolvedRadius: int,
-		_areaShape: String) -> void:
+		_areaShape: String,
+		_resolvedTargetIDs: Array) -> void:
 	if targetsHit == 0:
 		var caster = state.getMonster(casterID)
 		_log("  [SPELL] %s #%s casts '%s' at %s; no units affected" % [

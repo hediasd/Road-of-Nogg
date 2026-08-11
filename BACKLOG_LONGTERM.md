@@ -164,9 +164,11 @@ is ever tuned, and worth remembering before writing a new driver.
 
 ## Complete spell-radius scalability beyond Ice Storm
 
-The cast event now transports the radius and shape resolved from the live
-`Spell`, and Ice Storm scales its geometry and bounded populations through
-radius 8. The rest of the feature is deliberately deferred:
+The cast event now transports the ordered resolved target IDs plus the radius
+and shape resolved from the live `Spell`, and Ice Storm scales its geometry and
+bounded populations through radius 8. Target IDs support target-bound effects;
+they do not replace the exact affected-tile data still needed to clip area
+footprints at board edges. The rest of the feature is deliberately deferred:
 
 - define modifier ownership and stacking for buffs/debuffs instead of mutating
   `Spell.radius` ad hoc, including whether `radius` and `self_radius` can change
