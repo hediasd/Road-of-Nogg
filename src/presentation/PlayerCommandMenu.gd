@@ -36,16 +36,12 @@ const BACK_ID := "__back"
 const CONFIRM_ID := "__confirm"
 const CANCEL_ID := "__cancel"
 
-# Widths from docs/UI_DESIGN.md §8 — measured against the shipping font at
-# size 24, not chosen. Do not tune without rerunning debug/preview_theme.gd.
-## Sized to the longest command label plus the cursor gutter. With `Undo Move`
-## shortened to `Undo`, the longest is now `ATTACK` at 144 + 56 overhead = 200,
-## so 220 leaves comfortable slack. Dropping the long label is what let this
-## come down from 300. A typical spell row needs 644 of 680.
-const COMMAND_WIDTH := 220.0
-const SPELL_WIDTH := 680.0
-const PROMPT_WIDTH := 620.0
-const FORECAST_WIDTH := 460.0
+# Widths owned by NoggTheme (COMMAND_WIDTH / SPELL_WIDTH / PROMPT_WIDTH /
+# FORECAST_WIDTH), not redeclared here — see the "Window widths" block
+# in NoggTheme.gd for how each was measured and why PROMPT_WIDTH and
+# FORECAST_WIDTH specifically were corrected rather than merely re-expressed.
+# A local const of a literal number could never track `NoggTheme.ui_scale`,
+# which is exactly the bug this migration exists to close.
 
 ## The command list's true maximum: Move / Undo / Attack / Spell / Pass.
 ## It can never page, so reserving `ROW_CAPACITY_DEFAULT` (8) here just bought
@@ -96,16 +92,16 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
-	_prompt_window = _build_window(PROMPT_WIDTH, 1)
-	_forecast_window = _build_window(FORECAST_WIDTH, 2)
+	_prompt_window = _build_window(NoggThemeScript.PROMPT_WIDTH, 1)
+	_forecast_window = _build_window(NoggThemeScript.FORECAST_WIDTH, 2)
 	_forecast_window.visible = false
-	_command_window = _build_window(COMMAND_WIDTH, COMMAND_CAPACITY)
-	_spell_window = _build_window(SPELL_WIDTH, SPELL_MAX_CAPACITY)
+	_command_window = _build_window(NoggThemeScript.COMMAND_WIDTH, COMMAND_CAPACITY)
+	_spell_window = _build_window(NoggThemeScript.SPELL_WIDTH, SPELL_MAX_CAPACITY)
 	_spell_window.visible = false
 	# Same width as the command window, and docked on top of it, so the cursor
 	# does not travel when the phase changes (§5: the cursor snaps between
 	# windows, it does not fly).
-	_confirm_window = _build_window(COMMAND_WIDTH, CONFIRM_CAPACITY)
+	_confirm_window = _build_window(NoggThemeScript.COMMAND_WIDTH, CONFIRM_CAPACITY)
 	_confirm_window.visible = false
 	# Only the cursor-driven windows reserve the gutter. The prompt and
 	# forecast have no cursor, so indenting them would just look misaligned.
@@ -651,7 +647,7 @@ func _layout_windows() -> void:
 
 	_command_window.position = Vector2(left, command_y)
 	_spell_window.position = Vector2(
-		left + COMMAND_WIDTH + NoggThemeScript.WINDOW_STACK_GAP, command_y
+		left + NoggThemeScript.COMMAND_WIDTH + NoggThemeScript.WINDOW_STACK_GAP, command_y
 	)
 	# Directly on top of the command window's own origin, not beside it: the
 	# confirm window replaces the command list, so the cursor stays exactly
@@ -663,10 +659,13 @@ func _layout_windows() -> void:
 	# ~460px and the command window's right edge is at x=300, so right-aligning
 	# would push it off the left of the screen. Recorded in the design notes.
 	var forecast_height := NoggThemeScript.window_height(2)
-	_forecast_window.position = Vector2(left, command_y - forecast_height - 8.0)
+	_forecast_window.position = Vector2(
+		left, command_y - forecast_height - NoggThemeScript.FORECAST_GAP
+	)
 
 	_prompt_window.position = Vector2(
-		floorf((screen.x - PROMPT_WIDTH) * 0.5), 24.0
+		floorf((screen.x - NoggThemeScript.PROMPT_WIDTH) * 0.5),
+		NoggThemeScript.PROMPT_TOP
 	)
 
 

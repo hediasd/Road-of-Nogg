@@ -96,7 +96,7 @@ whole restyle a one-file edit next time.
 
 | Token | Value | Use |
 |---|---|---|
-| `WINDOW_FILL` | `#030305` @ `0.76` | Near-black translucent body; the board reads through it |
+| `WINDOW_FILL` | `#131007` @ `0.86` | Warm dark translucent body; the board reads through it, and the font's drop shadow reads against it |
 | `WINDOW_FILL_DEEP` | `#010102` @ `0.90` | Confirm/modal body that must not be read through |
 | `HALO_FILL` | `#000000` @ `0.28` | Expanded soft backplate outside the rim |
 | `HALO_SHADOW` | `#000000` @ `0.58` | Smooth exterior shadow, never neon glow |
@@ -144,23 +144,193 @@ be mistakable for game affordances.
 
 ### Typography
 
-- **Game:** `assets/Fonts/xenotext.otf`, reporting `XenoText` Regular. Render
-  at integer sizes with antialiasing, hinting, and subpixel positioning disabled
-  by default: its 24 px body face is 19 px tall and carries a 12 px monospace
-  advance. Body `24`, heading `24`, footer `20`; `font_outline_color = OUTLINE`
-  and `outline_size = 2` on every game text entry. The disabled smoothing is a
-  visual calibration decision; final normal-window validation may enable it
-  only if XenoText proves materially less legible without it.
-- **Dev:** `assets/Fonts/Roboto-Regular.ttf` at `13`, no outline.
+- **Game:** `assets/Fonts/NoggTerminal/NoggTerminal.res` — **Nogg Terminal**,
+  the in-house bitmap face described in the next section. Drawn on an 8 x 12
+  design cell with an 8-unit monospace advance, so at the shipping x2 scale it
+  is a **24 px body with a 16 px advance**. Sizes are `FONT_SIZE_*_UNITS *
+  ui_scale` and must stay whole multiples of 12; the face floors anything else.
+  Default edge treatment is the drop shadow (`SHADOW_OFFSET`, `SHADOW_COLOR`),
+  not the halo — see "Edge treatment" below.
+- **Dev:** `assets/Fonts/Roboto-Regular.ttf` at `13`, no outline. A dynamic
+  face, so it is exempt from the whole-multiple rule.
 
-At 24 px, XenoText's longest authored spell name measures about 360 px before
-its value column, compared with roughly 720 px in the outgoing Shining Force
-face. Existing window widths and docks stay fixed; the recovered space is
-intentional breathing room, not permission to grow or move panels.
+**The face is a third wider than the XenoText it replaced** — 16 px advance
+against 12 px at the same size — so every window width in `NoggTheme` was
+re-measured against it on adoption rather than inherited. `PROMPT_WIDTH`,
+`FORECAST_WIDTH` and `TURN_ORDER_WIDTH` had to grow; `COMMAND_WIDTH`,
+`SPELL_WIDTH` and `STATUS_WINDOW_WIDTH` already had the headroom. Re-run
+`debug/measure_px4_widths.gd` if the face, a font size unit, or
+`CONTENT_INSET` changes.
 
-`shining-force-ii-small.otf` remains available as a comparison font but is no
-longer the game UI face. `Shining Force 2.ttf` and `PressStart2P` remain
+`xenotext.otf` stays in the repo as `XENOTEXT_FONT_PATH` and remains selectable
+in the VFX debug scene's text specimen (`--text-font=game`) for comparison. `Shining Force 2.ttf` and `PressStart2P` remain
 non-shipping candidates for the reasons recorded before this migration.
+
+### Nogg Terminal — the in-house pixel face
+
+A bitmap face drawn for this project, in the register of the `.hack` system
+font: monospaced, octagonal, flat-terminalled, generously spaced. It is **not
+the shipping UI face** — see the adoption cost at the end of this section — but
+it is fully built and testable.
+
+**It is authored as text, not as an image.** `assets/Fonts/NoggTerminal/glyphs.txt`
+holds every glyph as ASCII art and is the only file anyone edits. The atlas PNG
+and the `FontFile` beside it are build outputs of
+`scripts/bake_bitmap_font.gd`. That inversion is the whole point: a glyph tweak
+is a one-line diff a reviewer can read, rather than an opaque binary blob, and
+the baker validates the source strictly enough that a malformed glyph fails the
+build instead of shipping as a garbled letter.
+
+The grid: an 8 x 12 cell, advance 8, ascent 9, descent 3. Rows 1-8 are the
+cap/ascender band, rows 4-8 the x-height band, rows 9-10 descenders. Bodies
+occupy columns 1-6; symmetric glyphs use columns 1-5 so their centre stem lands
+on column 3.
+
+Five style rules keep 95 hand-drawn glyphs reading as one face, and are
+restated at the top of the source so they are in front of whoever edits it:
+one-pixel stroke everywhere; round letters are octagons with corners clipped
+exactly one pixel; terminals flat and grid-aligned; diagonals are single-pixel
+staircases; counters at least two pixels wide so they survive the retro
+viewport's downsample.
+
+**Two things about it behave unlike a dynamic font, and both are load-bearing.**
+
+*Sizes are whole multiples only.* The face declares `fixed_size = 12` with
+`FIXED_SIZE_SCALE_INTEGER_ONLY`, so size 24 renders at exactly 2x and 36 at 3x.
+A size that is not a multiple of 12 is floored rather than interpolated — which
+is correct, but means `FONT_SIZE_FOOTER = 20` has no honest rendering.
+
+*Outlines are baked, and `outline_size` is a cache key rather than a pixel
+count.* Godot cannot synthesize an outline for a bitmap face, so widths 1 and 2
+(in design pixels) are dilated into the atlas up front. Requesting a width with
+no baked variant draws **no outline at all**, silently. Pass the design width
+unscaled: the text server applies the fixed-size scale to whatever variant it
+finds, so requesting 1 at size 24 yields a two-device-pixel halo. Pre-scaling
+squares the zoom.
+
+#### Edge treatment: shadow, not halo
+
+**The face's own treatment is a one-pixel drop shadow down and right, and that
+is what the specimen defaults to.** The reference does the same: the dark edge
+sits below-right of each glyph and the top-left terminals meet the background
+bare, which reads as lit type on a panel.
+
+A symmetric halo was the first attempt and it was wrong. On a face whose
+strokes are exactly one design pixel, a halo of the same width doubles the
+apparent weight of every letter and starts closing the counters — the five
+style rules above are calibrated for a bare stroke, and wrapping each one in
+dark defeats them. It reads as a sticker rather than as type.
+
+The shadow is drawn by the label rather than baked, so unlike `outline_size`
+its offset is a plain device-pixel count and **does** scale with the zoom. Keep
+`shadow_outline_size` at zero: anything larger draws the shadow from the
+outline atlas and reintroduces the thickening the shadow exists to avoid.
+
+The halo is kept, and kept baked, because the two are not interchangeable
+everywhere. A shadow defends one side only. Text over a bright, arbitrary 3D
+board — the case `NoggTheme.OUTLINE` was introduced for — can still need the
+halo, and dropping it would trade a legibility guarantee for an aesthetic one.
+Which wins where is settled by looking, in the specimen, against the actual
+backdrop. Note that neither shows up against `WINDOW_FILL`: a dark treatment on
+a near-black panel is invisible by construction, so judge edge treatments over
+the board, never in a window.
+
+**Adopting it would move layout.** Its 16 px advance at size 24 is a third
+wider than XenoText's 12 px, so every width measured in §8 would need
+re-measuring and the recovered breathing room described above would be spent.
+That is a deliberate decision to take on its own, not a side effect of the face
+existing.
+
+#### Pixel fidelity: fixed by scaling tokens, not the canvas
+
+**Historical bug, fixed by the native-canvas UI scaling change — kept here
+because the reasoning still governs how geometry is authored.** `project.godot` used to set
+`window/stretch/mode = "canvas_items"` with `aspect = "expand"` and author no
+`viewport_width`/`viewport_height`, so Godot fell back to its 1152 x 648
+default and scaled the whole canvas by `window_size / 1152`. At 1340 x 754 that
+was x1.163. Combined with the project's nearest texture filter
+(`textures/canvas_textures/default_texture_filter = 0`), a fractional factor
+duplicated some pixel rows and dropped others: a one-design-pixel stroke landed
+as two device pixels in places and three in others, within the same word. **No
+font configuration could fix this** — it is a canvas problem, not a typography
+one.
+
+**It was not specific to Nogg Terminal, and it was not new.** Captured side by
+side at 1340 x 754, XenoText's stems were uneven in exactly the same way: it is
+also a pixel face, rendered with antialiasing and hinting disabled, so
+rasterizing it at `24 x 1.163` produced stem widths the design never intended.
+The shipping UI had been mildly wrong at most window sizes all along; the
+bitmap face only made it obvious, because uniform strokes are its whole
+premise.
+
+The project's smooth chrome was **not** affected, and the distinction is what
+made a fix affordable. `StyleBoxFlat` rims, rounded bodies and halos are
+redrawn at whatever size they are given rather than resampled, so a fractional
+factor cost them nothing — captured at the same two sizes, the window rim was
+indistinguishable. The UI was therefore two families: resolution-independent
+chrome that did not care, and resolution-dependent content — both fonts, and
+the small-integer geometry in `MenuCursor`, `PagerArrow` and `ResonanceBar` —
+that did. Only the second family needed defending.
+
+**The fix: stop scaling the canvas, scale the tokens.** `project.godot` now sets
+`window/stretch/mode = "disabled"` — nothing is ever resampled, and a device
+pixel is a real pixel. `NoggTheme` carries `ui_scale` (default 2, matching what
+the pre-fix constants already encoded) and every geometry token is authored in
+*design units*, multiplied by `ui_scale` through `NoggTheme.configure()` /
+`configure_for_window_height()`. `_static_init()` derives them all together on
+class load, and `_scaled()`/`_scaled_int()` round every result to a whole
+device pixel — that guarantee lives at the token layer once, rather than being
+hoped for at each `_draw()`.
+
+**`ui_scale` is fixed for the process lifetime.** `BattlePresentationController`
+calls `configure_for_window_height()` as the first statement of `_ready()`,
+before any Theme is built, and never calls it again. This was a deliberate
+scope decision, not an oversight: changing `ui_scale` after Theme resources are
+already built and assigned would desync two kinds of reader — a `Theme`'s font
+size and styleboxes are copied in at build time and would keep the old scale,
+while code that reads a token directly at draw time (`NoggWindow`'s cursor
+gutter math, `MenuCursor`'s accessors) would see the new one immediately. That
+disagreement is worse than not rescaling at all, and correcting it needs a
+rebuild-and-relayout path for every open window — tracked in
+`BACKLOG_LONGTERM.md` as live UI rescaling, not attempted in this cycle.
+
+Measured at 1152 x 648 (x1.000, the historical baseline) every stroke was
+exactly two device pixels; at 1340 x 754 (x1.163) stroke widths varied within a
+single word — this was the finding that motivated the fix. The VFX debug
+scene's Canvas stretch control (or `--stretch=`) can still reproduce that
+fractional behavior on demand under the `legacy_fractional` preset, for
+comparison; `native` matches the shipping project default. The text specimen's
+pixel-fidelity readout still reports the live canvas factor, which is now x1
+everywhere.
+
+**A related finding, measured while building the fix:** a bitmap face whose
+glyphs are injected into the cache does not survive a content-scale change.
+Oversampling changes with the scale, that clears cached glyph data, and this
+face has no source bytes to re-rasterize from — so every string falls back to a
+system font with ascent and descent reported as zero. Fixing the canvas scale
+at `disabled` removes the failure mode entirely, because oversampling then
+never changes at runtime — this is a second, independent reason the project chose
+`disabled` over an integer-scaled `canvas_items` mode. The specimen still
+watches the scale and rebuilds defensively (it exercises every stretch preset,
+including the ones that do change scale), but shipping code no longer needs to.
+
+#### Looking at it
+
+The text specimen lives in the VFX debug scene (`scenes/debug/VFXDebugScene.tscn`),
+not in a flat preview page, because the only question that matters about a UI
+face is whether it survives what it actually sits on — a lit board, at the
+retro viewport's downsample, under the CRT pass. The specimen draws on its own
+CanvasLayer at `GAME_LAYER`, so it composites exactly the way the shipping HUD
+composites.
+
+Press `X` to toggle it and `R` to re-parse `glyphs.txt` in place; editing a
+glyph and pressing `R` is the authoring loop, and it is why the source is text.
+Every control is also a flag (`--text`, `--text-font=`, `--text-sample=`,
+`--text-scale=`, `--text-edge=`, `--text-edge-size=`, `--text-backdrop=`), so a specimen combines
+with `--hide-hud`, `--capture-at=` and the scene's golden-frame comparison the
+same way an effect does. The `charset` sample lays printable ASCII out sixteen
+to a row, matching the baked atlas exactly: a glyph that looks wrong on screen
+is findable in the atlas at the same coordinates.
 
 ### Glyph coverage is a hard constraint
 
@@ -362,9 +532,15 @@ rest, then returns.
 | Phase | Timing |
 |---|---|
 | Cursor lands, text held still | `MARQUEE_DELAY` 1.2 s |
-| Scrolls left at a constant rate | `MARQUEE_SPEED` 40 px/s |
+| Scrolls left at a constant rate | `MARQUEE_SPEED` — 20 design units/s, 40 px/s at the shipping x2 scale |
 | Holds at the end | `MARQUEE_END_HOLD` 1.0 s |
 | Snaps back to the start, holds, repeats | `MARQUEE_DELAY` again |
+
+`MARQUEE_SPEED` is the one marquee number that scales with `NoggTheme.ui_scale`:
+it is a rate over a spatial unit, so it has to track the same scale
+the letters it is moving do, or a long name would visibly crawl at x1 and
+streak at x4 relative to its own width. `MARQUEE_DELAY` and `MARQUEE_END_HOLD`
+are durations, not lengths, and correctly do not scale.
 
 Five rules, each of which exists because the obvious alternative reads badly:
 
@@ -407,51 +583,78 @@ the two columns slide across each other.
 
 Every game window, its dock, and its size.
 
-Widths are **measured, not chosen** — `debug/preview_theme.gd` prints the
-requirement for each window's worst-case real catalogue content at the shipping
-font and size. Rerun it if the font, the font size, or `CONTENT_INSET` changes;
-all three move these numbers. The figures below are at **size 24**, and the
-budget they have to fit inside is Godot's default **1152 × 648** logical base.
-The project uses `canvas_items` stretch mode with `expand` aspect: every 2D
-panel scales from that base while the logical rect expands with the window's
-aspect ratio, so the existing resize-driven docks remain active and no
-letterbox bars appear. The world SubViewport uses the real window size when
-retro rendering is disabled, preserving native 3D sharpness; screen/world input
-mapping remains in the root viewport's logical coordinate space.
+**Widths are measured, not chosen, and now live in `NoggTheme` as design units**:
+`COMMAND_WIDTH`, `SPELL_WIDTH`, `PROMPT_WIDTH`, `FORECAST_WIDTH`,
+`STATUS_WINDOW_WIDTH`, `TURN_ORDER_WIDTH`, `PAGER_WIDTH`. Each was previously a
+`const` of a literal device-pixel number local to whichever file built that
+window (`BattleUIBuilder`, `PlayerCommandMenu`, `NoggWindow`) — correct at the
+scale it was measured at, but unable to track `NoggTheme.ui_scale`, so a window
+sized to its worst-case content at x2 would clip that same content at x4, where
+the glyphs inside it are twice as wide but the window holding them had not
+moved. `debug/measure_px4_widths.gd` (gitignored) re-measures every one of
+these against this project's actual worst-case strings — real spell names, real
+monster names, real `PlayerTurnController` status/forecast text, not
+placeholders — at `ui_scale = 1`, where a design unit and a device pixel are
+the same number. Rerun it if the font, `FONT_SIZE_BODY_UNITS`, or
+`CONTENT_INSET_UNITS` changes; all three move these numbers.
 
-| Window | Dock | Size | Contents |
+There is no width *budget* to fit inside anymore. `project.godot` used to cap
+every 2D panel to a shared 1152 × 648 logical base (now replaced by
+`window/stretch/mode = "disabled"` — see §3), so this table used to report a
+running total against that ceiling. Under the current model each window is
+simply as wide as its own worst-case content needs, independent of the others;
+there is nothing left for them to compete over.
+
+| Window | Dock | Size (design units, device px at shipping x2) | Contents |
 |---|---|---|---|
-| **Command** | Left, vertically centred | 220 x 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS` - existing width retained for compatibility and deliberate breathing room; 5 is the list's true maximum |
-| **Spell** | Right of Command, `WINDOW_STACK_GAP` | 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
-| **Turn order** | Upper-left, x=20 / y=100 | 300 × 3 rows | Up to three entries: NOW for the active unit, NEXT for the next unit, and UP for the following queued unit |
-| **Actor status** | Bottom-left, fixed | 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3 |
-| **Target** | Bottom-right, fixed | 540 × 6 rows | Same fixed-cell shape as actor status; shows an empty frame, not a hidden window, when there is no target |
-| **Confirm** | Same origin as Command, replacing it | 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
-| **Forecast** | Above Command, **left-aligned** with it | 460 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible while aiming *and* while confirming |
-| **Prompt** | Top-centre | auto, 1 row | `Select a destination`, `Select a target` — replaces today's status label |
+| **Command** | Left, vertically centred | `COMMAND_WIDTH` 110 / 220 × 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS`; 5 is the list's true maximum |
+| **Spell** | Right of Command, `WINDOW_STACK_GAP` | `SPELL_WIDTH` 340 / 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
+| **Turn order** | Upper-left, x=20 / y=100 | `TURN_ORDER_WIDTH` 275 / 550 × 3 rows | Up to three entries: NOW for the active unit, NEXT for the next unit, and UP for the following queued unit |
+| **Actor status** | Bottom-left, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3 |
+| **Target** | Bottom-right, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Same fixed-cell shape as actor status; shows an empty frame, not a hidden window, when there is no target |
+| **Confirm** | Same origin as Command, replacing it | `COMMAND_WIDTH` 110 / 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
+| **Forecast** | Above Command, **left-aligned** with it | `FORECAST_WIDTH` 340 / 680 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible while aiming *and* while confirming |
+| **Prompt** | Top-centre | `PROMPT_WIDTH` 470 / 940, 1 row | `Select a destination`, `Select a target` — replaces today's status label |
 | **Battle log** | Right edge, full height | scrolling | The one deliberate exception to trait 5; a log is a scrollback, not a menu |
 
-Command + gap + Spell is 908 of 1152. Actor + Target is 1080 of 1152. Both fit,
-but the status pair has little room left — **size 24 is close to the ceiling
-this viewport supports** for the two-window layouts. Going larger means either a
-bigger default window size or dropping to one status window at a time.
+**`PROMPT_WIDTH` and `FORECAST_WIDTH` changed value, not just unit — this
+was a real, pre-existing bug found while re-measuring the window budgets.**
+Measured against the shipping font at the *current* x2 scale, with
+nothing to do with `ui_scale`: the old `PROMPT_WIDTH` (620px) was 76px short of
+`"Preview tile (12, 12). Empty-center casting is disabled."` (needs 696px), and
+the old `FORECAST_WIDTH` (460px) was 44px short of
+`"Cast spends action, cooldown & Resonance"` (needs 504px). Both strings are
+verbatim from `PlayerTurnController._forecastText()`/its status lines, not
+hypothetical worst cases. This predates the width-budget correction entirely —
+`debug/preview_theme.gd`'s own `WIDTH_CASES` never covered prompt or forecast
+content, only command/spell/actor — so nothing before this measured it. Fixed
+by widening both to their true requirement rather than reproducing the old,
+too-narrow number in a new unit. Command, Spell, Turn order, and the status
+windows all reproduce their prior x2 value exactly; only these two moved.
 
-XenoText at size 24 leaves materially more horizontal room while the logical
-1152 x 648 layout stays unchanged. The longest authored spell name is expected
-to fit inside the existing 680 px spell window beside `CD 12`; the preview
-harness owns the final Godot measurement. Status-cell columns likewise retain
-their current positions, using the extra width for scanability rather than a
-layout migration.
-**The forecast is left-aligned, not right-aligned.** This table originally said
-right-aligned to the command window; that cannot hold at size 24. The forecast
-needs ~460px and the command window's right edge is at x=300, so right-aligning
-would place its left edge off-screen. Corrected against the real metrics once
-the body font size was settled at 24.
+Status-cell columns keep their existing design-unit positions
+(`STATUS_CELL_OFFSETS`); the extra room XenoText's narrower advance leaves at
+size 24 goes to scanability rather than a layout migration.
+
+**Docking offsets are design units too** — `SCREEN_MARGIN`, `PROMPT_TOP`,
+`TURN_ORDER_TOP`, `FORECAST_GAP`. These were missed when the widths were
+migrated and were caught only by rendering the real scene at `ui_scale` 3: the
+windows had grown while the margins placing them had not, so the whole HUD
+crept toward the screen edges and the prompt sat too high. A margin is a length
+like any other. If you add a new window, its position belongs here in units,
+not as a literal at the call site.
+
+**The forecast is left-aligned, not right-aligned.** An earlier draft of this
+table said right-aligned to the command window; that cannot hold once the
+forecast needs several hundred pixels and the command window's right edge sits
+close by — right-aligning would place the forecast's left edge off-screen.
 
 The bottom HUD uses fixed status cells rather than list rows: `HP` occupies the
-first cell, `ATK`/`DEF` and `SPD`/`MOV` hold vertical columns at 0 and 192px,
-and the 384px cell displays authored element codes beside drawn three-cell
-Resonance bars. Text values remain separate
+first cell, `ATK`/`DEF` and `SPD`/`MOV` hold vertical columns at design-unit
+offsets 0 and 96 (0 and 192px at shipping x2), and the third column — 192
+design units / 384px — displays authored element codes beside drawn
+three-cell Resonance bars (`STATUS_CELL_OFFSETS`, scaled by `ui_scale` like
+every other geometry token). Text values remain separate
 Labels, so HP can still turn `TEXT_ACCENT` under its threshold without treating
 the readout as an interactive menu.
 

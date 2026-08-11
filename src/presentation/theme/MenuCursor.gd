@@ -18,8 +18,17 @@ const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 ## Sourced from NoggTheme, not redeclared: NoggWindow reserves the gutter
 ## from the same numbers, and a local copy here would let the two drift.
-const _WIDTH := NoggThemeScript.CURSOR_WIDTH
-const _HEIGHT := NoggThemeScript.CURSOR_HEIGHT
+##
+## Read through accessors rather than captured in a `const`, because the cursor
+## tokens now scale with `NoggTheme.ui_scale` — a const would freeze whatever
+## the scale happened to be when this script was first parsed, and the gutter
+## agreement NoggWindow depends on would silently break at any other scale.
+static func _width() -> float:
+	return NoggThemeScript.CURSOR_WIDTH
+
+
+static func _height() -> float:
+	return NoggThemeScript.CURSOR_HEIGHT
 
 var _bob_tween: Tween
 ## Move and bob animate different sub-properties of the same `position`
@@ -30,7 +39,7 @@ var _move_tween: Tween
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	custom_minimum_size = Vector2(_WIDTH, _HEIGHT)
+	custom_minimum_size = Vector2(_width(), _height())
 	size = custom_minimum_size
 	_start_bob()
 
@@ -40,8 +49,8 @@ func _draw() -> void:
 	# cursor used and the pager arrows in §7.
 	var points := PackedVector2Array([
 		Vector2(0.0, 0.0),
-		Vector2(_WIDTH, _HEIGHT / 2.0),
-		Vector2(0.0, _HEIGHT),
+		Vector2(_width(), _height() / 2.0),
+		Vector2(0.0, _height()),
 	])
 	draw_colored_polygon(points, NoggThemeScript.CURSOR)
 

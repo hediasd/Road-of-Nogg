@@ -16,15 +16,16 @@ const PlayerCommandMenuScript = preload("res://src/presentation/PlayerCommandMen
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 
-## docs/UI_DESIGN.md §8: 540 wide, 6 rows (heading + HP + ATK/DEF + SPD/MOV,
-## with two spare rows).
-const STATUS_WINDOW_WIDTH := 540.0
+## docs/UI_DESIGN.md §8: 6 rows (heading + HP + ATK/DEF + SPD/MOV, with two
+## spare rows). Width is `NoggThemeScript.STATUS_WINDOW_WIDTH`, not redeclared
+## here — a local const of a literal number could never track
+## `NoggTheme.ui_scale` (see NoggTheme.gd's "Window widths" block).
 const STATUS_WINDOW_CAPACITY := 6
 ## Upper-left, below the prompt and above the centred command window.
-## Three rows show the active unit plus the next two queued units.
-const TURN_ORDER_WIDTH := 300.0
+## Three rows show the active unit plus the next two queued units. Width is
+## `NoggThemeScript.TURN_ORDER_WIDTH` and its top offset is
+## `NoggThemeScript.TURN_ORDER_TOP`, for the same reason.
 const TURN_ORDER_CAPACITY := 3
-const TURN_ORDER_TOP := 100.0
 
 
 static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
@@ -177,9 +178,8 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	# container would fight that the moment the two windows' widths differ,
 	# which they do not today but item 4 forbids relying on that.
 	var status_window_size := Vector2(
-		STATUS_WINDOW_WIDTH, NoggThemeScript.window_height(STATUS_WINDOW_CAPACITY)
+		NoggThemeScript.STATUS_WINDOW_WIDTH, NoggThemeScript.window_height(STATUS_WINDOW_CAPACITY)
 	)
-	const STATUS_WINDOW_MARGIN := 20.0
 
 	var actorWindow: NoggWindow = NoggWindowScript.new()
 	game_root.add_child(actorWindow)
@@ -219,7 +219,7 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	turnOrderWindow.name = "TurnOrderWindow"
 	turnOrderWindow.set_row_capacity(TURN_ORDER_CAPACITY)
 	turnOrderWindow.size = Vector2(
-		TURN_ORDER_WIDTH,
+		NoggThemeScript.TURN_ORDER_WIDTH,
 		NoggThemeScript.window_height(TURN_ORDER_CAPACITY)
 	)
 	turnOrderWindow.set_input_transparent(true)
@@ -235,14 +235,14 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	var reposition_status_windows := func() -> void:
 		var viewport_size = game_root.get_viewport_rect().size
 		actorWindow.position = Vector2(
-			STATUS_WINDOW_MARGIN, viewport_size.y - status_window_size.y - STATUS_WINDOW_MARGIN
+			NoggThemeScript.SCREEN_MARGIN, viewport_size.y - status_window_size.y - NoggThemeScript.SCREEN_MARGIN
 		)
 		targetWindow.position = Vector2(
-			viewport_size.x - status_window_size.x - STATUS_WINDOW_MARGIN,
-			viewport_size.y - status_window_size.y - STATUS_WINDOW_MARGIN
+			viewport_size.x - status_window_size.x - NoggThemeScript.SCREEN_MARGIN,
+			viewport_size.y - status_window_size.y - NoggThemeScript.SCREEN_MARGIN
 		)
 		turnOrderWindow.position = Vector2(
-			STATUS_WINDOW_MARGIN, TURN_ORDER_TOP
+			NoggThemeScript.SCREEN_MARGIN, NoggThemeScript.TURN_ORDER_TOP
 		)
 	game_root.resized.connect(reposition_status_windows)
 	reposition_status_windows.call()

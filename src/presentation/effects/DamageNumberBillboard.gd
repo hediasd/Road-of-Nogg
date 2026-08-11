@@ -34,6 +34,15 @@ const HEAL_VISIBLE_DURATION := DAMAGE_VISIBLE_DURATION
 ## while the animation is running. The normal tween callback frees the node.
 const CLEANUP_MARGIN := 0.5
 
+## Deliberately a fixed 1 device pixel at every `NoggTheme.ui_scale`, not scaled
+## alongside the glyph size it outlines. `FONT_SIZE_BODY` already grows with
+## `ui_scale` — this halo is the crisp hairline finishing that growth, the same
+## role `docs/UI_DESIGN.md` §3's "resolution-independent chrome" family plays
+## for `StyleBoxFlat` rims: redrawn consistently rather than scaled
+## proportionally. A halo that grew with the glyph would read as thicker,
+## blurrier text at high `ui_scale` instead of the same crisp number rendered
+## bigger, which is the opposite of what a hit number in this project's style
+## is meant to look like.
 const OUTLINE_OFFSETS := [
 	Vector2(-1, 0),
 	Vector2(1, 0),

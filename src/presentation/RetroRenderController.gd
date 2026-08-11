@@ -278,6 +278,28 @@ func get_crt_parameter(parameter: String) -> float:
 	return 0.0
 
 
+## Pushes every display uniform to the CRT material.
+##
+## **Scanline and mask pitch are multiplied by `NoggTheme.ui_scale` here, and
+## nowhere else.** The shader spaces both off `FRAGCOORD`, which is in
+## device pixels regardless of the stretch mode — measured, not assumed: a
+## capture at 1920 x 1080 reports a 2px scanline period under both
+## `disabled` and the old `canvas_items` fractional stretch, so switching the
+## project to native 1:1 did not move them. That leaves a pitch fixed in device
+## pixels at every resolution, which is backwards for the thing it simulates: a
+## physical CRT has a fixed scanline *count*, not a fixed pixel pitch, so a
+## constant 1px pitch gives 360 lines at 720p and 1080 at 4K — the effect
+## quietly dissolving into a flat darkening exactly where the screen is big
+## enough to show it off. Scaling by `ui_scale` holds the count at roughly 180
+## lines across the whole ladder instead.
+##
+## **The stored values stay resolution-independent multipliers**, which is why
+## the multiply lives here rather than in `set_crt_parameter()`. `1.0` means
+## "this project's default look" on any machine, so a settings file or a render
+## preset written at 1080p still means the same thing at 720p. Only the number
+## handed to the shader carries the resolution in it. The graphics menu's "Line
+## size" / "Mask size" sliders are labelled generically and keep working
+## unchanged; they now scale the default rather than naming a pixel count.
 func _apply_display_parameters() -> void:
 	if crt_material == null:
 		return
@@ -288,9 +310,13 @@ func _apply_display_parameters() -> void:
 	crt_material.set_shader_parameter("color_levels", color_levels)
 	crt_material.set_shader_parameter("dither_strength", dither_strength)
 	crt_material.set_shader_parameter("scanline_strength", crt_scanline_strength)
-	crt_material.set_shader_parameter("scanline_size", crt_scanline_size)
+	crt_material.set_shader_parameter(
+		"scanline_size", crt_scanline_size * float(NoggThemeScript.ui_scale)
+	)
 	crt_material.set_shader_parameter("mask_strength", crt_mask_strength)
-	crt_material.set_shader_parameter("mask_size", crt_mask_size)
+	crt_material.set_shader_parameter(
+		"mask_size", crt_mask_size * float(NoggThemeScript.ui_scale)
+	)
 	crt_material.set_shader_parameter("vignette_strength", crt_vignette_strength)
 	crt_material.set_shader_parameter("flicker_strength", crt_flicker_strength)
 	crt_material.set_shader_parameter("color_bleed", crt_color_bleed)

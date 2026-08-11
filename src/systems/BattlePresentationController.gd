@@ -91,12 +91,36 @@ var _deliberating_monster_id: int = -1
 
 
 func _ready() -> void:
+	# First statement, deliberately: `UI_SCALE` has to be settled before
+	# anything below builds a Theme or reads a NoggTheme geometry token.
+	# `configure_for_window_height()` is safe to call more than once, but this
+	# codebase does not call it again — see the note below.
+	NoggThemeScript.configure_for_window_height(get_window().size.y)
+
 	retro_renderer = RetroRenderControllerScript.new(self)
 	_setup_background()
 	_setup_camera_and_lighting()
 	_build_battle_ui()
 	_build_setup_ui()
 	_show_setup()
+
+
+## `UI_SCALE` is fixed for the process lifetime; a window resize does not
+## restyle the running battle UI. This is a scope decision, not an oversight —
+## `NoggTheme.configure()` is a primitive precisely so a caller can decide,
+## and this is the conservative branch it explicitly allowed.
+##
+## Why not wire live rescaling: `NoggTheme.configure()` changing `ui_scale`
+## after `Theme` resources are already built and assigned would desync two
+## kinds of reader. A `Theme`'s font size and styleboxes are copied in at
+## `build_game_theme()` time and would keep the old scale. Code that reads a
+## token directly at draw time — `NoggWindow`'s cursor gutter math,
+## `MenuCursor`'s accessors — would immediately see the new one. That
+## disagreement (a cursor sized for x3 inside a window still framed for x2) is
+## worse than not rescaling at all, and fixing it needs a rebuild-and-relayout
+## path for every open window and menu, not a token change. That is real,
+## separate work — tracked in `BACKLOG_LONGTERM.md` as live UI rescaling —
+## and out of this cycle's scope.
 
 
 func _setup_background() -> void:

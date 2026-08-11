@@ -3,6 +3,7 @@
 ## Core shortcuts intentionally use letters because project.godot defines no
 ## custom input actions and the built-in UI owns Enter, Escape, Space, arrows.
 ## P play | U pause/resume | T settle | O overlap | C capture | H hide hud | M mode
+## X text specimen | R reload glyphs
 ##
 ## Every interactive control below is also reachable from the command line, so
 ## a validation pass is scriptable rather than a sequence of clicks. That parity
@@ -11,13 +12,37 @@
 ##
 ## Scene selection and framing:
 ##   --effect=<profile id>   catalog entry to open with (default: first entry)
-##   --radius=<n>            footprint radius in tiles (default 2)
+##   --radius=<n>            footprint radius in tiles (default 4, UI supports 1-8)
 ##   --shape=<circle|cross|line>  area shape, matching AREA_SHAPE (default circle)
 ##   --layers=<a,b,...>      isolate: show only these layers, hide the rest
 ##   --seed=<n>              pin the seed instead of cycling it
 ##   --scale=<f>             playback scale
+##   --stretch=<native|integer|integer640|legacy_fractional>  how the whole
+##                           canvas scales. `native` matches the shipping
+##                           project.godot; `legacy_fractional` reproduces the
+##                           old fractional-canvas bug for comparison. The specimen reports
+##                           the resulting factor. Applied to the live root,
+##                           never to project.godot.
 ##   --retro / --crt         enable the retro viewport / CRT pass
 ##   --hide-hud              start with the HUD panel hidden (H toggles it)
+##
+## Text specimen. UI text is composited above the CRT pass rather than through
+## it, so whether a face survives a given preset is a question only this scene
+## can answer -- it is the one place the shipping render stack and arbitrary
+## sample copy meet. Combine with `--hide-hud --capture-at=` for a clean plate:
+##   --text                  show the specimen overlay (X toggles it)
+##   --text-font=<source|baked|game>   which face to draw with
+##   --text-sample=<reference|pangram|charset|battle>  which copy to draw
+##   --text-scale=<1-4>      whole-multiple zoom of the design size
+##   --text-edge=<shadow|outline|none>  drop shadow (the reference's own
+##                           treatment) or a symmetric halo
+##   --text-edge-size=<0-3>  shadow offset or halo width, in design pixels
+##   --text-backdrop=<scene|window|solid>  what sits behind the text
+##   --text-fill=<current|lifted|warm_deep|warm_panel|reference>  candidate
+##                           WINDOW_FILL values, for choosing how far to lift
+##                           the panel toward the reference's. Only visible
+##                           under `--text-backdrop=window`; the status readout
+##                           prints the picked Color verbatim.
 ##
 ## Capture:
 ##   --capture-at=<t>[,<t>...]  one or more normalized times; a list captures
@@ -43,12 +68,14 @@ const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderC
 const BattleEnvironmentFactoryScript = preload("res://src/presentation/BattleEnvironmentFactory.gd")
 const SpellVfxCatalogScript = preload("res://src/presentation/effects/SpellVfxCatalog.gd")
 const VfxPlaybackScript = preload("res://src/presentation/effects/VfxPlayback.gd")
+const TextSpecimenScript = preload("res://src/presentation/debug/TextSpecimen.gd")
+const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 const CAMERA_OFFSET := Vector3(6.0, 15.0, 14.0)
 ## Meadow and Forest are 16 cells across with two elevation steps, producing
 ## 16 * 0.95 + (2 * 0.5) * 0.35 through the shipping camera-size formula.
 const REPRESENTATIVE_CAMERA_SIZE := 15.55
-const DEFAULT_FOOTPRINT_RADIUS := 2
+const DEFAULT_FOOTPRINT_RADIUS := 4
 const SCREENSHOT_PATH := "user://vfx_debug_capture.png"
 const CAPTURE_PREFIX_DEFAULT := "user://vfx_debug_capture"
 ## Exit code for a golden-frame mismatch, distinct from the engine's own
@@ -95,6 +122,71 @@ const _RESOLUTION_OPTIONS := [
 ]
 const _UNEVEN_HEIGHTS := [[0, 1, 0], [1, 2, 1], [0, 1, 2]]
 
+## Candidate answers to "how should the window scale?", applied to the live root
+## so the question can be settled by looking instead of by editing
+## `project.godot` and relaunching.
+##
+## **The project default is now the fourth entry, `native`** — the UI scaling correction moved
+## `project.godot` to `window/stretch/mode = "disabled"` after this comparison
+## found the fractional mode broke UI text at nearly every real window size.
+## `NoggTheme.UI_SCALE` (`src/presentation/theme/NoggTheme.gd`) is the
+## resolution-aware scale now, applied to design-unit tokens rather than to the
+## canvas, so pixel content stays whole without the canvas ever resampling.
+##
+## The first entry is kept as `legacy_fractional`, not deleted, so the bug this
+## cycle fixed stays reproducible on demand rather than becoming a claim nobody
+## can check. `canvas_items` + `fractional` scales the whole canvas by
+## `window_size / base`, a fraction at nearly every real window size; under the
+## project's nearest filter that duplicates some pixel rows and drops others,
+## so a one-pixel stroke renders two pixels wide in places and three in others.
+##
+## The base matters as much as the mode. Integer scaling against the inherited
+## 1152 x 648 default is nearly useless at real resolutions: 1920 x 1080 admits
+## only x1, because x2 would need 2304 x 1296. A 640 x 360 base divides the
+## common 16:9 ladder exactly — x2 at 720p, x3 at 1080p, x4 at 1440p, x6 at 4K —
+## which is why pixel-art projects generally author a small base rather than
+## inherit a large one. Neither integer preset is what shipped; `NoggTheme`'s
+## own token-scaling approach was chosen instead specifically to avoid
+## re-authoring every layout at a smaller base — see `docs/UI_DESIGN.md`.
+## First entry matches what `project.godot` actually does and is what the HUD
+## dropdown shows selected by default (`OptionButton.select()` does not fire
+## `item_selected`, so nothing is applied at startup — the live root already
+## carries the project setting, and this just keeps the label honest about it).
+const _STRETCH_PRESETS := [
+	{
+		"id": "native",
+		"label": "Native 1:1 (project default)",
+		"mode": Window.CONTENT_SCALE_MODE_DISABLED,
+		"aspect": Window.CONTENT_SCALE_ASPECT_EXPAND,
+		"stretch": Window.CONTENT_SCALE_STRETCH_FRACTIONAL,
+		"base": Vector2i(1152, 648),
+	},
+	{
+		"id": "integer",
+		"label": "Integer, 1152x648 base",
+		"mode": Window.CONTENT_SCALE_MODE_CANVAS_ITEMS,
+		"aspect": Window.CONTENT_SCALE_ASPECT_EXPAND,
+		"stretch": Window.CONTENT_SCALE_STRETCH_INTEGER,
+		"base": Vector2i(1152, 648),
+	},
+	{
+		"id": "integer640",
+		"label": "Integer, 640x360 base",
+		"mode": Window.CONTENT_SCALE_MODE_CANVAS_ITEMS,
+		"aspect": Window.CONTENT_SCALE_ASPECT_EXPAND,
+		"stretch": Window.CONTENT_SCALE_STRETCH_INTEGER,
+		"base": Vector2i(640, 360),
+	},
+	{
+		"id": "legacy_fractional",
+		"label": "Legacy fractional (pre-fix, for comparison)",
+		"mode": Window.CONTENT_SCALE_MODE_CANVAS_ITEMS,
+		"aspect": Window.CONTENT_SCALE_ASPECT_EXPAND,
+		"stretch": Window.CONTENT_SCALE_STRETCH_FRACTIONAL,
+		"base": Vector2i(1152, 648),
+	},
+]
+
 var retroRenderer
 var _catalogEntries: Array[Dictionary] = []
 var _activePlayback
@@ -113,31 +205,50 @@ var _footprintRadius: int = DEFAULT_FOOTPRINT_RADIUS
 var _areaShape: String = "circle"
 var _footprintRing: MeshInstance3D
 var _goldenFailures: int = 0
+var _textSpecimen: CanvasLayer
 
 @onready var _spawnAnchor: Node3D = $SpawnAnchor
 @onready var _camera: Camera3D = $Camera3D
-@onready var _statusLabel: Label = $HUD/PanelContainer/VBoxContainer/StatusLabel
-@onready var _effectOption: OptionButton = $HUD/PanelContainer/VBoxContainer/PlaybackGrid/EffectOption
-@onready var _elementOption: OptionButton = $HUD/PanelContainer/VBoxContainer/PlaybackGrid/ElementOption
-@onready var _modeToggle: CheckButton = $HUD/PanelContainer/VBoxContainer/PlaybackGrid/ModeToggle
-@onready var _scaleSetting: SpinBox = $HUD/PanelContainer/VBoxContainer/PlaybackGrid/ScaleSetting
-@onready var _seedPin: CheckButton = $HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow/SeedPin
-@onready var _seedSetting: SpinBox = $HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow/SeedSetting
-@onready var _cycleSeedButton: Button = $HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow/CycleSeedButton
-@onready var _playButton: Button = $HUD/PanelContainer/VBoxContainer/CoreButtons/PlayButton
-@onready var _pauseButton: Button = $HUD/PanelContainer/VBoxContainer/CoreButtons/PauseButton
-@onready var _settleButton: Button = $HUD/PanelContainer/VBoxContainer/CoreButtons/SettleButton
-@onready var _overlapButton: Button = $HUD/PanelContainer/VBoxContainer/CoreButtons/OverlapButton
-@onready var _screenshotButton: Button = $HUD/PanelContainer/VBoxContainer/CoreButtons/ScreenshotButton
-@onready var _scrub: HSlider = $HUD/PanelContainer/VBoxContainer/Scrub
-@onready var _layerToggles: GridContainer = $HUD/PanelContainer/VBoxContainer/LayerToggles
-@onready var _resolutionOption: OptionButton = $HUD/PanelContainer/VBoxContainer/Controls/ResolutionOption
-@onready var _retroToggle: CheckButton = $HUD/PanelContainer/VBoxContainer/Controls/RetroToggle
-@onready var _crtToggle: CheckButton = $HUD/PanelContainer/VBoxContainer/Controls/CRTToggle
-@onready var _radiusSetting: SpinBox = $HUD/PanelContainer/VBoxContainer/Controls/RadiusSetting
+@onready var _statusLabel: Label = $HUD/PanelContainer/Scroll/VBoxContainer/StatusLabel
+@onready var _effectOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/EffectOption
+@onready var _elementOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/ElementOption
+@onready var _modeToggle: CheckButton = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/ModeToggle
+@onready var _scaleSetting: SpinBox = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/ScaleSetting
+@onready var _seedPin: CheckButton = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/SeedRow/SeedPin
+@onready var _seedSetting: SpinBox = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/SeedRow/SeedSetting
+@onready var _cycleSeedButton: Button = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/SeedRow/CycleSeedButton
+@onready var _playButton: Button = $HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons/PlayButton
+@onready var _pauseButton: Button = $HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons/PauseButton
+@onready var _settleButton: Button = $HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons/SettleButton
+@onready var _overlapButton: Button = $HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons/OverlapButton
+@onready var _screenshotButton: Button = $HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons/ScreenshotButton
+@onready var _scrub: HSlider = $HUD/PanelContainer/Scroll/VBoxContainer/Scrub
+@onready var _layerToggles: GridContainer = $HUD/PanelContainer/Scroll/VBoxContainer/LayerToggles
+@onready var _resolutionOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/ResolutionOption
+@onready var _stretchOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/StretchOption
+@onready var _retroToggle: CheckButton = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/RetroToggle
+@onready var _crtToggle: CheckButton = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/CRTToggle
+@onready var _radiusSetting: SpinBox = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/RadiusSetting
+@onready var _textToggle: CheckButton = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextToggle
+@onready var _textFontOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextFontOption
+@onready var _textSampleOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextSampleOption
+@onready var _textScaleSetting: SpinBox = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextScaleSetting
+@onready var _textEdgeOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextEdgeOption
+@onready var _textEdgeSizeSetting: SpinBox = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextEdgeSizeSetting
+@onready var _textBackdropOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextBackdropOption
+@onready var _textFillOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextFillOption
+@onready var _reloadGlyphsButton: Button = $HUD/PanelContainer/Scroll/VBoxContainer/TextButtons/ReloadGlyphsButton
 
 
 func _ready() -> void:
+	# Same first-statement call the shipping controller makes, and for the same
+	# reason: `ui_scale` must be settled before anything reads a NoggTheme
+	# geometry token or builds a Theme. Without it this scene ran at the default
+	# x2 no matter its window size, so it silently failed to reproduce what the
+	# game does — which made it useless for judging anything that scales,
+	# including the CRT pitch this scene is used to tune.
+	NoggThemeScript.configure_for_window_height(get_window().size.y)
+
 	retroRenderer = RetroRenderControllerScript.new(self)
 	retroRenderer.set_preset(retroRenderer.PRESET_NONE, false)
 	_reparentWorldNodes()
@@ -147,6 +258,7 @@ func _ready() -> void:
 	_buildTargetGuides()
 	_configureRenderControls()
 	_configurePlaybackControls()
+	_configureTextSpecimen()
 	BattleMeshFactoryScript.prepareNodeMaterials(retroRenderer.world_root)
 	_applyRenderControls()
 	set_process(true)
@@ -192,6 +304,10 @@ func _input(event: InputEvent) -> void:
 			_modeToggle.set_pressed_no_signal(not _modeToggle.button_pressed)
 			_updateModeToggleText()
 			_updateStatus()
+		KEY_X:
+			_textToggle.button_pressed = not _textToggle.button_pressed
+		KEY_R:
+			_onReloadGlyphsPressed()
 
 
 func _exit_tree() -> void:
@@ -225,6 +341,99 @@ func _configurePlaybackControls() -> void:
 	_overlapButton.pressed.connect(_onOverlapPressed)
 	_screenshotButton.pressed.connect(_captureOnce.bind(false))
 	_scrub.value_changed.connect(_onScrubChanged)
+
+
+## The specimen owns its own CanvasLayer at the shipping UI depth, so it
+## composites the way the battle HUD composites -- above the CRT pass by
+## default, and unaffected by `H` hiding this scene's control panel. That
+## separation is deliberate: a capture usually wants the specimen and not the
+## controls.
+func _configureTextSpecimen() -> void:
+	_textSpecimen = TextSpecimenScript.new()
+	add_child(_textSpecimen)
+	_textSpecimen.visible = false
+
+	for option: Dictionary in TextSpecimenScript.FONT_OPTIONS:
+		_textFontOption.add_item(option["label"])
+		_textFontOption.set_item_metadata(_textFontOption.item_count - 1, option["id"])
+	for option: Dictionary in TextSpecimenScript.SAMPLE_OPTIONS:
+		_textSampleOption.add_item(option["label"])
+		_textSampleOption.set_item_metadata(_textSampleOption.item_count - 1, option["id"])
+	for option: Dictionary in TextSpecimenScript.BACKDROP_OPTIONS:
+		_textBackdropOption.add_item(option["label"])
+		_textBackdropOption.set_item_metadata(_textBackdropOption.item_count - 1, option["id"])
+	for option: Dictionary in TextSpecimenScript.EDGE_OPTIONS:
+		_textEdgeOption.add_item(option["label"])
+		_textEdgeOption.set_item_metadata(_textEdgeOption.item_count - 1, option["id"])
+	for option: Dictionary in TextSpecimenScript.FILL_OPTIONS:
+		_textFillOption.add_item(option["label"])
+		_textFillOption.set_item_metadata(_textFillOption.item_count - 1, option["id"])
+	_textFontOption.select(0)
+	_textSampleOption.select(0)
+	_textBackdropOption.select(0)
+	_textEdgeOption.select(0)
+	_textFillOption.select(TextSpecimenScript.default_fill_index())
+
+	_textToggle.toggled.connect(_onTextToggled)
+	_textFontOption.item_selected.connect(_onTextFontSelected)
+	_textSampleOption.item_selected.connect(_onTextSampleSelected)
+	_textScaleSetting.value_changed.connect(_onTextScaleChanged)
+	_textEdgeOption.item_selected.connect(_onTextEdgeSelected)
+	_textEdgeSizeSetting.value_changed.connect(_onTextEdgeSizeChanged)
+	_textBackdropOption.item_selected.connect(_onTextBackdropSelected)
+	_textFillOption.item_selected.connect(_onTextFillSelected)
+	_reloadGlyphsButton.pressed.connect(_onReloadGlyphsPressed)
+
+
+func _onTextToggled(enabled: bool) -> void:
+	_textSpecimen.visible = enabled
+	_updateStatus()
+
+
+func _onTextFontSelected(index: int) -> void:
+	_textSpecimen.set_font_id(_textFontOption.get_item_metadata(index))
+	_updateStatus()
+
+
+func _onTextSampleSelected(index: int) -> void:
+	_textSpecimen.set_sample_id(_textSampleOption.get_item_metadata(index))
+	_updateStatus()
+
+
+func _onTextScaleChanged(value: float) -> void:
+	_textSpecimen.set_specimen_scale(roundi(value))
+	_updateStatus()
+
+
+func _onTextEdgeSelected(index: int) -> void:
+	_textSpecimen.set_edge_mode(_textEdgeOption.get_item_metadata(index))
+	_updateStatus()
+
+
+func _onTextEdgeSizeChanged(value: float) -> void:
+	_textSpecimen.set_edge_size(roundi(value))
+	_updateStatus()
+
+
+func _onTextBackdropSelected(index: int) -> void:
+	_textSpecimen.set_backdrop_id(_textBackdropOption.get_item_metadata(index))
+	_updateStatus()
+
+
+## Only visible under the `window` backdrop, which is the point: the fill is
+## what a shadow has to be legible against, and picking one without the other
+## settles nothing.
+func _onTextFillSelected(index: int) -> void:
+	_textSpecimen.set_fill_id(_textFillOption.get_item_metadata(index))
+	_updateStatus()
+
+
+## Re-parses `glyphs.txt` in place. Editing a glyph and pressing R is the whole
+## authoring loop for this face; requiring a re-bake and a relaunch between
+## every pixel would make drawing 95 glyphs unaffordable.
+func _onReloadGlyphsPressed() -> void:
+	_textSpecimen.reload_source()
+	_updateStatus()
 
 
 ## `--effect=<profile id>` (e.g. `--effect=ice_area_storm`) selects which
@@ -470,10 +679,15 @@ func _updateStatus() -> void:
 	var renderLabel := _resolutionOption.get_item_text(_resolutionOption.selected)
 	var captureSuffix := "\n" + _captureMessage if not _captureMessage.is_empty() else ""
 	var statusSeed := _activeSeed if _activePlayback != null else int(_seedSetting.value)
+	# Explicitly typed: `_textSpecimen` is a plain CanvasLayer to the parser, so
+	# the return type of `describe()` cannot be inferred here.
+	var specimenLine: String = (
+		"\n" + _textSpecimen.describe() if _textSpecimen != null else ""
+	)
 	_statusLabel.text = (
 		"%s / %s\n%s speed @ %.2fx | t %.2f | %.2f / %.2fs\n" +
 		"seed %d | nodes %d | particles %d | overlaps %d | flurry: %s\n" +
-		"%s | Retro %s | CRT %s%s"
+		"%s | Retro %s | CRT %s%s%s"
 	) % [
 		_effectOption.get_item_text(_effectOption.selected),
 		_playbackState,
@@ -490,7 +704,8 @@ func _updateStatus() -> void:
 		renderLabel,
 		"ON" if _retroToggle.button_pressed else "OFF",
 		"ON" if _crtToggle.button_pressed else "OFF",
-		captureSuffix
+		captureSuffix,
+		specimenLine
 	]
 
 
@@ -565,6 +780,11 @@ func _applyCommandLineOverrides() -> void:
 	if scale > 0.0:
 		_scaleSetting.set_value_no_signal(scale)
 
+	var stretch := _stringArgument("--stretch=")
+	if not stretch.is_empty():
+		if not _selectOptionByMetadata(_stretchOption, stretch, _onStretchSelected):
+			push_warning("Unknown --stretch=%s; keeping native (the project default)." % stretch)
+
 	if _hasFlagArgument("--retro"):
 		_retroToggle.set_pressed_no_signal(true)
 	if _hasFlagArgument("--crt"):
@@ -572,8 +792,86 @@ func _applyCommandLineOverrides() -> void:
 	if _hasFlagArgument("--retro") or _hasFlagArgument("--crt"):
 		_applyRenderControls()
 
+	# Scanline and mask pitch are in device pixels, so what they look like
+	# depends entirely on the window. Exposing them makes "should these follow
+	# the UI scale?" a question answered by capturing both, rather than argued.
+	# `set_crt_parameter`, not `set_look_parameter` — the two have separate match
+	# statements and the look setter silently ignores a CRT parameter name
+	# rather than rejecting it. Passing one to the wrong setter is a no-op that
+	# looks exactly like a shader that ignored the value.
+	var scanlineSize := _floatArgument("--crt-scanline-size=", -1.0)
+	if scanlineSize > 0.0:
+		retroRenderer.set_crt_parameter(
+			retroRenderer.CRT_SCANLINE_SIZE, scanlineSize, false
+		)
+	var maskSize := _floatArgument("--crt-mask-size=", -1.0)
+	if maskSize > 0.0:
+		retroRenderer.set_crt_parameter(
+			retroRenderer.CRT_MASK_SIZE, maskSize, false
+		)
+
 	if _hasFlagArgument("--hide-hud"):
 		$HUD.visible = false
+
+	_applyTextCommandLineOverrides()
+
+
+## Routed through the HUD controls rather than straight at the specimen, so a
+## scripted run and a hand-driven one cannot diverge: whatever the flags set is
+## visible in the panel, and whatever the panel shows is what a flag would have
+## produced.
+func _applyTextCommandLineOverrides() -> void:
+	var face := _stringArgument("--text-font=")
+	if not face.is_empty():
+		if not _selectOptionByMetadata(_textFontOption, face, _onTextFontSelected):
+			push_warning("Unknown --text-font=%s; keeping the live source face." % face)
+
+	var sample := _stringArgument("--text-sample=")
+	if not sample.is_empty():
+		if not _selectOptionByMetadata(_textSampleOption, sample, _onTextSampleSelected):
+			push_warning("Unknown --text-sample=%s; keeping the reference sentence." % sample)
+
+	var backdrop := _stringArgument("--text-backdrop=")
+	if not backdrop.is_empty():
+		if not _selectOptionByMetadata(_textBackdropOption, backdrop, _onTextBackdropSelected):
+			push_warning("Unknown --text-backdrop=%s; keeping the board." % backdrop)
+
+	var fill := _stringArgument("--text-fill=")
+	if not fill.is_empty():
+		if not _selectOptionByMetadata(_textFillOption, fill, _onTextFillSelected):
+			push_warning("Unknown --text-fill=%s; keeping the current WINDOW_FILL." % fill)
+
+	var textScale := _intArgument("--text-scale=", -1)
+	if textScale > 0:
+		_textScaleSetting.value = clampi(
+			textScale, TextSpecimenScript.MIN_SCALE, TextSpecimenScript.MAX_SCALE
+		)
+
+	var edge := _stringArgument("--text-edge=")
+	if not edge.is_empty():
+		if not _selectOptionByMetadata(_textEdgeOption, edge, _onTextEdgeSelected):
+			push_warning("Unknown --text-edge=%s; keeping the drop shadow." % edge)
+
+	var edgeSize := _intArgument("--text-edge-size=", -1)
+	if edgeSize >= 0:
+		_textEdgeSizeSetting.value = clampi(edgeSize, 0, TextSpecimenScript.MAX_EDGE_SIZE)
+
+	# Last, so the overlay is already configured the moment it appears and a
+	# capture taken immediately after cannot catch it mid-setup.
+	if _hasFlagArgument("--text"):
+		_textToggle.button_pressed = true
+
+
+## Selects the entry whose metadata equals `id` and runs the same handler the
+## user's click would have run. Returns false when nothing matches.
+func _selectOptionByMetadata(
+		option: OptionButton, id: String, handler: Callable) -> bool:
+	for index: int in range(option.item_count):
+		if str(option.get_item_metadata(index)) == id:
+			option.select(index)
+			handler.call(index)
+			return true
+	return false
 
 
 ## Isolation runs after `_onPlayPressed`, because that call rebuilds the toggle
@@ -820,6 +1118,11 @@ func _configureRenderControls() -> void:
 		_resolutionOption.add_item(option["label"])
 		_resolutionOption.set_item_metadata(optionIndex, option["size"])
 	_resolutionOption.select(0)
+	for preset: Dictionary in _STRETCH_PRESETS:
+		_stretchOption.add_item(preset["label"])
+		_stretchOption.set_item_metadata(_stretchOption.item_count - 1, preset["id"])
+	_stretchOption.select(0)
+	_stretchOption.item_selected.connect(_onStretchSelected)
 	_retroToggle.set_pressed_no_signal(false)
 	_crtToggle.set_pressed_no_signal(false)
 	_radiusSetting.set_value_no_signal(DEFAULT_FOOTPRINT_RADIUS)
@@ -832,6 +1135,37 @@ func _configureRenderControls() -> void:
 func _onResolutionSelected(index: int) -> void:
 	_retroToggle.set_pressed_no_signal(index != 0)
 	_applyRenderControls()
+
+
+## Applied to the live root window rather than to `project.godot`. Changing the
+## project setting is a decision affecting every screen in the game; this makes
+## the consequences visible first, and the specimen's pixel-exactness readout
+## reports the resulting factor immediately.
+func _onStretchSelected(index: int) -> void:
+	var id: String = _stretchOption.get_item_metadata(index)
+	for preset: Dictionary in _STRETCH_PRESETS:
+		if preset["id"] != id:
+			continue
+		var root := get_tree().root
+		root.content_scale_mode = preset["mode"]
+		root.content_scale_aspect = preset["aspect"]
+		root.content_scale_stretch = preset["stretch"]
+		root.content_scale_size = preset["base"]
+		break
+	# Changing the content scale changes the text server's font oversampling,
+	# which clears cached glyph data. A dynamic face re-rasterizes itself from
+	# the TTF it still holds; a bitmap face assembled in memory has no source to
+	# regenerate from, so its glyphs are simply gone and every string falls back
+	# to a system font. Rebuilding is the only recovery — see the note in
+	# `NoggBitmapFont`.
+	#
+	# Deferred, because the engine services the scale change (and the cache
+	# clear it causes) after this call returns. Rebuilding inline produces a
+	# correct font that is then immediately cleared, and the text server logs a
+	# run of null-font-data errors while shaping against the corpse.
+	if _textSpecimen != null:
+		_textSpecimen.call_deferred("reload_source")
+	_updateStatus()
 
 
 func _onRenderToggleChanged(_enabled: bool) -> void:

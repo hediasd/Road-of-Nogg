@@ -37,8 +37,16 @@ const CRT_OVERLAY_LAYER_THROUGH_UI := GAME_LAYER + 1
 
 # --- Game palette ---------------------------------------------------------
 
-## Near-black translucent window body. The board reads through it.
-const WINDOW_FILL := Color(0.012, 0.012, 0.020, 0.76)
+## Warm dark translucent window body. The board still reads through it.
+##
+## Lifted from the previous near-black `(0.012, 0.012, 0.020, 0.76)` when Nogg
+## Terminal was adopted, and the two changes are one decision: the face's edge
+## treatment is a drop shadow, and a dark shadow on a near-black panel is
+## invisible by construction. The reference's own mailer panel is a warm dark
+## brown, which is the only reason its shadow reads at all. This is the lightest
+## rung that lets the shadow register while keeping the panel translucent —
+## picked by eye in the VFX debug scene's text specimen against the real board.
+const WINDOW_FILL := Color(0.075, 0.058, 0.042, 0.86)
 ## For windows that must not be read through (confirm prompts).
 const WINDOW_FILL_DEEP := Color(0.004, 0.004, 0.008, 0.90)
 ## Expanded black backplate and soft shadow outside the visible rim.
@@ -70,49 +78,288 @@ const DEV_FILL := Color(0.063, 0.078, 0.094, 0.92)
 const DEV_BORDER := Color(0.227, 0.267, 0.314)
 const DEV_TEXT := Color(0.776, 0.808, 0.847)
 
+# --- UI scale -------------------------------------------------------------
+#
+# Every geometry token below is authored in DESIGN UNITS and multiplied by
+# `ui_scale` to reach device pixels. The canvas is not scaled at all
+# (`window/stretch/mode = "disabled"`), so a device pixel is a real pixel and
+# whole-numbered geometry stays whole at every window size.
+#
+# **Why the canvas is not doing this.** Scaling the canvas by a fraction — which
+# is what `canvas_items` stretch does at nearly every real window size —
+# duplicates some pixel rows and drops others under the project's nearest
+# filter, so a one-pixel stroke renders two device pixels wide in places and
+# three in others inside the same word. Measured at 1340 x 754: x1.163, and both
+# fonts visibly damaged. Canvas-level *integer* scaling fixes that but
+# letterboxes hard against the inherited 1152 x 648 base. Scaling the tokens
+# instead keeps both halves of the UI correct: smooth chrome (rims, rounded
+# bodies, halos) is redrawn at the larger size rather than resampled, and pixel
+# content lands on whole pixels. See `docs/UI_DESIGN.md` §3.
+#
+# **These are `static var`, not `const`, and that is the whole design.** Sixty
+# call sites across a dozen files read these names. Turning each into a function
+# call would break this file's central promise — that a restyle is a one-file
+# edit — so the names keep their identity and only their values move.
+# `configure()` is the single writer.
+const UI_SCALE_MIN := 1
+const UI_SCALE_MAX := 4
+## Window height, in device pixels, that buys one step of scale. 360 puts 720p
+## at x2 and 1080p at x3, which is the ladder the 16:9 resolutions land on.
+const UI_SCALE_STEP_HEIGHT := 360
+
+## Defaults to 2 because that is what the current constants already encode:
+## `FONT_SIZE_BODY` was 24 and the design body is 12. A correct conversion is a
+## no-op at this scale, which is exactly how it is checked.
+static var ui_scale: int = 2
+
+
+## Recomputes the scale from a window height. Returns whether it changed, so a
+## caller can decide to rebuild themes and relayout without this file needing to
+## know anything about nodes, signals, or the tree.
+##
+## Deliberately not a signal: `NoggTheme` is a pure token and factory class with
+## no node identity, and giving it one so it could emit would be a larger change
+## to its role than this problem justifies.
+## **Rounds to nearest, deliberately — truncating here is a bug, and was one.**
+## A window's usable client height is never the nominal resolution: a nominal
+## 1920 x 1080 window measures 1920 x 1056 once the title bar is taken, and
+## `1056 / 360` is 2.93. Truncation turned that into x2, throwing away almost a
+## whole step because of 24 pixels of window chrome — so a maximised 1080p
+## window rendered its UI at the same scale as a 720p one. Rounding maps the
+## real measured client heights (696, 1056, 1416) onto the intended 2 / 3 / 4
+## rather than onto 1 / 2 / 3.
+static func configure_for_window_height(height: int) -> bool:
+	return configure(
+		clampi(
+			roundi(float(height) / float(UI_SCALE_STEP_HEIGHT)),
+			UI_SCALE_MIN,
+			UI_SCALE_MAX
+		)
+	)
+
+
+static func configure(scale: int) -> bool:
+	var wanted := clampi(scale, UI_SCALE_MIN, UI_SCALE_MAX)
+	if wanted == ui_scale:
+		return false
+	ui_scale = wanted
+	_recompute()
+	return true
+
+
+## Design units are allowed to be fractional where an existing value demands it
+## (`RESONANCE_CELL_GAP` is 3 device pixels at x2, so 1.5 design units), but the
+## result never is: everything lands on a whole pixel via `roundi`. Whole device
+## pixels are the entire objective, so rounding here rather than at each draw
+## site is what makes it a property of the tokens instead of a hope.
+static func _scaled(units: float) -> float:
+	return float(roundi(units * float(ui_scale)))
+
+
+static func _scaled_int(units: float) -> int:
+	return roundi(units * float(ui_scale))
+
+
 # --- Typography -----------------------------------------------------------
 
-## XenoText reports a 12px monospace advance at size 24, about half the width
-## of the outgoing Shining Force face. Existing windows retain their widths as
-## deliberate breathing room; do not re-dock panels around the narrower text.
-const GAME_FONT_PATH := "res://assets/Fonts/xenotext.otf"
+## **Nogg Terminal, the in-house bitmap face** (`docs/UI_DESIGN.md` §3). Drawn
+## on an 8 x 12 design cell with an 8-unit monospace advance, so it reports a
+## **16px advance at size 24** against XenoText's 12px — a third wider. Every
+## window width in this file was re-measured against it on adoption; they are
+## not the XenoText numbers.
+##
+## The baked `.res` carries its own glyph cache and its own outline variants.
+## `assets/Fonts/NoggTerminal/glyphs.txt` is the editable source of truth and
+## `scripts/bake_bitmap_font.gd` regenerates the resource from it.
+const GAME_FONT_PATH := "res://assets/Fonts/NoggTerminal/NoggTerminal.res"
+const XENOTEXT_FONT_PATH := "res://assets/Fonts/xenotext.otf"
 const DEV_FONT_PATH := "res://assets/Fonts/Roboto-Regular.ttf"
 
-## Integer sizes only. A pixel font at a fractional size smears.
-## Keep XenoText at integer sizes. The final visual pass owns any decision to
-## enable smoothing, along with rerunning `debug/preview_theme.gd` metrics.
-const FONT_SIZE_BODY := 24
-const FONT_SIZE_HEADING := 24
-const FONT_SIZE_FOOTER := 20
-const FONT_SIZE_DEV := 13
-const OUTLINE_SIZE := 2
+## **Every game font size must be a whole multiple of
+## `NoggBitmapFont.NOMINAL_SIZE` (12).** Nogg Terminal declares
+## `fixed_size = 12` with `FIXED_SIZE_SCALE_INTEGER_ONLY`, so a requested size
+## that is not a multiple of 12 is *floored to the next one down* rather than
+## interpolated — size 20 silently renders at 12, two thirds of the intended
+## height, with no warning. Since these are all `<units> * ui_scale` and
+## `ui_scale` is a whole number, keeping the units themselves whole multiples of
+## 12 makes that impossible by construction.
+##
+## `FONT_SIZE_FOOTER` was 10 units (20px at x2) and had to move to 12 on
+## adoption: 20 is not a multiple of 12, so the pager footer would have rendered
+## at 12px inside a window sized for 20. **The footer is therefore now the same
+## size as body text**, and the distinction between them has to come from colour
+## or spacing rather than from size. Nothing in the shipping catalog pages
+## today, so no live screen currently shows the footer at all.
+##
+## The dev size is exempt: the dev face is Roboto, a dynamic font, which
+## renders any size honestly. 6.5 units keeps it at today's 13 at x2.
+const FONT_SIZE_BODY_UNITS := 12.0
+const FONT_SIZE_HEADING_UNITS := 12.0
+const FONT_SIZE_FOOTER_UNITS := 12.0
+const FONT_SIZE_DEV_UNITS := 6.5
+
+## **A cache key, not a pixel count — and deliberately NOT scaled.** Godot
+## cannot synthesise an outline for a bitmap face, so Nogg Terminal ships baked
+## outline variants at design widths 0, 1 and 2 (`NoggBitmapFont.OUTLINE_LEVELS`)
+## and `outline_size` selects between them. Requesting a width with no baked
+## variant draws **no outline at all, silently** — so multiplying this by
+## `ui_scale` would ask for width 3 at x3 and lose the outline entirely on
+## exactly the screens where text most needs it.
+##
+## The text server applies the fixed-size scale to whichever variant it finds,
+## so requesting 1 at size 24 already yields a 2-device-pixel halo. Scaling here
+## would square the zoom.
+const OUTLINE_SIZE := 1
+
+## The face's own edge treatment is a one-pixel drop shadow down and right, not
+## a symmetric halo — see `docs/UI_DESIGN.md` §3. On strokes exactly one design
+## pixel wide a halo of the same width doubles every letter's apparent weight
+## and starts closing the counters; the shadow leaves the letterforms alone.
+## Unlike `OUTLINE_SIZE` this is drawn by the label rather than baked, so it is
+## a real device-pixel offset and does scale.
+const SHADOW_OFFSET_UNITS := 1.0
+## Not fully opaque: at one design pixel an opaque black shadow reads as a
+## second stroke competing with the letter rather than as depth beneath it.
+const SHADOW_COLOR := Color(0.0, 0.0, 0.0, 0.72)
+
+static var FONT_SIZE_BODY: int
+static var FONT_SIZE_HEADING: int
+static var FONT_SIZE_FOOTER: int
+static var FONT_SIZE_DEV: int
+static var SHADOW_OFFSET: float
 
 # --- Window geometry ------------------------------------------------------
 
 ## Thin smooth rim and a deliberately larger exterior black halo. The halo's
 ## rect draws beyond layout bounds but does not affect them or receive input.
-const FRAME_RING_PX := 2
-const WINDOW_CORNER_RADIUS := 6
-const HALO_OUTSET := 6
-const HALO_SPREAD := 10
-const HALO_SHADOW_OFFSET := Vector2(1.0, 2.0)
+const FRAME_RING_UNITS := 1.0
+const WINDOW_CORNER_RADIUS_UNITS := 3.0
+const HALO_OUTSET_UNITS := 3.0
+const HALO_SPREAD_UNITS := 5.0
+const HALO_SHADOW_OFFSET_UNITS := Vector2(0.5, 1.0)
 ## Where content starts: visible rim plus breathing room.
-const CONTENT_INSET := FRAME_RING_PX + 10
+const CONTENT_INSET_UNITS := FRAME_RING_UNITS + 5.0
 ## A window's height is a function of capacity, not of content (trait 6).
-const ROW_HEIGHT := FONT_SIZE_BODY + 2
-const ROW_CAPACITY_DEFAULT := 8
+const ROW_HEIGHT_UNITS := FONT_SIZE_BODY_UNITS + 1.0
 ## Fixed left edges for the docked status-window grid. The third column is
 ## reserved for element state; list rows keep their independent HBox layout.
-const STATUS_CELL_OFFSETS := [0.0, 192.0, 384.0]
-const STATUS_CELL_TEXT_GAP := FONT_SIZE_BODY
+const STATUS_CELL_OFFSET_UNITS := [0.0, 96.0, 192.0]
+const STATUS_CELL_TEXT_GAP_UNITS := FONT_SIZE_BODY_UNITS
 ## Compact gap between a two-character element code and its drawn bar.
-const RESONANCE_BAR_CELLS := 3
-const RESONANCE_CELL_SIZE := 10.0
-const RESONANCE_CELL_GAP := 3.0
-const RESONANCE_BAR_WIDTH := RESONANCE_BAR_CELLS * RESONANCE_CELL_SIZE + (RESONANCE_BAR_CELLS - 1) * RESONANCE_CELL_GAP
-const STATUS_CELL_CONTROL_GAP := 8.0
+const RESONANCE_CELL_SIZE_UNITS := 5.0
+const RESONANCE_CELL_GAP_UNITS := 1.5
+## An empty cell's outline stroke. 0.5 so it stays the historical 1 device
+## pixel at x2 rather than doubling in weight along with everything else —
+## a thicker line here reads as a heavier chrome element, not a bigger cell.
+const RESONANCE_CELL_BORDER_UNITS := 0.5
+const STATUS_CELL_CONTROL_GAP_UNITS := 4.0
 ## Horizontal gap between a parent window and the child stacked to its right.
-const WINDOW_STACK_GAP := 8
+const WINDOW_STACK_GAP_UNITS := 4.0
+
+## Counts, not lengths. These do not scale — three resonance cells stay three
+## cells at every size, and a window holding eight rows holds eight rows.
+const RESONANCE_BAR_CELLS := 3
+const ROW_CAPACITY_DEFAULT := 8
+
+# --- Window widths ---------------------------------------------------------
+#
+# Owned here, not in `BattleUIBuilder`/`PlayerCommandMenu`/`NoggWindow`, for the
+# same reason every other geometry token moved: each was a local `const` in
+# device pixels that could not track `ui_scale`, so a window sized correctly at
+# x2 would either waste space at x1 or clip its own content at x4 — the glyphs
+# inside it grow with `FONT_SIZE_BODY`; the window that held them did not.
+#
+# Values are `ceilf(measured design-unit requirement)`, measured directly
+# against this project's real worst-case strings at `ui_scale = 1` —
+# `debug/measure_px4_widths.gd` (gitignored) — the same
+# `CONTENT_INSET * 2 + label + value (+ gap)` formula
+# `debug/preview_theme.gd` already used, extended to windows it never covered.
+# At x1 a design unit IS a device pixel, so the measurement needed no
+# unit conversion that could introduce rounding error.
+#
+# **Two of these are not merely re-expressed: they were already wrong.**
+# Measured against the shipping font at the CURRENT x2 scale — nothing to do
+# with UI_SCALE — `PROMPT_WIDTH` (620px) is 76px short of
+# "Preview tile (12, 12). Empty-center casting is disabled." (696px needed),
+# and `FORECAST_WIDTH` (460px) is 44px short of
+# "Cast spends action, cooldown & Resonance" (504px needed). Neither string is
+# hypothetical; both come verbatim from `PlayerTurnController`. This predates
+# this cycle — `debug/preview_theme.gd`'s own `WIDTH_CASES` never covered
+# prompt or forecast content, only command/spell/actor — and is fixed here
+# because authoring a new canonical width was the moment to fix it, not a
+# reason found and then reproduced.
+const COMMAND_WIDTH_UNITS := 110.0
+const SPELL_WIDTH_UNITS := 340.0
+## Widened on Nogg Terminal adoption: the face is a third wider than XenoText,
+## and the longest real status line ("Preview tile (12, 12). Empty-center
+## casting is disabled.") needs 460 units against the previous 348.
+const PROMPT_WIDTH_UNITS := 470.0
+## Likewise: "Cast spends action, cooldown & Resonance" needs 332 units against
+## the previous 252.
+const FORECAST_WIDTH_UNITS := 340.0
+## **Unchanged by the font swap**, and the reason is worth recording. An earlier
+## measurement fed this window the string "Elements / Fire, Wind, Ice, Darkness"
+## and concluded it needed 288 units. That layout does not exist: the status
+## window uses FIXED CELLS at `STATUS_CELL_OFFSETS`, and its third column holds
+## a two-character element code plus a drawn `ResonanceBar`, never a
+## comma-separated list. Measured against the geometry
+## `NoggWindow.add_stat_row()` actually produces, the binding cell needs 243
+## units, which 270 already covered. Two of these still fit side by side with
+## margins inside a 1152-unit-wide screen at x1.
+const STATUS_WINDOW_WIDTH_UNITS := 270.0
+## Sized to the row this window actually builds — `"<marker>  <name>"` against
+## a `"#<id>"` value column — not to a bare name. Measuring the name alone
+## under-sized it and left it truncating mid-word on screen
+## ("Envoy of Lig#100"), which is what rendering the real scene caught. The
+## worst real row is `NEXT  Polar Weather Wizard` + `#100` at 264 units.
+const TURN_ORDER_WIDTH_UNITS := 275.0
+## Pager footer: two arrows plus a short page-count label. Still provisional —
+## nothing in the shipping catalog pages today, so there is no real content to
+## measure against, matching the honest uncertainty the original constant's
+## comment already carried.
+const PAGER_WIDTH_UNITS := 95.0
+const PAGER_ARROW_GAP_UNITS := 3.0
+
+## Screen-edge docking offsets. Rendered multi-scale validation found these
+## unscaled: the width migration left the positional literals that
+## place those windows behind, so at x3 the windows grew while their margins
+## did not and the whole HUD crept toward the screen edges. A margin is a length
+## like any other and has to scale with what it separates.
+const SCREEN_MARGIN_UNITS := 10.0
+const PROMPT_TOP_UNITS := 12.0
+const TURN_ORDER_TOP_UNITS := 50.0
+## Vertical gap between the forecast window and the command window above which
+## it sits.
+const FORECAST_GAP_UNITS := 4.0
+
+static var COMMAND_WIDTH: float
+static var SPELL_WIDTH: float
+static var PROMPT_WIDTH: float
+static var FORECAST_WIDTH: float
+static var STATUS_WINDOW_WIDTH: float
+static var TURN_ORDER_WIDTH: float
+static var PAGER_WIDTH: float
+static var PAGER_ARROW_GAP: float
+static var SCREEN_MARGIN: float
+static var PROMPT_TOP: float
+static var TURN_ORDER_TOP: float
+static var FORECAST_GAP: float
+
+static var FRAME_RING_PX: int
+static var WINDOW_CORNER_RADIUS: int
+static var HALO_OUTSET: int
+static var HALO_SPREAD: int
+static var HALO_SHADOW_OFFSET: Vector2
+static var CONTENT_INSET: int
+static var ROW_HEIGHT: int
+static var STATUS_CELL_OFFSETS: Array
+static var STATUS_CELL_TEXT_GAP: int
+static var RESONANCE_CELL_SIZE: float
+static var RESONANCE_CELL_GAP: float
+static var RESONANCE_CELL_BORDER: float
+static var RESONANCE_BAR_WIDTH: float
+static var STATUS_CELL_CONTROL_GAP: float
+static var WINDOW_STACK_GAP: int
 
 # --- Animation ------------------------------------------------------------
 #
@@ -128,15 +375,20 @@ const TWEEN_WINDOW_CLOSE := 0.08
 const WINDOW_OPEN_SCALE := 0.94
 ## Cursor row-to-row move. Interrupting tweens are killed, not queued.
 const TWEEN_CURSOR_MOVE := 0.09
-const CURSOR_BOB_PIXELS := 2.0
 const CURSOR_BOB_PERIOD := 0.6
+## A length, so it scales — otherwise the bob shrinks to a twitch at x4.
+const CURSOR_BOB_UNITS := 1.0
+static var CURSOR_BOB_PIXELS: float
 
 ## Row label overflow marquee (docs/UI_DESIGN.md §7b). Distance / speed, never
 ## a fixed duration — a fixed duration makes a long name whip past and a
 ## barely-overflowing one crawl.
 const MARQUEE_DELAY := 1.2
-const MARQUEE_SPEED := 40.0
 const MARQUEE_END_HOLD := 1.0
+## Pixels per second, so it scales: a fixed speed would read twice as fast at
+## x1 as at x2 relative to the letters it is moving.
+const MARQUEE_SPEED_UNITS := 20.0
+static var MARQUEE_SPEED: float
 
 # --- Cursor gutter --------------------------------------------------------
 #
@@ -144,15 +396,91 @@ const MARQUEE_END_HOLD := 1.0
 # space for a cursor it never sees: the two numbers have to agree or the
 # cursor lands on the ring (too small) or floats in dead space (too large).
 
-const CURSOR_WIDTH := 10.0
-const CURSOR_HEIGHT := 12.0
+const CURSOR_WIDTH_UNITS := 5.0
+const CURSOR_HEIGHT_UNITS := 6.0
 ## Cursor's resting x: clear of the ring by a few pixels rather than on it.
-const CURSOR_INSET := FRAME_RING_PX + 4.0
+const CURSOR_INSET_UNITS := FRAME_RING_UNITS + 2.0
 ## Extra left padding for rows in a window that hosts a cursor, measured from
 ## CONTENT_INSET. Covers the cursor at its widest bob excursion plus a gap, so
 ## the arrow never touches either the ring or the text:
 ##   ring ends 12 | cursor 16..28 (incl. bob) | text starts 34
-const CURSOR_GUTTER_WIDTH := 12.0
+## (those figures are device pixels at x2, which is the scale they were
+## measured at; the agreement they describe is between the design units.)
+const CURSOR_GUTTER_WIDTH_UNITS := 6.0
+
+static var CURSOR_WIDTH: float
+static var CURSOR_HEIGHT: float
+static var CURSOR_INSET: float
+static var CURSOR_GUTTER_WIDTH: float
+
+
+## Derives every device-pixel token from its design units. The single writer of
+## the static vars above, and the reason they can be trusted to agree with each
+## other: nothing recomputes a subset.
+##
+## `_static_init` runs on class load, so the tokens are correct at the default
+## scale before any caller has had a chance to read one — there is no window in
+## which a consumer could observe an unconfigured value.
+static func _static_init() -> void:
+	_recompute()
+
+
+static func _recompute() -> void:
+	FONT_SIZE_BODY = _scaled_int(FONT_SIZE_BODY_UNITS)
+	FONT_SIZE_HEADING = _scaled_int(FONT_SIZE_HEADING_UNITS)
+	FONT_SIZE_FOOTER = _scaled_int(FONT_SIZE_FOOTER_UNITS)
+	FONT_SIZE_DEV = _scaled_int(FONT_SIZE_DEV_UNITS)
+	SHADOW_OFFSET = _scaled(SHADOW_OFFSET_UNITS)
+
+	FRAME_RING_PX = _scaled_int(FRAME_RING_UNITS)
+	WINDOW_CORNER_RADIUS = _scaled_int(WINDOW_CORNER_RADIUS_UNITS)
+	HALO_OUTSET = _scaled_int(HALO_OUTSET_UNITS)
+	HALO_SPREAD = _scaled_int(HALO_SPREAD_UNITS)
+	HALO_SHADOW_OFFSET = Vector2(
+		_scaled(HALO_SHADOW_OFFSET_UNITS.x), _scaled(HALO_SHADOW_OFFSET_UNITS.y)
+	)
+	CONTENT_INSET = _scaled_int(CONTENT_INSET_UNITS)
+	ROW_HEIGHT = _scaled_int(ROW_HEIGHT_UNITS)
+	STATUS_CELL_TEXT_GAP = _scaled_int(STATUS_CELL_TEXT_GAP_UNITS)
+	STATUS_CELL_CONTROL_GAP = _scaled(STATUS_CELL_CONTROL_GAP_UNITS)
+	WINDOW_STACK_GAP = _scaled_int(WINDOW_STACK_GAP_UNITS)
+
+	var offsets: Array = []
+	for units: float in STATUS_CELL_OFFSET_UNITS:
+		offsets.append(_scaled(units))
+	STATUS_CELL_OFFSETS = offsets
+
+	RESONANCE_CELL_SIZE = _scaled(RESONANCE_CELL_SIZE_UNITS)
+	RESONANCE_CELL_GAP = _scaled(RESONANCE_CELL_GAP_UNITS)
+	RESONANCE_CELL_BORDER = _scaled(RESONANCE_CELL_BORDER_UNITS)
+	# Derived from the already-rounded cell and gap rather than from their design
+	# units, so the bar is exactly as wide as the cells actually drawn. Deriving
+	# it from the units and rounding once would disagree with the sum by a pixel
+	# at scales where the gap rounds up.
+	RESONANCE_BAR_WIDTH = (
+		float(RESONANCE_BAR_CELLS) * RESONANCE_CELL_SIZE
+		+ float(RESONANCE_BAR_CELLS - 1) * RESONANCE_CELL_GAP
+	)
+
+	CURSOR_WIDTH = _scaled(CURSOR_WIDTH_UNITS)
+	CURSOR_HEIGHT = _scaled(CURSOR_HEIGHT_UNITS)
+	CURSOR_INSET = _scaled(CURSOR_INSET_UNITS)
+	CURSOR_GUTTER_WIDTH = _scaled(CURSOR_GUTTER_WIDTH_UNITS)
+	CURSOR_BOB_PIXELS = _scaled(CURSOR_BOB_UNITS)
+	MARQUEE_SPEED = _scaled(MARQUEE_SPEED_UNITS)
+
+	COMMAND_WIDTH = _scaled(COMMAND_WIDTH_UNITS)
+	SPELL_WIDTH = _scaled(SPELL_WIDTH_UNITS)
+	PROMPT_WIDTH = _scaled(PROMPT_WIDTH_UNITS)
+	FORECAST_WIDTH = _scaled(FORECAST_WIDTH_UNITS)
+	STATUS_WINDOW_WIDTH = _scaled(STATUS_WINDOW_WIDTH_UNITS)
+	TURN_ORDER_WIDTH = _scaled(TURN_ORDER_WIDTH_UNITS)
+	PAGER_WIDTH = _scaled(PAGER_WIDTH_UNITS)
+	PAGER_ARROW_GAP = _scaled(PAGER_ARROW_GAP_UNITS)
+	SCREEN_MARGIN = _scaled(SCREEN_MARGIN_UNITS)
+	PROMPT_TOP = _scaled(PROMPT_TOP_UNITS)
+	TURN_ORDER_TOP = _scaled(TURN_ORDER_TOP_UNITS)
+	FORECAST_GAP = _scaled(FORECAST_GAP_UNITS)
 
 ## Content tint for a window that has handed focus to a child. Roughly the
 ## same brightness drop the frame takes (FRAME_INACTIVE is ~44% of
@@ -200,12 +528,26 @@ static func build_game_theme(
 	theme.set_stylebox("panel", "PanelContainer", window_style)
 	theme.set_stylebox("panel", "Panel", window_style)
 
+	# Shadow, not halo. Nogg Terminal's strokes are one design pixel, and a
+	# symmetric outline of the same width doubles every letter's apparent weight
+	# and starts closing the counters — see docs/UI_DESIGN.md §3. The baked halo
+	# stays reachable through `OUTLINE_SIZE` for anything that needs to survive
+	# an arbitrary bright background, but the default treatment is the drop
+	# shadow the reference face itself uses.
+	#
+	# `shadow_outline_size` is left at 0 deliberately: anything larger draws the
+	# shadow from the outline atlas and reintroduces exactly the thickening the
+	# shadow exists to avoid.
 	for type in ["Label", "RichTextLabel"]:
 		theme.set_font("font", type, font)
 		theme.set_font_size("font_size", type, font_size)
 		theme.set_color("font_color", type, TEXT_PRIMARY)
+		theme.set_color("font_shadow_color", type, SHADOW_COLOR)
+		theme.set_constant("shadow_offset_x", type, int(SHADOW_OFFSET))
+		theme.set_constant("shadow_offset_y", type, int(SHADOW_OFFSET))
+		theme.set_constant("shadow_outline_size", type, 0)
 		theme.set_color("font_outline_color", type, OUTLINE)
-		theme.set_constant("outline_size", type, OUTLINE_SIZE)
+		theme.set_constant("outline_size", type, 0)
 
 	# Rows are plain Controls, not Buttons (docs/UI_DESIGN.md §5). These
 	# entries exist only so a stray Button does not arrive wearing Godot's
@@ -220,8 +562,12 @@ static func build_game_theme(
 	theme.set_color("font_color", "Button", TEXT_PRIMARY)
 	theme.set_color("font_hover_color", "Button", TEXT_ACCENT)
 	theme.set_color("font_disabled_color", "Button", TEXT_DIM)
+	theme.set_color("font_shadow_color", "Button", SHADOW_COLOR)
+	theme.set_constant("shadow_offset_x", "Button", int(SHADOW_OFFSET))
+	theme.set_constant("shadow_offset_y", "Button", int(SHADOW_OFFSET))
+	theme.set_constant("shadow_outline_size", "Button", 0)
 	theme.set_color("font_outline_color", "Button", OUTLINE)
-	theme.set_constant("outline_size", "Button", OUTLINE_SIZE)
+	theme.set_constant("outline_size", "Button", 0)
 
 	theme.set_constant("separation", "BoxContainer", 0)
 	theme.set_constant("separation", "HBoxContainer", 0)
@@ -320,7 +666,23 @@ static func build_window_frame() -> Panel:
 
 ## Loads a TTF with every smoothing feature off. A pixel font rendered with
 ## antialiasing, hinting, or subpixel positioning turns to mush.
+## Loads the game face with every smoothing feature off. A pixel font rendered
+## with antialiasing, hinting, or subpixel positioning turns to mush.
+##
+## **Two kinds of face arrive here and they load differently.** A baked
+## `FontFile` resource (`.res` — Nogg Terminal, the shipping face) already
+## contains its glyph cache and is loaded whole; calling `load_dynamic_font()`
+## on it would produce an empty font. A `.ttf`/`.otf` is rasterised on demand
+## and must go through `load_dynamic_font()`. The smoothing settings are applied
+## either way, but they only mean anything for the dynamic case — a bitmap face
+## has nothing to smooth.
 static func _load_pixel_font(path: String) -> FontFile:
+	if path.get_extension().to_lower() == "res":
+		var baked: FontFile = load(path)
+		if baked == null:
+			push_error("NoggTheme: could not load baked font at %s" % path)
+			return FontFile.new()
+		return baked
 	var font := FontFile.new()
 	font.load_dynamic_font(path)
 	font.antialiasing = TextServer.FONT_ANTIALIASING_NONE

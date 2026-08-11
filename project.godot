@@ -17,8 +17,14 @@ config/icon="res://assets/textures/icon.png"
 
 [display]
 
-window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
+; UI renders 1:1 at whatever the window actually is; nothing here resamples
+; the canvas. `NoggTheme.UI_SCALE` (src/presentation/theme/NoggTheme.gd) is
+; the resolution-aware scale instead, applied to design-unit tokens rather
+; than to the canvas — see docs/UI_DESIGN.md §3. `canvas_items` + fractional
+; stretch, the previous setting, scaled the whole canvas by a fraction at
+; nearly every real window size, which under nearest filtering desynced pixel
+; fonts and small-integer UI geometry mid-word.
+window/stretch/mode="disabled"
 
 [filesystem]
 
