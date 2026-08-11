@@ -162,6 +162,27 @@ taught the same two rules — stop advancing while a turn is pending, and yield
 a frame per tick. Worth revisiting if the run-ahead limit or the hold fraction
 is ever tuned, and worth remembering before writing a new driver.
 
+## Complete spell-radius scalability beyond Ice Storm
+
+The cast event now transports the radius and shape resolved from the live
+`Spell`, and Ice Storm scales its geometry and bounded populations through
+radius 8. The rest of the feature is deliberately deferred:
+
+- define modifier ownership and stacking for buffs/debuffs instead of mutating
+  `Spell.radius` ad hoc, including whether `radius` and `self_radius` can change
+  independently;
+- serialize resolved spell modifiers in battle snapshots/replay continuation;
+  `Monster.serialize()` currently records spell names, not runtime spell fields;
+- make the generic `SpellCastAura` implement `setFootprint()` rather than stay
+  fixed-size, then validate Fire Storm and Magenta Reduction at base, +2, and a
+  declared maximum radius with stable density and effect budgets;
+- carry exact clipped affected positions—or equivalent board-edge data—when a
+  cast near a map edge should not depict the theoretical off-board half of its
+  footprint; carry cast direction before claiming exact `line` VFX coverage.
+
+Keep the transport general. Do not add spell-name branches to the adapter while
+closing these gaps.
+
 ## Area VFX particle fields still ignore non-diamond footprint shapes
 
 Ground washes now carry every area shape correctly: `VfxTextures.groundWash()`
@@ -184,14 +205,6 @@ tractable for `cross` (sample the two bars), genuinely awkward for `line`,
 whose footprint depends on the cast direction that presentation never
 receives. `line` also has no ground-wash mask for the same reason and falls
 back to the disc.
-
-Separately: `IceStormEffect._configureSeed()`'s hero-shard spawn positions
-(`start`) are still sampled uniformly across the full square bounding box, not
-masked to the diamond. Left alone deliberately — shards are sparse (8 per
-storm), already fade in from height rather than reading as ground coverage,
-and the dominant claim about the footprint's shape comes from the ground wash
-and the dense flurry field. Worth revisiting only if a shard is ever seen
-landing visibly outside the footprint in play.
 
 ## Generic spell-cast aura throws on dispose during app quit
 
@@ -252,3 +265,29 @@ pattern remains: the container's layout is an unwritten contract between
 `_spawn_monster_visual()` and everything that later picks it apart by index.
 Named children, or a small typed accessor, would make the next layout change
 fail loudly instead of silently.
+
+## Nogg Terminal is adopted; two follow-ups remain
+
+**Adopted 2026-08-10** as the battle UI face, together with the warm `WINDOW_FILL`
+the face's drop shadow needs to read against. All three constraints this entry
+previously tracked are resolved: widths were re-measured against the wider face
+(`PROMPT_WIDTH`, `FORECAST_WIDTH` and `TURN_ORDER_WIDTH` grew), `FONT_SIZE_FOOTER`
+moved from 20 to 24 so every game size is a whole multiple of 12, and the
+cache-clear failure mode was removed outright by the display cycle's move to
+`window/stretch/mode = "disabled"` — oversampling can no longer change at
+runtime, so the glyphs cannot be cleared.
+
+Two things are genuinely still open:
+
+- **`FONT_SIZE_FOOTER` no longer distinguishes the pager footer from body text.**
+  20 was not a whole multiple of 12 and would have rendered at 12 inside a
+  window sized for 20, so it became 24 — the same size as the body. The
+  distinction has to come from colour or spacing instead. Nothing in the
+  shipping catalog pages today, so no live screen currently shows a footer at
+  all; this needs deciding before one does.
+- **The halo is now unused by default.** `OUTLINE_SIZE` still selects a baked
+  outline variant and the atlas still carries widths 1 and 2, but game text
+  ships with `outline_size = 0` and the drop shadow instead. If board-space
+  text is ever themed (rather than drawing its own halo the way
+  `DamageNumberBillboard` does), it will want the halo rather than the shadow,
+  since a shadow only defends one side.

@@ -18,11 +18,31 @@ not a session log, policy copy, or backlog.
 | Presentation event sequencing or animation cancellation | Visual action playback |
 | Elevation rendering or map geometry | Elevation presentation |
 | SubViewports, render scaling, shaders, or picking | Render isolation |
+| VFX textures, materials, factories, or effect reuse | Shared visual resources |
 
 When adding a learning, include the verified observation, the reusable rule,
 and a review trigger. Move commands to [`DEVELOPMENT.md`](./DEVELOPMENT.md),
 actionable future work to [`BACKLOG.md`](./BACKLOG.md), and architectural truth
 to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
+## Shared visual resources
+
+### A neutral factory is a compatibility surface
+
+- **Verified observation:** Magenta Reduction built its core and halo from the
+  same `VfxTextures` factories used by Ice Storm. Replacing the factories'
+  radial disc and continuous puff with Ice-specific posterized silhouettes made
+  Magenta's core disappear and exposed the debug target marker, even though no
+  Magenta file changed. Fire Storm was also a caller and therefore shared the
+  regression risk.
+- **Reusable rule:** Keep neutral primitives white, semantically named, and
+  visually stable. An effect-specific silhouette, blend mode, filter, or palette
+  gets an effect-owned texture/material factory. Before changing any shared
+  visual resource, enumerate its callers and make their carrier captures part
+  of the same validation surface.
+- **Review when:** editing `VfxTextures`, a shared material/texture factory,
+  render/theme tokens, or any presentation resource consumed by more than one
+  effect.
 
 ## Deterministic state
 
@@ -426,3 +446,27 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Review when:** adding or modifying any tweened UI state (open/close,
   focus/dim, cursor movement, marquee/scroll) that a later call can interrupt
   before it finishes.
+
+## Retro render parameters
+
+### `RetroRenderController` has two setters and the wrong one fails silently
+
+**Consult when:** changing any CRT or look parameter at runtime, from a debug
+harness or from game code.
+
+`set_look_parameter()` and `set_crt_parameter()` have separate `match`
+statements over separate name constants. Neither has a fallback arm, so passing
+a `CRT_*` name to `set_look_parameter()` matches nothing, changes nothing, and
+reports nothing. The call compiles, runs, and is a no-op.
+
+This is indistinguishable from a shader that ignored the value, and it produced
+a confidently wrong measurement before being caught: two captures taken to
+compare scanline pitch differed by a mean of 0.009 with a peak of 1, which reads
+as "the parameter does nothing" rather than "the parameter was never set."
+Routing the same call through `set_crt_parameter()` produced mean 1.383, peak 31.
+
+The general lesson is worth more than the specific trap: **when a visual
+parameter appears to have no effect, diff the two frames numerically before
+concluding anything about the effect.** A near-zero peak difference means the
+input never arrived; a real but subtle difference looks completely different in
+the numbers even when it is hard to see by eye.
