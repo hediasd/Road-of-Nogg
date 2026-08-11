@@ -23,7 +23,7 @@
 		"ELEMENT": "ice",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Ice Plow",
-		"RADIUS": 2,
+		"RADIUS": 4,
 		"RANGE": 3,
 		"TARGET_TYPE": "area",
 		"VFX_PROFILE": "ice_area_storm"
@@ -659,9 +659,9 @@
 		"DESC": "A cross-shaped pillar of smoke and fire that inflicts burn.",
 		"ELEMENT": "fire",
 		"INFLICTS_STATUS": "burn",
-		"MAX_HEIGHT_DELTA": 1,
+		"MAX_HEIGHT_DELTA": 2,
 		"NAME": "Smoke Tower",
-		"RADIUS": 1,
+		"RADIUS": 3,
 		"RANGE": 4,
 		"TARGET_TYPE": "area",
 		"VFX_PROFILE": "fire_area_storm"
