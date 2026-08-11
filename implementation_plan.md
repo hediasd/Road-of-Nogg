@@ -1,545 +1,537 @@
-# Fire Storm Cycle
+# Ice Target Encasement VFX Cycle
 
-**Opened 2026-08-04.** The previous contents were the ice-storm correction
-cycle, opened and executed the same day. Disposition of its items:
+**Opened 2026-08-10.** The previous contents were the Pixel-Exact UI cycle,
+opened 2026-08-09, followed by the direct adoption of Nogg Terminal as the
+battle UI face. Its final validation passed and every implementation item was
+complete. Its only deliberately open findings already live durably in the
+backlogs: the prompt window can collide with the developer HUD
+(`BACKLOG_CRITICAL.md`), and the footer/body hierarchy under the fixed-size
+bitmap face still needs a design decision (`BACKLOG_LONGTERM.md`). Nothing else
+from that cycle remains open or was moved during this reset. That completed
+cycle existed only in the current uncommitted working tree rather than in Git;
+its durable conclusions are in `docs/UI_DESIGN.md`, but its full resolution log
+cannot be recovered with `git show`.
 
-- Three implementation items — the area-footprint diamond fix, the
-  unused-calibration-constant resolution, and the shard-lifetime/skip-lifecycle
-  name corrections — are **committed and implemented** (`f882e59`, `3498d06`,
-  `3babe05`). Their code is live; this cycle builds directly on it.
-- Its optional profile-as-a-`Resource` refactor was **never executed and is
-  deliberately dropped**. See §2 — it is reconsidered at a third elemental
-  effect, not now.
-- Its final validation item **never ran**. Rather than launching the game twice,
-  that outstanding validation is folded into this cycle's `FIRE-3`, which now
-  covers both effects in one session: steps 5–6 there carry the ice cycle's
-  regression and lifecycle checks explicitly.
-
-Nothing from the ice cycle is left open elsewhere, so nothing was moved to a
-backlog at this reset. Recover its full text with
-`git show 432dd5b:implementation_plan.md`.
+Before this reset, every `PX-1` through `PX-6` reference outside the transitory
+plan was rewritten as a durable description. No persistent file now depends on
+those expired identifiers.
 
 ---
 
 ## 1. Goal
 
-A fire-element area effect that reuses the ice storm's engine wholesale: same
-`VfxPlayback` contract, same catalog registration, same adapter path, same
-deterministic-seek guarantee. Only the motion model, palette, and layer roster
-change.
+Build a target-bound ice attack inspired by the supplied Digimon World 1
+reference. The central behavior is a **literal three-dimensional shell of
+large ice blocks and shards that grows around the target, holds as an enclosing
+mass, and then breaks apart using those same visible pieces**.
 
-**The look:** embers rise from the ground in a slow spiral, dense and near-white
-at the base, thinning and cooling through orange to deep red as they climb,
-shrinking to nothing under a drifting smoke crown. The column twists faster at
-its base than at its crown, so the spiral visibly *winds* rather than rotating
-as a rigid body.
+The caster-to-target trail and blue square contact accents are supporting
+layers. They must never become the effect's dominant read. Damage numbers stay
+owned by the existing damage-number presentation, and the yellow rings in the
+reference are explicitly out of scope.
 
-**Explicit cost constraint.** The ice storm cost more than it should have. This
-cycle is scoped at **two implementation items and one validation item**, against
-the ice cycle's eight. §5 lists what is deliberately not being done.
+The finished effect must:
 
----
+- travel from the caster to the impact point;
+- envelope the target from behind, both sides, in front, and above with real
+  low-poly geometry that has visible depth and parallax;
+- close the visual gaps with a restrained bright internal ice core without
+  using that core to fake the shell;
+- hold long enough for the completed enclosure to read;
+- move the same shell pieces into deterministic outward breakup trajectories;
+- preserve pause, speed scaling, backward/forward scrub, skip, replay, overlap,
+  and disposal behavior under the existing `VfxPlayback` contract;
+- remain presentation-only: no gameplay stun, damage, targeting, or state
+  mutation is added by this cycle.
 
-## 2. Established facts (verified 2026-08-04 — do not re-derive)
+The working profile id is `ice_target_encasement`. That is presentation
+metadata, not a new spell or lore name.
 
-### What is reusable without modification
+## 2. Blocking gates
 
-- **`VfxPlayback.gd`** — the lifecycle contract (`play`, `seek_normalized`,
-  `set_playback_scale`, `skip_to_settle`, `dispose`, `get_layer_names`,
-  `set_layer_visible`, `get_live_particle_count`, `is_particle_seek_exact`).
-- **`SpellVfxCatalog.gd`** — registration is one row in `entries()`; nothing
-  else in the codebase needs to learn the new profile exists.
-- **`GodotVisualAdapter._start_cast_area_animation`** (`:1047`) — already fully
-  profile-driven. Resolves the profile, enforces the live cap, calls
-  `setFootprint(radius, groundSpan, areaShape)`, plays, and holds the queue for
-  `duration × action_hold_fraction`. **Zero changes needed.**
-- **`VisualAction.vfx_area_shape`** — already plumbed from `AREA_SHAPE` through
-  to `setFootprint` by the ice cycle.
-- **`VfxTextures`** shape generators are alpha masks with no colour baked into
-  geometry: `softFlake()` (works as an ember dot unchanged), `canopyPuff()`
-  (works as a smoke puff unchanged), `groundWash(diamond: bool)`. Tint is
-  applied by the effect to its own `.duplicate()`d material every frame, so the
-  same masks serve any element.
-- **Debug harness** — `--effect=<profile id>`, `--hide-hud`, `--capture-at=`,
-  and the `H` toggle all landed 2026-08-04. One-command iteration:
-  `--effect=fire_area_storm --hide-hud --capture-at=0.4`.
+### Existing working tree — resolved 2026-08-11
 
-### What must be forked, and why
+The user authorized committing all pending work and removing the obsolete
+untracked `vfx_plan.md`. The prior tree was audited into focused commits before
+this cycle began:
 
-`IceStormEffect.gd` reads `IceStormProfile.SOME_CONSTANT` directly at roughly
-forty sites. The `SpellVfxProfile`-as-a-`Resource` refactor that would have made
-profiles injectable was **proposed and not executed** in the ice cycle (its
-Resolution records it as dropped). Without that indirection there is no seam to
-subclass against, so copy-and-retune is cheaper than inventing one now.
+- `971396a` — pixel-exact scalable battle UI and Nogg Terminal adoption;
+- `8a61c64` — resolved live spell-footprint transport;
+- `d8650f8` — Ice Plow and Smoke Tower footprint balance changes;
+- `cccef2f` — scalable Ice Storm remodel and owned/shared VFX primitives;
+- `cb2c4c5` — presentation learnings and backlog reconciliation;
+- `c225a76` — preserved Magenta Reduction VFX brief.
 
-**This is the second copy, and that is the correct time to duplicate.**
-Extracting a shared base for two effects costs more than it saves. If a *third*
-elemental storm is ever wanted, that is the point to do the resource refactor —
-at three copies the shared shape is proven, and a fourth element then becomes
-"author a `.tres`" rather than "fork a file."
+`vfx_plan.md` was removed exactly as authorized. The active encasement plan is
+now the repository's only delegation contract, and its first implementation
+item starts from a clean `git status` as required by `AGENTS.md`.
 
-### Budget headroom
+### Carrier spell — blocking only registration and battle validation
 
-`IceStormEffect._buildLayers()` asserts node count ≤ 12 and draw calls ≤ 14,
-with actuals of **11 and 10** — nearly full. Fire drops the four
-`MultiMeshInstance3D` hero-shard nodes (ice chunks have no ember equivalent),
-freeing enough room for a second particle layer. Projected fire actuals:
-**6 nodes, 5 draw calls**. `MAX_LIVE_PARTICLES = 220` became a build-time assert
-in the ice cycle; the fork inherits it and stays at 180 total.
+No carrier is inferred from a spell name. The catalog currently offers
+`Ice Punch` and `Ice Plume` as possible existing candidates, while `Ice Plow`
+already owns the area-storm profile and must not be repurposed. Creating a new
+spell named after the reference would be a content, lore, and balance decision
+outside this plan's authority.
 
-### The carrier situation
+The user must choose one of these before the registration item begins:
 
-`Smoke Tower` is the **only** fire spell with `TARGET_TYPE: "area"`:
-`RADIUS: 1`, `AREA_SHAPE: "cross"`, described as *"A cross-shaped pillar of
-smoke and fire that inflicts burn."* Two consequences:
+1. assign `ice_target_encasement` to an existing confirmed single-target spell;
+2. identify a different existing carrier; or
+3. explicitly commission a separate spell-data/design cycle.
 
-1. That description is already a rising column — the effect this plan builds is
-   what the spell text has been claiming all along.
-2. `cross` is the shape the ice cycle explicitly left unhandled (recorded in
-   `BACKLOG_LONGTERM.md`): `_isDiamondShape()` returns false for it and the
-   ground wash falls back to a radial disc over a plus-shaped area.
+The context transport, debug harness, geometry, and choreography can be built
+and judged before this choice. Registration and final in-battle validation
+cannot.
 
-Other area spells for reference: radius 2–3, mostly default (diamond) shape;
-`Holy Cross` is the only other `cross` carrier.
+## 3. Established facts and design decisions
 
----
+### The shell is geometry, not a collection of blue lances
 
-## 3. Design decisions
+The reference frames show large faceted blocks occupying different depths
+around the victim. The Road of Nogg version therefore uses real low-poly meshes
+with thickness for the enclosing pieces. Camera-facing cards are allowed only
+for the travel streak, internal flash, and small contact accents.
 
-### The vortex is radial; the ground wash carries the shape
+The shell must still read when the trail, contact accents, and internal core
+are hidden in the debug harness. This is the acceptance test that prevents a
+bright billboard from doing the work the ice blocks are supposed to do.
 
-A spiral is inherently radial. Forcing an ember column into a plus-shaped
-silhouette would look wrong and cost far more than it returns. So:
+### Formation and breakup share instance identity
 
-- **The column** is radially symmetric, clamped to the footprint boundary.
-- **The ground wash** carries the exact gameplay shape, and gains a `cross`
-  texture variant — which closes the ground-wash half of the backlog gap for
-  every `cross` carrier, not just this one.
+Every large piece receives one deterministic intact transform and one
+deterministic broken transform. Formation interpolates into the intact
+transform; breakup interpolates that same instance outward. The implementation
+must not delete the statue and spawn an unrelated shard burst at the break.
 
-### The diamond boundary has an exact polar form
+No rigid-body simulation or runtime fracture is needed. Fixed seeded
+trajectories give exact scrub/replay behavior, make the break art-directable,
+and match the authored character of the reference.
 
-For a diamond footprint `|x| + |z| ≤ R`, the boundary in polar coordinates is
-exactly:
+### Fit the creature body, not the tile or model base
 
-```
-r_max(θ) = R / (|cos θ| + |sin θ|)
-```
+`GodotVisualAdapter` already accumulates mesh bounds for picking and status
+placement. The new context path reuses that capability but measures the creature
+body only: model bases, selection collision, status icons, and other
+presentation helpers do not enlarge the shell. The effect receives a body-local
+bounding box plus event-time source and impact positions.
 
-At θ = 0 this gives `R` (the diamond's vertex); at θ = 45° it gives `R/√2` (the
-edge midpoint). Clamping the spiral to this makes the column **breathe in and
-out as it rotates**, tracing the real gameplay footprint. This is both the
-correct behaviour and the more beautiful one — it is the single nicest thing in
-this plan and should not be simplified away to a circle.
+Placement is normalized against that box so one authored layout can surround a
+short/wide, standard, or tall/narrow body without inventing per-monster branches.
 
-For `cross` and `line` carriers, fall back to the inscribed circle `R/√2`.
+### Prefer faceted solidity over modern glass
 
-### What "poetic" means here, concretely
+Most ice faces are opaque or nearly opaque, unshaded or flat-shaded, and use a
+small cold palette. A few overlay faces and the internal core may use additive
+or mixed transparency. Front/rear render groups are explicit so transparent
+sorting cannot randomly place the back of the statue over its front.
 
-Stated as acceptance criteria so it survives delegation:
+Nearest-filtered authored masks, stepped time, quantized transforms, and the
+existing low-resolution/CRT path provide the PS1 character. Refraction,
+screen-space distortion, physically based glass, and smooth particle fog are
+out of scope.
 
-- **Density gradient.** Dense at the base, sparse at the crown. Achieved by
-  ember alpha dying at `h ≈ 0.52–1.0`, not by varying spawn count.
-- **Colour gradient with height.** Hot near-white at the base → orange → deep
-  red at the crown. An ember that reaches the top has visibly cooled.
-- **Differential rotation.** Angular speed is higher at the base than the crown,
-  so the spiral winds rather than spinning rigidly.
-- **Taper.** Radius narrows with height — a funnel, not a cylinder.
-- **Shrink.** Embers get smaller as they rise, reading as burning out.
-- **Per-ember flicker.** A hash-phased sine on alpha so the column shimmers
-  instead of reading as uniform dots.
-- **A slight lean.** A small quadratic x-offset with height. Perfectly vertical
-  reads as mechanical.
+### One generic cast-context path
 
-A version missing the colour gradient, the differential rotation, or the
-flicker has failed the brief even if it renders embers going upward.
+The current factory gives effects an impact position and element color, with an
+optional area footprint. The new transport must remain profile-driven:
 
----
+- headless combat emits stable gameplay identities and resolved target data;
+- `GodotVisualAdapter` converts those identities into event-time world
+  positions and presentation-only body bounds;
+- every `VfxPlayback` receives the same typed cast context through one standard
+  method; effects that do not need it ignore it;
+- no adapter branch names this effect or its carrier spell.
 
-## 4. Items
+The simulation layer never imports a presentation context or a visual node.
 
-### FIRE-1 — The vortex shader, profile, and effect class
+### Target treatment is supporting, reversible presentation
 
-**Model:** Sonnet 5 / GPT Terra *(the shader math is fully specified below;
-this is transcription and retuning, not derivation)*
-**Depends on:** nothing
-**Files:** new `assets/shaders/effects/fire_storm_vortex.gdshader`, new
-`src/presentation/effects/FireStormProfile.gd`, new
-`src/presentation/effects/FireStormEffect.gd`, plus `.uid` sidecars
+If the live target visual has animation playback, the adapter may hold its pose
+during the completed-shell window. A restrained cold tint may be applied only
+through a generic presentation lease that records and restores prior visual
+state. Completion, backward seek, skip, disposal, battle exit, and overlapping
+effects must all release the lease safely.
 
-**Fork procedure.** Copy `IceStormProfile.gd` → `FireStormProfile.gd` and
-`IceStormEffect.gd` → `FireStormEffect.gd`, rename the classes and the profile
-references, then change only what §3 requires. Most constants — phase
-fractions, action hold, live-storm cap, node/draw-call/particle budgets, canopy
-drift and breath — carry over unchanged and should not be re-derived.
+The shell must remain readable without the tint. Neither pose hold nor tint
+changes battle state or claims that the spell inflicts a gameplay status.
 
-**Layer roster** (ice's seven → fire's six):
+### Budgets
 
-| Fire layer | Origin |
-| --- | --- |
-| `ground_wash` | ice `ground_wash`, recoloured, `cross` texture variant added |
-| `ember_column` | new: dense vortex, 140 particles |
-| `ember_motes` | new: sparse/larger/slower vortex, 40 particles |
-| `smoke_crown` | ice `canopy`, recoloured to warm grey, 2 quads |
-| `swirl` | uniform toggle (replaces ice `gust`) |
-| `flicker` | uniform toggle (replaces ice `pulse_accents`) |
-| *(dropped)* | ice `frost_veins`, ice `hero_shards` |
+The profile owns and asserts its limits. Initial ceilings for one effect are:
 
-**The shader.** `shader_type particles`, `render_mode disable_force,
-disable_velocity` — same contract as the ice flurry. Every value is a pure
-function of `INDEX` and `playback_time`; **nothing integrates across frames**,
-which is what keeps `is_particle_seek_exact()` truthful and scrubbing frame-
-exact. Any change that makes ember state depend on accumulated frames breaks
-the debug harness's scrub and is a defect.
+- 16 large enclosing pieces, with up to 24 only if the proof sheet shows a
+  measured silhouette gap that cannot be fixed by placement;
+- 96 small trail/contact particles or instances;
+- 14 estimated draw calls;
+- 20 effect-owned nodes;
+- at most two simultaneous live encasement effects, with the existing adapter
+  cap disposing the oldest before a third is admitted.
 
-```glsl
-const float SQRT1_2 = 0.70710678;
-const float TAU_C   = 6.28318531;
+Counts, alpha, phase fractions, dimensions, quantization, and palette values are
+named in `IceTargetEncasementProfile.gd` and labelled `AUTHORED`, `DERIVED`, or
+`MEASURED` per `docs/VFX_DESIGN.md`. No tuning literal stays buried in the
+effect or shader.
 
-float hash_value(float value) {
-    return fract(sin(value * 127.1 + vfx_seed * 17.17) * 43758.5453);
-}
+## 4. Proof checkpoints
 
-void process() {
-    float index      = float(INDEX);
-    float a0         = hash_value(index +   1.0) * TAU_C;
-    // sqrt() gives uniform density per unit AREA; without it embers bunch
-    // visibly at the column's axis.
-    float rNorm      = sqrt(hash_value(index +  41.0));
-    float phase      = hash_value(index +  83.0);
-    float riseSpeed  = mix(min_rise_speed, max_rise_speed, hash_value(index + 127.0));
-    float baseScale  = mix(min_scale, max_scale, hash_value(index + 173.0));
-    float flickPhase = hash_value(index + 211.0) * TAU_C;
+VFX work is shown while it is still cheap to change. These are required item
+outputs, not deferred final-validation evidence:
 
-    // Vertical cycle: 0 at the floor, 1 at the crown, wrapping.
-    float h = fract(phase + playback_time * riseSpeed / max(column_height, 0.001));
-    float y = h * column_height;
+| Checkpoint | Required proof | Owner |
+| --- | --- | --- |
+| Context harness | Source marker, target body bounds, and three target proportions render through the shipping retro path. | Target-bound harness item |
+| Shell skeleton | Mid-hold captures with **shell only** at front-quarter, side, and rear-quarter views. Visible depth, thickness, and enclosure; no trail/core/contact layers. | Shell-geometry item |
+| Formation and fracture | One contact sheet spanning empty target, first blocks, closed statue, hold, initial break, wide break, and settle. Piece continuity is visually traceable. | Choreography item |
+| Supporting layers | Trail-only and contact-only sheets, followed by a full composite. The full shell remains the dominant silhouette. | Delivery/contact item |
+| Final look | Standard, wide, and tall targets through retro on/off, plus existing Ice Storm, Fire Storm, Magenta Reduction, and generic aura captures. | Final validation item |
 
-    // Funnel: radius narrows toward the crown.
-    float taper = mix(1.0, crown_taper, smoothstep(0.0, 1.0, h));
+An executing session stops at a checkpoint that fails visually and reports the
+sheet to the user. It does not continue layering more work over a rejected
+silhouette.
 
-    // Differential rotation: the base winds faster than the crown.
-    float omega = mix(swirl_base, swirl_crown, h) * swirl_speed * swirl_enabled;
-    float a     = a0 + playback_time * omega;
+## 5. Items
 
-    // Exact diamond boundary in polar form; inscribed circle for cross/line.
-    float diamondLimit = footprint_radius_u / max(abs(cos(a)) + abs(sin(a)), 0.001);
-    float rMax = mix(footprint_radius_u * SQRT1_2, diamondLimit, diamond_shape);
-    float r    = min(rNorm * footprint_radius_u * base_radius_fraction, rMax) * taper;
+### STATUE-1 — Carry generic source/target context to profile-driven VFX
 
-    float lean = lean_offset * h * h;
-    vec3  pos  = vec3(r * cos(a) + lean, y, r * sin(a));
+**Model:** Opus 5 / GPT Sol
 
-    // Cooling with height.
-    vec3 col = mix(ember_hot_color.rgb, ember_mid_color.rgb, smoothstep(0.0, 0.45, h));
-    col      = mix(col, ember_cool_color.rgb, smoothstep(0.45, 1.0, h));
+**Depends on:** clean-working-tree gate.
 
-    float flicker = 1.0 - flicker_depth * flicker_enabled
-        * (0.5 + 0.5 * sin(playback_time * flicker_rate + flickPhase));
-    float birth = smoothstep(0.0, 0.09, h);
-    float death = 1.0 - smoothstep(0.52, 1.0, h);
-
-    float normalized_time = clamp(playback_time / max(total_duration, 0.001), 0.0, 1.0);
-    float onset  = smoothstep(0.0, onset_fraction, normalized_time);
-    float settle = 1.0 - smoothstep(0.80, 0.96, normalized_time);
-
-    float scale = baseScale * mix(1.0, ember_shrink, h);
-    TRANSFORM[0].xyz = vec3(scale, 0.0, 0.0);
-    TRANSFORM[1].xyz = vec3(0.0, scale, 0.0);
-    TRANSFORM[2].xyz = vec3(0.0, 0.0, scale);
-    TRANSFORM[3].xyz = pos;
-    VELOCITY = vec3(-sin(a) * r * omega, riseSpeed, cos(a) * r * omega);
-
-    COLOR    = vec4(col, ember_hot_color.a);
-    COLOR.a *= clamp(birth * death * flicker * onset * settle * intensity_scale, 0.0, 1.0);
-}
-```
-
-**Uniforms** mirror the ice flurry's set, with these replacing the falling-snow
-ones: `footprint_radius_u`, `column_height`, `base_radius_fraction`,
-`crown_taper`, `swirl_base`, `swirl_crown`, `swirl_speed`, `min_rise_speed`,
-`max_rise_speed`, `ember_shrink`, `flicker_rate`, `flicker_depth`,
-`lean_offset`, `swirl_enabled`, `flicker_enabled`, `diamond_shape`,
-`ember_hot_color`, `ember_mid_color`, `ember_cool_color`. Retain unchanged:
-`playback_time`, `total_duration`, `onset_fraction`, `intensity_scale`,
-`min_scale`, `max_scale`, `vfx_seed`.
-
-**`footprint_radius_u` is `float(radius) + 0.5`**, matching the ground wash
-cylinder's own `diameter * 0.5`, so the column's boundary and the wash's edge
-agree.
-
-**Suggested starting palette** (retune by eye; these are authored, not measured):
-`ember_hot` ≈ `(1.0, 0.94, 0.72)`, `ember_mid` ≈ `(1.0, 0.55, 0.16)`,
-`ember_cool` ≈ `(0.72, 0.16, 0.09)`, smoke crown ≈ `(0.26, 0.22, 0.21)` at low
-alpha, ground wash ≈ `(1.0, 0.48, 0.20)` at ~0.20 alpha.
-
-**Provenance.** Mark every new constant `AUTHORED` or
-`DERIVED from ice_area_storm`, with a one-line reason. **Do not run a
-reference-footage measurement pass** — see §5.
-
-**Risk:** `smoothstep`/`fract` sign errors produce embers that pop at the wrap
-boundary or sink instead of rising; both are immediately visible in the debug
-scene. The likelier subtle failure is losing determinism by introducing any
-frame-accumulated term — check `flurry: exact` still reads *exact* in the HUD
-after the shader lands.
-
-**Adds to final validation coverage:** embers rise and spiral; colour cools with
-height; the column tapers, leans, flickers, and shrinks; density thins toward
-the crown; scrub stays frame-exact; node/draw-call/particle asserts hold.
-
----
-
-### FIRE-2 — Register the profile, add the cross ground wash, wire the carrier
-
-**Model:** Sonnet 5 / GPT Terra
-**Depends on:** FIRE-1
-**Files:** `src/presentation/effects/SpellVfxCatalog.gd`,
-`src/presentation/effects/VfxTextures.gd`, `data/spells.json`,
-`BACKLOG_LONGTERM.md`
+**Files:** `src/battle_sim/BattleEvents.gd`,
+`src/battle_sim/CombatResolver.gd`,
+`src/battle_sim/IBattleVisualAdapter.gd`,
+`src/presentation/ConsoleVisualAdapter.gd`,
+`src/presentation/VisualAction.gd`,
+`src/presentation/GodotVisualAdapter.gd`,
+`src/presentation/effects/VfxPlayback.gd`, a small typed context under
+`src/presentation/effects/`, `docs/ARCHITECTURE.md`, `docs/VFX_DESIGN.md`, and
+the relevant backlog files.
 
 **End state:**
 
-- One new row in `SpellVfxCatalog.entries()`: `profile_id`
-  `"fire_area_storm"`, display name `"Fire Area Storm"`, factory
-  `Callable(FireStormEffectScript, "createPlayback")`, hold fraction and
-  `max_live` from `FireStormProfile`.
-- `VfxTextures.groundWash()` takes a shape selector rather than a bool, gaining
-  a **cross** variant alongside disc and diamond, cached per shape like the
-  existing two. Cross mask over normalized `[-1, 1]` UVs, arm half-width
-  `0.5 / (radius + 0.5)`:
-  ```
-  d = min( max(|v| / armHalf, |u|), max(|u| / armHalf, |v|) )
-  alpha = pow(1 - clamp(d, 0, 1), 2) * 0.24
-  ```
-  Update `IceStormEffect`'s call site for the changed signature — a mechanical
-  edit, no behaviour change for ice.
-- `Smoke Tower` in `data/spells.json` gains `"VFX_PROFILE": "fire_area_storm"`.
-  **This is the only gameplay-data file this plan touches, and it adds a key
-  with no gameplay effect** (`SPELL_CATALOG_SCHEMA.md` §`VFX_PROFILE`).
-- Trim the `BACKLOG_LONGTERM.md` footprint-shape entry to reflect that the
-  ground-wash half of the `cross` gap is now closed, leaving the particle-field
-  half recorded. Describe the work; do not cite an item label.
+- `spell_cast_started` carries the ordered resolved target `uniqueID` values in
+  addition to its existing resolved radius and shape. The event contains no
+  node, mesh, material, or presentation type.
+- `VisualAction` clones source/impact coordinates and target identities at
+  enqueue time so delayed playback cannot read a later gameplay position.
+- `GodotVisualAdapter` produces a typed presentation context containing source
+  world position, impact world position, body-only local bounds for each
+  resolved target, and stable target IDs.
+- `VfxPlayback.configure_cast_context(context)` is a concrete default no-op;
+  the adapter calls it uniformly before `play()` for every profile.
+- Existing area effects continue receiving their live footprint through
+  `setFootprint`; the new context complements rather than replaces that path.
+- Missing or defeated visuals degrade to an authored standard body box at the
+  event's impact point rather than causing the visual queue to wedge.
+- Architecture and VFX documentation describe the ownership boundary once.
 
-**Risk:** low. The `groundWash()` signature change is the only cross-effect
-edit; confirm the ice storm still renders its diamond wash afterward.
+**Risk:** expanding an observational event can desynchronize console and Godot
+adapters, while measuring a live node at playback time can violate the queue's
+event-time snapshot rule. Keep gameplay identities in the event, snapshot
+positions when enqueuing, and keep visual-bound lookup presentation-only.
 
-**Adds to final validation coverage:** the profile resolves and is selectable in
-the debug harness; `Smoke Tower` plays the fire storm in battle; the cross
-ground wash matches the plus-shaped area; ice is unaffected.
+**Adds to final validation coverage:** source and target positions remain
+correct after queued movement; target IDs survive multi-target event transport;
+existing generic and area profiles still play without reading presentation from
+simulation.
 
----
+**Resolution target:** implemented; pending end-of-plan validation. Run only
+focused diff inspection, `git diff --check`, and the narrow import/load probe
+needed to prove changed interfaces parse. Do not launch a battle.
 
-### FIRE-3 — Final validation
+### STATUE-2 — Give the VFX harness a truthful source, target, and body bounds
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** STATUE-1.
+
+**Files:** `scenes/debug/VFXDebugScene.tscn`,
+`src/presentation/debug/VFXDebugController.gd`, and the relevant backlog files.
+
+**End state:**
+
+- The harness builds an explicit caster anchor and target anchor and passes the
+  same typed context used by battle playback.
+- Target-body presets cover standard, short/wide, and tall/narrow bounds. They
+  are selectable interactively and through CLI arguments.
+- Source-to-target distance and camera yaw are controllable through both UI and
+  CLI so a three-dimensional shell can be inspected from at least
+  front-quarter, side, and rear-quarter views.
+- The HUD reports the selected target bounds, separation, view angle, profile,
+  seed, normalized time, node count, particle/instance count, and draw-call
+  estimate.
+- Capture mode preserves the existing phase-sheet and golden behavior while
+  framing both the delivery path and the target.
+
+**Risk:** a harness-only context or camera path can make an effect look correct
+in a scene battle playback cannot reproduce. Construct context through the same
+presentation helper used by `GodotVisualAdapter`, and keep retro rendering on by
+default.
+
+**Proof checkpoint:** capture the three target proportions and source/target
+markers through the shipping retro path. No encasement look is claimed yet.
+
+**Adds to final validation coverage:** every geometry/timeline observation the
+plan asks for can be produced non-interactively before full battle validation.
+
+**Resolution target:** implemented; pending end-of-plan validation. A narrow
+debug-scene launch is allowed because the harness is the item's deliverable;
+record it as a smoke/proof checkpoint, not integrated acceptance.
+
+### STATUE-3 — Author the enclosing low-poly shell and faceted ice materials
 
 **Model:** Opus 5 / GPT Sol
-**Depends on:** FIRE-1, FIRE-2
 
-The only item performing full manual gameplay and integration validation, and
-the only one marking covered items done.
+**Depends on:** STATUE-2.
 
-1. **Debug scene.** `--effect=fire_area_storm`. Sweep radius 1–5; confirm the
-   column stays inside the footprint and the diamond boundary visibly breathes
-   as it rotates. Exercise every layer toggle, seed pin, scrub in both
-   directions, overlap, mode switch, playback scale.
-2. **The poetic criteria.** Walk §3's seven bullets explicitly and confirm each
-   one reads on screen. Name any that do not.
-3. **Determinism.** Confirm the HUD still reports `flurry: exact`; scrub
-   backward and forward to the same `t` and confirm an identical frame.
-4. **Battle integration.** Cast `Smoke Tower` on flat ground, on uneven ground,
-   at a board edge, and on an empty tile. Confirm the effect covers the cross
-   area, composites through the CRT pass, and does not z-fight terrain or units.
-5. **Ice cycle validation, carried over.** This step and the next discharge the
-   ice cycle's own unrun final validation — they are not optional regression
-   spot-checks. Cast `Ice Plow` and confirm: the storm covers exactly the
-   diamond of tiles that take damage, at several radii, on flat and uneven
-   ground and clipped at a board edge; no flakes fall outside the footprint;
-   the canopy shows the core-to-edge falloff the constant-resolution item wired
-   in (this was judged only by eye in the debug scene and never confirmed in
-   battle); and the shared `groundWash()` signature change did not disturb it.
-6. **Overlap, cap, skip, pause, speed, leak.** Two live storms halve intensity
-   and restore on expiry; a third disposes the oldest; pause and speed reach the
-   effect. **Skip specifically:** the ice cycle moved `_active_cast_effect`
-   clearing into `_on_live_effect_exiting`, and that behaviour change was never
-   exercised — confirm skipping during an effect's trailing damage numbers now
-   settles the storm rather than leaving it playing. 20+ casts return node count
-   to baseline.
-7. `git diff --check`; only task-owned files staged.
+**Files:** new `src/presentation/effects/IceTargetEncasementEffect.gd`, new
+`src/presentation/effects/IceTargetEncasementProfile.gd`, new effect shader(s)
+under `assets/shaders/effects/`, `src/presentation/effects/VfxTextures.gd` or a
+small ice-chunk mesh factory if ownership is clearer there,
+`src/presentation/effects/SpellVfxCatalog.gd` for debug registration only,
+generated `.uid` sidecars, `docs/VFX_DESIGN.md`, and relevant backlog files.
 
-Capture screenshots from steps 1 and 4 and reference their paths in the
-Resolution.
+**End state:**
 
----
+- Two or three reusable meshes provide actual thickness: a block, a wedge, and
+  an irregular crystal/slab. They are low-poly geometry, not billboard masks.
+- Seeded placement distributes large instances into named rear, side, front,
+  and cap groups around the supplied body bounds. Pieces overlap enough to read
+  as one enclosing mass without becoming an undifferentiated opaque box.
+- Each instance stores stable intact and broken transform data at creation;
+  later items animate those transforms but do not replace the instances.
+- Mostly opaque flat/faceted faces carry a small blue-white palette. Explicit
+  rear/front grouping and render priority make ordering stable. A restrained
+  internal core is a separate named layer and may be disabled.
+- Layer names expose at minimum `shell_rear`, `shell_sides`, `shell_front`,
+  `shell_cap`, and `ice_core`.
+- Build-time assertions enforce chunk, node, and draw-call ceilings.
+- The profile is registered so the debug harness can select it; no spell data
+  changes in this item.
 
-## 5. Deliberately not doing
+**Risk:** transparency can flatten the shell into a blue screen overlay, while
+one normalized layout can leave gaps around extreme body proportions. Establish
+solid geometry and parallax first, retune placement/count second, and add only
+the minimum translucent overlay needed for ice character.
 
-Recorded so a later session does not read these as oversights:
+**Proof checkpoint:** show shell-only mid-hold captures at three camera angles
+for the standard target, plus front-quarter captures for wide and tall targets.
+The shell must visibly surround the body with the core, trail, and contact
+layers hidden. If it does not, stop here.
 
-- **No reference-footage measurement pass.** The ice storm's `MEASURED`/
-  `ESTIMATED` provenance came from real footage decomposition — the single most
-  expensive part of that cycle. Fire's constants are authored or derived, and
-  labelled as such. If fire ever needs reference fidelity, that is its own
-  scoped task with its own authorization.
-- **No `SpellVfxProfile` resource refactor.** Deferred again, deliberately —
-  see §2. Revisit at a third elemental effect.
-- **No shared base class between the two storm effects.** Same reason.
-- **No cross-shaped particle field.** The column is radial by design; only the
-  ground wash carries the cross. The remaining gap stays in the backlog.
-- **No new fire spell.** `Smoke Tower` is the carrier. A larger fire area spell
-  is a content decision, not a presentation one.
-- **No change to `elementColor`.** Like the ice storm, `createPlayback` ignores
-  its `_elementColor` argument and owns its palette. Consistent with the
-  existing pattern.
+**Adds to final validation coverage:** literal volumetric enclosure, stable
+front/rear ordering, body-bound scaling, material readability through the retro
+path, and hard budget compliance.
 
----
+**Resolution target:** implemented; pending end-of-plan validation. Import and
+run the debug capture needed for the checkpoint, but do not launch the game.
 
-## 6. Resolution notes
+### STATUE-4 — Choreograph growth, completed-statue hold, and same-piece breakup
 
-- **FIRE-1** — implemented; pending end-of-plan validation.
-  Three new files: `fire_storm_vortex.gdshader`, `FireStormProfile.gd`,
-  `FireStormEffect.gd`, with `.uid` sidecars.
+**Model:** Opus 5 / GPT Sol
 
-  **Built as specified.** The shader is the plan's math verbatim, including the
-  exact diamond polar form. Layer roster is the planned six; frost veins and
-  hero shards are gone. Actuals: **6 nodes, 5 draw calls, 180 particles**
-  (140 column + 40 motes) against budgets of 12 / 14 / 220.
+**Depends on:** STATUE-3.
 
-  **Two decisions made in-item:**
-  1. The ember draw material neutralises albedo and emission to white before
-     use. `VfxTextures.flurryMaterial()` is built ice-tinted and sets
-     `vertex_color_use_as_albedo`, so its albedo would have multiplied against
-     the per-ember colour the shader writes to `COLOR` and skewed the whole
-     hot-to-cool gradient blue. Without this the palette work is invisible.
-  2. The smoke crown fades in on `smoothstep(0.10, 0.34)` rather than tracking
-     `onset` like every ice layer, and lingers past the ember die-off — smoke
-     that appears simultaneously with its own fire reads wrong.
+**Files:** `IceTargetEncasementEffect.gd`,
+`IceTargetEncasementProfile.gd`, its shader(s), `VfxPlayback.gd` and
+`GodotVisualAdapter.gd` only if the generic reversible target-treatment lease
+requires them, `docs/VFX_DESIGN.md`, and relevant backlog files.
 
-  **Smoke check, and what it does not cover.** `--import --headless` generated
-  both `.uid` sidecars and registered `FireStormEffect`/`FireStormProfile` in
-  the global class cache, which confirms both scripts parse. The progress-dialog
-  errors that run printed are the known import-harness noise documented in
-  `docs/DEVELOPMENT.md`, not project errors.
+**End state:**
 
-  **An earlier probe was inconclusive and is recorded so it is not repeated:**
-  launching `VFXDebugScene` directly does *not* rescan the filesystem, so
-  nothing referenced the new files and they were never parsed — it printed clean
-  while proving nothing. A new `class_name` script needs the import pass, not a
-  scene launch. **The shader has still never been compiled by the GPU** (that
-  needs a live instance, which requires the catalog row in FIRE-2) and nothing
-  has been seen on screen.
-- **FIRE-2** — implemented; pending end-of-plan validation.
-  Catalog row added, ground-wash shape selector generalized, `Smoke Tower`
-  wired. First frames of the fire storm rendered.
+- The timeline has named authored windows for arrival, lower/side formation,
+  front/cap closure, completed hold, fracture impulse, outward tumble, and
+  settle. No frame relies on global `TIME`, accumulated physics, or random calls
+  after seed configuration.
+- Blocks enter in readable groups and grow from compressed positions near the
+  body into their intact transforms. The cap arrives late enough to complete
+  the statue rather than hiding the target from the first frame.
+- The completed shell holds as a recognizable volume before breaking.
+- Breakup interpolates every existing chunk toward its stored broken transform
+  with stepped rotation and outward/upward motion derived from the target
+  center. Large pieces remain countable; small debris cannot replace them.
+- `seek_normalized()` reproduces formation, hold, and breakup both forward and
+  backward. `skip_to_settle()` enters a safe late-break state rather than
+  cutting a closed statue from the screen.
+- If supported by the current visual type, a generic adapter-owned lease holds
+  the target pose and applies a restrained cold tint only during the closed
+  shell window. Every lifecycle exit restores prior presentation state. The
+  effect remains acceptable with that layer disabled.
 
-  **Ground wash went further than "add a cross variant."** The `groundWash()`
-  bool became a `GroundWashShape` enum with a `groundWashShapeFor(areaShape)`
-  mapper, and the three near-identical generator functions collapsed into one
-  that computes a normalized distance per shape and shares a single falloff and
-  opacity — so the shapes cannot drift apart in visual weight as they are
-  tuned. Cross arms are one tile wide regardless of reach, so unlike the
-  diamond and disc that mask is *not* self-similar across radii and is cached
-  per `(shape, radius)`.
+**Risk:** discontinuities at phase boundaries can make blocks pop, and an
+external target tint/pose can leak after skip or disposal. Derive all transforms
+as pure functions of normalized time, and centralize reversible target state in
+the adapter rather than letting the effect mutate arbitrary materials.
 
-  **`line` deliberately has no mask.** Its footprint depends on cast direction,
-  which the ground wash never receives, so it falls back to the disc. Recorded
-  in the mapper's own comment.
+**Proof checkpoint:** show one sheet spanning empty target, first lower blocks,
+side closure, full statue, hold, initial separation, wide breakup, and settle.
+Show a second shell-only sheet tight around the break so the same large pieces
+can be followed across frames.
 
-  **Tuning discovered in-item — the column is not a field.** Two values had to
-  move a long way off their ice-derived starting points, both for the same
-  reason: a vortex concentrates its particles into a fraction of the volume a
-  flat storm field spreads them across, so per-pixel additive overlap is far
-  higher at equal counts.
-  - Ember alpha at ice's 0.62 clipped the core to flat white and made the
-    entire hot-to-cool gradient invisible. Now `EMBER_ALPHA = 0.34`, promoted
-    to its own uniform: it had been read from `ember_hot_color.a`, which
-    silently ignored the mid/cool alphas and would have wasted a later tuning
-    session.
-  - Particle count at ice's 180 was a continuous haze with no individual ember
-    and therefore no legible spiral. Now **80 + 24 = 104**. Density here is a
-    *readability* constraint, not a performance one — worth knowing before
-    anyone "restores" it toward the budget.
-  - Ground wash dropped to alpha 0.13, below even the ice storm's 0.18: the
-    column already spills its own glow downward and a stronger wash flattened
-    the footprint into one orange sheet.
+**Adds to final validation coverage:** formation order, readable hold, instance
+continuity through fracture, exact seek, safe skip, and complete target-state
+restoration.
 
-  **Verified:** shader compiles and runs; build-time node/draw-call/particle
-  asserts hold; `--effect=fire_area_storm` resolves through the catalog;
-  `spells.json` parses (59 spells) with `Smoke Tower` carrying the profile;
-  **ice storm renders unchanged** after the shared-signature change.
+**Resolution target:** implemented; pending end-of-plan validation. Debug
+capture is allowed for the proof checkpoint; no full battle.
 
-  **Not yet verified — left to FIRE-3:** the spiral has only been judged from
-  single static frames, and winding/differential rotation is inherently a
-  multi-frame reading. Nothing has been seen in battle, at 640×480 through the
-  CRT pass, at the `cross` footprint its real carrier uses (the debug harness
-  always passes `"circle"`), or at radii other than 2.
-- **FIRE-3** — **in progress; the plan is NOT complete and no item is marked
-  done.** The automatable half passed. The half that needs interactive UI or a
-  battle has not run, and cannot be driven from the CLI as the harness stands.
+### STATUE-5 — Add the subordinate delivery trail and blue contact accents
 
-  **Passed:**
-  - **Determinism, objectively.** Two separate processes capturing `t = 0.55`
-    produced **byte-identical PNGs** (md5 `5e6dd16d…`). This is a stronger
-    result than the HUD's `exact` readout: it proves the whole effect, not just
-    the particle seek, reproduces across process boundaries.
-  - **Phase structure**, captured at t = 0.12 / 0.35 / 0.55 / 0.85: embers build
-    from the floor, peak mid-timeline, then cool and thin under a browner smoke
-    crown as the ground wash fades.
-  - **Colour cooling with height** and **density thinning toward the crown** —
-    two of the seven poetic criteria — read clearly in stills.
-  - Shader compiles; build-time node/draw-call/particle asserts hold;
-    `--effect=fire_area_storm` resolves; `spells.json` parses (59 spells);
-    **ice storm renders unchanged**.
+**Model:** Opus 5 / GPT Sol
 
-  **Not run, and why:**
-  - **Battle integration (plan step 4) — the significant gap.** `Smoke Tower`
-    has never been cast. Nothing has been seen at 640×480 through the CRT pass,
-    against real terrain, or composited with units.
-  - **The `cross` footprint has never rendered.** `VFXDebugController.
-    _applyFootprintTo()` hardcodes `"circle"`, so every capture above is the
-    diamond path. Smoke Tower is a `cross` carrier, so the shape its only
-    carrier actually uses is entirely unexercised — including the new cross
-    ground-wash mask, which has never been seen on screen.
-  - **Radius sweep, layer toggles, overlap/cap, skip/pause/speed, leak check,
-    and the carried-over ice checks (steps 5–6)** are UI-driven; the harness
-    exposes no CLI for them.
-  - **Four poetic criteria — differential rotation, taper, shrink, lean — are
-    inherently multi-frame or motion-dependent** and cannot be confirmed from
-    stills. The winding spiral is the effect's whole premise and remains
-    unjudged.
+**Depends on:** STATUE-4.
 
-  **Update — the harness was extended, and most of the above is now closed.**
-  A tooling pass added CLI parity (`--radius`, `--shape`, `--layers`, `--seed`,
-  `--scale`, `--retro`, `--crt`), multi-timestamp capture in one process,
-  contact sheets, and golden-frame regression. Newly verified with it:
+**Files:** `IceTargetEncasementEffect.gd`,
+`IceTargetEncasementProfile.gd`, its shader(s),
+`src/presentation/effects/VfxTextures.gd` only for genuinely reusable masks,
+`docs/VFX_DESIGN.md`, and relevant backlog files.
 
-  - **The `cross` footprint renders**, at `Smoke Tower`'s real configuration
-    (cross, radius 1) — the shape its only carrier uses, previously never once
-    drawn. The new cross ground-wash mask is exercised.
-  - **The retro path**: 640×480 through the CRT pass, scanlines present, the
-    column survives the downscale and still reads as fire.
-  - **Baseline goldens recorded for both effects** at their carriers' real
-    configurations (`debug/vfx_golden/`, 3 timestamps each), and re-verified
-    reproducing at diff 0.00.
-  - Ice re-confirmed unchanged at Ice Plow's own config.
+**End state:**
 
-  **A correction to this item's earlier determinism claim.** It reported the
-  effect byte-identical across processes. That was true of the single capture
-  measured, but is **not true in general**: building the golden comparison
-  showed `GPUParticles3D` schedules `restart()`/`request_particles_process()`
-  on the rendering server, so identical runs differ slightly (mean per-channel
-  0.00–0.03). Replaying from zero before each seek removes most of it; extra
-  settle frames removed none, identifying the residue as scheduling rather than
-  a race. Golden comparison is therefore tolerance-based, calibrated against
-  measurement: noise 0.00–0.03, a whole-effect swap 3.2, tolerance 0.5. The
-  GDScript timeline is deterministic; the particle system is not quite.
+- A short sequence of directional cards or deterministic MultiMesh instances
+  travels from the context's caster position to the target. It has a clear head
+  and taper, reaches the target once, and disappears as shell formation takes
+  over.
+- Blue square contact accents appear briefly around the impact volume as a
+  separately toggleable `contact_accents` layer. They signify contact but do
+  not masquerade as large ice blocks.
+- The internal flash is synchronized with first shell growth and remains
+  subordinate to the opaque/faceted enclosure.
+- Trail, contact, and any small debris stay under their combined instance cap.
+  The shell occupies most of the timeline and remains the largest silhouette in
+  the composite.
+- The implementation is local to this effect. Do not extract a general hit
+  marker until a second effect proves the same structure is reusable.
 
-  **Still genuinely open:**
-  - **Battle integration.** `Smoke Tower` has still never been cast in
-    `Battle25D` — no terrain, no units, no queue pacing, no CRT compositing in
-    a real battle.
-  - **Overlap/cap, skip, pause, speed, and the leak check** (plan step 6, which
-    also carries the ice cycle's lifecycle checks). These need a battle or an
-    interactive session; the harness can spawn overlaps but not exercise the
-    adapter's cap and skip paths.
-  - **Radius sweep** covered 1 and 2, not 3–5.
-  - **The four motion-dependent poetic criteria** — winding, taper, shrink,
-    lean. Contact-sheet frames 0.2 apart are far too coarse to read rotation; a
-    tight series (0.40/0.42/0.44) would settle it and now costs one command.
+**Risk:** the easy-to-author bright trail can dominate attention and regress the
+effect into “blue lances plus a flash.” Judge layer-isolated sheets first and
+reject any full composite in which the completed shell is not the primary read.
+
+**Proof checkpoint:** show trail-only, contact-only, and full-composite sheets.
+Include the shell-only hold frame beside the composite hold frame to prove the
+supporting layers did not replace the enclosure.
+
+**Adds to final validation coverage:** correct caster-to-target direction,
+contact timing, layer isolation, visual hierarchy, and combined budgets.
+
+**Resolution target:** implemented; pending end-of-plan validation. Debug
+capture is allowed for the proof checkpoint; no full battle.
+
+### STATUE-6 — Register the confirmed single-target carrier and document runtime behavior
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** STATUE-1, STATUE-4, STATUE-5, and the carrier-spell user
+decision. **Blocking until that decision is recorded.**
+
+**Files:** `data/spells.json`,
+`src/presentation/effects/SpellVfxCatalog.gd` if its debug registration still
+needs production metadata, `docs/VFX_DESIGN.md`,
+`docs/SPELL_CATALOG_SCHEMA.md` only if the schema truth changes, and relevant
+backlog files.
+
+**End state:**
+
+- Exactly one user-confirmed single-target carrier selects
+  `ice_target_encasement` through `VFX_PROFILE`.
+- No damage, radius, range, status, element, cost, targeting, or description is
+  changed merely to accommodate the visual.
+- The catalog declares action-hold fraction and maximum live count from the
+  profile. The queue holds through the completed-statue read and initial break,
+  while the tail may safely outlive the queue slot.
+- Missing target visuals, zero-hit casts, and target defeat before delayed
+  playback remain safe and visually understandable.
+- Documentation distinguishes target-bound encasement from area storms and
+  records how future target-bound profiles consume cast context without adapter
+  branches.
+- Backlogs are reconciled: remove work completed by this cycle, add only durable
+  unresolved issues discovered during implementation, and do not cite this
+  plan's transitory item labels.
+
+**Risk:** attaching the profile to an area or multi-target carrier would multiply
+shell budgets and change the intended visual language; changing gameplay data
+to make a candidate fit would silently expand scope. Refuse both and stop if the
+confirmed carrier is not truly single-target under the live resolver.
+
+**Adds to final validation coverage:** the real spell selects the correct
+profile with unchanged gameplay semantics, queue pacing reaches the shell hold,
+and fallback paths do not wedge presentation.
+
+**Resolution target:** implemented; pending end-of-plan validation. Use only
+integrity checks and any narrow catalog/load probe necessary for safe handoff.
+Do not launch the battle.
+
+### STATUE-7 — Consolidated final visual, lifecycle, and battle validation
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** all implementation items and both blocking gates.
+
+**Files:** fixes to task-owned files if validation finds defects,
+`implementation_plan.md` resolution notes during validation, owning docs and
+backlogs if verified truth changes, followed by the required plan-file cleanup.
+
+This is the only item that performs full gameplay and integration validation.
+Consolidate the following rather than replaying them after each implementation
+item:
+
+1. Run Godot's headless import/parse gate so every new `.gd`/`.gdshader` and
+   generated `.uid` is known to the editor, then load `VFXDebugScene` and
+   `Battle25D` cleanly.
+2. In the debug harness, capture the named phase sheet at a fixed seed for
+   standard, wide, and tall targets. Capture shell-only front-quarter, side,
+   and rear-quarter views with core/trail/contact hidden. Confirm visible
+   thickness, parallax, full-body enclosure, and stable front/rear ordering.
+3. Capture trail-only, contact-only, break-only, and full-composite sheets.
+   Confirm the trail reaches the target, squares mark contact, the closed statue
+   dominates the composite, and the same countable large pieces move from shell
+   to breakup.
+4. Exercise play, pause, resume, 0.5x and 2x speed, forward and backward scrub,
+   settle skip from formation and hold, overlap to the live cap, oldest-effect
+   disposal, retrigger, app/battle exit, and repeated seeded playback. Confirm
+   no target pose/tint lease survives any exit.
+5. Launch the real game and cast the confirmed carrier in a live battle against
+   at least two visibly different target bodies and across an elevated terrain
+   case. Confirm event-time source/target placement, shell fit, damage-number
+   separation, queue pacing, camera/CRT composition, defeat interaction, and
+   unchanged gameplay results. No yellow ring is introduced by this cycle.
+6. Re-run existing Ice Storm, Fire Storm, Magenta Reduction, and generic aura
+   debug captures to catch shared texture/material/context regressions. Exercise
+   at least one multi-target area cast to prove the expanded event contract did
+   not disturb established area VFX.
+7. Read live node, instance/particle, draw-call, and overlap figures from the
+   effect/harness and confirm every asserted profile ceiling. Inspect the final
+   focused diff and run `git diff --check` before staging only task-owned files.
+
+If validation finds a defect, fix it in this session and rerun the smallest
+consolidated subset that covers the fix; do not reopen prior items merely to
+repeat the same checks.
+
+**Risk:** a debug-perfect shell can still miss a moving or unusually sized live
+monster, leak reversible target state, or release the visual queue before the
+statue reads. Only the real-battle pass can close those risks.
+
+**Completion rule:** record the actual visual and manual evidence, mark every
+covered implementation item done, reconcile both backlogs, and commit the final
+validation result. Then, in the same session, grep the repository for
+`STATUE-1` through `STATUE-7`, rewrite any accidental persistent reference as a
+durable description, and clear `implementation_plan.md` completely in a
+follow-up lifecycle-cleanup commit. The completed plan remains recoverable from
+Git history; do not leave its resolution log in the working contract.
+
+## 6. Deliberately not doing
+
+- No ripped Digimon World models, textures, code, or proprietary assets.
+- No dynamic fluid ice, rigid-body fracture, collision debris, or random
+  physics.
+- No shell made primarily from camera-facing sprites.
+- No replacement or redesign of the existing Ice Storm profile.
+- No yellow rings and no changes to damage-number ownership or styling.
+- No gameplay stun/status/balance change inferred from a presentation
+  reference.
+- No per-monster placement tables or spell-name branches in the adapter.
+- No general storm-profile resource refactor; this target-bound structure is
+  not a storm and does not prove that abstraction.
+- No broad shared hit-confirm framework until another effect demonstrates the
+  same contact-accent structure.
