@@ -578,3 +578,26 @@ Implemented 2026-08-11; pending end-of-plan validation.
 - `git diff --check` and the Godot editor import passed. Relevant backlogs were
   reviewed; this harness work leaves no durable unresolved item to add. No
   battle was launched, as required for this item.
+
+### Low-poly target encasement shell
+
+Implemented 2026-08-11; pending end-of-plan validation.
+
+- The target-bound profile builds 15 deterministic, thick 3D chunks from block,
+  wedge, and irregular-crystal meshes. Named rear, side, front, and cap layers
+  fit the supplied body bounds; the restrained core remains independently
+  toggleable.
+- Every chunk records its intact and outward broken transforms at construction.
+  The shell uses opaque faceted blue-white materials and explicit layer render
+  priorities. It is registered in the debug catalog only; spell data is
+  unchanged.
+- Build assertions enforce the authored count and ceilings. The measured build
+  uses 15 chunks, no more than 19 effect nodes, and 13 draw calls.
+- Shell-only retro captures passed for standard front-quarter, side, and
+  rear-quarter views and for short/wide and tall/narrow front-quarter targets.
+  The geometry visibly retained thickness, parallax, enclosure, and readable
+  seams without relying on the core.
+- Repeating the standard capture at seed 7 produced the same SHA-256 hash,
+  confirming deterministic placement. Godot's headless editor import and
+  `git diff --check` passed. Relevant backlogs were reviewed and require no
+  durable change. No battle was launched, as required for this item.

@@ -736,6 +736,7 @@ func _updateStatus() -> void:
 	var total := 0.0
 	var normalized := 0.0
 	var particles := 0
+	var instances := 0
 	var nodes := 0
 	var drawCalls := 0
 	var seekExact := true
@@ -744,12 +745,14 @@ func _updateStatus() -> void:
 		total = _activePlayback.get_total_duration()
 		normalized = _activePlayback.get_normalized_time()
 		particles += _activePlayback.get_live_particle_count()
+		instances += _activePlayback.get_live_instance_count()
 		nodes += _activePlayback.get_live_node_count()
 		drawCalls += _estimateDrawCalls(_activePlayback)
 		seekExact = _activePlayback.is_particle_seek_exact()
 	for overlap in _overlapPlaybacks:
 		if is_instance_valid(overlap):
 			particles += overlap.get_live_particle_count()
+			instances += overlap.get_live_instance_count()
 			nodes += overlap.get_live_node_count()
 			drawCalls += _estimateDrawCalls(overlap)
 			seekExact = seekExact and overlap.is_particle_seek_exact()
@@ -764,7 +767,7 @@ func _updateStatus() -> void:
 	)
 	_statusLabel.text = (
 		"%s / %s\n%s speed @ %.2fx | t %.2f | %.2f / %.2fs\n" +
-		"seed %d | nodes %d | particles %d | draw calls ~%d | overlaps %d | flurry: %s\n" +
+		"seed %d | nodes %d | particles %d | instances %d | draw calls ~%d | overlaps %d | flurry: %s\n" +
 		"target %s | bounds %.2f x %.2f x %.2f | separation %.2f | yaw %.0f degrees\n" +
 		"%s | Retro %s | CRT %s%s%s"
 	) % [
@@ -778,6 +781,7 @@ func _updateStatus() -> void:
 		statusSeed,
 		nodes,
 		particles,
+		instances,
 		drawCalls,
 		_overlapPlaybacks.size(),
 		"exact" if seekExact else "approx",

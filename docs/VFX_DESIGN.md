@@ -73,7 +73,7 @@ Every effect extends `src/presentation/effects/VfxPlayback.gd` and implements:
 | `skip_to_settle()` | Jump to the tail so a skipped action does not cut mid-burst. |
 | `dispose()` | Free everything. Safe to call twice, and while playing. |
 | `get_layer_names()` / `set_layer_visible()` | Named layers, for isolating one at a time while authoring. |
-| `get_live_particle_count()` / `get_live_node_count()` | Honest live figures; the debug HUD and budget checks read them. |
+| `get_live_particle_count()` / `get_live_instance_count()` / `get_live_node_count()` | Honest live figures; the debug HUD and budget checks read them. |
 | `is_particle_seek_exact()` | Whether `seek_normalized` reproduces a frame exactly. See §3. |
 
 Optional, discovered by `has_method`:
@@ -178,9 +178,28 @@ authoring by eye; spend on measurement only when a specific effect earns it.
 
 ### Budgets, asserted at build time
 
-Each profile carries `MAX_EFFECT_NODES`, `MAX_DRAW_CALLS`, and
-`MAX_LIVE_PARTICLES`, asserted in `_buildLayers()` so a violation fails loudly
-at construction rather than being noticed as a frame-rate problem later.
+Each profile carries `MAX_EFFECT_NODES`, `MAX_DRAW_CALLS`, and the relevant
+particle or geometry-instance ceiling, asserted while its layers are built so a
+violation fails loudly at construction rather than being noticed as a
+frame-rate problem later.
+
+### Target-bound volumetric shells
+
+`ice_target_encasement` is the first profile driven by `VfxCastContext` body
+bounds rather than by an area footprint. It uses three effect-owned low-poly
+meshes—block, wedge, and irregular crystal—distributed into explicit
+`shell_rear`, `shell_sides`, `shell_front`, and `shell_cap` layers. Opaque
+faceted materials, depth, and per-layer render priorities preserve front/rear
+ordering through camera rotation. A small `ice_core` is independently
+toggleable.
+
+Every chunk records both its intact transform and a deterministic outward
+broken transform when the shell is built. Timeline code may interpolate those
+stored transforms, but must not replace the instances at fracture time: the
+large pieces visible in the closed statue are the pieces that must leave it.
+The debug catalog registration is intentionally not a spell assignment; no
+production carrier selects this profile until a confirmed single-target spell
+is chosen.
 
 ### Resource ownership and donor-effect guardrails
 

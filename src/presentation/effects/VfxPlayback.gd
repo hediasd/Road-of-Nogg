@@ -61,6 +61,10 @@ func get_live_particle_count() -> int:
 	return 0
 
 
+func get_live_instance_count() -> int:
+	return 0
+
+
 func get_live_node_count() -> int:
 	return 0
 

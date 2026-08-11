@@ -8,6 +8,8 @@ const IceStormEffectScript = preload("res://src/presentation/effects/IceStormEff
 const FireStormEffectScript = preload("res://src/presentation/effects/FireStormEffect.gd")
 const MagentaReductionEffectScript = preload(
 		"res://src/presentation/effects/MagentaReductionEffect.gd")
+const IceTargetEncasementEffectScript = preload(
+		"res://src/presentation/effects/IceTargetEncasementEffect.gd")
 const GENERIC_AURA_PROFILE_ID := ""
 const GENERIC_ACTION_HOLD_FRACTION := 0.6
 
@@ -41,6 +43,13 @@ static func entries() -> Array[Dictionary]:
 			"factory": Callable(MagentaReductionEffectScript, "createPlayback"),
 			"action_hold_fraction": MagentaReductionProfile.ACTION_HOLD_FRACTION,
 			"max_live": MagentaReductionProfile.MAX_LIVE_IMPLOSIONS,
+		},
+		{
+			"profile_id": IceTargetEncasementProfile.PROFILE_ID,
+			"display_name": "Ice Target Encasement",
+			"factory": Callable(IceTargetEncasementEffectScript, "createPlayback"),
+			"action_hold_fraction": IceTargetEncasementProfile.ACTION_HOLD_FRACTION,
+			"max_live": IceTargetEncasementProfile.MAX_LIVE_ENCASEMENTS,
 		},
 	]
 
