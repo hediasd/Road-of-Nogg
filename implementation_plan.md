@@ -74,10 +74,9 @@ Ice Punch, with minimum range 1, maximum range 5, and
 Plow retains its area-storm profile. This authorization resolves the carrier
 content/design gate without inferring a spell from its name.
 
-Monster spell-set ownership is a separate content decision. No existing
-monster loadout is changed by the registration item; live battle validation
-cannot cast Ice Statue until the user identifies a monster that should learn
-it.
+The user subsequently chose Snowzilla as the owner. Ice Statue is appended to
+Snowzilla's existing Ice spell set after Ice Punch, resolving the live-battle
+availability gate without changing another monster or element.
 
 ## 3. Established facts and design decisions
 
@@ -671,9 +670,11 @@ Implemented 2026-08-11; pending end-of-plan validation.
 - PowerShell JSON parsing found 61 entries with 61 unique names and exactly one
   Ice Statue entry carrying the requested normalized fields. Godot 4.4's
   headless editor import completed successfully, and `git diff --check` passed.
-- No monster spell set references Ice Statue. Assigning an owner, spell set,
-  and tier is a separate user-facing content decision, recorded in
-  `BACKLOG_CRITICAL.md`; the consolidated live-battle pass remains blocked on
-  that choice.
-- No unrelated gameplay fields or monster loadouts changed, and no battle was
-  launched, as required for this item.
+- At the user's direction, Snowzilla now owns Ice Statue immediately after Ice
+  Punch in its existing Ice set. The temporary critical-backlog ownership entry
+  was removed; no other monster or spell set changed.
+- JSON integrity checks found exactly one Snowzilla, exactly one Ice Statue in
+  its set, unique spell names, and no unresolved owned spell name. Godot 4.4's
+  editor import passed after the ownership change.
+- No unrelated gameplay fields changed, and no battle was launched, as required
+  for this item.

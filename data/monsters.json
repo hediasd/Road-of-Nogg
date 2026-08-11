@@ -226,7 +226,8 @@
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
 			[
-				"Ice Punch"
+				"Ice Punch",
+				"Ice Statue"
 			]
 		],
 		"PASSIVES": [
