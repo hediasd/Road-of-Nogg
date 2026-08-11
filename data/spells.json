@@ -10,6 +10,18 @@
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
+		"DAMAGE": 3,
+		"ELEMENT": "ice",
+		"MAX_HEIGHT_DELTA": 1,
+		"MIN_RANGE": 1,
+		"NAME": "Ice Statue",
+		"RADIUS": 1,
+		"RANGE": 5,
+		"TARGET_TYPE": "single",
+		"VFX_PROFILE": "ice_target_encasement"
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 5,
 		"ELEMENT": "ice",
 		"MAX_HEIGHT_DELTA": 1,

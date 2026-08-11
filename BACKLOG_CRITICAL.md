@@ -31,6 +31,11 @@ this is a presentation gap, not a missing mechanic.
 
 ## Monster spell kits
 
+- **Ice Statue has no owning monster.** The spell is cataloged as a
+  single-target Ice Punch derivative at range 1–5 and owns its completed
+  target-encasement VFX, but no entry in `data/monsters.json` can cast it.
+  Choose the monster, spell set, and tier deliberately before claiming live
+  battle readiness; do not silently add it beside every Ice Punch reference.
 - **Blue Crowned Pidgeon:** has no spells at all. Assign at least one Wind set
   using the implemented Level 1 pool.
 - **Level 2-4 pool covers one element of ten.** Wood is complete as of

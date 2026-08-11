@@ -66,23 +66,18 @@ this cycle began:
 now the repository's only delegation contract, and its first implementation
 item starts from a clean `git status` as required by `AGENTS.md`.
 
-### Carrier spell — blocking only registration and battle validation
+### Carrier spell — resolved 2026-08-11
 
-No carrier is inferred from a spell name. The catalog currently offers
-`Ice Punch` and `Ice Plume` as possible existing candidates, while `Ice Plow`
-already owns the area-storm profile and must not be repurposed. Creating a new
-spell named after the reference would be a content, lore, and balance decision
-outside this plan's authority.
+The user explicitly commissioned `Ice Statue` as a new single-target copy of
+Ice Punch, with minimum range 1, maximum range 5, and
+`VFX_PROFILE: "ice_target_encasement"`. Ice Punch remains unchanged, and Ice
+Plow retains its area-storm profile. This authorization resolves the carrier
+content/design gate without inferring a spell from its name.
 
-The user must choose one of these before the registration item begins:
-
-1. assign `ice_target_encasement` to an existing confirmed single-target spell;
-2. identify a different existing carrier; or
-3. explicitly commission a separate spell-data/design cycle.
-
-The context transport, debug harness, geometry, and choreography can be built
-and judged before this choice. Registration and final in-battle validation
-cannot.
+Monster spell-set ownership is a separate content decision. No existing
+monster loadout is changed by the registration item; live battle validation
+cannot cast Ice Statue until the user identifies a monster that should learn
+it.
 
 ## 3. Established facts and design decisions
 
@@ -422,8 +417,8 @@ capture is allowed for the proof checkpoint; no full battle.
 
 **Model:** Sonnet 5 / GPT Terra
 
-**Depends on:** STATUE-1, STATUE-4, STATUE-5, and the carrier-spell user
-decision. **Blocking until that decision is recorded.**
+**Depends on:** STATUE-1, STATUE-4, STATUE-5, and the recorded Ice Statue
+carrier decision.
 
 **Files:** `data/spells.json`,
 `src/presentation/effects/SpellVfxCatalog.gd` if its debug registration still
@@ -661,3 +656,24 @@ Implemented 2026-08-11; pending end-of-plan validation.
 - Godot 4.4's headless editor import and `git diff --check` passed. Relevant
   backlogs were reviewed and require no durable change. No battle was launched,
   as required for this item.
+
+### Ice Statue production registration
+
+Implemented 2026-08-11; pending end-of-plan validation.
+
+- At the user's explicit direction, `Ice Statue` was added as a new
+  single-target copy of Ice Punch. It retains Ice Punch's damage 3, ice element,
+  radius 1, empty-target behavior, and height constraint; its authored minimum
+  range is 1 and maximum range is 5.
+- `VFX_PROFILE: "ice_target_encasement"` assigns the completed target-bound
+  effect without a spell-name branch. Ice Punch is unchanged and Ice Plow keeps
+  `ice_area_storm`.
+- PowerShell JSON parsing found 61 entries with 61 unique names and exactly one
+  Ice Statue entry carrying the requested normalized fields. Godot 4.4's
+  headless editor import completed successfully, and `git diff --check` passed.
+- No monster spell set references Ice Statue. Assigning an owner, spell set,
+  and tier is a separate user-facing content decision, recorded in
+  `BACKLOG_CRITICAL.md`; the consolidated live-battle pass remains blocked on
+  that choice.
+- No unrelated gameplay fields or monster loadouts changed, and no battle was
+  launched, as required for this item.

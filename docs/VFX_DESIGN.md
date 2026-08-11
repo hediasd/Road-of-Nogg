@@ -227,9 +227,12 @@ instances, and one flash instance. It measures 25 effect nodes and 16 draw
 calls, within its asserted ceilings. The delivery/contact population is capped
 at 16 so later tuning cannot turn the supporting cues into replacement debris.
 
-The debug catalog registration is intentionally not a spell assignment; no
-production carrier selects this profile until a confirmed single-target spell
-is chosen.
+The debug catalog and production spell data use the same profile id. `Ice Statue`
+is the single-target production carrier: it copies Ice Punch's damage, element,
+radius, empty-target behavior, and height constraint, but has an authored
+minimum range of 1 and maximum range of 5. `VFX_PROFILE` changes only its
+presentation; target-bound effects continue to consume the generic cast context
+without a spell-name branch in the adapter.
 
 ### Resource ownership and donor-effect guardrails
 
