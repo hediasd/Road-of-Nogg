@@ -630,3 +630,34 @@ Implemented 2026-08-11; pending end-of-plan validation.
 - Godot 4.4's headless editor import and `git diff --check` passed. Relevant
   backlogs were reviewed and require no durable change. No battle was launched,
   as required for this item.
+
+### Subordinate delivery and contact cues
+
+Implemented 2026-08-11; pending end-of-plan validation.
+
+- `delivery_trail` uses seven tapered low-poly segments whose head travels from
+  the cast context's source position to the target body center exactly once.
+  The frozen taper fades during first shell growth and is gone by normalized
+  time 0.20.
+- `contact_accents` uses eight deterministic deep-blue square prisms in one
+  MultiMesh. Their staggered scale/motion envelope briefly distributes them
+  around the impact volume without resembling the large shell chunks.
+- `impact_flash` is a separate low-alpha, depth-independent internal sphere
+  synchronized with first growth. It was kept small enough to tint the impact
+  volume rather than replace the shell.
+- An attempted standard billboard material was rejected during proof because
+  Godot replaced the per-instance basis and ignored the MultiMesh scale used to
+  hide each square. Scale-safe thin prisms fixed the lifecycle; the durable
+  guardrail is recorded in `docs/VFX_DESIGN.md`.
+- Trail-only and contact-only sheets, a flash isolation capture, and the
+  full-composite sheet passed through the retro path with every capture marker
+  reporting `error=0` and empty stderr. The completed composite hold is
+  byte-identical to the prior shell-only hold, proving the supporting layers
+  clear before the statue owns the frame.
+- The HUD measured 25 nodes, 31 allocated geometry instances, zero particles,
+  and an approximately 16-draw peak when core and supporting layers overlap.
+  Seven trail plus eight contact instances remain under the asserted combined
+  ceiling of 16.
+- Godot 4.4's headless editor import and `git diff --check` passed. Relevant
+  backlogs were reviewed and require no durable change. No battle was launched,
+  as required for this item.

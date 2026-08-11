@@ -13,6 +13,9 @@ const LAYER_SHELL_SIDES := "shell_sides"
 const LAYER_SHELL_FRONT := "shell_front"
 const LAYER_SHELL_CAP := "shell_cap"
 const LAYER_ICE_CORE := "ice_core"
+const LAYER_DELIVERY_TRAIL := "delivery_trail"
+const LAYER_CONTACT_ACCENTS := "contact_accents"
+const LAYER_IMPACT_FLASH := "impact_flash"
 
 var _elapsedTime := 0.0
 var _totalDuration := IceTargetEncasementProfile.BATTLE_DURATION_SECONDS
@@ -31,6 +34,9 @@ var _layerVisibility := {
 	LAYER_SHELL_FRONT: true,
 	LAYER_SHELL_CAP: true,
 	LAYER_ICE_CORE: true,
+	LAYER_DELIVERY_TRAIL: true,
+	LAYER_CONTACT_ACCENTS: true,
+	LAYER_IMPACT_FLASH: true,
 }
 var _chunkRecords: Array[Dictionary] = []
 var _intactTransforms: Array[Transform3D] = []
@@ -39,6 +45,15 @@ var _drawCallCount := 0
 var _bodyCenter := Vector3.ZERO
 var _core: MeshInstance3D
 var _coreBaseScale := Vector3.ONE
+var _trailMultiMesh: MultiMesh
+var _trailSource := Vector3.ZERO
+var _trailTarget := Vector3.ZERO
+var _trailBasis := Basis.IDENTITY
+var _contactMultiMesh: MultiMesh
+var _contactRecords: Array[Dictionary] = []
+var _impactFlash: MeshInstance3D
+var _impactFlashMaterial: StandardMaterial3D
+var _impactFlashBaseScale := Vector3.ONE
 
 
 static func createPlayback(
@@ -135,6 +150,9 @@ func get_layer_names() -> Array[String]:
 		LAYER_SHELL_FRONT,
 		LAYER_SHELL_CAP,
 		LAYER_ICE_CORE,
+		LAYER_DELIVERY_TRAIL,
+		LAYER_CONTACT_ACCENTS,
+		LAYER_IMPACT_FLASH,
 	]
 
 
@@ -153,7 +171,11 @@ func get_live_particle_count() -> int:
 
 
 func get_live_instance_count() -> int:
-	return 0 if _disposed else _chunkRecords.size()
+	return (
+		0
+		if _disposed or not _shellBuilt
+		else IceTargetEncasementProfile.TOTAL_GEOMETRY_INSTANCE_COUNT
+	)
 
 
 func get_live_node_count() -> int:
@@ -205,6 +227,9 @@ func _buildShell(seed: int) -> void:
 	_buildChunkRecords(bodyBounds, random)
 	_buildChunkInstances()
 	_buildCore(bodyBounds)
+	_buildDeliveryTrail()
+	_buildContactAccents(bodyBounds, random)
+	_buildImpactFlash(bodyBounds)
 	_shellBuilt = true
 	assert(
 		_chunkRecords.size() == IceTargetEncasementProfile.CHUNK_COUNT,
@@ -213,6 +238,19 @@ func _buildShell(seed: int) -> void:
 	assert(
 		_chunkRecords.size() <= IceTargetEncasementProfile.MAX_CHUNKS,
 		"Ice encasement exceeded its chunk ceiling."
+	)
+	assert(
+		IceTargetEncasementProfile.SUPPORTING_INSTANCE_COUNT
+		<= IceTargetEncasementProfile.MAX_SUPPORTING_INSTANCES,
+		"Ice encasement exceeded its supporting-instance ceiling."
+	)
+	assert(
+		_chunkRecords.size()
+		+ _trailMultiMesh.instance_count
+		+ _contactMultiMesh.instance_count
+		+ 1
+		== IceTargetEncasementProfile.TOTAL_GEOMETRY_INSTANCE_COUNT,
+		"Ice encasement geometry-instance accounting drifted."
 	)
 	assert(
 		_countNodes(self) <= IceTargetEncasementProfile.MAX_EFFECT_NODES,
@@ -457,6 +495,130 @@ func _buildCore(bounds: AABB) -> void:
 	_drawCallCount += 1
 
 
+func _buildDeliveryTrail() -> void:
+	_trailTarget = _bodyCenter
+	_trailSource = Vector3(0.0, IceTargetEncasementProfile.TRAIL_SOURCE_HEIGHT_U, 2.5)
+	if _context != null:
+		_trailSource = to_local(_context.source_world_position)
+		_trailSource.y += IceTargetEncasementProfile.TRAIL_SOURCE_HEIGHT_U
+	var travelDirection := _trailTarget - _trailSource
+	if travelDirection.length_squared() < 0.001:
+		travelDirection = Vector3.FORWARD
+	var trailUp := Vector3.UP
+	if absf(travelDirection.normalized().dot(trailUp)) > 0.98:
+		trailUp = Vector3.FORWARD
+	_trailBasis = Basis.looking_at(travelDirection.normalized(), trailUp)
+
+	var trailMesh := BoxMesh.new()
+	trailMesh.size = Vector3.ONE
+	_trailMultiMesh = MultiMesh.new()
+	_trailMultiMesh.transform_format = MultiMesh.TRANSFORM_3D
+	_trailMultiMesh.mesh = trailMesh
+	_trailMultiMesh.instance_count = IceTargetEncasementProfile.TRAIL_INSTANCE_COUNT
+	for slot: int in range(IceTargetEncasementProfile.TRAIL_INSTANCE_COUNT):
+		_trailMultiMesh.set_instance_transform(
+			slot,
+			Transform3D(
+				_trailBasis.scaled(Vector3.ONE * 0.001),
+				_trailSource))
+	var trailInstance := MultiMeshInstance3D.new()
+	trailInstance.name = "DeliveryTrailSegments"
+	trailInstance.multimesh = _trailMultiMesh
+	trailInstance.material_override = _createLayerMaterial(LAYER_DELIVERY_TRAIL)
+	trailInstance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	(_layerNodes[LAYER_DELIVERY_TRAIL] as Node3D).add_child(trailInstance)
+	_drawCallCount += 1
+
+
+func _buildContactAccents(bounds: AABB, random: RandomNumberGenerator) -> void:
+	var directions: Array[Vector3] = [
+		Vector3(-0.85, -0.45, 0.62),
+		Vector3(0.72, -0.35, 0.78),
+		Vector3(-0.65, 0.05, -0.82),
+		Vector3(0.88, 0.12, -0.48),
+		Vector3(-0.42, 0.68, 0.72),
+		Vector3(0.52, 0.74, 0.50),
+		Vector3(-0.72, 0.78, -0.38),
+		Vector3(0.65, 0.58, -0.68),
+	]
+	assert(
+		directions.size() == IceTargetEncasementProfile.CONTACT_INSTANCE_COUNT,
+		"Ice contact direction count drifted from its instance count."
+	)
+	var contactSize := clampf(
+		minf(bounds.size.x, minf(bounds.size.y, bounds.size.z))
+		* IceTargetEncasementProfile.CONTACT_SIZE_BODY_FRACTION,
+		IceTargetEncasementProfile.CONTACT_SIZE_MIN_U,
+		IceTargetEncasementProfile.CONTACT_SIZE_MAX_U)
+	for slot: int in range(directions.size()):
+		var direction := directions[slot].normalized()
+		var surfaceOffset := Vector3(
+			direction.x * bounds.size.x * 0.68,
+			direction.y * bounds.size.y * 0.56,
+			direction.z * bounds.size.z * 0.68)
+		var start := (
+			IceTargetEncasementProfile.CONTACT_START_FRACTION
+			+ float(slot) * IceTargetEncasementProfile.CONTACT_STAGGER_FRACTION)
+		_contactRecords.append({
+			"base_position": bounds.get_center() + surfaceOffset,
+			"direction": direction,
+			"size": contactSize * random.randf_range(0.82, 1.12),
+			"start": start,
+			"end": start + IceTargetEncasementProfile.CONTACT_DURATION_FRACTION,
+		})
+
+	var contactMesh := BoxMesh.new()
+	contactMesh.size = Vector3.ONE
+	_contactMultiMesh = MultiMesh.new()
+	_contactMultiMesh.transform_format = MultiMesh.TRANSFORM_3D
+	_contactMultiMesh.mesh = contactMesh
+	_contactMultiMesh.instance_count = _contactRecords.size()
+	for slot: int in range(_contactRecords.size()):
+		var record: Dictionary = _contactRecords[slot]
+		_contactMultiMesh.set_instance_transform(
+			slot,
+			Transform3D(
+				Basis.IDENTITY.scaled(Vector3.ONE * 0.001),
+				record["base_position"]))
+	var contactInstance := MultiMeshInstance3D.new()
+	contactInstance.name = "ContactSquares"
+	contactInstance.multimesh = _contactMultiMesh
+	contactInstance.material_override = _createContactMaterial()
+	contactInstance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	(_layerNodes[LAYER_CONTACT_ACCENTS] as Node3D).add_child(contactInstance)
+	_drawCallCount += 1
+
+
+func _buildImpactFlash(bounds: AABB) -> void:
+	_impactFlash = MeshInstance3D.new()
+	_impactFlash.name = "ImpactFlash"
+	var flashMesh := SphereMesh.new()
+	flashMesh.radius = 0.5
+	flashMesh.height = 1.0
+	flashMesh.radial_segments = 8
+	flashMesh.rings = 4
+	_impactFlash.mesh = flashMesh
+	_impactFlash.position = bounds.get_center()
+	_impactFlashBaseScale = bounds.size * IceTargetEncasementProfile.IMPACT_FLASH_SCALE_FRACTION
+	_impactFlash.scale = _impactFlashBaseScale * 0.001
+	_impactFlashMaterial = StandardMaterial3D.new()
+	_impactFlashMaterial.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_impactFlashMaterial.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_impactFlashMaterial.cull_mode = BaseMaterial3D.CULL_DISABLED
+	_impactFlashMaterial.no_depth_test = true
+	_impactFlashMaterial.emission_enabled = true
+	_impactFlashMaterial.emission = IceTargetEncasementProfile.IMPACT_FLASH_COLOR
+	_impactFlashMaterial.emission_energy_multiplier = 0.7
+	_impactFlashMaterial.albedo_color = Color(
+		IceTargetEncasementProfile.IMPACT_FLASH_COLOR, 0.0)
+	_impactFlashMaterial.render_priority = int(
+		IceTargetEncasementProfile.LAYER_RENDER_PRIORITIES[LAYER_IMPACT_FLASH])
+	_impactFlash.material_override = _impactFlashMaterial
+	_impactFlash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	(_layerNodes[LAYER_IMPACT_FLASH] as Node3D).add_child(_impactFlash)
+	_drawCallCount += 1
+
+
 func _createLayerMaterial(layerName: String) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = _ICE_SHADER
@@ -470,10 +632,27 @@ func _createLayerMaterial(layerName: String) -> ShaderMaterial:
 			color = IceTargetEncasementProfile.CAP_COLOR
 		LAYER_ICE_CORE:
 			color = IceTargetEncasementProfile.CORE_COLOR
+		LAYER_DELIVERY_TRAIL:
+			color = IceTargetEncasementProfile.TRAIL_COLOR
+		LAYER_CONTACT_ACCENTS:
+			color = IceTargetEncasementProfile.CONTACT_COLOR
 	material.set_shader_parameter("base_color", color)
 	material.set_shader_parameter("shadow_color", IceTargetEncasementProfile.SHADOW_COLOR)
 	material.set_shader_parameter("emission_strength", 0.18 if layerName == LAYER_ICE_CORE else 0.08)
 	material.render_priority = int(IceTargetEncasementProfile.LAYER_RENDER_PRIORITIES[layerName])
+	return material
+
+
+func _createContactMaterial() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.albedo_color = IceTargetEncasementProfile.CONTACT_COLOR
+	material.emission_enabled = true
+	material.emission = IceTargetEncasementProfile.CONTACT_COLOR
+	material.emission_energy_multiplier = 0.55
+	material.render_priority = int(
+		IceTargetEncasementProfile.LAYER_RENDER_PRIORITIES[LAYER_CONTACT_ACCENTS])
 	return material
 
 
@@ -508,6 +687,9 @@ func _applyTimeline() -> void:
 		multiMesh.set_instance_transform(
 			int(record["slot"]), _chunkTransformAt(record, normalizedTime))
 	_applyCoreTimeline(normalizedTime)
+	_applyDeliveryTrailTimeline(normalizedTime)
+	_applyContactTimeline(normalizedTime)
+	_applyImpactFlashTimeline(normalizedTime)
 	for layerName: String in get_layer_names():
 		var layer := _layerNodes.get(layerName) as Node3D
 		if layer != null:
@@ -604,6 +786,93 @@ func _applyCoreTimeline(normalizedTime: float) -> void:
 				IceTargetEncasementProfile.CORE_BREAK_END_FRACTION)))
 	_core.scale = _coreBaseScale * coreFactor
 	_core.visible = coreFactor > 0.025
+
+
+func _applyDeliveryTrailTimeline(normalizedTime: float) -> void:
+	if _trailMultiMesh == null:
+		return
+	var travelProgress := _smoothstep01(_windowProgress(
+		normalizedTime,
+		IceTargetEncasementProfile.TRAIL_START_FRACTION,
+		IceTargetEncasementProfile.TRAIL_IMPACT_FRACTION))
+	var visibility := 0.0
+	if normalizedTime <= IceTargetEncasementProfile.TRAIL_IMPACT_FRACTION:
+		visibility = _smoothstep01(_windowProgress(
+			normalizedTime,
+			IceTargetEncasementProfile.TRAIL_START_FRACTION,
+			IceTargetEncasementProfile.TRAIL_FADE_IN_FRACTION))
+	elif normalizedTime < IceTargetEncasementProfile.TRAIL_FADE_END_FRACTION:
+		visibility = 1.0 - _smoothstep01(_windowProgress(
+			normalizedTime,
+			IceTargetEncasementProfile.TRAIL_IMPACT_FRACTION,
+			IceTargetEncasementProfile.TRAIL_FADE_END_FRACTION))
+	for slot: int in range(IceTargetEncasementProfile.TRAIL_INSTANCE_COUNT):
+		var taper := (
+			float(slot)
+			/ float(maxi(IceTargetEncasementProfile.TRAIL_INSTANCE_COUNT - 1, 1)))
+		var segmentProgress := maxf(
+			travelProgress
+			- float(slot) * IceTargetEncasementProfile.TRAIL_SEGMENT_PROGRESS_SPACING,
+			0.0)
+		var segmentVisibility := visibility if segmentProgress > 0.0 else 0.0
+		var width := lerpf(
+			IceTargetEncasementProfile.TRAIL_HEAD_WIDTH_U,
+			IceTargetEncasementProfile.TRAIL_TAIL_WIDTH_U,
+			taper) * maxf(segmentVisibility, 0.001)
+		var length := (
+			IceTargetEncasementProfile.TRAIL_SEGMENT_LENGTH_U
+			* lerpf(1.0, 0.72, taper)
+			* maxf(segmentVisibility, 0.001)
+		)
+		_trailMultiMesh.set_instance_transform(
+			slot,
+			Transform3D(
+				_trailBasis.scaled(Vector3(width, width, length)),
+				_trailSource.lerp(_trailTarget, segmentProgress)))
+
+
+func _applyContactTimeline(normalizedTime: float) -> void:
+	if _contactMultiMesh == null:
+		return
+	for slot: int in range(_contactRecords.size()):
+		var record: Dictionary = _contactRecords[slot]
+		var progress := _windowProgress(
+			normalizedTime, float(record["start"]), float(record["end"]))
+		var visibility := sin(progress * PI)
+		if normalizedTime <= float(record["start"]) or normalizedTime >= float(record["end"]):
+			visibility = 0.0
+		var position: Vector3 = record["base_position"]
+		position += (
+			(record["direction"] as Vector3)
+			* IceTargetEncasementProfile.CONTACT_OUTWARD_DISTANCE_U
+			* _easeOutCubic(progress))
+		var size := float(record["size"]) * maxf(visibility, 0.001)
+		_contactMultiMesh.set_instance_transform(
+			slot,
+			Transform3D(
+				Basis.IDENTITY.scaled(Vector3(size, size, size * 0.22)),
+				position))
+
+
+func _applyImpactFlashTimeline(normalizedTime: float) -> void:
+	if _impactFlash == null or _impactFlashMaterial == null:
+		return
+	var progress := _windowProgress(
+		normalizedTime,
+		IceTargetEncasementProfile.IMPACT_FLASH_START_FRACTION,
+		IceTargetEncasementProfile.IMPACT_FLASH_END_FRACTION)
+	var visibility := sin(progress * PI)
+	if (
+		normalizedTime <= IceTargetEncasementProfile.IMPACT_FLASH_START_FRACTION
+		or normalizedTime >= IceTargetEncasementProfile.IMPACT_FLASH_END_FRACTION
+	):
+		visibility = 0.0
+	_impactFlash.scale = _impactFlashBaseScale * maxf(visibility, 0.001)
+	var flashColor := IceTargetEncasementProfile.IMPACT_FLASH_COLOR
+	flashColor.a = IceTargetEncasementProfile.IMPACT_FLASH_MAX_ALPHA * visibility
+	_impactFlashMaterial.albedo_color = flashColor
+	_impactFlashMaterial.emission_energy_multiplier = 0.35 + visibility * 0.65
+	_impactFlash.visible = visibility > 0.01
 
 
 func _interpolateTransform(

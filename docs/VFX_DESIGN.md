@@ -209,6 +209,24 @@ must never reach through its context to edit arbitrary target materials.
 
 Timeline code must not replace instances at fracture time: the large pieces
 visible in the closed statue are the pieces that leave it.
+
+Three effect-local supporting layers establish delivery without competing with
+the shell. `delivery_trail` uses seven tapered low-poly segments driven from the
+context's caster position to the target body center; its head reaches once and
+the frozen taper clears during first growth. `contact_accents` uses eight small
+deep-blue square prisms distributed around the impact volume. They remain in a
+single MultiMesh so their normalized-time scale actually hides them; applying a
+standard billboard material here is forbidden because Godot replaces the
+per-instance basis and defeats that scale envelope. `impact_flash` is one
+low-alpha, depth-independent internal pulse synchronized with first growth.
+Each layer is independently toggleable, and all three are gone before the
+completed enclosure.
+
+The complete build contains 15 large shell chunks, 15 delivery/contact
+instances, and one flash instance. It measures 25 effect nodes and 16 draw
+calls, within its asserted ceilings. The delivery/contact population is capped
+at 16 so later tuning cannot turn the supporting cues into replacement debris.
+
 The debug catalog registration is intentionally not a spell assignment; no
 production carrier selects this profile until a confirmed single-target spell
 is chosen.
