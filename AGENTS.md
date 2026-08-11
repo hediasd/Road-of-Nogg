@@ -28,6 +28,11 @@ the rationale; this file is the concise operational contract.
 - Fail loudly on critical state desynchronization. Review large or deeply
   nested code for extraction, but do not stop solely at a numeric threshold.
 - Keep commits focused. Stage only files that belong to the current task.
+- Treat shared presentation textures, materials, factories, and theme tokens as
+  compatibility surfaces. Spell- or screen-specific tuning must use an owned
+  variant rather than redefining a neutral/shared primitive in place. If a
+  shared surface intentionally changes, enumerate every caller and include all
+  of them in the final validation scope.
 
 ## Documentation routing
 
@@ -168,6 +173,10 @@ behavior.
   launched the game and exercised the affected behavior.
 - A single-item plan validates at the end of that item because there is no
   repeated per-item validation to avoid.
+- VFX work that changes a shared primitive or factory must render every effect
+  returned by a caller search, not only the commissioned effect. Compare stored
+  goldens where they exist; a target-effect capture alone cannot complete the
+  validation.
 
 ## Backlog maintenance
 

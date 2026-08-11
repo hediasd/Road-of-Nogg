@@ -309,7 +309,7 @@ func _buildSmokeCrown() -> void:
 		crown.name = "SmokeCrown%d" % index
 		var mesh := QuadMesh.new()
 		crown.mesh = mesh
-		var material := VfxTextures.canopyMaterial().duplicate() as StandardMaterial3D
+		var material := VfxTextures.createNeutralSoftPuffMaterial()
 		material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 		crown.material_override = material
 		_crownNodes.append(crown)
@@ -349,13 +349,10 @@ func _createEmitter(emitterName: String, amount: int) -> GPUParticles3D:
 	emitter.process_material = shaderMaterial
 	var drawMesh := QuadMesh.new()
 	drawMesh.size = Vector2.ONE
-	var drawMaterial := VfxTextures.flurryMaterial().duplicate() as StandardMaterial3D
-	# The shared flurry material is built ice-tinted, and `_createMaterial` sets
-	# `vertex_color_use_as_albedo`, so its albedo would multiply against the
-	# per-ember colour the vortex shader writes to COLOR and skew the whole
-	# hot-to-cool gradient blue. Neutralising albedo and emission to white lets
-	# the shader own the palette outright — which is the point of having a
-	# per-particle gradient at all.
+	var drawMaterial := VfxTextures.createNeutralSoftDiscMaterial()
+	# Neutralise explicitly even though the shared primitive is white: the
+	# process shader owns this layer's hot-to-cool palette, and keeping that
+	# assignment local protects it if material construction is refactored.
 	drawMaterial.albedo_color = Color.WHITE
 	drawMaterial.emission = Color.WHITE
 	drawMaterial.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED

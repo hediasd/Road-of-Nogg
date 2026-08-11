@@ -18,12 +18,13 @@ data/spells.json  VFX_PROFILE: "ice_area_storm"
         │
 SpellReferences   normalizes the row; VFX_PROFILE defaults to ""
         │
-CombatResolver    emits spell_cast_started for every cast
+CombatResolver    resolves gameplay targets and the live spell footprint,
+        │         then emits spell_cast_started for every cast
         │
 GodotVisualAdapter._on_spell_cast_started
-        │         copies VFX_PROFILE, RADIUS, AREA_SHAPE onto a CAST_AREA
-        │         VisualAction, derives a deterministic vfx_seed, measures
-        │         the footprint's terrain span
+        │         reads only VFX_PROFILE from the catalog; copies the event's
+        │         resolved radius and shape onto a CAST_AREA VisualAction,
+        │         derives a deterministic vfx_seed, and measures terrain span
         │
 GodotVisualAdapter._start_cast_area_animation
         │         resolves the profile, enforces the live cap, spawns,
@@ -42,6 +43,12 @@ that is a signal the contract is being worked around.
 `VFX_PROFILE` is presentation metadata with no gameplay effect. An empty or
 unrecognized value falls back to the generic aura. See
 [`SPELL_CATALOG_SCHEMA.md`](./SPELL_CATALOG_SCHEMA.md).
+
+**The cast event owns the resolved footprint.** Gameplay uses the mutable
+`Spell` instance attached to the caster, so a transient `radius += 2` must reach
+presentation from `CombatResolver`; presentation must not re-read the immutable
+catalog radius. A single-target cast reports radius 0. An area cast and a
+self-area cast report the same radius and shape used by `ShapeCaster`.
 
 ---
 
@@ -166,6 +173,46 @@ Each profile carries `MAX_EFFECT_NODES`, `MAX_DRAW_CALLS`, and
 `MAX_LIVE_PARTICLES`, asserted in `_buildLayers()` so a violation fails loudly
 at construction rather than being noticed as a frame-rate problem later.
 
+### Resource ownership and donor-effect guardrails
+
+Anything returned by a shared texture or material factory is a compatibility
+surface. A local visual experiment must not silently redefine that surface for
+every caller. The ownership rule is encoded in names:
+
+| Factory family | Contract | Current consumers |
+| --- | --- | --- |
+| `neutralSoftDisc()`, `createNeutralSoftDiscMaterial()` | white radial falloff; additive; stable silhouette | Fire particles, Magenta core |
+| `neutralSoftPuff()`, `createNeutralSoftPuffMaterial()` | white continuous noisy puff; additive and linear-filtered | Fire crown, Magenta halo |
+| `snowParticleFrames*`, `iceCanopy*` | Ice-owned authored/posterized pixel art | Ice Storm only |
+
+When one effect needs a different silhouette, filter, blend mode, or palette,
+add an explicitly owned factory and migrate that effect. Do not modify a
+neutral factory in place merely because its first or most visible consumer is
+the effect currently being tuned. Neutral resources remain white so consumers
+own their palettes without inheriting an element tint.
+
+`VfxTextures` asserts pixel fingerprints for the neutral disc and puff and
+asserts their white/additive/filter material contracts when they are first
+built. A mismatch is intentionally loud. Updating a fingerprint is not the fix
+for a spell-specific request; it is reserved for an intentional neutral-contract
+migration after the complete consumer sweep below has been accepted.
+
+Before changing any shared VFX resource:
+
+1. Search for every caller of the texture and material factory.
+2. Classify the change as a neutral-contract correction or effect-specific
+   tuning. Effect-specific tuning gets a new owned variant.
+3. Put every caller—not only the commissioned spell—into final validation.
+4. Compare stored goldens where present and capture the carrier timeline where
+   no golden exists.
+
+This is a completion gate. A clean target-effect sheet does not validate a
+shared factory change. The regression that established the rule changed Ice's
+shared radial disc and puff into pixelated Ice silhouettes; Magenta's unchanged
+core disappeared and the cyan debug target marker underneath was mistaken for
+the effect's centre. The code-level split prevents Ice tuning from reaching
+Magenta or Fire, while the donor sweep catches any future shared-contract edit.
+
 ### Additive material conventions
 
 Layers blend additively via `VfxTextures._createMaterial`. Two traps:
@@ -179,7 +226,7 @@ Layers blend additively via `VfxTextures._createMaterial`. Two traps:
   appears only in unlit albedo and not in the glow that actually reads as
   brightness.
 - **A radial sprite cannot be stretched into a streak.** `VfxTextures`'
-  sprites — `softFlake()` above all — are radial gradients, opaque at the centre
+  sprites — `neutralSoftDisc()` above all — are radial gradients, opaque at the centre
   and zero at the rim. Scaling one onto a long thin quad puts that opaque centre
   in the middle of the streak and fades both ends out, so the best it can
   produce is a soft blob where a line was wanted. **Pick the sprite for the
@@ -187,10 +234,10 @@ Layers blend additively via `VfxTextures._createMaterial`. Two traps:
 
   | Sprite | For |
   | --- | --- |
-  | `softFlake()` | Round specks; the default particle. |
+  | `neutralSoftDisc()` | Round specks and compact neutral cores. |
   | `lanceStreak()` | A single tapered streak with a pointed head. |
   | `boltSegment()` | One link of a chained path — uniform along its length, so joints do not pinch. |
-  | `sparkleFrames()` | Hand-drawn four-frame sparkle. The one authored texture here. |
+  | `sparkleFrames()` | Hand-drawn four-frame sparkle animation. |
   | `pixelDot()` | Small hard dots, for a field that must be *countable*. |
 
 ### Sharp lines need the camera's plane, not the world's
@@ -237,12 +284,21 @@ seen through the retro viewport.
 
 ### Authored textures and frame animation
 
-`VfxTextures` generates everything procedurally, with one exception:
-`sparkleFrames()` is drawn pixel art. The rule that earned the exception is
-worth keeping — **generate what has to scale with a footprint or vary per seed;
-draw what carries shading choices a formula would only approximate.** A sparkle
-does neither of the first two, and its white-core/warm-mid/cool-rim palette is
-the reason to use art at all.
+`VfxTextures` generates scalable silhouettes procedurally and preserves two
+authored pixel-art sources: `sparkleFrames()` and Ice Storm's
+`snow_strip.png`. The rule that earns an authored source is worth keeping —
+**generate what has to scale with a footprint or vary per seed; draw what
+carries shading or silhouette choices a formula would only approximate.** The
+sparkle's palette and the snow particles' four distinct silhouettes are the
+reason to use their art at all.
+
+An authored source does not have to arrive as a regular animation strip. Ice
+Storm's four flakes occupy irregular positions in an 80x32 canvas, so
+`snowParticleFrames()` copies four exact 8x8 regions into a 4x1 runtime atlas.
+`Image.blit_rect()` copies texels one-for-one: the source stays untouched,
+nearest filtering stays meaningful, and the particle shader can select frames
+without per-particle materials. Do not crop, resize, or regenerate authored
+pixels merely to make their packing convenient.
 
 Three things that bite when an authored sprite is animated over particles:
 
@@ -263,6 +319,13 @@ Three things that bite when an authored sprite is animated over particles:
 An authored sprite also inverts the palette convention: the shader **multiplies**
 it rather than owning it, so the tint constant is white by default and exists
 only as a later escape hatch.
+
+Static frame selection needs a declared distribution, not a uniform random
+roll by accident. Ice Storm packs its atlas smallest-to-largest and uses
+52/30/14/4 percent weights. The one-pixel and four-pixel flakes therefore form
+the field; the six- and eight-pixel flakes provide sparse punctuation without
+turning an expanded storm into a wall of repeated icons.
+
 - **A shader-built basis that is left-handed gets the whole layer culled.** An
   effect that writes its own `TRANSFORM` basis — to point a quad along a travel
   direction, say — must keep `cross(X, Y)` pointing the same way as the `Z` it
@@ -343,9 +406,10 @@ sets them to zero.
 
 ### Radius 1 to many is a correctness test
 
-An effect does not choose its radius. The carrier's `RADIUS` arrives at runtime
-through `setFootprint()`, and the same profile has to hold from a single tile to
-a wide field — `Smoke Tower` alone moved from radius 1 to 3 in one editing pass.
+An effect does not choose its radius. The live resolved radius arrives through
+the cast event and `setFootprint()`, and the same profile has to hold from a
+single tile to a wide field — including transient buffs that never change
+`data/spells.json`.
 
 **Author every dimension as a function of the footprint, and validate at radius
 1, at the carrier's real radius, and at something large (4+).** A constant
@@ -369,11 +433,96 @@ clamp was never violated, only the height. Express hover heights as a fraction
 of the footprint's world half-extent, and the radius-1 capture stops finding
 this.
 
+For precipitation, use one vertical envelope rather than independently scaling
+the cloud and the falling particles. Ice Storm first derives a `snowCeiling`
+from radius with a sublinear power (`height proportional to radius^0.65`, with
+profile clamps), starts every flake at or below that ceiling, and then positions
+each cloud puff so its lower opaque half straddles the same value. Cloud height,
+frost height, particle descent speed, and the visibility AABB all derive from
+that contract. Expanding the footprint can therefore raise the storm without
+allowing snow to originate above a cloud authored for a smaller radius.
+
+Do not make one billboard as wide and tall as the full footprint. Under an
+isometric camera that becomes a translucent horizontal slab. Ice Storm uses
+five smaller puffs distributed by golden-angle coverage across the footprint;
+the deck grows through coverage and shared height, not one stretched rectangle.
+
 Where a value genuinely should not scale — a core sprite that must stay a
 readable size at every radius, say — that is a decision worth one line of
 comment on the constant, not a silent literal. Note that this can split within
 one layer: the implosion's core keeps a near-fixed *size* for readability while
 its *height* scales, and both halves of that need saying.
+
+Counts should normally scale more slowly than occupied area. For a Manhattan
+diamond, `A(R) = 1 + 2R(R + 1)`. Ice Storm uses
+`N(R) = clamp(N0 * sqrt(A(R) / A(R0)), Nmin, Nmax)`: radius 4 occupies 41 tiles
+and radius 6 occupies 85, but the flurry grows from 120 to about 173 particles
+rather than doubling to 249. This keeps presence while preserving negative
+space and the 220-particle ceiling.
+
+### Mathematical design grammar
+
+Use constants for a job they are mathematically suited to, then judge the
+result. They are not hidden quality multipliers.
+
+| Family | Owns | Good VFX uses | Do not use it for |
+| --- | --- | --- | --- |
+| `PI` / `TAU` | angular and periodic structure | headings, arcs, orbit phase, waves, radial boundaries | arbitrary damage, counts, or timings |
+| `exp()` / e | energy changing through time | attack/release envelopes, decay, drag, frame-rate-independent response | a generic replacement for every easing curve |
+| `PHI` / golden angle | progressive low-discrepancy distribution | particle positions, shard directions, non-repeating stagger, sphere sampling | claiming a rectangle or duration is automatically beautiful |
+
+Godot exposes `PI` and `TAU` directly; `TAU` is one full turn and therefore the
+clearer constant for headings and periodic phase ([Godot `@GDScript`
+constants](https://docs.godotengine.org/en/stable/classes/class_%40gdscript.html)).
+Ice Storm uses `TAU` for shard rotation and periodic canopy motion, then snaps
+those continuous angles to an eight-heading PS1 vocabulary.
+
+Use an exponential half-life when an energy should lose the same *fraction*
+over equal time intervals:
+
+```gdscript
+var remaining := exp(-log(2.0) * elapsed / halfLife)
+var responseWeight := 1.0 - exp(-responseRate * delta)
+```
+
+The first is a readable decay contract; the second makes smoothing independent
+of frame rate. Godot provides `exp()` in global scope ([Godot
+`exp`](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html)).
+Ice Storm uses exponential charge/reveal and settle envelopes, then samples
+motion at 15 Hz so the energy arc stays natural while its display reads retro.
+
+The golden ratio is `PHI = (1 + sqrt(5)) / 2`. Its practical graphics tool is
+usually the **golden angle**, `TAU / PHI²` (about 137.508 degrees): adding one
+sample at a time tends to fill the largest remaining gaps. Schretter, Kobbelt,
+and Dehaye describe golden-ratio sequences for progressive low-discrepancy
+sampling on squares and discs ([paper and
+download](https://www.graphics.rwth-aachen.de/publication/032/)); spherical
+Fibonacci mapping applies the related construction to nearly uniform sphere
+samples ([Keinert et al., 2015](https://cris.fau.de/publications/116802224/?lang=en_GB)).
+
+Ice Storm starts flake and hero-shard directions from the golden angle, adds a
+small deterministic seeded jitter so no sunflower spiral becomes visible, and
+then applies footprint masking and PS1 quantization. The effect is expected to
+survive a count change without entirely re-clumping.
+
+The aesthetic claim is deliberately weaker than the sampling claim. Controlled
+studies have found no special preference for the golden section over nearby
+ratios ([Boselie,
+1992](https://journals.sagepub.com/doi/abs/10.2190/QB14-NK7B-ARYT-W5QT);
+[Russell,
+2000](https://journals.sagepub.com/doi/abs/10.1068/p3037)). Therefore:
+
+- do not force Fibonacci counts, golden rectangles, or `PHI`-sized timing
+  windows into every effect;
+- compare golden-angle placement against seeded random placement at identical
+  count, alpha, radius, retro, and CRT settings;
+- keep it only when it measurably reduces clumping without exposing a spiral.
+
+A golden spiral combines all three families:
+`r(theta) = r0 * exp((log(PHI) / (PI / 2)) * theta)`, growing by `PHI` each
+quarter turn. It suits deliberately ordered magic such as summoning, healing,
+growth, or an implosion. It is too orderly to be Ice Storm's dominant motion;
+there the golden angle is only the invisible distribution substrate.
 
 ### Footprint shape
 

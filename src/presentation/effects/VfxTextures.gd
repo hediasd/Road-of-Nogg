@@ -23,9 +23,26 @@ enum GroundWashShape {
 	DISC,
 }
 
-const _SOFT_FLAKE_SIZE := 16
+const _NEUTRAL_SOFT_DISC_SIZE := 16
+## Fingerprints of the neutral compatibility primitives under Godot 4.4. A
+## spell-specific silhouette edit must create an owned factory instead of
+## updating these values. Change a fingerprint only for an intentional neutral
+## contract migration whose complete caller set is being validated.
+const _NEUTRAL_SOFT_DISC_HASH := 4234932578
+const SNOW_PARTICLE_FRAME_COUNT := 4
+const _SNOW_PARTICLE_FRAME_SIZE := 8
+## Exact 8x8 extraction windows from the user's authored 80x32 source, ordered
+## smallest to largest. Pixels are copied, never resampled.
+const _SNOW_PARTICLE_REGIONS: Array[Rect2i] = [
+	Rect2i(20, 20, 8, 8),
+	Rect2i(2, 4, 8, 8),
+	Rect2i(22, 4, 8, 8),
+	Rect2i(4, 21, 8, 8),
+]
 const _SHARD_MASK_SIZE := 32
-const _CANOPY_PUFF_SIZE := 64
+const _NEUTRAL_SOFT_PUFF_SIZE := 64
+const _NEUTRAL_SOFT_PUFF_HASH := 288299639
+const _ICE_CANOPY_PUFF_SIZE := 64
 const _FROST_VEIN_SIZE := 128
 const _GROUND_WASH_SIZE := 64
 const _SHARD_VARIANT_COUNT := 4
@@ -45,7 +62,7 @@ const _LANCE_TAIL_FRACTION := 0.40
 const _LANCE_TAPER_EXPONENT := 0.55
 ## Fraction of the local half-width that stays fully opaque before the edge
 ## falloff starts. This is what makes the lance *crisp*: a solid core with a
-## short ramp, rather than the radial gradient of `softFlake()`, which has no
+## short ramp, rather than the radial gradient of `neutralSoftDisc()`, which has no
 ## solid region at all and is why a flake cannot be stretched into a streak.
 const _LANCE_CORE_FRACTION := 0.45
 
@@ -69,8 +86,8 @@ const _BOLT_SEGMENT_HEIGHT := 8
 const _BOLT_CORE_FRACTION := 0.80
 
 ## Small hard dot — the plainest sprite here, and the one to reach for when a
-## field needs to be *countable*. `softFlake()` at the same size is a soft haze
-## whose edge is impossible to locate; this has an edge.
+## field needs to be *countable*. `neutralSoftDisc()` has a continuous falloff;
+## this dot remains the neutral hard-edged primitive.
 const _PIXEL_DOT_SIZE := 8
 
 ## Frames in `sparkleFrames()`. Public because a consumer has to drive the
@@ -82,6 +99,7 @@ const SPARKLE_FRAME_COUNT := 4
 ## which would put block-compression artefacts through four flat colours.
 const _SPARKLE_FRAMES = preload(
 		"res://assets/textures/effects/sparkle_frames.png")
+const _SNOW_STRIP = preload("res://assets/textures/effects/snow_strip.png")
 
 ## Alpha posterization: how many hard levels each sprite is snapped to, and the
 ## level below which it is cut to nothing. Fewer levels and a higher cutoff read
@@ -97,18 +115,22 @@ const _POSTERIZE_CUTOFF := 0.28
 const _BOLT_POSTERIZE_LEVELS := 1
 const _DOT_POSTERIZE_LEVELS := 2
 
-static var _softFlake: ImageTexture
+static var _neutralSoftDisc: ImageTexture
+static var _snowParticleFrames: ImageTexture
 static var _shardMasks: Array[ImageTexture] = []
-static var _canopyPuff: ImageTexture
+static var _neutralSoftPuff: ImageTexture
+static var _iceCanopyPuff: ImageTexture
 static var _frostVein: ImageTexture
 static var _lanceStreak: ImageTexture
 static var _boltSegment: ImageTexture
 static var _pixelDot: ImageTexture
 static var _groundWashByShape: Dictionary = {}
 
-static var _flurryMaterial: StandardMaterial3D
+static var _neutralSoftDiscMaterialTemplate: StandardMaterial3D
+static var _snowParticleFramesMaterial: StandardMaterial3D
 static var _shardMaterials: Array[StandardMaterial3D] = []
-static var _canopyMaterial: StandardMaterial3D
+static var _neutralSoftPuffMaterialTemplate: StandardMaterial3D
+static var _iceCanopyMaterial: StandardMaterial3D
 static var _frostVeinMaterial: StandardMaterial3D
 static var _lanceStreakMaterial: StandardMaterial3D
 static var _boltSegmentMaterial: StandardMaterial3D
@@ -117,10 +139,35 @@ static var _pixelDotMaterial: StandardMaterial3D
 static var _groundWashMaterial: StandardMaterial3D
 
 
-static func softFlake() -> Texture2D:
-	if _softFlake == null:
-		_softFlake = _createSoftFlake()
-	return _softFlake
+## Neutral radial primitive. Its continuous falloff and white palette are a
+## cross-effect contract: spell-specific silhouettes belong in an explicitly
+## owned factory instead of changing this texture in place.
+static func neutralSoftDisc() -> Texture2D:
+	if _neutralSoftDisc == null:
+		_neutralSoftDisc = _createNeutralSoftDisc()
+		_assertNeutralTextureContract(
+				_neutralSoftDisc, _NEUTRAL_SOFT_DISC_HASH, "neutralSoftDisc")
+	return _neutralSoftDisc
+
+
+## Packs the four irregularly placed authored particles into an even 4x1 atlas
+## for BILLBOARD_PARTICLES. The source stays untouched and every texel is copied
+## one-for-one, so this is extraction rather than procedural replacement art.
+static func snowParticleFrames() -> Texture2D:
+	if _snowParticleFrames == null:
+		var source := _SNOW_STRIP.get_image()
+		var atlas := Image.create(
+				_SNOW_PARTICLE_FRAME_SIZE * SNOW_PARTICLE_FRAME_COUNT,
+				_SNOW_PARTICLE_FRAME_SIZE,
+				false,
+				Image.FORMAT_RGBA8)
+		for index: int in range(SNOW_PARTICLE_FRAME_COUNT):
+			atlas.blit_rect(
+					source,
+					_SNOW_PARTICLE_REGIONS[index],
+					Vector2i(index * _SNOW_PARTICLE_FRAME_SIZE, 0))
+		_snowParticleFrames = ImageTexture.create_from_image(atlas)
+	return _snowParticleFrames
 
 
 static func shardMask(variant: int) -> Texture2D:
@@ -128,10 +175,22 @@ static func shardMask(variant: int) -> Texture2D:
 	return _shardMasks[posmod(variant, _SHARD_VARIANT_COUNT)]
 
 
-static func canopyPuff() -> Texture2D:
-	if _canopyPuff == null:
-		_canopyPuff = _createCanopyPuff()
-	return _canopyPuff
+## Neutral continuous puff used by effects that tint and size it themselves.
+## Keep its silhouette, filtering, and blend contract stable across spells.
+static func neutralSoftPuff() -> Texture2D:
+	if _neutralSoftPuff == null:
+		_neutralSoftPuff = _createNeutralSoftPuff()
+		_assertNeutralTextureContract(
+				_neutralSoftPuff, _NEUTRAL_SOFT_PUFF_HASH, "neutralSoftPuff")
+	return _neutralSoftPuff
+
+
+## Ice-owned posterized canopy silhouette. This is deliberately separate from
+## `neutralSoftPuff()` so Ice retuning cannot restyle Magenta or Fire.
+static func iceCanopyPuff() -> Texture2D:
+	if _iceCanopyPuff == null:
+		_iceCanopyPuff = _createIceCanopyPuff()
+	return _iceCanopyPuff
 
 
 static func frostVein() -> Texture2D:
@@ -145,7 +204,7 @@ static func frostVein() -> Texture2D:
 ## tapering to nothing at the tail.
 ##
 ## This exists because the radial sprites above cannot do the job. Stretching
-## `softFlake()` across a long thin quad puts its only opaque pixel in the
+## `neutralSoftDisc()` across a long thin quad puts its opaque centre in the
 ## middle of the streak and fades both ends to zero, so the lance renders as an
 ## invisible speck — silently, with correct transforms and correct alpha. Reach
 ## for this whenever a layer's silhouette has a direction.
@@ -171,11 +230,11 @@ static func boltSegment() -> Texture2D:
 ## Hand-authored four-frame sparkle animation: a star that pops and shrinks away
 ## to a single pixel.
 ##
-## **The one authored texture in this file**, and a deliberate exception to its
-## procedural premise. Everything else here is generated because it has to scale
-## with a footprint or vary per seed; a sparkle does neither, and drawn pixel art
-## carries shading choices — a white core, a warm mid, a cool rim — that a
-## formula would only approximate.
+## One of the authored textures in this file, alongside Ice Storm's snow source.
+## Everything else here is generated because it has to scale with a footprint or
+## vary per seed; a sparkle does neither, and drawn pixel art carries shading
+## choices — a white core, a warm mid, a cool rim — that a formula would only
+## approximate.
 ##
 ## Repacked from `sparkle_strip.png`, whose frames sit at uneven spacing, onto
 ## the even grid `particles_anim_h_frames` requires. The strip is kept in the
@@ -187,10 +246,8 @@ static func sparkleFrames() -> Texture2D:
 
 ## A small dot with a hard edge, posterized to two levels on an 8x8 grid.
 ##
-## The counterpart to `softFlake()`, not a replacement for it: the flake's
-## radial gradient makes a soft cloud, which is right for a snow field and wrong
-## for a field of individually countable specks. Where a mote has to be *seen*
-## rather than felt, this is the sprite.
+## The hard-edged counterpart to `neutralSoftDisc()`. Where a mote has to be
+## seen without implying an element or a direction, this is the sprite.
 static func pixelDot() -> Texture2D:
 	if _pixelDot == null:
 		_pixelDot = _createPixelDot()
@@ -233,15 +290,39 @@ static func groundWashShapeFor(areaShape: String) -> GroundWashShape:
 			return GroundWashShape.DIAMOND
 
 
-static func flurryMaterial() -> StandardMaterial3D:
-	if _flurryMaterial == null:
-		_flurryMaterial = _createMaterial(
-				"IceFlurryMaterial",
-				softFlake(),
-				IceStormProfile.FLAKE_COLOR,
+## Creates an independently mutable material from the guarded neutral template.
+## Returning a clone prevents one consumer's tint/filter edits from mutating
+## another effect through the cached template.
+static func createNeutralSoftDiscMaterial() -> StandardMaterial3D:
+	if _neutralSoftDiscMaterialTemplate == null:
+		_neutralSoftDiscMaterialTemplate = _createMaterial(
+				"NeutralSoftDiscMaterial",
+				neutralSoftDisc(),
+				Color.WHITE,
 				true,
 				BaseMaterial3D.TEXTURE_FILTER_NEAREST)
-	return _flurryMaterial
+		_assertNeutralMaterialContract(
+				_neutralSoftDiscMaterialTemplate,
+				BaseMaterial3D.TEXTURE_FILTER_NEAREST,
+				"neutralSoftDiscMaterial")
+	return _neutralSoftDiscMaterialTemplate.duplicate() as StandardMaterial3D
+
+
+## Static particle variants selected through INSTANCE_CUSTOM.z. Animation is
+## disabled: the four frames are sizes/shapes, not a temporal sequence.
+static func snowParticleFramesMaterial() -> StandardMaterial3D:
+	if _snowParticleFramesMaterial == null:
+		_snowParticleFramesMaterial = _createMaterial(
+				"SnowParticleFramesMaterial",
+				snowParticleFrames(),
+				Color.WHITE,
+				false,
+				BaseMaterial3D.TEXTURE_FILTER_NEAREST)
+		_snowParticleFramesMaterial.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		_snowParticleFramesMaterial.particles_anim_h_frames = SNOW_PARTICLE_FRAME_COUNT
+		_snowParticleFramesMaterial.particles_anim_v_frames = 1
+		_snowParticleFramesMaterial.particles_anim_loop = false
+	return _snowParticleFramesMaterial
 
 
 static func heroShardMaterial(variant: int) -> StandardMaterial3D:
@@ -249,15 +330,33 @@ static func heroShardMaterial(variant: int) -> StandardMaterial3D:
 	return _shardMaterials[posmod(variant, _SHARD_VARIANT_COUNT)]
 
 
-static func canopyMaterial() -> StandardMaterial3D:
-	if _canopyMaterial == null:
-		_canopyMaterial = _createMaterial(
-				"IceCanopyMaterial",
-				canopyPuff(),
-				IceStormProfile.CANOPY_CORE_COLOR,
+## Creates an independently mutable soft-puff material. Spell-specific
+## filtering or blending belongs in an owned material factory, never here.
+static func createNeutralSoftPuffMaterial() -> StandardMaterial3D:
+	if _neutralSoftPuffMaterialTemplate == null:
+		_neutralSoftPuffMaterialTemplate = _createMaterial(
+				"NeutralSoftPuffMaterial",
+				neutralSoftPuff(),
+				Color.WHITE,
 				true,
 				BaseMaterial3D.TEXTURE_FILTER_LINEAR)
-	return _canopyMaterial
+		_assertNeutralMaterialContract(
+				_neutralSoftPuffMaterialTemplate,
+				BaseMaterial3D.TEXTURE_FILTER_LINEAR,
+				"neutralSoftPuffMaterial")
+	return _neutralSoftPuffMaterialTemplate.duplicate() as StandardMaterial3D
+
+
+## Ice-owned material for the posterized PS1 cloud deck.
+static func iceCanopyMaterial() -> StandardMaterial3D:
+	if _iceCanopyMaterial == null:
+		_iceCanopyMaterial = _createMaterial(
+				"IceCanopyMaterial",
+				iceCanopyPuff(),
+				IceStormProfile.CANOPY_CORE_COLOR,
+				false,
+				BaseMaterial3D.TEXTURE_FILTER_NEAREST)
+	return _iceCanopyMaterial
 
 
 ## Linear-filtered, unlike the nearest-filtered flake and shard masks: a lance is
@@ -338,8 +437,8 @@ static func frostVeinMaterial() -> StandardMaterial3D:
 				"IceFrostVeinMaterial",
 				frostVein(),
 				IceStormProfile.VEIN_COLOR,
-				true,
-				BaseMaterial3D.TEXTURE_FILTER_LINEAR)
+				false,
+				BaseMaterial3D.TEXTURE_FILTER_NEAREST)
 	return _frostVeinMaterial
 
 
@@ -408,12 +507,47 @@ static func _createMaterial(
 	return material
 
 
-static func _createSoftFlake() -> ImageTexture:
+static func _assertNeutralTextureContract(
+		texture: Texture2D,
+		expectedHash: int,
+		contractName: String) -> void:
+	assert(texture != null, "%s texture is missing." % contractName)
+	var image := texture.get_image()
+	assert(image != null, "%s texture cannot expose its source pixels." % contractName)
+	var actualHash: int = hash(image.get_data())
+	assert(
+			actualHash == expectedHash,
+			(
+					"%s is a shared VFX compatibility surface (expected hash %d, got %d). "
+					+ "Create an effect-owned variant for local tuning; update this fingerprint "
+					+ "only during an intentional neutral-contract migration with all callers validated."
+			) % [contractName, expectedHash, actualHash])
+
+
+static func _assertNeutralMaterialContract(
+		material: StandardMaterial3D,
+		expectedFilter: BaseMaterial3D.TextureFilter,
+		contractName: String) -> void:
+	assert(
+			material.blend_mode == BaseMaterial3D.BLEND_MODE_ADD,
+			"%s must remain additive; create an effect-owned variant." % contractName)
+	assert(
+			material.texture_filter == expectedFilter,
+			"%s filtering changed; create an effect-owned variant." % contractName)
+	assert(
+			material.albedo_color == Color.WHITE and material.emission == Color.WHITE,
+			"%s must remain palette-neutral white." % contractName)
+
+
+static func _createNeutralSoftDisc() -> ImageTexture:
 	var image := Image.create(
-			_SOFT_FLAKE_SIZE, _SOFT_FLAKE_SIZE, false, Image.FORMAT_RGBA8)
-	for y: int in range(_SOFT_FLAKE_SIZE):
-		for x: int in range(_SOFT_FLAKE_SIZE):
-			var point := _normalizedPoint(x, y, _SOFT_FLAKE_SIZE)
+			_NEUTRAL_SOFT_DISC_SIZE,
+			_NEUTRAL_SOFT_DISC_SIZE,
+			false,
+			Image.FORMAT_RGBA8)
+	for y: int in range(_NEUTRAL_SOFT_DISC_SIZE):
+		for x: int in range(_NEUTRAL_SOFT_DISC_SIZE):
+			var point := _normalizedPoint(x, y, _NEUTRAL_SOFT_DISC_SIZE)
 			var radial := clampf(1.0 - point.length(), 0.0, 1.0)
 			var alpha := radial * radial * (3.0 - 2.0 * radial)
 			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
@@ -460,17 +594,43 @@ static func _shardPolygon(variant: int) -> PackedVector2Array:
 			])
 
 
-static func _createCanopyPuff() -> ImageTexture:
+static func _createNeutralSoftPuff() -> ImageTexture:
 	var image := Image.create(
-			_CANOPY_PUFF_SIZE, _CANOPY_PUFF_SIZE, false, Image.FORMAT_RGBA8)
-	for y: int in range(_CANOPY_PUFF_SIZE):
-		for x: int in range(_CANOPY_PUFF_SIZE):
-			var point := _normalizedPoint(x, y, _CANOPY_PUFF_SIZE)
+			_NEUTRAL_SOFT_PUFF_SIZE,
+			_NEUTRAL_SOFT_PUFF_SIZE,
+			false,
+			Image.FORMAT_RGBA8)
+	for y: int in range(_NEUTRAL_SOFT_PUFF_SIZE):
+		for x: int in range(_NEUTRAL_SOFT_PUFF_SIZE):
+			var point := _normalizedPoint(x, y, _NEUTRAL_SOFT_PUFF_SIZE)
 			point.x *= 0.82
 			var radial := clampf(1.0 - point.length(), 0.0, 1.0)
 			var noisePoint := Vector2(float(x), float(y)) * 0.065
 			var noiseMask := lerpf(0.42, 1.0, _fbm(noisePoint))
 			var alpha := pow(radial, 1.35) * noiseMask
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
+	return ImageTexture.create_from_image(image)
+
+
+static func _createIceCanopyPuff() -> ImageTexture:
+	var image := Image.create(
+			_ICE_CANOPY_PUFF_SIZE,
+			_ICE_CANOPY_PUFF_SIZE,
+			false,
+			Image.FORMAT_RGBA8)
+	for y: int in range(_ICE_CANOPY_PUFF_SIZE):
+		for x: int in range(_ICE_CANOPY_PUFF_SIZE):
+			var sampleX := floori(float(x) / 4.0) * 4
+			var sampleY := floori(float(y) / 4.0) * 4
+			var point := _normalizedPoint(sampleX, sampleY, _ICE_CANOPY_PUFF_SIZE)
+			point.x *= 0.82
+			var radial := clampf(1.0 - point.length(), 0.0, 1.0)
+			var noisePoint := Vector2(float(sampleX), float(sampleY)) * 0.065
+			var noiseMask := lerpf(0.58, 1.0, _fbm(noisePoint))
+			var alpha := _posterizeAlpha(
+					pow(radial, 0.88) * noiseMask,
+					_POSTERIZE_LEVELS,
+					_POSTERIZE_CUTOFF)
 			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
 	return ImageTexture.create_from_image(image)
 
@@ -569,12 +729,15 @@ static func _createFrostVein() -> ImageTexture:
 			for segment: Vector4 in segments:
 				var distance := _distanceToSegment(
 						point, Vector2(segment.x, segment.y), Vector2(segment.z, segment.w))
-				var core := clampf(1.0 - distance / 0.007, 0.0, 1.0) * 0.30
-				var haze := clampf(1.0 - distance / 0.025, 0.0, 1.0) * 0.08
-				alpha = maxf(alpha, core + haze)
+				var core := clampf(1.0 - distance / 0.012, 0.0, 1.0)
+				alpha = maxf(alpha, core)
 			var edgeFade := clampf(1.0 - _normalizedPoint(
 					x, y, _FROST_VEIN_SIZE).length(), 0.0, 1.0)
-			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha * edgeFade))
+			alpha = _posterizeAlpha(
+					alpha * edgeFade,
+					_POSTERIZE_LEVELS,
+					_POSTERIZE_CUTOFF)
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
 	return ImageTexture.create_from_image(image)
 
 

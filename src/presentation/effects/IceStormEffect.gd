@@ -12,13 +12,6 @@ const LAYER_FLURRY := "flurry"
 const LAYER_GUST := "gust"
 const LAYER_HERO_SHARDS := "hero_shards"
 const LAYER_PULSE_ACCENTS := "pulse_accents"
-## MEASURED acceptance cap from S1/S2 (see `IceStormProfile`'s provenance
-## rule): hero silhouettes remain individually countable at this count. This
-## constant, together with the `spawn` schedule in `_configureSeed()` below,
-## is the authoritative shard count and timing — no separate rate constant
-## drives it, so there is nothing else to keep in sync when tuning either.
-const _SHARD_COUNT := 8
-const _SHARDS_PER_VARIANT := 2
 
 var _elapsedTime := 0.0
 var _totalDuration := IceStormProfile.BATTLE_DURATION_SECONDS
@@ -197,7 +190,7 @@ func set_layer_visible(layerName: String, visible: bool) -> void:
 func get_live_particle_count() -> int:
 	if _flurry == null or not _flurry.visible or _finished:
 		return 0
-	var density := 1.0 - _smoothstep(0.84, 0.95, get_normalized_time())
+	var density := _exponentialSettle(get_normalized_time())
 	return roundi(float(_flurry.amount) * density)
 
 
@@ -291,6 +284,7 @@ func _buildGroundWash() -> void:
 	_groundMesh.rings = 1
 	_groundWash.mesh = _groundMesh
 	_groundMaterial = VfxTextures.groundWashMaterial().duplicate() as StandardMaterial3D
+	_groundMaterial.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 	_groundWash.material_override = _groundMaterial
 	add_child(_groundWash)
 
@@ -303,7 +297,7 @@ func _buildFrostVeins() -> void:
 	_frostVeinMaterial = VfxTextures.frostVeinMaterial().duplicate() as StandardMaterial3D
 	_frostVeinMaterial.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	_frostVeins.material_override = _frostVeinMaterial
-	_frostVeins.position = Vector3(0.0, IceStormProfile.STORM_VOLUME_HEIGHT_U * 0.48, -0.35)
+	_frostVeins.position = Vector3(0.0, _stormHeight() * 0.48, -0.35)
 	add_child(_frostVeins)
 
 
@@ -313,7 +307,7 @@ func _buildCanopy() -> void:
 		canopy.name = "Canopy%d" % index
 		var mesh := QuadMesh.new()
 		canopy.mesh = mesh
-		var material := VfxTextures.canopyMaterial().duplicate() as StandardMaterial3D
+		var material := VfxTextures.iceCanopyMaterial().duplicate() as StandardMaterial3D
 		material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 		canopy.material_override = material
 		_canopyNodes.append(canopy)
@@ -327,13 +321,13 @@ func _buildCanopy() -> void:
 func _buildFlurry() -> void:
 	_flurry = GPUParticles3D.new()
 	_flurry.name = "Flurry"
-	_flurry.amount = IceStormProfile.FLURRY_PARTICLE_AMOUNT
+	_flurry.amount = _scaledFlurryCount()
 	_flurry.lifetime = 1.0
 	_flurry.preprocess = 1.0
 	_flurry.randomness = 0.0
-	_flurry.fixed_fps = 30
-	_flurry.interpolate = true
-	_flurry.fract_delta = true
+	_flurry.fixed_fps = int(IceStormProfile.TEMPORAL_SAMPLE_RATE_HZ)
+	_flurry.interpolate = false
+	_flurry.fract_delta = false
 	_flurry.local_coords = true
 	_flurry.use_fixed_seed = true
 	_flurry.visibility_aabb = AABB(Vector3(-3.0, -0.2, -3.0), Vector3(6.0, 4.2, 6.0))
@@ -342,15 +336,15 @@ func _buildFlurry() -> void:
 	_flurry.process_material = _flurryShaderMaterial
 	var drawMesh := QuadMesh.new()
 	drawMesh.size = Vector2.ONE
-	var drawMaterial := VfxTextures.flurryMaterial().duplicate() as StandardMaterial3D
-	drawMaterial.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	var drawMaterial := VfxTextures.snowParticleFramesMaterial().duplicate() as StandardMaterial3D
+	drawMaterial.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
 	drawMesh.material = drawMaterial
 	_flurry.draw_pass_1 = drawMesh
 	add_child(_flurry)
 
 
 func _buildHeroShards() -> void:
-	for variant: int in range(4):
+	for variant: int in range(IceStormProfile.HERO_SHARD_VARIANT_COUNT):
 		var shardNode := MultiMeshInstance3D.new()
 		shardNode.name = "HeroShards%d" % variant
 		var quad := QuadMesh.new()
@@ -361,12 +355,12 @@ func _buildHeroShards() -> void:
 		var multiMesh := MultiMesh.new()
 		multiMesh.transform_format = MultiMesh.TRANSFORM_3D
 		multiMesh.use_colors = true
-		multiMesh.instance_count = _SHARDS_PER_VARIANT
+		multiMesh.instance_count = IceStormProfile.HERO_SHARDS_PER_VARIANT
 		multiMesh.mesh = quad
 		shardNode.multimesh = multiMesh
 		_shardNodes.append(shardNode)
 		add_child(shardNode)
-		for slot: int in range(_SHARDS_PER_VARIANT):
+		for slot: int in range(IceStormProfile.HERO_SHARDS_PER_VARIANT):
 			_hideShardInstance(shardNode, slot)
 
 
@@ -374,6 +368,7 @@ func _updateFootprintGeometry() -> void:
 	if _groundMesh == null:
 		return
 	var diameter := float(_footprintRadius * 2 + 1)
+	var snowCeiling := _snowCeiling()
 	_groundMesh.top_radius = diameter * 0.5
 	_groundMesh.bottom_radius = diameter * 0.5
 	_groundMesh.height = maxf(_groundSpan + 0.06, 0.06)
@@ -382,14 +377,19 @@ func _updateFootprintGeometry() -> void:
 			VfxTextures.groundWashShapeFor(_areaShape), _footprintRadius)
 	_groundMaterial.albedo_texture = groundTexture
 	_groundMaterial.emission_texture = groundTexture
-	_frostVeinMesh.size = Vector2(diameter, IceStormProfile.STORM_VOLUME_HEIGHT_U)
+	var frostHeight := snowCeiling * IceStormProfile.FROST_HEIGHT_FRACTION
+	_frostVeinMesh.size = Vector2(diameter, frostHeight)
+	_frostVeins.position = Vector3(0.0, frostHeight * 0.5, -0.35)
 	for index: int in range(_canopyMeshes.size()):
 		_canopyMeshes[index].size = Vector2(
-				diameter * IceStormProfile.CANOPY_WIDTH_SCALE,
-				diameter * (0.34 + float(index) * 0.035))
+				diameter * (
+						IceStormProfile.CANOPY_WIDTH_MIN_SCALE
+						+ float(index) * IceStormProfile.CANOPY_WIDTH_STEP_SCALE),
+				_canopyHeight(index))
+	_flurry.amount = _scaledFlurryCount()
 	_flurry.visibility_aabb = AABB(
 			Vector3(-diameter * 0.6, -0.2, -diameter * 0.6),
-			Vector3(diameter * 1.2, IceStormProfile.STORM_VOLUME_HEIGHT_U + 0.4, diameter * 1.2))
+			Vector3(diameter * 1.2, _cloudTopHeight() + 0.4, diameter * 1.2))
 	_updateFlurryUniforms()
 
 
@@ -397,36 +397,69 @@ func _configureSeed(seed: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed
 	var diameter := float(_footprintRadius * 2 + 1)
+	var footprintRadiusU := diameter * 0.5
+	var snowCeiling := _snowCeiling()
+	var seedPhase := rng.randf_range(0.0, TAU)
 	for index: int in range(_canopyNodes.size()):
+		var canopyAngle := seedPhase + float(index) * IceStormProfile.GOLDEN_ANGLE_RADIANS
+		var canopyProgress := sqrt(
+				(float(index) + 0.5) / float(maxi(_canopyNodes.size(), 1)))
+		var canopyBoundary := footprintRadiusU / maxf(
+				absf(cos(canopyAngle)) + absf(sin(canopyAngle)), 0.001)
+		var canopyOffset := (
+				canopyBoundary
+				* canopyProgress
+				* IceStormProfile.CANOPY_SPREAD_FRACTION)
+		var canopyHeight := _canopyHeight(index)
 		_canopyBasePositions[index] = Vector3(
-				rng.randf_range(-diameter * 0.16, diameter * 0.16),
-				rng.randf_range(
-						IceStormProfile.CANOPY_MIN_HEIGHT_U,
-						IceStormProfile.CANOPY_MAX_HEIGHT_U),
-				rng.randf_range(-diameter * 0.10, diameter * 0.10))
+				cos(canopyAngle) * canopyOffset,
+				snowCeiling
+						+ canopyHeight * IceStormProfile.CANOPY_CENTER_ABOVE_SNOW_FRACTION
+						+ rng.randf_range(
+								-IceStormProfile.CANOPY_VERTICAL_JITTER_FRACTION,
+								IceStormProfile.CANOPY_VERTICAL_JITTER_FRACTION) * canopyHeight,
+				sin(canopyAngle) * canopyOffset)
 		_canopyPhases[index] = rng.randf_range(0.0, TAU)
 
 	_shardData.clear()
-	for index: int in range(_SHARD_COUNT):
-		var variant := index % 4
-		var slot := index / 4
+	var shardCount := _scaledShardCount()
+	for index: int in range(shardCount):
+		var variant := index % IceStormProfile.HERO_SHARD_VARIANT_COUNT
+		var slot := floori(float(index) / float(IceStormProfile.HERO_SHARD_VARIANT_COUNT))
+		var progress := (float(index) + 0.5) / float(shardCount)
+		var angleJitter := rng.randf_range(
+				-IceStormProfile.GOLDEN_ANGLE_JITTER_FRACTION,
+				IceStormProfile.GOLDEN_ANGLE_JITTER_FRACTION)
+		var angle := (
+				seedPhase
+				+ float(index) * IceStormProfile.GOLDEN_ANGLE_RADIANS
+				+ angleJitter * IceStormProfile.GOLDEN_ANGLE_RADIANS)
+		var boundary := footprintRadiusU / maxf(absf(cos(angle)) + absf(sin(angle)), 0.001)
+		var radialDistance := boundary * sqrt(progress) * rng.randf_range(0.90, 1.0)
 		_shardData.append({
 			"variant": variant,
 			"slot": slot,
-			"spawn": 0.05 + float(index) * 0.075,
+			"spawn": lerpf(
+					IceStormProfile.HERO_SHARD_SPAWN_START_FRACTION,
+					IceStormProfile.HERO_SHARD_SPAWN_END_FRACTION,
+					progress),
 			"start": Vector3(
-				rng.randf_range(-diameter * 0.44, diameter * 0.44),
-				rng.randf_range(2.9, IceStormProfile.STORM_VOLUME_HEIGHT_U),
-				rng.randf_range(-diameter * 0.44, diameter * 0.44)),
+				cos(angle) * radialDistance,
+				rng.randf_range(
+						snowCeiling * IceStormProfile.HERO_SHARD_MIN_HEIGHT_FRACTION,
+						snowCeiling * IceStormProfile.HERO_SHARD_MAX_HEIGHT_FRACTION),
+				sin(angle) * radialDistance),
 			"size": rng.randf_range(
 				IceStormProfile.HERO_SHARD_MIN_SIZE_U,
 				IceStormProfile.HERO_SHARD_MAX_SIZE_U),
 			"turns": rng.randf_range(
 				IceStormProfile.HERO_SHARD_MIN_TURNS_PER_LIFETIME,
 				IceStormProfile.HERO_SHARD_MAX_TURNS_PER_LIFETIME),
-			"angle": rng.randf_range(0.0, TAU),
-			"drift": rng.randf_range(0.70, 1.25),
-			"blue": rng.randf() < 0.35,
+			"angle": angle,
+			"drift": rng.randf_range(
+				IceStormProfile.HERO_SHARD_MIN_DRIFT_U,
+				IceStormProfile.HERO_SHARD_MAX_DRIFT_U),
+			"blue": rng.randf() < IceStormProfile.HERO_SHARD_BLUE_CHANCE,
 		})
 	_updateFlurryUniforms()
 
@@ -434,30 +467,53 @@ func _configureSeed(seed: int) -> void:
 func _updateVisuals(normalizedTime: float) -> void:
 	if _groundMaterial == null:
 		return
-	var onset := _smoothstep(0.0, IceStormProfile.ONSET_FRACTION, normalizedTime)
+	var charge := _exponentialRise(normalizedTime, 0.0)
+	var canopyReveal := _exponentialRise(
+			normalizedTime, IceStormProfile.CANOPY_REVEAL_START_FRACTION)
+	var chargeAccent := 1.0 - 0.45 * _smoothstep(
+			IceStormProfile.CHARGE_END_FRACTION,
+			IceStormProfile.CANOPY_REVEAL_END_FRACTION,
+			normalizedTime)
+	var settle := _exponentialSettle(normalizedTime)
+	var squallProgress := _smoothstep(
+			IceStormProfile.SQUALL_START_FRACTION,
+			IceStormProfile.SQUALL_FULL_FRACTION,
+			normalizedTime)
+	var groundRecess := 1.0 - IceStormProfile.GROUND_SQUALL_RECESS_FRACTION * squallProgress
+	var frostRecess := 1.0 - IceStormProfile.FROST_SQUALL_RECESS_FRACTION * squallProgress
 	var pulse := _pulseAccent() if bool(_layerVisibility[LAYER_PULSE_ACCENTS]) else 0.0
 	var pulseBrightness := lerpf(1.0, IceStormProfile.PULSE_BRIGHTNESS_MULTIPLIER, pulse)
+	var steppedTime := floorf(
+			normalizedTime * _totalDuration * IceStormProfile.TEMPORAL_SAMPLE_RATE_HZ
+			) / IceStormProfile.TEMPORAL_SAMPLE_RATE_HZ
+	var driftDistance := (
+			float(_footprintRadius * 2 + 1)
+			* IceStormProfile.CANOPY_DRIFT_DISTANCE_FRACTION)
 
 	_setMaterialOpacity(
 			_groundMaterial,
 			IceStormProfile.GROUND_WASH_COLOR,
-			onset * (1.0 - _smoothstep(0.82, 0.92, normalizedTime)))
+			charge * groundRecess * settle)
 	_setMaterialOpacity(
 			_frostVeinMaterial,
 			IceStormProfile.VEIN_COLOR,
-			onset * (1.0 - _smoothstep(0.86, 0.96, normalizedTime)))
+			charge * chargeAccent * frostRecess * settle)
 	_frostVeinMaterial.emission_energy_multiplier = pulseBrightness
 
 	for index: int in range(_canopyNodes.size()):
 		var phase := _canopyPhases[index]
-		var breath := 1.0 + sin(normalizedTime * TAU + phase) * IceStormProfile.CANOPY_SCALE_BREATH_FRACTION
+		var breath := 1.0 + sin(steppedTime * TAU + phase) * IceStormProfile.CANOPY_SCALE_BREATH_FRACTION
 		var basePosition := _canopyBasePositions[index]
 		_canopyNodes[index].position = basePosition + Vector3(
-				sin(normalizedTime * TAU + phase) * IceStormProfile.CANOPY_DRIFT_DISTANCE_U,
+				sin(steppedTime * TAU + phase) * driftDistance,
 				0.0,
-				cos(normalizedTime * TAU * 0.7 + phase) * IceStormProfile.CANOPY_DRIFT_DISTANCE_U * 0.35)
+				cos(steppedTime * TAU * 0.75 + phase) * driftDistance * 0.35)
 		_canopyNodes[index].scale = Vector3.ONE * breath
-		var canopyFade := onset * (1.0 - _smoothstep(0.91, 1.0, normalizedTime))
+		var canopyRecess := 1.0 - IceStormProfile.CANOPY_SQUALL_RECESS_FRACTION * _smoothstep(
+				IceStormProfile.SQUALL_START_FRACTION,
+				IceStormProfile.SQUALL_FULL_FRACTION,
+				normalizedTime)
+		var canopyFade := canopyReveal * canopyRecess * settle
 		# Larger-index quads are the larger ones (see the size ramp in
 		# `_updateFootprintGeometry`), so they carry more of the edge tint —
 		# index 0 stays pure core color, the largest quad leans toward the edge
@@ -473,6 +529,7 @@ func _updateVisuals(normalizedTime: float) -> void:
 
 
 func _updateHeroShards(normalizedTime: float) -> void:
+	var snowCeiling := _snowCeiling()
 	for shard: Dictionary in _shardData:
 		var variant: int = shard["variant"]
 		var slot: int = shard["slot"]
@@ -485,9 +542,13 @@ func _updateHeroShards(normalizedTime: float) -> void:
 		var gust := IceStormProfile.GUST_DIRECTION_XZ.normalized()
 		var position := start + Vector3(
 				gust.x * float(shard["drift"]) * life,
-				-3.2 * life,
+				-snowCeiling * IceStormProfile.HERO_SHARD_DOWN_DISTANCE_FRACTION * life,
 				gust.y * float(shard["drift"]) * life)
 		var angle := float(shard["angle"]) + life * float(shard["turns"]) * TAU
+		angle = snappedf(angle, TAU / IceStormProfile.GUST_HEADING_STEPS)
+		position.x = snappedf(position.x, IceStormProfile.POSITION_QUANTUM_U)
+		position.y = snappedf(position.y, IceStormProfile.POSITION_QUANTUM_U)
+		position.z = snappedf(position.z, IceStormProfile.POSITION_QUANTUM_U)
 		var size: float = shard["size"]
 		var basis := Basis(Vector3.FORWARD, angle).scaled(Vector3(size, size, 1.0))
 		shardNode.multimesh.set_instance_transform(slot, Transform3D(basis, position))
@@ -559,6 +620,8 @@ func _updateFlurryUniforms() -> void:
 	if _flurryShaderMaterial == null:
 		return
 	var diameter := float(_footprintRadius * 2 + 1)
+	var snowCeiling := _snowCeiling()
+	var heightScale := snowCeiling / IceStormProfile.REFERENCE_STORM_HEIGHT_U
 	var interval := (
 			IceStormProfile.REFERENCE_PULSE_INTERVAL_SECONDS
 			if _mode == MODE_REFERENCE
@@ -566,10 +629,15 @@ func _updateFlurryUniforms() -> void:
 	_flurryShaderMaterial.set_shader_parameter("playback_time", _elapsedTime)
 	_flurryShaderMaterial.set_shader_parameter("total_duration", _totalDuration)
 	_flurryShaderMaterial.set_shader_parameter("footprint_width", diameter)
-	_flurryShaderMaterial.set_shader_parameter("storm_height", IceStormProfile.STORM_VOLUME_HEIGHT_U)
+	_flurryShaderMaterial.set_shader_parameter("particle_count", float(_flurry.amount))
+	_flurryShaderMaterial.set_shader_parameter("storm_height", snowCeiling)
 	_flurryShaderMaterial.set_shader_parameter("lateral_speed", IceStormProfile.FLAKE_LATERAL_SPEED_U_PER_SECOND)
-	_flurryShaderMaterial.set_shader_parameter("min_down_speed", IceStormProfile.FLAKE_MIN_DOWN_SPEED_U_PER_SECOND)
-	_flurryShaderMaterial.set_shader_parameter("max_down_speed", IceStormProfile.FLAKE_MAX_DOWN_SPEED_U_PER_SECOND)
+	_flurryShaderMaterial.set_shader_parameter(
+			"min_down_speed",
+			IceStormProfile.FLAKE_MIN_DOWN_SPEED_U_PER_SECOND * heightScale)
+	_flurryShaderMaterial.set_shader_parameter(
+			"max_down_speed",
+			IceStormProfile.FLAKE_MAX_DOWN_SPEED_U_PER_SECOND * heightScale)
 	_flurryShaderMaterial.set_shader_parameter("min_scale", IceStormProfile.FLAKE_MIN_SIZE_U)
 	_flurryShaderMaterial.set_shader_parameter("max_scale", IceStormProfile.FLAKE_MAX_SIZE_U)
 	_flurryShaderMaterial.set_shader_parameter("gust_direction", IceStormProfile.GUST_DIRECTION_XZ)
@@ -577,7 +645,25 @@ func _updateFlurryUniforms() -> void:
 	_flurryShaderMaterial.set_shader_parameter("gust_band_width", IceStormProfile.GUST_BAND_WIDTH_FRACTION)
 	_flurryShaderMaterial.set_shader_parameter("pulse_interval", interval)
 	_flurryShaderMaterial.set_shader_parameter("pulse_window_fraction", IceStormProfile.PULSE_ACCENT_FRACTION)
-	_flurryShaderMaterial.set_shader_parameter("onset_fraction", IceStormProfile.ONSET_FRACTION)
+	_flurryShaderMaterial.set_shader_parameter("squall_start_fraction", IceStormProfile.SQUALL_START_FRACTION)
+	_flurryShaderMaterial.set_shader_parameter(
+			"energy_half_life_fraction",
+			IceStormProfile.ENERGY_RISE_HALF_LIFE_FRACTION)
+	_flurryShaderMaterial.set_shader_parameter("settle_start_fraction", IceStormProfile.SETTLE_START_FRACTION)
+	_flurryShaderMaterial.set_shader_parameter(
+			"settle_half_life_fraction",
+			IceStormProfile.SETTLE_HALF_LIFE_FRACTION)
+	_flurryShaderMaterial.set_shader_parameter("temporal_sample_rate", IceStormProfile.TEMPORAL_SAMPLE_RATE_HZ)
+	_flurryShaderMaterial.set_shader_parameter("position_quantum", IceStormProfile.POSITION_QUANTUM_U)
+	_flurryShaderMaterial.set_shader_parameter("heading_steps", IceStormProfile.GUST_HEADING_STEPS)
+	_flurryShaderMaterial.set_shader_parameter("golden_angle", IceStormProfile.GOLDEN_ANGLE_RADIANS)
+	_flurryShaderMaterial.set_shader_parameter(
+			"golden_angle_jitter_fraction",
+			IceStormProfile.GOLDEN_ANGLE_JITTER_FRACTION)
+	_flurryShaderMaterial.set_shader_parameter("gust_min_density", IceStormProfile.GUST_MIN_DENSITY)
+	_flurryShaderMaterial.set_shader_parameter("snow_tiny_weight", IceStormProfile.SNOW_TINY_WEIGHT)
+	_flurryShaderMaterial.set_shader_parameter("snow_small_weight", IceStormProfile.SNOW_SMALL_WEIGHT)
+	_flurryShaderMaterial.set_shader_parameter("snow_medium_weight", IceStormProfile.SNOW_MEDIUM_WEIGHT)
 	_flurryShaderMaterial.set_shader_parameter("intensity_scale", _intensityScale)
 	_flurryShaderMaterial.set_shader_parameter("gust_enabled", 1.0 if bool(_layerVisibility[LAYER_GUST]) else 0.0)
 	_flurryShaderMaterial.set_shader_parameter(
@@ -587,6 +673,75 @@ func _updateFlurryUniforms() -> void:
 	_flurryShaderMaterial.set_shader_parameter(
 			"diamond_shape", 1.0 if _isDiamondShape(_areaShape) else 0.0)
 	_flurryShaderMaterial.set_shader_parameter("flake_color", IceStormProfile.FLAKE_COLOR)
+
+
+func _scaledFlurryCount() -> int:
+	return clampi(
+			roundi(float(IceStormProfile.FLURRY_REFERENCE_AMOUNT) * _populationScale()),
+			IceStormProfile.FLURRY_MIN_AMOUNT,
+			IceStormProfile.MAX_LIVE_PARTICLES)
+
+
+func _scaledShardCount() -> int:
+	return clampi(
+			roundi(float(IceStormProfile.HERO_SHARD_REFERENCE_COUNT) * _populationScale()),
+			IceStormProfile.HERO_SHARD_MIN_COUNT,
+			IceStormProfile.HERO_SHARD_MAX_COUNT)
+
+
+func _populationScale() -> float:
+	var tileCount := 1.0 + 2.0 * float(_footprintRadius * (_footprintRadius + 1))
+	return sqrt(tileCount / IceStormProfile.REFERENCE_DIAMOND_TILE_COUNT)
+
+
+func _stormHeight() -> float:
+	var radiusScale := pow(
+			(float(_footprintRadius) + 0.5)
+			/ (float(IceStormProfile.REFERENCE_CARRIER_RADIUS_TILES) + 0.5),
+			IceStormProfile.STORM_HEIGHT_RADIUS_EXPONENT)
+	return IceStormProfile.REFERENCE_STORM_HEIGHT_U * clampf(
+			radiusScale,
+			IceStormProfile.MIN_STORM_HEIGHT_SCALE,
+			IceStormProfile.MAX_STORM_HEIGHT_SCALE)
+
+
+func _snowCeiling() -> float:
+	return _stormHeight()
+
+
+func _canopyHeight(index: int) -> float:
+	return _snowCeiling() * (
+			IceStormProfile.CANOPY_HEIGHT_BASE_FRACTION
+			+ float(index) * IceStormProfile.CANOPY_HEIGHT_STEP_FRACTION)
+
+
+func _cloudTopHeight() -> float:
+	var largestIndex := maxi(IceStormProfile.CANOPY_QUAD_COUNT - 1, 0)
+	var canopyHeight := _canopyHeight(largestIndex)
+	return (
+			_snowCeiling()
+			+ canopyHeight * (
+					IceStormProfile.CANOPY_CENTER_ABOVE_SNOW_FRACTION
+					+ IceStormProfile.CANOPY_VERTICAL_JITTER_FRACTION
+					+ 0.5))
+
+
+func _exponentialRise(normalizedTime: float, startFraction: float) -> float:
+	if normalizedTime <= startFraction:
+		return 0.0
+	var elapsed := normalizedTime - startFraction
+	return 1.0 - exp(
+			-log(2.0) * elapsed
+			/ maxf(IceStormProfile.ENERGY_RISE_HALF_LIFE_FRACTION, 0.001))
+
+
+func _exponentialSettle(normalizedTime: float) -> float:
+	if normalizedTime <= IceStormProfile.SETTLE_START_FRACTION:
+		return 1.0
+	return exp(
+			-log(2.0)
+			* (normalizedTime - IceStormProfile.SETTLE_START_FRACTION)
+			/ maxf(IceStormProfile.SETTLE_HALF_LIFE_FRACTION, 0.001))
 
 
 static func _smoothstep(edge0: float, edge1: float, value: float) -> float:

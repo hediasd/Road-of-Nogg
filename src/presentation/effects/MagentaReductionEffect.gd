@@ -354,10 +354,10 @@ func _buildGroundWash() -> void:
 
 
 ## Index 0 is the core proper and index 1 the halo around it. The two use
-## different shared textures on purpose: the core takes the nearest-filtered
-## flake, whose hard edge is the reference language's, and the halo takes the
-## linear-filtered puff, so the blow-out has something soft to bloom into
-## instead of ending on a hard rim.
+## different neutral textures on purpose: the core takes a compact radial disc
+## and the halo a continuous puff, so the blow-out blooms rather than ending on
+## a hard rim. Neither primitive is Ice-owned; spell-specific Ice retuning must
+## not be able to change this silhouette again.
 func _buildCore() -> void:
 	for index: int in range(MagentaReductionProfile.CORE_QUAD_COUNT):
 		var core := MeshInstance3D.new()
@@ -365,12 +365,12 @@ func _buildCore() -> void:
 		var mesh := QuadMesh.new()
 		core.mesh = mesh
 		var material := (
-				VfxTextures.flurryMaterial().duplicate() as StandardMaterial3D
+				VfxTextures.createNeutralSoftDiscMaterial()
 				if index == 0
-				else VfxTextures.canopyMaterial().duplicate() as StandardMaterial3D)
+				else VfxTextures.createNeutralSoftPuffMaterial())
 		material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 		# Nearest on the duplicates only; see `_buildGroundWash()`. The halo's
-		# canopy texture is linear-filtered at source and would otherwise be the
+		# halo texture is linear-filtered at source and would otherwise be the
 		# one soft-edged thing left in the effect.
 		material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 		core.material_override = material

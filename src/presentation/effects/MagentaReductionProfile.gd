@@ -522,7 +522,7 @@ const SPARK_TINT := Color(1.0, 1.0, 1.0, 1.0)
 ## Three earlier builds, and the history is worth keeping straight because the
 ## first diagnosis was wrong.
 ##
-##   1. A single quad stretching `VfxTextures.softFlake()`. Rendered nothing.
+##   1. A single quad stretching `VfxTextures.neutralSoftDisc()`. Rendered nothing.
 ##   2. A trail of five square billboarded sprites. Visible, but read as a row
 ##      of soft puffs — a sprite large enough to see is about as large as the
 ##      gap between sprites, so the trail closes into a sausage.

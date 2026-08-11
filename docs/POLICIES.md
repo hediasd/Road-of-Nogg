@@ -101,3 +101,8 @@ affected behavior once in the plan's final validation item. A single-item plan
 validates at the end of that item. See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for
 the executable workflow and Windows safeguards. Do not claim the plan complete
 until that final manual validation has run.
+
+Shared presentation resources are compatibility surfaces: their verification
+scope is the complete caller set, not the feature that motivated the edit.
+Prefer an owned variant for local visual tuning. For VFX-specific ownership and
+donor-capture rules, see [`VFX_DESIGN.md`](./VFX_DESIGN.md).
