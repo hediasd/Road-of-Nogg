@@ -36,6 +36,9 @@ var _chunkRecords: Array[Dictionary] = []
 var _intactTransforms: Array[Transform3D] = []
 var _brokenTransforms: Array[Transform3D] = []
 var _drawCallCount := 0
+var _bodyCenter := Vector3.ZERO
+var _core: MeshInstance3D
+var _coreBaseScale := Vector3.ONE
 
 
 static func createPlayback(
@@ -73,7 +76,7 @@ func play(seed: int, mode: String) -> void:
 	_elapsedTime = 0.0
 	_finished = false
 	_playing = true
-	_applyStaticHold()
+	_applyTimeline()
 	set_process(true)
 
 
@@ -88,7 +91,7 @@ func seek_normalized(time: float) -> void:
 	_elapsedTime = normalizedTime * _totalDuration
 	_finished = normalizedTime >= 1.0
 	_playing = not _finished
-	_applyStaticHold()
+	_applyTimeline()
 	if _finished:
 		_finishPlayback()
 
@@ -173,6 +176,7 @@ func _process(delta: float) -> void:
 	if not _playing or _playbackScale <= 0.0:
 		return
 	_elapsedTime = minf(_elapsedTime + delta * _playbackScale, _totalDuration)
+	_applyTimeline()
 	if _elapsedTime >= _totalDuration:
 		_finishPlayback()
 
@@ -194,6 +198,7 @@ func _buildShell(seed: int) -> void:
 		bodyBounds.size.x > 0.0 and bodyBounds.size.y > 0.0 and bodyBounds.size.z > 0.0,
 		"Ice encasement requires positive target body bounds."
 	)
+	_bodyCenter = bodyBounds.get_center()
 	_buildLayerNodes()
 	var random := RandomNumberGenerator.new()
 	random.seed = seed
@@ -252,6 +257,7 @@ func _buildChunkRecords(bounds: AABB, random: RandomNumberGenerator) -> void:
 		for row in range(2):
 			for column in range(2):
 				var index := row * 2 + column
+				var formationWindow := _faceFormationWindow(faceIndex, row, column)
 				_appendChunk(
 					layerName,
 					kinds[(index + faceIndex) % kinds.size()],
@@ -264,6 +270,8 @@ func _buildChunkRecords(bounds: AABB, random: RandomNumberGenerator) -> void:
 					Vector3(0.0, 0.0, (float(index) - 1.5) * 0.045),
 					center,
 					jitterAmplitude,
+					formationWindow.x,
+					formationWindow.y,
 					random
 				)
 
@@ -271,6 +279,17 @@ func _buildChunkRecords(bounds: AABB, random: RandomNumberGenerator) -> void:
 		var xSign := -1.0 if sideIndex == 0 else 1.0
 		for row in range(2):
 			var index := sideIndex * 2 + row
+			var formationStart := (
+				IceTargetEncasementProfile.LOWER_SIDE_FORMATION_START_FRACTION
+				+ float(row) * 0.08
+				+ float(sideIndex) * 0.015
+			)
+			var formationEnd := minf(
+				IceTargetEncasementProfile.LOWER_SIDE_FORMATION_END_FRACTION,
+				IceTargetEncasementProfile.LOWER_SIDE_FORMATION_END_FRACTION
+				- (0.055 if row == 0 else 0.0)
+				+ float(sideIndex) * 0.008
+			)
 			_appendChunk(
 				LAYER_SHELL_SIDES,
 				kinds[(index + 1) % kinds.size()],
@@ -283,10 +302,22 @@ func _buildChunkRecords(bounds: AABB, random: RandomNumberGenerator) -> void:
 				Vector3(0.0, xSign * 0.08, xSign * (float(row) - 0.5) * 0.07),
 				center,
 				jitterAmplitude,
+				formationStart,
+				formationEnd,
 				random
 			)
 
 	for capIndex in range(3):
+		var capStart := (
+			IceTargetEncasementProfile.FRONT_CAP_CLOSURE_START_FRACTION
+			+ 0.11
+			+ float(capIndex) * 0.025
+		)
+		var capEnd := (
+			IceTargetEncasementProfile.FRONT_CAP_CLOSURE_END_FRACTION
+			- 0.04
+			+ float(capIndex) * 0.02
+		)
 		_appendChunk(
 			LAYER_SHELL_CAP,
 			kinds[(capIndex + 2) % kinds.size()],
@@ -299,6 +330,8 @@ func _buildChunkRecords(bounds: AABB, random: RandomNumberGenerator) -> void:
 			Vector3(0.0, (float(capIndex) - 1.0) * 0.10, 0.04),
 			center,
 			jitterAmplitude,
+			capStart,
+			capEnd,
 			random
 		)
 
@@ -308,10 +341,12 @@ func _appendChunk(
 		kind: int,
 		basePosition: Vector3,
 		baseScale: Vector3,
-		baseRotation: Vector3,
-		bodyCenter: Vector3,
-		jitterAmplitude: float,
-		random: RandomNumberGenerator) -> void:
+	baseRotation: Vector3,
+	bodyCenter: Vector3,
+	jitterAmplitude: float,
+	formationStart: float,
+	formationEnd: float,
+	random: RandomNumberGenerator) -> void:
 	var positionJitter := Vector3(
 		random.randf_range(-jitterAmplitude, jitterAmplitude),
 		random.randf_range(-jitterAmplitude, jitterAmplitude),
@@ -330,6 +365,11 @@ func _appendChunk(
 	var intactRotation := baseRotation + rotationJitter
 	var intactScale := baseScale * scaleJitter
 	var intact := Transform3D(Basis.from_euler(intactRotation).scaled(intactScale), intactPosition)
+	var formationPosition := bodyCenter.lerp(
+		intactPosition, IceTargetEncasementProfile.FORMATION_INWARD_FRACTION)
+	var formationScale := intactScale * IceTargetEncasementProfile.FORMATION_COMPRESSED_SCALE
+	var formation := Transform3D(
+		Basis.from_euler(intactRotation).scaled(formationScale), formationPosition)
 	var outward := intactPosition - bodyCenter
 	if outward.length_squared() < 0.001:
 		outward = Vector3.UP
@@ -353,6 +393,9 @@ func _appendChunk(
 	_chunkRecords.append({
 		"layer": layerName,
 		"kind": kind,
+		"formation": formation,
+		"formation_start": formationStart,
+		"formation_end": formationEnd,
 		"intact": intact,
 		"broken": broken,
 	})
@@ -370,18 +413,23 @@ func _buildChunkInstances() -> void:
 		LAYER_SHELL_REAR, LAYER_SHELL_SIDES, LAYER_SHELL_FRONT, LAYER_SHELL_CAP
 	]:
 		for kind: int in kinds:
-			var records: Array[Dictionary] = []
-			for record: Dictionary in _chunkRecords:
+			var recordIndices: Array[int] = []
+			for recordIndex: int in range(_chunkRecords.size()):
+				var record: Dictionary = _chunkRecords[recordIndex]
 				if record["layer"] == layerName and int(record["kind"]) == kind:
-					records.append(record)
-			if records.is_empty():
+					recordIndices.append(recordIndex)
+			if recordIndices.is_empty():
 				continue
 			var multiMesh := MultiMesh.new()
 			multiMesh.transform_format = MultiMesh.TRANSFORM_3D
 			multiMesh.mesh = IceChunkMeshFactoryScript.create(kind)
-			multiMesh.instance_count = records.size()
-			for index in range(records.size()):
-				multiMesh.set_instance_transform(index, records[index]["intact"])
+			multiMesh.instance_count = recordIndices.size()
+			for slot: int in range(recordIndices.size()):
+				var recordIndex: int = recordIndices[slot]
+				var record: Dictionary = _chunkRecords[recordIndex]
+				multiMesh.set_instance_transform(slot, record["formation"])
+				record["multi_mesh"] = multiMesh
+				record["slot"] = slot
 			var instance := MultiMeshInstance3D.new()
 			instance.name = "%s_chunks" % IceChunkMeshFactoryScript.kindName(kind)
 			instance.multimesh = multiMesh
@@ -392,19 +440,20 @@ func _buildChunkInstances() -> void:
 
 
 func _buildCore(bounds: AABB) -> void:
-	var core := MeshInstance3D.new()
-	core.name = "EncasementCore"
+	_core = MeshInstance3D.new()
+	_core.name = "EncasementCore"
 	var coreMesh := SphereMesh.new()
 	coreMesh.radius = 0.5
 	coreMesh.height = 1.0
 	coreMesh.radial_segments = 8
 	coreMesh.rings = 4
-	core.mesh = coreMesh
-	core.position = bounds.get_center()
-	core.scale = bounds.size * IceTargetEncasementProfile.CORE_SCALE_FRACTION
-	core.material_override = _createLayerMaterial(LAYER_ICE_CORE)
-	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	(_layerNodes[LAYER_ICE_CORE] as Node3D).add_child(core)
+	_core.mesh = coreMesh
+	_core.position = bounds.get_center()
+	_coreBaseScale = bounds.size * IceTargetEncasementProfile.CORE_SCALE_FRACTION
+	_core.scale = _coreBaseScale * IceTargetEncasementProfile.FORMATION_COMPRESSED_SCALE
+	_core.material_override = _createLayerMaterial(LAYER_ICE_CORE)
+	_core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	(_layerNodes[LAYER_ICE_CORE] as Node3D).add_child(_core)
 	_drawCallCount += 1
 
 
@@ -428,11 +477,167 @@ func _createLayerMaterial(layerName: String) -> ShaderMaterial:
 	return material
 
 
-func _applyStaticHold() -> void:
+func _faceFormationWindow(faceIndex: int, row: int, column: int) -> Vector2:
+	if faceIndex == 0:
+		var rearStart := (
+			IceTargetEncasementProfile.LOWER_SIDE_FORMATION_START_FRACTION
+			+ float(row) * 0.07
+			+ float(column) * 0.015
+		)
+		var rearEnd := minf(
+			IceTargetEncasementProfile.LOWER_SIDE_FORMATION_END_FRACTION,
+			0.23 + float(row) * 0.08 + float(column) * 0.008
+		)
+		return Vector2(rearStart, rearEnd)
+	var frontStart := (
+		IceTargetEncasementProfile.FRONT_CAP_CLOSURE_START_FRACTION
+		+ float(row) * 0.055
+		+ float(column) * 0.015
+	)
+	var frontEnd := 0.39 + float(row) * 0.05 + float(column) * 0.015
+	return Vector2(frontStart, frontEnd)
+
+
+func _applyTimeline() -> void:
+	if not _shellBuilt:
+		return
+	var normalizedTime := get_normalized_time()
+	for record: Dictionary in _chunkRecords:
+		var multiMesh := record["multi_mesh"] as MultiMesh
+		assert(multiMesh != null, "Ice encasement chunk is missing its stable MultiMesh slot.")
+		multiMesh.set_instance_transform(
+			int(record["slot"]), _chunkTransformAt(record, normalizedTime))
+	_applyCoreTimeline(normalizedTime)
 	for layerName: String in get_layer_names():
 		var layer := _layerNodes.get(layerName) as Node3D
 		if layer != null:
 			layer.visible = bool(_layerVisibility[layerName])
+
+
+func _chunkTransformAt(record: Dictionary, normalizedTime: float) -> Transform3D:
+	var formation: Transform3D = record["formation"]
+	var intact: Transform3D = record["intact"]
+	var broken: Transform3D = record["broken"]
+	var formationProgress := _smoothstep01(_windowProgress(
+		normalizedTime, float(record["formation_start"]), float(record["formation_end"])))
+	if normalizedTime < float(record["formation_end"]):
+		return _interpolateTransform(
+			formation, intact, formationProgress, formationProgress, formationProgress)
+	if normalizedTime <= IceTargetEncasementProfile.COMPLETED_HOLD_END_FRACTION:
+		return intact
+	if normalizedTime < IceTargetEncasementProfile.FRACTURE_IMPULSE_END_FRACTION:
+		var impulseProgress := _windowProgress(
+			normalizedTime,
+			IceTargetEncasementProfile.FRACTURE_IMPULSE_START_FRACTION,
+			IceTargetEncasementProfile.FRACTURE_IMPULSE_END_FRACTION)
+		var pathProgress := (
+			_easeOutCubic(impulseProgress)
+			* IceTargetEncasementProfile.FRACTURE_IMPULSE_PATH_FRACTION
+		)
+		var impulseTransform := _interpolateTransform(
+			intact,
+			broken,
+			pathProgress,
+			_steppedRotationProgress(pathProgress),
+			pathProgress)
+		var scalePulse := (
+			1.0
+			+ sin(impulseProgress * PI) * IceTargetEncasementProfile.FRACTURE_SCALE_PULSE
+		)
+		impulseTransform.basis = impulseTransform.basis.scaled(Vector3.ONE * scalePulse)
+		return impulseTransform
+	if normalizedTime < IceTargetEncasementProfile.OUTWARD_TUMBLE_END_FRACTION:
+		var tumbleProgress := _smoothstep01(_windowProgress(
+			normalizedTime,
+			IceTargetEncasementProfile.OUTWARD_TUMBLE_START_FRACTION,
+			IceTargetEncasementProfile.OUTWARD_TUMBLE_END_FRACTION))
+		var pathProgress := lerpf(
+			IceTargetEncasementProfile.FRACTURE_IMPULSE_PATH_FRACTION,
+			1.0,
+			tumbleProgress)
+		return _interpolateTransform(
+			intact,
+			broken,
+			pathProgress,
+			_steppedRotationProgress(pathProgress),
+			pathProgress)
+	var settleProgress := _smoothstep01(_windowProgress(
+		normalizedTime,
+		IceTargetEncasementProfile.SETTLE_START_FRACTION,
+		IceTargetEncasementProfile.SETTLE_END_FRACTION))
+	var settled := broken
+	settled.origin.y -= IceTargetEncasementProfile.SETTLE_DROP_U * settleProgress
+	settled.basis = settled.basis.scaled(
+		Vector3.ONE * lerpf(1.0, IceTargetEncasementProfile.SETTLE_SCALE_FRACTION, settleProgress))
+	return settled
+
+
+func _applyCoreTimeline(normalizedTime: float) -> void:
+	if _core == null:
+		return
+	var coreFactor := IceTargetEncasementProfile.FORMATION_COMPRESSED_SCALE
+	if normalizedTime < IceTargetEncasementProfile.CORE_FORMATION_START_FRACTION:
+		coreFactor = IceTargetEncasementProfile.FORMATION_COMPRESSED_SCALE
+	elif normalizedTime < IceTargetEncasementProfile.CORE_FORMATION_END_FRACTION:
+		coreFactor = lerpf(
+			IceTargetEncasementProfile.FORMATION_COMPRESSED_SCALE,
+			1.0,
+			_smoothstep01(_windowProgress(
+				normalizedTime,
+				IceTargetEncasementProfile.CORE_FORMATION_START_FRACTION,
+				IceTargetEncasementProfile.CORE_FORMATION_END_FRACTION)))
+	elif normalizedTime <= IceTargetEncasementProfile.COMPLETED_HOLD_END_FRACTION:
+		coreFactor = 1.0
+	elif normalizedTime < IceTargetEncasementProfile.FRACTURE_IMPULSE_END_FRACTION:
+		var impulseProgress := _windowProgress(
+			normalizedTime,
+			IceTargetEncasementProfile.FRACTURE_IMPULSE_START_FRACTION,
+			IceTargetEncasementProfile.FRACTURE_IMPULSE_END_FRACTION)
+		coreFactor = 1.0 + sin(impulseProgress * PI) * 0.14
+	elif normalizedTime < IceTargetEncasementProfile.CORE_BREAK_END_FRACTION:
+		coreFactor = lerpf(
+			1.0,
+			IceTargetEncasementProfile.FORMATION_COMPRESSED_SCALE,
+			_smoothstep01(_windowProgress(
+				normalizedTime,
+				IceTargetEncasementProfile.FRACTURE_IMPULSE_END_FRACTION,
+				IceTargetEncasementProfile.CORE_BREAK_END_FRACTION)))
+	_core.scale = _coreBaseScale * coreFactor
+	_core.visible = coreFactor > 0.025
+
+
+func _interpolateTransform(
+		from: Transform3D,
+		to: Transform3D,
+		positionProgress: float,
+		rotationProgress: float,
+		scaleProgress: float) -> Transform3D:
+	var fromRotation := from.basis.orthonormalized().get_rotation_quaternion()
+	var toRotation := to.basis.orthonormalized().get_rotation_quaternion()
+	var rotation := fromRotation.slerp(toRotation, clampf(rotationProgress, 0.0, 1.0))
+	var scale := from.basis.get_scale().lerp(
+		to.basis.get_scale(), clampf(scaleProgress, 0.0, 1.0))
+	var origin := from.origin.lerp(to.origin, clampf(positionProgress, 0.0, 1.0))
+	return Transform3D(Basis(rotation).scaled(scale), origin)
+
+
+func _steppedRotationProgress(progress: float) -> float:
+	var steps := float(IceTargetEncasementProfile.TUMBLE_ROTATION_STEPS)
+	return floor(clampf(progress, 0.0, 1.0) * steps) / steps
+
+
+func _windowProgress(value: float, start: float, end: float) -> float:
+	return clampf((value - start) / maxf(end - start, 0.0001), 0.0, 1.0)
+
+
+func _smoothstep01(value: float) -> float:
+	var clamped := clampf(value, 0.0, 1.0)
+	return clamped * clamped * (3.0 - 2.0 * clamped)
+
+
+func _easeOutCubic(value: float) -> float:
+	var inverse := 1.0 - clampf(value, 0.0, 1.0)
+	return 1.0 - inverse * inverse * inverse
 
 
 func _countNodes(node: Node) -> int:

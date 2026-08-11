@@ -601,3 +601,32 @@ Implemented 2026-08-11; pending end-of-plan validation.
   confirming deterministic placement. Godot's headless editor import and
   `git diff --check` passed. Relevant backlogs were reviewed and require no
   durable change. No battle was launched, as required for this item.
+
+### Encasement formation, hold, and same-piece fracture
+
+Implemented 2026-08-11; pending end-of-plan validation.
+
+- Named normalized-time windows now cover arrival, rear/lower and side growth,
+  front/cap closure, completed hold, fracture impulse, outward tumble, and
+  settle. Every frame is recomputed from time; no physics, global shader time,
+  or random sampling occurs after shell construction.
+- Each original chunk owns one stable MultiMesh slot. Formation interpolates
+  from its compressed body-adjacent transform to its intact transform; breakup
+  sends that same slot toward its stored broken transform with deterministic
+  stepped rotation. The core grows and collapses independently.
+- `seek_normalized()` applies the same pure timeline forward or backward, and
+  `skip_to_settle()` targets normalized time 0.92 where all large chunks are
+  already visibly separated. A repeated seed-7 hold capture at 0.49 produced
+  the exact prior SHA-256 hash
+  `42152F11ED6B4AB54F9F2ABD618D88F2DAF93406CE99383F9B3A949FEF630B15`.
+- The current typed context exposes no mutable target visual, so no pose/tint
+  lease was added. The effect remains readable without target treatment and
+  does not gain an unsafe dependency on arbitrary model materials.
+- Shell-only retro proof sheets passed: an eight-frame sequence covers empty,
+  first growth, side closure, completed statue, hold, initial separation, wide
+  breakup, and settle; a seven-frame tight fracture sequence preserves
+  countable large-piece continuity. All capture markers reported `error=0` and
+  stderr was empty.
+- Godot 4.4's headless editor import and `git diff --check` passed. Relevant
+  backlogs were reviewed and require no durable change. No battle was launched,
+  as required for this item.

@@ -194,9 +194,21 @@ ordering through camera rotation. A small `ice_core` is independently
 toggleable.
 
 Every chunk records both its intact transform and a deterministic outward
-broken transform when the shell is built. Timeline code may interpolate those
-stored transforms, but must not replace the instances at fracture time: the
-large pieces visible in the closed statue are the pieces that must leave it.
+broken transform when the shell is built, then keeps one stable MultiMesh slot
+for its full lifetime. Pure normalized-time windows drive compressed formation,
+rear/side growth, front/cap closure, the completed hold, fracture impulse,
+outward tumble, and settle. Rotation is authored as deterministic steps; no
+physics or random sampling occurs after shell construction. Seeking backward or
+forward therefore recomputes the same transform, and settle-skip lands on the
+already-separated large pieces instead of cutting away a closed statue.
+
+The effect does not mutate the target model. If a future target-bound profile
+needs pose hold or tint, `GodotVisualAdapter` must own a reversible lease and
+restore prior state on completion, skip, disposal, and battle exit; an effect
+must never reach through its context to edit arbitrary target materials.
+
+Timeline code must not replace instances at fracture time: the large pieces
+visible in the closed statue are the pieces that leave it.
 The debug catalog registration is intentionally not a spell assignment; no
 production carrier selects this profile until a confirmed single-target spell
 is chosen.

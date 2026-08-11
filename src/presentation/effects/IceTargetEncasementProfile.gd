@@ -4,12 +4,37 @@ class_name IceTargetEncasementProfile
 
 const PROFILE_ID := "ice_target_encasement"
 
-## Temporary static-hold timing for the geometry checkpoint. The next
-## choreography item replaces this with the authored formation/break timeline.
+## AUTHORED normalized timeline. The windows meet exactly so every transform is
+## a pure function of normalized playback time and can be scrubbed in either
+## direction without accumulated state.
 const REFERENCE_DURATION_SECONDS := 3.4
 const BATTLE_DURATION_SECONDS := 1.9
 const ACTION_HOLD_FRACTION := 0.72
-const SETTLE_START_FRACTION := 0.86
+const ARRIVAL_START_FRACTION := 0.00
+const ARRIVAL_END_FRACTION := 0.08
+const LOWER_SIDE_FORMATION_START_FRACTION := ARRIVAL_END_FRACTION
+const LOWER_SIDE_FORMATION_END_FRACTION := 0.31
+const FRONT_CAP_CLOSURE_START_FRACTION := 0.23
+const FRONT_CAP_CLOSURE_END_FRACTION := 0.48
+const COMPLETED_HOLD_START_FRACTION := FRONT_CAP_CLOSURE_END_FRACTION
+const COMPLETED_HOLD_END_FRACTION := 0.68
+const FRACTURE_IMPULSE_START_FRACTION := COMPLETED_HOLD_END_FRACTION
+const FRACTURE_IMPULSE_END_FRACTION := 0.76
+const OUTWARD_TUMBLE_START_FRACTION := FRACTURE_IMPULSE_END_FRACTION
+const OUTWARD_TUMBLE_END_FRACTION := 0.92
+const SETTLE_START_FRACTION := OUTWARD_TUMBLE_END_FRACTION
+const SETTLE_END_FRACTION := 1.00
+
+const FORMATION_COMPRESSED_SCALE := 0.015
+const FORMATION_INWARD_FRACTION := 0.28
+const FRACTURE_IMPULSE_PATH_FRACTION := 0.20
+const FRACTURE_SCALE_PULSE := 0.10
+const TUMBLE_ROTATION_STEPS := 7
+const SETTLE_SCALE_FRACTION := 0.72
+const SETTLE_DROP_U := 0.12
+const CORE_FORMATION_START_FRACTION := 0.14
+const CORE_FORMATION_END_FRACTION := 0.38
+const CORE_BREAK_END_FRACTION := 0.84
 
 ## AUTHORED shell dimensions and seeded variation in local body-bound units.
 const SHELL_CLEARANCE_U := 0.055
