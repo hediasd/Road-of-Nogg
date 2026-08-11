@@ -17,6 +17,9 @@
 ##   --layers=<a,b,...>      isolate: show only these layers, hide the rest
 ##   --seed=<n>              pin the seed instead of cycling it
 ##   --scale=<f>             playback scale
+##   --target-body=<standard|wide|tall>  target-body bounds preset
+##   --source-distance=<f>    caster-to-target separation in world units
+##   --camera-yaw=<degrees>   orbit the preview camera around both anchors
 ##   --stretch=<native|integer|integer640|legacy_fractional>  how the whole
 ##                           canvas scales. `native` matches the shipping
 ##                           project.godot; `legacy_fractional` reproduces the
@@ -68,6 +71,7 @@ const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderC
 const BattleEnvironmentFactoryScript = preload("res://src/presentation/BattleEnvironmentFactory.gd")
 const SpellVfxCatalogScript = preload("res://src/presentation/effects/SpellVfxCatalog.gd")
 const VfxPlaybackScript = preload("res://src/presentation/effects/VfxPlayback.gd")
+const VfxCastContextScript = preload("res://src/presentation/effects/VfxCastContext.gd")
 const TextSpecimenScript = preload("res://src/presentation/debug/TextSpecimen.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
@@ -76,6 +80,27 @@ const CAMERA_OFFSET := Vector3(6.0, 15.0, 14.0)
 ## 16 * 0.95 + (2 * 0.5) * 0.35 through the shipping camera-size formula.
 const REPRESENTATIVE_CAMERA_SIZE := 15.55
 const DEFAULT_FOOTPRINT_RADIUS := 4
+const DEFAULT_SOURCE_DISTANCE := 4.0
+const DEFAULT_CAMERA_YAW_DEGREES := 0.0
+const DEBUG_CASTER_ID := -1001
+const DEBUG_TARGET_ID := -1002
+const _TARGET_BODY_PRESETS: Array[Dictionary] = [
+	{
+		"id": "standard",
+		"label": "Standard (0.70 x 1.30 x 0.70)",
+		"bounds": VfxCastContext.DEFAULT_TARGET_BODY_BOUNDS,
+	},
+	{
+		"id": "wide",
+		"label": "Short / wide (1.20 x 0.90 x 0.95)",
+		"bounds": AABB(Vector3(-0.6, 0.2, -0.475), Vector3(1.2, 0.9, 0.95)),
+	},
+	{
+		"id": "tall",
+		"label": "Tall / narrow (0.55 x 1.85 x 0.55)",
+		"bounds": AABB(Vector3(-0.275, 0.2, -0.275), Vector3(0.55, 1.85, 0.55)),
+	},
+]
 const SCREENSHOT_PATH := "user://vfx_debug_capture.png"
 const CAPTURE_PREFIX_DEFAULT := "user://vfx_debug_capture"
 ## Exit code for a golden-frame mismatch, distinct from the engine's own
@@ -206,8 +231,13 @@ var _areaShape: String = "circle"
 var _footprintRing: MeshInstance3D
 var _goldenFailures: int = 0
 var _textSpecimen: CanvasLayer
+var _casterAnchor: Node3D
+var _targetAnchor: Node3D
+var _targetBodyVisual: MeshInstance3D
+var _targetBodyBounds: AABB = VfxCastContext.DEFAULT_TARGET_BODY_BOUNDS
 
-@onready var _spawnAnchor: Node3D = $SpawnAnchor
+@onready var _sceneCasterAnchor: Node3D = $CasterAnchor
+@onready var _sceneTargetAnchor: Node3D = $TargetAnchor
 @onready var _camera: Camera3D = $Camera3D
 @onready var _statusLabel: Label = $HUD/PanelContainer/Scroll/VBoxContainer/StatusLabel
 @onready var _effectOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/EffectOption
@@ -229,6 +259,9 @@ var _textSpecimen: CanvasLayer
 @onready var _retroToggle: CheckButton = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/RetroToggle
 @onready var _crtToggle: CheckButton = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/CRTToggle
 @onready var _radiusSetting: SpinBox = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/RadiusSetting
+@onready var _targetBodyOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/TargetBodyOption
+@onready var _sourceDistanceSetting: SpinBox = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/SourceDistanceSetting
+@onready var _cameraYawSetting: SpinBox = $HUD/PanelContainer/Scroll/VBoxContainer/Controls/CameraYawSetting
 @onready var _textToggle: CheckButton = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextToggle
 @onready var _textFontOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextFontOption
 @onready var _textSampleOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/TextControls/TextSampleOption
@@ -254,10 +287,11 @@ func _ready() -> void:
 	_reparentWorldNodes()
 	_configureBattleWorld()
 	_buildTerrainSamples()
-	_buildDummyUnits()
+	_buildContextAnchors()
 	_buildTargetGuides()
 	_configureRenderControls()
 	_configurePlaybackControls()
+	_configureTargetContextControls()
 	_configureTextSpecimen()
 	BattleMeshFactoryScript.prepareNodeMaterials(retroRenderer.world_root)
 	_applyRenderControls()
@@ -341,6 +375,19 @@ func _configurePlaybackControls() -> void:
 	_overlapButton.pressed.connect(_onOverlapPressed)
 	_screenshotButton.pressed.connect(_captureOnce.bind(false))
 	_scrub.value_changed.connect(_onScrubChanged)
+
+
+func _configureTargetContextControls() -> void:
+	for preset: Dictionary in _TARGET_BODY_PRESETS:
+		_targetBodyOption.add_item(str(preset["label"]))
+		_targetBodyOption.set_item_metadata(_targetBodyOption.item_count - 1, preset["id"])
+	_targetBodyOption.select(0)
+	_sourceDistanceSetting.set_value_no_signal(DEFAULT_SOURCE_DISTANCE)
+	_cameraYawSetting.set_value_no_signal(DEFAULT_CAMERA_YAW_DEGREES)
+	_targetBodyOption.item_selected.connect(_onTargetBodySelected)
+	_sourceDistanceSetting.value_changed.connect(_onSourceDistanceChanged)
+	_cameraYawSetting.value_changed.connect(_onCameraYawChanged)
+	_applyTargetContextControls()
 
 
 ## The specimen owns its own CanvasLayer at the shipping UI depth, so it
@@ -478,6 +525,18 @@ func _onScaleChanged(value: float) -> void:
 	_updateStatus()
 
 
+func _onTargetBodySelected(_index: int) -> void:
+	_applyTargetContextControls()
+
+
+func _onSourceDistanceChanged(_value: float) -> void:
+	_applyTargetContextControls()
+
+
+func _onCameraYawChanged(_value: float) -> void:
+	_applyTargetContextControls()
+
+
 func _onPlayPressed() -> void:
 	_disposeAllPlaybacks()
 	if not _seedPin.button_pressed:
@@ -560,16 +619,32 @@ func _onOverlapPressed() -> void:
 	_updateStatus()
 
 
-func _createSelectedPlayback():
+func _createSelectedPlayback() -> VfxPlayback:
 	var profileId: String = _effectOption.get_item_metadata(_effectOption.selected)
 	var color := BattleMeshFactoryScript.elementColor(
 		_elementOption.get_item_metadata(_elementOption.selected)
 	)
-	return SpellVfxCatalogScript.create(
+	var playback: VfxPlayback = SpellVfxCatalogScript.create(
 		profileId,
-		_spawnAnchor,
-		Vector3.ZERO,
+		retroRenderer.world_root,
+		_targetAnchor.position,
 		color
+	)
+	playback.configure_cast_context(_buildCastContext())
+	return playback
+
+
+func _buildCastContext() -> VfxCastContext:
+	var targetIDs: Array[int] = [DEBUG_TARGET_ID]
+	var targetPositions: Array[Vector3] = [_targetAnchor.position]
+	var targetBounds: Array[AABB] = [_targetBodyBounds]
+	return VfxCastContextScript.create(
+		DEBUG_CASTER_ID,
+		_casterAnchor.position,
+		_targetAnchor.position,
+		targetIDs,
+		targetPositions,
+		targetBounds
 	)
 
 
@@ -662,6 +737,7 @@ func _updateStatus() -> void:
 	var normalized := 0.0
 	var particles := 0
 	var nodes := 0
+	var drawCalls := 0
 	var seekExact := true
 	if _activePlayback != null and is_instance_valid(_activePlayback):
 		elapsed = _activePlayback.get_elapsed_time()
@@ -669,11 +745,13 @@ func _updateStatus() -> void:
 		normalized = _activePlayback.get_normalized_time()
 		particles += _activePlayback.get_live_particle_count()
 		nodes += _activePlayback.get_live_node_count()
+		drawCalls += _estimateDrawCalls(_activePlayback)
 		seekExact = _activePlayback.is_particle_seek_exact()
 	for overlap in _overlapPlaybacks:
 		if is_instance_valid(overlap):
 			particles += overlap.get_live_particle_count()
 			nodes += overlap.get_live_node_count()
+			drawCalls += _estimateDrawCalls(overlap)
 			seekExact = seekExact and overlap.is_particle_seek_exact()
 	var modeLabel := _activeMode if _activePlayback != null else _selectedMode()
 	var renderLabel := _resolutionOption.get_item_text(_resolutionOption.selected)
@@ -686,7 +764,8 @@ func _updateStatus() -> void:
 	)
 	_statusLabel.text = (
 		"%s / %s\n%s speed @ %.2fx | t %.2f | %.2f / %.2fs\n" +
-		"seed %d | nodes %d | particles %d | overlaps %d | flurry: %s\n" +
+		"seed %d | nodes %d | particles %d | draw calls ~%d | overlaps %d | flurry: %s\n" +
+		"target %s | bounds %.2f x %.2f x %.2f | separation %.2f | yaw %.0f degrees\n" +
 		"%s | Retro %s | CRT %s%s%s"
 	) % [
 		_effectOption.get_item_text(_effectOption.selected),
@@ -699,14 +778,42 @@ func _updateStatus() -> void:
 		statusSeed,
 		nodes,
 		particles,
+		drawCalls,
 		_overlapPlaybacks.size(),
 		"exact" if seekExact else "approx",
+		_targetBodyOption.get_item_text(_targetBodyOption.selected),
+		_targetBodyBounds.size.x,
+		_targetBodyBounds.size.y,
+		_targetBodyBounds.size.z,
+		float(_sourceDistanceSetting.value),
+		float(_cameraYawSetting.value),
 		renderLabel,
 		"ON" if _retroToggle.button_pressed else "OFF",
 		"ON" if _crtToggle.button_pressed else "OFF",
 		captureSuffix,
 		specimenLine
 	]
+
+
+func _estimateDrawCalls(node: Node) -> int:
+	var estimate := 0
+	var meshInstance := node as MeshInstance3D
+	if meshInstance != null and meshInstance.visible and meshInstance.mesh != null:
+		estimate += maxi(meshInstance.mesh.get_surface_count(), 1)
+	var particles := node as GPUParticles3D
+	if particles != null and particles.visible:
+		for passIndex in range(particles.draw_passes):
+			var drawMesh := particles.get_draw_pass_mesh(passIndex)
+			if drawMesh != null:
+				estimate += maxi(drawMesh.get_surface_count(), 1)
+	var multiMesh := node as MultiMeshInstance3D
+	if multiMesh != null and multiMesh.visible and multiMesh.multimesh != null:
+		var mesh := multiMesh.multimesh.mesh
+		if mesh != null:
+			estimate += maxi(mesh.get_surface_count(), 1)
+	for child: Node in node.get_children():
+		estimate += _estimateDrawCalls(child)
+	return estimate
 
 
 func _cmdlineArguments() -> PackedStringArray:
@@ -779,6 +886,19 @@ func _applyCommandLineOverrides() -> void:
 	var scale := _floatArgument("--scale=", -1.0)
 	if scale > 0.0:
 		_scaleSetting.set_value_no_signal(scale)
+
+	var targetBody := _stringArgument("--target-body=")
+	if not targetBody.is_empty():
+		if not _selectOptionByMetadata(
+				_targetBodyOption, targetBody, _onTargetBodySelected):
+			push_warning("Unknown --target-body=%s; keeping standard." % targetBody)
+	var sourceDistance := _floatArgument("--source-distance=", -1.0)
+	if sourceDistance > 0.0:
+		_sourceDistanceSetting.set_value_no_signal(sourceDistance)
+	var cameraYaw := _floatArgument("--camera-yaw=", INF)
+	if cameraYaw != INF:
+		_cameraYawSetting.set_value_no_signal(cameraYaw)
+	_applyTargetContextControls()
 
 	var stretch := _stringArgument("--stretch=")
 	if not stretch.is_empty():
@@ -1123,7 +1243,7 @@ func _configureRenderControls() -> void:
 		_stretchOption.set_item_metadata(_stretchOption.item_count - 1, preset["id"])
 	_stretchOption.select(0)
 	_stretchOption.item_selected.connect(_onStretchSelected)
-	_retroToggle.set_pressed_no_signal(false)
+	_retroToggle.set_pressed_no_signal(true)
 	_crtToggle.set_pressed_no_signal(false)
 	_radiusSetting.set_value_no_signal(DEFAULT_FOOTPRINT_RADIUS)
 	_resolutionOption.item_selected.connect(_onResolutionSelected)
@@ -1207,8 +1327,12 @@ func _applyRenderControls() -> void:
 
 
 func _reparentWorldNodes() -> void:
-	for worldNode: Node3D in [_camera, $DirectionalLight, $Ground, _spawnAnchor]:
+	for worldNode: Node3D in [
+		_camera, $DirectionalLight, $Ground, _sceneCasterAnchor, _sceneTargetAnchor
+	]:
 		worldNode.reparent(retroRenderer.world_root, false)
+	_casterAnchor = _sceneCasterAnchor
+	_targetAnchor = _sceneTargetAnchor
 
 
 func _configureBattleWorld() -> void:
@@ -1218,8 +1342,6 @@ func _configureBattleWorld() -> void:
 	retroRenderer.world_root.add_child(worldEnvironment)
 	_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	_camera.size = REPRESENTATIVE_CAMERA_SIZE
-	_camera.position = _spawnAnchor.position + CAMERA_OFFSET
-	_camera.look_at(_spawnAnchor.position, Vector3.UP)
 	_camera.current = true
 
 
@@ -1257,32 +1379,33 @@ func _addTerrainColumn(
 		column.add_child(block)
 
 
-func _buildDummyUnits() -> void:
-	_addDummyUnit(
-		"FlatUnit", Vector3(-2.0, _surfaceY(0), 0.0),
-		Color(0.18, 0.42, 0.95), Color(0.62, 0.9, 0.95), 0
-	)
-	_addDummyUnit(
-		"UnevenUnit", Vector3(2.0, _surfaceY(2), 0.0),
-		Color(0.9, 0.2, 0.16), Color(0.82, 0.45, 0.2), 1
-	)
+func _buildContextAnchors() -> void:
+	assert(_casterAnchor != null and _targetAnchor != null, "VFX anchors must be reparented first.")
+	_casterAnchor.name = "CasterAnchor"
+	_targetAnchor.name = "TargetAnchor"
+	_addAnchorMarker(_casterAnchor, "CasterMarker", Color(0.18, 0.72, 1.0, 0.85))
+	_addAnchorMarker(_targetAnchor, "TargetMarker", Color(1.0, 0.55, 0.3, 0.85))
+
+	var casterBase := BattleMeshFactoryScript.createModelBase(Color(0.18, 0.42, 0.95), 0)
+	_casterAnchor.add_child(casterBase)
+	var casterBody := BattleMeshFactoryScript.createMesh("shape_capsule", Color(0.62, 0.9, 0.95))
+	casterBody.name = "CasterBody"
+	casterBody.position.y = BattleMeshFactoryScript.BASE_TOTAL_HEIGHT + 0.4
+	_casterAnchor.add_child(casterBody)
+
+	var targetBase := BattleMeshFactoryScript.createModelBase(Color(0.9, 0.2, 0.16), 1)
+	_targetAnchor.add_child(targetBase)
+	_targetBodyVisual = BattleMeshFactoryScript.createMesh("shape_cube", Color(0.82, 0.45, 0.2))
+	_targetBodyVisual.name = "TargetBodyBounds"
+	_targetAnchor.add_child(_targetBodyVisual)
 
 
-func _addDummyUnit(
-		unitName: String,
-		position: Vector3,
-		teamColor: Color,
-		bodyColor: Color,
-		ascensionTier: int) -> void:
-	var unit := Node3D.new()
-	unit.name = unitName
-	unit.position = position
-	unit.add_child(BattleMeshFactoryScript.createModelBase(teamColor, ascensionTier))
-	var body := BattleMeshFactoryScript.createMesh("shape_capsule", bodyColor)
-	body.name = "Body"
-	body.position.y = BattleMeshFactoryScript.BASE_TOTAL_HEIGHT + 0.4
-	unit.add_child(body)
-	retroRenderer.world_root.add_child(unit)
+func _addAnchorMarker(anchor: Node3D, markerName: String, color: Color) -> void:
+	var marker := BattleMeshFactoryScript.createMesh("cursor", color)
+	marker.name = markerName
+	marker.position.y = 0.02
+	marker.scale = Vector3(0.18, 0.18, 0.18)
+	anchor.add_child(marker)
 
 
 func _buildTargetGuides() -> void:
@@ -1292,7 +1415,7 @@ func _buildTargetGuides() -> void:
 	targetMarker.name = "TargetCentreMarker"
 	targetMarker.position.y = 0.02
 	targetMarker.scale = Vector3(0.22, 0.22, 0.22)
-	retroRenderer.world_root.add_child(targetMarker)
+	_targetAnchor.add_child(targetMarker)
 	_footprintRing = MeshInstance3D.new()
 	_footprintRing.name = "FootprintGuide"
 	_footprintRing.position.y = 0.035
@@ -1302,8 +1425,40 @@ func _buildTargetGuides() -> void:
 	_footprintRing.material_override = BattleMeshFactoryScript.createMaterial(
 		Color(0.42, 0.82, 1.0, 0.16), true, 0.6
 	)
-	retroRenderer.world_root.add_child(_footprintRing)
+	_targetAnchor.add_child(_footprintRing)
 	_updateFootprintRing()
+
+
+func _applyTargetContextControls() -> void:
+	if _casterAnchor == null or _targetAnchor == null or _targetBodyVisual == null:
+		return
+	var preset: Dictionary = _TARGET_BODY_PRESETS[_targetBodyOption.selected]
+	_targetBodyBounds = preset["bounds"]
+	var targetSurfaceY := _surfaceY(0)
+	_targetAnchor.position = Vector3(0.0, targetSurfaceY, 0.0)
+	_casterAnchor.position = _targetAnchor.position + Vector3(
+		-float(_sourceDistanceSetting.value), 0.0, 0.0
+	)
+	_targetBodyVisual.position = _targetBodyBounds.get_center()
+	var bodyMesh := _targetBodyVisual.mesh as BoxMesh
+	if bodyMesh != null:
+		bodyMesh.size = _targetBodyBounds.size
+	_updateCameraFraming()
+	_updateStatus()
+
+
+func _updateCameraFraming() -> void:
+	var focus := (_casterAnchor.position + _targetAnchor.position) * 0.5
+	focus.y += _targetBodyBounds.get_center().y * 0.5
+	var yawRadians := deg_to_rad(float(_cameraYawSetting.value))
+	var offset := Vector3(
+		CAMERA_OFFSET.x * cos(yawRadians) + CAMERA_OFFSET.z * sin(yawRadians),
+		CAMERA_OFFSET.y,
+		-CAMERA_OFFSET.x * sin(yawRadians) + CAMERA_OFFSET.z * cos(yawRadians)
+	)
+	_camera.size = maxf(REPRESENTATIVE_CAMERA_SIZE, float(_sourceDistanceSetting.value) + 5.0)
+	_camera.position = focus + offset
+	_camera.look_at(focus, Vector3.UP)
 
 
 ## A flat translucent polygon covering exactly the tiles the spell affects.

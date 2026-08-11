@@ -559,6 +559,18 @@ but particle layers still do not handle `cross` or `line`.
 
 ## 5. The debug harness
 
+Target-bound effects use explicit caster and target anchors in this scene. The
+harness creates their `VfxCastContext` through the same factory battle playback
+uses, so previewed source/impact positions, stable target identity, and
+body-only bounds cannot drift into a harness-only convention. The target body
+control offers `standard`, `wide`, and `tall` bounds; source separation and
+camera yaw are both inspectable through the HUD and controllable with
+`--source-distance=<units>` and `--camera-yaw=<degrees>`. Use
+`--target-body=<standard|wide|tall>` in scripted captures. The retro viewport
+is enabled by default, and the status readout includes the selected bounds,
+separation, yaw, live node/particle totals, and a mesh/particle draw-call
+estimate.
+
 `scenes/debug/VFXDebugScene.tscn` renders through the real retro pipeline and is
 the acceptance surface for VFX work. Interactive keys are listed in
 `VFXDebugController.gd`'s header.

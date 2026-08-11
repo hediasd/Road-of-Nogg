@@ -38,7 +38,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.26, 0)
 mesh = SubResource("2_plane")
 surface_material_override/0 = SubResource("3_ground_mat")
 
-[node name="SpawnAnchor" type="Node3D" parent="."]
+[node name="CasterAnchor" type="Node3D" parent="."]
+
+[node name="TargetAnchor" type="Node3D" parent="."]
 
 [node name="HUD" type="CanvasLayer" parent="."]
 layer = 20
@@ -211,6 +213,7 @@ text = "Retro viewport"
 
 [node name="RetroToggle" type="CheckButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
+button_pressed = true
 text = "Enabled"
 
 [node name="CRTLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
@@ -230,6 +233,37 @@ layout_mode = 2
 min_value = 1.0
 max_value = 8.0
 value = 4.0
+
+[node name="TargetBodyLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
+layout_mode = 2
+text = "Target body"
+
+[node name="TargetBodyOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="SourceDistanceLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
+layout_mode = 2
+text = "Source distance"
+
+[node name="SourceDistanceSetting" type="SpinBox" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
+layout_mode = 2
+min_value = 1.0
+max_value = 10.0
+step = 0.25
+value = 4.0
+
+[node name="CameraYawLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
+layout_mode = 2
+text = "Camera yaw"
+
+[node name="CameraYawSetting" type="SpinBox" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
+layout_mode = 2
+min_value = -180.0
+max_value = 180.0
+step = 15.0
+suffix = " degrees"
 
 [node name="TextSeparator" type="HSeparator" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2

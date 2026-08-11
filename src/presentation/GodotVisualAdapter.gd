@@ -1122,14 +1122,14 @@ func _start_cast_area_animation(action: VisualAction) -> bool:
 	)
 	if effect == null:
 		return false
-	var castContext := VfxCastContextScript.new()
-	castContext.source_monster_id = action.monster_id
-	castContext.source_world_position = action.vfx_source_world_position
-	castContext.impact_world_position = action.vfx_impact_world_position
-	castContext.target_ids.assign(action.vfx_target_ids)
-	castContext.target_world_positions.assign(action.vfx_target_world_positions)
-	castContext.target_body_bounds.assign(action.vfx_target_body_bounds)
-	castContext.assert_valid()
+	var castContext := VfxCastContextScript.create(
+		action.monster_id,
+		action.vfx_source_world_position,
+		action.vfx_impact_world_position,
+		action.vfx_target_ids,
+		action.vfx_target_world_positions,
+		action.vfx_target_body_bounds
+	)
 	effect.configure_cast_context(castContext)
 	if effect.has_method("setFootprint"):
 		effect.call(

@@ -19,6 +19,24 @@ var target_world_positions: Array[Vector3] = []
 var target_body_bounds: Array[AABB] = []
 
 
+static func create(
+		sourceMonsterID: int,
+		sourceWorldPosition: Vector3,
+		impactWorldPosition: Vector3,
+		targetIDs: Array[int],
+		targetWorldPositions: Array[Vector3],
+		targetBodyBounds: Array[AABB]) -> VfxCastContext:
+	var context := VfxCastContext.new()
+	context.source_monster_id = sourceMonsterID
+	context.source_world_position = sourceWorldPosition
+	context.impact_world_position = impactWorldPosition
+	context.target_ids.assign(targetIDs)
+	context.target_world_positions.assign(targetWorldPositions)
+	context.target_body_bounds.assign(targetBodyBounds)
+	context.assert_valid()
+	return context
+
+
 func assert_valid() -> void:
 	assert(
 		target_ids.size() == target_world_positions.size(),

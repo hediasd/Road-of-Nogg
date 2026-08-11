@@ -558,3 +558,23 @@ Implemented 2026-08-11; pending end-of-plan validation.
 - Focused diff inspection and `git diff --check` passed. Godot 4.4 completed a
   headless editor import and a five-frame project load with the compatibility
   renderer and dummy audio. No battle was launched, as required for this item.
+
+### Target-context VFX harness
+
+Implemented 2026-08-11; pending end-of-plan validation.
+
+- The debug scene now has explicit caster and target anchors. It creates each
+  playback context through the same `VfxCastContext.create()` factory used by
+  `GodotVisualAdapter`.
+- Standard, short/wide, and tall/narrow target-bound presets, source distance,
+  and camera yaw are available through both the HUD and CLI. The status panel
+  reports those values with profile, seed, normalized time, node/particle
+  totals, and a draw-call estimate.
+- Target-bound captures retain the existing phase-sheet, golden, layer, and
+  retro-render paths. The retro viewport now starts enabled.
+- Captured the standard, wide, and tall guide states plus side and rear-quarter
+  views through the retro renderer. The final tall side-view capture also
+  verified the shared factory after the focused cleanup.
+- `git diff --check` and the Godot editor import passed. Relevant backlogs were
+  reviewed; this harness work leaves no durable unresolved item to add. No
+  battle was launched, as required for this item.
