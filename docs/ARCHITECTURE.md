@@ -277,6 +277,10 @@ port would never be notified. `GodotVisualAdapter` copies position-bearing event
 spells, heals, defeat, and victory play in event order without blocking the
 simulation. The queue clones each snapshot at enqueue time, preventing later
 producer mutations from changing delayed playback.
+`spell_cast_started` carries the radius and area shape resolved from the live
+`Spell` instance. This is intentionally event data, not a presentation catalog
+lookup: transient radius modifiers affect targeting and VFX together even
+though immutable reference data stays unchanged.
 Playback never re-reads a later monster position to start a queued action.
 Movement begins at the model's current rendered transform and animates every
 horizontal and vertical step through a bounded jump arc. Each tween has a

@@ -856,18 +856,21 @@ func _on_spell_cast_started(
 		centerPos: Vector2i,
 		spellName: String,
 		element: String,
-		targetsHit: int) -> void:
+		targetsHit: int,
+		resolvedRadius: int,
+		areaShape: String) -> void:
 	assert(state.withinBounds(centerPos), "Spell cast centre is outside the board.")
 	var reference := SpellReferencesScript.getReference(spellName)
 	assert(not reference.is_empty(), "Spell cast lacks a catalog reference: %s" % spellName)
+	assert(resolvedRadius >= 0, "Resolved spell radius cannot be negative.")
 	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.CAST_AREA)
 	action.monster_id = casterID
 	action.target_id = -1
 	action.coord = centerPos
 	action.element = element
 	action.vfx_profile = str(reference["VFX_PROFILE"])
-	action.vfx_radius = int(reference["RADIUS"])
-	action.vfx_area_shape = str(reference["AREA_SHAPE"])
+	action.vfx_radius = resolvedRadius
+	action.vfx_area_shape = areaShape
 	action.vfx_seed = (
 		int(hash(spellName))
 		^ (casterID * 73856093)
