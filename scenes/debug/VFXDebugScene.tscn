@@ -249,7 +249,7 @@ text = "Source distance"
 
 [node name="SourceDistanceSetting" type="SpinBox" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
-min_value = 1.0
+min_value = 4.0
 max_value = 10.0
 step = 0.25
 value = 4.0

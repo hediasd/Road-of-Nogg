@@ -623,11 +623,14 @@ is enabled by default, and the status readout includes the selected bounds,
 separation, yaw, live node/particle totals, and a mesh/particle draw-call
 estimate.
 
-Each anchor owns a terrain support tile centred at the same local origin as its
-model base. The caster support moves with source separation—including
-fractional distances—and the target support remains under the impact anchor.
-Fixed height/terrain samples deliberately omit that centre travel row; they are
-context around the specimen, never implied supports for either proxy.
+The proxies stand on opposing 3×3 terrain islands with the middle corridor
+empty, matching the harness's original composition. The caster is centred on
+the flat green island and the target on the height-2 centre of the uneven blue
+island. Both use the original capsule proxy silhouette; the target capsule
+scales to the selected body-bound preset. Source separation moves the complete
+islands symmetrically rather than sliding models across fixed terrain. Its
+minimum is 4 world units, which preserves at least the original one-cell empty
+corridor.
 
 `scenes/debug/VFXDebugScene.tscn` renders through the real retro pipeline and is
 the acceptance surface for VFX work. Interactive keys are listed in

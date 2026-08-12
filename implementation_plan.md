@@ -695,3 +695,24 @@ Implemented 2026-08-11; pending end-of-plan validation.
 - Godot 4.4's editor import and `git diff --check` passed. No battle was
   launched; this is a debug-harness correctness fix ahead of consolidated
   validation.
+
+### Opposing debug-island layout restoration
+
+Implemented 2026-08-11; pending end-of-plan validation.
+
+- The single support-tile correction was visually rejected by the user because
+  it destroyed the established two-island composition. It was replaced rather
+  than carried into final validation.
+- The harness again builds the exact original terrain arrangement: a flat 3×3
+  green island centred at x=-2, an uneven 3×3 blue island centred at x=+2 with
+  its centre at terrain height 2, and the x=0 corridor empty. The caster and
+  target capsule proxies occupy those respective centres; the target capsule
+  scales to preserve the selectable body-bound presets.
+- Source separation now moves both complete islands symmetrically. Its minimum
+  is 4 world units so the two 3×3 footprints cannot close the middle corridor.
+- Godot 4.4's editor import passed. A retro Magenta Reduction capture at the
+  original distance 4 reproduced the opposing-island composition with both
+  proxies on their centre cells and no terrain in the middle corridor; its
+  capture marker reported `error=0` and stderr was empty.
+- `git diff --check` passed. No battle was launched before consolidated
+  validation.

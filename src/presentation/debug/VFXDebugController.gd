@@ -18,7 +18,7 @@
 ##   --seed=<n>              pin the seed instead of cycling it
 ##   --scale=<f>             playback scale
 ##   --target-body=<standard|wide|tall>  target-body bounds preset
-##   --source-distance=<f>    caster-to-target separation in world units
+##   --source-distance=<4-10> caster-to-target separation in world units
 ##   --camera-yaw=<degrees>   orbit the preview camera around both anchors
 ##   --stretch=<native|integer|integer640|legacy_fractional>  how the whole
 ##                           canvas scales. `native` matches the shipping
@@ -235,6 +235,8 @@ var _goldenFailures: int = 0
 var _textSpecimen: CanvasLayer
 var _casterAnchor: Node3D
 var _targetAnchor: Node3D
+var _casterTerrainIsland: Node3D
+var _targetTerrainIsland: Node3D
 var _targetBodyVisual: MeshInstance3D
 var _targetBodyBounds: AABB = VfxCastContext.DEFAULT_TARGET_BODY_BOUNDS
 
@@ -1352,22 +1354,20 @@ func _configureBattleWorld() -> void:
 
 
 func _buildTerrainSamples() -> void:
-	var previewTerrain := Node3D.new()
-	previewTerrain.name = "TerrainSamples"
-	retroRenderer.world_root.add_child(previewTerrain)
+	_casterTerrainIsland = Node3D.new()
+	_casterTerrainIsland.name = "CasterTerrainIsland"
+	retroRenderer.world_root.add_child(_casterTerrainIsland)
+	_targetTerrainIsland = Node3D.new()
+	_targetTerrainIsland.name = "TargetTerrainIsland"
+	retroRenderer.world_root.add_child(_targetTerrainIsland)
 	for zIndex in range(3):
-		# The centre row belongs to the movable source/target supports. Keeping
-		# fixed samples here made the actors appear displaced and would overlap a
-		# support whenever source distance placed it on one of these coordinates.
-		if zIndex == 1:
-			continue
 		for xIndex in range(3):
 			_addTerrainColumn(
-				previewTerrain, Vector2i(xIndex - 3, zIndex - 1), 0,
+				_casterTerrainIsland, Vector2i(xIndex - 1, zIndex - 1), 0,
 				_CASTER_TERRAIN_COLOR
 			)
 			_addTerrainColumn(
-				previewTerrain, Vector2i(xIndex + 1, zIndex - 1),
+				_targetTerrainIsland, Vector2i(xIndex - 1, zIndex - 1),
 				int(_UNEVEN_HEIGHTS[zIndex][xIndex]), _TARGET_TERRAIN_COLOR
 			)
 
@@ -1394,8 +1394,6 @@ func _buildContextAnchors() -> void:
 	assert(_casterAnchor != null and _targetAnchor != null, "VFX anchors must be reparented first.")
 	_casterAnchor.name = "CasterAnchor"
 	_targetAnchor.name = "TargetAnchor"
-	_addAnchorTerrainSupport(_casterAnchor, "CasterTerrainSupport", _CASTER_TERRAIN_COLOR)
-	_addAnchorTerrainSupport(_targetAnchor, "TargetTerrainSupport", _TARGET_TERRAIN_COLOR)
 	_addAnchorMarker(_casterAnchor, "CasterMarker", Color(0.18, 0.72, 1.0, 0.85))
 	_addAnchorMarker(_targetAnchor, "TargetMarker", Color(1.0, 0.55, 0.3, 0.85))
 
@@ -1408,19 +1406,10 @@ func _buildContextAnchors() -> void:
 
 	var targetBase := BattleMeshFactoryScript.createModelBase(Color(0.9, 0.2, 0.16), 1)
 	_targetAnchor.add_child(targetBase)
-	_targetBodyVisual = BattleMeshFactoryScript.createMesh("shape_cube", Color(0.82, 0.45, 0.2))
+	_targetBodyVisual = BattleMeshFactoryScript.createMesh(
+		"shape_capsule", Color(0.82, 0.45, 0.2))
 	_targetBodyVisual.name = "TargetBodyBounds"
 	_targetAnchor.add_child(_targetBodyVisual)
-
-
-func _addAnchorTerrainSupport(anchor: Node3D, supportName: String, color: Color) -> void:
-	var support := BattleMeshFactoryScript.createMesh("terrain_block", color)
-	support.name = supportName
-	# Anchor local y=0 is the terrain surface. A terrain block is centred on its
-	# own volume, so half a cell down places its top exactly under the model base.
-	support.position.y = -BattleMeshFactoryScript.TERRAIN_CELL_SIZE.y * 0.5
-	anchor.add_child(support)
-
 
 func _addAnchorMarker(anchor: Node3D, markerName: String, color: Color) -> void:
 	var marker := BattleMeshFactoryScript.createMesh("cursor", color)
@@ -1452,19 +1441,26 @@ func _buildTargetGuides() -> void:
 
 
 func _applyTargetContextControls() -> void:
-	if _casterAnchor == null or _targetAnchor == null or _targetBodyVisual == null:
+	if (
+		_casterAnchor == null
+		or _targetAnchor == null
+		or _casterTerrainIsland == null
+		or _targetTerrainIsland == null
+		or _targetBodyVisual == null
+	):
 		return
 	var preset: Dictionary = _TARGET_BODY_PRESETS[_targetBodyOption.selected]
 	_targetBodyBounds = preset["bounds"]
-	var targetSurfaceY := _surfaceY(0)
-	_targetAnchor.position = Vector3(0.0, targetSurfaceY, 0.0)
-	_casterAnchor.position = _targetAnchor.position + Vector3(
-		-float(_sourceDistanceSetting.value), 0.0, 0.0
-	)
+	var halfSeparation := float(_sourceDistanceSetting.value) * 0.5
+	_casterTerrainIsland.position = Vector3(-halfSeparation, 0.0, 0.0)
+	_targetTerrainIsland.position = Vector3(halfSeparation, 0.0, 0.0)
+	_casterAnchor.position = Vector3(-halfSeparation, _surfaceY(0), 0.0)
+	_targetAnchor.position = Vector3(halfSeparation, _surfaceY(2), 0.0)
 	_targetBodyVisual.position = _targetBodyBounds.get_center()
-	var bodyMesh := _targetBodyVisual.mesh as BoxMesh
-	if bodyMesh != null:
-		bodyMesh.size = _targetBodyBounds.size
+	# BattleMeshFactory's authored capsule is 0.6 x 0.8 x 0.6. Scaling that
+	# visual to the selected AABB keeps the original capsule proxy while making
+	# standard, wide, and tall context presets truthful.
+	_targetBodyVisual.scale = _targetBodyBounds.size / Vector3(0.6, 0.8, 0.6)
 	_updateCameraFraming()
 	_updateStatus()
 
