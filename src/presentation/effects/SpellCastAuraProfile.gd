@@ -16,48 +16,78 @@ class_name SpellCastAuraProfile
 ## DERIVED from the catalog's fallback entry, which carries the empty id.
 const PROFILE_ID := ""
 
-## AUTHORED population. Fewer than the floor and the crown reads as a handful
-## of stray shards; more than the ceiling and the negative space between blades
-## — the thing that makes them countable as rays — closes up.
-const BLADE_COUNT := 17
-const MIN_BLADE_COUNT := 12
-const MAX_BLADE_COUNT := 18
+## AUTHORED population bounds. Fewer than the floor and the crown reads as a
+## handful of stray shards; more than the ceiling and the rays stop being
+## legible as separate rays inside the cup. All of them live in one MultiMesh,
+## so population costs instances, not draw calls.
+const MIN_BLADE_COUNT := 20
+const MAX_BLADE_COUNT := 32
 
-## AUTHORED size hierarchy. Four hero blades carry the silhouette and reach
-## well past the caster's head; the rest support them. Without the split the
-## crown reads as one uniform bristle.
-const HERO_BLADE_COUNT := 4
-
-## AUTHORED seat ring, in world units. A tile is 1.0 u, so the ring stays
-## inside the caster's own cell and the blades lean out of it rather than
-## starting wide.
-const SEAT_RADIUS_MIN_U := 0.26
-const SEAT_RADIUS_MAX_U := 0.58
 ## AUTHORED: clear of z-fighting with the ground plane at the shipping camera
 ## distance, without floating visibly above it.
 const SEAT_HEIGHT_U := 0.02
 
-## AUTHORED blade dimensions. Heights are read against a roughly 1.6 u tall
-## monster proxy: support blades reach the shoulder, hero blades overshoot the
-## head by half again.
-const SUPPORT_HEIGHT_MIN_U := 1.15
-const SUPPORT_HEIGHT_MAX_U := 1.95
-const HERO_HEIGHT_MIN_U := 2.35
-const HERO_HEIGHT_MAX_U := 3.05
+## AUTHORED ring composition. The reference burst is not a bouquet of separate
+## spikes: it is a flared cup of light, wide as a couple of tiles and several
+## times the caster's height, whose individual rays are legible *inside* a
+## filled silhouette. Two rings produce that. The inner ring is short, wide and
+## barely leaned — it is the wall of the cup — and the outer ring is tall,
+## narrow and strongly leaned, giving the rim its spikes and its flare.
+##
+## Every dimension is in world units, where a tile is 1.0 u and the standard
+## body proxy is about 1.6 u tall. Widths are fixed rather than derived from
+## anything, because a sharp line is defined in pixels.
+const RING_INNER := {
+	"count": 12,
+	"hero_count": 0,
+	"seat_radius_min": 0.16,
+	"seat_radius_max": 0.46,
+	"height_min": 1.30,
+	"height_max": 2.30,
+	"hero_height_min": 0.0,
+	"hero_height_max": 0.0,
+	"width_min": 0.34,
+	"width_max": 0.62,
+	"hero_width_min": 0.0,
+	"hero_width_max": 0.0,
+	"lean_min": 0.18,
+	"lean_max": 0.55,
+	# Held below the outer ring: twelve wide blades stacking additively at the
+	# centre is exactly how a cup of light becomes a white blob.
+	"alpha_multiplier": 0.72,
+}
+const RING_OUTER := {
+	"count": 16,
+	# Five hero blades carry the silhouette and reach well past the caster.
+	# Without the split the rim reads as one uniform bristle.
+	"hero_count": 5,
+	"seat_radius_min": 0.52,
+	"seat_radius_max": 1.00,
+	"height_min": 2.40,
+	"height_max": 3.70,
+	"hero_height_min": 4.20,
+	"hero_height_max": 5.60,
+	"width_min": 0.28,
+	"width_max": 0.50,
+	"hero_width_min": 0.56,
+	"hero_width_max": 0.82,
+	"lean_min": 0.60,
+	"lean_max": 1.85,
+	"alpha_multiplier": 1.0,
+}
+## Inner first, so the wall is already standing when the rim spikes arrive.
+const RINGS := [RING_INNER, RING_OUTER]
 
-## AUTHORED width, fixed in world units and never as a fraction of anything.
-## A sharp line is defined in pixels; scaling thickness with a footprint would
-## leave exactly one configuration crisp.
-const SUPPORT_WIDTH_MIN_U := 0.150
-const SUPPORT_WIDTH_MAX_U := 0.260
-const HERO_WIDTH_MIN_U := 0.300
-const HERO_WIDTH_MAX_U := 0.420
+## DERIVED from the ring counts above; asserted against them at build time.
+const BLADE_COUNT := 28
 
-## AUTHORED outward lean, as the apex's horizontal displacement away from the
-## aura centre at full height. Taller blades lean further, which is what turns
-## the ring into a flare instead of a picket fence.
-const LEAN_MIN_U := 0.05
-const LEAN_MAX_U := 0.34
+## DERIVED extremes across both rings, used to normalize the eruption delay and
+## to size the culling box.
+const CROWN_SEAT_RADIUS_MIN_U := 0.16
+const CROWN_SEAT_RADIUS_MAX_U := 1.00
+const CROWN_REACH_U := 3.10
+const CROWN_HEIGHT_U := 5.60
+
 ## AUTHORED: lean applies on a mildly super-linear height curve. Squaring it
 ## bent the blades into whiskers; this keeps them straight rays that splay
 ## outward as a cone.
@@ -80,9 +110,12 @@ const AZIMUTH_JITTER_FRACTION := 0.22
 ## AUTHORED cross-width alpha profile. Quantizing the ramp into whole steps is
 ## what keeps the edge hard: a smooth falloff under additive blending is a
 ## glow, and a glow is the opposite of a ray.
+## Peak alpha came down when the population went from 17 blades to 28: the
+## same per-blade value that read as translucent in a sparse bouquet stacks
+## into an opaque white cup once the inner ring is filling the middle.
 const EDGE_ALPHA_STEPS := 3.0
 const CORE_WIDTH_FRACTION := 0.34
-const PEAK_ALPHA := 0.68
+const PEAK_ALPHA := 0.46
 const HERO_ALPHA_MULTIPLIER := 1.15
 
 ## AUTHORED vertical falloff. The tip fades just short of the apex so the point

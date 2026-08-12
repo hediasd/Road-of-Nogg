@@ -75,6 +75,25 @@ of this cycle, so the aura remains caster-scaled and radius-agnostic exactly as
 today and the shape change is judged on its own. That backlog entry stays open
 and unmodified. No item here may add radius response.
 
+### Scale, density, and ground treatment — resolved 2026-08-12
+
+After comparing the first complete blade implementation against the supplied
+reference frame, the user set the remaining visual direction:
+
+- the crown is **big and dense** — a flared cup of light roughly two tiles
+  across and several times the caster's height, not a bouquet of separate
+  spikes standing under head height;
+- individual rays stay legible *inside* that filled silhouette rather than
+  being replaced by it;
+- the core stays **bright but short of full white clipping**. The reference's
+  blown-out core was explicitly not adopted, since this branch has been
+  reducing exactly that elsewhere;
+- the ground layer becomes **fissures radiating outward from the seat**, not a
+  compact rupture and not the inherited expanding ring.
+
+These are confirmed visual decisions, not open questions. The reference's
+lightning bolt remains out of scope.
+
 ## 3. Established facts and design decisions
 
 ### The blades are geometry, not a stretched sprite
@@ -123,7 +142,9 @@ once the rewrite lands.
 
 ### Budgets, asserted at build time and owned by the profile
 
-- 12–18 ray blades in a single MultiMesh;
+- 20–32 ray blades in a single MultiMesh, across an inner wall ring and an
+  outer rim ring. The original 12–18 predates the confirmed cup direction; all
+  of them share one draw call, so population costs instances, not draws;
 - ≤ 10 supporting instances (ground rupture, base flare, motes);
 - ≤ 10 effect-owned nodes;
 - ≤ 8 estimated peak draw calls;
@@ -247,11 +268,54 @@ teardown.
 **Resolution target:** implemented; pending end-of-plan validation. Debug
 capture and cheap integrity checks only. Do not launch a battle.
 
+### AURA-2B — Scale the crown into a flared cup
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-2 and the resolved scale direction.
+
+**Files:** `src/presentation/effects/SpellCastAuraProfile.gd`,
+`src/presentation/effects/SpellCastAura.gd`, `docs/VFX_DESIGN.md` only if a
+durable rule changes, and the relevant backlog files.
+
+**End state:**
+
+- Blade population is authored as two named rings — a short, wide, lightly
+  leaned inner wall and a tall, narrow, strongly leaned outer rim — whose
+  proportions live in the profile as data, with one placement routine serving
+  both.
+- The crown reaches roughly two tiles across and several times the standard
+  body's height, and the outer rim's tips splay far wider than their seats, so
+  the silhouette is a cup rather than a bundle of parallel spears.
+- Per-blade alpha comes down as population rises: the same value that read as
+  translucent in a sparse bouquet must not stack into an opaque white mass.
+  Single blades stay see-through and the core stays short of clipping.
+- The eruption still travels seat-outward across both rings, and blade
+  placement stays a pure function of the seed.
+- Build assertions cover the new bounds, and the ring counts are asserted
+  against the authored total.
+
+**Risk:** raising both size and population multiplies additive overlap, and the
+easy response — lowering emission — would flatten the palette instead of the
+blowout. Take it out of per-blade alpha, and judge the middle of the cup rather
+than its rim, since that is where the stacking happens.
+
+**Proof checkpoint:** front and side captures of the completed crown at the new
+scale, plus one at 320x240, showing a flared cup with countable rays and no
+white blob at the centre.
+
+**Adds to final validation coverage:** crown scale against a real monster, cup
+silhouette from several yaws, overlap brightness at the new population, and
+instance budget.
+
+**Resolution target:** implemented; pending end-of-plan validation. Debug
+capture and cheap integrity checks only. Do not launch a battle.
+
 ### AURA-3 — Rebuild the ground rupture and the subordinate motes
 
 **Model:** Sonnet 5 / GPT Terra
 
-**Depends on:** AURA-2.
+**Depends on:** AURA-2B.
 
 **Files:** `src/presentation/effects/SpellCastAura.gd`,
 `src/presentation/effects/SpellCastAuraProfile.gd`, its shader,
@@ -263,9 +327,12 @@ backlog files.
 **End state:**
 
 - The expanding noise ring and the seven rising wisp billboards are gone. The
-  ground layer is a compact rupture at the blade seats — bright at the fracture
-  lines, dark between them — that appears with the charge and clears with the
-  decay.
+  ground layer is a set of **fissures radiating outward from the seat**,
+  reaching several tiles, bright along the fracture lines and dark between
+  them. They open with the charge, race outward as the blades erupt, and cool
+  as the crown fades. A compact rupture was explicitly rejected in favour of
+  this: the cracks are much of why the reference reads as something escaping
+  from below.
 - A small number of rising motes punctuate the flash without becoming a particle
   field; combined supporting instances stay under the §3 cap.
 - The catalog's generic entry reads its hold fraction and max-live from
@@ -292,7 +359,7 @@ capture and cheap integrity checks only. Do not launch a battle.
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-1, AURA-2, AURA-3.
+**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-3.
 
 **Files:** fixes to task-owned files if validation finds defects,
 `implementation_plan.md` resolution notes during validation, owning docs and
@@ -337,7 +404,7 @@ live multi-spell battle pass closes that.
 **Completion rule:** record the actual visual and manual evidence, mark every
 covered implementation item done, reconcile both backlogs, and commit the final
 validation result. Then, in the same session, grep the repository for `AURA-1`
-through `AURA-4`, rewrite any accidental persistent reference as a durable
+through `AURA-4`, including `AURA-2B`, rewrite any accidental persistent reference as a durable
 description, and clear `implementation_plan.md` completely in a follow-up
 lifecycle-cleanup commit.
 
@@ -359,6 +426,38 @@ lifecycle-cleanup commit.
   critical-backlog work with its own session.
 
 ## 7. Resolution notes
+
+### Flared-cup scale pass
+
+Implemented 2026-08-12; pending end-of-plan validation.
+
+- The user compared the completed blade implementation against the reference
+  and judged it far too small and too sparse: the right primitive at the wrong
+  scale. The population is now two authored rings — a twelve-blade inner wall
+  and a sixteen-blade rim with five heroes — living in the profile as data,
+  placed by one routine that runs over both.
+- The crown now reaches about 5.6 u at its tallest against a 1.6 u body proxy,
+  and roughly two tiles across at the rim. The outer ring's lean rose from a
+  maximum of 0.34 u to 1.85 u, which is what turns a bundle of parallel spears
+  into a cup: the tips splay far wider than the seats.
+- Per-blade peak alpha came down from 0.68 to 0.46 and the inner ring carries
+  an additional 0.72 multiplier. Twenty-eight overlapping blades at the old
+  value stacked into an opaque white mass at the centre; the reduction was
+  taken from alpha rather than emission so the palette stayed intact. The core
+  is bright but does not clip, per the user's confirmed direction.
+- The golden angle advances across the ring boundary rather than restarting, so
+  the wall and the rim interleave instead of forming spokes. Eruption delay is
+  normalized against the crown's full radial span, which keeps the whole inner
+  wall ahead of the whole rim.
+- Proof: front and side captures of the completed crown, plus a 320x240 retro
+  frame. The flare, the countable rays inside it, and the bright seat all
+  survive the harshest resolution, and the middle of the cup stays translucent
+  rather than filling in.
+- The blade-count bounds moved to 20–32 in both the profile and the plan's
+  budget section; ring counts are asserted against the authored total. Nodes
+  and draw calls are unchanged, since every blade shares one MultiMesh.
+- Godot 4.4's import/parse gate and `git diff --check` passed. No battle was
+  launched, as required for this item.
 
 ### Ground eruption choreography and disposal fix
 

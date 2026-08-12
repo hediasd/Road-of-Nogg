@@ -248,53 +248,63 @@ func _groundTimelineProgress(progress: float) -> float:
 
 
 ## Blade placement is sampled once per seed, never per frame, so the crown is
-## reproducible under scrub, replay, and overlap. Hero blades are spread around
-## the ring by index before jitter, so the size hierarchy survives any seed.
+## reproducible under scrub, replay, and overlap.
+##
+## Both rings run through the same loop; the profile's ring dictionaries are the
+## only place their proportions live. The golden angle advances across ring
+## boundaries rather than restarting, so the inner wall and the outer rim
+## interleave instead of stacking into spokes.
 func _rebuildBladeLayout(layoutSeed: int) -> void:
 	if _rayMultiMesh == null or _rayLayoutSeed == layoutSeed:
 		return
 	_rayLayoutSeed = layoutSeed
 	var rng := RandomNumberGenerator.new()
 	rng.seed = layoutSeed
-	var bladeCount := SpellCastAuraProfile.BLADE_COUNT
-	var heroIndices := {}
-	for hero: int in range(SpellCastAuraProfile.HERO_BLADE_COUNT):
-		var heroIndex := int(
-			round(float(hero) * float(bladeCount) / SpellCastAuraProfile.HERO_BLADE_COUNT)
-		) % bladeCount
-		heroIndices[heroIndex] = true
+	var index := 0
+	for ring: Dictionary in SpellCastAuraProfile.RINGS:
+		index = _layOutRing(ring, index, rng)
+	assert(
+		index == SpellCastAuraProfile.BLADE_COUNT,
+		"Spell-cast aura ring counts must sum to its authored blade count."
+	)
 
-	for index: int in range(bladeCount):
-		var isHero: bool = heroIndices.has(index)
+
+func _layOutRing(ring: Dictionary, firstIndex: int, rng: RandomNumberGenerator) -> int:
+	var count := int(ring["count"])
+	var heroCount := int(ring["hero_count"])
+	# Hero blades are spread around the ring by position before jitter, so the
+	# size hierarchy survives any seed instead of clumping on one side.
+	var heroOffsets := {}
+	for hero: int in range(heroCount):
+		heroOffsets[int(round(float(hero) * float(count) / heroCount)) % count] = true
+
+	for offset: int in range(count):
+		var index := firstIndex + offset
+		var isHero: bool = heroOffsets.has(offset)
 		var jitter := rng.randf_range(-1.0, 1.0) \
 			* SpellCastAuraProfile.GOLDEN_ANGLE_RADIANS \
 			* SpellCastAuraProfile.AZIMUTH_JITTER_FRACTION
 		var azimuth := float(index) * SpellCastAuraProfile.GOLDEN_ANGLE_RADIANS + jitter
 		var seatRadius := rng.randf_range(
-			SpellCastAuraProfile.SEAT_RADIUS_MIN_U,
-			SpellCastAuraProfile.SEAT_RADIUS_MAX_U
+			float(ring["seat_radius_min"]), float(ring["seat_radius_max"])
 		)
 		var height := rng.randf_range(
-			SpellCastAuraProfile.HERO_HEIGHT_MIN_U if isHero
-					else SpellCastAuraProfile.SUPPORT_HEIGHT_MIN_U,
-			SpellCastAuraProfile.HERO_HEIGHT_MAX_U if isHero
-					else SpellCastAuraProfile.SUPPORT_HEIGHT_MAX_U
+			float(ring["hero_height_min"] if isHero else ring["height_min"]),
+			float(ring["hero_height_max"] if isHero else ring["height_max"])
 		)
 		var width := rng.randf_range(
-			SpellCastAuraProfile.HERO_WIDTH_MIN_U if isHero
-					else SpellCastAuraProfile.SUPPORT_WIDTH_MIN_U,
-			SpellCastAuraProfile.HERO_WIDTH_MAX_U if isHero
-					else SpellCastAuraProfile.SUPPORT_WIDTH_MAX_U
+			float(ring["hero_width_min"] if isHero else ring["width_min"]),
+			float(ring["hero_width_max"] if isHero else ring["width_max"])
 		)
-		# Taller blades lean further, which turns the ring into a flare.
+		# Taller blades lean further, which turns a ring into a flare.
 		var heightNorm := inverse_lerp(
-			SpellCastAuraProfile.SUPPORT_HEIGHT_MIN_U,
-			SpellCastAuraProfile.HERO_HEIGHT_MAX_U,
+			float(ring["height_min"]),
+			float(ring["hero_height_max"] if heroCount > 0 else ring["height_max"]),
 			height
 		)
 		var lean := lerpf(
-			SpellCastAuraProfile.LEAN_MIN_U,
-			SpellCastAuraProfile.LEAN_MAX_U,
+			float(ring["lean_min"]),
+			float(ring["lean_max"]),
 			clampf(heightNorm, 0.0, 1.0)
 		) * rng.randf_range(0.7, 1.0)
 		var outward := Vector3(cos(azimuth), 0.0, sin(azimuth))
@@ -307,9 +317,11 @@ func _rebuildBladeLayout(layoutSeed: int) -> void:
 		transform.origin.y = SpellCastAuraProfile.SEAT_HEIGHT_U
 		# Spatial role, not a shuffle: blades seated nearest the centre break out
 		# first and the wave travels outward, so the eruption has a direction.
+		# Normalizing against the crown's full span rather than this ring's keeps
+		# the whole inner wall ahead of the whole outer rim.
 		var seatNorm := inverse_lerp(
-			SpellCastAuraProfile.SEAT_RADIUS_MIN_U,
-			SpellCastAuraProfile.SEAT_RADIUS_MAX_U,
+			SpellCastAuraProfile.CROWN_SEAT_RADIUS_MIN_U,
+			SpellCastAuraProfile.CROWN_SEAT_RADIUS_MAX_U,
 			seatRadius
 		)
 		var delay := clampf(
@@ -326,9 +338,12 @@ func _rebuildBladeLayout(layoutSeed: int) -> void:
 				SpellCastAuraProfile.BRIGHTNESS_MIN,
 				SpellCastAuraProfile.BRIGHTNESS_MAX
 			),
-			SpellCastAuraProfile.HERO_ALPHA_MULTIPLIER if isHero else 1.0,
+			float(ring["alpha_multiplier"]) * (
+				SpellCastAuraProfile.HERO_ALPHA_MULTIPLIER if isHero else 1.0
+			),
 			1.0 if isHero else 0.0
 		))
+	return firstIndex + count
 
 
 func _restartParticlesAt(elapsed: float) -> void:
@@ -473,10 +488,10 @@ static func _createRayBurst(color: Color) -> MultiMeshInstance3D:
 	# The vertex stage builds each blade in world space, so the mesh's own
 	# bounds describe nothing the renderer can cull against. This box covers the
 	# widest seat, the longest lean, and the tallest hero blade.
-	var reach := SpellCastAuraProfile.SEAT_RADIUS_MAX_U \
-		+ SpellCastAuraProfile.LEAN_MAX_U \
-		+ SpellCastAuraProfile.HERO_WIDTH_MAX_U
-	var top := SpellCastAuraProfile.HERO_HEIGHT_MAX_U + SpellCastAuraProfile.SEAT_HEIGHT_U
+	var reach := SpellCastAuraProfile.CROWN_REACH_U
+	var top := SpellCastAuraProfile.CROWN_HEIGHT_U \
+		* (1.0 + SpellCastAuraProfile.DECAY_STRETCH) \
+		+ SpellCastAuraProfile.SEAT_HEIGHT_U
 	instance.custom_aabb = AABB(
 		Vector3(-reach, -0.1, -reach),
 		Vector3(reach * 2.0, top + 0.1, reach * 2.0)
