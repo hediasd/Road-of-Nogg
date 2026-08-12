@@ -376,6 +376,24 @@ At the project's native render this yields **crisp**, not pixelated: there is no
 chunky grid to align to at 1400x900. True pixel-art lightning needs the effect
 seen through the retro viewport.
 
+**World up is the one exception.** Both cameras are orthographic
+(`BattlePresentationController._setup_camera_and_lighting`,
+`VFXDebugController._configureBattleWorld`) and both re-derive their transform
+with `look_at(focus, Vector3.UP)` every frame, so neither ever rolls. Under an
+orthographic projection with zero roll, world up maps to screen up exactly, and
+a world-vertical edge is a vertical raster line anywhere in frame, at any yaw or
+pitch. Geometry that stands on the world's up axis — the spell-cast aura's ray
+blades — is therefore sharp without any camera-plane construction, and it keeps
+the spatial grounding the camera-plane layer gives up. Only *arbitrary* world
+angles need the camera's plane. Confirm the projection before relying on this:
+a perspective camera would converge those verticals toward a vanishing point,
+and only the blade through the screen centre would stay vertical.
+
+A blade built this way still has to face the viewer, which is a Y-axis
+billboard: spin the quad around world up using the camera's right axis
+(`INV_VIEW_MATRIX[0]`, flattened onto the horizontal plane), never a full
+billboard, which would tilt it off vertical and forfeit the sharpness.
+
 ### Authored textures and frame animation
 
 `VfxTextures` generates scalable silhouettes procedurally and preserves two
@@ -664,6 +682,15 @@ scales to the selected body-bound preset. Source separation moves the complete
 islands symmetrically rather than sliding models across fixed terrain. Its
 minimum is 4 world units, which preserves at least the original one-cell empty
 corridor.
+
+Three controls exist for judging one effect rather than a delivery path.
+`--element=<name>` picks the tint from `BattleMeshFactory`'s palette, which is
+what makes an element sweep reproducible for any effect whose colours all
+derive from that one argument. `--camera-size=<units>` overrides the
+distance-derived orthographic size, and `--camera-focus=<midpoint|caster|target>`
+chooses what the camera looks at. The default wide two-island framing is right
+for a caster-to-target path and far too wide to judge geometry standing on one
+tile; `--camera-size=5 --camera-focus=target` frames that case.
 
 The retro viewport starts enabled. Scripted comparisons use
 `--render-resolution=<native|640x480|480x360|320x240>` with `--retro`, or

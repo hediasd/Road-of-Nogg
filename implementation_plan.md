@@ -51,9 +51,11 @@ The finished effect must:
 - remain presentation-only, with no gameplay, timing, or spell-data change.
 
 This is the **generic** profile (`profile_id == ""`), so it plays for every
-spell that does not select a specific VFX profile — 57 of the 61 entries in
-`data/spells.json`. It is a shared compatibility surface under `AGENTS.md`, and
-its validation scope is "many spells and many element colours", not one carrier.
+spell that does not select a specific VFX profile. The user has confirmed the
+current spell catalogue is placeholder, so the *number* of spells falling back
+to it is not a design input; what matters is that the effect has no single
+carrier to design against. Its validation scope is therefore "several elements
+and several casts", not one carrier's radius and shape.
 
 ## 2. Resolved gates
 
@@ -327,8 +329,9 @@ consolidated subset that covers the fix; do not reopen prior items merely to
 repeat the same checks.
 
 **Risk:** a harness-perfect translucent effect can vanish against bright terrain
-or blow out through the CRT path, and the generic profile plays for almost every
-spell in the game, so a regression here is a regression everywhere. Only the
+or blow out through the CRT path, and the generic profile is what every
+unprofiled spell plays, so a regression here is a regression everywhere the
+catalogue currently points. Only the
 live multi-spell battle pass closes that.
 
 **Completion rule:** record the actual visual and manual evidence, mark every
@@ -357,4 +360,55 @@ lifecycle-cleanup commit.
 
 ## 7. Resolution notes
 
-_None yet._
+### Ray-burst blade geometry and translucent material
+
+Implemented 2026-08-12; pending end-of-plan validation.
+
+- Camera roll was confirmed zero before any geometry was authored. Both
+  cameras are `PROJECTION_ORTHOGONAL` and both call
+  `look_at(focus, Vector3.UP)` every frame, so world up maps to screen up
+  exactly and a world-vertical edge is a vertical raster line at any yaw or
+  pitch. The blades stand on world up, and the finding now sits beside the
+  existing camera-plane guidance in `docs/VFX_DESIGN.md`. No fallback to the
+  camera-plane construction was needed.
+- `ray_burst` is 17 blades in one MultiMesh. Each blade is an authored
+  five-vertex silhouette — broad seat, shoulders at 0.62, single sharp apex —
+  whose orientation the shader rebuilds per instance: a Y-axis billboard that
+  faces the camera while never tilting off vertical. The instance transform
+  carries only scalars and a world-space lean vector; UV2 carries the authored
+  local geometry and UV the shading coordinates, normalized across the blade's
+  width so the alpha profile follows the taper rather than the bounding box.
+- The material is additive with a quantized three-step cross-width alpha ramp
+  and a solid spine. Additive was chosen over alpha blending deliberately:
+  crossing blades pile into the white-hot seat on their own, and the layer
+  becomes order-independent, so the sorting failure the item's risk names
+  cannot occur. Per-blade peak alpha stays low; brightness is bought with
+  overlap rather than emission energy.
+- Four hero blades are spread around the ring by index before jitter, so the
+  size hierarchy survives any seed. Azimuths use the golden angle with 22%
+  jitter, matching the storm profiles' distribution vocabulary.
+- Tuning was driven by frames, not by guesswork. The first build's blades read
+  as thin curved whiskers; width, height, and peak alpha went up and the lean
+  exponent came down from 2.0 to 1.35, which straightened them into rays that
+  splay as a cone. Peak alpha and emission were raised a second time after the
+  side view showed them washing out against the bright green island.
+- Element sweep passed at one seed for ice, fire, thunder, darkness, and the
+  neutral fallback: each tint is legible, none blows out to white, and the
+  neutral grey still reads as energy. Front, side, and rear-quarter yaws are
+  stable, and a 320x240 retro capture keeps the blades countable and pointed.
+- The harness gained `--element=`, `--camera-size=`, and `--camera-focus=`.
+  The element sweep and the close framing this item's proof required were not
+  reachable from the command line, and `docs/VFX_DESIGN.md` §5 makes CLI parity
+  a hard rule rather than a convenience. This is the one file touched outside
+  the item's stated list.
+- Measured through the harness HUD: 4 nodes, 17 instances, ~3 draw calls,
+  against ceilings of 10, 10 supporting instances, and 8 draws. Build
+  assertions enforce the blade count and the node ceiling.
+- `VfxTextures` and every other shared material are untouched. The old ground
+  ring and wisp layers still render; removing them is the supporting-layer
+  item's work.
+- Godot 4.4's headless editor import and parse gate passed, and
+  `git diff --check` passed. The `Object is locked and can't be freed` error
+  still prints at scene teardown — it is the pre-existing backlog bug the
+  choreography item owns, and it reproduces identically against the prior
+  code. No battle was launched, as required for this item.

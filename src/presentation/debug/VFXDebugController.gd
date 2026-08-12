@@ -12,6 +12,8 @@
 ##
 ## Scene selection and framing:
 ##   --effect=<profile id>   catalog entry to open with (default: first entry)
+##   --element=<name>        element tint, matching BattleMeshFactory's palette
+##                           (default: ice)
 ##   --radius=<n>            footprint radius in tiles (default 4, UI supports 1-8)
 ##   --shape=<circle|cross|line>  area shape, matching AREA_SHAPE (default circle)
 ##   --layers=<a,b,...>      isolate: show only these layers, hide the rest
@@ -20,6 +22,10 @@
 ##   --target-body=<standard|wide|tall>  target-body bounds preset
 ##   --source-distance=<4-10> caster-to-target separation in world units
 ##   --camera-yaw=<degrees>   orbit the preview camera around both anchors
+##   --camera-size=<units>    orthographic size override, for framing one effect
+##                           closely enough to judge its geometry
+##   --camera-focus=<midpoint|caster|target>  what the camera looks at
+##                           (default: midpoint, the two-island composition)
 ##   --render-resolution=<native|640x480|480x360|320x240>
 ##                           select the world render resolution
 ##   --stretch=<native|integer|integer640|legacy_fractional>  how the whole
@@ -234,6 +240,10 @@ var _footprintRadius: int = DEFAULT_FOOTPRINT_RADIUS
 ## tiles a spell claims.
 var _areaShape: String = "circle"
 var _footprintRing: MeshInstance3D
+## Framing overrides. Zero keeps the distance-derived size, and "midpoint"
+## keeps the established two-island composition.
+var _cameraSizeOverride: float = 0.0
+var _cameraFocus: String = "midpoint"
 var _goldenFailures: int = 0
 var _textSpecimen: CanvasLayer
 var _casterAnchor: Node3D
@@ -915,6 +925,14 @@ func _applyCommandLineOverrides() -> void:
 			push_warning("Unknown --shape=%s; keeping circle." % shape)
 	_updateFootprintRing()
 
+	# An effect whose whole palette derives from the element tint has to be
+	# judged across several elements, and a sweep is only reproducible if the
+	# tint is selectable without touching the dropdown.
+	var element := _stringArgument("--element=")
+	if not element.is_empty():
+		if not _selectOptionByMetadata(_elementOption, element, _onElementSelected):
+			push_warning("Unknown --element=%s; keeping ice." % element)
+
 	var seedValue := _intArgument("--seed=", -1)
 	if seedValue >= 0:
 		# Pin, or `_onPlayPressed` would cycle straight past the requested seed.
@@ -936,6 +954,18 @@ func _applyCommandLineOverrides() -> void:
 	var cameraYaw := _floatArgument("--camera-yaw=", INF)
 	if cameraYaw != INF:
 		_cameraYawSetting.set_value_no_signal(cameraYaw)
+	# Framing overrides: the default two-island composition is deliberately
+	# wide, which is right for delivery paths and wrong for judging the
+	# geometry of one effect standing on one tile.
+	var cameraSize := _floatArgument("--camera-size=", -1.0)
+	if cameraSize > 0.0:
+		_cameraSizeOverride = cameraSize
+	var cameraFocus := _stringArgument("--camera-focus=")
+	if not cameraFocus.is_empty():
+		if cameraFocus in ["midpoint", "caster", "target"]:
+			_cameraFocus = cameraFocus
+		else:
+			push_warning("Unknown --camera-focus=%s; keeping midpoint." % cameraFocus)
 	_applyTargetContextControls()
 
 	var stretch := _stringArgument("--stretch=")
@@ -1522,6 +1552,11 @@ func _applyTargetContextControls() -> void:
 
 func _updateCameraFraming() -> void:
 	var focus := (_casterAnchor.position + _targetAnchor.position) * 0.5
+	match _cameraFocus:
+		"caster":
+			focus = _casterAnchor.position
+		"target":
+			focus = _targetAnchor.position
 	focus.y += _targetBodyBounds.get_center().y * 0.5
 	var yawRadians := deg_to_rad(float(_cameraYawSetting.value))
 	var offset := Vector3(
@@ -1529,7 +1564,11 @@ func _updateCameraFraming() -> void:
 		CAMERA_OFFSET.y,
 		-CAMERA_OFFSET.x * sin(yawRadians) + CAMERA_OFFSET.z * cos(yawRadians)
 	)
-	_camera.size = maxf(REPRESENTATIVE_CAMERA_SIZE, float(_sourceDistanceSetting.value) + 5.0)
+	_camera.size = (
+		_cameraSizeOverride
+		if _cameraSizeOverride > 0.0
+		else maxf(REPRESENTATIVE_CAMERA_SIZE, float(_sourceDistanceSetting.value) + 5.0)
+	)
 	_camera.position = focus + offset
 	_camera.look_at(focus, Vector3.UP)
 
