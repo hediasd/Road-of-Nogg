@@ -1,4 +1,4 @@
-# Spell Cast Aura Ray-Burst Rework
+# Spell Cast Aura Spiritual-Vortex Rework
 
 **Opened 2026-08-12.** The previous contents were the Ice Target Encasement
 cycle, opened 2026-08-10, which built the `Ice Statue` carrier and its
@@ -20,33 +20,24 @@ file needed rewriting.
 
 ## 1. Goal
 
-Replace the generic spell-cast aura — today a scrolling noise ring on a flat
-2×2 ground plane plus seven rising wisp billboards — with **a brief flash of
-energy erupting out of the ground**, read as liberation from the elemental
-plane at the moment of the cast.
+Replace the generic spell-cast aura with **a brief spiritual-energy vortex
+erupting around the caster**, read as elemental power being drawn through a
+dark whirlpool at the moment of the cast.
 
-Two reference images anchor this. The first (a dungeon battle screenshot) gave
-the effect's rough vocabulary but is hard to read against its background. The
-second, supplied 2026-08-12, is an isolated render on black and is the sharper
-reference: a **blazing white ring standing flat on the ground**, a **crown of
-chunky faceted crystal shards** above it, a **horizontal starburst of straight
-rays radiating outward along the floor**, and a **couple of small drifting
-spark motes**. These are four separate, simple composited elements, not one
-continuous gradient surface — see the second resolved gate below for why that
-distinction now drives every remaining item.
+The isolated 2026-08-12 reference is now the visual authority. Its effect is an
+irregular black/navy elliptical vortex with broken cyan rims, a soft tapered
+cyan core rising behind the caster, a fan of independently varied feathered
+light shafts, and cloudy wisps escaping upward. These are separate composited
+layers; there is no clean torus, solid crystal crown, or printed floor asterisk.
 
 The finished effect must:
 
-- present as those four legible parts — a hot ring, a faceted crystal crown,
-  a flat ground starburst, and a few motes — each doing one job, rather than
-  one shape trying to be all of them;
-- **erupt from the ground upward**, with the ring, the starburst, and the crown
-  reading as one continuous event rather than independently timed layers;
-- keep the crown **translucent and faceted**: individual crystal faces read as
-  distinct planes catching light differently, and the caster stays visible
-  through it. The ring is the deliberate exception — both references agree it
-  is the hottest, most blown-out point, and it is small and contained rather
-  than the whole silhouette, so its core is allowed to clip toward white;
+- present as four legible parts — dark vortex, tapered core glow, radial ray
+  fan, and rising mist/motes — each doing one job;
+- **erupt from the ground upward**, with every layer sharing one origin and
+  deterministic normalized clock;
+- keep the caster readable through low-alpha additive light while the vortex
+  itself uses a dark alpha-mixed pass to anchor the feet;
 - carry the **element tint** every caller already supplies
   (`BattleMeshFactory.elementColor`), from ice cyan through fire red, thunder
   yellow, darkness violet, and the neutral grey fallback everywhere except the
@@ -139,58 +130,57 @@ findings is invalidated — only their geometry is retired. AURA-2C's item and
 resolution note stay in this file as the delegation contract that produced
 what shipped in commit `3db98cf`, marked superseded rather than deleted.
 
+### Reference decomposition pivot #3 — resolved 2026-08-12
+
+After the user asked for a technical decomposition of the isolated aura, they
+explicitly directed Road of Nogg to follow that decomposition. The clean torus,
+faceted crown, and floor fissure/starburst direction is therefore superseded
+before commit. The partial uncommitted experiment is task-owned input to the
+replacement, not a result to preserve as the current look.
+
+The accepted vocabulary is now: a dark irregular ground vortex with broken
+element-tinted rims; a soft upward-tapered core; a broad fan of feathered ray
+shafts with independently seeded angle, length, width, and pulse; and rising
+mist with only a few brighter motes. No scene-wide bloom or shared texture is
+retuned. Softness comes from owned alpha masks and the existing neutral puff
+used without mutation.
+
 ## 3. Established facts and design decisions
 
-### Four composited layers, not one shader
+### Four composited layers, not one hero shape
 
-Both the blade crowd and the striated shell tried to fake a ring, a wall, and
-a set of points with one continuous form, and both were retired for it. The
-current design has no single hero shape: a ring mesh, a faceted crystal-crown
-mesh set, a ground starburst, and a small mote system are each built and
-proven independently before being judged together. Each is simple enough to
-get right on its own, which was never true of the unified attempts.
+The current design has no single hero shape: the ground vortex, tapered core,
+ray fan, and rising mist are independently toggleable and independently tuned.
+The caster remains the visual centre; no opaque wall is allowed to become the
+whole effect.
 
-### Faceted geometry needs real facets, not a gradient
+### Soft energy uses masks and overlap, not solid geometry
 
-A smooth cone with a colour ramp cannot produce what a low-poly crystal
-produces: distinct flat faces that catch the scene's single directional light
-at different angles. `IceChunkMeshFactory._spikeMesh()`
-(`src/presentation/effects/IceChunkMeshFactory.gd:80`) is proven, shipped
-precedent for this technique in this repository — a broad-seated pointed
-form built from named triangles with duplicated vertices per face so each face
-gets its own flat normal. Per `docs/VFX_DESIGN.md` §4's "fork, don't abstract"
-rule this effect owns a sibling mesh factory rather than importing that file,
-since `IceChunkMeshFactory` is explicitly scoped to the target-encasement
-shell.
+The reference's volume is turbulent light, not rock. The vertical layers use
+camera-facing quads with procedural feathering and low per-layer alpha. The
+core supplies the teardrop mass, the ray fan supplies direction, and neutral
+puff sprites supply local cloud breakup. Their overlap builds brightness
+without a hard silhouette.
 
-### World-vertical geometry is the sharp case, not the soft one
+### Ground and vertical layers use different spaces
 
-`docs/VFX_DESIGN.md` §4's camera-plane rule exists because a quad rotated to
-an arbitrary world angle sits on no pixel grid. Geometry standing on the
-world's up axis is the exception, confirmed rather than assumed: both cameras
-are orthographic and re-derive their transform with
-`look_at(focus, Vector3.UP)` every frame, so world up maps to screen up and a
-vertical edge is a vertical raster line at any yaw or pitch. The ring and the
-crystal crown both stand on world up and inherit this; the ground starburst
-lies flat in the world's horizontal plane and needs no camera-facing
-construction at all, since it is ordinary geometry on the terrain.
+The vortex is an ordinary world-horizontal plane, so camera pitch naturally
+turns its circular texture space into the reference's ellipse. Core and rays
+are camera-facing vertical quads anchored at the seat, preserving the intended
+2D fan composition under every battle-camera yaw.
 
-### Additive, with the brightness taken out of alpha
+### Mixed dark base, additive light
 
-The inherited aura was `blend_add` at high emission over a full disc, which is
-why it blew out. Additive stays the right mode for every layer here — it is
-order-independent, so overlapping crystal faces or crossing starburst rays
-cannot produce a sorting error, and genuine overlap is what builds the ring's
-core toward white on its own. The blowout stays controlled by keeping
-per-surface alpha low rather than by lowering emission, which would flatten
-the palette instead.
+The vortex uses alpha mixing because additive blending cannot create the
+reference's black/navy anchor. Core, rays, cyan rim accents, and mist remain
+unshaded additive layers. Their alpha stays low enough that the caster and
+terrain remain readable.
 
-### The ring, crown, and starburst share one origin and one clock
+### Every layer shares one origin and one clock
 
-All three erupt from the same seat on the same normalized timeline established
-in AURA-2 (charge / eruption / hold / decay / clear), so they read as one
-event breaking through the ground rather than three independently timed
-layers that happen to overlap in space.
+All four layers use the normalized charge / eruption / hold / decay / clear
+timeline established earlier, so scrub, replay, skip, and fixed-seed captures
+remain coherent.
 
 ### Ownership and reuse
 
@@ -204,13 +194,12 @@ confirm this stays true as the ground layer is rebuilt.
 
 ### Budgets, asserted at build time and owned by the profile
 
-Provisional, pending the real figures AURA-2D and AURA-3 measure:
+Provisional, pending the current implementation checkpoint:
 
-- one ring mesh, one draw call;
-- one crystal-crown mesh set (five to six pieces, a single MultiMesh where
-  possible), one draw call;
-- one ground-starburst mesh or MultiMesh, one draw call;
-- a small mote particle system, one draw call;
+- one vortex plane, one draw call;
+- one core-glow quad, one draw call;
+- one ray-fan quad, one draw call;
+- one rising-mist particle system, one draw call;
 - ≤ 12 effect-owned nodes;
 - ≤ 10 estimated peak draw calls;
 - unlimited live count preserved (`max_live` stays 0 — the generic profile is
@@ -227,10 +216,9 @@ gate names this as the specific process failure that cost two prior rebuilds.
 
 | Checkpoint | Required proof | Owner |
 | --- | --- | --- |
-| Ring and crown silhouette | Ring-only and crown-only captures at front-quarter, side, and rear-quarter yaws, beside both references. The ring reads as a hot O-shape with a dark centre at every angle; the crown's individual facets are visibly distinct planes. | AURA-2D |
-| Starburst and motes | Starburst-only and motes-only captures beside both references. Rays are straight, sharp, and radiate flat along the ground; motes read as a handful of sparks, not a field. | AURA-3 |
-| Eruption timeline | One tight sheet from empty ground through the ring lighting, the starburst racing outward, the crown punching up, hold, decay, and clear. | AURA-3 |
-| Composite hierarchy | The full composite beside both references at the same angle and scale. All four parts are individually identifiable; none has silently become the whole effect. | AURA-3 |
+| Layer silhouettes | Vortex-only, core-only, and ray-only captures beside the isolated reference. The vortex reads as ink rather than a clean ring; core and shafts have feathered boundaries. | AURA-2E |
+| Eruption timeline | One tight sheet from empty ground through vortex charge, core/ray eruption, hold, decay, and clear. | AURA-2E |
+| Composite hierarchy | The full composite beside the isolated reference at the same approximate character scale. All four parts remain identifiable and the caster stays readable. | AURA-2E |
 | Final look | Live battle casts across several spells and elements, retro on and off, plus re-captures of the four specific profiles. | AURA-4 |
 
 A session whose checkpoint fails visually stops and reports the sheet to the
@@ -435,6 +423,11 @@ capture and cheap integrity checks only. Do not launch a battle.
 
 ### AURA-2D — Retire the shell; build the ring and the faceted crystal crown
 
+**Superseded 2026-08-12 before commit by AURA-2E.** The reference-decomposition
+pivot rejected the clean torus and solid crown. The uncommitted experiment is
+reworked in place; it is not an implementation boundary and must not be
+committed separately.
+
 **Model:** Opus 5 / GPT Sol
 
 **Depends on:** AURA-2C and the second resolved pivot.
@@ -484,10 +477,75 @@ directly beside both reference images — not judged from an isolated capture.
 references, facet legibility under the scene's lighting, seeded determinism,
 and the corrected budget.
 
-**Resolution target:** implemented; pending end-of-plan validation. Debug
-capture and cheap integrity checks only. Do not launch a battle.
+**Resolution:** superseded before commit; no implementation boundary exists.
+
+### AURA-2E — Build the spiritual vortex, tapered core, ray fan, and rising mist
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-2C and the resolved reference-decomposition pivot. It
+absorbs the visual work formerly assigned to AURA-2D and AURA-3.
+
+**Files:** `src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, effect-owned ground-vortex,
+core-glow, and ray-fan shaders under `assets/shaders/effects/`, deletion of the
+retired ray-shell and inherited aura shaders with their `.uid` files,
+`docs/VFX_DESIGN.md`, this plan, and relevant backlog reconciliation.
+
+**End state:**
+
+- An irregular dark navy/black vortex lies at the caster's feet. Broken
+  element-coloured ring and spiral accents give it motion without turning it
+  into a clean donut.
+- A soft camera-facing teardrop core rises from the vortex, wide and bright low
+  down and narrow/faint above the caster.
+- A separate camera-facing fan draws many feathered shafts with seeded angle,
+  length, width, brightness, and deterministic pulse. Broad cones and thin
+  streaks coexist; the fan never rotates as one rigid sunburst.
+- Rising puff particles drift upward from the vortex with low alpha and only a
+  few brighter motes. The shared neutral puff is consumed without mutation.
+- Every authored shader layer is a pure function of normalized progress and
+  seed. The particle layer reports its known tolerance-based seek limitation
+  honestly.
+- Four draw calls and no more than eight owned nodes are asserted at build time.
+
+**Risk:** the dark pass can read as a terrain stain, while additive core/rays
+can clip into one cyan rectangle through the retro path. Feather every boundary,
+keep the vortex's angular breakup visible, and verify the caster remains readable
+in both retro and native captures.
+
+**Proof checkpoint:** one isolated-layer sheet and one composite phase sheet at
+the default fixed seed, visually compared against the supplied isolated aura.
+
+**Adds to final validation coverage:** dark/light compositing, camera-facing
+anchoring, seeded ray variation, particle seek disclosure, layer isolation,
+timeline hierarchy, and corrected budgets.
+
+**Resolution — implemented 2026-08-12; pending end-of-plan validation.** The
+retired shell and inherited aura shaders are deleted. The generic effect now
+constructs exactly four owned layers: one alpha-mixed irregular ground vortex,
+one additive camera-facing tapered core, one additive seeded ray fan, and one
+additive rising-puff particle system. Core and rays are shifted behind the
+caster in view space; the particle seek limitation is reported as non-exact.
+
+The Godot 4.4 import gate and a bounded `VFXDebugScene` load completed without
+script or shader errors. Fixed-seed layer isolates exposed and corrected a
+collapsed/over-bright core, an overly regular ray fan, and a pale clean-ring
+ground read. The accepted native and retro phase sheets cover 0.10 / 0.28 /
+0.50 / 0.78, and a literal side-by-side against the supplied isolated frame
+confirmed the final hierarchy. The build owns five nodes total (playback plus
+four children), three non-particle geometry instances, twelve particles, and
+four draw calls, within the asserted ceilings. No battle was launched, per the
+implementation-item boundary.
+
+`BACKLOG_LONGTERM.md`'s generic-footprint item remains genuinely open and
+unchanged; the parked Ice Statue validation in `BACKLOG_CRITICAL.md` is also
+unaffected. No new unresolved work was found.
 
 ### AURA-3 — Rework the ground layer into a starburst, and restyle the motes
+
+**Superseded 2026-08-12 by AURA-2E.** Its ground and particle scope is absorbed
+by the spiritual-vortex implementation; do not execute this item separately.
 
 **Model:** Sonnet 5 / GPT Terra
 
@@ -535,14 +593,15 @@ composite, all placed beside both reference images.
 **Adds to final validation coverage:** ground/crown integration, layer
 hierarchy, catalog metadata sourcing, dead-resource removal, combined budget.
 
-**Resolution target:** implemented; pending end-of-plan validation. Debug
-capture and cheap integrity checks only. Do not launch a battle.
+**Resolution:** superseded before execution; validation coverage moved into
+AURA-2E and AURA-4.
 
 ### AURA-4 — Consolidated final visual, lifecycle, and battle validation
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-2D, AURA-3.
+**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, and AURA-2E. AURA-2D and
+AURA-3 were superseded before their own commit boundaries.
 
 **Files:** fixes to task-owned files if validation finds defects,
 `implementation_plan.md` resolution notes during validation, owning docs and
@@ -557,7 +616,7 @@ item:
    Confirm `project.godot` is untouched by the gate itself — see the
    `docs/LEARNINGS.md` entry recorded this session.
 2. At one fixed seed, capture the matched phase sequence — empty ground,
-   charge, starburst and crown eruption, hold, decay, clear — judged at native
+   charge, vortex/core/ray eruption, hold, decay, clear — judged at native
    retro resolution, not only in enlarged frames, and placed beside both
    reference images.
 3. Layer-isolated and composite sheets at front-quarter, side, and rear-quarter

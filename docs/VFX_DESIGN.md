@@ -382,8 +382,8 @@ seen through the retro viewport.
 with `look_at(focus, Vector3.UP)` every frame, so neither ever rolls. Under an
 orthographic projection with zero roll, world up maps to screen up exactly, and
 a world-vertical edge is a vertical raster line anywhere in frame, at any yaw or
-pitch. Geometry that stands on the world's up axis — the spell-cast aura's
-shell wall — is therefore sharp without any camera-plane construction, and it
+pitch. Geometry that stands on the world's up axis — such as target-encasement
+spikes — is therefore sharp without any camera-plane construction, and it
 keeps the spatial grounding the camera-plane layer gives up. Only *arbitrary*
 world angles need the camera's plane. Confirm the projection before relying on
 this: a perspective camera would converge those verticals toward a vanishing
@@ -394,6 +394,29 @@ has to face the viewer, and that must be a Y-axis billboard — spin it around
 world up using the camera's right axis (`INV_VIEW_MATRIX[0]`, flattened onto
 the horizontal plane), never a full billboard, which would tilt it off vertical
 and forfeit the sharpness.
+
+### Generic spell-cast aura: dark vortex plus vertical light
+
+The generic fallback aura is deliberately decomposed into four independently
+toggleable layers. A world-horizontal alpha-mixed plane draws an irregular
+black/navy vortex under the caster, including broken element-tinted spiral and
+rim accents. A camera-facing tapered core and a separate camera-facing ray fan
+build the vertical additive volume behind the caster. A small one-shot particle
+system supplies rising soft puffs. The split matters: one clean torus or cone
+cannot simultaneously create a dark centre, soft body, and uneven directional
+shafts without reading as a single synthetic primitive.
+
+The two vertical quads rebuild their view-facing basis in the vertex shader and
+shift slightly away from the camera so depth testing keeps the caster in front.
+Their motion is a pure function of normalized progress and seed; the ray fan
+hashes each compile-time slot into a different angle, width, length, brightness,
+and pulse. Only the `GPUParticles3D` mist retains the renderer-scheduling seek
+variance documented in §3, and the playback reports that limitation through
+`is_particle_seek_exact()`.
+
+Element saturation is increased locally in the owned shaders before additive
+composition so pale catalog tints retain hue on bright terrain. The shared
+`VfxTextures.neutralSoftPuff()` supplies shape only and is never retuned.
 
 ### Authored textures and frame animation
 
