@@ -623,6 +623,12 @@ is enabled by default, and the status readout includes the selected bounds,
 separation, yaw, live node/particle totals, and a mesh/particle draw-call
 estimate.
 
+Each anchor owns a terrain support tile centred at the same local origin as its
+model base. The caster support moves with source separation—including
+fractional distances—and the target support remains under the impact anchor.
+Fixed height/terrain samples deliberately omit that centre travel row; they are
+context around the specimen, never implied supports for either proxy.
+
 `scenes/debug/VFXDebugScene.tscn` renders through the real retro pipeline and is
 the acceptance surface for VFX work. Interactive keys are listed in
 `VFXDebugController.gd`'s header.

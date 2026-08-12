@@ -146,6 +146,8 @@ const _RESOLUTION_OPTIONS := [
 	{"label": "320 x 240", "size": Vector2i(320, 240)}
 ]
 const _UNEVEN_HEIGHTS := [[0, 1, 0], [1, 2, 1], [0, 1, 2]]
+const _CASTER_TERRAIN_COLOR := Color(0.22, 0.58, 0.28)
+const _TARGET_TERRAIN_COLOR := Color(0.34, 0.48, 0.68)
 
 ## Candidate answers to "how should the window scale?", applied to the live root
 ## so the question can be settled by looking instead of by editing
@@ -1354,14 +1356,19 @@ func _buildTerrainSamples() -> void:
 	previewTerrain.name = "TerrainSamples"
 	retroRenderer.world_root.add_child(previewTerrain)
 	for zIndex in range(3):
+		# The centre row belongs to the movable source/target supports. Keeping
+		# fixed samples here made the actors appear displaced and would overlap a
+		# support whenever source distance placed it on one of these coordinates.
+		if zIndex == 1:
+			continue
 		for xIndex in range(3):
 			_addTerrainColumn(
 				previewTerrain, Vector2i(xIndex - 3, zIndex - 1), 0,
-				Color(0.22, 0.58, 0.28)
+				_CASTER_TERRAIN_COLOR
 			)
 			_addTerrainColumn(
 				previewTerrain, Vector2i(xIndex + 1, zIndex - 1),
-				int(_UNEVEN_HEIGHTS[zIndex][xIndex]), Color(0.34, 0.48, 0.68)
+				int(_UNEVEN_HEIGHTS[zIndex][xIndex]), _TARGET_TERRAIN_COLOR
 			)
 
 
@@ -1387,6 +1394,8 @@ func _buildContextAnchors() -> void:
 	assert(_casterAnchor != null and _targetAnchor != null, "VFX anchors must be reparented first.")
 	_casterAnchor.name = "CasterAnchor"
 	_targetAnchor.name = "TargetAnchor"
+	_addAnchorTerrainSupport(_casterAnchor, "CasterTerrainSupport", _CASTER_TERRAIN_COLOR)
+	_addAnchorTerrainSupport(_targetAnchor, "TargetTerrainSupport", _TARGET_TERRAIN_COLOR)
 	_addAnchorMarker(_casterAnchor, "CasterMarker", Color(0.18, 0.72, 1.0, 0.85))
 	_addAnchorMarker(_targetAnchor, "TargetMarker", Color(1.0, 0.55, 0.3, 0.85))
 
@@ -1402,6 +1411,15 @@ func _buildContextAnchors() -> void:
 	_targetBodyVisual = BattleMeshFactoryScript.createMesh("shape_cube", Color(0.82, 0.45, 0.2))
 	_targetBodyVisual.name = "TargetBodyBounds"
 	_targetAnchor.add_child(_targetBodyVisual)
+
+
+func _addAnchorTerrainSupport(anchor: Node3D, supportName: String, color: Color) -> void:
+	var support := BattleMeshFactoryScript.createMesh("terrain_block", color)
+	support.name = supportName
+	# Anchor local y=0 is the terrain surface. A terrain block is centred on its
+	# own volume, so half a cell down places its top exactly under the model base.
+	support.position.y = -BattleMeshFactoryScript.TERRAIN_CELL_SIZE.y * 0.5
+	anchor.add_child(support)
 
 
 func _addAnchorMarker(anchor: Node3D, markerName: String, color: Color) -> void:

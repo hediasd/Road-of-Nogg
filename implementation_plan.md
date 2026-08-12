@@ -678,3 +678,20 @@ Implemented 2026-08-11; pending end-of-plan validation.
   editor import passed after the ownership change.
 - No unrelated gameplay fields changed, and no battle was launched, as required
   for this item.
+
+### Debug anchor terrain centering correction
+
+Implemented 2026-08-11; pending end-of-plan validation.
+
+- The caster and target anchors now each own a terrain support tile whose top
+  surface is exactly at anchor-local y=0. Model bases and body proxies therefore
+  share the support tile's horizontal centre and correct surface height.
+- The fixed terrain sample grid omits the centre travel row, preventing a
+  movable caster support from overlapping or appearing to belong to an adjacent
+  sample when source distance changes.
+- Retro captures passed at default distance 4 and at fractional distance 3.25
+  with a 90-degree camera yaw. Both proxies remained centred on their own
+  supports; all capture markers reported `error=0` and stderr was empty.
+- Godot 4.4's editor import and `git diff --check` passed. No battle was
+  launched; this is a debug-harness correctness fix ahead of consolidated
+  validation.
