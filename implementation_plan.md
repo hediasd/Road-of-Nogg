@@ -22,30 +22,35 @@ file needed rewriting.
 
 Replace the generic spell-cast aura — today a scrolling noise ring on a flat
 2×2 ground plane plus seven rising wisp billboards — with **a brief flash of
-pointy translucent rays erupting out of the ground**, read as energy liberated
-from the elemental plane at the moment of the cast.
+energy erupting out of the ground**, read as liberation from the elemental
+plane at the moment of the cast.
 
-The user's supplied reference frame is the visual language: a flared cup of
-light standing on the floor, whose individual rays are hard-edged vertical
-striations running up its wall, whose top edge breaks into short irregular
-points, which is hot and near-white where it meets the ground and
-colour-deepened toward its rim, and which sits over glowing fissures spreading
-several tiles across the floor. The lightning bolt descending from the top of
-that frame is explicitly **not** part of this effect.
+Two reference images anchor this. The first (a dungeon battle screenshot) gave
+the effect's rough vocabulary but is hard to read against its background. The
+second, supplied 2026-08-12, is an isolated render on black and is the sharper
+reference: a **blazing white ring standing flat on the ground**, a **crown of
+chunky faceted crystal shards** above it, a **horizontal starburst of straight
+rays radiating outward along the floor**, and a **couple of small drifting
+spark motes**. These are four separate, simple composited elements, not one
+continuous gradient surface — see the second resolved gate below for why that
+distinction now drives every remaining item.
 
 The finished effect must:
 
-- read as **rays** — countable, hard-edged striations with visible dark
-  between them, pointed where they end — carried on a filled wall rather than
-  floating as separate objects or dissolving into fog;
-- **erupt from the ground upward**, with the floor layer and the wall of light
-  belonging to one event rather than two stacked layers;
-- stay **translucent**: the far wall shows through the near one and builds
-  toward white-hot where they overlap, while the caster stays visible inside;
+- present as those four legible parts — a hot ring, a faceted crystal crown,
+  a flat ground starburst, and a few motes — each doing one job, rather than
+  one shape trying to be all of them;
+- **erupt from the ground upward**, with the ring, the starburst, and the crown
+  reading as one continuous event rather than independently timed layers;
+- keep the crown **translucent and faceted**: individual crystal faces read as
+  distinct planes catching light differently, and the caster stays visible
+  through it. The ring is the deliberate exception — both references agree it
+  is the hottest, most blown-out point, and it is small and contained rather
+  than the whole silhouette, so its core is allowed to clip toward white;
 - carry the **element tint** every caller already supplies
   (`BattleMeshFactory.elementColor`), from ice cyan through fire red, thunder
-  yellow, darkness violet, and the neutral grey fallback, with a near-white
-  base that does not erase the tint;
+  yellow, darkness violet, and the neutral grey fallback everywhere except the
+  ring's white core;
 - be **fast** — a flash, subordinate to whatever spell-specific profile or
   damage read follows, and not an animation the player waits through;
 - preserve the full `VfxPlayback` contract: pause, speed scale, exact forward
@@ -97,77 +102,117 @@ reference frame, the user set the remaining visual direction:
 These are confirmed visual decisions, not open questions. The reference's
 lightning bolt remains out of scope.
 
+### Primary form pivot #2 — resolved 2026-08-12
+
+The striated cone shell (AURA-2C, committed) was itself judged against the
+sharper second reference image and **retired**, one cycle after the discrete
+blades it replaced were retired for the same reason: it was one continuous
+shape trying to simultaneously be a ring, a wall, and a set of points, and
+neither reference is built that way. The user asked directly whether a
+different approach was needed and asked for research into how AI-assisted VFX
+work is actually done well; both pushed toward the same conclusion.
+
+**What the research surfaced** (see the session's research summary for
+sources): published vision-critique loops for code and shader generation
+(rendering an iteration, having a vision-capable model diff it explicitly
+against the target, then refining) consistently outperform iterating on
+production output alone, and unanchored iterative generation measurably drifts
+toward generic, safe motifs without that explicit external check — which is
+exactly what happened here twice: each pass was judged against the previous
+render rather than re-checked against the reference itself. Separately,
+professional game-VFX practice composites several simple layers (rotated
+copies of one ray emitter, a ring, a particle system, a mesh) rather than
+authoring one clever unified shader.
+
+**Two rules now apply for the rest of this cycle:**
+
+- **Decompose into simple composited layers.** The remaining items build a
+  ring, a crystal crown, and a ground starburst as three independent,
+  individually simple primitives — not one shape asked to do three jobs.
+- **Every proof checkpoint is a literal side-by-side comparison against both
+  reference images**, not an isolated capture judged from memory. A checkpoint
+  that only shows the new render is incomplete.
+
+The blade MultiMesh (AURA-1/2B) and the cone shell (AURA-2C) remain committed,
+recoverable history; nothing about their determinism, timeline, or camera-roll
+findings is invalidated — only their geometry is retired. AURA-2C's item and
+resolution note stay in this file as the delegation contract that produced
+what shipped in commit `3db98cf`, marked superseded rather than deleted.
+
 ## 3. Established facts and design decisions
 
-### The rays are striations on a shell, not separate objects
+### Four composited layers, not one shader
 
-Discrete blades were built first and **retired**. Two rounds of scaling them up
-established that the gap to the reference was structural rather than a matter
-of tuning: the reference's rays are stripes *on* a filled wall of light, and
-its points are that wall's ragged top edge, so a crowd of free-standing spikes
-converges on a bristle no matter how large or numerous it gets.
+Both the blade crowd and the striated shell tried to fake a ring, a wall, and
+a set of points with one continuous form, and both were retired for it. The
+current design has no single hero shape: a ring mesh, a faceted crystal-crown
+mesh set, a ground starburst, and a small mote system are each built and
+proven independently before being judged together. Each is simple enough to
+get right on its own, which was never true of the unified attempts.
 
-The primary form is therefore one double-sided cone shell, drawn additively so
-the far wall shows through the near one and the interior builds toward white.
-Its stripes, its ragged rim, its vertical colour ramp, and its per-stripe
-eruption timing are all shader work over a single mesh — which also means the
-whole crown costs one draw call and one instance instead of twenty-eight.
+### Faceted geometry needs real facets, not a gradient
 
-`docs/VFX_DESIGN.md` §4's rule still applies to why none of this is a sprite:
-a radial mask stretched onto a long quad puts its opaque centre in the middle
-of the streak. The stripes are procedural, hard-edged, and owned by the effect's
-own shader.
+A smooth cone with a colour ramp cannot produce what a low-poly crystal
+produces: distinct flat faces that catch the scene's single directional light
+at different angles. `IceChunkMeshFactory._spikeMesh()`
+(`src/presentation/effects/IceChunkMeshFactory.gd:80`) is proven, shipped
+precedent for this technique in this repository — a broad-seated pointed
+form built from named triangles with duplicated vertices per face so each face
+gets its own flat normal. Per `docs/VFX_DESIGN.md` §4's "fork, don't abstract"
+rule this effect owns a sibling mesh factory rather than importing that file,
+since `IceChunkMeshFactory` is explicitly scoped to the target-encasement
+shell.
 
 ### World-vertical geometry is the sharp case, not the soft one
 
-§4's camera-plane rule exists because a quad rotated to an arbitrary world angle
-sits on no pixel grid. Geometry standing on the world's up axis is the
-exception, and this was confirmed rather than assumed: both cameras are
-orthographic and re-derive their transform with `look_at(focus, Vector3.UP)`
-every frame, so world up maps to screen up and a vertical edge is a vertical
-raster line at any yaw or pitch.
-
-The shell inherits that: its wall is vertical enough that the striations stay
-crisp, and it needs no camera-plane construction, so it keeps the spatial
-grounding that construction gives up. The finding is recorded durably in
-`docs/VFX_DESIGN.md`.
+`docs/VFX_DESIGN.md` §4's camera-plane rule exists because a quad rotated to
+an arbitrary world angle sits on no pixel grid. Geometry standing on the
+world's up axis is the exception, confirmed rather than assumed: both cameras
+are orthographic and re-derive their transform with
+`look_at(focus, Vector3.UP)` every frame, so world up maps to screen up and a
+vertical edge is a vertical raster line at any yaw or pitch. The ring and the
+crystal crown both stand on world up and inherit this; the ground starburst
+lies flat in the world's horizontal plane and needs no camera-facing
+construction at all, since it is ordinary geometry on the terrain.
 
 ### Additive, with the brightness taken out of alpha
 
 The inherited aura was `blend_add` at high emission over a full disc, which is
-why it blew out. Additive is nonetheless the right mode here, for two reasons
-the alternative cannot supply: it is order-independent, so a double-sided shell
-cannot produce a sorting error, and overlapping surfaces accumulate on their
-own, which is exactly how the near and far walls fill the cup's interior.
+why it blew out. Additive stays the right mode for every layer here — it is
+order-independent, so overlapping crystal faces or crossing starburst rays
+cannot produce a sorting error, and genuine overlap is what builds the ring's
+core toward white on its own. The blowout stays controlled by keeping
+per-surface alpha low rather than by lowering emission, which would flatten
+the palette instead.
 
-The blowout is controlled by keeping per-surface alpha low rather than by
-lowering emission, which would flatten the palette instead. `depth_draw_never`
-and an explicit render priority keep the shell from cutting the layer it grows
-out of.
+### The ring, crown, and starburst share one origin and one clock
 
-### The floor layer and the shell share one origin and one clock
-
-The fissures open from the shell's own seat on the same normalized timeline, so
-the floor reads as the fracture the light is escaping through rather than as a
-decal that happens to sit underneath it. The old expanding noise ring is
-removed rather than kept below.
+All three erupt from the same seat on the same normalized timeline established
+in AURA-2 (charge / eruption / hold / decay / clear), so they read as one
+event breaking through the ground rather than three independently timed
+layers that happen to overlap in space.
 
 ### Ownership and reuse
 
-The effect owns its profile constants, its shader, and its mesh
-construction. `VfxTextures` and every other shared material stay untouched, so
-Ice Storm, Fire Storm, Magenta Reduction, and Ice Target Encasement cannot
-regress through a shared primitive. `assets/shaders/spell_aura.gdshader` has
-exactly one referencing file (`SpellCastAura.gd`) and is deleted with its `.uid`
-once the rewrite lands.
+The effect owns its profile constants, its shaders, and its mesh construction.
+`VfxTextures`, `IceChunkMeshFactory`, and every other shared or effect-owned
+resource belonging to another effect stay untouched, so Ice Storm, Fire Storm,
+Magenta Reduction, and Ice Target Encasement cannot regress through a shared
+primitive. `assets/shaders/spell_aura.gdshader` had exactly one referencing
+file and has been deleted with its `.uid`; a repository-wide search must
+confirm this stays true as the ground layer is rebuilt.
 
 ### Budgets, asserted at build time and owned by the profile
 
-- one shell mesh, one instance, one draw call, carrying 20–28 striations set
-  as a shader parameter rather than as geometry;
-- ≤ 10 supporting instances (ground rupture, base flare, motes);
-- ≤ 10 effect-owned nodes;
-- ≤ 8 estimated peak draw calls;
+Provisional, pending the real figures AURA-2D and AURA-3 measure:
+
+- one ring mesh, one draw call;
+- one crystal-crown mesh set (five to six pieces, a single MultiMesh where
+  possible), one draw call;
+- one ground-starburst mesh or MultiMesh, one draw call;
+- a small mote particle system, one draw call;
+- ≤ 12 effect-owned nodes;
+- ≤ 10 estimated peak draw calls;
 - unlimited live count preserved (`max_live` stays 0 — the generic profile is
   the fallback for every unprofiled spell and must never evict itself).
 
@@ -176,13 +221,17 @@ once the rewrite lands.
 VFX work is shown while it is still cheap to change. These are required item
 outputs, not deferred final-validation evidence.
 
+**Every row below is a literal side-by-side placement against both reference
+images**, not an isolated capture judged from memory — the second resolved
+gate names this as the specific process failure that cost two prior rebuilds.
+
 | Checkpoint | Required proof | Owner |
 | --- | --- | --- |
-| Blade silhouette | `ray_burst`-only mid-flash captures at front-quarter, side, and rear-quarter yaws, through the retro path and at native. Blades are countable, pointed, and translucent; nothing reads as a ring or a solid cone. | Geometry/material item |
-| Element sweep | The same frame for ice, fire, thunder, darkness, and the neutral fallback. Tint is legible in all five; none blows out to white. | Geometry/material item |
-| Eruption timeline | One tight sheet from empty ground through rupture, first blades, full flash, decay, and clear. Rays visibly leave the ground rather than fading in at full height. | Choreography item |
-| Composite hierarchy | Ground-only and mote-only sheets beside the full composite. The shell remains the dominant read. | Supporting-layer item |
-| Final look | Live battle casts across several spells and elements, retro on and off, plus re-captures of the four specific profiles. | Final validation item |
+| Ring and crown silhouette | Ring-only and crown-only captures at front-quarter, side, and rear-quarter yaws, beside both references. The ring reads as a hot O-shape with a dark centre at every angle; the crown's individual facets are visibly distinct planes. | AURA-2D |
+| Starburst and motes | Starburst-only and motes-only captures beside both references. Rays are straight, sharp, and radiate flat along the ground; motes read as a handful of sparks, not a field. | AURA-3 |
+| Eruption timeline | One tight sheet from empty ground through the ring lighting, the starburst racing outward, the crown punching up, hold, decay, and clear. | AURA-3 |
+| Composite hierarchy | The full composite beside both references at the same angle and scale. All four parts are individually identifiable; none has silently become the whole effect. | AURA-3 |
+| Final look | Live battle casts across several spells and elements, retro on and off, plus re-captures of the four specific profiles. | AURA-4 |
 
 A session whose checkpoint fails visually stops and reports the sheet to the
 user. It does not layer more work over a rejected silhouette.
@@ -333,6 +382,11 @@ capture and cheap integrity checks only. Do not launch a battle.
 
 ### AURA-2C — Rebuild the primary form as a striated shell
 
+**Superseded 2026-08-12 by AURA-2D.** Kept here as the delegation contract its
+resolution note fulfilled, and because the timeline/determinism/ownership work
+it produced remains load-bearing even though its geometry does not. Do not
+execute this item again; see the second resolved gate and AURA-2D.
+
 **Model:** Opus 5 / GPT Sol
 
 **Depends on:** AURA-2B and the user's decision to retire the blades.
@@ -379,46 +433,107 @@ ramp behaviour across elements, interior translucency, and the reduced budget.
 **Resolution target:** implemented; pending end-of-plan validation. Debug
 capture and cheap integrity checks only. Do not launch a battle.
 
-### AURA-3 — Rebuild the ground rupture and the subordinate motes
+### AURA-2D — Retire the shell; build the ring and the faceted crystal crown
 
-**Model:** Sonnet 5 / GPT Terra
+**Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-2C.
+**Depends on:** AURA-2C and the second resolved pivot.
 
-**Files:** `src/presentation/effects/SpellCastAura.gd`,
-`src/presentation/effects/SpellCastAuraProfile.gd`, its shader,
-`src/presentation/effects/SpellVfxCatalog.gd` (generic entry metadata only),
-deletion of `assets/shaders/spell_aura.gdshader` and its `.uid`,
-`docs/VFX_DESIGN.md`, `docs/MODULE_MAP.md` if its effect list changes, relevant
-backlog files.
+**Files:** new `src/presentation/effects/SpellCastAuraMeshFactory.gd` (a sibling
+to `IceChunkMeshFactory.gd`, forked rather than shared, per §3), one or two new
+effect-owned shaders under `assets/shaders/effects/` for the ring and the
+crystal crown, `src/presentation/effects/SpellCastAuraProfile.gd`,
+`src/presentation/effects/SpellCastAura.gd`, deletion of
+`assets/shaders/effects/spell_cast_ray_shell.gdshader` and its `.uid`,
+`docs/VFX_DESIGN.md`, and the relevant backlog files.
 
 **End state:**
 
-- The expanding noise ring and the seven rising wisp billboards are gone. The
-  ground layer is a set of **fissures radiating outward from the seat**,
-  reaching several tiles, bright along the fracture lines and dark between
-  them. They open with the charge, race outward as the blades erupt, and cool
-  as the crown fades. A compact rupture was explicitly rejected in favour of
-  this: the cracks are much of why the reference reads as something escaping
-  from below.
-- A small number of rising motes punctuate the flash without becoming a particle
-  field; combined supporting instances stay under the §3 cap.
-- The catalog's generic entry reads its hold fraction and max-live from
-  `SpellCastAuraProfile`; `GENERIC_ACTION_HOLD_FRACTION` no longer holds a loose
-  literal. `max_live` stays 0.
-- `spell_aura.gdshader` is deleted after a repository-wide search confirms no
-  remaining reference, and the deletion is reflected wherever the old shader is
-  documented.
-- Documentation describes the generic aura's new shape once, without citing any
-  transitory plan item label.
+- The cone shell and its shader are gone; recoverable from Git at commit
+  `3db98cf` if a future silhouette wants it back.
+- A ring mesh stands at the seat — a flattened torus or an equivalent short
+  ring cross-section — additive, its core pushed to near-white regardless of
+  element tint. This is the one deliberate exception to the "restrained core"
+  rule elsewhere in this effect, per the Goal section's reasoning: both
+  references agree the ring itself is the hottest point, and it is small and
+  contained rather than the whole silhouette.
+- A crown of five to six low-poly faceted meshes stands above the ring, built
+  the same way as `IceChunkMeshFactory._spikeMesh()`: named triangles with
+  duplicated vertices per face, so each face gets its own flat normal and reads
+  as a distinct plane under the scene's fixed directional light rather than a
+  smooth gradient. Translucent and element-tinted.
+- Crown placement is seeded and deterministic — varied height, width, rotation,
+  and outward lean, distributed by the golden-angle vocabulary already used
+  elsewhere in this file so it reads as deliberately asymmetric rather than
+  evenly spaced.
+- Ring brightness ramps in during the charge window; crown pieces punch up
+  during the eruption window, both driven by the timeline AURA-2 established.
+- Node, instance, and draw-call budgets are measured through the harness HUD
+  and §3's provisional ceilings are corrected to the real figures.
 
-**Risk:** the easy-to-author ground glow and mote field can quietly become the
-effect again, reproducing the blown-out blob this rework removes. Judge the
-layer-isolated sheets before the composite, and reject any composite in which
-the blades are not the dominant silhouette.
+**Risk:** a ring viewed near edge-on can thin to an unreadable line, and a
+faceted low-poly crystal lit only by one directional light can go uniformly
+dark on faces angled away from it. Confirm the ring reads at front, side, and
+rear-quarter yaws, and give the crown material a modest unshaded/emissive floor
+so no facet goes fully black regardless of its normal.
 
-**Adds to final validation coverage:** layer hierarchy, ground/blade
-integration, catalog metadata sourcing, dead-resource removal, combined budget.
+**Proof checkpoint:** ring-only and crown-only captures at three yaws, placed
+directly beside both reference images — not judged from an isolated capture.
+
+**Adds to final validation coverage:** ring/crown silhouette against both
+references, facet legibility under the scene's lighting, seeded determinism,
+and the corrected budget.
+
+**Resolution target:** implemented; pending end-of-plan validation. Debug
+capture and cheap integrity checks only. Do not launch a battle.
+
+### AURA-3 — Rework the ground layer into a starburst, and restyle the motes
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Depends on:** AURA-2D.
+
+**Files:** `src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, its shader (renamed from
+`spell_cast_ground_fissures.gdshader` if the rebuild changes its shape enough
+to earn a new name), `src/presentation/effects/SpellVfxCatalog.gd` (generic
+entry metadata only, if not already fully sourced from the profile),
+confirmation that `assets/shaders/spell_aura.gdshader` and its `.uid` stay
+deleted, `docs/VFX_DESIGN.md`, `docs/MODULE_MAP.md` if its effect list changes,
+relevant backlog files.
+
+**End state:**
+
+- The ground layer is a horizontal starburst: six to eight straight, sharp,
+  tapered rays radiating outward along the floor from the seat, matching the
+  second reference's asterisk pattern. An earlier attempt this session built a
+  jagged, branching-crack shader
+  (`assets/shaders/effects/spell_cast_ground_fissures.gdshader`, uncommitted)
+  before the second reference image made clear the floor rays are straight,
+  not lightning-like; its per-ray seed, growth, and timeline plumbing is still
+  correct and may be simplified into the straight-ray shape rather than
+  rewritten from nothing.
+- Rays share the ring and crown's eruption timeline, so the floor visibly opens
+  at the same moment the ring lights and the crown punches up.
+- The seven rising wisp billboards are restyled into five or six sparkle-style
+  motes drifting from around the ring's radius rather than the effect's old,
+  much smaller one.
+- The catalog's generic entry sources `action_hold_fraction` and `max_live`
+  entirely from the profile (already true as of AURA-2; confirm unchanged).
+- `spell_aura.gdshader` stays deleted; a repository-wide search confirms no
+  remaining reference.
+
+**Risk:** straight rays that are too uniform in length and spacing read as a
+printed asterisk rather than an organic burst, and the easy fix — adding jag
+back in — is the branching-crack shape this session already rejected once.
+Keep enough per-ray seeded variance in length and delay to avoid a printed
+look while staying visibly straight and star-shaped.
+
+**Proof checkpoint:** starburst-only and motes-only captures, plus the full
+composite, all placed beside both reference images.
+
+**Adds to final validation coverage:** ground/crown integration, layer
+hierarchy, catalog metadata sourcing, dead-resource removal, combined budget.
 
 **Resolution target:** implemented; pending end-of-plan validation. Debug
 capture and cheap integrity checks only. Do not launch a battle.
@@ -427,7 +542,7 @@ capture and cheap integrity checks only. Do not launch a battle.
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-3.
+**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-2D, AURA-3.
 
 **Files:** fixes to task-owned files if validation finds defects,
 `implementation_plan.md` resolution notes during validation, owning docs and
@@ -439,14 +554,17 @@ item:
 
 1. Godot 4.4 headless editor import/parse gate over every changed `.gd`,
    `.gdshader`, and `.uid`, then clean loads of `VFXDebugScene` and `Battle25D`.
+   Confirm `project.godot` is untouched by the gate itself — see the
+   `docs/LEARNINGS.md` entry recorded this session.
 2. At one fixed seed, capture the matched phase sequence — empty ground,
-   rupture, first blades, full flash, decay, clear — judged at native retro
-   resolution, not only in enlarged frames.
+   charge, starburst and crown eruption, hold, decay, clear — judged at native
+   retro resolution, not only in enlarged frames, and placed beside both
+   reference images.
 3. Layer-isolated and composite sheets at front-quarter, side, and rear-quarter
    yaws, retro on and off, for at least five element colours including the
    neutral fallback.
 4. Lifecycle: play, pause, resume, 0.5x and 2x speed, forward and backward
-   scrub, skip from charge / flash / decay, several simultaneous auras,
+   scrub, skip from charge / hold / decay, several simultaneous auras,
    retrigger, repeated seeded playback, and scene/app exit with no locked-object
    error.
 5. Live battle: cast several different unprofiled spells across at least four
@@ -466,15 +584,14 @@ repeat the same checks.
 **Risk:** a harness-perfect translucent effect can vanish against bright terrain
 or blow out through the CRT path, and the generic profile is what every
 unprofiled spell plays, so a regression here is a regression everywhere the
-catalogue currently points. Only the
-live multi-spell battle pass closes that.
+catalogue currently points. Only the live multi-spell battle pass closes that.
 
 **Completion rule:** record the actual visual and manual evidence, mark every
 covered implementation item done, reconcile both backlogs, and commit the final
 validation result. Then, in the same session, grep the repository for `AURA-1`
-through `AURA-4`, including `AURA-2B` and `AURA-2C`, rewrite any accidental persistent reference as a durable
-description, and clear `implementation_plan.md` completely in a follow-up
-lifecycle-cleanup commit.
+through `AURA-4`, including `AURA-2B`, `AURA-2C`, and `AURA-2D`, rewrite any
+accidental persistent reference as a durable description, and clear
+`implementation_plan.md` completely in a follow-up lifecycle-cleanup commit.
 
 ## 6. Deliberately not doing
 
@@ -488,8 +605,11 @@ lifecycle-cleanup commit.
 - No spell data, element, damage, timing, or targeting change.
 - No new shared abstraction extracted from this effect; the `SpellVfxProfile`
   resource extraction stays deliberately declined.
-- No screen-space distortion, refraction, bloom pass, or post-processing change
-  to sell the flash.
+- No screen-space distortion, refraction, global bloom pass, or other
+  post-processing change to sell the flash — brightness comes from each
+  layer's own additive overlap, not from a scene-wide effect.
+- No further parameter-tuning pass on a rejected silhouette without first
+  re-checking both reference images explicitly, per the second resolved gate.
 - No resumption of the parked ice encasement validation inside this cycle; it is
   critical-backlog work with its own session.
 

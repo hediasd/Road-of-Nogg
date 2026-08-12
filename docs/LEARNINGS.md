@@ -246,6 +246,22 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Review when:** generating JSON/code through more than one command language,
   changing shells, or changing repository line-ending policy.
 
+### `--import --headless` can silently rewrite `project.godot`
+
+- **Verified observation:** Running the parse gate
+  (`Godot_v4.4-stable_win64.exe --path . --import --headless`) repeatedly
+  during a VFX authoring session left `project.godot` modified on disk: its
+  entire `[display]` section, including `window/stretch/mode="disabled"` and
+  the comment explaining why, was gone. No code in this repository writes
+  that file; the only thing that touched it was the import/parse pass itself.
+- **Reusable rule:** `git status`/`git diff project.godot` after any
+  `--import --headless` run and before staging, the same way a broad `git add`
+  is reviewed. Revert an unrelated `project.godot` change with
+  `git checkout -- project.godot` rather than committing it, since it is
+  editor-side reformatting, not an intended settings change.
+- **Review when:** running the headless import/parse gate repeatedly in one
+  session, or seeing an unexplained `project.godot` diff in `git status`.
+
 ### Prove the execution environment before diagnosing Godot
 
 - **Verified observation:** Sandboxed Godot editor/checker launches could not
