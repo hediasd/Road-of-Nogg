@@ -1,722 +1,296 @@
-# Ice Target Encasement VFX Cycle
+# Spell Cast Aura Ray-Burst Rework
 
-**Opened 2026-08-10.** The previous contents were the Pixel-Exact UI cycle,
-opened 2026-08-09, followed by the direct adoption of Nogg Terminal as the
-battle UI face. Its final validation passed and every implementation item was
-complete. Its only deliberately open findings already live durably in the
-backlogs: the prompt window can collide with the developer HUD
-(`BACKLOG_CRITICAL.md`), and the footer/body hierarchy under the fixed-size
-bitmap face still needs a design decision (`BACKLOG_LONGTERM.md`). Nothing else
-from that cycle remains open or was moved during this reset. That completed
-cycle existed only in the current uncommitted working tree rather than in Git;
-its durable conclusions are in `docs/UI_DESIGN.md`, but its full resolution log
-cannot be recovered with `git show`.
+**Opened 2026-08-12.** The previous contents were the Ice Target Encasement
+cycle, opened 2026-08-10, which built the `Ice Statue` carrier and its
+target-bound ice encasement across ten implementation items. Every one of those
+items is committed and was recorded as *implemented; pending end-of-plan
+validation*; its consolidated final validation item never ran. At the user's
+explicit direction on 2026-08-12 that cycle was **parked rather than completed**
+so this aura rework could start: the unrun validation — battle integration,
+adapter lifecycle, cross-effect regression captures, and live budget
+confirmation — now lives as a durable description in `BACKLOG_CRITICAL.md`.
+Nothing else from that cycle remained open. Its full resolution log is
+recoverable with `git show bff195f:implementation_plan.md`.
 
-Before this reset, every `PX-1` through `PX-6` reference outside the transitory
-plan was rewritten as a durable description. No persistent file now depends on
-those expired identifiers.
+Before this reset the repository was searched for the previous cycle's item
+identifiers; they appeared only inside the plan file itself, so no persistent
+file needed rewriting.
 
 ---
 
 ## 1. Goal
 
-Build a target-bound ice attack inspired by the supplied Digimon World 1
-reference. The central behavior is a **literal three-dimensional shell of
-large transparent-cyan ice blocks and shards that erupts around the target,
-holds as an enclosing mass, and then breaks apart using those same visible
-pieces**.
+Replace the generic spell-cast aura — today a scrolling noise ring on a flat
+2×2 ground plane plus seven rising wisp billboards — with **a brief flash of
+pointy translucent rays erupting out of the ground**, read as energy liberated
+from the elemental plane at the moment of the cast.
 
-The caster-to-target trail and blue square contact accents are supporting
-layers. They must never become the effect's dominant read. Damage numbers stay
-owned by the existing damage-number presentation, and the yellow rings in the
-reference are explicitly out of scope.
+The user's supplied reference frame is the visual language: a crown of tall,
+hard-edged, translucent light blades standing on the ground, flaring slightly
+outward, white-hot where they overlap near the base, colour-fringed toward
+their pointed tips, over a bright ground rupture. The lightning bolt descending
+from the top of that frame is explicitly **not** part of this effect.
 
 The finished effect must:
 
-- propagate from the caster to the impact point as a sequential trail of
-  terrain-anchored ice spikes, never as a thrown projectile or dotted lance;
-- make the final trail spike trigger a bottom-up eruption of the enclosing
-  cocoon so delivery and formation read as one continuous event;
-- envelope the target from behind, both sides, in front, and above with real
-  low-poly geometry that has visible depth, parallax, deliberate asymmetry, and
-  a few large screen-readable hero slabs rather than a regular faceted egg;
-- render the ice as transparent cyan with bright overlapping cores and darker
-  blue faces, preserving PS1 readability without modern refractive glass;
-- close the visual gaps with a restrained bright internal ice core without
-  using that core to fake the shell;
-- hold long enough for the completed enclosure to read;
-- move the same shell pieces through deterministic ballistic breakup
-  trajectories with varied velocity, gravity, angular motion, size-dependent
-  weight, and four to six readable hero fragments;
-- preserve pause, speed scaling, backward/forward scrub, skip, replay, overlap,
-  and disposal behavior under the existing `VfxPlayback` contract;
-- remain presentation-only: no gameplay stun, damage, targeting, or state
-  mutation is added by this cycle.
+- read as **rays**, not as a ring, dome, cone, column, or fog — pointed,
+  straight-edged, countable blades with visible negative space between them;
+- **erupt from the ground upward**, with the ground rupture and the blades
+  belonging to one event rather than two stacked layers;
+- stay **translucent**: overlapping blades build toward white-hot, single
+  blades stay see-through against terrain behind them;
+- carry the **element tint** every caller already supplies
+  (`BattleMeshFactory.elementColor`), from ice cyan through fire red, thunder
+  yellow, darkness violet, and the neutral grey fallback, with a near-white
+  base that does not erase the tint;
+- be **fast** — a flash, subordinate to whatever spell-specific profile or
+  damage read follows, and not an animation the player waits through;
+- preserve the full `VfxPlayback` contract: pause, speed scale, exact forward
+  and backward `seek_normalized()`, `skip_to_settle()`, overlap, replay at a
+  fixed seed, and safe disposal;
+- remain presentation-only, with no gameplay, timing, or spell-data change.
 
-The working profile id is `ice_target_encasement`. That is presentation
-metadata, not a new spell or lore name.
+This is the **generic** profile (`profile_id == ""`), so it plays for every
+spell that does not select a specific VFX profile — 57 of the 61 entries in
+`data/spells.json`. It is a shared compatibility surface under `AGENTS.md`, and
+its validation scope is "many spells and many element colours", not one carrier.
 
-## 2. Blocking gates
+## 2. Resolved gates
 
-### Existing working tree — resolved 2026-08-11
+### Plan file occupancy — resolved 2026-08-12
 
-The user authorized committing all pending work and removing the obsolete
-untracked `vfx_plan.md`. The prior tree was audited into focused commits before
-this cycle began:
+The user chose to park the Ice Target Encasement cycle rather than validate it
+first. Its unrun consolidated validation is now a durable critical-backlog
+description, and this plan is the repository's only delegation contract. Its
+first implementation item starts from a clean `git status` as `AGENTS.md`
+requires.
 
-- `971396a` — pixel-exact scalable battle UI and Nogg Terminal adoption;
-- `8a61c64` — resolved live spell-footprint transport;
-- `d8650f8` — Ice Plow and Smoke Tower footprint balance changes;
-- `cccef2f` — scalable Ice Storm remodel and owned/shared VFX primitives;
-- `cb2c4c5` — presentation learnings and backlog reconciliation;
-- `c225a76` — preserved Magenta Reduction VFX brief.
+### Footprint scaling stays out of scope — resolved 2026-08-12
 
-`vfx_plan.md` was removed exactly as authorized. The active encasement plan is
-now the repository's only delegation contract, and its first implementation
-item starts from a clean `git status` as required by `AGENTS.md`.
-
-### Carrier spell — resolved 2026-08-11
-
-The user explicitly commissioned `Ice Statue` as a new single-target copy of
-Ice Punch, with minimum range 1, maximum range 5, and
-`VFX_PROFILE: "ice_target_encasement"`. Ice Punch remains unchanged, and Ice
-Plow retains its area-storm profile. This authorization resolves the carrier
-content/design gate without inferring a spell from its name.
-
-The user subsequently chose Snowzilla as the owner. Ice Statue is appended to
-Snowzilla's existing Ice spell set after Ice Punch, resolving the live-battle
-availability gate without changing another monster or element.
-
-### Fidelity direction — resolved 2026-08-11
-
-After reviewing the first complete implementation against the supplied
-Digimon World 1 frames, the user set the visual direction for the fidelity
-pass:
-
-- ice is transparent and cyan rather than predominantly opaque white-blue;
-- the opening is a ground-propagating trail of growing ice spikes, not an
-  object thrown through the air;
-- the trail culminates in an eruptive cocoon around the target;
-- the cocoon uses larger, less regular overlapping blocks and slabs;
-- breakup motion must feel natural rather than like a uniformly lifted radial
-  crown.
-
-These are confirmed visual decisions, not blocking questions. Damage numbers
-remain externally owned and the reference's yellow rings remain out of scope.
+`BACKLOG_LONGTERM.md` carries an open item to make the generic aura implement
+`setFootprint()` instead of staying fixed-size. The user confirmed it stays out
+of this cycle, so the aura remains caster-scaled and radius-agnostic exactly as
+today and the shape change is judged on its own. That backlog entry stays open
+and unmodified. No item here may add radius response.
 
 ## 3. Established facts and design decisions
 
-### The shell is geometry, not a collection of blue lances
+### The blades are geometry, not a stretched sprite
 
-The reference frames show large faceted blocks occupying different depths
-around the victim. The Road of Nogg version therefore uses real low-poly meshes
-with thickness for the enclosing pieces. Camera-facing cards are allowed only
-for the travel streak, internal flash, and small contact accents.
+`docs/VFX_DESIGN.md` §4 already records that a radial sprite cannot be stretched
+into a streak: scaling `neutralSoftDisc()` onto a long quad puts the opaque
+centre in the middle and fades both ends. A pointed ray therefore comes from
+authored geometry with a pointed silhouette — a narrow tapered quad or a thin
+three-face wedge — with the alpha ramp across its width owned by the effect's
+own shader, not from stretching an existing shared mask.
 
-The shell must still read when the trail, contact accents, and internal core
-are hidden in the debug harness. This is the acceptance test that prevents a
-bright billboard from doing the work the ice blocks are supposed to do.
+### World-vertical blades are the sharp case, not the soft one
 
-### Formation and breakup share instance identity
+§4's camera-plane rule exists because a quad rotated to an arbitrary world angle
+sits on no pixel grid. A blade standing on the world's up axis is the exception:
+under the battle camera's fixed pitch and zero roll, world up projects to screen
+up, so a vertical edge stays a vertical raster line. The first item must
+**confirm zero camera roll** in `Battle25D` and the debug harness before relying
+on this; if roll exists, the blades fall back to the camera-plane construction
+the magenta discharge already uses. Blade width is fixed in world units either
+way, never as a fraction of anything.
 
-Every large piece receives one deterministic intact transform and one
-deterministic broken transform. Formation interpolates into the intact
-transform; breakup interpolates that same instance outward. The implementation
-must not delete the statue and spawn an unrelated shard burst at the break.
+### Translucency is authored alpha, not additive glow everywhere
 
-No rigid-body simulation or runtime fracture is needed. Fixed seeded
-initial velocities, gravity, angular velocities, and optional analytic drag
-give the pieces natural ballistic arcs while preserving exact scrub/replay
-behavior. The effect computes each transform directly from normalized time; it
-does not integrate frame-by-frame physics state.
+The current aura is `blend_add` end to end, which is why it blows out to white.
+The rays want the opposite: mostly-transparent bodies with hard edges, so that
+crossing blades accumulate into the white-hot base while a lone blade stays
+see-through. Expect an alpha-blended body with a small additive core, explicit
+render priority, and `depth_draw_never`, with ordering proven at three camera
+yaws before any extra brightness is added.
 
-### Fit the creature body, not the tile or model base
+### The rupture and the blades share one origin
 
-`GodotVisualAdapter` already accumulates mesh bounds for picking and status
-placement. The new context path reuses that capability but measures the creature
-body only: model bases, selection collision, status icons, and other
-presentation helpers do not enlarge the shell. The effect receives a body-local
-bounding box plus event-time source and impact positions.
+Each blade grows from a point on a small ground rupture footprint, on the same
+normalized clock, so the ground layer reads as the fracture the light escapes
+through. The old expanding noise ring is removed rather than kept underneath.
 
-Placement is normalized against that box so one authored layout can surround a
-short/wide, standard, or tall/narrow body without inventing per-monster branches.
+### Ownership and reuse
 
-### Transparent cyan ice, not modern glass
+The effect owns its profile constants, its shader, and its blade mesh
+construction. `VfxTextures` and every other shared material stay untouched, so
+Ice Storm, Fire Storm, Magenta Reduction, and Ice Target Encasement cannot
+regress through a shared primitive. `assets/shaders/spell_aura.gdshader` has
+exactly one referencing file (`SpellCastAura.gd`) and is deleted with its `.uid`
+once the rewrite lands.
 
-The main ice read is transparent cyan. Large slabs retain enough opacity or
-dithered coverage to preserve their silhouettes at the retro viewport's native
-resolution, while selected faces and the internal overlap region build toward
-bright white-cyan. Darker blue faces and edges separate adjacent chunks.
-Front/rear render groups remain explicit so transparency sorting cannot place
-the back of the statue over its front.
+### Budgets, asserted at build time and owned by the profile
 
-Nearest-filtered authored masks, stepped time, quantized transforms, and the
-existing low-resolution/CRT path provide the PS1 character. Refraction,
-screen-space distortion, physically based glass, and smooth particle fog are
-out of scope.
-
-### One generic cast-context path
-
-The current factory gives effects an impact position and element color, with an
-optional area footprint. The new transport must remain profile-driven:
-
-- headless combat emits stable gameplay identities and resolved target data;
-- `GodotVisualAdapter` converts those identities into event-time world
-  positions and presentation-only body bounds;
-- every `VfxPlayback` receives the same typed cast context through one standard
-  method; effects that do not need it ignore it;
-- no adapter branch names this effect or its carrier spell.
-
-The simulation layer never imports a presentation context or a visual node.
-
-### Target treatment is supporting, reversible presentation
-
-If the live target visual has animation playback, the adapter may hold its pose
-during the completed-shell window. A restrained cold tint may be applied only
-through a generic presentation lease that records and restores prior visual
-state. Completion, backward seek, skip, disposal, battle exit, and overlapping
-effects must all release the lease safely.
-
-The shell must remain readable without the tint. Neither pose hold nor tint
-changes battle state or claims that the spell inflicts a gameplay status.
-
-### Budgets
-
-The profile owns and asserts its limits. Fidelity-pass ceilings for one effect
-are:
-
-- 18 enclosing pieces, with 9–12 expected to carry the completed silhouette
-  and four to six designated as breakup hero fragments;
-- 24 combined ground-spike and contact instances;
-- 18 estimated peak draw calls;
-- 28 effect-owned nodes;
-- at most two simultaneous live encasement effects, with the existing adapter
-  cap disposing the oldest before a third is admitted.
-
-Counts, alpha, phase fractions, dimensions, quantization, and palette values are
-named in `IceTargetEncasementProfile.gd` and labelled `AUTHORED`, `DERIVED`, or
-`MEASURED` per `docs/VFX_DESIGN.md`. No tuning literal stays buried in the
-effect or shader.
+- 12–18 ray blades in a single MultiMesh;
+- ≤ 10 supporting instances (ground rupture, base flare, motes);
+- ≤ 10 effect-owned nodes;
+- ≤ 8 estimated peak draw calls;
+- unlimited live count preserved (`max_live` stays 0 — the generic profile is
+  the fallback for every unprofiled spell and must never evict itself).
 
 ## 4. Proof checkpoints
 
 VFX work is shown while it is still cheap to change. These are required item
-outputs, not deferred final-validation evidence:
+outputs, not deferred final-validation evidence.
 
 | Checkpoint | Required proof | Owner |
 | --- | --- | --- |
-| Context harness | Source marker, target body bounds, and three target proportions render through the shipping retro path. | Target-bound harness item |
-| Shell skeleton | Mid-hold captures with **shell only** at front-quarter, side, and rear-quarter views. Visible depth, thickness, and enclosure; no trail/core/contact layers. | Shell-geometry item |
-| Formation and fracture | One contact sheet spanning empty target, first blocks, closed statue, hold, initial break, wide break, and settle. Piece continuity is visually traceable. | Choreography item |
-| Supporting layers | Trail-only and contact-only sheets, followed by a full composite. The full shell remains the dominant silhouette. | Delivery/contact item |
-| Cyan material and silhouette | Matched hold frames with opaque core disabled, at three angles and three body presets. Ice remains visibly transparent cyan, overlapping faces approach white-cyan, and 9–12 asymmetric hero shapes remain countable at retro resolution. | Fidelity shell/material item |
-| Ground-spike delivery and eruption | A tight sheet from empty ground through every spike advance into the first, middle, and completed cocoon frames. No geometry travels through the air; the last ground spike and first target slab form one continuous wave. | Ground-spike/eruption item |
-| Natural fracture | A tight 0.02–0.04 normalized-time cadence across fracture plus a wider breakup sheet. Four to six hero chunks follow distinct ballistic arcs, rotate at size-appropriate rates, and avoid a uniform upward crown. | Ballistic-fracture item |
-| Final look | Standard, wide, and tall targets through retro on/off, plus existing Ice Storm, Fire Storm, Magenta Reduction, and generic aura captures. | Final validation item |
+| Blade silhouette | `ray_burst`-only mid-flash captures at front-quarter, side, and rear-quarter yaws, through the retro path and at native. Blades are countable, pointed, and translucent; nothing reads as a ring or a solid cone. | Geometry/material item |
+| Element sweep | The same frame for ice, fire, thunder, darkness, and the neutral fallback. Tint is legible in all five; none blows out to white. | Geometry/material item |
+| Eruption timeline | One tight sheet from empty ground through rupture, first blades, full flash, decay, and clear. Rays visibly leave the ground rather than fading in at full height. | Choreography item |
+| Composite hierarchy | Ground-only and mote-only sheets beside the full composite. The blades remain the dominant read. | Supporting-layer item |
+| Final look | Live battle casts across several spells and elements, retro on and off, plus re-captures of the four specific profiles. | Final validation item |
 
-An executing session stops at a checkpoint that fails visually and reports the
-sheet to the user. It does not continue layering more work over a rejected
-silhouette.
+A session whose checkpoint fails visually stops and reports the sheet to the
+user. It does not layer more work over a rejected silhouette.
 
 ## 5. Items
 
-### STATUE-1 — Carry generic source/target context to profile-driven VFX
+### AURA-1 — Author the ray-burst profile, blade geometry, and translucent material
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** clean-working-tree gate.
+**Depends on:** both resolved gates.
 
-**Files:** `src/battle_sim/BattleEvents.gd`,
-`src/battle_sim/CombatResolver.gd`,
-`src/battle_sim/IBattleVisualAdapter.gd`,
-`src/presentation/ConsoleVisualAdapter.gd`,
-`src/presentation/VisualAction.gd`,
-`src/presentation/GodotVisualAdapter.gd`,
-`src/presentation/effects/VfxPlayback.gd`, a small typed context under
-`src/presentation/effects/`, `docs/ARCHITECTURE.md`, `docs/VFX_DESIGN.md`, and
-the relevant backlog files.
+**Files:** new `src/presentation/effects/SpellCastAuraProfile.gd`, new
+`assets/shaders/effects/spell_cast_ray_burst.gdshader`,
+`src/presentation/effects/SpellCastAura.gd` (build path only), generated `.uid`
+sidecars, `docs/VFX_DESIGN.md`, relevant backlog files.
 
 **End state:**
 
-- `spell_cast_started` carries the ordered resolved target `uniqueID` values in
-  addition to its existing resolved radius and shape. The event contains no
-  node, mesh, material, or presentation type.
-- `VisualAction` clones source/impact coordinates and target identities at
-  enqueue time so delayed playback cannot read a later gameplay position.
-- `GodotVisualAdapter` produces a typed presentation context containing source
-  world position, impact world position, body-only local bounds for each
-  resolved target, and stable target IDs.
-- `VfxPlayback.configure_cast_context(context)` is a concrete default no-op;
-  the adapter calls it uniformly before `play()` for every profile.
-- Existing area effects continue receiving their live footprint through
-  `setFootprint`; the new context complements rather than replaces that path.
-- Missing or defeated visuals degrade to an authored standard body box at the
-  event's impact point rather than causing the visual queue to wedge.
-- Architecture and VFX documentation describe the ownership boundary once.
+- 12–18 blades in one MultiMesh, each a low-poly tapered form with a broad seat
+  and a single pointed apex, standing on world up with a small outward tilt that
+  grows with the blade's height.
+- Seeded per-blade azimuth, height, width, tilt, and apex offset produce
+  deliberate asymmetry — no evenly spaced picket fence, no mirrored halves.
+- The effect-owned shader gives each blade a hard-edged translucent body, a
+  brighter base, and a tip that fades before the apex. Overlapping blades
+  accumulate toward white-hot; a single blade stays see-through.
+- Element tint arrives from the existing `element_color` constructor argument;
+  the palette derives base, body, and fringe from it rather than hard-coding a
+  hue. The neutral grey fallback still reads as energy, not as smoke.
+- Camera roll is confirmed zero before relying on screen-vertical sharpness, and
+  the finding is recorded in `docs/VFX_DESIGN.md` beside the existing
+  camera-plane guidance.
+- Every count, dimension, alpha, palette entry, and timing constant lives in
+  `SpellCastAuraProfile.gd` with `AUTHORED` / `DERIVED` / `MEASURED` labels.
+  Build assertions enforce the §3 ceilings.
+- `VfxTextures` and all other shared materials are unchanged.
 
-**Risk:** expanding an observational event can desynchronize console and Godot
-adapters, while measuring a live node at playback time can violate the queue's
-event-time snapshot rule. Keep gameplay identities in the event, snapshot
-positions when enqueuing, and keep visual-bound lookup presentation-only.
+**Risk:** alpha-blended crossing geometry is the classic sorting-error case, and
+an additive fix would return the effect to the white blowout this rework exists
+to remove. Solve ordering with explicit render priority and `depth_draw_never`
+first, and judge at the retro viewport's native resolution before adding
+brightness.
 
-**Adds to final validation coverage:** source and target positions remain
-correct after queued movement; target IDs survive multi-target event transport;
-existing generic and area profiles still play without reading presentation from
-simulation.
+**Proof checkpoint:** blade silhouette and element sweep. Stop here if the
+blades do not read as countable translucent rays.
 
-**Resolution target:** implemented; pending end-of-plan validation. Run only
-focused diff inspection, `git diff --check`, and the narrow import/load probe
-needed to prove changed interfaces parse. Do not launch a battle.
+**Adds to final validation coverage:** ray silhouette, translucency, sorting
+stability across yaws, element tinting across the full palette,
+owned-resource isolation, budget compliance.
 
-### STATUE-2 — Give the VFX harness a truthful source, target, and body bounds
+**Resolution target:** implemented; pending end-of-plan validation. Run the
+debug capture checkpoint, focused diff inspection, `git diff --check`, and only
+the narrow import/parse probe needed to hand a usable shader forward. Do not
+launch a battle.
+
+### AURA-2 — Choreograph the ground eruption and fix the disposal lock
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-1.
+
+**Files:** `src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, its shader,
+`docs/VFX_DESIGN.md`, `BACKLOG_LONGTERM.md`.
+
+**End state:**
+
+- Named authored windows cover ground charge, blade eruption, flash hold,
+  decay, and clear. Every transform and every shader input is a pure function of
+  normalized time and the fixed seed; nothing samples RNG or global `TIME` after
+  construction.
+- Blades punch up from zero height at staggered per-blade delays derived from
+  their spatial role, overshoot slightly, and settle before decaying. They do
+  not fade in at full height.
+- Total duration stays in the current fast band (≈0.9–1.1 s) and the profile
+  publishes its own `ACTION_HOLD_FRACTION`, replacing the catalog's hard-coded
+  `GENERIC_ACTION_HOLD_FRACTION` so the queue's hold matches the new shape.
+  This legitimately changes the reported hold value; do not restore 0.6 unless
+  the new shape actually wants it.
+- `seek_normalized()` reproduces every phase forward and backward;
+  `skip_to_settle()` lands in a safe late-decay state rather than cutting a
+  full-height flash off screen.
+- Layer names cover at minimum `ray_burst`, `ground_rupture`, and `motes`, each
+  independently toggleable in the harness.
+- The long-standing `Object is locked and can't be freed` error on disposal at
+  process/scene teardown is fixed while this file is open — the long-term
+  backlog names this rewrite as its trigger — and that backlog entry is removed
+  once the fix is verified.
+
+**Risk:** a per-blade stagger implemented as accumulated state breaks backward
+seek, and the old fixed-size ring hid ordering problems that a staggered growth
+sequence will expose at phase boundaries. Derive all growth analytically and
+prove boundary frames at tight normalized-time spacing.
+
+**Proof checkpoint:** eruption timeline, plus two standalone timestamps captured
+out of order at one seed and compared by hash.
+
+**Adds to final validation coverage:** eruption ordering, phase continuity,
+exact out-of-order seek, safe skip, queue hold fraction, clean disposal at
+teardown.
+
+**Resolution target:** implemented; pending end-of-plan validation. Debug
+capture and cheap integrity checks only. Do not launch a battle.
+
+### AURA-3 — Rebuild the ground rupture and the subordinate motes
 
 **Model:** Sonnet 5 / GPT Terra
 
-**Depends on:** STATUE-1.
+**Depends on:** AURA-2.
 
-**Files:** `scenes/debug/VFXDebugScene.tscn`,
-`src/presentation/debug/VFXDebugController.gd`, and the relevant backlog files.
-
-**End state:**
-
-- The harness builds an explicit caster anchor and target anchor and passes the
-  same typed context used by battle playback.
-- Target-body presets cover standard, short/wide, and tall/narrow bounds. They
-  are selectable interactively and through CLI arguments.
-- Source-to-target distance and camera yaw are controllable through both UI and
-  CLI so a three-dimensional shell can be inspected from at least
-  front-quarter, side, and rear-quarter views.
-- The HUD reports the selected target bounds, separation, view angle, profile,
-  seed, normalized time, node count, particle/instance count, and draw-call
-  estimate.
-- Capture mode preserves the existing phase-sheet and golden behavior while
-  framing both the delivery path and the target.
-
-**Risk:** a harness-only context or camera path can make an effect look correct
-in a scene battle playback cannot reproduce. Construct context through the same
-presentation helper used by `GodotVisualAdapter`, and keep retro rendering on by
-default.
-
-**Proof checkpoint:** capture the three target proportions and source/target
-markers through the shipping retro path. No encasement look is claimed yet.
-
-**Adds to final validation coverage:** every geometry/timeline observation the
-plan asks for can be produced non-interactively before full battle validation.
-
-**Resolution target:** implemented; pending end-of-plan validation. A narrow
-debug-scene launch is allowed because the harness is the item's deliverable;
-record it as a smoke/proof checkpoint, not integrated acceptance.
-
-### STATUE-3 — Author the enclosing low-poly shell and faceted ice materials
-
-**Model:** Opus 5 / GPT Sol
-
-**Depends on:** STATUE-2.
-
-**Files:** new `src/presentation/effects/IceTargetEncasementEffect.gd`, new
-`src/presentation/effects/IceTargetEncasementProfile.gd`, new effect shader(s)
-under `assets/shaders/effects/`, `src/presentation/effects/VfxTextures.gd` or a
-small ice-chunk mesh factory if ownership is clearer there,
-`src/presentation/effects/SpellVfxCatalog.gd` for debug registration only,
-generated `.uid` sidecars, `docs/VFX_DESIGN.md`, and relevant backlog files.
-
-**End state:**
-
-- Two or three reusable meshes provide actual thickness: a block, a wedge, and
-  an irregular crystal/slab. They are low-poly geometry, not billboard masks.
-- Seeded placement distributes large instances into named rear, side, front,
-  and cap groups around the supplied body bounds. Pieces overlap enough to read
-  as one enclosing mass without becoming an undifferentiated opaque box.
-- Each instance stores stable intact and broken transform data at creation;
-  later items animate those transforms but do not replace the instances.
-- Mostly opaque flat/faceted faces carry a small blue-white palette. Explicit
-  rear/front grouping and render priority make ordering stable. A restrained
-  internal core is a separate named layer and may be disabled.
-- Layer names expose at minimum `shell_rear`, `shell_sides`, `shell_front`,
-  `shell_cap`, and `ice_core`.
-- Build-time assertions enforce chunk, node, and draw-call ceilings.
-- The profile is registered so the debug harness can select it; no spell data
-  changes in this item.
-
-**Risk:** transparency can flatten the shell into a blue screen overlay, while
-one normalized layout can leave gaps around extreme body proportions. Establish
-solid geometry and parallax first, retune placement/count second, and add only
-the minimum translucent overlay needed for ice character.
-
-**Proof checkpoint:** show shell-only mid-hold captures at three camera angles
-for the standard target, plus front-quarter captures for wide and tall targets.
-The shell must visibly surround the body with the core, trail, and contact
-layers hidden. If it does not, stop here.
-
-**Adds to final validation coverage:** literal volumetric enclosure, stable
-front/rear ordering, body-bound scaling, material readability through the retro
-path, and hard budget compliance.
-
-**Resolution target:** implemented; pending end-of-plan validation. Import and
-run the debug capture needed for the checkpoint, but do not launch the game.
-
-### STATUE-4 — Choreograph growth, completed-statue hold, and same-piece breakup
-
-**Model:** Opus 5 / GPT Sol
-
-**Depends on:** STATUE-3.
-
-**Files:** `IceTargetEncasementEffect.gd`,
-`IceTargetEncasementProfile.gd`, its shader(s), `VfxPlayback.gd` and
-`GodotVisualAdapter.gd` only if the generic reversible target-treatment lease
-requires them, `docs/VFX_DESIGN.md`, and relevant backlog files.
-
-**End state:**
-
-- The timeline has named authored windows for arrival, lower/side formation,
-  front/cap closure, completed hold, fracture impulse, outward tumble, and
-  settle. No frame relies on global `TIME`, accumulated physics, or random calls
-  after seed configuration.
-- Blocks enter in readable groups and grow from compressed positions near the
-  body into their intact transforms. The cap arrives late enough to complete
-  the statue rather than hiding the target from the first frame.
-- The completed shell holds as a recognizable volume before breaking.
-- Breakup interpolates every existing chunk toward its stored broken transform
-  with stepped rotation and outward/upward motion derived from the target
-  center. Large pieces remain countable; small debris cannot replace them.
-- `seek_normalized()` reproduces formation, hold, and breakup both forward and
-  backward. `skip_to_settle()` enters a safe late-break state rather than
-  cutting a closed statue from the screen.
-- If supported by the current visual type, a generic adapter-owned lease holds
-  the target pose and applies a restrained cold tint only during the closed
-  shell window. Every lifecycle exit restores prior presentation state. The
-  effect remains acceptable with that layer disabled.
-
-**Risk:** discontinuities at phase boundaries can make blocks pop, and an
-external target tint/pose can leak after skip or disposal. Derive all transforms
-as pure functions of normalized time, and centralize reversible target state in
-the adapter rather than letting the effect mutate arbitrary materials.
-
-**Proof checkpoint:** show one sheet spanning empty target, first lower blocks,
-side closure, full statue, hold, initial separation, wide breakup, and settle.
-Show a second shell-only sheet tight around the break so the same large pieces
-can be followed across frames.
-
-**Adds to final validation coverage:** formation order, readable hold, instance
-continuity through fracture, exact seek, safe skip, and complete target-state
-restoration.
-
-**Resolution target:** implemented; pending end-of-plan validation. Debug
-capture is allowed for the proof checkpoint; no full battle.
-
-### STATUE-5 — Add the subordinate delivery trail and blue contact accents
-
-**Model:** Opus 5 / GPT Sol
-
-**Depends on:** STATUE-4.
-
-**Files:** `IceTargetEncasementEffect.gd`,
-`IceTargetEncasementProfile.gd`, its shader(s),
-`src/presentation/effects/VfxTextures.gd` only for genuinely reusable masks,
-`docs/VFX_DESIGN.md`, and relevant backlog files.
-
-**End state:**
-
-- A short sequence of directional cards or deterministic MultiMesh instances
-  travels from the context's caster position to the target. It has a clear head
-  and taper, reaches the target once, and disappears as shell formation takes
-  over.
-- Blue square contact accents appear briefly around the impact volume as a
-  separately toggleable `contact_accents` layer. They signify contact but do
-  not masquerade as large ice blocks.
-- The internal flash is synchronized with first shell growth and remains
-  subordinate to the opaque/faceted enclosure.
-- Trail, contact, and any small debris stay under their combined instance cap.
-  The shell occupies most of the timeline and remains the largest silhouette in
-  the composite.
-- The implementation is local to this effect. Do not extract a general hit
-  marker until a second effect proves the same structure is reusable.
-
-**Risk:** the easy-to-author bright trail can dominate attention and regress the
-effect into “blue lances plus a flash.” Judge layer-isolated sheets first and
-reject any full composite in which the completed shell is not the primary read.
-
-**Proof checkpoint:** show trail-only, contact-only, and full-composite sheets.
-Include the shell-only hold frame beside the composite hold frame to prove the
-supporting layers did not replace the enclosure.
-
-**Adds to final validation coverage:** correct caster-to-target direction,
-contact timing, layer isolation, visual hierarchy, and combined budgets.
-
-**Resolution target:** implemented; pending end-of-plan validation. Debug
-capture is allowed for the proof checkpoint; no full battle.
-
-### STATUE-6 — Register the confirmed single-target carrier and document runtime behavior
-
-**Model:** Sonnet 5 / GPT Terra
-
-**Depends on:** STATUE-1, STATUE-4, STATUE-5, and the recorded Ice Statue
-carrier decision.
-
-**Files:** `data/spells.json`,
-`src/presentation/effects/SpellVfxCatalog.gd` if its debug registration still
-needs production metadata, `docs/VFX_DESIGN.md`,
-`docs/SPELL_CATALOG_SCHEMA.md` only if the schema truth changes, and relevant
+**Files:** `src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, its shader,
+`src/presentation/effects/SpellVfxCatalog.gd` (generic entry metadata only),
+deletion of `assets/shaders/spell_aura.gdshader` and its `.uid`,
+`docs/VFX_DESIGN.md`, `docs/MODULE_MAP.md` if its effect list changes, relevant
 backlog files.
 
 **End state:**
 
-- Exactly one user-confirmed single-target carrier selects
-  `ice_target_encasement` through `VFX_PROFILE`.
-- No damage, radius, range, status, element, cost, targeting, or description is
-  changed merely to accommodate the visual.
-- The catalog declares action-hold fraction and maximum live count from the
-  profile. The queue holds through the completed-statue read and initial break,
-  while the tail may safely outlive the queue slot.
-- Missing target visuals, zero-hit casts, and target defeat before delayed
-  playback remain safe and visually understandable.
-- Documentation distinguishes target-bound encasement from area storms and
-  records how future target-bound profiles consume cast context without adapter
-  branches.
-- Backlogs are reconciled: remove work completed by this cycle, add only durable
-  unresolved issues discovered during implementation, and do not cite this
-  plan's transitory item labels.
+- The expanding noise ring and the seven rising wisp billboards are gone. The
+  ground layer is a compact rupture at the blade seats — bright at the fracture
+  lines, dark between them — that appears with the charge and clears with the
+  decay.
+- A small number of rising motes punctuate the flash without becoming a particle
+  field; combined supporting instances stay under the §3 cap.
+- The catalog's generic entry reads its hold fraction and max-live from
+  `SpellCastAuraProfile`; `GENERIC_ACTION_HOLD_FRACTION` no longer holds a loose
+  literal. `max_live` stays 0.
+- `spell_aura.gdshader` is deleted after a repository-wide search confirms no
+  remaining reference, and the deletion is reflected wherever the old shader is
+  documented.
+- Documentation describes the generic aura's new shape once, without citing any
+  transitory plan item label.
 
-**Risk:** attaching the profile to an area or multi-target carrier would multiply
-shell budgets and change the intended visual language; changing gameplay data
-to make a candidate fit would silently expand scope. Refuse both and stop if the
-confirmed carrier is not truly single-target under the live resolver.
+**Risk:** the easy-to-author ground glow and mote field can quietly become the
+effect again, reproducing the blown-out blob this rework removes. Judge the
+layer-isolated sheets before the composite, and reject any composite in which
+the blades are not the dominant silhouette.
 
-**Adds to final validation coverage:** the real spell selects the correct
-profile with unchanged gameplay semantics, queue pacing reaches the shell hold,
-and fallback paths do not wedge presentation.
+**Adds to final validation coverage:** layer hierarchy, ground/blade
+integration, catalog metadata sourcing, dead-resource removal, combined budget.
 
-**Resolution target:** implemented; pending end-of-plan validation. Use only
-integrity checks and any narrow catalog/load probe necessary for safe handoff.
-Do not launch the battle.
+**Resolution target:** implemented; pending end-of-plan validation. Debug
+capture and cheap integrity checks only. Do not launch a battle.
 
-### STATUE-7 — Recompose the shell and author transparent-cyan PS1 ice
+### AURA-4 — Consolidated final visual, lifecycle, and battle validation
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** STATUE-3 through STATUE-6 and the resolved fidelity direction.
-
-**Files:** `src/presentation/effects/IceTargetEncasementEffect.gd`,
-`src/presentation/effects/IceTargetEncasementProfile.gd`,
-`src/presentation/effects/IceChunkMeshFactory.gd`,
-`assets/shaders/effects/ice_target_encasement.gdshader`, an effect-owned second
-pass shader only if one material cannot preserve both sorting and bright
-overlap, `docs/VFX_DESIGN.md`, and the relevant backlog files.
-
-**End state:**
-
-- The held statue is deliberately asymmetric and built around 9–12
-  screen-readable forms with clear size hierarchy: broad lower/front slabs,
-  uneven side blocks, a diagonal caster-facing plate, rear silhouette masses,
-  and an irregular cap. Small pieces support those forms rather than creating a
-  regular 2×2 cage.
-- The central target silhouette is substantially obscured during the hold while
-  recognizable extremities may remain visible. The enclosure reads as a heavy
-  pile-up of ice, not a crown, flower, collar, or tidy faceted egg.
-- Main faces are transparent cyan. Overlapping central faces approach
-  white-cyan, and darker blue faces/edges keep adjacent pieces countable. The
-  look uses authored alpha or retro dithering rather than refraction, smooth
-  physically based glass, or full-screen distortion.
-- Transparency remains stable through front-quarter, side, and rear-quarter
-  views. Explicit depth/render groups or a restrained solid underlayer prevent
-  rear faces from incorrectly drawing over front faces.
-- The internal core remains optional and cannot be required for the shell to
-  read. With the core hidden, the material still looks icy, cyan, translucent,
-  and volumetric.
-- All palette, opacity, dither, emission, chunk-count, placement, and size-class
-  values live as labelled profile parameters. Existing shared VFX materials and
-  textures remain unchanged.
-
-**Risk:** ordinary alpha blending can collapse overlapping geometry into a
-sorting-error cloud, while excessive transparency makes the enclosure vanish
-against bright terrain. Solve silhouette and ordering at the retro viewport's
-native resolution, using an effect-owned underlayer or dither only when the
-proof frames demonstrate the need.
-
-**Proof checkpoint:** capture core-disabled hold frames for standard, wide, and
-tall bodies at front-quarter, side, and rear-quarter angles, plus matched retro
-on/off frames. At retro resolution the effect must retain a transparent cyan
-read, stable front/rear ordering, substantial target enclosure, and 9–12
-countable dominant shapes.
-
-**Adds to final validation coverage:** transparent-cyan material fidelity,
-asymmetric PS1-scale silhouette, body-bound fit, overlap brightness, sorting
-stability, core independence, and owned-resource isolation.
-
-**Resolution target:** implemented; pending end-of-plan validation. Run the
-debug capture checkpoint, focused diff inspection, and `git diff --check`; use
-only the narrow import/load probe necessary to hand usable shaders to the next
-item. Do not launch a battle.
-
-### STATUE-8 — Replace the thrown trail and finish pointed, textured ice forms
-
-**Model:** Opus 5 / GPT Sol
-
-**Depends on:** STATUE-7.
-
-**Files:** `IceTargetEncasementEffect.gd`,
-`IceTargetEncasementProfile.gd`, `IceChunkMeshFactory.gd` if a dedicated spike
-mesh is needed, the effect-owned shader set,
-`src/presentation/effects/VfxCastContext.gd`,
-`src/presentation/GodotVisualAdapter.gd`, `src/presentation/VisualAction.gd`
-only as needed to snapshot an optional generic presentation-surface path,
-`docs/ARCHITECTURE.md`, `docs/VFX_DESIGN.md`, and the relevant backlog files.
-
-**End state:**
-
-- The former airborne/dotted delivery segments are removed. Eight to twelve
-  irregular ice spikes occupy fixed terrain positions from caster to target;
-  no spike translates through the air.
-- Spikes emerge sequentially by deterministic height/width growth so the wave
-  visibly advances along the ground. Older spikes shrink, dim, or recede behind
-  the head without making the path disappear before its direction reads.
-- The path derives from event-time caster and target positions, adapts its
-  spacing/count within the asserted cap, and remains truthful at the spell's
-  range 1–5. Spike bases follow the presentation terrain surface when the path
-  crosses elevation changes; the effect must define and document the fallback
-  for a missing surface sample rather than floating or tunnelling silently.
-- If intermediate terrain heights are not already available at playback, the
-  adapter snapshots an optional generic world-space surface path into the typed
-  presentation context before the action is queued. Simulation events remain
-  free of meshes, physics queries, and VFX-specific data; no adapter branch may
-  name Ice Statue or `ice_target_encasement`.
-- The final spike reaches the target's caster-facing lower bound and triggers
-  the first cocoon slab. A short overlapping frost bed or joined spike bases may
-  visually connect the wave, but no projectile head, floating lance, or dotted
-  targeting line remains.
-- `delivery_trail` remains independently isolatable, deterministic under seed
-  and normalized time, and subordinate in node/instance/draw budget.
-- Every cocoon form has a broad inner seat and a pointed edge, ridge, or apex
-  facing away from the target. Its faces use deterministic 16×16 cells from
-  the supplied `ice_strip.png` atlas without bleeding adjacent cells.
-
-**Risk:** a line sampled only between two world positions can cut through steps
-or float over terrain, while querying the scene lazily at playback can violate
-the event-time snapshot contract. Snapshot any required presentation surface
-path generically before queueing, and use fewer overlapping wide spike bases so
-the retro image does not become another dotted line.
-
-**Proof checkpoint:** capture a tight trail-only sheet at the harness's minimum,
-middle, and maximum supported source separations, including an elevated route,
-with enough frames to see every advance. Do not violate the confirmed opposing
-islands or their empty middle corridor merely to imitate grid range numerically.
-Every visible spike must stay planted; the sequence must read as ice travelling
-through the ground rather than geometry being thrown.
-
-**Adds to final validation coverage:** source-to-target direction, range-scaled
-spacing, event-time surface-path ownership, terrain anchoring, elevation
-behavior, deterministic sequential growth, removal of the old projectile read,
-and supporting-instance budgets.
-
-**Resolution target:** implemented; pending end-of-plan validation. Run the
-debug capture checkpoint and cheap integrity checks only. Do not launch a
-battle.
-
-### STATUE-9 — Erupt the cocoon from the arriving ground wave
-
-**Model:** Opus 5 / GPT Sol
-
-**Depends on:** STATUE-7 and STATUE-8.
-
-**Files:** `IceTargetEncasementEffect.gd`,
-`IceTargetEncasementProfile.gd`, its effect-owned shader(s),
-`docs/VFX_DESIGN.md`, and the relevant backlog files.
-
-**End state:**
-
-- The target enclosure begins at the last ground spike's contact point. A broad
-  caster-facing lower slab erupts first, uneven lateral blocks climb next, and
-  rear/top pieces close last. Pieces no longer scale outward independently from
-  a common target-centre origin.
-- Each piece has a deterministic eruption origin, start delay, rise direction,
-  overshoot, and settle transform derived from its authored spatial role. The
-  first eruption overlaps the trail head so delivery and enclosure are one
-  continuous material event.
-- A brief white-cyan overlap pulse and the blue-purple square accents mark
-  contact near the lower impact region. Squares remain fixed-size/readable in
-  the retro view, cluster around contact rather than orbiting the whole body,
-  and clear before the completed hold.
-- Formation timing is reallocated without making the famously quick attack
-  sluggish: propagation is legible, enclosure snaps shut decisively, and the
-  completed statue still owns a readable hold before fracture.
-- Forward/backward seek across trail-to-eruption boundaries is exact; no layer
-  pops, double-arrives, or samples RNG after construction.
-
-**Risk:** changing two previously independent phase systems can produce a
-one-frame gap, duplicated impact flash, or discontinuity under backward seek.
-Drive both from one normalized timeline and prove the boundary with tightly
-spaced frames before proceeding to fracture work.
-
-**Proof checkpoint:** capture a full-composite tight sheet covering empty path,
-early/middle/final spike, first lower slab, lateral climb, cap closure, and hold.
-Add a contact-only capture proving the blue-purple squares remain visible but
-do not replace the erupting geometry.
-
-**Adds to final validation coverage:** continuous material flow from ground
-spikes into cocoon, directional bottom-up formation, asymmetric closure,
-contact-square readability, impact flash hierarchy, phase continuity, and
-exact seek at the delivery/formation boundary.
-
-**Resolution target:** implemented; pending end-of-plan validation. Run the
-debug proof checkpoint, focused diff inspection, and `git diff --check`; no
-full battle.
-
-### STATUE-10 — Give the same shell pieces natural deterministic fracture motion
-
-**Model:** Opus 5 / GPT Sol
-
-**Depends on:** STATUE-7. The user explicitly prioritized fracture motion
-before the still-open formation choreography; the two transform windows are
-independent, so this item may land before STATUE-9.
-
-**Files:** `IceTargetEncasementEffect.gd`,
-`IceTargetEncasementProfile.gd`, its shader(s), `docs/VFX_DESIGN.md`, and the
-relevant backlog files.
-
-**End state:**
-
-- The same instances visible in the held cocoon remain the breaking instances;
-  no replacement debris burst hides an identity swap.
-- Each chunk stores seeded initial linear velocity, gravity response, angular
-  velocity/axis, and any authored drag/fade data. Its transform is evaluated as
-  a pure function of normalized fracture time—analytic ballistic motion, not a
-  physics body, accumulated integration, or interpolation to a uniformly
-  lifted endpoint.
-- Four to six large hero chunks take distinct readable trajectories: strong
-  lateral left/right motion, at least one high arc, and at least one lower or
-  forward departure. Smaller pieces accelerate and spin faster; larger slabs
-  feel heavier and rotate more slowly.
-- Departure timing and impulse vary slightly by role. The silhouette opens from
-  the impact fracture rather than becoming a synchronized radial crown. Gravity
-  bends paths naturally, and fragments clear or fade before an unimplemented
-  collision response would become conspicuous.
-- `seek_normalized()`, backward scrub, repeated seeds, speed scaling, pause,
-  and `skip_to_settle()` reproduce the exact same ballistic transforms.
-
-**Risk:** natural-looking motion can tempt frame-state integration or rigid
-bodies, breaking deterministic seek and replay. Derive every position and
-rotation analytically from stored authored/seeded data and verify the same time
-out of order, not only in forward playback.
-
-**Proof checkpoint:** capture a shell-only sheet at 0.02–0.04 normalized-time
-steps from held statue through initial separation, plus a wider breakup sheet.
-Track the four to six hero chunks across frames, then repeat selected timestamps
-out of order and compare hashes. Reject a uniform halo, crown, constant-speed
-lerp, synchronized departure, or implausibly fast large-slab spin.
-
-**Adds to final validation coverage:** same-piece continuity, analytic gravity
-arcs, directional and size-dependent motion, staggered fracture, deterministic
-out-of-order seek, skip behavior, and readable hero-fragment cleanup.
-
-**Resolution target:** implemented; pending end-of-plan validation. Run the
-debug proof checkpoint and cheap integrity checks only. Do not launch a battle.
-
-### STATUE-11 — Consolidated final visual, lifecycle, and battle validation
-
-**Model:** Opus 5 / GPT Sol
-
-**Depends on:** all implementation items, including STATUE-7 through
-STATUE-10, and every resolved blocking gate.
+**Depends on:** AURA-1, AURA-2, AURA-3.
 
 **Files:** fixes to task-owned files if validation finds defects,
 `implementation_plan.md` resolution notes during validation, owning docs and
@@ -726,381 +300,61 @@ This is the only item that performs full gameplay and integration validation.
 Consolidate the following rather than replaying them after each implementation
 item:
 
-1. Run Godot's headless import/parse gate so every changed `.gd`/`.gdshader`
-   and generated `.uid` is known to the editor, then load `VFXDebugScene` and
-   `Battle25D` cleanly.
-2. At one fixed seed, capture the matched reference-phase sequence: empty
-   ground, early/middle/final spike, first eruption, lateral climb, completed
-   transparent-cyan cocoon, hold, fracture, wide hero-chunk separation, and
-   cleanup. Judge at native retro resolution, not only in enlarged frames.
-3. For standard, wide, and tall targets, capture core-disabled shell-only
-   front-quarter, side, and rear-quarter views with retro on and off. Confirm
-   transparent cyan faces, bright overlap, stable sorting, asymmetric
-   full-body enclosure, countable hero slabs, and no egg/crown/collar read.
-4. Capture trail-only at the harness's minimum, middle, and maximum supported
-   source separations, including an elevated route. Preserve its confirmed
-   opposing-island composition and empty middle corridor. Confirm every spike
-   remains terrain-anchored, its sequential growth reads from caster to target,
-   and the last spike joins the bottom-up cocoon eruption without a floating
-   projectile or discontinuity.
-5. Capture contact-only and tight fracture sheets. Confirm blue-purple squares
-   remain readable at the lower impact point, then track four to six original
-   hero chunks through distinct gravity-bent trajectories without a uniform
-   upward halo. Repeat fracture timestamps out of order at the same seed and
-   compare deterministic output.
-6. Exercise play, pause, resume, 0.5x and 2x speed, forward and backward scrub,
-   settle skip from propagation, formation, hold, and fracture, overlap to the
-   live cap, oldest-effect disposal, retrigger, app/battle exit, and repeated
-   seeded playback. Confirm no target pose/tint/material state survives an exit.
-7. Launch the real game and have Snowzilla cast Ice Statue against at least two
-   visibly different target bodies, at short and long legal range, and across
-   an elevated terrain case. Confirm event-time placement, terrain-anchored
-   delivery, shell fit, transparent-cyan readability through CRT, damage-number
-   separation, queue pacing, defeat interaction, and unchanged gameplay
-   results. No yellow ring is introduced by this cycle.
-8. Re-run existing Ice Storm, Fire Storm, Magenta Reduction, and generic aura
-   debug captures to catch shared texture/material/context regressions. Exercise
-   at least one multi-target area cast to prove the target-bound changes did not
-   disturb established area VFX.
-9. Read live node, instance/particle, draw-call, and overlap figures from the
-   effect/harness and confirm every asserted profile ceiling. Reconcile both
-   backlogs, inspect the final focused diff, and run `git diff --check` before
-   staging only task-owned files.
+1. Godot 4.4 headless editor import/parse gate over every changed `.gd`,
+   `.gdshader`, and `.uid`, then clean loads of `VFXDebugScene` and `Battle25D`.
+2. At one fixed seed, capture the matched phase sequence — empty ground,
+   rupture, first blades, full flash, decay, clear — judged at native retro
+   resolution, not only in enlarged frames.
+3. Layer-isolated and composite sheets at front-quarter, side, and rear-quarter
+   yaws, retro on and off, for at least five element colours including the
+   neutral fallback.
+4. Lifecycle: play, pause, resume, 0.5x and 2x speed, forward and backward
+   scrub, skip from charge / flash / decay, several simultaneous auras,
+   retrigger, repeated seeded playback, and scene/app exit with no locked-object
+   error.
+5. Live battle: cast several different unprofiled spells across at least four
+   elements, at least one multi-target area spell, and at least one cast on
+   uneven terrain. Confirm event-time placement, readability through CRT, queue
+   pacing, damage-number separation, and unchanged gameplay results.
+6. Re-run the Ice Storm, Fire Storm, Magenta Reduction, and Ice Target
+   Encasement debug captures to prove no shared-resource regression.
+7. Read live node, instance, and draw-call figures from the harness HUD and
+   confirm every asserted ceiling. Reconcile both backlogs, inspect the final
+   focused diff, run `git diff --check`, and stage only task-owned files.
 
 If validation finds a defect, fix it in this session and rerun the smallest
 consolidated subset that covers the fix; do not reopen prior items merely to
 repeat the same checks.
 
-**Risk:** a debug-perfect material can disappear against live terrain,
-ground-spike placement can diverge from the battle surface, transparent sorting
-can fail on real models, natural fracture can lose determinism under lifecycle
-controls, or queue pacing can release before the statue reads. Only the real
-battle pass can close those combined risks.
+**Risk:** a harness-perfect translucent effect can vanish against bright terrain
+or blow out through the CRT path, and the generic profile plays for almost every
+spell in the game, so a regression here is a regression everywhere. Only the
+live multi-spell battle pass closes that.
 
 **Completion rule:** record the actual visual and manual evidence, mark every
 covered implementation item done, reconcile both backlogs, and commit the final
-validation result. Then, in the same session, grep the repository for
-`STATUE-1` through `STATUE-11`, rewrite any accidental persistent reference as
-a durable description, and clear `implementation_plan.md` completely in a
-follow-up lifecycle-cleanup commit. The completed plan remains recoverable from
-Git history; do not leave its resolution log in the working contract.
+validation result. Then, in the same session, grep the repository for `AURA-1`
+through `AURA-4`, rewrite any accidental persistent reference as a durable
+description, and clear `implementation_plan.md` completely in a follow-up
+lifecycle-cleanup commit.
 
 ## 6. Deliberately not doing
 
-- No ripped Digimon World models, textures, code, or proprietary assets.
-- No dynamic fluid ice, rigid-body fracture, collision debris, or random
-  physics.
-- No shell made primarily from camera-facing sprites.
-- No replacement or redesign of the existing Ice Storm profile.
-- No yellow rings and no changes to damage-number ownership or styling.
-- No gameplay stun/status/balance change inferred from a presentation
-  reference.
-- No per-monster placement tables or spell-name branches in the adapter.
-- No general storm-profile resource refactor; this target-bound structure is
-  not a storm and does not prove that abstraction.
-- No broad shared hit-confirm framework until another effect demonstrates the
-  same contact-accent structure.
+- No lightning bolt, no descending strike, and no sky-side layer: the
+  reference's bolt is out of scope.
+- No radius or footprint response for the generic aura; that long-term backlog
+  entry stays open.
+- No change to any spell-specific profile (Ice Storm, Fire Storm, Magenta
+  Reduction, Ice Target Encasement) and no change to shared `VfxTextures`
+  primitives or materials.
+- No spell data, element, damage, timing, or targeting change.
+- No new shared abstraction extracted from this effect; the `SpellVfxProfile`
+  resource extraction stays deliberately declined.
+- No screen-space distortion, refraction, bloom pass, or post-processing change
+  to sell the flash.
+- No resumption of the parked ice encasement validation inside this cycle; it is
+  critical-backlog work with its own session.
 
 ## 7. Resolution notes
 
-### Target-bound cast context transport
-
-Implemented 2026-08-11; pending end-of-plan validation.
-
-- `spell_cast_started` now carries ordered resolved target identities alongside
-  its existing live footprint, without importing presentation data into the
-  simulation layer.
-- `VisualAction` snapshots source and impact world positions, target identities,
-  target positions, and body-only local bounds before delayed playback.
-- Every `VfxPlayback` receives the same typed `VfxCastContext` through a default
-  no-op method before `play()`. Existing optional `setFootprint` delivery is
-  unchanged.
-- Missing target visuals use the standard authored body box at the event impact.
-- Architecture and VFX contracts were updated. Both backlogs were reviewed;
-  the long-term radius entry now distinguishes stable target identities from
-  still-open exact affected-tile transport, and no critical backlog change was
-  warranted.
-- Focused diff inspection and `git diff --check` passed. Godot 4.4 completed a
-  headless editor import and a five-frame project load with the compatibility
-  renderer and dummy audio. No battle was launched, as required for this item.
-
-### Target-context VFX harness
-
-Implemented 2026-08-11; pending end-of-plan validation.
-
-- The debug scene now has explicit caster and target anchors. It creates each
-  playback context through the same `VfxCastContext.create()` factory used by
-  `GodotVisualAdapter`.
-- Standard, short/wide, and tall/narrow target-bound presets, source distance,
-  and camera yaw are available through both the HUD and CLI. The status panel
-  reports those values with profile, seed, normalized time, node/particle
-  totals, and a draw-call estimate.
-- Target-bound captures retain the existing phase-sheet, golden, layer, and
-  retro-render paths. The retro viewport now starts enabled.
-- Captured the standard, wide, and tall guide states plus side and rear-quarter
-  views through the retro renderer. The final tall side-view capture also
-  verified the shared factory after the focused cleanup.
-- `git diff --check` and the Godot editor import passed. Relevant backlogs were
-  reviewed; this harness work leaves no durable unresolved item to add. No
-  battle was launched, as required for this item.
-
-### Low-poly target encasement shell
-
-Implemented 2026-08-11; pending end-of-plan validation.
-
-- The target-bound profile builds 15 deterministic, thick 3D chunks from block,
-  wedge, and irregular-crystal meshes. Named rear, side, front, and cap layers
-  fit the supplied body bounds; the restrained core remains independently
-  toggleable.
-- Every chunk records its intact and outward broken transforms at construction.
-  The shell uses opaque faceted blue-white materials and explicit layer render
-  priorities. It is registered in the debug catalog only; spell data is
-  unchanged.
-- Build assertions enforce the authored count and ceilings. The measured build
-  uses 15 chunks, no more than 19 effect nodes, and 13 draw calls.
-- Shell-only retro captures passed for standard front-quarter, side, and
-  rear-quarter views and for short/wide and tall/narrow front-quarter targets.
-  The geometry visibly retained thickness, parallax, enclosure, and readable
-  seams without relying on the core.
-- Repeating the standard capture at seed 7 produced the same SHA-256 hash,
-  confirming deterministic placement. Godot's headless editor import and
-  `git diff --check` passed. Relevant backlogs were reviewed and require no
-  durable change. No battle was launched, as required for this item.
-
-### Encasement formation, hold, and same-piece fracture
-
-Implemented 2026-08-11; pending end-of-plan validation.
-
-- Named normalized-time windows now cover arrival, rear/lower and side growth,
-  front/cap closure, completed hold, fracture impulse, outward tumble, and
-  settle. Every frame is recomputed from time; no physics, global shader time,
-  or random sampling occurs after shell construction.
-- Each original chunk owns one stable MultiMesh slot. Formation interpolates
-  from its compressed body-adjacent transform to its intact transform; breakup
-  sends that same slot toward its stored broken transform with deterministic
-  stepped rotation. The core grows and collapses independently.
-- `seek_normalized()` applies the same pure timeline forward or backward, and
-  `skip_to_settle()` targets normalized time 0.92 where all large chunks are
-  already visibly separated. A repeated seed-7 hold capture at 0.49 produced
-  the exact prior SHA-256 hash
-  `42152F11ED6B4AB54F9F2ABD618D88F2DAF93406CE99383F9B3A949FEF630B15`.
-- The current typed context exposes no mutable target visual, so no pose/tint
-  lease was added. The effect remains readable without target treatment and
-  does not gain an unsafe dependency on arbitrary model materials.
-- Shell-only retro proof sheets passed: an eight-frame sequence covers empty,
-  first growth, side closure, completed statue, hold, initial separation, wide
-  breakup, and settle; a seven-frame tight fracture sequence preserves
-  countable large-piece continuity. All capture markers reported `error=0` and
-  stderr was empty.
-- Godot 4.4's headless editor import and `git diff --check` passed. Relevant
-  backlogs were reviewed and require no durable change. No battle was launched,
-  as required for this item.
-
-### Subordinate delivery and contact cues
-
-Implemented 2026-08-11; pending end-of-plan validation.
-
-- `delivery_trail` uses seven tapered low-poly segments whose head travels from
-  the cast context's source position to the target body center exactly once.
-  The frozen taper fades during first shell growth and is gone by normalized
-  time 0.20.
-- `contact_accents` uses eight deterministic deep-blue square prisms in one
-  MultiMesh. Their staggered scale/motion envelope briefly distributes them
-  around the impact volume without resembling the large shell chunks.
-- `impact_flash` is a separate low-alpha, depth-independent internal sphere
-  synchronized with first growth. It was kept small enough to tint the impact
-  volume rather than replace the shell.
-- An attempted standard billboard material was rejected during proof because
-  Godot replaced the per-instance basis and ignored the MultiMesh scale used to
-  hide each square. Scale-safe thin prisms fixed the lifecycle; the durable
-  guardrail is recorded in `docs/VFX_DESIGN.md`.
-- Trail-only and contact-only sheets, a flash isolation capture, and the
-  full-composite sheet passed through the retro path with every capture marker
-  reporting `error=0` and empty stderr. The completed composite hold is
-  byte-identical to the prior shell-only hold, proving the supporting layers
-  clear before the statue owns the frame.
-- The HUD measured 25 nodes, 31 allocated geometry instances, zero particles,
-  and an approximately 16-draw peak when core and supporting layers overlap.
-  Seven trail plus eight contact instances remain under the asserted combined
-  ceiling of 16.
-- Godot 4.4's headless editor import and `git diff --check` passed. Relevant
-  backlogs were reviewed and require no durable change. No battle was launched,
-  as required for this item.
-
-### Ice Statue production registration
-
-Implemented 2026-08-11; pending end-of-plan validation.
-
-- At the user's explicit direction, `Ice Statue` was added as a new
-  single-target copy of Ice Punch. It retains Ice Punch's damage 3, ice element,
-  radius 1, empty-target behavior, and height constraint; its authored minimum
-  range is 1 and maximum range is 5.
-- `VFX_PROFILE: "ice_target_encasement"` assigns the completed target-bound
-  effect without a spell-name branch. Ice Punch is unchanged and Ice Plow keeps
-  `ice_area_storm`.
-- PowerShell JSON parsing found 61 entries with 61 unique names and exactly one
-  Ice Statue entry carrying the requested normalized fields. Godot 4.4's
-  headless editor import completed successfully, and `git diff --check` passed.
-- At the user's direction, Snowzilla now owns Ice Statue immediately after Ice
-  Punch in its existing Ice set. The temporary critical-backlog ownership entry
-  was removed; no other monster or spell set changed.
-- JSON integrity checks found exactly one Snowzilla, exactly one Ice Statue in
-  its set, unique spell names, and no unresolved owned spell name. Godot 4.4's
-  editor import passed after the ownership change.
-- No unrelated gameplay fields changed, and no battle was launched, as required
-  for this item.
-
-### Debug anchor terrain centering correction
-
-Implemented 2026-08-11; pending end-of-plan validation.
-
-- The caster and target anchors now each own a terrain support tile whose top
-  surface is exactly at anchor-local y=0. Model bases and body proxies therefore
-  share the support tile's horizontal centre and correct surface height.
-- The fixed terrain sample grid omits the centre travel row, preventing a
-  movable caster support from overlapping or appearing to belong to an adjacent
-  sample when source distance changes.
-- Retro captures passed at default distance 4 and at fractional distance 3.25
-  with a 90-degree camera yaw. Both proxies remained centred on their own
-  supports; all capture markers reported `error=0` and stderr was empty.
-- Godot 4.4's editor import and `git diff --check` passed. No battle was
-  launched; this is a debug-harness correctness fix ahead of consolidated
-  validation.
-
-### Opposing debug-island layout restoration
-
-Implemented 2026-08-11; pending end-of-plan validation.
-
-- The single support-tile correction was visually rejected by the user because
-  it destroyed the established two-island composition. It was replaced rather
-  than carried into final validation.
-- The harness again builds the exact original terrain arrangement: a flat 3×3
-  green island centred at x=-2, an uneven 3×3 blue island centred at x=+2 with
-  its centre at terrain height 2, and the x=0 corridor empty. The caster and
-  target capsule proxies occupy those respective centres; the target capsule
-  scales to preserve the selectable body-bound presets.
-- Source separation now moves both complete islands symmetrically. Its minimum
-  is 4 world units so the two 3×3 footprints cannot close the middle corridor.
-- Godot 4.4's editor import passed. A retro Magenta Reduction capture at the
-  original distance 4 reproduced the opposing-island composition with both
-  proxies on their centre cells and no terrain in the middle corridor; its
-  capture marker reported `error=0` and stderr was empty.
-- `git diff --check` passed. No battle was launched before consolidated
-  validation.
-
-### Transparent-cyan shell and asymmetric silhouette fidelity pass
-
-Implemented 2026-08-11; pending end-of-plan validation.
-
-- The regular 15-piece front/rear grid was replaced with 11 authored hero
-  forms: two rear masses, three unequal side walls/shards, four overlapping
-  front slabs, and two asymmetric cap pieces. Their normalized positions,
-  scales, rotations, formation windows, palette, opacity, and emission live in
-  `IceTargetEncasementProfile.gd`; small seeded jitter preserves variation
-  without erasing the composition.
-- The shell now uses true transparent-cyan alpha with an alpha depth prepass and
-  explicit rear/side/front/cap render priorities. Pale foreground faces build
-  toward white-cyan while darker facets keep adjacent shapes readable. The
-  previous opaque white-blue material is gone.
-- A 4×4 Bayer screen-door experiment was rejected during proof because the
-  shipping retro upscale converted it into horizontal moiré. The rejected path
-  was removed rather than left as dead tuning or a dormant shader branch.
-- Core-disabled hold captures passed for standard, wide, and tall targets at
-  front, side, and rear camera yaws. Matched native and explicit 320×240 retro
-  captures kept the body enclosed, the cyan material visibly transparent, and
-  front/rear ordering stable. Every capture reported `error=0` with empty
-  stderr.
-- The harness gained `--no-retro` and
-  `--render-resolution=<native|640x480|480x360|320x240>` so the required
-  retro/native proof is reproducible without interactive toggles. The confirmed
-  opposing islands and empty centre corridor are unchanged.
-- The updated harness reports 11 shell chunks, 27 allocated geometry
-  instances, 23 effect nodes, zero particles, and approximately 13 draw calls,
-  all within the current asserted ceilings.
-- Godot 4.4's headless editor import passed. Both backlogs were reviewed; this
-  item leaves no durable unresolved work to add. No battle was launched, as
-  required before consolidated validation.
-
-### Terrain-grown spike wave and pointed atlas-faceted shell
-
-Implemented 2026-08-12; pending end-of-plan validation.
-
-- The moving tapered projectile was removed. `delivery_trail` now owns 8–12
-  deterministic ground spikes whose positions never translate: each grows at
-  a fixed source-to-target sample, then recedes after impact.
-- `GodotVisualAdapter` snapshots a generic surface path from board coordinates
-  at enqueue time and carries it through `VisualAction` and `VfxCastContext`.
-  Playback uses that immutable path; its explicit fallback is the source and
-  target pair. The simulation event remains presentation-free.
-- The debug context supplies the two opposing island plateaus plus the lower,
-  empty middle corridor. A retained ground-node reference fixes sampling after
-  the debug world is reparented into the retro viewport.
-- Block, wedge, and crystal shell meshes now share a broad inner seat and a
-  pointed outward ridge or apex. Layer-dependent orientation turns local -Z
-  away from the target for rear, front, both sides, and the top cap.
-- Every generated face has deterministic UVs. Shell and spike materials select
-  16×16 cells from the supplied 80×64 `ice_strip.png`; nearest sampling,
-  half-texel insets, and disabled alpha-border repair prevent atlas bleed while
-  preserving the transparent cyan base where a tile itself is transparent.
-- Trail-only retro sheets passed at source distances 4, 7, and 10. They show
-  sequential planted growth, the empty corridor and elevation transitions,
-  and a final spike at the target. Front, side, and rear shell captures show
-  the target enclosed by outward-pointed pixel facets. The integrated
-  eight-frame sheet shows the spike-to-shell handoff with no airborne lance.
-- Godot 4.4 imported the atlas and parsed the changed scripts and shader. Both
-  backlogs were reviewed; this item leaves no durable unresolved work to add.
-  No battle was launched, as required before consolidated validation.
-
-### Analytic radial fracture motion
-
-Implemented 2026-08-12; pending end-of-plan validation.
-
-- The scale pulse, eased endpoint interpolation, stepped rotation progress,
-  late shrink, and artificial settle drop were removed. Held shell pieces keep
-  their exact scale when the statue breaks.
-- Each existing hero chunk now stores one seeded radial linear velocity,
-  angular axis/speed, and a sub-frame launch delay. No replacement debris,
-  rigid body, per-frame integration, or post-construction random sample exists.
-- Position evaluates analytically from initial position and velocity under
-  constant downward gravity. Rotation evaluates from angular velocity and the
-  same elapsed flight time. Large-volume slabs launch and spin more slowly;
-  lower pieces take shallow arcs, side pieces travel laterally, and upper/cap
-  pieces crest higher before falling.
-- Tight front-quarter and wider side-view retro sheets passed from held statue
-  through late breakup. They show constant-size fragments opening radially and
-  bending down rather than expanding into a synchronized crown.
-- Standalone normalized-time captures at 0.74 and 0.86 were repeated in reverse
-  order. Each pair produced byte-identical SHA-256 hashes, proving exact seeded
-  seek independently of forward playback history.
-- The user explicitly advanced this independent breakup work ahead of the
-  still-open eruption choreography. Both backlogs were reviewed; no durable
-  unresolved item was added. No battle was launched, as required before
-  consolidated validation.
-
-### Ground-wave-driven cocoon eruption
-
-Implemented 2026-08-12; pending end-of-plan validation.
-
-- Event-time source direction and target body bounds now define one
-  caster-facing lower contact point. The last planted spike, contact flash,
-  blue-square cluster, and first broad shell slab all meet at that point.
-- Each held shell piece stores a role-derived lower eruption transform and a
-  slight overshoot transform in addition to its intact and ballistic data.
-  Early pieces start close to contact; later pieces spread around the lower
-  footprint. They rise past their destination and settle without sampling new
-  state or expanding uniformly from the target centre.
-- Formation order is now broad lower slab, lower/lateral masses, front/rear
-  closure, upper shards, then unequal cap pieces. The final spike overlaps the
-  first slab, closure completes by 0.52, and the statue retains its hold before
-  the analytic fracture begins at 0.68.
-- Eight contact squares now cluster near the lower hit region, pop quickly to a
-  stable readable size, drift only a short distance, and clear by 0.32. The
-  white-cyan flash is compact and located at the same point rather than filling
-  the target body.
-- Full-composite retro sheets passed at source distances 4 and 7, covering the
-  final spike, first slab, lateral climb, rear/cap closure, and clean hold. A
-  contact-only sheet confirmed that supporting cues remain subordinate.
-- Standalone captures at normalized times 0.18 and 0.30 were repeated in reverse
-  order; both pairs were byte-identical. Godot's import/parse gate and
-  `git diff --check` passed. Both backlogs were reviewed with no durable entry
-  required. No battle was launched before consolidated validation.
+_None yet._

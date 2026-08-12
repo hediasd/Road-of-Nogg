@@ -127,6 +127,39 @@ per-pixel additive overlap is much higher at equal counts — density here is a
 readability constraint, not a performance one, and "restoring" it toward the
 budget would destroy the legible spiral.
 
+## Ice Statue encasement has never been validated in a real battle
+
+The full target-bound ice encasement is implemented and committed: generic
+source/target cast context, the debug harness that supplies it, the
+transparent-cyan 11-piece shell, formation and hold, the terrain-grown spike
+wave, the ground-driven cocoon eruption, analytic ballistic fracture, the
+subordinate trail and contact accents, and the `Ice Statue` carrier on
+Snowzilla. Every one of those was recorded as *implemented; pending
+end-of-plan validation*, and the consolidated validation pass never ran before
+the user redirected work to the generic spell-cast aura rework on 2026-08-12.
+The effect therefore ships on nothing but debug-harness captures.
+
+What is still unexercised:
+
+- **Battle integration.** Snowzilla has never cast `Ice Statue` in `Battle25D`.
+  Needed: at least two visibly different target bodies, short and long legal
+  range, an elevated terrain case, event-time placement, transparent-cyan
+  readability through CRT, damage-number separation, queue pacing, defeat
+  interaction, and unchanged gameplay results.
+- **Adapter lifecycle.** Overlap to the live cap, oldest-effect disposal,
+  skip, pause, 0.5x/2x speed, retrigger, and battle/app exit with no target
+  presentation state surviving. The harness cannot exercise the adapter's own
+  cap and skip logic.
+- **Cross-effect regression.** Ice Storm, Fire Storm, Magenta Reduction, and
+  the generic aura captures were never re-run together after the shared cast
+  context and surface-path transport landed, and no multi-target area cast has
+  proven the target-bound changes left area VFX undisturbed.
+- **Asserted ceilings under live conditions.** Node, instance, draw-call, and
+  overlap figures were confirmed in the harness only.
+
+The per-item resolution evidence is recoverable from `git log` for the commits
+between the encasement plan's opening and 2026-08-12.
+
 ## The prompt window renders behind the developer HUD
 
 At the shipping `ui_scale` of 2, the top-centre prompt window ("Choose a
