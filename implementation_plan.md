@@ -672,11 +672,79 @@ hierarchy, catalog metadata sourcing, dead-resource removal, combined budget.
 **Resolution:** superseded before execution; validation coverage moved into
 AURA-2E and AURA-4.
 
+### AURA-2G — Replace pointed ground spirals with emanating aura rings
+
+**Model:** Opus 5 / GPT Sol (GPT-family VFX authorship required by project
+policy).
+
+**Depends on:** AURA-2F and the user's 2026-08-12 correction that the cyan
+ground contours in the reference are aura rings viewed obliquely from above,
+not flat shards or pointed spiral brush marks. The unrelated working-tree edits
+in `AGENTS.md` and `docs/POLICIES.md` remain user-owned and unstaged.
+
+**Files:** `assets/shaders/effects/spell_cast_ground_vortex.gdshader`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, `docs/VFX_DESIGN.md`, this
+plan, and relevant backlog reconciliation only if new unresolved work appears.
+
+**End state:**
+
+- Keep the existing world-horizontal `PlaneMesh`; the camera pitch, rather than
+  view-baked geometry, supplies the apparent ellipse.
+- Remove the angle-fractured spiral and the high-contrast angular breakup that
+  terminate cyan marks as pointed blades. Draw two or three independently
+  expanding annular waves around the caster instead.
+- Give each wave a broad feathered body, gentle low-frequency radial wobble,
+  mild continuous opacity variation, and a radius-dependent fade. Gaps may be
+  soft and cloudy, never tapered shard silhouettes.
+- Keep the ink-dark central pool as a separate mask below the rings. Preserve
+  the effect's one ground draw call, deterministic seed/progress behavior, and
+  shared-resource compatibility; import no external asset.
+
+**Risk:** mathematically perfect rings can read as a targeting reticle, while
+excessive angular noise recreates broken shards. Use different wave radii,
+widths, alpha, and distortion phases, but keep opacity continuity around most
+of every circumference.
+
+**Proof checkpoint:** ground-only and full-composite phase sheets at a fixed
+seed, followed by 0, 90, and 180 degree ground-only captures. Compare the
+ground-only hold frame directly with the user's crop and the original supplied
+reference: it must read as waves emanating from the caster, not blades lying on
+the floor.
+
+**Adds to final validation coverage:** concentric-wave semantics, soft ring
+endpoints, dark-pool separation, multi-yaw ground projection, and unchanged
+draw-call/resource budgets.
+
+**Resolution (2026-08-12):** Implemented; pending end-of-plan validation. The
+ground shader no longer wraps radius through `fract(angle)` or thresholds an
+angular breakup mask. It now composes three staggered `soft_ring()` annuli whose
+radii travel outward independently, with broad feathering, low-frequency radial
+wobble, and continuous seeded opacity variation that never drops a
+circumference into pointed fragments. The ink-dark centre remains an independent
+mask below the cyan waves. Ring alpha, crest alpha, and emission were reduced
+after the first capture pass so the result reads as cloudy energy rather than a
+bright targeting reticle.
+
+Fixed-seed ground-only and composite phase sheets verified charge through decay.
+Ground-only hold captures at 0, 90, and 180 degrees remained centred on the
+same world point and projected naturally as camera-dependent ellipses without
+any view-facing geometry. Forward+ rendered every capture without shader error;
+the Godot editor/import parse exited 0 and `git diff --check` passed. The layer
+still uses its existing horizontal plane and one draw call; no shared resource
+or external asset changed. No battle was launched at this implementation-item
+boundary.
+
+`docs/VFX_DESIGN.md` now records the corrected dark-pool-plus-annuli semantics.
+The unrelated `AGENTS.md` and `docs/POLICIES.md` edits remain user-owned and
+unstaged. Existing backlog entries are unchanged; no new unresolved work was
+found.
+
 ### AURA-4 — Consolidated final visual, lifecycle, and battle validation
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-2E, and AURA-2F.
+**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-2E, AURA-2F, and
+AURA-2G.
 AURA-2D and AURA-3 were superseded before their own commit boundaries.
 
 **Files:** fixes to task-owned files if validation finds defects,

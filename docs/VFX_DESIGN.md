@@ -399,8 +399,12 @@ and forfeit the sharpness.
 
 The generic fallback aura is deliberately decomposed into four independently
 toggleable layers. A world-horizontal alpha-mixed plane draws an irregular
-black/navy vortex under the caster, including broken element-tinted spiral and
-rim accents. Six short alpha-mixed texture cards arranged around world up build
+black/navy pool under the caster plus three soft element-tinted annular waves.
+The rings expand independently from the centre, and the camera pitch supplies
+their apparent ellipse. Gentle continuous radial wobble and cloudy opacity keep
+them organic; there is deliberately no angle-wrapped spiral or hard angular
+breakup that could terminate the waves as pointed floor shards. Six short
+alpha-mixed texture cards arranged around world up build
 the low cyan body bloom. A separate seeded `MultiMesh` distributes crossed ray
 ribbons radially through world space. A small one-shot particle system supplies
 rising soft puffs. The split matters: one clean torus or cone cannot

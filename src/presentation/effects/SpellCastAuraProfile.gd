@@ -21,15 +21,15 @@ const DECAY_END := 0.90
 const SETTLE_NORMALIZED_TIME := 0.92
 const ACTION_HOLD_FRACTION := 0.48
 
-## AUTHORED ground vortex. A world-horizontal plane becomes elliptical through
-## the orthographic battle camera's pitch, matching the reference without
-## baking a view-specific ellipse into the texture space.
+## AUTHORED dark pool and emanating rings. A world-horizontal plane becomes
+## elliptical through the orthographic battle camera's pitch, matching the
+## reference without baking a view-specific ellipse into texture space.
 const VORTEX_PLANE_SIZE_U := 2.80
 const VORTEX_OUTER_RADIUS_U := 1.16
 const VORTEX_INNER_DARK_ALPHA := 0.72
-const VORTEX_RING_ALPHA := 0.26
-const VORTEX_RIM_ALPHA := 0.34
-const VORTEX_RIM_EMISSION_ENERGY := 1.10
+const VORTEX_RING_ALPHA := 0.22
+const VORTEX_RIM_ALPHA := 0.22
+const VORTEX_RIM_EMISSION_ENERGY := 0.85
 const VORTEX_HEIGHT_U := 0.018
 
 ## AUTHORED tapered core. Six short world-space cards sit around the vortex
