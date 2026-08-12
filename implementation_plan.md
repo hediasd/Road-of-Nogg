@@ -1076,3 +1076,31 @@ Implemented 2026-08-12; pending end-of-plan validation.
   still-open eruption choreography. Both backlogs were reviewed; no durable
   unresolved item was added. No battle was launched, as required before
   consolidated validation.
+
+### Ground-wave-driven cocoon eruption
+
+Implemented 2026-08-12; pending end-of-plan validation.
+
+- Event-time source direction and target body bounds now define one
+  caster-facing lower contact point. The last planted spike, contact flash,
+  blue-square cluster, and first broad shell slab all meet at that point.
+- Each held shell piece stores a role-derived lower eruption transform and a
+  slight overshoot transform in addition to its intact and ballistic data.
+  Early pieces start close to contact; later pieces spread around the lower
+  footprint. They rise past their destination and settle without sampling new
+  state or expanding uniformly from the target centre.
+- Formation order is now broad lower slab, lower/lateral masses, front/rear
+  closure, upper shards, then unequal cap pieces. The final spike overlaps the
+  first slab, closure completes by 0.52, and the statue retains its hold before
+  the analytic fracture begins at 0.68.
+- Eight contact squares now cluster near the lower hit region, pop quickly to a
+  stable readable size, drift only a short distance, and clear by 0.32. The
+  white-cyan flash is compact and located at the same point rather than filling
+  the target body.
+- Full-composite retro sheets passed at source distances 4 and 7, covering the
+  final spike, first slab, lateral climb, rear/cap closure, and clean hold. A
+  contact-only sheet confirmed that supporting cues remain subordinate.
+- Standalone captures at normalized times 0.18 and 0.30 were repeated in reverse
+  order; both pairs were byte-identical. Godot's import/parse gate and
+  `git diff --check` passed. Both backlogs were reviewed with no durable entry
+  required. No battle was launched before consolidated validation.

@@ -12,11 +12,8 @@ const BATTLE_DURATION_SECONDS := 1.9
 const ACTION_HOLD_FRACTION := 0.72
 const ARRIVAL_START_FRACTION := 0.00
 const ARRIVAL_END_FRACTION := 0.18
-const LOWER_SIDE_FORMATION_START_FRACTION := ARRIVAL_END_FRACTION
-const LOWER_SIDE_FORMATION_END_FRACTION := 0.31
-const FRONT_CAP_CLOSURE_START_FRACTION := 0.28
-const FRONT_CAP_CLOSURE_END_FRACTION := 0.52
-const COMPLETED_HOLD_START_FRACTION := FRONT_CAP_CLOSURE_END_FRACTION
+const SHELL_CLOSURE_END_FRACTION := 0.52
+const COMPLETED_HOLD_START_FRACTION := SHELL_CLOSURE_END_FRACTION
 const COMPLETED_HOLD_END_FRACTION := 0.68
 const FRACTURE_IMPULSE_START_FRACTION := COMPLETED_HOLD_END_FRACTION
 const FRACTURE_IMPULSE_END_FRACTION := 0.76
@@ -25,7 +22,17 @@ const BALLISTIC_END_FRACTION := 1.00
 const BALLISTIC_SKIP_FRACTION := 0.92
 
 const FORMATION_COMPRESSED_SCALE := 0.015
-const FORMATION_INWARD_FRACTION := 0.28
+const IMPACT_CONTACT_HEIGHT_FRACTION := 0.08
+const FIRST_ERUPTION_START_FRACTION := 0.165
+const LAST_ERUPTION_START_FRACTION := 0.41
+const ERUPTION_CONTACT_MIX_MIN := 0.08
+const ERUPTION_CONTACT_MIX_MAX := 0.76
+const ERUPTION_START_BREADTH_FRACTION := 0.36
+const ERUPTION_LOWER_BREADTH_FRACTION := 0.68
+const ERUPTION_START_HEIGHT_FRACTION := 0.12
+const ERUPTION_OVERSHOOT_PROGRESS := 0.78
+const ERUPTION_OVERSHOOT_DISTANCE_U := 0.075
+const ERUPTION_OVERSHOOT_SCALE := 1.035
 const BALLISTIC_REFERENCE_SECONDS := 0.95
 const BALLISTIC_GRAVITY_U_PER_SECOND_SQUARED := 7.8
 const BALLISTIC_HORIZONTAL_SPEED_MIN_U_PER_SECOND := 2.4
@@ -42,8 +49,8 @@ const BALLISTIC_SPIN_SPEED_MIN_RADIANS_PER_SECOND := 2.2
 const BALLISTIC_SPIN_SPEED_MAX_RADIANS_PER_SECOND := 6.8
 const BALLISTIC_SIZE_MIN_U := 0.35
 const BALLISTIC_SIZE_MAX_U := 1.50
-const CORE_FORMATION_START_FRACTION := 0.14
-const CORE_FORMATION_END_FRACTION := 0.38
+const CORE_FORMATION_START_FRACTION := 0.19
+const CORE_FORMATION_END_FRACTION := 0.40
 const CORE_BREAK_END_FRACTION := 0.84
 
 ## AUTHORED subordinate delivery/contact timing. The trail head reaches the
@@ -67,17 +74,17 @@ const TRAIL_HEIGHT_MAX_U := 0.88
 const TRAIL_YAW_JITTER_RADIANS := 0.32
 const TRAIL_TILT_JITTER_RADIANS := 0.10
 
-const CONTACT_START_FRACTION := 0.065
-const CONTACT_STAGGER_FRACTION := 0.012
-const CONTACT_DURATION_FRACTION := 0.11
+const CONTACT_START_FRACTION := 0.165
+const CONTACT_STAGGER_FRACTION := 0.009
+const CONTACT_DURATION_FRACTION := 0.105
 const CONTACT_INSTANCE_COUNT := 8
 const CONTACT_SIZE_BODY_FRACTION := 0.28
 const CONTACT_SIZE_MIN_U := 0.16
 const CONTACT_SIZE_MAX_U := 0.22
-const CONTACT_OUTWARD_DISTANCE_U := 0.42
+const CONTACT_OUTWARD_DISTANCE_U := 0.30
 
-const IMPACT_FLASH_START_FRACTION := 0.075
-const IMPACT_FLASH_END_FRACTION := 0.25
+const IMPACT_FLASH_START_FRACTION := 0.16
+const IMPACT_FLASH_END_FRACTION := 0.28
 const IMPACT_FLASH_SCALE_FRACTION := 0.38
 const IMPACT_FLASH_MAX_ALPHA := 0.28
 
@@ -116,77 +123,77 @@ const HERO_LAYOUT := [
 		"position": Vector3(-0.22, -0.08, -0.58),
 		"scale": Vector3(0.76, 0.82, 1.05),
 		"rotation": Vector3(0.05, -0.12, -0.12),
-		"formation": Vector2(0.18, 0.32),
+		"formation": Vector2(0.29, 0.41),
 	},
 	{
 		"role": "rear_right_crown", "layer": "shell_rear", "kind": 2,
 		"position": Vector3(0.28, 0.18, -0.55),
 		"scale": Vector3(0.62, 0.72, 1.08),
 		"rotation": Vector3(-0.08, 0.14, 0.18),
-		"formation": Vector2(0.20, 0.36),
+		"formation": Vector2(0.31, 0.44),
 	},
 	{
 		"role": "left_lower_wall", "layer": "shell_sides", "kind": 1,
 		"position": Vector3(-0.58, -0.12, -0.06),
 		"scale": Vector3(1.05, 0.88, 0.96),
 		"rotation": Vector3(0.08, -0.12, -0.16),
-		"formation": Vector2(0.19, 0.34),
+		"formation": Vector2(0.20, 0.32),
 	},
 	{
 		"role": "right_main_wall", "layer": "shell_sides", "kind": 0,
 		"position": Vector3(0.58, 0.05, 0.09),
 		"scale": Vector3(1.00, 0.82, 0.90),
 		"rotation": Vector3(-0.06, 0.11, 0.10),
-		"formation": Vector2(0.22, 0.38),
+		"formation": Vector2(0.23, 0.36),
 	},
 	{
 		"role": "left_upper_shard", "layer": "shell_sides", "kind": 2,
 		"position": Vector3(-0.56, 0.34, 0.12),
 		"scale": Vector3(0.82, 0.46, 0.68),
 		"rotation": Vector3(0.12, 0.18, -0.20),
-		"formation": Vector2(0.27, 0.42),
+		"formation": Vector2(0.29, 0.42),
 	},
 	{
 		"role": "front_lower_slab", "layer": "shell_front", "kind": 1,
 		"position": Vector3(-0.08, -0.32, 0.59),
 		"scale": Vector3(1.12, 0.46, 1.08),
 		"rotation": Vector3(-0.08, 0.04, -0.09),
-		"formation": Vector2(0.28, 0.41),
+		"formation": Vector2(0.165, 0.27),
 	},
 	{
 		"role": "front_diagonal_plate", "layer": "shell_front", "kind": 0,
 		"position": Vector3(0.06, 0.02, 0.61),
 		"scale": Vector3(0.88, 0.72, 1.00),
 		"rotation": Vector3(0.12, -0.05, -0.22),
-		"formation": Vector2(0.31, 0.46),
+		"formation": Vector2(0.24, 0.37),
 	},
 	{
 		"role": "front_upper_shard", "layer": "shell_front", "kind": 2,
 		"position": Vector3(-0.32, 0.30, 0.58),
 		"scale": Vector3(0.50, 0.56, 1.04),
 		"rotation": Vector3(-0.16, 0.11, 0.22),
-		"formation": Vector2(0.36, 0.50),
+		"formation": Vector2(0.34, 0.47),
 	},
 	{
 		"role": "front_right_block", "layer": "shell_front", "kind": 0,
 		"position": Vector3(0.39, -0.19, 0.63),
 		"scale": Vector3(0.44, 0.40, 0.92),
 		"rotation": Vector3(0.06, -0.18, 0.12),
-		"formation": Vector2(0.33, 0.47),
+		"formation": Vector2(0.21, 0.34),
 	},
 	{
 		"role": "cap_swept_slab", "layer": "shell_cap", "kind": 1,
 		"position": Vector3(-0.14, 0.58, -0.05),
 		"scale": Vector3(0.80, 1.15, 0.88),
 		"rotation": Vector3(0.04, -0.08, -0.08),
-		"formation": Vector2(0.40, 0.50),
+		"formation": Vector2(0.38, 0.50),
 	},
 	{
 		"role": "cap_right_crystal", "layer": "shell_cap", "kind": 2,
 		"position": Vector3(0.34, 0.60, 0.12),
 		"scale": Vector3(0.45, 0.90, 0.70),
 		"rotation": Vector3(0.12, 0.18, 0.16),
-		"formation": Vector2(0.43, 0.52),
+		"formation": Vector2(0.41, 0.52),
 	},
 ]
 

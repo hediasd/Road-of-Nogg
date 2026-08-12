@@ -205,6 +205,15 @@ dither: a 4×4 Bayer experiment was rejected because the shipping retro upscale
 collapsed it into horizontal moiré. A small `ice_core` remains independently
 toggleable, and shell-only captures must read without it.
 
+Formation begins at the caster-facing lower contact point derived from the
+event-time source position and target body bounds. The broad lower slab erupts
+there while the last ground spike is still visible. Later chunks begin from a
+progressively wider lower footprint, rise along their own final spatial role,
+overshoot slightly, and settle into the authored shell: lower/side masses first,
+rear and upper shards next, unequal cap pieces last. Initial forms retain broad
+horizontal dimensions instead of expanding uniformly from the target centre.
+All eruption and settle transforms are pure normalized-time functions.
+
 Every chunk records its intact transform plus seeded linear velocity, angular
 axis/speed, and a slight launch delay when the shell is built, then keeps one
 stable MultiMesh slot for its full lifetime. Breakup is analytic projectile
@@ -231,11 +240,13 @@ along the context's event-time surface path. Their bases never translate: each
 spike grows in source-to-target order, then recedes after impact. Missing path
 samples fall back to a two-point source/target path rather than silently
 querying mutable terrain during playback. `contact_accents` uses eight small
-deep-blue square prisms distributed around the impact volume. They remain in a
-single MultiMesh so their normalized-time scale actually hides them; applying a
-standard billboard material here is forbidden because Godot replaces the
-per-instance basis and defeats that scale envelope. `impact_flash` is one
-low-alpha, depth-independent internal pulse synchronized with first growth.
+deep-blue square prisms clustered at the same lower caster-facing contact point.
+They pop rapidly to a stable readable size, drift only a short distance, and
+clear before closure. They remain in a single MultiMesh; applying a standard
+billboard material here is forbidden because Godot replaces the per-instance
+basis and defeats the scale used to hide their endpoints. `impact_flash` is one
+compact low-alpha, depth-independent pulse at that contact point, synchronized
+with the final spike and first lower slab.
 Each layer is independently toggleable, and all three are gone before the
 completed enclosure.
 

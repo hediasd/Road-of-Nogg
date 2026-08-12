@@ -45,6 +45,8 @@ var _intactTransforms: Array[Transform3D] = []
 var _brokenTransforms: Array[Transform3D] = []
 var _drawCallCount := 0
 var _bodyCenter := Vector3.ZERO
+var _impactContactPoint := Vector3.ZERO
+var _impactDirection := Vector3.LEFT
 var _core: MeshInstance3D
 var _coreBaseScale := Vector3.ONE
 var _trailMultiMesh: MultiMesh
@@ -223,6 +225,7 @@ func _buildShell(seed: int) -> void:
 		"Ice encasement requires positive target body bounds."
 	)
 	_bodyCenter = bodyBounds.get_center()
+	_configureImpactContact(bodyBounds)
 	_buildLayerNodes()
 	var random := RandomNumberGenerator.new()
 	random.seed = seed
@@ -262,6 +265,25 @@ func _buildShell(seed: int) -> void:
 		_drawCallCount <= IceTargetEncasementProfile.MAX_DRAW_CALLS,
 		"Ice encasement exceeded its draw-call ceiling."
 	)
+
+
+func _configureImpactContact(bounds: AABB) -> void:
+	var sourceLocal := bounds.get_center() + Vector3.LEFT
+	if _context != null:
+		sourceLocal = to_local(_context.source_world_position)
+	_impactDirection = sourceLocal - bounds.get_center()
+	_impactDirection.y = 0.0
+	if _impactDirection.length_squared() < 0.001:
+		_impactDirection = Vector3.LEFT
+	_impactDirection = _impactDirection.normalized()
+	var halfExtent := bounds.size * 0.5
+	_impactContactPoint = bounds.get_center() + Vector3(
+		_impactDirection.x * halfExtent.x,
+		0.0,
+		_impactDirection.z * halfExtent.z)
+	_impactContactPoint.y = (
+		bounds.position.y
+		+ bounds.size.y * IceTargetEncasementProfile.IMPACT_CONTACT_HEIGHT_FRACTION)
 
 
 func _buildLayerNodes() -> void:
@@ -363,11 +385,49 @@ func _appendChunk(
 	var intactOrientation := (
 		_basisFacingOutward(outwardDirection) * Basis.from_euler(intactRotation))
 	var intact := Transform3D(intactOrientation.scaled(intactScale), intactPosition)
-	var formationPosition := bodyCenter.lerp(
-		intactPosition, IceTargetEncasementProfile.FORMATION_INWARD_FRACTION)
-	var formationScale := intactScale * IceTargetEncasementProfile.FORMATION_COMPRESSED_SCALE
+	var eruptionMix := clampf(
+		inverse_lerp(
+			IceTargetEncasementProfile.FIRST_ERUPTION_START_FRACTION,
+			IceTargetEncasementProfile.LAST_ERUPTION_START_FRACTION,
+			formationStart),
+		0.0,
+		1.0)
+	eruptionMix = lerpf(
+		IceTargetEncasementProfile.ERUPTION_CONTACT_MIX_MIN,
+		IceTargetEncasementProfile.ERUPTION_CONTACT_MIX_MAX,
+		eruptionMix)
+	var lowerFootprint := Vector3(
+		intactPosition.x, _impactContactPoint.y, intactPosition.z)
+	var formationPosition := _impactContactPoint.lerp(lowerFootprint, eruptionMix)
+	var broadStart := (
+		IceTargetEncasementProfile.ERUPTION_LOWER_BREADTH_FRACTION
+		if roleName.contains("lower")
+		else IceTargetEncasementProfile.ERUPTION_START_BREADTH_FRACTION)
+	var formationScaleFactors := Vector3(
+		broadStart,
+		IceTargetEncasementProfile.ERUPTION_START_HEIGHT_FRACTION,
+		broadStart)
+	if layerName == LAYER_SHELL_CAP:
+		formationScaleFactors = Vector3(
+			broadStart,
+			broadStart,
+			IceTargetEncasementProfile.ERUPTION_START_HEIGHT_FRACTION)
+	var formationScale := intactScale * formationScaleFactors
+	var formationOrientation := intactOrientation
+	if roleName == "front_lower_slab":
+		formationOrientation = (
+			_basisFacingOutward(_impactDirection) * Basis.from_euler(intactRotation))
 	var formation := Transform3D(
-		intactOrientation.scaled(formationScale), formationPosition)
+		formationOrientation.scaled(formationScale), formationPosition)
+	var riseDirection := intactPosition - formationPosition
+	if riseDirection.length_squared() < 0.001:
+		riseDirection = Vector3.UP
+	riseDirection = riseDirection.normalized()
+	var overshoot := Transform3D(
+		intactOrientation.scaled(
+			intactScale * IceTargetEncasementProfile.ERUPTION_OVERSHOOT_SCALE),
+		intactPosition
+			+ riseDirection * IceTargetEncasementProfile.ERUPTION_OVERSHOOT_DISTANCE_U)
 	var outward := intactPosition - bodyCenter
 	if outward.length_squared() < 0.001:
 		outward = Vector3.UP
@@ -425,6 +485,7 @@ func _appendChunk(
 		"formation": formation,
 		"formation_start": formationStart,
 		"formation_end": formationEnd,
+		"overshoot": overshoot,
 		"intact": intact,
 		"linear_velocity": horizontalDirection * horizontalSpeed + Vector3.UP * verticalSpeed,
 		"angular_axis": angularAxis,
@@ -607,36 +668,38 @@ func _trailSurfacePoint(progress: float) -> Vector3:
 
 
 func _buildContactAccents(bounds: AABB, random: RandomNumberGenerator) -> void:
-	var directions: Array[Vector3] = [
-		Vector3(-0.85, -0.45, 0.62),
-		Vector3(0.72, -0.35, 0.78),
-		Vector3(-0.65, 0.05, -0.82),
-		Vector3(0.88, 0.12, -0.48),
-		Vector3(-0.42, 0.68, 0.72),
-		Vector3(0.52, 0.74, 0.50),
-		Vector3(-0.72, 0.78, -0.38),
-		Vector3(0.65, 0.58, -0.68),
+	var clusterPattern: Array[Vector2] = [
+		Vector2(-0.85, 0.00), Vector2(-0.45, 0.22),
+		Vector2(0.00, 0.05), Vector2(0.38, 0.32),
+		Vector2(0.78, 0.12), Vector2(-0.62, 0.48),
+		Vector2(0.18, 0.58), Vector2(0.62, 0.52),
 	]
 	assert(
-		directions.size() == IceTargetEncasementProfile.CONTACT_INSTANCE_COUNT,
+		clusterPattern.size() == IceTargetEncasementProfile.CONTACT_INSTANCE_COUNT,
 		"Ice contact direction count drifted from its instance count."
 	)
+	var contactSide := Vector3.UP.cross(_impactDirection).normalized()
+	var clusterWidth := minf(bounds.size.x, bounds.size.z) * 0.52
+	var clusterHeight := bounds.size.y * 0.34
 	var contactSize := clampf(
 		minf(bounds.size.x, minf(bounds.size.y, bounds.size.z))
 		* IceTargetEncasementProfile.CONTACT_SIZE_BODY_FRACTION,
 		IceTargetEncasementProfile.CONTACT_SIZE_MIN_U,
 		IceTargetEncasementProfile.CONTACT_SIZE_MAX_U)
-	for slot: int in range(directions.size()):
-		var direction := directions[slot].normalized()
-		var surfaceOffset := Vector3(
-			direction.x * bounds.size.x * 0.68,
-			direction.y * bounds.size.y * 0.56,
-			direction.z * bounds.size.z * 0.68)
+	for slot: int in range(clusterPattern.size()):
+		var pattern := clusterPattern[slot]
+		var direction := (
+			_impactDirection
+			+ contactSide * pattern.x * 0.55
+			+ Vector3.UP * (0.18 + pattern.y * 0.62)).normalized()
 		var start := (
 			IceTargetEncasementProfile.CONTACT_START_FRACTION
 			+ float(slot) * IceTargetEncasementProfile.CONTACT_STAGGER_FRACTION)
 		_contactRecords.append({
-			"base_position": bounds.get_center() + surfaceOffset,
+			"base_position": (
+				_impactContactPoint
+				+ contactSide * pattern.x * clusterWidth
+				+ Vector3.UP * pattern.y * clusterHeight),
 			"direction": direction,
 			"size": contactSize * random.randf_range(0.82, 1.12),
 			"start": start,
@@ -674,8 +737,10 @@ func _buildImpactFlash(bounds: AABB) -> void:
 	flashMesh.radial_segments = 8
 	flashMesh.rings = 4
 	_impactFlash.mesh = flashMesh
-	_impactFlash.position = bounds.get_center()
-	_impactFlashBaseScale = bounds.size * IceTargetEncasementProfile.IMPACT_FLASH_SCALE_FRACTION
+	_impactFlash.position = _impactContactPoint
+	_impactFlashBaseScale = Vector3.ONE * (
+		minf(bounds.size.x, minf(bounds.size.y, bounds.size.z))
+		* IceTargetEncasementProfile.IMPACT_FLASH_SCALE_FRACTION)
 	_impactFlash.scale = _impactFlashBaseScale * 0.001
 	_impactFlashMaterial = StandardMaterial3D.new()
 	_impactFlashMaterial.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -773,12 +838,21 @@ func _applyTimeline() -> void:
 
 func _chunkTransformAt(record: Dictionary, normalizedTime: float) -> Transform3D:
 	var formation: Transform3D = record["formation"]
+	var overshoot: Transform3D = record["overshoot"]
 	var intact: Transform3D = record["intact"]
-	var formationProgress := _smoothstep01(_windowProgress(
-		normalizedTime, float(record["formation_start"]), float(record["formation_end"])))
 	if normalizedTime < float(record["formation_end"]):
+		var formationProgress := _windowProgress(
+			normalizedTime, float(record["formation_start"]), float(record["formation_end"]))
+		if formationProgress < IceTargetEncasementProfile.ERUPTION_OVERSHOOT_PROGRESS:
+			var riseProgress := _smoothstep01(
+				formationProgress / IceTargetEncasementProfile.ERUPTION_OVERSHOOT_PROGRESS)
+			return _interpolateTransform(
+				formation, overshoot, riseProgress, riseProgress, riseProgress)
+		var settleProgress := _smoothstep01(
+			(formationProgress - IceTargetEncasementProfile.ERUPTION_OVERSHOOT_PROGRESS)
+			/ (1.0 - IceTargetEncasementProfile.ERUPTION_OVERSHOOT_PROGRESS))
 		return _interpolateTransform(
-			formation, intact, formationProgress, formationProgress, formationProgress)
+			overshoot, intact, settleProgress, settleProgress, settleProgress)
 	if normalizedTime <= IceTargetEncasementProfile.COMPLETED_HOLD_END_FRACTION:
 		return intact
 	return _ballisticTransformAt(record, normalizedTime)
@@ -879,9 +953,14 @@ func _applyContactTimeline(normalizedTime: float) -> void:
 		var record: Dictionary = _contactRecords[slot]
 		var progress := _windowProgress(
 			normalizedTime, float(record["start"]), float(record["end"]))
-		var visibility := sin(progress * PI)
-		if normalizedTime <= float(record["start"]) or normalizedTime >= float(record["end"]):
-			visibility = 0.0
+		var visibility := 0.0
+		if normalizedTime > float(record["start"]) and normalizedTime < float(record["end"]):
+			if progress < 0.15:
+				visibility = _smoothstep01(progress / 0.15)
+			elif progress < 0.80:
+				visibility = 1.0
+			else:
+				visibility = 1.0 - _smoothstep01((progress - 0.80) / 0.20)
 		var position: Vector3 = record["base_position"]
 		position += (
 			(record["direction"] as Vector3)
