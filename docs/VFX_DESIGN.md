@@ -205,14 +205,17 @@ dither: a 4×4 Bayer experiment was rejected because the shipping retro upscale
 collapsed it into horizontal moiré. A small `ice_core` remains independently
 toggleable, and shell-only captures must read without it.
 
-Every chunk records both its intact transform and a deterministic outward
-broken transform when the shell is built, then keeps one stable MultiMesh slot
-for its full lifetime. Pure normalized-time windows drive compressed formation,
-rear/side growth, front/cap closure, the completed hold, fracture impulse,
-outward tumble, and settle. Rotation is authored as deterministic steps; no
-physics or random sampling occurs after shell construction. Seeking backward or
-forward therefore recomputes the same transform, and settle-skip lands on the
-already-separated large pieces instead of cutting away a closed statue.
+Every chunk records its intact transform plus seeded linear velocity, angular
+axis/speed, and a slight launch delay when the shell is built, then keeps one
+stable MultiMesh slot for its full lifetime. Breakup is analytic projectile
+motion: `p = p0 + velocity * time + 0.5 * gravity * time squared`. Position is
+never eased toward an endpoint, and piece scale remains constant. Lower slabs
+receive shallow trajectories, side pieces move laterally, and upper/cap shards
+receive higher arcs; size slows both launch and spin so large slabs retain
+weight. No rigid bodies, accumulated integration, or random sampling occurs
+after shell construction. Seeking backward or forward therefore recomputes the
+same transform, and skip lands late in the same ballistic motion instead of
+cutting away a closed statue.
 
 The effect does not mutate the target model. If a future target-bound profile
 needs pose hold or tint, `GodotVisualAdapter` must own a reversible lease and

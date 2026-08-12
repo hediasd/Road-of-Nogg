@@ -114,7 +114,7 @@ func seek_normalized(time: float) -> void:
 
 
 func skip_to_settle() -> void:
-	seek_normalized(IceTargetEncasementProfile.SETTLE_START_FRACTION)
+	seek_normalized(IceTargetEncasementProfile.BALLISTIC_SKIP_FRACTION)
 
 
 func get_normalized_time() -> float:
@@ -372,24 +372,53 @@ func _appendChunk(
 	if outward.length_squared() < 0.001:
 		outward = Vector3.UP
 	outward = outward.normalized()
-	var brokenPosition := intactPosition + outward * random.randf_range(
-		IceTargetEncasementProfile.BREAK_DISTANCE_MIN_U,
-		IceTargetEncasementProfile.BREAK_DISTANCE_MAX_U
-	)
-	brokenPosition.y += random.randf_range(
-		IceTargetEncasementProfile.BREAK_LIFT_MIN_U,
-		IceTargetEncasementProfile.BREAK_LIFT_MAX_U
-	)
-	var brokenRotation := Vector3(
-		random.randf_range(-1.4, 1.4),
-		random.randf_range(-1.4, 1.4),
-		random.randf_range(-1.4, 1.4)
-	)
-	var broken := Transform3D(
-		(intactOrientation * Basis.from_euler(brokenRotation)).scaled(intactScale * 0.94),
-		brokenPosition
-	)
-	_chunkRecords.append({
+	var horizontalDirection := Vector3(outward.x, 0.0, outward.z)
+	if horizontalDirection.length_squared() < 0.001:
+		var fallbackAngle := random.randf_range(-PI, PI)
+		horizontalDirection = Vector3(cos(fallbackAngle), 0.0, sin(fallbackAngle))
+	horizontalDirection = horizontalDirection.normalized().rotated(
+		Vector3.UP,
+		random.randf_range(
+			-IceTargetEncasementProfile.BALLISTIC_DIRECTION_JITTER_RADIANS,
+			IceTargetEncasementProfile.BALLISTIC_DIRECTION_JITTER_RADIANS))
+	var sizeMeasure := pow(
+		maxf(absf(intactScale.x * intactScale.y * intactScale.z), 0.001),
+		1.0 / 3.0)
+	var heavyFactor := clampf(
+		(sizeMeasure - IceTargetEncasementProfile.BALLISTIC_SIZE_MIN_U)
+		/ (IceTargetEncasementProfile.BALLISTIC_SIZE_MAX_U
+			- IceTargetEncasementProfile.BALLISTIC_SIZE_MIN_U),
+		0.0,
+		1.0)
+	var horizontalSpeed := lerpf(
+		IceTargetEncasementProfile.BALLISTIC_HORIZONTAL_SPEED_MAX_U_PER_SECOND,
+		IceTargetEncasementProfile.BALLISTIC_HORIZONTAL_SPEED_MIN_U_PER_SECOND,
+		heavyFactor) * random.randf_range(0.92, 1.08)
+	var verticalSpeed := (
+		IceTargetEncasementProfile.BALLISTIC_VERTICAL_BASE_SPEED_U_PER_SECOND
+		+ outward.y
+			* IceTargetEncasementProfile.BALLISTIC_OUTWARD_VERTICAL_SPEED_U_PER_SECOND
+		+ random.randf_range(
+			-IceTargetEncasementProfile.BALLISTIC_VERTICAL_JITTER_U_PER_SECOND,
+			IceTargetEncasementProfile.BALLISTIC_VERTICAL_JITTER_U_PER_SECOND)
+		+ maxf(outward.y, 0.0)
+			* IceTargetEncasementProfile.BALLISTIC_CAP_VERTICAL_BONUS_U_PER_SECOND)
+	verticalSpeed = clampf(
+		verticalSpeed,
+		IceTargetEncasementProfile.BALLISTIC_VERTICAL_SPEED_MIN_U_PER_SECOND,
+		IceTargetEncasementProfile.BALLISTIC_VERTICAL_SPEED_MAX_U_PER_SECOND)
+	var angularAxis := Vector3(
+		random.randf_range(-1.0, 1.0),
+		random.randf_range(-1.0, 1.0),
+		random.randf_range(-1.0, 1.0))
+	if angularAxis.length_squared() < 0.001:
+		angularAxis = Vector3.RIGHT
+	angularAxis = angularAxis.normalized()
+	var angularSpeed := lerpf(
+		IceTargetEncasementProfile.BALLISTIC_SPIN_SPEED_MAX_RADIANS_PER_SECOND,
+		IceTargetEncasementProfile.BALLISTIC_SPIN_SPEED_MIN_RADIANS_PER_SECOND,
+		heavyFactor) * random.randf_range(0.90, 1.10)
+	var record := {
 		"layer": layerName,
 		"role": roleName,
 		"kind": kind,
@@ -397,8 +426,17 @@ func _appendChunk(
 		"formation_start": formationStart,
 		"formation_end": formationEnd,
 		"intact": intact,
-		"broken": broken,
-	})
+		"linear_velocity": horizontalDirection * horizontalSpeed + Vector3.UP * verticalSpeed,
+		"angular_axis": angularAxis,
+		"angular_speed": angularSpeed,
+		"departure_delay": random.randf_range(
+			0.0,
+			IceTargetEncasementProfile.BALLISTIC_DEPARTURE_DELAY_MAX_FRACTION),
+	}
+	var broken := _ballisticTransformAt(
+		record, IceTargetEncasementProfile.BALLISTIC_END_FRACTION)
+	record["broken"] = broken
+	_chunkRecords.append(record)
 	_intactTransforms.append(intact)
 	_brokenTransforms.append(broken)
 
@@ -736,7 +774,6 @@ func _applyTimeline() -> void:
 func _chunkTransformAt(record: Dictionary, normalizedTime: float) -> Transform3D:
 	var formation: Transform3D = record["formation"]
 	var intact: Transform3D = record["intact"]
-	var broken: Transform3D = record["broken"]
 	var formationProgress := _smoothstep01(_windowProgress(
 		normalizedTime, float(record["formation_start"]), float(record["formation_end"])))
 	if normalizedTime < float(record["formation_end"]):
@@ -744,51 +781,38 @@ func _chunkTransformAt(record: Dictionary, normalizedTime: float) -> Transform3D
 			formation, intact, formationProgress, formationProgress, formationProgress)
 	if normalizedTime <= IceTargetEncasementProfile.COMPLETED_HOLD_END_FRACTION:
 		return intact
-	if normalizedTime < IceTargetEncasementProfile.FRACTURE_IMPULSE_END_FRACTION:
-		var impulseProgress := _windowProgress(
-			normalizedTime,
-			IceTargetEncasementProfile.FRACTURE_IMPULSE_START_FRACTION,
-			IceTargetEncasementProfile.FRACTURE_IMPULSE_END_FRACTION)
-		var pathProgress := (
-			_easeOutCubic(impulseProgress)
-			* IceTargetEncasementProfile.FRACTURE_IMPULSE_PATH_FRACTION
-		)
-		var impulseTransform := _interpolateTransform(
-			intact,
-			broken,
-			pathProgress,
-			_steppedRotationProgress(pathProgress),
-			pathProgress)
-		var scalePulse := (
-			1.0
-			+ sin(impulseProgress * PI) * IceTargetEncasementProfile.FRACTURE_SCALE_PULSE
-		)
-		impulseTransform.basis = impulseTransform.basis.scaled(Vector3.ONE * scalePulse)
-		return impulseTransform
-	if normalizedTime < IceTargetEncasementProfile.OUTWARD_TUMBLE_END_FRACTION:
-		var tumbleProgress := _smoothstep01(_windowProgress(
-			normalizedTime,
-			IceTargetEncasementProfile.OUTWARD_TUMBLE_START_FRACTION,
-			IceTargetEncasementProfile.OUTWARD_TUMBLE_END_FRACTION))
-		var pathProgress := lerpf(
-			IceTargetEncasementProfile.FRACTURE_IMPULSE_PATH_FRACTION,
-			1.0,
-			tumbleProgress)
-		return _interpolateTransform(
-			intact,
-			broken,
-			pathProgress,
-			_steppedRotationProgress(pathProgress),
-			pathProgress)
-	var settleProgress := _smoothstep01(_windowProgress(
-		normalizedTime,
-		IceTargetEncasementProfile.SETTLE_START_FRACTION,
-		IceTargetEncasementProfile.SETTLE_END_FRACTION))
-	var settled := broken
-	settled.origin.y -= IceTargetEncasementProfile.SETTLE_DROP_U * settleProgress
-	settled.basis = settled.basis.scaled(
-		Vector3.ONE * lerpf(1.0, IceTargetEncasementProfile.SETTLE_SCALE_FRACTION, settleProgress))
-	return settled
+	return _ballisticTransformAt(record, normalizedTime)
+
+
+## Analytic projectile motion keeps every seek exact. Scale is deliberately
+## constant: a fracture launches the held pieces, it never inflates or eases
+## them toward an authored endpoint.
+func _ballisticTransformAt(record: Dictionary, normalizedTime: float) -> Transform3D:
+	var intact: Transform3D = record["intact"]
+	var launchFraction := (
+		IceTargetEncasementProfile.BALLISTIC_START_FRACTION
+		+ float(record["departure_delay"]))
+	if normalizedTime <= launchFraction:
+		return intact
+	var normalizedFlightTime := (
+		(normalizedTime - launchFraction)
+		/ (IceTargetEncasementProfile.BALLISTIC_END_FRACTION
+			- IceTargetEncasementProfile.BALLISTIC_START_FRACTION))
+	var flightSeconds := maxf(normalizedFlightTime, 0.0) * (
+		IceTargetEncasementProfile.BALLISTIC_REFERENCE_SECONDS)
+	var linearVelocity: Vector3 = record["linear_velocity"]
+	var gravity := Vector3.DOWN * (
+		IceTargetEncasementProfile.BALLISTIC_GRAVITY_U_PER_SECOND_SQUARED)
+	var position := (
+		intact.origin
+		+ linearVelocity * flightSeconds
+		+ gravity * (0.5 * flightSeconds * flightSeconds))
+	var angularAxis: Vector3 = record["angular_axis"]
+	var angularRadians := float(record["angular_speed"]) * flightSeconds
+	var spin := Basis(Quaternion(angularAxis, angularRadians))
+	var intactRotation := intact.basis.orthonormalized()
+	var intactScale := intact.basis.get_scale()
+	return Transform3D((spin * intactRotation).scaled(intactScale), position)
 
 
 func _applyCoreTimeline(normalizedTime: float) -> void:
@@ -907,11 +931,6 @@ func _interpolateTransform(
 	return Transform3D(Basis(rotation).scaled(scale), origin)
 
 
-func _steppedRotationProgress(progress: float) -> float:
-	var steps := float(IceTargetEncasementProfile.TUMBLE_ROTATION_STEPS)
-	return floor(clampf(progress, 0.0, 1.0) * steps) / steps
-
-
 func _windowProgress(value: float, start: float, end: float) -> float:
 	return clampf((value - start) / maxf(end - start, 0.0001), 0.0, 1.0)
 
@@ -924,6 +943,8 @@ func _smoothstep01(value: float) -> float:
 func _easeOutCubic(value: float) -> float:
 	var inverse := 1.0 - clampf(value, 0.0, 1.0)
 	return 1.0 - inverse * inverse * inverse
+
+
 
 
 func _countNodes(node: Node) -> int:

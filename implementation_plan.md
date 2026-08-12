@@ -665,7 +665,9 @@ full battle.
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** STATUE-7 and STATUE-9.
+**Depends on:** STATUE-7. The user explicitly prioritized fracture motion
+before the still-open formation choreography; the two transform windows are
+independent, so this item may land before STATUE-9.
 
 **Files:** `IceTargetEncasementEffect.gd`,
 `IceTargetEncasementProfile.gd`, its shader(s), `docs/VFX_DESIGN.md`, and the
@@ -1048,3 +1050,29 @@ Implemented 2026-08-12; pending end-of-plan validation.
 - Godot 4.4 imported the atlas and parsed the changed scripts and shader. Both
   backlogs were reviewed; this item leaves no durable unresolved work to add.
   No battle was launched, as required before consolidated validation.
+
+### Analytic radial fracture motion
+
+Implemented 2026-08-12; pending end-of-plan validation.
+
+- The scale pulse, eased endpoint interpolation, stepped rotation progress,
+  late shrink, and artificial settle drop were removed. Held shell pieces keep
+  their exact scale when the statue breaks.
+- Each existing hero chunk now stores one seeded radial linear velocity,
+  angular axis/speed, and a sub-frame launch delay. No replacement debris,
+  rigid body, per-frame integration, or post-construction random sample exists.
+- Position evaluates analytically from initial position and velocity under
+  constant downward gravity. Rotation evaluates from angular velocity and the
+  same elapsed flight time. Large-volume slabs launch and spin more slowly;
+  lower pieces take shallow arcs, side pieces travel laterally, and upper/cap
+  pieces crest higher before falling.
+- Tight front-quarter and wider side-view retro sheets passed from held statue
+  through late breakup. They show constant-size fragments opening radially and
+  bending down rather than expanding into a synchronized crown.
+- Standalone normalized-time captures at 0.74 and 0.86 were repeated in reverse
+  order. Each pair produced byte-identical SHA-256 hashes, proving exact seeded
+  seek independently of forward playback history.
+- The user explicitly advanced this independent breakup work ahead of the
+  still-open eruption choreography. Both backlogs were reviewed; no durable
+  unresolved item was added. No battle was launched, as required before
+  consolidated validation.
