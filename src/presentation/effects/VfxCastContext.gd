@@ -17,6 +17,10 @@ var impact_world_position: Vector3 = Vector3.ZERO
 var target_ids: Array[int] = []
 var target_world_positions: Array[Vector3] = []
 var target_body_bounds: Array[AABB] = []
+## Optional event-time presentation surface samples from source to impact. An
+## effect may resample these to anchor delivery geometry without querying a
+## later scene or importing terrain presentation into simulation.
+var surface_path_world_positions: Array[Vector3] = []
 
 
 static func create(
@@ -25,7 +29,8 @@ static func create(
 		impactWorldPosition: Vector3,
 		targetIDs: Array[int],
 		targetWorldPositions: Array[Vector3],
-		targetBodyBounds: Array[AABB]) -> VfxCastContext:
+		targetBodyBounds: Array[AABB],
+		surfacePathWorldPositions: Array[Vector3] = []) -> VfxCastContext:
 	var context := VfxCastContext.new()
 	context.source_monster_id = sourceMonsterID
 	context.source_world_position = sourceWorldPosition
@@ -33,6 +38,7 @@ static func create(
 	context.target_ids.assign(targetIDs)
 	context.target_world_positions.assign(targetWorldPositions)
 	context.target_body_bounds.assign(targetBodyBounds)
+	context.surface_path_world_positions.assign(surfacePathWorldPositions)
 	context.assert_valid()
 	return context
 

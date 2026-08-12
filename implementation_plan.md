@@ -548,7 +548,7 @@ debug capture checkpoint, focused diff inspection, and `git diff --check`; use
 only the narrow import/load probe necessary to hand usable shaders to the next
 item. Do not launch a battle.
 
-### STATUE-8 — Replace the thrown trail with terrain-anchored ice propagation
+### STATUE-8 — Replace the thrown trail and finish pointed, textured ice forms
 
 **Model:** Opus 5 / GPT Sol
 
@@ -586,6 +586,9 @@ only as needed to snapshot an optional generic presentation-surface path,
   targeting line remains.
 - `delivery_trail` remains independently isolatable, deterministic under seed
   and normalized time, and subordinate in node/instance/draw budget.
+- Every cocoon form has a broad inner seat and a pointed edge, ridge, or apex
+  facing away from the target. Its faces use deterministic 16×16 cells from
+  the supplied `ice_strip.png` atlas without bleeding adjacent cells.
 
 **Risk:** a line sampled only between two world positions can cut through steps
 or float over terrain, while querying the scene lazily at playback can violate
@@ -1015,3 +1018,33 @@ Implemented 2026-08-11; pending end-of-plan validation.
 - Godot 4.4's headless editor import passed. Both backlogs were reviewed; this
   item leaves no durable unresolved work to add. No battle was launched, as
   required before consolidated validation.
+
+### Terrain-grown spike wave and pointed atlas-faceted shell
+
+Implemented 2026-08-12; pending end-of-plan validation.
+
+- The moving tapered projectile was removed. `delivery_trail` now owns 8–12
+  deterministic ground spikes whose positions never translate: each grows at
+  a fixed source-to-target sample, then recedes after impact.
+- `GodotVisualAdapter` snapshots a generic surface path from board coordinates
+  at enqueue time and carries it through `VisualAction` and `VfxCastContext`.
+  Playback uses that immutable path; its explicit fallback is the source and
+  target pair. The simulation event remains presentation-free.
+- The debug context supplies the two opposing island plateaus plus the lower,
+  empty middle corridor. A retained ground-node reference fixes sampling after
+  the debug world is reparented into the retro viewport.
+- Block, wedge, and crystal shell meshes now share a broad inner seat and a
+  pointed outward ridge or apex. Layer-dependent orientation turns local -Z
+  away from the target for rear, front, both sides, and the top cap.
+- Every generated face has deterministic UVs. Shell and spike materials select
+  16×16 cells from the supplied 80×64 `ice_strip.png`; nearest sampling,
+  half-texel insets, and disabled alpha-border repair prevent atlas bleed while
+  preserving the transparent cyan base where a tile itself is transparent.
+- Trail-only retro sheets passed at source distances 4, 7, and 10. They show
+  sequential planted growth, the empty corridor and elevation transitions,
+  and a final spike at the target. Front, side, and rear shell captures show
+  the target enclosed by outward-pointed pixel facets. The integrated
+  eight-frame sheet shows the spike-to-shell handoff with no airborne lance.
+- Godot 4.4 imported the atlas and parsed the changed scripts and shader. Both
+  backlogs were reviewed; this item leaves no durable unresolved work to add.
+  No battle was launched, as required before consolidated validation.

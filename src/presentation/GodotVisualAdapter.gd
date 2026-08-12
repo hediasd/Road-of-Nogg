@@ -142,6 +142,25 @@ func _coord_to_surface_pos3d(coord: Vector2i) -> Vector3:
 	return Vector3(coord.x, _surface_y(coord), coord.y)
 
 
+## Presentation-only event-time surface samples for target-bound delivery VFX.
+## The simulator still emits only board coordinates; this snapshots their
+## rendered heights before the visual action can sit behind newer simulation.
+func _surface_path_world_positions(fromPos: Vector2i, toPos: Vector2i) -> Array[Vector3]:
+	var result: Array[Vector3] = []
+	if not state.withinBounds(fromPos) or not state.withinBounds(toPos):
+		return result
+	var delta := toPos - fromPos
+	var steps := maxi(absi(delta.x), absi(delta.y))
+	for step: int in range(steps + 1):
+		var progress := float(step) / float(maxi(steps, 1))
+		var coord := Vector2i(
+			roundi(lerpf(float(fromPos.x), float(toPos.x), progress)),
+			roundi(lerpf(float(fromPos.y), float(toPos.y), progress)))
+		if result.is_empty() or result.back() != _coord_to_surface_pos3d(coord):
+			result.append(_coord_to_surface_pos3d(coord))
+	return result
+
+
 func _footprint_ground_span(center: Vector2i, radius: int) -> float:
 	var footprint_radius := maxi(radius, 0)
 	var minimum_y := INF
@@ -910,6 +929,8 @@ func _on_spell_cast_started(
 		else impactWorldPosition
 	)
 	action.vfx_impact_world_position = impactWorldPosition
+	action.vfx_surface_path_world_positions = _surface_path_world_positions(
+		sourceCoord, centerPos)
 	for resolvedTargetID in resolvedTargetIDs:
 		var targetID := int(resolvedTargetID)
 		action.vfx_target_ids.append(targetID)
@@ -1128,7 +1149,8 @@ func _start_cast_area_animation(action: VisualAction) -> bool:
 		action.vfx_impact_world_position,
 		action.vfx_target_ids,
 		action.vfx_target_world_positions,
-		action.vfx_target_body_bounds
+		action.vfx_target_body_bounds,
+		action.vfx_surface_path_world_positions
 	)
 	effect.configure_cast_context(castContext)
 	if effect.has_method("setFootprint"):

@@ -7,6 +7,8 @@ const IceChunkMeshFactoryScript = preload(
 	"res://src/presentation/effects/IceChunkMeshFactory.gd")
 const _ICE_SHADER = preload(
 	"res://assets/shaders/effects/ice_target_encasement.gdshader")
+const _ICE_FACET_ATLAS = preload(
+	"res://assets/textures/effects/ice_strip.png")
 
 const LAYER_SHELL_REAR := "shell_rear"
 const LAYER_SHELL_SIDES := "shell_sides"
@@ -46,9 +48,9 @@ var _bodyCenter := Vector3.ZERO
 var _core: MeshInstance3D
 var _coreBaseScale := Vector3.ONE
 var _trailMultiMesh: MultiMesh
-var _trailSource := Vector3.ZERO
-var _trailTarget := Vector3.ZERO
-var _trailBasis := Basis.IDENTITY
+var _trailRecords: Array[Dictionary] = []
+var _trailInstanceCount := 0
+var _trailSurfacePath: Array[Vector3] = []
 var _contactMultiMesh: MultiMesh
 var _contactRecords: Array[Dictionary] = []
 var _impactFlash: MeshInstance3D
@@ -174,7 +176,7 @@ func get_live_instance_count() -> int:
 	return (
 		0
 		if _disposed or not _shellBuilt
-		else IceTargetEncasementProfile.TOTAL_GEOMETRY_INSTANCE_COUNT
+		else _chunkRecords.size() + _trailInstanceCount + _contactRecords.size() + 1
 	)
 
 
@@ -240,17 +242,17 @@ func _buildShell(seed: int) -> void:
 		"Ice encasement exceeded its chunk ceiling."
 	)
 	assert(
-		IceTargetEncasementProfile.SUPPORTING_INSTANCE_COUNT
+		_trailInstanceCount + _contactRecords.size()
 		<= IceTargetEncasementProfile.MAX_SUPPORTING_INSTANCES,
 		"Ice encasement exceeded its supporting-instance ceiling."
 	)
 	assert(
 		_chunkRecords.size()
-		+ _trailMultiMesh.instance_count
-		+ _contactMultiMesh.instance_count
+		+ _trailInstanceCount
+		+ _contactRecords.size()
 		+ 1
-		== IceTargetEncasementProfile.TOTAL_GEOMETRY_INSTANCE_COUNT,
-		"Ice encasement geometry-instance accounting drifted."
+		<= IceTargetEncasementProfile.MAX_TOTAL_GEOMETRY_INSTANCE_COUNT,
+		"Ice encasement exceeded its geometry-instance ceiling."
 	)
 	assert(
 		_countNodes(self) <= IceTargetEncasementProfile.MAX_EFFECT_NODES,
@@ -290,6 +292,7 @@ func _buildChunkRecords(bounds: AABB, random: RandomNumberGenerator) -> void:
 		var scaleFractions: Vector3 = authored["scale"]
 		var rotation: Vector3 = authored["rotation"]
 		var formationWindow: Vector2 = authored["formation"]
+		var outward := _outwardForLayer(layerName, positionFractions)
 		var scale := Vector3.ZERO
 		match layerName:
 			LAYER_SHELL_REAR, LAYER_SHELL_FRONT:
@@ -299,20 +302,21 @@ func _buildChunkRecords(bounds: AABB, random: RandomNumberGenerator) -> void:
 					thickness * scaleFractions.z)
 			LAYER_SHELL_SIDES:
 				scale = Vector3(
-					thickness * scaleFractions.x,
+					depth * scaleFractions.z,
 					height * scaleFractions.y,
-					depth * scaleFractions.z)
+					thickness * scaleFractions.x)
 			LAYER_SHELL_CAP:
 				scale = Vector3(
 					width * scaleFractions.x,
-					thickness * scaleFractions.y,
-					depth * scaleFractions.z)
+					depth * scaleFractions.z,
+					thickness * scaleFractions.y)
 			_:
 				assert(false, "Unknown authored ice shell layer: %s" % layerName)
 		_appendChunk(
 			layerName,
 			String(authored["role"]),
 			int(authored["kind"]),
+			outward,
 			center + Vector3(
 				width * positionFractions.x,
 				height * positionFractions.y,
@@ -330,6 +334,7 @@ func _appendChunk(
 		layerName: String,
 		roleName: String,
 		kind: int,
+		outwardDirection: Vector3,
 		basePosition: Vector3,
 		baseScale: Vector3,
 	baseRotation: Vector3,
@@ -355,12 +360,14 @@ func _appendChunk(
 	var intactPosition := basePosition + positionJitter
 	var intactRotation := baseRotation + rotationJitter
 	var intactScale := baseScale * scaleJitter
-	var intact := Transform3D(Basis.from_euler(intactRotation).scaled(intactScale), intactPosition)
+	var intactOrientation := (
+		_basisFacingOutward(outwardDirection) * Basis.from_euler(intactRotation))
+	var intact := Transform3D(intactOrientation.scaled(intactScale), intactPosition)
 	var formationPosition := bodyCenter.lerp(
 		intactPosition, IceTargetEncasementProfile.FORMATION_INWARD_FRACTION)
 	var formationScale := intactScale * IceTargetEncasementProfile.FORMATION_COMPRESSED_SCALE
 	var formation := Transform3D(
-		Basis.from_euler(intactRotation).scaled(formationScale), formationPosition)
+		intactOrientation.scaled(formationScale), formationPosition)
 	var outward := intactPosition - bodyCenter
 	if outward.length_squared() < 0.001:
 		outward = Vector3.UP
@@ -373,13 +380,14 @@ func _appendChunk(
 		IceTargetEncasementProfile.BREAK_LIFT_MIN_U,
 		IceTargetEncasementProfile.BREAK_LIFT_MAX_U
 	)
-	var brokenRotation := intactRotation + Vector3(
+	var brokenRotation := Vector3(
 		random.randf_range(-1.4, 1.4),
 		random.randf_range(-1.4, 1.4),
 		random.randf_range(-1.4, 1.4)
 	)
 	var broken := Transform3D(
-		Basis.from_euler(brokenRotation).scaled(intactScale * 0.94), brokenPosition
+		(intactOrientation * Basis.from_euler(brokenRotation)).scaled(intactScale * 0.94),
+		brokenPosition
 	)
 	_chunkRecords.append({
 		"layer": layerName,
@@ -395,40 +403,49 @@ func _appendChunk(
 	_brokenTransforms.append(broken)
 
 
+func _outwardForLayer(layerName: String, positionFractions: Vector3) -> Vector3:
+	match layerName:
+		LAYER_SHELL_REAR:
+			return Vector3.FORWARD
+		LAYER_SHELL_FRONT:
+			return Vector3.BACK
+		LAYER_SHELL_SIDES:
+			return Vector3(signf(positionFractions.x), 0.0, 0.0)
+		LAYER_SHELL_CAP:
+			return Vector3.UP
+	assert(false, "Unknown ice shell layer orientation: %s" % layerName)
+	return Vector3.FORWARD
+
+
+func _basisFacingOutward(outwardDirection: Vector3) -> Basis:
+	var outward := outwardDirection.normalized()
+	var up := Vector3.UP
+	if absf(outward.dot(up)) > 0.98:
+		up = Vector3.FORWARD
+	return Basis.looking_at(outward, up)
+
+
 func _buildChunkInstances() -> void:
-	var kinds := [
-		IceChunkMeshFactory.Kind.BLOCK,
-		IceChunkMeshFactory.Kind.WEDGE,
-		IceChunkMeshFactory.Kind.CRYSTAL,
-	]
-	for layerName: String in [
-		LAYER_SHELL_REAR, LAYER_SHELL_SIDES, LAYER_SHELL_FRONT, LAYER_SHELL_CAP
-	]:
-		for kind: int in kinds:
-			var recordIndices: Array[int] = []
-			for recordIndex: int in range(_chunkRecords.size()):
-				var record: Dictionary = _chunkRecords[recordIndex]
-				if record["layer"] == layerName and int(record["kind"]) == kind:
-					recordIndices.append(recordIndex)
-			if recordIndices.is_empty():
-				continue
-			var multiMesh := MultiMesh.new()
-			multiMesh.transform_format = MultiMesh.TRANSFORM_3D
-			multiMesh.mesh = IceChunkMeshFactoryScript.create(kind)
-			multiMesh.instance_count = recordIndices.size()
-			for slot: int in range(recordIndices.size()):
-				var recordIndex: int = recordIndices[slot]
-				var record: Dictionary = _chunkRecords[recordIndex]
-				multiMesh.set_instance_transform(slot, record["formation"])
-				record["multi_mesh"] = multiMesh
-				record["slot"] = slot
-			var instance := MultiMeshInstance3D.new()
-			instance.name = "%s_chunks" % IceChunkMeshFactoryScript.kindName(kind)
-			instance.multimesh = multiMesh
-			instance.material_override = _createLayerMaterial(layerName)
-			instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			(_layerNodes[layerName] as Node3D).add_child(instance)
-			_drawCallCount += 1
+	for recordIndex: int in range(_chunkRecords.size()):
+		var record: Dictionary = _chunkRecords[recordIndex]
+		var layerName := String(record["layer"])
+		var kind := int(record["kind"])
+		var multiMesh := MultiMesh.new()
+		multiMesh.transform_format = MultiMesh.TRANSFORM_3D
+		multiMesh.mesh = IceChunkMeshFactoryScript.create(kind)
+		multiMesh.instance_count = 1
+		multiMesh.set_instance_transform(0, record["formation"])
+		record["multi_mesh"] = multiMesh
+		record["slot"] = 0
+		var instance := MultiMeshInstance3D.new()
+		instance.name = String(record["role"])
+		instance.multimesh = multiMesh
+		var facetTile := IceTargetEncasementProfile.FACET_TILES[
+			recordIndex % IceTargetEncasementProfile.FACET_TILES.size()]
+		instance.material_override = _createLayerMaterial(layerName, facetTile)
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		(_layerNodes[layerName] as Node3D).add_child(instance)
+		_drawCallCount += 1
 
 
 func _buildCore(bounds: AABB) -> void:
@@ -450,38 +467,105 @@ func _buildCore(bounds: AABB) -> void:
 
 
 func _buildDeliveryTrail() -> void:
-	_trailTarget = _bodyCenter
-	_trailSource = Vector3(0.0, IceTargetEncasementProfile.TRAIL_SOURCE_HEIGHT_U, 2.5)
-	if _context != null:
-		_trailSource = to_local(_context.source_world_position)
-		_trailSource.y += IceTargetEncasementProfile.TRAIL_SOURCE_HEIGHT_U
-	var travelDirection := _trailTarget - _trailSource
-	if travelDirection.length_squared() < 0.001:
-		travelDirection = Vector3.FORWARD
-	var trailUp := Vector3.UP
-	if absf(travelDirection.normalized().dot(trailUp)) > 0.98:
-		trailUp = Vector3.FORWARD
-	_trailBasis = Basis.looking_at(travelDirection.normalized(), trailUp)
+	_buildTrailSurfacePath()
+	var pathLength := _trailSurfacePathLength()
+	_trailInstanceCount = clampi(
+		roundi(pathLength / IceTargetEncasementProfile.TRAIL_TARGET_SPACING_U),
+		IceTargetEncasementProfile.TRAIL_MIN_INSTANCE_COUNT,
+		IceTargetEncasementProfile.TRAIL_MAX_INSTANCE_COUNT)
+	var random := RandomNumberGenerator.new()
+	random.seed = _activeSeed ^ 0x1CE5A7
+	for slot: int in range(_trailInstanceCount):
+		var slotFraction := float(slot) / float(maxi(_trailInstanceCount - 1, 1))
+		var pathProgress := lerpf(
+			IceTargetEncasementProfile.TRAIL_FIRST_PROGRESS,
+			IceTargetEncasementProfile.TRAIL_LAST_PROGRESS,
+			slotFraction)
+		var basePosition := _trailSurfacePoint(pathProgress)
+		var width := random.randf_range(
+			IceTargetEncasementProfile.TRAIL_WIDTH_MIN_U,
+			IceTargetEncasementProfile.TRAIL_WIDTH_MAX_U)
+		var height := random.randf_range(
+			IceTargetEncasementProfile.TRAIL_HEIGHT_MIN_U,
+			IceTargetEncasementProfile.TRAIL_HEIGHT_MAX_U)
+		var start := lerpf(
+			IceTargetEncasementProfile.TRAIL_START_FRACTION,
+			IceTargetEncasementProfile.TRAIL_IMPACT_FRACTION
+				- IceTargetEncasementProfile.TRAIL_GROW_DURATION_FRACTION,
+			slotFraction)
+		_trailRecords.append({
+			"position": basePosition,
+			"width": width,
+			"height": height,
+			"rotation": Vector3(
+				random.randf_range(
+					-IceTargetEncasementProfile.TRAIL_TILT_JITTER_RADIANS,
+					IceTargetEncasementProfile.TRAIL_TILT_JITTER_RADIANS),
+				random.randf_range(
+					-IceTargetEncasementProfile.TRAIL_YAW_JITTER_RADIANS,
+					IceTargetEncasementProfile.TRAIL_YAW_JITTER_RADIANS),
+				random.randf_range(
+					-IceTargetEncasementProfile.TRAIL_TILT_JITTER_RADIANS,
+					IceTargetEncasementProfile.TRAIL_TILT_JITTER_RADIANS)),
+			"start": start,
+			"end": start + IceTargetEncasementProfile.TRAIL_GROW_DURATION_FRACTION,
+		})
 
-	var trailMesh := BoxMesh.new()
-	trailMesh.size = Vector3.ONE
 	_trailMultiMesh = MultiMesh.new()
 	_trailMultiMesh.transform_format = MultiMesh.TRANSFORM_3D
-	_trailMultiMesh.mesh = trailMesh
-	_trailMultiMesh.instance_count = IceTargetEncasementProfile.TRAIL_INSTANCE_COUNT
-	for slot: int in range(IceTargetEncasementProfile.TRAIL_INSTANCE_COUNT):
+	_trailMultiMesh.mesh = IceChunkMeshFactoryScript.create(IceChunkMeshFactory.Kind.SPIKE)
+	_trailMultiMesh.instance_count = _trailInstanceCount
+	for slot: int in range(_trailInstanceCount):
+		var record: Dictionary = _trailRecords[slot]
 		_trailMultiMesh.set_instance_transform(
 			slot,
 			Transform3D(
-				_trailBasis.scaled(Vector3.ONE * 0.001),
-				_trailSource))
+				Basis.from_euler(record["rotation"]).scaled(Vector3.ONE * 0.001),
+				record["position"]))
 	var trailInstance := MultiMeshInstance3D.new()
-	trailInstance.name = "DeliveryTrailSegments"
+	trailInstance.name = "GroundSpikeTrail"
 	trailInstance.multimesh = _trailMultiMesh
-	trailInstance.material_override = _createLayerMaterial(LAYER_DELIVERY_TRAIL)
+	trailInstance.material_override = _createLayerMaterial(
+		LAYER_DELIVERY_TRAIL, IceTargetEncasementProfile.FACET_TILES[6])
 	trailInstance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	(_layerNodes[LAYER_DELIVERY_TRAIL] as Node3D).add_child(trailInstance)
 	_drawCallCount += 1
+
+
+func _buildTrailSurfacePath() -> void:
+	_trailSurfacePath.clear()
+	if _context != null and _context.surface_path_world_positions.size() >= 2:
+		for worldPosition: Vector3 in _context.surface_path_world_positions:
+			_trailSurfacePath.append(to_local(worldPosition))
+	else:
+		var source := Vector3(0.0, 0.0, 2.5)
+		if _context != null:
+			source = to_local(_context.source_world_position)
+		_trailSurfacePath.append(source)
+		_trailSurfacePath.append(Vector3(_bodyCenter.x, 0.0, _bodyCenter.z))
+	assert(_trailSurfacePath.size() >= 2, "Ice spike trail requires two surface samples.")
+
+
+func _trailSurfacePathLength() -> float:
+	var total := 0.0
+	for index: int in range(1, _trailSurfacePath.size()):
+		var delta := _trailSurfacePath[index] - _trailSurfacePath[index - 1]
+		delta.y = 0.0
+		total += delta.length()
+	return maxf(total, 0.001)
+
+
+func _trailSurfacePoint(progress: float) -> Vector3:
+	var scaledIndex := clampf(progress, 0.0, 1.0) * float(_trailSurfacePath.size() - 1)
+	var lowerIndex := floori(scaledIndex)
+	var upperIndex := mini(lowerIndex + 1, _trailSurfacePath.size() - 1)
+	var segmentProgress := scaledIndex - float(lowerIndex)
+	var point := _trailSurfacePath[lowerIndex].lerp(
+		_trailSurfacePath[upperIndex], segmentProgress)
+	# Use the nearest event-time surface sample for height so a spike is planted
+	# on one terrain plateau rather than floating along a smoothed step slope.
+	point.y = _trailSurfacePath[roundi(scaledIndex)].y
+	return point
 
 
 func _buildContactAccents(bounds: AABB, random: RandomNumberGenerator) -> void:
@@ -573,7 +657,9 @@ func _buildImpactFlash(bounds: AABB) -> void:
 	_drawCallCount += 1
 
 
-func _createLayerMaterial(layerName: String) -> ShaderMaterial:
+func _createLayerMaterial(
+		layerName: String,
+		facetTile: Vector2i = Vector2i(2, 1)) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = _ICE_SHADER
 	var color := IceTargetEncasementProfile.SIDE_COLOR
@@ -603,6 +689,14 @@ func _createLayerMaterial(layerName: String) -> ShaderMaterial:
 	material.set_shader_parameter("shadow_color", IceTargetEncasementProfile.SHADOW_COLOR)
 	material.set_shader_parameter("opacity", opacity)
 	material.set_shader_parameter("emission_strength", emissionStrength)
+	material.set_shader_parameter("facet_atlas", _ICE_FACET_ATLAS)
+	material.set_shader_parameter("facet_tile", Vector2(facetTile))
+	material.set_shader_parameter(
+		"facet_atlas_pixel_size", IceTargetEncasementProfile.FACET_ATLAS_PIXEL_SIZE)
+	material.set_shader_parameter(
+		"facet_tile_pixel_size", IceTargetEncasementProfile.FACET_TILE_PIXEL_SIZE)
+	material.set_shader_parameter(
+		"facet_color_strength", IceTargetEncasementProfile.FACET_COLOR_STRENGTH)
 	material.render_priority = int(IceTargetEncasementProfile.LAYER_RENDER_PRIORITIES[layerName])
 	return material
 
@@ -734,44 +828,24 @@ func _applyCoreTimeline(normalizedTime: float) -> void:
 func _applyDeliveryTrailTimeline(normalizedTime: float) -> void:
 	if _trailMultiMesh == null:
 		return
-	var travelProgress := _smoothstep01(_windowProgress(
-		normalizedTime,
-		IceTargetEncasementProfile.TRAIL_START_FRACTION,
-		IceTargetEncasementProfile.TRAIL_IMPACT_FRACTION))
-	var visibility := 0.0
-	if normalizedTime <= IceTargetEncasementProfile.TRAIL_IMPACT_FRACTION:
-		visibility = _smoothstep01(_windowProgress(
-			normalizedTime,
-			IceTargetEncasementProfile.TRAIL_START_FRACTION,
-			IceTargetEncasementProfile.TRAIL_FADE_IN_FRACTION))
-	elif normalizedTime < IceTargetEncasementProfile.TRAIL_FADE_END_FRACTION:
-		visibility = 1.0 - _smoothstep01(_windowProgress(
-			normalizedTime,
-			IceTargetEncasementProfile.TRAIL_IMPACT_FRACTION,
-			IceTargetEncasementProfile.TRAIL_FADE_END_FRACTION))
-	for slot: int in range(IceTargetEncasementProfile.TRAIL_INSTANCE_COUNT):
-		var taper := (
-			float(slot)
-			/ float(maxi(IceTargetEncasementProfile.TRAIL_INSTANCE_COUNT - 1, 1)))
-		var segmentProgress := maxf(
-			travelProgress
-			- float(slot) * IceTargetEncasementProfile.TRAIL_SEGMENT_PROGRESS_SPACING,
-			0.0)
-		var segmentVisibility := visibility if segmentProgress > 0.0 else 0.0
-		var width := lerpf(
-			IceTargetEncasementProfile.TRAIL_HEAD_WIDTH_U,
-			IceTargetEncasementProfile.TRAIL_TAIL_WIDTH_U,
-			taper) * maxf(segmentVisibility, 0.001)
-		var length := (
-			IceTargetEncasementProfile.TRAIL_SEGMENT_LENGTH_U
-			* lerpf(1.0, 0.72, taper)
-			* maxf(segmentVisibility, 0.001)
-		)
+	for slot: int in range(_trailRecords.size()):
+		var record: Dictionary = _trailRecords[slot]
+		var growth := _smoothstep01(_windowProgress(
+			normalizedTime, float(record["start"]), float(record["end"])))
+		var fadeStart := (
+			IceTargetEncasementProfile.TRAIL_IMPACT_FRACTION
+			+ float(slot) * IceTargetEncasementProfile.TRAIL_FADE_STAGGER_FRACTION)
+		var fade := _smoothstep01(_windowProgress(
+			normalizedTime, fadeStart, IceTargetEncasementProfile.TRAIL_FADE_END_FRACTION))
+		var visibleScale := maxf(growth * (1.0 - fade), 0.001)
+		var width: float = float(record["width"]) * visibleScale
+		var height: float = float(record["height"]) * visibleScale
 		_trailMultiMesh.set_instance_transform(
 			slot,
 			Transform3D(
-				_trailBasis.scaled(Vector3(width, width, length)),
-				_trailSource.lerp(_trailTarget, segmentProgress)))
+				Basis.from_euler(record["rotation"]).scaled(
+					Vector3(width, height, width)),
+				record["position"]))
 
 
 func _applyContactTimeline(normalizedTime: float) -> void:

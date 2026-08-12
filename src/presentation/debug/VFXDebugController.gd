@@ -246,6 +246,7 @@ var _targetBodyBounds: AABB = VfxCastContext.DEFAULT_TARGET_BODY_BOUNDS
 @onready var _sceneCasterAnchor: Node3D = $CasterAnchor
 @onready var _sceneTargetAnchor: Node3D = $TargetAnchor
 @onready var _camera: Camera3D = $Camera3D
+@onready var _ground: MeshInstance3D = $Ground
 @onready var _statusLabel: Label = $HUD/PanelContainer/Scroll/VBoxContainer/StatusLabel
 @onready var _effectOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/EffectOption
 @onready var _elementOption: OptionButton = $HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/ElementOption
@@ -651,8 +652,34 @@ func _buildCastContext() -> VfxCastContext:
 		_targetAnchor.position,
 		targetIDs,
 		targetPositions,
-		targetBounds
+		targetBounds,
+		_buildDebugSurfacePath()
 	)
+
+
+## Samples the two authored islands and the lower ground plane between them so
+## delivery geometry proves both plateaus and the empty middle corridor.
+func _buildDebugSurfacePath() -> Array[Vector3]:
+	var result: Array[Vector3] = []
+	var source := _casterAnchor.position
+	var target := _targetAnchor.position
+	var sampleCount := 17
+	for sampleIndex: int in range(sampleCount):
+		var progress := float(sampleIndex) / float(sampleCount - 1)
+		var point := source.lerp(target, progress)
+		if sampleIndex == 0:
+			point.y = source.y
+		elif sampleIndex == sampleCount - 1:
+			point.y = target.y
+		elif absf(point.x - source.x) <= 1.5:
+			point.y = _surfaceY(0)
+		elif absf(point.x - target.x) <= 1.5:
+			var localX := clampi(roundi(point.x - target.x), -1, 1)
+			point.y = _surfaceY(int(_UNEVEN_HEIGHTS[1][localX + 1]))
+		else:
+			point.y = _ground.position.y + 0.01
+		result.append(point)
+	return result
 
 
 func _selectedMode() -> String:
@@ -1364,7 +1391,7 @@ func _applyRenderControls() -> void:
 
 func _reparentWorldNodes() -> void:
 	for worldNode: Node3D in [
-		_camera, $DirectionalLight, $Ground, _sceneCasterAnchor, _sceneTargetAnchor
+		_camera, $DirectionalLight, _ground, _sceneCasterAnchor, _sceneTargetAnchor
 	]:
 		worldNode.reparent(retroRenderer.world_root, false)
 	_casterAnchor = _sceneCasterAnchor

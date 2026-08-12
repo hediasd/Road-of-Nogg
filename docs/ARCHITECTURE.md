@@ -284,8 +284,12 @@ modifiers affect targeting and VFX together even though immutable reference
 data stays unchanged. The event contains no presentation types. At enqueue
 time, `GodotVisualAdapter` converts its board coordinates and IDs into a typed
 `VfxCastContext`: source and impact world positions, target world positions,
-and body-only target bounds. Missing target visuals use a standard authored
-body box at the event impact, keeping delayed target-bound effects safe.
+body-only target bounds, and an optional presentation-surface path sampled
+between source and impact. The adapter snapshots that path from board terrain
+at enqueue time; delayed effects never query a later scene-tree or physics
+state to decide where ground-bound geometry belongs. Missing target visuals use
+a standard authored body box at the event impact, keeping delayed target-bound
+effects safe.
 Playback never re-reads a later monster position to start a queued action.
 Movement begins at the model's current rendered transform and animates every
 horizontal and vertical step through a bounded jump arc. Each tween has a

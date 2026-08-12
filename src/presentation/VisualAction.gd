@@ -26,6 +26,7 @@ var vfx_impact_world_position: Vector3 = Vector3.ZERO
 var vfx_target_ids: Array[int] = []
 var vfx_target_world_positions: Array[Vector3] = []
 var vfx_target_body_bounds: Array[AABB] = []
+var vfx_surface_path_world_positions: Array[Vector3] = []
 var origin: Vector3 = Vector3.ZERO
 var has_origin: bool = false
 var left_monster_id: int = -1
@@ -65,6 +66,7 @@ func clone() -> VisualAction:
 	copy.vfx_target_ids.assign(vfx_target_ids)
 	copy.vfx_target_world_positions.assign(vfx_target_world_positions)
 	copy.vfx_target_body_bounds.assign(vfx_target_body_bounds)
+	copy.vfx_surface_path_world_positions.assign(vfx_surface_path_world_positions)
 	copy.origin = origin
 	copy.has_origin = has_origin
 	copy.left_monster_id = left_monster_id

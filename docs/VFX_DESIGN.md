@@ -53,8 +53,11 @@ self-area cast report the same radius and shape used by `ShapeCaster`.
 **The cast context owns target-bound presentation geometry.** Every profile
 receives a `VfxCastContext` before `play()`, containing the source and impact
 world positions plus stable target IDs, event-time target positions, and
-body-only local bounds. Effects that do not need those values inherit the
-default no-op. The simulation never imports this context or any visual node.
+body-only local bounds. It may also carry a generic event-time world-space
+surface path for ground-bound presentation; this is adapter-owned terrain data,
+not a VFX-specific simulation event or a lazy playback query. Effects that do
+not need those values inherit the default no-op. The simulation never imports
+this context or any visual node.
 When a target visual is missing or already defeated, the adapter supplies a
 standard authored body box centered at the event impact.
 
@@ -220,9 +223,11 @@ Timeline code must not replace instances at fracture time: the large pieces
 visible in the closed statue are the pieces that leave it.
 
 Three effect-local supporting layers establish delivery without competing with
-the shell. `delivery_trail` uses seven tapered low-poly segments driven from the
-context's caster position to the target body center; its head reaches once and
-the frozen taper clears during first growth. `contact_accents` uses eight small
+the shell. `delivery_trail` uses 8–12 irregular low-poly ground spikes planted
+along the context's event-time surface path. Their bases never translate: each
+spike grows in source-to-target order, then recedes after impact. Missing path
+samples fall back to a two-point source/target path rather than silently
+querying mutable terrain during playback. `contact_accents` uses eight small
 deep-blue square prisms distributed around the impact volume. They remain in a
 single MultiMesh so their normalized-time scale actually hides them; applying a
 standard billboard material here is forbidden because Godot replaces the
@@ -231,11 +236,15 @@ low-alpha, depth-independent internal pulse synchronized with first growth.
 Each layer is independently toggleable, and all three are gone before the
 completed enclosure.
 
-The complete build contains 11 large shell chunks, 15 delivery/contact
-instances, and one core instance. The harness reports 27 allocated geometry
-instances, 23 effect nodes, and approximately 13 draw calls, within its
-asserted ceilings. The delivery/contact population is capped at 16 so later
-tuning cannot turn the supporting cues into replacement debris.
+The complete build contains 11 large shell chunks, 8–12 delivery spikes, eight
+contact instances, and one core instance. Each shell mesh has a broad inner
+seat and a pointed exterior ridge or apex; layer orientation makes that edge
+face away from the target on every side. Per-face UVs select deterministic
+16×16 cells from `ice_strip.png`, with half-texel atlas insets and nearest
+sampling preserving pixel-art facets under the retro renderer. The build stays
+within 32 geometry instances, 26 effect nodes, and 16 draw calls. The
+delivery/contact population is capped at 20 so later tuning cannot turn the
+supporting cues into replacement debris.
 
 The debug catalog and production spell data use the same profile id. `Ice Statue`
 is the single-target production carrier: it copies Ice Punch's damage, element,
