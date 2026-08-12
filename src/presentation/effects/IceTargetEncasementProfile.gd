@@ -65,35 +65,131 @@ const IMPACT_FLASH_END_FRACTION := 0.25
 const IMPACT_FLASH_SCALE_FRACTION := 0.38
 const IMPACT_FLASH_MAX_ALPHA := 0.28
 
-## AUTHORED shell dimensions and seeded variation in local body-bound units.
+## AUTHORED shell dimensions and restrained seeded variation in local body-bound
+## units. The spatial layout itself is deliberately asymmetric; jitter keeps
+## repeated casts alive without erasing the large PS1-readable forms.
 const SHELL_CLEARANCE_U := 0.055
 const MIN_CHUNK_THICKNESS_U := 0.18
-const THICKNESS_BODY_FRACTION := 0.34
-const POSITION_JITTER_FRACTION := 0.035
-const ROTATION_JITTER_RADIANS := 0.12
-const SCALE_JITTER_MIN := 0.92
-const SCALE_JITTER_MAX := 1.08
+const THICKNESS_BODY_FRACTION := 0.40
+const POSITION_JITTER_FRACTION := 0.025
+const ROTATION_JITTER_RADIANS := 0.085
+const SCALE_JITTER_MIN := 0.95
+const SCALE_JITTER_MAX := 1.05
 const BREAK_DISTANCE_MIN_U := 0.85
 const BREAK_DISTANCE_MAX_U := 1.45
 const BREAK_LIFT_MIN_U := 0.25
 const BREAK_LIFT_MAX_U := 0.85
 
-## AUTHORED small, mostly opaque blue-white palette. Each spatial group has a
-## distinct value range so overlapping chunks remain countable under the retro
-## renderer rather than merging into one flat cyan plate.
-const REAR_COLOR := Color(0.24, 0.48, 0.72, 1.0)
-const SIDE_COLOR := Color(0.34, 0.66, 0.88, 1.0)
-const FRONT_COLOR := Color(0.56, 0.82, 0.98, 1.0)
-const CAP_COLOR := Color(0.78, 0.92, 1.0, 1.0)
-const CORE_COLOR := Color(0.74, 0.94, 1.0, 1.0)
+## AUTHORED asymmetric hero layout. Positions are fractions of body width,
+## height, and depth from its centre. Scales use width/height/thickness for
+## front/rear, thickness/height/depth for sides, and width/thickness/depth for
+## caps. Kind values follow IceChunkMeshFactory.Kind: block, wedge, crystal.
+const HERO_LAYOUT := [
+	{
+		"role": "rear_left_mass", "layer": "shell_rear", "kind": 0,
+		"position": Vector3(-0.22, -0.08, -0.58),
+		"scale": Vector3(0.76, 0.82, 1.05),
+		"rotation": Vector3(0.05, -0.12, -0.12),
+		"formation": Vector2(0.08, 0.25),
+	},
+	{
+		"role": "rear_right_crown", "layer": "shell_rear", "kind": 2,
+		"position": Vector3(0.28, 0.18, -0.55),
+		"scale": Vector3(0.62, 0.72, 1.08),
+		"rotation": Vector3(-0.08, 0.14, 0.18),
+		"formation": Vector2(0.11, 0.30),
+	},
+	{
+		"role": "left_lower_wall", "layer": "shell_sides", "kind": 1,
+		"position": Vector3(-0.58, -0.12, -0.06),
+		"scale": Vector3(1.05, 0.88, 0.96),
+		"rotation": Vector3(0.08, -0.12, -0.16),
+		"formation": Vector2(0.10, 0.27),
+	},
+	{
+		"role": "right_main_wall", "layer": "shell_sides", "kind": 0,
+		"position": Vector3(0.58, 0.05, 0.09),
+		"scale": Vector3(1.00, 0.82, 0.90),
+		"rotation": Vector3(-0.06, 0.11, 0.10),
+		"formation": Vector2(0.13, 0.31),
+	},
+	{
+		"role": "left_upper_shard", "layer": "shell_sides", "kind": 2,
+		"position": Vector3(-0.56, 0.34, 0.12),
+		"scale": Vector3(0.82, 0.46, 0.68),
+		"rotation": Vector3(0.12, 0.18, -0.20),
+		"formation": Vector2(0.20, 0.36),
+	},
+	{
+		"role": "front_lower_slab", "layer": "shell_front", "kind": 1,
+		"position": Vector3(-0.08, -0.32, 0.59),
+		"scale": Vector3(1.12, 0.46, 1.08),
+		"rotation": Vector3(-0.08, 0.04, -0.09),
+		"formation": Vector2(0.20, 0.35),
+	},
+	{
+		"role": "front_diagonal_plate", "layer": "shell_front", "kind": 0,
+		"position": Vector3(0.06, 0.02, 0.61),
+		"scale": Vector3(0.88, 0.72, 1.00),
+		"rotation": Vector3(0.12, -0.05, -0.22),
+		"formation": Vector2(0.24, 0.42),
+	},
+	{
+		"role": "front_upper_shard", "layer": "shell_front", "kind": 2,
+		"position": Vector3(-0.32, 0.30, 0.58),
+		"scale": Vector3(0.50, 0.56, 1.04),
+		"rotation": Vector3(-0.16, 0.11, 0.22),
+		"formation": Vector2(0.30, 0.46),
+	},
+	{
+		"role": "front_right_block", "layer": "shell_front", "kind": 0,
+		"position": Vector3(0.39, -0.19, 0.63),
+		"scale": Vector3(0.44, 0.40, 0.92),
+		"rotation": Vector3(0.06, -0.18, 0.12),
+		"formation": Vector2(0.26, 0.40),
+	},
+	{
+		"role": "cap_swept_slab", "layer": "shell_cap", "kind": 1,
+		"position": Vector3(-0.14, 0.58, -0.05),
+		"scale": Vector3(0.80, 1.15, 0.88),
+		"rotation": Vector3(0.04, -0.08, -0.08),
+		"formation": Vector2(0.34, 0.46),
+	},
+	{
+		"role": "cap_right_crystal", "layer": "shell_cap", "kind": 2,
+		"position": Vector3(0.34, 0.60, 0.12),
+		"scale": Vector3(0.45, 0.90, 0.70),
+		"rotation": Vector3(0.12, 0.18, 0.16),
+		"formation": Vector2(0.38, 0.48),
+	},
+]
+
+## AUTHORED transparent-cyan palette. Pale front/cap faces create the white-cyan
+## overlap read while dark facets keep adjacent forms countable. Explicit layer
+## priorities and an alpha depth prepass keep the translucent volume ordered.
+const REAR_COLOR := Color(0.12, 0.62, 0.72, 1.0)
+const SIDE_COLOR := Color(0.24, 0.80, 0.88, 1.0)
+const FRONT_COLOR := Color(0.54, 0.93, 0.98, 1.0)
+const CAP_COLOR := Color(0.70, 0.97, 1.0, 1.0)
+const CORE_COLOR := Color(0.78, 0.98, 1.0, 1.0)
 const TRAIL_COLOR := Color(0.32, 0.68, 0.94, 1.0)
 const CONTACT_COLOR := Color(0.18, 0.30, 0.96, 1.0)
 const IMPACT_FLASH_COLOR := Color(0.62, 0.90, 1.0, 1.0)
-const SHADOW_COLOR := Color(0.10, 0.24, 0.42, 1.0)
+const SHADOW_COLOR := Color(0.08, 0.36, 0.44, 1.0)
 const CORE_SCALE_FRACTION := 0.58
 
-## DERIVED from 4 rear + 4 side + 4 front + 3 cap chunks.
-const CHUNK_COUNT := 15
+const REAR_OPACITY := 0.50
+const SIDE_OPACITY := 0.62
+const FRONT_OPACITY := 0.70
+const CAP_OPACITY := 0.58
+const CORE_OPACITY := 0.44
+const TRAIL_OPACITY := 0.72
+const SHELL_EMISSION_STRENGTH := 0.16
+const CORE_EMISSION_STRENGTH := 0.28
+const TRAIL_EMISSION_STRENGTH := 0.12
+
+## DERIVED from 2 rear + 3 side + 4 front + 2 cap hero forms.
+const CHUNK_COUNT := 11
 const MAX_CHUNKS := 18
 const SUPPORTING_INSTANCE_COUNT := TRAIL_INSTANCE_COUNT + CONTACT_INSTANCE_COUNT
 const MAX_SUPPORTING_INSTANCES := 16

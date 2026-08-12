@@ -982,3 +982,36 @@ Implemented 2026-08-11; pending end-of-plan validation.
   capture marker reported `error=0` and stderr was empty.
 - `git diff --check` passed. No battle was launched before consolidated
   validation.
+
+### Transparent-cyan shell and asymmetric silhouette fidelity pass
+
+Implemented 2026-08-11; pending end-of-plan validation.
+
+- The regular 15-piece front/rear grid was replaced with 11 authored hero
+  forms: two rear masses, three unequal side walls/shards, four overlapping
+  front slabs, and two asymmetric cap pieces. Their normalized positions,
+  scales, rotations, formation windows, palette, opacity, and emission live in
+  `IceTargetEncasementProfile.gd`; small seeded jitter preserves variation
+  without erasing the composition.
+- The shell now uses true transparent-cyan alpha with an alpha depth prepass and
+  explicit rear/side/front/cap render priorities. Pale foreground faces build
+  toward white-cyan while darker facets keep adjacent shapes readable. The
+  previous opaque white-blue material is gone.
+- A 4×4 Bayer screen-door experiment was rejected during proof because the
+  shipping retro upscale converted it into horizontal moiré. The rejected path
+  was removed rather than left as dead tuning or a dormant shader branch.
+- Core-disabled hold captures passed for standard, wide, and tall targets at
+  front, side, and rear camera yaws. Matched native and explicit 320×240 retro
+  captures kept the body enclosed, the cyan material visibly transparent, and
+  front/rear ordering stable. Every capture reported `error=0` with empty
+  stderr.
+- The harness gained `--no-retro` and
+  `--render-resolution=<native|640x480|480x360|320x240>` so the required
+  retro/native proof is reproducible without interactive toggles. The confirmed
+  opposing islands and empty centre corridor are unchanged.
+- The updated harness reports 11 shell chunks, 27 allocated geometry
+  instances, 23 effect nodes, zero particles, and approximately 13 draw calls,
+  all within the current asserted ceilings.
+- Godot 4.4's headless editor import passed. Both backlogs were reviewed; this
+  item leaves no durable unresolved work to add. No battle was launched, as
+  required before consolidated validation.

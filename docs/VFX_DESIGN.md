@@ -188,10 +188,19 @@ frame-rate problem later.
 `ice_target_encasement` is the first profile driven by `VfxCastContext` body
 bounds rather than by an area footprint. It uses three effect-owned low-poly
 meshes—block, wedge, and irregular crystal—distributed into explicit
-`shell_rear`, `shell_sides`, `shell_front`, and `shell_cap` layers. Opaque
-faceted materials, depth, and per-layer render priorities preserve front/rear
-ordering through camera rotation. A small `ice_core` is independently
-toggleable.
+`shell_rear`, `shell_sides`, `shell_front`, and `shell_cap` layers. Eleven
+authored hero forms replace a regular front/rear grid: broad lower/front slabs,
+uneven side walls, rear silhouette masses, and two unequal cap pieces scale
+against the supplied body bounds. Small seeded position/rotation/scale jitter
+does not erase that size hierarchy.
+
+The shell uses true transparent-cyan alpha, an alpha depth prepass, and explicit
+rear/side/front/cap render priorities. Pale front and cap faces build toward
+white-cyan where the volume overlaps, while darker blue facets keep adjoining
+pieces readable. This avoids modern refraction and also avoids screen-door
+dither: a 4×4 Bayer experiment was rejected because the shipping retro upscale
+collapsed it into horizontal moiré. A small `ice_core` remains independently
+toggleable, and shell-only captures must read without it.
 
 Every chunk records both its intact transform and a deterministic outward
 broken transform when the shell is built, then keeps one stable MultiMesh slot
@@ -222,10 +231,11 @@ low-alpha, depth-independent internal pulse synchronized with first growth.
 Each layer is independently toggleable, and all three are gone before the
 completed enclosure.
 
-The complete build contains 15 large shell chunks, 15 delivery/contact
-instances, and one flash instance. It measures 25 effect nodes and 16 draw
-calls, within its asserted ceilings. The delivery/contact population is capped
-at 16 so later tuning cannot turn the supporting cues into replacement debris.
+The complete build contains 11 large shell chunks, 15 delivery/contact
+instances, and one core instance. The harness reports 27 allocated geometry
+instances, 23 effect nodes, and approximately 13 draw calls, within its
+asserted ceilings. The delivery/contact population is capped at 16 so later
+tuning cannot turn the supporting cues into replacement debris.
 
 The debug catalog and production spell data use the same profile id. `Ice Statue`
 is the single-target production carrier: it copies Ice Punch's damage, element,
@@ -631,6 +641,11 @@ scales to the selected body-bound preset. Source separation moves the complete
 islands symmetrically rather than sliding models across fixed terrain. Its
 minimum is 4 world units, which preserves at least the original one-cell empty
 corridor.
+
+The retro viewport starts enabled. Scripted comparisons use
+`--render-resolution=<native|640x480|480x360|320x240>` with `--retro`, or
+`--no-retro` for the matched native-render frame; capture commands never need
+an interactive resolution or render-mode toggle to produce either side.
 
 `scenes/debug/VFXDebugScene.tscn` renders through the real retro pipeline and is
 the acceptance surface for VFX work. Interactive keys are listed in

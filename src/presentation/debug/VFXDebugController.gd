@@ -20,13 +20,16 @@
 ##   --target-body=<standard|wide|tall>  target-body bounds preset
 ##   --source-distance=<4-10> caster-to-target separation in world units
 ##   --camera-yaw=<degrees>   orbit the preview camera around both anchors
+##   --render-resolution=<native|640x480|480x360|320x240>
+##                           select the world render resolution
 ##   --stretch=<native|integer|integer640|legacy_fractional>  how the whole
 ##                           canvas scales. `native` matches the shipping
 ##                           project.godot; `legacy_fractional` reproduces the
 ##                           old fractional-canvas bug for comparison. The specimen reports
 ##                           the resulting factor. Applied to the live root,
 ##                           never to project.godot.
-##   --retro / --crt         enable the retro viewport / CRT pass
+##   --retro / --no-retro    enable or disable the retro viewport
+##   --crt                    enable the CRT pass
 ##   --hide-hud              start with the HUD panel hidden (H toggles it)
 ##
 ## Text specimen. UI text is composited above the CRT pass rather than through
@@ -913,11 +916,36 @@ func _applyCommandLineOverrides() -> void:
 		if not _selectOptionByMetadata(_stretchOption, stretch, _onStretchSelected):
 			push_warning("Unknown --stretch=%s; keeping native (the project default)." % stretch)
 
-	if _hasFlagArgument("--retro"):
+	var renderResolution := _stringArgument("--render-resolution=")
+	if not renderResolution.is_empty():
+		var renderResolutionValues := {
+			"native": Vector2i.ZERO,
+			"640x480": Vector2i(640, 480),
+			"480x360": Vector2i(480, 360),
+			"320x240": Vector2i(320, 240),
+		}
+		if renderResolutionValues.has(renderResolution):
+			var requestedSize: Vector2i = renderResolutionValues[renderResolution]
+			for resolutionIndex: int in range(_resolutionOption.item_count):
+				if _resolutionOption.get_item_metadata(resolutionIndex) == requestedSize:
+					_resolutionOption.select(resolutionIndex)
+					_onResolutionSelected(resolutionIndex)
+					break
+		else:
+			push_warning(
+				"Unknown --render-resolution=%s; keeping native." % renderResolution)
+
+	if _hasFlagArgument("--no-retro"):
+		_retroToggle.set_pressed_no_signal(false)
+	elif _hasFlagArgument("--retro"):
 		_retroToggle.set_pressed_no_signal(true)
 	if _hasFlagArgument("--crt"):
 		_crtToggle.set_pressed_no_signal(true)
-	if _hasFlagArgument("--retro") or _hasFlagArgument("--crt"):
+	if (
+		_hasFlagArgument("--retro")
+		or _hasFlagArgument("--no-retro")
+		or _hasFlagArgument("--crt")
+	):
 		_applyRenderControls()
 
 	# Scanline and mask pitch are in device pixels, so what they look like

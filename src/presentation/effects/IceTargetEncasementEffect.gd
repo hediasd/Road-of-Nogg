@@ -283,99 +283,52 @@ func _buildChunkRecords(bounds: AABB, random: RandomNumberGenerator) -> void:
 	var jitterAmplitude := maxf(minf(width, minf(height, depth)), 0.4) * (
 		IceTargetEncasementProfile.POSITION_JITTER_FRACTION
 	)
-	var kinds := [
-		IceChunkMeshFactory.Kind.BLOCK,
-		IceChunkMeshFactory.Kind.WEDGE,
-		IceChunkMeshFactory.Kind.CRYSTAL,
-	]
-
-	for faceIndex in range(2):
-		var layerName := LAYER_SHELL_REAR if faceIndex == 0 else LAYER_SHELL_FRONT
-		var zSign := -1.0 if faceIndex == 0 else 1.0
-		for row in range(2):
-			for column in range(2):
-				var index := row * 2 + column
-				var formationWindow := _faceFormationWindow(faceIndex, row, column)
-				_appendChunk(
-					layerName,
-					kinds[(index + faceIndex) % kinds.size()],
-					center + Vector3(
-						(float(column) - 0.5) * width * 0.48,
-						(float(row) - 0.5) * height * 0.48,
-						zSign * (depth * 0.5 + thickness * 0.18)
-					),
-					Vector3(width * 0.60, height * 0.60, thickness),
-					Vector3(0.0, 0.0, (float(index) - 1.5) * 0.045),
-					center,
-					jitterAmplitude,
-					formationWindow.x,
-					formationWindow.y,
-					random
-				)
-
-	for sideIndex in range(2):
-		var xSign := -1.0 if sideIndex == 0 else 1.0
-		for row in range(2):
-			var index := sideIndex * 2 + row
-			var formationStart := (
-				IceTargetEncasementProfile.LOWER_SIDE_FORMATION_START_FRACTION
-				+ float(row) * 0.08
-				+ float(sideIndex) * 0.015
-			)
-			var formationEnd := minf(
-				IceTargetEncasementProfile.LOWER_SIDE_FORMATION_END_FRACTION,
-				IceTargetEncasementProfile.LOWER_SIDE_FORMATION_END_FRACTION
-				- (0.055 if row == 0 else 0.0)
-				+ float(sideIndex) * 0.008
-			)
-			_appendChunk(
-				LAYER_SHELL_SIDES,
-				kinds[(index + 1) % kinds.size()],
-				center + Vector3(
-					xSign * (width * 0.5 + thickness * 0.18),
-					(float(row) - 0.5) * height * 0.48,
-					(float(row) - 0.5) * depth * 0.14
-				),
-				Vector3(thickness, height * 0.61, depth * 0.84),
-				Vector3(0.0, xSign * 0.08, xSign * (float(row) - 0.5) * 0.07),
-				center,
-				jitterAmplitude,
-				formationStart,
-				formationEnd,
-				random
-			)
-
-	for capIndex in range(3):
-		var capStart := (
-			IceTargetEncasementProfile.FRONT_CAP_CLOSURE_START_FRACTION
-			+ 0.11
-			+ float(capIndex) * 0.025
-		)
-		var capEnd := (
-			IceTargetEncasementProfile.FRONT_CAP_CLOSURE_END_FRACTION
-			- 0.04
-			+ float(capIndex) * 0.02
-		)
+	for authoredValue: Variant in IceTargetEncasementProfile.HERO_LAYOUT:
+		var authored: Dictionary = authoredValue
+		var layerName := String(authored["layer"])
+		var positionFractions: Vector3 = authored["position"]
+		var scaleFractions: Vector3 = authored["scale"]
+		var rotation: Vector3 = authored["rotation"]
+		var formationWindow: Vector2 = authored["formation"]
+		var scale := Vector3.ZERO
+		match layerName:
+			LAYER_SHELL_REAR, LAYER_SHELL_FRONT:
+				scale = Vector3(
+					width * scaleFractions.x,
+					height * scaleFractions.y,
+					thickness * scaleFractions.z)
+			LAYER_SHELL_SIDES:
+				scale = Vector3(
+					thickness * scaleFractions.x,
+					height * scaleFractions.y,
+					depth * scaleFractions.z)
+			LAYER_SHELL_CAP:
+				scale = Vector3(
+					width * scaleFractions.x,
+					thickness * scaleFractions.y,
+					depth * scaleFractions.z)
+			_:
+				assert(false, "Unknown authored ice shell layer: %s" % layerName)
 		_appendChunk(
-			LAYER_SHELL_CAP,
-			kinds[(capIndex + 2) % kinds.size()],
+			layerName,
+			String(authored["role"]),
+			int(authored["kind"]),
 			center + Vector3(
-				(float(capIndex) - 1.0) * width * 0.31,
-				height * 0.5 + thickness * 0.18,
-				(float(capIndex % 2) - 0.5) * depth * 0.10
-			),
-			Vector3(width * 0.45, thickness, depth * 0.84),
-			Vector3(0.0, (float(capIndex) - 1.0) * 0.10, 0.04),
+				width * positionFractions.x,
+				height * positionFractions.y,
+				depth * positionFractions.z),
+			scale,
+			rotation,
 			center,
 			jitterAmplitude,
-			capStart,
-			capEnd,
-			random
-		)
+			formationWindow.x,
+			formationWindow.y,
+			random)
 
 
 func _appendChunk(
 		layerName: String,
+		roleName: String,
 		kind: int,
 		basePosition: Vector3,
 		baseScale: Vector3,
@@ -430,6 +383,7 @@ func _appendChunk(
 	)
 	_chunkRecords.append({
 		"layer": layerName,
+		"role": roleName,
 		"kind": kind,
 		"formation": formation,
 		"formation_start": formationStart,
@@ -623,22 +577,32 @@ func _createLayerMaterial(layerName: String) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = _ICE_SHADER
 	var color := IceTargetEncasementProfile.SIDE_COLOR
+	var opacity := IceTargetEncasementProfile.SIDE_OPACITY
+	var emissionStrength := IceTargetEncasementProfile.SHELL_EMISSION_STRENGTH
 	match layerName:
 		LAYER_SHELL_REAR:
 			color = IceTargetEncasementProfile.REAR_COLOR
+			opacity = IceTargetEncasementProfile.REAR_OPACITY
 		LAYER_SHELL_FRONT:
 			color = IceTargetEncasementProfile.FRONT_COLOR
+			opacity = IceTargetEncasementProfile.FRONT_OPACITY
 		LAYER_SHELL_CAP:
 			color = IceTargetEncasementProfile.CAP_COLOR
+			opacity = IceTargetEncasementProfile.CAP_OPACITY
 		LAYER_ICE_CORE:
 			color = IceTargetEncasementProfile.CORE_COLOR
+			opacity = IceTargetEncasementProfile.CORE_OPACITY
+			emissionStrength = IceTargetEncasementProfile.CORE_EMISSION_STRENGTH
 		LAYER_DELIVERY_TRAIL:
 			color = IceTargetEncasementProfile.TRAIL_COLOR
+			opacity = IceTargetEncasementProfile.TRAIL_OPACITY
+			emissionStrength = IceTargetEncasementProfile.TRAIL_EMISSION_STRENGTH
 		LAYER_CONTACT_ACCENTS:
 			color = IceTargetEncasementProfile.CONTACT_COLOR
 	material.set_shader_parameter("base_color", color)
 	material.set_shader_parameter("shadow_color", IceTargetEncasementProfile.SHADOW_COLOR)
-	material.set_shader_parameter("emission_strength", 0.18 if layerName == LAYER_ICE_CORE else 0.08)
+	material.set_shader_parameter("opacity", opacity)
+	material.set_shader_parameter("emission_strength", emissionStrength)
 	material.render_priority = int(IceTargetEncasementProfile.LAYER_RENDER_PRIORITIES[layerName])
 	return material
 
@@ -654,27 +618,6 @@ func _createContactMaterial() -> StandardMaterial3D:
 	material.render_priority = int(
 		IceTargetEncasementProfile.LAYER_RENDER_PRIORITIES[LAYER_CONTACT_ACCENTS])
 	return material
-
-
-func _faceFormationWindow(faceIndex: int, row: int, column: int) -> Vector2:
-	if faceIndex == 0:
-		var rearStart := (
-			IceTargetEncasementProfile.LOWER_SIDE_FORMATION_START_FRACTION
-			+ float(row) * 0.07
-			+ float(column) * 0.015
-		)
-		var rearEnd := minf(
-			IceTargetEncasementProfile.LOWER_SIDE_FORMATION_END_FRACTION,
-			0.23 + float(row) * 0.08 + float(column) * 0.008
-		)
-		return Vector2(rearStart, rearEnd)
-	var frontStart := (
-		IceTargetEncasementProfile.FRONT_CAP_CLOSURE_START_FRACTION
-		+ float(row) * 0.055
-		+ float(column) * 0.015
-	)
-	var frontEnd := 0.39 + float(row) * 0.05 + float(column) * 0.015
-	return Vector2(frontStart, frontEnd)
 
 
 func _applyTimeline() -> void:
