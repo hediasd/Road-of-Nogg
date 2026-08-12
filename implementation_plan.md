@@ -542,6 +542,82 @@ implementation-item boundary.
 unchanged; the parked Ice Statue validation in `BACKLOG_CRITICAL.md` is also
 unaffected. No new unresolved work was found.
 
+### AURA-2F — Remove hero billboards; rebuild the vertical aura in world space
+
+**Model:** Opus 5 / GPT Sol (GPT-family VFX authorship required by project
+policy).
+
+**Depends on:** AURA-2E and the user's 2026-08-12 review that the aura rises too
+high behind the model and must remain spatially credible while the camera moves.
+The unrelated working-tree edits in `AGENTS.md` and `docs/POLICIES.md` are
+user-owned and must remain unstaged and untouched.
+
+**Files:** `src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, the effect-owned core and
+ray shaders, `docs/VFX_DESIGN.md`, `docs/LEARNINGS.md` only if the multi-yaw
+captures verify a reusable rule, this plan, and relevant backlog reconciliation.
+
+**End state:**
+
+- Remove every `INV_VIEW_MATRIX`/`MODELVIEW_MATRIX` billboard override and the
+  camera-relative offset from the large core and ray layers.
+- Replace the single core quad with six short radial world-space soft cards
+  around world up. Replace the single screen fan with seeded radial world-space
+  crossed-ribbon instances that lean outward from the vortex. Camera yaw
+  changes which faces are seen; it does not rotate the effect itself.
+- Calibrate maximum vertical reach against the supplied frame: the brightest
+  mass stays below the head and only the faintest rays reach slightly above the
+  standard body proxy, rather than extending another body height behind it.
+- Preserve the alpha-mixed ground vortex and small particle puffs. No shared
+  texture is modified and no proprietary reference asset is imported.
+- Keep four draw calls; update the honest geometry-instance ceiling from three
+  hero nodes to one vortex plus every core card and ribbon instance. This is an
+  intentional reported-number change, not a regression to restore.
+
+**Risk:** crossed cards can brighten at intersections or disappear near an
+edge-on yaw, while radial ribbons can become a spiky cage instead of soft
+shafts. Use low per-card alpha, at least three orientations, wide feathering,
+and uneven seeded height/width/lean.
+
+**Proof checkpoint:** fixed-seed layer isolates and composites at 0°, 90°, and
+180° camera yaw, plus a literal comparison with the supplied frame. The same
+world-space layout must remain planted at the caster from every yaw.
+
+**Adds to final validation coverage:** moving-camera spatial ownership,
+multi-yaw silhouette, reduced vertical reach, honest MultiMesh counts, and
+unchanged ground/particle layers.
+
+**Resolution (2026-08-12):** Implemented; pending end-of-plan validation. The
+full-screen core and fan were removed along with their `INV_VIEW_MATRIX`,
+`MODELVIEW_MATRIX`, normal-matrix, and camera-forward origin overrides. The
+replacement is six short alpha-mixed radial texture cards plus eighteen seeded
+crossed-ribbon instances in one `MultiMesh`; maximum ray height is 1.44 units,
+and the brightest core is capped at 1.12 units. The crossed two-face primitive
+keeps a feathered ray legible at arbitrary yaw without making it a billboard.
+Only the twelve small puff particles retain ordinary sprite billboarding; their
+positions and travel remain effect-local.
+
+The effect still reports four draw calls and an honest ceiling of twenty-five
+non-particle geometry instances: one vortex, six core cards, and eighteen ray
+instances. It reuses `neutralSoftPuff()` and `lanceStreak()` without changing
+either shared texture, and no external or proprietary reference asset was
+imported.
+
+Fixed-seed phase sheets at 0, 90, and 180 degrees verified that the same layout
+stays planted at the target and keeps a comparable body-height envelope from
+each yaw. A literal supplied-reference/current-output plate confirmed the
+remaining adaptation is the expected 2D-to-3D translation: independent dark
+vortex, dense low cyan bloom, broken rays, and sparse motes rather than one
+screen sheet. Godot's editor/import parse and a bounded debug-scene load both
+exited 0; `git diff --check` passed. No battle was launched at this
+implementation-item boundary.
+
+`docs/VFX_DESIGN.md` now records the world-space stack, and
+`docs/LEARNINGS.md` records the verified orbit-camera billboard failure and its
+multi-yaw review trigger. The unrelated working-tree edits in `AGENTS.md` and
+`docs/POLICIES.md` remain user-owned and unstaged. Existing backlog entries are
+unchanged; no new unresolved work was found.
+
 ### AURA-3 — Rework the ground layer into a starburst, and restyle the motes
 
 **Superseded 2026-08-12 by AURA-2E.** Its ground and particle scope is absorbed
@@ -600,8 +676,8 @@ AURA-2E and AURA-4.
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, and AURA-2E. AURA-2D and
-AURA-3 were superseded before their own commit boundaries.
+**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-2E, and AURA-2F.
+AURA-2D and AURA-3 were superseded before their own commit boundaries.
 
 **Files:** fixes to task-owned files if validation finds defects,
 `implementation_plan.md` resolution notes during validation, owning docs and

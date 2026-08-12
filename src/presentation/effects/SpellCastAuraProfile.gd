@@ -32,31 +32,40 @@ const VORTEX_RIM_ALPHA := 0.34
 const VORTEX_RIM_EMISSION_ENERGY := 1.10
 const VORTEX_HEIGHT_U := 0.018
 
-## AUTHORED tapered core. The quad is bottom-anchored and camera-facing; the
-## fragment mask supplies the wide low body and narrow upper tail.
-const CORE_WIDTH_U := 2.60
-const CORE_HEIGHT_U := 2.45
+## AUTHORED tapered core. Six short world-space cards sit around the vortex
+## circumference rather than intersecting the body proxy, keeping the volume
+## visible around the silhouette while the camera moves.
+const CORE_CARD_COUNT := 6
+const CORE_SEAT_RADIUS_U := 0.52
+const CORE_WIDTH_U := 1.02
+const CORE_HEIGHT_U := 1.12
 const CORE_PEAK_ALPHA := 0.34
-const CORE_WHITE_MIX := 0.02
-const CORE_EMISSION_ENERGY := 1.55
+const CORE_WHITE_MIX := 0.00
+const CORE_EMISSION_ENERGY := 1.08
 const CORE_NOISE_SCALE := 8.0
 const CORE_TURBULENCE := 0.38
 
-## AUTHORED radial ray fan. The shader owns up to RAY_SHADER_CAPACITY shafts;
-## RAY_COUNT selects the active subset while retaining a compile-time loop.
-const RAY_COUNT := 14.0
-const RAY_SHADER_CAPACITY := 20
-const RAY_FAN_WIDTH_U := 3.00
-const RAY_FAN_HEIGHT_U := 2.90
-const RAY_ANGLE_SPAN_RADIANS := 2.35
-const RAY_LENGTH_MIN := 0.46
-const RAY_LENGTH_MAX := 1.00
-const RAY_WIDTH_MIN := 0.010
-const RAY_WIDTH_MAX := 0.055
-const RAY_PEAK_ALPHA := 0.20
+## AUTHORED world-space ray ribbons. Each is a real radial plane leaning out
+## from the vortex, rather than one camera-facing fan behind the model.
+const RAY_COUNT := 18
+const RAY_HEIGHT_MIN_U := 0.72
+const RAY_HEIGHT_MAX_U := 1.44
+const RAY_WIDTH_MIN_U := 0.12
+const RAY_WIDTH_MAX_U := 0.30
+const RAY_SEAT_RADIUS_MIN_U := 0.08
+const RAY_SEAT_RADIUS_MAX_U := 0.58
+const RAY_LEAN_MIN := 0.16
+const RAY_LEAN_MAX := 0.70
+const RAY_STAGGER_SPAN := 0.14
+const RAY_PEAK_ALPHA := 0.21
 const RAY_WHITE_MIX := 0.00
-const RAY_EMISSION_ENERGY := 1.35
+const RAY_EMISSION_ENERGY := 1.24
 const RAY_FLICKER_CYCLES := 2.6
+
+## DERIVED mathematical distribution constant; jitter is authored in the
+## layout pass so seeded rays do not form a perfect sunflower pattern.
+const PHI := 1.618033988749895
+const GOLDEN_ANGLE_RADIANS := TAU / (PHI * PHI)
 
 ## AUTHORED rising mist. The neutral shared puff supplies shape only; all tint,
 ## size, motion, blending, and lifetime remain effect-owned.
@@ -82,6 +91,7 @@ const WISP_RENDER_PRIORITY := 5
 const EXPECTED_DRAW_CALLS := 4
 const MAX_DRAW_CALLS := 4
 const MAX_EFFECT_NODES := 8
+const MAX_GEOMETRY_INSTANCES := 25
 
 ## DERIVED: the generic fallback must never evict itself.
 const MAX_LIVE_AURAS := 0

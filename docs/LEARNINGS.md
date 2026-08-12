@@ -44,6 +44,21 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
   render/theme tokens, or any presentation resource consumed by more than one
   effect.
 
+### Hero-scale billboards do not survive an orbiting camera
+
+- **Verified observation:** A spell-cast aura built from full camera-facing
+  quads also shifted its billboard origin along the camera forward vector. It
+  looked acceptable from its authoring angle, but the same view-space plane
+  followed camera yaw and read as a tall sheet rising behind the caster.
+- **Reusable rule:** Keep large spatial aura layers in world space. Arrange
+  short cards around world up for soft volume, and use crossed world-space
+  ribbons when a directional streak must retain a face from arbitrary yaw.
+  Reserve billboard rendering for small local particles whose position, scale,
+  and envelope cannot masquerade as the effect's spatial volume.
+- **Review when:** adding `INV_VIEW_MATRIX`, writing `MODELVIEW_MATRIX`, enabling
+  billboards on a hero-scale mesh, or authoring an effect for a moving camera.
+  Capture at 0, 90, and 180 degrees before accepting the geometry.
+
 ## Deterministic state
 
 ### Stable identity and RNG

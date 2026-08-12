@@ -24,10 +24,11 @@ const LAYER_WISPS := "rising_wisps"
 var _elementColor := Color.WHITE
 var _vortexInstance: MeshInstance3D
 var _vortexMaterial: ShaderMaterial
-var _rayInstance: MeshInstance3D
+var _rayInstance: MultiMeshInstance3D
 var _rayMaterial: ShaderMaterial
-var _coreInstance: MeshInstance3D
+var _coreInstance: MultiMeshInstance3D
 var _coreMaterial: ShaderMaterial
+var _rayLayoutSeed: int = -1
 var _wisps: GPUParticles3D
 var _elapsedTime: float = 0.0
 var _playbackScale: float = 1.0
@@ -166,9 +167,12 @@ func get_live_instance_count() -> int:
 	if _finished:
 		return 0
 	var count := 0
-	for instance: MeshInstance3D in [_vortexInstance, _rayInstance, _coreInstance]:
-		if instance != null and instance.visible:
-			count += 1
+	if _vortexInstance != null and _vortexInstance.visible:
+		count += 1
+	if _rayInstance != null and _rayInstance.visible:
+		count += _rayInstance.multimesh.instance_count
+	if _coreInstance != null and _coreInstance.visible:
+		count += _coreInstance.multimesh.instance_count
 	return count
 
 
@@ -207,17 +211,13 @@ func _process(delta: float) -> void:
 
 
 func _buildLayers() -> void:
-	assert(
-		SpellCastAuraProfile.RAY_COUNT <= SpellCastAuraProfile.RAY_SHADER_CAPACITY,
-		"Spell-cast aura ray count exceeds its shader loop capacity."
-	)
 	_vortexInstance = _createGroundVortex(_elementColor)
 	add_child(_vortexInstance)
 	_vortexMaterial = _vortexInstance.material_override as ShaderMaterial
-	_rayInstance = _createRayFan(_elementColor)
+	_rayInstance = _createRayRibbons(_elementColor)
 	add_child(_rayInstance)
 	_rayMaterial = _rayInstance.material_override as ShaderMaterial
-	_coreInstance = _createCoreGlow(_elementColor)
+	_coreInstance = _createCoreCards(_elementColor)
 	add_child(_coreInstance)
 	_coreMaterial = _coreInstance.material_override as ShaderMaterial
 	_wisps = _createRisingWisps(_elementColor)
@@ -231,6 +231,11 @@ func _buildLayers() -> void:
 		SpellCastAuraProfile.EXPECTED_DRAW_CALLS <= SpellCastAuraProfile.MAX_DRAW_CALLS,
 		"Spell-cast aura exceeded its authored draw-call ceiling."
 	)
+	assert(
+		1 + _rayInstance.multimesh.instance_count + _coreInstance.multimesh.instance_count
+				<= SpellCastAuraProfile.MAX_GEOMETRY_INSTANCES,
+		"Spell-cast aura exceeded its authored geometry-instance ceiling."
+	)
 	set_process(false)
 
 
@@ -241,10 +246,57 @@ func _applyProgress(progress: float) -> void:
 
 
 func _applySeed(seed: int) -> void:
+	_rebuildRayLayout(seed)
 	var seedValue := float(seed)
 	for material: ShaderMaterial in [_vortexMaterial, _rayMaterial, _coreMaterial]:
 		if material != null:
 			material.set_shader_parameter("seed_value", seedValue)
+
+
+## World-space ribbon placement is sampled once per seed. No camera vector is
+## involved, so orbiting the view reveals the same planted radial structure
+## rather than rotating a screen fan around the caster.
+func _rebuildRayLayout(layoutSeed: int) -> void:
+	if _rayInstance == null or _rayLayoutSeed == layoutSeed:
+		return
+	_rayLayoutSeed = layoutSeed
+	var rng := RandomNumberGenerator.new()
+	rng.seed = layoutSeed
+	var multiMesh := _rayInstance.multimesh
+	for index: int in range(SpellCastAuraProfile.RAY_COUNT):
+		var jitter := rng.randf_range(-0.24, 0.24)
+		var angle := float(index) * SpellCastAuraProfile.GOLDEN_ANGLE_RADIANS + jitter
+		var outward := Vector3(cos(angle), 0.0, sin(angle))
+		var tangent := Vector3(-sin(angle), 0.0, cos(angle))
+		var height := rng.randf_range(
+			SpellCastAuraProfile.RAY_HEIGHT_MIN_U,
+			SpellCastAuraProfile.RAY_HEIGHT_MAX_U
+		)
+		var width := rng.randf_range(
+			SpellCastAuraProfile.RAY_WIDTH_MIN_U,
+			SpellCastAuraProfile.RAY_WIDTH_MAX_U
+		)
+		var lean := rng.randf_range(
+			SpellCastAuraProfile.RAY_LEAN_MIN,
+			SpellCastAuraProfile.RAY_LEAN_MAX
+		)
+		var riseDirection := (Vector3.UP + outward * lean).normalized()
+		var normal := tangent.cross(riseDirection).normalized()
+		var seatRadius := rng.randf_range(
+			SpellCastAuraProfile.RAY_SEAT_RADIUS_MIN_U,
+			SpellCastAuraProfile.RAY_SEAT_RADIUS_MAX_U
+		)
+		var transform := Transform3D(
+			Basis(tangent * width, riseDirection * height, normal),
+			outward * seatRadius + riseDirection * height * 0.5
+		)
+		multiMesh.set_instance_transform(index, transform)
+		multiMesh.set_instance_custom_data(index, Color(
+			rng.randf(),
+			rng.randf_range(0.52, 1.0),
+			rng.randf(),
+			0.0
+		))
 
 
 func _restartParticlesAt(elapsed: float) -> void:
@@ -296,26 +348,19 @@ static func _createGroundVortex(color: Color) -> MeshInstance3D:
 	return instance
 
 
-static func _createRayFan(color: Color) -> MeshInstance3D:
-	var quad := QuadMesh.new()
-	quad.size = Vector2(
-		SpellCastAuraProfile.RAY_FAN_WIDTH_U,
-		SpellCastAuraProfile.RAY_FAN_HEIGHT_U
-	)
+static func _createRayRibbons(color: Color) -> MultiMeshInstance3D:
+	var multiMesh := MultiMesh.new()
+	multiMesh.transform_format = MultiMesh.TRANSFORM_3D
+	multiMesh.use_custom_data = true
+	multiMesh.mesh = _createCrossedRibbonMesh()
+	multiMesh.instance_count = SpellCastAuraProfile.RAY_COUNT
 	var material := ShaderMaterial.new()
 	material.shader = _RAY_SHADER
 	material.render_priority = SpellCastAuraProfile.RAY_RENDER_PRIORITY
 	material.set_shader_parameter("aura_color", color)
+	material.set_shader_parameter("ray_tex", VfxTextures.lanceStreak())
 	material.set_shader_parameter("burst_progress", 0.0)
 	material.set_shader_parameter("seed_value", 0.0)
-	material.set_shader_parameter("quad_width", SpellCastAuraProfile.RAY_FAN_WIDTH_U)
-	material.set_shader_parameter("quad_height", SpellCastAuraProfile.RAY_FAN_HEIGHT_U)
-	material.set_shader_parameter("ray_count", SpellCastAuraProfile.RAY_COUNT)
-	material.set_shader_parameter("angle_span", SpellCastAuraProfile.RAY_ANGLE_SPAN_RADIANS)
-	material.set_shader_parameter("length_min", SpellCastAuraProfile.RAY_LENGTH_MIN)
-	material.set_shader_parameter("length_max", SpellCastAuraProfile.RAY_LENGTH_MAX)
-	material.set_shader_parameter("width_min", SpellCastAuraProfile.RAY_WIDTH_MIN)
-	material.set_shader_parameter("width_max", SpellCastAuraProfile.RAY_WIDTH_MAX)
 	material.set_shader_parameter("peak_alpha", SpellCastAuraProfile.RAY_PEAK_ALPHA)
 	material.set_shader_parameter("white_mix", SpellCastAuraProfile.RAY_WHITE_MIX)
 	material.set_shader_parameter(
@@ -323,26 +368,91 @@ static func _createRayFan(color: Color) -> MeshInstance3D:
 	)
 	material.set_shader_parameter("flicker_cycles", SpellCastAuraProfile.RAY_FLICKER_CYCLES)
 	_setTimelineParameters(material)
+	material.set_shader_parameter("stagger_span", SpellCastAuraProfile.RAY_STAGGER_SPAN)
 
-	var instance := MeshInstance3D.new()
-	instance.name = "RadialRayFan"
-	instance.mesh = quad
-	instance.position.y = SpellCastAuraProfile.RAY_FAN_HEIGHT_U * 0.5
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "RadialRayRibbons"
+	instance.multimesh = multiMesh
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var reach := SpellCastAuraProfile.RAY_SEAT_RADIUS_MAX_U + SpellCastAuraProfile.RAY_HEIGHT_MAX_U
+	instance.custom_aabb = AABB(
+		Vector3(-reach, -0.05, -reach),
+		Vector3(reach * 2.0, SpellCastAuraProfile.RAY_HEIGHT_MAX_U + 0.15, reach * 2.0)
+	)
 	return instance
 
 
-static func _createCoreGlow(color: Color) -> MeshInstance3D:
+static func _createCrossedRibbonMesh() -> ArrayMesh:
+	var vertices := PackedVector3Array([
+		Vector3(-0.5, -0.5, 0.0),
+		Vector3(0.5, -0.5, 0.0),
+		Vector3(0.5, 0.5, 0.0),
+		Vector3(-0.5, 0.5, 0.0),
+		Vector3(0.0, -0.5, -0.5),
+		Vector3(0.0, -0.5, 0.5),
+		Vector3(0.0, 0.5, 0.5),
+		Vector3(0.0, 0.5, -0.5),
+	])
+	var uvs := PackedVector2Array([
+		Vector2(0.0, 1.0),
+		Vector2(1.0, 1.0),
+		Vector2(1.0, 0.0),
+		Vector2(0.0, 0.0),
+		Vector2(0.0, 1.0),
+		Vector2(1.0, 1.0),
+		Vector2(1.0, 0.0),
+		Vector2(0.0, 0.0),
+	])
+	var indices := PackedInt32Array([
+		0, 1, 2, 0, 2, 3,
+		4, 5, 6, 4, 6, 7,
+	])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+static func _createCoreCards(color: Color) -> MultiMeshInstance3D:
 	var quad := QuadMesh.new()
-	quad.size = Vector2(SpellCastAuraProfile.CORE_WIDTH_U, SpellCastAuraProfile.CORE_HEIGHT_U)
+	quad.size = Vector2.ONE
+	var multiMesh := MultiMesh.new()
+	multiMesh.transform_format = MultiMesh.TRANSFORM_3D
+	multiMesh.use_custom_data = true
+	multiMesh.mesh = quad
+	multiMesh.instance_count = SpellCastAuraProfile.CORE_CARD_COUNT
+	for index: int in range(SpellCastAuraProfile.CORE_CARD_COUNT):
+		var angle := float(index) * TAU / float(SpellCastAuraProfile.CORE_CARD_COUNT)
+		var outward := Vector3(cos(angle), 0.0, sin(angle))
+		var tangent := Vector3(-sin(angle), 0.0, cos(angle))
+		var transform := Transform3D(
+			Basis(
+				tangent * SpellCastAuraProfile.CORE_WIDTH_U,
+				Vector3.UP * SpellCastAuraProfile.CORE_HEIGHT_U,
+				outward
+			),
+			outward * SpellCastAuraProfile.CORE_SEAT_RADIUS_U
+					+ Vector3.UP * SpellCastAuraProfile.CORE_HEIGHT_U * 0.5
+		)
+		multiMesh.set_instance_transform(index, transform)
+		multiMesh.set_instance_custom_data(index, Color(
+			float(index) / float(SpellCastAuraProfile.CORE_CARD_COUNT),
+			0.78 + float(index) * 0.07,
+			1.0,
+			0.0
+		))
 	var material := ShaderMaterial.new()
 	material.shader = _CORE_SHADER
 	material.render_priority = SpellCastAuraProfile.CORE_RENDER_PRIORITY
 	material.set_shader_parameter("aura_color", color)
+	material.set_shader_parameter("puff_tex", VfxTextures.neutralSoftPuff())
 	material.set_shader_parameter("burst_progress", 0.0)
 	material.set_shader_parameter("seed_value", 0.0)
-	material.set_shader_parameter("quad_height", SpellCastAuraProfile.CORE_HEIGHT_U)
 	material.set_shader_parameter("peak_alpha", SpellCastAuraProfile.CORE_PEAK_ALPHA)
 	material.set_shader_parameter("white_mix", SpellCastAuraProfile.CORE_WHITE_MIX)
 	material.set_shader_parameter(
@@ -352,12 +462,16 @@ static func _createCoreGlow(color: Color) -> MeshInstance3D:
 	material.set_shader_parameter("turbulence", SpellCastAuraProfile.CORE_TURBULENCE)
 	_setTimelineParameters(material)
 
-	var instance := MeshInstance3D.new()
-	instance.name = "CoreGlow"
-	instance.mesh = quad
-	instance.position.y = SpellCastAuraProfile.CORE_HEIGHT_U * 0.5
+	var instance := MultiMeshInstance3D.new()
+	instance.name = "CoreGlowCards"
+	instance.multimesh = multiMesh
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var reach := SpellCastAuraProfile.CORE_SEAT_RADIUS_U + SpellCastAuraProfile.CORE_WIDTH_U * 0.6
+	instance.custom_aabb = AABB(
+		Vector3(-reach, -0.05, -reach),
+		Vector3(reach * 2.0, SpellCastAuraProfile.CORE_HEIGHT_U + 0.1, reach * 2.0)
+	)
 	return instance
 
 
@@ -420,6 +534,8 @@ static func _createRisingWisps(color: Color) -> GPUParticles3D:
 	drawMaterial.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	drawMaterial.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	drawMaterial.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	# Safe exception: only each tiny puff turns to face the camera. Its position
+	# and travel remain local to the aura; no hero-scale volume follows the view.
 	drawMaterial.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	drawMaterial.vertex_color_use_as_albedo = true
 	drawMaterial.albedo_color = Color.WHITE

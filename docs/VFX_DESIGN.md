@@ -400,23 +400,34 @@ and forfeit the sharpness.
 The generic fallback aura is deliberately decomposed into four independently
 toggleable layers. A world-horizontal alpha-mixed plane draws an irregular
 black/navy vortex under the caster, including broken element-tinted spiral and
-rim accents. A camera-facing tapered core and a separate camera-facing ray fan
-build the vertical additive volume behind the caster. A small one-shot particle
-system supplies rising soft puffs. The split matters: one clean torus or cone
-cannot simultaneously create a dark centre, soft body, and uneven directional
-shafts without reading as a single synthetic primitive.
+rim accents. Six short alpha-mixed texture cards arranged around world up build
+the low cyan body bloom. A separate seeded `MultiMesh` distributes crossed ray
+ribbons radially through world space. A small one-shot particle system supplies
+rising soft puffs. The split matters: one clean torus or cone cannot
+simultaneously create a dark centre, soft body, and uneven directional shafts
+without reading as a single synthetic primitive.
 
-The two vertical quads rebuild their view-facing basis in the vertex shader and
-shift slightly away from the camera so depth testing keeps the caster in front.
-Their motion is a pure function of normalized progress and seed; the ray fan
-hashes each compile-time slot into a different angle, width, length, brightness,
-and pulse. Only the `GPUParticles3D` mist retains the renderer-scheduling seek
-variance documented in §3, and the playback reports that limitation through
-`is_particle_seek_exact()`.
+The hero-scale core and ray layers never rebuild `MODELVIEW_MATRIX`, consult
+`INV_VIEW_MATRIX`, or offset themselves along the camera's forward vector.
+Those techniques made the former full-screen quads follow an orbiting camera
+and appear to rise behind the model. Each ray instead has two perpendicular
+faces sharing one world transform, so at least one soft face remains readable
+from arbitrary yaw without becoming a billboard. Their motion is a pure
+function of normalized progress and seed; the layout hashes each slot into a
+different radial angle, seat radius, width, height, lean, brightness, and pulse.
+Only the small `GPUParticles3D` mist uses ordinary particle billboarding; its
+particle positions remain local to the effect. It also retains the
+renderer-scheduling seek variance documented in §3, and the playback reports
+that limitation through `is_particle_seek_exact()`.
 
 Element saturation is increased locally in the owned shaders before additive
-composition so pale catalog tints retain hue on bright terrain. The shared
-`VfxTextures.neutralSoftPuff()` supplies shape only and is never retuned.
+composition so pale catalog tints retain hue on bright terrain. The low body
+bloom uses alpha mixing instead, preserving cyan against both bright terrain
+and the dark vortex. The shared `VfxTextures.neutralSoftPuff()` and
+`VfxTextures.lanceStreak()` supply shape only and are never retuned. This is the
+camera-mobile 3D equivalent of a keyed 2D effect stack: independent textured
+layers, independent blend modes, and deliberately staggered timelines rather
+than one procedural screen sheet.
 
 ### Authored textures and frame animation
 
