@@ -107,13 +107,54 @@ const EMISSION_ENERGY := 2.3
 const BRIGHTNESS_MIN := 0.72
 const BRIGHTNESS_MAX := 1.0
 
-## AUTHORED provisional envelope. The staggered analytic choreography, the
-## overshoot, and the published hold fraction are the next item's work; these
-## exist only so the geometry can be judged in motion.
-const PROVISIONAL_GROWTH_END := 0.18
-const PROVISIONAL_HOLD_END := 0.38
-const PROVISIONAL_CLEAR_END := 0.78
-const PROVISIONAL_MAX_DELAY := 0.55
+## AUTHORED duration. This is a flash, not an animation the player waits
+## through: the whole event is over inside a second, and the queue releases
+## before the tail has finished clearing.
+const DURATION_SECONDS := 1.0
+
+## AUTHORED timeline, in normalized time. Five named windows:
+##
+##   0.00 - 0.07  charge   the ground brightens; no blade has broken out yet
+##   0.03 - 0.35  eruption blades punch up, staggered from the seat outward
+##   0.35 - 0.44  hold     the full crown stands
+##   0.44 - 0.88  decay    blades stretch upward and fade
+##   0.88 - 1.00  clear    nothing remains
+##
+## The eruption window overlaps the charge deliberately: the first blade leaves
+## the ground while the rupture is still brightening, so the two read as one
+## event rather than a cue followed by a payoff.
+const CHARGE_END := 0.07
+const ERUPTION_START := 0.03
+## Per-blade growth length, and the spread of per-blade start delays. Their sum
+## is when the last blade finishes, so they are what the hold window waits for.
+const ERUPTION_SPAN := 0.16
+const ERUPTION_STAGGER_SPAN := 0.16
+const HOLD_END := 0.44
+const DECAY_END := 0.88
+
+## AUTHORED: a blade overshoots its height near the middle of its own growth
+## window and returns to exactly its authored height by the end of it, so the
+## eruption has a snap without any endpoint drift.
+const OVERSHOOT_AMOUNT := 0.16
+## AUTHORED: during decay the blades keep travelling upward as they fade, which
+## reads as energy escaping rather than as a light being switched off.
+const DECAY_STRETCH := 0.14
+
+## AUTHORED stagger weighting. Most of a blade's delay comes from how far out
+## it is seated, so the eruption reads as a wave travelling outward; the jitter
+## keeps the wave from arriving as a clean expanding ring.
+const DELAY_RADIUS_WEIGHT := 0.78
+const DELAY_JITTER_FRACTION := 0.26
+
+## AUTHORED: late enough that skipping lands on an almost-cleared crown, rather
+## than cutting a full-height flash off the screen.
+const SETTLE_NORMALIZED_TIME := 0.90
+
+## AUTHORED: the visual queue holds through the eruption and the completed
+## crown, then releases while the tail fades. Deliberately shorter than the
+## 0.6 the catalog previously hard-coded, because the new shape reaches its
+## full read much earlier than the old expanding ring did.
+const ACTION_HOLD_FRACTION := 0.45
 
 ## AUTHORED render priority. The blades draw after the ground layer so the
 ## additive crown is never cut by the decal it grows out of.

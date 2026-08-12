@@ -11,11 +11,15 @@ const _SPELL_AURA_SHADER = preload("res://assets/shaders/spell_aura.gdshader")
 const _RAY_BURST_SHADER = preload(
 		"res://assets/shaders/effects/spell_cast_ray_burst.gdshader")
 
-const VISIBLE_DURATION := 1.1
-const SETTLE_NORMALIZED_TIME := 0.82
-const LAYER_GROUND := "ground"
-const LAYER_WISPS := "wisps"
+const VISIBLE_DURATION := SpellCastAuraProfile.DURATION_SECONDS
+const SETTLE_NORMALIZED_TIME := SpellCastAuraProfile.SETTLE_NORMALIZED_TIME
+const LAYER_GROUND := "ground_rupture"
+const LAYER_WISPS := "motes"
 const LAYER_RAYS := "ray_burst"
+
+## Where the inherited ground shader's own 0-to-1 sits when the crown is fully
+## erupted: open, but not yet into its built-in fade.
+const _GROUND_OPEN_PROGRESS := 0.55
 
 static var _noiseTexture: NoiseTexture2D = null
 static var _wispTexture: GradientTexture2D = null
@@ -120,10 +124,17 @@ func dispose() -> void:
 	if _particles != null:
 		_particles.emitting = false
 		_particles.speed_scale = 0.0
+	if is_queued_for_deletion():
+		return
 	if is_inside_tree():
 		queue_free()
 	else:
-		free()
+		# Disposal reaches here during scene and process teardown, where this
+		# node is already out of the tree and frequently mid-notification. A
+		# direct free() on an object the engine has locked for the duration of
+		# that call prints `Object is locked and can't be freed`; deferring runs
+		# it once the lock has been released.
+		call_deferred("free")
 
 
 func get_layer_names() -> Array[String]:
@@ -214,10 +225,26 @@ func _buildLayers() -> void:
 
 func _applyProgress(progress: float) -> void:
 	if _groundMaterial != null:
-		_groundMaterial.set_shader_parameter("lifetime_progress", progress)
+		_groundMaterial.set_shader_parameter(
+			"lifetime_progress", _groundTimelineProgress(progress)
+		)
 		_groundMaterial.set_shader_parameter("playback_time", _elapsedTime)
 	if _rayMaterial != null:
 		_rayMaterial.set_shader_parameter("burst_progress", progress)
+
+
+## The ground layer predates this timeline and spends its own 0-to-1 expanding
+## and then fading. Remapping it onto the named windows keeps the rupture
+## opening while the blades erupt and clearing while they fade, so the two
+## belong to one event. The layer's own rebuild is the next item's work.
+func _groundTimelineProgress(progress: float) -> float:
+	if progress <= SpellCastAuraProfile.HOLD_END:
+		return remap(
+			progress, 0.0, SpellCastAuraProfile.HOLD_END, 0.0, _GROUND_OPEN_PROGRESS
+		)
+	return remap(
+		progress, SpellCastAuraProfile.HOLD_END, 1.0, _GROUND_OPEN_PROGRESS, 1.0
+	)
 
 
 ## Blade placement is sampled once per seed, never per frame, so the crown is
@@ -278,9 +305,23 @@ func _rebuildBladeLayout(layoutSeed: int) -> void:
 		transform.basis.z = outward * lean
 		transform.origin = outward * seatRadius
 		transform.origin.y = SpellCastAuraProfile.SEAT_HEIGHT_U
+		# Spatial role, not a shuffle: blades seated nearest the centre break out
+		# first and the wave travels outward, so the eruption has a direction.
+		var seatNorm := inverse_lerp(
+			SpellCastAuraProfile.SEAT_RADIUS_MIN_U,
+			SpellCastAuraProfile.SEAT_RADIUS_MAX_U,
+			seatRadius
+		)
+		var delay := clampf(
+			seatNorm * SpellCastAuraProfile.DELAY_RADIUS_WEIGHT
+			+ rng.randf() * SpellCastAuraProfile.DELAY_JITTER_FRACTION,
+			0.0,
+			1.0
+		)
+
 		_rayMultiMesh.set_instance_transform(index, transform)
 		_rayMultiMesh.set_instance_custom_data(index, Color(
-			rng.randf() * SpellCastAuraProfile.PROVISIONAL_MAX_DELAY,
+			delay,
 			rng.randf_range(
 				SpellCastAuraProfile.BRIGHTNESS_MIN,
 				SpellCastAuraProfile.BRIGHTNESS_MAX
@@ -394,9 +435,15 @@ static func _createRayBurst(color: Color) -> MultiMeshInstance3D:
 	material.render_priority = SpellCastAuraProfile.RAY_RENDER_PRIORITY
 	material.set_shader_parameter("aura_color", color)
 	material.set_shader_parameter("burst_progress", 0.0)
-	material.set_shader_parameter("growth_end", SpellCastAuraProfile.PROVISIONAL_GROWTH_END)
-	material.set_shader_parameter("hold_end", SpellCastAuraProfile.PROVISIONAL_HOLD_END)
-	material.set_shader_parameter("clear_end", SpellCastAuraProfile.PROVISIONAL_CLEAR_END)
+	material.set_shader_parameter("eruption_start", SpellCastAuraProfile.ERUPTION_START)
+	material.set_shader_parameter("eruption_span", SpellCastAuraProfile.ERUPTION_SPAN)
+	material.set_shader_parameter("stagger_span", SpellCastAuraProfile.ERUPTION_STAGGER_SPAN)
+	material.set_shader_parameter("hold_end", SpellCastAuraProfile.HOLD_END)
+	material.set_shader_parameter("decay_end", SpellCastAuraProfile.DECAY_END)
+	material.set_shader_parameter(
+		"overshoot_amount", SpellCastAuraProfile.OVERSHOOT_AMOUNT
+	)
+	material.set_shader_parameter("decay_stretch", SpellCastAuraProfile.DECAY_STRETCH)
 	material.set_shader_parameter("edge_alpha_steps", SpellCastAuraProfile.EDGE_ALPHA_STEPS)
 	material.set_shader_parameter(
 		"core_width_fraction", SpellCastAuraProfile.CORE_WIDTH_FRACTION

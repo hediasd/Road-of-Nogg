@@ -10,8 +10,7 @@ const MagentaReductionEffectScript = preload(
 		"res://src/presentation/effects/MagentaReductionEffect.gd")
 const IceTargetEncasementEffectScript = preload(
 		"res://src/presentation/effects/IceTargetEncasementEffect.gd")
-const GENERIC_AURA_PROFILE_ID := ""
-const GENERIC_ACTION_HOLD_FRACTION := 0.6
+const GENERIC_AURA_PROFILE_ID := SpellCastAuraProfile.PROFILE_ID
 
 
 static func entries() -> Array[Dictionary]:
@@ -20,8 +19,8 @@ static func entries() -> Array[Dictionary]:
 			"profile_id": GENERIC_AURA_PROFILE_ID,
 			"display_name": "Spell Cast Aura",
 			"factory": Callable(SpellCastAuraScript, "createPlayback"),
-			"action_hold_fraction": GENERIC_ACTION_HOLD_FRACTION,
-			"max_live": 0,
+			"action_hold_fraction": SpellCastAuraProfile.ACTION_HOLD_FRACTION,
+			"max_live": SpellCastAuraProfile.MAX_LIVE_AURAS,
 		},
 		{
 			"profile_id": IceStormProfile.PROFILE_ID,

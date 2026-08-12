@@ -34,9 +34,13 @@ render_mode unshaded, blend_add, depth_draw_never, cull_disabled, world_vertex_c
 uniform vec4 aura_color : source_color = vec4(0.6, 0.9, 0.9, 1.0);
 uniform float burst_progress : hint_range(0.0, 1.0) = 0.0;
 
-uniform float growth_end : hint_range(0.01, 1.0) = 0.18;
-uniform float hold_end : hint_range(0.01, 1.0) = 0.38;
-uniform float clear_end : hint_range(0.01, 1.0) = 0.78;
+uniform float eruption_start : hint_range(0.0, 1.0) = 0.03;
+uniform float eruption_span : hint_range(0.01, 1.0) = 0.16;
+uniform float stagger_span : hint_range(0.0, 1.0) = 0.16;
+uniform float hold_end : hint_range(0.01, 1.0) = 0.44;
+uniform float decay_end : hint_range(0.01, 1.0) = 0.88;
+uniform float overshoot_amount : hint_range(0.0, 1.0) = 0.16;
+uniform float decay_stretch : hint_range(0.0, 1.0) = 0.14;
 
 uniform float edge_alpha_steps : hint_range(1.0, 8.0) = 3.0;
 uniform float core_width_fraction : hint_range(0.0, 1.0) = 0.34;
@@ -59,20 +63,26 @@ varying float v_energy;
 // Vertex
 // ---------------------------------------------------------------------------
 
-// Growth is eased out so a blade decelerates into its full height instead of
-// arriving at constant speed. Delay is per instance, which staggers the
-// eruption without any accumulated state.
-float blade_growth(float progress, float delay) {
-	float span = max(growth_end, 0.0001);
-	float local = (progress - delay * span) / span;
-	local = clamp(local, 0.0, 1.0);
-	return 1.0 - pow(1.0 - local, 3.0);
+// Where a blade sits inside its own growth window, 0 before it starts and 1
+// once it has arrived. The delay is per instance, so the eruption staggers
+// without anything accumulating between frames — every value below is a pure
+// function of normalized time, which is what makes backward seek exact.
+float blade_local(float progress, float delay) {
+	float start = eruption_start + delay * stagger_span;
+	return clamp((progress - start) / max(eruption_span, 0.0001), 0.0, 1.0);
 }
 
-float blade_energy(float progress, float delay) {
-	float rise = blade_growth(progress, delay);
-	float fall = 1.0 - smoothstep(hold_end, clear_end, progress);
-	return rise * fall;
+// Eased-out growth plus an overshoot that peaks mid-window and is exactly zero
+// at both ends, so the blade snaps past its height and settles on it without
+// drifting off its authored size.
+float blade_rise(float local) {
+	float grow = 1.0 - pow(1.0 - local, 3.0);
+	float over = overshoot_amount * sin(PI * local) * (1.0 - local);
+	return grow + over;
+}
+
+float blade_fade(float progress) {
+	return 1.0 - smoothstep(hold_end, decay_end, progress);
 }
 
 void vertex() {
@@ -84,8 +94,15 @@ void vertex() {
 	float local_x = UV2.x - 0.5;
 	float local_y = UV2.y;
 
-	float grow = blade_growth(burst_progress, INSTANCE_CUSTOM.x);
-	v_energy = blade_energy(burst_progress, INSTANCE_CUSTOM.x)
+	float local = blade_local(burst_progress, INSTANCE_CUSTOM.x);
+	float fade = blade_fade(burst_progress);
+	// Blades keep climbing as they fade, so the crown disperses upward instead
+	// of being switched off in place.
+	float grow = blade_rise(local) * (1.0 + decay_stretch * (1.0 - fade));
+	// A blade that has only just broken the surface should not arrive at full
+	// brightness, or the stagger reads as popping rather than erupting.
+	v_energy = fade
+			* min(local * 6.0, 1.0)
 			* INSTANCE_CUSTOM.y
 			* INSTANCE_CUSTOM.z;
 

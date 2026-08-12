@@ -360,6 +360,54 @@ lifecycle-cleanup commit.
 
 ## 7. Resolution notes
 
+### Ground eruption choreography and disposal fix
+
+Implemented 2026-08-12; pending end-of-plan validation.
+
+- Five named windows now own the timeline: charge (0.00–0.07), eruption
+  (0.03–0.35), hold (0.35–0.44), decay (0.44–0.88), and clear (0.88–1.00). The
+  eruption deliberately overlaps the charge so the rupture and the first blade
+  read as one event rather than a cue followed by a payoff.
+- Every blade value is a pure function of normalized time and the fixed seed.
+  The per-blade delay lives in the MultiMesh's custom data and the growth,
+  overshoot, and fade are evaluated in the vertex stage, so nothing accumulates
+  between frames and no RNG is sampled after layout.
+- Stagger comes from spatial role, not from a shuffle: most of a blade's delay
+  is how far out it is seated, so the eruption travels outward from the seat.
+  A jitter term keeps the wave from arriving as a clean expanding ring.
+- Blades punch up from zero height, overshoot by 16% near the middle of their
+  own growth window, and return to exactly their authored height by the end of
+  it — the overshoot term is zero at both ends, so there is no endpoint drift.
+  During decay they keep climbing as they fade, which reads as energy escaping
+  rather than a light being switched off.
+- Duration is now 1.0 s and the profile publishes `ACTION_HOLD_FRACTION` 0.45,
+  which the catalog's generic entry reads along with its live cap. The old
+  hard-coded 0.6 is gone. **This legitimately changes the queue's reported hold
+  for every unprofiled spell**; the new shape reaches its full read much earlier
+  than the old expanding ring did, so do not restore 0.6.
+- The inherited ground layer is remapped onto the new windows so its ring opens
+  while the blades erupt and clears while they fade. Its own rebuild is the
+  next item's work.
+- Layers are now `ray_burst`, `ground_rupture`, and `motes`, each independently
+  toggleable; the HUD confirms all three.
+- The `Object is locked and can't be freed` error is fixed. `dispose()` reached
+  `free()` whenever the node was already out of the tree, which is exactly the
+  teardown state, and the engine had the object locked for the notification
+  that triggered the disposal. It now returns early when already queued, uses
+  `queue_free()` inside the tree, and defers the free outside it. No run since
+  the fix has printed the error; the long-term backlog entry was removed and
+  the finding recorded in `docs/LEARNINGS.md`.
+- Proof: an eight-frame sheet across the whole timeline plus a tight
+  0.05–0.30 sheet at 0.03 spacing show blades growing from zero in a
+  seat-outward wave, a full crown, then a fade to nothing. Normalized times
+  0.18 and 0.34 were captured in one process and again in the opposite order in
+  another; both pairs are byte-identical by SHA-256, proving exact seek
+  independent of playback history.
+- Measured through the HUD at the new duration: 4 nodes, 17 instances,
+  ~3 draw calls, all inside the asserted ceilings. Godot 4.4's import/parse
+  gate and `git diff --check` passed. No battle was launched, as required for
+  this item.
+
 ### Ray-burst blade geometry and translucent material
 
 Implemented 2026-08-12; pending end-of-plan validation.

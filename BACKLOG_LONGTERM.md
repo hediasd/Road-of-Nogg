@@ -208,22 +208,6 @@ whose footprint depends on the cast direction that presentation never
 receives. `line` also has no ground-wash mask for the same reason and falls
 back to the disc.
 
-## Generic spell-cast aura throws on dispose during app quit
-
-Found 2026-08-04 while smoke-checking `VFXDebugScene` after an unrelated fix.
-Quitting the process (or the debug scene's `_exit_tree()` disposing its active
-playback) while a `SpellCastAura` instance is the live playback prints
-`ERROR: Object is locked and can't be freed.` /
-`SCRIPT ERROR: Attempted to free a locked object (calling or emitting).` at
-`SpellCastAura.dispose` (`src/presentation/effects/SpellCastAura.gd:117`).
-Reproduces the same way against the pre-existing committed code, so it is not
-a regression from any recent change — likely a tween or particle system still
-mid-signal-emission when `dispose()` calls `queue_free`/`free` on it. Does not
-reproduce with `IceStormEffect` as the active playback. Only observed at
-process/scene teardown, never during normal play, so it has not visibly broken
-anything — worth a proper fix (defer the free with `call_deferred`, or wait for
-the lock to clear) next time `SpellCastAura.gd` is touched.
-
 ## Extract a shared `SpellVfxProfile` resource — deferred at the third effect
 
 `docs/VFX_DESIGN.md` §4 names **the third elemental effect** as the trigger to

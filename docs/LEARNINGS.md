@@ -337,6 +337,22 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Review when:** adding a visual event, changing action timing, accelerating
   simulation playback, replay visualization, or implementing skip/fast-forward.
 
+### An effect cannot `free()` itself at teardown
+
+- **Verified observation:** `SpellCastAura.dispose()` called `free()` on itself
+  whenever it was already out of the tree, which is exactly the state disposal
+  reaches during scene and process teardown. The engine has the object locked
+  for the duration of the call or notification that triggered the disposal, so
+  the free was refused with `Object is locked and can't be freed` /
+  `Attempted to free a locked object`. It printed only at teardown, never
+  during play, which is why it survived for months as harmless noise.
+- **Reusable rule:** An effect's `dispose()` must never call `free()` directly.
+  Use `queue_free()` while inside the tree and `call_deferred("free")` outside
+  it, so the deletion runs after the lock is released, and return early when
+  `is_queued_for_deletion()` is already true.
+- **Review when:** writing or changing a `VfxPlayback.dispose()`, or seeing a
+  locked-object error at scene exit or application quit.
+
 ## Elevation presentation
 
 ### A logical surface needs visible supporting volume
