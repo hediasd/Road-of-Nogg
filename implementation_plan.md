@@ -25,20 +25,23 @@ Replace the generic spell-cast aura — today a scrolling noise ring on a flat
 pointy translucent rays erupting out of the ground**, read as energy liberated
 from the elemental plane at the moment of the cast.
 
-The user's supplied reference frame is the visual language: a crown of tall,
-hard-edged, translucent light blades standing on the ground, flaring slightly
-outward, white-hot where they overlap near the base, colour-fringed toward
-their pointed tips, over a bright ground rupture. The lightning bolt descending
-from the top of that frame is explicitly **not** part of this effect.
+The user's supplied reference frame is the visual language: a flared cup of
+light standing on the floor, whose individual rays are hard-edged vertical
+striations running up its wall, whose top edge breaks into short irregular
+points, which is hot and near-white where it meets the ground and
+colour-deepened toward its rim, and which sits over glowing fissures spreading
+several tiles across the floor. The lightning bolt descending from the top of
+that frame is explicitly **not** part of this effect.
 
 The finished effect must:
 
-- read as **rays**, not as a ring, dome, cone, column, or fog — pointed,
-  straight-edged, countable blades with visible negative space between them;
-- **erupt from the ground upward**, with the ground rupture and the blades
+- read as **rays** — countable, hard-edged striations with visible dark
+  between them, pointed where they end — carried on a filled wall rather than
+  floating as separate objects or dissolving into fog;
+- **erupt from the ground upward**, with the floor layer and the wall of light
   belonging to one event rather than two stacked layers;
-- stay **translucent**: overlapping blades build toward white-hot, single
-  blades stay see-through against terrain behind them;
+- stay **translucent**: the far wall shows through the near one and builds
+  toward white-hot where they overlap, while the caster stays visible inside;
 - carry the **element tint** every caller already supplies
   (`BattleMeshFactory.elementColor`), from ice cyan through fire red, thunder
   yellow, darkness violet, and the neutral grey fallback, with a near-white
@@ -96,44 +99,62 @@ lightning bolt remains out of scope.
 
 ## 3. Established facts and design decisions
 
-### The blades are geometry, not a stretched sprite
+### The rays are striations on a shell, not separate objects
 
-`docs/VFX_DESIGN.md` §4 already records that a radial sprite cannot be stretched
-into a streak: scaling `neutralSoftDisc()` onto a long quad puts the opaque
-centre in the middle and fades both ends. A pointed ray therefore comes from
-authored geometry with a pointed silhouette — a narrow tapered quad or a thin
-three-face wedge — with the alpha ramp across its width owned by the effect's
-own shader, not from stretching an existing shared mask.
+Discrete blades were built first and **retired**. Two rounds of scaling them up
+established that the gap to the reference was structural rather than a matter
+of tuning: the reference's rays are stripes *on* a filled wall of light, and
+its points are that wall's ragged top edge, so a crowd of free-standing spikes
+converges on a bristle no matter how large or numerous it gets.
 
-### World-vertical blades are the sharp case, not the soft one
+The primary form is therefore one double-sided cone shell, drawn additively so
+the far wall shows through the near one and the interior builds toward white.
+Its stripes, its ragged rim, its vertical colour ramp, and its per-stripe
+eruption timing are all shader work over a single mesh — which also means the
+whole crown costs one draw call and one instance instead of twenty-eight.
+
+`docs/VFX_DESIGN.md` §4's rule still applies to why none of this is a sprite:
+a radial mask stretched onto a long quad puts its opaque centre in the middle
+of the streak. The stripes are procedural, hard-edged, and owned by the effect's
+own shader.
+
+### World-vertical geometry is the sharp case, not the soft one
 
 §4's camera-plane rule exists because a quad rotated to an arbitrary world angle
-sits on no pixel grid. A blade standing on the world's up axis is the exception:
-under the battle camera's fixed pitch and zero roll, world up projects to screen
-up, so a vertical edge stays a vertical raster line. The first item must
-**confirm zero camera roll** in `Battle25D` and the debug harness before relying
-on this; if roll exists, the blades fall back to the camera-plane construction
-the magenta discharge already uses. Blade width is fixed in world units either
-way, never as a fraction of anything.
+sits on no pixel grid. Geometry standing on the world's up axis is the
+exception, and this was confirmed rather than assumed: both cameras are
+orthographic and re-derive their transform with `look_at(focus, Vector3.UP)`
+every frame, so world up maps to screen up and a vertical edge is a vertical
+raster line at any yaw or pitch.
 
-### Translucency is authored alpha, not additive glow everywhere
+The shell inherits that: its wall is vertical enough that the striations stay
+crisp, and it needs no camera-plane construction, so it keeps the spatial
+grounding that construction gives up. The finding is recorded durably in
+`docs/VFX_DESIGN.md`.
 
-The current aura is `blend_add` end to end, which is why it blows out to white.
-The rays want the opposite: mostly-transparent bodies with hard edges, so that
-crossing blades accumulate into the white-hot base while a lone blade stays
-see-through. Expect an alpha-blended body with a small additive core, explicit
-render priority, and `depth_draw_never`, with ordering proven at three camera
-yaws before any extra brightness is added.
+### Additive, with the brightness taken out of alpha
 
-### The rupture and the blades share one origin
+The inherited aura was `blend_add` at high emission over a full disc, which is
+why it blew out. Additive is nonetheless the right mode here, for two reasons
+the alternative cannot supply: it is order-independent, so a double-sided shell
+cannot produce a sorting error, and overlapping surfaces accumulate on their
+own, which is exactly how the near and far walls fill the cup's interior.
 
-Each blade grows from a point on a small ground rupture footprint, on the same
-normalized clock, so the ground layer reads as the fracture the light escapes
-through. The old expanding noise ring is removed rather than kept underneath.
+The blowout is controlled by keeping per-surface alpha low rather than by
+lowering emission, which would flatten the palette instead. `depth_draw_never`
+and an explicit render priority keep the shell from cutting the layer it grows
+out of.
+
+### The floor layer and the shell share one origin and one clock
+
+The fissures open from the shell's own seat on the same normalized timeline, so
+the floor reads as the fracture the light is escaping through rather than as a
+decal that happens to sit underneath it. The old expanding noise ring is
+removed rather than kept below.
 
 ### Ownership and reuse
 
-The effect owns its profile constants, its shader, and its blade mesh
+The effect owns its profile constants, its shader, and its mesh
 construction. `VfxTextures` and every other shared material stay untouched, so
 Ice Storm, Fire Storm, Magenta Reduction, and Ice Target Encasement cannot
 regress through a shared primitive. `assets/shaders/spell_aura.gdshader` has
@@ -142,9 +163,8 @@ once the rewrite lands.
 
 ### Budgets, asserted at build time and owned by the profile
 
-- 20–32 ray blades in a single MultiMesh, across an inner wall ring and an
-  outer rim ring. The original 12–18 predates the confirmed cup direction; all
-  of them share one draw call, so population costs instances, not draws;
+- one shell mesh, one instance, one draw call, carrying 20–28 striations set
+  as a shader parameter rather than as geometry;
 - ≤ 10 supporting instances (ground rupture, base flare, motes);
 - ≤ 10 effect-owned nodes;
 - ≤ 8 estimated peak draw calls;
@@ -161,7 +181,7 @@ outputs, not deferred final-validation evidence.
 | Blade silhouette | `ray_burst`-only mid-flash captures at front-quarter, side, and rear-quarter yaws, through the retro path and at native. Blades are countable, pointed, and translucent; nothing reads as a ring or a solid cone. | Geometry/material item |
 | Element sweep | The same frame for ice, fire, thunder, darkness, and the neutral fallback. Tint is legible in all five; none blows out to white. | Geometry/material item |
 | Eruption timeline | One tight sheet from empty ground through rupture, first blades, full flash, decay, and clear. Rays visibly leave the ground rather than fading in at full height. | Choreography item |
-| Composite hierarchy | Ground-only and mote-only sheets beside the full composite. The blades remain the dominant read. | Supporting-layer item |
+| Composite hierarchy | Ground-only and mote-only sheets beside the full composite. The shell remains the dominant read. | Supporting-layer item |
 | Final look | Live battle casts across several spells and elements, retro on and off, plus re-captures of the four specific profiles. | Final validation item |
 
 A session whose checkpoint fails visually stops and reports the sheet to the
@@ -311,11 +331,59 @@ instance budget.
 **Resolution target:** implemented; pending end-of-plan validation. Debug
 capture and cheap integrity checks only. Do not launch a battle.
 
+### AURA-2C — Rebuild the primary form as a striated shell
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-2B and the user's decision to retire the blades.
+
+**Files:** new `assets/shaders/effects/spell_cast_ray_shell.gdshader`,
+`src/presentation/effects/SpellCastAuraProfile.gd`,
+`src/presentation/effects/SpellCastAura.gd`, deletion of
+`assets/shaders/effects/spell_cast_ray_burst.gdshader` and its `.uid`,
+`docs/VFX_DESIGN.md`, and the relevant backlog files.
+
+**End state:**
+
+- The blade MultiMesh and its shader are gone. The effect's primary layer is a
+  single double-sided cone shell, additive, whose base radius, rim radius, and
+  height are shader uniforms over a unit cylinder mesh, so the silhouette is
+  retunable without rebuilding geometry.
+- The rays are procedural striations around the shell: each owns its width,
+  brightness, top height, and eruption delay, all derived by hash from its
+  index and the effect's seed. Band edges stay hard; a dimmer wash between them
+  keeps the wall a wall rather than a picket fence.
+- The top edge is ragged, because each stripe stops at its own height. That
+  ragged edge is where the effect's pointed ends now come from.
+- Colour is a three-stop vertical ramp seeded from the element tint: near-white
+  at the seat, the hue lightened through the body, deepened at the rim.
+- The shell's edge-on flanks are brighter than the wall facing the camera,
+  which is most of what makes it read as a volume rather than a decal.
+- Per-stripe timing preserves the staggered eruption, and every frame remains a
+  pure function of normalized time and the seed. No placement pass and no
+  random call survive at playback time.
+- Node and draw ceilings come down to match what the shell actually costs.
+
+**Risk:** a single additive shell can flatten into a cone of fog if the wash
+between stripes is raised to fill the wall. Fill it with overlap between the
+near and far walls instead, and check that the caster stays visible inside the
+cup.
+
+**Proof checkpoint:** front captures of the completed shell at native and
+320x240, plus one non-cyan element, showing a filled cup with countable
+striations, a ragged top edge, and a hot seat.
+
+**Adds to final validation coverage:** shell silhouette, striation legibility,
+ramp behaviour across elements, interior translucency, and the reduced budget.
+
+**Resolution target:** implemented; pending end-of-plan validation. Debug
+capture and cheap integrity checks only. Do not launch a battle.
+
 ### AURA-3 — Rebuild the ground rupture and the subordinate motes
 
 **Model:** Sonnet 5 / GPT Terra
 
-**Depends on:** AURA-2B.
+**Depends on:** AURA-2C.
 
 **Files:** `src/presentation/effects/SpellCastAura.gd`,
 `src/presentation/effects/SpellCastAuraProfile.gd`, its shader,
@@ -359,7 +427,7 @@ capture and cheap integrity checks only. Do not launch a battle.
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-3.
+**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-3.
 
 **Files:** fixes to task-owned files if validation finds defects,
 `implementation_plan.md` resolution notes during validation, owning docs and
@@ -404,7 +472,7 @@ live multi-spell battle pass closes that.
 **Completion rule:** record the actual visual and manual evidence, mark every
 covered implementation item done, reconcile both backlogs, and commit the final
 validation result. Then, in the same session, grep the repository for `AURA-1`
-through `AURA-4`, including `AURA-2B`, rewrite any accidental persistent reference as a durable
+through `AURA-4`, including `AURA-2B` and `AURA-2C`, rewrite any accidental persistent reference as a durable
 description, and clear `implementation_plan.md` completely in a follow-up
 lifecycle-cleanup commit.
 
@@ -426,6 +494,36 @@ lifecycle-cleanup commit.
   critical-backlog work with its own session.
 
 ## 7. Resolution notes
+
+### Striated shell replaces the blades
+
+Implemented 2026-08-12; pending end-of-plan validation.
+
+- The user compared the scaled crown against the reference again and asked
+  whether blades were needed at all. They were not. The reference's rays are
+  striations on a filled wall and its points are that wall's ragged top edge,
+  so the blade approach was structurally wrong rather than under-tuned. The
+  MultiMesh, its layout pass, and `spell_cast_ray_burst.gdshader` were removed;
+  they remain recoverable from Git if a future silhouette wants hero spikes.
+- The primary layer is now one double-sided additive cone. The mesh is a unit
+  cylinder; base radius, rim radius, and height are uniforms, so the first two
+  silhouette revisions cost a constant change rather than a mesh rebuild.
+- Stripe width, brightness, top height, and eruption delay are hashed from the
+  stripe index and a `shell_seed` uniform. A new seed reshuffles the whole
+  crown without a placement pass, and no random call happens at playback time.
+- The first shell read as a fountain: a thin-walled cone converging to a point.
+  Raising the base radius from 0.50 to 0.78 while lowering the rim from 1.45 to
+  1.28 turned it into a bucket, and raising the between-stripe wash from 0.09
+  to 0.24 filled the wall without erasing the striations.
+- Measured through the HUD: 4 nodes, **1 instance**, ~3 draw calls, against
+  new ceilings of 8 nodes and 6 draws. The 28-instance blade population is
+  gone; the striations cost nothing but shader arithmetic.
+- Captures at native, at 320x240, and on the fire tint all hold the cup
+  silhouette, the countable striations, the ragged rim, and the hot seat. The
+  caster stays visible through the wall, which the reference's blown-out
+  interior does not allow and which is better for reading the board.
+- Godot 4.4's import/parse gate and `git diff --check` passed. No battle was
+  launched, as required for this item.
 
 ### Flared-cup scale pass
 

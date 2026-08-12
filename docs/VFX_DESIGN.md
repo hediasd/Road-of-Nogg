@@ -382,17 +382,18 @@ seen through the retro viewport.
 with `look_at(focus, Vector3.UP)` every frame, so neither ever rolls. Under an
 orthographic projection with zero roll, world up maps to screen up exactly, and
 a world-vertical edge is a vertical raster line anywhere in frame, at any yaw or
-pitch. Geometry that stands on the world's up axis — the spell-cast aura's ray
-blades — is therefore sharp without any camera-plane construction, and it keeps
-the spatial grounding the camera-plane layer gives up. Only *arbitrary* world
-angles need the camera's plane. Confirm the projection before relying on this:
-a perspective camera would converge those verticals toward a vanishing point,
-and only the blade through the screen centre would stay vertical.
+pitch. Geometry that stands on the world's up axis — the spell-cast aura's
+shell wall — is therefore sharp without any camera-plane construction, and it
+keeps the spatial grounding the camera-plane layer gives up. Only *arbitrary*
+world angles need the camera's plane. Confirm the projection before relying on
+this: a perspective camera would converge those verticals toward a vanishing
+point, and only the geometry through the screen centre would stay vertical.
 
-A blade built this way still has to face the viewer, which is a Y-axis
-billboard: spin the quad around world up using the camera's right axis
-(`INV_VIEW_MATRIX[0]`, flattened onto the horizontal plane), never a full
-billboard, which would tilt it off vertical and forfeit the sharpness.
+If a layer built this way is a flat quad rather than a closed shell, it also
+has to face the viewer, and that must be a Y-axis billboard — spin it around
+world up using the camera's right axis (`INV_VIEW_MATRIX[0]`, flattened onto
+the horizontal plane), never a full billboard, which would tilt it off vertical
+and forfeit the sharpness.
 
 ### Authored textures and frame animation
 

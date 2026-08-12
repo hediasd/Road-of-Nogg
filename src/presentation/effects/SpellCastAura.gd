@@ -8,8 +8,8 @@ class_name SpellCastAura
 extends "res://src/presentation/effects/VfxPlayback.gd"
 
 const _SPELL_AURA_SHADER = preload("res://assets/shaders/spell_aura.gdshader")
-const _RAY_BURST_SHADER = preload(
-		"res://assets/shaders/effects/spell_cast_ray_burst.gdshader")
+const _RAY_SHELL_SHADER = preload(
+		"res://assets/shaders/effects/spell_cast_ray_shell.gdshader")
 
 const VISIBLE_DURATION := SpellCastAuraProfile.DURATION_SECONDS
 const SETTLE_NORMALIZED_TIME := SpellCastAuraProfile.SETTLE_NORMALIZED_TIME
@@ -23,15 +23,13 @@ const _GROUND_OPEN_PROGRESS := 0.55
 
 static var _noiseTexture: NoiseTexture2D = null
 static var _wispTexture: GradientTexture2D = null
-static var _bladeMesh: ArrayMesh = null
+static var _shellMesh: ArrayMesh = null
 
 var _elementColor := Color.WHITE
 var _groundDecal: MeshInstance3D
 var _groundMaterial: ShaderMaterial
-var _rayInstance: MultiMeshInstance3D
-var _rayMultiMesh: MultiMesh
+var _rayInstance: MeshInstance3D
 var _rayMaterial: ShaderMaterial
-var _rayLayoutSeed: int = -1
 var _particles: GPUParticles3D
 var _elapsedTime: float = 0.0
 var _playbackScale: float = 1.0
@@ -71,7 +69,7 @@ func play(seed: int, mode: String) -> void:
 	_elapsedTime = 0.0
 	_finished = false
 	_playing = true
-	_rebuildBladeLayout(seed)
+	_applyShellSeed(seed)
 	_applyProgress(0.0)
 	_restartParticlesAt(0.0)
 	set_process(true)
@@ -165,7 +163,7 @@ func get_live_particle_count() -> int:
 func get_live_instance_count() -> int:
 	if _rayInstance == null or not _rayInstance.visible or _finished:
 		return 0
-	return SpellCastAuraProfile.BLADE_COUNT
+	return 1
 
 
 func get_live_node_count() -> int:
@@ -202,20 +200,18 @@ func _process(delta: float) -> void:
 
 func _buildLayers() -> void:
 	assert(
-		SpellCastAuraProfile.BLADE_COUNT >= SpellCastAuraProfile.MIN_BLADE_COUNT
-		and SpellCastAuraProfile.BLADE_COUNT <= SpellCastAuraProfile.MAX_BLADE_COUNT,
-		"Spell-cast aura blade count is outside its authored bounds."
+		SpellCastAuraProfile.SHELL_RIM_RADIUS_U > SpellCastAuraProfile.SHELL_BASE_RADIUS_U,
+		"Spell-cast aura shell must flare outward from its seat."
 	)
 	_groundDecal = _createGroundDecal(_elementColor)
 	add_child(_groundDecal)
 	_groundMaterial = _groundDecal.material_override as ShaderMaterial
-	_rayInstance = _createRayBurst(_elementColor)
+	_rayInstance = _createRayShell(_elementColor)
 	add_child(_rayInstance)
-	_rayMultiMesh = _rayInstance.multimesh
 	_rayMaterial = _rayInstance.material_override as ShaderMaterial
 	_particles = _createRisingWisps(_elementColor)
 	add_child(_particles)
-	_rebuildBladeLayout(0)
+	_applyShellSeed(0)
 	assert(
 		_countNodes(self) <= SpellCastAuraProfile.MAX_EFFECT_NODES,
 		"Spell-cast aura exceeded its authored node ceiling."
@@ -247,103 +243,14 @@ func _groundTimelineProgress(progress: float) -> float:
 	)
 
 
-## Blade placement is sampled once per seed, never per frame, so the crown is
-## reproducible under scrub, replay, and overlap.
-##
-## Both rings run through the same loop; the profile's ring dictionaries are the
-## only place their proportions live. The golden angle advances across ring
-## boundaries rather than restarting, so the inner wall and the outer rim
-## interleave instead of stacking into spokes.
-func _rebuildBladeLayout(layoutSeed: int) -> void:
-	if _rayMultiMesh == null or _rayLayoutSeed == layoutSeed:
+## The shell derives every stripe's width, brightness, top height, and
+## eruption delay by hash from its index and this seed, so a new seed
+## reshuffles the crown without any placement pass and without a single
+## random call at playback time.
+func _applyShellSeed(shellSeed: int) -> void:
+	if _rayMaterial == null:
 		return
-	_rayLayoutSeed = layoutSeed
-	var rng := RandomNumberGenerator.new()
-	rng.seed = layoutSeed
-	var index := 0
-	for ring: Dictionary in SpellCastAuraProfile.RINGS:
-		index = _layOutRing(ring, index, rng)
-	assert(
-		index == SpellCastAuraProfile.BLADE_COUNT,
-		"Spell-cast aura ring counts must sum to its authored blade count."
-	)
-
-
-func _layOutRing(ring: Dictionary, firstIndex: int, rng: RandomNumberGenerator) -> int:
-	var count := int(ring["count"])
-	var heroCount := int(ring["hero_count"])
-	# Hero blades are spread around the ring by position before jitter, so the
-	# size hierarchy survives any seed instead of clumping on one side.
-	var heroOffsets := {}
-	for hero: int in range(heroCount):
-		heroOffsets[int(round(float(hero) * float(count) / heroCount)) % count] = true
-
-	for offset: int in range(count):
-		var index := firstIndex + offset
-		var isHero: bool = heroOffsets.has(offset)
-		var jitter := rng.randf_range(-1.0, 1.0) \
-			* SpellCastAuraProfile.GOLDEN_ANGLE_RADIANS \
-			* SpellCastAuraProfile.AZIMUTH_JITTER_FRACTION
-		var azimuth := float(index) * SpellCastAuraProfile.GOLDEN_ANGLE_RADIANS + jitter
-		var seatRadius := rng.randf_range(
-			float(ring["seat_radius_min"]), float(ring["seat_radius_max"])
-		)
-		var height := rng.randf_range(
-			float(ring["hero_height_min"] if isHero else ring["height_min"]),
-			float(ring["hero_height_max"] if isHero else ring["height_max"])
-		)
-		var width := rng.randf_range(
-			float(ring["hero_width_min"] if isHero else ring["width_min"]),
-			float(ring["hero_width_max"] if isHero else ring["width_max"])
-		)
-		# Taller blades lean further, which turns a ring into a flare.
-		var heightNorm := inverse_lerp(
-			float(ring["height_min"]),
-			float(ring["hero_height_max"] if heroCount > 0 else ring["height_max"]),
-			height
-		)
-		var lean := lerpf(
-			float(ring["lean_min"]),
-			float(ring["lean_max"]),
-			clampf(heightNorm, 0.0, 1.0)
-		) * rng.randf_range(0.7, 1.0)
-		var outward := Vector3(cos(azimuth), 0.0, sin(azimuth))
-
-		var transform := Transform3D()
-		transform.basis.x = Vector3(width * 0.5, 0.0, 0.0)
-		transform.basis.y = Vector3(0.0, height, 0.0)
-		transform.basis.z = outward * lean
-		transform.origin = outward * seatRadius
-		transform.origin.y = SpellCastAuraProfile.SEAT_HEIGHT_U
-		# Spatial role, not a shuffle: blades seated nearest the centre break out
-		# first and the wave travels outward, so the eruption has a direction.
-		# Normalizing against the crown's full span rather than this ring's keeps
-		# the whole inner wall ahead of the whole outer rim.
-		var seatNorm := inverse_lerp(
-			SpellCastAuraProfile.CROWN_SEAT_RADIUS_MIN_U,
-			SpellCastAuraProfile.CROWN_SEAT_RADIUS_MAX_U,
-			seatRadius
-		)
-		var delay := clampf(
-			seatNorm * SpellCastAuraProfile.DELAY_RADIUS_WEIGHT
-			+ rng.randf() * SpellCastAuraProfile.DELAY_JITTER_FRACTION,
-			0.0,
-			1.0
-		)
-
-		_rayMultiMesh.set_instance_transform(index, transform)
-		_rayMultiMesh.set_instance_custom_data(index, Color(
-			delay,
-			rng.randf_range(
-				SpellCastAuraProfile.BRIGHTNESS_MIN,
-				SpellCastAuraProfile.BRIGHTNESS_MAX
-			),
-			float(ring["alpha_multiplier"]) * (
-				SpellCastAuraProfile.HERO_ALPHA_MULTIPLIER if isHero else 1.0
-			),
-			1.0 if isHero else 0.0
-		))
-	return firstIndex + count
+	_rayMaterial.set_shader_parameter("shell_seed", float(shellSeed))
 
 
 func _restartParticlesAt(elapsed: float) -> void:
@@ -390,108 +297,106 @@ static func _ensureSharedResources() -> void:
 		_wispTexture = texture
 
 
-## One blade: a broad seat, shoulders at roughly two thirds, and a single sharp
-## apex. UV2 carries the authored local geometry the shader rebuilds the blade
-## from; UV carries the shading coordinates, with x normalized across the
-## blade's width at that height so the alpha profile follows the taper rather
-## than the bounding box.
-static func _ensureBladeMesh() -> void:
-	if _bladeMesh != null:
+## A unit cylinder: radius 1, height 1, open at both ends. The cone's actual
+## proportions are shader uniforms, so the silhouette can be retuned without
+## rebuilding geometry. UV.x runs around the shell and UV.y from seat to rim.
+static func _ensureShellMesh() -> void:
+	if _shellMesh != null:
 		return
-	var seatX := SpellCastAuraProfile.SILHOUETTE_SEAT_WIDTH * 0.5
-	var shoulderX := SpellCastAuraProfile.SILHOUETTE_SHOULDER_WIDTH * 0.5
-	var shoulderY := SpellCastAuraProfile.SILHOUETTE_SHOULDER_HEIGHT
+	var radialSegments := SpellCastAuraProfile.SHELL_RADIAL_SEGMENTS
+	var verticalSegments := SpellCastAuraProfile.SHELL_VERTICAL_SEGMENTS
+	var vertices := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
 
-	var vertices := PackedVector3Array([
-		Vector3(-seatX, 0.0, 0.0),
-		Vector3(seatX, 0.0, 0.0),
-		Vector3(shoulderX, shoulderY, 0.0),
-		Vector3(0.0, 1.0, 0.0),
-		Vector3(-shoulderX, shoulderY, 0.0),
-	])
-	var shadingUvs := PackedVector2Array([
-		Vector2(0.0, 0.0),
-		Vector2(1.0, 0.0),
-		Vector2(1.0, shoulderY),
-		Vector2(0.5, 1.0),
-		Vector2(0.0, shoulderY),
-	])
-	var geometryUvs := PackedVector2Array([
-		Vector2(0.0, 0.0),
-		Vector2(1.0, 0.0),
-		Vector2(0.5 + shoulderX, shoulderY),
-		Vector2(0.5, 1.0),
-		Vector2(0.5 - shoulderX, shoulderY),
-	])
-	var indices := PackedInt32Array([0, 1, 2, 0, 2, 4, 4, 2, 3])
+	for ring: int in range(verticalSegments + 1):
+		var along := float(ring) / float(verticalSegments)
+		for segment: int in range(radialSegments + 1):
+			var around := float(segment) / float(radialSegments)
+			var angle := around * TAU
+			vertices.append(Vector3(cos(angle), along, sin(angle)))
+			uvs.append(Vector2(around, along))
+
+	var stride := radialSegments + 1
+	for ring: int in range(verticalSegments):
+		for segment: int in range(radialSegments):
+			var lower := ring * stride + segment
+			var upper := lower + stride
+			indices.append_array([lower, upper, lower + 1, lower + 1, upper, upper + 1])
 
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_TEX_UV] = shadingUvs
-	arrays[Mesh.ARRAY_TEX_UV2] = geometryUvs
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
 	arrays[Mesh.ARRAY_INDEX] = indices
 
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	_bladeMesh = mesh
+	_shellMesh = mesh
 
 
-static func _createRayBurst(color: Color) -> MultiMeshInstance3D:
-	_ensureBladeMesh()
-	var multiMesh := MultiMesh.new()
-	multiMesh.transform_format = MultiMesh.TRANSFORM_3D
-	multiMesh.use_custom_data = true
-	multiMesh.mesh = _bladeMesh
-	multiMesh.instance_count = SpellCastAuraProfile.BLADE_COUNT
-
+static func _createRayShell(color: Color) -> MeshInstance3D:
+	_ensureShellMesh()
 	var material := ShaderMaterial.new()
-	material.shader = _RAY_BURST_SHADER
+	material.shader = _RAY_SHELL_SHADER
 	material.render_priority = SpellCastAuraProfile.RAY_RENDER_PRIORITY
 	material.set_shader_parameter("aura_color", color)
 	material.set_shader_parameter("burst_progress", 0.0)
+	material.set_shader_parameter("shell_seed", 0.0)
+	material.set_shader_parameter("base_radius", SpellCastAuraProfile.SHELL_BASE_RADIUS_U)
+	material.set_shader_parameter("rim_radius", SpellCastAuraProfile.SHELL_RIM_RADIUS_U)
+	material.set_shader_parameter("height", SpellCastAuraProfile.SHELL_HEIGHT_U)
+	material.set_shader_parameter("open_start", SpellCastAuraProfile.SHELL_OPEN_START)
+	material.set_shader_parameter("stripe_count", SpellCastAuraProfile.STRIPE_COUNT)
+	material.set_shader_parameter(
+		"stripe_width_min", SpellCastAuraProfile.STRIPE_WIDTH_MIN
+	)
+	material.set_shader_parameter(
+		"stripe_width_max", SpellCastAuraProfile.STRIPE_WIDTH_MAX
+	)
+	material.set_shader_parameter("stripe_alpha", SpellCastAuraProfile.STRIPE_ALPHA)
+	material.set_shader_parameter("wall_glow_alpha", SpellCastAuraProfile.WALL_GLOW_ALPHA)
+	material.set_shader_parameter("tooth_min", SpellCastAuraProfile.TOOTH_MIN)
+	material.set_shader_parameter("tooth_max", SpellCastAuraProfile.TOOTH_MAX)
+	material.set_shader_parameter("tooth_soft", SpellCastAuraProfile.TOOTH_SOFT)
+	material.set_shader_parameter("edge_gain", SpellCastAuraProfile.EDGE_GAIN)
+	material.set_shader_parameter("edge_power", SpellCastAuraProfile.EDGE_POWER)
+	material.set_shader_parameter("base_white_mix", SpellCastAuraProfile.BASE_WHITE_MIX)
+	material.set_shader_parameter("body_white_mix", SpellCastAuraProfile.BODY_WHITE_MIX)
+	material.set_shader_parameter("rim_deepen", SpellCastAuraProfile.RIM_DEEPEN)
+	material.set_shader_parameter(
+		"body_gradient_end", SpellCastAuraProfile.BODY_GRADIENT_END
+	)
+	material.set_shader_parameter(
+		"rim_gradient_start", SpellCastAuraProfile.RIM_GRADIENT_START
+	)
+	material.set_shader_parameter("emission_energy", SpellCastAuraProfile.EMISSION_ENERGY)
+	material.set_shader_parameter(
+		"seat_glow_height", SpellCastAuraProfile.SEAT_GLOW_HEIGHT
+	)
 	material.set_shader_parameter("eruption_start", SpellCastAuraProfile.ERUPTION_START)
 	material.set_shader_parameter("eruption_span", SpellCastAuraProfile.ERUPTION_SPAN)
-	material.set_shader_parameter("stagger_span", SpellCastAuraProfile.ERUPTION_STAGGER_SPAN)
+	material.set_shader_parameter(
+		"stagger_span", SpellCastAuraProfile.ERUPTION_STAGGER_SPAN
+	)
 	material.set_shader_parameter("hold_end", SpellCastAuraProfile.HOLD_END)
 	material.set_shader_parameter("decay_end", SpellCastAuraProfile.DECAY_END)
 	material.set_shader_parameter(
 		"overshoot_amount", SpellCastAuraProfile.OVERSHOOT_AMOUNT
 	)
 	material.set_shader_parameter("decay_stretch", SpellCastAuraProfile.DECAY_STRETCH)
-	material.set_shader_parameter("edge_alpha_steps", SpellCastAuraProfile.EDGE_ALPHA_STEPS)
-	material.set_shader_parameter(
-		"core_width_fraction", SpellCastAuraProfile.CORE_WIDTH_FRACTION
-	)
-	material.set_shader_parameter("peak_alpha", SpellCastAuraProfile.PEAK_ALPHA)
-	material.set_shader_parameter("tip_fade_start", SpellCastAuraProfile.TIP_FADE_START)
-	material.set_shader_parameter("seat_glow_height", SpellCastAuraProfile.SEAT_GLOW_HEIGHT)
-	material.set_shader_parameter("seat_white_mix", SpellCastAuraProfile.SEAT_WHITE_MIX)
-	material.set_shader_parameter("body_white_mix", SpellCastAuraProfile.BODY_WHITE_MIX)
-	material.set_shader_parameter("tip_deepen", SpellCastAuraProfile.TIP_DEEPEN)
-	material.set_shader_parameter(
-		"body_gradient_end", SpellCastAuraProfile.BODY_GRADIENT_END
-	)
-	material.set_shader_parameter(
-		"tip_gradient_start", SpellCastAuraProfile.TIP_GRADIENT_START
-	)
-	material.set_shader_parameter("emission_energy", SpellCastAuraProfile.EMISSION_ENERGY)
-	material.set_shader_parameter(
-		"lean_height_exponent", SpellCastAuraProfile.LEAN_HEIGHT_EXPONENT
-	)
 
-	var instance := MultiMeshInstance3D.new()
-	instance.name = "RayBurst"
-	instance.multimesh = multiMesh
+	var instance := MeshInstance3D.new()
+	instance.name = "RayShell"
+	instance.mesh = _shellMesh
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# The vertex stage builds each blade in world space, so the mesh's own
-	# bounds describe nothing the renderer can cull against. This box covers the
-	# widest seat, the longest lean, and the tallest hero blade.
-	var reach := SpellCastAuraProfile.CROWN_REACH_U
-	var top := SpellCastAuraProfile.CROWN_HEIGHT_U \
-		* (1.0 + SpellCastAuraProfile.DECAY_STRETCH) \
-		+ SpellCastAuraProfile.SEAT_HEIGHT_U
+	# The vertex stage reshapes the unit cylinder into the cone, so the mesh's
+	# own bounds describe nothing the renderer can cull against.
+	var reach := SpellCastAuraProfile.SHELL_RIM_RADIUS_U
+	var top := SpellCastAuraProfile.SHELL_HEIGHT_U * (
+		1.0 + SpellCastAuraProfile.DECAY_STRETCH
+	)
 	instance.custom_aabb = AABB(
 		Vector3(-reach, -0.1, -reach),
 		Vector3(reach * 2.0, top + 0.1, reach * 2.0)

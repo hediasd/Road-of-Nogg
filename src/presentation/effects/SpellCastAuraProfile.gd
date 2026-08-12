@@ -16,129 +16,64 @@ class_name SpellCastAuraProfile
 ## DERIVED from the catalog's fallback entry, which carries the empty id.
 const PROFILE_ID := ""
 
-## AUTHORED population bounds. Fewer than the floor and the crown reads as a
-## handful of stray shards; more than the ceiling and the rays stop being
-## legible as separate rays inside the cup. All of them live in one MultiMesh,
-## so population costs instances, not draw calls.
-const MIN_BLADE_COUNT := 20
-const MAX_BLADE_COUNT := 32
+## AUTHORED shell dimensions, in world units, where a tile is 1.0 u and the
+## standard body proxy is about 1.6 u tall. The reference burst is a cup: a
+## narrow seat opening into a rim a couple of tiles across, standing several
+## times the caster's height. Discrete blades were tried first and retired —
+## the rays in the reference are striations on this wall, not free-standing
+## shapes, and its points are the wall's ragged top edge.
+const SHELL_BASE_RADIUS_U := 0.78
+const SHELL_RIM_RADIUS_U := 1.28
+const SHELL_HEIGHT_U := 3.60
+## AUTHORED: the rim's ellipse must not read as a polygon at the retro
+## viewport's native resolution, and the wall needs enough rows for its
+## vertical ramp to interpolate cleanly.
+const SHELL_RADIAL_SEGMENTS := 40
+const SHELL_VERTICAL_SEGMENTS := 4
+## AUTHORED: how tight the shell is before it opens. Starting at zero makes the
+## eruption a point rather than a mouth.
+const SHELL_OPEN_START := 0.42
 
-## AUTHORED: clear of z-fighting with the ground plane at the shipping camera
-## distance, without floating visibly above it.
-const SEAT_HEIGHT_U := 0.02
+## AUTHORED striations. These are the rays. Their count is what makes them
+## countable, their width spread is what keeps them from reading as a printed
+## pattern, and their hard band edges are what keep them rays rather than glow.
+const STRIPE_COUNT := 22.0
+const STRIPE_WIDTH_MIN := 0.30
+const STRIPE_WIDTH_MAX := 0.86
+const STRIPE_ALPHA := 0.30
+## AUTHORED: a dim wash between the bands. Without it the wall is a picket
+## fence; too much of it and the striations disappear into a cone of fog.
+const WALL_GLOW_ALPHA := 0.24
 
-## AUTHORED ring composition. The reference burst is not a bouquet of separate
-## spikes: it is a flared cup of light, wide as a couple of tiles and several
-## times the caster's height, whose individual rays are legible *inside* a
-## filled silhouette. Two rings produce that. The inner ring is short, wide and
-## barely leaned — it is the wall of the cup — and the outer ring is tall,
-## narrow and strongly leaned, giving the rim its spikes and its flare.
-##
-## Every dimension is in world units, where a tile is 1.0 u and the standard
-## body proxy is about 1.6 u tall. Widths are fixed rather than derived from
-## anything, because a sharp line is defined in pixels.
-const RING_INNER := {
-	"count": 12,
-	"hero_count": 0,
-	"seat_radius_min": 0.16,
-	"seat_radius_max": 0.46,
-	"height_min": 1.30,
-	"height_max": 2.30,
-	"hero_height_min": 0.0,
-	"hero_height_max": 0.0,
-	"width_min": 0.34,
-	"width_max": 0.62,
-	"hero_width_min": 0.0,
-	"hero_width_max": 0.0,
-	"lean_min": 0.18,
-	"lean_max": 0.55,
-	# Held below the outer ring: twelve wide blades stacking additively at the
-	# centre is exactly how a cup of light becomes a white blob.
-	"alpha_multiplier": 0.72,
-}
-const RING_OUTER := {
-	"count": 16,
-	# Five hero blades carry the silhouette and reach well past the caster.
-	# Without the split the rim reads as one uniform bristle.
-	"hero_count": 5,
-	"seat_radius_min": 0.52,
-	"seat_radius_max": 1.00,
-	"height_min": 2.40,
-	"height_max": 3.70,
-	"hero_height_min": 4.20,
-	"hero_height_max": 5.60,
-	"width_min": 0.28,
-	"width_max": 0.50,
-	"hero_width_min": 0.56,
-	"hero_width_max": 0.82,
-	"lean_min": 0.60,
-	"lean_max": 1.85,
-	"alpha_multiplier": 1.0,
-}
-## Inner first, so the wall is already standing when the rim spikes arrive.
-const RINGS := [RING_INNER, RING_OUTER]
+## AUTHORED ragged rim. Each stripe stops at its own height between these
+## bounds, which is where the effect's pointed ends come from.
+const TOOTH_MIN := 0.52
+const TOOTH_MAX := 1.0
+const TOOTH_SOFT := 0.20
 
-## DERIVED from the ring counts above; asserted against them at build time.
-const BLADE_COUNT := 28
+## AUTHORED silhouette brightening. A shell only reads as a volume if its
+## edge-on flanks are brighter than the wall facing the camera.
+const EDGE_GAIN := 1.7
+const EDGE_POWER := 2.5
 
-## DERIVED extremes across both rings, used to normalize the eruption delay and
-## to size the culling box.
-const CROWN_SEAT_RADIUS_MIN_U := 0.16
-const CROWN_SEAT_RADIUS_MAX_U := 1.00
-const CROWN_REACH_U := 3.10
-const CROWN_HEIGHT_U := 5.60
+## AUTHORED: extra weight where the shell meets the ground, which is the
+## hottest part of the reference frame.
+const SEAT_GLOW_HEIGHT := 0.34
 
-## AUTHORED: lean applies on a mildly super-linear height curve. Squaring it
-## bent the blades into whiskers; this keeps them straight rays that splay
-## outward as a cone.
-const LEAN_HEIGHT_EXPONENT := 1.35
-
-## AUTHORED blade silhouette, in fractions of width and height. A broad seat,
-## shoulders at roughly two thirds, then a single sharp apex.
-const SILHOUETTE_SHOULDER_HEIGHT := 0.62
-const SILHOUETTE_SHOULDER_WIDTH := 0.42
-const SILHOUETTE_SEAT_WIDTH := 1.0
-
-## AUTHORED azimuth distribution. The golden angle spreads blades progressively
-## rather than in a repeating pattern; the jitter keeps the spiral from
-## becoming a visible motif, exactly as in the storm profiles.
-## DERIVED mathematical constant; jitter AUTHORED.
-const PHI := 1.618033988749895
-const GOLDEN_ANGLE_RADIANS := TAU / (PHI * PHI)
-const AZIMUTH_JITTER_FRACTION := 0.22
-
-## AUTHORED cross-width alpha profile. Quantizing the ramp into whole steps is
-## what keeps the edge hard: a smooth falloff under additive blending is a
-## glow, and a glow is the opposite of a ray.
-## Peak alpha came down when the population went from 17 blades to 28: the
-## same per-blade value that read as translucent in a sparse bouquet stacks
-## into an opaque white cup once the inner ring is filling the middle.
-const EDGE_ALPHA_STEPS := 3.0
-const CORE_WIDTH_FRACTION := 0.34
-const PEAK_ALPHA := 0.46
-const HERO_ALPHA_MULTIPLIER := 1.15
-
-## AUTHORED vertical falloff. The tip fades just short of the apex so the point
-## stays a point instead of ending in a cut-off bar.
-const TIP_FADE_START := 0.88
-const SEAT_GLOW_HEIGHT := 0.26
-
-## AUTHORED palette derivation. Every colour comes from the caller's element
-## tint: the seat is pushed most of the way to white, the body keeps the hue,
-## and the tip deepens it so the fringe stays legible against bright terrain.
-const SEAT_WHITE_MIX := 0.76
-const BODY_WHITE_MIX := 0.22
-const TIP_DEEPEN := 0.78
-const BODY_GRADIENT_END := 0.34
-const TIP_GRADIENT_START := 0.40
+## AUTHORED palette derivation, as a three-stop vertical ramp. Every colour
+## still comes from the caller's element tint: the seat is pushed nearly to
+## white, the body keeps the hue lightened, and the rim deepens it so the top
+## edge stays legible against bright terrain. The reference runs warm at the
+## bottom and coloured at the top, and this is that structure without inventing
+## a second hue the element palette does not have.
+const BASE_WHITE_MIX := 0.88
+const BODY_WHITE_MIX := 0.34
+const RIM_DEEPEN := 0.85
+const BODY_GRADIENT_END := 0.35
+const RIM_GRADIENT_START := 0.45
 ## AUTHORED: emission energy stays low because overlap, not energy, is where
 ## the white-hot core is meant to come from.
 const EMISSION_ENERGY := 2.3
-
-## AUTHORED per-blade brightness spread, so a crown of identical blades does
-## not read as one printed shape.
-const BRIGHTNESS_MIN := 0.72
-const BRIGHTNESS_MAX := 1.0
 
 ## AUTHORED duration. This is a flash, not an animation the player waits
 ## through: the whole event is over inside a second, and the queue releases
@@ -173,12 +108,6 @@ const OVERSHOOT_AMOUNT := 0.16
 ## reads as energy escaping rather than as a light being switched off.
 const DECAY_STRETCH := 0.14
 
-## AUTHORED stagger weighting. Most of a blade's delay comes from how far out
-## it is seated, so the eruption reads as a wave travelling outward; the jitter
-## keeps the wave from arriving as a clean expanding ring.
-const DELAY_RADIUS_WEIGHT := 0.78
-const DELAY_JITTER_FRACTION := 0.26
-
 ## AUTHORED: late enough that skipping lands on an almost-cleared crown, rather
 ## than cutting a full-height flash off the screen.
 const SETTLE_NORMALIZED_TIME := 0.90
@@ -189,14 +118,16 @@ const SETTLE_NORMALIZED_TIME := 0.90
 ## full read much earlier than the old expanding ring did.
 const ACTION_HOLD_FRACTION := 0.45
 
-## AUTHORED render priority. The blades draw after the ground layer so the
-## additive crown is never cut by the decal it grows out of.
+## AUTHORED render priority. The shell draws after the ground layer so the
+## additive cup is never cut by the decal it grows out of.
 const RAY_RENDER_PRIORITY := 4
 
-## AUTHORED engineering ceilings, asserted at build time.
+## AUTHORED engineering ceilings, asserted at build time. The shell is one mesh
+## in one draw call, so the population that used to cost 28 instances now costs
+## none at all.
 const MAX_SUPPORT_INSTANCES := 10
-const MAX_EFFECT_NODES := 10
-const MAX_DRAW_CALLS := 8
+const MAX_EFFECT_NODES := 8
+const MAX_DRAW_CALLS := 6
 ## DERIVED: the generic profile is the fallback for every unprofiled spell, so
 ## it must never evict itself.
 const MAX_LIVE_AURAS := 0
