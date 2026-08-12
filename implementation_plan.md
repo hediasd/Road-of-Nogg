@@ -22,8 +22,9 @@ those expired identifiers.
 
 Build a target-bound ice attack inspired by the supplied Digimon World 1
 reference. The central behavior is a **literal three-dimensional shell of
-large ice blocks and shards that grows around the target, holds as an enclosing
-mass, and then breaks apart using those same visible pieces**.
+large transparent-cyan ice blocks and shards that erupts around the target,
+holds as an enclosing mass, and then breaks apart using those same visible
+pieces**.
 
 The caster-to-target trail and blue square contact accents are supporting
 layers. They must never become the effect's dominant read. Damage numbers stay
@@ -32,13 +33,21 @@ reference are explicitly out of scope.
 
 The finished effect must:
 
-- travel from the caster to the impact point;
+- propagate from the caster to the impact point as a sequential trail of
+  terrain-anchored ice spikes, never as a thrown projectile or dotted lance;
+- make the final trail spike trigger a bottom-up eruption of the enclosing
+  cocoon so delivery and formation read as one continuous event;
 - envelope the target from behind, both sides, in front, and above with real
-  low-poly geometry that has visible depth and parallax;
+  low-poly geometry that has visible depth, parallax, deliberate asymmetry, and
+  a few large screen-readable hero slabs rather than a regular faceted egg;
+- render the ice as transparent cyan with bright overlapping cores and darker
+  blue faces, preserving PS1 readability without modern refractive glass;
 - close the visual gaps with a restrained bright internal ice core without
   using that core to fake the shell;
 - hold long enough for the completed enclosure to read;
-- move the same shell pieces into deterministic outward breakup trajectories;
+- move the same shell pieces through deterministic ballistic breakup
+  trajectories with varied velocity, gravity, angular motion, size-dependent
+  weight, and four to six readable hero fragments;
 - preserve pause, speed scaling, backward/forward scrub, skip, replay, overlap,
   and disposal behavior under the existing `VfxPlayback` contract;
 - remain presentation-only: no gameplay stun, damage, targeting, or state
@@ -78,6 +87,23 @@ The user subsequently chose Snowzilla as the owner. Ice Statue is appended to
 Snowzilla's existing Ice spell set after Ice Punch, resolving the live-battle
 availability gate without changing another monster or element.
 
+### Fidelity direction — resolved 2026-08-11
+
+After reviewing the first complete implementation against the supplied
+Digimon World 1 frames, the user set the visual direction for the fidelity
+pass:
+
+- ice is transparent and cyan rather than predominantly opaque white-blue;
+- the opening is a ground-propagating trail of growing ice spikes, not an
+  object thrown through the air;
+- the trail culminates in an eruptive cocoon around the target;
+- the cocoon uses larger, less regular overlapping blocks and slabs;
+- breakup motion must feel natural rather than like a uniformly lifted radial
+  crown.
+
+These are confirmed visual decisions, not blocking questions. Damage numbers
+remain externally owned and the reference's yellow rings remain out of scope.
+
 ## 3. Established facts and design decisions
 
 ### The shell is geometry, not a collection of blue lances
@@ -99,8 +125,10 @@ transform; breakup interpolates that same instance outward. The implementation
 must not delete the statue and spawn an unrelated shard burst at the break.
 
 No rigid-body simulation or runtime fracture is needed. Fixed seeded
-trajectories give exact scrub/replay behavior, make the break art-directable,
-and match the authored character of the reference.
+initial velocities, gravity, angular velocities, and optional analytic drag
+give the pieces natural ballistic arcs while preserving exact scrub/replay
+behavior. The effect computes each transform directly from normalized time; it
+does not integrate frame-by-frame physics state.
 
 ### Fit the creature body, not the tile or model base
 
@@ -113,12 +141,14 @@ bounding box plus event-time source and impact positions.
 Placement is normalized against that box so one authored layout can surround a
 short/wide, standard, or tall/narrow body without inventing per-monster branches.
 
-### Prefer faceted solidity over modern glass
+### Transparent cyan ice, not modern glass
 
-Most ice faces are opaque or nearly opaque, unshaded or flat-shaded, and use a
-small cold palette. A few overlay faces and the internal core may use additive
-or mixed transparency. Front/rear render groups are explicit so transparent
-sorting cannot randomly place the back of the statue over its front.
+The main ice read is transparent cyan. Large slabs retain enough opacity or
+dithered coverage to preserve their silhouettes at the retro viewport's native
+resolution, while selected faces and the internal overlap region build toward
+bright white-cyan. Darker blue faces and edges separate adjacent chunks.
+Front/rear render groups remain explicit so transparency sorting cannot place
+the back of the statue over its front.
 
 Nearest-filtered authored masks, stepped time, quantized transforms, and the
 existing low-resolution/CRT path provide the PS1 character. Refraction,
@@ -152,13 +182,14 @@ changes battle state or claims that the spell inflicts a gameplay status.
 
 ### Budgets
 
-The profile owns and asserts its limits. Initial ceilings for one effect are:
+The profile owns and asserts its limits. Fidelity-pass ceilings for one effect
+are:
 
-- 16 large enclosing pieces, with up to 24 only if the proof sheet shows a
-  measured silhouette gap that cannot be fixed by placement;
-- 96 small trail/contact particles or instances;
-- 14 estimated draw calls;
-- 20 effect-owned nodes;
+- 18 enclosing pieces, with 9–12 expected to carry the completed silhouette
+  and four to six designated as breakup hero fragments;
+- 24 combined ground-spike and contact instances;
+- 18 estimated peak draw calls;
+- 28 effect-owned nodes;
 - at most two simultaneous live encasement effects, with the existing adapter
   cap disposing the oldest before a third is admitted.
 
@@ -178,6 +209,9 @@ outputs, not deferred final-validation evidence:
 | Shell skeleton | Mid-hold captures with **shell only** at front-quarter, side, and rear-quarter views. Visible depth, thickness, and enclosure; no trail/core/contact layers. | Shell-geometry item |
 | Formation and fracture | One contact sheet spanning empty target, first blocks, closed statue, hold, initial break, wide break, and settle. Piece continuity is visually traceable. | Choreography item |
 | Supporting layers | Trail-only and contact-only sheets, followed by a full composite. The full shell remains the dominant silhouette. | Delivery/contact item |
+| Cyan material and silhouette | Matched hold frames with opaque core disabled, at three angles and three body presets. Ice remains visibly transparent cyan, overlapping faces approach white-cyan, and 9–12 asymmetric hero shapes remain countable at retro resolution. | Fidelity shell/material item |
+| Ground-spike delivery and eruption | A tight sheet from empty ground through every spike advance into the first, middle, and completed cocoon frames. No geometry travels through the air; the last ground spike and first target slab form one continuous wave. | Ground-spike/eruption item |
+| Natural fracture | A tight 0.02–0.04 normalized-time cadence across fracture plus a wider breakup sheet. Four to six hero chunks follow distinct ballistic arcs, rotate at size-appropriate rates, and avoid a uniform upward crown. | Ballistic-fracture item |
 | Final look | Standard, wide, and tall targets through retro on/off, plus existing Ice Storm, Fire Storm, Magenta Reduction, and generic aura captures. | Final validation item |
 
 An executing session stops at a checkpoint that fails visually and reports the
@@ -456,11 +490,228 @@ and fallback paths do not wedge presentation.
 integrity checks and any narrow catalog/load probe necessary for safe handoff.
 Do not launch the battle.
 
-### STATUE-7 — Consolidated final visual, lifecycle, and battle validation
+### STATUE-7 — Recompose the shell and author transparent-cyan PS1 ice
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** all implementation items and both blocking gates.
+**Depends on:** STATUE-3 through STATUE-6 and the resolved fidelity direction.
+
+**Files:** `src/presentation/effects/IceTargetEncasementEffect.gd`,
+`src/presentation/effects/IceTargetEncasementProfile.gd`,
+`src/presentation/effects/IceChunkMeshFactory.gd`,
+`assets/shaders/effects/ice_target_encasement.gdshader`, an effect-owned second
+pass shader only if one material cannot preserve both sorting and bright
+overlap, `docs/VFX_DESIGN.md`, and the relevant backlog files.
+
+**End state:**
+
+- The held statue is deliberately asymmetric and built around 9–12
+  screen-readable forms with clear size hierarchy: broad lower/front slabs,
+  uneven side blocks, a diagonal caster-facing plate, rear silhouette masses,
+  and an irregular cap. Small pieces support those forms rather than creating a
+  regular 2×2 cage.
+- The central target silhouette is substantially obscured during the hold while
+  recognizable extremities may remain visible. The enclosure reads as a heavy
+  pile-up of ice, not a crown, flower, collar, or tidy faceted egg.
+- Main faces are transparent cyan. Overlapping central faces approach
+  white-cyan, and darker blue faces/edges keep adjacent pieces countable. The
+  look uses authored alpha or retro dithering rather than refraction, smooth
+  physically based glass, or full-screen distortion.
+- Transparency remains stable through front-quarter, side, and rear-quarter
+  views. Explicit depth/render groups or a restrained solid underlayer prevent
+  rear faces from incorrectly drawing over front faces.
+- The internal core remains optional and cannot be required for the shell to
+  read. With the core hidden, the material still looks icy, cyan, translucent,
+  and volumetric.
+- All palette, opacity, dither, emission, chunk-count, placement, and size-class
+  values live as labelled profile parameters. Existing shared VFX materials and
+  textures remain unchanged.
+
+**Risk:** ordinary alpha blending can collapse overlapping geometry into a
+sorting-error cloud, while excessive transparency makes the enclosure vanish
+against bright terrain. Solve silhouette and ordering at the retro viewport's
+native resolution, using an effect-owned underlayer or dither only when the
+proof frames demonstrate the need.
+
+**Proof checkpoint:** capture core-disabled hold frames for standard, wide, and
+tall bodies at front-quarter, side, and rear-quarter angles, plus matched retro
+on/off frames. At retro resolution the effect must retain a transparent cyan
+read, stable front/rear ordering, substantial target enclosure, and 9–12
+countable dominant shapes.
+
+**Adds to final validation coverage:** transparent-cyan material fidelity,
+asymmetric PS1-scale silhouette, body-bound fit, overlap brightness, sorting
+stability, core independence, and owned-resource isolation.
+
+**Resolution target:** implemented; pending end-of-plan validation. Run the
+debug capture checkpoint, focused diff inspection, and `git diff --check`; use
+only the narrow import/load probe necessary to hand usable shaders to the next
+item. Do not launch a battle.
+
+### STATUE-8 — Replace the thrown trail with terrain-anchored ice propagation
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** STATUE-7.
+
+**Files:** `IceTargetEncasementEffect.gd`,
+`IceTargetEncasementProfile.gd`, `IceChunkMeshFactory.gd` if a dedicated spike
+mesh is needed, the effect-owned shader set,
+`src/presentation/effects/VfxCastContext.gd`,
+`src/presentation/GodotVisualAdapter.gd`, `src/presentation/VisualAction.gd`
+only as needed to snapshot an optional generic presentation-surface path,
+`docs/ARCHITECTURE.md`, `docs/VFX_DESIGN.md`, and the relevant backlog files.
+
+**End state:**
+
+- The former airborne/dotted delivery segments are removed. Eight to twelve
+  irregular ice spikes occupy fixed terrain positions from caster to target;
+  no spike translates through the air.
+- Spikes emerge sequentially by deterministic height/width growth so the wave
+  visibly advances along the ground. Older spikes shrink, dim, or recede behind
+  the head without making the path disappear before its direction reads.
+- The path derives from event-time caster and target positions, adapts its
+  spacing/count within the asserted cap, and remains truthful at the spell's
+  range 1–5. Spike bases follow the presentation terrain surface when the path
+  crosses elevation changes; the effect must define and document the fallback
+  for a missing surface sample rather than floating or tunnelling silently.
+- If intermediate terrain heights are not already available at playback, the
+  adapter snapshots an optional generic world-space surface path into the typed
+  presentation context before the action is queued. Simulation events remain
+  free of meshes, physics queries, and VFX-specific data; no adapter branch may
+  name Ice Statue or `ice_target_encasement`.
+- The final spike reaches the target's caster-facing lower bound and triggers
+  the first cocoon slab. A short overlapping frost bed or joined spike bases may
+  visually connect the wave, but no projectile head, floating lance, or dotted
+  targeting line remains.
+- `delivery_trail` remains independently isolatable, deterministic under seed
+  and normalized time, and subordinate in node/instance/draw budget.
+
+**Risk:** a line sampled only between two world positions can cut through steps
+or float over terrain, while querying the scene lazily at playback can violate
+the event-time snapshot contract. Snapshot any required presentation surface
+path generically before queueing, and use fewer overlapping wide spike bases so
+the retro image does not become another dotted line.
+
+**Proof checkpoint:** capture a tight trail-only sheet at the harness's minimum,
+middle, and maximum supported source separations, including an elevated route,
+with enough frames to see every advance. Do not violate the confirmed opposing
+islands or their empty middle corridor merely to imitate grid range numerically.
+Every visible spike must stay planted; the sequence must read as ice travelling
+through the ground rather than geometry being thrown.
+
+**Adds to final validation coverage:** source-to-target direction, range-scaled
+spacing, event-time surface-path ownership, terrain anchoring, elevation
+behavior, deterministic sequential growth, removal of the old projectile read,
+and supporting-instance budgets.
+
+**Resolution target:** implemented; pending end-of-plan validation. Run the
+debug capture checkpoint and cheap integrity checks only. Do not launch a
+battle.
+
+### STATUE-9 — Erupt the cocoon from the arriving ground wave
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** STATUE-7 and STATUE-8.
+
+**Files:** `IceTargetEncasementEffect.gd`,
+`IceTargetEncasementProfile.gd`, its effect-owned shader(s),
+`docs/VFX_DESIGN.md`, and the relevant backlog files.
+
+**End state:**
+
+- The target enclosure begins at the last ground spike's contact point. A broad
+  caster-facing lower slab erupts first, uneven lateral blocks climb next, and
+  rear/top pieces close last. Pieces no longer scale outward independently from
+  a common target-centre origin.
+- Each piece has a deterministic eruption origin, start delay, rise direction,
+  overshoot, and settle transform derived from its authored spatial role. The
+  first eruption overlaps the trail head so delivery and enclosure are one
+  continuous material event.
+- A brief white-cyan overlap pulse and the blue-purple square accents mark
+  contact near the lower impact region. Squares remain fixed-size/readable in
+  the retro view, cluster around contact rather than orbiting the whole body,
+  and clear before the completed hold.
+- Formation timing is reallocated without making the famously quick attack
+  sluggish: propagation is legible, enclosure snaps shut decisively, and the
+  completed statue still owns a readable hold before fracture.
+- Forward/backward seek across trail-to-eruption boundaries is exact; no layer
+  pops, double-arrives, or samples RNG after construction.
+
+**Risk:** changing two previously independent phase systems can produce a
+one-frame gap, duplicated impact flash, or discontinuity under backward seek.
+Drive both from one normalized timeline and prove the boundary with tightly
+spaced frames before proceeding to fracture work.
+
+**Proof checkpoint:** capture a full-composite tight sheet covering empty path,
+early/middle/final spike, first lower slab, lateral climb, cap closure, and hold.
+Add a contact-only capture proving the blue-purple squares remain visible but
+do not replace the erupting geometry.
+
+**Adds to final validation coverage:** continuous material flow from ground
+spikes into cocoon, directional bottom-up formation, asymmetric closure,
+contact-square readability, impact flash hierarchy, phase continuity, and
+exact seek at the delivery/formation boundary.
+
+**Resolution target:** implemented; pending end-of-plan validation. Run the
+debug proof checkpoint, focused diff inspection, and `git diff --check`; no
+full battle.
+
+### STATUE-10 — Give the same shell pieces natural deterministic fracture motion
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** STATUE-7 and STATUE-9.
+
+**Files:** `IceTargetEncasementEffect.gd`,
+`IceTargetEncasementProfile.gd`, its shader(s), `docs/VFX_DESIGN.md`, and the
+relevant backlog files.
+
+**End state:**
+
+- The same instances visible in the held cocoon remain the breaking instances;
+  no replacement debris burst hides an identity swap.
+- Each chunk stores seeded initial linear velocity, gravity response, angular
+  velocity/axis, and any authored drag/fade data. Its transform is evaluated as
+  a pure function of normalized fracture time—analytic ballistic motion, not a
+  physics body, accumulated integration, or interpolation to a uniformly
+  lifted endpoint.
+- Four to six large hero chunks take distinct readable trajectories: strong
+  lateral left/right motion, at least one high arc, and at least one lower or
+  forward departure. Smaller pieces accelerate and spin faster; larger slabs
+  feel heavier and rotate more slowly.
+- Departure timing and impulse vary slightly by role. The silhouette opens from
+  the impact fracture rather than becoming a synchronized radial crown. Gravity
+  bends paths naturally, and fragments clear or fade before an unimplemented
+  collision response would become conspicuous.
+- `seek_normalized()`, backward scrub, repeated seeds, speed scaling, pause,
+  and `skip_to_settle()` reproduce the exact same ballistic transforms.
+
+**Risk:** natural-looking motion can tempt frame-state integration or rigid
+bodies, breaking deterministic seek and replay. Derive every position and
+rotation analytically from stored authored/seeded data and verify the same time
+out of order, not only in forward playback.
+
+**Proof checkpoint:** capture a shell-only sheet at 0.02–0.04 normalized-time
+steps from held statue through initial separation, plus a wider breakup sheet.
+Track the four to six hero chunks across frames, then repeat selected timestamps
+out of order and compare hashes. Reject a uniform halo, crown, constant-speed
+lerp, synchronized departure, or implausibly fast large-slab spin.
+
+**Adds to final validation coverage:** same-piece continuity, analytic gravity
+arcs, directional and size-dependent motion, staggered fracture, deterministic
+out-of-order seek, skip behavior, and readable hero-fragment cleanup.
+
+**Resolution target:** implemented; pending end-of-plan validation. Run the
+debug proof checkpoint and cheap integrity checks only. Do not launch a battle.
+
+### STATUE-11 — Consolidated final visual, lifecycle, and battle validation
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** all implementation items, including STATUE-7 through
+STATUE-10, and every resolved blocking gate.
 
 **Files:** fixes to task-owned files if validation finds defects,
 `implementation_plan.md` resolution notes during validation, owning docs and
@@ -470,47 +721,62 @@ This is the only item that performs full gameplay and integration validation.
 Consolidate the following rather than replaying them after each implementation
 item:
 
-1. Run Godot's headless import/parse gate so every new `.gd`/`.gdshader` and
-   generated `.uid` is known to the editor, then load `VFXDebugScene` and
+1. Run Godot's headless import/parse gate so every changed `.gd`/`.gdshader`
+   and generated `.uid` is known to the editor, then load `VFXDebugScene` and
    `Battle25D` cleanly.
-2. In the debug harness, capture the named phase sheet at a fixed seed for
-   standard, wide, and tall targets. Capture shell-only front-quarter, side,
-   and rear-quarter views with core/trail/contact hidden. Confirm visible
-   thickness, parallax, full-body enclosure, and stable front/rear ordering.
-3. Capture trail-only, contact-only, break-only, and full-composite sheets.
-   Confirm the trail reaches the target, squares mark contact, the closed statue
-   dominates the composite, and the same countable large pieces move from shell
-   to breakup.
-4. Exercise play, pause, resume, 0.5x and 2x speed, forward and backward scrub,
-   settle skip from formation and hold, overlap to the live cap, oldest-effect
-   disposal, retrigger, app/battle exit, and repeated seeded playback. Confirm
-   no target pose/tint lease survives any exit.
-5. Launch the real game and cast the confirmed carrier in a live battle against
-   at least two visibly different target bodies and across an elevated terrain
-   case. Confirm event-time source/target placement, shell fit, damage-number
-   separation, queue pacing, camera/CRT composition, defeat interaction, and
-   unchanged gameplay results. No yellow ring is introduced by this cycle.
-6. Re-run existing Ice Storm, Fire Storm, Magenta Reduction, and generic aura
+2. At one fixed seed, capture the matched reference-phase sequence: empty
+   ground, early/middle/final spike, first eruption, lateral climb, completed
+   transparent-cyan cocoon, hold, fracture, wide hero-chunk separation, and
+   cleanup. Judge at native retro resolution, not only in enlarged frames.
+3. For standard, wide, and tall targets, capture core-disabled shell-only
+   front-quarter, side, and rear-quarter views with retro on and off. Confirm
+   transparent cyan faces, bright overlap, stable sorting, asymmetric
+   full-body enclosure, countable hero slabs, and no egg/crown/collar read.
+4. Capture trail-only at the harness's minimum, middle, and maximum supported
+   source separations, including an elevated route. Preserve its confirmed
+   opposing-island composition and empty middle corridor. Confirm every spike
+   remains terrain-anchored, its sequential growth reads from caster to target,
+   and the last spike joins the bottom-up cocoon eruption without a floating
+   projectile or discontinuity.
+5. Capture contact-only and tight fracture sheets. Confirm blue-purple squares
+   remain readable at the lower impact point, then track four to six original
+   hero chunks through distinct gravity-bent trajectories without a uniform
+   upward halo. Repeat fracture timestamps out of order at the same seed and
+   compare deterministic output.
+6. Exercise play, pause, resume, 0.5x and 2x speed, forward and backward scrub,
+   settle skip from propagation, formation, hold, and fracture, overlap to the
+   live cap, oldest-effect disposal, retrigger, app/battle exit, and repeated
+   seeded playback. Confirm no target pose/tint/material state survives an exit.
+7. Launch the real game and have Snowzilla cast Ice Statue against at least two
+   visibly different target bodies, at short and long legal range, and across
+   an elevated terrain case. Confirm event-time placement, terrain-anchored
+   delivery, shell fit, transparent-cyan readability through CRT, damage-number
+   separation, queue pacing, defeat interaction, and unchanged gameplay
+   results. No yellow ring is introduced by this cycle.
+8. Re-run existing Ice Storm, Fire Storm, Magenta Reduction, and generic aura
    debug captures to catch shared texture/material/context regressions. Exercise
-   at least one multi-target area cast to prove the expanded event contract did
-   not disturb established area VFX.
-7. Read live node, instance/particle, draw-call, and overlap figures from the
-   effect/harness and confirm every asserted profile ceiling. Inspect the final
-   focused diff and run `git diff --check` before staging only task-owned files.
+   at least one multi-target area cast to prove the target-bound changes did not
+   disturb established area VFX.
+9. Read live node, instance/particle, draw-call, and overlap figures from the
+   effect/harness and confirm every asserted profile ceiling. Reconcile both
+   backlogs, inspect the final focused diff, and run `git diff --check` before
+   staging only task-owned files.
 
 If validation finds a defect, fix it in this session and rerun the smallest
 consolidated subset that covers the fix; do not reopen prior items merely to
 repeat the same checks.
 
-**Risk:** a debug-perfect shell can still miss a moving or unusually sized live
-monster, leak reversible target state, or release the visual queue before the
-statue reads. Only the real-battle pass can close those risks.
+**Risk:** a debug-perfect material can disappear against live terrain,
+ground-spike placement can diverge from the battle surface, transparent sorting
+can fail on real models, natural fracture can lose determinism under lifecycle
+controls, or queue pacing can release before the statue reads. Only the real
+battle pass can close those combined risks.
 
 **Completion rule:** record the actual visual and manual evidence, mark every
 covered implementation item done, reconcile both backlogs, and commit the final
 validation result. Then, in the same session, grep the repository for
-`STATUE-1` through `STATUE-7`, rewrite any accidental persistent reference as a
-durable description, and clear `implementation_plan.md` completely in a
+`STATUE-1` through `STATUE-11`, rewrite any accidental persistent reference as
+a durable description, and clear `implementation_plan.md` completely in a
 follow-up lifecycle-cleanup commit. The completed plan remains recoverable from
 Git history; do not leave its resolution log in the working contract.
 
