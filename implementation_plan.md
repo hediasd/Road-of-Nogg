@@ -1,4 +1,4 @@
-# Spell Cast Aura Spiritual-Vortex Rework
+# Spell Cast Aura Reference-Locked Rebuild
 
 **Opened 2026-08-12.** The previous contents were the Ice Target Encasement
 cycle, opened 2026-08-10, which built the `Ice Statue` carrier and its
@@ -20,28 +20,30 @@ file needed rewriting.
 
 ## 1. Goal
 
-Replace the generic spell-cast aura with **a brief spiritual-energy vortex
-erupting around the caster**, read as elemental power being drawn through a
-dark whirlpool at the moment of the cast.
+Rebuild the generic spell-cast aura from the **eleven consecutive 2026-08-12
+source frames**, which supersede every earlier still-image interpretation. The
+effect is an evolving inner aperture/boundary surrounded by a broad asymmetric
+blue-cyan plume crown. It is not three concentric ground rings, a tapered core
+column, a set of individual lance rays, or a particle mist.
 
-The isolated 2026-08-12 reference is now the visual authority. Its effect is an
-irregular black/navy elliptical vortex with broken cyan rims, a soft tapered
-cyan core rising behind the caster, a fan of independently varied feathered
-light shafts, and cloudy wisps escaping upward. These are separate composited
-layers; there is no clean torus, solid crystal crown, or printed floor asterisk.
+The current committed aura remains useful only as playback/catalog/debug
+infrastructure. Its four visual carriers are rejected reference experiments and
+must be removed or replaced by the dependency-ordered items below.
 
 The finished effect must:
 
-- present as four legible parts — dark vortex, tapered core glow, radial ray
-  fan, and rising mist/motes — each doing one job;
-- **erupt from the ground upward**, with every layer sharing one origin and
-  deterministic normalized clock;
-- keep the caster readable through low-alpha additive light while the vortex
-  itself uses a dark alpha-mixed pass to anchor the feet;
+- present as two coupled visual systems — one evolving footprint aperture/rim
+  and one continuous broad plume crown — each doing one evidenced job;
+- reproduce the source's primary crest, first trough, secondary swell, and
+  terminal recession rather than a single monotonic grow/hold/fade;
+- keep the caster crisp above the aura from a moving camera, with only subtle
+  light touching the feet and no translucent column washing across the body;
+- keep most visible energy wide and below the shoulders while allowing only
+  faint plume tips above the head;
 - carry the **element tint** every caller already supplies
   (`BattleMeshFactory.elementColor`), from ice cyan through fire red, thunder
-  yellow, darkness violet, and the neutral grey fallback everywhere except the
-  ring's white core;
+  yellow, darkness violet, and the neutral grey fallback, without inventing a
+  white-hot core absent from the source;
 - be **fast** — a flash, subordinate to whatever spell-specific profile or
   damage read follows, and not an animation the player waits through;
 - preserve the full `VfxPlayback` contract: pause, speed scale, exact forward
@@ -145,63 +147,107 @@ mist with only a few brighter motes. No scene-wide bloom or shared texture is
 retuned. Softness comes from owned alpha masks and the existing neutral puff
 used without mutation.
 
+### Eleven-frame authority pivot #4 — resolved 2026-08-12
+
+The user rejected the resulting ground-ring capture and supplied eleven
+consecutive source frames. Those frames are now the sole visual authority and
+supersede the vocabulary above. Pixel-level inspection masked the static speech
+UI and character, compared consecutive differences, measured colour/spatial
+envelopes, and tested whether opacity scaling alone explains the animation.
+
+Verified evidence:
+
+- the 340x340 source frames contain one evolving inner aperture/boundary and a
+  continuous broad plume crown, not three separated ground rings;
+- the strongest lower boundary lies around a 37-46 pixel radius and its early
+  close striations simplify as the opening grows;
+- the energy-weighted envelope is typically about 170 pixels wide and 110
+  pixels tall, concentrated from the shoulders downward, while only faint
+  tips extend high;
+- outer-field energy relative to the first supplied frame is approximately
+  `1.00, 1.13, 1.11, 0.96, 0.79, 0.64, 0.61, 0.76, 0.82, 0.85, 0.70`, proving
+  a primary crest, trough, secondary swell, and recession rather than one
+  grow/hold/fade scalar;
+- best opacity-only fits leave 20-32% normalized residual between consecutive
+  frames, so plume structure itself changes;
+- no frame contains discrete puffs or motes, a narrow central flame/column, or
+  individually legible lance rods;
+- the source background is black and has no alpha, so it cannot prove whether
+  the inner black region is painted darkness or transparent negative space.
+
+Consequences:
+
+- the current ground annuli, six core cards, eighteen crossed ribbons, and
+  twelve puffs are all scheduled for removal;
+- playback, deterministic seek, catalog integration, and the debug capture
+  harness remain valid infrastructure;
+- the centre treatment requires a blocking transparent-versus-darkened A/B on
+  light and dark terrain before integration is accepted;
+- large layers remain world-space because the battle camera moves. A continuous
+  flared plume shell with its near hemisphere culled replaces both hero
+  billboards and independent flat ray shards.
+
 ## 3. Established facts and design decisions
 
-### Four composited layers, not one hero shape
+### Two evidenced systems, not four invented motifs
 
-The current design has no single hero shape: the ground vortex, tapered core,
-ray fan, and rising mist are independently toggleable and independently tuned.
-The caster remains the visual centre; no opaque wall is allowed to become the
-whole effect.
+The accepted decomposition is one footprint aperture/rim plus one broad plume
+crown. The current ground rings, soft-card core, crossed ray ribbons, and puffs
+are not retained as hidden support layers; their silhouettes are absent from
+the source and they must be removed.
 
-### Soft energy uses masks and overlap, not solid geometry
+### The footprint has one evolving boundary
 
-The reference's volume is turbulent light, not rock. The vertical layers use
-camera-facing quads with procedural feathering and low per-layer alpha. The
-core supplies the teardrop mass, the ray fan supplies direction, and neutral
-puff sprites supply local cloud breakup. Their overlap builds brightness
-without a hard silhouette.
+The ground carrier remains world-horizontal so camera pitch supplies its
+ellipse. It draws one aperture boundary with tightly clustered internal
+striations early in the animation. Those strokes simplify as the aperture
+grows. Widely separated rings, pointed fragments, and repeated wavefronts are
+forbidden. Whether the centre darkens terrain is unresolved until the required
+transparent/darkened A/B is judged on both light and dark maps.
 
-### Ground and vertical layers use different spaces
+### The crown is a continuous world-space plume curtain
 
-The vortex is an ordinary world-horizontal plane, so camera pitch naturally
-turns its circular texture space into the reference's ellipse. Core and rays
-are camera-facing vertical quads anchored at the seat, preserving the intended
-2D fan composition under every battle-camera yaw.
+The source's wide light tongues form one related flow field, not independent
+rods. One or two flared ring shells carry original seamless angular-by-height
+plume artwork. Front-face culling removes the near hemisphere, leaving the far
+plumes behind the character from any yaw without billboarding or
+camera-relative position offsets. A project-owned 11-state atlas changes the
+plume grouping over time; it is not a copy of supplied pixels.
 
-### Mixed dark base, additive light
+### Animation follows the measured two-swell sequence
 
-The vortex uses alpha mixing because additive blending cannot create the
-reference's black/navy anchor. Core, rays, cyan rim accents, and mist remain
-unshaded additive layers. Their alpha stays low enough that the caster and
-terrain remain readable.
+Normalized seek remains the clock, but separate source-keyed curves drive plume
+energy, plume state, aperture radius, rim thickness, striation visibility, and
+global recession. `TIME`, GPU particle scheduling, and one monotonic
+eruption/hold/decay scalar cannot own the visual result. Seed may rotate or
+gently perturb the plume phase, but may not replace the reference silhouette.
 
-### Every layer shares one origin and one clock
+### Palette and compositing preserve a clean character
 
-All four layers use the normalized charge / eruption / hold / decay / clear
-timeline established earlier, so scrub, replay, skip, and fixed-seed captures
-remain coherent.
+The source uses deep blue-cyan with no persistent white core. Element hue still
+comes from the catalog, but saturation/brightness hierarchy follows the source.
+The plume is soft unshaded alpha/additive light; alpha mixing is used for centre
+darkening only if the terrain A/B proves it necessary. The character remains
+opaque and crisp above the far-side plume shell.
 
 ### Ownership and reuse
 
-The effect owns its profile constants, its shaders, and its mesh construction.
-`VfxTextures`, `IceChunkMeshFactory`, and every other shared or effect-owned
-resource belonging to another effect stay untouched, so Ice Storm, Fire Storm,
-Magenta Reduction, and Ice Target Encasement cannot regress through a shared
-primitive. `assets/shaders/spell_aura.gdshader` had exactly one referencing
-file and has been deleted with its `.uid`; a repository-wide search must
-confirm this stays true as the ground layer is rebuilt.
+The effect owns its profile constants, shaders, shell geometry, and new plume
+atlas. `VfxTextures`, `IceChunkMeshFactory`, and every resource belonging to
+another effect stay untouched. The generic aura stops consuming
+`neutralSoftPuff()` and `lanceStreak()` without changing either shared factory.
+Caller searches precede deletion of every rejected effect-owned shader.
 
 ### Budgets, asserted at build time and owned by the profile
 
-Provisional, pending the current implementation checkpoint:
+Target, pending implementation proof:
 
-- one vortex plane, one draw call;
-- one core-glow quad, one draw call;
-- one ray-fan quad, one draw call;
-- one rising-mist particle system, one draw call;
-- ≤ 12 effect-owned nodes;
-- ≤ 10 estimated peak draw calls;
+- one footprint aperture carrier, one draw call;
+- one inner plume shell, one draw call;
+- one outer plume shell, one draw call;
+- zero particles and zero hero-scale billboards;
+- ≤ 8 effect-owned nodes;
+- ≤ 3 effect draw calls;
 - unlimited live count preserved (`max_live` stays 0 — the generic profile is
   the fallback for every unprofiled spell and must never evict itself).
 
@@ -210,15 +256,16 @@ Provisional, pending the current implementation checkpoint:
 VFX work is shown while it is still cheap to change. These are required item
 outputs, not deferred final-validation evidence.
 
-**Every row below is a literal side-by-side placement against both reference
-images**, not an isolated capture judged from memory — the second resolved
-gate names this as the specific process failure that cost two prior rebuilds.
+**Every visual row below is a literal side-by-side placement against the full
+eleven-frame source sequence**, not an isolated capture or comparison against
+an earlier Road of Nogg attempt.
 
 | Checkpoint | Required proof | Owner |
 | --- | --- | --- |
-| Layer silhouettes | Vortex-only, core-only, and ray-only captures beside the isolated reference. The vortex reads as ink rather than a clean ring; core and shafts have feathered boundaries. | AURA-2E |
-| Eruption timeline | One tight sheet from empty ground through vortex charge, core/ray eruption, hold, decay, and clear. | AURA-2E |
-| Composite hierarchy | The full composite beside the isolated reference at the same approximate character scale. All four parts remain identifiable and the caster stays readable. | AURA-2E |
+| Reference forensics | Contact sheet, consecutive differences, spatial/colour envelope, temporal-energy measurements, and explicit current-layer keep/remove audit. | AURA-2H |
+| Aperture ambiguity | Transparent-centre and darkened-centre footprint captures on light and dark terrain, with one user-approved result before integration. | AURA-2I |
+| Plume carrier | Inner-shell-only, outer-shell-only, and combined captures at 0, 90, and 180 degree yaw; the character stays clean and no card/rod silhouette appears. | AURA-2J |
+| Matched sequence | Eleven Road of Nogg phases beside the eleven supplied frames at comparable character scale, including the two crests, trough, expanding aperture, and terminal recession. | AURA-2K |
 | Final look | Live battle casts across several spells and elements, retro on and off, plus re-captures of the four specific profiles. | AURA-4 |
 
 A session whose checkpoint fails visually stops and reports the sheet to the
@@ -739,13 +786,206 @@ The unrelated `AGENTS.md` and `docs/POLICIES.md` edits remain user-owned and
 unstaged. Existing backlog entries are unchanged; no new unresolved work was
 found.
 
+**Post-resolution review:** rejected by the user's eleven-frame source sequence.
+The implementation remains committed history but is superseded by the
+reference-locked rebuild below. Do not tune or preserve its three-annulus look.
+
+### AURA-2H — Forensic frame decomposition and rebuild contract
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-2G and the user's eleven consecutive 2026-08-12 source
+frames. This is an analysis/plan item only; it does not alter the runtime aura.
+
+**Files:** `implementation_plan.md` only. Generated contact/difference sheets
+and the expanded forensic note live outside the repository; all execution-
+critical measurements are transcribed into this plan so later items have no
+external-file dependency.
+
+**End state:**
+
+- Measure the source's colour, energy, bounds, lower-rim radius, and consecutive
+  structural change after masking static UI/character pixels.
+- Describe the supported visual systems, frame-by-frame motion, and unresolved
+  black-background/alpha ambiguity without inventing inaccessible engine facts.
+- Audit every current aura layer as keep, remove, or replace.
+- Define a camera-mobile reconstruction and dependency-ordered implementation
+  items with source-backed acceptance criteria.
+
+**Risk:** treating the screenshots as alpha-bearing source art, or interpreting
+static black background as proof of an opaque dark disc, would lock a false
+material decision into implementation. Keep that ambiguity explicit and gated.
+
+**Adds to final validation coverage:** exact eleven-frame comparison, measured
+two-swell timing, spatial/colour envelope, unsupported-layer removal, and the
+transparent-versus-darkened centre decision.
+
+**Resolution (2026-08-12):** Completed. The resolved gate and established facts
+above contain the measured evidence. The current three annuli, six core cards,
+eighteen crossed ribbons, twelve puffs, and monotonic visual envelope are all
+rejected. Playback/catalog/debug infrastructure is retained. No runtime or
+asset file changed, and no battle was launched.
+
+### AURA-2I — Retire rejected carriers; build the footprint aperture A/B
+
+**Model:** Opus 5 / GPT Sol (GPT-family VFX authorship required by project
+policy).
+
+**Depends on:** AURA-2H. Starts from a task-owned clean boundary. The unrelated
+`AGENTS.md`, `docs/POLICIES.md`, `vfx_debug_scene_rework_plan.md`,
+`src/presentation/RetroRenderController.gd`, and
+`src/presentation/debug/VfxDebugArguments.gd` changes are user-owned and must
+remain unstaged and untouched.
+
+**Files:** `src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, replace or rename the owned
+ground shader, remove the owned core/ray shaders and `.uid` files after caller
+searches, `docs/VFX_DESIGN.md`, this plan, and relevant backlog reconciliation.
+
+**End state:**
+
+- Remove the six core cards, eighteen crossed ray instances, twelve wisps, their
+  build/update/isolation paths, and their effect-owned shader resources. Stop
+  consuming `neutralSoftPuff()` and `lanceStreak()` without modifying either
+  shared factory.
+- Preserve `VfxPlayback`, normalized seek/replay/skip/disposal, catalog creation,
+  and the debug scene's generic layer-isolation contract.
+- Replace the three annuli with one world-horizontal footprint carrier. It has
+  one evolving aperture boundary and two or three tightly clustered internal
+  striations only in the early states; the strokes simplify as the aperture
+  grows. No separated wave rings or pointed fragments are allowed.
+- Implement a debug-selectable transparent-centre versus low-alpha navy-
+  darkened-centre variant. Both share identical rim geometry and timing.
+- Report the honest interim budget: one visual draw call, zero particles, zero
+  hero billboards, with room reserved for two plume-shell calls.
+
+**Blocking user decision:** capture both centre variants on representative light
+and dark terrain. Record which interpretation is accepted before AURA-2K; the
+black-background source frames cannot decide it. AURA-2J may proceed because its
+plume work is independent of this choice.
+
+**Risk:** a perfect ring reads as a targeting reticle, while too many displaced
+strokes recreate the rejected concentric-wave design. Keep all striations close
+to one boundary and source-key their visibility.
+
+**Proof checkpoint:** footprint-only eleven-phase sheets for both centre modes
+on light and dark terrain, plus 0/90/180 yaw. Place the matched hold/recession
+states beside source frames 1, 8, 10, and 11.
+
+**Adds to final validation coverage:** removal of unsupported layers/resources,
+single-boundary semantics, centre-material A/B, early-to-late rim simplification,
+multi-yaw projection, zero-particle budget, and unchanged playback contract.
+
+**Resolution target:** implemented; pending end-of-plan validation and the
+explicit centre-mode decision. Debug captures and cheap integrity checks only;
+do not launch a battle.
+
+### AURA-2J — Author the plume-flow atlas and world-space curtain
+
+**Model:** Opus 5 / GPT Sol (GPT-family VFX authorship required by project
+policy).
+
+**Depends on:** committed AURA-2I implementation. The centre-mode decision may
+remain open because the plume carrier does not depend on it.
+
+**Files:** new project-owned plume atlas under
+`assets/vfx/spell_cast_aura/`, its import metadata and retained deterministic
+generator/source if one is used, a new owned plume-curtain shader,
+`src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, `docs/VFX_DESIGN.md`, this
+plan, and relevant backlog reconciliation.
+
+**End state:**
+
+- Author an original seamless eleven-state alpha atlas in angular-U by height-V
+  space. Its frames encode four or five broad feathered plume groups, asymmetric
+  lateral/upward emphasis, soft roots, and changing group widths. Do not copy
+  pixels from the supplied screenshots and do not import proprietary game art.
+- Build two continuous flared ring shells as owned `ArrayMesh` geometry. Their
+  outward-facing winding and front-face culling render only the far hemisphere
+  from an external camera, keeping the character clean without a billboard,
+  view-facing matrix override, or camera-relative origin shift.
+- Map the atlas seamlessly around each shell. Give the inner and outer shells
+  different radius/height/UV phase and low opacity so overlap builds the broad
+  plume crown without a hard cone silhouette or individual card edges.
+- Provide deterministic current/next atlas-state sampling with a tunable stepped
+  versus cross-faded transition. Use normalized playback progress, never `TIME`.
+- Preserve the total target budget of three visual draw calls including the
+  footprint, zero particles, and zero hero-scale billboards.
+
+**Risk:** a visible U seam, wrong triangle winding, or insufficient near-side
+culling can turn the curtain into a solid cylinder or wash cyan over the model.
+An over-regular atlas can become a printed sunburst. Validate layer isolates and
+camera yaws before integrated timing work.
+
+**Proof checkpoint:** atlas contact sheet, inner-only/outer-only/combined plume
+captures, character-occlusion inspection, and 0/90/180 yaw on both bright and
+dark terrain. Compare the combined silhouette with source frames 2, 3, 7, 8,
+and 10 at matched character scale.
+
+**Adds to final validation coverage:** original-atlas provenance, seamless flow,
+far-hemisphere occlusion, broad-plume silhouette, moving-camera stability,
+stepped/cross-fade capability, and the three-call budget.
+
+**Resolution target:** implemented; pending end-of-plan validation. Debug
+captures and cheap integrity checks only; do not launch a battle.
+
+### AURA-2K — Match the eleven-state motion, colour, scale, and composite
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-2I, AURA-2J, and the blocking centre-mode decision recorded
+from AURA-2I's terrain A/B.
+
+**Files:** `src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, owned footprint/plume shaders
+and atlas only as tuning requires, `docs/VFX_DESIGN.md`, `docs/MODULE_MAP.md` only
+if layer/resource inventory changes, this plan, and relevant backlog
+reconciliation.
+
+**End state:**
+
+- Map the eleven source states across the existing brief visible duration and
+  encode separate deterministic curves for plume energy, atlas state,
+  aperture radius, rim thickness, striation visibility, and terminal fade.
+- Match the measured relative plume-energy sequence
+  `1.00, 1.13, 1.11, 0.96, 0.79, 0.64, 0.61, 0.76, 0.82, 0.85, 0.70` within
+  visual tolerance, including the secondary swell instead of smoothing it into
+  one decay.
+- At the source-matched angle, keep the energy-dense field approximately 2.3
+  character widths across, concentrated from the shoulders downward, with only
+  faint tips above the head. Match deep saturated blue-cyan without a white
+  core; preserve catalog element tint hierarchy for non-ice colours.
+- Choose stepped or cross-faded atlas playback from literal comparison, not
+  preference. Seed may rotate/subtly perturb plume phase but must preserve the
+  reference grouping and all deterministic seek guarantees.
+- Update honest node/geometry/draw/particle assertions and owning documentation.
+
+**Risk:** exact scalar matching can still miss silhouette if the atlas states
+are wrong; conversely, aggressive cross-fading can blur the frame-specific flow
+into generic haze. Judge each matched state, not only the contact sheet average.
+
+**Proof checkpoint:** eleven Road of Nogg captures beside all eleven supplied
+frames at comparable character scale, plus footprint-only and plume-only rows.
+Repeat the full composite at 0/90/180 yaw, retro on/off, and at least ice, fire,
+thunder, darkness, and neutral tints. Any visible clean rings, rods, puffs,
+central column, body wash, or monotonic-only fade fails the checkpoint.
+
+**Adds to final validation coverage:** reference-state timing, two-swell energy,
+aperture growth/simplification, colour/scale envelope, seed invariance, layer
+hierarchy, retro readability, five element colours, and final resource budgets.
+
+**Resolution target:** implemented; pending end-of-plan validation. Debug
+captures and cheap integrity checks only; do not launch a battle.
+
 ### AURA-4 — Consolidated final visual, lifecycle, and battle validation
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-2E, AURA-2F, and
-AURA-2G.
-AURA-2D and AURA-3 were superseded before their own commit boundaries.
+**Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-2H, AURA-2I, AURA-2J,
+and AURA-2K. AURA-2D and AURA-3 were superseded before execution; AURA-2E,
+AURA-2F, and AURA-2G were implemented but their visual results were superseded
+by the eleven-frame authority pivot.
 
 **Files:** fixes to task-owned files if validation finds defects,
 `implementation_plan.md` resolution notes during validation, owning docs and
@@ -759,10 +999,10 @@ item:
    `.gdshader`, and `.uid`, then clean loads of `VFXDebugScene` and `Battle25D`.
    Confirm `project.godot` is untouched by the gate itself — see the
    `docs/LEARNINGS.md` entry recorded this session.
-2. At one fixed seed, capture the matched phase sequence — empty ground,
-   charge, vortex/core/ray eruption, hold, decay, clear — judged at native
-   retro resolution, not only in enlarged frames, and placed beside both
-   reference images.
+2. At one fixed seed, capture the empty/charge lead-in, all eleven matched
+   aperture/plume states, and clear. Judge them at native retro resolution, not
+   only enlarged, and place every matched state beside its supplied source
+   frame at comparable character scale.
 3. Layer-isolated and composite sheets at front-quarter, side, and rear-quarter
    yaws, retro on and off, for at least five element colours including the
    neutral fallback.
@@ -791,9 +1031,9 @@ catalogue currently points. Only the live multi-spell battle pass closes that.
 
 **Completion rule:** record the actual visual and manual evidence, mark every
 covered implementation item done, reconcile both backlogs, and commit the final
-validation result. Then, in the same session, grep the repository for `AURA-1`
-through `AURA-4`, including `AURA-2B`, `AURA-2C`, and `AURA-2D`, rewrite any
-accidental persistent reference as a durable description, and clear
+validation result. Then, in the same session, grep the repository for every
+`AURA-` identifier from this cycle, rewrite any accidental persistent reference
+as a durable description, and clear
 `implementation_plan.md` completely in a follow-up lifecycle-cleanup commit.
 
 ## 6. Deliberately not doing
@@ -811,8 +1051,8 @@ accidental persistent reference as a durable description, and clear
 - No screen-space distortion, refraction, global bloom pass, or other
   post-processing change to sell the flash — brightness comes from each
   layer's own additive overlap, not from a scene-wide effect.
-- No further parameter-tuning pass on a rejected silhouette without first
-  re-checking both reference images explicitly, per the second resolved gate.
+- No further parameter-tuning pass on a rejected silhouette. Every new carrier
+  and atlas state is re-checked against the complete eleven-frame sequence.
 - No resumption of the parked ice encasement validation inside this cycle; it is
   critical-backlog work with its own session.
 
