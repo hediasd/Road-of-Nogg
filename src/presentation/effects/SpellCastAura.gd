@@ -1,24 +1,35 @@
 ## Reference-locked generic spell-cast aura playback.
 ##
-## This implementation boundary intentionally carries only the footprint
-## aperture. The rejected core cards, ray ribbons, and particles are gone; the
-## following plan item adds the authored world-space plume curtain.
+## The rejected core cards, ray ribbons, and particles are gone. One horizontal
+## footprint and two continuous far-side shells recreate the supported layers.
 
 class_name SpellCastAura
 extends "res://src/presentation/effects/VfxPlayback.gd"
 
 const _FOOTPRINT_SHADER = preload(
 		"res://assets/shaders/effects/spell_cast_footprint_aperture.gdshader")
+const _PLUME_SHADER = preload(
+		"res://assets/shaders/effects/spell_cast_plume_curtain.gdshader")
+const _PLUME_ATLAS = preload(
+		"res://assets/vfx/spell_cast_aura/plume_flow_atlas.png")
 const _DEBUG_DARK_CENTER_FLAG := "--spell-aura-dark-center"
+const _DEBUG_STEPPED_PLUME_FLAG := "--spell-aura-stepped-plume"
 
 const VISIBLE_DURATION := SpellCastAuraProfile.DURATION_SECONDS
 const SETTLE_NORMALIZED_TIME := SpellCastAuraProfile.SETTLE_NORMALIZED_TIME
 const LAYER_FOOTPRINT := "footprint_aperture"
+const LAYER_PLUME_INNER := "plume_inner"
+const LAYER_PLUME_OUTER := "plume_outer"
 
 var _elementColor := Color.WHITE
 var _footprintInstance: MeshInstance3D
 var _footprintMaterial: ShaderMaterial
+var _innerPlumeInstance: MeshInstance3D
+var _innerPlumeMaterial: ShaderMaterial
+var _outerPlumeInstance: MeshInstance3D
+var _outerPlumeMaterial: ShaderMaterial
 var _centerDarkeningEnabled := false
+var _plumeStateCrossfade := SpellCastAuraProfile.PLUME_STATE_CROSSFADE
 var _elapsedTime := 0.0
 var _playbackScale := 1.0
 var _activeSeed := 0
@@ -113,15 +124,22 @@ func dispose() -> void:
 
 
 func get_layer_names() -> Array[String]:
-	return [LAYER_FOOTPRINT]
+	return [LAYER_FOOTPRINT, LAYER_PLUME_INNER, LAYER_PLUME_OUTER]
 
 
 func set_layer_visible(layer_name: String, visible: bool) -> void:
-	if layer_name == LAYER_FOOTPRINT:
-		if _footprintInstance != null:
-			_footprintInstance.visible = visible
-		return
-	push_warning("Unknown SpellCastAura layer: %s" % layer_name)
+	match layer_name:
+		LAYER_FOOTPRINT:
+			if _footprintInstance != null:
+				_footprintInstance.visible = visible
+		LAYER_PLUME_INNER:
+			if _innerPlumeInstance != null:
+				_innerPlumeInstance.visible = visible
+		LAYER_PLUME_OUTER:
+			if _outerPlumeInstance != null:
+				_outerPlumeInstance.visible = visible
+		_:
+			push_warning("Unknown SpellCastAura layer: %s" % layer_name)
 
 
 ## Debug A/B hook. Battle playback remains transparent until the supplied
@@ -139,14 +157,33 @@ func is_center_darkening_enabled() -> bool:
 	return _centerDarkeningEnabled
 
 
+## Debug transition control. Zero holds the current atlas cell; one crossfades
+## continuously into the next. Both paths are deterministic normalized seeks.
+func set_plume_state_crossfade(amount: float) -> void:
+	_plumeStateCrossfade = clampf(amount, 0.0, 1.0)
+	for material: ShaderMaterial in [_innerPlumeMaterial, _outerPlumeMaterial]:
+		if material != null:
+			material.set_shader_parameter("state_crossfade", _plumeStateCrossfade)
+
+
+func get_plume_state_crossfade() -> float:
+	return _plumeStateCrossfade
+
+
 func get_live_particle_count() -> int:
 	return 0
 
 
 func get_live_instance_count() -> int:
-	if _finished or _footprintInstance == null or not _footprintInstance.visible:
+	if _finished:
 		return 0
-	return 1
+	var count := 0
+	for instance: MeshInstance3D in [
+		_footprintInstance, _innerPlumeInstance, _outerPlumeInstance
+	]:
+		if instance != null and instance.visible:
+			count += 1
+	return count
 
 
 func get_live_node_count() -> int:
@@ -181,9 +218,41 @@ func _process(delta: float) -> void:
 
 func _buildLayers() -> void:
 	_centerDarkeningEnabled = OS.get_cmdline_user_args().has(_DEBUG_DARK_CENTER_FLAG)
+	_plumeStateCrossfade = (
+		0.0 if OS.get_cmdline_user_args().has(_DEBUG_STEPPED_PLUME_FLAG)
+		else SpellCastAuraProfile.PLUME_STATE_CROSSFADE
+	)
 	_footprintInstance = _createFootprintAperture(_elementColor, _centerDarkeningEnabled)
 	add_child(_footprintInstance)
 	_footprintMaterial = _footprintInstance.material_override as ShaderMaterial
+	_innerPlumeInstance = _createPlumeShell(
+		"InnerPlumeCurtain",
+		_elementColor,
+		SpellCastAuraProfile.PLUME_INNER_BOTTOM_RADIUS_U,
+		SpellCastAuraProfile.PLUME_INNER_TOP_RADIUS_U,
+		SpellCastAuraProfile.PLUME_INNER_HEIGHT_U,
+		SpellCastAuraProfile.PLUME_INNER_UV_PHASE,
+		SpellCastAuraProfile.PLUME_INNER_OPACITY,
+		SpellCastAuraProfile.PLUME_INNER_EMISSION_ENERGY,
+		SpellCastAuraProfile.PLUME_INNER_RENDER_PRIORITY,
+		_plumeStateCrossfade
+	)
+	add_child(_innerPlumeInstance)
+	_innerPlumeMaterial = _innerPlumeInstance.material_override as ShaderMaterial
+	_outerPlumeInstance = _createPlumeShell(
+		"OuterPlumeCurtain",
+		_elementColor,
+		SpellCastAuraProfile.PLUME_OUTER_BOTTOM_RADIUS_U,
+		SpellCastAuraProfile.PLUME_OUTER_TOP_RADIUS_U,
+		SpellCastAuraProfile.PLUME_OUTER_HEIGHT_U,
+		SpellCastAuraProfile.PLUME_OUTER_UV_PHASE,
+		SpellCastAuraProfile.PLUME_OUTER_OPACITY,
+		SpellCastAuraProfile.PLUME_OUTER_EMISSION_ENERGY,
+		SpellCastAuraProfile.PLUME_OUTER_RENDER_PRIORITY,
+		_plumeStateCrossfade
+	)
+	add_child(_outerPlumeInstance)
+	_outerPlumeMaterial = _outerPlumeInstance.material_override as ShaderMaterial
 	_applySeed(0)
 	assert(
 		_countNodes(self) <= SpellCastAuraProfile.MAX_EFFECT_NODES,
@@ -202,13 +271,19 @@ func _buildLayers() -> void:
 
 
 func _applyProgress(progress: float) -> void:
-	if _footprintMaterial != null:
-		_footprintMaterial.set_shader_parameter("burst_progress", progress)
+	for material: ShaderMaterial in [
+		_footprintMaterial, _innerPlumeMaterial, _outerPlumeMaterial
+	]:
+		if material != null:
+			material.set_shader_parameter("burst_progress", progress)
 
 
 func _applySeed(seed: int) -> void:
-	if _footprintMaterial != null:
-		_footprintMaterial.set_shader_parameter("seed_value", float(seed))
+	for material: ShaderMaterial in [
+		_footprintMaterial, _innerPlumeMaterial, _outerPlumeMaterial
+	]:
+		if material != null:
+			material.set_shader_parameter("seed_value", float(seed))
 
 
 static func _createFootprintAperture(
@@ -255,6 +330,95 @@ static func _createFootprintAperture(
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return instance
+
+
+static func _createPlumeShell(
+		instanceName: String,
+		color: Color,
+		bottomRadius: float,
+		topRadius: float,
+		height: float,
+		uvPhase: float,
+		opacity: float,
+		emissionEnergy: float,
+		renderPriority: int,
+		stateCrossfade: float) -> MeshInstance3D:
+	var material := ShaderMaterial.new()
+	material.shader = _PLUME_SHADER
+	material.render_priority = renderPriority
+	material.set_shader_parameter("plume_atlas", _PLUME_ATLAS)
+	material.set_shader_parameter(
+		"atlas_pixel_size", SpellCastAuraProfile.PLUME_ATLAS_PIXEL_SIZE
+	)
+	material.set_shader_parameter("aura_color", color)
+	material.set_shader_parameter("burst_progress", 0.0)
+	material.set_shader_parameter("seed_value", 0.0)
+	material.set_shader_parameter("uv_phase", uvPhase)
+	material.set_shader_parameter("shell_opacity", opacity)
+	material.set_shader_parameter("emission_energy", emissionEnergy)
+	material.set_shader_parameter("state_crossfade", stateCrossfade)
+	material.set_shader_parameter("charge_end", SpellCastAuraProfile.CHARGE_END)
+	material.set_shader_parameter("decay_end", SpellCastAuraProfile.DECAY_END)
+
+	var instance := MeshInstance3D.new()
+	instance.name = instanceName
+	instance.mesh = _createFlaredShellMesh(bottomRadius, topRadius, height)
+	instance.position.y = SpellCastAuraProfile.PLUME_BASE_HEIGHT_U
+	instance.material_override = material
+	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	instance.custom_aabb = AABB(
+		Vector3(-topRadius, -0.02, -topRadius),
+		Vector3(topRadius * 2.0, height + 0.04, topRadius * 2.0)
+	)
+	return instance
+
+
+## Outward-facing triangle winding is intentional. The plume shader culls those
+## front faces, so an external camera sees only the far hemisphere's back faces.
+static func _createFlaredShellMesh(
+		bottomRadius: float,
+		topRadius: float,
+		height: float) -> ArrayMesh:
+	var segments := SpellCastAuraProfile.PLUME_SHELL_SEGMENTS
+	var heightBands := SpellCastAuraProfile.PLUME_SHELL_HEIGHT_BANDS
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var indices := PackedInt32Array()
+
+	for row: int in range(heightBands + 1):
+		var heightFraction := float(row) / float(heightBands)
+		var flareFraction := pow(heightFraction, 0.72)
+		var radius := lerpf(bottomRadius, topRadius, flareFraction)
+		for segment: int in range(segments + 1):
+			var angularFraction := float(segment) / float(segments)
+			var angle := angularFraction * TAU
+			var outward := Vector3(cos(angle), 0.0, sin(angle))
+			vertices.append(outward * radius + Vector3.UP * height * heightFraction)
+			normals.append(outward)
+			uvs.append(Vector2(angularFraction, heightFraction))
+
+	var rowStride := segments + 1
+	for row: int in range(heightBands):
+		for segment: int in range(segments):
+			var lowerCurrent := row * rowStride + segment
+			var lowerNext := lowerCurrent + 1
+			var upperCurrent := lowerCurrent + rowStride
+			var upperNext := upperCurrent + 1
+			indices.append_array(PackedInt32Array([
+				lowerCurrent, upperNext, upperCurrent,
+				lowerCurrent, lowerNext, upperNext,
+			]))
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
 
 
 static func _countNodes(node: Node) -> int:

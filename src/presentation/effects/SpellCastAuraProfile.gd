@@ -1,7 +1,6 @@
 ## Calibration constants for the reference-locked generic spell-cast aura.
 ##
-## This implementation item owns only the single footprint aperture. The next
-## item adds two continuous plume shells without changing this carrier.
+## The effect owns one footprint aperture and two continuous plume shells.
 
 class_name SpellCastAuraProfile
 
@@ -32,11 +31,33 @@ const CENTER_DARKENING_ALPHA := 0.34
 const FOOTPRINT_HEIGHT_U := 0.018
 const FOOTPRINT_RENDER_PRIORITY := 2
 
-## AUTHORED interim engineering ceilings. Two plume calls are reserved by the
-## final ceiling; this item itself creates only the footprint carrier.
-const EXPECTED_DRAW_CALLS := 1
+## AUTHORED continuous far-side plume curtain. Both shells use the same original
+## eleven-state 704x64 atlas but differ in flare, height, phase, and opacity.
+const PLUME_ATLAS_PIXEL_SIZE := Vector2(704.0, 64.0)
+const PLUME_SHELL_SEGMENTS := 64
+const PLUME_SHELL_HEIGHT_BANDS := 8
+const PLUME_BASE_HEIGHT_U := 0.025
+const PLUME_INNER_BOTTOM_RADIUS_U := 0.44
+const PLUME_INNER_TOP_RADIUS_U := 0.88
+const PLUME_INNER_HEIGHT_U := 1.32
+const PLUME_INNER_UV_PHASE := 0.06
+const PLUME_INNER_OPACITY := 0.65
+const PLUME_INNER_EMISSION_ENERGY := 2.80
+const PLUME_OUTER_BOTTOM_RADIUS_U := 0.53
+const PLUME_OUTER_TOP_RADIUS_U := 1.18
+const PLUME_OUTER_HEIGHT_U := 1.68
+const PLUME_OUTER_UV_PHASE := 0.41
+const PLUME_OUTER_OPACITY := 0.45
+const PLUME_OUTER_EMISSION_ENERGY := 2.00
+const PLUME_STATE_CROSSFADE := 1.0
+const PLUME_INNER_RENDER_PRIORITY := 3
+const PLUME_OUTER_RENDER_PRIORITY := 4
+
+## AUTHORED final engineering ceiling: footprint plus two plume calls, with no
+## particles or billboards.
+const EXPECTED_DRAW_CALLS := 3
 const MAX_DRAW_CALLS := 3
-const EXPECTED_GEOMETRY_INSTANCES := 1
+const EXPECTED_GEOMETRY_INSTANCES := 3
 const MAX_GEOMETRY_INSTANCES := 3
 const MAX_EFFECT_NODES := 4
 

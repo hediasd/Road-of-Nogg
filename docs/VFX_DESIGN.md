@@ -402,28 +402,41 @@ decomposition. They support one evolving footprint aperture/boundary and one
 broad changing plume crown; they do not support separated ground waves, a
 central glow column, individual lance rods, or rising particles.
 
-At the current committed implementation boundary the generic aura deliberately
-renders only the footprint aperture. One world-horizontal alpha-mixed plane
-draws a single feathered boundary whose radius contracts slightly before
-expanding late. Two tightly packed internal striations add early rim texture
-and disappear as the opening simplifies. They remain inside the main rim's
-feather rather than travelling as separate concentric rings. Camera pitch alone
-supplies the apparent ellipse.
+The footprint is one world-horizontal alpha-mixed plane. It draws a single
+feathered boundary whose radius contracts slightly before expanding late. Two
+tightly packed internal striations add early rim texture and disappear as the
+opening simplifies. They remain inside the main rim's feather rather than
+travelling as separate concentric rings. Camera pitch alone supplies the
+apparent ellipse.
 
 The supplied screenshots have a black background and no alpha, so they cannot
 prove whether the aperture centre is opaque darkness or transparent negative
 space. Runtime therefore defaults to transparent. `set_center_darkening()` and
 the `--spell-aura-dark-center` debug flag select a low-alpha navy variant for
-the required terrain comparison without changing geometry, timing, or the
-one-draw-call budget.
+the required terrain comparison without changing geometry or timing.
+
+The plume crown uses two continuous flared `ArrayMesh` ring shells. Both carry
+outward normals and Godot-correct outward winding; the owned shader uses
+front-face culling so an external camera receives only the far hemisphere
+behind the character. This retains a clean silhouette at changing camera yaw
+without billboard matrices or camera-relative origins. Inner and outer shells
+have different radius, height, angular phase, opacity, and additive energy, so
+their overlap forms broad changing plume groups instead of a solid cone edge.
+
+`assets/vfx/spell_cast_aura/plume_flow_atlas.png` is original project artwork
+generated deterministically by the retained adjacent Python/Pillow source. Its
+eleven 64x64 cells encode angular-U by height-V alpha fields; each cell repeats
+its first angular texel at the last column and the generator validates the seam.
+The shader samples current and next cells from normalized playback progress,
+never `TIME`. `set_plume_state_crossfade()` and
+`--spell-aura-stepped-plume` expose cross-faded and stepped inspection paths.
 
 The rejected core cards, crossed ribbons, and `GPUParticles3D` mist have been
 removed with their owned shaders. The effect no longer consumes
 `VfxTextures.neutralSoftPuff()` or `VfxTextures.lanceStreak()`, reports zero
-particles, and returns true from `is_particle_seek_exact()`. The remaining
-source-authoritative plume crown is open build work; it must use continuous
-world-space carriers and retain the clean character silhouette without
-restoring a hero-scale billboard.
+particles, and returns true from `is_particle_seek_exact()`. The complete
+carrier budget is three instances/draw calls: footprint, inner plume, and outer
+plume. None is a hero-scale billboard.
 
 ### Authored textures and frame animation
 

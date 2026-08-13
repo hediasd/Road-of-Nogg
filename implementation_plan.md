@@ -946,8 +946,31 @@ and 10 at matched character scale.
 far-hemisphere occlusion, broad-plume silhouette, moving-camera stability,
 stepped/cross-fade capability, and the three-call budget.
 
-**Resolution target:** implemented; pending end-of-plan validation. Debug
-captures and cheap integrity checks only; do not launch a battle.
+**Resolution (2026-08-13):** Implemented; pending end-of-plan validation. The
+effect now owns an original, deterministic 11x1 alpha atlas plus its retained
+Python/Pillow generator. Every 64x64 cell is authored in angular-U by height-V
+space from four changing broad plume groups, offset shoulders, and a continuous
+soft root; the generator verifies identical first/last U texels per frame and
+contains no pixels from the supplied screenshots.
+
+Two phase-offset flared `ArrayMesh` shells sample current/next cells from
+normalized progress and expose either cross-faded playback or deterministic
+stepping through `set_plume_state_crossfade()` and
+`--spell-aura-stepped-plume`. Their corrected Godot winding plus shader
+`cull_front` renders only the far hemisphere. Standalone 0/90/180-degree plates
+on light and dark terrain confirm the plume remains planted behind the opaque
+character proxy with no body wash, billboard matrix, camera-relative origin,
+particle, or `TIME` dependency. Inner-only, outer-only, combined, stepped,
+atlas-contact, and source-checkpoint plates are stored in the task's external
+visualization directory. The budget is exactly three visual instances/draw
+calls including the footprint and zero particles.
+
+The concurrently developed debug-scene refactor changed its capture contract,
+so verification used a temporary standalone plate that was removed after
+capture. Once that independent work committed and released its overlapping
+documentation surface, the persistent aura design section was reconciled here.
+Its live-authoring additions to `SpellCastAura.gd` remain as a separate unstaged
+working-tree layer and are not part of this item. No battle was launched.
 
 ### AURA-2K — Match the eleven-state motion, colour, scale, and composite
 
