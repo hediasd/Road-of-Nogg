@@ -1039,12 +1039,76 @@ flat shards or separate ground rings. The effect still reports three
 instances/draw calls and zero particles. Godot import/parse and focused diff
 integrity checks complete this item; no battle was launched.
 
+### AURA-2L — Restore the body-enclosing rotating spike crown
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-2K and the user's post-validation comparison against the
+eleven supplied animation frames.
+
+**Files:** `src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, the owned plume and
+footprint shaders, the project-authored plume atlas and its retained generator,
+this plan, and relevant backlog reconciliation.
+
+**End state:**
+
+- Replace the timid far-side-only composition with a strong world-space crown
+  that visibly surrounds the caster. The inner shell may wash lightly across
+  the camera-side body so the model reads as inside the aura; the outer shell
+  remains ghostlier and preserves character readability.
+- Turn the atlas field into smooth, sharp-tipped upward tongues rather than
+  broad puffs, literal flat shards, or clean concentric rings. Keep a narrow
+  dark aperture and close irregular rim only as the ground anchor; it must not
+  dominate as a slow cyan puddle.
+- Drive coherent angular spin and independently phased vertical tip
+  oscillation from normalized playback progress. Do not use `TIME`, particles,
+  billboards, camera-relative placement, or a camera-facing transform.
+- Preserve the eleven source checkpoints and two-swell energy curve while
+  increasing the crown's height, brightness, and body overlap to the user's
+  approved direction in attachment 1.
+- Retain the three-instance/draw-call ceiling and project-owned deterministic
+  atlas source.
+
+**Risk:** front-side additive coverage can bleach the character; excessive
+vertex motion can expose the shell's geometry as hard shards; and overly
+regular tongues can resemble a printed sunburst. Judge enclosure, softness,
+and irregularity together from multiple camera yaws.
+
+**Proof checkpoint:** focused native-retro captures of all eleven source states,
+plus isolated inner/outer/footprint layers and 0/90/180-degree yaw composites.
+Compare the composite directly with the supplied source frames and attachment
+1; fail any result dominated by broad ground rings, lacking body overlap, or
+showing billboard/card behavior. Record a narrow load/parse probe only; battle
+and full integration remain consolidated in AURA-4.
+
+**Adds to final validation coverage:** body enclosure, rotating flow, independent
+ghost-tip oscillation, sharp upward silhouette, restrained ground anchor,
+multi-yaw stability, deterministic seek, and unchanged visual budgets.
+
+**Resolution:** implemented; pending end-of-plan validation. The footprint is
+now a smaller, lower-energy dark anchor rather than the dominant cyan carrier.
+The retained deterministic atlas was regenerated with seven irregular
+Gaussian tongue groups whose local height narrows toward feathered pointed
+tips. The two world-space shells are taller, wider, and brighter: the outer
+shell discards its camera-side faces, while the inner shell retains only a
+normal-facing low-opacity body wash. The explicit source-state position now
+drives 0.72 angular turns plus two independently phased vertex-height waves;
+there is still no `TIME`, billboard, particle, or camera-relative transform.
+
+Focused native-retro evidence covers all eleven source checkpoints, isolated
+inner/outer/footprint carriers, and 0/90/180-degree camera yaws at seed 7. The
+sequence shows plume groups rotating around the caster while their tips rise
+and fall, and the yaw plates show a planted world-space crown. Isolated
+footprint capture contains no broad travelling rings. Godot 4.4 imported and
+parsed the modified shader and deterministic atlas; no battle was launched.
+
 ### AURA-4 — Consolidated final visual, lifecycle, and battle validation
 
 **Model:** Opus 5 / GPT Sol
 
 **Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-2H, AURA-2I, AURA-2J,
-and AURA-2K. AURA-2D and AURA-3 were superseded before execution; AURA-2E,
+AURA-2K, and AURA-2L. AURA-2D and AURA-3 were superseded before execution; AURA-2E,
 AURA-2F, and AURA-2G were implemented but their visual results were superseded
 by the eleven-frame authority pivot.
 
@@ -1105,6 +1169,11 @@ screen. A detached pre-aura comparison at `b678bf2` reproduces the identical
 failure, proving it is pre-existing rather than introduced by this cycle; it is
 now recorded in the critical backlog and requires a broader script/resource
 ownership fix outside the aura plan.
+
+The later body-enclosing spike-crown revision supersedes the aura imagery from
+that pass. Its focused implementation evidence is recorded above, but its live
+battle, CRT, lifecycle, and shared-effect regression coverage must be repeated
+inside this final item once the shutdown blocker is resolved.
 
 Completed evidence: the native-retro lead-in, eleven matched states, and clear;
 320x240 retro/non-retro composites for five element colours at 0/90/180-degree

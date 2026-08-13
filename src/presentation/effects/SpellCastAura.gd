@@ -1,7 +1,7 @@
 ## Reference-locked generic spell-cast aura playback.
 ##
-## The rejected core cards, ray ribbons, and particles are gone. One horizontal
-## footprint and two continuous far-side shells recreate the supported layers.
+## The rejected core cards, ray ribbons, and particles are gone. One restrained
+## footprint and two continuous world-space crown shells surround the caster.
 
 class_name SpellCastAura
 extends "res://src/presentation/effects/VfxPlayback.gd"
@@ -388,8 +388,9 @@ static func _createPlumeShell(
 	return instance
 
 
-## Outward-facing triangle winding is intentional. The plume shader culls those
-## front faces, so an external camera sees only the far hemisphere's back faces.
+## Outward-facing triangle winding is intentional. The plume shader uses face
+## orientation to keep the outer shell behind the caster and restrict the
+## inner shell's camera-side contribution to a soft body-enclosing wash.
 static func _createFlaredShellMesh(
 		bottomRadius: float,
 		topRadius: float,

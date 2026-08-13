@@ -417,19 +417,25 @@ choice: runtime uses the approved low-alpha navy aperture by default.
 retain the transparent comparison path without changing geometry or timing.
 
 The plume crown uses two continuous flared `ArrayMesh` ring shells. Both carry
-outward normals and Godot-correct outward winding; the owned shader uses
-front-face culling so an external camera receives only the far hemisphere
-behind the character. This retains a clean silhouette at changing camera yaw
-without billboard matrices or camera-relative origins. Inner and outer shells
-have different radius, height, angular phase, opacity, and additive energy, so
-their overlap forms broad changing plume groups instead of a solid cone edge.
+outward normals and Godot-correct outward winding. The owned double-sided
+shader discards the outer shell's camera-side faces and retains only a narrow,
+normal-facing part of the inner shell across the body. The caster therefore
+reads inside the aura without exposing the flared carrier as a cyan skirt.
+This remains stable at changing camera yaw without billboard matrices or
+camera-relative origins. Inner and outer shells have different radius, height,
+angular phase, opacity, and additive energy, so their overlap forms a bright
+enclosing crown instead of a solid cone edge.
 
 `assets/vfx/spell_cast_aura/plume_flow_atlas.png` is original project artwork
 generated deterministically by the retained adjacent Python/Pillow source. Its
-eleven 64x64 cells encode angular-U by height-V alpha fields; each cell repeats
+eleven 64x64 cells encode angular-U by height-V alpha fields. Seven irregular
+Gaussian groups taper toward locally varying heights, producing pointed but
+feathered upward tongues rather than cards or blunt strips; each cell repeats
 its first angular texel at the last column and the generator validates the seam.
 The CPU maps normalized seek onto the eleven measured source positions and
-passes an explicit atlas position to the shader; the shader never uses `TIME`.
+passes an explicit atlas position to the shader. That same explicit position
+drives 0.72 turns of angular flow and independently phased vertex-height
+oscillation, so the shader never uses `TIME`.
 Literal comparison selected stepped cells as the shipping default because
 cross-fading blurred the changing frame-specific groupings into generic haze.
 `set_plume_state_crossfade()` and `--spell-aura-crossfade-plume` retain the

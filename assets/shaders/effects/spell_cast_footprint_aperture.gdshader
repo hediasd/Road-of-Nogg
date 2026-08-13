@@ -2,21 +2,22 @@
 //
 // One horizontal plane produces the camera-pitched ellipse. The main rim and
 // its two close early striations remain one boundary system; there are no
-// independently travelling rings. The centre darkening uniform exists only for
-// the required terrain A/B and defaults to transparent in battle playback.
+// independently travelling rings. This carrier is deliberately quieter than
+// the vertical crown: it is a dark casting aperture with one close irregular
+// edge, not a cyan puddle competing with the body-enclosing aura.
 
 shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled;
 
 uniform vec4 aura_color : source_color = vec4(0.05, 0.42, 0.75, 1.0);
 uniform float seed_value = 0.0;
-uniform float outer_radius = 1.16;
+uniform float outer_radius = 0.92;
 uniform float aperture_radius = 0.43;
 uniform float rim_width = 0.105;
-uniform float rim_alpha : hint_range(0.0, 1.0) = 0.34;
-uniform float striation_alpha : hint_range(0.0, 1.0) = 0.22;
+uniform float rim_alpha : hint_range(0.0, 1.0) = 0.20;
+uniform float striation_alpha : hint_range(0.0, 1.0) = 0.08;
 uniform float striation_visibility : hint_range(0.0, 1.0) = 1.0;
-uniform float rim_emission_energy : hint_range(0.0, 8.0) = 0.82;
+uniform float rim_emission_energy : hint_range(0.0, 8.0) = 0.58;
 uniform float center_darkening : hint_range(0.0, 1.0) = 0.0;
 uniform float source_state_position : hint_range(0.0, 10.0) = 0.0;
 uniform float effect_visibility : hint_range(0.0, 1.0) = 0.0;

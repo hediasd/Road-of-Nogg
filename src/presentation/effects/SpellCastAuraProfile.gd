@@ -1,6 +1,7 @@
 ## Calibration constants for the reference-locked generic spell-cast aura.
 ##
-## The effect owns one footprint aperture and two continuous plume shells.
+## The effect owns one restrained footprint aperture and two continuous plume
+## crown shells that surround the caster without billboards.
 
 class_name SpellCastAuraProfile
 
@@ -38,37 +39,39 @@ const APERTURE_STRIATION_CURVE := [
 ## occupies roughly 37-46 px around the aperture and changes modestly rather
 ## than emitting separated rings. Values are normalized inside the footprint
 ## shader's authored outer radius.
-const FOOTPRINT_PLANE_SIZE_U := 2.80
-const FOOTPRINT_OUTER_RADIUS_U := 1.16
+const FOOTPRINT_PLANE_SIZE_U := 2.30
+const FOOTPRINT_OUTER_RADIUS_U := 0.92
 const APERTURE_RADIUS_START := APERTURE_RADIUS_CURVE[0]
 const APERTURE_RADIUS_TROUGH := APERTURE_RADIUS_CURVE[6]
 const APERTURE_RADIUS_END := APERTURE_RADIUS_CURVE[10]
 const APERTURE_RIM_WIDTH := 0.105
-const APERTURE_RIM_ALPHA := 0.34
-const APERTURE_STRIATION_ALPHA := 0.22
-const APERTURE_RIM_EMISSION_ENERGY := 0.82
-const CENTER_DARKENING_ALPHA := 0.34
+const APERTURE_RIM_ALPHA := 0.20
+const APERTURE_STRIATION_ALPHA := 0.08
+const APERTURE_RIM_EMISSION_ENERGY := 0.58
+const CENTER_DARKENING_ALPHA := 0.42
 const FOOTPRINT_HEIGHT_U := 0.018
 const FOOTPRINT_RENDER_PRIORITY := 2
 
-## AUTHORED continuous far-side plume curtain. Both shells use the same original
+## AUTHORED body-enclosing plume crown. Both shells use the same original
 ## eleven-state 704x64 atlas but differ in flare, height, phase, and opacity.
+## Angular spin and tip oscillation are derived from the explicit source-state
+## position in the shader; neither shell uses TIME or a camera-facing transform.
 const PLUME_ATLAS_PIXEL_SIZE := Vector2(704.0, 64.0)
 const PLUME_SHELL_SEGMENTS := 64
 const PLUME_SHELL_HEIGHT_BANDS := 24
 const PLUME_BASE_HEIGHT_U := 0.025
-const PLUME_INNER_BOTTOM_RADIUS_U := 0.44
-const PLUME_INNER_TOP_RADIUS_U := 0.88
-const PLUME_INNER_HEIGHT_U := 1.18
+const PLUME_INNER_BOTTOM_RADIUS_U := 0.46
+const PLUME_INNER_TOP_RADIUS_U := 0.76
+const PLUME_INNER_HEIGHT_U := 1.82
 const PLUME_INNER_UV_PHASE := 0.06
-const PLUME_INNER_OPACITY := 0.55
-const PLUME_INNER_EMISSION_ENERGY := 1.65
-const PLUME_OUTER_BOTTOM_RADIUS_U := 0.53
-const PLUME_OUTER_TOP_RADIUS_U := 1.18
-const PLUME_OUTER_HEIGHT_U := 1.48
+const PLUME_INNER_OPACITY := 0.78
+const PLUME_INNER_EMISSION_ENERGY := 2.55
+const PLUME_OUTER_BOTTOM_RADIUS_U := 0.56
+const PLUME_OUTER_TOP_RADIUS_U := 1.34
+const PLUME_OUTER_HEIGHT_U := 2.24
 const PLUME_OUTER_UV_PHASE := 0.20
-const PLUME_OUTER_OPACITY := 0.38
-const PLUME_OUTER_EMISSION_ENERGY := 1.20
+const PLUME_OUTER_OPACITY := 0.72
+const PLUME_OUTER_EMISSION_ENERGY := 2.60
 ## Literal state comparisons retain more of the source's frame-specific plume
 ## grouping than cross-fading, which blurs adjacent silhouettes into haze.
 const PLUME_STATE_CROSSFADE := 0.0

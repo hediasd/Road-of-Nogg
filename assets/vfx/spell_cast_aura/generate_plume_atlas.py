@@ -14,13 +14,13 @@ from PIL import Image
 
 FRAME_COUNT = 11
 CELL_SIZE = 64
-GROUP_COUNT = 4
+GROUP_COUNT = 7
 OUTPUT_PATH = Path(__file__).with_name("plume_flow_atlas.png")
 
-BASE_CENTERS = (0.04, 0.30, 0.57, 0.82)
-BASE_WIDTHS = (0.078, 0.060, 0.086, 0.070)
-BASE_HEIGHTS = (0.84, 0.68, 0.94, 0.78)
-BASE_LEANS = (0.050, -0.038, 0.072, -0.052)
+BASE_CENTERS = (0.025, 0.16, 0.305, 0.47, 0.61, 0.775, 0.905)
+BASE_WIDTHS = (0.048, 0.036, 0.052, 0.040, 0.046, 0.034, 0.050)
+BASE_HEIGHTS = (0.88, 0.72, 0.96, 0.79, 0.91, 0.69, 0.84)
+BASE_LEANS = (0.040, -0.032, 0.060, -0.045, 0.034, -0.055, 0.048)
 
 
 def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -54,16 +54,28 @@ def plume_field(angular_u: float, height_v: float, state: float, frame: int) -> 
         center = BASE_CENTERS[group] + center_shift
         lean = BASE_LEANS[group] + math.cos(group_phase * 0.77) * 0.018
         bent_center = center + lean * height_v**1.28
-        width_change = 0.82 + 0.22 * math.sin(group_phase * 1.13 + 0.4)
-        width = BASE_WIDTHS[group] * width_change * lerp(0.92, 1.20, height_v)
+        width_change = 0.84 + 0.20 * math.sin(group_phase * 1.13 + 0.4)
+        # Broad at the root and narrow at the tip: a soft aura tongue, never a
+        # rectangular card or polygonal shard.
+        width = BASE_WIDTHS[group] * width_change * lerp(1.38, 0.54, height_v)
         distance_u = abs(wrapped_distance(angular_u, bent_center))
-        lateral = math.exp(-0.5 * (distance_u / max(width, 0.001)) ** 2.0)
+        normalized_lateral = distance_u / max(width, 0.001)
+        lateral = math.exp(-0.5 * normalized_lateral**2.0)
 
-        height_change = 0.90 + 0.10 * math.sin(group_phase * 0.89 - 0.5)
-        plume_height = clamp(BASE_HEIGHTS[group] * height_change, 0.48, 0.98)
+        height_change = 0.88 + 0.14 * math.sin(group_phase * 0.89 - 0.5)
+        plume_height = clamp(BASE_HEIGHTS[group] * height_change, 0.54, 0.99)
         root = smoothstep(0.0, 0.075 + (group % 2) * 0.025, height_v)
-        tip = 1.0 - smoothstep(plume_height - 0.21, plume_height, height_v)
-        body = clamp(root * tip) ** 1.15
+        tip_softness = 0.064 + (group % 3) * 0.012
+        # The visible height falls away from the tongue centerline. A constant
+        # cutoff produced blunt rectangular caps; this rounded triangular
+        # profile makes each tip sharp while its Gaussian sides stay ghostly.
+        local_height = plume_height - (
+            clamp(normalized_lateral, 0.0, 2.4) ** 1.28
+        ) * 0.19
+        tip = 1.0 - smoothstep(
+            local_height - tip_softness, local_height, height_v
+        )
+        body = clamp(root * tip) ** 1.05
         lobe = lateral * body
         field = max(field, lobe * (0.72 + 0.16 * math.sin(group_phase + 1.2)))
 
@@ -71,21 +83,21 @@ def plume_field(angular_u: float, height_v: float, state: float, frame: int) -> 
         # remaining part of the same continuous alpha field.
         shoulder_center = bent_center - lean * 0.55 + 0.035 * math.sin(group_phase * 1.4)
         shoulder_distance = abs(wrapped_distance(angular_u, shoulder_center))
-        shoulder_width = width * (1.28 + 0.12 * math.cos(group_phase))
+        shoulder_width = width * (1.42 + 0.12 * math.cos(group_phase))
         shoulder = math.exp(-0.5 * (shoulder_distance / shoulder_width) ** 2.0)
         shoulder_tip = 1.0 - smoothstep(
             plume_height * 0.50, plume_height * 0.82, height_v
         )
-        secondary += shoulder * root * shoulder_tip * 0.032
+        secondary += shoulder * root * shoulder_tip * 0.045
 
     # A continuous low root haze binds the groups into one curtain. Periodic
     # harmonics preserve the exact U seam without creating thin rays.
     root_haze = (
-        0.16
-        + 0.035 * math.sin(angular_u * math.tau * 2.0 + state * 1.7)
-        + 0.025 * math.sin(angular_u * math.tau * 5.0 - state * 2.1)
+        0.075
+        + 0.018 * math.sin(angular_u * math.tau * 2.0 + state * 1.7)
+        + 0.012 * math.sin(angular_u * math.tau * 5.0 - state * 2.1)
     ) * smoothstep(0.0, 0.045, height_v) * (
-        1.0 - smoothstep(0.10, 0.34, height_v)
+        1.0 - smoothstep(0.10, 0.30, height_v)
     )
     upper_feather = 1.0 - smoothstep(0.82, 1.0, height_v)
     return clamp((field + secondary + root_haze) * upper_feather)
