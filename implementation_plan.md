@@ -876,9 +876,28 @@ states beside source frames 1, 8, 10, and 11.
 single-boundary semantics, centre-material A/B, early-to-late rim simplification,
 multi-yaw projection, zero-particle budget, and unchanged playback contract.
 
-**Resolution target:** implemented; pending end-of-plan validation and the
-explicit centre-mode decision. Debug captures and cheap integrity checks only;
-do not launch a battle.
+**Resolution (2026-08-12):** Implemented; pending end-of-plan validation and the
+explicit centre-mode decision. `SpellCastAura` now owns one horizontal
+`FootprintAperture` plane and no cards, ribbon instances, particles, or shared
+procedural textures. Its shader renders one contracting-then-expanding boundary
+with two close early striations, and `set_center_darkening()` plus
+`--spell-aura-dark-center` switch only the optional navy centre fill. Playback,
+seek, settle, disposal, catalog construction, and layer isolation remain on the
+existing contract; the reported interim budget is one geometry instance, one
+draw call, zero particles, and exact seek.
+
+The controlled proof set is stored outside the repository in the task's
+visualization directory: light-terrain and dark-terrain eleven-state sheets for
+both centre modes, unobstructed light/dark A/B plates, 0/90/180-degree yaw
+captures, and `aura_source_vs_footprint_checkpoint.png` pairing source frames 1,
+8, 10, and 11 with the corresponding footprint states. The yaw plates preserve
+the same world-horizontal projection, confirming that no hero billboard
+remains. The darkened centre is visually closer to the source's negative-space
+well on both terrain values, but runtime deliberately remains transparent until
+the user accepts that interpretation. The three rejected owned shaders and
+their UIDs were removed after caller search; the neutral shared texture factory
+was not changed. No battle was launched, and the unrelated user-owned working
+tree changes listed above remain unstaged and untouched.
 
 ### AURA-2J — Author the plume-flow atlas and world-space curtain
 

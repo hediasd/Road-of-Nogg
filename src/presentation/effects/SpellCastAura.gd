@@ -1,43 +1,32 @@
-## Element-tinted spiritual vortex implementing the uniform VFX playback contract.
+## Reference-locked generic spell-cast aura playback.
 ##
-## Runtime and debug callers both create this effect through SpellVfxCatalog,
-## so target-centred battle playback and authoring controls share one
-## implementation.
+## This implementation boundary intentionally carries only the footprint
+## aperture. The rejected core cards, ray ribbons, and particles are gone; the
+## following plan item adds the authored world-space plume curtain.
 
 class_name SpellCastAura
 extends "res://src/presentation/effects/VfxPlayback.gd"
 
-const _VORTEX_SHADER = preload(
-		"res://assets/shaders/effects/spell_cast_ground_vortex.gdshader")
-const _CORE_SHADER = preload(
-		"res://assets/shaders/effects/spell_cast_core_glow.gdshader")
-const _RAY_SHADER = preload(
-		"res://assets/shaders/effects/spell_cast_ray_fan.gdshader")
+const _FOOTPRINT_SHADER = preload(
+		"res://assets/shaders/effects/spell_cast_footprint_aperture.gdshader")
+const _DEBUG_DARK_CENTER_FLAG := "--spell-aura-dark-center"
 
 const VISIBLE_DURATION := SpellCastAuraProfile.DURATION_SECONDS
 const SETTLE_NORMALIZED_TIME := SpellCastAuraProfile.SETTLE_NORMALIZED_TIME
-const LAYER_VORTEX := "ground_vortex"
-const LAYER_RAYS := "radial_rays"
-const LAYER_CORE := "core_glow"
-const LAYER_WISPS := "rising_wisps"
+const LAYER_FOOTPRINT := "footprint_aperture"
 
 var _elementColor := Color.WHITE
-var _vortexInstance: MeshInstance3D
-var _vortexMaterial: ShaderMaterial
-var _rayInstance: MultiMeshInstance3D
-var _rayMaterial: ShaderMaterial
-var _coreInstance: MultiMeshInstance3D
-var _coreMaterial: ShaderMaterial
-var _rayLayoutSeed: int = -1
-var _wisps: GPUParticles3D
-var _elapsedTime: float = 0.0
-var _playbackScale: float = 1.0
-var _activeSeed: int = 0
-var _mode: String = MODE_BATTLE
-var _playing: bool = false
-var _finished: bool = true
-var _disposed: bool = false
-var _autoDispose: bool = false
+var _footprintInstance: MeshInstance3D
+var _footprintMaterial: ShaderMaterial
+var _centerDarkeningEnabled := false
+var _elapsedTime := 0.0
+var _playbackScale := 1.0
+var _activeSeed := 0
+var _mode := MODE_BATTLE
+var _playing := false
+var _finished := true
+var _disposed := false
+var _autoDispose := false
 
 
 static func spawn(parent: Node3D, world_pos: Vector3, element_color: Color) -> void:
@@ -69,14 +58,11 @@ func play(seed: int, mode: String) -> void:
 	_playing = true
 	_applySeed(seed)
 	_applyProgress(0.0)
-	_restartParticlesAt(0.0)
 	set_process(true)
 
 
 func set_playback_scale(scale: float) -> void:
 	_playbackScale = maxf(scale, 0.0)
-	if _wisps != null:
-		_wisps.speed_scale = _playbackScale if _playing else 0.0
 
 
 func seek_normalized(time: float) -> void:
@@ -88,7 +74,6 @@ func seek_normalized(time: float) -> void:
 	if _finished:
 		_playing = false
 	_applyProgress(normalizedTime)
-	_restartParticlesAt(_elapsedTime)
 
 
 func skip_to_settle() -> void:
@@ -117,9 +102,6 @@ func dispose() -> void:
 	_disposed = true
 	_playing = false
 	set_process(false)
-	if _wisps != null:
-		_wisps.emitting = false
-		_wisps.speed_scale = 0.0
 	if is_queued_for_deletion():
 		return
 	if is_inside_tree():
@@ -131,49 +113,40 @@ func dispose() -> void:
 
 
 func get_layer_names() -> Array[String]:
-	return [LAYER_VORTEX, LAYER_RAYS, LAYER_CORE, LAYER_WISPS]
+	return [LAYER_FOOTPRINT]
 
 
 func set_layer_visible(layer_name: String, visible: bool) -> void:
-	match layer_name:
-		LAYER_VORTEX:
-			if _vortexInstance != null:
-				_vortexInstance.visible = visible
-		LAYER_RAYS:
-			if _rayInstance != null:
-				_rayInstance.visible = visible
-		LAYER_CORE:
-			if _coreInstance != null:
-				_coreInstance.visible = visible
-		LAYER_WISPS:
-			if _wisps != null:
-				_wisps.visible = visible
-		_:
-			push_warning("Unknown SpellCastAura layer: %s" % layer_name)
+	if layer_name == LAYER_FOOTPRINT:
+		if _footprintInstance != null:
+			_footprintInstance.visible = visible
+		return
+	push_warning("Unknown SpellCastAura layer: %s" % layer_name)
+
+
+## Debug A/B hook. Battle playback remains transparent until the supplied
+## black-background reference is disambiguated on real light and dark terrain.
+func set_center_darkening(enabled: bool) -> void:
+	_centerDarkeningEnabled = enabled
+	if _footprintMaterial != null:
+		_footprintMaterial.set_shader_parameter(
+			"center_darkening",
+			SpellCastAuraProfile.CENTER_DARKENING_ALPHA if enabled else 0.0
+		)
+
+
+func is_center_darkening_enabled() -> bool:
+	return _centerDarkeningEnabled
 
 
 func get_live_particle_count() -> int:
-	if (
-		_wisps == null
-		or not _wisps.visible
-		or _finished
-		or get_normalized_time() >= SpellCastAuraProfile.DECAY_END
-	):
-		return 0
-	return _wisps.amount
+	return 0
 
 
 func get_live_instance_count() -> int:
-	if _finished:
+	if _finished or _footprintInstance == null or not _footprintInstance.visible:
 		return 0
-	var count := 0
-	if _vortexInstance != null and _vortexInstance.visible:
-		count += 1
-	if _rayInstance != null and _rayInstance.visible:
-		count += _rayInstance.multimesh.instance_count
-	if _coreInstance != null and _coreInstance.visible:
-		count += _coreInstance.multimesh.instance_count
-	return count
+	return 1
 
 
 func get_live_node_count() -> int:
@@ -183,9 +156,7 @@ func get_live_node_count() -> int:
 
 
 func is_particle_seek_exact() -> bool:
-	# Shader layers seek exactly. GPUParticles3D restart/process requests retain
-	# the renderer-scheduling variance documented by the VFX harness.
-	return false
+	return true
 
 
 func get_active_seed() -> int:
@@ -204,24 +175,15 @@ func _process(delta: float) -> void:
 	if _elapsedTime >= VISIBLE_DURATION:
 		_finished = true
 		_playing = false
-		if _wisps != null:
-			_wisps.speed_scale = 0.0
 		if _autoDispose:
 			dispose()
 
 
 func _buildLayers() -> void:
-	_vortexInstance = _createGroundVortex(_elementColor)
-	add_child(_vortexInstance)
-	_vortexMaterial = _vortexInstance.material_override as ShaderMaterial
-	_rayInstance = _createRayRibbons(_elementColor)
-	add_child(_rayInstance)
-	_rayMaterial = _rayInstance.material_override as ShaderMaterial
-	_coreInstance = _createCoreCards(_elementColor)
-	add_child(_coreInstance)
-	_coreMaterial = _coreInstance.material_override as ShaderMaterial
-	_wisps = _createRisingWisps(_elementColor)
-	add_child(_wisps)
+	_centerDarkeningEnabled = OS.get_cmdline_user_args().has(_DEBUG_DARK_CENTER_FLAG)
+	_footprintInstance = _createFootprintAperture(_elementColor, _centerDarkeningEnabled)
+	add_child(_footprintInstance)
+	_footprintMaterial = _footprintInstance.material_override as ShaderMaterial
 	_applySeed(0)
 	assert(
 		_countNodes(self) <= SpellCastAuraProfile.MAX_EFFECT_NODES,
@@ -232,7 +194,7 @@ func _buildLayers() -> void:
 		"Spell-cast aura exceeded its authored draw-call ceiling."
 	)
 	assert(
-		1 + _rayInstance.multimesh.instance_count + _coreInstance.multimesh.instance_count
+		SpellCastAuraProfile.EXPECTED_GEOMETRY_INSTANCES
 				<= SpellCastAuraProfile.MAX_GEOMETRY_INSTANCES,
 		"Spell-cast aura exceeded its authored geometry-instance ceiling."
 	)
@@ -240,313 +202,59 @@ func _buildLayers() -> void:
 
 
 func _applyProgress(progress: float) -> void:
-	for material: ShaderMaterial in [_vortexMaterial, _rayMaterial, _coreMaterial]:
-		if material != null:
-			material.set_shader_parameter("burst_progress", progress)
+	if _footprintMaterial != null:
+		_footprintMaterial.set_shader_parameter("burst_progress", progress)
 
 
 func _applySeed(seed: int) -> void:
-	_rebuildRayLayout(seed)
-	var seedValue := float(seed)
-	for material: ShaderMaterial in [_vortexMaterial, _rayMaterial, _coreMaterial]:
-		if material != null:
-			material.set_shader_parameter("seed_value", seedValue)
+	if _footprintMaterial != null:
+		_footprintMaterial.set_shader_parameter("seed_value", float(seed))
 
 
-## World-space ribbon placement is sampled once per seed. No camera vector is
-## involved, so orbiting the view reveals the same planted radial structure
-## rather than rotating a screen fan around the caster.
-func _rebuildRayLayout(layoutSeed: int) -> void:
-	if _rayInstance == null or _rayLayoutSeed == layoutSeed:
-		return
-	_rayLayoutSeed = layoutSeed
-	var rng := RandomNumberGenerator.new()
-	rng.seed = layoutSeed
-	var multiMesh := _rayInstance.multimesh
-	for index: int in range(SpellCastAuraProfile.RAY_COUNT):
-		var jitter := rng.randf_range(-0.24, 0.24)
-		var angle := float(index) * SpellCastAuraProfile.GOLDEN_ANGLE_RADIANS + jitter
-		var outward := Vector3(cos(angle), 0.0, sin(angle))
-		var tangent := Vector3(-sin(angle), 0.0, cos(angle))
-		var height := rng.randf_range(
-			SpellCastAuraProfile.RAY_HEIGHT_MIN_U,
-			SpellCastAuraProfile.RAY_HEIGHT_MAX_U
-		)
-		var width := rng.randf_range(
-			SpellCastAuraProfile.RAY_WIDTH_MIN_U,
-			SpellCastAuraProfile.RAY_WIDTH_MAX_U
-		)
-		var lean := rng.randf_range(
-			SpellCastAuraProfile.RAY_LEAN_MIN,
-			SpellCastAuraProfile.RAY_LEAN_MAX
-		)
-		var riseDirection := (Vector3.UP + outward * lean).normalized()
-		var normal := tangent.cross(riseDirection).normalized()
-		var seatRadius := rng.randf_range(
-			SpellCastAuraProfile.RAY_SEAT_RADIUS_MIN_U,
-			SpellCastAuraProfile.RAY_SEAT_RADIUS_MAX_U
-		)
-		var transform := Transform3D(
-			Basis(tangent * width, riseDirection * height, normal),
-			outward * seatRadius + riseDirection * height * 0.5
-		)
-		multiMesh.set_instance_transform(index, transform)
-		multiMesh.set_instance_custom_data(index, Color(
-			rng.randf(),
-			rng.randf_range(0.52, 1.0),
-			rng.randf(),
-			0.0
-		))
-
-
-func _restartParticlesAt(elapsed: float) -> void:
-	if _wisps == null:
-		return
-	_wisps.speed_scale = 0.0
-	_wisps.use_fixed_seed = true
-	_wisps.seed = _activeSeed
-	_wisps.emitting = true
-	_wisps.restart(true)
-	if elapsed > 0.0:
-		_wisps.request_particles_process(minf(elapsed, VISIBLE_DURATION))
-	if _finished or elapsed >= VISIBLE_DURATION:
-		_wisps.emitting = false
-	_wisps.speed_scale = _playbackScale if _playing else 0.0
-
-
-static func _createGroundVortex(color: Color) -> MeshInstance3D:
+static func _createFootprintAperture(
+		color: Color,
+		darkenCenter: bool) -> MeshInstance3D:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(
-		SpellCastAuraProfile.VORTEX_PLANE_SIZE_U,
-		SpellCastAuraProfile.VORTEX_PLANE_SIZE_U
+		SpellCastAuraProfile.FOOTPRINT_PLANE_SIZE_U,
+		SpellCastAuraProfile.FOOTPRINT_PLANE_SIZE_U
 	)
 	var material := ShaderMaterial.new()
-	material.shader = _VORTEX_SHADER
-	material.render_priority = SpellCastAuraProfile.VORTEX_RENDER_PRIORITY
+	material.shader = _FOOTPRINT_SHADER
+	material.render_priority = SpellCastAuraProfile.FOOTPRINT_RENDER_PRIORITY
 	material.set_shader_parameter("aura_color", color)
 	material.set_shader_parameter("burst_progress", 0.0)
 	material.set_shader_parameter("seed_value", 0.0)
-	material.set_shader_parameter("outer_radius", SpellCastAuraProfile.VORTEX_OUTER_RADIUS_U)
+	material.set_shader_parameter("outer_radius", SpellCastAuraProfile.FOOTPRINT_OUTER_RADIUS_U)
 	material.set_shader_parameter(
-		"inner_dark_alpha", SpellCastAuraProfile.VORTEX_INNER_DARK_ALPHA
+		"aperture_radius_start", SpellCastAuraProfile.APERTURE_RADIUS_START
 	)
-	material.set_shader_parameter("ring_alpha", SpellCastAuraProfile.VORTEX_RING_ALPHA)
-	material.set_shader_parameter("rim_alpha", SpellCastAuraProfile.VORTEX_RIM_ALPHA)
 	material.set_shader_parameter(
-		"rim_emission_energy", SpellCastAuraProfile.VORTEX_RIM_EMISSION_ENERGY
+		"aperture_radius_trough", SpellCastAuraProfile.APERTURE_RADIUS_TROUGH
+	)
+	material.set_shader_parameter("aperture_radius_end", SpellCastAuraProfile.APERTURE_RADIUS_END)
+	material.set_shader_parameter("rim_width", SpellCastAuraProfile.APERTURE_RIM_WIDTH)
+	material.set_shader_parameter("rim_alpha", SpellCastAuraProfile.APERTURE_RIM_ALPHA)
+	material.set_shader_parameter(
+		"striation_alpha", SpellCastAuraProfile.APERTURE_STRIATION_ALPHA
+	)
+	material.set_shader_parameter(
+		"rim_emission_energy", SpellCastAuraProfile.APERTURE_RIM_EMISSION_ENERGY
+	)
+	material.set_shader_parameter(
+		"center_darkening",
+		SpellCastAuraProfile.CENTER_DARKENING_ALPHA if darkenCenter else 0.0
 	)
 	material.set_shader_parameter("charge_end", SpellCastAuraProfile.CHARGE_END)
-	material.set_shader_parameter("hold_end", SpellCastAuraProfile.HOLD_END)
 	material.set_shader_parameter("decay_end", SpellCastAuraProfile.DECAY_END)
 
 	var instance := MeshInstance3D.new()
-	instance.name = "GroundVortex"
+	instance.name = "FootprintAperture"
 	instance.mesh = plane
-	instance.position.y = SpellCastAuraProfile.VORTEX_HEIGHT_U
+	instance.position.y = SpellCastAuraProfile.FOOTPRINT_HEIGHT_U
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return instance
-
-
-static func _createRayRibbons(color: Color) -> MultiMeshInstance3D:
-	var multiMesh := MultiMesh.new()
-	multiMesh.transform_format = MultiMesh.TRANSFORM_3D
-	multiMesh.use_custom_data = true
-	multiMesh.mesh = _createCrossedRibbonMesh()
-	multiMesh.instance_count = SpellCastAuraProfile.RAY_COUNT
-	var material := ShaderMaterial.new()
-	material.shader = _RAY_SHADER
-	material.render_priority = SpellCastAuraProfile.RAY_RENDER_PRIORITY
-	material.set_shader_parameter("aura_color", color)
-	material.set_shader_parameter("ray_tex", VfxTextures.lanceStreak())
-	material.set_shader_parameter("burst_progress", 0.0)
-	material.set_shader_parameter("seed_value", 0.0)
-	material.set_shader_parameter("peak_alpha", SpellCastAuraProfile.RAY_PEAK_ALPHA)
-	material.set_shader_parameter("white_mix", SpellCastAuraProfile.RAY_WHITE_MIX)
-	material.set_shader_parameter(
-		"emission_energy", SpellCastAuraProfile.RAY_EMISSION_ENERGY
-	)
-	material.set_shader_parameter("flicker_cycles", SpellCastAuraProfile.RAY_FLICKER_CYCLES)
-	_setTimelineParameters(material)
-	material.set_shader_parameter("stagger_span", SpellCastAuraProfile.RAY_STAGGER_SPAN)
-
-	var instance := MultiMeshInstance3D.new()
-	instance.name = "RadialRayRibbons"
-	instance.multimesh = multiMesh
-	instance.material_override = material
-	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var reach := SpellCastAuraProfile.RAY_SEAT_RADIUS_MAX_U + SpellCastAuraProfile.RAY_HEIGHT_MAX_U
-	instance.custom_aabb = AABB(
-		Vector3(-reach, -0.05, -reach),
-		Vector3(reach * 2.0, SpellCastAuraProfile.RAY_HEIGHT_MAX_U + 0.15, reach * 2.0)
-	)
-	return instance
-
-
-static func _createCrossedRibbonMesh() -> ArrayMesh:
-	var vertices := PackedVector3Array([
-		Vector3(-0.5, -0.5, 0.0),
-		Vector3(0.5, -0.5, 0.0),
-		Vector3(0.5, 0.5, 0.0),
-		Vector3(-0.5, 0.5, 0.0),
-		Vector3(0.0, -0.5, -0.5),
-		Vector3(0.0, -0.5, 0.5),
-		Vector3(0.0, 0.5, 0.5),
-		Vector3(0.0, 0.5, -0.5),
-	])
-	var uvs := PackedVector2Array([
-		Vector2(0.0, 1.0),
-		Vector2(1.0, 1.0),
-		Vector2(1.0, 0.0),
-		Vector2(0.0, 0.0),
-		Vector2(0.0, 1.0),
-		Vector2(1.0, 1.0),
-		Vector2(1.0, 0.0),
-		Vector2(0.0, 0.0),
-	])
-	var indices := PackedInt32Array([
-		0, 1, 2, 0, 2, 3,
-		4, 5, 6, 4, 6, 7,
-	])
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return mesh
-
-
-static func _createCoreCards(color: Color) -> MultiMeshInstance3D:
-	var quad := QuadMesh.new()
-	quad.size = Vector2.ONE
-	var multiMesh := MultiMesh.new()
-	multiMesh.transform_format = MultiMesh.TRANSFORM_3D
-	multiMesh.use_custom_data = true
-	multiMesh.mesh = quad
-	multiMesh.instance_count = SpellCastAuraProfile.CORE_CARD_COUNT
-	for index: int in range(SpellCastAuraProfile.CORE_CARD_COUNT):
-		var angle := float(index) * TAU / float(SpellCastAuraProfile.CORE_CARD_COUNT)
-		var outward := Vector3(cos(angle), 0.0, sin(angle))
-		var tangent := Vector3(-sin(angle), 0.0, cos(angle))
-		var transform := Transform3D(
-			Basis(
-				tangent * SpellCastAuraProfile.CORE_WIDTH_U,
-				Vector3.UP * SpellCastAuraProfile.CORE_HEIGHT_U,
-				outward
-			),
-			outward * SpellCastAuraProfile.CORE_SEAT_RADIUS_U
-					+ Vector3.UP * SpellCastAuraProfile.CORE_HEIGHT_U * 0.5
-		)
-		multiMesh.set_instance_transform(index, transform)
-		multiMesh.set_instance_custom_data(index, Color(
-			float(index) / float(SpellCastAuraProfile.CORE_CARD_COUNT),
-			0.78 + float(index) * 0.07,
-			1.0,
-			0.0
-		))
-	var material := ShaderMaterial.new()
-	material.shader = _CORE_SHADER
-	material.render_priority = SpellCastAuraProfile.CORE_RENDER_PRIORITY
-	material.set_shader_parameter("aura_color", color)
-	material.set_shader_parameter("puff_tex", VfxTextures.neutralSoftPuff())
-	material.set_shader_parameter("burst_progress", 0.0)
-	material.set_shader_parameter("seed_value", 0.0)
-	material.set_shader_parameter("peak_alpha", SpellCastAuraProfile.CORE_PEAK_ALPHA)
-	material.set_shader_parameter("white_mix", SpellCastAuraProfile.CORE_WHITE_MIX)
-	material.set_shader_parameter(
-		"emission_energy", SpellCastAuraProfile.CORE_EMISSION_ENERGY
-	)
-	material.set_shader_parameter("noise_scale", SpellCastAuraProfile.CORE_NOISE_SCALE)
-	material.set_shader_parameter("turbulence", SpellCastAuraProfile.CORE_TURBULENCE)
-	_setTimelineParameters(material)
-
-	var instance := MultiMeshInstance3D.new()
-	instance.name = "CoreGlowCards"
-	instance.multimesh = multiMesh
-	instance.material_override = material
-	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var reach := SpellCastAuraProfile.CORE_SEAT_RADIUS_U + SpellCastAuraProfile.CORE_WIDTH_U * 0.6
-	instance.custom_aabb = AABB(
-		Vector3(-reach, -0.05, -reach),
-		Vector3(reach * 2.0, SpellCastAuraProfile.CORE_HEIGHT_U + 0.1, reach * 2.0)
-	)
-	return instance
-
-
-static func _setTimelineParameters(material: ShaderMaterial) -> void:
-	material.set_shader_parameter("eruption_start", SpellCastAuraProfile.ERUPTION_START)
-	material.set_shader_parameter("eruption_end", SpellCastAuraProfile.ERUPTION_END)
-	material.set_shader_parameter("hold_end", SpellCastAuraProfile.HOLD_END)
-	material.set_shader_parameter("decay_end", SpellCastAuraProfile.DECAY_END)
-
-
-static func _createRisingWisps(color: Color) -> GPUParticles3D:
-	var particles := GPUParticles3D.new()
-	particles.name = "RisingWisps"
-	particles.amount = SpellCastAuraProfile.WISP_COUNT
-	particles.lifetime = SpellCastAuraProfile.WISP_LIFETIME_SECONDS
-	particles.one_shot = true
-	particles.explosiveness = 0.36
-	particles.randomness = 0.58
-	particles.fixed_fps = 30
-	particles.use_fixed_seed = true
-	particles.emitting = false
-	particles.visibility_aabb = AABB(Vector3(-1.5, -0.1, -1.5), Vector3(3.0, 3.2, 3.0))
-
-	var processMaterial := ParticleProcessMaterial.new()
-	processMaterial.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	processMaterial.emission_ring_radius = SpellCastAuraProfile.WISP_EMISSION_RADIUS_U
-	processMaterial.emission_ring_inner_radius = SpellCastAuraProfile.WISP_EMISSION_INNER_RADIUS_U
-	processMaterial.emission_ring_height = 0.06
-	processMaterial.emission_ring_axis = Vector3.UP
-	processMaterial.direction = Vector3.UP
-	processMaterial.spread = 28.0
-	processMaterial.initial_velocity_min = SpellCastAuraProfile.WISP_VELOCITY_MIN_U
-	processMaterial.initial_velocity_max = SpellCastAuraProfile.WISP_VELOCITY_MAX_U
-	processMaterial.gravity = Vector3(0.0, 0.16, 0.0)
-	processMaterial.damping_min = 0.15
-	processMaterial.damping_max = 0.55
-	processMaterial.scale_min = 0.72
-	processMaterial.scale_max = 1.38
-	var mistColor := color.lerp(Color.WHITE, 0.18)
-	mistColor.a = SpellCastAuraProfile.WISP_PEAK_ALPHA
-	processMaterial.color = mistColor
-	var gradient := Gradient.new()
-	gradient.set_color(0, Color(mistColor.r, mistColor.g, mistColor.b, 0.0))
-	gradient.add_point(0.12, mistColor)
-	gradient.add_point(0.62, Color(mistColor.r, mistColor.g, mistColor.b, mistColor.a * 0.55))
-	gradient.set_color(1, Color(mistColor.r, mistColor.g, mistColor.b, 0.0))
-	var rampTexture := GradientTexture1D.new()
-	rampTexture.gradient = gradient
-	processMaterial.color_ramp = rampTexture
-	particles.process_material = processMaterial
-
-	var drawMesh := QuadMesh.new()
-	drawMesh.size = Vector2(
-		SpellCastAuraProfile.WISP_SPRITE_WIDTH_U,
-		SpellCastAuraProfile.WISP_SPRITE_HEIGHT_U
-	)
-	particles.draw_pass_1 = drawMesh
-	var drawMaterial := StandardMaterial3D.new()
-	drawMaterial.render_priority = SpellCastAuraProfile.WISP_RENDER_PRIORITY
-	drawMaterial.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	drawMaterial.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	drawMaterial.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	# Safe exception: only each tiny puff turns to face the camera. Its position
-	# and travel remain local to the aura; no hero-scale volume follows the view.
-	drawMaterial.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	drawMaterial.vertex_color_use_as_albedo = true
-	drawMaterial.albedo_color = Color.WHITE
-	drawMaterial.albedo_texture = VfxTextures.neutralSoftPuff()
-	drawMaterial.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
-	drawMaterial.emission_enabled = true
-	drawMaterial.emission = color.lerp(Color.WHITE, 0.12)
-	drawMaterial.emission_energy_multiplier = SpellCastAuraProfile.WISP_EMISSION_ENERGY
-	drawMaterial.emission_texture = VfxTextures.neutralSoftPuff()
-	particles.material_override = drawMaterial
-	return particles
 
 
 static func _countNodes(node: Node) -> int:

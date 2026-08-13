@@ -395,43 +395,35 @@ world up using the camera's right axis (`INV_VIEW_MATRIX[0]`, flattened onto
 the horizontal plane), never a full billboard, which would tilt it off vertical
 and forfeit the sharpness.
 
-### Generic spell-cast aura: dark vortex plus vertical light
+### Generic spell-cast aura: reference-locked rebuild
 
-The generic fallback aura is deliberately decomposed into four independently
-toggleable layers. A world-horizontal alpha-mixed plane draws an irregular
-black/navy pool under the caster plus three soft element-tinted annular waves.
-The rings expand independently from the centre, and the camera pitch supplies
-their apparent ellipse. Gentle continuous radial wobble and cloudy opacity keep
-them organic; there is deliberately no angle-wrapped spiral or hard angular
-breakup that could terminate the waves as pointed floor shards. Six short
-alpha-mixed texture cards arranged around world up build
-the low cyan body bloom. A separate seeded `MultiMesh` distributes crossed ray
-ribbons radially through world space. A small one-shot particle system supplies
-rising soft puffs. The split matters: one clean torus or cone cannot
-simultaneously create a dark centre, soft body, and uneven directional shafts
-without reading as a single synthetic primitive.
+Eleven consecutive source frames supersede the earlier still-image
+decomposition. They support one evolving footprint aperture/boundary and one
+broad changing plume crown; they do not support separated ground waves, a
+central glow column, individual lance rods, or rising particles.
 
-The hero-scale core and ray layers never rebuild `MODELVIEW_MATRIX`, consult
-`INV_VIEW_MATRIX`, or offset themselves along the camera's forward vector.
-Those techniques made the former full-screen quads follow an orbiting camera
-and appear to rise behind the model. Each ray instead has two perpendicular
-faces sharing one world transform, so at least one soft face remains readable
-from arbitrary yaw without becoming a billboard. Their motion is a pure
-function of normalized progress and seed; the layout hashes each slot into a
-different radial angle, seat radius, width, height, lean, brightness, and pulse.
-Only the small `GPUParticles3D` mist uses ordinary particle billboarding; its
-particle positions remain local to the effect. It also retains the
-renderer-scheduling seek variance documented in §3, and the playback reports
-that limitation through `is_particle_seek_exact()`.
+At the current committed implementation boundary the generic aura deliberately
+renders only the footprint aperture. One world-horizontal alpha-mixed plane
+draws a single feathered boundary whose radius contracts slightly before
+expanding late. Two tightly packed internal striations add early rim texture
+and disappear as the opening simplifies. They remain inside the main rim's
+feather rather than travelling as separate concentric rings. Camera pitch alone
+supplies the apparent ellipse.
 
-Element saturation is increased locally in the owned shaders before additive
-composition so pale catalog tints retain hue on bright terrain. The low body
-bloom uses alpha mixing instead, preserving cyan against both bright terrain
-and the dark vortex. The shared `VfxTextures.neutralSoftPuff()` and
-`VfxTextures.lanceStreak()` supply shape only and are never retuned. This is the
-camera-mobile 3D equivalent of a keyed 2D effect stack: independent textured
-layers, independent blend modes, and deliberately staggered timelines rather
-than one procedural screen sheet.
+The supplied screenshots have a black background and no alpha, so they cannot
+prove whether the aperture centre is opaque darkness or transparent negative
+space. Runtime therefore defaults to transparent. `set_center_darkening()` and
+the `--spell-aura-dark-center` debug flag select a low-alpha navy variant for
+the required terrain comparison without changing geometry, timing, or the
+one-draw-call budget.
+
+The rejected core cards, crossed ribbons, and `GPUParticles3D` mist have been
+removed with their owned shaders. The effect no longer consumes
+`VfxTextures.neutralSoftPuff()` or `VfxTextures.lanceStreak()`, reports zero
+particles, and returns true from `is_particle_seek_exact()`. The remaining
+source-authoritative plume crown is open build work; it must use continuous
+world-space carriers and retain the clean character silhouette without
+restoring a hero-scale billboard.
 
 ### Authored textures and frame animation
 
