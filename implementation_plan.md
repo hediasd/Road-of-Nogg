@@ -15,16 +15,22 @@ This cycle replaces iteration-by-accumulation with iteration-by-evidence. The
 eleven supplied Ragnarok Online frames are the visual authority. The user's
 additional onset direction is authoritative for the uncaptured lead-in: the
 effect starts with zero visible aura, ignites at the footprint, and rises from
-that footprint rather than fading in as an already complete plume.
+that footprint rather than fading in as an already complete plume. After the
+first convergence pass proved too sharp and petal-like, the cycle was expanded
+on 2026-08-13 with a user-previewed fog prototype, component-by-component
+integration, and a longer rooted rise/crest/dissolve lifecycle before final
+gameplay validation.
 
 ## Outcome
 
-Recreate the reference as a fast, body-enclosing, world-space casting aura:
+Recreate the reference as a responsive, body-enclosing, world-space casting aura:
 
 - zero aura at normalized time `0.0`;
 - a footprint ignition followed by a measurable bottom-to-top emission front;
-- a wide, continuous blue/cyan plume whose sharp ghost spikes surround the
-  model, rotate, and oscillate without becoming literal shards;
+- a wide, continuous blue/cyan plume whose broad ghastly fog surrounds the
+  model, with sparse ghost-ray emphasis that never reads as literal shards;
+- a longer zero-to-emergence, rise, high crest, and vaporous fade arc, without
+  making battle command resolution wait for the entire visual tail;
 - no slow puddle rings, opaque column, billboard card, horizontal striping, or
   visible polygon terraces;
 - the eleven recorded source states reproduced at comparable character scale;
@@ -43,14 +49,17 @@ At the end of **every** item, before its commit:
    scale, crop, exposure, background, seed, and native/retro setting as the
    frozen baseline. Focused debug captures are allowed here; the full battle
    flow remains consolidated in the final item.
-2. Build a paired source/current sheet. For onset work also build a dense
-   `0.00`-to-first-source-state sheet; for carrier work also capture yaw
-   `0/90/180` on dark and light terrain.
+2. Build a paired source/current sheet. Fog-prototype work must build a
+   source/current/prototype triptych and include enlarged aperture, body, and
+   tip crops. For onset work also build a dense `0.00`-to-first-source-state
+   sheet; for carrier work also capture yaw `0/90/180` on dark and light
+   terrain.
 3. Recompute at least: faint and dense silhouette bounds, width by height,
    vertical energy centroid, footprint/aperture radius, angular energy profile,
-   temporal frame delta, blue/cyan luminance ratios, body-overdraw, and
-   horizontal-band periodicity. The extracted-source branch may add layer and
-   keyframe metrics but may not remove these common metrics.
+   temporal frame delta, blue/cyan luminance ratios, body-overdraw,
+   horizontal-band periodicity, edge-density/gradient energy, and the ratio of
+   diffuse envelope energy to bright-core energy. The extracted-source branch
+   may add layer and keyframe metrics but may not remove these common metrics.
 4. Record a per-metric verdict of **closer**, **unchanged**, or **worse**. A
    primary silhouette, onset, body-occlusion, or banding regression prevents
    advancement: rework or revert it inside the current item.
@@ -486,28 +495,156 @@ validation tolerances to the best achieved evidence before committing.
   temporal delta error `0.220`. Mean body overdraw must remain at least `0.138`
   and faint energy at least `100,000` under that exact contract.
   `replica_convergence.json` stores the per-frame report without source pixels.
-  The final gameplay/lifecycle item remains the only open plan item.
+  At that point the final gameplay/lifecycle item was the only open item; the
+  user-requested fog and duration revision below now precedes it.
 
-### AURA-R6 — Consolidated gameplay, lifecycle, and regression validation
+### AURA-R6 — Prototype and preview the ghastly fog vocabulary
 
 **Model:** Opus 5 / GPT Sol
 
 **Depends on:** AURA-R1 through AURA-R5.
 
+**End state:** One small, reversible prototype demonstrates whether the current
+three-layer, world-space carrier can reproduce the source's soft vapor mass
+without returning to puddle rings, a camera-facing curtain, or hard petals. A
+source/current/prototype preview is shown to the user before integration. The
+item pauses at that preview; the user's direction is a **blocking decision**.
+Rejected candidates are removed, and only the selected vocabulary and its
+evidence advance.
+
+**Implementation:** Work only in owned spell-aura shader/profile variants.
+Prototype two bounded variants, each applying the following three treatments,
+on five representative source states plus dense onset and terminal-fade samples:
+
+1. replace per-lobe maximums and crisp alpha shoulders with smoothly accumulated
+   broad lobes, two-scale low-frequency domain warping, and a soft root-to-tip
+   density falloff so neighboring columns merge into one fog mass;
+2. give each ghost ray a wide, low-alpha vapor envelope and a much fainter narrow
+   energy spine, with irregular dissolved tips instead of geometric point caps;
+3. soften the footprint into one irregular mist-edged aperture, retaining the
+   dark centre but removing crisp rim/striated-ring emphasis.
+
+Do not add a fourth layer or import an external texture unless both procedural
+candidates demonstrably fail for a named source feature. Any asset proposal must
+identify provenance, license, runtime cost, and the exact metric/crop it fixes;
+Ragnarok pixels remain evidence only and may not be shipped. Treat the user's
+earlier softer Road of Nogg plume screenshot as a qualitative vocabulary
+reference, not as higher authority than the eleven source states. Produce layer
+isolations, enlarged crops, yaw `0/90/180`, light/dark terrain plates, and a
+single labelled preview sheet that makes the choice reviewable without opening
+the project.
+
+**Risk:** Simple blur can turn the petal cage into soft petals, erase the spell's
+casting force, wash over the character, or create alpha-sorting seams. A
+procedural noise texture can read as generic smoke instead of the source plume.
+
+**Adds to final validation:** Approved fog vocabulary, component-isolation
+reference captures, source-relative edge/gradient and diffuse-to-core measures,
+alpha-sorting checks, and the explicit user-approved preview.
+
+**Item gate:** Apply the mandatory comparison gate to each candidate. Present
+the best non-regressing candidate beside the source and current render, state
+what became closer/unchanged/worse, and wait for user approval before committing
+or beginning integration. Replan the next two items from that response.
+
+### AURA-R7 — Integrate the approved fog treatment across every aura component
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-R6 and its blocking user approval.
+
+**End state:** Footprint, plume body, ghost rays, compositing, and element grading
+share the approved ghastly/foggy visual language. The caster reads as standing
+inside one continuous aura mass; individual analytic lobes are not countable at
+normal play scale. Sparse ray energy still supplies upward/outward casting force,
+but its soft envelope dominates its core and no component reads as a shard,
+puddle, opaque column, or billboard.
+
+**Implementation:** Integrate and review one component at a time in this order:
+footprint, haze body, ghost rays, then the combined blend/order. After each
+substep, run the mandatory source comparison and retain it only if the relevant
+crop and sequence metrics improve without regressing body enclosure or outward
+carrier behavior. Remove rejected prototype branches and duplicate parameters.
+Keep world-space radial reconstruction, deterministic seed/seek behavior, the
+three-draw budget, tint support, and camera independence. Use premultiplied or
+energy-conserving alpha shaping where needed to avoid additive chalkiness on
+light terrain; do not raise brightness to hide discontinuity.
+
+**Risk:** Cross-layer fog accumulation can over-occlude the model, clip on the
+ground, reveal sorting boundaries, or destroy the source's blue/cyan contrast.
+Changing a shared material surface could regress other elements or VFX callers.
+
+**Adds to final validation:** Component-by-component before/after evidence,
+combined-layer continuity, caster enclosure/readability, dark/light terrain,
+native/retro, yaw/pitch, tint, shared-caller, and draw-budget coverage.
+
+**Item gate:** Build a source/current sheet after every component substep and a
+final all-eleven sheet for the combined result. If the isolated component is
+closer but the composite is worse, replan blend/order in this item rather than
+advancing the disconnected layers. Show the integrated comparison preview to
+the user before lifecycle retiming.
+
+### AURA-R8 — Author the longer zero-ground, rise, crest, and vapor fade
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-R7.
+
+**End state:** The aura is invisible at exact time zero, emits from the single
+ground aperture, expands upward and outward through a visible emission front,
+reaches a modestly taller high-energy crest, breathes/spins while enclosing the
+caster, then thins and dissolves like vapor. It lasts materially longer than the
+current `1.15` seconds while preserving responsive battle sequencing. Identical
+normalized time and seed still produce identical frames.
+
+**Implementation:** Retune the owned duration and phase curves with an initial
+target range of `1.8–2.2` seconds, selecting the final duration through preview
+evidence rather than treating the range as acceptance. Start all layer opacity,
+height, and emission at true zero. Sequence footprint ignition, bottom-to-top
+plume reveal, outward expansion, a `1.08–1.15` height crest, restrained spin and
+asynchronous tip drift, then staggered ray/haze/aperture recession. Fade by
+advecting and dissolving density; do not scale a completed shape back into the
+ground or expose a hard alpha cutoff. Remap the eleven supplied states into the
+sustained middle portion and capture extra uncaptured lead-in/tail checkpoints.
+Retune adapter hold fraction so the longer visual tail can outlive command
+resolution without materially increasing the present action-queue hold time.
+
+**Risk:** A longer effect can stall the action queue, overlap following actions,
+or feel slow; global scaling can make the plume contract inward; a hard terminal
+fade can expose the analytic masks the fog pass was meant to hide.
+
+**Adds to final validation:** Exact-zero proof, dense emergence contact sheet,
+world-space upward/outward front tracking, crest height, sustained-source-state
+mapping, staggered dissolve tail, real-time duration, action-hold duration,
+overlap/cleanup, pause/speed/seek, and deterministic replay coverage.
+
+**Item gate:** Compare and replan after onset, rise/crest, and fade subiterations.
+Each checkpoint must include the current source-relative sequence report and a
+dense timing strip. A later phase may not repair an earlier regression by hiding
+it with opacity. Show the complete lifecycle preview before final validation.
+
+### AURA-R9 — Consolidated gameplay, lifecycle, and regression validation
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-R1 through AURA-R8.
+
 This is the only item that launches the full manual gameplay/integration flow.
 Validate the union of all prior evidence in one pass:
 
-1. Reproduce the zero-to-rise onset and all eleven registered states in the VFX
-   debug scene; confirm the final tolerances recorded by AURA-R5. Inspect the
-   partial-onset envelope and verify outward carrier-radius monotonicity and
-   non-inward spike centre paths at every sampled motion phase. Pointed alpha
-   tips may taper locally as they do in the source.
+1. Reproduce exact zero, the dense zero-to-rise sequence, the approved crest and
+   dissolve tail, and all eleven registered states in the VFX debug scene.
+   Confirm the revised tolerances recorded by AURA-R6 through AURA-R8. Inspect
+   the partial-onset envelope and verify outward carrier-radius monotonicity and
+   non-inward energy-centre paths at every sampled motion phase. Local fog and
+   ray alpha may taper as they do in the source.
 2. Exercise native and retro modes, light and dark terrain, battle-camera yaw
    and pitch movement, several deterministic seeds, and ice/fire/thunder/
-   darkness/neutral tints. Confirm the caster stays inside but readable.
+   darkness/neutral tints. Confirm the caster stays inside but readable and the
+   approved diffuse-to-core/edge-softness contract survives every presentation.
 3. Exercise pause, speed scale, forward/backward seek, skip-to-settle, overlap,
-   replay, disposal, and scene exit. Confirm identical frames for identical
-   normalized time and seed.
+   replay, disposal, and scene exit. Measure real-time visual and action-hold
+   duration; confirm identical frames for identical normalized time and seed.
 4. Search every caller of any changed shared primitive/factory and render every
    returned effect, including the existing specific-profile regression set;
    compare stored goldens where they exist.
@@ -537,4 +674,6 @@ accordance with the plan lifecycle policy.
 - Returning to camera-facing full-plume billboards.
 - Fixing the pre-existing `Battle25D` shutdown crash inside a visual item; it
   remains critical prerequisite work unless final validation proves it gone.
-- Changing gameplay timing, battle state, spell balance, or spell data.
+- Changing battle-state cast resolution, spell balance, or spell data; only the
+  presentation duration and adapter hold fraction needed to keep existing
+  command responsiveness are in scope.
