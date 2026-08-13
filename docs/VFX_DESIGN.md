@@ -761,6 +761,50 @@ Goldens currently have no committed home: `/debug/` is gitignored, so references
 are local to a machine. Committing a set is worth doing when there is a runner
 to compare against; until then they catch regressions within a working session.
 
+**Record the command that wrote a golden.** A set whose flags are unknown is
+worse than no set: a stale reference fails identically at every commit, and the
+failure looks like a regression rather than like a reference nobody can
+reproduce. That is exactly what happened to the previous set — every frame
+failed by roughly 12, four times the score of comparing two entirely different
+effects. Regenerate with:
+
+```bash
+Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
+  --resolution 900x600 --effect=<profile> --seed=7 --radius=4 --element=ice \
+  --hide-hud --capture-at=0.2,0.45,0.75 --capture-out=user://<name> \
+  --golden=debug/vfx_golden --golden-write
+```
+
+`--hide-hud` matters: the menu column otherwise takes a quarter of the window
+and the world is letterboxed into the rest, so a golden written with the panel
+visible frames differently from one written without it.
+
+### Panel, camera, and live tuning
+
+The scene is a fixed menu column on the left and a navigable world pane on the
+right. The pane letterboxes to the window's own aspect so framing judgements
+transfer to the game; `--pane-aspect=fill` spends the whole pane on pixels
+instead. Hiding the menu (`H`, `--hide-hud`) gives the world the whole window.
+
+The pane's camera is `BattleCameraController` — the same class the battle scene
+uses, not a copy — so orbit, pan, and zoom behave identically. Changing source
+distance or target body moves the focus point only; yaw, pitch, and zoom are
+taken over solely by initial framing, the `--camera-*` flags, and Reset.
+
+Effects expose parameters for live authoring by declaring a `tunables()` roster
+on their playback. The debug panel builds its controls from that descriptor and
+holds no effect-specific code, so declaring a roster is the whole cost of
+getting an editor. Profiles keep their `AUTHORED` / `DERIVED` labels and supply
+the defaults — they remain the source of truth, and the panel carries only the
+differences. `--tune=NAME=value,...` and `--tune-load=<path>` give the same
+reach from the command line, and **Export** prints paste-ready `const` lines for
+exactly the constants that changed, which is what keeps a tuning session from
+ending in hand-transcribed numbers.
+
+Changing a rebuild-class parameter replays the effect at the pinned seed and
+re-seeks to the current timestamp. Determinism is what makes that watchable
+rather than jarring.
+
 **A scene launch does not parse new scripts.** Running the debug scene does not
 rescan the filesystem, so a new `class_name` file is never loaded and a probe
 can print clean while proving nothing. Use `--import --headless` as the parse
