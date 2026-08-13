@@ -23,6 +23,7 @@ uniform float source_state_position : hint_range(0.0, 10.0) = 0.0;
 uniform float root_ignition : hint_range(0.0, 1.0) = 0.0;
 uniform float lifecycle_visibility : hint_range(0.0, 1.0) = 1.0;
 uniform float spin_turns = 0.10;
+uniform int prototype_variant = 0;
 
 varying vec2 v_local;
 
@@ -54,7 +55,11 @@ void fragment() {
 		+ sin(angle * 5.0 - seed_phase * 0.6 - state * 0.40) * 0.007
 	);
 	float radius = length(p) + wobble;
-	float rim = soft_ring(radius, aperture_radius, rim_width);
+	float rim = soft_ring(
+		radius,
+		aperture_radius,
+		prototype_variant == 0 ? rim_width : rim_width * 1.65
+	);
 
 	// These strokes remain inside the main boundary's feathered width. They
 	// read as packed rim texture early and disappear as the opening simplifies.
@@ -73,6 +78,13 @@ void fragment() {
 	);
 	float striations = max(inner_striation * 0.84, outer_striation * 0.62);
 	striations *= striation_visibility * angular_cloud;
+	if (prototype_variant > 0) {
+		striations *= 0.20;
+	}
+	float vapor_wobble = 0.72 + 0.28 * (
+		0.5 + 0.5 * sin(angle * 7.0 - seed_phase * 0.8 + state * 1.4)
+	);
+	float vapor = soft_ring(radius, aperture_radius, rim_width * 3.1) * vapor_wobble;
 
 	float aperture_fill = 1.0 - smoothstep(
 		aperture_radius - rim_width * 0.65,
@@ -82,6 +94,7 @@ void fragment() {
 	float mixed_alpha = (
 		rim * rim_alpha
 		+ striations * striation_alpha
+		+ vapor * rim_alpha * (prototype_variant == 0 ? 0.0 : 0.42)
 		+ aperture_fill * center_darkening
 	) * root_ignition * lifecycle_visibility;
 	if (mixed_alpha < 0.0025) {
@@ -90,7 +103,13 @@ void fragment() {
 
 	vec3 tint = saturated_tint(aura_color.rgb) * vec3(0.32, 0.58, 0.78);
 	vec3 ink = vec3(0.004, 0.012, 0.022);
-	float light_mask = clamp(rim + striations * 0.72, 0.0, 1.0);
+	float light_mask = clamp(
+		rim * (prototype_variant == 0 ? 1.0 : 0.58)
+		+ striations * 0.72
+		+ vapor * (prototype_variant == 0 ? 0.0 : 0.36),
+		0.0,
+		1.0
+	);
 	vec3 color = mix(ink, tint, light_mask * 0.82);
 	ALBEDO = color;
 	EMISSION = tint * light_mask * rim_emission_energy

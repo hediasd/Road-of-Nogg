@@ -16,6 +16,7 @@ const _PLUME_ATLAS = preload(
 		"res://assets/vfx/spell_cast_aura/plume_flow_atlas.png")
 const _DEBUG_TRANSPARENT_CENTER_FLAG := "--spell-aura-transparent-center"
 const _DEBUG_CROSSFADE_PLUME_FLAG := "--spell-aura-crossfade-plume"
+const _DEBUG_FOG_PROTOTYPE_PREFIX := "--spell-aura-fog-prototype="
 
 const VISIBLE_DURATION := SpellCastAuraProfile.DURATION_SECONDS
 const SETTLE_NORMALIZED_TIME := SpellCastAuraProfile.SETTLE_NORMALIZED_TIME
@@ -33,6 +34,7 @@ var _rayMaterial: ShaderMaterial
 var _centerDarkeningEnabled := true
 var _hazeStateCrossfade := SpellCastAuraProfile.HAZE_STATE_CROSSFADE
 var _rayStateCrossfade := SpellCastAuraProfile.RAY_STATE_CROSSFADE
+var _fogPrototypeVariant := 0
 var _elapsedTime := 0.0
 var _playbackScale := 1.0
 var _activeSeed := 0
@@ -363,6 +365,7 @@ static func tunables() -> Array[Dictionary]:
 
 
 func _buildLayers() -> void:
+	_fogPrototypeVariant = _readFogPrototypeVariant()
 	_centerDarkeningEnabled = not OS.get_cmdline_user_args().has(
 		_DEBUG_TRANSPARENT_CENTER_FLAG
 	)
@@ -380,6 +383,7 @@ func _buildLayers() -> void:
 	_footprintInstance = _createFootprintAperture(_elementColor, _centerDarkeningEnabled)
 	add_child(_footprintInstance)
 	_footprintMaterial = _footprintInstance.material_override as ShaderMaterial
+	_footprintMaterial.set_shader_parameter("prototype_variant", _fogPrototypeVariant)
 	_hazeInstance = _createFlowShell(
 		"BodyHazeField",
 		_HAZE_SHADER,
@@ -401,6 +405,7 @@ func _buildLayers() -> void:
 	)
 	add_child(_hazeInstance)
 	_hazeMaterial = _hazeInstance.material_override as ShaderMaterial
+	_hazeMaterial.set_shader_parameter("prototype_variant", _fogPrototypeVariant)
 	_rayInstance = _createFlowShell(
 		"GhostRayField",
 		_RAY_SHADER,
@@ -422,6 +427,7 @@ func _buildLayers() -> void:
 	)
 	add_child(_rayInstance)
 	_rayMaterial = _rayInstance.material_override as ShaderMaterial
+	_rayMaterial.set_shader_parameter("prototype_variant", _fogPrototypeVariant)
 	_rayMaterial.set_shader_parameter(
 		"tip_oscillation_cycles",
 		tunable(
@@ -454,6 +460,17 @@ func _buildLayers() -> void:
 		"Spell-cast aura exceeded its authored geometry-instance ceiling."
 	)
 	set_process(false)
+
+
+func _readFogPrototypeVariant() -> int:
+	for argument: String in OS.get_cmdline_user_args():
+		if not argument.begins_with(_DEBUG_FOG_PROTOTYPE_PREFIX):
+			continue
+		var value := argument.trim_prefix(_DEBUG_FOG_PROTOTYPE_PREFIX)
+		if value.is_valid_int():
+			return clampi(int(value), 0, 1)
+		push_warning("Invalid spell-aura fog prototype '%s'; using current material." % value)
+	return 0
 
 
 func _applyProgress(progress: float) -> void:

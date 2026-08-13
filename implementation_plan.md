@@ -547,6 +547,40 @@ the best non-regressing candidate beside the source and current render, state
 what became closer/unchanged/worse, and wait for user approval before committing
 or beginning integration. Replan the next two items from that response.
 
+**Resolution (2026-08-13):** Implemented; pending end-of-plan validation. The
+user approved the selected fog vocabulary after reviewing the labelled
+source/current/prototype triptych and explicitly asked to proceed with the full
+cycle.
+
+- Candidate A broadened and accumulated the existing lobe construction. Its
+  gradients softened, but the silhouette remained a countable shallow petal
+  bowl, proving that blur/width alone could not fix the material language.
+  Candidate A and its code path were removed.
+- Candidate B removes lobe-local ceilings. One low-frequency, noise-shaped fog
+  ceiling supplies continuous body density; diffuse angular bands sit inside it
+  as subdued ghost energy; the aperture uses one misted irregular edge. The
+  retained prototype remains debug-selected until the next item makes the
+  approved vocabulary authoritative.
+- Against the preceding convergence report, Candidate B improves dense-width
+  error `0.2304 -> 0.1191`, energy-centroid error `0.2932 -> 0.2839`, horizontal
+  periodicity `0.1627 -> 0.1561`, horizontal-edge ratio `0.0321 -> 0.0269`,
+  plateau ratio `0.1145 -> 0.1077`, angular-profile L1 `1.1797 -> 0.9431`, and
+  palette MAE `28.71 -> 22.18`. It worsens faint width `0.2382 -> 0.2774`, faint
+  height `0.1082 -> 0.1191`, dense height `0.0925 -> 0.2226`, and aperture
+  `0.2037 -> 0.3417`; those measured shape gaps are not hidden by the user's
+  vocabulary approval and become explicit integration targets.
+- Footprint-only, haze-only, ray-only, combined, yaw `0/90/180`, black-isolation,
+  and gameplay-terrain captures were inspected. They prove camera independence
+  and one retained job per layer, but also reveal bright footprint emphasis and
+  grazing shell arcs on light terrain. The integration item is therefore
+  replanned to correct aperture energy and carrier-edge visibility before final
+  combined grading, while retaining the approved fog field itself.
+- The selected post-cleanup capture is byte-identical to its measured Candidate
+  B frame. Godot 4.4 parses/imports the shaders cleanly with AppData access. No
+  external texture, source pixel, additional layer, billboard, or draw call was
+  added. The full game and battle flow were not launched, and no backlog change
+  was needed.
+
 ### AURA-R7 — Integrate the approved fog treatment across every aura component
 
 **Model:** Opus 5 / GPT Sol
@@ -568,7 +602,12 @@ carrier behavior. Remove rejected prototype branches and duplicate parameters.
 Keep world-space radial reconstruction, deterministic seed/seek behavior, the
 three-draw budget, tint support, and camera independence. Use premultiplied or
 energy-conserving alpha shaping where needed to avoid additive chalkiness on
-light terrain; do not raise brightness to hide discontinuity.
+light terrain; do not raise brightness to hide discontinuity. The approved
+prototype evidence makes two corrections mandatory: suppress the footprint's
+bright cyan-ring emphasis without losing the dark aperture, and extinguish the
+profiled shells' grazing arcs on light terrain without narrowing their
+source-scale body. Treat the prototype's faint/dense height and aperture errors
+as regressions to recover, not as accepted consequences of softness.
 
 **Risk:** Cross-layer fog accumulation can over-occlude the model, clip on the
 ground, reveal sorting boundaries, or destroy the source's blue/cyan contrast.

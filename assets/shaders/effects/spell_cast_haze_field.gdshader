@@ -23,6 +23,7 @@ uniform float reveal_front = 0.0;
 uniform float reveal_softness = 0.08;
 uniform float lifecycle_visibility = 1.0;
 uniform float spin_turns = 0.10;
+uniform int prototype_variant = 0;
 
 const float FRAME_COUNT = 11.0;
 const float TAU_VALUE = 6.28318530718;
@@ -91,6 +92,29 @@ float analytic_haze_field(float angular_uv, float height, float motion, float se
 	return clamp(strongest * 0.58 + accumulation * 0.052 + root_fog, 0.0, 1.0);
 }
 
+float spectral_noise(float angular_uv, float height, float motion, float seed_hash) {
+	float low = sin((angular_uv * 3.0 + motion * 0.071) * TAU_VALUE + seed_hash * 4.7);
+	float middle = sin((angular_uv * 7.0 - height * 1.8) * TAU_VALUE - motion * 2.1);
+	float high = sin((angular_uv * 13.0 + height * 2.6) * TAU_VALUE + seed_hash * 9.1);
+	return clamp(0.50 + low * 0.23 + middle * 0.16 + high * 0.07, 0.0, 1.0);
+}
+
+float prototype_haze_field(
+		float angular_uv, float height, float motion, float seed_hash) {
+	float flow = spectral_noise(
+		angular_uv + height * 0.018, height, motion, seed_hash
+	);
+	float ceiling = 0.73
+		+ sin((angular_uv * 3.0 + motion * 0.09) * TAU_VALUE) * 0.085
+		+ sin((angular_uv * 7.0 - motion * 0.13 + seed_hash) * TAU_VALUE) * 0.035;
+	float soft_cap = 1.0 - smoothstep(ceiling - 0.43, ceiling + 0.17, height);
+	float root = smoothstep(0.012, 0.10, height);
+	float continuous_mass = soft_cap * root * mix(0.78, 1.22, flow);
+	float root_fog = (1.0 - smoothstep(0.07, 0.43, height))
+		* mix(0.34, 0.52, flow);
+	return clamp(continuous_mass + root_fog, 0.0, 1.0);
+}
+
 void fragment() {
 	float seed_hash = fract(sin(seed_value * 12.9898) * 43758.5453);
 	float motion = clamp(atlas_state_position / (FRAME_COUNT - 1.0), 0.0, 1.0);
@@ -101,11 +125,16 @@ void fragment() {
 	float measured_haze = sample_state(uv).r;
 	float root_detail = sample_state(uv).b;
 	float vertical = smoothstep(0.055, 0.26, UV.y) * (1.0 - smoothstep(0.78, 1.0, UV.y));
-	float analytic_haze = analytic_haze_field(
-		angular_uv + phase, UV.y, motion, seed_hash
-	);
-	float haze = clamp(analytic_haze * 1.05 + measured_haze * 0.20, 0.0, 1.0) * vertical;
-	haze = clamp(haze + root_detail * 0.16, 0.0, 1.0);
+	float analytic_haze = prototype_variant == 0
+		? analytic_haze_field(angular_uv + phase, UV.y, motion, seed_hash)
+		: prototype_haze_field(angular_uv + phase, UV.y, motion, seed_hash);
+	float measured_weight = prototype_variant == 0 ? 0.20 : 0.07;
+	float analytic_weight = prototype_variant == 0 ? 1.05 : 1.42;
+	float root_weight = prototype_variant == 0 ? 0.16 : 0.07;
+	float haze = clamp(
+		analytic_haze * analytic_weight + measured_haze * measured_weight, 0.0, 1.0
+	) * vertical;
+	haze = clamp(haze + root_detail * root_weight, 0.0, 1.0);
 	haze *= vertical_reveal(UV.y);
 	float facing = dot(normalize(NORMAL), normalize(VIEW));
 	float far_hemisphere = smoothstep(-0.12, 0.06, facing);
@@ -115,7 +144,7 @@ void fragment() {
 	haze *= 0.38 + 0.62 * smoothstep(0.015, 0.34, abs(facing));
 	float onset_visibility = root_ignition * lifecycle_visibility;
 	float alpha = haze * shell_opacity * plume_energy * onset_visibility;
-	if (alpha < 0.0025) {
+	if (alpha < (prototype_variant == 0 ? 0.0025 : 0.0008)) {
 		discard;
 	}
 	vec3 tint = aura_color.rgb;

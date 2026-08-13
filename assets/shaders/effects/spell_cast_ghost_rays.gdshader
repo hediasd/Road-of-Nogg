@@ -25,6 +25,7 @@ uniform float spin_turns = 0.18;
 uniform float tip_oscillation_cycles = 1.15;
 uniform float tip_oscillation_amplitude = 0.105;
 uniform float tip_phase_step = 1.731;
+uniform int prototype_variant = 0;
 
 const float FRAME_COUNT = 11.0;
 const float TAU_VALUE = 6.28318530718;
@@ -79,6 +80,25 @@ float analytic_ray_field(float angular_uv, float height, float motion, float see
 	return clamp(field * 0.72 + accumulation * 0.040, 0.0, 1.0);
 }
 
+float prototype_ray_field(
+		float angular_uv, float height, float motion, float seed_hash) {
+	float low_wave = 0.5 + 0.5 * sin(
+		(angular_uv * 7.0 + height * 0.12 - motion * 0.19) * TAU_VALUE
+		+ seed_hash * 3.1
+	);
+	float crossing_wave = 0.5 + 0.5 * sin(
+		(angular_uv * 11.0 - height * 0.18 + motion * 0.11) * TAU_VALUE
+		- seed_hash * 5.7
+	);
+	float bands = smoothstep(0.45, 0.98, low_wave * 0.68 + crossing_wave * 0.32);
+	float ceiling = 0.75
+		+ sin((angular_uv * 4.0 + motion * 0.12) * TAU_VALUE) * 0.10
+		+ sin((angular_uv * 9.0 - motion * 0.08) * TAU_VALUE) * 0.035;
+	float dissolved_tip = 1.0 - smoothstep(ceiling - 0.41, ceiling + 0.15, height);
+	float root = smoothstep(0.025, 0.14, height);
+	return clamp((0.08 + bands * 0.34) * dissolved_tip * root, 0.0, 1.0);
+}
+
 float vertical_reveal(float height) {
 	if (height >= reveal_front) {
 		return 0.0;
@@ -98,17 +118,20 @@ void fragment() {
 	float angular_uv = atan(local_position.z, local_position.x) / TAU_VALUE;
 	angular_uv = angular_uv < 0.0 ? angular_uv + 1.0 : angular_uv;
 	angular_uv += uv_phase + motion * spin_turns + (seed_hash - 0.5) * 0.025;
-	float flow = analytic_ray_field(angular_uv, UV.y, motion, seed_hash);
-	flow = pow(flow, 0.78);
+	float flow = prototype_variant == 0
+		? analytic_ray_field(angular_uv, UV.y, motion, seed_hash)
+		: prototype_ray_field(angular_uv, UV.y, motion, seed_hash);
+	flow = pow(flow, prototype_variant == 0 ? 0.78 : 0.92);
 	flow *= smoothstep(0.055, 0.18, UV.y) * (1.0 - smoothstep(0.91, 1.0, UV.y));
 	flow *= vertical_reveal(UV.y);
 	// The source carries its energy below the waist. Tips remain present for
 	// silhouette and oscillation, but lose most of their opacity near head
 	// height instead of becoming equally bright flame petals.
-	flow *= 1.0 - smoothstep(0.42, 0.92, UV.y) * 0.78;
+	flow *= 1.0 - smoothstep(0.42, 0.92, UV.y)
+		* (prototype_variant == 0 ? 0.78 : 0.48);
 	float onset_visibility = root_ignition * lifecycle_visibility;
 	float alpha = flow * shell_opacity * plume_energy * onset_visibility;
-	if (alpha < 0.0025) {
+	if (alpha < (prototype_variant == 0 ? 0.0025 : 0.0008)) {
 		discard;
 	}
 	float warm_weight = smoothstep(
