@@ -66,6 +66,7 @@ var _casterTerrainIsland: Node3D
 var _targetTerrainIsland: Node3D
 var _targetBodyVisual: MeshInstance3D
 var _footprintRing: MeshInstance3D
+var _comparisonIsolation := false
 
 
 func _init(
@@ -85,6 +86,33 @@ func build() -> void:
 	_buildTerrainSamples()
 	_buildContextAnchors()
 	_buildTargetGuides()
+	_applyComparisonIsolation()
+
+
+## Removes every authored debug prop except the neutral target body. The aura
+## still plays at the real world-space target anchor; only the comparison plate
+## changes. Normal terrain remains the default and the separate transfer check.
+func setComparisonIsolation(enabled: bool) -> void:
+	_comparisonIsolation = enabled
+	_applyComparisonIsolation()
+
+
+func _applyComparisonIsolation() -> void:
+	if _ground != null:
+		_ground.visible = not _comparisonIsolation
+	if _casterTerrainIsland != null:
+		_casterTerrainIsland.visible = not _comparisonIsolation
+	if _targetTerrainIsland != null:
+		_targetTerrainIsland.visible = not _comparisonIsolation
+	if casterAnchor != null:
+		casterAnchor.visible = not _comparisonIsolation
+	if targetAnchor == null:
+		return
+	for child: Node in targetAnchor.get_children():
+		if child is VisualInstance3D:
+			(child as VisualInstance3D).visible = (
+				not _comparisonIsolation or child == _targetBodyVisual
+			)
 
 
 ## Repositions both islands, both anchors, and the body proxy for the current

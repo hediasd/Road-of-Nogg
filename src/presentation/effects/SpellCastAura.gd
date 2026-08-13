@@ -1,15 +1,17 @@
 ## Reference-locked generic spell-cast aura playback.
 ##
-## The rejected core cards, ray ribbons, and particles are gone. One restrained
-## footprint and two continuous world-space crown shells surround the caster.
+## One restrained footprint, one alpha-mixed body haze, and one additive
+## far-side ghost-ray field reconstruct the source without billboards.
 
 class_name SpellCastAura
 extends "res://src/presentation/effects/VfxPlayback.gd"
 
 const _FOOTPRINT_SHADER = preload(
 		"res://assets/shaders/effects/spell_cast_footprint_aperture.gdshader")
-const _PLUME_SHADER = preload(
-		"res://assets/shaders/effects/spell_cast_plume_curtain.gdshader")
+const _HAZE_SHADER = preload(
+		"res://assets/shaders/effects/spell_cast_haze_field.gdshader")
+const _RAY_SHADER = preload(
+		"res://assets/shaders/effects/spell_cast_ghost_rays.gdshader")
 const _PLUME_ATLAS = preload(
 		"res://assets/vfx/spell_cast_aura/plume_flow_atlas.png")
 const _DEBUG_TRANSPARENT_CENTER_FLAG := "--spell-aura-transparent-center"
@@ -18,18 +20,19 @@ const _DEBUG_CROSSFADE_PLUME_FLAG := "--spell-aura-crossfade-plume"
 const VISIBLE_DURATION := SpellCastAuraProfile.DURATION_SECONDS
 const SETTLE_NORMALIZED_TIME := SpellCastAuraProfile.SETTLE_NORMALIZED_TIME
 const LAYER_FOOTPRINT := "footprint_aperture"
-const LAYER_PLUME_INNER := "plume_inner"
-const LAYER_PLUME_OUTER := "plume_outer"
+const LAYER_HAZE := "haze_field"
+const LAYER_RAYS := "ghost_rays"
 
 var _elementColor := Color.WHITE
 var _footprintInstance: MeshInstance3D
 var _footprintMaterial: ShaderMaterial
-var _innerPlumeInstance: MeshInstance3D
-var _innerPlumeMaterial: ShaderMaterial
-var _outerPlumeInstance: MeshInstance3D
-var _outerPlumeMaterial: ShaderMaterial
+var _hazeInstance: MeshInstance3D
+var _hazeMaterial: ShaderMaterial
+var _rayInstance: MeshInstance3D
+var _rayMaterial: ShaderMaterial
 var _centerDarkeningEnabled := true
-var _plumeStateCrossfade := SpellCastAuraProfile.PLUME_STATE_CROSSFADE
+var _hazeStateCrossfade := SpellCastAuraProfile.HAZE_STATE_CROSSFADE
+var _rayStateCrossfade := SpellCastAuraProfile.RAY_STATE_CROSSFADE
 var _elapsedTime := 0.0
 var _playbackScale := 1.0
 var _activeSeed := 0
@@ -128,7 +131,7 @@ func dispose() -> void:
 
 
 func get_layer_names() -> Array[String]:
-	return [LAYER_FOOTPRINT, LAYER_PLUME_INNER, LAYER_PLUME_OUTER]
+	return [LAYER_FOOTPRINT, LAYER_HAZE, LAYER_RAYS]
 
 
 func set_layer_visible(layer_name: String, visible: bool) -> void:
@@ -136,12 +139,12 @@ func set_layer_visible(layer_name: String, visible: bool) -> void:
 		LAYER_FOOTPRINT:
 			if _footprintInstance != null:
 				_footprintInstance.visible = visible
-		LAYER_PLUME_INNER:
-			if _innerPlumeInstance != null:
-				_innerPlumeInstance.visible = visible
-		LAYER_PLUME_OUTER:
-			if _outerPlumeInstance != null:
-				_outerPlumeInstance.visible = visible
+		LAYER_HAZE:
+			if _hazeInstance != null:
+				_hazeInstance.visible = visible
+		LAYER_RAYS:
+			if _rayInstance != null:
+				_rayInstance.visible = visible
 		_:
 			push_warning("Unknown SpellCastAura layer: %s" % layer_name)
 
@@ -164,14 +167,15 @@ func is_center_darkening_enabled() -> bool:
 ## Debug transition control. Zero holds the current atlas cell; one crossfades
 ## continuously into the next. Both paths are deterministic normalized seeks.
 func set_plume_state_crossfade(amount: float) -> void:
-	_plumeStateCrossfade = clampf(amount, 0.0, 1.0)
-	for material: ShaderMaterial in [_innerPlumeMaterial, _outerPlumeMaterial]:
+	_hazeStateCrossfade = clampf(amount, 0.0, 1.0)
+	_rayStateCrossfade = _hazeStateCrossfade
+	for material: ShaderMaterial in [_hazeMaterial, _rayMaterial]:
 		if material != null:
-			material.set_shader_parameter("state_crossfade", _plumeStateCrossfade)
+			material.set_shader_parameter("state_crossfade", _hazeStateCrossfade)
 
 
 func get_plume_state_crossfade() -> float:
-	return _plumeStateCrossfade
+	return _rayStateCrossfade
 
 
 func get_live_particle_count() -> int:
@@ -183,7 +187,7 @@ func get_live_instance_count() -> int:
 		return 0
 	var count := 0
 	for instance: MeshInstance3D in [
-		_footprintInstance, _innerPlumeInstance, _outerPlumeInstance
+		_footprintInstance, _hazeInstance, _rayInstance
 	]:
 		if instance != null and instance.visible:
 			count += 1
@@ -224,80 +228,90 @@ func _process(delta: float) -> void:
 ## own AUTHORED constants, which stay the documented source of truth; these make
 ## them adjustable without a relaunch, not authoritative.
 ##
-## Every row rebuilds: the plume shells are meshes generated at build time and
+## Every row rebuilds: the flow shells are meshes generated at build time and
 ## the aperture's values are baked into shader uniforms as the material is
 ## assembled, so there is no live-uniform path to nudge.
 static func tunables() -> Array[Dictionary]:
 	return [
 		{
-			"id": "PLUME_INNER_BOTTOM_RADIUS_U", "label": "Inner bottom radius",
-			"group": "Inner plume", "min": 0.05, "max": 3.0, "step": 0.01,
-			"default": SpellCastAuraProfile.PLUME_INNER_BOTTOM_RADIUS_U, "rebuild": true,
+			"id": "HAZE_BOTTOM_RADIUS_U", "label": "Bottom radius",
+			"group": "Body haze", "min": 0.05, "max": 3.0, "step": 0.01,
+			"default": SpellCastAuraProfile.HAZE_BOTTOM_RADIUS_U, "rebuild": true,
 		},
 		{
-			"id": "PLUME_INNER_TOP_RADIUS_U", "label": "Inner top radius",
-			"group": "Inner plume", "min": 0.05, "max": 4.0, "step": 0.01,
-			"default": SpellCastAuraProfile.PLUME_INNER_TOP_RADIUS_U, "rebuild": true,
+			"id": "HAZE_MIDDLE_RADIUS_U", "label": "Middle radius",
+			"group": "Body haze", "min": 0.05, "max": 4.0, "step": 0.01,
+			"default": SpellCastAuraProfile.HAZE_MIDDLE_RADIUS_U, "rebuild": true,
 		},
 		{
-			"id": "PLUME_INNER_HEIGHT_U", "label": "Inner height",
-			"group": "Inner plume", "min": 0.1, "max": 5.0, "step": 0.05,
-			"default": SpellCastAuraProfile.PLUME_INNER_HEIGHT_U, "rebuild": true,
+			"id": "HAZE_TOP_RADIUS_U", "label": "Top radius",
+			"group": "Body haze", "min": 0.05, "max": 5.0, "step": 0.01,
+			"default": SpellCastAuraProfile.HAZE_TOP_RADIUS_U, "rebuild": true,
 		},
 		{
-			"id": "PLUME_INNER_OPACITY", "label": "Inner opacity",
-			"group": "Inner plume", "min": 0.0, "max": 1.0, "step": 0.01,
-			"default": SpellCastAuraProfile.PLUME_INNER_OPACITY, "rebuild": true,
+			"id": "HAZE_MIDDLE_HEIGHT_FRACTION", "label": "Middle height",
+			"group": "Body haze", "min": 0.05, "max": 0.95, "step": 0.01,
+			"default": SpellCastAuraProfile.HAZE_MIDDLE_HEIGHT_FRACTION, "rebuild": true,
 		},
 		{
-			"id": "PLUME_INNER_EMISSION_ENERGY", "label": "Inner emission",
-			"group": "Inner plume", "min": 0.0, "max": 6.0, "step": 0.05,
-			"default": SpellCastAuraProfile.PLUME_INNER_EMISSION_ENERGY, "rebuild": true,
+			"id": "HAZE_HEIGHT_U", "label": "Height",
+			"group": "Body haze", "min": 0.1, "max": 5.0, "step": 0.05,
+			"default": SpellCastAuraProfile.HAZE_HEIGHT_U, "rebuild": true,
 		},
 		{
-			"id": "PLUME_OUTER_BOTTOM_RADIUS_U", "label": "Outer bottom radius",
-			"group": "Outer plume", "min": 0.05, "max": 3.0, "step": 0.01,
-			"default": SpellCastAuraProfile.PLUME_OUTER_BOTTOM_RADIUS_U, "rebuild": true,
+			"id": "HAZE_OPACITY", "label": "Opacity",
+			"group": "Body haze", "min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SpellCastAuraProfile.HAZE_OPACITY, "rebuild": true,
 		},
 		{
-			"id": "PLUME_OUTER_TOP_RADIUS_U", "label": "Outer top radius",
-			"group": "Outer plume", "min": 0.05, "max": 4.0, "step": 0.01,
-			"default": SpellCastAuraProfile.PLUME_OUTER_TOP_RADIUS_U, "rebuild": true,
+			"id": "HAZE_EMISSION_ENERGY", "label": "Emission",
+			"group": "Body haze", "min": 0.0, "max": 6.0, "step": 0.05,
+			"default": SpellCastAuraProfile.HAZE_EMISSION_ENERGY, "rebuild": true,
 		},
 		{
-			"id": "PLUME_OUTER_HEIGHT_U", "label": "Outer height",
-			"group": "Outer plume", "min": 0.1, "max": 5.0, "step": 0.05,
-			"default": SpellCastAuraProfile.PLUME_OUTER_HEIGHT_U, "rebuild": true,
+			"id": "HAZE_STATE_CROSSFADE", "label": "State crossfade",
+			"group": "Body haze", "min": 0.0, "max": 1.0, "step": 0.05,
+			"default": SpellCastAuraProfile.HAZE_STATE_CROSSFADE, "rebuild": true,
 		},
 		{
-			"id": "PLUME_OUTER_OPACITY", "label": "Outer opacity",
-			"group": "Outer plume", "min": 0.0, "max": 1.0, "step": 0.01,
-			"default": SpellCastAuraProfile.PLUME_OUTER_OPACITY, "rebuild": true,
+			"id": "RAY_BOTTOM_RADIUS_U", "label": "Bottom radius",
+			"group": "Ghost rays", "min": 0.05, "max": 3.0, "step": 0.01,
+			"default": SpellCastAuraProfile.RAY_BOTTOM_RADIUS_U, "rebuild": true,
 		},
 		{
-			"id": "PLUME_OUTER_EMISSION_ENERGY", "label": "Outer emission",
-			"group": "Outer plume", "min": 0.0, "max": 6.0, "step": 0.05,
-			"default": SpellCastAuraProfile.PLUME_OUTER_EMISSION_ENERGY, "rebuild": true,
+			"id": "RAY_MIDDLE_RADIUS_U", "label": "Middle radius",
+			"group": "Ghost rays", "min": 0.05, "max": 4.0, "step": 0.01,
+			"default": SpellCastAuraProfile.RAY_MIDDLE_RADIUS_U, "rebuild": true,
 		},
 		{
-			"id": "PLUME_STATE_CROSSFADE", "label": "State crossfade",
-			"group": "Outer plume", "min": 0.0, "max": 1.0, "step": 0.05,
-			"default": SpellCastAuraProfile.PLUME_STATE_CROSSFADE, "rebuild": true,
+			"id": "RAY_TOP_RADIUS_U", "label": "Top radius",
+			"group": "Ghost rays", "min": 0.05, "max": 5.0, "step": 0.01,
+			"default": SpellCastAuraProfile.RAY_TOP_RADIUS_U, "rebuild": true,
 		},
 		{
-			"id": "APERTURE_RADIUS_START", "label": "Aperture start",
-			"group": "Aperture", "min": 0.0, "max": 1.0, "step": 0.01,
-			"default": SpellCastAuraProfile.APERTURE_RADIUS_START, "rebuild": true,
+			"id": "RAY_MIDDLE_HEIGHT_FRACTION", "label": "Middle height",
+			"group": "Ghost rays", "min": 0.05, "max": 0.95, "step": 0.01,
+			"default": SpellCastAuraProfile.RAY_MIDDLE_HEIGHT_FRACTION, "rebuild": true,
 		},
 		{
-			"id": "APERTURE_RADIUS_TROUGH", "label": "Aperture trough",
-			"group": "Aperture", "min": 0.0, "max": 1.0, "step": 0.01,
-			"default": SpellCastAuraProfile.APERTURE_RADIUS_TROUGH, "rebuild": true,
+			"id": "RAY_HEIGHT_U", "label": "Height",
+			"group": "Ghost rays", "min": 0.1, "max": 5.0, "step": 0.05,
+			"default": SpellCastAuraProfile.RAY_HEIGHT_U, "rebuild": true,
 		},
 		{
-			"id": "APERTURE_RADIUS_END", "label": "Aperture end",
-			"group": "Aperture", "min": 0.0, "max": 1.0, "step": 0.01,
-			"default": SpellCastAuraProfile.APERTURE_RADIUS_END, "rebuild": true,
+			"id": "RAY_OPACITY", "label": "Opacity",
+			"group": "Ghost rays", "min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SpellCastAuraProfile.RAY_OPACITY, "rebuild": true,
+		},
+		{
+			"id": "RAY_EMISSION_ENERGY", "label": "Emission",
+			"group": "Ghost rays", "min": 0.0, "max": 8.0, "step": 0.05,
+			"default": SpellCastAuraProfile.RAY_EMISSION_ENERGY, "rebuild": true,
+		},
+		{
+			"id": "RAY_STATE_CROSSFADE", "label": "State crossfade",
+			"group": "Ghost rays", "min": 0.0, "max": 1.0, "step": 0.05,
+			"default": SpellCastAuraProfile.RAY_STATE_CROSSFADE, "rebuild": true,
 		},
 		{
 			"id": "APERTURE_RIM_WIDTH", "label": "Rim width",
@@ -331,59 +345,60 @@ func _buildLayers() -> void:
 	_centerDarkeningEnabled = not OS.get_cmdline_user_args().has(
 		_DEBUG_TRANSPARENT_CENTER_FLAG
 	)
-	_plumeStateCrossfade = (
-		1.0 if OS.get_cmdline_user_args().has(_DEBUG_CROSSFADE_PLUME_FLAG)
-		else tunable(
-			"PLUME_STATE_CROSSFADE", SpellCastAuraProfile.PLUME_STATE_CROSSFADE
+	var forceCrossfade := OS.get_cmdline_user_args().has(_DEBUG_CROSSFADE_PLUME_FLAG)
+	_hazeStateCrossfade = (
+		1.0 if forceCrossfade else tunable(
+			"HAZE_STATE_CROSSFADE", SpellCastAuraProfile.HAZE_STATE_CROSSFADE
+		)
+	)
+	_rayStateCrossfade = (
+		1.0 if forceCrossfade else tunable(
+			"RAY_STATE_CROSSFADE", SpellCastAuraProfile.RAY_STATE_CROSSFADE
 		)
 	)
 	_footprintInstance = _createFootprintAperture(_elementColor, _centerDarkeningEnabled)
 	add_child(_footprintInstance)
 	_footprintMaterial = _footprintInstance.material_override as ShaderMaterial
-	_innerPlumeInstance = _createPlumeShell(
-		"InnerPlumeCurtain",
+	_hazeInstance = _createFlowShell(
+		"BodyHazeField",
+		_HAZE_SHADER,
 		_elementColor,
+		tunable("HAZE_BOTTOM_RADIUS_U", SpellCastAuraProfile.HAZE_BOTTOM_RADIUS_U),
+		tunable("HAZE_MIDDLE_RADIUS_U", SpellCastAuraProfile.HAZE_MIDDLE_RADIUS_U),
+		tunable("HAZE_TOP_RADIUS_U", SpellCastAuraProfile.HAZE_TOP_RADIUS_U),
 		tunable(
-			"PLUME_INNER_BOTTOM_RADIUS_U",
-			SpellCastAuraProfile.PLUME_INNER_BOTTOM_RADIUS_U
+			"HAZE_MIDDLE_HEIGHT_FRACTION",
+			SpellCastAuraProfile.HAZE_MIDDLE_HEIGHT_FRACTION
 		),
-		tunable(
-			"PLUME_INNER_TOP_RADIUS_U", SpellCastAuraProfile.PLUME_INNER_TOP_RADIUS_U
-		),
-		tunable("PLUME_INNER_HEIGHT_U", SpellCastAuraProfile.PLUME_INNER_HEIGHT_U),
-		SpellCastAuraProfile.PLUME_INNER_UV_PHASE,
-		tunable("PLUME_INNER_OPACITY", SpellCastAuraProfile.PLUME_INNER_OPACITY),
-		tunable(
-			"PLUME_INNER_EMISSION_ENERGY",
-			SpellCastAuraProfile.PLUME_INNER_EMISSION_ENERGY
-		),
-		SpellCastAuraProfile.PLUME_INNER_RENDER_PRIORITY,
-		_plumeStateCrossfade
+		tunable("HAZE_HEIGHT_U", SpellCastAuraProfile.HAZE_HEIGHT_U),
+		SpellCastAuraProfile.HAZE_UV_PHASE,
+		tunable("HAZE_OPACITY", SpellCastAuraProfile.HAZE_OPACITY),
+		tunable("HAZE_EMISSION_ENERGY", SpellCastAuraProfile.HAZE_EMISSION_ENERGY),
+		SpellCastAuraProfile.HAZE_RENDER_PRIORITY,
+		_hazeStateCrossfade
 	)
-	add_child(_innerPlumeInstance)
-	_innerPlumeMaterial = _innerPlumeInstance.material_override as ShaderMaterial
-	_outerPlumeInstance = _createPlumeShell(
-		"OuterPlumeCurtain",
+	add_child(_hazeInstance)
+	_hazeMaterial = _hazeInstance.material_override as ShaderMaterial
+	_rayInstance = _createFlowShell(
+		"GhostRayField",
+		_RAY_SHADER,
 		_elementColor,
+		tunable("RAY_BOTTOM_RADIUS_U", SpellCastAuraProfile.RAY_BOTTOM_RADIUS_U),
+		tunable("RAY_MIDDLE_RADIUS_U", SpellCastAuraProfile.RAY_MIDDLE_RADIUS_U),
+		tunable("RAY_TOP_RADIUS_U", SpellCastAuraProfile.RAY_TOP_RADIUS_U),
 		tunable(
-			"PLUME_OUTER_BOTTOM_RADIUS_U",
-			SpellCastAuraProfile.PLUME_OUTER_BOTTOM_RADIUS_U
+			"RAY_MIDDLE_HEIGHT_FRACTION",
+			SpellCastAuraProfile.RAY_MIDDLE_HEIGHT_FRACTION
 		),
-		tunable(
-			"PLUME_OUTER_TOP_RADIUS_U", SpellCastAuraProfile.PLUME_OUTER_TOP_RADIUS_U
-		),
-		tunable("PLUME_OUTER_HEIGHT_U", SpellCastAuraProfile.PLUME_OUTER_HEIGHT_U),
-		SpellCastAuraProfile.PLUME_OUTER_UV_PHASE,
-		tunable("PLUME_OUTER_OPACITY", SpellCastAuraProfile.PLUME_OUTER_OPACITY),
-		tunable(
-			"PLUME_OUTER_EMISSION_ENERGY",
-			SpellCastAuraProfile.PLUME_OUTER_EMISSION_ENERGY
-		),
-		SpellCastAuraProfile.PLUME_OUTER_RENDER_PRIORITY,
-		_plumeStateCrossfade
+		tunable("RAY_HEIGHT_U", SpellCastAuraProfile.RAY_HEIGHT_U),
+		SpellCastAuraProfile.RAY_UV_PHASE,
+		tunable("RAY_OPACITY", SpellCastAuraProfile.RAY_OPACITY),
+		tunable("RAY_EMISSION_ENERGY", SpellCastAuraProfile.RAY_EMISSION_ENERGY),
+		SpellCastAuraProfile.RAY_RENDER_PRIORITY,
+		_rayStateCrossfade
 	)
-	add_child(_outerPlumeInstance)
-	_outerPlumeMaterial = _outerPlumeInstance.material_override as ShaderMaterial
+	add_child(_rayInstance)
+	_rayMaterial = _rayInstance.material_override as ShaderMaterial
 	_applySeed(0)
 	assert(
 		_countNodes(self) <= SpellCastAuraProfile.MAX_EFFECT_NODES,
@@ -403,7 +418,10 @@ func _buildLayers() -> void:
 
 func _applyProgress(progress: float) -> void:
 	var statePosition := _sourceStatePosition(progress)
-	var visibility := _sourceVisibility(progress)
+	var lifecycleVisibility := _lifecycleVisibility(progress)
+	var footprintIgnition := _footprintIgnition(progress)
+	var plumeRootIgnition := _plumeRootIgnition(progress)
+	var plumeRevealFront := _plumeRevealFront(progress)
 	if _footprintMaterial != null:
 		_footprintMaterial.set_shader_parameter("source_state_position", statePosition)
 		_footprintMaterial.set_shader_parameter(
@@ -413,25 +431,55 @@ func _applyProgress(progress: float) -> void:
 		_footprintMaterial.set_shader_parameter(
 			"rim_width",
 			_sampleSourceCurve(progress, SpellCastAuraProfile.APERTURE_RIM_WIDTH_CURVE)
+					* tunable(
+						"APERTURE_RIM_WIDTH", SpellCastAuraProfile.APERTURE_RIM_WIDTH
+					)
+					/ SpellCastAuraProfile.APERTURE_RIM_WIDTH
 		)
 		_footprintMaterial.set_shader_parameter(
 			"striation_visibility",
 			_sampleSourceCurve(progress, SpellCastAuraProfile.APERTURE_STRIATION_CURVE)
 		)
-		_footprintMaterial.set_shader_parameter("effect_visibility", visibility)
+		_footprintMaterial.set_shader_parameter("root_ignition", footprintIgnition)
+		_footprintMaterial.set_shader_parameter(
+			"lifecycle_visibility", lifecycleVisibility
+		)
 	var plumeEnergy := _sampleSourceCurve(
 		progress, SpellCastAuraProfile.PLUME_ENERGY_CURVE
 	)
-	for material: ShaderMaterial in [_innerPlumeMaterial, _outerPlumeMaterial]:
+	if _hazeInstance != null:
+		var hazeWidth := _sampleSourceCurve(
+			progress, SpellCastAuraProfile.HAZE_WIDTH_SCALE_CURVE
+		)
+		var hazeHeight := _sampleSourceCurve(
+			progress, SpellCastAuraProfile.HAZE_HEIGHT_SCALE_CURVE
+		)
+		_hazeInstance.scale = Vector3(hazeWidth, hazeHeight, hazeWidth)
+	if _rayInstance != null:
+		var rayWidth := _sampleSourceCurve(
+			progress, SpellCastAuraProfile.RAY_WIDTH_SCALE_CURVE
+		)
+		var rayHeight := _sampleSourceCurve(
+			progress, SpellCastAuraProfile.RAY_HEIGHT_SCALE_CURVE
+		)
+		_rayInstance.scale = Vector3(rayWidth, rayHeight, rayWidth)
+	for material: ShaderMaterial in [_hazeMaterial, _rayMaterial]:
 		if material != null:
 			material.set_shader_parameter("atlas_state_position", statePosition)
 			material.set_shader_parameter("plume_energy", plumeEnergy)
-			material.set_shader_parameter("effect_visibility", visibility)
+			material.set_shader_parameter("root_ignition", plumeRootIgnition)
+			material.set_shader_parameter("reveal_front", plumeRevealFront)
+			material.set_shader_parameter(
+				"reveal_softness", SpellCastAuraProfile.PLUME_REVEAL_SOFTNESS
+			)
+			material.set_shader_parameter(
+				"lifecycle_visibility", lifecycleVisibility
+			)
 
 
 func _applySeed(seed: int) -> void:
 	for material: ShaderMaterial in [
-		_footprintMaterial, _innerPlumeMaterial, _outerPlumeMaterial
+		_footprintMaterial, _hazeMaterial, _rayMaterial
 	]:
 		if material != null:
 			material.set_shader_parameter("seed_value", float(seed))
@@ -476,7 +524,8 @@ func _createFootprintAperture(
 		SpellCastAuraProfile.CENTER_DARKENING_ALPHA if darkenCenter else 0.0
 	)
 	material.set_shader_parameter("source_state_position", 0.0)
-	material.set_shader_parameter("effect_visibility", 0.0)
+	material.set_shader_parameter("root_ignition", 0.0)
+	material.set_shader_parameter("lifecycle_visibility", 1.0)
 
 	var instance := MeshInstance3D.new()
 	instance.name = "FootprintAperture"
@@ -487,11 +536,14 @@ func _createFootprintAperture(
 	return instance
 
 
-static func _createPlumeShell(
+static func _createFlowShell(
 		instanceName: String,
+		shader: Shader,
 		color: Color,
 		bottomRadius: float,
+		middleRadius: float,
 		topRadius: float,
+		middleHeightFraction: float,
 		height: float,
 		uvPhase: float,
 		opacity: float,
@@ -499,7 +551,7 @@ static func _createPlumeShell(
 		renderPriority: int,
 		stateCrossfade: float) -> MeshInstance3D:
 	var material := ShaderMaterial.new()
-	material.shader = _PLUME_SHADER
+	material.shader = shader
 	material.render_priority = renderPriority
 	material.set_shader_parameter("plume_atlas", _PLUME_ATLAS)
 	material.set_shader_parameter(
@@ -513,28 +565,42 @@ static func _createPlumeShell(
 	material.set_shader_parameter("state_crossfade", stateCrossfade)
 	material.set_shader_parameter("atlas_state_position", 0.0)
 	material.set_shader_parameter("plume_energy", SpellCastAuraProfile.PLUME_ENERGY_CURVE[0])
-	material.set_shader_parameter("effect_visibility", 0.0)
+	material.set_shader_parameter("root_ignition", 0.0)
+	material.set_shader_parameter("reveal_front", 0.0)
+	material.set_shader_parameter(
+		"reveal_softness", SpellCastAuraProfile.PLUME_REVEAL_SOFTNESS
+	)
+	material.set_shader_parameter("lifecycle_visibility", 1.0)
 
 	var instance := MeshInstance3D.new()
 	instance.name = instanceName
-	instance.mesh = _createFlaredShellMesh(bottomRadius, topRadius, height)
+	instance.mesh = _createProfiledShellMesh(
+		bottomRadius, middleRadius, topRadius, middleHeightFraction, height
+	)
 	instance.position.y = SpellCastAuraProfile.PLUME_BASE_HEIGHT_U
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	instance.custom_aabb = AABB(
-		Vector3(-topRadius, -0.02, -topRadius),
-		Vector3(topRadius * 2.0, height + 0.04, topRadius * 2.0)
+		Vector3(-maxf(middleRadius, topRadius), -0.02, -maxf(middleRadius, topRadius)),
+		Vector3(maxf(middleRadius, topRadius) * 2.0, height + 0.04,
+			maxf(middleRadius, topRadius) * 2.0)
 	)
 	return instance
 
 
-## Outward-facing triangle winding is intentional. The plume shader uses face
-## orientation to keep the outer shell behind the caster and restrict the
-## inner shell's camera-side contribution to a soft body-enclosing wash.
-static func _createFlaredShellMesh(
+## Each role owns a measured lower/middle/upper radius profile. Outward-facing
+## winding lets the haze control its front contribution while the ray shader
+## discards its front faces without camera-facing geometry.
+static func _createProfiledShellMesh(
 		bottomRadius: float,
+		middleRadius: float,
 		topRadius: float,
+		middleHeightFraction: float,
 		height: float) -> ArrayMesh:
+	assert(
+		bottomRadius <= middleRadius and middleRadius <= topRadius,
+		"Spell-cast aura carrier radius must expand monotonically upward."
+	)
 	var segments := SpellCastAuraProfile.PLUME_SHELL_SEGMENTS
 	var heightBands := SpellCastAuraProfile.PLUME_SHELL_HEIGHT_BANDS
 	var vertices := PackedVector3Array()
@@ -544,8 +610,17 @@ static func _createFlaredShellMesh(
 
 	for row: int in range(heightBands + 1):
 		var heightFraction := float(row) / float(heightBands)
-		var flareFraction := pow(heightFraction, 0.72)
-		var radius := lerpf(bottomRadius, topRadius, flareFraction)
+		var radius := 0.0
+		if heightFraction <= middleHeightFraction:
+			var lowerWeight := smoothstep(
+				0.0, middleHeightFraction, heightFraction
+			)
+			radius = lerpf(bottomRadius, middleRadius, lowerWeight)
+		else:
+			var upperWeight := smoothstep(
+				middleHeightFraction, 1.0, heightFraction
+			)
+			radius = lerpf(middleRadius, topRadius, upperWeight)
 		for segment: int in range(segments + 1):
 			var angularFraction := float(segment) / float(segments)
 			var angle := angularFraction * TAU
@@ -602,9 +677,28 @@ static func _sampleSourceCurve(progress: float, values: Array) -> float:
 	)
 
 
-static func _sourceVisibility(progress: float) -> float:
-	if progress <= SpellCastAuraProfile.CHARGE_END:
-		return smoothstep(0.0, SpellCastAuraProfile.CHARGE_END, progress)
+static func _footprintIgnition(progress: float) -> float:
+	return smoothstep(0.0, SpellCastAuraProfile.FOOTPRINT_IGNITION_END, progress)
+
+
+static func _plumeRootIgnition(progress: float) -> float:
+	return smoothstep(
+		SpellCastAuraProfile.PLUME_EMISSION_START,
+		SpellCastAuraProfile.PLUME_ROOT_IGNITION_END,
+		progress
+	)
+
+
+static func _plumeRevealFront(progress: float) -> float:
+	var revealProgress := smoothstep(
+		SpellCastAuraProfile.PLUME_EMISSION_START,
+		SpellCastAuraProfile.CHARGE_END,
+		progress
+	)
+	return revealProgress * SpellCastAuraProfile.PLUME_REVEAL_END
+
+
+static func _lifecycleVisibility(progress: float) -> float:
 	var sourceEnd := float(SpellCastAuraProfile.SOURCE_STATE_PROGRESS[-1])
 	if progress <= sourceEnd:
 		return 1.0

@@ -1,0 +1,1362 @@
+{
+  "schema_version": 1,
+  "authority": "Eleven user-supplied consecutive animation frames",
+  "command_label": "native-black-isolation-camera5-seed7-ice",
+  "registration": {
+    "source_size_px": [
+      350,
+      350
+    ],
+    "source_original_sizes_px": [
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ]
+    ],
+    "source_resampling": "bicubic_to_measurement_contract",
+    "source_character_bounds_px": [
+      151,
+      196,
+      209,
+      312
+    ],
+    "render_body_bounds_px": [
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ],
+      [
+        287,
+        232,
+        413,
+        437
+      ]
+    ],
+    "method": "anisotropic proxy-to-source character bounds, center and feet locked"
+  },
+  "source_files": [
+    {
+      "name": "codex-clipboard-f3adce48-10f9-4b8e-a9de-e7ca428d4b8b.png",
+      "sha256": "6332fc0c05be0ecdf1d31ca767009f67309441c64b049acff43d189250c316e0"
+    },
+    {
+      "name": "codex-clipboard-d92ce9d6-81ba-426d-843e-307f45482248.png",
+      "sha256": "0ab028bef63b405846a671235835827c065a79a927f2c3012bedf980b2e72f07"
+    },
+    {
+      "name": "codex-clipboard-b018b769-b365-46a3-adb9-07333f546b68.png",
+      "sha256": "9f6d6d586b66519d51048fc096f9790cca5404745cb1960864912543f97f3071"
+    },
+    {
+      "name": "codex-clipboard-69f14541-fa37-4dfd-98e3-76b9d4ed8edc.png",
+      "sha256": "96ed316c634983879424c43dd1f9d7f004b25e592913bc8622332037cba98040"
+    },
+    {
+      "name": "codex-clipboard-faf005c5-41e0-4eb0-b0f1-5ad368cff3bf.png",
+      "sha256": "8a5b155f1162accfa2dcff080bb240d973d5b810334a816cbf6141bda28ff3d3"
+    },
+    {
+      "name": "codex-clipboard-fde57abe-4c2d-40ae-8be1-27de05849820.png",
+      "sha256": "28f02eae270d0f5176dc29b0c88ebd77241b40d9a19de2a79505643be4df98cb"
+    },
+    {
+      "name": "codex-clipboard-95bd00b0-d29f-4ac2-a642-14bc5e8aad8a.png",
+      "sha256": "9bfbaac0ee187d4fe240278d43c4ded21dc27c8576b693b5e5ee4160ba45383d"
+    },
+    {
+      "name": "codex-clipboard-261741d6-dd2d-424f-a8ae-065a13b27b85.png",
+      "sha256": "6a672025d7b76595be6d7dec728e5f303a390d4d9fe078f6b698b085c310a361"
+    },
+    {
+      "name": "codex-clipboard-6242a5ba-b8c1-4c89-b1c1-3b11385131f0.png",
+      "sha256": "ce2066fbf9eae4818ac6915e7755ee9c66fae9e008dcfd8f9574057c7698e3c3"
+    },
+    {
+      "name": "codex-clipboard-f8ebdbf8-62c6-4704-b5b1-602dc6742126.png",
+      "sha256": "cf5dfb6a09e69de64b8796ad9fbd8f68e4de9caee3efbdb12879df56dc8876c1"
+    },
+    {
+      "name": "codex-clipboard-17a739ea-e7db-4707-b829-eea95fadf4ee.png",
+      "sha256": "f2e5bec441a2e994770710e10b7a7b05452e18891d58bee0eaa96d1f945c359c"
+    }
+  ],
+  "render_files": [
+    {
+      "name": "current_t0.08.png",
+      "sha256": "b25090700ee940e55d529ce6630176adcd9b7515f5b17d24d752f0403fc7dba4"
+    },
+    {
+      "name": "current_t0.15.png",
+      "sha256": "0ca5c61a9fa02f526dd29cc3eb1b559e184f666514d9d33f938ed5b01aa312e0"
+    },
+    {
+      "name": "current_t0.22.png",
+      "sha256": "00a499fa40f6a57e0aeabb542a82cacd7d8d6f812b28be82a4d8576514442b49"
+    },
+    {
+      "name": "current_t0.29.png",
+      "sha256": "261064cf378f3323732445d072206aaf728cb3b7a81de2bf846e76a6cc910ba4"
+    },
+    {
+      "name": "current_t0.36.png",
+      "sha256": "51a6f98d6168ad82eb43e11d7f7af856920c342b1b0cd83ec676265dc964eeb9"
+    },
+    {
+      "name": "current_t0.43.png",
+      "sha256": "60b5bcba8b68e1f76049afa8a830b0e8e3158526da4bad2ac1a505707f50d937"
+    },
+    {
+      "name": "current_t0.5.png",
+      "sha256": "69c2289b2890be76e1a0a56a1b5bcb89b23b23744a5e7645cc9d0174849ae523"
+    },
+    {
+      "name": "current_t0.57.png",
+      "sha256": "e5123c93a20c9033b2759a0e5bf1ac83913cedc98a2855fb5e3b51e5ed956972"
+    },
+    {
+      "name": "current_t0.64.png",
+      "sha256": "b246f45ee4b2f67c7b5dcee8317b229685523a434af24082a9e8acfe73afbd78"
+    },
+    {
+      "name": "current_t0.72.png",
+      "sha256": "2575b2ee914b7a471e6b7aceb966c51b5560a028900c6d64bc316a020c30aa4d"
+    },
+    {
+      "name": "current_t0.82.png",
+      "sha256": "c5b5912fc340452a067351ab05da89c21a708aca580f68bc1aa2921c935bd788"
+    }
+  ],
+  "source_metrics": [
+    {
+      "faint_width": 3.5517,
+      "dense_width": 3.069,
+      "faint_height": 0.9828,
+      "dense_height": 0.8879,
+      "energy_centroid_height": 0.3282,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.020569,
+        0.01499,
+        0.006746,
+        0.004206,
+        0.005392,
+        0.004872,
+        0.014625,
+        0.028308,
+        0.086404,
+        0.262493,
+        0.187619,
+        0.000899,
+        0.0,
+        0.101008,
+        0.182033,
+        0.079838
+      ],
+      "horizontal_band_periodicity": 0.265215,
+      "horizontal_edge_ratio": 0.436816,
+      "silhouette_plateau_ratio": 0.564972,
+      "palette": {
+        "p50": [
+          15,
+          78,
+          116
+        ],
+        "p90": [
+          29,
+          145,
+          209
+        ]
+      },
+      "body_overdraw_fraction": 0.351516
+    },
+    {
+      "faint_width": 3.6207,
+      "dense_width": 3.0172,
+      "faint_height": 0.9655,
+      "dense_height": 0.8621,
+      "energy_centroid_height": 0.3026,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.025229,
+        0.015226,
+        0.011164,
+        0.008881,
+        0.009811,
+        0.011021,
+        0.017497,
+        0.028334,
+        0.10656,
+        0.230522,
+        0.176511,
+        0.000171,
+        0.0,
+        0.104802,
+        0.162035,
+        0.092236
+      ],
+      "horizontal_band_periodicity": 0.357398,
+      "horizontal_edge_ratio": 0.417224,
+      "silhouette_plateau_ratio": 0.488506,
+      "palette": {
+        "p50": [
+          14,
+          71,
+          107
+        ],
+        "p90": [
+          27,
+          134,
+          194
+        ]
+      },
+      "body_overdraw_fraction": 0.342004
+    },
+    {
+      "faint_width": 3.4655,
+      "dense_width": 2.9138,
+      "faint_height": 0.9397,
+      "dense_height": 0.8103,
+      "energy_centroid_height": 0.2871,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.031049,
+        0.017072,
+        0.012993,
+        0.010373,
+        0.010644,
+        0.011304,
+        0.019649,
+        0.031174,
+        0.116227,
+        0.194327,
+        0.175167,
+        0.0,
+        0.0,
+        0.099843,
+        0.17579,
+        0.094389
+      ],
+      "horizontal_band_periodicity": 0.356342,
+      "horizontal_edge_ratio": 0.432262,
+      "silhouette_plateau_ratio": 0.553571,
+      "palette": {
+        "p50": [
+          11,
+          61,
+          93
+        ],
+        "p90": [
+          22,
+          114,
+          166
+        ]
+      },
+      "body_overdraw_fraction": 0.351219
+    },
+    {
+      "faint_width": 3.3621,
+      "dense_width": 2.6379,
+      "faint_height": 0.8707,
+      "dense_height": 0.7241,
+      "energy_centroid_height": 0.3088,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.02822,
+        0.005135,
+        0.008212,
+        0.006054,
+        0.006267,
+        0.003967,
+        0.004147,
+        0.03125,
+        0.10489,
+        0.182984,
+        0.20825,
+        0.0,
+        0.0,
+        0.080952,
+        0.226667,
+        0.103005
+      ],
+      "horizontal_band_periodicity": 0.296795,
+      "horizontal_edge_ratio": 0.427755,
+      "silhouette_plateau_ratio": 0.585526,
+      "palette": {
+        "p50": [
+          13,
+          64,
+          95
+        ],
+        "p90": [
+          22,
+          107,
+          155
+        ]
+      },
+      "body_overdraw_fraction": 0.366082
+    },
+    {
+      "faint_width": 3.0,
+      "dense_width": 2.5517,
+      "faint_height": 0.8362,
+      "dense_height": 0.6897,
+      "energy_centroid_height": 0.3346,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.016522,
+        0.000706,
+        0.001135,
+        0.001285,
+        0.001029,
+        0.000562,
+        0.00067,
+        0.021254,
+        0.080798,
+        0.249656,
+        0.2091,
+        0.0,
+        0.0,
+        0.073125,
+        0.255305,
+        0.088854
+      ],
+      "horizontal_band_periodicity": 0.255824,
+      "horizontal_edge_ratio": 0.405311,
+      "silhouette_plateau_ratio": 0.513043,
+      "palette": {
+        "p50": [
+          12,
+          57,
+          89
+        ],
+        "p90": [
+          21,
+          105,
+          152
+        ]
+      },
+      "body_overdraw_fraction": 0.387782
+    },
+    {
+      "faint_width": 2.9483,
+      "dense_width": 2.6034,
+      "faint_height": 0.8793,
+      "dense_height": 0.7328,
+      "energy_centroid_height": 0.3426,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.00264,
+        0.004328,
+        0.003415,
+        0.002166,
+        0.002994,
+        0.002018,
+        0.003892,
+        0.010742,
+        0.069264,
+        0.304122,
+        0.181818,
+        0.0,
+        0.0,
+        0.079257,
+        0.286282,
+        0.047063
+      ],
+      "horizontal_band_periodicity": 0.150632,
+      "horizontal_edge_ratio": 0.395891,
+      "silhouette_plateau_ratio": 0.551402,
+      "palette": {
+        "p50": [
+          14,
+          67,
+          103
+        ],
+        "p90": [
+          26,
+          124,
+          174
+        ]
+      },
+      "body_overdraw_fraction": 0.419441
+    },
+    {
+      "faint_width": 3.0517,
+      "dense_width": 2.7069,
+      "faint_height": 0.8966,
+      "dense_height": 0.7931,
+      "energy_centroid_height": 0.3475,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.00459,
+        0.004886,
+        0.004324,
+        0.003384,
+        0.004153,
+        0.002428,
+        0.00453,
+        0.007371,
+        0.067811,
+        0.305338,
+        0.188099,
+        0.000307,
+        0.0,
+        0.08835,
+        0.270676,
+        0.043753
+      ],
+      "horizontal_band_periodicity": 0.153577,
+      "horizontal_edge_ratio": 0.395217,
+      "silhouette_plateau_ratio": 0.568182,
+      "palette": {
+        "p50": [
+          16,
+          80,
+          120
+        ],
+        "p90": [
+          29,
+          142,
+          199
+        ]
+      },
+      "body_overdraw_fraction": 0.391201
+    },
+    {
+      "faint_width": 3.2759,
+      "dense_width": 2.8793,
+      "faint_height": 0.9483,
+      "dense_height": 0.819,
+      "energy_centroid_height": 0.3175,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.02118,
+        0.014632,
+        0.007692,
+        0.00516,
+        0.005919,
+        0.003598,
+        0.011197,
+        0.027145,
+        0.080479,
+        0.278078,
+        0.168324,
+        0.000729,
+        0.0,
+        0.091269,
+        0.213605,
+        0.070994
+      ],
+      "horizontal_band_periodicity": 0.245138,
+      "horizontal_edge_ratio": 0.436961,
+      "silhouette_plateau_ratio": 0.542169,
+      "palette": {
+        "p50": [
+          15,
+          77,
+          115
+        ],
+        "p90": [
+          28,
+          135,
+          189
+        ]
+      },
+      "body_overdraw_fraction": 0.330559
+    },
+    {
+      "faint_width": 3.3793,
+      "dense_width": 2.9655,
+      "faint_height": 0.9397,
+      "dense_height": 0.8448,
+      "energy_centroid_height": 0.2905,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.027168,
+        0.018872,
+        0.007027,
+        0.00484,
+        0.005467,
+        0.005209,
+        0.01825,
+        0.038999,
+        0.104535,
+        0.248173,
+        0.14646,
+        0.0,
+        0.0,
+        0.091119,
+        0.188734,
+        0.095148
+      ],
+      "horizontal_band_periodicity": 0.304694,
+      "horizontal_edge_ratio": 0.448807,
+      "silhouette_plateau_ratio": 0.502924,
+      "palette": {
+        "p50": [
+          15,
+          75,
+          109
+        ],
+        "p90": [
+          23,
+          110,
+          152
+        ]
+      },
+      "body_overdraw_fraction": 0.315696
+    },
+    {
+      "faint_width": 3.4138,
+      "dense_width": 2.8621,
+      "faint_height": 0.931,
+      "dense_height": 0.8362,
+      "energy_centroid_height": 0.2475,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.03725,
+        0.02418,
+        0.0169,
+        0.013739,
+        0.014968,
+        0.0175,
+        0.026735,
+        0.040489,
+        0.118679,
+        0.203818,
+        0.129444,
+        0.0,
+        0.0,
+        0.091226,
+        0.156337,
+        0.108735
+      ],
+      "horizontal_band_periodicity": 0.460707,
+      "horizontal_edge_ratio": 0.440363,
+      "silhouette_plateau_ratio": 0.484848,
+      "palette": {
+        "p50": [
+          13,
+          65,
+          92
+        ],
+        "p90": [
+          17,
+          78,
+          107
+        ]
+      },
+      "body_overdraw_fraction": 0.299941
+    },
+    {
+      "faint_width": 3.2414,
+      "dense_width": 2.5172,
+      "faint_height": 0.8793,
+      "dense_height": 0.6897,
+      "energy_centroid_height": 0.2169,
+      "aperture_width": 1.4828,
+      "angular_profile": [
+        0.042496,
+        0.02817,
+        0.019788,
+        0.015478,
+        0.015327,
+        0.014842,
+        0.024461,
+        0.04576,
+        0.12134,
+        0.175451,
+        0.127861,
+        0.0,
+        0.0,
+        0.091668,
+        0.158354,
+        0.119006
+      ],
+      "horizontal_band_periodicity": 0.393776,
+      "horizontal_edge_ratio": 0.460273,
+      "silhouette_plateau_ratio": 0.517241,
+      "palette": {
+        "p50": [
+          10,
+          47,
+          65
+        ],
+        "p90": [
+          10,
+          47,
+          65
+        ]
+      },
+      "body_overdraw_fraction": 0.239596
+    }
+  ],
+  "render_metrics": [
+    {
+      "faint_width": 2.5862,
+      "dense_width": 2.5862,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.6897,
+      "aperture_width": 1.9483,
+      "angular_profile": [
+        0.000793,
+        0.001931,
+        0.001416,
+        0.00072,
+        0.001176,
+        0.000989,
+        0.001569,
+        0.000353,
+        0.011203,
+        0.093499,
+        0.336041,
+        0.035192,
+        0.018012,
+        0.397897,
+        0.086318,
+        0.012891
+      ],
+      "horizontal_band_periodicity": 0.07655,
+      "horizontal_edge_ratio": 0.328232,
+      "silhouette_plateau_ratio": 0.443299,
+      "palette": {
+        "p50": [
+          36,
+          95,
+          118
+        ],
+        "p90": [
+          56,
+          132,
+          163
+        ]
+      },
+      "body_overdraw_fraction": 0.184899
+    },
+    {
+      "faint_width": 2.6552,
+      "dense_width": 2.6552,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.659,
+      "aperture_width": 1.8793,
+      "angular_profile": [
+        0.000732,
+        0.001495,
+        0.001341,
+        0.000667,
+        0.001096,
+        0.000786,
+        0.0013,
+        0.00021,
+        0.017917,
+        0.105679,
+        0.3583,
+        0.015184,
+        0.008872,
+        0.370709,
+        0.094736,
+        0.020977
+      ],
+      "horizontal_band_periodicity": 0.145042,
+      "horizontal_edge_ratio": 0.338653,
+      "silhouette_plateau_ratio": 0.35,
+      "palette": {
+        "p50": [
+          36,
+          94,
+          117
+        ],
+        "p90": [
+          51,
+          123,
+          152
+        ]
+      },
+      "body_overdraw_fraction": 0.189358
+    },
+    {
+      "faint_width": 2.6207,
+      "dense_width": 2.6207,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.6592,
+      "aperture_width": 1.8621,
+      "angular_profile": [
+        0.000813,
+        0.001382,
+        0.00105,
+        0.000654,
+        0.00097,
+        0.000625,
+        0.001176,
+        0.00011,
+        0.014082,
+        0.099748,
+        0.337419,
+        0.050954,
+        0.017374,
+        0.35126,
+        0.102273,
+        0.020109
+      ],
+      "horizontal_band_periodicity": 0.109561,
+      "horizontal_edge_ratio": 0.343962,
+      "silhouette_plateau_ratio": 0.375,
+      "palette": {
+        "p50": [
+          37,
+          95,
+          118
+        ],
+        "p90": [
+          53,
+          127,
+          157
+        ]
+      },
+      "body_overdraw_fraction": 0.183561
+    },
+    {
+      "faint_width": 2.5517,
+      "dense_width": 2.5172,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.6588,
+      "aperture_width": 1.569,
+      "angular_profile": [
+        0.000493,
+        0.00142,
+        0.001248,
+        0.000611,
+        0.001035,
+        0.000791,
+        0.000954,
+        0.0,
+        0.012006,
+        0.103742,
+        0.396601,
+        0.086087,
+        0.012352,
+        0.279795,
+        0.100307,
+        0.002558
+      ],
+      "horizontal_band_periodicity": 0.124596,
+      "horizontal_edge_ratio": 0.290824,
+      "silhouette_plateau_ratio": 0.417722,
+      "palette": {
+        "p50": [
+          30,
+          79,
+          99
+        ],
+        "p90": [
+          48,
+          112,
+          138
+        ]
+      },
+      "body_overdraw_fraction": 0.166023
+    },
+    {
+      "faint_width": 2.2759,
+      "dense_width": 2.2759,
+      "faint_height": 1.0345,
+      "dense_height": 1.0259,
+      "energy_centroid_height": 0.6432,
+      "aperture_width": 1.7586,
+      "angular_profile": [
+        0.0,
+        0.001361,
+        0.000989,
+        0.000315,
+        0.000636,
+        0.00059,
+        0.000794,
+        0.0,
+        0.014584,
+        0.020547,
+        0.428823,
+        0.051508,
+        0.012151,
+        0.35152,
+        0.107783,
+        0.008398
+      ],
+      "horizontal_band_periodicity": 0.164087,
+      "horizontal_edge_ratio": 0.31594,
+      "silhouette_plateau_ratio": 0.268657,
+      "palette": {
+        "p50": [
+          29,
+          77,
+          96
+        ],
+        "p90": [
+          48,
+          114,
+          141
+        ]
+      },
+      "body_overdraw_fraction": 0.137634
+    },
+    {
+      "faint_width": 2.5862,
+      "dense_width": 2.5,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.7374,
+      "aperture_width": 2.2414,
+      "angular_profile": [
+        0.0,
+        0.000618,
+        0.000655,
+        0.000257,
+        0.000426,
+        0.00042,
+        0.000193,
+        0.0,
+        0.006443,
+        0.020449,
+        0.302154,
+        0.122268,
+        0.0,
+        0.442665,
+        0.089976,
+        0.013476
+      ],
+      "horizontal_band_periodicity": 0.280722,
+      "horizontal_edge_ratio": 0.362151,
+      "silhouette_plateau_ratio": 0.260274,
+      "palette": {
+        "p50": [
+          24,
+          69,
+          87
+        ],
+        "p90": [
+          46,
+          112,
+          138
+        ]
+      },
+      "body_overdraw_fraction": 0.162158
+    },
+    {
+      "faint_width": 2.5517,
+      "dense_width": 2.5517,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.7252,
+      "aperture_width": 2.1379,
+      "angular_profile": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.005287,
+        0.062767,
+        0.361087,
+        0.096792,
+        0.006967,
+        0.371886,
+        0.087168,
+        0.008045
+      ],
+      "horizontal_band_periodicity": 0.104535,
+      "horizontal_edge_ratio": 0.315351,
+      "silhouette_plateau_ratio": 0.220588,
+      "palette": {
+        "p50": [
+          24,
+          69,
+          87
+        ],
+        "p90": [
+          47,
+          111,
+          137
+        ]
+      },
+      "body_overdraw_fraction": 0.158442
+    },
+    {
+      "faint_width": 2.5172,
+      "dense_width": 2.4828,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.7055,
+      "aperture_width": 2.0862,
+      "angular_profile": [
+        0.000897,
+        0.002101,
+        0.001861,
+        0.000891,
+        0.001543,
+        0.001034,
+        0.001845,
+        0.000276,
+        0.00914,
+        0.058784,
+        0.433816,
+        0.068556,
+        0.000246,
+        0.319299,
+        0.090577,
+        0.009134
+      ],
+      "horizontal_band_periodicity": 0.107968,
+      "horizontal_edge_ratio": 0.35457,
+      "silhouette_plateau_ratio": 0.47191,
+      "palette": {
+        "p50": [
+          29,
+          81,
+          101
+        ],
+        "p90": [
+          49,
+          117,
+          145
+        ]
+      },
+      "body_overdraw_fraction": 0.174346
+    },
+    {
+      "faint_width": 2.6207,
+      "dense_width": 2.6207,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.6882,
+      "aperture_width": 1.8621,
+      "angular_profile": [
+        0.004217,
+        0.004208,
+        0.002831,
+        0.001815,
+        0.002145,
+        0.002233,
+        0.004073,
+        0.002436,
+        0.009808,
+        0.071992,
+        0.423124,
+        0.047617,
+        0.0,
+        0.324788,
+        0.08723,
+        0.011483
+      ],
+      "horizontal_band_periodicity": 0.236615,
+      "horizontal_edge_ratio": 0.347051,
+      "silhouette_plateau_ratio": 0.526316,
+      "palette": {
+        "p50": [
+          30,
+          85,
+          105
+        ],
+        "p90": [
+          49,
+          116,
+          142
+        ]
+      },
+      "body_overdraw_fraction": 0.187872
+    },
+    {
+      "faint_width": 2.5517,
+      "dense_width": 2.5517,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.6717,
+      "aperture_width": 1.5,
+      "angular_profile": [
+        0.006171,
+        0.005286,
+        0.003762,
+        0.002361,
+        0.00276,
+        0.003375,
+        0.004976,
+        0.00466,
+        0.010683,
+        0.089805,
+        0.396052,
+        0.058018,
+        0.022014,
+        0.30848,
+        0.067617,
+        0.013979
+      ],
+      "horizontal_band_periodicity": 0.160938,
+      "horizontal_edge_ratio": 0.31551,
+      "silhouette_plateau_ratio": 0.496,
+      "palette": {
+        "p50": [
+          30,
+          86,
+          106
+        ],
+        "p90": [
+          48,
+          112,
+          138
+        ]
+      },
+      "body_overdraw_fraction": 0.206897
+    },
+    {
+      "faint_width": 2.431,
+      "dense_width": 2.4138,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.5739,
+      "aperture_width": 1.569,
+      "angular_profile": [
+        0.01263,
+        0.010829,
+        0.007831,
+        0.005509,
+        0.006558,
+        0.006725,
+        0.00997,
+        0.010399,
+        0.030397,
+        0.103043,
+        0.236667,
+        0.126352,
+        0.023972,
+        0.25377,
+        0.129789,
+        0.025561
+      ],
+      "horizontal_band_periodicity": 0.215404,
+      "horizontal_edge_ratio": 0.330753,
+      "silhouette_plateau_ratio": 0.5,
+      "palette": {
+        "p50": [
+          23,
+          83,
+          100
+        ],
+        "p90": [
+          47,
+          112,
+          136
+        ]
+      },
+      "body_overdraw_fraction": 0.186237
+    }
+  ],
+  "comparison": {
+    "faint_width": {
+      "mean_absolute_error": 0.7602,
+      "per_frame_absolute_error": [
+        0.9655,
+        0.9655,
+        0.8448,
+        0.8104,
+        0.7241,
+        0.3621,
+        0.5,
+        0.7587,
+        0.7586,
+        0.8621,
+        0.8104
+      ]
+    },
+    "dense_width": {
+      "mean_absolute_error": 0.268009,
+      "per_frame_absolute_error": [
+        0.4828,
+        0.362,
+        0.2931,
+        0.1207,
+        0.2758,
+        0.1034,
+        0.1552,
+        0.3965,
+        0.3448,
+        0.3104,
+        0.1034
+      ]
+    },
+    "faint_height": {
+      "mean_absolute_error": 0.119127,
+      "per_frame_absolute_error": [
+        0.0517,
+        0.069,
+        0.0948,
+        0.1638,
+        0.1983,
+        0.1552,
+        0.1379,
+        0.0862,
+        0.0948,
+        0.1035,
+        0.1552
+      ]
+    },
+    "dense_height": {
+      "mean_absolute_error": 0.243745,
+      "per_frame_absolute_error": [
+        0.1466,
+        0.1724,
+        0.2242,
+        0.3104,
+        0.3362,
+        0.3017,
+        0.2414,
+        0.2155,
+        0.1897,
+        0.1983,
+        0.3448
+      ]
+    },
+    "energy_centroid_height": {
+      "mean_absolute_error": 0.371636,
+      "per_frame_absolute_error": [
+        0.3615,
+        0.3564,
+        0.3721,
+        0.35,
+        0.3086,
+        0.3948,
+        0.3777,
+        0.388,
+        0.3977,
+        0.4242,
+        0.357
+      ]
+    },
+    "aperture_width": {
+      "mean_absolute_error": 0.482736,
+      "per_frame_absolute_error": [
+        0.5862,
+        0.5172,
+        0.5,
+        0.2069,
+        0.3965,
+        0.8793,
+        0.7758,
+        0.7241,
+        0.5,
+        0.1379,
+        0.0862
+      ]
+    },
+    "horizontal_band_periodicity": {
+      "mean_absolute_error": 0.161296,
+      "per_frame_absolute_error": [
+        0.188665,
+        0.212356,
+        0.246781,
+        0.172199,
+        0.091737,
+        0.13009,
+        0.049042,
+        0.13717,
+        0.068079,
+        0.299769,
+        0.178372
+      ]
+    },
+    "horizontal_edge_ratio": {
+      "mean_absolute_error": 0.095808,
+      "per_frame_absolute_error": [
+        0.108584,
+        0.078571,
+        0.0883,
+        0.136931,
+        0.089371,
+        0.03374,
+        0.079866,
+        0.082391,
+        0.101756,
+        0.124853,
+        0.12952
+      ]
+    },
+    "silhouette_plateau_ratio": {
+      "mean_absolute_error": 0.146519,
+      "per_frame_absolute_error": [
+        0.121673,
+        0.138506,
+        0.178571,
+        0.167804,
+        0.244386,
+        0.291128,
+        0.347594,
+        0.070259,
+        0.023392,
+        0.011152,
+        0.017241
+      ]
+    },
+    "angular_profile_l1": {
+      "mean": 1.049105,
+      "per_frame": [
+        0.995234,
+        0.943161,
+        0.963996,
+        0.971266,
+        1.12517,
+        1.212025,
+        1.119953,
+        1.123191,
+        1.115901,
+        1.127789,
+        0.842464
+      ]
+    },
+    "palette_channel_mae": {
+      "mean": 21.530303,
+      "per_frame": [
+        21.0,
+        22.0,
+        23.0,
+        14.0,
+        15.166667,
+        16.0,
+        27.166667,
+        19.166667,
+        11.833333,
+        24.666667,
+        42.833333
+      ]
+    }
+  },
+  "temporal_delta": {
+    "source": [
+      0.541999,
+      0.440386,
+      0.648352,
+      0.394047,
+      0.330691,
+      0.270961,
+      0.529789,
+      0.527928,
+      0.554542,
+      0.73725
+    ],
+    "render": [
+      0.303444,
+      0.266829,
+      0.443766,
+      0.349084,
+      0.328999,
+      0.233727,
+      0.218704,
+      0.245453,
+      0.38042,
+      0.434915
+    ],
+    "mean_absolute_error": 0.17706
+  },
+  "baseline_verdict": {
+    "visual_change_in_this_item": "unchanged",
+    "reason": "The baseline pass adds measurement evidence and does not alter aura rendering."
+  }
+}
