@@ -122,7 +122,7 @@ func dispose() -> void:
 	set_process(false)
 	if is_queued_for_deletion():
 		return
-	if is_inside_tree():
+	if is_inside_tree() or get_parent() != null:
 		queue_free()
 	else:
 		# Scene teardown can invoke disposal while the object is notification-
