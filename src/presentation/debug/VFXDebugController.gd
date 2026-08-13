@@ -38,6 +38,8 @@
 ##                           `--camera-zoom=` is an alias.
 ##   --camera-focus=<midpoint|caster|target>  what the camera looks at
 ##                           (default: midpoint, the two-island composition)
+##   --comparison-isolation  hide terrain, bases, guides, and the caster proxy;
+##                           keep only the target body on the black scene plate
 ##   --render-resolution=<native|640x480|480x360|320x240>
 ##                           select the world render resolution
 ##   --stretch=<native|integer|integer640|legacy_fractional>  how the whole
@@ -206,6 +208,7 @@ var _activeMode: String = VfxPlaybackScript.MODE_BATTLE
 var _layerVisibility: Dictionary = {}
 var _syncingScrub: bool = false
 var _captureMessage: String = ""
+var _worldEnvironment: WorldEnvironment
 var _textSpecimen: CanvasLayer
 var _paneAspectMode: String = PANE_ASPECT_GAME
 
@@ -1016,6 +1019,11 @@ func _applyCommandLineOverrides() -> void:
 			world.cameraFocus = cameraFocus
 		else:
 			push_warning("Unknown --camera-focus=%s; keeping midpoint." % cameraFocus)
+	var comparisonIsolation := VfxDebugArguments.flag("--comparison-isolation")
+	world.setComparisonIsolation(comparisonIsolation)
+	if comparisonIsolation and _worldEnvironment != null:
+		_worldEnvironment.environment.background_mode = Environment.BG_COLOR
+		_worldEnvironment.environment.background_color = Color.BLACK
 	_applyTargetContextControls()
 	# The separation may have moved, so an unrequested zoom follows it rather
 	# than keeping the value the default separation produced at build time.
@@ -1481,10 +1489,10 @@ func _reparentWorldNodes() -> void:
 
 
 func _configureBattleWorld() -> void:
-	var worldEnvironment := WorldEnvironment.new()
-	worldEnvironment.name = "WorldEnvironment"
-	worldEnvironment.environment = BattleEnvironmentFactoryScript.createBattleEnvironment()
-	retroRenderer.world_root.add_child(worldEnvironment)
+	_worldEnvironment = WorldEnvironment.new()
+	_worldEnvironment.name = "WorldEnvironment"
+	_worldEnvironment.environment = BattleEnvironmentFactoryScript.createBattleEnvironment()
+	retroRenderer.world_root.add_child(_worldEnvironment)
 	_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 	_camera.size = VfxDebugWorldScript.REPRESENTATIVE_CAMERA_SIZE
 	_camera.current = true

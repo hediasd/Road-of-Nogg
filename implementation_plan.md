@@ -1175,6 +1175,18 @@ visually testable before any carrier is rebuilt.
 width/height, vertical energy distribution, palette/luminance bands, aperture
 visibility, and black-versus-terrain transfer.
 
+**Resolution:** implemented; pending end-of-plan validation. The retained JSON
+table records all eleven frames relative to a fixed character box at faint,
+dense, and crest chroma thresholds, including occupied widths, vertical extent,
+energy centroids, aperture dimensions, outer-ray counts, palette percentiles,
+and explicit acceptance tolerances. Measurements contain no copied source
+pixels. The debug world now accepts `--comparison-isolation`, which hides both
+terrain islands, the ground, bases, markers, guides, and the caster proxy while
+leaving the neutral target body and world-space effect on a true black
+environment. A native-retro eleven-state baseline and focused black frame prove
+the old crown's tall/white/winged failure in the same reproducible framing.
+Godot 4.4 imports and parses the new comparison path. No battle was launched.
+
 ### AURA-2N — Split the low haze from the additive ghost rays
 
 **Model:** Opus 5 / GPT Sol

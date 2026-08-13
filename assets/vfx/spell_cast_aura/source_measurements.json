@@ -1,0 +1,48 @@
+{
+  "authority": "Eleven user-supplied consecutive animation frames",
+  "provenance": "Measurements only; no source pixels are shipped or copied into generated assets.",
+  "coordinate_contract": {
+    "source_size_px": [350, 350],
+    "character_bounds_px": [151, 196, 209, 312],
+    "character_width_px": 58,
+    "character_height_px": 116,
+    "normalization": "Widths divide by character width; heights measure upward from y=312 and divide by character height.",
+    "character_exclusion_px": [138, 192, 216, 316]
+  },
+  "mask_contract": {
+    "faint": "B >= 28, B > 1.28R, B > 1.05G",
+    "dense": "Same chroma gate with B >= 60",
+    "crest": "Same chroma gate with B >= 100",
+    "review_note": "The chroma mask excludes the character rectangle and UI. Black aperture dimensions were measured from its close cyan hairlines, not black fill."
+  },
+  "palette_rgb_percentiles_frame_1": {
+    "p10_outer_haze": [2, 15, 27],
+    "p25_haze": [3, 22, 38],
+    "p50_body_field": [8, 43, 66],
+    "p75_ray_body": [17, 84, 125],
+    "p90_ray_crest": [25, 127, 184],
+    "p97_bright_crest": [31, 154, 219],
+    "p99_upper_limit": [34, 165, 234]
+  },
+  "acceptance_tolerance": {
+    "field_width_character_widths": 0.18,
+    "height_character_heights": 0.10,
+    "energy_centroid_character_heights": 0.07,
+    "aperture_width_character_widths": 0.12,
+    "palette_channel_8bit": 18,
+    "white_clip_rgb_min": 235
+  },
+  "frames": [
+    {"index": 1, "progress": 0.08, "faint_width": 3.41, "dense_width": 2.97, "crest_width": 2.55, "faint_height": 1.01, "dense_height": 0.95, "crest_height": 0.87, "energy_centroid_height": 0.42, "aperture_width": 1.43, "aperture_height": 0.53, "outer_ray_count": 9},
+    {"index": 2, "progress": 0.15, "faint_width": 3.50, "dense_width": 2.93, "crest_width": 2.50, "faint_height": 1.01, "dense_height": 0.91, "crest_height": 0.82, "energy_centroid_height": 0.38, "aperture_width": 1.42, "aperture_height": 0.52, "outer_ray_count": 10},
+    {"index": 3, "progress": 0.22, "faint_width": 3.40, "dense_width": 2.83, "crest_width": 2.31, "faint_height": 0.99, "dense_height": 0.86, "crest_height": 0.73, "energy_centroid_height": 0.36, "aperture_width": 1.41, "aperture_height": 0.52, "outer_ray_count": 9},
+    {"index": 4, "progress": 0.29, "faint_width": 3.29, "dense_width": 2.57, "crest_width": 2.16, "faint_height": 0.92, "dense_height": 0.79, "crest_height": 0.70, "energy_centroid_height": 0.35, "aperture_width": 1.39, "aperture_height": 0.51, "outer_ray_count": 8},
+    {"index": 5, "progress": 0.36, "faint_width": 2.90, "dense_width": 2.47, "crest_width": 2.19, "faint_height": 0.93, "dense_height": 0.84, "crest_height": 0.67, "energy_centroid_height": 0.37, "aperture_width": 1.36, "aperture_height": 0.50, "outer_ray_count": 7},
+    {"index": 6, "progress": 0.43, "faint_width": 2.86, "dense_width": 2.53, "crest_width": 2.22, "faint_height": 0.94, "dense_height": 0.87, "crest_height": 0.78, "energy_centroid_height": 0.40, "aperture_width": 1.33, "aperture_height": 0.49, "outer_ray_count": 6},
+    {"index": 7, "progress": 0.50, "faint_width": 2.97, "dense_width": 2.64, "crest_width": 2.36, "faint_height": 0.97, "dense_height": 0.87, "crest_height": 0.80, "energy_centroid_height": 0.43, "aperture_width": 1.31, "aperture_height": 0.48, "outer_ray_count": 6},
+    {"index": 8, "progress": 0.57, "faint_width": 3.17, "dense_width": 2.81, "crest_width": 2.47, "faint_height": 1.00, "dense_height": 0.93, "crest_height": 0.83, "energy_centroid_height": 0.41, "aperture_width": 1.41, "aperture_height": 0.52, "outer_ray_count": 7},
+    {"index": 9, "progress": 0.64, "faint_width": 3.31, "dense_width": 2.86, "crest_width": 2.47, "faint_height": 0.99, "dense_height": 0.91, "crest_height": 0.83, "energy_centroid_height": 0.38, "aperture_width": 1.54, "aperture_height": 0.57, "outer_ray_count": 8},
+    {"index": 10, "progress": 0.72, "faint_width": 3.33, "dense_width": 2.78, "crest_width": 2.21, "faint_height": 0.98, "dense_height": 0.89, "crest_height": 0.72, "energy_centroid_height": 0.34, "aperture_width": 1.68, "aperture_height": 0.62, "outer_ray_count": 8},
+    {"index": 11, "progress": 0.82, "faint_width": 3.16, "dense_width": 2.43, "crest_width": 0.00, "faint_height": 0.93, "dense_height": 0.77, "crest_height": 0.00, "energy_centroid_height": 0.30, "aperture_width": 1.78, "aperture_height": 0.66, "outer_ray_count": 6}
+  ]
+}
