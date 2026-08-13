@@ -1,7 +1,7 @@
 ## Calibration constants for the reference-locked generic spell-cast aura.
 ##
-## The effect owns one restrained footprint aperture and two continuous plume
-## crown shells that surround the caster without billboards.
+## The effect owns one restrained footprint aperture, one alpha-mixed body haze,
+## and one additive far-side ghost-ray shell, all in world space.
 
 class_name SpellCastAuraProfile
 
@@ -52,31 +52,34 @@ const CENTER_DARKENING_ALPHA := 0.42
 const FOOTPRINT_HEIGHT_U := 0.018
 const FOOTPRINT_RENDER_PRIORITY := 2
 
-## AUTHORED body-enclosing plume crown. Both shells use the same original
-## eleven-state 704x64 atlas but differ in flare, height, phase, and opacity.
-## Angular spin and tip oscillation are derived from the explicit source-state
-## position in the shader; neither shell uses TIME or a camera-facing transform.
+## AUTHORED replica carrier split. Haze and rays sample the same deterministic
+## eleven-state atlas during the structural item, but own distinct shaders,
+## blend modes, mesh profiles, and explicit parameters.
 const PLUME_ATLAS_PIXEL_SIZE := Vector2(704.0, 64.0)
 const PLUME_SHELL_SEGMENTS := 64
 const PLUME_SHELL_HEIGHT_BANDS := 24
 const PLUME_BASE_HEIGHT_U := 0.025
-const PLUME_INNER_BOTTOM_RADIUS_U := 0.46
-const PLUME_INNER_TOP_RADIUS_U := 0.76
-const PLUME_INNER_HEIGHT_U := 1.82
-const PLUME_INNER_UV_PHASE := 0.06
-const PLUME_INNER_OPACITY := 0.78
-const PLUME_INNER_EMISSION_ENERGY := 2.55
-const PLUME_OUTER_BOTTOM_RADIUS_U := 0.56
-const PLUME_OUTER_TOP_RADIUS_U := 1.34
-const PLUME_OUTER_HEIGHT_U := 2.24
-const PLUME_OUTER_UV_PHASE := 0.20
-const PLUME_OUTER_OPACITY := 0.72
-const PLUME_OUTER_EMISSION_ENERGY := 2.60
+const HAZE_BOTTOM_RADIUS_U := 0.48
+const HAZE_MIDDLE_RADIUS_U := 1.08
+const HAZE_TOP_RADIUS_U := 0.96
+const HAZE_MIDDLE_HEIGHT_FRACTION := 0.42
+const HAZE_HEIGHT_U := 1.32
+const HAZE_UV_PHASE := 0.06
+const HAZE_OPACITY := 0.46
+const HAZE_EMISSION_ENERGY := 0.24
+const RAY_BOTTOM_RADIUS_U := 0.52
+const RAY_MIDDLE_RADIUS_U := 1.18
+const RAY_TOP_RADIUS_U := 1.42
+const RAY_MIDDLE_HEIGHT_FRACTION := 0.55
+const RAY_HEIGHT_U := 1.72
+const RAY_UV_PHASE := 0.20
+const RAY_OPACITY := 0.28
+const RAY_EMISSION_ENERGY := 0.92
 ## Literal state comparisons retain more of the source's frame-specific plume
 ## grouping than cross-fading, which blurs adjacent silhouettes into haze.
 const PLUME_STATE_CROSSFADE := 0.0
-const PLUME_INNER_RENDER_PRIORITY := 3
-const PLUME_OUTER_RENDER_PRIORITY := 4
+const HAZE_RENDER_PRIORITY := 3
+const RAY_RENDER_PRIORITY := 4
 
 ## AUTHORED final engineering ceiling: footprint plus two plume calls, with no
 ## particles or billboards.

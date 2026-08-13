@@ -1231,6 +1231,21 @@ draw calls. Record only a narrow Godot load/parse probe; no battle launch.
 terrain transfer, transparent sorting, world-space camera orbit, carrier seams,
 and unchanged budgets.
 
+**Resolution:** implemented; pending end-of-plan validation. The former
+phase-switched additive curtain and its shader were removed. `SpellCastAura`
+now builds three explicit roles: the existing aperture, an alpha-mixed haze
+shader on a compact early-broadening profile, and a far-side-only additive ray
+shader on a taller gradual profile. The haze performs five angular samples to
+bind the current atlas into a continuous deep-blue lower field, extinguishes
+grazing geometry, and admits only a restricted camera-side body contribution.
+The ray shader high-passes the atlas, fades its root and top, and discards all
+camera-side faces. Black and terrain plates at 0/90/180 degrees plus isolated
+aperture/haze/ray captures confirm the roles remain world-space, avoid white
+body clipping, and hold the three-instance/zero-particle budget. The temporary
+structural masks remain deliberately bland; the measured eleven-state artwork
+and final edge breakup belong to AURA-2O. Godot 4.4 imports and parses both new
+owned shaders. No battle was launched.
+
 ### AURA-2O — Author the eleven-state replica masks and restrained motion
 
 **Model:** Opus 5 / GPT Sol

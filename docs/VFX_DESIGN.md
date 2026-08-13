@@ -416,15 +416,15 @@ choice: runtime uses the approved low-alpha navy aperture by default.
 `set_center_darkening()` and the `--spell-aura-transparent-center` debug flag
 retain the transparent comparison path without changing geometry or timing.
 
-The plume crown uses two continuous flared `ArrayMesh` ring shells. Both carry
-outward normals and Godot-correct outward winding. The owned double-sided
-shader discards the outer shell's camera-side faces and retains only a narrow,
-normal-facing part of the inner shell across the body. The caster therefore
-reads inside the aura without exposing the flared carrier as a cyan skirt.
-This remains stable at changing camera yaw without billboard matrices or
-camera-relative origins. Inner and outer shells have different radius, height,
-angular phase, opacity, and additive energy, so their overlap forms a bright
-enclosing crown instead of a solid cone edge.
+The vertical field uses two continuous profiled `ArrayMesh` ring shells with
+different material jobs. The compact inner shell is alpha-mixed deep-blue haze:
+its far side supplies the broad lower-body fan, and only a restricted
+normal-facing portion crosses the character. The taller outer shell is sparse
+additive ghost rays and discards its complete camera-side hemisphere. This
+separates low opaque mass from faint elevated rays, avoids additive body
+bleaching, and prevents a flared carrier from reading as a cyan cup or shoulder
+wing. Both meshes remain world-space at every yaw; neither uses a billboard or
+camera-relative origin.
 
 `assets/vfx/spell_cast_aura/plume_flow_atlas.png` is original project artwork
 generated deterministically by the retained adjacent Python/Pillow source. Its
@@ -433,9 +433,8 @@ Gaussian groups taper toward locally varying heights, producing pointed but
 feathered upward tongues rather than cards or blunt strips; each cell repeats
 its first angular texel at the last column and the generator validates the seam.
 The CPU maps normalized seek onto the eleven measured source positions and
-passes an explicit atlas position to the shader. That same explicit position
-drives 0.72 turns of angular flow and independently phased vertex-height
-oscillation, so the shader never uses `TIME`.
+passes an explicit atlas position to both shaders. Motion between authored
+states is also derived from this position, so neither shader uses `TIME`.
 Literal comparison selected stepped cells as the shipping default because
 cross-fading blurred the changing frame-specific groupings into generic haze.
 `set_plume_state_crossfade()` and `--spell-aura-crossfade-plume` retain the
@@ -451,11 +450,13 @@ visibility tail clears every layer by `0.90`. Seed changes apply only a subtle
 angular phase offset and cannot replace these curves or their silhouette.
 
 The rejected core cards, crossed ribbons, and `GPUParticles3D` mist have been
-removed with their owned shaders. The effect no longer consumes
+removed with their owned shaders. Haze and rays own separate materials and
+lower/middle/upper mesh profiles rather than switching roles through a UV phase.
+The effect no longer consumes
 `VfxTextures.neutralSoftPuff()` or `VfxTextures.lanceStreak()`, reports zero
 particles, and returns true from `is_particle_seek_exact()`. The complete
-carrier budget is three instances/draw calls: footprint, inner plume, and outer
-plume. None is a hero-scale billboard.
+carrier budget is three instances/draw calls: footprint, haze, and ghost rays.
+None is a hero-scale billboard.
 
 ### Authored textures and frame animation
 

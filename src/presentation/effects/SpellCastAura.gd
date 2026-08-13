@@ -1,15 +1,17 @@
 ## Reference-locked generic spell-cast aura playback.
 ##
-## The rejected core cards, ray ribbons, and particles are gone. One restrained
-## footprint and two continuous world-space crown shells surround the caster.
+## One restrained footprint, one alpha-mixed body haze, and one additive
+## far-side ghost-ray field reconstruct the source without billboards.
 
 class_name SpellCastAura
 extends "res://src/presentation/effects/VfxPlayback.gd"
 
 const _FOOTPRINT_SHADER = preload(
 		"res://assets/shaders/effects/spell_cast_footprint_aperture.gdshader")
-const _PLUME_SHADER = preload(
-		"res://assets/shaders/effects/spell_cast_plume_curtain.gdshader")
+const _HAZE_SHADER = preload(
+		"res://assets/shaders/effects/spell_cast_haze_field.gdshader")
+const _RAY_SHADER = preload(
+		"res://assets/shaders/effects/spell_cast_ghost_rays.gdshader")
 const _PLUME_ATLAS = preload(
 		"res://assets/vfx/spell_cast_aura/plume_flow_atlas.png")
 const _DEBUG_TRANSPARENT_CENTER_FLAG := "--spell-aura-transparent-center"
@@ -18,16 +20,16 @@ const _DEBUG_CROSSFADE_PLUME_FLAG := "--spell-aura-crossfade-plume"
 const VISIBLE_DURATION := SpellCastAuraProfile.DURATION_SECONDS
 const SETTLE_NORMALIZED_TIME := SpellCastAuraProfile.SETTLE_NORMALIZED_TIME
 const LAYER_FOOTPRINT := "footprint_aperture"
-const LAYER_PLUME_INNER := "plume_inner"
-const LAYER_PLUME_OUTER := "plume_outer"
+const LAYER_HAZE := "haze_field"
+const LAYER_RAYS := "ghost_rays"
 
 var _elementColor := Color.WHITE
 var _footprintInstance: MeshInstance3D
 var _footprintMaterial: ShaderMaterial
-var _innerPlumeInstance: MeshInstance3D
-var _innerPlumeMaterial: ShaderMaterial
-var _outerPlumeInstance: MeshInstance3D
-var _outerPlumeMaterial: ShaderMaterial
+var _hazeInstance: MeshInstance3D
+var _hazeMaterial: ShaderMaterial
+var _rayInstance: MeshInstance3D
+var _rayMaterial: ShaderMaterial
 var _centerDarkeningEnabled := true
 var _plumeStateCrossfade := SpellCastAuraProfile.PLUME_STATE_CROSSFADE
 var _elapsedTime := 0.0
@@ -124,7 +126,7 @@ func dispose() -> void:
 
 
 func get_layer_names() -> Array[String]:
-	return [LAYER_FOOTPRINT, LAYER_PLUME_INNER, LAYER_PLUME_OUTER]
+	return [LAYER_FOOTPRINT, LAYER_HAZE, LAYER_RAYS]
 
 
 func set_layer_visible(layer_name: String, visible: bool) -> void:
@@ -132,12 +134,12 @@ func set_layer_visible(layer_name: String, visible: bool) -> void:
 		LAYER_FOOTPRINT:
 			if _footprintInstance != null:
 				_footprintInstance.visible = visible
-		LAYER_PLUME_INNER:
-			if _innerPlumeInstance != null:
-				_innerPlumeInstance.visible = visible
-		LAYER_PLUME_OUTER:
-			if _outerPlumeInstance != null:
-				_outerPlumeInstance.visible = visible
+		LAYER_HAZE:
+			if _hazeInstance != null:
+				_hazeInstance.visible = visible
+		LAYER_RAYS:
+			if _rayInstance != null:
+				_rayInstance.visible = visible
 		_:
 			push_warning("Unknown SpellCastAura layer: %s" % layer_name)
 
@@ -161,7 +163,7 @@ func is_center_darkening_enabled() -> bool:
 ## continuously into the next. Both paths are deterministic normalized seeks.
 func set_plume_state_crossfade(amount: float) -> void:
 	_plumeStateCrossfade = clampf(amount, 0.0, 1.0)
-	for material: ShaderMaterial in [_innerPlumeMaterial, _outerPlumeMaterial]:
+	for material: ShaderMaterial in [_hazeMaterial, _rayMaterial]:
 		if material != null:
 			material.set_shader_parameter("state_crossfade", _plumeStateCrossfade)
 
@@ -179,7 +181,7 @@ func get_live_instance_count() -> int:
 		return 0
 	var count := 0
 	for instance: MeshInstance3D in [
-		_footprintInstance, _innerPlumeInstance, _outerPlumeInstance
+		_footprintInstance, _hazeInstance, _rayInstance
 	]:
 		if instance != null and instance.visible:
 			count += 1
@@ -227,34 +229,40 @@ func _buildLayers() -> void:
 	_footprintInstance = _createFootprintAperture(_elementColor, _centerDarkeningEnabled)
 	add_child(_footprintInstance)
 	_footprintMaterial = _footprintInstance.material_override as ShaderMaterial
-	_innerPlumeInstance = _createPlumeShell(
-		"InnerPlumeCurtain",
+	_hazeInstance = _createFlowShell(
+		"BodyHazeField",
+		_HAZE_SHADER,
 		_elementColor,
-		SpellCastAuraProfile.PLUME_INNER_BOTTOM_RADIUS_U,
-		SpellCastAuraProfile.PLUME_INNER_TOP_RADIUS_U,
-		SpellCastAuraProfile.PLUME_INNER_HEIGHT_U,
-		SpellCastAuraProfile.PLUME_INNER_UV_PHASE,
-		SpellCastAuraProfile.PLUME_INNER_OPACITY,
-		SpellCastAuraProfile.PLUME_INNER_EMISSION_ENERGY,
-		SpellCastAuraProfile.PLUME_INNER_RENDER_PRIORITY,
+		SpellCastAuraProfile.HAZE_BOTTOM_RADIUS_U,
+		SpellCastAuraProfile.HAZE_MIDDLE_RADIUS_U,
+		SpellCastAuraProfile.HAZE_TOP_RADIUS_U,
+		SpellCastAuraProfile.HAZE_MIDDLE_HEIGHT_FRACTION,
+		SpellCastAuraProfile.HAZE_HEIGHT_U,
+		SpellCastAuraProfile.HAZE_UV_PHASE,
+		SpellCastAuraProfile.HAZE_OPACITY,
+		SpellCastAuraProfile.HAZE_EMISSION_ENERGY,
+		SpellCastAuraProfile.HAZE_RENDER_PRIORITY,
 		_plumeStateCrossfade
 	)
-	add_child(_innerPlumeInstance)
-	_innerPlumeMaterial = _innerPlumeInstance.material_override as ShaderMaterial
-	_outerPlumeInstance = _createPlumeShell(
-		"OuterPlumeCurtain",
+	add_child(_hazeInstance)
+	_hazeMaterial = _hazeInstance.material_override as ShaderMaterial
+	_rayInstance = _createFlowShell(
+		"GhostRayField",
+		_RAY_SHADER,
 		_elementColor,
-		SpellCastAuraProfile.PLUME_OUTER_BOTTOM_RADIUS_U,
-		SpellCastAuraProfile.PLUME_OUTER_TOP_RADIUS_U,
-		SpellCastAuraProfile.PLUME_OUTER_HEIGHT_U,
-		SpellCastAuraProfile.PLUME_OUTER_UV_PHASE,
-		SpellCastAuraProfile.PLUME_OUTER_OPACITY,
-		SpellCastAuraProfile.PLUME_OUTER_EMISSION_ENERGY,
-		SpellCastAuraProfile.PLUME_OUTER_RENDER_PRIORITY,
+		SpellCastAuraProfile.RAY_BOTTOM_RADIUS_U,
+		SpellCastAuraProfile.RAY_MIDDLE_RADIUS_U,
+		SpellCastAuraProfile.RAY_TOP_RADIUS_U,
+		SpellCastAuraProfile.RAY_MIDDLE_HEIGHT_FRACTION,
+		SpellCastAuraProfile.RAY_HEIGHT_U,
+		SpellCastAuraProfile.RAY_UV_PHASE,
+		SpellCastAuraProfile.RAY_OPACITY,
+		SpellCastAuraProfile.RAY_EMISSION_ENERGY,
+		SpellCastAuraProfile.RAY_RENDER_PRIORITY,
 		_plumeStateCrossfade
 	)
-	add_child(_outerPlumeInstance)
-	_outerPlumeMaterial = _outerPlumeInstance.material_override as ShaderMaterial
+	add_child(_rayInstance)
+	_rayMaterial = _rayInstance.material_override as ShaderMaterial
 	_applySeed(0)
 	assert(
 		_countNodes(self) <= SpellCastAuraProfile.MAX_EFFECT_NODES,
@@ -293,7 +301,7 @@ func _applyProgress(progress: float) -> void:
 	var plumeEnergy := _sampleSourceCurve(
 		progress, SpellCastAuraProfile.PLUME_ENERGY_CURVE
 	)
-	for material: ShaderMaterial in [_innerPlumeMaterial, _outerPlumeMaterial]:
+	for material: ShaderMaterial in [_hazeMaterial, _rayMaterial]:
 		if material != null:
 			material.set_shader_parameter("atlas_state_position", statePosition)
 			material.set_shader_parameter("plume_energy", plumeEnergy)
@@ -302,7 +310,7 @@ func _applyProgress(progress: float) -> void:
 
 func _applySeed(seed: int) -> void:
 	for material: ShaderMaterial in [
-		_footprintMaterial, _innerPlumeMaterial, _outerPlumeMaterial
+		_footprintMaterial, _hazeMaterial, _rayMaterial
 	]:
 		if material != null:
 			material.set_shader_parameter("seed_value", float(seed))
@@ -347,11 +355,14 @@ static func _createFootprintAperture(
 	return instance
 
 
-static func _createPlumeShell(
+static func _createFlowShell(
 		instanceName: String,
+		shader: Shader,
 		color: Color,
 		bottomRadius: float,
+		middleRadius: float,
 		topRadius: float,
+		middleHeightFraction: float,
 		height: float,
 		uvPhase: float,
 		opacity: float,
@@ -359,7 +370,7 @@ static func _createPlumeShell(
 		renderPriority: int,
 		stateCrossfade: float) -> MeshInstance3D:
 	var material := ShaderMaterial.new()
-	material.shader = _PLUME_SHADER
+	material.shader = shader
 	material.render_priority = renderPriority
 	material.set_shader_parameter("plume_atlas", _PLUME_ATLAS)
 	material.set_shader_parameter(
@@ -377,23 +388,28 @@ static func _createPlumeShell(
 
 	var instance := MeshInstance3D.new()
 	instance.name = instanceName
-	instance.mesh = _createFlaredShellMesh(bottomRadius, topRadius, height)
+	instance.mesh = _createProfiledShellMesh(
+		bottomRadius, middleRadius, topRadius, middleHeightFraction, height
+	)
 	instance.position.y = SpellCastAuraProfile.PLUME_BASE_HEIGHT_U
 	instance.material_override = material
 	instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	instance.custom_aabb = AABB(
-		Vector3(-topRadius, -0.02, -topRadius),
-		Vector3(topRadius * 2.0, height + 0.04, topRadius * 2.0)
+		Vector3(-maxf(middleRadius, topRadius), -0.02, -maxf(middleRadius, topRadius)),
+		Vector3(maxf(middleRadius, topRadius) * 2.0, height + 0.04,
+			maxf(middleRadius, topRadius) * 2.0)
 	)
 	return instance
 
 
-## Outward-facing triangle winding is intentional. The plume shader uses face
-## orientation to keep the outer shell behind the caster and restrict the
-## inner shell's camera-side contribution to a soft body-enclosing wash.
-static func _createFlaredShellMesh(
+## Each role owns a measured lower/middle/upper radius profile. Outward-facing
+## winding lets the haze control its front contribution while the ray shader
+## discards its front faces without camera-facing geometry.
+static func _createProfiledShellMesh(
 		bottomRadius: float,
+		middleRadius: float,
 		topRadius: float,
+		middleHeightFraction: float,
 		height: float) -> ArrayMesh:
 	var segments := SpellCastAuraProfile.PLUME_SHELL_SEGMENTS
 	var heightBands := SpellCastAuraProfile.PLUME_SHELL_HEIGHT_BANDS
@@ -404,8 +420,17 @@ static func _createFlaredShellMesh(
 
 	for row: int in range(heightBands + 1):
 		var heightFraction := float(row) / float(heightBands)
-		var flareFraction := pow(heightFraction, 0.72)
-		var radius := lerpf(bottomRadius, topRadius, flareFraction)
+		var radius := 0.0
+		if heightFraction <= middleHeightFraction:
+			var lowerWeight := smoothstep(
+				0.0, middleHeightFraction, heightFraction
+			)
+			radius = lerpf(bottomRadius, middleRadius, lowerWeight)
+		else:
+			var upperWeight := smoothstep(
+				middleHeightFraction, 1.0, heightFraction
+			)
+			radius = lerpf(middleRadius, topRadius, upperWeight)
 		for segment: int in range(segments + 1):
 			var angularFraction := float(segment) / float(segments)
 			var angle := angularFraction * TAU
