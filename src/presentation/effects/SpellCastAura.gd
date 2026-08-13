@@ -451,6 +451,10 @@ static func _createProfiledShellMesh(
 		topRadius: float,
 		middleHeightFraction: float,
 		height: float) -> ArrayMesh:
+	assert(
+		bottomRadius <= middleRadius and middleRadius <= topRadius,
+		"Spell-cast aura carrier radius must expand monotonically upward."
+	)
 	var segments := SpellCastAuraProfile.PLUME_SHELL_SEGMENTS
 	var heightBands := SpellCastAuraProfile.PLUME_SHELL_HEIGHT_BANDS
 	var vertices := PackedVector3Array()

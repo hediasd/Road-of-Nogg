@@ -21,6 +21,7 @@ from PIL import Image, ImageDraw
 FRAME_COUNT = 11
 ANGULAR_BINS = 16
 ANALYSIS_TOP_MARGIN = 4
+ENVELOPE_HEIGHT_FRACTIONS = (0.15, 0.30, 0.45, 0.60, 0.75, 0.90)
 METRIC_NAMES = (
     "faint_width",
     "dense_width",
@@ -45,6 +46,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--sheet", type=Path, required=True)
+    parser.add_argument("--envelope-plot", type=Path)
     parser.add_argument("--command-label", default="unspecified")
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--onset", nargs="+", type=Path)
@@ -301,6 +303,35 @@ def body_overdraw(
     return round(hits / area, 6)
 
 
+def radial_envelope(
+    values: list[list[float]],
+    center_x: float,
+    bottom: int,
+    body_width: int,
+    body_height: int,
+) -> list[dict[str, float]]:
+    """Sample the aura's left/right reach at fixed world-height proxies."""
+    envelope: list[dict[str, float]] = []
+    for height_fraction in ENVELOPE_HEIGHT_FRACTIONS:
+        sample_y = round(bottom - height_fraction * body_height)
+        xs = [
+            x
+            for y in range(max(sample_y - 2, 0), min(sample_y + 3, len(values)))
+            for x, value in enumerate(values[y])
+            if value > 0.0
+        ]
+        left_reach = (center_x - min(xs)) / body_width if xs else 0.0
+        right_reach = (max(xs) - center_x) / body_width if xs else 0.0
+        envelope.append(
+            {
+                "height_fraction": height_fraction,
+                "left_radius": round(max(left_reach, 0.0), 4),
+                "right_radius": round(max(right_reach, 0.0), 4),
+            }
+        )
+    return envelope
+
+
 def measure_frame(
     image: Image.Image,
     body: tuple[int, int, int, int],
@@ -347,6 +378,9 @@ def measure_frame(
         "silhouette_plateau_ratio": silhouette_plateau_ratio(dense),
         "palette": palette_metrics(image, dense),
         "body_overdraw_fraction": body_overdraw(image, body, 28),
+        "faint_radial_envelope": radial_envelope(
+            faint, center_x, bottom, body_width, body_height
+        ),
         "faint_pixel_count": len(faint_points),
         "faint_energy_total": round(sum(point[2] for point in faint_points), 4),
     }
@@ -489,6 +523,7 @@ def onset_summary(
                 "faint_energy_total": frame["faint_energy_total"],
                 "faint_height": frame["faint_height"],
                 "energy_centroid_height": frame["energy_centroid_height"],
+                "faint_radial_envelope": frame["faint_radial_envelope"],
             }
             for time, pixels, frame in zip(progress, visible, metrics)
         ],
@@ -527,6 +562,108 @@ def make_sheet(
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     sheet.save(path, optimize=True)
+
+
+def make_envelope_plot(
+    source_metrics: list[dict[str, object]],
+    render_metrics: list[dict[str, object]],
+    onset: dict[str, object] | None,
+    path: Path,
+) -> None:
+    """Plot registered radial reach against height and through partial onset."""
+    width, height = 900, 420
+    margin = 55
+    gap = 55
+    panel_width = (width - margin * 2 - gap) // 2
+    plot = Image.new("RGB", (width, height), (12, 15, 20))
+    draw = ImageDraw.Draw(plot)
+
+    def radii(metrics: list[dict[str, object]]) -> list[float]:
+        samples = [metric["faint_radial_envelope"] for metric in metrics]
+        assert all(isinstance(sample, list) for sample in samples)
+        return [
+            statistics.fmean(
+                (
+                    float(sample[index]["left_radius"])
+                    + float(sample[index]["right_radius"])
+                )
+                * 0.5
+                for sample in samples
+            )
+            for index in range(len(ENVELOPE_HEIGHT_FRACTIONS))
+        ]
+
+    def draw_panel(
+        left: int,
+        title: str,
+        series: list[tuple[str, tuple[int, int, int], list[float]]],
+    ) -> None:
+        top = margin
+        right = left + panel_width
+        bottom = height - margin
+        draw.rectangle((left, top, right, bottom), outline=(80, 92, 108))
+        draw.text((left, 18), title, fill=(225, 232, 242))
+        maximum = max(
+            (value for _name, _color, values in series for value in values),
+            default=1.0,
+        )
+        maximum = max(maximum, 0.1)
+        for _name, color, values in series:
+            points = [
+                (
+                    round(left + index * panel_width / (len(values) - 1)),
+                    round(bottom - value / maximum * (bottom - top)),
+                )
+                for index, value in enumerate(values)
+            ]
+            draw.line(points, fill=color, width=3)
+            for point in points:
+                draw.ellipse(
+                    (point[0] - 3, point[1] - 3, point[0] + 3, point[1] + 3),
+                    fill=color,
+                )
+        legend_x = left
+        for name, color, _values in series:
+            draw.rectangle(
+                (legend_x, bottom + 12, legend_x + 10, bottom + 22), fill=color
+            )
+            draw.text((legend_x + 14, bottom + 10), name, fill=(210, 218, 230))
+            legend_x += 105
+
+    draw_panel(
+        margin,
+        "Mean faint radius by registered height",
+        [
+            ("source", (80, 170, 255), radii(source_metrics)),
+            ("render", (70, 235, 185), radii(render_metrics)),
+        ],
+    )
+    onset_series: list[tuple[str, tuple[int, int, int], list[float]]] = []
+    if onset:
+        palette = ((255, 188, 65), (255, 110, 95), (210, 95, 255))
+        frames = onset["frames"]
+        assert isinstance(frames, list)
+        for index, frame in enumerate(frames):
+            samples = frame["faint_radial_envelope"]
+            assert isinstance(samples, list)
+            onset_series.append(
+                (
+                    f"t={float(frame['progress']):.2f}",
+                    palette[index % len(palette)],
+                    [
+                        (float(sample["left_radius"]) + float(sample["right_radius"]))
+                        * 0.5
+                        for sample in samples
+                    ],
+                )
+            )
+    draw_panel(
+        margin + panel_width + gap,
+        "Partial-onset outward envelope",
+        onset_series,
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    plot.save(path, optimize=True)
 
 
 def main() -> None:
@@ -571,7 +708,7 @@ def main() -> None:
 
     comparison = metric_summary(source_metrics, render_metrics)
     report = {
-        "schema_version": 2,
+        "schema_version": 3,
         "authority": measurements["authority"],
         "command_label": args.command_label,
         "registration": {
@@ -613,6 +750,13 @@ def main() -> None:
             source_size,
             source_body,
             exclusion,
+        )
+    if args.envelope_plot:
+        make_envelope_plot(
+            source_metrics,
+            render_metrics,
+            report.get("onset"),
+            args.envelope_plot,
         )
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

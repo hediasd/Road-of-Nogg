@@ -416,25 +416,23 @@ choice: runtime uses the approved low-alpha navy aperture by default.
 `set_center_darkening()` and the `--spell-aura-transparent-center` debug flag
 retain the transparent comparison path without changing geometry or timing.
 
-The vertical field uses two continuous near-cylindrical `ArrayMesh` ring shells with
+The vertical field uses two smooth profiled `ArrayMesh` ring shells with
 different material jobs. The compact inner shell is low-alpha deep-blue haze;
-the taller outer shell is sparse additive ghost rays. Both omit the complete
-camera-side hemisphere, leaving the footprint to close the foreground around
-the feet. That removes the hard front/back seam and keeps the character inside
-the far-side curtain without exposing the carrier as a transparent cup. The
-haze is connective rather than opaque; luminance lives mainly in low-alpha
-rays, so elevated detail never becomes a white flame crown. Both meshes remain
-world-space at every yaw; neither uses a billboard, camera-relative origin, or
-camera-driven transform.
+the taller outer shell is sparse additive ghost rays. Each profile flares
+monotonically from the root through its middle to its top. Mesh construction
+asserts this ordering, so later tuning cannot silently restore an inward cup.
+The ray material rasterizes only one shell hemisphere, leaving the footprint to
+close the foreground around the feet. The haze uses a continuous normal mask
+to suppress its camera-side contribution. Both meshes remain world-space at
+every yaw; neither uses a billboard, camera-relative origin, or camera-driven
+transform.
 
-The shells deliberately stay close to one radius as they rise. Earlier flared
-profiles projected the ray atlas outward at the shipping camera pitch and made
-soft streaks look like literal radial petals or flat shards. The near-cylinder
-keeps atlas motion vertical, so spike height can oscillate without changing the
-ground footprint into a puddle or fan of blades. Four keyed XZ/Y scale curves
-translate the measured state-to-state silhouette changes onto the two 3D
-carriers; they are driven only by normalized playback progress, never by camera
-yaw, pitch, or distance.
+The haze shell uses 0.72/1.05/1.38 root/middle/top radii; the ray shell uses
+0.78/1.14/1.52. Those are mean carrier paths, not the alpha boundary of every
+individual wisp: a pointed spike may taper locally while its centre continues
+outward. Four keyed XZ/Y scale curves translate measured state-to-state
+silhouette changes onto the two 3D carriers. They are driven only by normalized
+playback progress, never by camera yaw, pitch, or distance.
 
 `assets/vfx/spell_cast_aura/plume_flow_atlas.png` is original project artwork
 generated deterministically by the retained adjacent Python/Pillow source and
@@ -442,11 +440,12 @@ the normalized measurements in `source_measurements.json`; source screenshot
 pixels are never read or copied. Its eleven 256x256 cells encode angular-U by
 height-V fields: red is low continuous haze, green is sparse ghost rays, blue
 is close root striation, and alpha is their inspection union. The 360-degree
-ray population is twice the measured visible source count, because a world
-shell projects roughly one hemisphere at a time; this preserves the reference
-group density at arbitrary camera yaw without a billboard. Every cell repeats
-its first angular texel at the last column and the generator validates the RGB
-seam before saving.
+ray population documents the measured visible group density. Runtime haze and
+root detail still sample the atlas. The ghost-ray material reconstructs angular
+U from local 3D position and evaluates its sparse spike field analytically per
+fragment; magnifying the 256-pixel raster ray mask had exposed its rowwise lean
+as horizontal terraces. Every atlas cell repeats its first angular texel at the
+last column and the generator validates the RGB seam before saving.
 
 `compare_replica.py` is the convergence gate for this effect. It accepts eleven
 ordered source paths and eleven debug-render paths, registers the debug proxy
@@ -460,7 +459,9 @@ python assets/vfx/spell_cast_aura/compare_replica.py \
   --source <source-01.png> ... <source-11.png> \
   --render <render-01.png> ... <render-11.png> \
   --report assets/vfx/spell_cast_aura/replica_baseline.json \
-  --sheet debug/aura_comparison.png --command-label <capture-contract>
+  --sheet debug/aura_comparison.png \
+  --envelope-plot debug/aura_envelope.png \
+  --command-label <capture-contract>
 ```
 
 Later iterations pass `--baseline=<report>` to classify every shared metric as
@@ -470,20 +471,21 @@ checks for the uncaptured lead-in without pretending those frames came from the
 source sequence.
 
 The report measures faint/dense silhouette bounds, energy centroid, aperture,
-angular distribution, palette, body overdraw, temporal deltas, and several
-horizontal-edge probes. Those last probes are supporting signals rather than
-an automatic stripe detector: legitimate radial rays in the source also
+angular distribution, palette, body overdraw, registered radial envelopes,
+temporal deltas, and several horizontal-edge probes. Those last probes are
+supporting signals rather than an automatic stripe detector: legitimate radial
+rays in the source also
 produce strong row-edge energy, so enlarged tip crops remain mandatory when
 judging shell terraces.
 
 The CPU maps normalized seek onto the eleven measured source positions and
 passes an explicit atlas position to both shaders. Motion between authored
 states is also derived from this position, so neither shader uses `TIME`.
-Haze uses a longer keyed crossfade while rays use a short transition that keeps
-their groupings readable. A small normalized angular drift supplies less than
-a quarter turn over the sequence, and the ray shader adds only a `0.045`-unit
-tip displacement. `set_plume_state_crossfade()` and
-`--spell-aura-crossfade-plume` retain a forced common-crossfade inspection path.
+Haze uses a longer keyed crossfade. Analytic rays reorganize continuously from
+the same normalized source-state position, and a small angular drift supplies
+less than a quarter turn over the sequence. `set_plume_state_crossfade()` and
+`--spell-aura-crossfade-plume` retain the forced atlas-crossfade inspection path
+for haze; analytic rays remain continuous.
 
 The animation is source-keyed rather than a generic charge/decay envelope.
 Separate eleven-value curves control plume energy, aperture radius, rim width,

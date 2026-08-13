@@ -49,9 +49,6 @@ float vertical_reveal(float height) {
 }
 
 void fragment() {
-	if (FRONT_FACING) {
-		discard;
-	}
 	float seed_hash = fract(sin(seed_value * 12.9898) * 43758.5453);
 	float motion = clamp(atlas_state_position / (FRAME_COUNT - 1.0), 0.0, 1.0);
 	float phase = uv_phase + motion * 0.10 + (seed_hash - 0.5) * 0.025;
@@ -63,6 +60,8 @@ void fragment() {
 	haze = clamp(haze + root_detail * 0.16, 0.0, 1.0);
 	haze *= vertical_reveal(UV.y);
 	float facing = dot(normalize(NORMAL), normalize(VIEW));
+	float far_hemisphere = smoothstep(-0.12, 0.06, facing);
+	haze *= far_hemisphere;
 	// A profiled shell is only a sampling carrier. Extinguishing its grazing
 	// edge prevents the mesh from announcing itself as a dome or cup.
 	haze *= 0.12 + 0.88 * smoothstep(0.015, 0.34, abs(facing));

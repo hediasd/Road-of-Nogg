@@ -240,7 +240,11 @@ tessellation.
 native and retro rendering. The carrier reads as continuous rising energy at
 all battle-camera yaws, never as flat shards, crossed cards, flower petals, or
 a conical wall behind the character. The character remains visibly inside the
-plume rather than in front of it.
+plume rather than in front of it. The aura opens upward **and outward** from its
+root: carrier radius is monotonic non-decreasing with world height and the top
+is never narrower than the middle. Spike centre paths must not turn back toward
+the caster as they rise. Local alpha edges may taper into a point, as they do
+in the source; do not mistake legitimate tip taper for inward carrier motion.
 
 **Implementation:** Run a controlled source-registered A/B between at least:
 (a) a sufficiently tessellated smooth radial curtain whose deformation is
@@ -256,7 +260,12 @@ at the energy centroid, and 0.48 character-widths tighter at the apertureâ€�
 merely brighten the existing petals. Include enlarged crown-tip crops in every
 A/B; the row-periodicity and edge metrics are supporting evidence because the
 source's legitimate radial rays prevent either scalar from identifying the
-terrace artifact by itself.
+terrace artifact by itself. Reject every candidate with `top_radius <
+middle_radius`, a negative average `dr/dy`, or inward-leaning upper spike paths.
+The A/B report must include carrier radii at fixed height fractions and a
+screen-space left/right envelope plot for the partial reveal. Interpret that
+plot together with the carrier profile: outward mean paths are mandatory, but
+the source's pointed upper wisps are allowed to narrow locally.
 
 **Risk:** More tessellation may hide rather than solve the defect, while too few
 ribbons reproduce shards and too much overlapping transparency obscures the
@@ -276,6 +285,44 @@ The comparison set for this item now includes the partial-onset states `0.03`,
 is required by the preceding onset evidence: a complete-state render can hide
 the hoop/cup silhouette that becomes unmistakable while the reveal front is
 mid-carrier.
+
+**Resolution (2026-08-13):** Implemented; pending end-of-plan validation.
+
+- Candidate A increased the shell from 24 to 96 height bands while retaining
+  the raster ray lookup. Partial-onset and `0.08` crops retained the inward cup
+  and made its closely spaced terraces more obvious. Haze-only/ray-only
+  isolation then proved the haze carrier was continuous and every stripe came
+  from the ray treatment, so an unrelated ribbon carrier was not justified.
+- Candidate B changed both profiles to monotonic outward flares and replaced
+  the magnified raster ray mask with a per-fragment analytic angular field.
+  Affine UV interpolation, face discard, and single-hemisphere rasterization
+  were each tested and rejected before this selection: none removed the
+  rowwise steps. Analytic rays remove them because leaning edges are evaluated
+  continuously rather than inherited from the atlas's 256 height samples.
+- Haze radii are 0.72/1.05/1.38 and ray radii are 0.78/1.14/1.52 at
+  root/middle/top. Mesh construction asserts monotonic ordering. The registered
+  envelope report records left/right radii at six height fractions; pointed
+  mask tips taper locally, but their mean carrier paths do not turn inward.
+- Relative to the frozen report, faint-width error improved 0.7602 to 0.4201,
+  dense-width 0.2680 to 0.1395, centroid-height 0.3716 to 0.2951, aperture-width
+  0.4827 to 0.2257, horizontal-edge ratio 0.0958 to 0.0366, plateau ratio 0.1465
+  to 0.0740, and angular-profile L1 1.0491 to 0.8462. Faint height is unchanged.
+  Dense-height error changed by only 0.0008, below one registered pixel.
+- Palette MAE worsened from 21.53 to 26.55 and direct comparison shows broad,
+  pale petals instead of the source's darker smoky curtain; light terrain also
+  washes out the current rays. The next material item is revised to treat those
+  as explicit alpha, density, softness, and tint failures without restoring the
+  rejected inward carrier or raster lookup.
+- `0.00` has zero aura pixels. At `0.03`, `0.04`, and `0.05`, visible height and
+  energy centroid rise monotonically while the reveal remains rooted. Native
+  and 320x240 retro captures at yaw 0/90/180 remain radial and world-space on
+  black; native/retro light-terrain captures retain the same geometry. No
+  billboard or camera-driven transform was introduced.
+- The comparator now emits registered radial-envelope samples and an optional
+  plot. The profile documentation records the selected carrier and the reason
+  analytic rays replaced the raster mask. Full battle/gameplay acceptance is
+  deferred to the plan's final validation item. No backlog edit was needed:
+  the remaining visual mismatch is the next in-scope item.
 
 ### AURA-R4 — Reconstruct the source layer stack with project-owned masks and materials
 
@@ -298,7 +345,15 @@ upward spike taper, asymmetric gaps, and clean caster composite. Use additive
 only where overlap in the source actually accumulates light; use alpha or
 premultiplied alpha for smoke-like body where additive overlap would make a
 white curtain. Keep the generic element tint contract without forcing a white
-core absent from the reference.
+core absent from the reference. Mask flow and shader displacement may vary
+individual spikes but must preserve the carrier's outward mean direction;
+neither UV bending nor tip shaping may curl the upper envelope inward. Start
+from the selected carrier evidence: retain analytic angular ray sampling,
+replace the present broad opaque petals with more numerous lower-alpha soft
+columns, deepen the blue/cyan palette, and preserve contrast on light terrain.
+Treat palette MAE 26.55, the washed light-terrain capture, and the visibly empty
+space between petals as measured failures. Do not restore the low-resolution
+green-channel ray lookup merely because it remains available in the atlas.
 
 **Risk:** Tracing source pixels would create derivative copyrighted art;
 procedural noise without measured anchors would return to the same generic VFX
@@ -333,7 +388,9 @@ spin and vertical tip oscillation from normalized progress and deterministic
 seed data. Use the quantitative comparison report to tune in this order:
 silhouette and body enclosure, onset/temporal energy, aperture, color, then
 secondary texture detail. Do not use a parameter change to conceal carrier or
-blend defects discovered in earlier items.
+blend defects discovered in earlier items. Spin must preserve radius, and
+oscillation may move tips vertically or add small outward displacement but may
+not make the mean upper radius smaller than the band below it at any phase.
 
 **Risk:** Excessive spin reads as a rotating cage; synchronized oscillation
 reads as breathing geometry; tuning one hero frame can degrade the other ten.
@@ -357,7 +414,9 @@ This is the only item that launches the full manual gameplay/integration flow.
 Validate the union of all prior evidence in one pass:
 
 1. Reproduce the zero-to-rise onset and all eleven registered states in the VFX
-   debug scene; confirm the final tolerances recorded by AURA-R5.
+   debug scene; confirm the final tolerances recorded by AURA-R5. Inspect the
+   partial-onset envelope and verify outward radius monotonicity at every
+   sampled height and motion phase.
 2. Exercise native and retro modes, light and dark terrain, battle-camera yaw
    and pitch movement, several deterministic seeds, and ice/fire/thunder/
    darkness/neutral tints. Confirm the caster stays inside but readable.

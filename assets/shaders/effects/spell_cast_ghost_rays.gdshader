@@ -5,7 +5,7 @@
 // preventing a visible cup or shoulder wings at arbitrary camera yaw.
 
 shader_type spatial;
-render_mode unshaded, blend_add, depth_draw_never, cull_disabled;
+render_mode unshaded, blend_add, depth_draw_never, cull_front;
 
 uniform sampler2D plume_atlas : source_color, filter_linear, repeat_disable;
 uniform vec2 atlas_pixel_size = vec2(2816.0, 256.0);
@@ -23,22 +23,44 @@ uniform float reveal_softness = 0.08;
 uniform float lifecycle_visibility = 1.0;
 
 const float FRAME_COUNT = 11.0;
+const float TAU_VALUE = 6.28318530718;
+
+varying vec3 local_position;
 
 void vertex() {
-	float motion = clamp(atlas_state_position / (FRAME_COUNT - 1.0), 0.0, 1.0);
-	float angle = (UV.x + uv_phase + motion * 0.16) * 6.28318530718;
-	float tip_wave = (
-		sin(angle * 5.0 + motion * 2.0 * 6.28318530718) * 0.72
-		+ sin(angle * 8.0 - motion * 1.35 * 6.28318530718 + 1.4) * 0.28
-	);
-	VERTEX.y += tip_wave * 0.045 * pow(UV.y, 1.8);
+	local_position = VERTEX;
 }
 
-vec4 sample_frame(float frame_index, vec2 local_uv) {
-	float cell_width = atlas_pixel_size.x / FRAME_COUNT;
-	float pixel_x = frame_index * cell_width + 0.5 + fract(local_uv.x) * (cell_width - 1.0);
-	float pixel_y = 0.5 + clamp(local_uv.y, 0.0, 1.0) * (atlas_pixel_size.y - 1.0);
-	return texture(plume_atlas, vec2(pixel_x, pixel_y) / atlas_pixel_size);
+float wrapped_distance(float first, float second) {
+	return abs(fract(first - second + 0.5) - 0.5);
+}
+
+float analytic_ray_field(float angular_uv, float height, float motion, float seed_hash) {
+	float field = 0.0;
+	// Twenty deterministic angular seeds produce roughly ten visible far-side
+	// columns, matching the measured source fan without magnifying a raster mask.
+	// All shaping is evaluated per fragment, so a leaning edge stays continuous
+	// across the profiled carrier's height bands.
+	for (int group = 0; group < 20; group++) {
+		float group_value = float(group);
+		float phase = group_value * 1.731 + motion * 6.17 + seed_hash * 0.42;
+		float direction = mod(group_value, 2.0) < 1.0 ? 1.0 : -1.0;
+		float center = group_value / 20.0 + motion * (0.018 + mod(group_value, 3.0) * 0.004);
+		float lean = direction * (0.018 + 0.010 * sin(phase));
+		float bent_center = center + lean * pow(height, 1.35);
+		float base_width = 0.010 + mod(group_value, 4.0) * 0.0018;
+		float width = base_width * (1.30 - 0.62 * height);
+		float distance = wrapped_distance(angular_uv, bent_center);
+		float lateral = exp(-0.5 * pow(distance / max(width, 0.001), 2.0));
+		float spike_height = clamp(0.68 + 0.15 * sin(phase * 0.83), 0.54, 0.86);
+		float local_distance = distance / max(width, 0.001);
+		float local_height = spike_height - pow(clamp(local_distance, 0.0, 2.0), 1.25) * 0.14;
+		float tip = 1.0 - smoothstep(local_height - 0.19, local_height, height);
+		float root = smoothstep(0.045 + mod(group_value, 2.0) * 0.018, 0.17, height);
+		float amplitude = 0.74 + 0.18 * sin(phase + 0.4);
+		field = max(field, lateral * tip * root * amplitude);
+	}
+	return clamp(field, 0.0, 1.0);
 }
 
 float vertical_reveal(float height) {
@@ -50,27 +72,26 @@ float vertical_reveal(float height) {
 }
 
 void fragment() {
-	if (FRONT_FACING) {
-		discard;
-	}
 	float position = clamp(atlas_state_position, 0.0, FRAME_COUNT - 1.0);
-	float current = floor(position);
-	float following = min(current + 1.0, FRAME_COUNT - 1.0);
-	float transition = fract(position) * state_crossfade;
 	float seed_hash = fract(sin(seed_value * 12.9898) * 43758.5453);
 	float motion = clamp(position / (FRAME_COUNT - 1.0), 0.0, 1.0);
-	vec2 uv = vec2(UV.x + uv_phase + motion * 0.16 + (seed_hash - 0.5) * 0.025, UV.y);
-	float flow = mix(sample_frame(current, uv).g, sample_frame(following, uv).g, transition);
-	flow = pow(clamp(flow, 0.0, 1.0), 0.68);
+	// Reconstruct the angular coordinate from the carrier position instead of
+	// interpolating UV.x across the triangles of a widening shell. Affine UV
+	// interpolation on that flare shifts an atlas spike once per height band,
+	// exposing the mesh rows as horizontal terraces.
+	float angular_uv = atan(local_position.z, local_position.x) / TAU_VALUE;
+	angular_uv = angular_uv < 0.0 ? angular_uv + 1.0 : angular_uv;
+	angular_uv += uv_phase + motion * 0.16 + (seed_hash - 0.5) * 0.025;
+	float flow = analytic_ray_field(angular_uv, UV.y, motion, seed_hash);
+	flow = pow(flow, 0.78);
 	flow *= smoothstep(0.055, 0.18, UV.y) * (1.0 - smoothstep(0.91, 1.0, UV.y));
 	flow *= vertical_reveal(UV.y);
 	// The source carries its energy below the waist. Tips remain present for
 	// silhouette and oscillation, but lose most of their opacity near head
 	// height instead of becoming equally bright flame petals.
 	flow *= 1.0 - smoothstep(0.42, 0.92, UV.y) * 0.78;
-	float view_feather = 0.42 + 0.58 * smoothstep(
-		0.04, 0.34, abs(dot(normalize(NORMAL), normalize(VIEW)))
-	);
+	float facing = dot(normalize(NORMAL), normalize(VIEW));
+	float view_feather = 0.42 + 0.58 * smoothstep(0.04, 0.34, abs(facing));
 	flow *= view_feather;
 	float onset_visibility = root_ignition * lifecycle_visibility;
 	float alpha = flow * shell_opacity * plume_energy * onset_visibility;
