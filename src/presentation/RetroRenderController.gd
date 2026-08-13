@@ -42,6 +42,21 @@ var world_viewport: SubViewport
 var world_root: Node3D
 var display_layer: CanvasLayer
 var world_texture: TextureRect
+## Confines the whole display stack — letterbox, world texture, and CRT pass —
+## to a sub-rect of the host viewport instead of filling it.
+##
+## Zero size means "fill the host viewport", which is what every shipping caller
+## uses and is bit-identical to the behaviour before this field existed. The VFX
+## debug scene sets it so the world occupies a pane beside a fixed menu column,
+## and setting it here rather than re-anchoring the nodes from outside is what
+## keeps `get_display_rect()` — and therefore `screen_to_world()`,
+## `world_to_screen()`, and `screen_motion_scale()`, which all derive from it —
+## telling the truth about where the world actually is.
+##
+## Expressed in host-viewport coordinates, the same space the CanvasLayer
+## controls and incoming mouse positions use. Assign through
+## `set_display_rect_override()`; the field is not watched.
+var display_rect_override := Rect2()
 var crt_overlay_layer: CanvasLayer
 var crt_overlay: ColorRect
 var crt_material: ShaderMaterial
@@ -131,7 +146,73 @@ func _build_render_target() -> void:
 	crt_overlay.material = crt_material
 	crt_overlay_layer.add_child(crt_overlay)
 
+	_apply_display_node_rects()
 	host.get_viewport().size_changed.connect(_on_main_viewport_size_changed)
+
+
+## Confines the display stack to `rect`, or restores the full-viewport default
+## when `rect` has zero area. Resizes the render target to match, so a
+## native-resolution pane renders at pane resolution rather than rendering at
+## window resolution and then being letterboxed down to fit.
+##
+## A host that moves its pane — because the window resized, or because it hid a
+## panel — calls this again with the new rect. The field is deliberately not
+## watched: recomputing a pane belongs to whoever owns the layout.
+func set_display_rect_override(rect: Rect2) -> void:
+	display_rect_override = rect
+	_resize_world_viewport()
+	_apply_display_node_rects()
+	BattleMeshFactoryScript.configureRetro(
+		vertex_snap_enabled,
+		affine_mapping_enabled,
+		Vector2(world_viewport.size),
+		vertex_snap_strength
+	)
+	BattleMeshFactoryScript.updateMaterialsRecursive(world_root)
+
+
+func clear_display_rect_override() -> void:
+	set_display_rect_override(Rect2())
+
+
+## The region the display stack occupies: the override when one is set, the
+## whole host viewport otherwise. Distinct from `get_display_rect()`, which is
+## the aspect-correct world image *inside* these bounds.
+func _display_bounds() -> Rect2:
+	if display_rect_override.size.x > 0.0 and display_rect_override.size.y > 0.0:
+		return display_rect_override
+	return Rect2(Vector2.ZERO, host.get_viewport().get_visible_rect().size)
+
+
+## Positions the three display controls over `_display_bounds()`.
+##
+## The CRT overlay moves with them on purpose: it samples `hint_screen_texture`,
+## so whatever it covers is what it distorts, and a pane-confined overlay leaves
+## surrounding UI undistorted. Its vignette is computed from local `UV`, so it
+## centres on the pane rather than on the window. Colour bleed and glow sample a
+## few texels outside the rect at its edges — the same thing they already do at
+## the window's edges.
+func _apply_display_node_rects() -> void:
+	var bounds := _display_bounds()
+	var filling := not (
+		display_rect_override.size.x > 0.0 and display_rect_override.size.y > 0.0
+	)
+	for control: Control in [
+		display_layer.get_node_or_null("Letterbox"), world_texture, crt_overlay
+	]:
+		if control == null:
+			continue
+		# `set_anchors_preset` changes anchors and leaves offsets untouched, so
+		# restoring the full-rect preset that way would reinterpret a previous
+		# override's offsets against the new anchors and leave the control
+		# somewhere arbitrary. The `_and_offsets_` variant is the one that
+		# actually resets the rect.
+		if filling:
+			control.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			continue
+		control.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		control.position = bounds.position
+		control.size = bounds.size
 
 
 func reset_defaults(persist: bool = true) -> void:
@@ -451,6 +532,7 @@ func _mark_custom() -> void:
 
 func _apply_settings(persist: bool) -> void:
 	_resize_world_viewport()
+	_apply_display_node_rects()
 	world_texture.texture_filter = (
 		CanvasItem.TEXTURE_FILTER_NEAREST
 		if nearest_filter_enabled else
@@ -473,18 +555,27 @@ func _apply_settings(persist: bool) -> void:
 		_save_settings()
 
 
+## The non-retro base is the region the world is actually displayed in: the
+## window by default, the pane when an override is set. Rendering a pane at full
+## window resolution and then letterboxing it down would resample every frame,
+## which is exactly the artefact the retro pipeline exists to avoid.
 func _resize_world_viewport() -> void:
-	var baseSize = render_size if retro_enabled else Vector2i(
-		host.get_window().size
-	)
+	var nativeSize := Vector2i(host.get_window().size)
+	if display_rect_override.size.x > 0.0 and display_rect_override.size.y > 0.0:
+		nativeSize = Vector2i(display_rect_override.size.round())
+	var baseSize = render_size if retro_enabled else nativeSize
 	world_viewport.size = Vector2i(
 		maxi(roundi(baseSize.x * render_scale), MIN_VIEWPORT_SIZE.x),
 		maxi(roundi(baseSize.y * render_scale), MIN_VIEWPORT_SIZE.y)
 	)
 
 
+## A host owning a pane recomputes it and calls `set_display_rect_override()`
+## itself; re-applying the stored rect here keeps the controls attached to it in
+## the meantime, since they no longer carry anchors that follow the window.
 func _on_main_viewport_size_changed() -> void:
 	_resize_world_viewport()
+	_apply_display_node_rects()
 	BattleMeshFactoryScript.configureRetro(
 		vertex_snap_enabled,
 		affine_mapping_enabled,
@@ -494,8 +585,12 @@ func _on_main_viewport_size_changed() -> void:
 	BattleMeshFactoryScript.updateMaterialsRecursive(world_root)
 
 
+## The aspect-correct world image, in host-viewport coordinates. Letterboxed
+## within `_display_bounds()` — the whole viewport by default, or the pane when
+## a host has set a display-rect override.
 func get_display_rect() -> Rect2:
-	var screenSize = host.get_viewport().get_visible_rect().size
+	var bounds := _display_bounds()
+	var screenSize := bounds.size
 	if screenSize.x <= 0.0 or screenSize.y <= 0.0:
 		return Rect2()
 	var worldAspect = float(world_viewport.size.x) / float(world_viewport.size.y)
@@ -505,7 +600,7 @@ func get_display_rect() -> Rect2:
 		displaySize = Vector2(screenSize.y * worldAspect, screenSize.y)
 	else:
 		displaySize = Vector2(screenSize.x, screenSize.x / worldAspect)
-	return Rect2((screenSize - displaySize) * 0.5, displaySize)
+	return Rect2(bounds.position + (screenSize - displaySize) * 0.5, displaySize)
 
 
 func screen_to_world(screenPosition: Vector2) -> Vector2:
