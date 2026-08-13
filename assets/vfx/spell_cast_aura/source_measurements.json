@@ -1,6 +1,17 @@
 {
   "authority": "Eleven user-supplied consecutive animation frames",
   "provenance": "Measurements only; no source pixels are shipped or copied into generated assets.",
+  "asset_forensics": {
+    "status": "screenshot_only_no_authorized_archive_path",
+    "exact_effect_identity": "unresolved",
+    "candidate_effects": [
+      {"id": 54, "constant": "EF_BEGINSPELL2", "reason": "Water-element cast-initiation aura"},
+      {"id": 830, "constant": "EF_BEGINSPELL_N1", "reason": "Newer-client blue casting aura"},
+      {"id": 831, "constant": "EF_BEGINSPELL_N2", "reason": "Newer-client blue casting cone"}
+    ],
+    "archive_branch": "Requires a user-owned or otherwise authorized local data.grf/sdata.grf path. No archive was downloaded or inspected.",
+    "shipping_rule": "Do not commit or distribute extracted Gravity textures, sprites, STR files, or rendered extractions. Retain only measurements, hashes, descriptions, and original project assets."
+  },
   "coordinate_contract": {
     "source_size_px": [350, 350],
     "character_bounds_px": [151, 196, 209, 312],

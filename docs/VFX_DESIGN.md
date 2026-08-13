@@ -448,6 +448,28 @@ group density at arbitrary camera yaw without a billboard. Every cell repeats
 its first angular texel at the last column and the generator validates the RGB
 seam before saving.
 
+`compare_replica.py` is the convergence gate for this effect. It accepts eleven
+ordered source paths and eleven debug-render paths, registers the debug proxy
+to the source character's centre, feet, width, and height, and writes a paired
+inspection sheet plus a machine-readable report. Source files stay external;
+the report retains only names, hashes, dimensions, registration data, and
+measurements. The command shape is:
+
+```bash
+python assets/vfx/spell_cast_aura/compare_replica.py \
+  --source <source-01.png> ... <source-11.png> \
+  --render <render-01.png> ... <render-11.png> \
+  --report assets/vfx/spell_cast_aura/replica_baseline.json \
+  --sheet debug/aura_comparison.png --command-label <capture-contract>
+```
+
+The report measures faint/dense silhouette bounds, energy centroid, aperture,
+angular distribution, palette, body overdraw, temporal deltas, and several
+horizontal-edge probes. Those last probes are supporting signals rather than
+an automatic stripe detector: legitimate radial rays in the source also
+produce strong row-edge energy, so enlarged tip crops remain mandatory when
+judging shell terraces.
+
 The CPU maps normalized seek onto the eleven measured source positions and
 passes an explicit atlas position to both shaders. Motion between authored
 states is also derived from this position, so neither shader uses `TIME`.
