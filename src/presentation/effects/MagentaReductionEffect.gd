@@ -95,11 +95,15 @@ static func spawn(
 static func createPlayback(
 		parent: Node3D,
 		worldPosition: Vector3,
-		_elementColor: Color) -> MagentaReductionEffect:
+		_elementColor: Color,
+		overrides: Dictionary = {}) -> MagentaReductionEffect:
 	var playback := MagentaReductionEffect.new()
 	playback.name = "MagentaReductionEffect"
 	playback.position = worldPosition
 	parent.add_child(playback)
+	# Before the build below: geometry and shader uniforms are assembled there,
+	# so an override arriving afterwards changes nothing.
+	playback.set_tunable_overrides(overrides)
 	playback._buildLayers()
 	return playback
 

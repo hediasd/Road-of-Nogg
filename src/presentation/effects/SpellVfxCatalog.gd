@@ -76,10 +76,17 @@ static func maxLive(profile_id: String) -> int:
 	return int(resolve(profile_id)["max_live"])
 
 
+## `overrides` are live-authoring tunables from the VFX debug scene, empty for
+## every gameplay caller. They are passed to the factory rather than applied
+## afterwards because effects build their geometry inside `createPlayback`; a
+## value handed over later would be consumed by nothing.
 static func create(
 		profile_id: String,
 		parent: Node3D,
 		world_position: Vector3,
-		color: Color) -> VfxPlayback:
+		color: Color,
+		overrides: Dictionary = {}) -> VfxPlayback:
 	var entry := resolve(profile_id)
-	return entry["factory"].call(parent, world_position, color) as VfxPlayback
+	return entry["factory"].call(
+		parent, world_position, color, overrides
+	) as VfxPlayback

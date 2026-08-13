@@ -63,11 +63,15 @@ var _impactFlashBaseScale := Vector3.ONE
 static func createPlayback(
 		parent: Node3D,
 		worldPosition: Vector3,
-		_elementColor: Color) -> IceTargetEncasementEffect:
+		_elementColor: Color,
+		overrides: Dictionary = {}) -> IceTargetEncasementEffect:
 	var playback := IceTargetEncasementEffect.new()
 	playback.name = "IceTargetEncasementEffect"
 	playback.position = worldPosition
 	parent.add_child(playback)
+	# Before the build below: geometry and shader uniforms are assembled there,
+	# so an override arriving afterwards changes nothing.
+	playback.set_tunable_overrides(overrides)
 	return playback
 
 

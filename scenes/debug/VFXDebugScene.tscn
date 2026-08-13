@@ -44,9 +44,9 @@ surface_material_override/0 = SubResource("3_ground_mat")
 layer = 20
 
 [node name="PanelContainer" type="PanelContainer" parent="HUD"]
-anchors_preset = 9
-anchor_bottom = 1.0
+anchors_preset = -1
 anchor_right = 0.25
+anchor_bottom = 1.0
 theme_override_styles/panel = SubResource("6_panel_style")
 
 [node name="Scroll" type="ScrollContainer" parent="HUD/PanelContainer"]

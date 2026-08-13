@@ -32,8 +32,21 @@ static func tunables() -> Array[Dictionary]:
 	return []
 
 
-## Replaces the override set. Called before `play()`, so a rebuild-class change
-## is picked up by the build itself rather than patched afterwards.
+## Seeds the override set **before the effect builds itself**.
+##
+## This is the only correct moment for a rebuild-class value: an effect's
+## geometry and shader uniforms are assembled inside its own `createPlayback`,
+## so overrides handed over afterwards are consumed by nothing and the panel
+## reports changes that never reached the screen. Factories call this between
+## constructing the playback and building its layers; `SpellVfxCatalog.create()`
+## routes the dictionary through for them.
+func set_tunable_overrides(overrides: Dictionary) -> void:
+	_tunableOverrides = overrides.duplicate()
+
+
+## Replaces the override set on an already-built effect. Only meaningful for
+## values the effect can apply without rebuilding — a descriptor row marked
+## `rebuild: true` needs a fresh playback, which is what the debug panel does.
 func apply_tunables(overrides: Dictionary) -> void:
 	_tunableOverrides = overrides.duplicate()
 	_on_tunables_applied()

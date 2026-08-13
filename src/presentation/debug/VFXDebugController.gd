@@ -718,16 +718,17 @@ func _createSelectedPlayback() -> VfxPlayback:
 	var color := BattleMeshFactoryScript.elementColor(
 		hud.elementOption.get_item_metadata(hud.elementOption.selected)
 	)
+	# Overrides go through the factory, not onto the finished playback: effects
+	# build their geometry and bake their shader uniforms inside `createPlayback`,
+	# so a rebuild-class value handed over afterwards is consumed by nothing and
+	# the panel reports a change that never reached the screen.
 	var playback: VfxPlayback = SpellVfxCatalogScript.create(
 		_selectedProfileId(),
 		retroRenderer.world_root,
 		world.targetAnchor.position,
-		color
+		color,
+		tuning.overrides
 	)
-	# Before the cast context and before `play()`: a rebuild-class tunable
-	# shapes geometry the build itself creates, so it has to be in hand by then
-	# rather than patched over afterwards.
-	playback.apply_tunables(tuning.overrides)
 	playback.configure_cast_context(world.buildCastContext())
 	return playback
 

@@ -49,12 +49,16 @@ static func spawn(parent: Node3D, world_pos: Vector3, element_color: Color) -> v
 static func createPlayback(
 		parent: Node3D,
 		world_pos: Vector3,
-		element_color: Color) -> SpellCastAura:
+		element_color: Color,
+		overrides: Dictionary = {}) -> SpellCastAura:
 	var playback := SpellCastAura.new()
 	playback.name = "SpellCastAura"
 	playback.position = world_pos
 	playback._elementColor = element_color
 	parent.add_child(playback)
+	# Before `_buildLayers()`: the plume meshes and the aperture's uniforms are
+	# assembled there, so an override arriving afterwards changes nothing.
+	playback.set_tunable_overrides(overrides)
 	playback._buildLayers()
 	return playback
 
@@ -216,13 +220,122 @@ func _process(delta: float) -> void:
 			dispose()
 
 
+## Parameters this effect exposes for live authoring. Defaults are the profile's
+## own AUTHORED constants, which stay the documented source of truth; these make
+## them adjustable without a relaunch, not authoritative.
+##
+## Every row rebuilds: the plume shells are meshes generated at build time and
+## the aperture's values are baked into shader uniforms as the material is
+## assembled, so there is no live-uniform path to nudge.
+static func tunables() -> Array[Dictionary]:
+	return [
+		{
+			"id": "PLUME_INNER_BOTTOM_RADIUS_U", "label": "Inner bottom radius",
+			"group": "Inner plume", "min": 0.05, "max": 3.0, "step": 0.01,
+			"default": SpellCastAuraProfile.PLUME_INNER_BOTTOM_RADIUS_U, "rebuild": true,
+		},
+		{
+			"id": "PLUME_INNER_TOP_RADIUS_U", "label": "Inner top radius",
+			"group": "Inner plume", "min": 0.05, "max": 4.0, "step": 0.01,
+			"default": SpellCastAuraProfile.PLUME_INNER_TOP_RADIUS_U, "rebuild": true,
+		},
+		{
+			"id": "PLUME_INNER_HEIGHT_U", "label": "Inner height",
+			"group": "Inner plume", "min": 0.1, "max": 5.0, "step": 0.05,
+			"default": SpellCastAuraProfile.PLUME_INNER_HEIGHT_U, "rebuild": true,
+		},
+		{
+			"id": "PLUME_INNER_OPACITY", "label": "Inner opacity",
+			"group": "Inner plume", "min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SpellCastAuraProfile.PLUME_INNER_OPACITY, "rebuild": true,
+		},
+		{
+			"id": "PLUME_INNER_EMISSION_ENERGY", "label": "Inner emission",
+			"group": "Inner plume", "min": 0.0, "max": 6.0, "step": 0.05,
+			"default": SpellCastAuraProfile.PLUME_INNER_EMISSION_ENERGY, "rebuild": true,
+		},
+		{
+			"id": "PLUME_OUTER_BOTTOM_RADIUS_U", "label": "Outer bottom radius",
+			"group": "Outer plume", "min": 0.05, "max": 3.0, "step": 0.01,
+			"default": SpellCastAuraProfile.PLUME_OUTER_BOTTOM_RADIUS_U, "rebuild": true,
+		},
+		{
+			"id": "PLUME_OUTER_TOP_RADIUS_U", "label": "Outer top radius",
+			"group": "Outer plume", "min": 0.05, "max": 4.0, "step": 0.01,
+			"default": SpellCastAuraProfile.PLUME_OUTER_TOP_RADIUS_U, "rebuild": true,
+		},
+		{
+			"id": "PLUME_OUTER_HEIGHT_U", "label": "Outer height",
+			"group": "Outer plume", "min": 0.1, "max": 5.0, "step": 0.05,
+			"default": SpellCastAuraProfile.PLUME_OUTER_HEIGHT_U, "rebuild": true,
+		},
+		{
+			"id": "PLUME_OUTER_OPACITY", "label": "Outer opacity",
+			"group": "Outer plume", "min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SpellCastAuraProfile.PLUME_OUTER_OPACITY, "rebuild": true,
+		},
+		{
+			"id": "PLUME_OUTER_EMISSION_ENERGY", "label": "Outer emission",
+			"group": "Outer plume", "min": 0.0, "max": 6.0, "step": 0.05,
+			"default": SpellCastAuraProfile.PLUME_OUTER_EMISSION_ENERGY, "rebuild": true,
+		},
+		{
+			"id": "PLUME_STATE_CROSSFADE", "label": "State crossfade",
+			"group": "Outer plume", "min": 0.0, "max": 1.0, "step": 0.05,
+			"default": SpellCastAuraProfile.PLUME_STATE_CROSSFADE, "rebuild": true,
+		},
+		{
+			"id": "APERTURE_RADIUS_START", "label": "Aperture start",
+			"group": "Aperture", "min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SpellCastAuraProfile.APERTURE_RADIUS_START, "rebuild": true,
+		},
+		{
+			"id": "APERTURE_RADIUS_TROUGH", "label": "Aperture trough",
+			"group": "Aperture", "min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SpellCastAuraProfile.APERTURE_RADIUS_TROUGH, "rebuild": true,
+		},
+		{
+			"id": "APERTURE_RADIUS_END", "label": "Aperture end",
+			"group": "Aperture", "min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SpellCastAuraProfile.APERTURE_RADIUS_END, "rebuild": true,
+		},
+		{
+			"id": "APERTURE_RIM_WIDTH", "label": "Rim width",
+			"group": "Aperture", "min": 0.0, "max": 0.5, "step": 0.005,
+			"default": SpellCastAuraProfile.APERTURE_RIM_WIDTH, "rebuild": true,
+		},
+		{
+			"id": "APERTURE_RIM_ALPHA", "label": "Rim alpha",
+			"group": "Aperture", "min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SpellCastAuraProfile.APERTURE_RIM_ALPHA, "rebuild": true,
+		},
+		{
+			"id": "APERTURE_STRIATION_ALPHA", "label": "Striation alpha",
+			"group": "Aperture", "min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SpellCastAuraProfile.APERTURE_STRIATION_ALPHA, "rebuild": true,
+		},
+		{
+			"id": "APERTURE_RIM_EMISSION_ENERGY", "label": "Rim emission",
+			"group": "Aperture", "min": 0.0, "max": 4.0, "step": 0.02,
+			"default": SpellCastAuraProfile.APERTURE_RIM_EMISSION_ENERGY, "rebuild": true,
+		},
+		{
+			"id": "FOOTPRINT_OUTER_RADIUS_U", "label": "Footprint radius",
+			"group": "Aperture", "min": 0.2, "max": 3.0, "step": 0.01,
+			"default": SpellCastAuraProfile.FOOTPRINT_OUTER_RADIUS_U, "rebuild": true,
+		},
+	]
+
+
 func _buildLayers() -> void:
 	_centerDarkeningEnabled = not OS.get_cmdline_user_args().has(
 		_DEBUG_TRANSPARENT_CENTER_FLAG
 	)
 	_plumeStateCrossfade = (
 		1.0 if OS.get_cmdline_user_args().has(_DEBUG_CROSSFADE_PLUME_FLAG)
-		else SpellCastAuraProfile.PLUME_STATE_CROSSFADE
+		else tunable(
+			"PLUME_STATE_CROSSFADE", SpellCastAuraProfile.PLUME_STATE_CROSSFADE
+		)
 	)
 	_footprintInstance = _createFootprintAperture(_elementColor, _centerDarkeningEnabled)
 	add_child(_footprintInstance)
@@ -230,12 +343,20 @@ func _buildLayers() -> void:
 	_innerPlumeInstance = _createPlumeShell(
 		"InnerPlumeCurtain",
 		_elementColor,
-		SpellCastAuraProfile.PLUME_INNER_BOTTOM_RADIUS_U,
-		SpellCastAuraProfile.PLUME_INNER_TOP_RADIUS_U,
-		SpellCastAuraProfile.PLUME_INNER_HEIGHT_U,
+		tunable(
+			"PLUME_INNER_BOTTOM_RADIUS_U",
+			SpellCastAuraProfile.PLUME_INNER_BOTTOM_RADIUS_U
+		),
+		tunable(
+			"PLUME_INNER_TOP_RADIUS_U", SpellCastAuraProfile.PLUME_INNER_TOP_RADIUS_U
+		),
+		tunable("PLUME_INNER_HEIGHT_U", SpellCastAuraProfile.PLUME_INNER_HEIGHT_U),
 		SpellCastAuraProfile.PLUME_INNER_UV_PHASE,
-		SpellCastAuraProfile.PLUME_INNER_OPACITY,
-		SpellCastAuraProfile.PLUME_INNER_EMISSION_ENERGY,
+		tunable("PLUME_INNER_OPACITY", SpellCastAuraProfile.PLUME_INNER_OPACITY),
+		tunable(
+			"PLUME_INNER_EMISSION_ENERGY",
+			SpellCastAuraProfile.PLUME_INNER_EMISSION_ENERGY
+		),
 		SpellCastAuraProfile.PLUME_INNER_RENDER_PRIORITY,
 		_plumeStateCrossfade
 	)
@@ -244,12 +365,20 @@ func _buildLayers() -> void:
 	_outerPlumeInstance = _createPlumeShell(
 		"OuterPlumeCurtain",
 		_elementColor,
-		SpellCastAuraProfile.PLUME_OUTER_BOTTOM_RADIUS_U,
-		SpellCastAuraProfile.PLUME_OUTER_TOP_RADIUS_U,
-		SpellCastAuraProfile.PLUME_OUTER_HEIGHT_U,
+		tunable(
+			"PLUME_OUTER_BOTTOM_RADIUS_U",
+			SpellCastAuraProfile.PLUME_OUTER_BOTTOM_RADIUS_U
+		),
+		tunable(
+			"PLUME_OUTER_TOP_RADIUS_U", SpellCastAuraProfile.PLUME_OUTER_TOP_RADIUS_U
+		),
+		tunable("PLUME_OUTER_HEIGHT_U", SpellCastAuraProfile.PLUME_OUTER_HEIGHT_U),
 		SpellCastAuraProfile.PLUME_OUTER_UV_PHASE,
-		SpellCastAuraProfile.PLUME_OUTER_OPACITY,
-		SpellCastAuraProfile.PLUME_OUTER_EMISSION_ENERGY,
+		tunable("PLUME_OUTER_OPACITY", SpellCastAuraProfile.PLUME_OUTER_OPACITY),
+		tunable(
+			"PLUME_OUTER_EMISSION_ENERGY",
+			SpellCastAuraProfile.PLUME_OUTER_EMISSION_ENERGY
+		),
 		SpellCastAuraProfile.PLUME_OUTER_RENDER_PRIORITY,
 		_plumeStateCrossfade
 	)
@@ -308,7 +437,10 @@ func _applySeed(seed: int) -> void:
 			material.set_shader_parameter("seed_value", float(seed))
 
 
-static func _createFootprintAperture(
+## No longer static: the aperture's uniforms are the effect's most-authored
+## surface, so they read through the instance's tunable overrides. The profile
+## constants remain their defaults.
+func _createFootprintAperture(
 		color: Color,
 		darkenCenter: bool) -> MeshInstance3D:
 	var plane := PlaneMesh.new()
@@ -321,16 +453,24 @@ static func _createFootprintAperture(
 	material.render_priority = SpellCastAuraProfile.FOOTPRINT_RENDER_PRIORITY
 	material.set_shader_parameter("aura_color", color)
 	material.set_shader_parameter("seed_value", 0.0)
-	material.set_shader_parameter(
-		"outer_radius", SpellCastAuraProfile.FOOTPRINT_OUTER_RADIUS_U)
+	material.set_shader_parameter("outer_radius", tunable(
+		"FOOTPRINT_OUTER_RADIUS_U", SpellCastAuraProfile.FOOTPRINT_OUTER_RADIUS_U
+	))
 	material.set_shader_parameter("aperture_radius", SpellCastAuraProfile.APERTURE_RADIUS_START)
-	material.set_shader_parameter("rim_width", SpellCastAuraProfile.APERTURE_RIM_WIDTH)
-	material.set_shader_parameter("rim_alpha", SpellCastAuraProfile.APERTURE_RIM_ALPHA)
-	material.set_shader_parameter(
-		"striation_alpha", SpellCastAuraProfile.APERTURE_STRIATION_ALPHA)
+	material.set_shader_parameter("rim_width", tunable(
+		"APERTURE_RIM_WIDTH", SpellCastAuraProfile.APERTURE_RIM_WIDTH
+	))
+	material.set_shader_parameter("rim_alpha", tunable(
+		"APERTURE_RIM_ALPHA", SpellCastAuraProfile.APERTURE_RIM_ALPHA
+	))
+	material.set_shader_parameter("striation_alpha", tunable(
+		"APERTURE_STRIATION_ALPHA", SpellCastAuraProfile.APERTURE_STRIATION_ALPHA
+	))
 	material.set_shader_parameter("striation_visibility", 1.0)
-	material.set_shader_parameter(
-		"rim_emission_energy", SpellCastAuraProfile.APERTURE_RIM_EMISSION_ENERGY)
+	material.set_shader_parameter("rim_emission_energy", tunable(
+		"APERTURE_RIM_EMISSION_ENERGY",
+		SpellCastAuraProfile.APERTURE_RIM_EMISSION_ENERGY
+	))
 	material.set_shader_parameter(
 		"center_darkening",
 		SpellCastAuraProfile.CENTER_DARKENING_ALPHA if darkenCenter else 0.0
