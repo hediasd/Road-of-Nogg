@@ -1097,6 +1097,33 @@ validation result. Then, in the same session, grep the repository for every
 as a durable description, and clear
 `implementation_plan.md` completely in a follow-up lifecycle-cleanup commit.
 
+**Validation result (2026-08-13): blocked at project shutdown.** The aura's
+own visual, lifecycle, budget, regression, and live-battle coverage passed, but
+this plan cannot yet be closed because `Battle25D` exits with Windows access
+violation `-1073741819` and 46 retained resources even from the untouched setup
+screen. A detached pre-aura comparison at `b678bf2` reproduces the identical
+failure, proving it is pre-existing rather than introduced by this cycle; it is
+now recorded in the critical backlog and requires a broader script/resource
+ownership fix outside the aura plan.
+
+Completed evidence: the native-retro lead-in, eleven matched states, and clear;
+320x240 retro/non-retro composites for five element colours at 0/90/180-degree
+yaws; isolated footprint/plume yaw matrices; seeds 7 and 42; pause/resume,
+0.5x/2x speed, forward/backward scrub, skip-to-settle, retrigger, four
+simultaneous auras, three instances, zero particles, and clean aura disposal.
+The live Meadow battle completed with six generic spells across darkness, fire,
+light, thunder, and wood, including 28 multi-target area casts and 36 casts
+touching uneven terrain; gameplay resolved Team 2 as winner and the queue did
+not watchdog. A real CRT battle frame confirms event-time placement and caster
+occlusion. Fresh 320x240 retro captures of Ice Storm, Fire Storm, Magenta
+Reduction, and Ice Target Encasement show no shared-resource regression.
+
+Validation also found and fixed a separate integration defect: damage-number
+safety timers strongly captured billboards already freed by their normal tween,
+causing repeated freed-lambda errors during long battles. The timer now binds a
+`WeakRef` into a named cleanup callback; a focused delayed-cleanup probe and the
+full battle rerun contain no freed-capture, locked-object, or watchdog error.
+
 ## 6. Deliberately not doing
 
 - No lightning bolt, no descending strike, and no sky-side layer: the

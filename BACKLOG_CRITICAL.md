@@ -3,6 +3,25 @@
 Items here need prompt resolution because they leave current gameplay incomplete
 or misleading.
 
+## Battle25D crashes while releasing script resources at application exit
+
+Loading `scenes/Battle25D.tscn` and closing it returns Windows access-violation
+code `-1073741819`. Godot reports `ObjectDB instances leaked at exit` and 46
+GDScript/shader resources still in use. The failure occurs on the untouched
+setup screen before a simulator, visual adapter, or spell aura exists, under
+both headless Compatibility and normal windowed Vulkan rendering. A detached
+comparison at pre-aura commit `b678bf2` reproduces the identical exit code and
+46-resource count, so this is not an aura regression.
+
+Run the setup screen with `--verbose --quit-after 2` to enumerate the retained
+resource graph. The retained roots include the battle setup/state/factory
+scripts, `NoggTheme`, `NoggWindow`, `BattleMeshFactory`, `DamageNumberBillboard`,
+and the two retro-surface shaders. Identify and break the script/resource
+ownership cycle, then prove setup-screen exit and a completed live battle both
+return code 0 with no ObjectDB, RID, shader, font, or resource leak report. Do
+not treat the battle-complete marker as sufficient: the access violation occurs
+after that marker during engine cleanup.
+
 ## Finish battle-window restyle validation
 
 The shared XenoText, translucent body, thin pale rim, and exterior halo are
@@ -150,10 +169,12 @@ What is still unexercised:
   skip, pause, 0.5x/2x speed, retrigger, and battle/app exit with no target
   presentation state surviving. The harness cannot exercise the adapter's own
   cap and skip logic.
-- **Cross-effect regression.** Ice Storm, Fire Storm, Magenta Reduction, and
-  the generic aura captures were never re-run together after the shared cast
-  context and surface-path transport landed, and no multi-target area cast has
-  proven the target-bound changes left area VFX undisturbed.
+- **Cross-effect regression is now covered.** Ice Storm, Fire Storm, Magenta
+  Reduction, Ice Target Encasement, and the generic aura were re-captured
+  together at 320x240 through the retro path on 2026-08-13. A completed live
+  battle also exercised 28 generic multi-target area casts without changing
+  their resolved gameplay targets. Keep the target-bound battle cases above
+  open; this closes only the shared-resource regression concern.
 - **Asserted ceilings under live conditions.** Node, instance, draw-call, and
   overlap figures were confirmed in the harness only.
 

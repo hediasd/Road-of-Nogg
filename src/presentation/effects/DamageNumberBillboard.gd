@@ -127,12 +127,18 @@ static func spawn(
 
 	var tree := billboard.get_tree()
 	if tree != null:
+		var billboardRef: WeakRef = weakref(billboard)
 		tree.create_timer(visible_duration(is_heal) * 5.0 + CLEANUP_MARGIN).timeout.connect(
-			func() -> void:
-				if is_instance_valid(billboard):
-					billboard.queue_free()
+			_cleanupBillboard.bind(billboardRef),
+			CONNECT_ONE_SHOT
 		)
 	return animation
+
+
+static func _cleanupBillboard(billboardRef: WeakRef) -> void:
+	var billboard := billboardRef.get_ref() as DamageNumberBillboard
+	if billboard != null and is_instance_valid(billboard):
+		billboard.queue_free()
 
 
 static func visible_duration(is_heal: bool) -> float:

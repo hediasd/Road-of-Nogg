@@ -384,6 +384,21 @@ to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 - **Review when:** writing or changing a `VfxPlayback.dispose()`, or seeing a
   locked-object error at scene exit or application quit.
 
+### A delayed cleanup callback must not strongly capture its earlier owner
+
+- **Verified observation:** `DamageNumberBillboard` normally freed itself from
+  its animation tween, but its later safety timer held an anonymous-function
+  capture of that billboard. When the timer eventually fired, Godot attempted
+  to restore the already-freed capture and logged `Lambda capture at index 0
+  was freed` once per damage number during a long battle.
+- **Reusable rule:** When a delayed callback may outlive the node it cleans up,
+  bind a `WeakRef` into a named/static callback and resolve it at callback time.
+  Do not close over the node strongly and rely on `is_instance_valid()` inside
+  the closure—the failure occurs while reconstructing the capture, before that
+  guard can run.
+- **Review when:** adding cleanup timers, watchdogs, deferred callbacks, or
+  fire-and-forget UI/VFX nodes whose normal animation can free them first.
+
 ## Elevation presentation
 
 ### A logical surface needs visible supporting volume
