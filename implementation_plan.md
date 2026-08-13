@@ -1391,6 +1391,28 @@ that pass. Its focused implementation evidence is recorded above, but its live
 battle, CRT, lifecycle, and shared-effect regression coverage must be repeated
 inside this final item once the shutdown blocker is resolved.
 
+**Replica revalidation (2026-08-13): implementation complete; final item still
+blocked by project shutdown.** The eleven-state RGB atlas was regenerated at
+2816x256 with narrow periodic ray groups, the flared shell was replaced by a
+near-cylindrical world-space curtain after terrain isolation proved the flare
+projected rays as literal petals, and per-state XZ/Y curves now reproduce the
+reference's changing silhouette without camera-dependent scaling. Exact-scale
+350x350 plates use a 116 px proxy matching the measured source character
+height. Lead-in, eleven states, clear, channel isolation, seeds 7/42, five
+elements, three yaws, native/retro, black and terrain plates all render without
+shader errors. The lifecycle probe passed pause/resume, 0.5x/2x, forward and
+backward scrub, settle skip, retrigger, seeded replay, four overlaps, three
+instances, zero particles, and clean aura disposal. Fresh Ice Storm, Fire
+Storm, Magenta Reduction, and Ice Target Encasement captures remain intact.
+
+A fresh rendered Meadow integration run produced 125 generic casts across ten
+spells and five elements, including eight multi-target casts and 29 casts on or
+targeting raised terrain, with a clean live frame and no presentation-queue or
+freed-capture error. It reached the explicit 150-second watchdog before a
+winner, so battle completion is not claimed. Process teardown again reported
+retained resources; the existing critical-backlog shutdown defect remains the
+only plan-closing blocker and is not caused by the aura.
+
 Completed evidence: the native-retro lead-in, eleven matched states, and clear;
 320x240 retro/non-retro composites for five element colours at 0/90/180-degree
 yaws; isolated footprint/plume yaw matrices; seeds 7 and 42; pause/resume,

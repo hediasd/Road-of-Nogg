@@ -50,7 +50,7 @@ void fragment() {
 	float motion = clamp(position / (FRAME_COUNT - 1.0), 0.0, 1.0);
 	vec2 uv = vec2(UV.x + uv_phase + motion * 0.16 + (seed_hash - 0.5) * 0.025, UV.y);
 	float flow = mix(sample_frame(current, uv).g, sample_frame(following, uv).g, transition);
-	flow = pow(clamp(flow, 0.0, 1.0), 1.28);
+	flow = pow(clamp(flow, 0.0, 1.0), 0.68);
 	flow *= smoothstep(0.055, 0.18, UV.y) * (1.0 - smoothstep(0.91, 1.0, UV.y));
 	// The source carries its energy below the waist. Tips remain present for
 	// silhouette and oscillation, but lose most of their opacity near head
@@ -64,7 +64,7 @@ void fragment() {
 	if (alpha < 0.0025) {
 		discard;
 	}
-	vec3 tint = aura_color.rgb * vec3(0.55, 0.78, 1.0);
+	vec3 tint = aura_color.rgb * vec3(0.32, 0.70, 1.10);
 	ALBEDO = tint * 0.65;
 	EMISSION = tint * flow * emission_energy * plume_energy * effect_visibility;
 	ALPHA = clamp(alpha, 0.0, 0.45);

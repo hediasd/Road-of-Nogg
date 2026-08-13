@@ -84,7 +84,7 @@ void fragment() {
 		discard;
 	}
 
-	vec3 tint = saturated_tint(aura_color.rgb);
+	vec3 tint = saturated_tint(aura_color.rgb) * vec3(0.32, 0.58, 0.78);
 	vec3 ink = vec3(0.004, 0.012, 0.022);
 	float light_mask = clamp(rim + striations * 0.72, 0.0, 1.0);
 	vec3 color = mix(ink, tint, light_mask * 0.82);

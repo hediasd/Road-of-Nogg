@@ -306,6 +306,22 @@ func _applyProgress(progress: float) -> void:
 	var plumeEnergy := _sampleSourceCurve(
 		progress, SpellCastAuraProfile.PLUME_ENERGY_CURVE
 	)
+	if _hazeInstance != null:
+		var hazeWidth := _sampleSourceCurve(
+			progress, SpellCastAuraProfile.HAZE_WIDTH_SCALE_CURVE
+		)
+		var hazeHeight := _sampleSourceCurve(
+			progress, SpellCastAuraProfile.HAZE_HEIGHT_SCALE_CURVE
+		)
+		_hazeInstance.scale = Vector3(hazeWidth, hazeHeight, hazeWidth)
+	if _rayInstance != null:
+		var rayWidth := _sampleSourceCurve(
+			progress, SpellCastAuraProfile.RAY_WIDTH_SCALE_CURVE
+		)
+		var rayHeight := _sampleSourceCurve(
+			progress, SpellCastAuraProfile.RAY_HEIGHT_SCALE_CURVE
+		)
+		_rayInstance.scale = Vector3(rayWidth, rayHeight, rayWidth)
 	for material: ShaderMaterial in [_hazeMaterial, _rayMaterial]:
 		if material != null:
 			material.set_shader_parameter("atlas_state_position", statePosition)

@@ -416,7 +416,7 @@ choice: runtime uses the approved low-alpha navy aperture by default.
 `set_center_darkening()` and the `--spell-aura-transparent-center` debug flag
 retain the transparent comparison path without changing geometry or timing.
 
-The vertical field uses two continuous profiled `ArrayMesh` ring shells with
+The vertical field uses two continuous near-cylindrical `ArrayMesh` ring shells with
 different material jobs. The compact inner shell is low-alpha deep-blue haze;
 the taller outer shell is sparse additive ghost rays. Both omit the complete
 camera-side hemisphere, leaving the footprint to close the foreground around
@@ -426,6 +426,15 @@ haze is connective rather than opaque; luminance lives mainly in low-alpha
 rays, so elevated detail never becomes a white flame crown. Both meshes remain
 world-space at every yaw; neither uses a billboard, camera-relative origin, or
 camera-driven transform.
+
+The shells deliberately stay close to one radius as they rise. Earlier flared
+profiles projected the ray atlas outward at the shipping camera pitch and made
+soft streaks look like literal radial petals or flat shards. The near-cylinder
+keeps atlas motion vertical, so spike height can oscillate without changing the
+ground footprint into a puddle or fan of blades. Four keyed XZ/Y scale curves
+translate the measured state-to-state silhouette changes onto the two 3D
+carriers; they are driven only by normalized playback progress, never by camera
+yaw, pitch, or distance.
 
 `assets/vfx/spell_cast_aura/plume_flow_atlas.png` is original project artwork
 generated deterministically by the retained adjacent Python/Pillow source and

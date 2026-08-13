@@ -59,8 +59,8 @@ void fragment() {
 		discard;
 	}
 	vec3 tint = aura_color.rgb;
-	vec3 deep_blue = tint * vec3(0.16, 0.42, 0.68);
-	vec3 body_blue = tint * vec3(0.45, 0.78, 0.92);
+	vec3 deep_blue = tint * vec3(0.10, 0.34, 0.60);
+	vec3 body_blue = tint * vec3(0.34, 0.72, 1.00);
 	vec3 color = mix(deep_blue, body_blue, clamp(haze * 0.72, 0.0, 1.0));
 	ALBEDO = color;
 	EMISSION = body_blue * haze * emission_energy * plume_energy * effect_visibility;

@@ -25,6 +25,22 @@ const SOURCE_STATE_PROGRESS := [
 const PLUME_ENERGY_CURVE := [
 	1.00, 1.13, 1.11, 0.96, 0.79, 0.64, 0.61, 0.76, 0.82, 0.85, 0.70,
 ]
+## TRANSLATED capture calibration. A 360-degree carrier does not project the
+## measured 2D widths and heights uniformly, so the two material roles retain
+## small keyed corrections instead of pretending one static shell fits all
+## eleven silhouettes. Values interpolate under exact normalized seek.
+const HAZE_WIDTH_SCALE_CURVE := [
+	1.01, 0.96, 0.96, 0.80, 0.89, 1.08, 1.04, 1.05, 1.01, 0.89, 0.88,
+]
+const HAZE_HEIGHT_SCALE_CURVE := [
+	1.09, 0.95, 0.89, 0.85, 0.86, 1.15, 1.06, 1.12, 1.04, 1.01, 0.85,
+]
+const RAY_WIDTH_SCALE_CURVE := [
+	1.04, 1.07, 1.05, 1.02, 0.92, 1.00, 1.03, 1.00, 1.05, 1.04, 0.98,
+]
+const RAY_HEIGHT_SCALE_CURVE := [
+	0.92, 0.87, 0.84, 0.91, 0.91, 1.04, 1.05, 0.98, 1.06, 1.01, 0.91,
+]
 const APERTURE_RADIUS_CURVE := [
 	0.560, 0.555, 0.548, 0.538, 0.528, 0.518, 0.505, 0.548, 0.610, 0.675, 0.720,
 ]
@@ -59,22 +75,22 @@ const PLUME_ATLAS_PIXEL_SIZE := Vector2(2816.0, 256.0)
 const PLUME_SHELL_SEGMENTS := 64
 const PLUME_SHELL_HEIGHT_BANDS := 24
 const PLUME_BASE_HEIGHT_U := 0.025
-const HAZE_BOTTOM_RADIUS_U := 0.38
-const HAZE_MIDDLE_RADIUS_U := 0.92
-const HAZE_TOP_RADIUS_U := 0.72
-const HAZE_MIDDLE_HEIGHT_FRACTION := 0.34
-const HAZE_HEIGHT_U := 1.00
+const HAZE_BOTTOM_RADIUS_U := 0.90
+const HAZE_MIDDLE_RADIUS_U := 1.08
+const HAZE_TOP_RADIUS_U := 1.00
+const HAZE_MIDDLE_HEIGHT_FRACTION := 0.30
+const HAZE_HEIGHT_U := 1.28
 const HAZE_UV_PHASE := 0.06
-const HAZE_OPACITY := 0.34
-const HAZE_EMISSION_ENERGY := 1.10
-const RAY_BOTTOM_RADIUS_U := 0.44
-const RAY_MIDDLE_RADIUS_U := 1.10
-const RAY_TOP_RADIUS_U := 1.12
-const RAY_MIDDLE_HEIGHT_FRACTION := 0.52
-const RAY_HEIGHT_U := 1.34
+const HAZE_OPACITY := 0.82
+const HAZE_EMISSION_ENERGY := 2.80
+const RAY_BOTTOM_RADIUS_U := 0.94
+const RAY_MIDDLE_RADIUS_U := 1.12
+const RAY_TOP_RADIUS_U := 1.04
+const RAY_MIDDLE_HEIGHT_FRACTION := 0.30
+const RAY_HEIGHT_U := 1.58
 const RAY_UV_PHASE := 0.20
-const RAY_OPACITY := 0.78
-const RAY_EMISSION_ENERGY := 2.20
+const RAY_OPACITY := 0.92
+const RAY_EMISSION_ENERGY := 3.60
 ## Channel-specific interpolation: haze can bridge states without erasing ray
 ## groupings, while rays use only a short transition between authored masks.
 const HAZE_STATE_CROSSFADE := 0.55

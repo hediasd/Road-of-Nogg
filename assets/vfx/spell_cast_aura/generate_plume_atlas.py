@@ -21,7 +21,7 @@ OUTPUT_PATH = Path(__file__).with_name("plume_flow_atlas.png")
 MEASUREMENTS_PATH = Path(__file__).with_name("source_measurements.json")
 
 BASE_RAY_CENTERS = tuple(index / 20.0 for index in range(20))
-BASE_RAY_WIDTHS = tuple(0.014 + (index % 4) * 0.0025 for index in range(20))
+BASE_RAY_WIDTHS = tuple(0.007 + (index % 4) * 0.0014 for index in range(20))
 
 
 def clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
@@ -124,7 +124,7 @@ def ray_field(u: float, v: float, frame: int, measured: dict[str, float]) -> flo
         # Elevated rays are intentionally fainter. This inverts the previous
         # flame crown, where the tallest shapes were also the most opaque.
         height_fade = 1.0 - smoothstep(0.54, 0.94, v) * 0.62
-        amplitude = 0.74 + 0.20 * math.sin(phase + 0.4)
+        amplitude = 0.86 + 0.10 * math.sin(phase + 0.4)
         field = max(field, lateral * tip * root * height_fade * amplitude)
     return clamp(field)
 
