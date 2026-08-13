@@ -411,9 +411,10 @@ apparent ellipse.
 
 The supplied screenshots have a black background and no alpha, so they cannot
 prove whether the aperture centre is opaque darkness or transparent negative
-space. Runtime therefore defaults to transparent. `set_center_darkening()` and
-the `--spell-aura-dark-center` debug flag select a low-alpha navy variant for
-the required terrain comparison without changing geometry or timing.
+space. The terrain A/B was therefore resolved as a deliberate art-direction
+choice: runtime uses the approved low-alpha navy aperture by default.
+`set_center_darkening()` and the `--spell-aura-transparent-center` debug flag
+retain the transparent comparison path without changing geometry or timing.
 
 The plume crown uses two continuous flared `ArrayMesh` ring shells. Both carry
 outward normals and Godot-correct outward winding; the owned shader uses
@@ -427,9 +428,21 @@ their overlap forms broad changing plume groups instead of a solid cone edge.
 generated deterministically by the retained adjacent Python/Pillow source. Its
 eleven 64x64 cells encode angular-U by height-V alpha fields; each cell repeats
 its first angular texel at the last column and the generator validates the seam.
-The shader samples current and next cells from normalized playback progress,
-never `TIME`. `set_plume_state_crossfade()` and
-`--spell-aura-stepped-plume` expose cross-faded and stepped inspection paths.
+The CPU maps normalized seek onto the eleven measured source positions and
+passes an explicit atlas position to the shader; the shader never uses `TIME`.
+Literal comparison selected stepped cells as the shipping default because
+cross-fading blurred the changing frame-specific groupings into generic haze.
+`set_plume_state_crossfade()` and `--spell-aura-crossfade-plume` retain the
+cross-faded inspection path.
+
+The animation is source-keyed rather than a generic charge/decay envelope.
+Separate eleven-value curves control plume energy, aperture radius, rim width,
+and striation visibility. In particular, plume energy follows
+`1.00, 1.13, 1.11, 0.96, 0.79, 0.64, 0.61, 0.76, 0.82, 0.85, 0.70`, preserving
+the source's early crest, trough, and smaller secondary swell. The final source
+state remains fully visible at normalized time `0.82`; a separate smooth
+visibility tail clears every layer by `0.90`. Seed changes apply only a subtle
+angular phase offset and cannot replace these curves or their silhouette.
 
 The rejected core cards, crossed ribbons, and `GPUParticles3D` mist have been
 removed with their owned shaders. The effect no longer consumes

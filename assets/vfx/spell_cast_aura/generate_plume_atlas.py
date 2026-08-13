@@ -84,7 +84,9 @@ def plume_field(angular_u: float, height_v: float, state: float, frame: int) -> 
         0.16
         + 0.035 * math.sin(angular_u * math.tau * 2.0 + state * 1.7)
         + 0.025 * math.sin(angular_u * math.tau * 5.0 - state * 2.1)
-    ) * (1.0 - smoothstep(0.10, 0.34, height_v))
+    ) * smoothstep(0.0, 0.045, height_v) * (
+        1.0 - smoothstep(0.10, 0.34, height_v)
+    )
     upper_feather = 1.0 - smoothstep(0.82, 1.0, height_v)
     return clamp((field + secondary + root_haze) * upper_feather)
 

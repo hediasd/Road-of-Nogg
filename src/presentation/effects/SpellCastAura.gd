@@ -12,8 +12,8 @@ const _PLUME_SHADER = preload(
 		"res://assets/shaders/effects/spell_cast_plume_curtain.gdshader")
 const _PLUME_ATLAS = preload(
 		"res://assets/vfx/spell_cast_aura/plume_flow_atlas.png")
-const _DEBUG_DARK_CENTER_FLAG := "--spell-aura-dark-center"
-const _DEBUG_STEPPED_PLUME_FLAG := "--spell-aura-stepped-plume"
+const _DEBUG_TRANSPARENT_CENTER_FLAG := "--spell-aura-transparent-center"
+const _DEBUG_CROSSFADE_PLUME_FLAG := "--spell-aura-crossfade-plume"
 
 const VISIBLE_DURATION := SpellCastAuraProfile.DURATION_SECONDS
 const SETTLE_NORMALIZED_TIME := SpellCastAuraProfile.SETTLE_NORMALIZED_TIME
@@ -28,7 +28,7 @@ var _innerPlumeInstance: MeshInstance3D
 var _innerPlumeMaterial: ShaderMaterial
 var _outerPlumeInstance: MeshInstance3D
 var _outerPlumeMaterial: ShaderMaterial
-var _centerDarkeningEnabled := false
+var _centerDarkeningEnabled := true
 var _plumeStateCrossfade := SpellCastAuraProfile.PLUME_STATE_CROSSFADE
 var _elapsedTime := 0.0
 var _playbackScale := 1.0
@@ -142,8 +142,8 @@ func set_layer_visible(layer_name: String, visible: bool) -> void:
 			push_warning("Unknown SpellCastAura layer: %s" % layer_name)
 
 
-## Debug A/B hook. Battle playback remains transparent until the supplied
-## black-background reference is disambiguated on real light and dark terrain.
+## Debug A/B hook. Battle playback uses the approved navy-darkened centre;
+## authoring captures may still select transparent for comparison.
 func set_center_darkening(enabled: bool) -> void:
 	_centerDarkeningEnabled = enabled
 	if _footprintMaterial != null:
@@ -217,9 +217,11 @@ func _process(delta: float) -> void:
 
 
 func _buildLayers() -> void:
-	_centerDarkeningEnabled = OS.get_cmdline_user_args().has(_DEBUG_DARK_CENTER_FLAG)
+	_centerDarkeningEnabled = not OS.get_cmdline_user_args().has(
+		_DEBUG_TRANSPARENT_CENTER_FLAG
+	)
 	_plumeStateCrossfade = (
-		0.0 if OS.get_cmdline_user_args().has(_DEBUG_STEPPED_PLUME_FLAG)
+		1.0 if OS.get_cmdline_user_args().has(_DEBUG_CROSSFADE_PLUME_FLAG)
 		else SpellCastAuraProfile.PLUME_STATE_CROSSFADE
 	)
 	_footprintInstance = _createFootprintAperture(_elementColor, _centerDarkeningEnabled)
@@ -271,11 +273,31 @@ func _buildLayers() -> void:
 
 
 func _applyProgress(progress: float) -> void:
-	for material: ShaderMaterial in [
-		_footprintMaterial, _innerPlumeMaterial, _outerPlumeMaterial
-	]:
+	var statePosition := _sourceStatePosition(progress)
+	var visibility := _sourceVisibility(progress)
+	if _footprintMaterial != null:
+		_footprintMaterial.set_shader_parameter("source_state_position", statePosition)
+		_footprintMaterial.set_shader_parameter(
+			"aperture_radius",
+			_sampleSourceCurve(progress, SpellCastAuraProfile.APERTURE_RADIUS_CURVE)
+		)
+		_footprintMaterial.set_shader_parameter(
+			"rim_width",
+			_sampleSourceCurve(progress, SpellCastAuraProfile.APERTURE_RIM_WIDTH_CURVE)
+		)
+		_footprintMaterial.set_shader_parameter(
+			"striation_visibility",
+			_sampleSourceCurve(progress, SpellCastAuraProfile.APERTURE_STRIATION_CURVE)
+		)
+		_footprintMaterial.set_shader_parameter("effect_visibility", visibility)
+	var plumeEnergy := _sampleSourceCurve(
+		progress, SpellCastAuraProfile.PLUME_ENERGY_CURVE
+	)
+	for material: ShaderMaterial in [_innerPlumeMaterial, _outerPlumeMaterial]:
 		if material != null:
-			material.set_shader_parameter("burst_progress", progress)
+			material.set_shader_parameter("atlas_state_position", statePosition)
+			material.set_shader_parameter("plume_energy", plumeEnergy)
+			material.set_shader_parameter("effect_visibility", visibility)
 
 
 func _applySeed(seed: int) -> void:
@@ -298,30 +320,23 @@ static func _createFootprintAperture(
 	material.shader = _FOOTPRINT_SHADER
 	material.render_priority = SpellCastAuraProfile.FOOTPRINT_RENDER_PRIORITY
 	material.set_shader_parameter("aura_color", color)
-	material.set_shader_parameter("burst_progress", 0.0)
 	material.set_shader_parameter("seed_value", 0.0)
-	material.set_shader_parameter("outer_radius", SpellCastAuraProfile.FOOTPRINT_OUTER_RADIUS_U)
 	material.set_shader_parameter(
-		"aperture_radius_start", SpellCastAuraProfile.APERTURE_RADIUS_START
-	)
-	material.set_shader_parameter(
-		"aperture_radius_trough", SpellCastAuraProfile.APERTURE_RADIUS_TROUGH
-	)
-	material.set_shader_parameter("aperture_radius_end", SpellCastAuraProfile.APERTURE_RADIUS_END)
+		"outer_radius", SpellCastAuraProfile.FOOTPRINT_OUTER_RADIUS_U)
+	material.set_shader_parameter("aperture_radius", SpellCastAuraProfile.APERTURE_RADIUS_START)
 	material.set_shader_parameter("rim_width", SpellCastAuraProfile.APERTURE_RIM_WIDTH)
 	material.set_shader_parameter("rim_alpha", SpellCastAuraProfile.APERTURE_RIM_ALPHA)
 	material.set_shader_parameter(
-		"striation_alpha", SpellCastAuraProfile.APERTURE_STRIATION_ALPHA
-	)
+		"striation_alpha", SpellCastAuraProfile.APERTURE_STRIATION_ALPHA)
+	material.set_shader_parameter("striation_visibility", 1.0)
 	material.set_shader_parameter(
-		"rim_emission_energy", SpellCastAuraProfile.APERTURE_RIM_EMISSION_ENERGY
-	)
+		"rim_emission_energy", SpellCastAuraProfile.APERTURE_RIM_EMISSION_ENERGY)
 	material.set_shader_parameter(
 		"center_darkening",
 		SpellCastAuraProfile.CENTER_DARKENING_ALPHA if darkenCenter else 0.0
 	)
-	material.set_shader_parameter("charge_end", SpellCastAuraProfile.CHARGE_END)
-	material.set_shader_parameter("decay_end", SpellCastAuraProfile.DECAY_END)
+	material.set_shader_parameter("source_state_position", 0.0)
+	material.set_shader_parameter("effect_visibility", 0.0)
 
 	var instance := MeshInstance3D.new()
 	instance.name = "FootprintAperture"
@@ -351,14 +366,14 @@ static func _createPlumeShell(
 		"atlas_pixel_size", SpellCastAuraProfile.PLUME_ATLAS_PIXEL_SIZE
 	)
 	material.set_shader_parameter("aura_color", color)
-	material.set_shader_parameter("burst_progress", 0.0)
 	material.set_shader_parameter("seed_value", 0.0)
 	material.set_shader_parameter("uv_phase", uvPhase)
 	material.set_shader_parameter("shell_opacity", opacity)
 	material.set_shader_parameter("emission_energy", emissionEnergy)
 	material.set_shader_parameter("state_crossfade", stateCrossfade)
-	material.set_shader_parameter("charge_end", SpellCastAuraProfile.CHARGE_END)
-	material.set_shader_parameter("decay_end", SpellCastAuraProfile.DECAY_END)
+	material.set_shader_parameter("atlas_state_position", 0.0)
+	material.set_shader_parameter("plume_energy", SpellCastAuraProfile.PLUME_ENERGY_CURVE[0])
+	material.set_shader_parameter("effect_visibility", 0.0)
 
 	var instance := MeshInstance3D.new()
 	instance.name = instanceName
@@ -419,6 +434,40 @@ static func _createFlaredShellMesh(
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	return mesh
+
+
+static func _sourceStatePosition(progress: float) -> float:
+	var times: Array = SpellCastAuraProfile.SOURCE_STATE_PROGRESS
+	if progress <= float(times[0]):
+		return 0.0
+	for index: int in range(times.size() - 1):
+		var start := float(times[index])
+		var finish := float(times[index + 1])
+		if progress <= finish:
+			return float(index) + inverse_lerp(start, finish, progress)
+	return float(times.size() - 1)
+
+
+static func _sampleSourceCurve(progress: float, values: Array) -> float:
+	assert(
+		values.size() == SpellCastAuraProfile.SOURCE_STATE_PROGRESS.size(),
+		"Spell-cast aura source curve length does not match its state timeline."
+	)
+	var position := _sourceStatePosition(progress)
+	var current := mini(int(floor(position)), values.size() - 1)
+	var following := mini(current + 1, values.size() - 1)
+	return lerpf(
+		float(values[current]), float(values[following]), position - floor(position)
+	)
+
+
+static func _sourceVisibility(progress: float) -> float:
+	if progress <= SpellCastAuraProfile.CHARGE_END:
+		return smoothstep(0.0, SpellCastAuraProfile.CHARGE_END, progress)
+	var sourceEnd := float(SpellCastAuraProfile.SOURCE_STATE_PROGRESS[-1])
+	if progress <= sourceEnd:
+		return 1.0
+	return 1.0 - smoothstep(sourceEnd, SpellCastAuraProfile.DECAY_END, progress)
 
 
 static func _countNodes(node: Node) -> int:

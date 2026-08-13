@@ -9,19 +9,17 @@ shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled;
 
 uniform vec4 aura_color : source_color = vec4(0.05, 0.42, 0.75, 1.0);
-uniform float burst_progress : hint_range(0.0, 1.0) = 0.0;
 uniform float seed_value = 0.0;
 uniform float outer_radius = 1.16;
-uniform float aperture_radius_start = 0.43;
-uniform float aperture_radius_trough = 0.39;
-uniform float aperture_radius_end = 0.53;
+uniform float aperture_radius = 0.43;
 uniform float rim_width = 0.105;
 uniform float rim_alpha : hint_range(0.0, 1.0) = 0.34;
 uniform float striation_alpha : hint_range(0.0, 1.0) = 0.22;
+uniform float striation_visibility : hint_range(0.0, 1.0) = 1.0;
 uniform float rim_emission_energy : hint_range(0.0, 8.0) = 0.82;
 uniform float center_darkening : hint_range(0.0, 1.0) = 0.0;
-uniform float charge_end : hint_range(0.001, 1.0) = 0.08;
-uniform float decay_end : hint_range(0.001, 1.0) = 0.90;
+uniform float source_state_position : hint_range(0.0, 10.0) = 0.0;
+uniform float effect_visibility : hint_range(0.0, 1.0) = 0.0;
 
 varying vec2 v_local;
 
@@ -44,15 +42,7 @@ void fragment() {
 	vec2 p = v_local / max(outer_radius, 0.001);
 	float angle = atan(p.y, p.x);
 	float seed_phase = seed_value * 0.071;
-	float state = clamp(
-		(burst_progress - charge_end) / max(decay_end - charge_end, 0.001),
-		0.0,
-		1.0
-	);
-	float first_half = smoothstep(0.0, 0.56, state);
-	float second_half = smoothstep(0.56, 1.0, state);
-	float aperture_radius = mix(aperture_radius_start, aperture_radius_trough, first_half);
-	aperture_radius = mix(aperture_radius, aperture_radius_end, second_half);
+	float state = clamp(source_state_position / 10.0, 0.0, 1.0);
 
 	float wobble = (
 		sin(angle * 2.0 + seed_phase + state * 0.75) * 0.018
@@ -63,7 +53,6 @@ void fragment() {
 
 	// These strokes remain inside the main boundary's feathered width. They
 	// read as packed rim texture early and disappear as the opening simplifies.
-	float striation_life = 1.0 - smoothstep(0.36, 0.76, state);
 	float inner_striation = soft_ring(
 		radius,
 		aperture_radius - rim_width * 0.46,
@@ -78,11 +67,8 @@ void fragment() {
 		0.5 + 0.5 * sin(angle * 3.0 + seed_phase + state * 0.9)
 	);
 	float striations = max(inner_striation * 0.84, outer_striation * 0.62);
-	striations *= striation_life * angular_cloud;
+	striations *= striation_visibility * angular_cloud;
 
-	float appear = smoothstep(0.0, max(charge_end, 0.001), burst_progress);
-	float fade = 1.0 - smoothstep(0.72, decay_end, burst_progress);
-	float life = appear * fade;
 	float aperture_fill = 1.0 - smoothstep(
 		aperture_radius - rim_width * 0.65,
 		aperture_radius + rim_width * 0.28,
@@ -92,7 +78,7 @@ void fragment() {
 		rim * rim_alpha
 		+ striations * striation_alpha
 		+ aperture_fill * center_darkening
-	) * life;
+	) * effect_visibility;
 	if (mixed_alpha < 0.0025) {
 		discard;
 	}
@@ -102,6 +88,6 @@ void fragment() {
 	float light_mask = clamp(rim + striations * 0.72, 0.0, 1.0);
 	vec3 color = mix(ink, tint, light_mask * 0.82);
 	ALBEDO = color;
-	EMISSION = tint * light_mask * rim_emission_energy * life;
+	EMISSION = tint * light_mask * rim_emission_energy * effect_visibility;
 	ALPHA = clamp(mixed_alpha, 0.0, 0.78);
 }

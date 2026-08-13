@@ -202,8 +202,9 @@ The ground carrier remains world-horizontal so camera pitch supplies its
 ellipse. It draws one aperture boundary with tightly clustered internal
 striations early in the animation. Those strokes simplify as the aperture
 grows. Widely separated rings, pointed fragments, and repeated wavefronts are
-forbidden. Whether the centre darkens terrain is unresolved until the required
-transparent/darkened A/B is judged on both light and dark maps.
+forbidden. The required transparent/darkened terrain A/B was resolved in favor
+of the approved low-alpha navy centre, with transparent retained as a debug
+comparison mode.
 
 ### The crown is a continuous world-space plume curtain
 
@@ -226,9 +227,9 @@ gently perturb the plume phase, but may not replace the reference silhouette.
 
 The source uses deep blue-cyan with no persistent white core. Element hue still
 comes from the catalog, but saturation/brightness hierarchy follows the source.
-The plume is soft unshaded alpha/additive light; alpha mixing is used for centre
-darkening only if the terrain A/B proves it necessary. The character remains
-opaque and crisp above the far-side plume shell.
+The plume is soft unshaded alpha/additive light; alpha mixing supplies the
+approved low-alpha navy centre darkening. The character remains opaque and
+crisp above the far-side plume shell.
 
 ### Ownership and reuse
 
@@ -881,7 +882,7 @@ explicit centre-mode decision. `SpellCastAura` now owns one horizontal
 `FootprintAperture` plane and no cards, ribbon instances, particles, or shared
 procedural textures. Its shader renders one contracting-then-expanding boundary
 with two close early striations, and `set_center_darkening()` plus
-`--spell-aura-dark-center` switch only the optional navy centre fill. Playback,
+`--spell-aura-transparent-center` switches off only the approved navy centre fill. Playback,
 seek, settle, disposal, catalog construction, and layer isolation remain on the
 existing contract; the reported interim budget is one geometry instance, one
 draw call, zero particles, and exact seek.
@@ -955,8 +956,9 @@ contains no pixels from the supplied screenshots.
 
 Two phase-offset flared `ArrayMesh` shells sample current/next cells from
 normalized progress and expose either cross-faded playback or deterministic
-stepping through `set_plume_state_crossfade()` and
-`--spell-aura-stepped-plume`. Their corrected Godot winding plus shader
+stepping through `set_plume_state_crossfade()`; the later source-matching item
+selected stepping as the default and retained `--spell-aura-crossfade-plume`
+for comparison. Their corrected Godot winding plus shader
 `cull_front` renders only the far hemisphere. Standalone 0/90/180-degree plates
 on light and dark terrain confirm the plume remains planted behind the opaque
 character proxy with no body wash, billboard matrix, camera-relative origin,
@@ -1017,8 +1019,25 @@ central column, body wash, or monotonic-only fade fails the checkpoint.
 aperture growth/simplification, colour/scale envelope, seed invariance, layer
 hierarchy, retro readability, five element colours, and final resource budgets.
 
-**Resolution target:** implemented; pending end-of-plan validation. Debug
-captures and cheap integrity checks only; do not launch a battle.
+**Resolution:** implemented; pending end-of-plan validation. The playback now
+maps normalized seek onto eleven explicit source positions and independently
+samples the measured plume-energy, aperture-radius, rim-width, and striation
+curves. A separate visibility tail preserves the last matched state at `0.82`
+and clears all layers by `0.90`. Literal comparison selected stepped atlas
+playback as the default; the retained `--spell-aura-crossfade-plume` path shows
+that cross-fading softens away the frame-specific plume groups. Seed affects
+only a small angular phase offset. The user approved the low-alpha navy centre
+as the runtime default; `--spell-aura-transparent-center` retains the A/B path.
+
+Proof was captured in the VFX debug scene as an eleven-state ice composite,
+footprint-only and plume-only eleven-state rows, 0/90/180-degree yaw grids with
+retro both off and on, five element plates (ice, fire, thunder, darkness, and
+neutral), seeds 7 and 42, and a `0.82/0.86/0.90/1.00` terminal-fade row. The yaw
+grid confirms world-space occlusion without billboarding; the isolated rows
+confirm that the broad forms are continuous plume-shell emission rather than
+flat shards or separate ground rings. The effect still reports three
+instances/draw calls and zero particles. Godot import/parse and focused diff
+integrity checks complete this item; no battle was launched.
 
 ### AURA-4 — Consolidated final visual, lifecycle, and battle validation
 
