@@ -48,13 +48,9 @@ the rationale; this file is the concise operational contract.
 ## Progress updates
 
 - While work is ongoing, keep the user informed with a concise progress update
-  at least every 15 seconds.
-- Configure long-running commands to yield within 15 seconds whenever the tool
-  supports bounded output.
-- If a command cannot yield while running, send the update at the first
-  available tool boundary.
-- Do not send redundant progress messages when the requested work completes
-  within 15 seconds.
+  at least every 15 seconds. Configure long-running commands to yield within
+  that interval when possible; otherwise update at the first tool boundary.
+- Skip redundant updates when the work completes within 15 seconds.
 
 ## Implementation plans
 
@@ -64,14 +60,16 @@ the rationale; this file is the concise operational contract.
   architectural boundaries, extraction, and balance or design decisions.
   Assign per item, never per phase. Do not route work below the Sonnet 5 /
   GPT Terra tier — smaller models are not used on this project.
+- Claude-family models, including Sonnet and Opus, may not design, generate,
+  author, or materially edit visual effects unless the user explicitly approves
+  Claude for that specific work and the plan item records that approval. This
+  includes shaders, particles, effect scenes or scripts, and visual tuning.
+  Assign VFX creation to GPT by default; Claude may inspect, diagnose, review,
+  or validate it without changing it.
 - Every implementation item names its risk and the behavior its change adds to
-  the plan's final validation coverage. Consolidate and deduplicate the actual
-  validation commands in the final validation item instead of rerunning them
-  after every implementation item.
-- Every multi-item implementation plan ends with an explicit validation item
-  that depends on all implementation items. Assign that item its own model
-  according to scope. It is the only item that performs the plan's full manual
-  gameplay and integration validation.
+  final validation coverage. A multi-item plan ends with one validation item
+  that depends on every implementation item, has its own model assignment, and
+  consolidates the full manual gameplay and integration checks.
 - Mark items that require a user decision as blocking, and say so plainly rather
   than proceeding on an assumption.
 - Where a fix legitimately changes a passing check's reported numbers, say so in
@@ -84,59 +82,29 @@ the rationale; this file is the concise operational contract.
 `implementation_plan.md` holds **one plan at a time** — the cycle currently
 being executed, and nothing else.
 
-- When a plan's final validation item passes and the plan is complete, delete
-  the file's entire contents in the same session. Do not append the next plan
-  underneath the finished one, and do not keep resolution logs, decision
-  records, or completed items "for reference". `git log` and `git show` are the
-  history; the plan file is the working contract.
-- Before deleting, move any item that is still genuinely open — never started,
-  or started and abandoned — into `BACKLOG_CRITICAL.md` or
-  `BACKLOG_LONGTERM.md` per the backlog rules below. Name those items
-  explicitly to the user rather than relocating them silently, so a deliberate
-  drop is distinguishable from an oversight.
-- Deleting the file is safe precisely because it is committed: recover any
-  prior contents with `git show <ref>:implementation_plan.md`. Say so when
-  reporting the deletion.
+- After final validation passes, move genuinely open items to the appropriate
+  backlog and name them to the user, then clear the entire plan in the same
+  session. Do not retain completed items or append a new cycle; committed plans
+  remain recoverable with `git show <ref>:implementation_plan.md`.
 - A fresh plan opens with a dated one-paragraph preamble recording what the
   previous contents were and what happened to the still-open items, so the
   reset is auditable from the file alone.
-- Never let the file accumulate more than one cycle. A plan file carrying
-  finished work makes the next executing agent read hundreds of lines of
-  settled history to find its one item, which is exactly the cost this rule
-  exists to remove.
 
 ### Nothing persistent may cite a plan item
 
-`implementation_plan.md` is transitory. Its short-lived item labels live and
-die with a single cycle, so a
-reference to one from a file that outlives the cycle is a dangling pointer the
-moment the plan is reset.
-
-- **No file outside `implementation_plan.md` may name a plan item.** That
-  covers `docs/`, `BACKLOG_CRITICAL.md`, `BACKLOG_LONGTERM.md`, `README`s,
-  source comments, and commit messages. Nothing is exempt, including a plan
-  item that is currently open.
-- Describe the work instead of citing it. "Corrected once the body font size
-  was settled" is durable; "Tracked in the current plan" becomes a
-  statement of what is actually missing. The description survives the reset;
-  the identifier does not.
-- Do not link to `implementation_plan.md` as a destination for detail either.
-  A persistent doc may note that open build work is tracked there and that the
-  file is reset per cycle, but must not depend on its contents to be
-  understood.
-- Plan items may freely cite persistent files — `docs/UI_DESIGN.md` §8,
-  `BACKLOG_CRITICAL.md`, source paths. The dependency runs one way only, from
-  the transitory file to the durable ones.
-- When closing out a cycle, grep for the cycle's identifiers across the repo
-  before deleting the plan, and rewrite any hit as a description.
+Because `implementation_plan.md` is transitory, no persistent file — including
+documentation, backlogs, source comments, or commit messages — may name a plan
+item or link to the plan for required detail. Describe the work itself instead.
+Plan items may cite persistent files. Before clearing a cycle, grep for its item
+identifiers and rewrite any external reference as a durable description.
 
 ## Executing a plan item
 
 - **Note the model fit before starting.** Compare the item's **Model** field to
   the model actually running. If the running model is more capable than the
   item needs, say so in one line — this is a cost signal for the user to act on
-  if they choose, not a gate — and continue executing the item. Never route
-  work below the Sonnet 5 / GPT Terra tier regardless of fit.
+  if they choose, not a gate — and continue. A model-family restriction is a
+  gate: reassign the item or obtain the required approval before editing.
 - Commit at every item boundary. Item state belongs in the plan's Resolution
   notes and in `git log`, not in conversation history; a fresh session must be
   able to continue from those two sources alone.
@@ -155,12 +123,9 @@ moment the plan is reset.
 
 ## Running the checks
 
-There is no automated test suite, check runner, or git hooks in this
-repository right now; the previous suite and its runners were removed to be
-rebuilt fresh. Verify changes by launching the game manually and exercising
-the affected behavior — see the Windows safeguards in `docs/DEVELOPMENT.md`.
-Do not claim completion without having actually exercised the affected
-behavior.
+There is no automated test suite, check runner, or git hooks. Verify changes by
+launching the game manually and exercising the affected behavior; follow the
+Windows safeguards in `docs/DEVELOPMENT.md`.
 
 - For a multi-item plan, perform full validation once in the final validation
   item, after every implementation item is committed. Exercise the union of the
@@ -169,8 +134,6 @@ behavior.
 - If final validation finds a defect, fix it in that validation session, rerun
   the relevant consolidated checks, and record the fix and evidence in the
   plan. Do not reopen every prior item merely to repeat the same validation.
-- Do not claim the plan complete until the final validation item has actually
-  launched the game and exercised the affected behavior.
 - A single-item plan validates at the end of that item because there is no
   repeated per-item validation to avoid.
 - VFX work that changes a shared primitive or factory must render every effect
@@ -185,7 +148,7 @@ behavior.
 - Use `BACKLOG_LONGTERM.md` for deferred design, tooling, and maintenance work.
 - Add a backlog item only when it is actionable, durable, and out of current
   scope. Do not use the backlog as a stream of incidental ideas.
-- During every implementation task, update the relevant backlog files: add newly
-  discovered unresolved work, remove completed entries, and move entries between
-  the files when their urgency changes.
+- During implementation, reconcile relevant backlog entries: add newly
+  discovered unresolved work, remove completed entries, and move work whose
+  urgency changes.
 - Do not leave duplicated, stale, or already-completed backlog entries.

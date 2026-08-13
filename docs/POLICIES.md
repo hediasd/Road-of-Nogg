@@ -1,6 +1,6 @@
 # Road of Nogg Development Policies
 
-Status: current. Last reconciled: 2026-07-29.
+Status: current. Last reconciled: 2026-08-12.
 
 This document explains the project’s engineering guardrails. The concise rules
 for agents are in [`AGENTS.md`](../AGENTS.md); current commands
@@ -14,7 +14,12 @@ and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
   would make two plausible product directions meaningfully different.
 - Use repository evidence and reversible implementation judgment for ordinary
   technical details. Ambiguity alone is not a reason to stop.
-- **Lorekeeper Constraint**: When acting as the Lorekeeper persona (or utilizing the Lorekeeper subagent), you may **only** modify lore documents (e.g., `docs/LORE.md` and files within `docs/lore/`). You may never modify game code or non-lore documentation, even if requested.
+- VFX authorship defaults to GPT. Claude-family models require task-specific
+  user approval to create or materially change visual effects; read-only
+  analysis, review, and validation do not require approval.
+- The Lorekeeper persona or subagent may edit only lore documents such as
+  `docs/LORE.md` and files under `docs/lore/`, never code or non-lore
+  documentation, even if requested.
 
 ## Runtime boundaries
 
@@ -72,7 +77,10 @@ and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md): current runtime ownership, data flow,
   and the first-playable setup/player-control contract.
 - [`GAME_DESIGN.md`](./GAME_DESIGN.md): confirmed player-facing rules.
-- [`BACKLOG.md`](./BACKLOG.md): durable, actionable work outside current scope.
+- [`BACKLOG_CRITICAL.md`](../BACKLOG_CRITICAL.md): urgent gameplay, correctness,
+  and readiness work outside current scope.
+- [`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md): deferred design, tooling, and
+  maintenance work.
 - [`LEARNINGS.md`](./LEARNINGS.md): verified reusable discoveries, not session history.
 - [`DEVELOPMENT.md`](./DEVELOPMENT.md): executable commands and environment safeguards.
 
