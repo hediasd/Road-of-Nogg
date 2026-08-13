@@ -77,9 +77,9 @@ const CENTER_DARKENING_ALPHA := 0.60
 const FOOTPRINT_HEIGHT_U := 0.018
 const FOOTPRINT_RENDER_PRIORITY := 2
 
-## AUTHORED replica carrier split. Haze and rays sample the same deterministic
-## eleven-state atlas during the structural item, but own distinct shaders,
-## blend modes, mesh profiles, and explicit parameters.
+## AUTHORED replica carrier split. Haze retains subtle deterministic atlas
+## modulation while both material jobs own analytic fields, distinct blend
+## modes, mesh profiles, and explicit parameters.
 const PLUME_ATLAS_PIXEL_SIZE := Vector2(2816.0, 256.0)
 const PLUME_SHELL_SEGMENTS := 64
 const PLUME_SHELL_HEIGHT_BANDS := 96
@@ -90,18 +90,18 @@ const HAZE_TOP_RADIUS_U := 1.38
 const HAZE_MIDDLE_HEIGHT_FRACTION := 0.50
 const HAZE_HEIGHT_U := 1.09
 const HAZE_UV_PHASE := 0.06
-const HAZE_OPACITY := 0.82
-const HAZE_EMISSION_ENERGY := 2.80
+const HAZE_OPACITY := 0.85
+const HAZE_EMISSION_ENERGY := 2.00
 const RAY_BOTTOM_RADIUS_U := 0.78
 const RAY_MIDDLE_RADIUS_U := 1.14
 const RAY_TOP_RADIUS_U := 1.52
 const RAY_MIDDLE_HEIGHT_FRACTION := 0.50
 const RAY_HEIGHT_U := 1.36
 const RAY_UV_PHASE := 0.20
-const RAY_OPACITY := 0.92
-const RAY_EMISSION_ENERGY := 3.60
-## Channel-specific interpolation: haze can bridge states without erasing ray
-## groupings, while rays use only a short transition between authored masks.
+const RAY_OPACITY := 0.55
+const RAY_EMISSION_ENERGY := 4.20
+## Haze can bridge authored atlas states. The analytic ray field uses continuous
+## source-state position; its retained value keeps debug API parity only.
 const HAZE_STATE_CROSSFADE := 0.55
 const RAY_STATE_CROSSFADE := 0.18
 const HAZE_RENDER_PRIORITY := 3

@@ -434,6 +434,22 @@ outward. Four keyed XZ/Y scale curves translate measured state-to-state
 silhouette changes onto the two 3D carriers. They are driven only by normalized
 playback progress, never by camera yaw, pitch, or distance.
 
+The accepted base materials separate mass from highlights. Haze combines 24
+overlapping analytic columns, a low root fog, and a restrained sample of the
+measured atlas field. It uses alpha mixing at 0.85 authored opacity with a
+0.34 alpha ceiling, so it supplies a dark blue connective body on both black
+and light terrain. Ghost rays use 24 analytic angular seedsâ€”roughly twelve
+visible on the retained far hemisphereâ€”plus broad low-energy shoulders. Their
+additive alpha is capped at 0.26, keeping sharp cyan tips without rebuilding an
+opaque petal cage. Rays are not grazing-angle attenuated: the single retained
+hemisphere already controls overlap, and attenuation measurably narrowed the
+source-registered fan.
+
+Cool elements retain the source-locked blue/cyan grading. Red-dominant elements
+select a warm luminance-preserving bias so the generic tint contract does not
+multiply fire nearly to black; the cool branch remains byte-identical after
+this correction. No white core is injected into either branch.
+
 `assets/vfx/spell_cast_aura/plume_flow_atlas.png` is original project artwork
 generated deterministically by the retained adjacent Python/Pillow source and
 the normalized measurements in `source_measurements.json`; source screenshot
@@ -441,11 +457,12 @@ pixels are never read or copied. Its eleven 256x256 cells encode angular-U by
 height-V fields: red is low continuous haze, green is sparse ghost rays, blue
 is close root striation, and alpha is their inspection union. The 360-degree
 ray population documents the measured visible group density. Runtime haze and
-root detail still sample the atlas. The ghost-ray material reconstructs angular
-U from local 3D position and evaluates its sparse spike field analytically per
-fragment; magnifying the 256-pixel raster ray mask had exposed its rowwise lean
-as horizontal terraces. Every atlas cell repeats its first angular texel at the
-last column and the generator validates the RGB seam before saving.
+root detail still sample the atlas as secondary variation. Both plume materials
+reconstruct angular U from local 3D position and evaluate their principal
+fields analytically per fragment; magnifying the 256-pixel raster ray mask had
+exposed its rowwise lean as horizontal terraces. Every atlas cell repeats its
+first angular texel at the last column and the generator validates the RGB seam
+before saving.
 
 `compare_replica.py` is the convergence gate for this effect. It accepts eleven
 ordered source paths and eleven debug-render paths, registers the debug proxy

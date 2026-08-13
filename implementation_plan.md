@@ -339,8 +339,9 @@ softness, layer ordering, and energy distribution follow extracted metadata or
 the eleven-frame decomposition. Unjustified rings, cards, shards, columns, and
 detail layers are removed.
 
-**Implementation:** Re-author the plume-flow masks/atlas and the haze/ghost-ray
-shaders from the forensics contract. Match the source's broad low skirt, sharp
+**Implementation:** Re-author the haze/ghost-ray material fields from the
+forensics contract while retaining the selected outward carrier and analytic
+angular ray sampling. Match the source's broad low skirt, sharp
 upward spike taper, asymmetric gaps, and clean caster composite. Use additive
 only where overlap in the source actually accumulates light; use alpha or
 premultiplied alpha for smoke-like body where additive overlap would make a
@@ -354,6 +355,8 @@ columns, deepen the blue/cyan palette, and preserve contrast on light terrain.
 Treat palette MAE 26.55, the washed light-terrain capture, and the visibly empty
 space between petals as measured failures. Do not restore the low-resolution
 green-channel ray lookup merely because it remains available in the atlas.
+This item owns the stable base palette and blend response; later temporal work
+may key their intensity but may not replace them to hide a material defect.
 
 **Risk:** Tracing source pixels would create derivative copyrighted art;
 procedural noise without measured anchors would return to the same generic VFX
@@ -368,6 +371,46 @@ captures. Remove any layer that cannot be mapped to a visible source job. If
 the combined render is worse than its strongest isolated layer, replan the
 blend/order instead of compensating with brightness.
 
+**Resolution (2026-08-13):** Implemented; pending end-of-plan validation.
+
+- The three remaining items were re-audited against the selected outward
+  carrier and still form the correct dependency chain. This item was narrowed
+  to stable material fields and blend response; temporal curves and motion stay
+  in the next item, while carrier/path checks and gameplay lifecycle stay in
+  consolidated validation. The final path check now distinguishes an outward
+  carrier/centre path from legitimate pointed-alpha taper.
+- Footprint-only, haze-only, ray-only, and combined captures prove one source
+  job per retained draw: the existing footprint is the single dark aperture;
+  haze is the low connective body; rays are sparse high-energy tips. No ring,
+  card, particle, column, or white-core layer was added.
+- Candidate A replaced the petal cage with 24 overlapping haze columns and a
+  denser soft-ray field, but its under-energized thresholds worsened width,
+  angular distribution, and palette. Candidate B restored source-scale energy
+  and improved seven measures. Candidate C targeted the source palette's
+  bright tail. Candidate D removed only ray grazing attenuation and is retained:
+  Candidate E's further emission increase produced identical measured output.
+- Against the preceding carrier report, the retained material improves faint
+  width 0.4201 to 0.4091, faint height 0.1191 to 0.1113, dense height 0.2445 to
+  0.2234, centroid height 0.2951 to 0.2596, aperture 0.2257 to 0.2178, band
+  periodicity 0.1472 to 0.1217, horizontal-edge ratio 0.0366 to 0.0273,
+  plateau ratio 0.0740 to 0.0732, angular-profile L1 0.8462 to 0.8241, and
+  palette MAE 26.55 to 20.14. Dense-width error is the only regression, from
+  0.1395 to 0.1599; its state variation is explicitly passed to the keyed
+  scale/energy tuning item rather than distorting the accepted base material.
+- The final haze uses analytic low-contrast columns and root fog with only
+  subtle measured-atlas variation. The final ray field uses 24 deterministic
+  seeds, soft shoulders, low additive alpha, and no raster lookup or
+  grazing-angle fade. Both reconstruct angular position from local world-space
+  geometry and preserve the monotonic outward carrier.
+- Dark/light terrain plates keep the composite readable. Ice, fire, thunder,
+  and darkness plates preserve the generic tint contract. A hue-aware warm
+  branch fixes fire luminance while the ice capture remains byte-identical.
+  All authored masks remain procedural project code; no source pixels or
+  proprietary assets were copied or imported.
+- No full game or battle was launched. No backlog edit was needed: remaining
+  dense-width variation, spin, oscillation, and state timing are the next
+  in-scope item, while the known shutdown defect remains already tracked.
+
 ### AURA-R5 — Match the eleven-state motion, spin, oscillation, and final grading
 
 **Model:** Opus 5 / GPT Sol
@@ -379,8 +422,9 @@ shape: onset from zero, first rise, crest/trough/swell changes visible in the
 supplied sequence, and terminal recession. The plume rotates around the caster;
 outer ghost spikes oscillate vertically with restrained phase offsets while
 remaining rooted. Motion changes the distribution of energy, not the carrier's
-identity. Scale, blue/cyan balance, opacity, aperture, spike density, and
-duration converge to the registered source at comparable character scale.
+identity. Keyed scale, blue/cyan balance, opacity, aperture, spike density, and
+duration converge to the registered source at comparable character scale
+without redefining the stable materials accepted by the preceding item.
 
 **Implementation:** Retune the eleven-state curves in
 `SpellCastAuraProfile.gd` and state interpolation in `SpellCastAura.gd`. Drive
@@ -415,8 +459,9 @@ Validate the union of all prior evidence in one pass:
 
 1. Reproduce the zero-to-rise onset and all eleven registered states in the VFX
    debug scene; confirm the final tolerances recorded by AURA-R5. Inspect the
-   partial-onset envelope and verify outward radius monotonicity at every
-   sampled height and motion phase.
+   partial-onset envelope and verify outward carrier-radius monotonicity and
+   non-inward spike centre paths at every sampled motion phase. Pointed alpha
+   tips may taper locally as they do in the source.
 2. Exercise native and retro modes, light and dark terrain, battle-camera yaw
    and pitch movement, several deterministic seeds, and ice/fire/thunder/
    darkness/neutral tints. Confirm the caster stays inside but readable.

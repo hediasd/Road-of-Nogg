@@ -1,8 +1,8 @@
 // Sparse additive far-side rays for the reference aura.
 //
-// The alpha-mixed haze owns the continuous mass. This material keeps only
-// narrow high-confidence atlas features and discards the camera-side shell,
-// preventing a visible cup or shoulder wings at arbitrary camera yaw.
+// The alpha-mixed haze owns the continuous mass. This material adds only
+// narrow analytic high-energy streaks on the far-side shell, preventing a
+// visible cup or shoulder wings at arbitrary camera yaw.
 
 shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_front;
@@ -37,30 +37,35 @@ float wrapped_distance(float first, float second) {
 
 float analytic_ray_field(float angular_uv, float height, float motion, float seed_hash) {
 	float field = 0.0;
-	// Twenty deterministic angular seeds produce roughly ten visible far-side
-	// columns, matching the measured source fan without magnifying a raster mask.
+	// Twenty-four deterministic angular seeds produce roughly twelve visible
+	// far-side streaks, matching the measured source fan without magnifying a
+	// raster mask.
 	// All shaping is evaluated per fragment, so a leaning edge stays continuous
 	// across the profiled carrier's height bands.
-	for (int group = 0; group < 20; group++) {
+	float accumulation = 0.0;
+	for (int group = 0; group < 24; group++) {
 		float group_value = float(group);
 		float phase = group_value * 1.731 + motion * 6.17 + seed_hash * 0.42;
 		float direction = mod(group_value, 2.0) < 1.0 ? 1.0 : -1.0;
-		float center = group_value / 20.0 + motion * (0.018 + mod(group_value, 3.0) * 0.004);
-		float lean = direction * (0.018 + 0.010 * sin(phase));
+		float center = group_value / 24.0 + motion * (0.016 + mod(group_value, 3.0) * 0.003);
+		float lean = direction * (0.015 + 0.009 * sin(phase));
 		float bent_center = center + lean * pow(height, 1.35);
-		float base_width = 0.010 + mod(group_value, 4.0) * 0.0018;
-		float width = base_width * (1.30 - 0.62 * height);
+		float base_width = 0.0080 + mod(group_value, 4.0) * 0.0014;
+		float width = base_width * (1.32 - 0.52 * height);
 		float distance = wrapped_distance(angular_uv, bent_center);
 		float lateral = exp(-0.5 * pow(distance / max(width, 0.001), 2.0));
-		float spike_height = clamp(0.68 + 0.15 * sin(phase * 0.83), 0.54, 0.86);
+		float spike_height = clamp(0.65 + 0.18 * sin(phase * 0.83), 0.47, 0.87);
 		float local_distance = distance / max(width, 0.001);
 		float local_height = spike_height - pow(clamp(local_distance, 0.0, 2.0), 1.25) * 0.14;
-		float tip = 1.0 - smoothstep(local_height - 0.19, local_height, height);
+		float tip = 1.0 - smoothstep(local_height - 0.22, local_height, height);
 		float root = smoothstep(0.045 + mod(group_value, 2.0) * 0.018, 0.17, height);
-		float amplitude = 0.74 + 0.18 * sin(phase + 0.4);
-		field = max(field, lateral * tip * root * amplitude);
+		float amplitude = 0.62 + 0.20 * sin(phase + 0.4);
+		float ray = lateral * tip * root * amplitude;
+		float soft_lateral = exp(-0.5 * pow(distance / max(width * 2.7, 0.001), 2.0));
+		field = max(field, ray);
+		accumulation += soft_lateral * tip * root * amplitude;
 	}
-	return clamp(field, 0.0, 1.0);
+	return clamp(field * 0.72 + accumulation * 0.040, 0.0, 1.0);
 }
 
 float vertical_reveal(float height) {
@@ -90,16 +95,19 @@ void fragment() {
 	// silhouette and oscillation, but lose most of their opacity near head
 	// height instead of becoming equally bright flame petals.
 	flow *= 1.0 - smoothstep(0.42, 0.92, UV.y) * 0.78;
-	float facing = dot(normalize(NORMAL), normalize(VIEW));
-	float view_feather = 0.42 + 0.58 * smoothstep(0.04, 0.34, abs(facing));
-	flow *= view_feather;
 	float onset_visibility = root_ignition * lifecycle_visibility;
 	float alpha = flow * shell_opacity * plume_energy * onset_visibility;
 	if (alpha < 0.0025) {
 		discard;
 	}
-	vec3 tint = aura_color.rgb * vec3(0.32, 0.70, 1.10);
-	ALBEDO = tint * 0.65;
+	float warm_weight = smoothstep(
+		0.05, 0.40, aura_color.r - max(aura_color.g, aura_color.b)
+	);
+	vec3 element_bias = mix(
+		vec3(0.14, 0.48, 0.98), vec3(0.70, 0.55, 0.50), warm_weight
+	);
+	vec3 tint = aura_color.rgb * element_bias;
+	ALBEDO = tint * 0.42;
 	EMISSION = tint * flow * emission_energy * plume_energy * onset_visibility;
-	ALPHA = clamp(alpha, 0.0, 0.45);
+	ALPHA = clamp(alpha, 0.0, 0.26);
 }
