@@ -1103,12 +1103,180 @@ and fall, and the yaw plates show a planted world-space crown. Isolated
 footprint capture contains no broad travelling rings. Godot 4.4 imported and
 parsed the modified shader and deterministic atlas; no battle was launched.
 
+### Replica gap assessment after AURA-2L
+
+The user's latest comparison accepts the direction but restores the eleven
+source frames as the final authority. AURA-2L solved timidity and world-space
+enclosure, but its result is still a bright flame crown rather than a replica:
+
+- the source's energy-dense mass is low and wide, from the aperture through the
+  waist, while the current result concentrates a few opaque tongues above the
+  head;
+- the source has a continuous smoky blue fan between its rays; the current
+  atlas exposes isolated lobes and the flared shell's side edges as cyan wings;
+- the source stays deep blue-cyan with no large white areas; the current single
+  additive material clips toward pale cyan/white on overlap and bright terrain;
+- the source aperture is a readable dark oval with close irregular hairlines;
+  the current reduced footprint is nearly absent behind the debug pedestal;
+- the source reorganizes and pulses with modest directional drift; the current
+  `0.72`-turn angular offset reads as a carousel and its large vertex lift reads
+  as tall flame animation;
+- the source's longest spikes are faint ghost rays, whereas the current longest
+  shapes are also its most opaque shapes.
+
+The next work therefore changes the decomposition and authored source masks;
+it is not another scalar-tuning pass on the shared additive curtain.
+
+**Blocking execution prerequisite:** the worktree currently contains concurrent
+unstaged debug-scene, live-tuning, profile, and policy edits. Each item below
+starts only after those edits have been committed or otherwise resolved by
+their owner. Do not stash, stage, overwrite, or absorb them into an aura commit.
+
+### AURA-2M — Measure the source and make comparison reproducible
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-2L and a clean worktree after the blocking prerequisite.
+
+**Files:** a retained source-measurement table beside
+`assets/vfx/spell_cast_aura/generate_plume_atlas.py`, narrowly scoped additions
+to the VFX debug world/controller and capture documentation if the current
+authoring work has released those surfaces, this plan, and relevant backlog
+reconciliation.
+
+**End state:**
+
+- Record all eleven frames as normalized measurements relative to the visible
+  character bounds, not absolute screenshot pixels: aperture width/height,
+  occupied aura width, dense-field height, faint-tip height, vertical energy
+  centroid, outer-ray count, and per-ray angle/width/height/strength.
+- Record palette stops and relative luminance for the dark outer haze, blue
+  body field, cyan ray crests, and black/navy aperture. Keep the screenshots as
+  non-shipping reference inputs; do not copy third-party pixels into runtime
+  assets or derive a texture by extracting them.
+- Add a reproducible comparison view with a black isolation backdrop, neutral
+  proxy/pedestal-off presentation, fixed reference yaw/pitch, and matching
+  character scale. Retain normal terrain capture as a separate truth surface.
+- Produce paired eleven-state sheets plus vertical-band occupancy and luminance
+  summaries so a visually larger flame cannot pass merely because total energy
+  is similar.
+
+**Risk:** measuring against the screenshot's black background can overfit alpha
+and make the result disappear on real terrain; character/UI pixels can also
+pollute masks. Measure the aura outside an explicit character exclusion region
+and require both isolation and terrain plates.
+
+**Proof checkpoint:** one source-measurement report, one source/current paired
+sheet at matched character scale, one black-backdrop capture, and one normal
+terrain capture. The report must make the six replica gaps above numerically or
+visually testable before any carrier is rebuilt.
+
+**Adds to final validation coverage:** reference framing, normalized silhouette
+width/height, vertical energy distribution, palette/luminance bands, aperture
+visibility, and black-versus-terrain transfer.
+
+### AURA-2N — Split the low haze from the additive ghost rays
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-2M.
+
+**Files:** `src/presentation/effects/SpellCastAura.gd`,
+`src/presentation/effects/SpellCastAuraProfile.gd`, replacement owned plume
+shaders, the owned shell mesh builder, atlas generator/output only as required
+for channel routing, `docs/VFX_DESIGN.md`, `docs/MODULE_MAP.md` only if the
+resource inventory changes, this plan, and relevant backlog reconciliation.
+
+**End state:**
+
+- Retire the one-shader/two-role coupling that infers inner versus outer
+  behavior from `uv_phase`. Give the compact inner haze and outer ghost rays
+  explicit owned materials/shaders and explicit parameters.
+- Render the inner body field with alpha-mixed deep blue translucency, peaking
+  around the feet/legs and fading by the shoulders. Its controlled camera-side
+  contribution encloses the model without additive whitening.
+- Render only the sparse outer rays additively. Use a far-side world-space
+  carrier and a softer grazing fade so no camera yaw reveals a continuous cup,
+  skirt, shoulder wing, flat card, or hard cone boundary.
+- Replace the linear flare with separate measured radial profiles for the haze
+  and ray shells. Preserve world-up geometry, deterministic seek, and zero
+  billboard/camera-relative transforms.
+- Keep exactly three carriers/draw calls — aperture, haze, rays — and zero
+  particles. Do not import an external effect pack; the source can be recreated
+  with project-owned masks and materials.
+
+**Risk:** alpha-mixed haze can sort incorrectly against the caster or terrain,
+while separating materials can introduce a visible seam or double-energy band.
+The shell profiles can also remain geometrically legible if their alpha roots
+are not independently controlled.
+
+**Proof checkpoint:** isolated aperture/haze/ray plates plus their composite on
+black and bright terrain at 0/90/180-degree yaws. Fail visible cup edges,
+front-side wings, body bleaching, white clipping, or any budget above three
+draw calls. Record only a narrow Godot load/parse probe; no battle launch.
+
+**Adds to final validation coverage:** blend-mode separation, body enclosure,
+terrain transfer, transparent sorting, world-space camera orbit, carrier seams,
+and unchanged budgets.
+
+### AURA-2O — Author the eleven-state replica masks and restrained motion
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** AURA-2N.
+
+**Files:** the retained source-measurement table, deterministic atlas generator
+and generated project-owned multi-channel atlas/masks,
+`SpellCastAuraProfile.gd`, the owned haze/ray/footprint shaders,
+`SpellCastAura.gd` only where explicit normalized motion parameters are needed,
+`docs/VFX_DESIGN.md`, this plan, and relevant backlog reconciliation.
+
+**End state:**
+
+- Generate separate haze, ray, and root-detail fields from the eleven measured
+  states. Haze must be continuous and low/wide; ray tips must be narrow and
+  ghostly; the most elevated pixels must never also form the most opaque mass.
+- Raise atlas resolution or use an equivalent analytic feather so native-retro
+  tips stay smooth instead of becoming jagged flame caps. Preserve periodic U
+  seams and deterministic regeneration.
+- Replace the current `0.72`-turn carousel with source-consistent directional
+  drift while retaining the user's requested sense of spin. Cap provisional
+  continuous rotation near a quarter turn unless the measurements support
+  more; encode larger reorganization in the eleven authored masks rather than
+  rotating the whole crown.
+- Restrict outer tip oscillation to a ghost-ray amplitude measured in a small
+  fraction of character height. Keep independent phases, but remove the large
+  vertex lift that changes the carrier into licking flames.
+- Restore the readable dark aperture and two or three close irregular
+  hairlines without travelling or expanding puddle rings. Keep the lower-body
+  field dominant, faint tips near head height, and deep blue-cyan colour without
+  a white core.
+- Preserve the source's two-swell energy curve, exact seek, pause/scrub,
+  terminal fade, seed stability, element tint hierarchy, and three-call budget.
+
+**Risk:** literal per-state masks can pop when stepped, while cross-fading can
+blur the source's distinct groupings. Excessive fidelity at the reference yaw
+can also fail when the camera orbits. Select stepping, short keyed transitions,
+or channel-specific interpolation from paired evidence rather than applying one
+transition policy to every field.
+
+**Proof checkpoint:** all eleven source frames paired with the result at matched
+character scale, plus difference/occupancy summaries, isolated channel rows,
+and a real-time capture demonstrating subtle spin and independent ghost-tip
+motion between checkpoints. Repeat the composite at 0/90/180-degree yaws,
+retro on/off, black/bright terrain, and seeds 7/42. No battle launch.
+
+**Adds to final validation coverage:** eleven-state silhouette replica,
+low-versus-high energy hierarchy, smooth feathering, source-consistent spin,
+ghost-tip oscillation, aperture hairlines, palette match, transition policy,
+determinism, and orbit stability.
+
 ### AURA-4 — Consolidated final visual, lifecycle, and battle validation
 
 **Model:** Opus 5 / GPT Sol
 
 **Depends on:** AURA-1, AURA-2, AURA-2B, AURA-2C, AURA-2H, AURA-2I, AURA-2J,
-AURA-2K, and AURA-2L. AURA-2D and AURA-3 were superseded before execution; AURA-2E,
+AURA-2K, AURA-2L, AURA-2M, AURA-2N, and AURA-2O. AURA-2D and AURA-3 were superseded before execution; AURA-2E,
 AURA-2F, and AURA-2G were implemented but their visual results were superseded
 by the eleven-frame authority pivot.
 
@@ -1127,7 +1295,12 @@ item:
 2. At one fixed seed, capture the empty/charge lead-in, all eleven matched
    aperture/plume states, and clear. Judge them at native retro resolution, not
    only enlarged, and place every matched state beside its supplied source
-   frame at comparable character scale.
+   frame at comparable character scale. Re-run the normalized silhouette,
+   vertical-energy, aperture, and palette measurements established by
+   AURA-2M; every state must meet its recorded tolerance rather than passing on
+   a subjective average. Include one real-time duration capture proving that
+   the between-state drift reads as casting flow rather than a carousel or
+   licking fire.
 3. Layer-isolated and composite sheets at front-quarter, side, and rear-quarter
    yaws, retro on and off, for at least five element colours including the
    neutral fallback.
