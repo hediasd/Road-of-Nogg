@@ -34,21 +34,31 @@ const SOURCE_STATE_PROGRESS := [
 const PLUME_ENERGY_CURVE := [
 	1.00, 1.13, 1.11, 0.96, 0.79, 0.64, 0.61, 0.76, 0.82, 0.85, 0.70,
 ]
+## TRANSLATED final grading. The registered Road of Nogg proxy carries roughly
+## half the source sequence's aura energy at the stable-material defaults. The
+## low haze receives the larger multiplier so added energy encloses the body
+## instead of lifting the tip centroid; the ray curve preserves sharp accents.
+const HAZE_VISIBILITY_SCALE_CURVE := [
+	1.35, 1.40, 1.38, 1.35, 1.30, 1.20, 1.22, 1.28, 1.30, 1.28, 1.20,
+]
+const RAY_VISIBILITY_SCALE_CURVE := [
+	1.05, 1.08, 1.06, 1.03, 1.00, 0.95, 0.97, 1.00, 1.02, 1.00, 0.95,
+]
 ## TRANSLATED capture calibration. A 360-degree carrier does not project the
 ## measured 2D widths and heights uniformly, so the two material roles retain
 ## small keyed corrections instead of pretending one static shell fits all
 ## eleven silhouettes. Values interpolate under exact normalized seek.
 const HAZE_WIDTH_SCALE_CURVE := [
-	1.01, 0.96, 0.96, 0.80, 0.89, 1.08, 1.04, 1.05, 1.01, 0.89, 0.88,
+	1.05, 1.00, 1.00, 0.84, 0.93, 1.12, 1.08, 1.09, 1.05, 0.93, 0.92,
 ]
 const HAZE_HEIGHT_SCALE_CURVE := [
-	1.09, 0.95, 0.89, 0.85, 0.86, 1.15, 1.06, 1.12, 1.04, 1.01, 0.85,
+	0.94, 0.81, 0.77, 0.73, 0.74, 0.98, 0.91, 0.95, 0.89, 0.86, 0.73,
 ]
 const RAY_WIDTH_SCALE_CURVE := [
-	1.04, 1.07, 1.05, 1.02, 0.92, 1.00, 1.03, 1.00, 1.05, 1.04, 0.98,
+	1.21, 1.24, 1.22, 1.18, 1.07, 1.16, 1.19, 1.16, 1.22, 1.21, 1.14,
 ]
 const RAY_HEIGHT_SCALE_CURVE := [
-	0.92, 0.87, 0.84, 0.91, 0.91, 1.04, 1.05, 0.98, 1.06, 1.01, 0.91,
+	0.75, 0.70, 0.68, 0.74, 0.74, 0.85, 0.86, 0.79, 0.86, 0.82, 0.74,
 ]
 const APERTURE_RADIUS_CURVE := [
 	0.560, 0.555, 0.548, 0.538, 0.528, 0.518, 0.505, 0.548, 0.610, 0.675, 0.720,
@@ -90,16 +100,24 @@ const HAZE_TOP_RADIUS_U := 1.38
 const HAZE_MIDDLE_HEIGHT_FRACTION := 0.50
 const HAZE_HEIGHT_U := 1.09
 const HAZE_UV_PHASE := 0.06
-const HAZE_OPACITY := 0.85
-const HAZE_EMISSION_ENERGY := 2.00
+const HAZE_OPACITY := 0.82
+const HAZE_EMISSION_ENERGY := 2.80
 const RAY_BOTTOM_RADIUS_U := 0.78
 const RAY_MIDDLE_RADIUS_U := 1.14
 const RAY_TOP_RADIUS_U := 1.52
 const RAY_MIDDLE_HEIGHT_FRACTION := 0.50
 const RAY_HEIGHT_U := 1.36
 const RAY_UV_PHASE := 0.20
-const RAY_OPACITY := 0.55
-const RAY_EMISSION_ENERGY := 4.20
+const RAY_OPACITY := 0.78
+const RAY_EMISSION_ENERGY := 3.60
+## AUTHORED deterministic motion. Both layers rotate below one quarter turn;
+## only the ray tips receive the larger independently phased vertical motion.
+const HAZE_SPIN_TURNS := 0.10
+const RAY_SPIN_TURNS := 0.18
+const FOOTPRINT_SPIN_TURNS := 0.10
+const RAY_TIP_OSCILLATION_CYCLES := 1.15
+const RAY_TIP_OSCILLATION_AMPLITUDE := 0.105
+const RAY_TIP_PHASE_STEP := 1.731
 ## Haze can bridge authored atlas states. The analytic ray field uses continuous
 ## source-state position; its retained value keeps debug API parity only.
 const HAZE_STATE_CROSSFADE := 0.55

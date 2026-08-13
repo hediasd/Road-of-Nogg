@@ -448,6 +448,46 @@ iteration inside the item. No hero-frame improvement may advance if the mean
 sequence distance or any primary state materially worsens. Update the final
 validation tolerances to the best achieved evidence before committing.
 
+**Resolution (2026-08-13):** Implemented; pending end-of-plan validation.
+
+- Re-capturing the merged branch established the true pre-motion baseline. It
+  also exposed that the previous material screenshots predated the final
+  luminance reduction in `a47ccbf`; the committed effect no longer reproduced
+  its accepted evidence and was substantially too dark and narrow. The tuning
+  loop therefore used the current render rather than a stale screenshot.
+- Motion is normalized-seek only: footprint and haze rotate 0.10 turn, rays
+  rotate 0.18 turn, and 24 ray tips oscillate through 1.15 cycles at 0.105
+  normalized-height amplitude with a 1.731-radian per-tip phase step. Seed
+  changes retain only the existing small deterministic offset. No shader reads
+  `TIME`, and no transform depends on the camera.
+- Six all-eleven iterations were compared. The retained fifth candidate keeps
+  the outward carrier, broadens keyed ray width, lowers keyed haze/ray height,
+  restores the registered blue/cyan luminance range, separates low-haze grading
+  from ray-tip grading, and keeps the original single aperture curve. A sixth
+  upper-fade experiment was rejected because its tiny threshold-height gain
+  worsened both width measures and centroid without a visible source gain.
+- Against the actual merged baseline, the retained pass improves faint-width
+  error `0.9405 -> 0.2382`, dense-width `1.1348 -> 0.2304`, aperture
+  `0.3542 -> 0.2037`, horizontal-band periodicity `0.2191 -> 0.1627`,
+  horizontal-edge ratio `0.0487 -> 0.0321`, angular-profile L1
+  `1.2755 -> 1.1797`, and palette MAE `41.91 -> 28.71`. Mean body overdraw
+  rises `0.1054 -> 0.1412`, faint energy `48,314 -> 102,363`, and temporal
+  delta error improves `0.3738 -> 0.2149`.
+- Faint-height error is `0.1082`, dense-height `0.0925`, centroid `0.2932`, and
+  plateau ratio `0.1145`; these are the explicit remaining gaps. The old timid
+  render reported superficially better height/centroid values because most aura
+  pixels failed the faint threshold. Preserving those numbers would preserve
+  the commissioned defect. The retained candidate is the best sequence-wide
+  compromise after two bounded vertical reductions, not a hero-frame choice.
+- Seed-7 black-isolation acceptance ceilings for final validation are: faint
+  width `0.245`, dense width `0.238`, faint height `0.112`, dense height `0.096`,
+  centroid `0.300`, aperture `0.210`, band periodicity `0.168`, edge ratio
+  `0.034`, plateau ratio `0.118`, angular L1 `1.190`, palette MAE `29.0`, and
+  temporal delta error `0.220`. Mean body overdraw must remain at least `0.138`
+  and faint energy at least `100,000` under that exact contract.
+  `replica_convergence.json` stores the per-frame report without source pixels.
+  The final gameplay/lifecycle item remains the only open plan item.
+
 ### AURA-R6 — Consolidated gameplay, lifecycle, and regression validation
 
 **Model:** Opus 5 / GPT Sol

@@ -22,6 +22,7 @@ uniform float root_ignition = 0.0;
 uniform float reveal_front = 0.0;
 uniform float reveal_softness = 0.08;
 uniform float lifecycle_visibility = 1.0;
+uniform float spin_turns = 0.10;
 
 const float FRAME_COUNT = 11.0;
 const float TAU_VALUE = 6.28318530718;
@@ -86,14 +87,14 @@ float analytic_haze_field(float angular_uv, float height, float motion, float se
 		strongest = max(strongest, column);
 		accumulation += column;
 	}
-	float root_fog = (1.0 - smoothstep(0.10, 0.34, height)) * 0.30;
+	float root_fog = (1.0 - smoothstep(0.10, 0.34, height)) * 0.42;
 	return clamp(strongest * 0.58 + accumulation * 0.052 + root_fog, 0.0, 1.0);
 }
 
 void fragment() {
 	float seed_hash = fract(sin(seed_value * 12.9898) * 43758.5453);
 	float motion = clamp(atlas_state_position / (FRAME_COUNT - 1.0), 0.0, 1.0);
-	float phase = uv_phase + motion * 0.10 + (seed_hash - 0.5) * 0.025;
+	float phase = uv_phase + motion * spin_turns + (seed_hash - 0.5) * 0.025;
 	float angular_uv = atan(local_position.z, local_position.x) / TAU_VALUE;
 	angular_uv = angular_uv < 0.0 ? angular_uv + 1.0 : angular_uv;
 	vec2 uv = vec2(angular_uv + phase, UV.y);
@@ -120,15 +121,15 @@ void fragment() {
 	vec3 tint = aura_color.rgb;
 	float warm_weight = smoothstep(0.05, 0.40, tint.r - max(tint.g, tint.b));
 	vec3 deep_bias = mix(
-		vec3(0.06, 0.22, 0.55), vec3(0.55, 0.20, 0.12), warm_weight
+		vec3(0.10, 0.34, 0.60), vec3(0.55, 0.20, 0.12), warm_weight
 	);
 	vec3 body_bias = mix(
-		vec3(0.16, 0.55, 0.95), vec3(0.80, 0.28, 0.14), warm_weight
+		vec3(0.34, 0.72, 1.00), vec3(0.80, 0.28, 0.14), warm_weight
 	);
 	vec3 deep_blue = tint * deep_bias;
 	vec3 body_blue = tint * body_bias;
 	vec3 color = mix(deep_blue, body_blue, clamp(haze * 0.72, 0.0, 1.0));
 	ALBEDO = color;
 	EMISSION = body_blue * haze * emission_energy * plume_energy * onset_visibility;
-	ALPHA = clamp(alpha, 0.0, 0.34);
+	ALPHA = clamp(alpha, 0.0, 0.42);
 }

@@ -274,6 +274,11 @@ static func tunables() -> Array[Dictionary]:
 			"default": SpellCastAuraProfile.HAZE_STATE_CROSSFADE, "rebuild": true,
 		},
 		{
+			"id": "HAZE_SPIN_TURNS", "label": "Sequence spin",
+			"group": "Body haze", "min": 0.0, "max": 0.24, "step": 0.01,
+			"default": SpellCastAuraProfile.HAZE_SPIN_TURNS, "rebuild": true,
+		},
+		{
 			"id": "RAY_BOTTOM_RADIUS_U", "label": "Bottom radius",
 			"group": "Ghost rays", "min": 0.05, "max": 3.0, "step": 0.01,
 			"default": SpellCastAuraProfile.RAY_BOTTOM_RADIUS_U, "rebuild": true,
@@ -312,6 +317,22 @@ static func tunables() -> Array[Dictionary]:
 			"id": "RAY_STATE_CROSSFADE", "label": "State crossfade",
 			"group": "Ghost rays", "min": 0.0, "max": 1.0, "step": 0.05,
 			"default": SpellCastAuraProfile.RAY_STATE_CROSSFADE, "rebuild": true,
+		},
+		{
+			"id": "RAY_SPIN_TURNS", "label": "Sequence spin",
+			"group": "Ghost rays", "min": 0.0, "max": 0.24, "step": 0.01,
+			"default": SpellCastAuraProfile.RAY_SPIN_TURNS, "rebuild": true,
+		},
+		{
+			"id": "RAY_TIP_OSCILLATION_CYCLES", "label": "Tip cycles",
+			"group": "Ghost rays", "min": 0.0, "max": 3.0, "step": 0.05,
+			"default": SpellCastAuraProfile.RAY_TIP_OSCILLATION_CYCLES, "rebuild": true,
+		},
+		{
+			"id": "RAY_TIP_OSCILLATION_AMPLITUDE", "label": "Tip amplitude",
+			"group": "Ghost rays", "min": 0.0, "max": 0.25, "step": 0.005,
+			"default": SpellCastAuraProfile.RAY_TIP_OSCILLATION_AMPLITUDE,
+			"rebuild": true,
 		},
 		{
 			"id": "APERTURE_RIM_WIDTH", "label": "Rim width",
@@ -372,6 +393,7 @@ func _buildLayers() -> void:
 		),
 		tunable("HAZE_HEIGHT_U", SpellCastAuraProfile.HAZE_HEIGHT_U),
 		SpellCastAuraProfile.HAZE_UV_PHASE,
+		tunable("HAZE_SPIN_TURNS", SpellCastAuraProfile.HAZE_SPIN_TURNS),
 		tunable("HAZE_OPACITY", SpellCastAuraProfile.HAZE_OPACITY),
 		tunable("HAZE_EMISSION_ENERGY", SpellCastAuraProfile.HAZE_EMISSION_ENERGY),
 		SpellCastAuraProfile.HAZE_RENDER_PRIORITY,
@@ -392,6 +414,7 @@ func _buildLayers() -> void:
 		),
 		tunable("RAY_HEIGHT_U", SpellCastAuraProfile.RAY_HEIGHT_U),
 		SpellCastAuraProfile.RAY_UV_PHASE,
+		tunable("RAY_SPIN_TURNS", SpellCastAuraProfile.RAY_SPIN_TURNS),
 		tunable("RAY_OPACITY", SpellCastAuraProfile.RAY_OPACITY),
 		tunable("RAY_EMISSION_ENERGY", SpellCastAuraProfile.RAY_EMISSION_ENERGY),
 		SpellCastAuraProfile.RAY_RENDER_PRIORITY,
@@ -399,6 +422,23 @@ func _buildLayers() -> void:
 	)
 	add_child(_rayInstance)
 	_rayMaterial = _rayInstance.material_override as ShaderMaterial
+	_rayMaterial.set_shader_parameter(
+		"tip_oscillation_cycles",
+		tunable(
+			"RAY_TIP_OSCILLATION_CYCLES",
+			SpellCastAuraProfile.RAY_TIP_OSCILLATION_CYCLES
+		)
+	)
+	_rayMaterial.set_shader_parameter(
+		"tip_oscillation_amplitude",
+		tunable(
+			"RAY_TIP_OSCILLATION_AMPLITUDE",
+			SpellCastAuraProfile.RAY_TIP_OSCILLATION_AMPLITUDE
+		)
+	)
+	_rayMaterial.set_shader_parameter(
+		"tip_phase_step", SpellCastAuraProfile.RAY_TIP_PHASE_STEP
+	)
 	_applySeed(0)
 	assert(
 		_countNodes(self) <= SpellCastAuraProfile.MAX_EFFECT_NODES,
@@ -444,7 +484,7 @@ func _applyProgress(progress: float) -> void:
 		_footprintMaterial.set_shader_parameter(
 			"lifecycle_visibility", lifecycleVisibility
 		)
-	var plumeEnergy := _sampleSourceCurve(
+	var sourceEnergy := _sampleSourceCurve(
 		progress, SpellCastAuraProfile.PLUME_ENERGY_CURVE
 	)
 	if _hazeInstance != null:
@@ -463,10 +503,24 @@ func _applyProgress(progress: float) -> void:
 			progress, SpellCastAuraProfile.RAY_HEIGHT_SCALE_CURVE
 		)
 		_rayInstance.scale = Vector3(rayWidth, rayHeight, rayWidth)
+	if _hazeMaterial != null:
+		_hazeMaterial.set_shader_parameter("atlas_state_position", statePosition)
+		_hazeMaterial.set_shader_parameter(
+			"plume_energy",
+			sourceEnergy * _sampleSourceCurve(
+				progress, SpellCastAuraProfile.HAZE_VISIBILITY_SCALE_CURVE
+			)
+		)
+	if _rayMaterial != null:
+		_rayMaterial.set_shader_parameter("atlas_state_position", statePosition)
+		_rayMaterial.set_shader_parameter(
+			"plume_energy",
+			sourceEnergy * _sampleSourceCurve(
+				progress, SpellCastAuraProfile.RAY_VISIBILITY_SCALE_CURVE
+			)
+		)
 	for material: ShaderMaterial in [_hazeMaterial, _rayMaterial]:
 		if material != null:
-			material.set_shader_parameter("atlas_state_position", statePosition)
-			material.set_shader_parameter("plume_energy", plumeEnergy)
 			material.set_shader_parameter("root_ignition", plumeRootIgnition)
 			material.set_shader_parameter("reveal_front", plumeRevealFront)
 			material.set_shader_parameter(
@@ -524,6 +578,9 @@ func _createFootprintAperture(
 		SpellCastAuraProfile.CENTER_DARKENING_ALPHA if darkenCenter else 0.0
 	)
 	material.set_shader_parameter("source_state_position", 0.0)
+	material.set_shader_parameter(
+		"spin_turns", SpellCastAuraProfile.FOOTPRINT_SPIN_TURNS
+	)
 	material.set_shader_parameter("root_ignition", 0.0)
 	material.set_shader_parameter("lifecycle_visibility", 1.0)
 
@@ -546,6 +603,7 @@ static func _createFlowShell(
 		middleHeightFraction: float,
 		height: float,
 		uvPhase: float,
+		spinTurns: float,
 		opacity: float,
 		emissionEnergy: float,
 		renderPriority: int,
@@ -560,6 +618,7 @@ static func _createFlowShell(
 	material.set_shader_parameter("aura_color", color)
 	material.set_shader_parameter("seed_value", 0.0)
 	material.set_shader_parameter("uv_phase", uvPhase)
+	material.set_shader_parameter("spin_turns", spinTurns)
 	material.set_shader_parameter("shell_opacity", opacity)
 	material.set_shader_parameter("emission_energy", emissionEnergy)
 	material.set_shader_parameter("state_crossfade", stateCrossfade)

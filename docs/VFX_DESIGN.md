@@ -431,24 +431,28 @@ The haze shell uses 0.72/1.05/1.38 root/middle/top radii; the ray shell uses
 0.78/1.14/1.52. Those are mean carrier paths, not the alpha boundary of every
 individual wisp: a pointed spike may taper locally while its centre continues
 outward. Four keyed XZ/Y scale curves translate measured state-to-state
-silhouette changes onto the two 3D carriers. They are driven only by normalized
-playback progress, never by camera yaw, pitch, or distance.
+silhouette changes onto the two 3D carriers. The final ray-width sequence is
+`1.21, 1.24, 1.22, 1.18, 1.07, 1.16, 1.19, 1.16, 1.22, 1.21, 1.14`; its
+height sequence is `0.75, 0.70, 0.68, 0.74, 0.74, 0.85, 0.86, 0.79, 0.86,
+0.82, 0.74`. They are driven only by normalized playback progress, never by
+camera yaw, pitch, or distance.
 
 The accepted base materials separate mass from highlights. Haze combines 24
 overlapping analytic columns, a low root fog, and a restrained sample of the
-measured atlas field. It uses alpha mixing at 0.85 authored opacity with a
-0.34 alpha ceiling, so it supplies a dark blue connective body on both black
+measured atlas field. It uses alpha mixing at 0.82 authored opacity with a
+0.42 alpha ceiling, so it supplies a dark blue connective body on both black
 and light terrain. Ghost rays use 24 analytic angular seedsâ€”roughly twelve
 visible on the retained far hemisphereâ€”plus broad low-energy shoulders. Their
-additive alpha is capped at 0.26, keeping sharp cyan tips without rebuilding an
+additive alpha is capped at 0.36, keeping sharp cyan tips without rebuilding an
 opaque petal cage. Rays are not grazing-angle attenuated: the single retained
 hemisphere already controls overlap, and attenuation measurably narrowed the
 source-registered fan.
 
 Cool elements retain the source-locked blue/cyan grading. Red-dominant elements
 select a warm luminance-preserving bias so the generic tint contract does not
-multiply fire nearly to black; the cool branch remains byte-identical after
-this correction. No white core is injected into either branch.
+multiply fire nearly to black. The final cool bias restores the luminance of
+the registered material capture while the warm branch remains separately
+bounded. No white core is injected into either branch.
 
 `assets/vfx/spell_cast_aura/plume_flow_atlas.png` is original project artwork
 generated deterministically by the retained adjacent Python/Pillow source and
@@ -495,20 +499,31 @@ rays in the source also
 produce strong row-edge energy, so enlarged tip crops remain mandatory when
 judging shell terraces.
 
+`replica_convergence.json` records the retained motion-and-grading pass. Like
+the frozen baseline, it contains only hashes, registration data, measurements,
+and verdicts; supplied source frames and generated comparison sheets remain
+outside version control.
+
 The CPU maps normalized seek onto the eleven measured source positions and
 passes an explicit atlas position to both shaders. Motion between authored
 states is also derived from this position, so neither shader uses `TIME`.
 Haze uses a longer keyed crossfade. Analytic rays reorganize continuously from
-the same normalized source-state position, and a small angular drift supplies
-less than a quarter turn over the sequence. `set_plume_state_crossfade()` and
+the same normalized source-state position. Haze and footprint rotate 0.10 turn
+while the ghost rays rotate 0.18 turn over the sequence. Each ray tip samples a
+1.15-cycle vertical oscillation with a 0.105 normalized-height amplitude and a
+1.731-radian per-ray phase step, so the spikes do not breathe in unison.
+`set_plume_state_crossfade()` and
 `--spell-aura-crossfade-plume` retain the forced atlas-crossfade inspection path
 for haze; analytic rays remain continuous.
 
 The animation is source-keyed rather than a generic charge/decay envelope.
-Separate eleven-value curves control plume energy, aperture radius, rim width,
-and striation visibility. In particular, plume energy follows
+Separate eleven-value curves control plume energy, layer visibility, width,
+height, aperture radius, rim width, and striation visibility. Source-relative
+plume energy follows
 `1.00, 1.13, 1.11, 0.96, 0.79, 0.64, 0.61, 0.76, 0.82, 0.85, 0.70`, preserving
-the source's early crest, trough, and smaller secondary swell. The final source
+the source's early crest, trough, and smaller secondary swell. Independent haze
+and ray visibility grading restores body energy without flattening that rhythm
+or lifting every tip equally. The final source
 state remains fully visible at normalized time `0.82`; a separate smooth
 visibility tail clears every layer by `0.90`. Seed changes apply only a subtle
 angular phase offset and cannot replace these curves or their silhouette.

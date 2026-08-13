@@ -1,0 +1,2166 @@
+{
+  "schema_version": 3,
+  "authority": "Eleven user-supplied consecutive animation frames",
+  "command_label": "native-black-isolation-camera5-seed7-ice-r5",
+  "registration": {
+    "source_size_px": [
+      350,
+      350
+    ],
+    "source_original_sizes_px": [
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ],
+      [
+        340,
+        340
+      ]
+    ],
+    "source_resampling": "bicubic_to_measurement_contract",
+    "source_character_bounds_px": [
+      151,
+      196,
+      209,
+      312
+    ],
+    "render_body_bounds_px": [
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ],
+      [
+        295,
+        239,
+        425,
+        449
+      ]
+    ],
+    "method": "anisotropic proxy-to-source character bounds, center and feet locked"
+  },
+  "source_files": [
+    {
+      "name": "codex-clipboard-f3adce48-10f9-4b8e-a9de-e7ca428d4b8b.png",
+      "sha256": "6332fc0c05be0ecdf1d31ca767009f67309441c64b049acff43d189250c316e0"
+    },
+    {
+      "name": "codex-clipboard-d92ce9d6-81ba-426d-843e-307f45482248.png",
+      "sha256": "0ab028bef63b405846a671235835827c065a79a927f2c3012bedf980b2e72f07"
+    },
+    {
+      "name": "codex-clipboard-b018b769-b365-46a3-adb9-07333f546b68.png",
+      "sha256": "9f6d6d586b66519d51048fc096f9790cca5404745cb1960864912543f97f3071"
+    },
+    {
+      "name": "codex-clipboard-69f14541-fa37-4dfd-98e3-76b9d4ed8edc.png",
+      "sha256": "96ed316c634983879424c43dd1f9d7f004b25e592913bc8622332037cba98040"
+    },
+    {
+      "name": "codex-clipboard-faf005c5-41e0-4eb0-b0f1-5ad368cff3bf.png",
+      "sha256": "8a5b155f1162accfa2dcff080bb240d973d5b810334a816cbf6141bda28ff3d3"
+    },
+    {
+      "name": "codex-clipboard-fde57abe-4c2d-40ae-8be1-27de05849820.png",
+      "sha256": "28f02eae270d0f5176dc29b0c88ebd77241b40d9a19de2a79505643be4df98cb"
+    },
+    {
+      "name": "codex-clipboard-95bd00b0-d29f-4ac2-a642-14bc5e8aad8a.png",
+      "sha256": "9bfbaac0ee187d4fe240278d43c4ded21dc27c8576b693b5e5ee4160ba45383d"
+    },
+    {
+      "name": "codex-clipboard-261741d6-dd2d-424f-a8ae-065a13b27b85.png",
+      "sha256": "6a672025d7b76595be6d7dec728e5f303a390d4d9fe078f6b698b085c310a361"
+    },
+    {
+      "name": "codex-clipboard-6242a5ba-b8c1-4c89-b1c1-3b11385131f0.png",
+      "sha256": "ce2066fbf9eae4818ac6915e7755ee9c66fae9e008dcfd8f9574057c7698e3c3"
+    },
+    {
+      "name": "codex-clipboard-f8ebdbf8-62c6-4704-b5b1-602dc6742126.png",
+      "sha256": "cf5dfb6a09e69de64b8796ad9fbd8f68e4de9caee3efbdb12879df56dc8876c1"
+    },
+    {
+      "name": "codex-clipboard-17a739ea-e7db-4707-b829-eea95fadf4ee.png",
+      "sha256": "f2e5bec441a2e994770710e10b7a7b05452e18891d58bee0eaa96d1f945c359c"
+    }
+  ],
+  "render_files": [
+    {
+      "name": "candidate5_t0.08.png",
+      "sha256": "dafb23b8db6d18483bfa7b8f4cd3e6427d5335674a1d7cf943d4b8a6b0021199"
+    },
+    {
+      "name": "candidate5_t0.15.png",
+      "sha256": "2d7e74f9086c8ece96467e69852a6661d9755590b587483113e83ba3f3b17f42"
+    },
+    {
+      "name": "candidate5_t0.22.png",
+      "sha256": "fe29148d624f95dcc2b0af75cb09b8063938125e6c1da514b46cc2bd49f8620a"
+    },
+    {
+      "name": "candidate5_t0.29.png",
+      "sha256": "cc82bb7c0f1e9aa48900513bd57c79eeba55201381e0031322af85d6b30137aa"
+    },
+    {
+      "name": "candidate5_t0.36.png",
+      "sha256": "45cb76a770b844755262780768e4befaa56ec73638f62deb3d9408d08575696d"
+    },
+    {
+      "name": "candidate5_t0.43.png",
+      "sha256": "3abab70b401bc4334fcd65e582db9fa537a6080fe0239e6b36b373c617c7afaa"
+    },
+    {
+      "name": "candidate5_t0.5.png",
+      "sha256": "3d2c7226d590a7abdc2c4d50d8604345e3d520904d0ae31c84fb55c694905be9"
+    },
+    {
+      "name": "candidate5_t0.57.png",
+      "sha256": "fc109c0c096d74859c34a63a975f96d748600be325b998248a50628df25ad89e"
+    },
+    {
+      "name": "candidate5_t0.64.png",
+      "sha256": "5cfddf9e388e7cd9af55023dfad91b083f56e5a2fbd6b18ba16ad44fcf725a54"
+    },
+    {
+      "name": "candidate5_t0.72.png",
+      "sha256": "5361ae8c78169367e7c7376865bec5fc2d7ad5d6965cbca6ec3fc3afa756a3c2"
+    },
+    {
+      "name": "candidate5_t0.82.png",
+      "sha256": "de750f2cad7321a8bb647b5581b48b01d94ff46fb80199d9103ff47148990dc9"
+    }
+  ],
+  "source_metrics": [
+    {
+      "faint_width": 3.5517,
+      "dense_width": 3.069,
+      "faint_height": 0.9828,
+      "dense_height": 0.8879,
+      "energy_centroid_height": 0.3282,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.020569,
+        0.01499,
+        0.006746,
+        0.004206,
+        0.005392,
+        0.004872,
+        0.014625,
+        0.028308,
+        0.086404,
+        0.262493,
+        0.187619,
+        0.000899,
+        0.0,
+        0.101008,
+        0.182033,
+        0.079838
+      ],
+      "horizontal_band_periodicity": 0.265215,
+      "horizontal_edge_ratio": 0.436816,
+      "silhouette_plateau_ratio": 0.564972,
+      "palette": {
+        "p50": [
+          15,
+          78,
+          116
+        ],
+        "p90": [
+          29,
+          145,
+          209
+        ]
+      },
+      "body_overdraw_fraction": 0.351516,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.3448,
+          "right_radius": 1.3276
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.6207,
+          "right_radius": 1.6207
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.6724,
+          "right_radius": 1.8448
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.2241,
+          "right_radius": 1.7759
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.1207,
+          "right_radius": 1.2069
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.9138,
+          "right_radius": 1.2069
+        }
+      ],
+      "faint_pixel_count": 10757,
+      "faint_energy_total": 308569.75
+    },
+    {
+      "faint_width": 3.6207,
+      "dense_width": 3.0172,
+      "faint_height": 0.9655,
+      "dense_height": 0.8621,
+      "energy_centroid_height": 0.3026,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.025229,
+        0.015226,
+        0.011164,
+        0.008881,
+        0.009811,
+        0.011021,
+        0.017497,
+        0.028334,
+        0.10656,
+        0.230522,
+        0.176511,
+        0.000171,
+        0.0,
+        0.104802,
+        0.162035,
+        0.092236
+      ],
+      "horizontal_band_periodicity": 0.357398,
+      "horizontal_edge_ratio": 0.417224,
+      "silhouette_plateau_ratio": 0.488506,
+      "palette": {
+        "p50": [
+          14,
+          71,
+          107
+        ],
+        "p90": [
+          27,
+          134,
+          194
+        ]
+      },
+      "body_overdraw_fraction": 0.342004,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.4828,
+          "right_radius": 1.4828
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.6897,
+          "right_radius": 1.7759
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.6379,
+          "right_radius": 1.8621
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.3448,
+          "right_radius": 1.6897
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.0345,
+          "right_radius": 1.3103
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.8793,
+          "right_radius": 1.1897
+        }
+      ],
+      "faint_pixel_count": 11826,
+      "faint_energy_total": 327935.65
+    },
+    {
+      "faint_width": 3.4655,
+      "dense_width": 2.9138,
+      "faint_height": 0.9397,
+      "dense_height": 0.8103,
+      "energy_centroid_height": 0.2871,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.031049,
+        0.017072,
+        0.012993,
+        0.010373,
+        0.010644,
+        0.011304,
+        0.019649,
+        0.031174,
+        0.116227,
+        0.194327,
+        0.175167,
+        0.0,
+        0.0,
+        0.099843,
+        0.17579,
+        0.094389
+      ],
+      "horizontal_band_periodicity": 0.356342,
+      "horizontal_edge_ratio": 0.432262,
+      "silhouette_plateau_ratio": 0.553571,
+      "palette": {
+        "p50": [
+          11,
+          61,
+          93
+        ],
+        "p90": [
+          22,
+          114,
+          166
+        ]
+      },
+      "body_overdraw_fraction": 0.351219,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.5517,
+          "right_radius": 1.6034
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.569,
+          "right_radius": 1.8276
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.4655,
+          "right_radius": 1.8793
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.431,
+          "right_radius": 1.431
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.069,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.8966,
+          "right_radius": 0.0
+        }
+      ],
+      "faint_pixel_count": 12482,
+      "faint_energy_total": 307948.95
+    },
+    {
+      "faint_width": 3.3621,
+      "dense_width": 2.6379,
+      "faint_height": 0.8707,
+      "dense_height": 0.7241,
+      "energy_centroid_height": 0.3088,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.02822,
+        0.005135,
+        0.008212,
+        0.006054,
+        0.006267,
+        0.003967,
+        0.004147,
+        0.03125,
+        0.10489,
+        0.182984,
+        0.20825,
+        0.0,
+        0.0,
+        0.080952,
+        0.226667,
+        0.103005
+      ],
+      "horizontal_band_periodicity": 0.296795,
+      "horizontal_edge_ratio": 0.427755,
+      "silhouette_plateau_ratio": 0.585526,
+      "palette": {
+        "p50": [
+          13,
+          64,
+          95
+        ],
+        "p90": [
+          22,
+          107,
+          155
+        ]
+      },
+      "body_overdraw_fraction": 0.366082,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.4483,
+          "right_radius": 1.5862
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.4138,
+          "right_radius": 1.7931
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.5,
+          "right_radius": 1.8103
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.4655,
+          "right_radius": 1.3621
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.0862,
+          "right_radius": 1.3621
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.0,
+          "right_radius": 0.0
+        }
+      ],
+      "faint_pixel_count": 11695,
+      "faint_energy_total": 249253.8
+    },
+    {
+      "faint_width": 3.0,
+      "dense_width": 2.5517,
+      "faint_height": 0.8362,
+      "dense_height": 0.6897,
+      "energy_centroid_height": 0.3346,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.016522,
+        0.000706,
+        0.001135,
+        0.001285,
+        0.001029,
+        0.000562,
+        0.00067,
+        0.021254,
+        0.080798,
+        0.249656,
+        0.2091,
+        0.0,
+        0.0,
+        0.073125,
+        0.255305,
+        0.088854
+      ],
+      "horizontal_band_periodicity": 0.255824,
+      "horizontal_edge_ratio": 0.405311,
+      "silhouette_plateau_ratio": 0.513043,
+      "palette": {
+        "p50": [
+          12,
+          57,
+          89
+        ],
+        "p90": [
+          21,
+          105,
+          152
+        ]
+      },
+      "body_overdraw_fraction": 0.387782,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.3448,
+          "right_radius": 1.4138
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.4483,
+          "right_radius": 1.2586
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.569,
+          "right_radius": 1.3448
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.5,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 0.9655,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.0,
+          "right_radius": 0.0
+        }
+      ],
+      "faint_pixel_count": 9141,
+      "faint_energy_total": 200250.75
+    },
+    {
+      "faint_width": 2.9483,
+      "dense_width": 2.6034,
+      "faint_height": 0.8793,
+      "dense_height": 0.7328,
+      "energy_centroid_height": 0.3426,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.00264,
+        0.004328,
+        0.003415,
+        0.002166,
+        0.002994,
+        0.002018,
+        0.003892,
+        0.010742,
+        0.069264,
+        0.304122,
+        0.181818,
+        0.0,
+        0.0,
+        0.079257,
+        0.286282,
+        0.047063
+      ],
+      "horizontal_band_periodicity": 0.150632,
+      "horizontal_edge_ratio": 0.395891,
+      "silhouette_plateau_ratio": 0.551402,
+      "palette": {
+        "p50": [
+          14,
+          67,
+          103
+        ],
+        "p90": [
+          26,
+          124,
+          174
+        ]
+      },
+      "body_overdraw_fraction": 0.419441,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.2759,
+          "right_radius": 1.1897
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.4483,
+          "right_radius": 1.2586
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.4655,
+          "right_radius": 1.3448
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.4828,
+          "right_radius": 1.4483
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 0.8103,
+          "right_radius": 0.7414
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.7586,
+          "right_radius": 0.0
+        }
+      ],
+      "faint_pixel_count": 7980,
+      "faint_energy_total": 175842.45
+    },
+    {
+      "faint_width": 3.0517,
+      "dense_width": 2.7069,
+      "faint_height": 0.8966,
+      "dense_height": 0.7931,
+      "energy_centroid_height": 0.3475,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.00459,
+        0.004886,
+        0.004324,
+        0.003384,
+        0.004153,
+        0.002428,
+        0.00453,
+        0.007371,
+        0.067811,
+        0.305338,
+        0.188099,
+        0.000307,
+        0.0,
+        0.08835,
+        0.270676,
+        0.043753
+      ],
+      "horizontal_band_periodicity": 0.153577,
+      "horizontal_edge_ratio": 0.395217,
+      "silhouette_plateau_ratio": 0.568182,
+      "palette": {
+        "p50": [
+          16,
+          80,
+          120
+        ],
+        "p90": [
+          29,
+          142,
+          199
+        ]
+      },
+      "body_overdraw_fraction": 0.391201,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.1207,
+          "right_radius": 1.1552
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.3621,
+          "right_radius": 1.2931
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.5172,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.431,
+          "right_radius": 1.5172
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 0.8448,
+          "right_radius": 0.9655
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.7931,
+          "right_radius": 0.6552
+        }
+      ],
+      "faint_pixel_count": 7143,
+      "faint_energy_total": 184042.8
+    },
+    {
+      "faint_width": 3.2759,
+      "dense_width": 2.8793,
+      "faint_height": 0.9483,
+      "dense_height": 0.819,
+      "energy_centroid_height": 0.3175,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.02118,
+        0.014632,
+        0.007692,
+        0.00516,
+        0.005919,
+        0.003598,
+        0.011197,
+        0.027145,
+        0.080479,
+        0.278078,
+        0.168324,
+        0.000729,
+        0.0,
+        0.091269,
+        0.213605,
+        0.070994
+      ],
+      "horizontal_band_periodicity": 0.245138,
+      "horizontal_edge_ratio": 0.436961,
+      "silhouette_plateau_ratio": 0.542169,
+      "palette": {
+        "p50": [
+          15,
+          77,
+          115
+        ],
+        "p90": [
+          28,
+          135,
+          189
+        ]
+      },
+      "body_overdraw_fraction": 0.330559,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.2069,
+          "right_radius": 1.1897
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.5345,
+          "right_radius": 1.4138
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.569,
+          "right_radius": 1.6207
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.2759,
+          "right_radius": 1.6207
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 0.9138,
+          "right_radius": 1.1034
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.7931,
+          "right_radius": 0.7414
+        }
+      ],
+      "faint_pixel_count": 8578,
+      "faint_energy_total": 229249.45
+    },
+    {
+      "faint_width": 3.3793,
+      "dense_width": 2.9655,
+      "faint_height": 0.9397,
+      "dense_height": 0.8448,
+      "energy_centroid_height": 0.2905,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.027168,
+        0.018872,
+        0.007027,
+        0.00484,
+        0.005467,
+        0.005209,
+        0.01825,
+        0.038999,
+        0.104535,
+        0.248173,
+        0.14646,
+        0.0,
+        0.0,
+        0.091119,
+        0.188734,
+        0.095148
+      ],
+      "horizontal_band_periodicity": 0.304694,
+      "horizontal_edge_ratio": 0.448807,
+      "silhouette_plateau_ratio": 0.502924,
+      "palette": {
+        "p50": [
+          15,
+          75,
+          109
+        ],
+        "p90": [
+          23,
+          110,
+          152
+        ]
+      },
+      "body_overdraw_fraction": 0.315696,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.3276,
+          "right_radius": 1.2931
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.5862,
+          "right_radius": 1.5862
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.6034,
+          "right_radius": 1.6379
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.2241,
+          "right_radius": 1.5517
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 0.9483,
+          "right_radius": 1.1897
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.8276,
+          "right_radius": 1.2069
+        }
+      ],
+      "faint_pixel_count": 9393,
+      "faint_energy_total": 221217.95
+    },
+    {
+      "faint_width": 3.4138,
+      "dense_width": 2.8621,
+      "faint_height": 0.931,
+      "dense_height": 0.8362,
+      "energy_centroid_height": 0.2475,
+      "aperture_width": 1.3621,
+      "angular_profile": [
+        0.03725,
+        0.02418,
+        0.0169,
+        0.013739,
+        0.014968,
+        0.0175,
+        0.026735,
+        0.040489,
+        0.118679,
+        0.203818,
+        0.129444,
+        0.0,
+        0.0,
+        0.091226,
+        0.156337,
+        0.108735
+      ],
+      "horizontal_band_periodicity": 0.460707,
+      "horizontal_edge_ratio": 0.440363,
+      "silhouette_plateau_ratio": 0.484848,
+      "palette": {
+        "p50": [
+          13,
+          65,
+          92
+        ],
+        "p90": [
+          17,
+          78,
+          107
+        ]
+      },
+      "body_overdraw_fraction": 0.299941,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.4483,
+          "right_radius": 1.431
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.6379,
+          "right_radius": 1.7069
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.5517,
+          "right_radius": 1.7414
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.2931,
+          "right_radius": 1.2414
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.0,
+          "right_radius": 1.2586
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.8448,
+          "right_radius": 0.0
+        }
+      ],
+      "faint_pixel_count": 10240,
+      "faint_energy_total": 199688.35
+    },
+    {
+      "faint_width": 3.2414,
+      "dense_width": 2.5172,
+      "faint_height": 0.8793,
+      "dense_height": 0.6897,
+      "energy_centroid_height": 0.2169,
+      "aperture_width": 1.4828,
+      "angular_profile": [
+        0.042496,
+        0.02817,
+        0.019788,
+        0.015478,
+        0.015327,
+        0.014842,
+        0.024461,
+        0.04576,
+        0.12134,
+        0.175451,
+        0.127861,
+        0.0,
+        0.0,
+        0.091668,
+        0.158354,
+        0.119006
+      ],
+      "horizontal_band_periodicity": 0.393776,
+      "horizontal_edge_ratio": 0.460273,
+      "silhouette_plateau_ratio": 0.517241,
+      "palette": {
+        "p50": [
+          10,
+          47,
+          65
+        ],
+        "p90": [
+          10,
+          47,
+          65
+        ]
+      },
+      "body_overdraw_fraction": 0.239596,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.4828,
+          "right_radius": 1.5517
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.431,
+          "right_radius": 1.7069
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.3966,
+          "right_radius": 1.6724
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.1207,
+          "right_radius": 1.2069
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.0172,
+          "right_radius": 1.2241
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.8448,
+          "right_radius": 0.0
+        }
+      ],
+      "faint_pixel_count": 9618,
+      "faint_energy_total": 132224.05
+    }
+  ],
+  "render_metrics": [
+    {
+      "faint_width": 3.2241,
+      "dense_width": 3.0172,
+      "faint_height": 1.0345,
+      "dense_height": 1.0345,
+      "energy_centroid_height": 0.6463,
+      "aperture_width": 1.7069,
+      "angular_profile": [
+        0.001899,
+        0.005315,
+        0.006193,
+        0.002841,
+        0.002711,
+        0.002969,
+        0.002779,
+        0.002484,
+        0.002626,
+        0.070952,
+        0.273664,
+        0.046104,
+        0.018278,
+        0.495992,
+        0.06463,
+        0.000564
+      ],
+      "horizontal_band_periodicity": 0.146693,
+      "horizontal_edge_ratio": 0.413783,
+      "silhouette_plateau_ratio": 0.459184,
+      "palette": {
+        "p50": [
+          11,
+          49,
+          78
+        ],
+        "p90": [
+          18,
+          75,
+          119
+        ]
+      },
+      "body_overdraw_fraction": 0.149524,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.2931,
+          "right_radius": 1.3448
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.4828,
+          "right_radius": 1.4828
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.5862,
+          "right_radius": 1.5
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.4483,
+          "right_radius": 1.431
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.3793,
+          "right_radius": 1.2759
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 1.1897,
+          "right_radius": 1.2759
+        }
+      ],
+      "faint_pixel_count": 7140,
+      "faint_energy_total": 148678.2
+    },
+    {
+      "faint_width": 3.3103,
+      "dense_width": 3.1034,
+      "faint_height": 1.0345,
+      "dense_height": 0.9138,
+      "energy_centroid_height": 0.5813,
+      "aperture_width": 1.569,
+      "angular_profile": [
+        0.000599,
+        0.006351,
+        0.006539,
+        0.002424,
+        0.00267,
+        0.002986,
+        0.004048,
+        0.00649,
+        0.000993,
+        0.083612,
+        0.294935,
+        0.00585,
+        0.0,
+        0.475228,
+        0.101167,
+        0.006108
+      ],
+      "horizontal_band_periodicity": 0.159532,
+      "horizontal_edge_ratio": 0.443746,
+      "silhouette_plateau_ratio": 0.397959,
+      "palette": {
+        "p50": [
+          11,
+          47,
+          74
+        ],
+        "p90": [
+          16,
+          69,
+          110
+        ]
+      },
+      "body_overdraw_fraction": 0.164834,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.4138,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.6552,
+          "right_radius": 1.5172
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.431,
+          "right_radius": 1.5172
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.4655,
+          "right_radius": 1.6034
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.5172,
+          "right_radius": 1.1897
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 1.3276,
+          "right_radius": 1.2069
+        }
+      ],
+      "faint_pixel_count": 7774,
+      "faint_energy_total": 150577.35
+    },
+    {
+      "faint_width": 3.1897,
+      "dense_width": 2.7931,
+      "faint_height": 1.0345,
+      "dense_height": 0.819,
+      "energy_centroid_height": 0.5526,
+      "aperture_width": 1.5,
+      "angular_profile": [
+        0.000734,
+        0.000877,
+        0.004644,
+        0.001574,
+        0.001311,
+        0.002862,
+        0.001527,
+        0.001906,
+        0.005864,
+        0.113067,
+        0.361451,
+        0.005128,
+        0.0,
+        0.357397,
+        0.134861,
+        0.006798
+      ],
+      "horizontal_band_periodicity": 0.410311,
+      "horizontal_edge_ratio": 0.41566,
+      "silhouette_plateau_ratio": 0.363636,
+      "palette": {
+        "p50": [
+          11,
+          47,
+          74
+        ],
+        "p90": [
+          15,
+          66,
+          106
+        ]
+      },
+      "body_overdraw_fraction": 0.165131,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.3966,
+          "right_radius": 1.3276
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.2759,
+          "right_radius": 1.4828
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.5172,
+          "right_radius": 1.5517
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.5345,
+          "right_radius": 1.5
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.3793,
+          "right_radius": 1.3621
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 1.431,
+          "right_radius": 1.069
+        }
+      ],
+      "faint_pixel_count": 7181,
+      "faint_energy_total": 138843.15
+    },
+    {
+      "faint_width": 3.1034,
+      "dense_width": 2.7241,
+      "faint_height": 1.0345,
+      "dense_height": 0.6724,
+      "energy_centroid_height": 0.4898,
+      "aperture_width": 1.3966,
+      "angular_profile": [
+        0.0,
+        0.0,
+        0.001478,
+        0.005988,
+        0.008866,
+        0.0,
+        0.003029,
+        0.001548,
+        0.016089,
+        0.004735,
+        0.770905,
+        0.0,
+        0.0,
+        0.130459,
+        0.034835,
+        0.022066
+      ],
+      "horizontal_band_periodicity": 0.200728,
+      "horizontal_edge_ratio": 0.421574,
+      "silhouette_plateau_ratio": 0.446809,
+      "palette": {
+        "p50": [
+          10,
+          44,
+          70
+        ],
+        "p90": [
+          12,
+          50,
+          76
+        ]
+      },
+      "body_overdraw_fraction": 0.152497,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.3103,
+          "right_radius": 1.2931
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.3448,
+          "right_radius": 1.3966
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.4483,
+          "right_radius": 1.4828
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.569,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.3793,
+          "right_radius": 1.3966
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.8448,
+          "right_radius": 1.2414
+        }
+      ],
+      "faint_pixel_count": 5653,
+      "faint_energy_total": 91715.35
+    },
+    {
+      "faint_width": 2.8276,
+      "dense_width": 2.3966,
+      "faint_height": 0.9828,
+      "dense_height": 0.75,
+      "energy_centroid_height": 0.5599,
+      "aperture_width": 1.4483,
+      "angular_profile": [
+        0.0,
+        0.0,
+        0.001784,
+        0.002487,
+        0.0,
+        0.002692,
+        0.0,
+        0.0,
+        0.000827,
+        0.036401,
+        0.79153,
+        0.0,
+        0.0,
+        0.073317,
+        0.085885,
+        0.005076
+      ],
+      "horizontal_band_periodicity": 0.428415,
+      "horizontal_edge_ratio": 0.393838,
+      "silhouette_plateau_ratio": 0.489362,
+      "palette": {
+        "p50": [
+          11,
+          48,
+          75
+        ],
+        "p90": [
+          16,
+          66,
+          103
+        ]
+      },
+      "body_overdraw_fraction": 0.136445,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.1379,
+          "right_radius": 1.1034
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.2931,
+          "right_radius": 1.2931
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.3448,
+          "right_radius": 1.3448
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.2759,
+          "right_radius": 1.1379
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.1724,
+          "right_radius": 1.1897
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 0.8966,
+          "right_radius": 1.0345
+        }
+      ],
+      "faint_pixel_count": 4108,
+      "faint_energy_total": 72272.65
+    },
+    {
+      "faint_width": 2.9483,
+      "dense_width": 2.6207,
+      "faint_height": 1.0345,
+      "dense_height": 0.9655,
+      "energy_centroid_height": 0.6956,
+      "aperture_width": 1.8448,
+      "angular_profile": [
+        0.0,
+        0.0,
+        0.0,
+        0.000819,
+        0.001363,
+        0.0,
+        0.001194,
+        0.0,
+        0.0,
+        0.026627,
+        0.638219,
+        0.010838,
+        0.011439,
+        0.275413,
+        0.028845,
+        0.005241
+      ],
+      "horizontal_band_periodicity": 0.256277,
+      "horizontal_edge_ratio": 0.369811,
+      "silhouette_plateau_ratio": 0.381818,
+      "palette": {
+        "p50": [
+          11,
+          48,
+          76
+        ],
+        "p90": [
+          15,
+          62,
+          96
+        ]
+      },
+      "body_overdraw_fraction": 0.131391,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.0862,
+          "right_radius": 1.2069
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.3966,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.4655,
+          "right_radius": 1.3621
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.4138,
+          "right_radius": 1.4483
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.3448,
+          "right_radius": 1.1724
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 1.0862,
+          "right_radius": 1.0345
+        }
+      ],
+      "faint_pixel_count": 4561,
+      "faint_energy_total": 81488.1
+    },
+    {
+      "faint_width": 2.9828,
+      "dense_width": 2.2069,
+      "faint_height": 1.0345,
+      "dense_height": 0.8966,
+      "energy_centroid_height": 0.7224,
+      "aperture_width": 1.431,
+      "angular_profile": [
+        0.0,
+        0.0,
+        0.000775,
+        0.0,
+        0.0,
+        0.000747,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.55551,
+        0.046714,
+        0.0,
+        0.384759,
+        0.00545,
+        0.006045
+      ],
+      "horizontal_band_periodicity": 0.495756,
+      "horizontal_edge_ratio": 0.368576,
+      "silhouette_plateau_ratio": 0.270833,
+      "palette": {
+        "p50": [
+          11,
+          48,
+          76
+        ],
+        "p90": [
+          14,
+          56,
+          89
+        ]
+      },
+      "body_overdraw_fraction": 0.136593,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.2759,
+          "right_radius": 1.1552
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.431,
+          "right_radius": 1.3276
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.3966,
+          "right_radius": 1.4655
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.4828,
+          "right_radius": 1.4655
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.1724,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 1.2241,
+          "right_radius": 1.069
+        }
+      ],
+      "faint_pixel_count": 4287,
+      "faint_energy_total": 71686.35
+    },
+    {
+      "faint_width": 2.9483,
+      "dense_width": 2.4483,
+      "faint_height": 1.0345,
+      "dense_height": 0.9828,
+      "energy_centroid_height": 0.6801,
+      "aperture_width": 1.7414,
+      "angular_profile": [
+        0.000371,
+        0.000895,
+        0.002459,
+        0.0,
+        0.000571,
+        0.000575,
+        0.001308,
+        0.001088,
+        0.000776,
+        0.045456,
+        0.376172,
+        0.078088,
+        0.004882,
+        0.454268,
+        0.017473,
+        0.015618
+      ],
+      "horizontal_band_periodicity": 0.38053,
+      "horizontal_edge_ratio": 0.367769,
+      "silhouette_plateau_ratio": 0.38806,
+      "palette": {
+        "p50": [
+          12,
+          53,
+          84
+        ],
+        "p90": [
+          18,
+          71,
+          112
+        ]
+      },
+      "body_overdraw_fraction": 0.141201,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.2414,
+          "right_radius": 1.2241
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.2414,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.4655,
+          "right_radius": 1.431
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.4655,
+          "right_radius": 1.3966
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.2759,
+          "right_radius": 1.4483
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 1.0862,
+          "right_radius": 0.9655
+        }
+      ],
+      "faint_pixel_count": 5223,
+      "faint_energy_total": 103285.45
+    },
+    {
+      "faint_width": 3.1552,
+      "dense_width": 2.4483,
+      "faint_height": 1.0345,
+      "dense_height": 0.9655,
+      "energy_centroid_height": 0.6624,
+      "aperture_width": 1.6207,
+      "angular_profile": [
+        0.002829,
+        0.002862,
+        0.002342,
+        0.000605,
+        0.001622,
+        0.001338,
+        0.001737,
+        0.001521,
+        0.00165,
+        0.026878,
+        0.345603,
+        0.054032,
+        0.0,
+        0.487879,
+        0.066614,
+        0.002489
+      ],
+      "horizontal_band_periodicity": 0.183569,
+      "horizontal_edge_ratio": 0.409015,
+      "silhouette_plateau_ratio": 0.55102,
+      "palette": {
+        "p50": [
+          11,
+          49,
+          76
+        ],
+        "p90": [
+          15,
+          63,
+          99
+        ]
+      },
+      "body_overdraw_fraction": 0.129756,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.3276,
+          "right_radius": 1.3103
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.431,
+          "right_radius": 1.3966
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.5345,
+          "right_radius": 1.5172
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.5862,
+          "right_radius": 1.3276
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.3966,
+          "right_radius": 1.4138
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 1.2586,
+          "right_radius": 1.2759
+        }
+      ],
+      "faint_pixel_count": 6140,
+      "faint_energy_total": 112289.0
+    },
+    {
+      "faint_width": 3.1552,
+      "dense_width": 2.431,
+      "faint_height": 1.0345,
+      "dense_height": 0.8966,
+      "energy_centroid_height": 0.5663,
+      "aperture_width": 1.5,
+      "angular_profile": [
+        0.005019,
+        0.005548,
+        0.002264,
+        0.004703,
+        0.0026,
+        0.003501,
+        0.004538,
+        0.007446,
+        0.014444,
+        0.013919,
+        0.18349,
+        0.060739,
+        0.0,
+        0.650236,
+        0.02863,
+        0.012922
+      ],
+      "horizontal_band_periodicity": 0.168992,
+      "horizontal_edge_ratio": 0.371565,
+      "silhouette_plateau_ratio": 0.454545,
+      "palette": {
+        "p50": [
+          10,
+          46,
+          71
+        ],
+        "p90": [
+          13,
+          57,
+          90
+        ]
+      },
+      "body_overdraw_fraction": 0.127824,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.3103,
+          "right_radius": 1.3103
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.4655,
+          "right_radius": 1.4483
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.6034,
+          "right_radius": 1.5
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.431,
+          "right_radius": 1.5345
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.3621,
+          "right_radius": 1.3103
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 1.0862,
+          "right_radius": 1.1379
+        }
+      ],
+      "faint_pixel_count": 5987,
+      "faint_energy_total": 95885.6
+    },
+    {
+      "faint_width": 2.8448,
+      "dense_width": 2.3793,
+      "faint_height": 0.9655,
+      "dense_height": 0.6724,
+      "energy_centroid_height": 0.3926,
+      "aperture_width": 1.5862,
+      "angular_profile": [
+        0.019302,
+        0.017918,
+        0.013135,
+        0.001747,
+        0.011799,
+        0.007503,
+        0.015396,
+        0.013375,
+        0.042674,
+        0.07888,
+        0.061469,
+        0.0,
+        0.0,
+        0.517007,
+        0.170038,
+        0.029758
+      ],
+      "horizontal_band_periodicity": 0.23906,
+      "horizontal_edge_ratio": 0.421217,
+      "silhouette_plateau_ratio": 0.528571,
+      "palette": {
+        "p50": [
+          9,
+          45,
+          64
+        ],
+        "p90": [
+          11,
+          50,
+          74
+        ]
+      },
+      "body_overdraw_fraction": 0.118312,
+      "faint_radial_envelope": [
+        {
+          "height_fraction": 0.15,
+          "left_radius": 1.1724,
+          "right_radius": 1.2241
+        },
+        {
+          "height_fraction": 0.3,
+          "left_radius": 1.3966,
+          "right_radius": 1.3793
+        },
+        {
+          "height_fraction": 0.45,
+          "left_radius": 1.3103,
+          "right_radius": 1.3448
+        },
+        {
+          "height_fraction": 0.6,
+          "left_radius": 1.3103,
+          "right_radius": 1.4138
+        },
+        {
+          "height_fraction": 0.75,
+          "left_radius": 1.3793,
+          "right_radius": 1.1379
+        },
+        {
+          "height_fraction": 0.9,
+          "left_radius": 1.1034,
+          "right_radius": 0.931
+        }
+      ],
+      "faint_pixel_count": 4252,
+      "faint_energy_total": 59270.5
+    }
+  ],
+  "comparison": {
+    "faint_width": {
+      "mean_absolute_error": 0.238245,
+      "per_frame_absolute_error": [
+        0.3276,
+        0.3104,
+        0.2758,
+        0.2587,
+        0.1724,
+        0.0,
+        0.0689,
+        0.3276,
+        0.2241,
+        0.2586,
+        0.3966
+      ]
+    },
+    "dense_width": {
+      "mean_absolute_error": 0.230409,
+      "per_frame_absolute_error": [
+        0.0518,
+        0.0862,
+        0.1207,
+        0.0862,
+        0.1551,
+        0.0173,
+        0.5,
+        0.431,
+        0.5172,
+        0.4311,
+        0.1379
+      ]
+    },
+    "faint_height": {
+      "mean_absolute_error": 0.108155,
+      "per_frame_absolute_error": [
+        0.0517,
+        0.069,
+        0.0948,
+        0.1638,
+        0.1466,
+        0.1552,
+        0.1379,
+        0.0862,
+        0.0948,
+        0.1035,
+        0.0862
+      ]
+    },
+    "dense_height": {
+      "mean_absolute_error": 0.092491,
+      "per_frame_absolute_error": [
+        0.1466,
+        0.0517,
+        0.0087,
+        0.0517,
+        0.0603,
+        0.2327,
+        0.1035,
+        0.1638,
+        0.1207,
+        0.0604,
+        0.0173
+      ]
+    },
+    "energy_centroid_height": {
+      "mean_absolute_error": 0.293227,
+      "per_frame_absolute_error": [
+        0.3181,
+        0.2787,
+        0.2655,
+        0.181,
+        0.2253,
+        0.353,
+        0.3749,
+        0.3626,
+        0.3719,
+        0.3188,
+        0.1757
+      ]
+    },
+    "aperture_width": {
+      "mean_absolute_error": 0.203736,
+      "per_frame_absolute_error": [
+        0.3448,
+        0.2069,
+        0.1379,
+        0.0345,
+        0.0862,
+        0.4827,
+        0.0689,
+        0.3793,
+        0.2586,
+        0.1379,
+        0.1034
+      ]
+    },
+    "horizontal_band_periodicity": {
+      "mean_absolute_error": 0.162708,
+      "per_frame_absolute_error": [
+        0.118522,
+        0.197866,
+        0.053969,
+        0.096067,
+        0.172591,
+        0.105645,
+        0.342179,
+        0.135392,
+        0.121125,
+        0.291715,
+        0.154716
+      ]
+    },
+    "horizontal_edge_ratio": {
+      "mean_absolute_error": 0.032125,
+      "per_frame_absolute_error": [
+        0.023033,
+        0.026522,
+        0.016602,
+        0.006181,
+        0.011473,
+        0.02608,
+        0.026641,
+        0.069192,
+        0.039792,
+        0.068798,
+        0.039056
+      ]
+    },
+    "silhouette_plateau_ratio": {
+      "mean_absolute_error": 0.114494,
+      "per_frame_absolute_error": [
+        0.105788,
+        0.090547,
+        0.189935,
+        0.138717,
+        0.023681,
+        0.169584,
+        0.297349,
+        0.154109,
+        0.048096,
+        0.030303,
+        0.01133
+      ]
+    },
+    "angular_profile_l1": {
+      "mean": 1.179687,
+      "per_frame": [
+        1.089025,
+        0.989058,
+        0.897932,
+        1.229524,
+        1.173208,
+        1.349671,
+        1.420454,
+        1.306177,
+        1.29987,
+        1.347591,
+        0.874047
+      ]
+    },
+    "palette_channel_mae": {
+      "mean": 28.712121,
+      "per_frame": [
+        40.333333,
+        36.666667,
+        24.666667,
+        32.333333,
+        19.5,
+        33.333333,
+        48.666667,
+        34.833333,
+        28.5,
+        14.166667,
+        2.833333
+      ]
+    }
+  },
+  "temporal_delta": {
+    "source": [
+      0.541999,
+      0.440386,
+      0.648352,
+      0.394047,
+      0.330691,
+      0.270961,
+      0.529789,
+      0.527928,
+      0.554542,
+      0.73725
+    ],
+    "render": [
+      0.315391,
+      0.211922,
+      0.440092,
+      0.166883,
+      0.326349,
+      0.211327,
+      0.306772,
+      0.303233,
+      0.348138,
+      0.197166
+    ],
+    "mean_absolute_error": 0.214867
+  },
+  "baseline_verdict": {
+    "baseline_report": "baseline_report.json",
+    "metric_verdicts": {
+      "faint_width": {
+        "baseline_error": 0.940455,
+        "current_error": 0.238245,
+        "verdict": "closer"
+      },
+      "dense_width": {
+        "baseline_error": 1.134782,
+        "current_error": 0.230409,
+        "verdict": "closer"
+      },
+      "faint_height": {
+        "baseline_error": 0.0807,
+        "current_error": 0.108155,
+        "verdict": "worse"
+      },
+      "dense_height": {
+        "baseline_error": 0.082291,
+        "current_error": 0.092491,
+        "verdict": "worse"
+      },
+      "energy_centroid_height": {
+        "baseline_error": 0.243018,
+        "current_error": 0.293227,
+        "verdict": "worse"
+      },
+      "aperture_width": {
+        "baseline_error": 0.354209,
+        "current_error": 0.203736,
+        "verdict": "closer"
+      },
+      "horizontal_band_periodicity": {
+        "baseline_error": 0.219079,
+        "current_error": 0.162708,
+        "verdict": "closer"
+      },
+      "horizontal_edge_ratio": {
+        "baseline_error": 0.048717,
+        "current_error": 0.032125,
+        "verdict": "closer"
+      },
+      "silhouette_plateau_ratio": {
+        "baseline_error": 0.107335,
+        "current_error": 0.114494,
+        "verdict": "worse"
+      },
+      "angular_profile_l1": {
+        "baseline_error": 1.275538,
+        "current_error": 1.179687,
+        "verdict": "closer"
+      },
+      "palette_channel_mae": {
+        "baseline_error": 41.909091,
+        "current_error": 28.712121,
+        "verdict": "closer"
+      }
+    }
+  }
+}

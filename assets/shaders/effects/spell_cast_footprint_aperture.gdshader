@@ -22,8 +22,11 @@ uniform float center_darkening : hint_range(0.0, 1.0) = 0.0;
 uniform float source_state_position : hint_range(0.0, 10.0) = 0.0;
 uniform float root_ignition : hint_range(0.0, 1.0) = 0.0;
 uniform float lifecycle_visibility : hint_range(0.0, 1.0) = 1.0;
+uniform float spin_turns = 0.10;
 
 varying vec2 v_local;
+
+const float TAU_VALUE = 6.28318530718;
 
 float soft_ring(float radius, float target, float width) {
 	float distance_from_crest = abs(radius - target) / max(width, 0.001);
@@ -42,9 +45,9 @@ void vertex() {
 
 void fragment() {
 	vec2 p = v_local / max(outer_radius, 0.001);
-	float angle = atan(p.y, p.x);
-	float seed_phase = seed_value * 0.071;
 	float state = clamp(source_state_position / 10.0, 0.0, 1.0);
+	float angle = atan(p.y, p.x) - state * spin_turns * TAU_VALUE;
+	float seed_phase = seed_value * 0.071;
 
 	float wobble = (
 		sin(angle * 2.0 + seed_phase + state * 0.75) * 0.018

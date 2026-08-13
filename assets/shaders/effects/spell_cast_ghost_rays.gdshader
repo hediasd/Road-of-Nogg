@@ -21,6 +21,10 @@ uniform float root_ignition = 0.0;
 uniform float reveal_front = 0.0;
 uniform float reveal_softness = 0.08;
 uniform float lifecycle_visibility = 1.0;
+uniform float spin_turns = 0.18;
+uniform float tip_oscillation_cycles = 1.15;
+uniform float tip_oscillation_amplitude = 0.105;
+uniform float tip_phase_step = 1.731;
 
 const float FRAME_COUNT = 11.0;
 const float TAU_VALUE = 6.28318530718;
@@ -45,21 +49,28 @@ float analytic_ray_field(float angular_uv, float height, float motion, float see
 	float accumulation = 0.0;
 	for (int group = 0; group < 24; group++) {
 		float group_value = float(group);
-		float phase = group_value * 1.731 + motion * 6.17 + seed_hash * 0.42;
+		float phase = group_value * tip_phase_step + seed_hash * TAU_VALUE;
 		float direction = mod(group_value, 2.0) < 1.0 ? 1.0 : -1.0;
-		float center = group_value / 24.0 + motion * (0.016 + mod(group_value, 3.0) * 0.003);
-		float lean = direction * (0.015 + 0.009 * sin(phase));
+		float center = group_value / 24.0;
+		float lean_motion = sin(phase * 0.71 + motion * TAU_VALUE * 0.72);
+		float lean = direction * (0.015 + 0.009 * lean_motion);
 		float bent_center = center + lean * pow(height, 1.35);
 		float base_width = 0.0080 + mod(group_value, 4.0) * 0.0014;
 		float width = base_width * (1.32 - 0.52 * height);
 		float distance = wrapped_distance(angular_uv, bent_center);
 		float lateral = exp(-0.5 * pow(distance / max(width, 0.001), 2.0));
-		float spike_height = clamp(0.65 + 0.18 * sin(phase * 0.83), 0.47, 0.87);
+		float resting_height = 0.67 + 0.055 * sin(phase * 0.83);
+		float tip_motion = sin(
+			motion * TAU_VALUE * tip_oscillation_cycles + phase
+		);
+		float spike_height = clamp(
+			resting_height + tip_oscillation_amplitude * tip_motion, 0.47, 0.87
+		);
 		float local_distance = distance / max(width, 0.001);
 		float local_height = spike_height - pow(clamp(local_distance, 0.0, 2.0), 1.25) * 0.14;
 		float tip = 1.0 - smoothstep(local_height - 0.22, local_height, height);
 		float root = smoothstep(0.045 + mod(group_value, 2.0) * 0.018, 0.17, height);
-		float amplitude = 0.62 + 0.20 * sin(phase + 0.4);
+		float amplitude = 0.62 + 0.20 * sin(phase + motion * TAU_VALUE * 0.44 + 0.4);
 		float ray = lateral * tip * root * amplitude;
 		float soft_lateral = exp(-0.5 * pow(distance / max(width * 2.7, 0.001), 2.0));
 		field = max(field, ray);
@@ -86,7 +97,7 @@ void fragment() {
 	// exposing the mesh rows as horizontal terraces.
 	float angular_uv = atan(local_position.z, local_position.x) / TAU_VALUE;
 	angular_uv = angular_uv < 0.0 ? angular_uv + 1.0 : angular_uv;
-	angular_uv += uv_phase + motion * 0.16 + (seed_hash - 0.5) * 0.025;
+	angular_uv += uv_phase + motion * spin_turns + (seed_hash - 0.5) * 0.025;
 	float flow = analytic_ray_field(angular_uv, UV.y, motion, seed_hash);
 	flow = pow(flow, 0.78);
 	flow *= smoothstep(0.055, 0.18, UV.y) * (1.0 - smoothstep(0.91, 1.0, UV.y));
@@ -104,10 +115,10 @@ void fragment() {
 		0.05, 0.40, aura_color.r - max(aura_color.g, aura_color.b)
 	);
 	vec3 element_bias = mix(
-		vec3(0.14, 0.48, 0.98), vec3(0.70, 0.55, 0.50), warm_weight
+		vec3(0.32, 0.70, 1.10), vec3(0.70, 0.55, 0.50), warm_weight
 	);
 	vec3 tint = aura_color.rgb * element_bias;
-	ALBEDO = tint * 0.42;
+	ALBEDO = tint * 0.60;
 	EMISSION = tint * flow * emission_energy * plume_energy * onset_visibility;
-	ALPHA = clamp(alpha, 0.0, 0.26);
+	ALPHA = clamp(alpha, 0.0, 0.36);
 }
