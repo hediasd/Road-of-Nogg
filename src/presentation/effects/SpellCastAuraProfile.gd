@@ -26,10 +26,10 @@ const PLUME_ENERGY_CURVE := [
 	1.00, 1.13, 1.11, 0.96, 0.79, 0.64, 0.61, 0.76, 0.82, 0.85, 0.70,
 ]
 const APERTURE_RADIUS_CURVE := [
-	0.43, 0.425, 0.420, 0.413, 0.405, 0.397, 0.390, 0.420, 0.458, 0.500, 0.530,
+	0.560, 0.555, 0.548, 0.538, 0.528, 0.518, 0.505, 0.548, 0.610, 0.675, 0.720,
 ]
 const APERTURE_RIM_WIDTH_CURVE := [
-	0.115, 0.113, 0.111, 0.109, 0.106, 0.103, 0.100, 0.096, 0.091, 0.085, 0.078,
+	0.095, 0.094, 0.092, 0.090, 0.087, 0.084, 0.081, 0.077, 0.072, 0.067, 0.062,
 ]
 const APERTURE_STRIATION_CURVE := [
 	1.00, 0.98, 0.91, 0.82, 0.68, 0.52, 0.36, 0.20, 0.09, 0.02, 0.00,
@@ -39,45 +39,46 @@ const APERTURE_STRIATION_CURVE := [
 ## occupies roughly 37-46 px around the aperture and changes modestly rather
 ## than emitting separated rings. Values are normalized inside the footprint
 ## shader's authored outer radius.
-const FOOTPRINT_PLANE_SIZE_U := 2.30
-const FOOTPRINT_OUTER_RADIUS_U := 0.92
+const FOOTPRINT_PLANE_SIZE_U := 2.60
+const FOOTPRINT_OUTER_RADIUS_U := 1.05
 const APERTURE_RADIUS_START := APERTURE_RADIUS_CURVE[0]
 const APERTURE_RADIUS_TROUGH := APERTURE_RADIUS_CURVE[6]
 const APERTURE_RADIUS_END := APERTURE_RADIUS_CURVE[10]
-const APERTURE_RIM_WIDTH := 0.105
-const APERTURE_RIM_ALPHA := 0.20
-const APERTURE_STRIATION_ALPHA := 0.08
-const APERTURE_RIM_EMISSION_ENERGY := 0.58
-const CENTER_DARKENING_ALPHA := 0.42
+const APERTURE_RIM_WIDTH := 0.090
+const APERTURE_RIM_ALPHA := 0.035
+const APERTURE_STRIATION_ALPHA := 0.06
+const APERTURE_RIM_EMISSION_ENERGY := 0.015
+const CENTER_DARKENING_ALPHA := 0.60
 const FOOTPRINT_HEIGHT_U := 0.018
 const FOOTPRINT_RENDER_PRIORITY := 2
 
 ## AUTHORED replica carrier split. Haze and rays sample the same deterministic
 ## eleven-state atlas during the structural item, but own distinct shaders,
 ## blend modes, mesh profiles, and explicit parameters.
-const PLUME_ATLAS_PIXEL_SIZE := Vector2(704.0, 64.0)
+const PLUME_ATLAS_PIXEL_SIZE := Vector2(2816.0, 256.0)
 const PLUME_SHELL_SEGMENTS := 64
 const PLUME_SHELL_HEIGHT_BANDS := 24
 const PLUME_BASE_HEIGHT_U := 0.025
-const HAZE_BOTTOM_RADIUS_U := 0.48
-const HAZE_MIDDLE_RADIUS_U := 1.08
-const HAZE_TOP_RADIUS_U := 0.96
-const HAZE_MIDDLE_HEIGHT_FRACTION := 0.42
-const HAZE_HEIGHT_U := 1.32
+const HAZE_BOTTOM_RADIUS_U := 0.38
+const HAZE_MIDDLE_RADIUS_U := 0.92
+const HAZE_TOP_RADIUS_U := 0.72
+const HAZE_MIDDLE_HEIGHT_FRACTION := 0.34
+const HAZE_HEIGHT_U := 1.00
 const HAZE_UV_PHASE := 0.06
-const HAZE_OPACITY := 0.46
-const HAZE_EMISSION_ENERGY := 0.24
-const RAY_BOTTOM_RADIUS_U := 0.52
-const RAY_MIDDLE_RADIUS_U := 1.18
-const RAY_TOP_RADIUS_U := 1.42
-const RAY_MIDDLE_HEIGHT_FRACTION := 0.55
-const RAY_HEIGHT_U := 1.72
+const HAZE_OPACITY := 0.34
+const HAZE_EMISSION_ENERGY := 1.10
+const RAY_BOTTOM_RADIUS_U := 0.44
+const RAY_MIDDLE_RADIUS_U := 1.10
+const RAY_TOP_RADIUS_U := 1.12
+const RAY_MIDDLE_HEIGHT_FRACTION := 0.52
+const RAY_HEIGHT_U := 1.34
 const RAY_UV_PHASE := 0.20
-const RAY_OPACITY := 0.28
-const RAY_EMISSION_ENERGY := 0.92
-## Literal state comparisons retain more of the source's frame-specific plume
-## grouping than cross-fading, which blurs adjacent silhouettes into haze.
-const PLUME_STATE_CROSSFADE := 0.0
+const RAY_OPACITY := 0.78
+const RAY_EMISSION_ENERGY := 2.20
+## Channel-specific interpolation: haze can bridge states without erasing ray
+## groupings, while rays use only a short transition between authored masks.
+const HAZE_STATE_CROSSFADE := 0.55
+const RAY_STATE_CROSSFADE := 0.18
 const HAZE_RENDER_PRIORITY := 3
 const RAY_RENDER_PRIORITY := 4
 

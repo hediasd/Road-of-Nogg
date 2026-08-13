@@ -8,7 +8,7 @@ shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_disabled;
 
 uniform sampler2D plume_atlas : source_color, filter_linear, repeat_disable;
-uniform vec2 atlas_pixel_size = vec2(704.0, 64.0);
+uniform vec2 atlas_pixel_size = vec2(2816.0, 256.0);
 uniform vec4 aura_color : source_color = vec4(0.05, 0.42, 0.75, 1.0);
 uniform float seed_value = 0.0;
 uniform float uv_phase = 0.0;
@@ -21,11 +21,21 @@ uniform float effect_visibility = 0.0;
 
 const float FRAME_COUNT = 11.0;
 
-float sample_frame(float frame_index, vec2 local_uv) {
+void vertex() {
+	float motion = clamp(atlas_state_position / (FRAME_COUNT - 1.0), 0.0, 1.0);
+	float angle = (UV.x + uv_phase + motion * 0.16) * 6.28318530718;
+	float tip_wave = (
+		sin(angle * 5.0 + motion * 2.0 * 6.28318530718) * 0.72
+		+ sin(angle * 8.0 - motion * 1.35 * 6.28318530718 + 1.4) * 0.28
+	);
+	VERTEX.y += tip_wave * 0.045 * pow(UV.y, 1.8);
+}
+
+vec4 sample_frame(float frame_index, vec2 local_uv) {
 	float cell_width = atlas_pixel_size.x / FRAME_COUNT;
 	float pixel_x = frame_index * cell_width + 0.5 + fract(local_uv.x) * (cell_width - 1.0);
 	float pixel_y = 0.5 + clamp(local_uv.y, 0.0, 1.0) * (atlas_pixel_size.y - 1.0);
-	return texture(plume_atlas, vec2(pixel_x, pixel_y) / atlas_pixel_size).a;
+	return texture(plume_atlas, vec2(pixel_x, pixel_y) / atlas_pixel_size);
 }
 
 void fragment() {
@@ -37,18 +47,25 @@ void fragment() {
 	float following = min(current + 1.0, FRAME_COUNT - 1.0);
 	float transition = fract(position) * state_crossfade;
 	float seed_hash = fract(sin(seed_value * 12.9898) * 43758.5453);
-	vec2 uv = vec2(UV.x + uv_phase + (seed_hash - 0.5) * 0.025, UV.y);
-	float flow = mix(sample_frame(current, uv), sample_frame(following, uv), transition);
-	flow = pow(clamp(flow, 0.0, 1.0), 2.05);
-	flow *= smoothstep(0.08, 0.22, UV.y) * (1.0 - smoothstep(0.88, 1.0, UV.y));
-	float view_feather = smoothstep(0.06, 0.42, abs(dot(normalize(NORMAL), normalize(VIEW))));
+	float motion = clamp(position / (FRAME_COUNT - 1.0), 0.0, 1.0);
+	vec2 uv = vec2(UV.x + uv_phase + motion * 0.16 + (seed_hash - 0.5) * 0.025, UV.y);
+	float flow = mix(sample_frame(current, uv).g, sample_frame(following, uv).g, transition);
+	flow = pow(clamp(flow, 0.0, 1.0), 1.28);
+	flow *= smoothstep(0.055, 0.18, UV.y) * (1.0 - smoothstep(0.91, 1.0, UV.y));
+	// The source carries its energy below the waist. Tips remain present for
+	// silhouette and oscillation, but lose most of their opacity near head
+	// height instead of becoming equally bright flame petals.
+	flow *= 1.0 - smoothstep(0.42, 0.92, UV.y) * 0.78;
+	float view_feather = 0.42 + 0.58 * smoothstep(
+		0.04, 0.34, abs(dot(normalize(NORMAL), normalize(VIEW)))
+	);
 	flow *= view_feather;
 	float alpha = flow * shell_opacity * plume_energy * effect_visibility;
 	if (alpha < 0.0025) {
 		discard;
 	}
-	vec3 tint = aura_color.rgb * vec3(0.44, 0.72, 0.96);
-	ALBEDO = tint * 0.52;
+	vec3 tint = aura_color.rgb * vec3(0.55, 0.78, 1.0);
+	ALBEDO = tint * 0.65;
 	EMISSION = tint * flow * emission_energy * plume_energy * effect_visibility;
-	ALPHA = clamp(alpha, 0.0, 0.34);
+	ALPHA = clamp(alpha, 0.0, 0.45);
 }

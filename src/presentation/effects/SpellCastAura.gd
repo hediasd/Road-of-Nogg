@@ -31,7 +31,8 @@ var _hazeMaterial: ShaderMaterial
 var _rayInstance: MeshInstance3D
 var _rayMaterial: ShaderMaterial
 var _centerDarkeningEnabled := true
-var _plumeStateCrossfade := SpellCastAuraProfile.PLUME_STATE_CROSSFADE
+var _hazeStateCrossfade := SpellCastAuraProfile.HAZE_STATE_CROSSFADE
+var _rayStateCrossfade := SpellCastAuraProfile.RAY_STATE_CROSSFADE
 var _elapsedTime := 0.0
 var _playbackScale := 1.0
 var _activeSeed := 0
@@ -162,14 +163,15 @@ func is_center_darkening_enabled() -> bool:
 ## Debug transition control. Zero holds the current atlas cell; one crossfades
 ## continuously into the next. Both paths are deterministic normalized seeks.
 func set_plume_state_crossfade(amount: float) -> void:
-	_plumeStateCrossfade = clampf(amount, 0.0, 1.0)
+	_hazeStateCrossfade = clampf(amount, 0.0, 1.0)
+	_rayStateCrossfade = _hazeStateCrossfade
 	for material: ShaderMaterial in [_hazeMaterial, _rayMaterial]:
 		if material != null:
-			material.set_shader_parameter("state_crossfade", _plumeStateCrossfade)
+			material.set_shader_parameter("state_crossfade", _hazeStateCrossfade)
 
 
 func get_plume_state_crossfade() -> float:
-	return _plumeStateCrossfade
+	return _rayStateCrossfade
 
 
 func get_live_particle_count() -> int:
@@ -222,9 +224,12 @@ func _buildLayers() -> void:
 	_centerDarkeningEnabled = not OS.get_cmdline_user_args().has(
 		_DEBUG_TRANSPARENT_CENTER_FLAG
 	)
-	_plumeStateCrossfade = (
-		1.0 if OS.get_cmdline_user_args().has(_DEBUG_CROSSFADE_PLUME_FLAG)
-		else SpellCastAuraProfile.PLUME_STATE_CROSSFADE
+	var forceCrossfade := OS.get_cmdline_user_args().has(_DEBUG_CROSSFADE_PLUME_FLAG)
+	_hazeStateCrossfade = (
+		1.0 if forceCrossfade else SpellCastAuraProfile.HAZE_STATE_CROSSFADE
+	)
+	_rayStateCrossfade = (
+		1.0 if forceCrossfade else SpellCastAuraProfile.RAY_STATE_CROSSFADE
 	)
 	_footprintInstance = _createFootprintAperture(_elementColor, _centerDarkeningEnabled)
 	add_child(_footprintInstance)
@@ -242,7 +247,7 @@ func _buildLayers() -> void:
 		SpellCastAuraProfile.HAZE_OPACITY,
 		SpellCastAuraProfile.HAZE_EMISSION_ENERGY,
 		SpellCastAuraProfile.HAZE_RENDER_PRIORITY,
-		_plumeStateCrossfade
+		_hazeStateCrossfade
 	)
 	add_child(_hazeInstance)
 	_hazeMaterial = _hazeInstance.material_override as ShaderMaterial
@@ -259,7 +264,7 @@ func _buildLayers() -> void:
 		SpellCastAuraProfile.RAY_OPACITY,
 		SpellCastAuraProfile.RAY_EMISSION_ENERGY,
 		SpellCastAuraProfile.RAY_RENDER_PRIORITY,
-		_plumeStateCrossfade
+		_rayStateCrossfade
 	)
 	add_child(_rayInstance)
 	_rayMaterial = _rayInstance.material_override as ShaderMaterial

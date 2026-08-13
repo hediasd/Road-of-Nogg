@@ -417,28 +417,36 @@ choice: runtime uses the approved low-alpha navy aperture by default.
 retain the transparent comparison path without changing geometry or timing.
 
 The vertical field uses two continuous profiled `ArrayMesh` ring shells with
-different material jobs. The compact inner shell is alpha-mixed deep-blue haze:
-its far side supplies the broad lower-body fan, and only a restricted
-normal-facing portion crosses the character. The taller outer shell is sparse
-additive ghost rays and discards its complete camera-side hemisphere. This
-separates low opaque mass from faint elevated rays, avoids additive body
-bleaching, and prevents a flared carrier from reading as a cyan cup or shoulder
-wing. Both meshes remain world-space at every yaw; neither uses a billboard or
-camera-relative origin.
+different material jobs. The compact inner shell is low-alpha deep-blue haze;
+the taller outer shell is sparse additive ghost rays. Both omit the complete
+camera-side hemisphere, leaving the footprint to close the foreground around
+the feet. That removes the hard front/back seam and keeps the character inside
+the far-side curtain without exposing the carrier as a transparent cup. The
+haze is connective rather than opaque; luminance lives mainly in low-alpha
+rays, so elevated detail never becomes a white flame crown. Both meshes remain
+world-space at every yaw; neither uses a billboard, camera-relative origin, or
+camera-driven transform.
 
 `assets/vfx/spell_cast_aura/plume_flow_atlas.png` is original project artwork
-generated deterministically by the retained adjacent Python/Pillow source. Its
-eleven 64x64 cells encode angular-U by height-V alpha fields. Seven irregular
-Gaussian groups taper toward locally varying heights, producing pointed but
-feathered upward tongues rather than cards or blunt strips; each cell repeats
-its first angular texel at the last column and the generator validates the seam.
+generated deterministically by the retained adjacent Python/Pillow source and
+the normalized measurements in `source_measurements.json`; source screenshot
+pixels are never read or copied. Its eleven 256x256 cells encode angular-U by
+height-V fields: red is low continuous haze, green is sparse ghost rays, blue
+is close root striation, and alpha is their inspection union. The 360-degree
+ray population is twice the measured visible source count, because a world
+shell projects roughly one hemisphere at a time; this preserves the reference
+group density at arbitrary camera yaw without a billboard. Every cell repeats
+its first angular texel at the last column and the generator validates the RGB
+seam before saving.
+
 The CPU maps normalized seek onto the eleven measured source positions and
 passes an explicit atlas position to both shaders. Motion between authored
 states is also derived from this position, so neither shader uses `TIME`.
-Literal comparison selected stepped cells as the shipping default because
-cross-fading blurred the changing frame-specific groupings into generic haze.
-`set_plume_state_crossfade()` and `--spell-aura-crossfade-plume` retain the
-cross-faded inspection path.
+Haze uses a longer keyed crossfade while rays use a short transition that keeps
+their groupings readable. A small normalized angular drift supplies less than
+a quarter turn over the sequence, and the ray shader adds only a `0.045`-unit
+tip displacement. `set_plume_state_crossfade()` and
+`--spell-aura-crossfade-plume` retain a forced common-crossfade inspection path.
 
 The animation is source-keyed rather than a generic charge/decay envelope.
 Separate eleven-value curves control plume energy, aperture radius, rim width,

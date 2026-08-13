@@ -1298,6 +1298,22 @@ low-versus-high energy hierarchy, smooth feathering, source-consistent spin,
 ghost-tip oscillation, aperture hairlines, palette match, transition policy,
 determinism, and orbit stability.
 
+**Resolution:** implemented; pending end-of-plan validation. The deterministic
+atlas now uses eleven measured 256x256 RGB cells: continuous low haze, sparse
+ghost rays, and root hairlines, with a validated periodic seam and no copied
+source pixels. A full 360-degree carrier authors twice the measured visible ray
+population so every camera hemisphere retains the reference grouping density.
+The haze and ray shaders use distinct channel-specific transitions, less than a
+quarter-turn of normalized drift, and a `0.045`-unit ray-tip oscillation; neither
+uses `TIME`, a billboard, or camera-facing transforms. Far-side-only compositing
+removes the former front/back seam, while luminance is concentrated in
+low-alpha additive rays instead of opaque flame caps. The aperture remains one
+dark evolving boundary with close non-travelling hairlines. Black-backdrop
+captures at matched source scale, four timeline checkpoints, and isolated
+haze/ray plates were recorded in the external evidence directory. Godot 4.4
+regenerated imports and parsed the revised atlas and shaders. No battle was
+launched in this implementation item.
+
 ### AURA-4 — Consolidated final visual, lifecycle, and battle validation
 
 **Model:** Opus 5 / GPT Sol
