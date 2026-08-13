@@ -17,7 +17,10 @@ uniform float emission_energy = 0.92;
 uniform float state_crossfade = 0.0;
 uniform float atlas_state_position = 0.0;
 uniform float plume_energy = 1.0;
-uniform float effect_visibility = 0.0;
+uniform float root_ignition = 0.0;
+uniform float reveal_front = 0.0;
+uniform float reveal_softness = 0.08;
+uniform float lifecycle_visibility = 1.0;
 
 const float FRAME_COUNT = 11.0;
 
@@ -38,6 +41,14 @@ vec4 sample_frame(float frame_index, vec2 local_uv) {
 	return texture(plume_atlas, vec2(pixel_x, pixel_y) / atlas_pixel_size);
 }
 
+float vertical_reveal(float height) {
+	if (height >= reveal_front) {
+		return 0.0;
+	}
+	float feather_start = max(reveal_front - reveal_softness, 0.0);
+	return 1.0 - smoothstep(feather_start, max(reveal_front, 0.0001), height);
+}
+
 void fragment() {
 	if (FRONT_FACING) {
 		discard;
@@ -52,6 +63,7 @@ void fragment() {
 	float flow = mix(sample_frame(current, uv).g, sample_frame(following, uv).g, transition);
 	flow = pow(clamp(flow, 0.0, 1.0), 0.68);
 	flow *= smoothstep(0.055, 0.18, UV.y) * (1.0 - smoothstep(0.91, 1.0, UV.y));
+	flow *= vertical_reveal(UV.y);
 	// The source carries its energy below the waist. Tips remain present for
 	// silhouette and oscillation, but lose most of their opacity near head
 	// height instead of becoming equally bright flame petals.
@@ -60,12 +72,13 @@ void fragment() {
 		0.04, 0.34, abs(dot(normalize(NORMAL), normalize(VIEW)))
 	);
 	flow *= view_feather;
-	float alpha = flow * shell_opacity * plume_energy * effect_visibility;
+	float onset_visibility = root_ignition * lifecycle_visibility;
+	float alpha = flow * shell_opacity * plume_energy * onset_visibility;
 	if (alpha < 0.0025) {
 		discard;
 	}
 	vec3 tint = aura_color.rgb * vec3(0.32, 0.70, 1.10);
 	ALBEDO = tint * 0.65;
-	EMISSION = tint * flow * emission_energy * plume_energy * effect_visibility;
+	EMISSION = tint * flow * emission_energy * plume_energy * onset_visibility;
 	ALPHA = clamp(alpha, 0.0, 0.45);
 }

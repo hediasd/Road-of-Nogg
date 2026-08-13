@@ -46,6 +46,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--report", type=Path, required=True)
     parser.add_argument("--sheet", type=Path, required=True)
     parser.add_argument("--command-label", default="unspecified")
+    parser.add_argument("--baseline", type=Path)
+    parser.add_argument("--onset", nargs="+", type=Path)
+    parser.add_argument("--onset-progress", nargs="+", type=float)
     return parser.parse_args()
 
 
@@ -344,6 +347,8 @@ def measure_frame(
         "silhouette_plateau_ratio": silhouette_plateau_ratio(dense),
         "palette": palette_metrics(image, dense),
         "body_overdraw_fraction": body_overdraw(image, body, 28),
+        "faint_pixel_count": len(faint_points),
+        "faint_energy_total": round(sum(point[2] for point in faint_points), 4),
     }
     return metrics, dense
 
@@ -414,6 +419,91 @@ def metric_summary(
     return summary
 
 
+def comparison_value(summary: dict[str, object], name: str) -> float:
+    value = summary[name]
+    assert isinstance(value, dict)
+    for field in ("mean_absolute_error", "mean"):
+        if field in value:
+            return float(value[field])
+    raise ValueError(f"Comparison metric {name} has no scalar error")
+
+
+def baseline_verdict(
+    current: dict[str, object], baseline_path: Path | None
+) -> dict[str, object]:
+    if baseline_path is None:
+        return {
+            "visual_change_in_this_item": "unchanged",
+            "reason": "The baseline pass adds measurement evidence and does not alter aura rendering.",
+        }
+    baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    baseline_summary = baseline["comparison"]
+    verdicts: dict[str, object] = {}
+    for name in current:
+        if name not in baseline_summary:
+            continue
+        old = comparison_value(baseline_summary, name)
+        new = comparison_value(current, name)
+        epsilon = 0.000001
+        verdict = "unchanged"
+        if new < old - epsilon:
+            verdict = "closer"
+        elif new > old + epsilon:
+            verdict = "worse"
+        verdicts[name] = {
+            "baseline_error": old,
+            "current_error": new,
+            "verdict": verdict,
+        }
+    return {
+        "baseline_report": baseline_path.name,
+        "metric_verdicts": verdicts,
+    }
+
+
+def onset_summary(
+    images: list[Image.Image],
+    progress: list[float],
+    source_size: tuple[int, int],
+    source_body: tuple[int, int, int, int],
+    exclusion: tuple[int, int, int, int],
+) -> dict[str, object]:
+    if len(images) != len(progress):
+        raise ValueError("--onset and --onset-progress counts must match")
+    metrics: list[dict[str, object]] = []
+    for image in images:
+        body = detect_render_body(image)
+        frame = register_render(image, body, source_size, source_body)
+        metrics.append(measure_frame(frame, source_body, exclusion)[0])
+    visible = [int(frame["faint_pixel_count"]) for frame in metrics]
+    heights = [float(frame["faint_height"]) for frame in metrics]
+    centroids = [float(frame["energy_centroid_height"]) for frame in metrics]
+    nonzero_centroids = [
+        centroid for centroid, pixels in zip(centroids, visible) if pixels > 0
+    ]
+    return {
+        "frames": [
+            {
+                "progress": round(time, 4),
+                "faint_pixel_count": pixels,
+                "faint_energy_total": frame["faint_energy_total"],
+                "faint_height": frame["faint_height"],
+                "energy_centroid_height": frame["energy_centroid_height"],
+            }
+            for time, pixels, frame in zip(progress, visible, metrics)
+        ],
+        "zero_initial_aura": visible[0] == 0,
+        "visible_height_monotonic": all(
+            following + 0.0001 >= current
+            for current, following in zip(heights, heights[1:])
+        ),
+        "energy_centroid_monotonic_after_ignition": all(
+            following + 0.005 >= current
+            for current, following in zip(nonzero_centroids, nonzero_centroids[1:])
+        ),
+    }
+
+
 def make_sheet(
     sources: list[Image.Image], renders: list[Image.Image], path: Path
 ) -> None:
@@ -479,8 +569,9 @@ def main() -> None:
         for index in range(1, FRAME_COUNT)
     ]
 
+    comparison = metric_summary(source_metrics, render_metrics)
     report = {
-        "schema_version": 1,
+        "schema_version": 2,
         "authority": measurements["authority"],
         "command_label": args.command_label,
         "registration": {
@@ -503,7 +594,7 @@ def main() -> None:
         ],
         "source_metrics": source_metrics,
         "render_metrics": render_metrics,
-        "comparison": metric_summary(source_metrics, render_metrics),
+        "comparison": comparison,
         "temporal_delta": {
             "source": source_temporal,
             "render": render_temporal,
@@ -511,11 +602,18 @@ def main() -> None:
                 abs(a - b) for a, b in zip(source_temporal, render_temporal)
             ),
         },
-        "baseline_verdict": {
-            "visual_change_in_this_item": "unchanged",
-            "reason": "The baseline pass adds measurement evidence and does not alter aura rendering.",
-        },
+        "baseline_verdict": baseline_verdict(comparison, args.baseline),
     }
+    if args.onset:
+        if not args.onset_progress:
+            raise ValueError("--onset requires --onset-progress")
+        report["onset"] = onset_summary(
+            load_images(args.onset),
+            args.onset_progress,
+            source_size,
+            source_body,
+            exclusion,
+        )
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     make_sheet(source_images, registered_renders, args.sheet)

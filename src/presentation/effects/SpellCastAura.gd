@@ -287,7 +287,10 @@ func _buildLayers() -> void:
 
 func _applyProgress(progress: float) -> void:
 	var statePosition := _sourceStatePosition(progress)
-	var visibility := _sourceVisibility(progress)
+	var lifecycleVisibility := _lifecycleVisibility(progress)
+	var footprintIgnition := _footprintIgnition(progress)
+	var plumeRootIgnition := _plumeRootIgnition(progress)
+	var plumeRevealFront := _plumeRevealFront(progress)
 	if _footprintMaterial != null:
 		_footprintMaterial.set_shader_parameter("source_state_position", statePosition)
 		_footprintMaterial.set_shader_parameter(
@@ -302,7 +305,10 @@ func _applyProgress(progress: float) -> void:
 			"striation_visibility",
 			_sampleSourceCurve(progress, SpellCastAuraProfile.APERTURE_STRIATION_CURVE)
 		)
-		_footprintMaterial.set_shader_parameter("effect_visibility", visibility)
+		_footprintMaterial.set_shader_parameter("root_ignition", footprintIgnition)
+		_footprintMaterial.set_shader_parameter(
+			"lifecycle_visibility", lifecycleVisibility
+		)
 	var plumeEnergy := _sampleSourceCurve(
 		progress, SpellCastAuraProfile.PLUME_ENERGY_CURVE
 	)
@@ -326,7 +332,14 @@ func _applyProgress(progress: float) -> void:
 		if material != null:
 			material.set_shader_parameter("atlas_state_position", statePosition)
 			material.set_shader_parameter("plume_energy", plumeEnergy)
-			material.set_shader_parameter("effect_visibility", visibility)
+			material.set_shader_parameter("root_ignition", plumeRootIgnition)
+			material.set_shader_parameter("reveal_front", plumeRevealFront)
+			material.set_shader_parameter(
+				"reveal_softness", SpellCastAuraProfile.PLUME_REVEAL_SOFTNESS
+			)
+			material.set_shader_parameter(
+				"lifecycle_visibility", lifecycleVisibility
+			)
 
 
 func _applySeed(seed: int) -> void:
@@ -365,7 +378,8 @@ static func _createFootprintAperture(
 		SpellCastAuraProfile.CENTER_DARKENING_ALPHA if darkenCenter else 0.0
 	)
 	material.set_shader_parameter("source_state_position", 0.0)
-	material.set_shader_parameter("effect_visibility", 0.0)
+	material.set_shader_parameter("root_ignition", 0.0)
+	material.set_shader_parameter("lifecycle_visibility", 1.0)
 
 	var instance := MeshInstance3D.new()
 	instance.name = "FootprintAperture"
@@ -405,7 +419,12 @@ static func _createFlowShell(
 	material.set_shader_parameter("state_crossfade", stateCrossfade)
 	material.set_shader_parameter("atlas_state_position", 0.0)
 	material.set_shader_parameter("plume_energy", SpellCastAuraProfile.PLUME_ENERGY_CURVE[0])
-	material.set_shader_parameter("effect_visibility", 0.0)
+	material.set_shader_parameter("root_ignition", 0.0)
+	material.set_shader_parameter("reveal_front", 0.0)
+	material.set_shader_parameter(
+		"reveal_softness", SpellCastAuraProfile.PLUME_REVEAL_SOFTNESS
+	)
+	material.set_shader_parameter("lifecycle_visibility", 1.0)
 
 	var instance := MeshInstance3D.new()
 	instance.name = instanceName
@@ -508,9 +527,28 @@ static func _sampleSourceCurve(progress: float, values: Array) -> float:
 	)
 
 
-static func _sourceVisibility(progress: float) -> float:
-	if progress <= SpellCastAuraProfile.CHARGE_END:
-		return smoothstep(0.0, SpellCastAuraProfile.CHARGE_END, progress)
+static func _footprintIgnition(progress: float) -> float:
+	return smoothstep(0.0, SpellCastAuraProfile.FOOTPRINT_IGNITION_END, progress)
+
+
+static func _plumeRootIgnition(progress: float) -> float:
+	return smoothstep(
+		SpellCastAuraProfile.PLUME_EMISSION_START,
+		SpellCastAuraProfile.PLUME_ROOT_IGNITION_END,
+		progress
+	)
+
+
+static func _plumeRevealFront(progress: float) -> float:
+	var revealProgress := smoothstep(
+		SpellCastAuraProfile.PLUME_EMISSION_START,
+		SpellCastAuraProfile.CHARGE_END,
+		progress
+	)
+	return revealProgress * SpellCastAuraProfile.PLUME_REVEAL_END
+
+
+static func _lifecycleVisibility(progress: float) -> float:
 	var sourceEnd := float(SpellCastAuraProfile.SOURCE_STATE_PROGRESS[-1])
 	if progress <= sourceEnd:
 		return 1.0

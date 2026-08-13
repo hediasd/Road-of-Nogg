@@ -192,6 +192,44 @@ item if a full-height silhouette is visible before the reveal arrives or if the
 ring reads as a slow puddle. Replan carrier geometry if clipping exposes its
 tessellation.
 
+**Resolution (2026-08-13):** Implemented; pending end-of-plan validation.
+
+- The old `effect_visibility` onset multiplier is gone. Footprint ignition,
+  plume-root ignition, reveal-front height, keyed plume energy, and lifecycle
+  decay are independent normalized channels. Both plume shaders hard-zero
+  coverage at and above the front and feather behind it; no already-complete
+  crown is translated or globally faded into view.
+- The authored sequence is empty at `0.00`; the footprint reaches full ignition
+  by `0.018`; plume emission begins at `0.010`, its root reaches full strength
+  at `0.040`, and the front finishes above UV 1.0 at `0.08`. The ring-only read
+  therefore lasts roughly two 0.01 probes (about 23 ms at the 1.15 s duration),
+  not a slow puddle phase.
+- Nine captures at 0.01 spacing prove zero initial blue/aura pixels, monotonic
+  visible height, and monotonic energy-centroid rise after ignition. At `0.08`,
+  all 4,484 faint-mask pixels and the complete image are byte-identical to the
+  frozen first source-state render.
+- The eleven-state comparison classifies every silhouette, aperture, palette,
+  angular, and band/edge metric as **unchanged**; no supplied source state got
+  worse, and all eleven complete images are byte-identical to the frozen
+  baseline. A second process captured the nine onset times in scrambled order;
+  every hash matches the ascending-order capture, proving history-independent
+  seek. Relative to the user's uncaptured onset authority, zero-to-rise is
+  **closer** because the previous full-height alpha fade has been replaced by
+  measurable bottom-to-top growth.
+- Partial captures at `0.03` and `0.04` expose the current shell as a smooth
+  hoop/cup before it becomes the full petal cage. AURA-R3 is replanned to include
+  `0.03`, `0.04`, and `0.05` in every carrier A/B and to reject any technique
+  whose partial reveal announces its carrier even when its complete state is
+  source-closer.
+- The comparator now accepts a frozen baseline and reports per-metric
+  closer/unchanged/worse verdicts; optional onset frames add zero-pixel, height,
+  energy, and centroid checks without mislabeling them as supplied source.
+  Godot 4.4's rendered capture log contains no shader/script errors, its editor
+  import/parse exited 0, and the focused `git diff --check` passed. No battle
+  was launched. No backlog edit was needed: the exposed carrier defect is the
+  next in-scope item, and the pre-existing battle shutdown defect is already
+  tracked in `BACKLOG_CRITICAL.md`.
+
 ### AURA-R3 — Eliminate striped terraces and select the world-space carrier
 
 **Model:** Opus 5 / GPT Sol
@@ -232,6 +270,12 @@ proof that no camera billboard rule controls the plume.
 choose on recorded evidence. If neither is closer in both silhouette and
 continuity, commit no visual carrier change, update this item with the failed
 evidence, and replan a third technique before advancing.
+
+The comparison set for this item now includes the partial-onset states `0.03`,
+`0.04`, and `0.05` in addition to the eleven source checkpoints. This addition
+is required by the preceding onset evidence: a complete-state render can hide
+the hoop/cup silhouette that becomes unmistakable while the reveal front is
+mid-carrier.
 
 ### AURA-R4 — Reconstruct the source layer stack with project-owned masks and materials
 

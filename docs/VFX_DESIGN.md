@@ -463,6 +463,12 @@ python assets/vfx/spell_cast_aura/compare_replica.py \
   --sheet debug/aura_comparison.png --command-label <capture-contract>
 ```
 
+Later iterations pass `--baseline=<report>` to classify every shared metric as
+closer, unchanged, or worse. `--onset <frames>` plus matching
+`--onset-progress <times>` adds zero-pixel, visible-height, energy, and centroid
+checks for the uncaptured lead-in without pretending those frames came from the
+source sequence.
+
 The report measures faint/dense silhouette bounds, energy centroid, aperture,
 angular distribution, palette, body overdraw, temporal deltas, and several
 horizontal-edge probes. Those last probes are supporting signals rather than
@@ -487,6 +493,15 @@ the source's early crest, trough, and smaller secondary swell. The final source
 state remains fully visible at normalized time `0.82`; a separate smooth
 visibility tail clears every layer by `0.90`. Seed changes apply only a subtle
 angular phase offset and cannot replace these curves or their silhouette.
+
+The lead-in is not a global fade of that complete state. At normalized time
+`0.0`, footprint and plume root ignition are both zero. The footprint ignites
+first; the plume begins at `0.01`, and a world-height reveal front climbs from
+the shell root through `0.08`. Its feather sits behind the front, so no plume
+pixel can appear above it. The front finishes above UV 1.0, leaving the first
+measured state byte-identical to the pre-onset baseline. Root ignition, reveal
+height, keyed plume energy, and lifecycle decay remain separate normalized
+channels, with no shader `TIME` dependency.
 
 The rejected core cards, crossed ribbons, and `GPUParticles3D` mist have been
 removed with their owned shaders. Haze and rays own separate materials and

@@ -11,6 +11,15 @@ const PROFILE_ID := ""
 ## AUTHORED duration and normalized playback contract, retained for callers.
 const DURATION_SECONDS := 1.15
 const CHARGE_END := 0.08
+## AUTHORED onset translation. The source sequence begins at CHARGE_END, so the
+## uncaptured lead-in follows the user's explicit zero -> ring -> rising plume
+## direction. The reveal front finishes above UV 1.0 so source state 1 is not
+## attenuated at its top edge.
+const FOOTPRINT_IGNITION_END := 0.018
+const PLUME_EMISSION_START := 0.010
+const PLUME_ROOT_IGNITION_END := 0.040
+const PLUME_REVEAL_SOFTNESS := 0.080
+const PLUME_REVEAL_END := 1.0 + PLUME_REVEAL_SOFTNESS
 const DECAY_END := 0.90
 const SETTLE_NORMALIZED_TIME := 0.92
 const ACTION_HOLD_FRACTION := 0.48

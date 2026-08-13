@@ -18,7 +18,10 @@ uniform float emission_energy = 0.24;
 uniform float state_crossfade = 0.0;
 uniform float atlas_state_position = 0.0;
 uniform float plume_energy = 1.0;
-uniform float effect_visibility = 0.0;
+uniform float root_ignition = 0.0;
+uniform float reveal_front = 0.0;
+uniform float reveal_softness = 0.08;
+uniform float lifecycle_visibility = 1.0;
 
 const float FRAME_COUNT = 11.0;
 
@@ -37,6 +40,14 @@ vec4 sample_state(vec2 local_uv) {
 	return mix(sample_frame(current, local_uv), sample_frame(following, local_uv), transition);
 }
 
+float vertical_reveal(float height) {
+	if (height >= reveal_front) {
+		return 0.0;
+	}
+	float feather_start = max(reveal_front - reveal_softness, 0.0);
+	return 1.0 - smoothstep(feather_start, max(reveal_front, 0.0001), height);
+}
+
 void fragment() {
 	if (FRONT_FACING) {
 		discard;
@@ -50,11 +61,13 @@ void fragment() {
 	float vertical = smoothstep(0.055, 0.26, UV.y) * (1.0 - smoothstep(0.78, 1.0, UV.y));
 	float haze = pow(clamp(measured_haze, 0.0, 1.0), 0.88) * vertical;
 	haze = clamp(haze + root_detail * 0.16, 0.0, 1.0);
+	haze *= vertical_reveal(UV.y);
 	float facing = dot(normalize(NORMAL), normalize(VIEW));
 	// A profiled shell is only a sampling carrier. Extinguishing its grazing
 	// edge prevents the mesh from announcing itself as a dome or cup.
 	haze *= 0.12 + 0.88 * smoothstep(0.015, 0.34, abs(facing));
-	float alpha = haze * shell_opacity * plume_energy * effect_visibility;
+	float onset_visibility = root_ignition * lifecycle_visibility;
+	float alpha = haze * shell_opacity * plume_energy * onset_visibility;
 	if (alpha < 0.0025) {
 		discard;
 	}
@@ -63,6 +76,6 @@ void fragment() {
 	vec3 body_blue = tint * vec3(0.34, 0.72, 1.00);
 	vec3 color = mix(deep_blue, body_blue, clamp(haze * 0.72, 0.0, 1.0));
 	ALBEDO = color;
-	EMISSION = body_blue * haze * emission_energy * plume_energy * effect_visibility;
+	EMISSION = body_blue * haze * emission_energy * plume_energy * onset_visibility;
 	ALPHA = clamp(alpha, 0.0, 0.42);
 }

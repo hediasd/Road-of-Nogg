@@ -20,7 +20,8 @@ uniform float striation_visibility : hint_range(0.0, 1.0) = 1.0;
 uniform float rim_emission_energy : hint_range(0.0, 8.0) = 0.58;
 uniform float center_darkening : hint_range(0.0, 1.0) = 0.0;
 uniform float source_state_position : hint_range(0.0, 10.0) = 0.0;
-uniform float effect_visibility : hint_range(0.0, 1.0) = 0.0;
+uniform float root_ignition : hint_range(0.0, 1.0) = 0.0;
+uniform float lifecycle_visibility : hint_range(0.0, 1.0) = 1.0;
 
 varying vec2 v_local;
 
@@ -79,7 +80,7 @@ void fragment() {
 		rim * rim_alpha
 		+ striations * striation_alpha
 		+ aperture_fill * center_darkening
-	) * effect_visibility;
+	) * root_ignition * lifecycle_visibility;
 	if (mixed_alpha < 0.0025) {
 		discard;
 	}
@@ -89,6 +90,7 @@ void fragment() {
 	float light_mask = clamp(rim + striations * 0.72, 0.0, 1.0);
 	vec3 color = mix(ink, tint, light_mask * 0.82);
 	ALBEDO = color;
-	EMISSION = tint * light_mask * rim_emission_energy * effect_visibility;
+	EMISSION = tint * light_mask * rim_emission_energy
+		* root_ignition * lifecycle_visibility;
 	ALPHA = clamp(mixed_alpha, 0.0, 0.78);
 }
