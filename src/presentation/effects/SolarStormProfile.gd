@@ -124,6 +124,14 @@ const MIN_FOOTPRINT_RADIUS_TILES := 1
 const FIELD_SCALE := 0.85
 const EDGE_FADE := 0.12
 
+## AUTHORED heat wash. Geometry under the storm takes its own warm glow, peaking
+## as the ejection front passes rather than tracking overall brightness -- the
+## board should feel the arrival, not the ambience. Bounded by the corona's
+## falloff so the wash stops where the storm does.
+const HEAT_TINT := Color(1.0, 0.42, 0.13)
+const HEAT_WASH_GAIN := 1.20
+const HEAT_WASH_CURVE := [0.0, 0.22, 0.85, 1.00, 0.15]
+
 ## AUTHORED occlusion response, inherited from the sibling.
 const MODEL_BOOST := 3.0
 const OCCLUSION_FEATHER := 0.18

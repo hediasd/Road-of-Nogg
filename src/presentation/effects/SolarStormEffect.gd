@@ -303,6 +303,11 @@ static func tunables() -> Array[Dictionary]:
 			"default": SolarStormProfile.LIMB_GAIN, "rebuild": false,
 		},
 		{
+			"id": "HEAT_WASH_GAIN", "label": "Heat wash", "group": "Occlusion",
+			"min": 0.0, "max": 3.0, "step": 0.05,
+			"default": SolarStormProfile.HEAT_WASH_GAIN, "rebuild": false,
+		},
+		{
 			"id": "PROMINENCE_GAIN", "label": "Prominence gain", "group": "Prominences",
 			"min": 0.0, "max": 4.0, "step": 0.05,
 			"default": SolarStormProfile.PROMINENCE_GAIN, "rebuild": false,
@@ -420,6 +425,7 @@ func _applyStaticUniforms() -> void:
 		"prominence_weight", SolarStormProfile.PROMINENCE_WEIGHT
 	)
 	_stormMaterial.set_shader_parameter("grain_hz", SolarStormProfile.GRAIN_HZ)
+	_stormMaterial.set_shader_parameter("heat_tint", SolarStormProfile.HEAT_TINT)
 	_stormMaterial.set_shader_parameter(
 		"occlusion_feather", SolarStormProfile.OCCLUSION_FEATHER
 	)
@@ -464,6 +470,7 @@ func _applyTunableUniforms() -> void:
 		"pixel_cells": ["PIXEL_CELLS", SolarStormProfile.PIXEL_CELLS],
 		"model_boost": ["MODEL_BOOST", SolarStormProfile.MODEL_BOOST],
 		"occlusion_gain": ["OCCLUSION_GAIN", SolarStormProfile.OCCLUSION_GAIN],
+		"heat_wash_gain": ["HEAT_WASH_GAIN", SolarStormProfile.HEAT_WASH_GAIN],
 	}
 	for uniform: String in rows:
 		var row: Array = rows[uniform]
@@ -535,6 +542,10 @@ func _applyProgress(progress: float) -> void:
 	_stormMaterial.set_shader_parameter(
 		"lifecycle_visibility",
 		_sampleKeyedCurve(progress, SolarStormProfile.VISIBILITY_CURVE)
+	)
+	_stormMaterial.set_shader_parameter(
+		"heat_wash",
+		_sampleKeyedCurve(progress, SolarStormProfile.HEAT_WASH_CURVE)
 	)
 	_stormMaterial.set_shader_parameter(
 		"prominence_rise",

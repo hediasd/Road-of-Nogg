@@ -105,6 +105,14 @@ uniform sampler2D depth_texture : hint_depth_texture, filter_nearest;
 uniform float model_boost = 3.0;
 uniform float occlusion_gain = 2.4;
 uniform float occlusion_feather = 0.18;
+// Heat wash: geometry standing under the storm takes on its own warm glow,
+// ramping as the ejection front arrives. This is what gives the storm a ground
+// consequence rather than leaving it a backdrop -- the board is lit by the event
+// instead of merely being behind it. Bounded by the corona's own falloff so the
+// wash stops where the storm does.
+uniform vec3 heat_tint : source_color = vec3(1.0, 0.42, 0.13);
+uniform float heat_wash = 0.0;
+uniform float heat_wash_gain = 0.85;
 
 // --- Grade and lifecycle ----------------------------------------------------
 uniform float exposure = 1.0;
@@ -341,6 +349,18 @@ void fragment() {
 	// showing through and lit rather than painted over -- gives this ALBEDO. One
 	// pass is therefore both a field over the background and a light on the
 	// models, with no second draw and no second blend mode.
-	ALBEDO = mix(storm, behind + storm * model_boost, occluded);
-	ALPHA = mix(energy, clamp(energy * occlusion_gain, 0.0, 1.0), occluded);
+	// The wash is spatially bounded by `corona`, not by the storm's full
+	// intensity: keyed to intensity it would only appear under the streams and
+	// the front, giving the board a striped scorch instead of an even heat.
+	float wash = heat_wash * heat_wash_gain * clamp(corona / max(corona_gain, 0.0001), 0.0, 1.0) * fov;
+	vec3 lit = behind + storm * model_boost + srgb_to_linear(heat_tint) * wash;
+
+	ALBEDO = mix(storm, lit, occluded);
+	// The wash also lifts coverage, or it would be invisible wherever the
+	// storm's own field is faint -- which is most of where the board actually is.
+	ALPHA = mix(
+		energy,
+		clamp(max(energy * occlusion_gain, wash), 0.0, 1.0),
+		occluded
+	);
 }
