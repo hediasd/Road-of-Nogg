@@ -130,33 +130,46 @@ not byte comparison.
 
 ## 4. Conventions for a new effect
 
-### Fork, don't abstract — until the third
+### Fork siblings; author everything else fresh
 
-`IceStormEffect` and `FireStormEffect` are separate files with near-identical
-lifecycle code. That is deliberate: profile constants are `const` on a class
-rather than an injectable resource, so there is no seam to subclass against, and
-extracting one for two effects costs more than it saves.
+**A new effect starts from a blank file unless an existing effect is its
+sibling.** Siblings share a *structure*, not a category: the same layer roles in
+the same arrangement, the same shape of timeline, the same carrier geometry.
+Two effects being "both spells", "both elemental", or "both area" makes them
+neither siblings nor candidates for shared code.
 
-**The third elemental effect is the trigger to reconsider.** At three copies the
-shared shape is proven, and the payoff — a `SpellVfxProfile` resource, after
-which a new element is a `.tres` rather than a forked file — is real. Doing it
-at two is speculative; doing it at four is late.
+The choice, in order:
 
-**Reconsidered at the third, 2026-08-08, and declined — the trigger was
-counting the wrong thing.** `MagentaReductionEffect` was the third elemental
-effect, and it was forked anyway. What the first two share is not "an effect",
-it is the structure of a *storm*: ground wash, an outward and upward particle
-field, a crown above it, one continuous arc from onset to settle. The implosion
-has none of that — it pulls inward, it runs a four-beat timeline whose third
-beat holds before anything is released, and it carries a core and a discharge
+- **Structurally new** — author it fresh. Take the `VfxPlayback` lifecycle
+  contract and the provenance-label discipline, and design the rest to the look.
+  Inventing new layer roles, a new timeline shape, or a new carrier is expected
+  work, not scope creep.
+- **A sibling exists** — fork it, rename, and change only what the new look
+  requires.
+- **Three-plus proven siblings** — then consider extracting a shared resource,
+  and only over the parts they genuinely share.
+
+Reuse is earned by demonstrated structural sameness. Reaching for a donor file
+because it is nearby, or bending a new look toward an old one so the fork stays
+small, costs more than the duplication it avoids.
+
+**The record behind this rule.** `IceStormEffect` and `FireStormEffect` are
+separate files with near-identical lifecycle code, because profile constants are
+`const` on a class rather than an injectable resource — there is no seam to
+subclass against. A "reconsider at the third elemental effect" trigger was set,
+reached on 2026-08-08, and declined: `MagentaReductionEffect` was the third
+elemental effect and was forked anyway. What the first two share is not "an
+effect", it is the structure of a *storm* — ground wash, an outward and upward
+particle field, a crown above it, one continuous arc from onset to settle. The
+implosion has none of that. It pulls inward, runs a four-beat timeline whose
+third beat holds before anything is released, and carries a core and a discharge
 while dropping the crown. A resource abstracted from three files where the third
 only barely fits would have fixed the wrong shape for everything after it.
+`BACKLOG_LONGTERM.md` tracks the storm-shaped extraction and records that
+`IceStormProfile`'s `MEASURED` labels have to survive any migration.
 
-**Restated trigger: the next effect that is structurally a storm**, counting
-shapes rather than files. Tracked in `BACKLOG_LONGTERM.md`, which also records
-that `IceStormProfile`'s `MEASURED` labels have to survive any migration. The
-general lesson is worth keeping: *a "do it at the third" rule needs to say the
-third **what**.*
+The general lesson: *a "do it at the third" rule needs to say the third **what***
+— and until that count is reached on the right noun, new work is free to be new.
 
 ### Provenance labels
 
@@ -976,8 +989,9 @@ conversation about it happens while it is still cheap to change.
 
 1. **Confirm the carrier.** Which spell selects this profile, and what are its
    `RADIUS` and `AREA_SHAPE`? Design to that, not to a hypothetical.
-2. **Fork** the closest existing effect and profile. Rename; change only what
-   the new look requires.
+2. **Decide fork vs. fresh** by §4's sibling test. Fork only a structural
+   sibling — then rename and change only what the new look requires. Otherwise
+   start from a blank file and keep just the `VfxPlayback` contract.
 3. **Author the shader** as a pure function of `INDEX` and `playback_time`.
 4. **Set the layer roster.** Drop inherited layers with no equivalent — that is
    what frees node budget for new ones.

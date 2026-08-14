@@ -862,5 +862,29 @@
 		"RANGE": 3,
 		"TARGET_TYPE": "area",
 		"VFX_PROFILE": "magenta_reduction"
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
+		"DAMAGE": 4,
+		"DESC": "Draws a shimmering veil across the target's sight until it can no longer tell the field from the light.",
+		"ELEMENT": "darkness",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Aurora Veil",
+		"RADIUS": 2,
+		"RANGE": 4,
+		"TARGET_TYPE": "area",
+		"VFX_PROFILE": "aurora_veil"
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
+		"DAMAGE": 7,
+		"DESC": "Tears a hole in the daylight and lets what stands behind it throw its fire across the field.",
+		"ELEMENT": "fire",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Solar Storm",
+		"RADIUS": 3,
+		"RANGE": 5,
+		"TARGET_TYPE": "area",
+		"VFX_PROFILE": "solar_storm"
 	}
 ]

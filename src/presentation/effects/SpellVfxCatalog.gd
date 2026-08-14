@@ -10,6 +10,10 @@ const MagentaReductionEffectScript = preload(
 		"res://src/presentation/effects/MagentaReductionEffect.gd")
 const IceTargetEncasementEffectScript = preload(
 		"res://src/presentation/effects/IceTargetEncasementEffect.gd")
+const AuroraVeilEffectScript = preload(
+		"res://src/presentation/effects/AuroraVeilEffect.gd")
+const SolarStormEffectScript = preload(
+		"res://src/presentation/effects/SolarStormEffect.gd")
 const GENERIC_AURA_PROFILE_ID := SpellCastAuraProfile.PROFILE_ID
 
 
@@ -49,6 +53,20 @@ static func entries() -> Array[Dictionary]:
 			"factory": Callable(IceTargetEncasementEffectScript, "createPlayback"),
 			"action_hold_fraction": IceTargetEncasementProfile.ACTION_HOLD_FRACTION,
 			"max_live": IceTargetEncasementProfile.MAX_LIVE_ENCASEMENTS,
+		},
+		{
+			"profile_id": AuroraVeilProfile.PROFILE_ID,
+			"display_name": "Aurora Veil",
+			"factory": Callable(AuroraVeilEffectScript, "createPlayback"),
+			"action_hold_fraction": AuroraVeilProfile.ACTION_HOLD_FRACTION,
+			"max_live": AuroraVeilProfile.MAX_LIVE_VEILS,
+		},
+		{
+			"profile_id": SolarStormProfile.PROFILE_ID,
+			"display_name": "Solar Storm",
+			"factory": Callable(SolarStormEffectScript, "createPlayback"),
+			"action_hold_fraction": SolarStormProfile.ACTION_HOLD_FRACTION,
+			"max_live": SolarStormProfile.MAX_LIVE_STORMS,
 		},
 	]
 
