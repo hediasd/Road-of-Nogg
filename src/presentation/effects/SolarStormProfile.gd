@@ -7,8 +7,47 @@
 
 class_name SolarStormProfile
 
-## DERIVED from the catalog row and the carrier spell's `VFX_PROFILE`.
+## DERIVED from the catalog row and the carrier spell's `VFX_PROFILE`. This is
+## the full effect -- the v2.4 rung -- and the one the spell selects.
 const PROFILE_ID := "solar_storm"
+
+## The version ladder, exposed as separate catalog rows so each addition can be
+## compared against the one before it in the debug scene. They are override sets
+## on a single effect rather than forked files: every rung shares one field, and
+## each step only switches a later feature off. Forking five copies to compare
+## five values would guarantee they drift apart under exactly the tuning the
+## comparison exists to inform.
+##
+## The rows are an authoring aid, not content. Nothing in `data/spells.json`
+## points at them, and `PROFILE_ID` above stays the gameplay entry point.
+const PROFILE_ID_V2 := "solar_storm_v2"
+const PROFILE_ID_V2_1 := "solar_storm_v2_1"
+const PROFILE_ID_V2_2 := "solar_storm_v2_2"
+const PROFILE_ID_V2_3 := "solar_storm_v2_3"
+
+## v2: the radial pulse alone, replacing v1's lateral wave. Everything the later
+## rungs add is switched off.
+const VARIANT_V2 := {
+	"PROMINENCE_GAIN": 0.0,
+	"HEAT_WASH_GAIN": 0.0,
+	"FLARE_GAIN": 0.0,
+	"FLAME_TURBULENCE": 0.0,
+}
+## v2.1 adds the prominence arches.
+const VARIANT_V2_1 := {
+	"HEAT_WASH_GAIN": 0.0,
+	"FLARE_GAIN": 0.0,
+	"FLAME_TURBULENCE": 0.0,
+}
+## v2.2 adds the heat wash on the board.
+const VARIANT_V2_2 := {
+	"FLARE_GAIN": 0.0,
+	"FLAME_TURBULENCE": 0.0,
+}
+## v2.3 adds the flare bloom at the launch beat.
+const VARIANT_V2_3 := {
+	"FLAME_TURBULENCE": 0.0,
+}
 
 ## DERIVED from `data/spells.json`.
 const CARRIER_RADIUS_TILES := 3

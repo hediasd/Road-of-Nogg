@@ -75,6 +75,56 @@ static func createPlayback(
 	return playback
 
 
+## Version-ladder factories. Each rung switches off the features added after it,
+## so the debug scene can hold v2 through v2.4 side by side and see what each
+## step actually bought. Panel overrides win over the variant's, so a rung stays
+## tunable rather than frozen.
+##
+## `VFXDebugController` reads its whole roster from the catalog, so registering
+## these rows is all that is needed for them to appear -- see `SpellVfxCatalog`.
+static func _createVariant(
+		variant: Dictionary,
+		parent: Node3D,
+		world_pos: Vector3,
+		element_color: Color,
+		overrides: Dictionary) -> SolarStormEffect:
+	var merged := variant.duplicate()
+	merged.merge(overrides, true)
+	return createPlayback(parent, world_pos, element_color, merged)
+
+
+static func createV2(
+		parent: Node3D, world_pos: Vector3, element_color: Color,
+		overrides: Dictionary = {}) -> SolarStormEffect:
+	return _createVariant(
+		SolarStormProfile.VARIANT_V2, parent, world_pos, element_color, overrides
+	)
+
+
+static func createV2_1(
+		parent: Node3D, world_pos: Vector3, element_color: Color,
+		overrides: Dictionary = {}) -> SolarStormEffect:
+	return _createVariant(
+		SolarStormProfile.VARIANT_V2_1, parent, world_pos, element_color, overrides
+	)
+
+
+static func createV2_2(
+		parent: Node3D, world_pos: Vector3, element_color: Color,
+		overrides: Dictionary = {}) -> SolarStormEffect:
+	return _createVariant(
+		SolarStormProfile.VARIANT_V2_2, parent, world_pos, element_color, overrides
+	)
+
+
+static func createV2_3(
+		parent: Node3D, world_pos: Vector3, element_color: Color,
+		overrides: Dictionary = {}) -> SolarStormEffect:
+	return _createVariant(
+		SolarStormProfile.VARIANT_V2_3, parent, world_pos, element_color, overrides
+	)
+
+
 ## The panel anchors on the impact position rather than on individual targets:
 ## one storm covers the whole footprint, and overlapping panels would compound
 ## their grade instead of reading as several storms.
