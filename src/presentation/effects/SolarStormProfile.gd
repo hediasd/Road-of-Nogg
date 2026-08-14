@@ -93,6 +93,20 @@ const PROMINENCE_GAIN := 0.60
 ## ignition, stand through the launch, and subside as the corona fades.
 const PROMINENCE_RISE_CURVE := [0.10, 0.72, 1.00, 0.88, 0.35]
 
+## AUTHORED flare bloom: a short whiteout at the launch beat, so the storm has a
+## moment of release rather than a steady glow.
+##
+## Deliberately *not* a keyed curve like every other envelope here. The shared
+## keys sit on the beat boundaries and interpolate linearly between them, so a
+## peak authored at LAUNCH becomes a ramp climbing from 0.14 and decaying to
+## 0.78 -- a swell across two thirds of the cast rather than a flash. A spike
+## needs a width shorter than the gap between beats, so it is evaluated
+## analytically as a narrow gaussian instead.
+const FLARE_GAIN := 0.85
+const FLARE_REACH := 0.45
+const FLARE_CENTRE := 0.42
+const FLARE_WIDTH := 0.045
+
 ## ESTIMATED grade.
 const EXPOSURE := 1.0
 const GRAIN_STRENGTH := 0.055

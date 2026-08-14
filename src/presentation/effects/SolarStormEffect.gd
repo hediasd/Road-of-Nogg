@@ -303,6 +303,16 @@ static func tunables() -> Array[Dictionary]:
 			"default": SolarStormProfile.LIMB_GAIN, "rebuild": false,
 		},
 		{
+			"id": "FLARE_GAIN", "label": "Flare bloom", "group": "Grade",
+			"min": 0.0, "max": 4.0, "step": 0.05,
+			"default": SolarStormProfile.FLARE_GAIN, "rebuild": false,
+		},
+		{
+			"id": "FLARE_REACH", "label": "Flare reach", "group": "Grade",
+			"min": 0.05, "max": 2.0, "step": 0.01,
+			"default": SolarStormProfile.FLARE_REACH, "rebuild": false,
+		},
+		{
 			"id": "HEAT_WASH_GAIN", "label": "Heat wash", "group": "Occlusion",
 			"min": 0.0, "max": 3.0, "step": 0.05,
 			"default": SolarStormProfile.HEAT_WASH_GAIN, "rebuild": false,
@@ -471,6 +481,8 @@ func _applyTunableUniforms() -> void:
 		"model_boost": ["MODEL_BOOST", SolarStormProfile.MODEL_BOOST],
 		"occlusion_gain": ["OCCLUSION_GAIN", SolarStormProfile.OCCLUSION_GAIN],
 		"heat_wash_gain": ["HEAT_WASH_GAIN", SolarStormProfile.HEAT_WASH_GAIN],
+		"flare_gain": ["FLARE_GAIN", SolarStormProfile.FLARE_GAIN],
+		"flare_reach": ["FLARE_REACH", SolarStormProfile.FLARE_REACH],
 	}
 	for uniform: String in rows:
 		var row: Array = rows[uniform]
@@ -543,6 +555,7 @@ func _applyProgress(progress: float) -> void:
 		"lifecycle_visibility",
 		_sampleKeyedCurve(progress, SolarStormProfile.VISIBILITY_CURVE)
 	)
+	_stormMaterial.set_shader_parameter("flare_bloom", _flareBloom(progress))
 	_stormMaterial.set_shader_parameter(
 		"heat_wash",
 		_sampleKeyedCurve(progress, SolarStormProfile.HEAT_WASH_CURVE)
@@ -560,6 +573,13 @@ func _applyProgress(progress: float) -> void:
 		tunable("GRAIN_STRENGTH", SolarStormProfile.GRAIN_STRENGTH)
 			* _sampleKeyedCurve(progress, SolarStormProfile.GRAIN_CURVE)
 	)
+
+
+## Narrow gaussian centred on the launch beat. See the profile for why this is
+## analytic rather than another keyed curve.
+static func _flareBloom(progress: float) -> float:
+	var offset := (progress - SolarStormProfile.FLARE_CENTRE) 		/ maxf(SolarStormProfile.FLARE_WIDTH, 0.0001)
+	return exp(-offset * offset)
 
 
 static func _sampleKeyedCurve(progress: float, values: Array) -> float:

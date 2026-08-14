@@ -115,6 +115,14 @@ uniform float heat_wash = 0.0;
 uniform float heat_wash_gain = 0.85;
 
 // --- Grade and lifecycle ----------------------------------------------------
+// Flare bloom: a short whiteout at the launch beat. Driven as a separate scalar
+// rather than folded into the visibility envelope, because it has to be able to
+// spike far past full brightness and recover without dragging the storm's own
+// fade with it.
+uniform float flare_bloom = 0.0;
+uniform float flare_gain = 1.30;
+uniform float flare_reach = 0.45;
+
 uniform float exposure = 1.0;
 uniform float grain_strength = 0.055;
 uniform float grain_hz = 12.0;
@@ -306,6 +314,13 @@ void fragment() {
 
 	float pulse_gain = 1.0 + pulse * pulse_intensity;
 	float intensity = (corona + streamer) * pulse_gain + arc + prominences;
+
+	// The flare blooms out of the occulter, so its lift falls off with radius:
+	// applied flat it reads as the exposure being pulled rather than as the star
+	// releasing. `flare_reach` sets how far out the whiteout carries.
+	float flare = flare_bloom * exp(-max(r - occulter_radius, 0.0)
+		/ max(flare_reach, 0.0001));
+	intensity += flare * flare_gain;
 
 	// --- occulter, limb, and instrument field of view ------------------------
 	float disk = smoothstep(occulter_radius - occulter_edge, occulter_radius, r);
