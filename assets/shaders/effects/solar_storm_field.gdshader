@@ -68,14 +68,35 @@ uniform float arc_gain = 1.05;
 uniform float arc_warp = 0.075;
 uniform float arc_span = 0.62;
 
+// --- Prominences ------------------------------------------------------------
+// Plasma loops anchored at two points on the limb, arching out and back. Modelled
+// as a semi-ellipse in polar space whose radial height falls to the occulter
+// radius at both footpoints, so each loop attaches to the limb by construction
+// rather than needing its ends faded out. Three are authored; `prominence_rise`
+// scales their height over the timeline so they grow and subside.
+uniform vec3 prominence_centre = vec3(0.62, 0.90, 0.28);
+uniform vec3 prominence_width = vec3(0.085, 0.060, 0.045);
+uniform vec3 prominence_height = vec3(0.230, 0.165, 0.120);
+uniform vec3 prominence_weight = vec3(1.00, 0.80, 0.65);
+uniform float prominence_thickness = 0.022;
+uniform float prominence_gain = 1.25;
+uniform float prominence_rise = 1.0;
+
 // --- Field of view ----------------------------------------------------------
 uniform float fov_radius = 0.78;
 uniform float fov_edge = 0.26;
 
-// --- Wave and pixels --------------------------------------------------------
-uniform float wave_amplitude = 0.006;
-uniform float wave_frequency = 3.5;
-uniform float wave_speed = 2.0;
+// --- Pulse and pixels -------------------------------------------------------
+// Outward radial travel, replacing the sibling's lateral sine wobble. That
+// wobble is a mirage shimmer -- the right verb for a hallucination and the wrong
+// one for an invocation. This displaces and brightens *along* the radial
+// direction with phase `r * frequency - time * speed`, so fronts propagate from
+// the occulter out to the edges the way a solar shock does, and the motion
+// agrees with the field's own polar geometry instead of cutting across it.
+uniform float pulse_amplitude = 0.010;
+uniform float pulse_frequency = 4.0;
+uniform float pulse_speed = 1.1;
+uniform float pulse_intensity = 0.22;
 uniform float pixel_cells = 56.0;
 
 // --- Occlusion --------------------------------------------------------------
@@ -143,6 +164,23 @@ float gaussian(float distance, float width) {
 	return exp(-k * k);
 }
 
+// One plasma loop. `d` is the wrapped angular distance from the loop's centre,
+// so the arch is a semi-ellipse whose crown sits at `height` above the limb and
+// whose radius returns to the limb exactly at both footpoints.
+float prominence_arch(
+		float theta, float r, float centre, float half_width, float height) {
+	float d = abs(fract(theta - centre + 0.5) - 0.5);
+	float k = d / max(half_width, 0.0001);
+	if (k >= 1.0) {
+		return 0.0;
+	}
+	float arch = occulter_radius + height * sqrt(max(1.0 - k * k, 0.0));
+	// Loops are brightest along their legs and at the crown, and thin in
+	// between, which is what stops them reading as plain semicircles.
+	float leg = 0.72 + 0.28 * cos(k * 3.0 * TAU_VALUE * 0.25);
+	return gaussian(r - arch, prominence_thickness) * leg;
+}
+
 void vertex() {
 	// Y-axis billboard. The quad's own mesh size carries the panel dimensions,
 	// so the rebuilt basis stays unit-length and scale is preserved.
@@ -161,12 +199,24 @@ void vertex() {
 }
 
 void fragment() {
-	float wave_phase = playback_time * wave_speed;
-	vec2 field_uv = UV;
-	field_uv.x += sin((UV.y * wave_frequency + wave_phase) * TAU_VALUE)
-		* wave_amplitude;
-	field_uv.y += sin((UV.x * wave_frequency * 0.7 - wave_phase * 0.8) * TAU_VALUE)
-		* wave_amplitude * 0.6;
+	// Radial pulse. The polar frame has to be built from the *undisplaced* UV
+	// first, because the displacement is defined along that frame's own outward
+	// direction -- displacing in UV and then deriving polar would rotate the
+	// pulse into a swirl.
+	vec2 raw = vec2(
+		(UV.x - storm_anchor.x) * aspect_ratio, UV.y - storm_anchor.y
+	);
+	float raw_r = length(raw);
+	vec2 outward = raw_r < 0.0001 ? vec2(0.0, -1.0) : raw / raw_r;
+	// Minus on the time term is what sends fronts outward; plus would draw them
+	// back into the occulter.
+	float pulse_phase = (raw_r * pulse_frequency - playback_time * pulse_speed)
+		* TAU_VALUE;
+	float pulse = sin(pulse_phase);
+	// Back into UV: the outward vector lives in aspect-corrected space, so its
+	// x component has to be undone or the displacement stretches horizontally.
+	vec2 field_uv = UV + outward * (pulse * pulse_amplitude)
+		* vec2(1.0 / max(aspect_ratio, 0.0001), 1.0);
 
 	vec2 cell_index = vec2(0.0);
 	if (pixel_cells > 0.5) {
@@ -188,7 +238,9 @@ void fragment() {
 	corona *= corona_gain;
 
 	// --- streams ------------------------------------------------------------
-	float splay = sin((r * 2.1 + 0.4 + playback_time * streamer_drift) * TAU_VALUE)
+	// Also minus on time: with a plus the splay pattern crawls back toward the
+	// occulter, which reads as the storm inhaling.
+	float splay = sin((r * 2.1 + 0.4 - playback_time * streamer_drift) * TAU_VALUE)
 		* streamer_warp;
 	float t = theta + splay;
 	float broad = sin((t * 3.1 + 0.00) * TAU_VALUE) * 0.50
@@ -226,7 +278,26 @@ void fragment() {
 	);
 	arc *= smoothstep(0.0, 1.0, angular) * arc_gain;
 
-	float intensity = corona + streamer + arc;
+	// The brightness half of the pulse, and the half that actually reads as
+	// energy leaving the star. Displacement alone only nudges geometry; banding
+	// the light is what makes fronts visibly propagate outward. The ejection
+	// front is excluded -- it already carries its own travel on
+	// `front_progress`, and modulating it too would beat against that.
+	// --- prominences --------------------------------------------------------
+	float prominences = 0.0;
+	for (int index = 0; index < 3; index++) {
+		prominences += prominence_arch(
+			theta,
+			r,
+			prominence_centre[index],
+			prominence_width[index],
+			prominence_height[index] * prominence_rise
+		) * prominence_weight[index];
+	}
+	prominences *= prominence_gain;
+
+	float pulse_gain = 1.0 + pulse * pulse_intensity;
+	float intensity = (corona + streamer) * pulse_gain + arc + prominences;
 
 	// --- occulter, limb, and instrument field of view ------------------------
 	float disk = smoothstep(occulter_radius - occulter_edge, occulter_radius, r);

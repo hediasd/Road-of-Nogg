@@ -78,6 +78,21 @@ const ARC_GAIN := 1.05
 const ARC_WARP := 0.075
 const ARC_SPAN := 0.62
 
+## AUTHORED prominences: plasma loops anchored at two limb points each, arching
+## out and back. Centres are turns around the occulter, widths are angular half-
+## extents, heights are crown rise above the limb. Three loops at different
+## scales read as a star with activity rather than one decorative arc.
+const PROMINENCE_CENTRE := Vector3(0.62, 0.90, 0.28)
+const PROMINENCE_WIDTH := Vector3(0.085, 0.060, 0.045)
+const PROMINENCE_HEIGHT := Vector3(0.230, 0.165, 0.120)
+const PROMINENCE_WEIGHT := Vector3(1.00, 0.80, 0.65)
+const PROMINENCE_THICKNESS := 0.012
+const PROMINENCE_GAIN := 0.60
+
+## AUTHORED prominence rise across the beats. Loops grow out of the limb during
+## ignition, stand through the launch, and subside as the corona fades.
+const PROMINENCE_RISE_CURVE := [0.10, 0.72, 1.00, 0.88, 0.35]
+
 ## ESTIMATED grade.
 const EXPOSURE := 1.0
 const GRAIN_STRENGTH := 0.055
@@ -114,10 +129,16 @@ const MODEL_BOOST := 3.0
 const OCCLUSION_FEATHER := 0.18
 const OCCLUSION_GAIN := 2.4
 
-## AUTHORED wave displacement and cell count.
-const WAVE_AMPLITUDE := 0.006
-const WAVE_FREQUENCY := 3.5
-const WAVE_SPEED := 2.0
+## AUTHORED radial pulse, replacing the sibling's lateral wave. The sibling's
+## wobble is a mirage shimmer, which is the right motion for a hallucination and
+## the wrong one for an invocation: this travels outward from the occulter to the
+## edges instead, displacing and brightening along the field's own radial axis.
+## `INTENSITY` is the half that reads as energy leaving the star; displacement
+## alone only nudges geometry.
+const PULSE_AMPLITUDE := 0.010
+const PULSE_FREQUENCY := 4.0
+const PULSE_SPEED := 1.1
+const PULSE_INTENSITY := 0.22
 const PIXEL_CELLS := 64.0
 
 ## AUTHORED engineering ceiling: one billboarded quad, nothing else.

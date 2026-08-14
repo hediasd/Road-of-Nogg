@@ -3,14 +3,20 @@
 ## Forked from `AuroraVeilEffect` under docs/VFX_DESIGN.md §4's sibling test, and
 ## the sibling relationship is structural rather than convenient: identical
 ## Y-billboarded quad carrier, identical four-beat timeline shape, identical
-## pixel snap, wave displacement, uniform radius response, and depth-resolved
-## model lighting. The field is the only genuinely new part, which is exactly the
-## case the policy says to fork rather than author fresh.
+## pixel snap, uniform radius response, and depth-resolved model lighting. The
+## field is the only genuinely new part, which is exactly the case the policy
+## says to fork rather than author fresh.
+##
+## Where it deliberately departs from the sibling: motion. The veil undulates
+## laterally, a mirage shimmer suited to a hallucination; this pulses outward
+## along its own radial axis, because the storm is an invocation and energy
+## should be seen leaving the star.
 ##
 ## The quad's base sits at the target's feet and the panel rises from there,
-## scaling uniformly with the carrier's footprint through `setFootprint` while
-## the occulter's anchor stays pinned in *world* units -- so a wider radius
-## spreads the storm across the board instead of lifting it off the units.
+## scaling uniformly with the carrier's footprint through `setFootprint`. The
+## occulter's anchor holds a UV fraction rather than a world height, so the whole
+## composition scales intact; see the profile for why that is the opposite of the
+## sibling's choice.
 ##
 ## Depth testing is disabled and occlusion resolved in the fragment: where a
 ## model stands in front of the panel the storm goes transparent and lights it
@@ -297,22 +303,37 @@ static func tunables() -> Array[Dictionary]:
 			"default": SolarStormProfile.LIMB_GAIN, "rebuild": false,
 		},
 		{
-			"id": "WAVE_AMPLITUDE", "label": "Wave amount", "group": "Wave and pixels",
+			"id": "PROMINENCE_GAIN", "label": "Prominence gain", "group": "Prominences",
+			"min": 0.0, "max": 4.0, "step": 0.05,
+			"default": SolarStormProfile.PROMINENCE_GAIN, "rebuild": false,
+		},
+		{
+			"id": "PROMINENCE_THICKNESS", "label": "Loop thickness", "group": "Prominences",
+			"min": 0.004, "max": 0.10, "step": 0.002,
+			"default": SolarStormProfile.PROMINENCE_THICKNESS, "rebuild": false,
+		},
+		{
+			"id": "PULSE_AMPLITUDE", "label": "Pulse push", "group": "Pulse and pixels",
 			"min": 0.0, "max": 0.08, "step": 0.001,
-			"default": SolarStormProfile.WAVE_AMPLITUDE, "rebuild": false,
+			"default": SolarStormProfile.PULSE_AMPLITUDE, "rebuild": false,
 		},
 		{
-			"id": "WAVE_FREQUENCY", "label": "Wave frequency", "group": "Wave and pixels",
-			"min": 0.0, "max": 16.0, "step": 0.1,
-			"default": SolarStormProfile.WAVE_FREQUENCY, "rebuild": false,
+			"id": "PULSE_FREQUENCY", "label": "Pulse rings", "group": "Pulse and pixels",
+			"min": 0.0, "max": 20.0, "step": 0.1,
+			"default": SolarStormProfile.PULSE_FREQUENCY, "rebuild": false,
 		},
 		{
-			"id": "WAVE_SPEED", "label": "Wave speed", "group": "Wave and pixels",
-			"min": 0.0, "max": 12.0, "step": 0.05,
-			"default": SolarStormProfile.WAVE_SPEED, "rebuild": false,
+			"id": "PULSE_SPEED", "label": "Pulse speed", "group": "Pulse and pixels",
+			"min": 0.0, "max": 8.0, "step": 0.05,
+			"default": SolarStormProfile.PULSE_SPEED, "rebuild": false,
 		},
 		{
-			"id": "PIXEL_CELLS", "label": "Cells across", "group": "Wave and pixels",
+			"id": "PULSE_INTENSITY", "label": "Pulse brightness", "group": "Pulse and pixels",
+			"min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SolarStormProfile.PULSE_INTENSITY, "rebuild": false,
+		},
+		{
+			"id": "PIXEL_CELLS", "label": "Cells across", "group": "Pulse and pixels",
 			"min": 0.0, "max": 240.0, "step": 1.0,
 			"default": SolarStormProfile.PIXEL_CELLS, "rebuild": false,
 		},
@@ -386,6 +407,18 @@ func _applyStaticUniforms() -> void:
 		"occulter_edge", SolarStormProfile.OCCULTER_EDGE
 	)
 	_stormMaterial.set_shader_parameter("limb_width", SolarStormProfile.LIMB_WIDTH)
+	_stormMaterial.set_shader_parameter(
+		"prominence_centre", SolarStormProfile.PROMINENCE_CENTRE
+	)
+	_stormMaterial.set_shader_parameter(
+		"prominence_width", SolarStormProfile.PROMINENCE_WIDTH
+	)
+	_stormMaterial.set_shader_parameter(
+		"prominence_height", SolarStormProfile.PROMINENCE_HEIGHT
+	)
+	_stormMaterial.set_shader_parameter(
+		"prominence_weight", SolarStormProfile.PROMINENCE_WEIGHT
+	)
 	_stormMaterial.set_shader_parameter("grain_hz", SolarStormProfile.GRAIN_HZ)
 	_stormMaterial.set_shader_parameter(
 		"occlusion_feather", SolarStormProfile.OCCLUSION_FEATHER
@@ -420,9 +453,14 @@ func _applyTunableUniforms() -> void:
 		"occulter_radius": ["OCCULTER_RADIUS", SolarStormProfile.OCCULTER_RADIUS],
 		"limb_radius": ["LIMB_RADIUS", SolarStormProfile.LIMB_RADIUS],
 		"limb_gain": ["LIMB_GAIN", SolarStormProfile.LIMB_GAIN],
-		"wave_amplitude": ["WAVE_AMPLITUDE", SolarStormProfile.WAVE_AMPLITUDE],
-		"wave_frequency": ["WAVE_FREQUENCY", SolarStormProfile.WAVE_FREQUENCY],
-		"wave_speed": ["WAVE_SPEED", SolarStormProfile.WAVE_SPEED],
+		"prominence_gain": ["PROMINENCE_GAIN", SolarStormProfile.PROMINENCE_GAIN],
+		"prominence_thickness": [
+			"PROMINENCE_THICKNESS", SolarStormProfile.PROMINENCE_THICKNESS
+		],
+		"pulse_amplitude": ["PULSE_AMPLITUDE", SolarStormProfile.PULSE_AMPLITUDE],
+		"pulse_frequency": ["PULSE_FREQUENCY", SolarStormProfile.PULSE_FREQUENCY],
+		"pulse_speed": ["PULSE_SPEED", SolarStormProfile.PULSE_SPEED],
+		"pulse_intensity": ["PULSE_INTENSITY", SolarStormProfile.PULSE_INTENSITY],
 		"pixel_cells": ["PIXEL_CELLS", SolarStormProfile.PIXEL_CELLS],
 		"model_boost": ["MODEL_BOOST", SolarStormProfile.MODEL_BOOST],
 		"occlusion_gain": ["OCCLUSION_GAIN", SolarStormProfile.OCCLUSION_GAIN],
@@ -497,6 +535,10 @@ func _applyProgress(progress: float) -> void:
 	_stormMaterial.set_shader_parameter(
 		"lifecycle_visibility",
 		_sampleKeyedCurve(progress, SolarStormProfile.VISIBILITY_CURVE)
+	)
+	_stormMaterial.set_shader_parameter(
+		"prominence_rise",
+		_sampleKeyedCurve(progress, SolarStormProfile.PROMINENCE_RISE_CURVE)
 	)
 	_stormMaterial.set_shader_parameter(
 		"front_progress",
