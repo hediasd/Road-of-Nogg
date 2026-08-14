@@ -70,6 +70,16 @@ const STREAMER_REACH := 0.55
 const STREAMER_WARP := 0.018
 const STREAMER_DRIFT := 0.20
 
+## AUTHORED flame turbulence. Applied to the stream field's angular coordinate
+## only, never to the panel UV -- UV is where the sibling's wobble lived, and
+## displacing there is what made it read as a mirage. Confined to the streams it
+## ripples their boundaries into fire tongues while the occulter, prominences,
+## and front stay geometrically clean. `SCALE` is the tongue frequency, `SPEED`
+## how fast they lick.
+const FLAME_TURBULENCE := 0.0045
+const FLAME_SCALE := 23.0
+const FLAME_SPEED := 0.60
+
 ## ESTIMATED ejection front. Narrow and bright: the source's loop is filamentary,
 ## and widening it turns the storm into a blown-out band.
 const ARC_RADIUS := 0.44

@@ -60,6 +60,14 @@ uniform float streamer_gain = 1.10;
 uniform float streamer_reach = 0.55;
 uniform float streamer_warp = 0.018;
 uniform float streamer_drift = 0.20;
+// Flame turbulence. High-frequency displacement applied to the stream field's
+// angular coordinate *only* -- not to the panel UV, which is where the sibling's
+// wobble lived and why that one looked like a mirage. Confined here it ripples
+// the stream boundaries into fire tongues while the occulter, prominences, and
+// front stay geometrically clean.
+uniform float flame_turbulence = 0.0045;
+uniform float flame_scale = 23.0;
+uniform float flame_speed = 0.60;
 
 // --- Ejection front ---------------------------------------------------------
 uniform float arc_radius = 0.44;
@@ -258,7 +266,14 @@ void fragment() {
 	// occulter, which reads as the storm inhaling.
 	float splay = sin((r * 2.1 + 0.4 - playback_time * streamer_drift) * TAU_VALUE)
 		* streamer_warp;
-	float t = theta + splay;
+	// Turbulence carries `r` as well as the angle, so tongues shear along each
+	// stream's length instead of the whole fan rocking together.
+	float turbulence =
+		sin((theta * flame_scale + r * 9.0 + playback_time * flame_speed) * TAU_VALUE)
+			* 0.55
+		+ sin((theta * flame_scale * 1.8 - r * 14.0 - playback_time * flame_speed * 0.7)
+			* TAU_VALUE) * 0.30;
+	float t = theta + splay + turbulence * flame_turbulence;
 	float broad = sin((t * 3.1 + 0.00) * TAU_VALUE) * 0.50
 		+ sin((t * 5.7 - 1.30) * TAU_VALUE) * 0.30
 		+ sin((t * 11.3 + 2.10) * TAU_VALUE) * 0.20;

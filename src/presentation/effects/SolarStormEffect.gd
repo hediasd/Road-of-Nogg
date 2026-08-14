@@ -263,6 +263,21 @@ static func tunables() -> Array[Dictionary]:
 			"default": SolarStormProfile.STREAMER_DRIFT, "rebuild": false,
 		},
 		{
+			"id": "FLAME_TURBULENCE", "label": "Flame tongues", "group": "Streams",
+			"min": 0.0, "max": 0.05, "step": 0.0005,
+			"default": SolarStormProfile.FLAME_TURBULENCE, "rebuild": false,
+		},
+		{
+			"id": "FLAME_SCALE", "label": "Tongue frequency", "group": "Streams",
+			"min": 2.0, "max": 80.0, "step": 0.5,
+			"default": SolarStormProfile.FLAME_SCALE, "rebuild": false,
+		},
+		{
+			"id": "FLAME_SPEED", "label": "Tongue speed", "group": "Streams",
+			"min": 0.0, "max": 4.0, "step": 0.05,
+			"default": SolarStormProfile.FLAME_SPEED, "rebuild": false,
+		},
+		{
 			"id": "ARC_RADIUS", "label": "Front distance", "group": "Front",
 			"min": 0.05, "max": 1.2, "step": 0.01,
 			"default": SolarStormProfile.ARC_RADIUS, "rebuild": false,
@@ -461,6 +476,9 @@ func _applyTunableUniforms() -> void:
 		"streamer_broad": ["STREAMER_BROAD", SolarStormProfile.STREAMER_BROAD],
 		"streamer_warp": ["STREAMER_WARP", SolarStormProfile.STREAMER_WARP],
 		"streamer_drift": ["STREAMER_DRIFT", SolarStormProfile.STREAMER_DRIFT],
+		"flame_turbulence": ["FLAME_TURBULENCE", SolarStormProfile.FLAME_TURBULENCE],
+		"flame_scale": ["FLAME_SCALE", SolarStormProfile.FLAME_SCALE],
+		"flame_speed": ["FLAME_SPEED", SolarStormProfile.FLAME_SPEED],
 		"arc_radius": ["ARC_RADIUS", SolarStormProfile.ARC_RADIUS],
 		"arc_width": ["ARC_WIDTH", SolarStormProfile.ARC_WIDTH],
 		"arc_gain": ["ARC_GAIN", SolarStormProfile.ARC_GAIN],
