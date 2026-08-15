@@ -128,6 +128,29 @@ uniform float melt_columns = 6.0;
 uniform float melt_drip = 0.55;
 uniform float melt_cool = 0.35;
 
+// --- Melt drops -------------------------------------------------------------
+// Matter that detaches from the storm's underside and falls to the ground,
+// the way a melting ice cream sheds drops. The panel's base already stands at
+// the target's feet, so "the ground" is simply the quad's bottom edge and a
+// drop's fall is travel down the panel's own vertical axis -- which is what
+// lets these be fragment maths rather than particles, at no extra draw call.
+//
+// Each drop is a pure function of `melt_progress`, so the whole thing still
+// scrubs exactly. Position, size, and timing come from hashing the drop index
+// against `seed_value`, so a different cast drops in different places rather
+// than replaying one authored arrangement.
+uniform float drop_count = 3.0;
+uniform float drop_radius = 0.030;
+uniform float drop_stretch = 2.2;
+uniform float drop_taper = 1.7;
+uniform float drop_gain = 1.60;
+uniform float drop_birth_depth = 0.185;
+uniform float drop_ground = 0.985;
+uniform float drop_cool = 0.45;
+uniform float splash_width = 0.090;
+uniform float splash_height = 0.010;
+uniform float splash_gain = 1.20;
+
 // --- Occlusion --------------------------------------------------------------
 uniform sampler2D screen_texture : hint_screen_texture, filter_linear;
 uniform sampler2D depth_texture : hint_depth_texture, filter_nearest;
@@ -216,6 +239,62 @@ float prominence_arch(
 	// between, which is what stops them reading as plain semicircles.
 	float leg = 0.72 + 0.28 * cos(k * 3.0 * TAU_VALUE * 0.25);
 	return gaussian(r - arch, prominence_thickness) * leg;
+}
+
+float hash11(float n) {
+	return fract(sin(n * 127.1) * 43758.5453);
+}
+
+// One falling drop, over its whole life: it swells on the underside, pinches
+// off, accelerates down, stretches as it goes, and flattens into a splash at
+// the ground. Returns brightness; `cooling` reports how far it has fallen so the
+// caller can bias its colour.
+float melt_drop(vec2 uv, float index, float aspect, out float cooling) {
+	float h = index * 3.71 + seed_value * 7.13;
+	float centre_x = mix(0.16, 0.84, hash11(h + 0.13));
+	// Span first, then a start constrained so `start + span` never exceeds one.
+	// Hashing the two independently lets a drop's life end early -- it lands and
+	// vanishes long before the melt completes, leaving nothing on screen for the
+	// second half -- or run past the end, so it never lands at all.
+	float span = mix(0.50, 0.68, hash11(h + 0.91));
+	float start = hash11(h + 0.57) * max(1.0 - span, 0.0);
+	float radius = drop_radius * mix(0.70, 1.35, hash11(h + 1.37));
+	float birth_y = storm_anchor.y + drop_birth_depth
+		* mix(0.75, 1.25, hash11(h + 1.83));
+
+	float phase = clamp((melt_progress - start) / max(span, 0.0001), 0.0, 1.0);
+	cooling = phase;
+	if (phase <= 0.0) {
+		return 0.0;
+	}
+
+	// Quadratic fall: constant acceleration, so the drop hangs at the lip and
+	// then commits. A linear descent reads as a bead on a wire.
+	float fall = phase * phase;
+	float centre_y = mix(birth_y, drop_ground, fall);
+
+	// Swell in at the start and collapse into the splash at the end, so the drop
+	// is never simply switched on or off.
+	float swell = smoothstep(0.0, 0.16, phase);
+	float landing = smoothstep(0.86, 1.0, phase);
+	float body_alive = swell * (1.0 - landing);
+
+	// Elongate with speed, and taper the top into a point: a symmetric blob
+	// reads as a bubble, and the taper is what makes it a drop.
+	float stretch = 1.0 + drop_stretch * fall;
+	vec2 d = vec2((uv.x - centre_x) * aspect, (uv.y - centre_y) / stretch);
+	float taper = 1.0 + drop_taper * clamp(-d.y / max(radius, 0.0001), 0.0, 1.0);
+	float body = gaussian(length(vec2(d.x * taper, d.y)), radius) * body_alive;
+
+	// Splash: what the drop becomes on contact, spread flat along the ground.
+	vec2 s = vec2(
+		(uv.x - centre_x) * aspect / max(splash_width, 0.0001),
+		(uv.y - drop_ground) / max(splash_height, 0.0001)
+	);
+	float splash = exp(-dot(s, s)) * landing * (1.0 - smoothstep(0.94, 1.0, phase))
+		* splash_gain;
+
+	return body * drop_gain + splash;
 }
 
 void vertex() {
@@ -378,7 +457,33 @@ void fragment() {
 	vec2 border = min(field_uv, vec2(1.0) - field_uv);
 	float edge = smoothstep(0.0, max(edge_fade, 0.0001), min(border.x, border.y));
 
-	float energy = clamp(intensity * exposure, 0.0, 1.0) * edge * lifecycle_visibility;
+	// Drops fall *to* the bottom edge, so the border vanish that protects the
+	// storm from a clipped quad would erase them exactly at the moment they
+	// land. Theirs ignores the bottom and keeps the sides and top.
+	float drop_edge = smoothstep(
+		0.0, max(edge_fade, 0.0001), min(min(border.x, field_uv.y), 1.0)
+	);
+
+	// Drops are composited after the storm's own edge so each carries the right
+	// vanish, and they are added to intensity before the ramp so their cores
+	// land at the white end of the heat ramp rather than being tinted afterwards.
+	float drop_total = 0.0;
+	float drop_cooling = 0.0;
+	for (int index = 0; index < 4; index++) {
+		if (float(index) >= drop_count) {
+			break;
+		}
+		float cooling = 0.0;
+		float value = melt_drop(field_uv, float(index), aspect_ratio, cooling);
+		drop_total += value;
+		drop_cooling = max(drop_cooling, cooling * step(0.0001, value));
+	}
+	// A drop cools as it falls, so what lands is duller than what detached.
+	drop_total *= 1.0 - drop_cool * drop_cooling;
+
+	intensity = intensity * edge + drop_total * drop_edge;
+
+	float energy = clamp(intensity * exposure, 0.0, 1.0) * lifecycle_visibility;
 	if (energy < 0.0015) {
 		discard;
 	}

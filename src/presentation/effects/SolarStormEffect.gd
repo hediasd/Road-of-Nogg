@@ -376,6 +376,36 @@ static func tunables() -> Array[Dictionary]:
 			"default": SolarStormProfile.LIMB_GAIN, "rebuild": false,
 		},
 		{
+			"id": "DROP_COUNT", "label": "Drops", "group": "Melt drops",
+			"min": 0.0, "max": 4.0, "step": 1.0,
+			"default": SolarStormProfile.DROP_COUNT, "rebuild": false,
+		},
+		{
+			"id": "DROP_RADIUS", "label": "Drop size", "group": "Melt drops",
+			"min": 0.005, "max": 0.12, "step": 0.002,
+			"default": SolarStormProfile.DROP_RADIUS, "rebuild": false,
+		},
+		{
+			"id": "DROP_STRETCH", "label": "Drop stretch", "group": "Melt drops",
+			"min": 0.0, "max": 6.0, "step": 0.1,
+			"default": SolarStormProfile.DROP_STRETCH, "rebuild": false,
+		},
+		{
+			"id": "DROP_GAIN", "label": "Drop brightness", "group": "Melt drops",
+			"min": 0.0, "max": 4.0, "step": 0.05,
+			"default": SolarStormProfile.DROP_GAIN, "rebuild": false,
+		},
+		{
+			"id": "DROP_BIRTH_DEPTH", "label": "Drop birth", "group": "Melt drops",
+			"min": 0.0, "max": 0.6, "step": 0.005,
+			"default": SolarStormProfile.DROP_BIRTH_DEPTH, "rebuild": false,
+		},
+		{
+			"id": "SPLASH_GAIN", "label": "Splash", "group": "Melt drops",
+			"min": 0.0, "max": 4.0, "step": 0.05,
+			"default": SolarStormProfile.SPLASH_GAIN, "rebuild": false,
+		},
+		{
 			"id": "MELT_AMOUNT", "label": "Melt sag", "group": "Melt",
 			"min": 0.0, "max": 1.0, "step": 0.01,
 			"default": SolarStormProfile.MELT_AMOUNT, "rebuild": false,
@@ -574,6 +604,17 @@ func _applyTunableUniforms() -> void:
 		"melt_columns": ["MELT_COLUMNS", SolarStormProfile.MELT_COLUMNS],
 		"melt_drip": ["MELT_DRIP", SolarStormProfile.MELT_DRIP],
 		"melt_cool": ["MELT_COOL", SolarStormProfile.MELT_COOL],
+		"drop_count": ["DROP_COUNT", SolarStormProfile.DROP_COUNT],
+		"drop_radius": ["DROP_RADIUS", SolarStormProfile.DROP_RADIUS],
+		"drop_stretch": ["DROP_STRETCH", SolarStormProfile.DROP_STRETCH],
+		"drop_taper": ["DROP_TAPER", SolarStormProfile.DROP_TAPER],
+		"drop_gain": ["DROP_GAIN", SolarStormProfile.DROP_GAIN],
+		"drop_birth_depth": ["DROP_BIRTH_DEPTH", SolarStormProfile.DROP_BIRTH_DEPTH],
+		"drop_ground": ["DROP_GROUND", SolarStormProfile.DROP_GROUND],
+		"drop_cool": ["DROP_COOL", SolarStormProfile.DROP_COOL],
+		"splash_width": ["SPLASH_WIDTH", SolarStormProfile.SPLASH_WIDTH],
+		"splash_height": ["SPLASH_HEIGHT", SolarStormProfile.SPLASH_HEIGHT],
+		"splash_gain": ["SPLASH_GAIN", SolarStormProfile.SPLASH_GAIN],
 	}
 	for uniform: String in rows:
 		var row: Array = rows[uniform]

@@ -163,15 +163,44 @@ const PROMINENCE_RISE_CURVE := [0.10, 0.72, 1.00, 0.88, 0.35]
 ## underside reading as a level hem; `COOL` how far the sagged material is biased
 ## down the heat ramp, so what melts also loses its white cores.
 const MELT_AMOUNT := 0.0
-const V3_MELT_AMOUNT := 0.34
+const V3_MELT_AMOUNT := 0.16
 const MELT_COLUMNS := 6.0
 const MELT_DRIP := 0.55
 const MELT_COOL := 0.35
 
-## AUTHORED melt progress across the beats. Nothing melts during ignition or the
-## launch -- the storm has to establish before it can sag -- and it runs to full
-## through expansion and dissipation.
-const MELT_PROGRESS_CURVE := [0.0, 0.0, 0.18, 0.72, 1.00]
+## AUTHORED melt drops: matter that detaches from the storm's underside and
+## falls to the ground. The panel's base stands at the target's feet, so a drop's
+## fall is travel down the quad's own vertical axis and `DROP_GROUND` is the
+## bottom edge -- which is what lets these be fragment maths rather than
+## particles, at no extra draw call and with no loss of scrub exactness.
+##
+## Position, size, and timing are hashed from the drop index against the seed, so
+## a different cast drops in different places instead of replaying one authored
+## arrangement. `BIRTH_DEPTH` is how far below the occulter they form, `STRETCH`
+## how much they elongate at full speed, `TAPER` how sharply their tops point --
+## a symmetric blob reads as a bubble, and the taper is what makes it a drop.
+## `RADIUS` has a floor set by the pixel grid, not by taste: at 0.030 a drop was
+## narrower than one cell of the 56-cell snap and disappeared into it. Anything
+## meant to read through the pixelation has to be wider than a cell.
+const DROP_COUNT := 3.0
+const DROP_RADIUS := 0.055
+const DROP_STRETCH := 1.15
+const DROP_TAPER := 2.10
+const DROP_GAIN := 2.60
+const DROP_BIRTH_DEPTH := 0.260
+const DROP_GROUND := 0.985
+const DROP_COOL := 0.45
+const SPLASH_WIDTH := 0.090
+const SPLASH_HEIGHT := 0.010
+const SPLASH_GAIN := 1.20
+
+## AUTHORED melt progress across the beats. Nothing melts during ignition -- the
+## storm has to establish before it can sag -- and the melt is *complete* by the
+## end of expansion rather than running to the last frame. Drops are drawn
+## through `lifecycle_visibility` like everything else, so a drop still falling
+## during dissipation fades out mid-air instead of landing. Finishing early is
+## what lets every drop reach the ground while the storm is still lit.
+const MELT_PROGRESS_CURVE := [0.0, 0.04, 0.46, 1.00, 1.00]
 
 ## ESTIMATED grade.
 const EXPOSURE := 1.0
