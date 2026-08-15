@@ -10,7 +10,7 @@ const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactor
 const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEffects.gd")
 const BattleCursorControllerScript = preload("res://src/presentation/BattleCursorController.gd")
 const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
-const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcons.gd")
+const StatusBadgeRowScript = preload("res://src/presentation/StatusBadgeRow.gd")
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
 const SpellVfxCatalogScript = preload("res://src/presentation/effects/SpellVfxCatalog.gd")
 const DamageNumberBillboardScript = preload("res://src/presentation/effects/DamageNumberBillboard.gd")
@@ -41,6 +41,10 @@ var threat_overlay_node: Node3D
 var hover_overlay_node: Node3D
 var damage_number_layer: CanvasLayer
 var damage_number_root: Control
+var status_badge_layer: CanvasLayer
+var status_badge_root: Control
+## monsterID -> StatusBadgeRow, for living units carrying at least one effect.
+var _status_badge_rows: Dictionary = {}
 var _cursor: MeshInstance3D
 var _cursor_controller: BattleCursorController
 
@@ -84,6 +88,18 @@ func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = nul
 	damage_number_root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	damage_number_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	damage_number_layer.add_child(damage_number_root)
+
+	# Below the damage numbers: a hit number is a transient the player must not
+	# miss, and it should read over a badge row rather than under it.
+	status_badge_layer = CanvasLayer.new()
+	status_badge_layer.name = "StatusBadges"
+	status_badge_layer.layer = NoggThemeScript.WORLD_EFFECT_LAYER - 1
+	root_node.add_child(status_badge_layer)
+	status_badge_root = Control.new()
+	status_badge_root.name = "StatusBadgeRoot"
+	status_badge_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	status_badge_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	status_badge_layer.add_child(status_badge_root)
 
 
 	threat_overlay_node = Node3D.new()
@@ -642,14 +658,28 @@ func _status_icon_anchor_y(container: Node3D) -> float:
 
 
 func _refresh_status_icons(monsterID: int) -> void:
-	var container := _liveMonsterVisual(monsterID)
-	if container == null:
+	if not is_instance_valid(status_badge_root) or state == null:
 		return
-	StatusEffectIconsScript.create_or_update(
-		container,
-		state.getActiveEffects(monsterID),
-		_status_icon_anchor_y(container)
-	)
+	var effects: Array = state.getActiveEffects(monsterID)
+	if effects.is_empty():
+		_remove_status_badge_row(monsterID)
+		return
+	var row = _status_badge_rows.get(monsterID)
+	if row == null or not is_instance_valid(row):
+		row = StatusBadgeRowScript.new()
+		row.name = "StatusBadges_%d" % monsterID
+		status_badge_root.add_child(row)
+		_status_badge_rows[monsterID] = row
+	row.set_effects(effects)
+
+
+func _remove_status_badge_row(monsterID: int) -> void:
+	if not _status_badge_rows.has(monsterID):
+		return
+	var row = _status_badge_rows[monsterID]
+	_status_badge_rows.erase(monsterID)
+	if is_instance_valid(row):
+		row.queue_free()
 
 
 func _accumulate_visual_bounds(
@@ -1302,6 +1332,117 @@ func _spawn_damage_number(worldPos: Vector3, amount: int, isHeal: bool) -> Tween
 		tween.set_speed_scale(_animation_speed_scale)
 	return tween
 
+## Repositions every status badge row and dispatches pointer hover to it.
+## Driven from the scene controller's `_process`, because this adapter is a
+## `RefCounted` and has no frame loop of its own.
+##
+## Polled rather than event-driven for position, because a row has to follow its
+## unit through movement tweens and camera motion; effect *content* stays
+## event-driven through `_refresh_status_icons`, so the two costs are separated.
+##
+## `mousePosition` is in host-viewport screen space, matching what the rows are
+## positioned in. Pass `null` to clear hover.
+func update_status_badges(delta: float, mousePosition) -> void:
+	if not is_instance_valid(status_badge_root) or state == null:
+		return
+	if not is_instance_valid(visual_parent):
+		return
+	var viewport := visual_parent.get_viewport()
+	if viewport == null:
+		return
+	var camera := viewport.get_camera_3d()
+	if camera == null:
+		return
+	var renderer = root_node.get("retro_renderer")
+	var visibleRect: Rect2 = renderer.get_display_rect() if renderer != null else Rect2()
+
+	# Rows already placed this pass. An orthogonal camera puts nearby units at
+	# nearly the same projected point, and two overlapping rows are less legible
+	# than one — the clustered-deploy corners are exactly where several units
+	# carry effects at once.
+	var placed: Array = []
+
+	for monsterID in _status_badge_rows.keys():
+		var row = _status_badge_rows[monsterID]
+		var monster = state.getMonster(monsterID)
+		var visual := _liveMonsterVisual(monsterID)
+		if not is_instance_valid(row):
+			_status_badge_rows.erase(monsterID)
+			continue
+		if monster == null or not monster.is_alive() or visual == null or not row.has_entries():
+			_remove_status_badge_row(monsterID)
+			continue
+
+		# Anchored to the top of the model's own bounds rather than a fixed
+		# height, so a tall unit does not wear its badges through its head.
+		var anchor := visual.global_position + Vector3.UP * _status_icon_anchor_y(visual)
+		if camera.is_position_behind(anchor):
+			row.visible = false
+			continue
+		var screenPos: Vector2 = camera.unproject_position(anchor)
+		if renderer != null:
+			screenPos = renderer.world_to_screen(screenPos)
+			if not visibleRect.grow(row.size.x).has_point(screenPos):
+				row.visible = false
+				continue
+		row.visible = true
+		var wanted := (
+			screenPos + Vector2(-row.size.x * 0.5, -row.size.y - NoggThemeScript.STATUS_BADGE_LIFT)
+		).round()
+		row.position = _declutter_row(
+			Rect2(wanted, row.size), placed, visibleRect
+		)
+		placed.append(Rect2(row.position, row.size))
+
+		var local = null
+		if mousePosition != null:
+			var point: Vector2 = mousePosition
+			# Tested against the resting row rect. A grown badge overflows its
+			# row, but hit-testing the grown size would make a hovered badge
+			# harder to leave than to enter and produce a sticky flicker at the
+			# boundary.
+			if Rect2(row.position, row.size).has_point(point):
+				local = point - row.position
+		row.set_hover_point(local)
+		row.advance(delta)
+
+
+## Pushes a badge row clear of the rows already placed, and returns where it
+## landed.
+##
+## Vertical-only: horizontal alignment with its unit is what tells the player
+## whose a row is, so a sideways nudge breaks the association an upward one
+## keeps. **Upward first**, because these rows sit above their units and pushing
+## one down would walk it into the model it belongs to.
+##
+## Two properties are deliberate, both learned the hard way on an earlier
+## screen-space readout in this project. The search steps **outward in fixed
+## slots** rather than hopping past whichever row it collided with: hopping does
+## not converge, because clearing row A moves onto row B whose nearest free side
+## moves back onto A. And **off-screen counts as blocked**, or the search
+## "resolves" a crowded corner by pushing a row past the viewport edge.
+func _declutter_row(rect: Rect2, placed: Array, bounds: Rect2) -> Vector2:
+	if not _row_overlaps(rect, placed):
+		return rect.position.round()
+	var step: float = rect.size.y + NoggThemeScript.STATUS_BADGE_GAP
+	for slot in range(1, NoggThemeScript.STATUS_BADGE_DECLUTTER_SLOTS + 1):
+		for direction in [-1.0, 1.0]:
+			var candidate := rect
+			candidate.position.y = rect.position.y + direction * float(slot) * step
+			if bounds.size != Vector2.ZERO and not bounds.encloses(candidate):
+				continue
+			if not _row_overlaps(candidate, placed):
+				return candidate.position.round()
+	return rect.position.round()
+
+
+func _row_overlaps(rect: Rect2, placed: Array) -> bool:
+	for other in placed:
+		if other is Rect2 and rect.intersects(other):
+			return true
+	return false
+
+
 ## World position of a monster's visual, for callers that need where a unit
 ## actually is on screen (the camera pan, for one) rather than its board
 ## coordinate. Prefers the live visual — mid-tween or bumped off-tile — over
@@ -1463,10 +1604,11 @@ func dispose() -> void:
 	_defeat_tweens.clear()
 	for node in [
 		grid_node, monsters_node, overlay_node, threat_overlay_node,
-		hover_overlay_node, damage_number_layer, _cursor
+		hover_overlay_node, damage_number_layer, status_badge_layer, _cursor
 	]:
 		if is_instance_valid(node):
 			node.queue_free()
+	_status_badge_rows.clear()
 	_monster_visuals.clear()
 	_tile_columns.clear()
 	_tile_surfaces.clear()

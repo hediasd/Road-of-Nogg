@@ -1,66 +1,112 @@
-## Compact, billboarded status badges used by the Godot battle presentation.
-## Gameplay owns effect data; this class only translates the current data into
-## small readable visuals that follow each monster model.
+## Drawn placeholder icons for status effects, used until authored art lands in
+## `StatusIconRegistry`.
+##
+## **Texture source only.** Row layout, positioning and hover live in
+## `StatusBadgeRow`; this file answers one question — what does effect X look
+## like — and nothing else.
+##
+## Every icon is emitted at `StatusIconRegistry.SOURCE_PX` square so a drawn
+## placeholder and an authored icon are interchangeable at the same size. Shapes
+## are still authored on the original 16-pixel grid and scaled up with nearest
+## filtering, because the shape vocabulary was tuned at that size and rewriting
+## every coordinate would risk it for no gain.
+##
+## **Each of the five negative effects has its own silhouette.** Previously
+## `burn`, `poison`, `petrify` and `chill` all rendered as one down arrow, and
+## the shield served `guard`, `def_buff` and `def_debuff` alike — four effects
+## with entirely different consequences looked identical, and colour separated
+## only buff from debuff. Shape is now the primary channel and the buff/debuff
+## colour split is the redundant one, which is the correct way round: colour
+## alone fails for a colour-blind player and fails again over a bright board.
 
 class_name StatusEffectIcons
 extends RefCounted
 
-const ROW_NAME := "StatusEffectIcons"
-const StatusEffectBillboardScript = preload("res://src/presentation/StatusEffectBillboard.gd")
-const MAX_VISIBLE_ICONS := 4
+const StatusIconRegistryScript = preload("res://src/presentation/StatusIconRegistry.gd")
+
 const ICON_SIZE := 16
-const BADGE_PIXEL_SIZE := 0.019
-const BADGE_SPACING := 0.35
 const BUFF_BACKGROUND := Color(0.05, 0.19, 0.34, 0.94)
 const BUFF_FOREGROUND := Color(0.42, 0.78, 1.0, 1.0)
 const DEBUFF_BACKGROUND := Color(0.35, 0.04, 0.13, 0.94)
 const DEBUFF_FOREGROUND := Color(1.0, 0.38, 0.54, 1.0)
+const OVERFLOW_BACKGROUND := Color(0.11, 0.11, 0.16, 0.94)
+const OVERFLOW_FOREGROUND := Color(0.92, 0.92, 0.98, 1.0)
 
-static func create_or_update(container: Node3D, effects: Array, anchor_y: float) -> void:
-	var row = container.get_node_or_null(NodePath(ROW_NAME)) as Node3D
-	if row == null:
-		row = StatusEffectBillboardScript.new()
-		row.name = ROW_NAME
-		container.add_child(row)
-	row.position = Vector3(0.0, anchor_y, 0.0)
-	for child in row.get_children():
-		row.remove_child(child)
-		child.queue_free()
-	var has_overflow = effects.size() > MAX_VISIBLE_ICONS
-	var display_count = MAX_VISIBLE_ICONS - 1 if has_overflow else MAX_VISIBLE_ICONS
-	var display_effects = _display_effects(effects, display_count)
-	var slot_count = MAX_VISIBLE_ICONS if has_overflow else display_effects.size()
-	for index in range(display_effects.size()):
-		var effect: Dictionary = display_effects[index]
-		var badge = _make_badge(effect, false)
-		badge.position.x = (float(index) - (float(slot_count - 1) * 0.5)) * BADGE_SPACING
-		row.add_child(badge)
-	if has_overflow:
-		var hidden_count = effects.size() - display_effects.size()
-		var overflow = _make_badge({"name": "overflow", "remainingTurns": hidden_count}, true)
-		overflow.position.x = (float(slot_count - 1) - (float(slot_count - 1) * 0.5)) * BADGE_SPACING
-		row.add_child(overflow)
+## Cached per shape/colour combination. A row rebuild is cheap only if it is not
+## rasterising the same handful of icons every time an effect ticks.
+static var _cache: Dictionary = {}
 
 
-static func clear(container: Node3D) -> void:
-	var row = container.get_node_or_null(NodePath(ROW_NAME))
-	if row != null:
-		row.queue_free()
+## The icon for an effect: authored art when registered, a drawn placeholder
+## otherwise. Callers do not need to know which they got.
+static func texture_for(effect: Dictionary) -> Texture2D:
+	var effect_name := str(effect.get("name", ""))
+	var authored := StatusIconRegistryScript.texture_for(effect_name)
+	if authored != null:
+		return authored
+	return placeholder_for(effect_name, bool(effect.get("negative", false)))
 
 
-static func _display_effects(effects: Array, maximum: int) -> Array:
-	var sorted_effects: Array = []
+static func overflow_texture() -> Texture2D:
+	return _cached("overflow", OVERFLOW_BACKGROUND, OVERFLOW_FOREGROUND)
+
+
+static func placeholder_for(effect_name: String, negative_hint: bool) -> Texture2D:
+	var info := _style_for(effect_name, negative_hint)
+	return _cached(str(info["shape"]), info["background"], info["foreground"])
+
+
+static func _cached(shape: String, background: Color, foreground: Color) -> Texture2D:
+	var key := "%s|%s|%s" % [shape, background, foreground]
+	if _cache.has(key):
+		return _cache[key]
+	var texture := _render(shape, background, foreground)
+	_cache[key] = texture
+	return texture
+
+
+static func _render(shape: String, background: Color, foreground: Color) -> ImageTexture:
+	var image := Image.create(ICON_SIZE, ICON_SIZE, false, Image.FORMAT_RGBA8)
+	image.fill(background)
+	_draw_border(image, foreground)
+	match shape:
+		"shield": _draw_shield(image, foreground)
+		"focus": _draw_focus(image, foreground)
+		"up": _draw_arrow(image, foreground, true)
+		"down": _draw_arrow(image, foreground, false)
+		"speed": _draw_speed(image, foreground)
+		"move": _draw_move(image, foreground)
+		"sword": _draw_sword(image, foreground)
+		"flame": _draw_flame(image, foreground)
+		"droplet": _draw_droplet(image, foreground)
+		"crack": _draw_crack(image, foreground)
+		"snowflake": _draw_snowflake(image, foreground)
+		_: _draw_plus(image, foreground)
+	# Nearest, not bilinear: these are hard-edged pixel shapes and any smoothing
+	# turns a one-pixel stroke into grey mush at this size.
+	image.resize(
+		StatusIconRegistryScript.SOURCE_PX,
+		StatusIconRegistryScript.SOURCE_PX,
+		Image.INTERPOLATE_NEAREST
+	)
+	return ImageTexture.create_from_image(image)
+
+
+## Effects in display order: most urgent first, ties broken by name so a row
+## never reorders itself between frames for no reason.
+static func sorted_effects(effects: Array) -> Array:
+	var ordered: Array = []
 	for effect in effects:
 		if effect is Dictionary:
-			sorted_effects.append(effect)
-	sorted_effects.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			ordered.append(effect)
+	ordered.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		var priority_a = _priority(a)
 		var priority_b = _priority(b)
 		if priority_a == priority_b:
 			return str(a.get("name", "")) < str(b.get("name", ""))
 		return priority_a > priority_b
 	)
-	return sorted_effects.slice(0, maximum)
+	return ordered
 
 
 static func _priority(effect: Dictionary) -> int:
@@ -72,76 +118,32 @@ static func _priority(effect: Dictionary) -> int:
 	return 10
 
 
-static func _make_badge(effect: Dictionary, is_overflow: bool) -> Node3D:
-	var badge = Node3D.new()
-	badge.name = "Badge_%s" % str(effect.get("name", "unknown"))
-	var sprite = Sprite3D.new()
-	sprite.name = "Icon"
-	sprite.texture = _texture_for(effect, is_overflow)
-	sprite.pixel_size = BADGE_PIXEL_SIZE
-	sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	# The parent row billboards the complete badge group. Child planes inherit one shared orientation.
-	sprite.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-	sprite.render_priority = 1
-	badge.add_child(sprite)
-	var duration = int(effect.get("remainingTurns", 0))
-	if duration > 0:
-		var label = Label3D.new()
-		label.name = "Duration"
-		# A permanent effect shows the infinity sign rather than its sentinel
-		# turn count. This Label3D deliberately sets no font, so it renders with
-		# Godot's built-in fallback (Open Sans), which carries the glyph — do not
-		# give it NoggTheme's pixel font without checking has_char() first, since
-		# that face is ASCII-only and Godot substitutes silently.
-		label.text = "∞" if BattleState.isPermanentDuration(duration) else str(duration)
-		label.font_size = 34
-		label.outline_size = 5
-		label.modulate = Color.WHITE
-		label.outline_modulate = Color(0.03, 0.03, 0.05, 1.0)
-		label.pixel_size = 0.0038
-		label.position = Vector3(0.105, -0.09, 0.005)
-		label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
-		label.render_priority = 2
-		badge.add_child(label)
-	return badge
+static func _style_for(effect_name: String, negative_hint: bool) -> Dictionary:
+	match effect_name.to_lower():
+		"guard": return _buff("shield")
+		"focus": return _buff("focus")
+		"atk_buff": return _buff("sword")
+		"def_buff": return _buff("up")
+		"spd_buff": return _buff("speed")
+		"move_buff": return _buff("move")
+		"atk_debuff": return _debuff("sword")
+		"def_debuff": return _debuff("down")
+		"spd_debuff": return _debuff("speed")
+		"move_debuff": return _debuff("move")
+		"burn": return _debuff("flame")
+		"poison": return _debuff("droplet")
+		"petrify": return _debuff("crack")
+		"chill": return _debuff("snowflake")
+		_: return _debuff("down") if negative_hint else _buff("plus")
 
 
-static func _texture_for(effect: Dictionary, is_overflow: bool) -> ImageTexture:
-	var image = Image.create(ICON_SIZE, ICON_SIZE, false, Image.FORMAT_RGBA8)
-	var info = _style_for(effect, is_overflow)
-	var background: Color = info["background"]
-	var foreground: Color = info["foreground"]
-	image.fill(background)
-	_draw_border(image, foreground)
-	match str(info["shape"]):
-		"shield": _draw_shield(image, foreground)
-		"focus": _draw_focus(image, foreground)
-		"up": _draw_arrow(image, foreground, true)
-		"down": _draw_arrow(image, foreground, false)
-		"speed": _draw_speed(image, foreground)
-		"move": _draw_move(image, foreground)
-		"sword": _draw_sword(image, foreground)
-		_: _draw_plus(image, foreground)
-	return ImageTexture.create_from_image(image)
+static func _buff(shape: String) -> Dictionary:
+	return {"shape": shape, "background": BUFF_BACKGROUND, "foreground": BUFF_FOREGROUND}
 
 
-static func _style_for(effect: Dictionary, is_overflow: bool) -> Dictionary:
-	if is_overflow:
-		return {"shape": "plus", "background": Color(0.11, 0.11, 0.16, 0.94), "foreground": Color(0.92, 0.92, 0.98, 1.0)}
-	var effect_name = str(effect.get("name", "")).to_lower()
-	match effect_name:
-		"guard": return {"shape": "shield", "background": BUFF_BACKGROUND, "foreground": BUFF_FOREGROUND}
-		"focus": return {"shape": "focus", "background": BUFF_BACKGROUND, "foreground": BUFF_FOREGROUND}
-		"atk_buff": return {"shape": "sword", "background": BUFF_BACKGROUND, "foreground": BUFF_FOREGROUND}
-		"def_buff": return {"shape": "shield", "background": BUFF_BACKGROUND, "foreground": BUFF_FOREGROUND}
-		"spd_buff": return {"shape": "speed", "background": BUFF_BACKGROUND, "foreground": BUFF_FOREGROUND}
-		"move_buff": return {"shape": "move", "background": BUFF_BACKGROUND, "foreground": BUFF_FOREGROUND}
-		"atk_debuff": return {"shape": "sword", "background": DEBUFF_BACKGROUND, "foreground": DEBUFF_FOREGROUND}
-		"def_debuff": return {"shape": "shield", "background": DEBUFF_BACKGROUND, "foreground": DEBUFF_FOREGROUND}
-		"spd_debuff": return {"shape": "speed", "background": DEBUFF_BACKGROUND, "foreground": DEBUFF_FOREGROUND}
-		"move_debuff": return {"shape": "move", "background": DEBUFF_BACKGROUND, "foreground": DEBUFF_FOREGROUND}
-		"burn", "poison", "petrify", "chill": return {"shape": "down", "background": DEBUFF_BACKGROUND, "foreground": DEBUFF_FOREGROUND}
-		_: return {"shape": "down", "background": DEBUFF_BACKGROUND, "foreground": DEBUFF_FOREGROUND}
+static func _debuff(shape: String) -> Dictionary:
+	return {"shape": shape, "background": DEBUFF_BACKGROUND, "foreground": DEBUFF_FOREGROUND}
+
 
 static func _draw_border(image: Image, color: Color) -> void:
 	for pixel in range(ICON_SIZE):
@@ -206,3 +208,41 @@ static func _draw_sword(image: Image, color: Color) -> void:
 static func _draw_plus(image: Image, color: Color) -> void:
 	_fill_rect(image, 7, 4, 2, 8, color)
 	_fill_rect(image, 4, 7, 8, 2, color)
+
+
+## Tapered body with a notched top, so it reads as fire rather than as a leaf.
+static func _draw_flame(image: Image, color: Color) -> void:
+	_fill_rect(image, 7, 3, 2, 3, color)
+	_fill_rect(image, 6, 5, 4, 3, color)
+	_fill_rect(image, 5, 8, 6, 4, color)
+	_fill_rect(image, 6, 12, 4, 1, color)
+	_fill_rect(image, 7, 8, 2, 3, image.get_pixel(1, 1))
+
+
+## Round-bottomed drop with a pointed top — deliberately the inverse taper of
+## the flame, so the two never read as the same silhouette.
+static func _draw_droplet(image: Image, color: Color) -> void:
+	_fill_rect(image, 7, 3, 2, 2, color)
+	_fill_rect(image, 6, 5, 4, 2, color)
+	_fill_rect(image, 5, 7, 6, 4, color)
+	_fill_rect(image, 6, 11, 4, 1, color)
+
+
+## A solid block split by a jagged seam.
+static func _draw_crack(image: Image, color: Color) -> void:
+	_fill_rect(image, 4, 4, 8, 8, color)
+	var seam := image.get_pixel(1, 1)
+	_fill_rect(image, 7, 4, 1, 2, seam)
+	_fill_rect(image, 8, 6, 1, 2, seam)
+	_fill_rect(image, 7, 8, 1, 2, seam)
+	_fill_rect(image, 8, 10, 1, 2, seam)
+
+
+## Three crossed axes. Sparse on purpose: at 16 pixels a six-armed flake with
+## barbs fills in solid and stops being a flake at all.
+static func _draw_snowflake(image: Image, color: Color) -> void:
+	_fill_rect(image, 7, 3, 2, 10, color)
+	_fill_rect(image, 3, 7, 10, 2, color)
+	for offset in range(5):
+		image.set_pixel(4 + offset, 4 + offset, color)
+		image.set_pixel(11 - offset, 4 + offset, color)

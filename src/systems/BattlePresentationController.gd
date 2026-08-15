@@ -589,8 +589,19 @@ func _advance_battle() -> void:
 	_deliberating_monster_id = monsterID
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_step_deliberation()
+	_update_status_badges(delta)
+
+
+## The badge rows follow their units through movement tweens and camera motion,
+## so their positions and the pointer test are a per-frame concern. Effect
+## content stays event-driven inside the adapter; only placement and hover run
+## here.
+func _update_status_badges(delta: float) -> void:
+	if lifecycle != Lifecycle.BATTLE or visual_adapter == null:
+		return
+	visual_adapter.update_status_badges(delta, get_viewport().get_mouse_position())
 
 
 

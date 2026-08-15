@@ -286,6 +286,55 @@ calculation currently supplies.
 five-plus stacked effects; permanent-duration display; every render preset;
 caller coverage across the status icon path.
 
+**Scope change 2026-08-15, at the user's direction:** badges become plain
+squares that **grow on hover**, and are sized ahead of authored art the user
+will supply. Distinct silhouettes stay in scope as the placeholder until that
+art lands.
+
+**Resolution (2026-08-15):** Implemented; pending end-of-plan validation.
+
+**Sizing, which is the part built for the art rather than for today.** Icons are
+authored at `StatusIconRegistry.SOURCE_PX` (32) square. A badge rests at half
+that and `STATUS_BADGE_HOVER_SCALE` doubles it, so a hovered badge lands at
+exactly 1:1 with its source — the art is seen at native resolution at the moment
+the player looks closely. The two constants are chosen against each other;
+changing one alone gives that property up.
+
+`StatusIconRegistry.ICON_PATHS` is an empty table, deliberately, exactly like
+`MonsterVisualRegistry.VISUAL_PATHS`. Dropping the art in later is a table edit,
+not a code change, and every name absent from it falls back to a drawn
+placeholder — so an empty table is a working game rather than a blank row.
+
+**Split of responsibility.** `StatusEffectIcons` is now a texture source and
+nothing else; `StatusBadgeRow` owns layout, hover and drawing;
+`GodotVisualAdapter` owns projection and lifecycle. Content stays event-driven
+through `_refresh_status_icons`; only placement and the pointer test are
+per-frame, so a row following its unit does not cost a rebuild.
+
+**Shape collisions fixed.** `burn`, `poison`, `petrify` and `chill` now draw a
+flame, a droplet, a cracked block and a snowflake instead of four identical down
+arrows, and `def_buff`/`def_debuff` take up/down arrows so the shield means
+`guard` alone. Shape is the primary channel and the buff/debuff colour split is
+redundant, which is the correct way round — colour alone fails a colour-blind
+player and fails again over a bright board. Textures are cached per
+shape/colour, so a row rebuild does not re-rasterise.
+
+**Overflow arithmetic.** `STATUS_BADGE_MAX_VISIBLE` is 5 rather than 4, and the
+counter now reports everything it displaced including the effect whose slot it
+took.
+
+**Row declutter was added, unprompted but necessary.** The first capture showed
+four clustered rows overlapping into the same mess the withdrawn plate produced.
+Reuses the algorithm debugged there: outward search in fixed slots (hopping past
+blockers does not converge), off-screen counts as blocked, vertical only, and
+**upward first** since these rows sit above their units and pushing down walks
+them into the model.
+
+Verified by capture at the default preset and at `tactics_classic` (480x360):
+eight rows, one to six effects each, no overlaps, silhouettes distinguishable,
+durations legible, overflow counter correct. `StatusEffectBillboard.gd` is
+deleted — nothing billboards in world space now.
+
 ### LEG-7 — Rework the turn order into a top portrait rail
 
 **Model:** Opus 5 / GPT Sol

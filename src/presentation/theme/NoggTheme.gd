@@ -272,6 +272,40 @@ const STATUS_CELL_CONTROL_GAP_UNITS := 4.0
 ## Horizontal gap between a parent window and the child stacked to its right.
 const WINDOW_STACK_GAP_UNITS := 4.0
 
+# --- Status badges ---------------------------------------------------------
+#
+# The row of square effect icons carried above each unit. Drawn at native
+# resolution and projected, not as world-space sprites: the battle viewport
+# drops to 480x360 under the retro presets, where the previous `Sprite3D` badges
+# were a few device pixels across and their duration `Label3D` was smaller than
+# one.
+#
+# **Resting size is half the authored source, and hover doubles it.** That makes
+# a hovered icon land at exactly 1:1 with `StatusIconRegistry.SOURCE_PX`, so the
+# art is seen at native resolution at the moment the player is actually looking
+# at it. Changing either number without the other gives that up.
+const STATUS_BADGE_UNITS := 8.0
+const STATUS_BADGE_GAP_UNITS := 1.0
+const STATUS_BADGE_HOVER_SCALE := 2.0
+## Vertical lift from the top of the model's bounds to the badge row.
+const STATUS_BADGE_LIFT_UNITS := 5.0
+## How long a badge takes to reach its hovered size. Short enough to feel like a
+## response rather than an animation; `TWEEN_FOCUS` is the same idea for windows.
+const STATUS_BADGE_HOVER_TWEEN := 0.09
+
+## Badges shown before the row collapses the remainder into a counter. Five
+## rather than the previous four: with eleven effects in the catalog a unit can
+## genuinely carry several, and the old rule spent one of its four slots on the
+## counter, so a fifth effect pushed a fourth icon out of sight instead of merely
+## adding itself to a tally.
+const STATUS_BADGE_MAX_VISIBLE := 5
+
+## How far the overlap search will step before accepting a collision. With
+## enough units on one screen point there may be no arrangement that clears
+## everything, and a slightly overlapping row beats a frame spent looking for a
+## layout that does not exist.
+const STATUS_BADGE_DECLUTTER_SLOTS := 8
+
 ## Counts, not lengths. These do not scale — three resonance cells stay three
 ## cells at every size, and a window holding eight rows holds eight rows.
 const RESONANCE_BAR_CELLS := 3
@@ -370,6 +404,10 @@ static var CONTENT_INSET: int
 static var ROW_HEIGHT: int
 static var STATUS_CELL_OFFSETS: Array
 static var STATUS_CELL_TEXT_GAP: int
+static var STATUS_BADGE_SIZE: float
+static var STATUS_BADGE_GAP: float
+static var STATUS_BADGE_LIFT: float
+
 static var RESONANCE_CELL_SIZE: float
 static var RESONANCE_CELL_GAP: float
 static var RESONANCE_CELL_BORDER: float
@@ -466,6 +504,10 @@ static func _recompute() -> void:
 	for units: float in STATUS_CELL_OFFSET_UNITS:
 		offsets.append(_scaled(units))
 	STATUS_CELL_OFFSETS = offsets
+
+	STATUS_BADGE_SIZE = _scaled(STATUS_BADGE_UNITS)
+	STATUS_BADGE_GAP = _scaled(STATUS_BADGE_GAP_UNITS)
+	STATUS_BADGE_LIFT = _scaled(STATUS_BADGE_LIFT_UNITS)
 
 	RESONANCE_CELL_SIZE = _scaled(RESONANCE_CELL_SIZE_UNITS)
 	RESONANCE_CELL_GAP = _scaled(RESONANCE_CELL_GAP_UNITS)
