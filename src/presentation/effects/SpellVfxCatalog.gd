@@ -62,6 +62,13 @@ static func entries() -> Array[Dictionary]:
 			"max_live": AuroraVeilProfile.MAX_LIVE_VEILS,
 		},
 		{
+			"profile_id": SolarStormProfile.PROFILE_ID_V1,
+			"display_name": "Solar Storm v1 (wave)",
+			"factory": Callable(SolarStormEffectScript, "createV1"),
+			"action_hold_fraction": SolarStormProfile.ACTION_HOLD_FRACTION,
+			"max_live": SolarStormProfile.MAX_LIVE_STORMS,
+		},
+		{
 			"profile_id": SolarStormProfile.PROFILE_ID_V2,
 			"display_name": "Solar Storm v2 (pulse)",
 			"factory": Callable(SolarStormEffectScript, "createV2"),

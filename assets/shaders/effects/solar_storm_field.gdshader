@@ -101,6 +101,13 @@ uniform float fov_edge = 0.26;
 // direction with phase `r * frequency - time * speed`, so fronts propagate from
 // the occulter out to the edges the way a solar shock does, and the motion
 // agrees with the field's own polar geometry instead of cutting across it.
+// v1's lateral wave, kept only so the debug scene can hold v1 beside v2 and show
+// what the motion change bought. Amplitude defaults to zero, so every rung from
+// v2 up is untouched by its presence; only the v1 row switches it on.
+uniform float wave_amplitude = 0.0;
+uniform float wave_frequency = 3.5;
+uniform float wave_speed = 2.0;
+
 uniform float pulse_amplitude = 0.010;
 uniform float pulse_frequency = 4.0;
 uniform float pulse_speed = 1.1;
@@ -239,7 +246,18 @@ void fragment() {
 	float pulse = sin(pulse_phase);
 	// Back into UV: the outward vector lives in aspect-corrected space, so its
 	// x component has to be undone or the displacement stretches horizontally.
-	vec2 field_uv = UV + outward * (pulse * pulse_amplitude)
+	// v1's lateral wobble, at zero amplitude on every rung but v1. Applied to the
+	// same coordinate as the pulse and before the polar frame is re-derived,
+	// which is what makes the v1 row reproduce v1's motion exactly rather than
+	// approximate it.
+	float wave_phase = playback_time * wave_speed;
+	vec2 wave = vec2(
+		sin((UV.y * wave_frequency + wave_phase) * TAU_VALUE) * wave_amplitude,
+		sin((UV.x * wave_frequency * 0.7 - wave_phase * 0.8) * TAU_VALUE)
+			* wave_amplitude * 0.6
+	);
+
+	vec2 field_uv = UV + wave + outward * (pulse * pulse_amplitude)
 		* vec2(1.0 / max(aspect_ratio, 0.0001), 1.0);
 
 	vec2 cell_index = vec2(0.0);

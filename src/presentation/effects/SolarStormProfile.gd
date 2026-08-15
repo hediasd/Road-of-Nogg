@@ -20,11 +20,28 @@ const PROFILE_ID := "solar_storm"
 ##
 ## The rows are an authoring aid, not content. Nothing in `data/spells.json`
 ## points at them, and `PROFILE_ID` above stays the gameplay entry point.
+const PROFILE_ID_V1 := "solar_storm_v1"
 const PROFILE_ID_V2 := "solar_storm_v2"
 const PROFILE_ID_V2_1 := "solar_storm_v2_1"
 const PROFILE_ID_V2_2 := "solar_storm_v2_2"
 const PROFILE_ID_V2_3 := "solar_storm_v2_3"
 
+## v1: the lateral wave, before the motion changed. `WAVE_AMPLITUDE` is zero on
+## every other rung, so v1 is the only row that switches the wobble on and the
+## only reason the wave code still exists.
+##
+## One honest gap: v1 also carried a sign error that made the stream splay crawl
+## back toward the occulter, and this row does not restore it. Reproducing an
+## acknowledged bug would cost another flag to make a comparison worse.
+const VARIANT_V1 := {
+	"WAVE_AMPLITUDE": V1_WAVE_AMPLITUDE,
+	"PULSE_AMPLITUDE": 0.0,
+	"PULSE_INTENSITY": 0.0,
+	"PROMINENCE_GAIN": 0.0,
+	"HEAT_WASH_GAIN": 0.0,
+	"FLARE_GAIN": 0.0,
+	"FLAME_TURBULENCE": 0.0,
+}
 ## v2: the radial pulse alone, replacing v1's lateral wave. Everything the later
 ## rungs add is switched off.
 const VARIANT_V2 := {
@@ -199,6 +216,13 @@ const HEAT_WASH_CURVE := [0.0, 0.22, 0.85, 1.00, 0.15]
 const MODEL_BOOST := 3.0
 const OCCLUSION_FEATHER := 0.18
 const OCCLUSION_GAIN := 2.4
+
+## AUTHORED v1 wave. `WAVE_AMPLITUDE` defaults to zero -- the wave exists only
+## for the v1 comparison row; `V1_WAVE_AMPLITUDE` is the value v1 actually shipped.
+const WAVE_AMPLITUDE := 0.0
+const V1_WAVE_AMPLITUDE := 0.006
+const WAVE_FREQUENCY := 3.5
+const WAVE_SPEED := 2.0
 
 ## AUTHORED radial pulse, replacing the sibling's lateral wave. The sibling's
 ## wobble is a mirage shimmer, which is the right motion for a hallucination and

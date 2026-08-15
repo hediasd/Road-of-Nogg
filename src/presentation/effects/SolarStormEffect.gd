@@ -93,6 +93,14 @@ static func _createVariant(
 	return createPlayback(parent, world_pos, element_color, merged)
 
 
+static func createV1(
+		parent: Node3D, world_pos: Vector3, element_color: Color,
+		overrides: Dictionary = {}) -> SolarStormEffect:
+	return _createVariant(
+		SolarStormProfile.VARIANT_V1, parent, world_pos, element_color, overrides
+	)
+
+
 static func createV2(
 		parent: Node3D, world_pos: Vector3, element_color: Color,
 		overrides: Dictionary = {}) -> SolarStormEffect:
@@ -541,6 +549,9 @@ func _applyTunableUniforms() -> void:
 		"prominence_thickness": [
 			"PROMINENCE_THICKNESS", SolarStormProfile.PROMINENCE_THICKNESS
 		],
+		"wave_amplitude": ["WAVE_AMPLITUDE", SolarStormProfile.WAVE_AMPLITUDE],
+		"wave_frequency": ["WAVE_FREQUENCY", SolarStormProfile.WAVE_FREQUENCY],
+		"wave_speed": ["WAVE_SPEED", SolarStormProfile.WAVE_SPEED],
 		"pulse_amplitude": ["PULSE_AMPLITUDE", SolarStormProfile.PULSE_AMPLITUDE],
 		"pulse_frequency": ["PULSE_FREQUENCY", SolarStormProfile.PULSE_FREQUENCY],
 		"pulse_speed": ["PULSE_SPEED", SolarStormProfile.PULSE_SPEED],
