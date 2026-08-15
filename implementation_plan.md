@@ -108,6 +108,44 @@ row.
 later item; validation checks the shipped HUD against it rather than against
 this plan.
 
+**Resolution (2026-08-15):** Implemented; pending end-of-plan validation. The
+user delegated the blocking design decision rather than approving a proposal, so
+the contract records choices made here.
+
+Two sizes were derived rather than chosen, and the derivation is in §10c so it
+is not silently retuned. The shipping face renders only at whole multiples of 12
+device pixels, so `FONT_SIZE_BODY_UNITS` is the smallest honest game-font size
+and a two-digit level needs roughly 16 units of clear inner diameter — that sets
+the ring at 20. The battle camera is orthogonal at size 14, so a plate wider
+than about 60 units spans several tiles and stops reading as one unit's; ring
+plus gap plus bar comes to 57.
+
+Three decisions worth naming because they narrowed the original sketch:
+
+- **Resonance pips were dropped from the plate.** They fit the width budget only
+  by pushing the total past the tile constraint above, they change slowly, and
+  the docked window already shows them. Element and resonance detail belongs on
+  hover and in LEG-9's card.
+- **No new hue enters the vocabulary.** Critical health reuses `TEXT_ACCENT` at
+  the same one-third threshold `_renderStatusWindow` already applies, so the
+  plate and the docked window cannot disagree. Lethal is expressed by the ghost
+  covering the whole bar rather than by a red. Ticking damage is separated from
+  forecast damage by hatch pattern, not colour.
+- **Spent state reuses `CONTENT_INACTIVE_MODULATE`** rather than defining a
+  plate-specific dim.
+
+Team colour moved into `NoggTheme.team_color()`. It was a pair of colour
+literals in `GodotVisualAdapter._on_monster_spawned` — the one place in
+`src/presentation/` breaking this file's no-literals rule — and the plate's ring
+is a second consumer that must not disagree with the model plinth.
+
+Probe: `--check-only` parses clean for `NoggTheme.gd` and
+`GodotVisualAdapter.gd`. The same probe against `BattlePresentationController.gd`
+exits `-1073741819` with 46 resources retained, which reproduces identically
+with these changes stashed — it is the pre-existing exit access violation in
+`BACKLOG_CRITICAL.md`, not a regression here. Smoke check only, not acceptance
+evidence.
+
 ### LEG-2 — Fill the docked status window from hover, in every phase
 
 **Model:** Sonnet 5 / GPT Terra

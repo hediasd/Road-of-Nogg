@@ -70,6 +70,22 @@ const CURSOR := Color(1.0, 0.776, 0.227)
 ## arbitrary 3D background.
 const OUTLINE := Color(0.0, 0.0, 0.0, 1.0)
 
+## Team identity. Previously a pair of colour literals inside
+## `GodotVisualAdapter._on_monster_spawned`, which is the one place in
+## `src/presentation/` this file's no-literals rule was being broken. It had to
+## move the moment a second surface needed the same value: the unit plate's
+## level ring is team-coloured, and a plate whose blue disagreed with its own
+## model's plinth would be worse than no team colour at all.
+const TEAM_ONE_COLOR := Color(0.18, 0.42, 0.95)
+const TEAM_TWO_COLOR := Color(0.9, 0.2, 0.16)
+
+
+## Team colour by team index. Two teams today (`docs/GAME_DESIGN.md`); anything
+## outside that falls back to team two's colour rather than asserting, because a
+## readout is not the right place to halt a battle.
+static func team_color(team: int) -> Color:
+	return TEAM_ONE_COLOR if team == 1 else TEAM_TWO_COLOR
+
 # --- Dev palette ----------------------------------------------------------
 #
 # Deliberately drab and deliberately off-brand. Developer controls must never
@@ -256,6 +272,61 @@ const STATUS_CELL_CONTROL_GAP_UNITS := 4.0
 ## Horizontal gap between a parent window and the child stacked to its right.
 const WINDOW_STACK_GAP_UNITS := 4.0
 
+# --- Unit plate ------------------------------------------------------------
+#
+# The board-space readout carried under every living unit (docs/UI_DESIGN.md
+# §10c). Sized against two hard constraints rather than chosen.
+#
+# **The numeral fixes the ring.** The shipping face renders only at whole
+# multiples of 12 device pixels, so the smallest honest game-font size is
+# `FONT_SIZE_BODY_UNITS` — there is no half-size numeral available at every
+# `ui_scale`. A two-digit level at that size needs the ring's inner diameter to
+# clear roughly 16 units, which is what sets `PLATE_RING_DIAMETER_UNITS`. A
+# smaller ring cannot hold a level of 10 or above, and levels above 9 are the
+# explicit intent of the monster level and growth work.
+#
+# **The tile fixes the total width.** The battle camera is orthogonal at size
+# 14, so one board tile is a fourteenth of the viewport height. A plate much
+# wider than about 60 units spans several tiles at that framing and stops
+# reading as belonging to one unit. Ring + gap + bar comes to 57.
+const PLATE_RING_DIAMETER_UNITS := 20.0
+const PLATE_RING_STROKE_UNITS := 1.0
+const PLATE_GAP_UNITS := 3.0
+const PLATE_BAR_WIDTH_UNITS := 34.0
+const PLATE_BAR_HEIGHT_UNITS := 7.0
+## Hairline around the bar and between its notches. 0.5 for the same reason
+## `RESONANCE_CELL_BORDER_UNITS` is: it stays one device pixel at x2 instead of
+## thickening into a chrome element as everything else grows.
+const PLATE_BAR_BORDER_UNITS := 0.5
+## Vertical drop from the unit's foot to the top of the plate.
+const PLATE_ANCHOR_DROP_UNITS := 6.0
+
+## HP per notch — a count, not a length, so it does not scale. Ten against the
+## catalog's 28-60 max HP gives every unit three to six segments, and makes the
+## typical 2-8 damage exchange cross a visible boundary. A smooth bar at that
+## damage-to-health ratio moves too little per hit to register, which is the
+## whole reason the notches exist.
+const PLATE_HP_PER_NOTCH := 10
+
+## Health below one third turns the fill `TEXT_ACCENT`. Deliberately the same
+## threshold and the same token the docked status window already applies to its
+## HP value, so the plate and the window cannot disagree about when a unit is
+## in trouble.
+const PLATE_CRITICAL_NUMERATOR := 1
+const PLATE_CRITICAL_DENOMINATOR := 3
+
+## Empty track. The window body colour, so an empty bar reads as the same
+## material as the HUD rather than as a hole in the board.
+const PLATE_BAR_TRACK := WINDOW_FILL
+## Healthy fill. Already the palette's positive/heal green; no new hue enters
+## the vocabulary, which is nearly full — see docs/UI_DESIGN.md §10c.
+const PLATE_BAR_FILL := TEXT_HEAL
+## Alpha applied to the fill colour to draw a segment that is about to be
+## removed: pending forecast damage, and ticking burn or poison. Derived from
+## whichever fill is current rather than being its own colour, so the ghost of a
+## critical bar is a pale gold and the ghost of a healthy one is a pale green.
+const PLATE_GHOST_ALPHA := 0.45
+
 ## Counts, not lengths. These do not scale — three resonance cells stay three
 ## cells at every size, and a window holding eight rows holds eight rows.
 const RESONANCE_BAR_CELLS := 3
@@ -361,6 +432,17 @@ static var RESONANCE_BAR_WIDTH: float
 static var STATUS_CELL_CONTROL_GAP: float
 static var WINDOW_STACK_GAP: int
 
+static var PLATE_RING_DIAMETER: float
+static var PLATE_RING_STROKE: float
+static var PLATE_GAP: float
+static var PLATE_BAR_WIDTH: float
+static var PLATE_BAR_HEIGHT: float
+static var PLATE_BAR_BORDER: float
+static var PLATE_ANCHOR_DROP: float
+## Derived, not authored: the plate's full width is exactly what its parts come
+## to, so adding or resizing a part cannot leave a stale total behind.
+static var PLATE_WIDTH: float
+
 # --- Animation ------------------------------------------------------------
 #
 # Owned here rather than at each call site for the same reason as the colours:
@@ -462,6 +544,15 @@ static func _recompute() -> void:
 		+ float(RESONANCE_BAR_CELLS - 1) * RESONANCE_CELL_GAP
 	)
 
+	PLATE_RING_DIAMETER = _scaled(PLATE_RING_DIAMETER_UNITS)
+	PLATE_RING_STROKE = _scaled(PLATE_RING_STROKE_UNITS)
+	PLATE_GAP = _scaled(PLATE_GAP_UNITS)
+	PLATE_BAR_WIDTH = _scaled(PLATE_BAR_WIDTH_UNITS)
+	PLATE_BAR_HEIGHT = _scaled(PLATE_BAR_HEIGHT_UNITS)
+	PLATE_BAR_BORDER = _scaled(PLATE_BAR_BORDER_UNITS)
+	PLATE_ANCHOR_DROP = _scaled(PLATE_ANCHOR_DROP_UNITS)
+	PLATE_WIDTH = PLATE_RING_DIAMETER + PLATE_GAP + PLATE_BAR_WIDTH
+
 	CURSOR_WIDTH = _scaled(CURSOR_WIDTH_UNITS)
 	CURSOR_HEIGHT = _scaled(CURSOR_HEIGHT_UNITS)
 	CURSOR_INSET = _scaled(CURSOR_INSET_UNITS)
@@ -489,6 +580,12 @@ static func _recompute() -> void:
 ## disabled row inside an inactive window correctly ends up dimmest of all.
 const CONTENT_ACTIVE_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
 const CONTENT_INACTIVE_MODULATE := Color(0.45, 0.47, 0.52, 1.0)
+
+## A spent unit's whole plate takes the same dim an inactive window's content
+## takes. Reused rather than redefined: "still there, no longer available" is
+## one idea and should not grow two visual languages. Declared here rather than
+## beside the other plate tokens so it follows the constant it derives from.
+const PLATE_SPENT_MODULATE := CONTENT_INACTIVE_MODULATE
 
 
 ## Height of a window with the given row capacity, frame inset included.

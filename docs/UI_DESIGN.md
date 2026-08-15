@@ -476,6 +476,7 @@ This is what keeps the two devices from disagreeing.
 | `ui_accept` | Activate the cursor's row |
 | `ui_cancel` | Close the focused child window; if root, cancel the phase |
 | `T` (held during a player turn) | Show the enemy danger zone; release to restore the current movement/target overlays |
+| Mouse motion over a unit on the board | Fill the docked status readout with that unit, immediately, **in every phase** |
 | Mouse motion over a row | Move the cursor to that row (no activation) |
 | Left click on a row | Move the cursor there, then activate |
 | Left click on `◀` / `▶` | Page |
@@ -752,6 +753,122 @@ Gaining hover waits out a short dwell before a model is restored to solid;
 losing it takes effect immediately. Without the dwell, a pointer swept across
 a crowded board restores each model it crosses for a frame or two, which reads
 as flicker.
+
+---
+
+## 10c. The unit plate
+
+A compact readout carried under every living unit, always visible, costing the
+player no input at all. It exists because the docked status windows can show two
+units and a 4v4 has eight: six units' health was unreadable at any given moment,
+and there was no board-space health readout of any kind.
+
+### It is a projected Control, not world-space
+
+**The plate is drawn on a `CanvasLayer` at `WORLD_EFFECT_LAYER`, positioned by
+projecting the unit's world position into screen space.** It is not a `Label3D`,
+a `Sprite3D`, or a quad in the scene. The battle world renders into an isolated
+`SubViewport` that presets drop to `480x360`; anything drawn inside that
+viewport is downsampled with it, which is survivable for a model and fatal for a
+1-device-pixel bar hairline or a numeral.
+
+`DamageNumberBillboard` already established this path and the plate follows it
+exactly: `camera.unproject_position()`, then `RetroRenderController`'s
+`world_to_screen()` to map through the aspect-preserving display rect, with
+`get_display_rect()` as the cull test and `is_position_behind()` as the reject.
+That is also why `WORLD_EFFECT_LAYER` is the right layer — above the world and
+the default CRT pass, below every docked window, so a plate can never occlude
+the HUD and never takes scanlines.
+
+Anchor from the unit's **live visual** position rather than its authoritative
+tile, so the plate tracks a unit mid-move rather than snapping on arrival.
+
+### Composition
+
+Left to right, on one row, dropping `PLATE_ANCHOR_DROP` below the unit's foot:
+
+```text
+ (  7  )  ####|###|##..|....
+  ring       notched bar
+```
+
+- **Level ring** — an unfilled circle stroked in the team colour, carrying the
+  unit's level as a numeral. Leaving the interior transparent is what lets one
+  element carry two channels: the stroke answers *whose unit is this* and the
+  numeral answers *how strong*, without the numeral fighting a fill for
+  contrast. The board also reads through the gap. The numeral takes
+  `TEXT_PRIMARY` over the same four-offset `OUTLINE` hairline the damage number
+  uses, because it sits over an arbitrary lit board.
+- **Health bar** — `PLATE_BAR_WIDTH` by `PLATE_BAR_HEIGHT`, notched every
+  `PLATE_HP_PER_NOTCH` HP.
+
+Team colour lives in `NoggTheme.team_color()`. It was a pair of literals inside
+`GodotVisualAdapter` until the plate needed the same value; a plate whose blue
+disagreed with its own model's plinth would be worse than no team colour.
+
+### Two constraints set the sizes
+
+Neither number was chosen; both were derived, and an executing agent should not
+retune them without redoing the measurement.
+
+**The numeral fixes the ring.** The shipping face renders only at whole
+multiples of 12 device pixels (§3), so `FONT_SIZE_BODY_UNITS` is the smallest
+honest game-font size — there is no half-size numeral available at every
+`ui_scale`. A two-digit level at that size needs roughly 16 units of clear inner
+diameter, which is what sets `PLATE_RING_DIAMETER_UNITS` at 20. A smaller ring
+cannot render a level of 10 or above, and levels past 9 are the explicit intent
+of the monster level and growth work in `BACKLOG_CRITICAL.md`.
+
+**The tile fixes the total width.** The battle camera is orthogonal at size 14,
+so one board tile is a fourteenth of the viewport height. A plate much wider
+than about 60 design units spans several tiles at that framing and stops reading
+as belonging to one unit. Ring plus gap plus bar comes to 57.
+
+### The bar is notched, and that is a gameplay consequence
+
+Shipped stats are base stats — every unit is level 1 and every growth value is
+0 — so HP runs 28-60, ATK and DEF run 2-8, and spell damage runs 1-7. Against
+`max(1, atk + power - def)` most exchanges land at 2-8 damage. **A continuous
+bar losing roughly 7% per hit reads as not having moved.** Notching it every 10
+HP gives each unit three to six segments and makes a typical hit cross a visible
+boundary.
+
+Whether five-to-twenty hits per kill is the intended pace is a balance question
+and not this document's to answer. It is recorded here because it is the reason
+the bar has notches, and removing them would quietly undo the fix.
+
+### Colour comes from the existing palette
+
+The board vocabulary is nearly full — movement blue, reach purple, target
+yellow, affected red and green, threat magenta — and yellow is already taken
+twice, by the hovered path and by legal targets. **The plate introduces no new
+hue.**
+
+| Element | Token | Note |
+|---|---|---|
+| Empty track | `PLATE_BAR_TRACK` = `WINDOW_FILL` | An empty bar reads as HUD material, not a hole in the board |
+| Fill, healthy | `PLATE_BAR_FILL` = `TEXT_HEAL` | Already the palette's positive green |
+| Fill, critical | `TEXT_ACCENT` | Below one third — the **same threshold and token** the docked status window already applies to its HP value, so the two surfaces cannot disagree about when a unit is in trouble |
+| Pending damage | current fill at `PLATE_GHOST_ALPHA` | Derived from whichever fill is current, so a critical bar's ghost is pale gold and a healthy one's is pale green |
+| Lethal | the ghost covers the **entire** remaining bar | "Nothing survives" stated exactly, with no extra colour |
+| Ticking burn/poison | ghost treatment plus a hatch | Separated from forecast damage by **pattern, not hue** |
+| Bar border and notches | `OUTLINE` | One device pixel at x2, like `RESONANCE_CELL_BORDER` |
+| Spent unit | `PLATE_SPENT_MODULATE` | The inactive-window content dim, reused — "still there, no longer available" is one idea and gets one language |
+
+### It never resizes
+
+Fixed size for the lifetime of a unit, for trait 6's reason: a readout that
+changes width as its values change makes the eye re-find it every turn. Status
+badges are relocated onto this plate rather than staying billboarded above the
+model — see the status-icon work in `BACKLOG_CRITICAL.md` — so the plate is the
+single board-space readout per unit rather than the second one.
+
+### Overlapping plates need a rule
+
+An orthogonal camera puts two units at nearly the same projected point
+regularly, and a plate overlapping another is worse than no plate. Depth-sort by
+distance to camera and nudge, or fade the rear plate. This is stated here as
+required rather than left to be discovered on a crowded board.
 
 ---
 

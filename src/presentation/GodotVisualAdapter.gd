@@ -764,7 +764,7 @@ static func tileColorFor(baseColor: Color, coord: Vector2i, _terrain: int) -> Co
 	return baseColor.darkened(0.11)
 
 func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i, _stats: Dictionary) -> void:
-	var team_color = Color(0.18, 0.42, 0.95) if team == 1 else Color(0.9, 0.2, 0.16)
+	var team_color := NoggThemeScript.team_color(team)
 	var m = state.getMonster(monsterID)
 
 	var mat: Material = null
