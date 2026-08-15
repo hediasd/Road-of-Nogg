@@ -125,11 +125,11 @@ static func createV2_2(
 	)
 
 
-static func createV2_3(
+static func createV3(
 		parent: Node3D, world_pos: Vector3, element_color: Color,
 		overrides: Dictionary = {}) -> SolarStormEffect:
 	return _createVariant(
-		SolarStormProfile.VARIANT_V2_3, parent, world_pos, element_color, overrides
+		SolarStormProfile.VARIANT_V3, parent, world_pos, element_color, overrides
 	)
 
 
@@ -376,14 +376,24 @@ static func tunables() -> Array[Dictionary]:
 			"default": SolarStormProfile.LIMB_GAIN, "rebuild": false,
 		},
 		{
-			"id": "FLARE_GAIN", "label": "Flare bloom", "group": "Grade",
-			"min": 0.0, "max": 4.0, "step": 0.05,
-			"default": SolarStormProfile.FLARE_GAIN, "rebuild": false,
+			"id": "MELT_AMOUNT", "label": "Melt sag", "group": "Melt",
+			"min": 0.0, "max": 1.0, "step": 0.01,
+			"default": SolarStormProfile.MELT_AMOUNT, "rebuild": false,
 		},
 		{
-			"id": "FLARE_REACH", "label": "Flare reach", "group": "Grade",
-			"min": 0.05, "max": 2.0, "step": 0.01,
-			"default": SolarStormProfile.FLARE_REACH, "rebuild": false,
+			"id": "MELT_COLUMNS", "label": "Drip count", "group": "Melt",
+			"min": 1.0, "max": 24.0, "step": 0.5,
+			"default": SolarStormProfile.MELT_COLUMNS, "rebuild": false,
+		},
+		{
+			"id": "MELT_DRIP", "label": "Drip depth", "group": "Melt",
+			"min": 0.0, "max": 1.0, "step": 0.05,
+			"default": SolarStormProfile.MELT_DRIP, "rebuild": false,
+		},
+		{
+			"id": "MELT_COOL", "label": "Melt cooling", "group": "Melt",
+			"min": 0.0, "max": 1.0, "step": 0.05,
+			"default": SolarStormProfile.MELT_COOL, "rebuild": false,
 		},
 		{
 			"id": "HEAT_WASH_GAIN", "label": "Heat wash", "group": "Occlusion",
@@ -560,8 +570,10 @@ func _applyTunableUniforms() -> void:
 		"model_boost": ["MODEL_BOOST", SolarStormProfile.MODEL_BOOST],
 		"occlusion_gain": ["OCCLUSION_GAIN", SolarStormProfile.OCCLUSION_GAIN],
 		"heat_wash_gain": ["HEAT_WASH_GAIN", SolarStormProfile.HEAT_WASH_GAIN],
-		"flare_gain": ["FLARE_GAIN", SolarStormProfile.FLARE_GAIN],
-		"flare_reach": ["FLARE_REACH", SolarStormProfile.FLARE_REACH],
+		"melt_amount": ["MELT_AMOUNT", SolarStormProfile.MELT_AMOUNT],
+		"melt_columns": ["MELT_COLUMNS", SolarStormProfile.MELT_COLUMNS],
+		"melt_drip": ["MELT_DRIP", SolarStormProfile.MELT_DRIP],
+		"melt_cool": ["MELT_COOL", SolarStormProfile.MELT_COOL],
 	}
 	for uniform: String in rows:
 		var row: Array = rows[uniform]
@@ -634,7 +646,10 @@ func _applyProgress(progress: float) -> void:
 		"lifecycle_visibility",
 		_sampleKeyedCurve(progress, SolarStormProfile.VISIBILITY_CURVE)
 	)
-	_stormMaterial.set_shader_parameter("flare_bloom", _flareBloom(progress))
+	_stormMaterial.set_shader_parameter(
+		"melt_progress",
+		_sampleKeyedCurve(progress, SolarStormProfile.MELT_PROGRESS_CURVE)
+	)
 	_stormMaterial.set_shader_parameter(
 		"heat_wash",
 		_sampleKeyedCurve(progress, SolarStormProfile.HEAT_WASH_CURVE)
@@ -652,13 +667,6 @@ func _applyProgress(progress: float) -> void:
 		tunable("GRAIN_STRENGTH", SolarStormProfile.GRAIN_STRENGTH)
 			* _sampleKeyedCurve(progress, SolarStormProfile.GRAIN_CURVE)
 	)
-
-
-## Narrow gaussian centred on the launch beat. See the profile for why this is
-## analytic rather than another keyed curve.
-static func _flareBloom(progress: float) -> float:
-	var offset := (progress - SolarStormProfile.FLARE_CENTRE) 		/ maxf(SolarStormProfile.FLARE_WIDTH, 0.0001)
-	return exp(-offset * offset)
 
 
 static func _sampleKeyedCurve(progress: float, values: Array) -> float:

@@ -114,6 +114,20 @@ uniform float pulse_speed = 1.1;
 uniform float pulse_intensity = 0.22;
 uniform float pixel_cells = 56.0;
 
+// --- Melt -------------------------------------------------------------------
+// The storm sags downward as it runs, as though the light were going molten.
+// Off by default; the v3 rung switches it on.
+//
+// Three parts make it read as melting rather than as sliding: the sag grows
+// with depth below the occulter, so the field stretches instead of translating;
+// it varies per column, so the underside breaks into drips rather than a level
+// hem; and the ramp is biased downward as it goes, so what sags also cools.
+uniform float melt_amount = 0.0;
+uniform float melt_progress = 0.0;
+uniform float melt_columns = 6.0;
+uniform float melt_drip = 0.55;
+uniform float melt_cool = 0.35;
+
 // --- Occlusion --------------------------------------------------------------
 uniform sampler2D screen_texture : hint_screen_texture, filter_linear;
 uniform sampler2D depth_texture : hint_depth_texture, filter_nearest;
@@ -130,14 +144,6 @@ uniform float heat_wash = 0.0;
 uniform float heat_wash_gain = 0.85;
 
 // --- Grade and lifecycle ----------------------------------------------------
-// Flare bloom: a short whiteout at the launch beat. Driven as a separate scalar
-// rather than folded into the visibility envelope, because it has to be able to
-// spike far past full brightness and recover without dragging the storm's own
-// fade with it.
-uniform float flare_bloom = 0.0;
-uniform float flare_gain = 1.30;
-uniform float flare_reach = 0.45;
-
 uniform float exposure = 1.0;
 uniform float grain_strength = 0.055;
 uniform float grain_hz = 12.0;
@@ -260,6 +266,19 @@ void fragment() {
 	vec2 field_uv = UV + wave + outward * (pulse * pulse_amplitude)
 		* vec2(1.0 / max(aspect_ratio, 0.0001), 1.0);
 
+	// Melt. Sampling from *above* the fragment is what moves content downward,
+	// so the offset is subtracted. Depth below the occulter scales it, which
+	// turns a translation into a stretch; the per-column term breaks the hem
+	// into drips. Applied after the pulse so the two motions compose rather
+	// than one overwriting the other.
+	float below_anchor = max(field_uv.y - storm_anchor.y, 0.0);
+	float column = 0.5 + 0.5 * sin(
+		(field_uv.x * melt_columns + 0.31) * TAU_VALUE
+	);
+	float sag = melt_amount * melt_progress * below_anchor
+		* mix(1.0 - melt_drip, 1.0, column);
+	field_uv.y -= sag;
+
 	vec2 cell_index = vec2(0.0);
 	if (pixel_cells > 0.5) {
 		vec2 grid = vec2(pixel_cells, pixel_cells / aspect_ratio);
@@ -348,13 +367,6 @@ void fragment() {
 	float pulse_gain = 1.0 + pulse * pulse_intensity;
 	float intensity = (corona + streamer) * pulse_gain + arc + prominences;
 
-	// The flare blooms out of the occulter, so its lift falls off with radius:
-	// applied flat it reads as the exposure being pulled rather than as the star
-	// releasing. `flare_reach` sets how far out the whiteout carries.
-	float flare = flare_bloom * exp(-max(r - occulter_radius, 0.0)
-		/ max(flare_reach, 0.0001));
-	intensity += flare * flare_gain;
-
 	// --- occulter, limb, and instrument field of view ------------------------
 	float disk = smoothstep(occulter_radius - occulter_edge, occulter_radius, r);
 	float limb = gaussian(r - limb_radius, limb_width) * limb_gain;
@@ -371,7 +383,14 @@ void fragment() {
 		discard;
 	}
 
-	vec3 color = ramp_color(clamp(intensity * exposure, 0.0, 1.0));
+	// Cooling: what has sagged is biased down the heat ramp, so the melt loses
+	// its white cores from the bottom up rather than dimming uniformly.
+	float cooled = clamp(
+		intensity * exposure
+			* (1.0 - melt_cool * melt_progress * clamp(sag / max(melt_amount, 0.0001), 0.0, 1.0)),
+		0.0, 1.0
+	);
+	vec3 color = ramp_color(cooled);
 
 	// Grain rides the cell grid when the field is snapped, so it reads as part of
 	// the pixelation rather than fighting it at a finer scale.

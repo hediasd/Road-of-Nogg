@@ -15,6 +15,17 @@ run/main_scene="res://scenes/Battle25D.tscn"
 config/features=PackedStringArray("4.4")
 config/icon="res://assets/textures/icon.png"
 
+[display]
+
+; UI renders 1:1 at whatever the window actually is; nothing here resamples
+; the canvas. `NoggTheme.UI_SCALE` (src/presentation/theme/NoggTheme.gd) is
+; the resolution-aware scale instead, applied to design-unit tokens rather
+; than to the canvas — see docs/UI_DESIGN.md §3. `canvas_items` + fractional
+; stretch, the previous setting, scaled the whole canvas by a fraction at
+; nearly every real window size, which under nearest filtering desynced pixel
+; fonts and small-integer UI geometry mid-word.
+window/stretch/mode="disabled"
+
 [filesystem]
 
 import/blender/enabled=false

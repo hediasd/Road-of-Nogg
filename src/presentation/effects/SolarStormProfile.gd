@@ -24,7 +24,7 @@ const PROFILE_ID_V1 := "solar_storm_v1"
 const PROFILE_ID_V2 := "solar_storm_v2"
 const PROFILE_ID_V2_1 := "solar_storm_v2_1"
 const PROFILE_ID_V2_2 := "solar_storm_v2_2"
-const PROFILE_ID_V2_3 := "solar_storm_v2_3"
+const PROFILE_ID_V3 := "solar_storm_v3"
 
 ## v1: the lateral wave, before the motion changed. `WAVE_AMPLITUDE` is zero on
 ## every other rung, so v1 is the only row that switches the wobble on and the
@@ -39,7 +39,6 @@ const VARIANT_V1 := {
 	"PULSE_INTENSITY": 0.0,
 	"PROMINENCE_GAIN": 0.0,
 	"HEAT_WASH_GAIN": 0.0,
-	"FLARE_GAIN": 0.0,
 	"FLAME_TURBULENCE": 0.0,
 }
 ## v2: the radial pulse alone, replacing v1's lateral wave. Everything the later
@@ -47,22 +46,21 @@ const VARIANT_V1 := {
 const VARIANT_V2 := {
 	"PROMINENCE_GAIN": 0.0,
 	"HEAT_WASH_GAIN": 0.0,
-	"FLARE_GAIN": 0.0,
 	"FLAME_TURBULENCE": 0.0,
 }
 ## v2.1 adds the prominence arches.
 const VARIANT_V2_1 := {
 	"HEAT_WASH_GAIN": 0.0,
-	"FLARE_GAIN": 0.0,
 	"FLAME_TURBULENCE": 0.0,
+}
+## v3 keeps the pulse and the whole v2 feature set, and adds the melt: the storm
+## sags and cools as it runs rather than simply fading out. It is a variant on
+## the same field, not a fork -- `MELT_AMOUNT` is zero everywhere else.
+const VARIANT_V3 := {
+	"MELT_AMOUNT": V3_MELT_AMOUNT,
 }
 ## v2.2 adds the heat wash on the board.
 const VARIANT_V2_2 := {
-	"FLARE_GAIN": 0.0,
-	"FLAME_TURBULENCE": 0.0,
-}
-## v2.3 adds the flare bloom at the launch beat.
-const VARIANT_V2_3 := {
 	"FLAME_TURBULENCE": 0.0,
 }
 
@@ -159,19 +157,21 @@ const PROMINENCE_GAIN := 0.60
 ## ignition, stand through the launch, and subside as the corona fades.
 const PROMINENCE_RISE_CURVE := [0.10, 0.72, 1.00, 0.88, 0.35]
 
-## AUTHORED flare bloom: a short whiteout at the launch beat, so the storm has a
-## moment of release rather than a steady glow.
-##
-## Deliberately *not* a keyed curve like every other envelope here. The shared
-## keys sit on the beat boundaries and interpolate linearly between them, so a
-## peak authored at LAUNCH becomes a ramp climbing from 0.14 and decaying to
-## 0.78 -- a swell across two thirds of the cast rather than a flash. A spike
-## needs a width shorter than the gap between beats, so it is evaluated
-## analytically as a narrow gaussian instead.
-const FLARE_GAIN := 0.85
-const FLARE_REACH := 0.45
-const FLARE_CENTRE := 0.42
-const FLARE_WIDTH := 0.045
+## AUTHORED melt, off by default and switched on by the v3 rung. `AMOUNT` is the
+## sag in panel UV at full depth and full progress; `COLUMNS` how many drips form
+## across the panel; `DRIP` how deeply the columns differ, which is what stops the
+## underside reading as a level hem; `COOL` how far the sagged material is biased
+## down the heat ramp, so what melts also loses its white cores.
+const MELT_AMOUNT := 0.0
+const V3_MELT_AMOUNT := 0.34
+const MELT_COLUMNS := 6.0
+const MELT_DRIP := 0.55
+const MELT_COOL := 0.35
+
+## AUTHORED melt progress across the beats. Nothing melts during ignition or the
+## launch -- the storm has to establish before it can sag -- and it runs to full
+## through expansion and dissipation.
+const MELT_PROGRESS_CURVE := [0.0, 0.0, 0.18, 0.72, 1.00]
 
 ## ESTIMATED grade.
 const EXPOSURE := 1.0
