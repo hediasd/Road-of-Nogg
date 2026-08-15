@@ -788,72 +788,79 @@ tile, so the plate tracks a unit mid-move rather than snapping on arrival.
 Left to right, on one row, dropping `PLATE_ANCHOR_DROP` below the unit's foot:
 
 ```text
- (  7  )  ####|###|##..|....
-  ring       notched bar
+ (7)  ####|###|##..|....
+ ring     ramped bar
 ```
 
 - **Level ring** — an unfilled circle stroked in the team colour, carrying the
-  unit's level as a numeral. Leaving the interior transparent is what lets one
-  element carry two channels: the stroke answers *whose unit is this* and the
-  numeral answers *how strong*, without the numeral fighting a fill for
-  contrast. The board also reads through the gap. The numeral takes
-  `TEXT_PRIMARY` over the same four-offset `OUTLINE` hairline the damage number
-  uses, because it sits over an arbitrary lit board.
-- **Health bar** — `PLATE_BAR_WIDTH` by `PLATE_BAR_HEIGHT`, notched every
-  `PLATE_HP_PER_NOTCH` HP.
+  unit's level as drawn digits. Leaving the interior transparent is what lets one
+  small element carry two channels: the stroke answers *whose unit is this* and
+  the digits answer *how strong*, without the digits fighting a fill for
+  contrast, and the board reads through the gap. A dark ring sits just outside
+  the team stroke and a soft team-coloured halo just outside that.
+- **Health bar** — `PLATE_BAR_WIDTH` by `PLATE_BAR_HEIGHT`, with dark separators
+  every `PLATE_HP_PER_NOTCH` HP.
 
 Team colour lives in `NoggTheme.team_color()`. It was a pair of literals inside
 `GodotVisualAdapter` until the plate needed the same value; a plate whose blue
 disagreed with its own model's plinth would be worse than no team colour.
 
-### Two constraints set the sizes
+### It is delicate, and it carries no backing chrome
 
-Neither number was chosen; both were derived, and an executing agent should not
-retune them without redoing the measurement.
+The reference is Fire Emblem Awakening's map health bar: **a thin line at the
+unit's feet, about one tile wide, defended by a hard dark outline rather than by
+a slab behind it.** Health is peripheral — the board reads first.
 
-**The numeral fixes the ring.** The shipping face renders only at whole
-multiples of 12 device pixels (§3), so `FONT_SIZE_BODY_UNITS` is the smallest
-honest game-font size — there is no half-size numeral available at every
-`ui_scale`. A two-digit level at that size needs roughly 16 units of clear inner
-diameter, which is what sets `PLATE_RING_DIAMETER_UNITS` at 20. A smaller ring
-cannot render a level of 10 or above, and levels past 9 are the explicit intent
-of the monster level and growth work in `BACKLOG_CRITICAL.md`.
+`PLATE_INK` is what does that work, and removing it brings the slab back. The
+first implementation used a filled backing plate and sized its ring to hold a
+glyph in the shipping bitmap face; because that face floors to whole multiples
+of 12 device pixels, the ring drove the whole layout and the plate came out at
+114 x 40 — **wider than the unit it belonged to.** It was rejected on sight.
 
-**The tile fixes the total width.** The battle camera is orthogonal at size 14,
-so one board tile is a fourteenth of the viewport height. A plate much wider
-than about 60 design units spans several tiles at that framing and stops reading
-as belonging to one unit. Ring plus gap plus bar comes to 57.
+Two rules follow from that, and both are load-bearing:
 
-### The bar is notched, and that is a gameplay consequence
+- **Level digits are drawn, not typed.** A 3 x 5 drawn glyph has no size floor,
+  which removes the constraint that produced the oversized ring. Drawing symbols
+  rather than typing them is already this project's habit (§3, and
+  `StatusEffectIcons`).
+- **Size against a capture, never in the abstract.** Both numbers that were wrong
+  the first time were derived from reasoning that was locally correct.
+
+### The separators are a gameplay consequence
 
 Shipped stats are base stats — every unit is level 1 and every growth value is
 0 — so HP runs 28-60, ATK and DEF run 2-8, and spell damage runs 1-7. Against
-`max(1, atk + power - def)` most exchanges land at 2-8 damage. **A continuous
-bar losing roughly 7% per hit reads as not having moved.** Notching it every 10
-HP gives each unit three to six segments and makes a typical hit cross a visible
-boundary.
+`max(1, atk + power - def)` most exchanges land at 2-8 damage. **A bar with no
+separators loses roughly 7% per hit and reads as not having moved.** Marking
+every 10 HP gives each unit three to six segments and makes a typical hit cross
+a visible boundary.
 
 Whether five-to-twenty hits per kill is the intended pace is a balance question
 and not this document's to answer. It is recorded here because it is the reason
-the bar has notches, and removing them would quietly undo the fix.
+the separators exist, and removing them would quietly undo the fix.
 
-### Colour comes from the existing palette
+### Colour: ramps, borrowed from this project's own effects
 
-The board vocabulary is nearly full — movement blue, reach purple, target
-yellow, affected red and green, threat magenta — and yellow is already taken
-twice, by the hovered path and by legal targets. **The plate introduces no new
-hue.**
+The plate takes its treatment from `aurora_veil_field` and `solar_storm_field`.
+Both are built on the same idea — a **luminance ramp** running from a deep,
+desaturated low end to a hot, bright high end, never a flat fill. At five pixels
+tall that is only two or three rows of difference, but it is exactly what
+separates a lit gauge from a coloured rectangle. Gradients are drawn a row at a
+time rather than sampled from a texture, which at this size is both cheaper and
+pixel-exact.
 
 | Element | Token | Note |
 |---|---|---|
-| Empty track | `PLATE_BAR_TRACK` = `WINDOW_FILL` | An empty bar reads as HUD material, not a hole in the board |
-| Fill, healthy | `PLATE_BAR_FILL` = `TEXT_HEAL` | Already the palette's positive green |
-| Fill, critical | `TEXT_ACCENT` | Below one third — the **same threshold and token** the docked status window already applies to its HP value, so the two surfaces cannot disagree about when a unit is in trouble |
-| Pending damage | current fill at `PLATE_GHOST_ALPHA` | Derived from whichever fill is current, so a critical bar's ghost is pale gold and a healthy one's is pale green |
+| Empty track | `PLATE_BAR_TRACK` | Aurora Veil's darkest ramp stop, a deep blue-violet. Reads as night behind the light rather than as a hole |
+| Fill, healthy | `PLATE_BAR_FILL_TOP` → `PLATE_BAR_FILL_BOTTOM` | A vertical green ramp, bright above and deep below |
+| Fill, critical | `PLATE_BAR_CRITICAL_TOP` → `PLATE_BAR_CRITICAL_BOTTOM` | **Solar Storm's upper ramp stops verbatim.** Below one third a unit reads as burning down, in the game's own fire language. The threshold is the one the docked status window already applies to its HP value, so the two surfaces cannot disagree |
+| Top highlight | `PLATE_BAR_HIGHLIGHT` | A one-pixel specular. Both effects carry a hot leading edge; this is that at gauge scale, and it is most of what makes the bar read as lit |
+| Ring halo | `PLATE_RING_GLOW_ALPHA` | Team colour outside the dark outline, not inside it — both effects bloom outward from a defined edge rather than blurring the edge |
+| Outlines | `PLATE_INK` | Bar, ring and digits. What lets a five-pixel bar survive grass, dirt and water with no backing |
+| Pending damage | current ramp at `PLATE_GHOST_ALPHA` | Derived from whichever ramp is current, so a critical bar's ghost is pale ember and a healthy one's pale green |
 | Lethal | the ghost covers the **entire** remaining bar | "Nothing survives" stated exactly, with no extra colour |
 | Ticking burn/poison | ghost treatment plus a hatch | Separated from forecast damage by **pattern, not hue** |
-| Bar border and notches | `OUTLINE` | One device pixel at x2, like `RESONANCE_CELL_BORDER` |
-| Spent unit | `PLATE_SPENT_MODULATE` | The inactive-window content dim, reused — "still there, no longer available" is one idea and gets one language |
+| Spent unit | `PLATE_SPENT_MODULATE` | A slight **alpha** recede, deliberately *not* `CONTENT_INACTIVE_MODULATE`. That token drops saturation hard, and on a five-pixel bar it took health down to an unreadable grey-green; a capture with five of eight units already acted had most of the board's health illegible. A spent unit's health matters as much as anyone's — only its availability changed, and the model already carries that through `dim_amount` |
 
 ### It never resizes
 
@@ -863,12 +870,31 @@ badges are relocated onto this plate rather than staying billboarded above the
 model — see the status-icon work in `BACKLOG_CRITICAL.md` — so the plate is the
 single board-space readout per unit rather than the second one.
 
-### Overlapping plates need a rule
+### Overlapping plates: nudge, and keep every one visible
 
 An orthogonal camera puts two units at nearly the same projected point
-regularly, and a plate overlapping another is worse than no plate. Depth-sort by
-distance to camera and nudge, or fade the rear plate. This is stated here as
-required rather than left to be discovered on a crowded board.
+regularly, and a plate overlapping another is worse than no plate. Plates are
+separated **vertically only** — horizontal alignment with its unit is the one
+thing that tells the player whose a plate is, so a sideways nudge breaks the
+association a vertical one preserves.
+
+Three properties of the search are there because the first version lacked them
+and a capture showed each failure:
+
+- **Search outward in fixed slots from the wanted position**, rather than hopping
+  past whichever blocker was hit. The hopping version did not converge: clearing
+  blocker A moved the plate onto B, whose nearest free side moved it back onto A.
+  Stepping outward is monotonic in distance, so it always terminates, and it
+  lands on the *nearest* free slot rather than the first one a hop reached.
+- **Off-screen counts as blocked.** Otherwise the search "resolves" a plate
+  trapped under a bottom-docked window by pushing it past the screen edge.
+- **The docked status windows are obstacles.** They cover the near edge of the
+  board where team 1 deploys, so without this every friendly plate rendered
+  behind a window and showed only as noise through its translucent body.
+
+The pass is bounded. With enough units stacked on one screen point there may be
+no arrangement that clears everything, and a plate slightly overlapping beats a
+frame spent searching for a layout that does not exist.
 
 ---
 

@@ -1334,8 +1334,11 @@ func _spawn_damage_number(worldPos: Vector3, amount: int, isHeal: bool) -> Tween
 ## rare.
 ##
 ## `spentIDs` carries the units that have already acted this round. The adapter
-## does not track turn order, so the caller supplies it.
-func update_unit_plates(spentIDs: Array = []) -> void:
+## does not track turn order, so the caller supplies it. `avoidRects` carries
+## screen rectangles the plates should be pushed clear of — the docked status
+## windows, which sit over the near edge of the board and were swallowing the
+## plates of every unit deployed there.
+func update_unit_plates(spentIDs: Array = [], avoidRects: Array = []) -> void:
 	if not is_instance_valid(unit_plate_root) or state == null:
 		return
 	if not is_instance_valid(visual_parent):
@@ -1369,6 +1372,12 @@ func update_unit_plates(spentIDs: Array = []) -> void:
 		})
 	ordered.sort_custom(func(a, b): return a["distance"] > b["distance"])
 
+	# Plates already positioned this pass. The far-to-near order above doubles as
+	# the declutter priority: a nearer unit is the one the player is most likely
+	# looking at, so it settles last and the plates behind it have already
+	# claimed their space.
+	var placed: Array = []
+
 	for index in range(ordered.size()):
 		var entry: Dictionary = ordered[index]
 		var monsterID: int = entry["id"]
@@ -1386,10 +1395,14 @@ func update_unit_plates(spentIDs: Array = []) -> void:
 				plate.visible = false
 				continue
 		plate.visible = true
-		plate.position = (
+		var wanted := (
 			screenPos
 			+ Vector2(-plate.size.x * 0.5, NoggThemeScript.PLATE_ANCHOR_DROP)
 		).round()
+		plate.position = _declutter_plate(
+			Rect2(wanted, plate.size), placed, avoidRects, visibleRect
+		)
+		placed.append(Rect2(plate.position, plate.size))
 		plate.configure(
 			monster.level,
 			NoggThemeScript.team_color(monster.team),
@@ -1398,6 +1411,60 @@ func update_unit_plates(spentIDs: Array = []) -> void:
 			spentIDs.has(monsterID)
 		)
 		unit_plate_root.move_child(plate, index)
+
+
+## Pushes a plate clear of the ones already placed and of any rectangle it must
+## not sit under, and returns where it landed.
+##
+## Vertical-only. Moving a plate sideways breaks the one thing that tells the
+## player whose it is — horizontal alignment with its unit — whereas a plate
+## pushed straight up or down still reads as belonging to the unit it lines up
+## with.
+##
+## **Searches outward from the wanted position in fixed slots, rather than
+## hopping past whichever blocker it hit.** The hopping version was the first
+## implementation and it did not converge: clearing blocker A moved the plate
+## onto blocker B, whose nearest free side moved it back onto A, and the pass
+## budget ran out with the plate still overlapping. A capture showed two enemy
+## plates sharing a row and three friendly plates still sitting under the docked
+## status window. Stepping outward by slot is monotonic in distance, so it always
+## terminates, and it lands on the *nearest* free slot rather than the first one
+## a hop happened to reach.
+##
+## Bounded by `PLATE_DECLUTTER_MAX_PASSES`: with enough units stacked on one
+## screen point there may be no arrangement that clears everything, and a plate
+## slightly overlapping beats a frame spent searching for a layout that does not
+## exist.
+func _declutter_plate(
+		rect: Rect2, placed: Array, avoidRects: Array, bounds: Rect2) -> Vector2:
+	if not _overlaps_any(rect, placed, avoidRects):
+		return rect.position.round()
+	var step: float = rect.size.y + NoggThemeScript.PLATE_DECLUTTER_GAP
+	for slot in range(1, NoggThemeScript.PLATE_DECLUTTER_MAX_PASSES + 1):
+		# Downward first at each distance: down is away from the model, so a
+		# nudged plate does not end up covering the unit it describes.
+		for direction in [1.0, -1.0]:
+			var candidate := rect
+			candidate.position.y = rect.position.y + direction * float(slot) * step
+			# Off-screen counts as blocked, not free. Without this the search
+			# happily "resolved" a plate trapped under the bottom-docked status
+			# window by pushing it past the screen edge — a capture showed one
+			# friendly plate parked at y=636 on a 648-tall viewport.
+			if bounds.size != Vector2.ZERO and not bounds.encloses(candidate):
+				continue
+			if not _overlaps_any(candidate, placed, avoidRects):
+				return candidate.position.round()
+	return rect.position.round()
+
+
+func _overlaps_any(rect: Rect2, placed: Array, avoidRects: Array) -> bool:
+	for other in placed:
+		if other is Rect2 and rect.intersects(other):
+			return true
+	for other in avoidRects:
+		if other is Rect2 and rect.intersects(other):
+			return true
+	return false
 
 
 func _ensure_unit_plate(monsterID: int) -> void:

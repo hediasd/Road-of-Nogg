@@ -610,7 +610,23 @@ func _update_unit_plates() -> void:
 	for monsterID in sim.state.getAliveMonsterIDs():
 		if not _turn_order_ids.has(monsterID):
 			spent.append(monsterID)
-	visual_adapter.update_unit_plates(spent)
+	visual_adapter.update_unit_plates(spent, _plate_avoid_rects())
+
+
+## Screen rectangles the plates must not sit under. The docked status windows
+## cover the near edge of the board, where team 1 deploys, so without this every
+## friendly plate was drawn behind a window and showed only as noise through its
+## translucent body — visible in the first capture of this feature.
+##
+## Only the always-present docked readouts are listed. Transient windows are
+## deliberately excluded: a plate that jumped every time the command menu opened
+## would be worse than one briefly overlapped.
+func _plate_avoid_rects() -> Array:
+	var rects: Array = []
+	for window in [actor_window, target_window, turn_order_window]:
+		if window != null and is_instance_valid(window) and window.visible:
+			rects.append(Rect2(window.position, window.size))
+	return rects
 
 
 ## Spends one frame's budget on the decision in flight and closes the turn when
