@@ -591,6 +591,26 @@ func _advance_battle() -> void:
 
 func _process(_delta: float) -> void:
 	_step_deliberation()
+	_update_unit_plates()
+
+
+## The plates follow their units through movement tweens and camera motion, so
+## their positions are a per-frame concern. The adapter owns the nodes and the
+## projection; this supplies the one thing it cannot derive — which units have
+## already acted this round.
+##
+## `_turn_order_ids` holds the units still queued this round, with the active
+## unit pushed to its front, so a living unit absent from it has already had its
+## turn. Derived rather than tracked separately: a second "has acted" set would
+## be one more thing that can disagree with the turn order the player is reading.
+func _update_unit_plates() -> void:
+	if lifecycle != Lifecycle.BATTLE or visual_adapter == null or sim == null:
+		return
+	var spent: Array = []
+	for monsterID in sim.state.getAliveMonsterIDs():
+		if not _turn_order_ids.has(monsterID):
+			spent.append(monsterID)
+	visual_adapter.update_unit_plates(spent)
 
 
 ## Spends one frame's budget on the decision in flight and closes the turn when

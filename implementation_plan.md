@@ -340,6 +340,44 @@ tracking through movement, defeat, camera yaw and pitch; every render preset
 including the smallest; overlapping-unit declutter; spent-state desaturation;
 teardown with no leaked nodes; headless adapter parity.
 
+**Resolution (2026-08-15):** Implemented; pending end-of-plan validation. **This
+is the item most in need of a real look** — the projection, the per-frame pass
+and the node lifecycle are all things a parse check cannot exercise, and nothing
+here has been seen running.
+
+`src/presentation/UnitPlate.gd` draws the ring, numeral and notched bar; the
+adapter owns the layer, the lifecycle and the projection. The plate is on its own
+`CanvasLayer` one below `WORLD_EFFECT_LAYER`, so a damage number reads over a
+plate rather than under it when both land on the same unit.
+
+Updates are **polled from the controller's `_process`** rather than driven by
+events. The adapter is a `RefCounted` with no frame loop, and a plate needs a
+per-frame position pass anyway to follow movement tweens and camera motion —
+once that exists, reading health in the same pass is cheaper than a second event
+subscription that could drift from it. `configure()` returns whether anything
+changed so the redraw stays rare even though the poll does not. Health is read
+from `state`, which matches how the docked status windows already read it, so
+the two cannot disagree.
+
+Declutter is handled by sorting plates far-to-near each pass and reordering them
+in the tree, so a nearer plate draws over a further one instead of the order
+falling out of spawn sequence.
+
+Spent state is **derived, not tracked**: a living unit absent from
+`_turn_order_ids` has already acted this round. A separate "has acted" set would
+be one more thing capable of disagreeing with the turn order the player is
+reading.
+
+`unit_plate_layer` joined the adapter's teardown list and `_unit_plates` is
+cleared with it, for the same leak reason as LEG-3.
+
+Two defects the probe caught, both the same root cause as LEG-3's: a newly added
+`class_name` is absent from the script class cache until the project is
+rescanned, so `UnitPlate` failed as a **type annotation** in the adapter exactly
+as `ReachQuery` failed as an identifier. Preloaded script consts work as type
+annotations and were used instead. Also corrected `getLivingMonsters`, which
+does not exist, to `getAliveMonsterIDs`.
+
 ### LEG-5 — Preview pending damage on the target's health bar
 
 **Model:** Sonnet 5 / GPT Terra
