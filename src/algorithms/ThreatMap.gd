@@ -51,9 +51,38 @@ static func accumulateEnemy(
 		enemyID: int,
 		movementResolver: MovementResolver,
 		combatResolver: CombatResolver) -> void:
+	var contribution := threatFor(
+		state, map, enemyID, movementResolver, combatResolver
+	)
+	for targetPos in contribution:
+		map[targetPos] += contribution[targetPos]
+
+
+## One enemy's contribution on its own: `{Vector2i: threat value}`.
+##
+## Extracted from `accumulateEnemy`, which already computed exactly this and then
+## folded it away. Exposing it lets presentation ask "which tiles does *this*
+## enemy threaten" without a second implementation that could disagree with the
+## one the AI reads.
+##
+## **`generate()`'s return shape is deliberately unchanged.** Widening it was the
+## obvious way to carry attribution, but the threat map feeds command evaluation,
+## and a change in its output that shifted a CPU decision would be a gameplay
+## regression arriving inside a UI change. A separate query costs one function
+## and risks nothing.
+##
+## `bounds` supplies the walkable tile set — pass a map from `beginMap()`. It is
+## read for membership only and is never written.
+static func threatFor(
+		state: BattleState,
+		bounds: Dictionary,
+		enemyID: int,
+		movementResolver: MovementResolver,
+		combatResolver: CombatResolver) -> Dictionary:
 	var enemy = state.getMonster(enemyID)
 	if enemy == null:
-		return
+		return {}
+	var map := bounds
 	var origin = state.getMonsterPosition(enemyID)
 	var destinations: Array = movementResolver.getReachablePositions(enemyID)
 	if not destinations.has(origin):
@@ -120,8 +149,7 @@ static func accumulateEnemy(
 			):
 				enemyThreat[meleePos] = enemy.atk
 
-	for targetPos in enemyThreat:
-		map[targetPos] += enemyThreat[targetPos]
+	return enemyThreat
 
 
 static func _generateFallback(state: BattleState, team: int, map: Dictionary) -> Dictionary:

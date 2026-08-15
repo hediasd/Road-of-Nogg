@@ -67,6 +67,12 @@ const DITHER_HOVER_DWELL_SECONDS := 0.08
 var _hoverCandidateMonsterID: int = -1
 var _hoverCandidateSince: int = 0
 var _threat_overlay_active: bool = false
+## The full danger-zone union, held while `T` is down so hovering an enemy can
+## re-tint it without recomputing every enemy's contribution again.
+var _threat_tiles: Array = []
+## Walkable-tile membership set the threat computation was built against, reused
+## for the per-enemy attribution query so it agrees with the union exactly.
+var _threat_bounds: Dictionary = {}
 
 ## What each docked status window shows when nothing is being hovered — written
 ## by the click inspector and by the live attacker/target push from
@@ -1056,8 +1062,10 @@ func _handle_threat_input(event: InputEvent) -> bool:
 		for coord in threat_map:
 			if int(threat_map[coord]) > 0:
 				threatened.append(coord)
-		visual_adapter.show_threat_options(threatened)
+		_threat_tiles = threatened
+		_threat_bounds = ThreatMapScript.beginMap(sim.state)
 		_threat_overlay_active = true
+		_refreshThreatOverlay()
 		return true
 	if _threat_overlay_active:
 		_clear_threat_overlay()
@@ -1071,6 +1079,8 @@ func _clear_threat_overlay() -> void:
 	if visual_adapter != null:
 		visual_adapter.clear_threat_options()
 	_threat_overlay_active = false
+	_threat_tiles = []
+	_threat_bounds = {}
 
 
 func _player_turn_active() -> bool:
@@ -1208,6 +1218,44 @@ func _updateReadoutHover(monsterID: int) -> void:
 	_readoutHoverMonsterID = monsterID
 	_refreshStatusWindows()
 	_refreshHoverReach()
+	_refreshThreatOverlay()
+
+
+## Repaints the danger zone, attributing it to the hovered enemy when there is
+## one.
+##
+## A flat union answers only a binary question: it says a tile is dangerous, but
+## not by whom, how many, or how hard — which is the actual question when
+## deciding where to stand. Hovering an enemy while `T` is held keeps that
+## enemy's tiles at full strength and drops the rest to a faint tint.
+##
+## Attribution is only meaningful for a unit hostile to the acting player, so
+## hovering an ally leaves the union evenly painted rather than emptying it.
+func _refreshThreatOverlay() -> void:
+	if not _threat_overlay_active or visual_adapter == null or sim == null:
+		return
+	visual_adapter.show_threat_options(_threat_tiles, _hoveredThreatTiles())
+
+
+func _hoveredThreatTiles() -> Array:
+	if _readoutHoverMonsterID == -1 or not _player_turn_active():
+		return []
+	var active_monster = sim.state.getMonster(player_turn.activeMonsterID)
+	var hovered = sim.state.getMonster(_readoutHoverMonsterID)
+	if active_monster == null or hovered == null or hovered.team == active_monster.team:
+		return []
+	var contribution: Dictionary = ThreatMapScript.threatFor(
+		sim.state,
+		_threat_bounds,
+		_readoutHoverMonsterID,
+		sim.movementResolver,
+		sim.combatResolver
+	)
+	var tiles: Array = []
+	for coord in contribution:
+		if int(contribution[coord]) > 0:
+			tiles.append(coord)
+	return tiles
 
 
 ## Paints the hovered unit's movement and strike reach on its own overlay layer.

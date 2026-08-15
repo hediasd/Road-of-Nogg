@@ -537,6 +537,33 @@ altered a CPU decision would be a gameplay regression disguised as a UI change.
 additivity with the movement and reach overlays; unchanged CPU decisions against
 a fixed seed.
 
+**Resolution (2026-08-15):** Implemented; pending end-of-plan validation.
+
+**The plan's suggested approach was not taken, and the deviation is the point.**
+It proposed widening `ThreatMap.generate()`'s return shape to carry a per-source
+breakdown. `accumulateEnemy` turned out to already compute exactly that
+breakdown privately and then fold it away, so the attribution was extracted into
+a new `ThreatMap.threatFor()` instead and `generate()`'s shape is untouched.
+That removes the item's stated risk rather than managing it: the threat map
+feeds command evaluation, and a change in its output that shifted a CPU decision
+would have been a gameplay regression arriving inside a UI change.
+
+`accumulateEnemy` now calls `threatFor` and performs the same fold it always
+did, so there is one implementation rather than two that could disagree.
+`threatFor` reads its `bounds` dictionary for membership only and never writes
+to it, which is what makes the delegation identity-preserving.
+
+Verified rather than argued: `scripts/demo_battle.gd` on its fixed seed produces
+a **byte-identical 1569-line transcript** before and after, compared by file
+hash against a stashed baseline.
+
+Presentation side: `show_threat_options` gained an `emphasised` subset. When it
+is non-empty those tiles hold full strength and the rest of the union drops to a
+faint tint; when empty the union paints evenly, as before. The controller holds
+the union and the walkable bounds while `T` is down, so hovering re-tints
+without recomputing every enemy. Hovering an ally leaves the union even —
+attribution is only meaningful for a unit hostile to the acting player.
+
 ### LEG-9 — Add the deep card on a held key
 
 **Model:** Opus 5 / GPT Sol

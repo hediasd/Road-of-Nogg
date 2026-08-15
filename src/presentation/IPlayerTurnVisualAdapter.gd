@@ -54,7 +54,7 @@ func show_movement_options(
 
 ## Paint the union of tiles threatened by living enemies. This is a separate
 ## layer so holding the threat key cannot destroy the player's current aim.
-func show_threat_options(_threatened: Array) -> void: pass
+func show_threat_options(_threatened: Array, _emphasised: Array = []) -> void: pass
 
 
 ## Remove only the held threat overlay, leaving the current movement/target

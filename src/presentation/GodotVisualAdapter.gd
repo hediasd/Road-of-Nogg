@@ -1492,13 +1492,23 @@ func show_movement_options(
 		_add_overlay(coord, Color(1.0, 0.85, 0.15, 0.72))
 
 
-func show_threat_options(threatened: Array) -> void:
+## `emphasised`, when non-empty, is the subset attributed to one enemy: those
+## tiles keep full strength and the rest of the union drops to a faint tint. That
+## turns "this tile is dangerous" into "this tile is dangerous *because of that
+## unit*", which is the form the answer has to be in to change where the player
+## stands. An empty `emphasised` paints the union evenly, as before.
+func show_threat_options(threatened: Array, emphasised: Array = []) -> void:
 	clear_threat_options()
+	var attributing := not emphasised.is_empty()
 	for coord in threatened:
-		if coord is Vector2i and state.withinBounds(coord):
-			# Magenta-red is intentionally distinct from movement blue,
-			# target yellow, and affected-area red/green.
-			_add_threat_overlay(coord, Color(0.95, 0.16, 0.48, 0.40))
+		if not (coord is Vector2i) or not state.withinBounds(coord):
+			continue
+		# Magenta-red is intentionally distinct from movement blue,
+		# target yellow, and affected-area red/green.
+		var alpha := 0.40
+		if attributing:
+			alpha = 0.55 if emphasised.has(coord) else 0.10
+		_add_threat_overlay(coord, Color(0.95, 0.16, 0.48, alpha))
 
 
 func clear_threat_options() -> void:
