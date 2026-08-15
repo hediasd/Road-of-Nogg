@@ -184,6 +184,39 @@ driving.
 confirm, CPU turns and battle end; last-write-wins behaviour against combat
 playback; no per-frame rebuild.
 
+**Resolution (2026-08-15):** Implemented; pending end-of-plan validation.
+
+The readout is now composed rather than written directly. `_actorPanelMonsterID`
+and `_targetPanelMonsterID` hold committed state — written by the click
+inspector and by the combat push — and `_refreshStatusWindows` renders those,
+then overlays the hovered unit into whichever window it routes to. That is what
+lets combat keep updating underneath a hover: when the pointer leaves, the
+window shows what the battle has moved on to rather than the snapshot from
+before the hover began, which a simple save-and-restore would have produced.
+
+Hover tracking moved out of the `acceptsGridInput()` gate; only the cursor
+update and the dither dwell stay inside it. Hover cannot conflict with grid
+selection the way a click does, which is what makes ungating it safe rather than
+merely convenient. `_mouse_to_battle_coord` and `_unhandled_input` already guard
+for a null adapter, simulator and non-battle lifecycle, so no new guard was
+needed.
+
+Two smaller things worth recording. `_readoutWindowFor` was extracted from
+`_handle_click_selection` rather than copied, so the click and hover paths cannot
+drift about where a unit is shown. And hover deliberately does not call
+`highlight_monster`: inspecting a unit must not disturb selection state, which is
+the same distinction `show_target_status` already draws.
+
+Known cost: the board raycast now runs on mouse motion in every phase rather
+than only the aiming ones. The row rebuild is guarded on the hovered id actually
+changing, but the pick itself is not, since the pick is what produces the id.
+The board carries a handful of collision bodies and the previous code already
+did this during the most common interactive phases, so this was accepted rather
+than cached; revisit if profiling during final validation shows it.
+
+Probe: `--check-only` reports no parse errors. The exit code remains the
+pre-existing teardown access violation described under LEG-1.
+
 ### LEG-3 — Paint movement and strike reach from hover
 
 **Model:** Opus 5 / GPT Sol

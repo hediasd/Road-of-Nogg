@@ -67,6 +67,20 @@ var _hoverCandidateMonsterID: int = -1
 var _hoverCandidateSince: int = 0
 var _threat_overlay_active: bool = false
 
+## What each docked status window shows when nothing is being hovered — written
+## by the click inspector and by the live attacker/target push from
+## `GodotVisualAdapter`. Hover renders *over* this rather than replacing it, so
+## sweeping the pointer across the board and off again leaves the player reading
+## exactly what they were reading before, instead of an empty frame.
+var _actorPanelMonsterID: int = -1
+var _targetPanelMonsterID: int = -1
+## The unit the pointer is over for readout purposes. Deliberately separate from
+## `_hoveredMonsterID`, which carries `DITHER_HOVER_DWELL_SECONDS`: a dwell exists
+## to stop models flickering between dithered and solid, and applying it to text
+## would make the readout feel unresponsive for no benefit. Text is pushed the
+## moment the id changes.
+var _readoutHoverMonsterID: int = -1
+
 var actor_window: NoggWindow
 var target_window: NoggWindow
 var turn_order_window: NoggWindow
@@ -446,8 +460,7 @@ func _start_battle(config: BattleSetupConfig) -> void:
 	_active_turn_order_id = -1
 	_clear_turn_order_display()
 	log_label.text = ""
-	_renderStatusWindow(actor_window, -1)
-	_renderStatusWindow(target_window, -1)
+	_clearStatusWindows()
 	battle_ui.graphics_button.set_pressed_no_signal(false)
 	battle_ui.graphics.panel.visible = false
 	battle_ui.play_button.set_pressed_no_signal(true)
@@ -961,14 +974,27 @@ func _unhandled_input(event: InputEvent) -> void:
 				return
 
 
-	if event is InputEventMouseMotion and _player_turn_active() and player_turn.acceptsGridInput():
+	if event is InputEventMouseMotion and visual_adapter != null:
 		var hover_pos = _mouse_to_battle_coord(event.position)
 		# One source of "what is under the pointer" for the whole game: the
 		# tile the shared pick already resolved, not a second raycast here.
-		_update_hovered_monster(visual_adapter.monster_id_at_position(hover_pos))
-		if player_turn.setCursor(hover_pos):
-			get_viewport().set_input_as_handled()
-			return
+		var hovered_id: int = visual_adapter.monster_id_at_position(hover_pos)
+
+		# Ungated on purpose. The readout is the free-look inspector, and it has
+		# to answer "how healthy is that one" during move and target select —
+		# the phases where a *click* is spoken for by grid selection and the
+		# click inspector is therefore unreachable. Hover cannot conflict with
+		# grid selection the way a click does, which is what makes it safe to
+		# run here rather than behind the same gate.
+		_updateReadoutHover(hovered_id)
+
+		if _player_turn_active() and player_turn.acceptsGridInput():
+			# The dither dwell stays gated to the aiming phases, where the
+			# treatment is applied at all.
+			_update_hovered_monster(hovered_id)
+			if player_turn.setCursor(hover_pos):
+				get_viewport().set_input_as_handled()
+				return
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var pos = _mouse_to_battle_coord(event.position)
@@ -1109,38 +1135,110 @@ func _coord_from_hit(hit: Dictionary) -> Vector2i:
 ## player turn there is no ally/enemy frame of reference, so it always goes to
 ## the actor window — the single-inspector behaviour this replaces.
 ##
-## This is one of two writers of these windows; the other is the live
-## attacker/target push from GodotVisualAdapter (`_setActorPanelMonster` /
+## This is one of two writers of *committed* readout state; the other is the
+## live attacker/target push from GodotVisualAdapter (`_setActorPanelMonster` /
 ## `_setTargetPanelMonster`) as combat actually plays out. Whichever fires most
 ## recently wins — the same last-write-wins relationship these two paths
 ## already had before the status readout was split into two windows.
+##
+## Hover is a third writer but not a competing one: it renders *over* the
+## committed state without replacing it, so combat can keep updating what sits
+## underneath and the window returns to the current truth — not a stale snapshot
+## — the moment the pointer leaves. `_refreshStatusWindows` composes the two.
 func _handle_click_selection(pos: Vector2i) -> void:
 	if sim == null or not sim.state.withinBounds(pos):
 		return
 	var monster = sim.state.getMonsterAt(pos)
 	if monster == null:
 		visual_adapter.highlight_monster(-1)
-		_renderStatusWindow(actor_window, -1)
-		_renderStatusWindow(target_window, -1)
+		_clearStatusWindows()
 		return
 	visual_adapter.highlight_monster(monster.uniqueID)
+	if _readoutWindowFor(monster) == target_window:
+		_targetPanelMonsterID = monster.uniqueID
+	else:
+		_actorPanelMonsterID = monster.uniqueID
+	_refreshStatusWindows()
+
+
+## Which docked window a unit's readout belongs in: ally to the actor window on
+## the left, enemy to the target window on the right, "ally" meaning same team as
+## whoever's turn is active. Outside an active player turn there is no ally/enemy
+## frame of reference, so everything goes to the actor window.
+##
+## Extracted rather than duplicated — the click inspector and the hover readout
+## must not be able to disagree about where a unit is shown, which is exactly the
+## kind of drift two similar copies produce.
+func _readoutWindowFor(monster) -> NoggWindow:
+	if monster == null:
+		return actor_window
 	var active_team := -1
 	if _player_turn_active():
 		var active_monster = sim.state.getMonster(player_turn.activeMonsterID)
 		if active_monster:
 			active_team = active_monster.team
 	if active_team != -1 and monster.team != active_team:
-		_renderStatusWindow(target_window, monster.uniqueID)
-	else:
-		_renderStatusWindow(actor_window, monster.uniqueID)
+		return target_window
+	return actor_window
+
+
+## Tracks the unit under the pointer for readout purposes. No dwell, and no
+## dependence on the turn phase: this is the free-look inspector, and it has to
+## work while the player is choosing a destination or a target, which is the
+## moment they most need to check what they are aiming at.
+##
+## Hover never touches selection state — no `highlight_monster` call — so
+## inspecting a unit cannot disturb what is actually selected.
+func _updateReadoutHover(monsterID: int) -> void:
+	if monsterID == _readoutHoverMonsterID:
+		return
+	_readoutHoverMonsterID = monsterID
+	_refreshStatusWindows()
+
+
+## Renders both docked windows from committed state, then overlays the hovered
+## unit into whichever window it routes to. Combat playback keeps writing the
+## committed ids underneath, so when the pointer leaves, the window returns to
+## whatever the battle has moved on to rather than to a stale snapshot.
+func _refreshStatusWindows() -> void:
+	if actor_window == null or target_window == null:
+		return
+	var hovered = sim.state.getMonster(_readoutHoverMonsterID) if (
+		sim != null and _readoutHoverMonsterID != -1
+	) else null
+
+	var actorID := _actorPanelMonsterID
+	var targetID := _targetPanelMonsterID
+	if hovered != null:
+		if _readoutWindowFor(hovered) == target_window:
+			targetID = _readoutHoverMonsterID
+		else:
+			actorID = _readoutHoverMonsterID
+	_renderStatusWindow(actor_window, actorID)
+	_renderStatusWindow(target_window, targetID)
+
+
+## Empties both windows and forgets the hover, so a battle start or a click on
+## bare ground cannot leave a stale unit readable. An empty frame reads as
+## "nothing selected" without inventing a second visual language for it.
+func _clearStatusWindows() -> void:
+	_actorPanelMonsterID = -1
+	_targetPanelMonsterID = -1
+	_readoutHoverMonsterID = -1
+	if actor_window == null or target_window == null:
+		return
+	_renderStatusWindow(actor_window, -1)
+	_renderStatusWindow(target_window, -1)
 
 
 func _setActorPanelMonster(monsterID: int) -> void:
-	_renderStatusWindow(actor_window, monsterID)
+	_actorPanelMonsterID = monsterID
+	_refreshStatusWindows()
 
 
 func _setTargetPanelMonster(monsterID: int) -> void:
-	_renderStatusWindow(target_window, monsterID)
+	_targetPanelMonsterID = monsterID
+	_refreshStatusWindows()
 
 
 ## The single renderer for both docked status windows (item 2/3). `-1` leaves
