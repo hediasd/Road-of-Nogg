@@ -7,10 +7,14 @@
 ## the row at native resolution at every preset. `GodotVisualAdapter` owns the
 ## projection; this class owns layout, hover and drawing.
 ##
-## **Hover grows a badge to exactly 1:1 with its source art.** A resting badge is
-## half `StatusIconRegistry.SOURCE_PX`, and `STATUS_BADGE_HOVER_SCALE` doubles
-## it, so the moment the player looks closely they see the icon at native
-## resolution rather than an interpolated shrink of it.
+## **A badge rests as a plain colour chip and becomes an icon only under the
+## pointer.** At the resting size no silhouette is legible — an eight-pixel
+## square cannot carry one — so the row does not pretend otherwise. At rest it
+## answers "how many effects, and roughly what kind" through flat colour;
+## hovering answers "which one" by growing to `StatusIconRegistry.SOURCE_PX` and
+## crossfading the art in. The grown size is exactly 1:1 with the source, so the
+## icon is never resampled at the one moment the player is looking straight at
+## it.
 
 class_name StatusBadgeRow
 extends Control
@@ -18,7 +22,7 @@ extends Control
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcons.gd")
 
-## Entries currently drawn: `{"texture": Texture2D, "duration": int}`.
+## Entries currently drawn: `{"texture": Texture2D, "chip": Color, "duration": int}`.
 var _entries: Array = []
 ## Index of the badge under the pointer, or -1. Drives which badge grows.
 var _hovered: int = -1
@@ -98,6 +102,7 @@ func _build_entries(effects: Array) -> Array:
 		for effect in ordered:
 			built.append({
 				"texture": StatusEffectIconsScript.texture_for(effect),
+				"chip": StatusEffectIconsScript.chip_color(effect),
 				"duration": int(effect.get("remainingTurns", 0))
 			})
 		return built
@@ -108,10 +113,12 @@ func _build_entries(effects: Array) -> Array:
 		var effect: Dictionary = ordered[index]
 		built.append({
 			"texture": StatusEffectIconsScript.texture_for(effect),
+			"chip": StatusEffectIconsScript.chip_color(effect),
 			"duration": int(effect.get("remainingTurns", 0))
 		})
 	built.append({
 		"texture": StatusEffectIconsScript.overflow_texture(),
+		"chip": StatusEffectIconsScript.overflow_chip_color(),
 		"duration": ordered.size() - (maximum - 1)
 	})
 	return built
@@ -122,6 +129,8 @@ func _entries_differ(built: Array) -> bool:
 		return true
 	for index in range(built.size()):
 		if built[index]["texture"] != _entries[index]["texture"]:
+			return true
+		if built[index]["chip"] != _entries[index]["chip"]:
 			return true
 		if built[index]["duration"] != _entries[index]["duration"]:
 			return true
@@ -160,22 +169,46 @@ func _draw() -> void:
 
 func _draw_badge(index: int) -> void:
 	var entry: Dictionary = _entries[index]
-	var texture: Texture2D = entry["texture"]
-	if texture == null:
-		return
 	var rest := _rest_rect(index)
 	var scale_value: float = _scales[index]
 	# Grows about its own centre, so a badge expands in place instead of pushing
 	# its row sideways and making the player chase it.
-	var grown := Vector2(rest.size.x * scale_value, rest.size.y * scale_value)
+	var grown := rest.size * scale_value
 	var target := Rect2(rest.get_center() - grown * 0.5, grown)
-	draw_texture_rect(texture, target, false)
-	_draw_duration(entry, target)
+
+	# The chip is the resting state and the icon fades in over it as the badge
+	# grows, so there is no moment where the badge is neither one nor the other.
+	draw_rect(target.grow(_outline_width()), NoggThemeScript.OUTLINE, true)
+	draw_rect(target, entry["chip"], true)
+
+	var reveal := _reveal(scale_value)
+	if reveal <= 0.0:
+		return
+	var texture: Texture2D = entry["texture"]
+	if texture != null:
+		draw_texture_rect(texture, target, false, Color(1.0, 1.0, 1.0, reveal))
+	_draw_duration(entry, target, reveal)
 
 
-## Duration rides the badge's own scale, so the hovered badge is where it becomes
-## properly legible — which is the whole point of growing it.
-func _draw_duration(entry: Dictionary, rect: Rect2) -> void:
+## How far this badge has turned from a chip into an icon, 0 at rest and 1 at
+## full hover.
+func _reveal(scale_value: float) -> float:
+	var span: float = NoggThemeScript.STATUS_BADGE_HOVER_SCALE - 1.0
+	if span <= 0.0:
+		return 1.0
+	return clampf((scale_value - 1.0) / span, 0.0, 1.0)
+
+
+## One device pixel at every `ui_scale`. A chip this small needs a hairline to
+## separate it from the board, not a border that scales with it.
+func _outline_width() -> float:
+	return 1.0
+
+
+## Duration rides the badge's own scale and reveal, so it appears only on the
+## hovered badge — which is the whole point of growing it. At the resting size
+## there is no room for a numeral at all.
+func _draw_duration(entry: Dictionary, rect: Rect2, reveal: float) -> void:
 	var duration := int(entry["duration"])
 	if duration <= 0:
 		return
@@ -187,7 +220,12 @@ func _draw_duration(entry: Dictionary, rect: Rect2) -> void:
 		rect.position.y + rect.size.y - float(DIGIT_ROWS) * cell - cell
 	)
 	for index in range(text.length()):
-		_draw_glyph(text.substr(index, 1), origin + Vector2(glyph_width * float(index), 0.0), cell)
+		_draw_glyph(
+			text.substr(index, 1),
+			origin + Vector2(glyph_width * float(index), 0.0),
+			cell,
+			reveal
+		)
 
 
 const DIGIT_COLUMNS := 3
@@ -210,7 +248,7 @@ const DIGIT_GLYPHS := {
 }
 
 
-func _draw_glyph(character: String, origin: Vector2, cell: float) -> void:
+func _draw_glyph(character: String, origin: Vector2, cell: float, reveal: float) -> void:
 	var glyph: Array = DIGIT_GLYPHS.get(character, [])
 	for row in range(glyph.size()):
 		var line: String = glyph[row]
@@ -218,5 +256,9 @@ func _draw_glyph(character: String, origin: Vector2, cell: float) -> void:
 			if line[column] != "1":
 				continue
 			var at := origin + Vector2(float(column) * cell, float(row) * cell)
-			draw_rect(Rect2(at + Vector2(cell, cell), Vector2(cell, cell)), NoggThemeScript.OUTLINE)
-			draw_rect(Rect2(at, Vector2(cell, cell)), NoggThemeScript.TEXT_PRIMARY)
+			var ink := NoggThemeScript.OUTLINE
+			var face := NoggThemeScript.TEXT_PRIMARY
+			ink.a *= reveal
+			face.a *= reveal
+			draw_rect(Rect2(at + Vector2(cell, cell), Vector2(cell, cell)), ink)
+			draw_rect(Rect2(at, Vector2(cell, cell)), face)

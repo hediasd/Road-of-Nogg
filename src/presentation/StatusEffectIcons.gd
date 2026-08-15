@@ -47,6 +47,42 @@ static func texture_for(effect: Dictionary) -> Texture2D:
 	return placeholder_for(effect_name, bool(effect.get("negative", false)))
 
 
+## The flat colour a badge shows at rest, before hover grows it into an icon.
+##
+## Per effect rather than merely buff/debuff. At the resting size no silhouette
+## is legible, so colour is the only channel available — and a row of three
+## distinguishable colours tells the player far more than three identical red
+## squares, at no extra cost. Hue is the coarse read (warm harms, cool helps) and
+## the specific tone is what becomes learnable with play.
+const CHIP_COLORS := {
+	"burn": Color(1.0, 0.42, 0.13),
+	"poison": Color(0.55, 0.85, 0.25),
+	"petrify": Color(0.62, 0.60, 0.56),
+	"chill": Color(0.55, 0.88, 1.0),
+	"spd_debuff": Color(0.85, 0.35, 0.45),
+	"atk_debuff": Color(0.90, 0.30, 0.30),
+	"def_debuff": Color(0.80, 0.35, 0.60),
+	"move_debuff": Color(0.72, 0.40, 0.70),
+	"guard": Color(0.35, 0.62, 1.0),
+	"focus": Color(1.0, 0.84, 0.40),
+	"atk_buff": Color(1.0, 0.66, 0.30),
+	"def_buff": Color(0.40, 0.78, 0.95),
+	"spd_buff": Color(0.45, 0.90, 0.78),
+	"move_buff": Color(0.62, 0.80, 1.0),
+}
+
+
+static func chip_color(effect: Dictionary) -> Color:
+	var effect_name := str(effect.get("name", "")).to_lower()
+	if CHIP_COLORS.has(effect_name):
+		return CHIP_COLORS[effect_name]
+	return DEBUFF_FOREGROUND if bool(effect.get("negative", false)) else BUFF_FOREGROUND
+
+
+static func overflow_chip_color() -> Color:
+	return OVERFLOW_FOREGROUND
+
+
 static func overflow_texture() -> Texture2D:
 	return _cached("overflow", OVERFLOW_BACKGROUND, OVERFLOW_FOREGROUND)
 

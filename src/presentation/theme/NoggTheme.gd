@@ -280,13 +280,20 @@ const WINDOW_STACK_GAP_UNITS := 4.0
 # were a few device pixels across and their duration `Label3D` was smaller than
 # one.
 #
-# **Resting size is half the authored source, and hover doubles it.** That makes
-# a hovered icon land at exactly 1:1 with `StatusIconRegistry.SOURCE_PX`, so the
-# art is seen at native resolution at the moment the player is actually looking
-# at it. Changing either number without the other gives that up.
-const STATUS_BADGE_UNITS := 8.0
+# **A badge rests as a plain colour chip and only becomes an icon under the
+# pointer.** At the resting size no icon is legible anyway — an 8-pixel square
+# cannot carry a silhouette — so it does not pretend to. It answers "how many
+# effects, and roughly what kind" from a flat colour, and hovering answers
+# "which one" by growing to full size and crossfading the art in.
+#
+# **Hover lands at exactly 1:1 with `StatusIconRegistry.SOURCE_PX`.** Resting
+# size times `STATUS_BADGE_HOVER_SCALE` must equal that source size at the
+# shipping `ui_scale`, or a grown icon is resampled at the one moment the player
+# is looking straight at it. `4.0 units * 2 scale * 4.0 hover = 32`. The three
+# numbers are chosen together; changing one alone gives the property up.
+const STATUS_BADGE_UNITS := 4.0
 const STATUS_BADGE_GAP_UNITS := 1.0
-const STATUS_BADGE_HOVER_SCALE := 2.0
+const STATUS_BADGE_HOVER_SCALE := 4.0
 ## Vertical lift from the top of the model's bounds to the badge row.
 const STATUS_BADGE_LIFT_UNITS := 5.0
 ## How long a badge takes to reach its hovered size. Short enough to feel like a

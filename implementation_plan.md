@@ -330,6 +330,20 @@ blockers does not converge), off-screen counts as blocked, vertical only, and
 **upward first** since these rows sit above their units and pushing down walks
 them into the model.
 
+**Resting size revised 2026-08-15, at the user's direction:** a badge rests as a
+plain colour chip at 4 design units (8 device px) and grows x4 on hover. The
+earlier 16-pixel resting badge tried to show a silhouette at a size where none
+is legible; it now does not pretend to. At rest the row answers "how many
+effects, and roughly what kind" through flat per-effect colour, and hover
+answers "which one" by growing to `StatusIconRegistry.SOURCE_PX` and crossfading
+the art in over the chip. `4.0 units * 2 ui_scale * 4.0 hover = 32` keeps the
+grown badge exactly 1:1 with the source; the three numbers are chosen together.
+
+Chip colour is per effect rather than merely buff/debuff. At eight pixels colour
+is the only channel available, and three distinguishable colours tell the player
+more than three identical red squares at no extra cost. Duration is drawn only
+on the grown badge — there is no room for a numeral at the resting size.
+
 Verified by capture at the default preset and at `tactics_classic` (480x360):
 eight rows, one to six effects each, no overlaps, silhouettes distinguishable,
 durations legible, overflow counter correct. `StatusEffectBillboard.gd` is
