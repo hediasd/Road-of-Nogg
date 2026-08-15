@@ -44,6 +44,8 @@ signal spell_list_requested
 
 enum Phase { INACTIVE, MENU, MOVE_SELECT, TARGET_SELECT, CONFIRM_ACTION, RESOLVING }
 
+const ReachQueryScript = preload("res://src/battle_sim/ReachQuery.gd")
+
 const ENTRY_MOVE := "move"
 const ENTRY_UNDO_MOVE := "undo_move"
 const ENTRY_ATTACK := "attack"
@@ -436,10 +438,9 @@ func _menuStatusText(phases: Dictionary) -> String:
 func _enterMoveSelect() -> void:
 	phase = Phase.MOVE_SELECT
 	var currentPos = _sim.state.getMonsterPosition(activeMonsterID)
-	_reachableTiles = _sim.movementResolver.getReachablePositions(activeMonsterID)
-	if not _reachableTiles.has(currentPos):
-		_reachableTiles.append(currentPos)
-	_attackableTiles = _getAttackableTiles(_reachableTiles)
+	var reach: Dictionary = ReachQueryScript.forMonster(_sim, activeMonsterID)
+	_reachableTiles = reach["reachable"]
+	_attackableTiles = reach["attackable"]
 	gridCursor = currentPos
 	_adapter.show_player_cursor(currentPos)
 	_adapter.show_movement_options(_reachableTiles, [], _attackableTiles)
@@ -454,20 +455,6 @@ func _previewPath(pos: Vector2i) -> void:
 	_adapter.show_movement_options(
 		_reachableTiles, _pathTo(pos), _attackableTiles
 	)
-
-
-func _getAttackableTiles(reachable: Array) -> Array:
-	var attackable: Array = []
-	var seen: Dictionary = {}
-	for from_pos in reachable:
-		for target_pos in _sim.combatResolver.getBasicAttackTargetPositionsFrom(
-			activeMonsterID, from_pos
-		):
-			if seen.has(target_pos):
-				continue
-			seen[target_pos] = true
-			attackable.append(target_pos)
-	return attackable
 
 
 func _pathTo(pos: Vector2i) -> Array:

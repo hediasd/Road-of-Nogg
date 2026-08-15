@@ -3,6 +3,7 @@ extends Node3D
 const BattleUIBuilderScript = preload("res://src/presentation/BattleUIBuilder.gd")
 const BattleSetupUIScript = preload("res://src/presentation/BattleSetupUI.gd")
 const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
+const ReachQueryScript = preload("res://src/battle_sim/ReachQuery.gd")
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
 const BattleSetupPresetsScript = preload("res://src/factories/BattleSetupPresets.gd")
 const MapReferencesScript = preload("res://src/factories/MapReferences.gd")
@@ -1194,6 +1195,30 @@ func _updateReadoutHover(monsterID: int) -> void:
 		return
 	_readoutHoverMonsterID = monsterID
 	_refreshStatusWindows()
+	_refreshHoverReach()
+
+
+## Paints the hovered unit's movement and strike reach on its own overlay layer.
+##
+## Additive by decision: it draws over whatever the player is currently aiming
+## with rather than replacing it, so checking an enemy's reach mid-decision never
+## costs them the movement overlay they were working from. The alternative —
+## suppressing the actor overlay while hovering — removes information the player
+## is actively using, which is the worse failure of the two.
+##
+## Recomputed on hover change rather than cached. The queries are a bounded
+## flood fill plus a per-tile adjacency check over a small board, and a cache
+## would need invalidating on every move, defeat, and speed or move buff; that
+## bookkeeping is a likelier source of a stale overlay than the recompute is of
+## a frame drop. Revisit if final validation measures otherwise.
+func _refreshHoverReach() -> void:
+	if visual_adapter == null:
+		return
+	if _readoutHoverMonsterID == -1 or sim == null:
+		visual_adapter.clear_hover_reach()
+		return
+	var reach: Dictionary = ReachQueryScript.forMonster(sim, _readoutHoverMonsterID)
+	visual_adapter.show_hover_reach(reach["reachable"], reach["attackable"])
 
 
 ## Renders both docked windows from committed state, then overlays the hovered
@@ -1225,6 +1250,7 @@ func _clearStatusWindows() -> void:
 	_actorPanelMonsterID = -1
 	_targetPanelMonsterID = -1
 	_readoutHoverMonsterID = -1
+	_refreshHoverReach()
 	if actor_window == null or target_window == null:
 		return
 	_renderStatusWindow(actor_window, -1)
@@ -1391,6 +1417,9 @@ func _on_turn_order_started(monsterID: int, _roundNumber: int, _turnNumber: int)
 	_turn_order_ids.push_front(monsterID)
 	_active_turn_order_id = monsterID
 	_refresh_turn_order_display()
+	# A hovered unit's reach is derived from board state, and the board has just
+	# changed. The pointer has not moved, so nothing else would re-derive it.
+	_refreshHoverReach()
 
 
 func _on_turn_order_ended(monsterID: int) -> void:

@@ -62,6 +62,17 @@ func show_threat_options(_threatened: Array) -> void: pass
 func clear_threat_options() -> void: pass
 
 
+## Paint the reach of the unit under the pointer — where it can move, and what
+## it could strike from there. A third independent layer for the same reason
+## the threat overlay is a second one: inspecting a unit is additive over the
+## player's current aim and must never destroy it.
+func show_hover_reach(_reachable: Array, _attackable: Array = []) -> void: pass
+
+
+## Remove only the hover reach overlay.
+func clear_hover_reach() -> void: pass
+
+
 ## Paint legal target tiles plus the area a confirmed action would affect.
 func show_target_options(
 		_targetPositions: Array,

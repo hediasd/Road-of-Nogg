@@ -253,6 +253,47 @@ overlay clear paths were not written to expect.
 itself, in every phase; interaction with held `T`; overlay restoration on
 release; no leaked overlay nodes across turns.
 
+**Resolution (2026-08-15):** Implemented; pending end-of-plan validation.
+
+**Precedence is additive**, decided by the user. Hover reach draws on a third
+overlay layer, `HoverReachOverlays`, added for exactly the reason the threat
+layer is a second one: `clear_tactical_overlays()` must not destroy it and
+clearing it must not destroy the player's aim. It lifts slightly higher than
+both existing layers so an inspection reads as sitting on top of the aim rather
+than z-fighting with it, and both tints are drawn at lower alpha than the acting
+unit's own overlay so aim and inspection stay distinguishable when both are on
+the board. No new colour: movement blue and reach purple are reused, and yellow
+is left alone because it already means the hovered path in one overlay and a
+legal target in another.
+
+The reach computation was **extracted rather than duplicated**.
+`PlayerTurnController._getAttackableTiles` was a private loop bound to
+`activeMonsterID`, and hover needs the same answer for an arbitrary unit at
+times when there is no active player turn. It is now
+`src/battle_sim/ReachQuery.gd`, a headless static composition over
+`MovementResolver` and `CombatResolver` that both callers use, so the player's
+own move preview and the hover overlay cannot drift. Semantics are preserved
+exactly, including appending the unit's current tile to the reachable set.
+
+Reach is recomputed on hover change rather than cached: a cache would need
+invalidating on every move, defeat, and move buff, and that bookkeeping is a
+likelier source of a stale overlay than the recompute is of a frame drop. It is
+also re-derived on turn start, because the board has changed while the pointer
+has not moved and nothing else would refresh it. Accepted gap: a reach painted
+mid-animation can go briefly stale as units move during playback; any pointer
+movement corrects it, and the overlay is an inspection aid rather than a
+commitment surface.
+
+`hover_overlay_node` was added to the adapter's teardown list. That list is the
+leak guard, and the exit access violation in `BACKLOG_CRITICAL.md` is a
+retained-resource failure, so a new persistent node had to join it.
+
+Probe caught a real defect: `ReachQuery` referenced by bare `class_name` failed
+to parse in both consumers, because a newly added global class is not in the
+script class cache until the project is rescanned. Switched both to a preloaded
+script const, which is the dominant pattern in these files anyway and does not
+depend on cache state. All five touched scripts now parse clean.
+
 ### LEG-4 — Build the unit plate
 
 **Model:** Opus 5 / GPT Sol

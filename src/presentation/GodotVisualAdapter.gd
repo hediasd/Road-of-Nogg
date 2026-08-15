@@ -38,6 +38,7 @@ var grid_node: Node3D
 var monsters_node: Node3D
 var overlay_node: Node3D
 var threat_overlay_node: Node3D
+var hover_overlay_node: Node3D
 var damage_number_layer: CanvasLayer
 var damage_number_root: Control
 var _cursor: MeshInstance3D
@@ -87,6 +88,14 @@ func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = nul
 	threat_overlay_node = Node3D.new()
 	threat_overlay_node.name = "ThreatOverlays"
 	visual_parent.add_child(threat_overlay_node)
+
+	# A third overlay layer, for exactly the reason the threat layer is a second
+	# one: hover reach is additive over whatever the player is currently aiming
+	# with, so it must not be destroyed by `clear_tactical_overlays()` and must
+	# not destroy the aim when it clears itself.
+	hover_overlay_node = Node3D.new()
+	hover_overlay_node.name = "HoverReachOverlays"
+	visual_parent.add_child(hover_overlay_node)
 
 	_cursor = BattleMeshFactoryScript.createMesh("cursor", Color(0.2, 0.6, 1.0, 0.5))
 	visual_parent.add_child(_cursor)
@@ -1357,6 +1366,37 @@ func clear_threat_options() -> void:
 		child.free()
 
 
+## Paint the reach of the unit under the pointer: where it can move, and what it
+## could strike from there. Additive — it draws on its own layer above the
+## player's current movement or target overlay rather than replacing it, so
+## inspecting an enemy mid-decision never costs the player the aim they were
+## working with.
+##
+## Reuses the movement blue and reach purple `show_movement_options` already
+## defines rather than introducing a fifth board colour. Yellow is deliberately
+## not used: it already means the hovered path in one overlay and a legal target
+## in another, and a third meaning would collide with both. The two sets are
+## drawn at lower alpha than the acting unit's own overlay so the player can
+## still tell their aim from an inspection when both are on the board.
+func show_hover_reach(reachable: Array, attackable: Array = []) -> void:
+	clear_hover_reach()
+	if not is_instance_valid(hover_overlay_node):
+		return
+	for coord in reachable:
+		if coord is Vector2i and state.withinBounds(coord):
+			_add_hover_overlay(coord, Color(0.15, 0.75, 1.0, 0.20))
+	for coord in attackable:
+		if coord is Vector2i and state.withinBounds(coord) and not reachable.has(coord):
+			_add_hover_overlay(coord, Color(0.72, 0.28, 1.0, 0.26))
+
+
+func clear_hover_reach() -> void:
+	if not is_instance_valid(hover_overlay_node):
+		return
+	for child in hover_overlay_node.get_children():
+		child.free()
+
+
 func show_target_options(
 		targetPositions: Array,
 		affectedPositions: Array = [],
@@ -1398,6 +1438,16 @@ func _add_threat_overlay(coord: Vector2i, color: Color) -> void:
 	threat_overlay_node.add_child(marker)
 
 
+## Lifted above both the tactical and threat layers, so an inspection reads as
+## sitting on top of the aim it is drawn over rather than z-fighting with it.
+func _add_hover_overlay(coord: Vector2i, color: Color) -> void:
+	var marker = BattleMeshFactoryScript.createMesh("plane", color)
+	marker.position = Vector3(
+		coord.x, _surface_y(coord) + OVERLAY_LIFT + 0.008, coord.y
+	)
+	hover_overlay_node.add_child(marker)
+
+
 func dispose() -> void:
 	_queue.dispose()
 	_queue = null
@@ -1410,7 +1460,10 @@ func dispose() -> void:
 		if tween != null and tween.is_valid():
 			tween.kill()
 	_defeat_tweens.clear()
-	for node in [grid_node, monsters_node, overlay_node, threat_overlay_node, damage_number_layer, _cursor]:
+	for node in [
+		grid_node, monsters_node, overlay_node, threat_overlay_node,
+		hover_overlay_node, damage_number_layer, _cursor
+	]:
 		if is_instance_valid(node):
 			node.queue_free()
 	_monster_visuals.clear()
