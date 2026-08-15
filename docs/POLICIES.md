@@ -14,9 +14,6 @@ and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
   would make two plausible product directions meaningfully different.
 - Use repository evidence and reversible implementation judgment for ordinary
   technical details. Ambiguity alone is not a reason to stop.
-- VFX authorship defaults to GPT. Claude-family models require task-specific
-  user approval to create or materially change visual effects; read-only
-  analysis, review, and validation do not require approval.
 - The Lorekeeper persona or subagent may edit only lore documents such as
   `docs/LORE.md` and files under `docs/lore/`, never code or non-lore
   documentation, even if requested.

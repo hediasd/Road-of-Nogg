@@ -181,6 +181,41 @@ What is still unexercised:
 The per-item resolution evidence is recoverable from `git log` for the commits
 between the encasement plan's opening and 2026-08-12.
 
+## The generic spell-cast aura ships on debug-harness evidence only
+
+The source-convergence rework of the generic spell-cast aura is implemented and
+committed: the frozen convergence baseline, the zero-to-rise emission
+choreography that replaced the global fade-in, the world-space carrier that
+removed the striped terraces, the project-owned mask and material stack, the
+eleven-state motion/spin/oscillation and final grading match, the user-previewed
+ghastly fog vocabulary, and that fog's integration across every aura component.
+Each was recorded as implemented, pending end-of-plan validation, and that
+consolidated validation never ran before work moved to the solar storm cycle on
+2026-08-14. Per-item evidence is recoverable from `git log` for the commits
+between 2026-08-12 and 2026-08-13.
+
+Two pieces remain open:
+
+- **The longer lifecycle was never authored.** The aura still runs at roughly
+  `1.15` seconds. The intended shape is invisibility at true time zero, a single
+  ground-aperture ignition, a visible bottom-to-top emission front, a modest
+  `1.08–1.15` height crest with restrained spin and asynchronous tip drift, then
+  a staggered recession that dissolves density rather than scaling a finished
+  shape back into the ground. Initial target range was `1.8–2.2` seconds, to be
+  settled by preview evidence rather than treated as acceptance. The adapter hold
+  fraction needs retuning alongside it so a longer visual tail outlives command
+  resolution without materially increasing action-queue hold time.
+- **Consolidated validation never ran.** Still unexercised: the exact-zero proof
+  and dense emergence contact sheet; native and retro modes; light and dark
+  terrain; battle-camera yaw and pitch movement; several deterministic seeds;
+  ice/fire/thunder/darkness/neutral tinting; pause, speed scale, forward and
+  backward seek, skip-to-settle, overlap, replay, disposal and scene exit;
+  measured real-time visual and action-hold duration; identical frames for
+  identical normalized time and seed; a caller search across every changed shared
+  primitive with every returned effect rendered; and a real cast in `Battle25D`
+  through the adapter and event path. The `Battle25D` shutdown access violation
+  above is a prerequisite for that last one.
+
 ## The prompt window renders behind the developer HUD
 
 At the shipping `ui_scale` of 2, the top-centre prompt window ("Choose a

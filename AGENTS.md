@@ -60,12 +60,6 @@ the rationale; this file is the concise operational contract.
   architectural boundaries, extraction, and balance or design decisions.
   Assign per item, never per phase. Do not route work below the Sonnet 5 /
   GPT Terra tier — smaller models are not used on this project.
-- Claude-family models, including Sonnet and Opus, may not design, generate,
-  author, or materially edit visual effects unless the user explicitly approves
-  Claude for that specific work and the plan item records that approval. This
-  includes shaders, particles, effect scenes or scripts, and visual tuning.
-  Assign VFX creation to GPT by default; Claude may inspect, diagnose, review,
-  or validate it without changing it.
 - Every implementation item names its risk and the behavior its change adds to
   final validation coverage. A multi-item plan ends with one validation item
   that depends on every implementation item, has its own model assignment, and

@@ -1,788 +1,575 @@
-# Spell-Cast Aura Source-Convergence Cycle
+# Battle Legibility Cycle
 
-**Opened 2026-08-13.** The previous plan contained the full history of the
-generic spell-cast aura experiments through the measured plume-atlas rebuild.
-Those implementation steps are committed and recoverable with
-`git show 1a942bf^:implementation_plan.md`. Its consolidated battle/lifecycle
-validation did not complete because `Battle25D` still exits with the
-pre-existing script-resource access violation already described in
-`BACKLOG_CRITICAL.md`; that genuinely open work remains there. No other open
-item required relocation. A repository search found the retired plan's item
-identifiers only inside the plan itself, so no persistent reference needed
-rewriting.
+**Opened 2026-08-15.** The previous plan held the spell-cast aura
+source-convergence cycle. Its first seven items are committed and recorded as
+implemented pending end-of-plan validation; the longer-lifecycle authoring item
+was never started and the consolidated validation never ran, because work moved
+to the solar storm cycle on 2026-08-14. Both genuinely open pieces are now
+described in `BACKLOG_CRITICAL.md` under the generic spell-cast aura entry, and
+the committed contents remain recoverable with
+`git show 6fdfb90:implementation_plan.md`. A repository search found that
+cycle's item identifiers only inside the plan file itself, so no persistent
+reference needed rewriting.
 
-This cycle replaces iteration-by-accumulation with iteration-by-evidence. The
-eleven supplied Ragnarok Online frames are the visual authority. The user's
-additional onset direction is authoritative for the uncaptured lead-in: the
-effect starts with zero visible aura, ignites at the footprint, and rises from
-that footprint rather than fading in as an already complete plume. After the
-first convergence pass proved too sharp and petal-like, the cycle was expanded
-on 2026-08-13 with a user-previewed fog prototype, component-by-component
-integration, and a longer rooted rise/crest/dissolve lifecycle before final
-gameplay validation.
+This cycle addresses a legibility review of `Battle25D` conducted 2026-08-15.
+The finding that drives it: the battle computes health, reach, status and threat
+correctly, but shows health for at most two units out of eight and disables free
+inspection during the one phase where the player is actually deciding. The
+review's evidence is reproduced in each item rather than cited, because it is a
+conversation artifact and not a persistent file.
 
 ## Outcome
 
-Recreate the reference as a responsive, body-enclosing, world-space casting aura:
+A player can read the state of the whole battlefield without changing what is
+selected, and can interrogate any unit at any time:
 
-- zero aura at normalized time `0.0`;
-- a footprint ignition followed by a measurable bottom-to-top emission front;
-- a wide, continuous blue/cyan plume whose broad ghastly fog surrounds the
-  model, with sparse ghost-ray emphasis that never reads as literal shards;
-- a longer zero-to-emergence, rise, high crest, and vaporous fade arc, without
-  making battle command resolution wait for the entire visual tail;
-- no slow puddle rings, opaque column, billboard card, horizontal striping, or
-  visible polygon terraces;
-- the eleven recorded source states reproduced at comparable character scale;
-- stable appearance under the moving battle camera, exact seek/replay, element
-  tinting, and the established VFX lifecycle contract.
+- every living unit carries a persistent readout of team, level, health, active
+  resonance and status, drawn at native resolution so it survives every retro
+  preset down to `480x360`;
+- hovering any unit fills the docked status window and paints that unit's
+  movement and strike reach, in every phase including move and target select;
+- a pending action's damage is previewed on the target's own health bar, so the
+  forecast is read where the player is already looking;
+- the turn order becomes a predictive rail: deep enough to cross the round
+  boundary where a fast unit's back-to-back double turn becomes visible, linked
+  bidirectionally with the board, and showing how a pending SPD change will
+  reorder the next round before the player commits to it;
+- the danger zone can be attributed to a single enemy rather than read as an
+  undifferentiated union;
+- deeper reference material — spell lists, cooldowns, passives, race elemental
+  matchups — is reachable on a held key without resizing any docked window.
 
-## Mandatory comparison-and-replan gate
+Ordering is by legibility gained per unit of risk. The cycle is designed to stop
+cleanly after any item: each one leaves the HUD in a shippable state.
 
-Every implementation item below is one session and one focused commit. It must
-start from a task-owned clean boundary while preserving the unrelated modified
-`gamerefs/` files and `src/battle_sim/PassiveSkillResolver.gd`.
+## Present-state facts an executing agent must not "fix"
 
-At the end of **every** item, before its commit:
-
-1. Capture the affected states with the same orthographic camera, character
-   scale, crop, exposure, background, seed, and native/retro setting as the
-   frozen baseline. Focused debug captures are allowed here; the full battle
-   flow remains consolidated in the final item.
-2. Build a paired source/current sheet. Fog-prototype work must build a
-   source/current/prototype triptych and include enlarged aperture, body, and
-   tip crops. For onset work also build a dense `0.00`-to-first-source-state
-   sheet; for carrier work also capture yaw `0/90/180` on dark and light
-   terrain.
-3. Recompute at least: faint and dense silhouette bounds, width by height,
-   vertical energy centroid, footprint/aperture radius, angular energy profile,
-   temporal frame delta, blue/cyan luminance ratios, body-overdraw,
-   horizontal-band periodicity, edge-density/gradient energy, and the ratio of
-   diffuse envelope energy to bright-core energy. The extracted-source branch
-   may add layer and keyframe metrics but may not remove these common metrics.
-4. Record a per-metric verdict of **closer**, **unchanged**, or **worse**. A
-   primary silhouette, onset, body-occlusion, or banding regression prevents
-   advancement: rework or revert it inside the current item.
-5. Rewrite the still-pending items in this file when the evidence changes the
-   next technique, tolerances, or file scope. Do not preserve a planned
-   technique merely because it was planned. Record the comparison evidence and
-   replanning decision in the current item's Resolution, then commit only the
-   task-owned files.
-
-Untracked comparison captures may contain user-supplied or locally extracted
-Ragnarok material and must stay outside commits. Only measurements, hashes,
-layer descriptions, and original Road of Nogg assets may enter the repository.
+- **Every monster is level 1 today.** Nothing in production spawns above it and
+  every authored growth value is `0`, so the level readout specified in LEG-4
+  will show `1` on every unit until the monster level and growth work in
+  `BACKLOG_CRITICAL.md` lands. That is expected. The readout is being built
+  ahead of the mechanic deliberately, at the user's direction; do not remove it,
+  and do not substitute a different value.
+- **Catalog damage is small.** Shipped stats are base stats: HP `28-60`, ATK
+  `2-8`, DEF `2-8`, spell `DAMAGE` `1-7`. Against
+  `max(1, atk + power - def)` most exchanges land at `2-8` damage, so a unit
+  takes roughly five to twenty hits to remove. This is why the health bar is
+  notched rather than smoothly filled — a continuous bar moves too little per
+  exchange to register. Whether that pace is intended is a balance question
+  outside this cycle; see "Deliberately excluded".
+- **The colour vocabulary is nearly full.** Movement blue, reach purple, target
+  yellow, affected red/green and threat magenta are all assigned. Yellow in
+  particular is taken twice, by the hovered path in `show_movement_options` and
+  by legal targets in `show_target_options`. New surfaces derive from the
+  existing set rather than adding to it.
 
 ## Items
 
-### AURA-R1 — Identify the original effect and freeze the convergence baseline
+### LEG-1 — Settle the board-space readout contract in the UI design document
 
 **Model:** Opus 5 / GPT Sol
 
-**End state:** The current Road of Nogg render and all eleven source frames have
-one reproducible comparison pipeline and one frozen baseline report. Source
-forensics tests the most plausible client effects first—especially the
-water-element cast-initiation effect `EF_BEGINSPELL2`, followed by the relevant
-newer blue cast-aura/cone variants—and accepts a candidate only when its
-silhouette and temporal behavior match the supplied frames. The report says
-whether the effect is an archive-authored STR/texture composition, a sprite
-animation, a client-native effect, or still unresolved; it records layer count,
-blend mode, texture references, transforms, alpha, rotation, and frame timing
-where those facts are actually observable.
+**Depends on:** nothing.
 
-**Asset decision (blocking only the extraction branch):** Inspect only a
-Ragnarok client/archive the user owns or is authorized to inspect. The user must
-provide its local path before that branch runs. Do not download unofficial GRFs
-or commit/distribute Gravity textures, sprites, STR files, or rendered
-extractions. If no authorized archive is available, resolve this item through
-the screenshot/video baseline and mark archive identity as unavailable; later
-items remain executable.
+**Blocking:** yes. `docs/POLICIES.md` requires user approval before inventing a
+visual theme, and this item authors one. Obtain approval of the plate layout and
+its colour tokens before any of LEG-4 onward is executed. The remaining items
+are unblocked once this item's contract is approved.
 
-**Implementation:** Extend the existing measurement/generation tooling around
-`assets/vfx/spell_cast_aura/source_measurements.json` so one command produces
-registered paired sheets and machine-readable metrics. For the authorized
-asset branch, inventory `data.grf`/`sdata.grf`, extract only candidate files to
-an external evidence directory, reproduce the candidate through a compatible
-viewer/client where possible, and capture the client's file-access trace while
-triggering the candidate effect so referenced textures can be distinguished
-from unrelated archive neighbors. Hash rather than import the proprietary
-files. Treat `.str` as one possibility, not an assumption: the early cast aura
-may be constructed by client code from texture primitives.
+**End state:** `docs/UI_DESIGN.md` describes the board-space unit plate as a
+named surface alongside the §10a model treatments, with its anchor, composition,
+sizing in design units, colour tokens, and the rule that it is drawn as a
+projected `Control` at native resolution rather than in the battle
+`SubViewport`. The §6 input table gains a hover row. `NoggTheme` gains the
+tokens the plate needs and no colour literal is introduced outside it.
 
-**Risk:** Choosing the wrong regional/client-era effect would optimize the
-replica toward a visually related but different animation; retaining extracted
-art would introduce a licensing and compatibility surface.
+**Implementation:** Add a §10c covering the plate. Specify, left to right: a
+**team-coloured unfilled circle carrying the unit's level number**, then the
+notched health bar, then resonance pips; the status row sits beneath. Author the
+circle as a stroked ring with a transparent interior, its stroke taking the team
+colour and the numeral taking `TEXT_PRIMARY` — the ring reads as team identity
+and the numeral as level, and neither has to fight a fill for contrast. Size
+every element in design units multiplied by `ui_scale`, per §3's token rule; do
+not write device-pixel literals at a call site. Set the health notch interval at
+10 HP against the catalog range above, so a typical unit shows three to six
+segments. Derive the health, ghost-damage and lethal tokens from the existing
+palette. Record in the §6 table that hover moves the cursor *and* fills the
+docked readout, and that it does so in every phase. State explicitly that the
+plate never resizes with content, matching trait 6's reasoning for the docked
+windows.
 
-**Adds to final validation:** Exact source candidate/provenance status, frozen
-source registration, deterministic comparison command, baseline metrics, and
-an explicit record of what may and may not be shipped.
+**Risk:** A contract authored without rendering it can specify a plate that is
+unreadable at `480x360` or that collides with the status badges already anchored
+above each model. Measure the specified sizes against the smallest preset before
+recording them, and state where the plate sits relative to the existing badge
+row.
 
-**Item gate:** Run the mandatory gate on all eleven states. The source candidate
-is accepted only on visual/timing evidence. Replan every later carrier/material
-assumption from any recovered layer data before committing.
+**Adds to final validation:** The document is the acceptance reference for every
+later item; validation checks the shipped HUD against it rather than against
+this plan.
 
-**Resolution (2026-08-13):** Implemented through the screenshot branch; pending
-end-of-plan validation. No authorized archive path was available, so exact
-effect identity remains explicitly unresolved. `EF_BEGINSPELL2`,
-`EF_BEGINSPELL_N1`, and `EF_BEGINSPELL_N2` remain candidates rather than
-accepted facts, and no Ragnarok archive or extracted asset was downloaded,
-read, retained, or committed.
+### LEG-2 — Fill the docked status window from hover, in every phase
 
-- `compare_replica.py` now registers the red/orange debug proxy onto the source
-  character's centre, feet, width, and height, then emits one paired sheet and
-  one JSON report from eleven ordered source/render paths. The user-supplied
-  files are all 340x340; the earlier measurement contract was 350x350, so the
-  report records their original sizes and the deterministic bicubic conversion
-  rather than silently mixing coordinate systems.
-- The frozen Road of Nogg command is native rendering, black comparison
-  isolation, camera size 5 focused on target, ice tint, and seed 7 at the
-  eleven source checkpoints. The tracked report stores source/render SHA-256
-  hashes, body registration, per-state measurements, temporal deltas, and the
-  capture label. Source pixels and the paired sheet remain untracked.
-- Signed sequence means expose the primary gap: faint width is 0.7602 character
-  widths too small; dense width is 0.2680 too small; dense height is 0.2437
-  character heights too large; the dense-energy centroid is 0.3716 too high;
-  and the aperture is 0.4827 character widths too large. Mean angular-profile
-  L1 distance is 1.0491, and the replica's mean frame delta is 0.3205 versus
-  the source's 0.4976, confirming that the tidy petal cage reorganizes too
-  little compared with the irregular source plume.
-- The paired sheet also exposes flattened, repeated tip terraces. The scalar
-  band/edge probes do not uniquely classify this artifact because the source's
-  legitimate radial rays carry strong row-edge energy too. AURA-R3 is therefore
-  replanned to require enlarged tip crops and direct visual continuity evidence
-  alongside source-relative metrics; no single stripe score can pass it.
-- Rendering code and assets were untouched, so every visual metric is
-  **unchanged** for this item. The item advances because it freezes the target
-  and makes later closer/worse verdicts reproducible, not because it improves
-  the look.
-- All eleven Godot captures are byte-identical across two independent rendered
-  launches. The JSON report and paired sheet are byte-identical across repeated
-  comparator runs. Godot 4.4's escalated editor import/parse exited 0 and the
-  focused `git diff --check` passed. No battle was launched, as required for an
-  implementation item. The backlogs needed no edit: asset extraction remains
-  an optional authorized-input branch here, while the pre-existing battle exit
-  defect is already described in `BACKLOG_CRITICAL.md`.
+**Model:** Sonnet 5 / GPT Terra
 
-### AURA-R2 — Replace global fade-in with zero-to-rise emission choreography
+**Depends on:** nothing. Independent of LEG-1, and safe to execute first if the
+contract approval is still outstanding.
+
+**End state:** Moving the pointer over any unit renders that unit into a docked
+status window immediately, during move select and target select as well as
+outside a player turn. The existing ally-to-actor-window and
+enemy-to-target-window routing is preserved. No dwell delays the readout, and
+the dither restore keeps its own dwell unchanged.
+
+**Implementation:** `src/systems/BattlePresentationController.gd` already
+resolves the hovered unit on mouse motion and passes it to
+`_update_hovered_monster`, which sets model solidity only. Add the readout push
+alongside that call, reusing the team-relative routing that
+`_handle_click_selection` already implements — extract that routing rather than
+duplicating it, so the two entry points cannot drift. Leave
+`DITHER_HOVER_DWELL_SECONDS` governing solidity only; the readout is immediate.
+Restore the previous readout when the pointer leaves every unit, rather than
+clearing to an empty frame, so sweeping across the board does not blank the
+window the player was reading.
+
+This closes the inspection hole without touching click handling: the click path
+stays exactly as it is, because hover cannot conflict with grid selection the
+way a click does.
+
+**Risk:** Mouse motion fires per frame; re-rendering a window's rows on every
+motion event will churn. Guard on the hovered id actually changing. A second
+risk is fighting the live attacker/target push from `GodotVisualAdapter` during
+combat playback — hover must not overwrite a readout that combat is currently
+driving.
+
+**Adds to final validation:** Hover readout during move select, target select,
+confirm, CPU turns and battle end; last-write-wins behaviour against combat
+playback; no per-frame rebuild.
+
+### LEG-3 — Paint movement and strike reach from hover
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-R1.
+**Depends on:** LEG-2.
 
-**End state:** At `0.0` every aura layer contributes zero pixels. The footprint
-then ignites from zero and seeds a vertical reveal front. Plume energy exists
-only below that rising front until it reaches the first measured source state;
-the complete crown never appears early under a low global opacity. Root
-brightness, reveal height, plume amplitude, and terminal fade are independent
-timeline channels, all derived from normalized playback progress with no
-`TIME` dependency. Forward seek, backward seek, replay, pause, and speed scale
-produce the same image at the same normalized time.
+**End state:** Hovering any unit paints its reachable tiles in the existing
+movement blue and the tiles it could strike from that reach in the existing
+purple. Releasing hover restores exactly the overlay the player had. A stated
+precedence rule governs what happens when the acting unit's own move overlay is
+already on the board.
 
-**Implementation:** Add an explicit onset window to
-`SpellCastAuraProfile.gd`; pass root ignition, reveal-front height, and reveal
-softness through `SpellCastAura.gd` to the footprint, haze, and ghost-ray
-materials. Clip/reconstruct plume coverage in world height, feathering only at
-the moving front. Keep the roots attached to the ring while the front rises;
-do not translate an already complete shell upward. Treat `0.00` through `0.08`
-as the evidenced implementation window: `0.08` must still register to source
-state 1 while `0.00` is empty, with dense probes at least every `0.01`.
+**Implementation:** The queries exist — `getReachablePositions` and the threat
+map already serve the AI and the held-`T` overlay. The design decision is
+precedence, and it is the reason this item is not mechanical: during move select
+the acting unit's reachable tiles are already painted, and hovering an enemy
+must not silently destroy them. Choose and record one rule — hovering an enemy
+suppresses the actor overlay for the duration of the hover, or the two are drawn
+together with the hovered unit's set on top. Additive drawing is the safer
+default because it never removes information the player was mid-decision on, but
+it can produce four tinted sets at once on a crowded board; settle it by looking
+at a real battle, not in the abstract.
 
-**Risk:** A soft global fade can masquerade as growth in a single still, while
-hard clipping can create a scan line or make the aura look like a lifting tube.
+Reuse `show_movement_options`' existing colours. Do not introduce yellow — it is
+already the hovered path and the legal-target tint, and a third meaning would
+collide with both.
 
-**Adds to final validation:** Dense onset captures from `0.00` through the
-first source state, proof of zero initial contribution, monotonic rising energy
-centroid during emission, absence of pixels above the reveal front, and exact
-history-independent seek hashes.
+**Risk:** Recomputing a flood fill on every hover change will cost more than the
+overlay is worth on a large board; cache per unit and invalidate on movement.
+The threat overlay and this one can now paint simultaneously, which the tactical
+overlay clear paths were not written to expect.
 
-**Item gate:** Compare the dense onset sheet to an extracted original onset if
-available and otherwise to the user's explicit zero/rise direction. Reject the
-item if a full-height silhouette is visible before the reveal arrives or if the
-ring reads as a slow puddle. Replan carrier geometry if clipping exposes its
-tessellation.
+**Adds to final validation:** Hover reach for ally, enemy and the acting unit
+itself, in every phase; interaction with held `T`; overlay restoration on
+release; no leaked overlay nodes across turns.
 
-**Resolution (2026-08-13):** Implemented; pending end-of-plan validation.
-
-- The old `effect_visibility` onset multiplier is gone. Footprint ignition,
-  plume-root ignition, reveal-front height, keyed plume energy, and lifecycle
-  decay are independent normalized channels. Both plume shaders hard-zero
-  coverage at and above the front and feather behind it; no already-complete
-  crown is translated or globally faded into view.
-- The authored sequence is empty at `0.00`; the footprint reaches full ignition
-  by `0.018`; plume emission begins at `0.010`, its root reaches full strength
-  at `0.040`, and the front finishes above UV 1.0 at `0.08`. The ring-only read
-  therefore lasts roughly two 0.01 probes (about 23 ms at the 1.15 s duration),
-  not a slow puddle phase.
-- Nine captures at 0.01 spacing prove zero initial blue/aura pixels, monotonic
-  visible height, and monotonic energy-centroid rise after ignition. At `0.08`,
-  all 4,484 faint-mask pixels and the complete image are byte-identical to the
-  frozen first source-state render.
-- The eleven-state comparison classifies every silhouette, aperture, palette,
-  angular, and band/edge metric as **unchanged**; no supplied source state got
-  worse, and all eleven complete images are byte-identical to the frozen
-  baseline. A second process captured the nine onset times in scrambled order;
-  every hash matches the ascending-order capture, proving history-independent
-  seek. Relative to the user's uncaptured onset authority, zero-to-rise is
-  **closer** because the previous full-height alpha fade has been replaced by
-  measurable bottom-to-top growth.
-- Partial captures at `0.03` and `0.04` expose the current shell as a smooth
-  hoop/cup before it becomes the full petal cage. AURA-R3 is replanned to include
-  `0.03`, `0.04`, and `0.05` in every carrier A/B and to reject any technique
-  whose partial reveal announces its carrier even when its complete state is
-  source-closer.
-- The comparator now accepts a frozen baseline and reports per-metric
-  closer/unchanged/worse verdicts; optional onset frames add zero-pixel, height,
-  energy, and centroid checks without mislabeling them as supplied source.
-  Godot 4.4's rendered capture log contains no shader/script errors, its editor
-  import/parse exited 0, and the focused `git diff --check` passed. No battle
-  was launched. No backlog edit was needed: the exposed carrier defect is the
-  next in-scope item, and the pre-existing battle shutdown defect is already
-  tracked in `BACKLOG_CRITICAL.md`.
-
-### AURA-R3 — Eliminate striped terraces and select the world-space carrier
+### LEG-4 — Build the unit plate
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-R2.
+**Depends on:** LEG-1.
 
-**End state:** The horizontal striped lines and stacked ledges are absent in
-native and retro rendering. The carrier reads as continuous rising energy at
-all battle-camera yaws, never as flat shards, crossed cards, flower petals, or
-a conical wall behind the character. The character remains visibly inside the
-plume rather than in front of it. The aura opens upward **and outward** from its
-root: carrier radius is monotonic non-decreasing with world height and the top
-is never narrower than the middle. Spike centre paths must not turn back toward
-the caster as they rise. Local alpha edges may taper into a point, as they do
-in the source; do not mistake legitimate tip taper for inward carrier motion.
+**End state:** Every living unit carries a plate matching the LEG-1 contract:
+team-coloured level ring, notched health bar, resonance pips. It is drawn as a
+projected `Control` on a dedicated `CanvasLayer` at native resolution, tracks
+its unit through movement tweens and camera motion, disappears on defeat, and
+survives every render preset. The whole plate desaturates once its unit has
+spent its turn.
 
-**Implementation:** Run a controlled source-registered A/B between at least:
-(a) a sufficiently tessellated smooth radial curtain whose deformation is
-analytic and continuous in the shader, and (b) a small set of curved
-world-space ribbons or another carrier justified by recovered source layers.
-Do not use a full camera-facing billboard. Increasing the current 24 height
-bands alone is not an accepted fix unless the band-periodicity metric, retro
-captures, yaw sweep, and cost all prove it solves the underlying terrace
-artifact. Retain only the winning carrier and its owned materials. The winning
-comparison must move the sequence in the measured directionâ€”roughly 0.76
-character-widths broader at the faint envelope, 0.37 character-heights lower
-at the energy centroid, and 0.48 character-widths tighter at the apertureâ€”not
-merely brighten the existing petals. Include enlarged crown-tip crops in every
-A/B; the row-periodicity and edge metrics are supporting evidence because the
-source's legitimate radial rays prevent either scalar from identifying the
-terrace artifact by itself. Reject every candidate with `top_radius <
-middle_radius`, a negative average `dr/dy`, or inward-leaning upper spike paths.
-The A/B report must include carrier radii at fixed height fractions and a
-screen-space left/right envelope plot for the partial reveal. Interpret that
-plot together with the carrier profile: outward mean paths are mandatory, but
-the source's pointed upper wisps are allowed to narrow locally.
+**Implementation:** Follow the projection path `_spawn_damage_number` already
+establishes in `src/presentation/GodotVisualAdapter.gd`:
+`camera.unproject_position()`, then `retro_renderer.world_to_screen()`, with
+`get_display_rect()` as the cull test and `is_position_behind()` as the reject.
+That path is the reason this is not a `Label3D` or a world-space quad — the
+battle viewport can be `480x360`, and anything drawn inside it is downsampled
+while a projected Control is not.
 
-**Risk:** More tessellation may hide rather than solve the defect, while too few
-ribbons reproduce shards and too much overlapping transparency obscures the
-model or becomes camera-order dependent.
+Anchor from `get_monster_world_position`, which already prefers the live visual
+over the authoritative tile position and is therefore correct mid-tween. Update
+per frame while any unit is moving or the camera is in motion; a one-shot read
+will desync. Extend the existing `dim_amount` convention to the spent state
+rather than inventing a second visual language for the same idea.
 
-**Adds to final validation:** Native/retro yaw sweeps on dark and light terrain,
-horizontal-band score, body-overdraw mask, carrier node/instance/draw cost, and
-proof that no camera billboard rule controls the plume.
+Give the plate a declutter rule from the start: an isometric camera puts two
+units at nearly the same projected point regularly, and a plate that overlaps
+another is worse than no plate. Depth-sort and nudge, or fade the rear plate —
+decide it here rather than discovering it on a crowded board.
 
-**Item gate:** Compare each carrier A/B directly to the same source states and
-choose on recorded evidence. If neither is closer in both silhouette and
-continuity, commit no visual carrier change, update this item with the failed
-evidence, and replan a third technique before advancing.
+**Risk:** This is the largest item in the cycle and adds a presentation surface
+that does not exist today. Per-frame projection for eight units plus a
+re-layout is the main performance exposure. Node lifecycle is the main
+correctness exposure: a plate that outlives its unit, or leaks on battle exit,
+feeds directly into the `Battle25D` shutdown access violation already in
+`BACKLOG_CRITICAL.md`. Adapter symmetry is the third: `ConsoleVisualAdapter`
+implements the same interface as `GodotVisualAdapter` and must stay in sync if
+the interface grows.
 
-The comparison set for this item now includes the partial-onset states `0.03`,
-`0.04`, and `0.05` in addition to the eleven source checkpoints. This addition
-is required by the preceding onset evidence: a complete-state render can hide
-the hoop/cup silhouette that becomes unmistakable while the reveal front is
-mid-carrier.
+**Adds to final validation:** Plate presence and accuracy for every living unit;
+tracking through movement, defeat, camera yaw and pitch; every render preset
+including the smallest; overlapping-unit declutter; spent-state desaturation;
+teardown with no leaked nodes; headless adapter parity.
 
-**Resolution (2026-08-13):** Implemented; pending end-of-plan validation.
+### LEG-5 — Preview pending damage on the target's health bar
 
-- Candidate A increased the shell from 24 to 96 height bands while retaining
-  the raster ray lookup. Partial-onset and `0.08` crops retained the inward cup
-  and made its closely spaced terraces more obvious. Haze-only/ray-only
-  isolation then proved the haze carrier was continuous and every stripe came
-  from the ray treatment, so an unrelated ribbon carrier was not justified.
-- Candidate B changed both profiles to monotonic outward flares and replaced
-  the magnified raster ray mask with a per-fragment analytic angular field.
-  Affine UV interpolation, face discard, and single-hemisphere rasterization
-  were each tested and rejected before this selection: none removed the
-  rowwise steps. Analytic rays remove them because leaning edges are evaluated
-  continuously rather than inherited from the atlas's 256 height samples.
-- Haze radii are 0.72/1.05/1.38 and ray radii are 0.78/1.14/1.52 at
-  root/middle/top. Mesh construction asserts monotonic ordering. The registered
-  envelope report records left/right radii at six height fractions; pointed
-  mask tips taper locally, but their mean carrier paths do not turn inward.
-- Relative to the frozen report, faint-width error improved 0.7602 to 0.4201,
-  dense-width 0.2680 to 0.1395, centroid-height 0.3716 to 0.2951, aperture-width
-  0.4827 to 0.2257, horizontal-edge ratio 0.0958 to 0.0366, plateau ratio 0.1465
-  to 0.0740, and angular-profile L1 1.0491 to 0.8462. Faint height is unchanged.
-  Dense-height error changed by only 0.0008, below one registered pixel.
-- Palette MAE worsened from 21.53 to 26.55 and direct comparison shows broad,
-  pale petals instead of the source's darker smoky curtain; light terrain also
-  washes out the current rays. The next material item is revised to treat those
-  as explicit alpha, density, softness, and tint failures without restoring the
-  rejected inward carrier or raster lookup.
-- `0.00` has zero aura pixels. At `0.03`, `0.04`, and `0.05`, visible height and
-  energy centroid rise monotonically while the reveal remains rooted. Native
-  and 320x240 retro captures at yaw 0/90/180 remain radial and world-space on
-  black; native/retro light-terrain captures retain the same geometry. No
-  billboard or camera-driven transform was introduced.
-- The comparator now emits registered radial-envelope samples and an optional
-  plot. The profile documentation records the selected carrier and the reason
-  analytic rays replaced the raster mask. Full battle/gameplay acceptance is
-  deferred to the plan's final validation item. No backlog edit was needed:
-  the remaining visual mismatch is the next in-scope item.
+**Model:** Sonnet 5 / GPT Terra
 
-### AURA-R4 — Reconstruct the source layer stack with project-owned masks and materials
+**Depends on:** LEG-4.
+
+**End state:** While aiming or confirming, the portion of the target's health
+the pending action would remove is drawn as a distinct ghost segment on its
+plate, and an action that would defeat the target tints the whole bar. Ticking
+burn and poison damage is drawn as a separate hatched segment. Cancelling
+restores the bar.
+
+**Implementation:** The numbers already exist. `PlayerTurnController` computes a
+forecast from the same `CombatResolver` math real resolution uses, and renders
+it as text into the forecast window; this item routes that same result to the
+plate rather than recomputing it. Do not add a second damage calculation — a
+forecast that disagrees with the bar is worse than either alone. Read status
+tick damage from the active effects already available to the status icon path.
+
+**Risk:** The forecast covers a whole affected set for area spells, so the plate
+must show each affected unit's own share rather than the total. Buff, debuff and
+pure-status spells produce no damage line at all — the forecast's existing blind
+spot for those is recorded separately in `BACKLOG_CRITICAL.md`, and this item
+must render nothing rather than zero for them.
+
+**Adds to final validation:** Single-target and area forecasts against the
+resolved damage; lethal tint accuracy; heals; buffs and status-only spells;
+cancel restoration; multi-target area casts.
+
+### LEG-6 — Give each status effect a distinct silhouette at native resolution
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-R3 and the source-composition findings from AURA-R1.
+**Depends on:** LEG-1.
 
-**End state:** Road of Nogg reproduces the evidenced source composition rather
-than accumulating motifs: one controlled footprint/aperture system and the
-minimum continuous plume layers needed for low blue body, cyan inner energy,
-and sparse ghostly spikes. Masks are original project assets or analytic
-functions derived from measurements—not copied Ragnarok pixels. Blend mode,
-softness, layer ordering, and energy distribution follow extracted metadata or
-the eleven-frame decomposition. Unjustified rings, cards, shards, columns, and
-detail layers are removed.
+**End state:** Each of the eleven catalog effects is distinguishable by shape
+alone, without relying on colour. The badges are drawn at native resolution
+alongside the plate rather than as world-space sprites, so they survive every
+preset. Duration remains legible.
 
-**Implementation:** Re-author the haze/ghost-ray material fields from the
-forensics contract while retaining the selected outward carrier and analytic
-angular ray sampling. Match the source's broad low skirt, sharp
-upward spike taper, asymmetric gaps, and clean caster composite. Use additive
-only where overlap in the source actually accumulates light; use alpha or
-premultiplied alpha for smoke-like body where additive overlap would make a
-white curtain. Keep the generic element tint contract without forcing a white
-core absent from the reference. Mask flow and shader displacement may vary
-individual spikes but must preserve the carrier's outward mean direction;
-neither UV bending nor tip shaping may curl the upper envelope inward. Start
-from the selected carrier evidence: retain analytic angular ray sampling,
-replace the present broad opaque petals with more numerous lower-alpha soft
-columns, deepen the blue/cyan palette, and preserve contrast on light terrain.
-Treat palette MAE 26.55, the washed light-terrain capture, and the visibly empty
-space between petals as measured failures. Do not restore the low-resolution
-green-channel ray lookup merely because it remains available in the atlas.
-This item owns the stable base palette and blend response; later temporal work
-may key their intensity but may not replace them to hide a material defect.
+**Implementation:** `src/presentation/StatusEffectIcons.gd` currently maps
+`burn`, `poison`, `petrify` and `chill` to one down-arrow, and uses the shield
+shape for `guard`, `def_buff` and `def_debuff` alike — four effects with
+entirely different consequences render identically, and colour separates only
+buff from debuff. Author distinct silhouettes for the five negative effects and
+keep the buff/debuff colour split as a redundant channel, not the primary one.
+Verify each shape is readable at the size the LEG-1 contract specifies before
+adopting it.
 
-**Risk:** Tracing source pixels would create derivative copyrighted art;
-procedural noise without measured anchors would return to the same generic VFX
-look and errors as earlier passes.
+Move the badges onto the plate's canvas. Today they are 16x16 textures at
+`pixel_size 0.019` inside the battle viewport, with a duration `Label3D` at
+`pixel_size 0.0038` that is smaller than one device pixel under the smallest
+preset. Reconsider the overflow arithmetic while there: at five active effects
+the current rule shows three icons plus a `+2` badge, so the fifth effect costs
+a slot rather than only adding a counter.
 
-**Adds to final validation:** Layer-isolation captures, source-layer audit,
-copyright-safe asset provenance, all-eleven silhouette/color metrics, and
-several element tints with a clean character composite.
+**Risk:** This changes a shared presentation surface. Every caller of the status
+icon path must be re-rendered, not only the effects being redrawn. Moving the
+badges off the world layer changes their anchoring, which the model-bounds
+calculation currently supplies.
 
-**Item gate:** Compare footprint-only, plume-body-only, spike-only, and combined
-captures. Remove any layer that cannot be mapped to a visible source job. If
-the combined render is worse than its strongest isolated layer, replan the
-blend/order instead of compensating with brightness.
+**Adds to final validation:** All eleven effects rendered and distinguishable;
+five-plus stacked effects; permanent-duration display; every render preset;
+caller coverage across the status icon path.
 
-**Resolution (2026-08-13):** Implemented; pending end-of-plan validation.
-
-- The three remaining items were re-audited against the selected outward
-  carrier and still form the correct dependency chain. This item was narrowed
-  to stable material fields and blend response; temporal curves and motion stay
-  in the next item, while carrier/path checks and gameplay lifecycle stay in
-  consolidated validation. The final path check now distinguishes an outward
-  carrier/centre path from legitimate pointed-alpha taper.
-- Footprint-only, haze-only, ray-only, and combined captures prove one source
-  job per retained draw: the existing footprint is the single dark aperture;
-  haze is the low connective body; rays are sparse high-energy tips. No ring,
-  card, particle, column, or white-core layer was added.
-- Candidate A replaced the petal cage with 24 overlapping haze columns and a
-  denser soft-ray field, but its under-energized thresholds worsened width,
-  angular distribution, and palette. Candidate B restored source-scale energy
-  and improved seven measures. Candidate C targeted the source palette's
-  bright tail. Candidate D removed only ray grazing attenuation and is retained:
-  Candidate E's further emission increase produced identical measured output.
-- Against the preceding carrier report, the retained material improves faint
-  width 0.4201 to 0.4091, faint height 0.1191 to 0.1113, dense height 0.2445 to
-  0.2234, centroid height 0.2951 to 0.2596, aperture 0.2257 to 0.2178, band
-  periodicity 0.1472 to 0.1217, horizontal-edge ratio 0.0366 to 0.0273,
-  plateau ratio 0.0740 to 0.0732, angular-profile L1 0.8462 to 0.8241, and
-  palette MAE 26.55 to 20.14. Dense-width error is the only regression, from
-  0.1395 to 0.1599; its state variation is explicitly passed to the keyed
-  scale/energy tuning item rather than distorting the accepted base material.
-- The final haze uses analytic low-contrast columns and root fog with only
-  subtle measured-atlas variation. The final ray field uses 24 deterministic
-  seeds, soft shoulders, low additive alpha, and no raster lookup or
-  grazing-angle fade. Both reconstruct angular position from local world-space
-  geometry and preserve the monotonic outward carrier.
-- Dark/light terrain plates keep the composite readable. Ice, fire, thunder,
-  and darkness plates preserve the generic tint contract. A hue-aware warm
-  branch fixes fire luminance while the ice capture remains byte-identical.
-  All authored masks remain procedural project code; no source pixels or
-  proprietary assets were copied or imported.
-- No full game or battle was launched. No backlog edit was needed: remaining
-  dense-width variation, spin, oscillation, and state timing are the next
-  in-scope item, while the known shutdown defect remains already tracked.
-
-### AURA-R5 — Match the eleven-state motion, spin, oscillation, and final grading
+### LEG-7 — Rework the turn order into a top portrait rail
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-R4.
+**Depends on:** LEG-2.
 
-**End state:** The reconstructed layers follow the reference's full temporal
-shape: onset from zero, first rise, crest/trough/swell changes visible in the
-supplied sequence, and terminal recession. The plume rotates around the caster;
-outer ghost spikes oscillate vertically with restrained phase offsets while
-remaining rooted. Motion changes the distribution of energy, not the carrier's
-identity. Keyed scale, blue/cyan balance, opacity, aperture, spike density, and
-duration converge to the registered source at comparable character scale
-without redefining the stable materials accepted by the preceding item.
+**Blocking:** yes, on one placement decision. See "Where it docks" below — the
+top band is already spoken for and the resolution moves a second window.
 
-**Implementation:** Retune the eleven-state curves in
-`SpellCastAuraProfile.gd` and state interpolation in `SpellCastAura.gd`. Drive
-spin and vertical tip oscillation from normalized progress and deterministic
-seed data. Use the quantitative comparison report to tune in this order:
-silhouette and body enclosure, onset/temporal energy, aperture, color, then
-secondary texture detail. Do not use a parameter change to conceal carrier or
-blend defects discovered in earlier items. Spin must preserve radius, and
-oscillation may move tips vertically or add small outward displacement but may
-not make the mean upper radius smaller than the band below it at any phase.
+**End state:** The turn order becomes a horizontal rail of portrait tiles across
+the top of the screen. Each tile carries a rendered miniature of that unit's
+model, a team-coloured frame, its position in the queue, and a health hint. The
+rail runs deep enough to cross the round boundary with an explicit divider, the
+active unit reads as detached rather than merely leftmost, hovering a tile
+highlights that unit on the board and hovering a unit highlights its tile, and a
+pending SPD-changing action previews its effect on the next round's order before
+the player commits.
 
-**Risk:** Excessive spin reads as a rotating cage; synchronized oscillation
-reads as breathing geometry; tuning one hero frame can degrade the other ten.
+**The tile.** Square, authored in design units and scaled by `ui_scale` like
+every other geometry token. Composition follows one rule: **the model and the
+overlays never share a quadrant.** The miniature is offset down and to the
+right, so the head sits centre-to-right of the frame and the base bleeds off the
+bottom-right corner — the standard bust crop, and the reason the user's
+off-centre instinct is correct rather than merely stylistic. That leaves the
+top-left clear for the queue number, and the bottom edge clear for a health
+strip inside the frame. The frame border carries the team colour, because at
+tile size a team-tinted model is not a reliable signal on its own.
 
-**Adds to final validation:** Registered eleven-frame contact sheet, temporal
-delta curve, multi-seed exact-seek proof, motion-path stability, element sweep,
-and an explicit final gap report rather than a subjective pass claim.
+**The queue number.** A number that only restates left-to-right position is
+redundant. It earns its place by being **round-relative** — numbering restarts
+after the divider, so the rollover reads `… 5, 6 | 1, 2 …` and a unit that
+appears twice carries `6` and then `1`. That makes the double turn self-evident
+from the tiles themselves rather than inferred from the divider. Keep SPD off
+the tile; it belongs on hover or in the deep card, or the tile stops being
+glanceable.
 
-**Item gate:** Run the mandatory gate across all eleven frames after each tuning
-iteration inside the item. No hero-frame improvement may advance if the mean
-sequence distance or any primary state materially worsens. Update the final
-validation tolerances to the best achieved evidence before committing.
+**Where it docks — the blocking decision.** The top band is already occupied
+twice over. The prompt window docks top-centre at `PROMPT_TOP` (12 design units)
+and is `PROMPT_WIDTH` 470 units wide, and the developer bar sits at the top on
+`DEV_LAYER` above everything. `BACKLOG_CRITICAL.md` already records the prompt
+losing to the dev bar. Adding a third occupant without deciding the band's
+ownership will produce a three-way collision.
 
-**Resolution (2026-08-13):** Implemented; pending end-of-plan validation.
+The recommended resolution is that **the rail owns the top band and the prompt
+docks beneath it**: the rail is persistent and the prompt is transient, so the
+persistent element should hold the stable position. That costs a `PROMPT_TOP`
+change and a `docs/UI_DESIGN.md` §8 amendment covering both windows. Confirm
+before building, and settle the dev-bar overlap in the same decision rather than
+inheriting it.
 
-- Re-capturing the merged branch established the true pre-motion baseline. It
-  also exposed that the previous material screenshots predated the final
-  luminance reduction in `a47ccbf`; the committed effect no longer reproduced
-  its accepted evidence and was substantially too dark and narrow. The tuning
-  loop therefore used the current render rather than a stale screenshot.
-- Motion is normalized-seek only: footprint and haze rotate 0.10 turn, rays
-  rotate 0.18 turn, and 24 ray tips oscillate through 1.15 cycles at 0.105
-  normalized-height amplitude with a 1.731-radian per-tip phase step. Seed
-  changes retain only the existing small deterministic offset. No shader reads
-  `TIME`, and no transform depends on the camera.
-- Six all-eleven iterations were compared. The retained fifth candidate keeps
-  the outward carrier, broadens keyed ray width, lowers keyed haze/ray height,
-  restores the registered blue/cyan luminance range, separates low-haze grading
-  from ray-tip grading, and keeps the original single aperture curve. A sixth
-  upper-fade experiment was rejected because its tiny threshold-height gain
-  worsened both width measures and centroid without a visible source gain.
-- Against the actual merged baseline, the retained pass improves faint-width
-  error `0.9405 -> 0.2382`, dense-width `1.1348 -> 0.2304`, aperture
-  `0.3542 -> 0.2037`, horizontal-band periodicity `0.2191 -> 0.1627`,
-  horizontal-edge ratio `0.0487 -> 0.0321`, angular-profile L1
-  `1.2755 -> 1.1797`, and palette MAE `41.91 -> 28.71`. Mean body overdraw
-  rises `0.1054 -> 0.1412`, faint energy `48,314 -> 102,363`, and temporal
-  delta error improves `0.3738 -> 0.2149`.
-- Faint-height error is `0.1082`, dense-height `0.0925`, centroid `0.2932`, and
-  plateau ratio `0.1145`; these are the explicit remaining gaps. The old timid
-  render reported superficially better height/centroid values because most aura
-  pixels failed the faint threshold. Preserving those numbers would preserve
-  the commissioned defect. The retained candidate is the best sequence-wide
-  compromise after two bounded vertical reductions, not a hero-frame choice.
-- Seed-7 black-isolation acceptance ceilings for final validation are: faint
-  width `0.245`, dense width `0.238`, faint height `0.112`, dense height `0.096`,
-  centroid `0.300`, aperture `0.210`, band periodicity `0.168`, edge ratio
-  `0.034`, plateau ratio `0.118`, angular L1 `1.190`, palette MAE `29.0`, and
-  temporal delta error `0.220`. Mean body overdraw must remain at least `0.138`
-  and faint energy at least `100,000` under that exact contract.
-  `replica_convergence.json` stores the per-frame report without source pixels.
-  At that point the final gameplay/lifecycle item was the only open item; the
-  user-requested fog and duration revision below now precedes it.
+**Rendering the miniatures.** One `SubViewport` per distinct monster name, team
+and ascension tier — not per unit, so duplicates share a portrait. Each viewport
+holds a body built through the same path the board uses, the team-coloured
+`ModelBase` from `BattleMeshFactory`, **and its own light and environment**: the
+battle `DirectionalLight3D` lives under `retro_renderer.world_root` and does not
+reach a separate viewport, so a portrait viewport without its own lighting
+renders black. Set `render_target_update_mode` to update once and cache the
+texture; re-render only when the model changes, since eight continuously
+updating viewports would cost real frame time while eight one-shot renders cost
+almost nothing.
 
-### AURA-R6 — Prototype and preview the ghastly fog vocabulary
+Match the portrait camera to the board camera's orthogonal angle. A portrait
+shot from a different angle than the board view reads as a different object and
+defeats the recognition the rail exists to provide. Render at native tile
+resolution rather than through the retro downsample, consistent with the rest of
+the HUD, and explicitly neutralise the `dim_amount` and `dither_amount` uniforms
+on the portrait instance so a spent or dithered board unit does not carry that
+treatment into its tile.
 
-**Model:** Opus 5 / GPT Sol
+**The identity problem, which is real today.**
+`MonsterVisualRegistry.VISUAL_PATHS` is an empty dictionary, so
+`instantiateVisual()` returns null for every monster and every unit on the board
+falls back to `_buildPlaceholderBody` — a bulb, ring and stem coin stack tinted
+by element on a team-coloured plinth. Eight portraits rendered from that today
+are eight near-identical silhouettes separated only by hue, which is precisely
+the identification the rail exists to provide.
 
-**Depends on:** AURA-R1 through AURA-R5.
+This does not invalidate the design: the pipeline is the right architecture and
+the rail improves on its own as real models land. It does mean the tile needs a
+bridge that carries identity while the placeholder does. Add a short name label
+— two or three characters — as a permanent tile layer rather than a temporary
+one; it also disambiguates the duplicate monsters the design baseline explicitly
+allows, which no model snapshot ever can. Give the element colour a visible
+notch on the tile for the same reason.
 
-**End state:** One small, reversible prototype demonstrates whether the current
-three-layer, world-space carrier can reproduce the source's soft vapor mass
-without returning to puddle rings, a camera-facing curtain, or hard petals. A
-source/current/prototype preview is shown to the user before integration. The
-item pauses at that preview; the user's direction is a **blocking decision**.
-Rejected candidates are removed, and only the selected vocabulary and its
-evidence advance.
+**Genre grounding.** `gamerefs/trpg_01_turn_flow_and_initiative.md` already
+classifies this game's model as round-based speed sort with deterministic ID
+tie-breaking, the Shining Force family, and records that queue refunds, CT delay
+and mid-turn interruption are outside the first playable slice. This item is
+therefore a **display** rework and adds no turn-manipulation mechanic. Four
+conventions from the genre are worth adopting and one is worth refusing:
 
-**Implementation:** Work only in owned spell-aura shader/profile variants.
-Prototype two bounded variants, each applying the following three treatments,
-on five representative source states plus dense onset and terminal-fade samples:
+- **Predictive re-sort, from Final Fantasy X.** Its turn list re-sorts live as
+  you hover an action, so the cost of a slow choice is visible before commit.
+  It is the strongest idea in the genre for a speed-ordered system, and it
+  applies directly here because `spd_buff` and `spd_debuff` both exist with
+  four-turn durations and both change the next round's sort. A rail that does
+  not preview that change hides the entire point of casting them.
+- **Bidirectional linking, from Triangle Strategy and Baldur's Gate 3.** A rail
+  entry and a board unit are the same thing; hovering either should light both.
+  Without it the player has to match names, which is exactly the work the rail
+  exists to remove.
+- **The round break drawn as an object, from Battle Brothers and XCOM.** A
+  divider is not decoration here: it is the boundary across which a fast unit
+  takes two turns in a row.
+- **Per-entry state, from XCOM and Battle Brothers.** Team colour and a health
+  hint turn the rail into a roster summary readable without looking at the
+  board at all.
+- **Refused: the continuous time ruler** of Grandia and Sea of Stars, and the
+  CT projection of Final Fantasy Tactics. Both encode *distance* between turns,
+  which is meaningful only when turns arrive at uneven intervals. This game
+  gives every living unit exactly one turn per round, so a ruler would imply a
+  granularity the simulation does not have.
 
-1. replace per-lobe maximums and crisp alpha shoulders with smoothly accumulated
-   broad lobes, two-scale low-frequency domain warping, and a soft root-to-tip
-   density falloff so neighboring columns merge into one fog mass;
-2. give each ghost ray a wide, low-alpha vapor envelope and a much fainter narrow
-   energy spine, with irregular dissolved tips instead of geometric point caps;
-3. soften the footprint into one irregular mist-edged aperture, retaining the
-   dark centre but removing crisp rim/striated-ring emphasis.
+**Implementation:** The data is already available and the current display simply
+discards most of it. `round_started` carries the full round order as an array,
+which `_on_turn_order_round_started` duplicates into `_turn_order_ids` before
+`TURN_ORDER_CAPACITY` in `src/presentation/BattleUIBuilder.gd` truncates the
+render to three. Raising the capacity carries the layout with it, because the
+window height derives from it through `NoggTheme.window_height`.
 
-Do not add a fourth layer or import an external texture unless both procedural
-candidates demonstrably fail for a named source feature. Any asset proposal must
-identify provenance, license, runtime cost, and the exact metric/crop it fixes;
-Ragnarok pixels remain evidence only and may not be shipped. Treat the user's
-earlier softer Road of Nogg plume screenshot as a qualitative vocabulary
-reference, not as higher authority than the eleven source states. Produce layer
-isolations, enlarged crops, yaw `0/90/180`, light/dark terrain plates, and a
-single labelled preview sheet that makes the choice reviewable without opening
-the project.
+The next round's entries need a speed re-sort of the living set, derived from a
+copy and never mutating state; the sort is deterministic, ties broken by entity
+id, so the projection is exact rather than heuristic. The SPD preview is the
+same sort run against the stat the pending action would produce.
 
-**Risk:** Simple blur can turn the petal cage into soft petals, erase the spell's
-casting force, wash over the character, or create alpha-sorting seams. A
-procedural noise texture can read as generic smoke instead of the source plume.
+Note the existing display trick before changing it: `_on_turn_order_started`
+erases the acting unit and pushes it to the front, so the array is a display
+order rather than the simulator's queue. Preserve that or replace it
+deliberately — do not leave two conflicting notions of position.
 
-**Adds to final validation:** Approved fog vocabulary, component-isolation
-reference captures, source-relative edge/gradient and diffuse-to-core measures,
-alpha-sorting checks, and the explicit user-approved preview.
+Reconsider defeat and skip handling while here. Both currently erase an entry
+outright, so the rail silently reflows and the player never sees that the order
+changed. The genre convention is to show the removal.
 
-**Item gate:** Apply the mandatory comparison gate to each candidate. Present
-the best non-regressing candidate beside the source and current render, state
-what became closer/unchanged/worse, and wait for user approval before committing
-or beginning integration. Replan the next two items from that response.
+**Risk:** The projection assumes the living set survives to next round and will
+mispredict on every kill — re-derive each turn rather than caching across one.
+A SPD preview that disagrees with the resolved order after commit is worse than
+no preview, so it must run the same sort the simulator will, not a
+presentation-side approximation. The rail must remain a pure observer:
+`round_started` is an event, and nothing here may call back into the simulator
+to ask it to sort.
 
-**Resolution (2026-08-13):** Implemented; pending end-of-plan validation. The
-user approved the selected fog vocabulary after reviewing the labelled
-source/current/prototype triptych and explicitly asked to proceed with the full
-cycle.
+The portrait pipeline carries its own exposure, and it is the larger half of
+this item. Live `SubViewport`s are a new node class in the HUD and a new way to
+leak: `BACKLOG_CRITICAL.md` already records an exit access violation with
+retained resources, and viewport textures held past battle end would feed it
+directly. Portrait instantiation also duplicates the board's model construction,
+so any divergence between the two paths shows up as a portrait that does not
+match its unit — build both from one shared factory call rather than two similar
+ones.
 
-- Candidate A broadened and accumulated the existing lobe construction. Its
-  gradients softened, but the silhouette remained a countable shallow petal
-  bowl, proving that blur/width alone could not fix the material language.
-  Candidate A and its code path were removed.
-- Candidate B removes lobe-local ceilings. One low-frequency, noise-shaped fog
-  ceiling supplies continuous body density; diffuse angular bands sit inside it
-  as subdued ghost energy; the aperture uses one misted irregular edge. The
-  retained prototype remains debug-selected until the next item makes the
-  approved vocabulary authoritative.
-- Against the preceding convergence report, Candidate B improves dense-width
-  error `0.2304 -> 0.1191`, energy-centroid error `0.2932 -> 0.2839`, horizontal
-  periodicity `0.1627 -> 0.1561`, horizontal-edge ratio `0.0321 -> 0.0269`,
-  plateau ratio `0.1145 -> 0.1077`, angular-profile L1 `1.1797 -> 0.9431`, and
-  palette MAE `28.71 -> 22.18`. It worsens faint width `0.2382 -> 0.2774`, faint
-  height `0.1082 -> 0.1191`, dense height `0.0925 -> 0.2226`, and aperture
-  `0.2037 -> 0.3417`; those measured shape gaps are not hidden by the user's
-  vocabulary approval and become explicit integration targets.
-- Footprint-only, haze-only, ray-only, combined, yaw `0/90/180`, black-isolation,
-  and gameplay-terrain captures were inspected. They prove camera independence
-  and one retained job per layer, but also reveal bright footprint emphasis and
-  grazing shell arcs on light terrain. The integration item is therefore
-  replanned to correct aperture energy and carrier-edge visibility before final
-  combined grading, while retaining the approved fog field itself.
-- The selected post-cleanup capture is byte-identical to its measured Candidate
-  B frame. Godot 4.4 parses/imports the shaders cleanly with AppData access. No
-  external texture, source pixel, additional layer, billboard, or draw call was
-  added. The full game and battle flow were not launched, and no backlog change
-  was needed.
+**Adds to final validation:** Rollover display and an observed double turn;
+round-relative numbering across the divider; the projection changing when a unit
+dies mid-round; equal-SPD ties; SPD buff and debuff previews matching the order
+that actually resolves; bidirectional highlight in both directions; defeat and
+skip removal; portrait fidelity against the board model for every monster, team
+and ascension tier, including duplicates; portrait lighting; rail sizing and the
+resolved prompt docking at every `ui_scale`; no leaked viewports or textures at
+battle end and application exit; no simulator mutation from the display path.
 
-### AURA-R7 — Integrate the approved fog treatment across every aura component
-
-**Model:** Opus 5 / GPT Sol
-
-**Depends on:** AURA-R6 and its blocking user approval.
-
-**End state:** Footprint, plume body, ghost rays, compositing, and element grading
-share the approved ghastly/foggy visual language. The caster reads as standing
-inside one continuous aura mass; individual analytic lobes are not countable at
-normal play scale. Sparse ray energy still supplies upward/outward casting force,
-but its soft envelope dominates its core and no component reads as a shard,
-puddle, opaque column, or billboard.
-
-**Implementation:** Integrate and review one component at a time in this order:
-footprint, haze body, ghost rays, then the combined blend/order. After each
-substep, run the mandatory source comparison and retain it only if the relevant
-crop and sequence metrics improve without regressing body enclosure or outward
-carrier behavior. Remove rejected prototype branches and duplicate parameters.
-Keep world-space radial reconstruction, deterministic seed/seek behavior, the
-three-draw budget, tint support, and camera independence. Use premultiplied or
-energy-conserving alpha shaping where needed to avoid additive chalkiness on
-light terrain; do not raise brightness to hide discontinuity. The approved
-prototype evidence makes two corrections mandatory: suppress the footprint's
-bright cyan-ring emphasis without losing the dark aperture, and extinguish the
-profiled shells' grazing arcs on light terrain without narrowing their
-source-scale body. Treat the prototype's faint/dense height and aperture errors
-as regressions to recover, not as accepted consequences of softness.
-
-**Risk:** Cross-layer fog accumulation can over-occlude the model, clip on the
-ground, reveal sorting boundaries, or destroy the source's blue/cyan contrast.
-Changing a shared material surface could regress other elements or VFX callers.
-
-**Adds to final validation:** Component-by-component before/after evidence,
-combined-layer continuity, caster enclosure/readability, dark/light terrain,
-native/retro, yaw/pitch, tint, shared-caller, and draw-budget coverage.
-
-**Item gate:** Build a source/current sheet after every component substep and a
-final all-eleven sheet for the combined result. If the isolated component is
-closer but the composite is worse, replan blend/order in this item rather than
-advancing the disconnected layers. Show the integrated comparison preview to
-the user before lifecycle retiming.
-
-**Resolution (2026-08-13):** Implemented; pending end-of-plan validation. The
-user-approved prototype vocabulary is now the authoritative material path; the
-temporary debug selector and the superseded sharp analytic branches are gone.
-
-- The footprint keeps one dark aperture and a narrow misted boundary. Its
-  source-relative width error fell from `0.2037` to `0.0643`; its outer radius
-  was reduced independently of the plume, so this correction does not turn the
-  rising aura inward or reintroduce travelling puddle rings.
-- The body haze now uses one continuous noise-shaped ceiling, low-frequency
-  vapor pockets, additive energy-conserving compositing, a far-hemisphere mask,
-  and noise-varied root feathering. The ghost-ray role uses two interleaved
-  narrow frequency families with wide low-alpha envelopes, dissolved tips, and
-  independently phased vertical tip oscillation. Both reconstruct their
-  angular coordinate from world-space shell position; neither is a billboard.
-- Carrier inspection on terrain found that alpha-mixed fog exposed translucent
-  panels and that a uniform low root exposed a circular shell intersection.
-  Additive compositing plus far-side selection removed the panels; noise-linked
-  root pockets removed the continuous carrier band. A depth-buffer soft-particle
-  prototype was rejected and fully removed because Godot 4.4 Compatibility
-  cannot sample that buffer from this transparent material.
-- Against the pre-fog baseline, the retained eleven-state result improves faint
-  width `0.2382 -> 0.1081`, dense width `0.2304 -> 0.1991`, aperture
-  `0.2037 -> 0.0643`, gradient-energy error `3.0421 -> 0.9741`, angular L1
-  `1.1797 -> 1.0652`, and palette MAE `28.71 -> 21.08`. Faint height is nearly
-  unchanged (`0.1082 -> 0.1144`). Dense height (`0.0925 -> 0.1685`) and energy
-  centroid (`0.2932 -> 0.3332`) remain worse than the sharp baseline but are
-  substantially recovered from the first integrated fog candidate (`0.2053`
-  and `0.4034`); direct registered review retains the trade because it replaces
-  the source-wrong petal cage with the explicitly approved continuous fog mass.
-- The periodicity scalar is worse (`0.1627 -> 0.2292`), while direct enlarged
-  crops show no horizontal terraces or striped cards and the horizontal-edge
-  ratio improves (`0.0321 -> 0.0305`). As established by the frozen-baseline
-  review, the periodicity probe also responds to legitimate radial spokes; the
-  direct crop and layer isolation are authoritative for this artifact. The
-  diffuse/core error improves from the original sharp material (`0.4258 ->
-  0.3273`) even though it remains a convergence target.
-- Native yaw `0/90/180`, light terrain, black isolation, fire, darkness, and
-  320x240 retro captures retain the same world-space silhouette and readable
-  palette. No texture, layer, billboard, particle system, node, geometry
-  instance, or draw call was added. The next item is replanned to preserve this
-  material and alter only lifecycle mapping, crest scale, and spatial dissolve;
-  it must not raise the plume to compensate for timing.
-
-**Pause checkpoint (2026-08-13):** The latest fog integration is available to
-`Battle25D` but remains uncommitted at this user-requested pause.
-
-- `Battle25D` constructs `GodotVisualAdapter`; its real spell-cast-started path
-  reads each spell's `VFX_PROFILE`, resolves blank or unknown values through
-  `SpellVfxCatalog` to `spell_cast_aura`, and calls the current
-  `SpellCastAura.createPlayback()` factory. `57` of the `61` spell definitions
-  currently use that generic fallback; the other four intentionally resolve to
-  their dedicated ice/fire/magenta effects. No extra scene wiring is required.
-- A narrow headless load of `scenes/Battle25D.tscn` with Godot 4.4 exited `0`,
-  proving the real scene, adapter, catalog, current aura script, profile, and
-  shaders load together. This is availability evidence only: no spell was cast
-  and no gameplay/lifecycle acceptance is claimed at this checkpoint.
-- The task-owned working tree contains the completed material integration in
-  the three owned aura shaders, `SpellCastAura.gd`, `SpellCastAuraProfile.gd`,
-  and the comparison tool, plus this plan update. Before the item-boundary
-  commit, the retained latest candidate still needs a fresh yaw/tint/retro sweep
-  after its final aperture/height/ray adjustments, a focused diff/check, and
-  the integrated preview handoff. Earlier surface captures predate those final
-  values and are evidence for the technique, not final acceptance frames.
-- The longer `1.8-2.2` second zero/rise/crest/dissolve lifecycle has not started.
-  Its duration, remapped source checkpoints, staggered spatial dissolve, and
-  action-hold fraction all remain pending. Consolidated real-battle casting,
-  camera motion, pause/seek/replay, overlap, cleanup, scene exit, and shared-VFX
-  regression coverage also remain pending in final validation; the known
-  `Battle25D` shutdown defect remains tracked in `BACKLOG_CRITICAL.md`.
-
-### AURA-R8 — Author the longer zero-ground, rise, crest, and vapor fade
+### LEG-8 — Attribute the danger zone to a single enemy
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-R7.
+**Depends on:** LEG-3.
 
-**End state:** The aura is invisible at exact time zero, emits from the single
-ground aperture, expands upward and outward through a visible emission front,
-reaches a modestly taller high-energy crest, breathes/spins while enclosing the
-caster, then thins and dissolves like vapor. It lasts materially longer than the
-current `1.15` seconds while preserving responsive battle sequencing. Identical
-normalized time and seed still produce identical frames.
+**End state:** While `T` is held, hovering an enemy isolates that enemy's
+contribution to the danger zone and drops every other threatened tile to a faint
+tint. Releasing hover restores the full union. The key remains inert outside an
+active player turn.
 
-**Implementation:** Retune the owned duration and phase curves with an initial
-target range of `1.8–2.2` seconds, selecting the final duration through preview
-evidence rather than treating the range as acceptance. Start all layer opacity,
-height, and emission at true zero. Sequence footprint ignition, bottom-to-top
-plume reveal, outward expansion, a `1.08–1.15` height crest, restrained spin and
-asynchronous tip drift, then staggered ray/haze/aperture recession. Fade by
-advecting and dissolving density; do not scale a completed shape back into the
-ground or expose a hard alpha cutoff. Remap the eleven supplied states into the
-sustained middle portion and capture extra uncaptured lead-in/tail checkpoints.
-Retune adapter hold fraction so the longer visual tail can outlive command
-resolution without materially increasing the present action-queue hold time.
+**Implementation:** `show_threat_options` paints one flat union today, computed
+once on key press. Attribution needs the union to retain its source, which is a
+change to what the threat computation returns rather than only to how it is
+drawn — `src/algorithms/ThreatMap.gd` is headless and must stay that way, so the
+per-source breakdown belongs in its return value, not in a presentation-side
+recomputation.
 
-**Risk:** A longer effect can stall the action queue, overlap following actions,
-or feel slow; global scaling can make the plume contract inward; a hard terminal
-fade can expose the analytic masks the fog pass was meant to hide.
+**Risk:** Widening a headless algorithm's return shape touches the AI callers
+that consume it today. Enumerate them and confirm their behaviour is unchanged;
+the threat map informs command evaluation, and a change in its output that
+altered a CPU decision would be a gameplay regression disguised as a UI change.
 
-**Adds to final validation:** Exact-zero proof, dense emergence contact sheet,
-world-space upward/outward front tracking, crest height, sustained-source-state
-mapping, staggered dissolve tail, real-time duration, action-hold duration,
-overlap/cleanup, pause/speed/seek, and deterministic replay coverage.
+**Adds to final validation:** Per-enemy isolation; restoration on release;
+additivity with the movement and reach overlays; unchanged CPU decisions against
+a fixed seed.
 
-**Item gate:** Compare and replan after onset, rise/crest, and fade subiterations.
-Each checkpoint must include the current source-relative sequence report and a
-dense timing strip. A later phase may not repair an earlier regression by hiding
-it with opacity. Show the complete lifecycle preview before final validation.
-
-### AURA-R9 — Consolidated gameplay, lifecycle, and regression validation
+### LEG-9 — Add the deep card on a held key
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** AURA-R1 through AURA-R8.
+**Depends on:** LEG-2.
 
-This is the only item that launches the full manual gameplay/integration flow.
-Validate the union of all prior evidence in one pass:
+**End state:** A held key opens a separate `NoggWindow` for the unit under the
+pointer, carrying the full spell list with range and live cooldowns, passives,
+JUMP, LUCK with its derived critical percentage, the race elemental matchup, and
+hits-to-kill against the currently active unit. Releasing closes it. No docked
+window changes size.
 
-1. Reproduce exact zero, the dense zero-to-rise sequence, the approved crest and
-   dissolve tail, and all eleven registered states in the VFX debug scene.
-   Confirm the revised tolerances recorded by AURA-R6 through AURA-R8. Inspect
-   the partial-onset envelope and verify outward carrier-radius monotonicity and
-   non-inward energy-centre paths at every sampled motion phase. Local fog and
-   ray alpha may taper as they do in the source.
-2. Exercise native and retro modes, light and dark terrain, battle-camera yaw
-   and pitch movement, several deterministic seeds, and ice/fire/thunder/
-   darkness/neutral tints. Confirm the caster stays inside but readable and the
-   approved diffuse-to-core/edge-softness contract survives every presentation.
-3. Exercise pause, speed scale, forward/backward seek, skip-to-settle, overlap,
-   replay, disposal, and scene exit. Measure real-time visual and action-hold
-   duration; confirm identical frames for identical normalized time and seed.
-4. Search every caller of any changed shared primitive/factory and render every
-   returned effect, including the existing specific-profile regression set;
-   compare stored goldens where they exist.
-5. Cast the generic aura in `Battle25D` through the real adapter/event path and
-   verify timing, attachment, camera movement, and cleanup. Recheck the known
-   shutdown failure: if it still prevents lifecycle acceptance, record the
-   evidence and leave the cycle blocked rather than claiming completion.
-6. Verify asserted node/instance/draw budgets, Godot 4.4 import/parse, focused
-   diff, and `git diff --check`. Remove stale completed aura entries from the
-   backlogs and add only newly discovered actionable out-of-scope work.
+**Implementation:** A new window, not a taller docked one — trait 6 of the UI
+contract fixes docked readouts at six rows precisely so their values cannot
+jitter the layout, and that rule is worth more than the rows it costs. Page
+rather than scroll, per trait 5.
 
-**Risk:** A debug-scene replica can still fail through battle ownership,
-cleanup, shared material reuse, element tinting, or retro quantization.
+The race elemental matchup is the reason this item matters beyond convenience:
+it swings damage by ±20%, is documented as fully live, and appears nowhere in
+the UI at all today, so a player watching a spell land for noticeably more or
+less than expected has no surface anywhere that explains why.
 
-**Completion:** Record commands, captures, metrics, caller coverage, and manual
-observations. If defects appear, fix them in this validation session and rerun
-the affected consolidated flow. Once all acceptance evidence passes, grep for
-this cycle's item identifiers outside this file, rewrite any persistent hits as
-durable descriptions, commit the final resolution, then clear this plan file in
-accordance with the plan lifecycle policy.
+**Risk:** Hits-to-kill is a derived number and will be read as a promise. Derive
+it from the same `CombatResolver` math the forecast uses, and state what it
+assumes — a basic attack from the active unit at current position and elevation
+— rather than presenting a bare integer.
+
+**Adds to final validation:** Card contents against catalog data for several
+monsters; cooldowns updating live; paging; open and close under every phase;
+no docked window resize.
+
+### LEG-10 — Consolidated legibility and regression validation
+
+**Model:** Opus 5 / GPT Sol
+
+**Depends on:** LEG-1 through LEG-9.
+
+This is the only item that launches the full manual gameplay pass. Validate the
+union of the prior items' coverage in one integrated Player vs CPU battle
+wherever they overlap, rather than replaying each item separately:
+
+1. Play a complete 4v4 battle at the default native preset. Confirm plate
+   accuracy for every unit across the whole battle, hover readout and reach in
+   every phase, damage preview against resolved damage, status silhouettes,
+   turn-order rollover including at least one double turn, threat attribution,
+   and the deep card.
+2. Repeat the decisive portions at the harshest retro preset and under the CRT
+   pass, both with and without `ui_through_crt`. The plate, badges and numerals
+   are the elements at risk here; confirm each is legible at `480x360`.
+3. Exercise `ui_scale` at its shipping value and at 3. Every new surface is
+   authored in design units and must scale with the rest of the HUD.
+4. Exercise pause, both speed sliders, CPU turns, defeat, battle end and return
+   to setup. Confirm no plate, overlay or window outlives its unit or the
+   battle.
+5. Search every caller of each changed shared surface — the status icon path,
+   the tactical overlay path, the threat map — and exercise all of them, not
+   only the ones this cycle touched. Confirm CPU decisions are unchanged against
+   a fixed seed.
+6. Confirm `ConsoleVisualAdapter` still satisfies the adapter interface and the
+   headless path runs.
+7. Verify the shipped HUD against `docs/UI_DESIGN.md` as amended by LEG-1, run
+   `git diff --check`, and inspect the focused diff.
+
+**Risk:** A HUD that reads well in a static frame can still fail in motion,
+under the camera, or on a crowded board. Judge the plate while units are moving
+and the camera is turning, not from stills.
+
+**Completion:** Record observations and captures. If defects appear, fix them in
+this session and rerun the affected consolidated flow. Once acceptance passes,
+grep for this cycle's item identifiers outside this file, rewrite any persistent
+hits as durable descriptions, move any genuinely open work to the appropriate
+backlog and name it to the user, then clear this plan file in the same session
+per the plan lifecycle policy.
 
 ## Deliberately excluded
 
-- Downloading or redistributing Ragnarok client archives or Gravity artwork.
-- Shipping extracted source pixels unless the user separately proves a license
-  that permits it and explicitly changes this scope.
-- Returning to camera-facing full-plume billboards.
-- Fixing the pre-existing `Battle25D` shutdown crash inside a visual item; it
-  remains critical prerequisite work unless final validation proves it gone.
-- Changing battle-state cast resolution, spell balance, or spell data; only the
-  presentation duration and adapter hold fraction needed to keep existing
-  command responsiveness are in scope.
+- **Balance.** The five-to-twenty hits per kill the current catalog produces is
+  a tuning question, not a presentation one. This cycle makes that pace more
+  visible rather than changing it; whether it is intended is the user's call and
+  belongs in its own cycle.
+- **Monster level and growth.** The level readout is built here; making level
+  vary remains the separate `BACKLOG_CRITICAL.md` item.
+- **The `Battle25D` shutdown access violation.** Pre-existing and tracked
+  separately. LEG-4 must not make it worse, but fixing it is not in scope.
+- **The forecast's silence on buff and debuff spells.** Tracked separately in
+  `BACKLOG_CRITICAL.md`. LEG-5 must not render a misleading zero for those
+  spells, but authoring their forecast text is that item's work.
+- **Camera-relative cursor movement** and the broader accessibility work already
+  recorded under the player command UI backlog entry.
+- **Any change to simulation, resolvers, or command validation.** Every item
+  here reads existing queries. The single exception is LEG-8's widening of the
+  threat map's return shape, which must leave its resolved values identical.
