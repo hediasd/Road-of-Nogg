@@ -23,7 +23,6 @@ uniform float source_state_position : hint_range(0.0, 10.0) = 0.0;
 uniform float root_ignition : hint_range(0.0, 1.0) = 0.0;
 uniform float lifecycle_visibility : hint_range(0.0, 1.0) = 1.0;
 uniform float spin_turns = 0.10;
-uniform int prototype_variant = 0;
 
 varying vec2 v_local;
 
@@ -58,7 +57,7 @@ void fragment() {
 	float rim = soft_ring(
 		radius,
 		aperture_radius,
-		prototype_variant == 0 ? rim_width : rim_width * 1.65
+		rim_width * 1.65
 	);
 
 	// These strokes remain inside the main boundary's feathered width. They
@@ -78,9 +77,7 @@ void fragment() {
 	);
 	float striations = max(inner_striation * 0.84, outer_striation * 0.62);
 	striations *= striation_visibility * angular_cloud;
-	if (prototype_variant > 0) {
-		striations *= 0.20;
-	}
+	striations *= 0.10;
 	float vapor_wobble = 0.72 + 0.28 * (
 		0.5 + 0.5 * sin(angle * 7.0 - seed_phase * 0.8 + state * 1.4)
 	);
@@ -92,9 +89,9 @@ void fragment() {
 		radius
 	);
 	float mixed_alpha = (
-		rim * rim_alpha
+		rim * rim_alpha * 0.44
 		+ striations * striation_alpha
-		+ vapor * rim_alpha * (prototype_variant == 0 ? 0.0 : 0.42)
+		+ vapor * rim_alpha * 0.08
 		+ aperture_fill * center_darkening
 	) * root_ignition * lifecycle_visibility;
 	if (mixed_alpha < 0.0025) {
@@ -104,9 +101,9 @@ void fragment() {
 	vec3 tint = saturated_tint(aura_color.rgb) * vec3(0.32, 0.58, 0.78);
 	vec3 ink = vec3(0.004, 0.012, 0.022);
 	float light_mask = clamp(
-		rim * (prototype_variant == 0 ? 1.0 : 0.58)
-		+ striations * 0.72
-		+ vapor * (prototype_variant == 0 ? 0.0 : 0.36),
+		rim * 0.18
+		+ striations * 0.24
+		+ vapor * 0.08,
 		0.0,
 		1.0
 	);

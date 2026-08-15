@@ -623,6 +623,76 @@ closer but the composite is worse, replan blend/order in this item rather than
 advancing the disconnected layers. Show the integrated comparison preview to
 the user before lifecycle retiming.
 
+**Resolution (2026-08-13):** Implemented; pending end-of-plan validation. The
+user-approved prototype vocabulary is now the authoritative material path; the
+temporary debug selector and the superseded sharp analytic branches are gone.
+
+- The footprint keeps one dark aperture and a narrow misted boundary. Its
+  source-relative width error fell from `0.2037` to `0.0643`; its outer radius
+  was reduced independently of the plume, so this correction does not turn the
+  rising aura inward or reintroduce travelling puddle rings.
+- The body haze now uses one continuous noise-shaped ceiling, low-frequency
+  vapor pockets, additive energy-conserving compositing, a far-hemisphere mask,
+  and noise-varied root feathering. The ghost-ray role uses two interleaved
+  narrow frequency families with wide low-alpha envelopes, dissolved tips, and
+  independently phased vertical tip oscillation. Both reconstruct their
+  angular coordinate from world-space shell position; neither is a billboard.
+- Carrier inspection on terrain found that alpha-mixed fog exposed translucent
+  panels and that a uniform low root exposed a circular shell intersection.
+  Additive compositing plus far-side selection removed the panels; noise-linked
+  root pockets removed the continuous carrier band. A depth-buffer soft-particle
+  prototype was rejected and fully removed because Godot 4.4 Compatibility
+  cannot sample that buffer from this transparent material.
+- Against the pre-fog baseline, the retained eleven-state result improves faint
+  width `0.2382 -> 0.1081`, dense width `0.2304 -> 0.1991`, aperture
+  `0.2037 -> 0.0643`, gradient-energy error `3.0421 -> 0.9741`, angular L1
+  `1.1797 -> 1.0652`, and palette MAE `28.71 -> 21.08`. Faint height is nearly
+  unchanged (`0.1082 -> 0.1144`). Dense height (`0.0925 -> 0.1685`) and energy
+  centroid (`0.2932 -> 0.3332`) remain worse than the sharp baseline but are
+  substantially recovered from the first integrated fog candidate (`0.2053`
+  and `0.4034`); direct registered review retains the trade because it replaces
+  the source-wrong petal cage with the explicitly approved continuous fog mass.
+- The periodicity scalar is worse (`0.1627 -> 0.2292`), while direct enlarged
+  crops show no horizontal terraces or striped cards and the horizontal-edge
+  ratio improves (`0.0321 -> 0.0305`). As established by the frozen-baseline
+  review, the periodicity probe also responds to legitimate radial spokes; the
+  direct crop and layer isolation are authoritative for this artifact. The
+  diffuse/core error improves from the original sharp material (`0.4258 ->
+  0.3273`) even though it remains a convergence target.
+- Native yaw `0/90/180`, light terrain, black isolation, fire, darkness, and
+  320x240 retro captures retain the same world-space silhouette and readable
+  palette. No texture, layer, billboard, particle system, node, geometry
+  instance, or draw call was added. The next item is replanned to preserve this
+  material and alter only lifecycle mapping, crest scale, and spatial dissolve;
+  it must not raise the plume to compensate for timing.
+
+**Pause checkpoint (2026-08-13):** The latest fog integration is available to
+`Battle25D` but remains uncommitted at this user-requested pause.
+
+- `Battle25D` constructs `GodotVisualAdapter`; its real spell-cast-started path
+  reads each spell's `VFX_PROFILE`, resolves blank or unknown values through
+  `SpellVfxCatalog` to `spell_cast_aura`, and calls the current
+  `SpellCastAura.createPlayback()` factory. `57` of the `61` spell definitions
+  currently use that generic fallback; the other four intentionally resolve to
+  their dedicated ice/fire/magenta effects. No extra scene wiring is required.
+- A narrow headless load of `scenes/Battle25D.tscn` with Godot 4.4 exited `0`,
+  proving the real scene, adapter, catalog, current aura script, profile, and
+  shaders load together. This is availability evidence only: no spell was cast
+  and no gameplay/lifecycle acceptance is claimed at this checkpoint.
+- The task-owned working tree contains the completed material integration in
+  the three owned aura shaders, `SpellCastAura.gd`, `SpellCastAuraProfile.gd`,
+  and the comparison tool, plus this plan update. Before the item-boundary
+  commit, the retained latest candidate still needs a fresh yaw/tint/retro sweep
+  after its final aperture/height/ray adjustments, a focused diff/check, and
+  the integrated preview handoff. Earlier surface captures predate those final
+  values and are evidence for the technique, not final acceptance frames.
+- The longer `1.8-2.2` second zero/rise/crest/dissolve lifecycle has not started.
+  Its duration, remapped source checkpoints, staggered spatial dissolve, and
+  action-hold fraction all remain pending. Consolidated real-battle casting,
+  camera motion, pause/seek/replay, overlap, cleanup, scene exit, and shared-VFX
+  regression coverage also remain pending in final validation; the known
+  `Battle25D` shutdown defect remains tracked in `BACKLOG_CRITICAL.md`.
+
 ### AURA-R8 — Author the longer zero-ground, rise, crest, and vapor fade
 
 **Model:** Opus 5 / GPT Sol

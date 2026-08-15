@@ -5,7 +5,7 @@
 // visible cup or shoulder wings at arbitrary camera yaw.
 
 shader_type spatial;
-render_mode unshaded, blend_add, depth_draw_never, cull_front;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled;
 
 uniform sampler2D plume_atlas : source_color, filter_linear, repeat_disable;
 uniform vec2 atlas_pixel_size = vec2(2816.0, 256.0);
@@ -25,7 +25,6 @@ uniform float spin_turns = 0.18;
 uniform float tip_oscillation_cycles = 1.15;
 uniform float tip_oscillation_amplitude = 0.105;
 uniform float tip_phase_step = 1.731;
-uniform int prototype_variant = 0;
 
 const float FRAME_COUNT = 11.0;
 const float TAU_VALUE = 6.28318530718;
@@ -40,63 +39,40 @@ float wrapped_distance(float first, float second) {
 	return abs(fract(first - second + 0.5) - 0.5);
 }
 
-float analytic_ray_field(float angular_uv, float height, float motion, float seed_hash) {
-	float field = 0.0;
-	// Twenty-four deterministic angular seeds produce roughly twelve visible
-	// far-side streaks, matching the measured source fan without magnifying a
-	// raster mask.
-	// All shaping is evaluated per fragment, so a leaning edge stays continuous
-	// across the profiled carrier's height bands.
-	float accumulation = 0.0;
-	for (int group = 0; group < 24; group++) {
-		float group_value = float(group);
-		float phase = group_value * tip_phase_step + seed_hash * TAU_VALUE;
-		float direction = mod(group_value, 2.0) < 1.0 ? 1.0 : -1.0;
-		float center = group_value / 24.0;
-		float lean_motion = sin(phase * 0.71 + motion * TAU_VALUE * 0.72);
-		float lean = direction * (0.015 + 0.009 * lean_motion);
-		float bent_center = center + lean * pow(height, 1.35);
-		float base_width = 0.0080 + mod(group_value, 4.0) * 0.0014;
-		float width = base_width * (1.32 - 0.52 * height);
-		float distance = wrapped_distance(angular_uv, bent_center);
-		float lateral = exp(-0.5 * pow(distance / max(width, 0.001), 2.0));
-		float resting_height = 0.67 + 0.055 * sin(phase * 0.83);
-		float tip_motion = sin(
-			motion * TAU_VALUE * tip_oscillation_cycles + phase
-		);
-		float spike_height = clamp(
-			resting_height + tip_oscillation_amplitude * tip_motion, 0.47, 0.87
-		);
-		float local_distance = distance / max(width, 0.001);
-		float local_height = spike_height - pow(clamp(local_distance, 0.0, 2.0), 1.25) * 0.14;
-		float tip = 1.0 - smoothstep(local_height - 0.22, local_height, height);
-		float root = smoothstep(0.045 + mod(group_value, 2.0) * 0.018, 0.17, height);
-		float amplitude = 0.62 + 0.20 * sin(phase + motion * TAU_VALUE * 0.44 + 0.4);
-		float ray = lateral * tip * root * amplitude;
-		float soft_lateral = exp(-0.5 * pow(distance / max(width * 2.7, 0.001), 2.0));
-		field = max(field, ray);
-		accumulation += soft_lateral * tip * root * amplitude;
-	}
-	return clamp(field * 0.72 + accumulation * 0.040, 0.0, 1.0);
-}
-
-float prototype_ray_field(
+float ghost_ray_field(
 		float angular_uv, float height, float motion, float seed_hash) {
 	float low_wave = 0.5 + 0.5 * sin(
-		(angular_uv * 7.0 + height * 0.12 - motion * 0.19) * TAU_VALUE
+		(angular_uv * 13.0 + height * 0.16 - motion * 0.19) * TAU_VALUE
 		+ seed_hash * 3.1
 	);
 	float crossing_wave = 0.5 + 0.5 * sin(
-		(angular_uv * 11.0 - height * 0.18 + motion * 0.11) * TAU_VALUE
+		(angular_uv * 17.0 - height * 0.21 + motion * 0.11) * TAU_VALUE
 		- seed_hash * 5.7
 	);
-	float bands = smoothstep(0.45, 0.98, low_wave * 0.68 + crossing_wave * 0.32);
+	float broad_envelope = max(
+		pow(low_wave, 3.8), pow(crossing_wave, 4.5) * 0.82
+	);
+	float bands = smoothstep(0.45, 0.92, broad_envelope);
+	float core = smoothstep(0.78, 0.99, broad_envelope);
+	float ray_index = floor(fract(angular_uv) * 17.0);
+	float tip_oscillation = sin(
+		motion * tip_oscillation_cycles * TAU_VALUE
+		+ ray_index * tip_phase_step
+	) * tip_oscillation_amplitude;
 	float ceiling = 0.75
 		+ sin((angular_uv * 4.0 + motion * 0.12) * TAU_VALUE) * 0.10
-		+ sin((angular_uv * 9.0 - motion * 0.08) * TAU_VALUE) * 0.035;
+		+ sin((angular_uv * 9.0 - motion * 0.08) * TAU_VALUE) * 0.035
+		+ tip_oscillation * (0.35 + bands * 0.65);
 	float dissolved_tip = 1.0 - smoothstep(ceiling - 0.41, ceiling + 0.15, height);
-	float root = smoothstep(0.025, 0.14, height);
-	return clamp((0.08 + bands * 0.34) * dissolved_tip * root, 0.0, 1.0);
+	float root_floor = 0.06 + broad_envelope * 0.12;
+	float root = smoothstep(root_floor, root_floor + 0.22, height);
+	float upper_thinning = mix(1.0, 0.12, smoothstep(0.25, 0.80, height));
+	return clamp(
+		(0.025 + broad_envelope * 0.13 + bands * 0.37 + core * 0.22)
+		* dissolved_tip * root * upper_thinning,
+		0.0,
+		1.0
+	);
 }
 
 float vertical_reveal(float height) {
@@ -118,30 +94,31 @@ void fragment() {
 	float angular_uv = atan(local_position.z, local_position.x) / TAU_VALUE;
 	angular_uv = angular_uv < 0.0 ? angular_uv + 1.0 : angular_uv;
 	angular_uv += uv_phase + motion * spin_turns + (seed_hash - 0.5) * 0.025;
-	float flow = prototype_variant == 0
-		? analytic_ray_field(angular_uv, UV.y, motion, seed_hash)
-		: prototype_ray_field(angular_uv, UV.y, motion, seed_hash);
-	flow = pow(flow, prototype_variant == 0 ? 0.78 : 0.92);
-	flow *= smoothstep(0.055, 0.18, UV.y) * (1.0 - smoothstep(0.91, 1.0, UV.y));
+	float flow = ghost_ray_field(angular_uv, UV.y, motion, seed_hash);
+	flow = pow(flow, 0.92);
+	flow *= 1.0 - smoothstep(0.91, 1.0, UV.y);
 	flow *= vertical_reveal(UV.y);
 	// The source carries its energy below the waist. Tips remain present for
 	// silhouette and oscillation, but lose most of their opacity near head
 	// height instead of becoming equally bright flame petals.
-	flow *= 1.0 - smoothstep(0.42, 0.92, UV.y)
-		* (prototype_variant == 0 ? 0.78 : 0.48);
+	flow *= 1.0 - smoothstep(0.42, 0.92, UV.y) * 0.48;
+	float signed_facing = dot(normalize(NORMAL), normalize(VIEW));
+	float far_hemisphere = smoothstep(-0.10, 0.08, signed_facing);
+	flow *= far_hemisphere;
+	flow *= 0.02 + 0.98 * smoothstep(0.025, 0.22, abs(signed_facing));
 	float onset_visibility = root_ignition * lifecycle_visibility;
 	float alpha = flow * shell_opacity * plume_energy * onset_visibility;
-	if (alpha < (prototype_variant == 0 ? 0.0025 : 0.0008)) {
+	if (alpha < 0.0008) {
 		discard;
 	}
 	float warm_weight = smoothstep(
 		0.05, 0.40, aura_color.r - max(aura_color.g, aura_color.b)
 	);
 	vec3 element_bias = mix(
-		vec3(0.32, 0.70, 1.10), vec3(0.70, 0.55, 0.50), warm_weight
+		vec3(0.40, 0.82, 1.18), vec3(0.76, 0.62, 0.54), warm_weight
 	);
 	vec3 tint = aura_color.rgb * element_bias;
 	ALBEDO = tint * 0.60;
 	EMISSION = tint * flow * emission_energy * plume_energy * onset_visibility;
-	ALPHA = clamp(alpha, 0.0, 0.36);
+	ALPHA = clamp(alpha, 0.0, 0.26);
 }

@@ -75,7 +75,7 @@ const APERTURE_STRIATION_CURVE := [
 ## than emitting separated rings. Values are normalized inside the footprint
 ## shader's authored outer radius.
 const FOOTPRINT_PLANE_SIZE_U := 2.60
-const FOOTPRINT_OUTER_RADIUS_U := 1.05
+const FOOTPRINT_OUTER_RADIUS_U := 0.70
 const APERTURE_RADIUS_START := APERTURE_RADIUS_CURVE[0]
 const APERTURE_RADIUS_TROUGH := APERTURE_RADIUS_CURVE[6]
 const APERTURE_RADIUS_END := APERTURE_RADIUS_CURVE[10]
@@ -94,22 +94,22 @@ const PLUME_ATLAS_PIXEL_SIZE := Vector2(2816.0, 256.0)
 const PLUME_SHELL_SEGMENTS := 64
 const PLUME_SHELL_HEIGHT_BANDS := 96
 const PLUME_BASE_HEIGHT_U := 0.025
-const HAZE_BOTTOM_RADIUS_U := 0.72
-const HAZE_MIDDLE_RADIUS_U := 1.05
-const HAZE_TOP_RADIUS_U := 1.38
-const HAZE_MIDDLE_HEIGHT_FRACTION := 0.50
-const HAZE_HEIGHT_U := 1.09
+const HAZE_BOTTOM_RADIUS_U := 0.38
+const HAZE_MIDDLE_RADIUS_U := 1.25
+const HAZE_TOP_RADIUS_U := 1.68
+const HAZE_MIDDLE_HEIGHT_FRACTION := 0.56
+const HAZE_HEIGHT_U := 1.00
 const HAZE_UV_PHASE := 0.06
-const HAZE_OPACITY := 0.82
+const HAZE_OPACITY := 0.72
 const HAZE_EMISSION_ENERGY := 2.80
-const RAY_BOTTOM_RADIUS_U := 0.78
-const RAY_MIDDLE_RADIUS_U := 1.14
-const RAY_TOP_RADIUS_U := 1.52
-const RAY_MIDDLE_HEIGHT_FRACTION := 0.50
-const RAY_HEIGHT_U := 1.36
+const RAY_BOTTOM_RADIUS_U := 0.42
+const RAY_MIDDLE_RADIUS_U := 1.34
+const RAY_TOP_RADIUS_U := 1.80
+const RAY_MIDDLE_HEIGHT_FRACTION := 0.56
+const RAY_HEIGHT_U := 1.20
 const RAY_UV_PHASE := 0.20
-const RAY_OPACITY := 0.78
-const RAY_EMISSION_ENERGY := 3.60
+const RAY_OPACITY := 0.62
+const RAY_EMISSION_ENERGY := 3.30
 ## AUTHORED deterministic motion. Both layers rotate below one quarter turn;
 ## only the ray tips receive the larger independently phased vertical motion.
 const HAZE_SPIN_TURNS := 0.10

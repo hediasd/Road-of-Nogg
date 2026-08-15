@@ -32,6 +32,8 @@ METRIC_NAMES = (
     "horizontal_band_periodicity",
     "horizontal_edge_ratio",
     "silhouette_plateau_ratio",
+    "gradient_energy_density",
+    "diffuse_to_core_energy_ratio",
 )
 
 
@@ -289,6 +291,33 @@ def silhouette_plateau_ratio(values: list[list[float]]) -> float:
     return round(horizontal / compared, 6) if compared else 0.0
 
 
+def gradient_energy_density(values: list[list[float]]) -> float:
+    """Mean local gradient over aura-support pixels; hard shards score higher."""
+    gradient = 0.0
+    support = 0
+    for y, row in enumerate(values):
+        for x, value in enumerate(row):
+            if value <= 0.0:
+                continue
+            support += 1
+            if x > 0:
+                gradient += abs(value - row[x - 1])
+            if y > 0:
+                gradient += abs(value - values[y - 1][x])
+    return round(gradient / max(support, 1), 6)
+
+
+def diffuse_to_core_energy_ratio(values: list[list[float]]) -> float:
+    """Energy below 45% of this frame's peak relative to its brighter cores."""
+    positive = [value for row in values for value in row if value > 0.0]
+    if not positive:
+        return 0.0
+    cutoff = max(positive) * 0.45
+    diffuse = sum(value for value in positive if value < cutoff)
+    core = sum(value for value in positive if value >= cutoff)
+    return round(min(diffuse / max(core, 1.0), 99.0), 6)
+
+
 def body_overdraw(
     image: Image.Image, body: tuple[int, int, int, int], threshold: int
 ) -> float:
@@ -376,6 +405,8 @@ def measure_frame(
         "horizontal_band_periodicity": horizontal_band_periodicity(dense),
         "horizontal_edge_ratio": horizontal_edge_ratio(dense),
         "silhouette_plateau_ratio": silhouette_plateau_ratio(dense),
+        "gradient_energy_density": gradient_energy_density(dense),
+        "diffuse_to_core_energy_ratio": diffuse_to_core_energy_ratio(faint),
         "palette": palette_metrics(image, dense),
         "body_overdraw_fraction": body_overdraw(image, body, 28),
         "faint_radial_envelope": radial_envelope(
