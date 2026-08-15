@@ -591,42 +591,7 @@ func _advance_battle() -> void:
 
 func _process(_delta: float) -> void:
 	_step_deliberation()
-	_update_unit_plates()
 
-
-## The plates follow their units through movement tweens and camera motion, so
-## their positions are a per-frame concern. The adapter owns the nodes and the
-## projection; this supplies the one thing it cannot derive — which units have
-## already acted this round.
-##
-## `_turn_order_ids` holds the units still queued this round, with the active
-## unit pushed to its front, so a living unit absent from it has already had its
-## turn. Derived rather than tracked separately: a second "has acted" set would
-## be one more thing that can disagree with the turn order the player is reading.
-func _update_unit_plates() -> void:
-	if lifecycle != Lifecycle.BATTLE or visual_adapter == null or sim == null:
-		return
-	var spent: Array = []
-	for monsterID in sim.state.getAliveMonsterIDs():
-		if not _turn_order_ids.has(monsterID):
-			spent.append(monsterID)
-	visual_adapter.update_unit_plates(spent, _plate_avoid_rects())
-
-
-## Screen rectangles the plates must not sit under. The docked status windows
-## cover the near edge of the board, where team 1 deploys, so without this every
-## friendly plate was drawn behind a window and showed only as noise through its
-## translucent body — visible in the first capture of this feature.
-##
-## Only the always-present docked readouts are listed. Transient windows are
-## deliberately excluded: a plate that jumped every time the command menu opened
-## would be worse than one briefly overlapped.
-func _plate_avoid_rects() -> Array:
-	var rects: Array = []
-	for window in [actor_window, target_window, turn_order_window]:
-		if window != null and is_instance_valid(window) and window.visible:
-			rects.append(Rect2(window.position, window.size))
-	return rects
 
 
 ## Spends one frame's budget on the decision in flight and closes the turn when

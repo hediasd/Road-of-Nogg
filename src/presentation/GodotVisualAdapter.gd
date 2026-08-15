@@ -14,7 +14,6 @@ const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcon
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
 const SpellVfxCatalogScript = preload("res://src/presentation/effects/SpellVfxCatalog.gd")
 const DamageNumberBillboardScript = preload("res://src/presentation/effects/DamageNumberBillboard.gd")
-const UnitPlateScript = preload("res://src/presentation/UnitPlate.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
 const VisualActionScript = preload("res://src/presentation/VisualAction.gd")
@@ -42,12 +41,6 @@ var threat_overlay_node: Node3D
 var hover_overlay_node: Node3D
 var damage_number_layer: CanvasLayer
 var damage_number_root: Control
-var unit_plate_layer: CanvasLayer
-var unit_plate_root: Control
-## monsterID -> UnitPlate, for living units only. A defeated unit's plate is
-## freed rather than hidden; a hidden plate is a node that outlives its subject
-## and the exit teardown already has enough of those.
-var _unit_plates: Dictionary = {}
 var _cursor: MeshInstance3D
 var _cursor_controller: BattleCursorController
 
@@ -92,18 +85,6 @@ func _init(_state: BattleState, _root_node: Node3D, _visual_parent: Node3D = nul
 	damage_number_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	damage_number_layer.add_child(damage_number_root)
 
-	# Its own layer below the damage numbers: a hit number is a transient the
-	# player must not miss, and it should read over the plate rather than under
-	# it when the two land on the same unit.
-	unit_plate_layer = CanvasLayer.new()
-	unit_plate_layer.name = "UnitPlates"
-	unit_plate_layer.layer = NoggThemeScript.WORLD_EFFECT_LAYER - 1
-	root_node.add_child(unit_plate_layer)
-	unit_plate_root = Control.new()
-	unit_plate_root.name = "UnitPlateRoot"
-	unit_plate_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	unit_plate_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	unit_plate_layer.add_child(unit_plate_root)
 
 	threat_overlay_node = Node3D.new()
 	threat_overlay_node.name = "ThreatOverlays"
@@ -831,7 +812,6 @@ func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i
 
 	monsters_node.add_child(container)
 	_monster_visuals[monsterID] = container
-	_ensure_unit_plate(monsterID)
 	_refresh_status_icons(monsterID)
 	_log("%s [#%s] spawned at %s" % [_name, monsterID, pos])
 
@@ -1322,169 +1302,6 @@ func _spawn_damage_number(worldPos: Vector3, amount: int, isHeal: bool) -> Tween
 		tween.set_speed_scale(_animation_speed_scale)
 	return tween
 
-## Repositions and refreshes every unit plate. Driven from the scene
-## controller's `_process` because this adapter is a RefCounted and has no frame
-## loop of its own.
-##
-## Polled rather than event-driven, deliberately. A plate has to follow its unit
-## through movement tweens and camera motion, so it needs a per-frame position
-## pass regardless; once that exists, reading health in the same pass is cheaper
-## than maintaining a second event subscription that could fall out of sync with
-## it. `configure()` returns whether anything changed so the redraw itself stays
-## rare.
-##
-## `spentIDs` carries the units that have already acted this round. The adapter
-## does not track turn order, so the caller supplies it. `avoidRects` carries
-## screen rectangles the plates should be pushed clear of — the docked status
-## windows, which sit over the near edge of the board and were swallowing the
-## plates of every unit deployed there.
-func update_unit_plates(spentIDs: Array = [], avoidRects: Array = []) -> void:
-	if not is_instance_valid(unit_plate_root) or state == null:
-		return
-	if not is_instance_valid(visual_parent):
-		return
-	# Unlike the damage-number path, this runs every frame — including frames
-	# before the world is parented — so the viewport is checked rather than
-	# assumed.
-	var viewport := visual_parent.get_viewport()
-	if viewport == null:
-		return
-	var camera := viewport.get_camera_3d()
-	if camera == null:
-		return
-	var renderer = root_node.get("retro_renderer")
-	var visibleRect: Rect2 = renderer.get_display_rect() if renderer != null else Rect2()
-
-	# Sorted far-to-near and re-ordered in the tree each pass, so when two units
-	# project to nearly the same point the nearer plate draws over the further
-	# one instead of the order being whatever spawn sequence produced.
-	var ordered: Array = []
-	for monsterID in _unit_plates.keys():
-		var monster = state.getMonster(monsterID)
-		var visual := _liveMonsterVisual(monsterID)
-		if monster == null or not monster.is_alive() or visual == null:
-			_remove_unit_plate(monsterID)
-			continue
-		ordered.append({
-			"id": monsterID,
-			"monster": monster,
-			"distance": camera.global_position.distance_squared_to(visual.global_position)
-		})
-	ordered.sort_custom(func(a, b): return a["distance"] > b["distance"])
-
-	# Plates already positioned this pass. The far-to-near order above doubles as
-	# the declutter priority: a nearer unit is the one the player is most likely
-	# looking at, so it settles last and the plates behind it have already
-	# claimed their space.
-	var placed: Array = []
-
-	for index in range(ordered.size()):
-		var entry: Dictionary = ordered[index]
-		var monsterID: int = entry["id"]
-		var plate: UnitPlateScript = _unit_plates[monsterID]
-		var monster = entry["monster"]
-		var anchor := get_monster_world_position(monsterID)
-
-		if camera.is_position_behind(anchor):
-			plate.visible = false
-			continue
-		var screenPos: Vector2 = camera.unproject_position(anchor)
-		if renderer != null:
-			screenPos = renderer.world_to_screen(screenPos)
-			if not visibleRect.grow(NoggThemeScript.PLATE_WIDTH).has_point(screenPos):
-				plate.visible = false
-				continue
-		plate.visible = true
-		var wanted := (
-			screenPos
-			+ Vector2(-plate.size.x * 0.5, NoggThemeScript.PLATE_ANCHOR_DROP)
-		).round()
-		plate.position = _declutter_plate(
-			Rect2(wanted, plate.size), placed, avoidRects, visibleRect
-		)
-		placed.append(Rect2(plate.position, plate.size))
-		plate.configure(
-			monster.level,
-			NoggThemeScript.team_color(monster.team),
-			monster.hitpoints,
-			monster.max_hitpoints,
-			spentIDs.has(monsterID)
-		)
-		unit_plate_root.move_child(plate, index)
-
-
-## Pushes a plate clear of the ones already placed and of any rectangle it must
-## not sit under, and returns where it landed.
-##
-## Vertical-only. Moving a plate sideways breaks the one thing that tells the
-## player whose it is — horizontal alignment with its unit — whereas a plate
-## pushed straight up or down still reads as belonging to the unit it lines up
-## with.
-##
-## **Searches outward from the wanted position in fixed slots, rather than
-## hopping past whichever blocker it hit.** The hopping version was the first
-## implementation and it did not converge: clearing blocker A moved the plate
-## onto blocker B, whose nearest free side moved it back onto A, and the pass
-## budget ran out with the plate still overlapping. A capture showed two enemy
-## plates sharing a row and three friendly plates still sitting under the docked
-## status window. Stepping outward by slot is monotonic in distance, so it always
-## terminates, and it lands on the *nearest* free slot rather than the first one
-## a hop happened to reach.
-##
-## Bounded by `PLATE_DECLUTTER_MAX_PASSES`: with enough units stacked on one
-## screen point there may be no arrangement that clears everything, and a plate
-## slightly overlapping beats a frame spent searching for a layout that does not
-## exist.
-func _declutter_plate(
-		rect: Rect2, placed: Array, avoidRects: Array, bounds: Rect2) -> Vector2:
-	if not _overlaps_any(rect, placed, avoidRects):
-		return rect.position.round()
-	var step: float = rect.size.y + NoggThemeScript.PLATE_DECLUTTER_GAP
-	for slot in range(1, NoggThemeScript.PLATE_DECLUTTER_MAX_PASSES + 1):
-		# Downward first at each distance: down is away from the model, so a
-		# nudged plate does not end up covering the unit it describes.
-		for direction in [1.0, -1.0]:
-			var candidate := rect
-			candidate.position.y = rect.position.y + direction * float(slot) * step
-			# Off-screen counts as blocked, not free. Without this the search
-			# happily "resolved" a plate trapped under the bottom-docked status
-			# window by pushing it past the screen edge — a capture showed one
-			# friendly plate parked at y=636 on a 648-tall viewport.
-			if bounds.size != Vector2.ZERO and not bounds.encloses(candidate):
-				continue
-			if not _overlaps_any(candidate, placed, avoidRects):
-				return candidate.position.round()
-	return rect.position.round()
-
-
-func _overlaps_any(rect: Rect2, placed: Array, avoidRects: Array) -> bool:
-	for other in placed:
-		if other is Rect2 and rect.intersects(other):
-			return true
-	for other in avoidRects:
-		if other is Rect2 and rect.intersects(other):
-			return true
-	return false
-
-
-func _ensure_unit_plate(monsterID: int) -> void:
-	if not is_instance_valid(unit_plate_root) or _unit_plates.has(monsterID):
-		return
-	var plate: UnitPlateScript = UnitPlateScript.new()
-	plate.name = "UnitPlate_%d" % monsterID
-	unit_plate_root.add_child(plate)
-	_unit_plates[monsterID] = plate
-
-
-func _remove_unit_plate(monsterID: int) -> void:
-	if not _unit_plates.has(monsterID):
-		return
-	var plate = _unit_plates[monsterID]
-	_unit_plates.erase(monsterID)
-	if is_instance_valid(plate):
-		plate.queue_free()
-
-
 ## World position of a monster's visual, for callers that need where a unit
 ## actually is on screen (the camera pan, for one) rather than its board
 ## coordinate. Prefers the live visual — mid-tween or bumped off-tile — over
@@ -1646,11 +1463,10 @@ func dispose() -> void:
 	_defeat_tweens.clear()
 	for node in [
 		grid_node, monsters_node, overlay_node, threat_overlay_node,
-		hover_overlay_node, damage_number_layer, unit_plate_layer, _cursor
+		hover_overlay_node, damage_number_layer, _cursor
 	]:
 		if is_instance_valid(node):
 			node.queue_free()
-	_unit_plates.clear()
 	_monster_visuals.clear()
 	_tile_columns.clear()
 	_tile_surfaces.clear()

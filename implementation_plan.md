@@ -23,13 +23,8 @@ conversation artifact and not a persistent file.
 A player can read the state of the whole battlefield without changing what is
 selected, and can interrogate any unit at any time:
 
-- every living unit carries a persistent readout of team, level, health, active
-  resonance and status, drawn at native resolution so it survives every retro
-  preset down to `480x360`;
 - hovering any unit fills the docked status window and paints that unit's
   movement and strike reach, in every phase including move and target select;
-- a pending action's damage is previewed on the target's own health bar, so the
-  forecast is read where the player is already looking;
 - the turn order becomes a predictive rail: deep enough to cross the round
   boundary where a fast unit's back-to-back double turn becomes visible, linked
   bidirectionally with the board, and showing how a pending SPD change will
@@ -44,19 +39,11 @@ cleanly after any item: each one leaves the HUD in a shippable state.
 
 ## Present-state facts an executing agent must not "fix"
 
-- **Every monster is level 1 today.** Nothing in production spawns above it and
-  every authored growth value is `0`, so the level readout specified in LEG-4
-  will show `1` on every unit until the monster level and growth work in
-  `BACKLOG_CRITICAL.md` lands. That is expected. The readout is being built
-  ahead of the mechanic deliberately, at the user's direction; do not remove it,
-  and do not substitute a different value.
 - **Catalog damage is small.** Shipped stats are base stats: HP `28-60`, ATK
   `2-8`, DEF `2-8`, spell `DAMAGE` `1-7`. Against
   `max(1, atk + power - def)` most exchanges land at `2-8` damage, so a unit
-  takes roughly five to twenty hits to remove. This is why the health bar is
-  notched rather than smoothly filled — a continuous bar moves too little per
-  exchange to register. Whether that pace is intended is a balance question
-  outside this cycle; see "Deliberately excluded".
+  takes roughly five to twenty hits to remove. Whether that pace is intended is
+  a balance question outside this cycle; see "Deliberately excluded".
 - **The colour vocabulary is nearly full.** Movement blue, reach purple, target
   yellow, affected red/green and threat magenta are all assigned. Yellow in
   particular is taken twice, by the hovered path in `show_movement_options` and
@@ -67,84 +54,22 @@ cleanly after any item: each one leaves the HUD in a shippable state.
 
 ### LEG-1 — Settle the board-space readout contract in the UI design document
 
-**Model:** Opus 5 / GPT Sol
+**WITHDRAWN 2026-08-15, by user decision.** The contract and its tokens were
+written and committed (`66913b1`), the plate was built against them (`f7cc18f`),
+redrawn at Fire Emblem weight on the Aurora/Solar ramps (`1cce3ac`), and the
+user then rejected the feature itself: *"Remove the healthbar and the level next
+to it, I dont like it."* Not a defect in the execution — the board-space readout
+is simply not wanted.
 
-**Depends on:** nothing.
+`docs/UI_DESIGN.md` §10c, every `PLATE_*` token, and `src/presentation/UnitPlate.gd`
+are removed. **`NoggTheme.team_color()` is kept**: it was extracted from a pair
+of colour literals in `GodotVisualAdapter._on_monster_spawned` that broke this
+project's no-literals-outside-NoggTheme rule, and that fix stands on its own.
 
-**Blocking:** yes. `docs/POLICIES.md` requires user approval before inventing a
-visual theme, and this item authors one. Obtain approval of the plate layout and
-its colour tokens before any of LEG-4 onward is executed. The remaining items
-are unblocked once this item's contract is approved.
-
-**End state:** `docs/UI_DESIGN.md` describes the board-space unit plate as a
-named surface alongside the §10a model treatments, with its anchor, composition,
-sizing in design units, colour tokens, and the rule that it is drawn as a
-projected `Control` at native resolution rather than in the battle
-`SubViewport`. The §6 input table gains a hover row. `NoggTheme` gains the
-tokens the plate needs and no colour literal is introduced outside it.
-
-**Implementation:** Add a §10c covering the plate. Specify, left to right: a
-**team-coloured unfilled circle carrying the unit's level number**, then the
-notched health bar, then resonance pips; the status row sits beneath. Author the
-circle as a stroked ring with a transparent interior, its stroke taking the team
-colour and the numeral taking `TEXT_PRIMARY` — the ring reads as team identity
-and the numeral as level, and neither has to fight a fill for contrast. Size
-every element in design units multiplied by `ui_scale`, per §3's token rule; do
-not write device-pixel literals at a call site. Set the health notch interval at
-10 HP against the catalog range above, so a typical unit shows three to six
-segments. Derive the health, ghost-damage and lethal tokens from the existing
-palette. Record in the §6 table that hover moves the cursor *and* fills the
-docked readout, and that it does so in every phase. State explicitly that the
-plate never resizes with content, matching trait 6's reasoning for the docked
-windows.
-
-**Risk:** A contract authored without rendering it can specify a plate that is
-unreadable at `480x360` or that collides with the status badges already anchored
-above each model. Measure the specified sizes against the smallest preset before
-recording them, and state where the plate sits relative to the existing badge
-row.
-
-**Adds to final validation:** The document is the acceptance reference for every
-later item; validation checks the shipped HUD against it rather than against
-this plan.
-
-**Resolution (2026-08-15):** Implemented; pending end-of-plan validation. The
-user delegated the blocking design decision rather than approving a proposal, so
-the contract records choices made here.
-
-Two sizes were derived rather than chosen, and the derivation is in §10c so it
-is not silently retuned. The shipping face renders only at whole multiples of 12
-device pixels, so `FONT_SIZE_BODY_UNITS` is the smallest honest game-font size
-and a two-digit level needs roughly 16 units of clear inner diameter — that sets
-the ring at 20. The battle camera is orthogonal at size 14, so a plate wider
-than about 60 units spans several tiles and stops reading as one unit's; ring
-plus gap plus bar comes to 57.
-
-Three decisions worth naming because they narrowed the original sketch:
-
-- **Resonance pips were dropped from the plate.** They fit the width budget only
-  by pushing the total past the tile constraint above, they change slowly, and
-  the docked window already shows them. Element and resonance detail belongs on
-  hover and in LEG-9's card.
-- **No new hue enters the vocabulary.** Critical health reuses `TEXT_ACCENT` at
-  the same one-third threshold `_renderStatusWindow` already applies, so the
-  plate and the docked window cannot disagree. Lethal is expressed by the ghost
-  covering the whole bar rather than by a red. Ticking damage is separated from
-  forecast damage by hatch pattern, not colour.
-- **Spent state reuses `CONTENT_INACTIVE_MODULATE`** rather than defining a
-  plate-specific dim.
-
-Team colour moved into `NoggTheme.team_color()`. It was a pair of colour
-literals in `GodotVisualAdapter._on_monster_spawned` — the one place in
-`src/presentation/` breaking this file's no-literals rule — and the plate's ring
-is a second consumer that must not disagree with the model plinth.
-
-Probe: `--check-only` parses clean for `NoggTheme.gd` and
-`GodotVisualAdapter.gd`. The same probe against `BattlePresentationController.gd`
-exits `-1073741819` with 46 resources retained, which reproduces identically
-with these changes stashed — it is the pre-existing exit access violation in
-`BACKLOG_CRITICAL.md`, not a regression here. Smoke check only, not acceptance
-evidence.
+Finding worth keeping, because it outlives the feature: **health is still
+visible for at most two units out of eight.** F1 in the review is unaddressed and
+no longer has a planned owner. If it is ever taken up again it should not be
+through a plate under each unit.
 
 ### LEG-2 — Fill the docked status window from hover, in every phase
 
@@ -215,7 +140,7 @@ did this during the most common interactive phases, so this was accepted rather
 than cached; revisit if profiling during final validation shows it.
 
 Probe: `--check-only` reports no parse errors. The exit code remains the
-pre-existing teardown access violation described under LEG-1.
+pre-existing teardown access violation recorded in `BACKLOG_CRITICAL.md`.
 
 ### LEG-3 — Paint movement and strike reach from hover
 
@@ -296,126 +221,42 @@ depend on cache state. All five touched scripts now parse clean.
 
 ### LEG-4 — Build the unit plate
 
-**Model:** Opus 5 / GPT Sol
+**WITHDRAWN 2026-08-15, by user decision.** See LEG-1. Implementation reverted;
+the adapter's plate layer, per-frame update, declutter pass and teardown entry
+are removed, along with the controller's `_process` driver.
 
-**Depends on:** LEG-1.
+Two things learned here are worth not re-deriving:
 
-**End state:** Every living unit carries a plate matching the LEG-1 contract:
-team-coloured level ring, notched health bar, resonance pips. It is drawn as a
-projected `Control` on a dedicated `CanvasLayer` at native resolution, tracks
-its unit through movement tweens and camera motion, disappears on defeat, and
-survives every render preset. The whole plate desaturates once its unit has
-spent its turn.
-
-**Implementation:** Follow the projection path `_spawn_damage_number` already
-establishes in `src/presentation/GodotVisualAdapter.gd`:
-`camera.unproject_position()`, then `retro_renderer.world_to_screen()`, with
-`get_display_rect()` as the cull test and `is_position_behind()` as the reject.
-That path is the reason this is not a `Label3D` or a world-space quad — the
-battle viewport can be `480x360`, and anything drawn inside it is downsampled
-while a projected Control is not.
-
-Anchor from `get_monster_world_position`, which already prefers the live visual
-over the authoritative tile position and is therefore correct mid-tween. Update
-per frame while any unit is moving or the camera is in motion; a one-shot read
-will desync. Extend the existing `dim_amount` convention to the spent state
-rather than inventing a second visual language for the same idea.
-
-Give the plate a declutter rule from the start: an isometric camera puts two
-units at nearly the same projected point regularly, and a plate that overlaps
-another is worse than no plate. Depth-sort and nudge, or fade the rear plate —
-decide it here rather than discovering it on a crowded board.
-
-**Risk:** This is the largest item in the cycle and adds a presentation surface
-that does not exist today. Per-frame projection for eight units plus a
-re-layout is the main performance exposure. Node lifecycle is the main
-correctness exposure: a plate that outlives its unit, or leaks on battle exit,
-feeds directly into the `Battle25D` shutdown access violation already in
-`BACKLOG_CRITICAL.md`. Adapter symmetry is the third: `ConsoleVisualAdapter`
-implements the same interface as `GodotVisualAdapter` and must stay in sync if
-the interface grows.
-
-**Adds to final validation:** Plate presence and accuracy for every living unit;
-tracking through movement, defeat, camera yaw and pitch; every render preset
-including the smallest; overlapping-unit declutter; spent-state desaturation;
-teardown with no leaked nodes; headless adapter parity.
-
-**Resolution (2026-08-15):** Implemented; pending end-of-plan validation. **This
-is the item most in need of a real look** — the projection, the per-frame pass
-and the node lifecycle are all things a parse check cannot exercise, and nothing
-here has been seen running.
-
-`src/presentation/UnitPlate.gd` draws the ring, numeral and notched bar; the
-adapter owns the layer, the lifecycle and the projection. The plate is on its own
-`CanvasLayer` one below `WORLD_EFFECT_LAYER`, so a damage number reads over a
-plate rather than under it when both land on the same unit.
-
-Updates are **polled from the controller's `_process`** rather than driven by
-events. The adapter is a `RefCounted` with no frame loop, and a plate needs a
-per-frame position pass anyway to follow movement tweens and camera motion —
-once that exists, reading health in the same pass is cheaper than a second event
-subscription that could drift from it. `configure()` returns whether anything
-changed so the redraw stays rare even though the poll does not. Health is read
-from `state`, which matches how the docked status windows already read it, so
-the two cannot disagree.
-
-Declutter is handled by sorting plates far-to-near each pass and reordering them
-in the tree, so a nearer plate draws over a further one instead of the order
-falling out of spawn sequence.
-
-Spent state is **derived, not tracked**: a living unit absent from
-`_turn_order_ids` has already acted this round. A separate "has acted" set would
-be one more thing capable of disagreeing with the turn order the player is
-reading.
-
-`unit_plate_layer` joined the adapter's teardown list and `_unit_plates` is
-cleared with it, for the same leak reason as LEG-3.
-
-Two defects the probe caught, both the same root cause as LEG-3's: a newly added
-`class_name` is absent from the script class cache until the project is
-rescanned, so `UnitPlate` failed as a **type annotation** in the adapter exactly
-as `ReachQuery` failed as an identifier. Preloaded script consts work as type
-annotations and were used instead. Also corrected `getLivingMonsters`, which
-does not exist, to `getAliveMonsterIDs`.
+- **Size UI against a capture, never in the abstract.** The first plate was
+  sized from the bitmap face's 12-device-pixel floor, which forced a large ring
+  and, through it, a plate wider than the unit it described. Every step was
+  locally correct.
+- **A greedy "hop past the blocker" declutter does not converge.** Clearing
+  blocker A moves onto B, whose nearest free side moves back onto A. Searching
+  outward in fixed slots is monotonic in distance and terminates. Any future
+  screen-space label layout in this project will hit the same problem.
 
 ### LEG-5 — Preview pending damage on the target's health bar
 
-**Model:** Sonnet 5 / GPT Terra
+**WITHDRAWN 2026-08-15.** Never started. It depended entirely on LEG-4's bar as
+its drawing surface, and there is no longer one.
 
-**Depends on:** LEG-4.
-
-**End state:** While aiming or confirming, the portion of the target's health
-the pending action would remove is drawn as a distinct ghost segment on its
-plate, and an action that would defeat the target tints the whole bar. Ticking
-burn and poison damage is drawn as a separate hatched segment. Cancelling
-restores the bar.
-
-**Implementation:** The numbers already exist. `PlayerTurnController` computes a
-forecast from the same `CombatResolver` math real resolution uses, and renders
-it as text into the forecast window; this item routes that same result to the
-plate rather than recomputing it. Do not add a second damage calculation — a
-forecast that disagrees with the bar is worse than either alone. Read status
-tick damage from the active effects already available to the status icon path.
-
-**Risk:** The forecast covers a whole affected set for area spells, so the plate
-must show each affected unit's own share rather than the total. Buff, debuff and
-pure-status spells produce no damage line at all — the forecast's existing blind
-spot for those is recorded separately in `BACKLOG_CRITICAL.md`, and this item
-must render nothing rather than zero for them.
-
-**Adds to final validation:** Single-target and area forecasts against the
-resolved damage; lethal tint accuracy; heals; buffs and status-only spells;
-cancel restoration; multi-target area casts.
+F9 of the review stands and is now unowned: the forecast is computed and parked
+in a bottom-left window, never near the unit being aimed at. Re-siting it does
+not require a health bar, so this could return in another form.
 
 ### LEG-6 — Give each status effect a distinct silhouette at native resolution
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** LEG-1.
+**Depends on:** nothing. Formerly depended on LEG-1 for the plate's canvas and
+sizing; with LEG-1 withdrawn this item owns both. Its native-resolution layer is
+now its own, built on the projection path `_spawn_damage_number` established
+(`camera.unproject_position` then `RetroRenderController.world_to_screen`).
 
 **End state:** Each of the eleven catalog effects is distinguishable by shape
 alone, without relying on colour. The badges are drawn at native resolution
-alongside the plate rather than as world-space sprites, so they survive every
+above each unit rather than as world-space sprites, so they survive every
 preset. Duration remains legible.
 
 **Implementation:** `src/presentation/StatusEffectIcons.gd` currently maps
@@ -424,10 +265,12 @@ shape for `guard`, `def_buff` and `def_debuff` alike — four effects with
 entirely different consequences render identically, and colour separates only
 buff from debuff. Author distinct silhouettes for the five negative effects and
 keep the buff/debuff colour split as a redundant channel, not the primary one.
-Verify each shape is readable at the size the LEG-1 contract specifies before
-adopting it.
+Verify each shape against a capture at the smallest preset before adopting it —
+not against reasoning about its size. LEG-4 was lost to sizing a readout in the
+abstract, and a 16-pixel badge has far less room for that mistake than a plate
+did.
 
-Move the badges onto the plate's canvas. Today they are 16x16 textures at
+Move the badges onto their own native-resolution canvas. Today they are 16x16 textures at
 `pixel_size 0.019` inside the battle viewport, with a duration `Label3D` at
 `pixel_size 0.0038` that is smaller than one device pixel under the smallest
 preset. Reconsider the overflow arithmetic while there: at five active effects
@@ -666,24 +509,24 @@ no docked window resize.
 
 **Model:** Opus 5 / GPT Sol
 
-**Depends on:** LEG-1 through LEG-9.
+**Depends on:** LEG-2, LEG-3, LEG-6, LEG-7, LEG-8, LEG-9. LEG-1, LEG-4 and
+LEG-5 are withdrawn and contribute nothing to validate.
 
 This is the only item that launches the full manual gameplay pass. Validate the
 union of the prior items' coverage in one integrated Player vs CPU battle
 wherever they overlap, rather than replaying each item separately:
 
-1. Play a complete 4v4 battle at the default native preset. Confirm plate
-   accuracy for every unit across the whole battle, hover readout and reach in
-   every phase, damage preview against resolved damage, status silhouettes,
+1. Play a complete 4v4 battle at the default native preset. Confirm hover
+   readout and reach in every phase, status silhouettes,
    turn-order rollover including at least one double turn, threat attribution,
    and the deep card.
 2. Repeat the decisive portions at the harshest retro preset and under the CRT
-   pass, both with and without `ui_through_crt`. The plate, badges and numerals
+   pass, both with and without `ui_through_crt`. The badges and numerals
    are the elements at risk here; confirm each is legible at `480x360`.
 3. Exercise `ui_scale` at its shipping value and at 3. Every new surface is
    authored in design units and must scale with the rest of the HUD.
 4. Exercise pause, both speed sliders, CPU turns, defeat, battle end and return
-   to setup. Confirm no plate, overlay or window outlives its unit or the
+   to setup. Confirm no badge, overlay or window outlives its unit or the
    battle.
 5. Search every caller of each changed shared surface — the status icon path,
    the tactical overlay path, the threat map — and exercise all of them, not
@@ -695,7 +538,7 @@ wherever they overlap, rather than replaying each item separately:
    `git diff --check`, and inspect the focused diff.
 
 **Risk:** A HUD that reads well in a static frame can still fail in motion,
-under the camera, or on a crowded board. Judge the plate while units are moving
+under the camera, or on a crowded board. Judge the badges while units are moving
 and the camera is turning, not from stills.
 
 **Completion:** Record observations and captures. If defects appear, fix them in

@@ -71,11 +71,11 @@ const CURSOR := Color(1.0, 0.776, 0.227)
 const OUTLINE := Color(0.0, 0.0, 0.0, 1.0)
 
 ## Team identity. Previously a pair of colour literals inside
-## `GodotVisualAdapter._on_monster_spawned`, which is the one place in
-## `src/presentation/` this file's no-literals rule was being broken. It had to
-## move the moment a second surface needed the same value: the unit plate's
-## level ring is team-coloured, and a plate whose blue disagreed with its own
-## model's plinth would be worse than no team colour at all.
+## `GodotVisualAdapter._on_monster_spawned`, which was the one place in
+## `src/presentation/` this file's no-literals rule was being broken. Kept here
+## rather than pushed back down: a second surface wanting team colour is a
+## matter of time, and two surfaces disagreeing about which blue is team one
+## would be worse than the literal ever was.
 const TEAM_ONE_COLOR := Color(0.18, 0.42, 0.95)
 const TEAM_TWO_COLOR := Color(0.9, 0.2, 0.16)
 
@@ -272,124 +272,6 @@ const STATUS_CELL_CONTROL_GAP_UNITS := 4.0
 ## Horizontal gap between a parent window and the child stacked to its right.
 const WINDOW_STACK_GAP_UNITS := 4.0
 
-# --- Unit plate ------------------------------------------------------------
-#
-# The board-space readout carried under every living unit (docs/UI_DESIGN.md
-# §10c).
-#
-# **These numbers replace a first pass that was three times this size and was
-# rejected on sight.** Two mistakes produced it, and both are worth naming so
-# they are not repeated. The ring was sized to hold a numeral in the shipping
-# bitmap face, which floors to 12 device pixels — that single constraint drove
-# the ring, and the ring drove everything else. Level digits are now *drawn*,
-# the way `StatusEffectIcons` already draws its shapes, so the floor does not
-# apply and the ring can be as small as the design wants. The whole plate was
-# also sized in the abstract rather than against a capture, and at 114 x 40 it
-# was wider than the unit it belonged to.
-const PLATE_RING_DIAMETER_UNITS := 9.0
-const PLATE_RING_STROKE_UNITS := 0.75
-## A dark ring just outside the team stroke, so the ring survives a light
-## background the same way the bar's outline does.
-const PLATE_RING_OUTLINE_UNITS := 0.45
-## Between the ring and the bar.
-const PLATE_GAP_UNITS := 1.5
-## Vertical drop from the unit's foot to the top of the plate.
-const PLATE_ANCHOR_DROP_UNITS := 6.0
-
-## Roughly one board tile wide at the shipping camera framing, which is what
-## keeps the readout reading as *this unit's* rather than as a HUD element that
-## happens to be nearby.
-const PLATE_BAR_WIDTH_UNITS := 22.0
-const PLATE_BAR_HEIGHT_UNITS := 2.5
-## The hairline that does all the legibility work. There is no backing plate:
-## the reference this is drawn from defends a thin bar with a hard dark outline
-## instead, and a backing slab is what made the first pass read as heavy.
-const PLATE_BAR_OUTLINE_UNITS := 0.5
-
-## Level digits are drawn on a 3x5 grid rather than typed, the way
-## `StatusEffectIcons` already draws its shapes. The shipping bitmap face floors
-## to whole multiples of 12 device pixels, and sizing a ring to hold a glyph at
-## that floor is exactly what produced a plate wider than the unit it belonged
-## to. A drawn glyph has no floor.
-const PLATE_DIGIT_CELL_UNITS := 1.0
-const PLATE_DIGIT_COLUMNS := 3
-const PLATE_DIGIT_ROWS := 5
-const PLATE_DIGIT_GAP_CELLS := 1
-
-## HP per tick separator — a count, not a length, so it does not scale. Ten
-## against the catalog's 28-60 max HP puts three to six segments on every bar.
-## Shipped stats put most exchanges at 2-8 damage, so a bar with no separators
-## moves about 7% per hit and reads as not having moved; the separators are what
-## make a single hit visibly cross a boundary.
-const PLATE_HP_PER_NOTCH := 10
-
-## Minimum clear gap between two plates once the declutter pass has separated
-## them, and the most it will search before giving up on a frame.
-const PLATE_DECLUTTER_GAP_UNITS := 1.0
-const PLATE_DECLUTTER_MAX_PASSES := 12
-
-## Health below one third turns the filled pips `TEXT_ACCENT`. Deliberately the
-## same threshold and the same token the docked status window already applies to
-## its HP value, so the plate and the window cannot disagree about when a unit is
-## in trouble.
-const PLATE_CRITICAL_NUMERATOR := 1
-const PLATE_CRITICAL_DENOMINATOR := 3
-
-## The outline around the bar, the ring, and each digit. Near-opaque black is
-## what lets a five-pixel bar survive grass, dirt and water without any backing
-## chrome behind it.
-const PLATE_INK := Color(0.0, 0.0, 0.0, 0.88)
-
-# The plate borrows its colour treatment from this project's two most developed
-# effects, `aurora_veil_field` and `solar_storm_field`. Both are built on the
-# same idea: a **luminance ramp** running from a deep, desaturated low end to a
-# hot, bright high end through saturated middles, never a flat fill. At five
-# pixels tall a ramp is only two or three rows of difference, but that is
-# exactly what separates a lit gauge from a coloured rectangle.
-#
-# The gradients are drawn a row at a time in `UnitPlate` rather than through a
-# gradient texture: the bar is `PLATE_BAR_HEIGHT` device pixels tall, so a
-# handful of `draw_rect` rows is both cheaper and pixel-exact, which a sampled
-# texture at this size would not be.
-
-## The spent portion of the bar. **Aurora Veil's darkest ramp stop**, a deep
-## blue-violet, rather than the near-black it replaces. It reads as night behind
-## the light instead of as a hole, and it is already this project's colour for
-## the bottom of a luminance ramp.
-const PLATE_BAR_TRACK := Color(0.14, 0.15, 0.31, 0.95)
-
-## The remaining portion, as a vertical ramp — bright at the top, deep at the
-## bottom.
-##
-## **Deliberately not `TEXT_HEAL`.** An earlier pass aliased them, reasoning that
-## no new hue should enter a nearly full vocabulary — but `TEXT_HEAL` is a pale
-## mint tuned to read as a *damage number over any background*, and the default
-## map is green grass. On the meadow it vanished.
-const PLATE_BAR_FILL_TOP := Color(0.46, 0.96, 0.56)
-const PLATE_BAR_FILL_BOTTOM := Color(0.13, 0.48, 0.26)
-
-## Critical health takes **Solar Storm's upper ramp stops** verbatim — the same
-## ember-to-white-hot climb the storm uses for its hottest core. A unit under a
-## third reads as burning down, in the game's own fire language, rather than as
-## a second arbitrary warning colour.
-const PLATE_BAR_CRITICAL_TOP := Color(1.0, 0.70, 0.28)
-const PLATE_BAR_CRITICAL_BOTTOM := Color(0.84, 0.26, 0.04)
-
-## A one-pixel specular along the top of the fill. Both effects carry a hot
-## leading edge where the ramp peaks; this is that idea at gauge scale, and it
-## is most of what makes the bar read as lit rather than printed.
-const PLATE_BAR_HIGHLIGHT := Color(1.0, 1.0, 1.0, 0.34)
-
-## A soft team-coloured halo just outside the ring's dark outline. The effects
-## both bloom rather than terminating hard, and this is the cheapest honest
-## version of that at this size.
-const PLATE_RING_GLOW_ALPHA := 0.28
-## Alpha applied to the fill colour for a pip about to be removed: pending
-## forecast damage, and ticking burn or poison. Derived from whichever fill is
-## current, so a critical plate's ghost is pale gold and a healthy one's is pale
-## green.
-const PLATE_GHOST_ALPHA := 0.45
-
 ## Counts, not lengths. These do not scale — three resonance cells stay three
 ## cells at every size, and a window holding eight rows holds eight rows.
 const RESONANCE_BAR_CELLS := 3
@@ -495,20 +377,6 @@ static var RESONANCE_BAR_WIDTH: float
 static var STATUS_CELL_CONTROL_GAP: float
 static var WINDOW_STACK_GAP: int
 
-static var PLATE_RING_DIAMETER: float
-static var PLATE_RING_STROKE: float
-static var PLATE_RING_OUTLINE: float
-static var PLATE_GAP: float
-static var PLATE_BAR_WIDTH: float
-static var PLATE_BAR_HEIGHT: float
-static var PLATE_BAR_OUTLINE: float
-static var PLATE_ANCHOR_DROP: float
-static var PLATE_DIGIT_CELL: float
-static var PLATE_DECLUTTER_GAP: float
-## Derived, not authored: the plate's extent is exactly what its parts come to,
-## so adding or resizing a part cannot leave a stale total behind.
-static var PLATE_WIDTH: float
-static var PLATE_HEIGHT: float
 
 # --- Animation ------------------------------------------------------------
 #
@@ -611,23 +479,6 @@ static func _recompute() -> void:
 		+ float(RESONANCE_BAR_CELLS - 1) * RESONANCE_CELL_GAP
 	)
 
-	PLATE_RING_DIAMETER = _scaled(PLATE_RING_DIAMETER_UNITS)
-	PLATE_RING_STROKE = _scaled(PLATE_RING_STROKE_UNITS)
-	PLATE_RING_OUTLINE = _scaled(PLATE_RING_OUTLINE_UNITS)
-	PLATE_GAP = _scaled(PLATE_GAP_UNITS)
-	PLATE_BAR_WIDTH = _scaled(PLATE_BAR_WIDTH_UNITS)
-	PLATE_BAR_HEIGHT = _scaled(PLATE_BAR_HEIGHT_UNITS)
-	PLATE_BAR_OUTLINE = _scaled(PLATE_BAR_OUTLINE_UNITS)
-	PLATE_ANCHOR_DROP = _scaled(PLATE_ANCHOR_DROP_UNITS)
-	PLATE_DIGIT_CELL = _scaled(PLATE_DIGIT_CELL_UNITS)
-	PLATE_DECLUTTER_GAP = _scaled(PLATE_DECLUTTER_GAP_UNITS)
-	# Outlines sit outside the bar on both sides, so they count toward the
-	# footprint the declutter pass has to keep clear.
-	PLATE_WIDTH = (
-		PLATE_RING_DIAMETER + PLATE_GAP + PLATE_BAR_WIDTH + PLATE_BAR_OUTLINE * 2.0
-	)
-	PLATE_HEIGHT = PLATE_RING_DIAMETER + PLATE_RING_OUTLINE * 2.0
-
 	CURSOR_WIDTH = _scaled(CURSOR_WIDTH_UNITS)
 	CURSOR_HEIGHT = _scaled(CURSOR_HEIGHT_UNITS)
 	CURSOR_INSET = _scaled(CURSOR_INSET_UNITS)
@@ -656,21 +507,6 @@ static func _recompute() -> void:
 const CONTENT_ACTIVE_MODULATE := Color(1.0, 1.0, 1.0, 1.0)
 const CONTENT_INACTIVE_MODULATE := Color(0.45, 0.47, 0.52, 1.0)
 
-## A spent unit's plate recedes, but only slightly, and by **alpha rather than
-## colour**.
-##
-## This deliberately does *not* reuse `CONTENT_INACTIVE_MODULATE`. That was the
-## first implementation, on the reasoning that "still there, no longer
-## available" should have one visual language — but that token drops saturation
-## hard, and applied to a five-pixel bar it took the health fill down to an
-## unreadable grey-green. In a capture with five of eight units already acted,
-## most of the board's health was illegible.
-##
-## A spent unit's health matters exactly as much as anyone else's; it is only
-## its *availability* that has changed, and the model already carries that
-## through the `dim_amount` shader treatment. Doubling the signal on the plate
-## costs readability and buys nothing.
-const PLATE_SPENT_MODULATE := Color(1.0, 1.0, 1.0, 0.72)
 
 
 ## Height of a window with the given row capacity, frame inset included.
