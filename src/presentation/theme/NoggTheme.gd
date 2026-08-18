@@ -191,6 +191,20 @@ const GAME_FONT_PATH := "res://assets/Fonts/NoggTerminal/NoggTerminal.res"
 const XENOTEXT_FONT_PATH := "res://assets/Fonts/xenotext.otf"
 const DEV_FONT_PATH := "res://assets/Fonts/Roboto-Regular.ttf"
 
+## Nogg Herald, the display face: item banners, hint plates, act titles. It is
+## proportional and negatively kerned, so it must NEVER be used where a column
+## has to line up — the fixed status cells, the zero-padded stat readouts, and
+## anything `debug/measure_px4_widths.gd` measures all depend on Terminal's
+## monospace advance. `assets/Fonts/NoggHerald/glyphs.txt` is the source and
+## `scripts/bake_herald_font.gd` regenerates the resource.
+const BANNER_FONT_PATH := "res://assets/Fonts/NoggHerald/NoggHerald.res"
+
+## The theme type variation banners wear. Assign it to a `Label` with
+## `theme_type_variation = NoggTheme.BANNER_TYPE` (or call `make_banner_label`)
+## and it picks up Herald, the banner size, and the outline treatment, while
+## every other Label under the same Theme stays on Terminal.
+const BANNER_TYPE := &"NoggBanner"
+
 ## **Every game font size must be a whole multiple of
 ## `NoggBitmapFont.NOMINAL_SIZE` (12).** Nogg Terminal declares
 ## `fixed_size = 12` with `FIXED_SIZE_SCALE_INTEGER_ONLY`, so a requested size
@@ -213,6 +227,15 @@ const FONT_SIZE_BODY_UNITS := 12.0
 const FONT_SIZE_HEADING_UNITS := 12.0
 const FONT_SIZE_FOOTER_UNITS := 12.0
 const FONT_SIZE_DEV_UNITS := 6.5
+
+## **The banner size follows Herald's grid, not Terminal's: whole multiples of
+## `NoggHeraldFont.NOMINAL_SIZE` (13), not 12.** The two faces do not share a
+## nominal size, and the failure is silent in the same way described above — a
+## banner set to `FONT_SIZE_BODY` (24 at x2) would floor to 13 and render at
+## just over half the intended height with no warning. Copying a size across
+## from the Terminal constants is therefore always a bug, however reasonable it
+## looks; 13 units is one Herald cell and yields 26 at the shipping x2.
+const FONT_SIZE_BANNER_UNITS := 13.0
 
 ## **A cache key, not a pixel count — and deliberately NOT scaled.** Godot
 ## cannot synthesise an outline for a bitmap face, so Nogg Terminal ships baked
@@ -242,6 +265,7 @@ static var FONT_SIZE_BODY: int
 static var FONT_SIZE_HEADING: int
 static var FONT_SIZE_FOOTER: int
 static var FONT_SIZE_DEV: int
+static var FONT_SIZE_BANNER: int
 static var SHADOW_OFFSET: float
 
 # --- Window geometry ------------------------------------------------------
@@ -271,6 +295,38 @@ const RESONANCE_CELL_BORDER_UNITS := 0.5
 const STATUS_CELL_CONTROL_GAP_UNITS := 4.0
 ## Horizontal gap between a parent window and the child stacked to its right.
 const WINDOW_STACK_GAP_UNITS := 4.0
+
+# --- Turn-order rail -------------------------------------------------------
+#
+# The horizontal strip of portrait tiles across the top of the screen
+# (docs/UI_DESIGN.md §8). It replaces the three-row `NoggWindow` turn order,
+# which stopped at the round boundary and so could never show the thing that
+# most punishes a player who did not see it coming: a fast unit acting last in
+# one round and first in the next, twice in a row.
+const TURN_RAIL_TILE_UNITS := 22.0
+const TURN_RAIL_GAP_UNITS := 2.0
+## Team-coloured border. At tile size a team-tinted model is not a reliable
+## signal on its own, so the frame carries it instead.
+const TURN_RAIL_FRAME_UNITS := 1.0
+const TURN_RAIL_TOP_UNITS := 5.0
+## The active unit sits raised and clear of the row rhythm, so "now" reads as
+## detached rather than merely leftmost.
+const TURN_RAIL_ACTIVE_LIFT_UNITS := 3.0
+## Gap either side of the round divider, on top of the usual tile gap.
+const TURN_RAIL_DIVIDER_GAP_UNITS := 4.0
+const TURN_RAIL_DIVIDER_WIDTH_UNITS := 1.0
+## Health strip along the tile's bottom edge, inside the frame.
+const TURN_RAIL_HEALTH_UNITS := 2.0
+
+## Entries shown, across both rounds. Six is enough to cross the boundary with
+## room on the far side for the rollover to be visible rather than implied.
+const TURN_RAIL_CAPACITY := 6
+## Portrait render target, in device pixels. Square, and larger than the tile so
+## the bust crop has material to bleed off the corner with.
+const TURN_RAIL_PORTRAIT_PX := 64
+## Projected next-round entries draw at this alpha: they are a forecast, not a
+## fact, and a kill this round will change them.
+const TURN_RAIL_PROJECTED_ALPHA := 0.55
 
 # --- Status badges ---------------------------------------------------------
 #
@@ -383,7 +439,10 @@ const PAGER_ARROW_GAP_UNITS := 3.0
 ## did not and the whole HUD crept toward the screen edges. A margin is a length
 ## like any other and has to scale with what it separates.
 const SCREEN_MARGIN_UNITS := 10.0
-const PROMPT_TOP_UNITS := 12.0
+## Below the turn rail, which owns the top band. The rail is persistent and the
+## prompt is transient, so the persistent element holds the stable position —
+## see docs/UI_DESIGN.md §8.
+const PROMPT_TOP_UNITS := 34.0
 const TURN_ORDER_TOP_UNITS := 50.0
 ## Vertical gap between the forecast window and the command window above which
 ## it sits.
@@ -397,6 +456,15 @@ static var STATUS_WINDOW_WIDTH: float
 static var TURN_ORDER_WIDTH: float
 static var PAGER_WIDTH: float
 static var PAGER_ARROW_GAP: float
+static var TURN_RAIL_TILE: float
+static var TURN_RAIL_GAP: float
+static var TURN_RAIL_FRAME: float
+static var TURN_RAIL_TOP: float
+static var TURN_RAIL_ACTIVE_LIFT: float
+static var TURN_RAIL_DIVIDER_GAP: float
+static var TURN_RAIL_DIVIDER_WIDTH: float
+static var TURN_RAIL_HEALTH: float
+
 static var SCREEN_MARGIN: float
 static var PROMPT_TOP: float
 static var TURN_ORDER_TOP: float
@@ -492,6 +560,7 @@ static func _recompute() -> void:
 	FONT_SIZE_HEADING = _scaled_int(FONT_SIZE_HEADING_UNITS)
 	FONT_SIZE_FOOTER = _scaled_int(FONT_SIZE_FOOTER_UNITS)
 	FONT_SIZE_DEV = _scaled_int(FONT_SIZE_DEV_UNITS)
+	FONT_SIZE_BANNER = _scaled_int(FONT_SIZE_BANNER_UNITS)
 	SHADOW_OFFSET = _scaled(SHADOW_OFFSET_UNITS)
 
 	FRAME_RING_PX = _scaled_int(FRAME_RING_UNITS)
@@ -543,6 +612,15 @@ static func _recompute() -> void:
 	TURN_ORDER_WIDTH = _scaled(TURN_ORDER_WIDTH_UNITS)
 	PAGER_WIDTH = _scaled(PAGER_WIDTH_UNITS)
 	PAGER_ARROW_GAP = _scaled(PAGER_ARROW_GAP_UNITS)
+	TURN_RAIL_TILE = _scaled(TURN_RAIL_TILE_UNITS)
+	TURN_RAIL_GAP = _scaled(TURN_RAIL_GAP_UNITS)
+	TURN_RAIL_FRAME = _scaled(TURN_RAIL_FRAME_UNITS)
+	TURN_RAIL_TOP = _scaled(TURN_RAIL_TOP_UNITS)
+	TURN_RAIL_ACTIVE_LIFT = _scaled(TURN_RAIL_ACTIVE_LIFT_UNITS)
+	TURN_RAIL_DIVIDER_GAP = _scaled(TURN_RAIL_DIVIDER_GAP_UNITS)
+	TURN_RAIL_DIVIDER_WIDTH = _scaled(TURN_RAIL_DIVIDER_WIDTH_UNITS)
+	TURN_RAIL_HEALTH = _scaled(TURN_RAIL_HEALTH_UNITS)
+
 	SCREEN_MARGIN = _scaled(SCREEN_MARGIN_UNITS)
 	PROMPT_TOP = _scaled(PROMPT_TOP_UNITS)
 	TURN_ORDER_TOP = _scaled(TURN_ORDER_TOP_UNITS)
@@ -574,6 +652,10 @@ static func build_game_theme(
 		font_size: int = FONT_SIZE_BODY) -> Theme:
 	var theme := Theme.new()
 	var font := _load_pixel_font(font_path)
+	# Not affected by the `font_path` override: that exists so the preview
+	# harness can audition a *body* face against real window content, and
+	# swapping the banner face out from under it would confuse the comparison.
+	var banner_font := _load_pixel_font(BANNER_FONT_PATH)
 
 	theme.default_font = font
 	theme.default_font_size = font_size
@@ -615,6 +697,29 @@ static func build_game_theme(
 		theme.set_constant("shadow_outline_size", type, 0)
 		theme.set_color("font_outline_color", type, OUTLINE)
 		theme.set_constant("outline_size", type, 0)
+
+	# Banners: Nogg Herald, outlined rather than shadowed.
+	#
+	# A type variation rather than a second Theme, so one Theme at the battle
+	# root still covers everything and a banner is just a Label with one
+	# property set. Every other Label beneath it stays on Terminal.
+	#
+	# **Outline, not drop shadow — the opposite of the body default, for exactly
+	# the same reason.** The body rule exists because Terminal's strokes are one
+	# design pixel, so a one-pixel halo doubles their apparent weight and closes
+	# the counters. Herald's stems are two pixels, so the same halo is half a
+	# stroke — which is the proportion the reference art actually carries: white
+	# letters, one pixel of black all round, and no shadow behind them. The
+	# shadow constants are zeroed here deliberately rather than left to inherit.
+	theme.set_type_variation(BANNER_TYPE, "Label")
+	theme.set_font("font", BANNER_TYPE, banner_font)
+	theme.set_font_size("font_size", BANNER_TYPE, FONT_SIZE_BANNER)
+	theme.set_color("font_color", BANNER_TYPE, TEXT_PRIMARY)
+	theme.set_color("font_outline_color", BANNER_TYPE, OUTLINE)
+	theme.set_constant("outline_size", BANNER_TYPE, OUTLINE_SIZE)
+	theme.set_constant("shadow_offset_x", BANNER_TYPE, 0)
+	theme.set_constant("shadow_offset_y", BANNER_TYPE, 0)
+	theme.set_constant("shadow_outline_size", BANNER_TYPE, 0)
 
 	# Rows are plain Controls, not Buttons (docs/UI_DESIGN.md §5). These
 	# entries exist only so a stray Button does not arrive wearing Godot's
@@ -730,6 +835,25 @@ static func build_window_frame() -> Panel:
 	rim.add_theme_stylebox_override("panel", style)
 	rim.self_modulate = FRAME_ACTIVE
 	return rim
+
+## A banner `Label` wearing the Herald variation.
+##
+## Prefer this over setting `theme_type_variation` by hand. A variation only
+## resolves for a node that is actually beneath a Theme carrying it, so a banner
+## parented outside the battle root — or read back before it is parented —
+## silently falls back to Terminal at body size rather than erroring. Keeping
+## the one property that matters in one place makes that harder to get wrong.
+##
+## Autowrap is left at the caller's discretion: banners in the reference art are
+## hand-broken across lines, and wrapping needs a width this has no opinion on.
+static func make_banner_label(text: String = "") -> Label:
+	var label := Label.new()
+	label.theme_type_variation = BANNER_TYPE
+	label.text = text
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return label
+
 
 ## Loads a TTF with every smoothing feature off. A pixel font rendered with
 ## antialiasing, hinting, or subpixel positioning turns to mush.

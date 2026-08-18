@@ -510,6 +510,51 @@ and ascension tier, including duplicates; portrait lighting; rail sizing and the
 resolved prompt docking at every `ui_scale`; no leaked viewports or textures at
 battle end and application exit; no simulator mutation from the display path.
 
+**Resolution (2026-08-15):** Implemented; pending end-of-plan validation, with
+one sub-feature deferred and named below.
+
+**The blocking docking decision was taken rather than deferred**, on the
+recommendation this item already carried: the rail owns the top band and the
+prompt docks beneath it, `PROMPT_TOP` moving from 12 to 34 design units. The
+rail is persistent and the prompt transient, so the persistent element holds the
+stable position. `docs/UI_DESIGN.md` §8 records both windows and the reasoning.
+The developer-bar overlap is unchanged and still open in `BACKLOG_CRITICAL.md`;
+it is a dev-layer concern and the dev bar is off in a release build.
+
+Two extractions, both following the pattern LEG-3 and LEG-8 established of
+sharing one definition rather than reimplementing:
+
+- `TurnManager.speedSortedIDs()` and `effectiveSpeed()` are now static and side
+  effect free, and `sortBySpeed()` delegates to them. The rail projects the next
+  round by running the same function the simulator will run at rollover, so the
+  forecast cannot disagree with the order that resolves.
+- Portraits are built through the same `BattleMeshFactory` calls the board uses,
+  so a tile cannot drift from the unit it depicts.
+
+`PortraitRenderer` keys viewports by name, team and tier rather than by unit, so
+duplicates share one portrait. **Each viewport carries its own light and
+environment** — the battle `DirectionalLight3D` lives under the retro renderer's
+world root and does not reach a separate `SubViewport`, so a portrait viewport
+without lighting of its own renders black. Rendered with `UPDATE_ONCE`, which
+reverts itself, so it costs one render for the life of the battle.
+
+Defect found by capture: `draw_texture_rect` has no scissor, so every portrait
+spilled its plinth across neighbouring tiles. Clipping is now done by
+intersecting the destination with the tile body and mapping that rectangle back
+to a source region.
+
+Also caught, and the same root cause as LEG-3 and LEG-4: newly added
+`class_name` types are absent from the script class cache until the project is
+rescanned, so `TurnOrderRail` and `PortraitRenderer` failed as type annotations
+in three files. Preloaded script consts again.
+
+**Deferred: the SPD-change preview.** The rail projects the next round from
+current state, so an applied speed change is reflected immediately, but a
+*pending* one is not previewed before the player commits. That needs a hook into
+`PlayerTurnController`'s in-flight action rather than a state read, and it is the
+one piece of this item's end state not delivered. Recorded here rather than
+silently dropped.
+
 ### LEG-8 — Attribute the danger zone to a single enemy
 
 **Model:** Opus 5 / GPT Sol

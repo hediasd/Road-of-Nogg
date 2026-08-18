@@ -22,19 +22,37 @@ func startNewRound() -> void:
 
 
 func sortBySpeed() -> void:
-	turnOrder.sort_custom(func(a, b):
-		var spd_a = state.getMonster(a).speed
-		for effect in state.getActiveEffects(a):
-			spd_a += effect.get("spd_bonus", 0)
-			
-		var spd_b = state.getMonster(b).speed
-		for effect in state.getActiveEffects(b):
-			spd_b += effect.get("spd_bonus", 0)
-			
+	turnOrder = speedSortedIDs(state, turnOrder)
+
+
+## Effective speed descending, ties broken by ascending id.
+##
+## Static and side-effect free so presentation can ask what the *next* round will
+## look like without a turn manager and without mutating this one. The turn-order
+## rail projects the coming round by calling this on the living set; running the
+## same function the simulator runs is what stops a forecast from disagreeing
+## with the order that actually resolves — a preview that lies is worse than no
+## preview.
+static func speedSortedIDs(state: BattleState, ids: Array) -> Array:
+	var sorted := ids.duplicate()
+	sorted.sort_custom(func(a, b):
+		var spd_a = effectiveSpeed(state, a)
+		var spd_b = effectiveSpeed(state, b)
 		if spd_a == spd_b:
 			return a < b
 		return spd_a > spd_b
 	)
+	return sorted
+
+
+static func effectiveSpeed(state: BattleState, monsterID: int) -> int:
+	var monster = state.getMonster(monsterID)
+	if monster == null:
+		return 0
+	var speed: int = monster.speed
+	for effect in state.getActiveEffects(monsterID):
+		speed += effect.get("spd_bonus", 0)
+	return speed
 
 
 func hasNextTurn() -> bool:

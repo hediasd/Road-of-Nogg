@@ -15,6 +15,7 @@ const BattleUIRefsScript = preload("res://src/presentation/BattleUIRefs.gd")
 const PlayerCommandMenuScript = preload("res://src/presentation/PlayerCommandMenu.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
+const TurnOrderRailScript = preload("res://src/presentation/TurnOrderRail.gd")
 
 ## docs/UI_DESIGN.md §8: 6 rows (heading + HP + ATK/DEF + SPD/MOV, with two
 ## spare rows). Width is `NoggThemeScript.STATUS_WINDOW_WIDTH`, not redeclared
@@ -214,16 +215,14 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	targetWindow.size = status_window_size
 	targetWindow.set_input_transparent(true)
 
-	var turnOrderWindow: NoggWindow = NoggWindowScript.new()
-	game_root.add_child(turnOrderWindow)
-	turnOrderWindow.name = "TurnOrderWindow"
-	turnOrderWindow.set_row_capacity(TURN_ORDER_CAPACITY)
-	turnOrderWindow.size = Vector2(
-		NoggThemeScript.TURN_ORDER_WIDTH,
-		NoggThemeScript.window_height(TURN_ORDER_CAPACITY)
-	)
-	turnOrderWindow.set_input_transparent(true)
-	turnOrderWindow.visible = false
+	# The turn order is a top-docked portrait rail, not a docked window. It owns
+	# the top band and the prompt sits below it: the rail is persistent and the
+	# prompt is transient, so the persistent element holds the stable position
+	# (docs/UI_DESIGN.md §8).
+	var turnOrderRail: TurnOrderRailScript = TurnOrderRailScript.new()
+	turnOrderRail.name = "TurnOrderRail"
+	turnOrderRail.visible = false
+	game_root.add_child(turnOrderRail)
 
 	# Positioned from the viewport size on `resized` rather than read once at
 	# build time: `game_root.get_viewport_rect()` immediately after the canvas
@@ -241,8 +240,11 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 			viewport_size.x - status_window_size.x - NoggThemeScript.SCREEN_MARGIN,
 			viewport_size.y - status_window_size.y - NoggThemeScript.SCREEN_MARGIN
 		)
-		turnOrderWindow.position = Vector2(
-			NoggThemeScript.SCREEN_MARGIN, NoggThemeScript.TURN_ORDER_TOP
+		# Centred, because a rail that grows and shrinks with the queue would
+		# otherwise shift its whole contents every time a unit dies.
+		turnOrderRail.position = Vector2(
+			round((viewport_size.x - turnOrderRail.size.x) * 0.5),
+			NoggThemeScript.TURN_RAIL_TOP
 		)
 	game_root.resized.connect(reposition_status_windows)
 	reposition_status_windows.call()
@@ -256,7 +258,8 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	refs.graphics = graphicsMenu
 	refs.actor_window = actorWindow
 	refs.target_window = targetWindow
-	refs.turn_order_window = turnOrderWindow
+	refs.turn_order_rail = turnOrderRail
+	refs.reposition_windows = reposition_status_windows
 	refs.log_label = logLabel
 	refs.log_panel = logPanel
 	refs.action_panel = actionPanel

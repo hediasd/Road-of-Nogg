@@ -4,6 +4,9 @@ const BattleUIBuilderScript = preload("res://src/presentation/BattleUIBuilder.gd
 const BattleSetupUIScript = preload("res://src/presentation/BattleSetupUI.gd")
 const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
 const ReachQueryScript = preload("res://src/battle_sim/ReachQuery.gd")
+const TurnManagerScript = preload("res://src/battle_sim/TurnManager.gd")
+const PortraitRendererScript = preload("res://src/presentation/PortraitRenderer.gd")
+const TurnOrderRailScript = preload("res://src/presentation/TurnOrderRail.gd")
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
 const BattleSetupPresetsScript = preload("res://src/factories/BattleSetupPresets.gd")
 const MapReferencesScript = preload("res://src/factories/MapReferences.gd")
@@ -90,7 +93,9 @@ var _readoutHoverMonsterID: int = -1
 
 var actor_window: NoggWindow
 var target_window: NoggWindow
-var turn_order_window: NoggWindow
+var turn_order_rail: TurnOrderRailScript
+## Renders and caches the rail's model miniatures. Built once per battle.
+var portrait_renderer: PortraitRendererScript
 var log_label: RichTextLabel
 var log_panel: PanelContainer
 
@@ -196,7 +201,10 @@ func _build_battle_ui() -> void:
 	turn_timer = battle_ui.turn_timer
 	actor_window = battle_ui.actor_window
 	target_window = battle_ui.target_window
-	turn_order_window = battle_ui.turn_order_window
+	turn_order_rail = battle_ui.turn_order_rail
+	# Hovering a rail tile inspects that unit exactly as hovering it on the board
+	# does, so the two surfaces stay one selection rather than two.
+	turn_order_rail.entry_hovered.connect(_on_rail_entry_hovered)
 	log_label = battle_ui.log_label
 	log_panel = battle_ui.log_panel
 	_sync_rendering_options()
@@ -466,6 +474,11 @@ func _start_battle(config: BattleSetupConfig) -> void:
 	_turn_order_ids.clear()
 	_active_turn_order_id = -1
 	_clear_turn_order_display()
+	# Rebuilt per battle: portraits are keyed by name, team and tier, and a new
+	# roster invalidates every cached texture from the previous one.
+	if portrait_renderer != null:
+		portrait_renderer.clear()
+	portrait_renderer = PortraitRendererScript.new(self)
 	log_label.text = ""
 	_clearStatusWindows()
 	battle_ui.graphics_button.set_pressed_no_signal(false)
@@ -1221,6 +1234,13 @@ func _updateReadoutHover(monsterID: int) -> void:
 	_refreshThreatOverlay()
 
 
+## The rail and the board are two views of one hover. A tile lights its unit, a
+## unit lights its tile, and both fill the same docked readout — anything less
+## makes the player match names between two lists.
+func _on_rail_entry_hovered(monster_id: int) -> void:
+	_updateReadoutHover(monster_id)
+
+
 ## Repaints the danger zone, attributing it to the hovered enemy when there is
 ## one.
 ##
@@ -1501,45 +1521,80 @@ func _on_turn_order_defeated(monsterID: int, _killerID: int) -> void:
 
 
 func _clear_turn_order_display() -> void:
-	if turn_order_window == null:
+	if turn_order_rail == null:
 		return
-	turn_order_window.clear_rows()
-	turn_order_window.visible = false
+	turn_order_rail.set_entries([])
+	turn_order_rail.visible = false
 
 
 func _refresh_turn_order_display() -> void:
-	if turn_order_window == null or sim == null:
+	if turn_order_rail == null or sim == null or portrait_renderer == null:
 		return
-	turn_order_window.clear_rows()
-	var shown := 0
+	var entries := _buildTurnRailEntries()
+	if turn_order_rail.set_entries(entries):
+		# The rail is centred and its width tracks the queue, so a changed entry
+		# count has to relayout rather than wait for a viewport resize.
+		if battle_ui != null and battle_ui.reposition_windows.is_valid():
+			battle_ui.reposition_windows.call()
+	turn_order_rail.visible = not entries.is_empty()
+
+
+## The queue this round, then as much of the next round as fits.
+##
+## The next round is projected by running `TurnManager.speedSortedIDs` over the
+## living set - the same function the simulator will run when the round rolls
+## over, so the forecast cannot disagree with the order that actually resolves.
+## It is re-derived on every refresh rather than cached, because a kill this
+## round changes it and a stale forecast is worse than none.
+##
+## Numbering is round-relative: it restarts after the divider, so a unit that
+## appears on both sides carries a high number and then `1`, and its double turn
+## is legible from the tiles rather than inferred from the divider alone.
+func _buildTurnRailEntries() -> Array:
+	var entries: Array = []
+	var ordinal := 1
 	for monsterID in _turn_order_ids:
-		if shown >= BattleUIBuilderScript.TURN_ORDER_CAPACITY:
-			break
-		var monster = sim.state.getMonster(int(monsterID))
-		if monster == null or not monster.is_alive():
+		if entries.size() >= NoggThemeScript.TURN_RAIL_CAPACITY:
+			return entries
+		var entry := _turnRailEntry(int(monsterID), ordinal, false, false)
+		if entry.is_empty():
 			continue
-		var marker := "NOW" if int(monsterID) == _active_turn_order_id else (
-			"NEXT" if shown == 0 else "UP"
-		)
-		var row := turn_order_window.add_row(
-			"%s  %s" % [marker, monster.name],
-			"#%d" % int(monsterID)
-		)
-		_tint_turn_order_row(
-			row,
-			NoggThemeScript.TEXT_ACCENT if int(monsterID) == _active_turn_order_id
-			else NoggThemeScript.TEXT_PRIMARY
-		)
-		shown += 1
-	turn_order_window.visible = shown > 0
+		entries.append(entry)
+		ordinal += 1
+
+	var projected: Array = TurnManagerScript.speedSortedIDs(
+		sim.state, sim.state.getAliveMonsterIDs()
+	)
+	ordinal = 1
+	var first := true
+	for monsterID in projected:
+		if entries.size() >= NoggThemeScript.TURN_RAIL_CAPACITY:
+			break
+		var entry := _turnRailEntry(int(monsterID), ordinal, true, first)
+		if entry.is_empty():
+			continue
+		entries.append(entry)
+		ordinal += 1
+		first = false
+	return entries
 
 
-func _tint_turn_order_row(node: Node, color: Color) -> void:
-	for child in node.get_children():
-		if child is Label:
-			child.add_theme_color_override("font_color", color)
-		elif child.get_child_count() > 0:
-			_tint_turn_order_row(child, color)
+func _turnRailEntry(
+		monsterID: int, ordinal: int, projected: bool, divider_before: bool) -> Dictionary:
+	var monster = sim.state.getMonster(monsterID)
+	if monster == null or not monster.is_alive():
+		return {}
+	return {
+		"id": monsterID,
+		"portrait": portrait_renderer.texture_for(monster.name, monster.team),
+		"team": NoggThemeScript.team_color(monster.team),
+		"ordinal": ordinal,
+		"hp_ratio": float(monster.hitpoints) / float(maxi(1, monster.max_hitpoints)),
+		"active": (not projected) and monsterID == _active_turn_order_id,
+		"projected": projected,
+		"divider_before": divider_before,
+	}
+
 
 func _on_animation_queue_drained() -> void:
 	if lifecycle != Lifecycle.BATTLE:

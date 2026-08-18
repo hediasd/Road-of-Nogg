@@ -610,12 +610,12 @@ there is nothing left for them to compete over.
 |---|---|---|---|
 | **Command** | Left, vertically centred | `COMMAND_WIDTH` 110 / 220 × 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS`; 5 is the list's true maximum |
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | `SPELL_WIDTH` 340 / 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
-| **Turn order** | Upper-left, x=20 / y=100 | `TURN_ORDER_WIDTH` 275 / 550 × 3 rows | Up to three entries: NOW for the active unit, NEXT for the next unit, and UP for the following queued unit |
+| **Turn rail** | Top-centre, `TURN_RAIL_TOP` | `TURN_RAIL_TILE` 22 / 44 square per tile, up to `TURN_RAIL_CAPACITY` | Portrait tiles: a rendered model miniature, team-coloured frame, round-relative queue number, and a health strip. Crosses the round boundary with a dashed divider; entries past it are a projection and draw at `TURN_RAIL_PROJECTED_ALPHA` |
 | **Actor status** | Bottom-left, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3 |
 | **Target** | Bottom-right, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Same fixed-cell shape as actor status; shows an empty frame, not a hidden window, when there is no target |
 | **Confirm** | Same origin as Command, replacing it | `COMMAND_WIDTH` 110 / 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
 | **Forecast** | Above Command, **left-aligned** with it | `FORECAST_WIDTH` 340 / 680 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible while aiming *and* while confirming |
-| **Prompt** | Top-centre | `PROMPT_WIDTH` 470 / 940, 1 row | `Select a destination`, `Select a target` — replaces today's status label |
+| **Prompt** | Top-centre, below the rail | `PROMPT_WIDTH` 470 / 940, 1 row | `Select a destination`, `Select a target` — replaces today's status label |
 | **Battle log** | Right edge, full height | scrolling | The one deliberate exception to trait 5; a log is a scrollback, not a menu |
 
 **`PROMPT_WIDTH` and `FORECAST_WIDTH` changed value, not just unit — this
@@ -644,6 +644,23 @@ windows had grown while the margins placing them had not, so the whole HUD
 crept toward the screen edges and the prompt sat too high. A margin is a length
 like any other. If you add a new window, its position belongs here in units,
 not as a literal at the call site.
+
+**The turn rail owns the top band, and the prompt moved down for it.** The band
+was already contested — the prompt docked at `PROMPT_TOP` 12 and the developer
+bar sits above everything on `DEV_LAYER`, an overlap `BACKLOG_CRITICAL.md`
+already records. Adding a third occupant without settling ownership would have
+made it a three-way collision. The rail wins the stable position because it is
+**persistent and the prompt is transient**: a readout the player consults every
+turn should not move because a transient line appeared. `PROMPT_TOP` is now 34.
+
+The rail replaced a three-row `NoggWindow`. That window could not show the thing
+that most punishes a player who did not see it coming: a round re-sorts every
+living unit by speed, so a fast unit acting last in one round and first in the
+next takes **two turns back to back**, and at three entries stopping inside one
+round that is structurally invisible. The rail is also **centred and resizes
+with the queue**, which is why `BattleUIRefs` exposes its relayout callable —
+a docked window can lay out once on `resized`, but a centred element whose width
+changes has to lay out whenever its contents do.
 
 **The forecast is left-aligned, not right-aligned.** An earlier draft of this
 table said right-aligned to the command window; that cannot hold once the

@@ -2,6 +2,8 @@
 class_name BattleUIRefs
 extends RefCounted
 
+const TurnOrderRailScript = preload("res://src/presentation/TurnOrderRail.gd")
+
 var game_canvas: CanvasLayer
 var dev_canvas: CanvasLayer
 var turn_timer: Timer
@@ -11,7 +13,10 @@ var graphics_button: Button
 var graphics: BattleGraphicsMenuRefs
 var actor_window: NoggWindow
 var target_window: NoggWindow
-var turn_order_window: NoggWindow
+var turn_order_rail: TurnOrderRailScript
+## The rail is centred on the viewport and resizes with the queue, so its layout
+## has to rerun whenever its width changes rather than only on `resized`.
+var reposition_windows: Callable
 var log_label: RichTextLabel
 var log_panel: PanelContainer
 var action_panel: Control
