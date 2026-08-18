@@ -303,7 +303,12 @@ const WINDOW_STACK_GAP_UNITS := 4.0
 # which stopped at the round boundary and so could never show the thing that
 # most punishes a player who did not see it coming: a fast unit acting last in
 # one round and first in the next, twice in a row.
-const TURN_RAIL_TILE_UNITS := 22.0
+## Portrait tiles are **taller than they are wide**. A square tile forced the
+## miniature and the queue number to compete for the same area; the extra height
+## gives the number its own band across the top and leaves the model a clean
+## square below it.
+const TURN_RAIL_TILE_WIDTH_UNITS := 20.0
+const TURN_RAIL_TILE_HEIGHT_UNITS := 28.0
 const TURN_RAIL_GAP_UNITS := 2.0
 ## Team-coloured border. At tile size a team-tinted model is not a reliable
 ## signal on its own, so the frame carries it instead.
@@ -456,7 +461,8 @@ static var STATUS_WINDOW_WIDTH: float
 static var TURN_ORDER_WIDTH: float
 static var PAGER_WIDTH: float
 static var PAGER_ARROW_GAP: float
-static var TURN_RAIL_TILE: float
+static var TURN_RAIL_TILE_WIDTH: float
+static var TURN_RAIL_TILE_HEIGHT: float
 static var TURN_RAIL_GAP: float
 static var TURN_RAIL_FRAME: float
 static var TURN_RAIL_TOP: float
@@ -612,7 +618,8 @@ static func _recompute() -> void:
 	TURN_ORDER_WIDTH = _scaled(TURN_ORDER_WIDTH_UNITS)
 	PAGER_WIDTH = _scaled(PAGER_WIDTH_UNITS)
 	PAGER_ARROW_GAP = _scaled(PAGER_ARROW_GAP_UNITS)
-	TURN_RAIL_TILE = _scaled(TURN_RAIL_TILE_UNITS)
+	TURN_RAIL_TILE_WIDTH = _scaled(TURN_RAIL_TILE_WIDTH_UNITS)
+	TURN_RAIL_TILE_HEIGHT = _scaled(TURN_RAIL_TILE_HEIGHT_UNITS)
 	TURN_RAIL_GAP = _scaled(TURN_RAIL_GAP_UNITS)
 	TURN_RAIL_FRAME = _scaled(TURN_RAIL_FRAME_UNITS)
 	TURN_RAIL_TOP = _scaled(TURN_RAIL_TOP_UNITS)

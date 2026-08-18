@@ -610,7 +610,7 @@ there is nothing left for them to compete over.
 |---|---|---|---|
 | **Command** | Left, vertically centred | `COMMAND_WIDTH` 110 / 220 × 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS`; 5 is the list's true maximum |
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | `SPELL_WIDTH` 340 / 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
-| **Turn rail** | Top-centre, `TURN_RAIL_TOP` | `TURN_RAIL_TILE` 22 / 44 square per tile, up to `TURN_RAIL_CAPACITY` | Portrait tiles: a rendered model miniature, team-coloured frame, round-relative queue number, and a health strip. Crosses the round boundary with a dashed divider; entries past it are a projection and draw at `TURN_RAIL_PROJECTED_ALPHA` |
+| **Turn rail** | Top-centre, `TURN_RAIL_TOP` | `TURN_RAIL_TILE_WIDTH` 20 / 40 x `TURN_RAIL_TILE_HEIGHT` 28 / 56 per tile, up to `TURN_RAIL_CAPACITY` | Portrait tiles: a rendered model miniature, team-coloured frame, round-relative queue number, and a health strip. Crosses the round boundary with a dashed divider; entries past it are a projection and draw at `TURN_RAIL_PROJECTED_ALPHA` |
 | **Actor status** | Bottom-left, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3 |
 | **Target** | Bottom-right, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Same fixed-cell shape as actor status; shows an empty frame, not a hidden window, when there is no target |
 | **Confirm** | Same origin as Command, replacing it | `COMMAND_WIDTH` 110 / 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
@@ -652,6 +652,13 @@ already records. Adding a third occupant without settling ownership would have
 made it a three-way collision. The rail wins the stable position because it is
 **persistent and the prompt is transient**: a readout the player consults every
 turn should not move because a transient line appeared. `PROMPT_TOP` is now 34.
+
+**Tiles are taller than they are wide, and the miniature is pinned low-right.**
+A square tile made the model and the queue number compete for the same area. The
+extra height gives the number its own band across the top and leaves the model a
+clean square below it. Pinning is done by offsetting the *portrait camera's
+frustum*, not by anchoring the rendered square inside the tile — the square has
+the model centred in it, so moving the square moves nothing.
 
 The rail replaced a three-row `NoggWindow`. That window could not show the thing
 that most punishes a player who did not see it coming: a round re-sorts every

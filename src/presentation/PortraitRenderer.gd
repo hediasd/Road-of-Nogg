@@ -39,8 +39,24 @@ const VIEW_DIRECTION := Vector3(0.0, 1.875, 1.0)
 const VIEW_DISTANCE := 4.0
 ## Framed a little above the model's origin, so the body sits low in the square
 ## and the head lands where the tile's crop wants it.
-const LOOK_HEIGHT := 0.64
-const ORTHO_SIZE := 1.25
+const LOOK_HEIGHT := 0.55
+## Pulled back so the whole unit sits inside the frame with air around it. A
+## tighter crop put the head at the edges of the square, which read as a
+## thumbnail of something rather than as the unit itself.
+const ORTHO_SIZE := 1.75
+
+## Frustum offsets that push the model to the lower-right of its square.
+##
+## **The offset has to happen here, not in the tile.** Anchoring the rendered
+## square to the tile's corner does not move the model, because the model is
+## centred inside that square — the first attempt did exactly that and the unit
+## still read as centred. Shifting the camera's view window is what actually
+## moves the subject within the image.
+##
+## Signs are inverted relative to the result: a positive `h_offset` moves the
+## view window right, which moves the subject left. In world units against
+## `ORTHO_SIZE`.
+const FRAME_OFFSET := Vector2(-0.42, 0.30)
 
 var _root: Node3D
 var _cache: Dictionary = {}
@@ -107,6 +123,8 @@ func _render(monsterName: String, team: int, tier: int) -> Texture2D:
 	camera.position = look_at + VIEW_DIRECTION.normalized() * VIEW_DISTANCE
 	viewport.add_child(camera)
 	camera.look_at(look_at, Vector3.UP)
+	camera.h_offset = FRAME_OFFSET.x
+	camera.v_offset = FRAME_OFFSET.y
 
 	viewport.add_child(_build_model(monsterName, team, tier))
 	return viewport.get_texture()

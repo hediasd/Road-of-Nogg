@@ -38,10 +38,11 @@ const DIGIT_GLYPHS := {
 	"9": ["111", "101", "111", "001", "111"],
 }
 
-## How far the miniature overflows its tile, and where its top-left sits inside
-## it. Together these are the bust crop.
-const PORTRAIT_SPAN := 1.30
-const PORTRAIT_OFFSET := Vector2(0.14, 0.06)
+## The miniature is drawn as a square this fraction of the tile width, pinned to
+## the tile's bottom-right corner just above the health strip. Anchoring it to a
+## corner rather than centring it is what keeps the top band free for the queue
+## number: the two never compete for the same area, whatever the tile size.
+const PORTRAIT_SPAN := 1.0
 
 signal entry_hovered(monster_id: int)
 
@@ -106,7 +107,7 @@ func hovered_monster_id() -> int:
 
 
 func _tile_stride() -> float:
-	return NoggThemeScript.TURN_RAIL_TILE + NoggThemeScript.TURN_RAIL_GAP
+	return NoggThemeScript.TURN_RAIL_TILE_WIDTH + NoggThemeScript.TURN_RAIL_GAP
 
 
 ## Tiles after the round divider are pushed right by the divider's own gap, so
@@ -117,9 +118,11 @@ func _tile_rect(index: int) -> Rect2:
 		x += _tile_stride()
 		if bool(_entries[step + 1]["divider_before"]):
 			x += NoggThemeScript.TURN_RAIL_DIVIDER_GAP
-	var tile: float = NoggThemeScript.TURN_RAIL_TILE
 	var top := 0.0 if bool(_entries[index]["active"]) else NoggThemeScript.TURN_RAIL_ACTIVE_LIFT
-	return Rect2(Vector2(x, top), Vector2(tile, tile))
+	return Rect2(
+		Vector2(x, top),
+		Vector2(NoggThemeScript.TURN_RAIL_TILE_WIDTH, NoggThemeScript.TURN_RAIL_TILE_HEIGHT)
+	)
 
 
 func _resize() -> void:
@@ -129,7 +132,7 @@ func _resize() -> void:
 	var last := _tile_rect(_entries.size() - 1)
 	size = Vector2(
 		last.position.x + last.size.x,
-		NoggThemeScript.TURN_RAIL_TILE + NoggThemeScript.TURN_RAIL_ACTIVE_LIFT
+		NoggThemeScript.TURN_RAIL_TILE_HEIGHT + NoggThemeScript.TURN_RAIL_ACTIVE_LIFT
 	)
 
 
@@ -184,20 +187,26 @@ func _draw_tile(index: int) -> void:
 		_draw_frame(rect.grow(frame), frame, _with_alpha(NoggThemeScript.FRAME_ACTIVE, alpha))
 
 
-## Draws the miniature offset down and to the right, clipped to the tile body.
+## Draws the miniature pinned to the tile's bottom-right corner, clipped to the
+## tile body.
 ##
-## The offset is the bust crop: the head lands centre-right of the frame and the
-## base leaves through the bottom-right corner, which is what keeps the top-left
-## genuinely empty for the queue number instead of stacking one over the other.
+## The whole unit sits in frame rather than being cropped to a bust: the camera
+## is pulled back far enough that the model reads as an object on its plinth,
+## which at this size is more recognisable than a head filling the square. The
+## corner anchor is what keeps the top band clear for the queue number — the two
+## never compete for the same area.
 ##
 ## **Clipping is done by mapping the visible rectangle back to a source region**,
 ## because `_draw` has no scissor and `draw_texture_rect` will happily paint
-## outside its container. The first version relied on the tile bounds implicitly
+## outside its container. An earlier version relied on the tile bounds implicitly
 ## and every portrait spilled its plinth across the neighbouring tiles.
 func _draw_portrait(portrait: Texture2D, body: Rect2, alpha: float) -> void:
 	var span := body.size.x * PORTRAIT_SPAN
 	var destination := Rect2(
-		body.position + Vector2(body.size.x * PORTRAIT_OFFSET.x, body.size.y * PORTRAIT_OFFSET.y),
+		Vector2(
+			body.position.x + body.size.x - span,
+			body.position.y + body.size.y - NoggThemeScript.TURN_RAIL_HEALTH - span
+		),
 		Vector2(span, span)
 	)
 	var visible := destination.intersection(body)
