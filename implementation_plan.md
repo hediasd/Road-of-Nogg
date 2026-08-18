@@ -410,7 +410,14 @@ texture; re-render only when the model changes, since eight continuously
 updating viewports would cost real frame time while eight one-shot renders cost
 almost nothing.
 
-Match the portrait camera to the board camera's orthogonal angle. A portrait
+~~Match the portrait camera to the board camera's orthogonal angle.~~
+**Superseded during execution.** The board camera looks down at close to 62
+degrees, and at portrait size that yields the top of a head and a plinth with
+almost no silhouette. Portraits use a three-quarter view at roughly 25 degrees
+of elevation instead, which is not merely more flattering but more
+*recognisable*, since silhouette is what the eye identifies a unit by. The
+original reasoning below still holds for why the angle matters at all — it was
+the chosen angle that was wrong. A portrait
 shot from a different angle than the board view reads as a different object and
 defeats the recognition the rail exists to provide. Render at native tile
 resolution rather than through the retro downsample, consistent with the rest of

@@ -30,20 +30,26 @@ const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisua
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
-## Matches the battle camera's angle, not its position. That camera is
-## orthogonal at `(6, 15, 14)` looking at the board centre, so its view direction
-## has a y:z ratio of roughly 15:8 — reproduced here so a portrait reads as the
-## same object the player sees on the board. A portrait shot from a different
-## angle defeats the recognition the rail exists to provide.
-const VIEW_DIRECTION := Vector3(0.0, 1.875, 1.0)
+## A three-quarter view at roughly 25 degrees of elevation, yawed about 37
+## degrees off axis.
+##
+## **Deliberately not the battle camera's angle.** Matching it was the first
+## approach, on the reasoning that a portrait should read as the same object the
+## player sees on the board. But that camera looks down at close to 62 degrees,
+## and at portrait size the result is the top of a head and a plinth — almost no
+## silhouette. A lower three-quarter view is not merely the more flattering
+## choice, it is the more *recognisable* one, because silhouette is what the eye
+## identifies a unit by. The yaw exists for the same reason: it shows two faces
+## of a model rather than one flat elevation.
+const VIEW_DIRECTION := Vector3(0.55, 0.42, 0.72)
 const VIEW_DISTANCE := 4.0
 ## Framed a little above the model's origin, so the body sits low in the square
 ## and the head lands where the tile's crop wants it.
-const LOOK_HEIGHT := 0.55
-## Pulled back so the whole unit sits inside the frame with air around it. A
-## tighter crop put the head at the edges of the square, which read as a
-## thumbnail of something rather than as the unit itself.
-const ORTHO_SIZE := 1.75
+const LOOK_HEIGHT := 0.58
+## Framed so the unit fills the tile without touching its edges. Half way back
+## from the tight 1.25 crop, which cut the model off, and half way in from 1.75,
+## which left it a distant blob.
+const ORTHO_SIZE := 1.5
 
 ## Frustum offsets that push the model to the lower-right of its square.
 ##
