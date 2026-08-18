@@ -24,9 +24,8 @@
 class_name PortraitRenderer
 extends RefCounted
 
-const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
 const BattleEnvironmentFactoryScript = preload("res://src/presentation/BattleEnvironmentFactory.gd")
-const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
+const MonsterModelFactoryScript = preload("res://src/presentation/MonsterModelFactory.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
@@ -45,7 +44,7 @@ const VIEW_DIRECTION := Vector3(0.55, 0.42, 0.72)
 const VIEW_DISTANCE := 4.0
 ## Framed a little above the model's origin, so the body sits low in the square
 ## and the head lands where the tile's crop wants it.
-const LOOK_HEIGHT := 0.58
+const LOOK_HEIGHT := 0.72
 ## Framed so the unit fills the tile without touching its edges. Half way back
 ## from the tight 1.25 crop, which cut the model off, and half way in from 1.75,
 ## which left it a distant blob.
@@ -62,7 +61,7 @@ const ORTHO_SIZE := 1.5
 ## Signs are inverted relative to the result: a positive `h_offset` moves the
 ## view window right, which moves the subject left. In world units against
 ## `ORTHO_SIZE`.
-const FRAME_OFFSET := Vector2(-0.42, 0.30)
+const FRAME_OFFSET := Vector2(-0.42, 0.08)
 
 var _root: Node3D
 var _cache: Dictionary = {}
@@ -132,73 +131,23 @@ func _render(monsterName: String, team: int, tier: int) -> Texture2D:
 	camera.h_offset = FRAME_OFFSET.x
 	camera.v_offset = FRAME_OFFSET.y
 
-	viewport.add_child(_build_model(monsterName, team, tier))
+	viewport.add_child(_build_model(monsterName, team))
 	return viewport.get_texture()
 
 
-## Built through the same factory calls the board uses, so a portrait cannot
-## drift from the unit it depicts. Every monster currently falls back to the
-## procedural placeholder body, because `MonsterVisualRegistry.VISUAL_PATHS` is
-## still empty — the rail is built ahead of the art deliberately, and improves on
-## its own as real models land.
-func _build_model(monsterName: String, team: int, tier: int) -> Node3D:
-	var container := Node3D.new()
-	container.name = "PortraitModel"
-	container.add_child(
-		BattleMeshFactoryScript.createModelBase(NoggThemeScript.team_color(team), tier)
-	)
-	var body := MonsterVisualRegistryScript.instantiateVisual(monsterName)
-	if body == null:
-		body = _placeholder_body(monsterName)
-	container.add_child(body)
-	BattleMeshFactoryScript.prepareNodeMaterials(body)
-	return container
-
-
-## Mirrors `GodotVisualAdapter._buildPlaceholderBody`'s silhouette. Deliberately
-## a local copy rather than a call into the adapter: that method is private to a
-## class this one must not depend on, and the placeholder is temporary by
-## definition. When real visuals land, `instantiateVisual` returns them and this
-## stops being reached at all.
-func _placeholder_body(monsterName: String) -> Node3D:
-	var body := Node3D.new()
-	var material := BattleMeshFactoryScript.createMaterial(
-		BattleMeshFactoryScript.elementColor(_first_element(monsterName))
-	)
-	var bulb := BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	bulb.mesh.height = 0.2
-	bulb.mesh.top_radius = 0.3
-	bulb.mesh.bottom_radius = 0.35
-	bulb.position.y = 0.3
-	bulb.material_override = material
-	body.add_child(bulb)
-	var ring := BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	ring.mesh.height = 0.05
-	ring.mesh.top_radius = 0.31
-	ring.mesh.bottom_radius = 0.31
-	ring.position.y = 0.425
-	ring.material_override = material
-	body.add_child(ring)
-	var stem := BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	stem.mesh.height = 0.6
-	stem.mesh.top_radius = 0.1
-	stem.mesh.bottom_radius = 0.25
-	stem.position.y = 0.75
-	stem.material_override = material
-	body.add_child(stem)
-	var head := BattleMeshFactoryScript.createMesh("shape_sphere", Color.WHITE)
-	head.position.y = 1.05
-	head.material_override = material
-	body.add_child(head)
-	return body
-
-
-func _first_element(monsterName: String) -> String:
+## Built through `MonsterModelFactory`, the same call the board uses, so a
+## portrait cannot drift from the unit it depicts. Two-element units get their
+## half material and split bounds here exactly as they do on the board — an
+## earlier version of this file built its own single-colour body and silently
+## dropped the second element.
+func _build_model(monsterName: String, team: int) -> Node3D:
 	var reference: Dictionary = MonsterReferencesScript.getReference(monsterName)
 	var elements = reference.get("ELEMENTS", [])
-	if elements is Array and not elements.is_empty():
-		return str(elements[0])
-	return "neutral"
+	return MonsterModelFactoryScript.build(
+		monsterName,
+		NoggThemeScript.team_color(team),
+		elements if elements is Array else []
+	)
 
 
 func clear() -> void:

@@ -536,7 +536,15 @@ sharing one definition rather than reimplementing:
   round by running the same function the simulator will run at rollover, so the
   forecast cannot disagree with the order that resolves.
 - Portraits are built through the same `BattleMeshFactory` calls the board uses,
-  so a tile cannot drift from the unit it depicts.
+  so a tile cannot drift from the unit it depicts. **This was claimed before it
+  was true.** The first implementation assembled its own body and used a single
+  colour from the first element, so a two-element unit rendered split on the
+  board and mono in its tile; the same copy also left the head sphere at
+  `createMesh`'s 0.4 default instead of the 0.2 the board sets, so portrait
+  figures were all head and no body. Both were caught by a user looking at a
+  capture, not by any check here. Fixed by extracting
+  `src/presentation/MonsterModelFactory.gd` and routing *both* callers through
+  it, which is what the claim required in the first place.
 
 `PortraitRenderer` keys viewports by name, team and tier rather than by unit, so
 duplicates share one portrait. **Each viewport carries its own light and

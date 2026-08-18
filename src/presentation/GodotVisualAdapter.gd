@@ -10,6 +10,7 @@ const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactor
 const BattleVisualEffectsScript = preload("res://src/presentation/BattleVisualEffects.gd")
 const BattleCursorControllerScript = preload("res://src/presentation/BattleCursorController.gd")
 const MonsterVisualRegistryScript = preload("res://src/presentation/MonsterVisualRegistry.gd")
+const MonsterModelFactoryScript = preload("res://src/presentation/MonsterModelFactory.gd")
 const StatusBadgeRowScript = preload("res://src/presentation/StatusBadgeRow.gd")
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
 const SpellVfxCatalogScript = preload("res://src/presentation/effects/SpellVfxCatalog.gd")
@@ -577,51 +578,6 @@ func _liveMonsterVisual(monsterID: int) -> Node3D:
 	return visual
 
 
-func _buildPlaceholderBody(material: Material) -> Node3D:
-	var body = Node3D.new()
-
-	var baseBulb = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	baseBulb.mesh.height = 0.2
-	baseBulb.mesh.top_radius = 0.3
-	baseBulb.mesh.bottom_radius = 0.35
-	baseBulb.position.y = 0.3
-	baseBulb.material_override = material
-	body.add_child(baseBulb)
-
-	var ring = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	ring.mesh.height = 0.05
-	ring.mesh.top_radius = 0.31
-	ring.mesh.bottom_radius = 0.31
-	ring.position.y = 0.425
-	ring.material_override = material
-	body.add_child(ring)
-
-	var stem = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	stem.mesh.height = 0.6
-	stem.mesh.top_radius = 0.1
-	stem.mesh.bottom_radius = 0.25
-	stem.position.y = 0.75
-	stem.material_override = material
-	body.add_child(stem)
-
-	var collar = BattleMeshFactoryScript.createMesh("shape_coin", Color.WHITE)
-	collar.mesh.height = 0.05
-	collar.mesh.top_radius = 0.2
-	collar.mesh.bottom_radius = 0.2
-	collar.position.y = 1.075
-	collar.material_override = material
-	body.add_child(collar)
-
-	var head = BattleMeshFactoryScript.createMesh("shape_sphere", Color.WHITE)
-	head.mesh.radius = 0.2
-	head.mesh.height = 0.4
-	head.position.y = 1.3
-	head.material_override = material
-	body.add_child(head)
-
-	return body
-
-
 func _add_selection_body(container: Node3D, monsterID: int) -> void:
 	var accumulated = {"has_bounds": false, "bounds": AABB()}
 	_accumulate_visual_bounds(container, Transform3D.IDENTITY, accumulated)
@@ -804,40 +760,16 @@ static func tileColorFor(baseColor: Color, coord: Vector2i, _terrain: int) -> Co
 	return baseColor.darkened(0.11)
 
 func _on_monster_spawned(monsterID: int, _name: String, team: int, pos: Vector2i, _stats: Dictionary) -> void:
-	var team_color := NoggThemeScript.team_color(team)
 	var m = state.getMonster(monsterID)
 
-	var mat: Material = null
-	if m and m.elements.size() >= 2:
-		mat = BattleMeshFactoryScript.createHalfMaterial(BattleMeshFactoryScript.elementColor(m.elements[0]), BattleMeshFactoryScript.elementColor(m.elements[1]))
-	elif m and m.elements.size() == 1:
-		mat = BattleMeshFactoryScript.createMaterial(BattleMeshFactoryScript.elementColor(m.elements[0]))
-	else:
-		mat = BattleMeshFactoryScript.createMaterial(Color(0.6, 0.6, 0.6))
-
-	var container = Node3D.new()
-	container.position = _coord_to_surface_pos3d(pos)
-
-	## Tier comes from the catalog chain, not the spawned instance, so setup,
-	## replay reconstruction, and any board refresh all build the same stack.
-	var ascensionTier: int = MonsterReferencesScript.ascensionTier(_name)
-	container.add_child(
-		BattleMeshFactoryScript.createModelBase(team_color, ascensionTier)
+	# Built through the shared factory rather than assembled here, so the turn
+	# rail's portrait miniatures and the board's units cannot diverge. They did:
+	# the portrait path dropped the two-element half material entirely.
+	var elements = m.elements if m != null else []
+	var container := MonsterModelFactoryScript.build(
+		_name, NoggThemeScript.team_color(team), elements
 	)
-
-	var bodyVisual = MonsterVisualRegistryScript.instantiateVisual(_name)
-	if bodyVisual == null:
-		bodyVisual = _buildPlaceholderBody(mat)
-	container.add_child(bodyVisual)
-	BattleMeshFactoryScript.prepareNodeMaterials(bodyVisual)
-	if m and m.elements.size() >= 2:
-		var splitBounds = {"has_bounds": false, "bounds": AABB()}
-		_accumulate_visual_bounds(bodyVisual, Transform3D.IDENTITY, splitBounds)
-		if splitBounds["has_bounds"]:
-			BattleMeshFactoryScript.configureSplitBounds(
-				bodyVisual,
-				splitBounds["bounds"]
-			)
+	container.position = _coord_to_surface_pos3d(pos)
 	_add_selection_body(container, monsterID)
 
 	monsters_node.add_child(container)
