@@ -37,6 +37,14 @@
 class_name ActionRing
 extends Control
 
+## A slot was clicked. Carries the command id rather than the slot index, so
+## the listener never has to know the ring's geometry.
+signal entry_activated(entry_id: String)
+## The pointer moved onto a different activatable slot, or off all of them
+## (-1). Focus itself is applied here; this reports it so a listener can keep
+## a mirrored surface in step.
+signal slot_focused(slot: int)
+
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const ActionIconsScript = preload("res://src/presentation/ActionIcons.gd")
 
@@ -68,7 +76,11 @@ var _scales: Array = []
 
 
 func _init() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# STOP, not IGNORE, so the icons are clickable -- but `_has_point()` below
+	# narrows what "inside this Control" means to the four icon rects, so the
+	# ring claims only those and every other pixel of its bounding box (the
+	# centre where the unit stands most of all) still reaches the board.
+	mouse_filter = Control.MOUSE_FILTER_STOP
 	# The icons are hard-edged pixel art at exactly 1:1 with their source at the
 	# shipping scale; any smoothing would undo that.
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -174,6 +186,13 @@ func is_slot_activatable(slot: int) -> bool:
 	return _is_activatable(slot)
 
 
+## The command id held by a slot, or "" when the slot is empty.
+func entry_id_at(slot: int) -> String:
+	if slot < 0 or slot >= _slots.size() or _slots[slot].is_empty():
+		return ""
+	return str(_slots[slot].get("id", ""))
+
+
 ## Advances the focus growth tween. Driven by the caller's frame loop rather
 ## than an internal `_process`, matching `StatusBadgeRow.advance()` so every
 ## projected icon surface has one update path.
@@ -203,6 +222,56 @@ func advance(delta: float) -> bool:
 func extent() -> float:
 	var grown := NoggThemeScript.ACTION_RING_ICON * NoggThemeScript.ACTION_RING_FOCUS_SCALE
 	return NoggThemeScript.ACTION_RING_RADIUS * 2.0 + grown
+
+
+## Narrows this Control's hit area to the icon rects.
+##
+## Without it the ring would be a square roughly 130px across sitting on the
+## board, swallowing clicks on the acting unit itself and on up to eight
+## surrounding tiles -- and the acting unit is exactly what a player clicks to
+## inspect. Only *activatable* slots take the pointer: a dimmed icon is a
+## readout, and a click there should select the tile behind it.
+func _has_point(point: Vector2) -> bool:
+	return slot_at_point(point) != -1
+
+
+## The activatable slot whose icon contains `point` (this Control's own space),
+## or -1. Hit-tested at the icon's resting size rather than its focused size,
+## so a slot's clickable area does not breathe as the focus tween runs.
+func slot_at_point(point: Vector2) -> int:
+	var centre := size * 0.5
+	for index in range(SLOTS.size()):
+		if not _is_activatable(index):
+			continue
+		var slot_centre: Vector2 = (
+			centre + SLOTS[index]["direction"] * NoggThemeScript.ACTION_RING_RADIUS
+		)
+		var half := NoggThemeScript.ACTION_RING_ICON * 0.5
+		if Rect2(
+			slot_centre - Vector2(half, half),
+			Vector2(NoggThemeScript.ACTION_RING_ICON, NoggThemeScript.ACTION_RING_ICON)
+		).has_point(point):
+			return index
+	return -1
+
+
+func _gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		var hovered := slot_at_point(event.position)
+		if hovered != -1 and set_focus_slot(hovered):
+			slot_focused.emit(hovered)
+		return
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var clicked := slot_at_point(event.position)
+		if clicked == -1:
+			return
+		# Focus first, then activate: a click is also a selection, and a
+		# listener reading `focused_entry_id()` from the activation handler
+		# must see the slot that was actually clicked.
+		if set_focus_slot(clicked):
+			slot_focused.emit(clicked)
+		accept_event()
+		entry_activated.emit(str(_slots[clicked].get("id", "")))
 
 
 func _slot_for_id(entry_id: String) -> int:

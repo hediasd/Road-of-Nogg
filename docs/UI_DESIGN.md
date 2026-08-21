@@ -42,7 +42,7 @@ All six are in scope. They are acceptance criteria, not aspiration.
 |---|---|---|
 | 1 | **Thin shared halo frame** | Every game window uses the shared `NoggWindow` halo, body, and rim from `NoggTheme`. No local border, shadow, or colour literal appears in game UI. |
 | 2 | **Gutter cursor sprite** | Selection is a cursor node's position, never a background fill and never a text prefix. The cursor bobs continuously and tweens between rows, and sits in a reserved gutter clear of both the rim and the text. |
-| 3 | **Stacked sibling windows** | A submenu is its own window opening to the right of its parent. The parent stays on screen with **both its rim and its content** tinted to the inactive state. |
+| 3 | **Stacked sibling windows** | A submenu is its own window opening to the right of its parent. The parent stays on screen with **both its rim and its content** tinted to the inactive state. The action ring is the one exception, and only because it is not docked beside its child: it hides rather than dimming when the spell list opens (see §8). |
 | 4 | **List rows and status cells** | Lists keep a left label and right-aligned value against the frame's inner edge; never centre or wrap them - hard-truncate instead (`OVERRUN_TRIM_CHAR`). Docked status readouts are the exception: fixed cells start at x=0, 192, and 384, keeping each label/value unit together. |
 | 5 | **Paging, not scrolling** | Windows are fixed-height. Overflow pages, with a `n / m` footer window straddling the parent's bottom border, its arrows drawn rather than typed. |
 | 6 | **Docked context windows** | Secondary readouts (actor status, target info) dock to fixed screen corners and never move or resize with content. |
@@ -465,18 +465,36 @@ animated across a rebuild.
 ## 6. Input model
 
 Keyboard and mouse are both first-class, and they resolve to the same state:
-**the cursor position is the only selection truth.** Mouse hover does not
-"preview" a different selection than the keyboard's — it *moves the cursor*.
-This is what keeps the two devices from disagreeing.
+**the selection is the only selection truth.** Mouse hover does not "preview"
+a different selection than the keyboard's — it *moves the selection*. This is
+what keeps the two devices from disagreeing.
+
+**There are two selection models, and which one is live depends on the
+surface.** The root command surface is the `ActionRing` (§8), where a
+direction names a slot outright. The spell and confirm surfaces are still
+windows with a gutter cursor, where vertical cycles and horizontal pages.
+`PlayerCommandMenu.moveSelectionDirection()` is the single place the two are
+dispatched between; the controller sends all four directions there rather than
+branching, so the ring's geometry lives in one file.
+
+The ring does not cycle, and that is the point. On a fixed-position control a
+direction must always mean the same command or it means nothing — pressing up
+with `Move` spent does nothing rather than wrapping to a neighbour. All four
+directions are consumed by an open command surface whether or not it used
+them, so an unused key never falls through to the camera or the board while
+the player is looking at a menu.
 
 | Input | Action |
 |---|---|
-| `ui_up` / `ui_down` | Move cursor one row, wrapping within the page |
-| `ui_left` / `ui_right` | Previous / next page |
-| `ui_accept` | Activate the cursor's row |
+| `ui_up` / `ui_down` / `ui_left` / `ui_right`, on the ring | Focus that slot; no-op if the slot's command is unavailable |
+| `ui_up` / `ui_down`, in a window | Move cursor one row, wrapping within the page |
+| `ui_left` / `ui_right`, in a window | Previous / next page |
+| `ui_accept` | Activate the focused command / the cursor's row |
 | `ui_cancel` | Close the focused child window; if root, cancel the phase |
 | `T` (held during a player turn) | Show the enemy danger zone; release to restore the current movement/target overlays |
 | Mouse motion over a unit on the board | Fill the docked status readout with that unit, immediately, **in every phase** |
+| Mouse motion over a ring icon | Focus that slot (no activation) |
+| Left click on a ring icon | Focus that slot, then activate |
 | Mouse motion over a row | Move the cursor to that row (no activation) |
 | Left click on a row | Move the cursor there, then activate |
 | Left click on `◀` / `▶` | Page |
@@ -489,7 +507,12 @@ During TARGET_SELECT, spell aiming gives the vertical pair a different meaning: 
 
 Disabled rows are skipped by keyboard movement and are inert to hover and
 click. They render in `TEXT_DIM` and are never hidden — a spent `Move` must
-stay visible so the player can see *why* it is unavailable.
+stay visible so the player can see *why* it is unavailable. The ring applies
+the same rule with `ACTION_RING_DISABLED_ALPHA`, and additionally narrows its
+own hit area (`ActionRing._has_point`) to the *activatable* icons only: the
+ring's bounding box is a square sitting on the board around the acting unit,
+and a Control that claimed all of it would swallow clicks on that unit and up
+to eight surrounding tiles.
 
 The two board-click rows are a second path to the same two outcomes the
 confirm window already offers, not a competing one: during `CONFIRM_ACTION`
@@ -608,7 +631,7 @@ there is nothing left for them to compete over.
 
 | Window | Dock | Size (design units, device px at shipping x2) | Contents |
 |---|---|---|---|
-| **Command** | Left, vertically centred | `COMMAND_WIDTH` 110 / 220 × 5 rows | `MOVE / UNDO / ATTACK / SPELL / PASS`; 5 is the list's true maximum |
+| **Action ring** | Centred on the acting unit, projected per frame | `ACTION_RING_RADIUS` 26 / 52 from centre, `ACTION_RING_ICON` 16 / 32 per icon | Four command icons: Move north, Attack east, Pass south, Spell west, plus the focused command's name beneath. Replaced the docked command window — see the note below |
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | `SPELL_WIDTH` 340 / 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
 | **Turn rail** | Top-centre, `TURN_RAIL_TOP` | `TURN_RAIL_TILE_WIDTH` 20 / 40 x `TURN_RAIL_TILE_HEIGHT` 28 / 56 per tile, up to `TURN_RAIL_CAPACITY` | Portrait tiles: a rendered model miniature, team-coloured frame, round-relative queue number, and a health strip. Crosses the round boundary with a dashed divider; entries past it are a projection and draw at `TURN_RAIL_PROJECTED_ALPHA` |
 | **Actor status** | Bottom-left, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3. `open()`s when a monster is showing, `close()`s otherwise — see the note below |
@@ -632,6 +655,33 @@ fixed position computed from viewport size alone, so nothing reflows off their
 visibility. Both start `visible = false` at construction rather than
 open()-then-immediately-close()-ing at battle start, which the Control default
 of `visible = true` would otherwise do.
+
+**The command window is gone; its list is now the board-anchored action
+ring.** It docked to a fixed screen corner and named commands in words, which
+made every turn a menu lookup at a location that had nothing to do with the
+unit taking the turn. The ring puts the four commands *on* the acting unit and
+gives each one a fixed direction, so `attack` becomes a direction rather than a
+row to find. Three consequences worth stating, because each is a rule this
+document asserted and the ring changes:
+
+- **A direction, not a cursor.** The ring has no `MenuCursor` and does not
+  cycle; §6 covers the split between the two selection models and why an
+  unavailable slot is a no-op rather than a wrap.
+- **`Undo` is no longer a fifth row.** It shares the north slot with `Move`,
+  which is sound because `menuEntries()` only marks it visible once a move has
+  happened — exactly when `Move` itself is spent. That keeps the ring at four
+  directions without giving up the safety net that movement's missing confirm
+  step depends on, and it is why the ring can be four icons rather than five.
+- **It hides rather than dimming when the spell list opens.** Trait 3's dimmed
+  parent tells the player where they came from, which reads only when the child
+  opens *beside* the parent. The spell window docks to a screen edge while the
+  ring sits whereever the unit happens to be, so a dimmed ring would read as a
+  second live surface instead of as this one's origin.
+
+The spell, confirm, and forecast windows keep the command window's former
+origin as their dock. They were positioned and measured against that point and
+nothing about them changed; re-deriving it would move three windows to fix
+zero problems.
 
 **The prompt no longer shows "Choose a command." while the command window is
 already open, and it now sits on its own layer above the dev bar.**

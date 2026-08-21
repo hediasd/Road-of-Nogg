@@ -9,9 +9,15 @@
 ## `queue_free()`-and-rebuild of every row. Nothing could be animated across
 ## that, which is why the cursor could not exist until this was untangled.
 ##
-## Selection state therefore lives in `_root_index` / `_spell_index` — indices
-## into the row-metadata arrays — and the cursor's position is derived from
-## them. `moveSelection()` must never call a `_rebuild_*` function.
+## Selection state therefore lives in `_spell_index` / `_confirm_index` —
+## indices into the row-metadata arrays — and the cursor's position is derived
+## from them. `moveSelection()` must never call a `_rebuild_*` function.
+##
+## **The root command list is no longer a window.** It is `ActionRing`, docked
+## to the acting unit on the board rather than to a screen corner, and driven
+## by direction rather than by cycling. The spell and confirm surfaces are
+## still windows and still cursor-driven, so both models live here: see
+## `moveSelectionDirection()` for the one place they are dispatched between.
 ##
 ## This node renders the controller's data-only menu models and owns no rules
 ## about what a command means; `PlayerTurnController` still owns all of that.
@@ -44,11 +50,6 @@ const CANCEL_ID := "__cancel"
 # A local const of a literal number could never track `NoggTheme.ui_scale`,
 # which is exactly the bug this migration exists to close.
 
-## The command list's true maximum: Move / Undo / Attack / Spell / Pass.
-## It can never page, so reserving `ROW_CAPACITY_DEFAULT` (8) here just bought
-## four rows of dead space — half the window — for a list that will never grow
-## into it. Capacity should be a menu's real ceiling, not a shared constant.
-const COMMAND_CAPACITY := 5
 ## The spell list *can* page, so it keeps a ceiling; but it is sized to its
 ## actual contents on open (see `_rebuild_spell_rows`) rather than always
 ## reserving the maximum.
@@ -67,16 +68,13 @@ const UPPERCASE_COMMANDS := true
 
 var _prompt_window: NoggWindow
 var _forecast_window: NoggWindow
-var _command_window: NoggWindow
 var _spell_window: NoggWindow
 var _confirm_window: NoggWindow
-var _command_cursor: MenuCursor
 var _spell_cursor: MenuCursor
 var _confirm_cursor: MenuCursor
-## The board-anchored command surface. Positioned by the scene controller each
-## frame (`setRingScreenPosition`), because placing it needs the camera and
-## this node has none. Item 3 makes it authoritative for input; until then it
-## mirrors the command window's selection so the two can be compared on screen.
+## The root command surface, replacing the docked command window. Positioned
+## by the scene controller each frame (`setRingScreenPosition`), because
+## placing it needs the camera and this node has none.
 var _action_ring: ActionRing
 
 var _entries: Array = []
@@ -84,10 +82,8 @@ var _spells: Array = []
 ## Row metadata parallel to the rows added to each window, in display order.
 ## Each entry is {"id": String, "enabled": bool} plus, for spells, the
 ## set/spell indices needed to emit `spell_activated`.
-var _root_rows: Array = []
 var _spell_rows: Array = []
 var _confirm_rows: Array = []
-var _root_index := -1
 var _spell_index := -1
 var _confirm_index := -1
 var _mode := ROOT
@@ -124,7 +120,6 @@ func _ready() -> void:
 	_prompt_window.visible = false
 	_forecast_window = _build_window(NoggThemeScript.FORECAST_WIDTH, 2)
 	_forecast_window.visible = false
-	_command_window = _build_window(NoggThemeScript.COMMAND_WIDTH, COMMAND_CAPACITY)
 	_spell_window = _build_window(NoggThemeScript.SPELL_WIDTH, SPELL_MAX_CAPACITY)
 	_spell_window.visible = false
 	# Same width as the command window, and docked on top of it, so the cursor
@@ -134,29 +129,21 @@ func _ready() -> void:
 	_confirm_window.visible = false
 	# Only the cursor-driven windows reserve the gutter. The prompt and
 	# forecast have no cursor, so indenting them would just look misaligned.
-	_command_window.set_content_indent(NoggThemeScript.CURSOR_GUTTER_WIDTH)
 	_spell_window.set_content_indent(NoggThemeScript.CURSOR_GUTTER_WIDTH)
 	_confirm_window.set_content_indent(NoggThemeScript.CURSOR_GUTTER_WIDTH)
 
-	_command_cursor = _build_cursor(_command_window)
 	_spell_cursor = _build_cursor(_spell_window)
 	_spell_cursor.set_visible_cursor(false)
 	_confirm_cursor = _build_cursor(_confirm_window)
 	_confirm_cursor.set_visible_cursor(false)
 
-	_command_window.gui_input.connect(_on_window_gui_input.bind(ROOT))
 	_spell_window.gui_input.connect(_on_window_gui_input.bind(SPELLS))
 	_confirm_window.gui_input.connect(_on_window_gui_input.bind(CONFIRM))
 	# Row construction lives inside NoggWindow for paging; it reports
 	# each built Control back so wiring can still happen here, per row, exactly
 	# as it did when this file built rows itself.
-	_command_window.row_built.connect(_on_root_row_built)
 	_spell_window.row_built.connect(_on_spell_row_built)
 	_confirm_window.row_built.connect(_on_confirm_row_built)
-	# Only the spell window can ever page (the command list's true maximum is
-	# 5, under COMMAND_CAPACITY), but wiring both costs nothing and needs no
-	# special-casing later if that ever changes.
-	_command_window.page_arrow_pressed.connect(func(direction): pageSpells(direction))
 	_spell_window.page_arrow_pressed.connect(func(direction): pageSpells(direction))
 
 	_action_ring = ActionRingScript.new()
@@ -164,11 +151,11 @@ func _ready() -> void:
 	_action_ring.visible = false
 	var ring_extent: float = _action_ring.extent()
 	_action_ring.size = Vector2(ring_extent, ring_extent)
+	_action_ring.entry_activated.connect(_on_ring_entry_activated)
 	add_child(_action_ring)
 
 	resized.connect(_layout_windows)
 	_layout_windows()
-	_rebuild_root_rows()
 
 
 # --- public API (unchanged shape; BattlePresentationController calls these) --
@@ -200,13 +187,21 @@ func showRoot(entries: Array) -> void:
 	# strand one on a path nobody anticipated — a rejected action, a turn
 	# ending early, or a phase transition added later.
 	_hide_confirm_window()
-	_command_window.visible = true
-	_command_cursor.set_visible_cursor(true)
-	_command_window.set_active(true)
-	_rebuild_root_rows()
-	_action_ring.set_entries(_entries)
+	# Labels are cased here, not in the ring: §3's "caps for chrome" rule is
+	# this file's to apply, and `menuEntries()` keeps returning "Undo" because
+	# that string is what logs and harnesses read.
+	var ring_entries: Array = []
+	for entry in _entries:
+		var cased: Dictionary = (entry as Dictionary).duplicate()
+		cased["label"] = _display(str(cased.get("label", "")))
+		ring_entries.append(cased)
+	_action_ring.set_entries(ring_entries)
 	_action_ring.visible = true
-	_sync_ring_focus()
+	# Seed focus only when the ring has none, or the command it was resting on
+	# just became unavailable. Re-seeding unconditionally would drag the
+	# player's focus back to Move on every phase refresh within one turn.
+	if not _action_ring.is_slot_activatable(_action_ring.focus_slot()):
+		_action_ring.set_focus_slot(_action_ring.first_activatable_slot())
 	_refresh_prompt()
 
 
@@ -216,9 +211,7 @@ func showRoot(entries: Array) -> void:
 func showPromptOnly() -> void:
 	_mode = ROOT
 	_hide_confirm_window()
-	_command_window.visible = false
 	_spell_window.visible = false
-	_command_cursor.set_visible_cursor(false)
 	_spell_cursor.set_visible_cursor(false)
 	# The ring goes too. It draws over the board at the acting unit, which is
 	# exactly where the reachable/attackable tile overlays are about to appear;
@@ -242,13 +235,11 @@ func openSpells(spells: Array) -> void:
 	_mode = SPELLS
 	_spells = spells.duplicate(true)
 	_rebuild_spell_rows()
-	# The parent stays on screen, dimmed — it does not hide, move, or resize.
-	_command_window.set_active(false)
-	_command_cursor.set_visible_cursor(false)
-	# Hidden, not dimmed like the command window beside it. A dimmed parent
-	# shows the player where they came from, which only works when the child
-	# opens *next to* it (§8, trait 3); the spell list opens across the screen
-	# from the ring, so a dimmed ring would read as a second live surface.
+	# Hidden, not dimmed. Trait 3's dimmed parent shows the player where they
+	# came from, which only reads when the child opens *next to* the parent;
+	# the spell window docks to a screen edge while the ring sits wherever the
+	# unit is, so a dimmed ring would read as a second live surface rather than
+	# as this one's origin.
 	_action_ring.visible = false
 	_spell_window.open()
 	_spell_cursor.set_visible_cursor(true)
@@ -263,11 +254,9 @@ func closeSpells() -> bool:
 	_mode = ROOT
 	_spell_cursor.set_visible_cursor(false)
 	_spell_window.close()
-	_command_window.set_active(true)
-	_command_cursor.set_visible_cursor(true)
 	_action_ring.visible = true
-	# Deliberately no rebuild and no cursor move: the command window's content
-	# did not change, so its selection is exactly where the player left it.
+	# Deliberately no rebuild and no focus move: the ring's content did not
+	# change, so its focus is exactly where the player left it.
 	_refresh_prompt()
 	return true
 
@@ -284,8 +273,6 @@ func openConfirm() -> void:
 	if _mode == CONFIRM:
 		return
 	_mode = CONFIRM
-	_command_window.visible = false
-	_command_cursor.set_visible_cursor(false)
 	_spell_window.visible = false
 	_spell_cursor.set_visible_cursor(false)
 	_action_ring.visible = false
@@ -297,17 +284,15 @@ func openConfirm() -> void:
 	_refresh_prompt()
 
 
-## Restores the command window exactly as the player left it. Deliberately no
-## rebuild of its rows and no cursor move — its content did not change while
-## the confirm window was up.
+## Restores the ring exactly as the player left it. Deliberately no rebuild
+## and no focus move — its content did not change while the confirm window
+## was up.
 func closeConfirm() -> bool:
 	if _mode != CONFIRM:
 		return false
 	_mode = ROOT
 	_hide_confirm_window()
-	_command_window.visible = true
-	_command_window.set_active(true)
-	_command_cursor.set_visible_cursor(true)
+	_action_ring.visible = true
 	_refresh_prompt()
 	return true
 
@@ -323,18 +308,25 @@ func isShowingConfirm() -> bool:
 # String that a harness could read directly; it is now a cursor index, and
 # these keep that observability without re-exposing the representation.
 
-## Id of the row the command cursor is on, or "" when nothing is selectable.
+## Id of the command the ring is focused on, or "" when none is.
 func selectedEntryId() -> String:
-	return _id_at(_root_rows, _root_index)
+	return _action_ring.focused_entry_id() if _action_ring != null else ""
 
 
-## Ids of the enabled command rows, in display order. Disabled rows are
-## excluded because keyboard movement skips them.
+## Ids of the commands the ring can currently activate, **in slot order**
+## (north, east, south, west) rather than in `menuEntries()` order.
+##
+## Slot order is the honest answer now that the surface is a ring: it is the
+## order the player's eye and hand actually traverse. A caller wanting the
+## controller's own ordering should ask `PlayerTurnController.menuEntries()`,
+## which is where that ordering lives.
 func selectableEntryIds() -> Array:
 	var ids: Array = []
-	for row in _root_rows:
-		if row["enabled"]:
-			ids.append(str(row["id"]))
+	if _action_ring == null:
+		return ids
+	for slot in range(ActionRingScript.SLOTS.size()):
+		if _action_ring.is_slot_activatable(slot):
+			ids.append(_action_ring.entry_id_at(slot))
 	return ids
 
 
@@ -346,6 +338,49 @@ func selectedSpellId() -> String:
 ## Id of the row the confirm cursor is on: CONFIRM_ID, CANCEL_ID, or "".
 func selectedConfirmId() -> String:
 	return _id_at(_confirm_rows, _confirm_index)
+
+
+## The one place the ring's directional model and the windows' list model are
+## dispatched between.
+##
+## Returns whether the input was consumed, so the caller does not have to know
+## which surface is up. `direction` is one of the four unit vectors.
+##
+## Root is a ring: a direction names a slot outright, and an unavailable slot
+## simply refuses — pressing up with Move spent does nothing rather than
+## wrapping around to something else, because on a fixed-position control a
+## direction must always mean the same command or it means nothing.
+##
+## The spell and confirm windows are still lists: vertical cycles them and
+## horizontal pages (§7a). That asymmetry is deliberate and is why this
+## function exists rather than the caller branching on mode.
+func moveSelectionDirection(direction: Vector2i) -> bool:
+	match _mode:
+		SPELLS:
+			if direction.y != 0:
+				moveSelection(direction.y)
+				return true
+			if direction.x != 0:
+				pageSpells(direction.x)
+				return true
+			return false
+		CONFIRM:
+			if direction.y != 0:
+				moveSelection(direction.y)
+				return true
+			return false
+		_:
+			if _action_ring == null or not _action_ring.visible:
+				return false
+			var slot := _action_ring.slot_for_direction(Vector2(direction))
+			if slot == -1:
+				return false
+			_action_ring.set_focus_slot(slot)
+			# Consumed even when the slot refused focus: the key had a meaning
+			# on this surface (it named a direction the ring owns), and letting
+			# it fall through to the camera or the board would make a spent
+			# command's direction do something unrelated.
+			return true
 
 
 ## Selection-only path. Must not rebuild rows — see the note at the top.
@@ -364,7 +399,7 @@ func acceptSelection() -> void:
 	match _mode:
 		SPELLS: _activate_spell_row(_spell_index)
 		CONFIRM: _activate_confirm_row(_confirm_index)
-		_: _activate_root_row(_root_index)
+		_: _activate_focused_command()
 
 
 ## The three cursor-driven surfaces differ only in which arrays they read, so
@@ -374,14 +409,14 @@ func _rows_for_mode() -> Array:
 	match _mode:
 		SPELLS: return _spell_rows
 		CONFIRM: return _confirm_rows
-		_: return _root_rows
+		_: return []
 
 
 func _index_for_mode() -> int:
 	match _mode:
 		SPELLS: return _spell_index
 		CONFIRM: return _confirm_index
-		_: return _root_index
+		_: return -1
 
 
 ## Explicit page navigation (§7a, item 4): ui_left/ui_right and the footer's
@@ -414,31 +449,6 @@ func pageSpells(direction: int) -> void:
 
 
 # --- rows -------------------------------------------------------------------
-
-func _rebuild_root_rows() -> void:
-	var preserved := _id_at(_root_rows, _root_index)
-	_root_rows.clear()
-	var descriptors: Array = []
-	for entry in _entries:
-		if not entry["visible"]:
-			continue
-		var enabled := bool(entry["enabled"])
-		descriptors.append({
-			"label": _display(str(entry["label"])), "value": "", "disabled": not enabled
-		})
-		_root_rows.append({"id": str(entry["id"]), "enabled": enabled})
-	# _root_rows must be complete before set_full_rows() renders — it fires
-	# row_built synchronously per row, and _on_root_row_built reads _root_rows
-	# by the same index.
-	_command_window.set_full_rows(descriptors)
-	# Restore the player's selection by id where the row survived the rebuild;
-	# snap rather than tween, because this is a content change, not a move.
-	var restored := _index_of_id(_root_rows, preserved)
-	if restored == -1 or not _root_rows[restored]["enabled"]:
-		restored = _first_selectable(_root_rows)
-	_root_index = restored
-	_select(restored, false)
-
 
 func _rebuild_spell_rows() -> void:
 	_spell_rows.clear()
@@ -481,10 +491,6 @@ func _rebuild_confirm_rows() -> void:
 	_confirm_window.set_full_rows(descriptors)
 
 
-func _on_root_row_built(row: Control, full_index: int) -> void:
-	_wire_row(row, ROOT, full_index, bool(_root_rows[full_index]["enabled"]))
-
-
 func _on_confirm_row_built(row: Control, full_index: int) -> void:
 	_wire_row(row, CONFIRM, full_index, bool(_confirm_rows[full_index]["enabled"]))
 
@@ -522,20 +528,19 @@ func _spell_id(spell: Dictionary) -> String:
 func _select(index: int, animate: bool) -> void:
 	if index < 0:
 		return
-	var window := _command_window
-	var cursor := _command_cursor
+	# Root is the ring, which is not cursor-driven; only the two list windows
+	# reach here.
+	if _mode != SPELLS and _mode != CONFIRM:
+		return
+	var window := _spell_window
+	var cursor := _spell_cursor
 	match _mode:
 		SPELLS:
-			window = _spell_window
-			cursor = _spell_cursor
 			_spell_index = index
 		CONFIRM:
 			window = _confirm_window
 			cursor = _confirm_cursor
 			_confirm_index = index
-		_:
-			_root_index = index
-			_sync_ring_focus()
 	# §7b: the row under the cursor marquees if its label overflows. Every
 	# selection change goes through here (via focus_index()), so this is the
 	# one place that needs to know about it.
@@ -578,12 +583,24 @@ func _id_at(rows: Array, index: int) -> String:
 
 # --- activation -------------------------------------------------------------
 
-func _activate_root_row(index: int) -> void:
-	if index < 0 or index >= _root_rows.size():
+## Activates whatever the ring is focused on. The ring itself refuses focus on
+## a command the phase forbids, so reaching here with a dead command is not
+## possible through the ring's own API — the empty-id guard covers the case
+## where nothing is focused at all.
+func _activate_focused_command() -> void:
+	if _action_ring == null:
 		return
-	if not _root_rows[index]["enabled"]:
+	var entry_id := _action_ring.focused_entry_id()
+	if entry_id.is_empty():
 		return
-	entry_activated.emit(str(_root_rows[index]["id"]))
+	entry_activated.emit(entry_id)
+
+
+## The ring was clicked. It has already moved focus to the clicked slot, so
+## this only has to forward — going back through `_activate_focused_command()`
+## rather than trusting the signal's payload keeps one activation path.
+func _on_ring_entry_activated(_entry_id: String) -> void:
+	_activate_focused_command()
 
 
 func _activate_confirm_row(index: int) -> void:
@@ -636,11 +653,11 @@ func _on_row_gui_input(event: InputEvent, which: String, index: int) -> void:
 		MOUSE_BUTTON_LEFT:
 			_select(index, true)
 			# Same dispatch as acceptSelection()'s, so a click and a keypress on
-			# the same row can never mean two different things.
+			# the same row can never mean two different things. Root is absent
+			# because it has no rows: the ring handles its own clicks.
 			match _mode:
 				SPELLS: _activate_spell_row(index)
 				CONFIRM: _activate_confirm_row(index)
-				_: _activate_root_row(index)
 			accept_event()
 		MOUSE_BUTTON_WHEEL_UP:
 			moveSelection(-1)
@@ -712,34 +729,6 @@ func actionRing() -> ActionRing:
 	return _action_ring
 
 
-## Points the ring at whatever the command window currently has selected.
-##
-## Selection lives in `_root_index` — an index into `_root_rows`, which is
-## built from the *visible* entries in list order — while the ring is keyed by
-## action id. Translating through the id rather than the index is what lets the
-## two disagree about ordering without disagreeing about which command is
-## selected, which they must during item 2 while both surfaces are on screen.
-func _sync_ring_focus() -> void:
-	if _action_ring == null:
-		return
-	if _root_index < 0 or _root_index >= _root_rows.size():
-		_action_ring.set_focus_slot(-1)
-		return
-	var entry_id := str(_root_rows[_root_index].get("id", ""))
-	_action_ring.set_focus_slot(_action_ring.slot_for_direction(
-		_ring_direction_for_id(entry_id)
-	))
-
-
-## The slot direction holding `entry_id`, or a zero vector when the id has no
-## slot — which `slot_for_direction` then reports as -1.
-func _ring_direction_for_id(entry_id: String) -> Vector2:
-	for slot in ActionRingScript.SLOTS:
-		if slot["id"] == entry_id or slot["alt_id"] == entry_id:
-			return slot["direction"]
-	return Vector2.ZERO
-
-
 func _build_cursor(window: NoggWindow) -> MenuCursor:
 	var cursor := MenuCursorScript.new()
 	# Set before add_child(): MenuCursor's idle bob starts in _ready() and
@@ -758,17 +747,18 @@ func _layout_windows() -> void:
 	if screen.x <= 0.0:
 		screen = get_viewport_rect().size
 
-	var command_height := NoggThemeScript.window_height(COMMAND_CAPACITY)
+	# The command window is gone (its list is now the board-anchored ring), but
+	# its origin stays as the dock for the surfaces that used to sit relative
+	# to it. Those windows were positioned and measured against this point and
+	# nothing about them changed; re-deriving it from something else would move
+	# three windows to fix zero problems.
+	var command_height := NoggThemeScript.window_height(5)
 	var command_y := floorf((screen.y - command_height) * 0.5)
 	var left := 20.0
 
-	_command_window.position = Vector2(left, command_y)
 	_spell_window.position = Vector2(
 		left + NoggThemeScript.COMMAND_WIDTH + NoggThemeScript.WINDOW_STACK_GAP, command_y
 	)
-	# Directly on top of the command window's own origin, not beside it: the
-	# confirm window replaces the command list, so the cursor stays exactly
-	# where the player last saw it instead of travelling across the screen.
 	_confirm_window.position = Vector2(left, command_y)
 
 	# Directly above the command window and left-aligned with it. §8 asks for

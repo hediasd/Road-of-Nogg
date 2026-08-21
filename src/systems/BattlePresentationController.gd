@@ -971,25 +971,22 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.is_action_pressed("ui_cancel") and command_menu.closeSpells():
 				get_viewport().set_input_as_handled()
 				return
-			if event.is_action_pressed("ui_up"):
-				command_menu.moveSelection(-1)
-				get_viewport().set_input_as_handled()
-				return
-			if event.is_action_pressed("ui_down"):
-				command_menu.moveSelection(1)
-				get_viewport().set_input_as_handled()
-				return
-			# Paging (§7a). A no-op when the spell column is not
-			# open or has only one page; always consumed either way, matching
-			# every other branch here — before this, ui_left/right fell through
-			# to the acceptsGridInput() block below, which is gated false during
-			# MENU, so this changes nothing observable when there is no page.
-			if event.is_action_pressed("ui_left"):
-				command_menu.pageSpells(-1)
-				get_viewport().set_input_as_handled()
-				return
-			if event.is_action_pressed("ui_right"):
-				command_menu.pageSpells(1)
+			# All four directions go to one entry point, which dispatches on
+			# whichever surface is up: the ring reads a direction as a slot,
+			# the spell/confirm windows read vertical as cursor movement and
+			# horizontal as paging (§7a). Branching on that here would put the
+			# ring's geometry in two files.
+			var menu_direction := Vector2i.ZERO
+			if event.is_action_pressed("ui_up"): menu_direction = Vector2i.UP
+			elif event.is_action_pressed("ui_down"): menu_direction = Vector2i.DOWN
+			elif event.is_action_pressed("ui_left"): menu_direction = Vector2i.LEFT
+			elif event.is_action_pressed("ui_right"): menu_direction = Vector2i.RIGHT
+			if menu_direction != Vector2i.ZERO:
+				# Consumed whether or not the surface used it. These four keys
+				# belong to the open menu for as long as it is open; letting an
+				# unused one fall through would hand it to the camera or the
+				# board while the player is looking at a command surface.
+				command_menu.moveSelectionDirection(menu_direction)
 				get_viewport().set_input_as_handled()
 				return
 			if event.is_action_pressed("ui_accept"):
