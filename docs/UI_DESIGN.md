@@ -656,6 +656,17 @@ visibility. Both start `visible = false` at construction rather than
 open()-then-immediately-close()-ing at battle start, which the Control default
 of `visible = true` would otherwise do.
 
+**The HUD's permanent footprint is the thing all of the above is measured
+against.** Before this cycle it was ~39% of a 1152x648 frame — actor and
+target windows 26%, prompt 6%, command window 5%, rail 2% — and it was static:
+identical whether the player was mid-decision or watching an enemy turn.
+Measured at 14.9% after, in the MENU phase with a unit selected, by
+`debug/verify_ui_final.gd`, which asserts the ceiling rather than trusting it.
+The saving is almost entirely *conditional* rather than smaller chrome: the
+target window and prompt are absent unless they have something to say, and the
+command window's replacement is anchored to the unit instead of reserving a
+corner.
+
 **The status windows are four rows, not six.** Heading, HP, ATK/DEF, SPD/MOV
 is the entire content — `_renderStatusWindow()` adds exactly those and nothing
 conditionally adds a fifth, since Resonance goes into a *cell* of an existing

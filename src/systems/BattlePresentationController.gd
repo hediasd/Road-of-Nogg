@@ -93,6 +93,10 @@ var _readoutHoverMonsterID: int = -1
 
 var actor_window: NoggWindow
 var target_window: NoggWindow
+## Last open/close state asked of each docked status window, keyed by the
+## window. Tracks intent rather than `visible`, which lags behind a close by
+## the length of its tween — see `_renderStatusWindow`.
+var _status_window_open: Dictionary = {}
 var turn_order_rail: TurnOrderRailScript
 ## Renders and caches the rail's model miniatures. Built once per battle.
 var portrait_renderer: PortraitRendererScript
@@ -1425,19 +1429,27 @@ func _setTargetPanelMonster(monsterID: int) -> void:
 ## scale/fade tween and a generation guard against an open racing a close, so
 ## reusing them is free and keeps this window's transitions visually
 ## consistent with the spell list and confirm window.
+##
+## **Open/close is driven off remembered intent, never off `window.visible`.**
+## `close()` is a coroutine: it starts a tween and only assigns
+## `visible = false` after `TWEEN_WINDOW_CLOSE` elapses. A guard reading
+## `visible` therefore still sees `true` all through the close, so every
+## refresh arriving during those 80ms fired a *second* `close()`, which bumps
+## the window's visibility generation and makes the first one abandon its own
+## completion. Refreshes come from hover, from playback, and from both panel
+## setters, so a window could be told to close indefinitely and never actually
+## do it. `_status_window_open` records what this function last *asked* for,
+## which is knowable synchronously, and the calls only fire on a change.
 func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
 	window.clear_rows()
-	if monsterID == -1 or sim == null:
-		if window.visible:
-			window.close()
-		return
-	var monster = sim.state.getMonster(monsterID)
+	var monster = sim.state.getMonster(monsterID) if (
+		monsterID != -1 and sim != null
+	) else null
+	# Rows are rebuilt on every refresh even when the window's open/closed
+	# state does not move — that is what keeps a visible readout's HP current.
+	_set_status_window_open(window, monster != null)
 	if monster == null:
-		if window.visible:
-			window.close()
 		return
-	if not window.visible:
-		window.open()
 	window.add_row(monster.name)
 	if monster.elements.size() > NoggThemeScript.STATUS_CELL_OFFSETS.size():
 		push_warning("BattlePresentationController: status window shows only the first three elements for %s" % monster.name)
@@ -1477,6 +1489,18 @@ func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
 ## stat that escaped that clamp is a defect at the write site, and this window
 ## should say
 ## so instead of hiding it behind a format string.
+## Applies an open/close request, skipping it when it matches the last one.
+## See `_renderStatusWindow`'s note on why `window.visible` cannot serve here.
+func _set_status_window_open(window: NoggWindow, wanted: bool) -> void:
+	if _status_window_open.get(window, false) == wanted:
+		return
+	_status_window_open[window] = wanted
+	if wanted:
+		window.open()
+	else:
+		window.close()
+
+
 func _statText(value: int) -> String:
 	if value < Monster.STAT_MIN or value > Monster.STAT_MAX:
 		push_warning(
