@@ -1388,21 +1388,25 @@ func get_monster_world_position(monster_id: int) -> Vector3:
 	return _coord_to_surface_pos3d(coord)
 
 
-## The vertical middle of a monster's rendered bounds, for a caller that wants
-## to sit *on* the unit rather than at its feet or above its head.
+## The top of a monster's rendered bounds, for a caller that wants to sit
+## *above* the unit rather than at its feet.
 ##
 ## `get_monster_world_position` returns the model's origin, which is its base —
-## correct for a camera pan, but it puts a ring centred there around the unit's
-## feet instead of around the unit. Derived from the same measured bounds
-## `_status_icon_anchor_y` uses (rather than a fixed height) for the same
-## reason it does: a tall unit and a short one should each be framed, not both
-## be offset by whatever suits the average.
-func get_monster_center_world_position(monster_id: int) -> Vector3:
+## correct for a camera pan, but a surface anchored there sits on the unit's
+## feet. Derived from the same measured bounds `_status_icon_anchor_y` uses
+## (rather than a fixed height) for the same reason it does: a tall unit and a
+## short one should each be cleared, not both offset by whatever suits the
+## average.
+##
+## Shares that helper with the status badges deliberately — both surfaces hang
+## off a unit's head, and two different ideas of where a head is would show up
+## as the two drifting apart on tall models.
+func get_monster_top_world_position(monster_id: int) -> Vector3:
 	var base := get_monster_world_position(monster_id)
 	var visual := _liveMonsterVisual(monster_id)
 	if visual == null:
 		return base
-	return base + Vector3.UP * (_status_icon_anchor_y(visual) * 0.5)
+	return base + Vector3.UP * _status_icon_anchor_y(visual)
 
 
 func show_player_cursor(coord: Vector2i) -> void:

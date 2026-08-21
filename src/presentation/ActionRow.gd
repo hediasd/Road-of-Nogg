@@ -1,40 +1,46 @@
-## The four command icons carried around the acting unit.
+## The four command icons carried above the acting unit.
 ##
 ## Replaces the docked command window as the player's root command surface. It
 ## renders `PlayerTurnController.menuEntries()` and owns no rules about what a
 ## command means or when it is available — same contract `PlayerCommandMenu`
 ## already keeps, and for the same reason.
 ##
-## **Slots are keyed by action id, not by list order.** A command's position on
-## the ring is fixed for the whole battle: Move north, Attack east, Pass south,
-## Spell west. Laying the entries out in the order `menuEntries()` returns them
-## would let a command move because a *different* command became unavailable —
-## the exact failure a four-direction control cannot absorb, since the player's
-## hand is already committed to a direction before the icon is read. Fixed
-## slots are also what make the ring worth having over a list: after a few
-## turns "attack" is a direction, not a menu lookup.
+## **Slots are keyed by action id, not by list order.** A command's position in
+## the row is fixed for the whole battle: Move, Attack, Spell, Pass, left to
+## right. Laying the entries out in the order `menuEntries()` returns them
+## would let a command shift because a *different* command became unavailable,
+## and a surface whose whole value is "the second icon is always Attack" cannot
+## afford that.
 ##
-## **Move and Undo share the north slot.** They are mutually exclusive by
+## **This was a diamond before, and the change cost something worth recording.**
+## Four slots around the unit mapped one command to each arrow key, so a
+## command was a *direction*. A horizontal row is navigated by stepping along
+## it, which makes this a list again — laid out sideways, with fixed positions,
+## but a list. Position memory survives; direction memory does not. The row was
+## chosen for how it reads on the board, and this is the price.
+##
+## **Move and Undo share the first slot.** They are mutually exclusive by
 ## construction — `menuEntries()` marks Undo visible only when a move has
 ## happened and no action has, which is exactly when Move itself is spent — so
-## the slot shows whichever of the two is live. This is what keeps the ring at
-## four directions while preserving the undo safety net that movement's lack of
-## a confirm step depends on.
+## the slot shows whichever of the two is live. Undo draws in its own colour
+## (`ActionIcons`), because unlike every other slot this one changes what it
+## means mid-turn, and a player who has stopped reading icons needs the change
+## to catch their eye rather than to blend in.
 ##
 ## **A forbidden command dims; it never leaves.** The four slots are fixed
 ## positions, so hiding one would leave a hole that reads as a missing feature
 ## rather than as a spent phase, and would teach nothing. See
-## `NoggTheme.ACTION_RING_DISABLED_ALPHA`.
+## `NoggTheme.ACTION_ROW_DISABLED_ALPHA`.
 ##
 ## **Projected, not parented into the world.** Positioning is the caller's job
 ## (`BattlePresentationController` runs the same `unproject_position` ->
 ## `RetroRenderController.world_to_screen` chain it already uses for damage
 ## numbers and status badges) because this widget has no access to the camera.
 ## The battle world renders into a SubViewport that some presets drop to
-## 320x240; anything parented in there would be downsampled with it, so the
-## ring lives on the native-resolution game canvas and is *placed* per frame.
+## 320x240; anything parented in there would be downsampled with it, so the row
+## lives on the native-resolution game canvas and is *placed* per frame.
 
-class_name ActionRing
+class_name ActionRow
 extends Control
 
 ## A slot was clicked. Carries the command id rather than the slot index, so
@@ -48,20 +54,22 @@ signal slot_focused(slot: int)
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const ActionIconsScript = preload("res://src/presentation/ActionIcons.gd")
 
-## Screen-space slot directions, and which action id each holds.
+## The row, left to right, and which action id each slot holds.
 ##
 ## `alt_id` is the contextual replacement described in the header: when an
 ## entry with that id is visible, it takes the slot instead of `id`. Only the
-## north slot uses it today.
+## first slot uses it today.
 ##
-## Order is north, east, south, west — the order `_slot_for_direction()`
-## indexes with, so an input layer can map an arrow key to a slot without
-## restating the geometry.
+## Ordered to match the turn's own shape: Move spends the movement phase,
+## Attack and Spell spend the action phase, and Pass ends the turn. Reading
+## left to right is therefore reading the order a turn is usually played, and
+## the one irreversible command sits at the far end rather than next to the
+## slot the row opens focused on.
 const SLOTS := [
-	{"id": "move", "alt_id": "undo_move", "direction": Vector2(0.0, -1.0)},
-	{"id": "attack", "alt_id": "", "direction": Vector2(1.0, 0.0)},
-	{"id": "pass", "alt_id": "", "direction": Vector2(0.0, 1.0)},
-	{"id": "magic", "alt_id": "", "direction": Vector2(-1.0, 0.0)},
+	{"id": "move", "alt_id": "undo_move"},
+	{"id": "attack", "alt_id": ""},
+	{"id": "magic", "alt_id": ""},
+	{"id": "pass", "alt_id": ""},
 ]
 
 ## Resolved slot contents, parallel to `SLOTS`. Each is either an empty
@@ -70,7 +78,7 @@ const SLOTS := [
 var _slots: Array = []
 ## Index into `SLOTS` of the focused slot, or -1.
 var _focus: int = -1
-## Per-slot growth toward `ACTION_RING_FOCUS_SCALE`, tweened rather than
+## Per-slot growth toward `ACTION_ROW_FOCUS_SCALE`, tweened rather than
 ## snapped so focus reads as movement between slots.
 var _scales: Array = []
 
@@ -114,7 +122,7 @@ func set_entries(entries: Array) -> bool:
 		var slot := _slot_for_id(entry_id)
 		if slot == -1:
 			push_warning(
-				"ActionRing: no slot for command '%s'; it will not be reachable." % entry_id
+				"ActionRow: no slot for command '%s'; it will not be reachable." % entry_id
 			)
 			continue
 		built[slot] = entry
@@ -163,14 +171,31 @@ func focused_label() -> String:
 	return str(_slots[_focus].get("label", ""))
 
 
-## The slot lying in `direction` (any of the four unit vectors in `SLOTS`), or
-## -1. Lets an input layer turn an arrow key into a slot without duplicating
-## the geometry this file owns.
-func slot_for_direction(direction: Vector2) -> int:
+## The next activatable slot `step` places along the row from the focused one,
+## wrapping, or -1 when nothing can be focused at all.
+##
+## Skips unavailable slots rather than stopping on them: on a row the player
+## navigates by stepping, so landing on a dead slot would make the same key
+## press sometimes move and sometimes not. The diamond could stop dead, because
+## there a direction addressed one specific slot and "nothing there" was an
+## honest answer; stepping has no such excuse.
+func step_slot(step: int) -> int:
+	var live: Array = []
 	for index in range(SLOTS.size()):
-		if SLOTS[index]["direction"].is_equal_approx(direction):
-			return index
-	return -1
+		if _is_activatable(index):
+			live.append(index)
+	if live.is_empty():
+		return -1
+	var at := live.find(_focus)
+	if at == -1:
+		return live[0] if step > 0 else live[live.size() - 1]
+	return live[posmod(at + step, live.size())]
+
+
+## The slot holding `entry_id`, or -1. Lets a caller address a command by name
+## without knowing where it sits.
+func slot_for_id(entry_id: String) -> int:
+	return _slot_for_id(entry_id)
 
 
 ## The first slot that can currently be activated, or -1 when none can. Used to
@@ -198,16 +223,16 @@ func entry_id_at(slot: int) -> String:
 ## projected icon surface has one update path.
 func advance(delta: float) -> bool:
 	var changed := false
-	var rate := delta / maxf(NoggThemeScript.ACTION_RING_FOCUS_TWEEN, 0.0001)
+	var rate := delta / maxf(NoggThemeScript.ACTION_ROW_FOCUS_TWEEN, 0.0001)
 	for index in range(_scales.size()):
 		var target := (
-			NoggThemeScript.ACTION_RING_FOCUS_SCALE if index == _focus else 1.0
+			NoggThemeScript.ACTION_ROW_FOCUS_SCALE if index == _focus else 1.0
 		)
 		var current: float = _scales[index]
 		if is_equal_approx(current, target):
 			continue
 		_scales[index] = move_toward(
-			current, target, absf(NoggThemeScript.ACTION_RING_FOCUS_SCALE - 1.0) * rate
+			current, target, absf(NoggThemeScript.ACTION_ROW_FOCUS_SCALE - 1.0) * rate
 		)
 		changed = true
 	if changed:
@@ -215,22 +240,27 @@ func advance(delta: float) -> bool:
 	return changed
 
 
-## The square the four icons occupy, measured at a slot's *focused* size — the
-## ring must not overhang the screen edge on the frame a slot happens to be
-## grown.
-func icon_extent() -> float:
-	var grown := NoggThemeScript.ACTION_RING_ICON * NoggThemeScript.ACTION_RING_FOCUS_SCALE
-	return NoggThemeScript.ACTION_RING_RADIUS * 2.0 + grown
+## Centre-to-centre distance between neighbouring slots.
+func _pitch() -> float:
+	return NoggThemeScript.ACTION_ROW_ICON + NoggThemeScript.ACTION_ROW_GAP
+
+
+## The band the icons occupy, measured at a slot's *focused* size — the row
+## must not overhang the screen edge on the frame a slot happens to be grown,
+## and the end slots are exactly where that would show.
+func icon_band() -> Vector2:
+	var grown := NoggThemeScript.ACTION_ROW_ICON * NoggThemeScript.ACTION_ROW_FOCUS_SCALE
+	return Vector2(float(SLOTS.size() - 1) * _pitch() + grown, grown)
 
 
 ## Height of the band under the icons that carries the focused command's name.
 ## `ROW_HEIGHT` is the theme's body-font line box plus air — exactly what a
 ## one-line label needs — so it is reused rather than re-derived from metrics.
 func label_band() -> float:
-	return NoggThemeScript.ACTION_RING_LABEL_GAP + float(NoggThemeScript.ROW_HEIGHT)
+	return NoggThemeScript.ACTION_ROW_LABEL_GAP + float(NoggThemeScript.ROW_HEIGHT)
 
 
-## Full size of this Control: the icon square plus the label band beneath it.
+## Full size of this Control: the icon band plus the label band beneath it.
 ##
 ## The label is inside these bounds deliberately. An earlier version sized the
 ## Control to the icons alone and drew the label past the bottom edge, which
@@ -238,25 +268,28 @@ func label_band() -> float:
 ## reasons about this widget's rectangle, and the caller's edge clamp could not
 ## see it. Anything drawn has to be measured.
 func full_size() -> Vector2:
-	var extent := icon_extent()
-	return Vector2(extent, extent + label_band())
+	var band := icon_band()
+	return Vector2(band.x, band.y + label_band())
 
 
-## Where the icons' centre sits inside `full_size()`. Not the Control's centre:
-## the label band hangs below the icon square, so the caller anchoring the ring
-## to a unit must offset by this rather than by half the size.
-func icon_centre() -> Vector2:
-	var extent := icon_extent()
-	return Vector2(extent * 0.5, extent * 0.5)
+## Offset from this Control's top-left to the point it should be anchored by:
+## bottom-centre, because the row hangs *above* the unit it belongs to.
+##
+## A diamond was centred on its unit and could use half the size. A row cannot:
+## centred, its icons would sit on the unit's own sprite, which is the thing the
+## player is deciding about.
+func anchor_offset() -> Vector2:
+	var size_now := full_size()
+	return Vector2(size_now.x * 0.5, size_now.y)
 
 
 ## Narrows this Control's hit area to the icon rects.
 ##
-## Without it the ring would be a square roughly 130px across sitting on the
-## board, swallowing clicks on the acting unit itself and on up to eight
-## surrounding tiles -- and the acting unit is exactly what a player clicks to
-## inspect. Only *activatable* slots take the pointer: a dimmed icon is a
-## readout, and a click there should select the tile behind it.
+## Without it the row would be a rectangle roughly 180px wide sitting over the
+## board, swallowing clicks on several tiles including whichever ones happen to
+## lie behind the gaps between icons. Only *activatable* slots take the
+## pointer: a dimmed icon is a readout, and a click there should reach the tile
+## behind it.
 func _has_point(point: Vector2) -> bool:
 	return slot_at_point(point) != -1
 
@@ -265,20 +298,25 @@ func _has_point(point: Vector2) -> bool:
 ## or -1. Hit-tested at the icon's resting size rather than its focused size,
 ## so a slot's clickable area does not breathe as the focus tween runs.
 func slot_at_point(point: Vector2) -> int:
-	var centre := icon_centre()
 	for index in range(SLOTS.size()):
 		if not _is_activatable(index):
 			continue
-		var slot_centre: Vector2 = (
-			centre + SLOTS[index]["direction"] * NoggThemeScript.ACTION_RING_RADIUS
-		)
-		var half := NoggThemeScript.ACTION_RING_ICON * 0.5
-		if Rect2(
-			slot_centre - Vector2(half, half),
-			Vector2(NoggThemeScript.ACTION_RING_ICON, NoggThemeScript.ACTION_RING_ICON)
-		).has_point(point):
+		if _slot_rect(index, 1.0).has_point(point):
 			return index
 	return -1
+
+
+## Where slot `index` draws, at `scale` times the resting icon size. Rounded so
+## a tweening icon lands on whole device pixels rather than resampling its own
+## hard edges every frame.
+func _slot_rect(index: int, scale: float) -> Rect2:
+	var band := icon_band()
+	var drawn := NoggThemeScript.ACTION_ROW_ICON * scale
+	var centre := Vector2(
+		band.x * 0.5 + (float(index) - float(SLOTS.size() - 1) * 0.5) * _pitch(),
+		band.y * 0.5
+	)
+	return Rect2((centre - Vector2(drawn, drawn) * 0.5).round(), Vector2(drawn, drawn))
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -335,7 +373,6 @@ func _slots_differ(built: Array) -> bool:
 
 
 func _draw() -> void:
-	var centre := icon_centre()
 	for index in range(SLOTS.size()):
 		var entry: Dictionary = _slots[index]
 		if entry.is_empty():
@@ -343,48 +380,35 @@ func _draw() -> void:
 		var texture := ActionIconsScript.texture_for(str(entry.get("id", "")))
 		if texture == null:
 			continue
-		var scale: float = _scales[index]
-		var drawn := NoggThemeScript.ACTION_RING_ICON * scale
-		var slot_centre: Vector2 = (
-			centre + SLOTS[index]["direction"] * NoggThemeScript.ACTION_RING_RADIUS
-		)
-		# Rounded so a tweening icon lands on whole device pixels rather than
-		# resampling its own hard edges every frame.
-		var rect := Rect2(
-			(slot_centre - Vector2(drawn, drawn) * 0.5).round(), Vector2(drawn, drawn)
-		)
 		var tint := Color.WHITE
 		if not bool(entry.get("enabled", false)):
-			tint.a = NoggThemeScript.ACTION_RING_DISABLED_ALPHA
-		draw_texture_rect(texture, rect, false, tint)
+			tint.a = NoggThemeScript.ACTION_ROW_DISABLED_ALPHA
+		draw_texture_rect(texture, _slot_rect(index, _scales[index]), false, tint)
 
-	_draw_focus_label(centre)
+	_draw_focus_label()
 
 
-## The focused command's name, centred under the ring's south slot.
+## The focused command's name, centred under the row.
 ##
 ## Placeholder icons are not self-explanatory, and this is the only thing that
 ## makes them learnable — which is also why it replaced the prompt window's
 ## "Choose a command." rather than joining it.
-func _draw_focus_label(centre: Vector2) -> void:
+func _draw_focus_label() -> void:
 	var label := focused_label()
 	if label.is_empty():
 		return
 	var font := get_theme_font("font")
 	if font == null:
 		return
+	var band := icon_band()
 	var font_size := NoggThemeScript.FONT_SIZE_BODY
 	var text_size := font.get_string_size(
 		label, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size
 	)
 	var baseline := (
-		centre.y
-		+ NoggThemeScript.ACTION_RING_RADIUS
-		+ NoggThemeScript.ACTION_RING_ICON * 0.5
-		+ NoggThemeScript.ACTION_RING_LABEL_GAP
-		+ font.get_ascent(font_size)
+		band.y + NoggThemeScript.ACTION_ROW_LABEL_GAP + font.get_ascent(font_size)
 	)
-	var origin := Vector2(centre.x - text_size.x * 0.5, baseline).round()
+	var origin := Vector2(band.x * 0.5 - text_size.x * 0.5, baseline).round()
 	# Drawn shadow-then-text by hand rather than through a themed Label: this
 	# widget draws its icons in `_draw()` already, and a child Label would need
 	# its own position kept in sync with a ring whose radius scales. The shadow

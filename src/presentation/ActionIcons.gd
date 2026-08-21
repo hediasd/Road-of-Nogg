@@ -35,6 +35,20 @@ const ICON_SIZE := 16
 const BACKGROUND := Color(0.004, 0.004, 0.008, 0.94)
 const FOREGROUND := Color(1.0, 0.843, 0.400)
 
+## Undo alone draws warm red instead of the shared gold.
+##
+## Every other slot means the same thing all battle. This one is the sole
+## contextual slot -- it replaces Move mid-turn, in place, without moving --
+## so a player who has stopped reading icons and is going by position would
+## otherwise have no signal that the first slot now undoes rather than moves.
+## Colour is the channel that survives not being looked at, which is why it
+## carries the difference rather than shape alone.
+##
+## Warm red rather than the alarm red a failure would use: undo is a safety
+## net, not a hazard. It reads as "this one is different" without reading as
+## "this one is dangerous".
+const FOREGROUND_UNDO := Color(1.0, 0.44, 0.36)
+
 ## Cached per action id. Five shapes total; nothing here changes per monster
 ## or per turn, so rasterising them more than once is pure waste.
 static var _cache: Dictionary = {}
@@ -60,15 +74,18 @@ static func placeholder_for(action_id: String) -> Texture2D:
 
 static func _render(action_id: String) -> ImageTexture:
 	var image := Image.create(ICON_SIZE, ICON_SIZE, false, Image.FORMAT_RGBA8)
+	var ink := FOREGROUND_UNDO if action_id == "undo_move" else FOREGROUND
 	image.fill(BACKGROUND)
-	_draw_border(image, FOREGROUND)
+	# Border included: tinting only the glyph would leave a gold frame around a
+	# red shape, which reads as a rendering fault rather than as a distinction.
+	_draw_border(image, ink)
 	match action_id:
-		"move": _draw_boot(image, FOREGROUND)
-		"undo_move": _draw_rewind(image, FOREGROUND)
-		"attack": _draw_sword(image, FOREGROUND)
-		"magic": _draw_sparkle(image, FOREGROUND)
-		"pass": _draw_hourglass(image, FOREGROUND)
-		_: _draw_plus(image, FOREGROUND)
+		"move": _draw_boot(image, ink)
+		"undo_move": _draw_rewind(image, ink)
+		"attack": _draw_sword(image, ink)
+		"magic": _draw_sparkle(image, ink)
+		"pass": _draw_hourglass(image, ink)
+		_: _draw_plus(image, ink)
 	# Nearest, not bilinear: hard-edged pixel shapes, and any smoothing turns a
 	# one-pixel stroke into grey mush at this size.
 	image.resize(

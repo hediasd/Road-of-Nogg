@@ -386,9 +386,9 @@ const STATUS_BADGE_MAX_VISIBLE := 5
 ## layout that does not exist.
 const STATUS_BADGE_DECLUTTER_SLOTS := 8
 
-# --- Action ring -----------------------------------------------------------
+# --- Action row ------------------------------------------------------------
 #
-# The four command icons carried around the acting unit, replacing the docked
+# The four command icons carried above the acting unit, replacing the docked
 # command window. Projected and drawn at native resolution for exactly the
 # reason the status badges are (see that block above): the battle viewport
 # drops to 320x240 under some presets, so anything parented into the 3D world
@@ -396,31 +396,37 @@ const STATUS_BADGE_DECLUTTER_SLOTS := 8
 #
 # **The icon lands at exactly 1:1 with `ActionIconRegistry.SOURCE_PX`** at the
 # shipping scale — `16 units * 2 scale = 32` — the same property
-# `STATUS_BADGE_HOVER_SCALE` is chosen to give the badges. Unlike a badge,
-# a ring icon is never at rest: it is always the size the player reads it at,
-# so it must be the authored size at the shipping scale rather than only
-# reaching it on hover.
-const ACTION_RING_ICON_UNITS := 16.0
-## Centre-to-icon-centre distance. Large enough that the four icons clear the
-## unit's own silhouette rather than sitting on it — the ring frames the unit
-## it belongs to, which is the whole reason it is anchored there instead of
-## docked to a screen corner.
-const ACTION_RING_RADIUS_UNITS := 26.0
-## Gap between the ring's lower icon and the focused action's name.
-const ACTION_RING_LABEL_GAP_UNITS := 4.0
-## The focused icon grows by this much. Deliberately modest: the ring has only
+# `STATUS_BADGE_HOVER_SCALE` is chosen to give the badges. Unlike a badge, a
+# row icon is never at rest: it is always the size the player reads it at, so
+# it must be the authored size at the shipping scale rather than only reaching
+# it on hover.
+const ACTION_ROW_ICON_UNITS := 16.0
+## Clear space between adjacent icons. Wide enough that four icons read as four
+## rather than as one strip, without stretching the row so far that its ends
+## leave the unit it belongs to.
+const ACTION_ROW_GAP_UNITS := 5.0
+## Clearance between the top of the unit's model and the bottom of the row.
+##
+## Larger than `STATUS_BADGE_LIFT_UNITS` on purpose: badges anchor at the same
+## point, so a lift equal to theirs would stack the two surfaces on the same
+## pixels. This clears a full badge row plus air, which is why it is not simply
+## "a bit above the head".
+const ACTION_ROW_LIFT_UNITS := STATUS_BADGE_LIFT_UNITS + STATUS_BADGE_UNITS + 4.0
+## Gap between the row's icons and the focused action's name beneath them.
+const ACTION_ROW_LABEL_GAP_UNITS := 4.0
+## The focused icon grows by this much. Deliberately modest: the row has only
 ## four slots at fixed positions, so focus does not need to be found the way a
 ## row in an eight-item list does, and a large jump would push the icon into
 ## its neighbours' space.
-const ACTION_RING_FOCUS_SCALE := 1.25
+const ACTION_ROW_FOCUS_SCALE := 1.25
 ## How long an icon takes to reach its focused size. Matches
 ## `STATUS_BADGE_HOVER_TWEEN` so the two icon surfaces respond identically.
-const ACTION_RING_FOCUS_TWEEN := 0.09
+const ACTION_ROW_FOCUS_TWEEN := 0.09
 ## Alpha applied to a command the current phase forbids. Dimmed rather than
-## removed: the ring's four slots are fixed, so hiding one would leave a hole
+## removed: the row's four slots are fixed, so hiding one would leave a hole
 ## that reads as a missing feature, and a visibly disabled command teaches the
 ## rule ("you already moved") that hiding it only hides.
-const ACTION_RING_DISABLED_ALPHA := 0.35
+const ACTION_ROW_DISABLED_ALPHA := 0.35
 
 ## Counts, not lengths. These do not scale — three resonance cells stay three
 ## cells at every size, and a window holding eight rows holds eight rows.
@@ -536,9 +542,10 @@ static var STATUS_CELL_TEXT_GAP: int
 static var STATUS_BADGE_SIZE: float
 static var STATUS_BADGE_GAP: float
 static var STATUS_BADGE_LIFT: float
-static var ACTION_RING_ICON: float
-static var ACTION_RING_RADIUS: float
-static var ACTION_RING_LABEL_GAP: float
+static var ACTION_ROW_ICON: float
+static var ACTION_ROW_GAP: float
+static var ACTION_ROW_LIFT: float
+static var ACTION_ROW_LABEL_GAP: float
 
 static var RESONANCE_CELL_SIZE: float
 static var RESONANCE_CELL_GAP: float
@@ -641,9 +648,10 @@ static func _recompute() -> void:
 	STATUS_BADGE_SIZE = _scaled(STATUS_BADGE_UNITS)
 	STATUS_BADGE_GAP = _scaled(STATUS_BADGE_GAP_UNITS)
 	STATUS_BADGE_LIFT = _scaled(STATUS_BADGE_LIFT_UNITS)
-	ACTION_RING_ICON = _scaled(ACTION_RING_ICON_UNITS)
-	ACTION_RING_RADIUS = _scaled(ACTION_RING_RADIUS_UNITS)
-	ACTION_RING_LABEL_GAP = _scaled(ACTION_RING_LABEL_GAP_UNITS)
+	ACTION_ROW_ICON = _scaled(ACTION_ROW_ICON_UNITS)
+	ACTION_ROW_GAP = _scaled(ACTION_ROW_GAP_UNITS)
+	ACTION_ROW_LIFT = _scaled(ACTION_ROW_LIFT_UNITS)
+	ACTION_ROW_LABEL_GAP = _scaled(ACTION_ROW_LABEL_GAP_UNITS)
 
 	RESONANCE_CELL_SIZE = _scaled(RESONANCE_CELL_SIZE_UNITS)
 	RESONANCE_CELL_GAP = _scaled(RESONANCE_CELL_GAP_UNITS)

@@ -615,7 +615,7 @@ func _advance_battle() -> void:
 func _process(delta: float) -> void:
 	_step_deliberation()
 	_update_status_badges(delta)
-	_update_action_ring(delta)
+	_update_action_row(delta)
 
 
 ## The badge rows follow their units through movement tweens and camera motion,
@@ -628,7 +628,7 @@ func _update_status_badges(delta: float) -> void:
 	visual_adapter.update_status_badges(delta, get_viewport().get_mouse_position())
 
 
-## Keeps the action ring centred on the acting unit.
+## Keeps the action row anchored above the acting unit.
 ##
 ## Per-frame for the same reason the badge rows are: the ring has to follow its
 ## unit through movement tweens and camera motion, and neither emits a signal
@@ -638,22 +638,27 @@ func _update_status_badges(delta: float) -> void:
 ## and the damage numbers use, so letterboxing and the low-resolution presets
 ## keep the anchor exact.
 ##
-## Placement runs even while the ring is hidden. Position and visibility are
+## Anchored at the TOP of the unit's model, not its centre: the row hangs above
+## the unit, and a centre anchor would make the gap depend on how tall the unit
+## happens to be. `PlayerCommandMenu` applies the lift, so this stays a pure
+## projection.
+##
+## Placement runs even while the row is hidden. Position and visibility are
 ## owned by different things (this, and the menu's phase), and skipping the
-## placement of a hidden ring would let it reappear for one frame at wherever
+## placement of a hidden row would let it reappear for one frame at wherever
 ## the previous unit stood.
-func _update_action_ring(delta: float) -> void:
+func _update_action_row(delta: float) -> void:
 	if lifecycle != Lifecycle.BATTLE or battle_ui == null:
 		return
 	var command_menu = battle_ui.command_menu
 	if command_menu == null:
 		return
-	command_menu.advanceRing(delta)
+	command_menu.advanceActionRow(delta)
 	if player_turn == null or not player_turn.isActive():
 		return
 	if camera == null or visual_adapter == null or retro_renderer == null:
 		return
-	var worldPos := visual_adapter.get_monster_center_world_position(
+	var worldPos := visual_adapter.get_monster_top_world_position(
 		player_turn.activeMonsterID
 	)
 	if camera.is_position_behind(worldPos):
@@ -664,7 +669,7 @@ func _update_action_ring(delta: float) -> void:
 	# returns arrive as Variant and `:=` cannot infer from them.
 	var screenPos: Vector2 = retro_renderer.world_to_screen(viewportPos)
 	var visibleRect: Rect2 = retro_renderer.get_display_rect()
-	command_menu.setRingScreenPosition(screenPos, _ring_safe_rect(visibleRect))
+	command_menu.setActionRowAnchor(screenPos, _action_row_safe_rect(visibleRect))
 
 
 ## The display rect with the docked status windows carved off the bottom.
@@ -672,7 +677,7 @@ func _update_action_ring(delta: float) -> void:
 ## Clamping to the raw display rect is not enough: it reaches the bottom of the
 ## screen, which is exactly where the actor/target readouts are, so a unit
 ## deployed on the board's near edge — team 1's whole starting row — put the
-## ring's label straight through the actor window's heading. Both are pale text
+## row's label straight through the actor window's heading. Both are pale text
 ## on a dark body, so neither survived the overlap.
 ##
 ## Only *visible* windows are subtracted, which is what makes this worth doing
@@ -680,7 +685,7 @@ func _update_action_ring(delta: float) -> void:
 ## started closing when they have nothing to show, that band is usually free,
 ## and a ring that avoided it anyway would be dodging a window that is not
 ## there.
-func _ring_safe_rect(displayRect: Rect2) -> Rect2:
+func _action_row_safe_rect(displayRect: Rect2) -> Rect2:
 	var floor_y := displayRect.end.y
 	for window in [actor_window, target_window]:
 		if window != null and window.visible:

@@ -13,11 +13,12 @@
 ## indices into the row-metadata arrays — and the cursor's position is derived
 ## from them. `moveSelection()` must never call a `_rebuild_*` function.
 ##
-## **The root command list is no longer a window.** It is `ActionRing`, docked
-## to the acting unit on the board rather than to a screen corner, and driven
-## by direction rather than by cycling. The spell and confirm surfaces are
-## still windows and still cursor-driven, so both models live here: see
-## `moveSelectionDirection()` for the one place they are dispatched between.
+## **The root command list is no longer a window.** It is `ActionRow`, a
+## horizontal strip anchored above the acting unit on the board rather than
+## docked to a screen corner. It is still a list — stepped along, not
+## addressed by direction — so all three surfaces now share one selection
+## model, and `moveSelectionDirection()` differs between them only in which
+## axis steps and whether the other axis pages.
 ##
 ## This node renders the controller's data-only menu models and owns no rules
 ## about what a command means; `PlayerTurnController` still owns all of that.
@@ -31,7 +32,7 @@ signal spell_activated(set_index: int, spell_index: int)
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 const MenuCursorScript = preload("res://src/presentation/theme/MenuCursor.gd")
-const ActionRingScript = preload("res://src/presentation/ActionRing.gd")
+const ActionRowScript = preload("res://src/presentation/ActionRow.gd")
 
 const ROOT := "root"
 const SPELLS := "spells"
@@ -73,9 +74,9 @@ var _confirm_window: NoggWindow
 var _spell_cursor: MenuCursor
 var _confirm_cursor: MenuCursor
 ## The root command surface, replacing the docked command window. Positioned
-## by the scene controller each frame (`setRingScreenPosition`), because
-## placing it needs the camera and this node has none.
-var _action_ring: ActionRing
+## by the scene controller each frame (`setActionRowAnchor`), because placing
+## it needs the camera and this node has none.
+var _action_row: ActionRow
 
 var _entries: Array = []
 var _spells: Array = []
@@ -146,12 +147,12 @@ func _ready() -> void:
 	_confirm_window.row_built.connect(_on_confirm_row_built)
 	_spell_window.page_arrow_pressed.connect(func(direction): pageSpells(direction))
 
-	_action_ring = ActionRingScript.new()
-	_action_ring.name = "ActionRing"
-	_action_ring.visible = false
-	_action_ring.size = _action_ring.full_size()
-	_action_ring.entry_activated.connect(_on_ring_entry_activated)
-	add_child(_action_ring)
+	_action_row = ActionRowScript.new()
+	_action_row.name = "ActionRow"
+	_action_row.visible = false
+	_action_row.size = _action_row.full_size()
+	_action_row.entry_activated.connect(_on_row_entry_activated)
+	add_child(_action_row)
 
 	resized.connect(_layout_windows)
 	_layout_windows()
@@ -194,13 +195,13 @@ func showRoot(entries: Array) -> void:
 		var cased: Dictionary = (entry as Dictionary).duplicate()
 		cased["label"] = _display(str(cased.get("label", "")))
 		ring_entries.append(cased)
-	_action_ring.set_entries(ring_entries)
-	_action_ring.visible = true
+	_action_row.set_entries(ring_entries)
+	_action_row.visible = true
 	# Seed focus only when the ring has none, or the command it was resting on
 	# just became unavailable. Re-seeding unconditionally would drag the
 	# player's focus back to Move on every phase refresh within one turn.
-	if not _action_ring.is_slot_activatable(_action_ring.focus_slot()):
-		_action_ring.set_focus_slot(_action_ring.first_activatable_slot())
+	if not _action_row.is_slot_activatable(_action_row.focus_slot()):
+		_action_row.set_focus_slot(_action_row.first_activatable_slot())
 	_refresh_prompt()
 
 
@@ -215,7 +216,7 @@ func showPromptOnly() -> void:
 	# The ring goes too. It draws over the board at the acting unit, which is
 	# exactly where the reachable/attackable tile overlays are about to appear;
 	# leaving it up would put four icons on top of the thing being aimed at.
-	_action_ring.visible = false
+	_action_row.visible = false
 	_refresh_prompt()
 
 
@@ -239,7 +240,7 @@ func openSpells(spells: Array) -> void:
 	# the spell window docks to a screen edge while the ring sits wherever the
 	# unit is, so a dimmed ring would read as a second live surface rather than
 	# as this one's origin.
-	_action_ring.visible = false
+	_action_row.visible = false
 	_spell_window.open()
 	_spell_cursor.set_visible_cursor(true)
 	# Snap, never tween: the cursor does not fly between windows (§5).
@@ -253,7 +254,7 @@ func closeSpells() -> bool:
 	_mode = ROOT
 	_spell_cursor.set_visible_cursor(false)
 	_spell_window.close()
-	_action_ring.visible = true
+	_action_row.visible = true
 	# Deliberately no rebuild and no focus move: the ring's content did not
 	# change, so its focus is exactly where the player left it.
 	_refresh_prompt()
@@ -274,7 +275,7 @@ func openConfirm() -> void:
 	_mode = CONFIRM
 	_spell_window.visible = false
 	_spell_cursor.set_visible_cursor(false)
-	_action_ring.visible = false
+	_action_row.visible = false
 	_rebuild_confirm_rows()
 	_confirm_window.open()
 	_confirm_cursor.set_visible_cursor(true)
@@ -291,7 +292,7 @@ func closeConfirm() -> bool:
 		return false
 	_mode = ROOT
 	_hide_confirm_window()
-	_action_ring.visible = true
+	_action_row.visible = true
 	_refresh_prompt()
 	return true
 
@@ -309,7 +310,7 @@ func isShowingConfirm() -> bool:
 
 ## Id of the command the ring is focused on, or "" when none is.
 func selectedEntryId() -> String:
-	return _action_ring.focused_entry_id() if _action_ring != null else ""
+	return _action_row.focused_entry_id() if _action_row != null else ""
 
 
 ## Ids of the commands the ring can currently activate, **in slot order**
@@ -321,11 +322,11 @@ func selectedEntryId() -> String:
 ## which is where that ordering lives.
 func selectableEntryIds() -> Array:
 	var ids: Array = []
-	if _action_ring == null:
+	if _action_row == null:
 		return ids
-	for slot in range(ActionRingScript.SLOTS.size()):
-		if _action_ring.is_slot_activatable(slot):
-			ids.append(_action_ring.entry_id_at(slot))
+	for slot in range(ActionRowScript.SLOTS.size()):
+		if _action_row.is_slot_activatable(slot):
+			ids.append(_action_row.entry_id_at(slot))
 	return ids
 
 
@@ -345,14 +346,14 @@ func selectedConfirmId() -> String:
 ## Returns whether the input was consumed, so the caller does not have to know
 ## which surface is up. `direction` is one of the four unit vectors.
 ##
-## Root is a ring: a direction names a slot outright, and an unavailable slot
-## simply refuses — pressing up with Move spent does nothing rather than
-## wrapping around to something else, because on a fixed-position control a
-## direction must always mean the same command or it means nothing.
+## Root is a horizontal row: horizontal steps along it, wrapping and skipping
+## commands this phase forbids. Vertical is swallowed rather than acted on —
+## the row has no second axis, and letting up/down fall through would hand them
+## to the camera or the board while the player is looking at a menu.
 ##
-## The spell and confirm windows are still lists: vertical cycles them and
-## horizontal pages (§7a). That asymmetry is deliberate and is why this
-## function exists rather than the caller branching on mode.
+## The spell and confirm windows are vertical lists, so their axes are the
+## other way round: vertical cycles and horizontal pages (§7a). That is the
+## whole reason this function exists rather than the caller branching on mode.
 func moveSelectionDirection(direction: Vector2i) -> bool:
 	match _mode:
 		SPELLS:
@@ -369,16 +370,12 @@ func moveSelectionDirection(direction: Vector2i) -> bool:
 				return true
 			return false
 		_:
-			if _action_ring == null or not _action_ring.visible:
+			if _action_row == null or not _action_row.visible:
 				return false
-			var slot := _action_ring.slot_for_direction(Vector2(direction))
-			if slot == -1:
-				return false
-			_action_ring.set_focus_slot(slot)
-			# Consumed even when the slot refused focus: the key had a meaning
-			# on this surface (it named a direction the ring owns), and letting
-			# it fall through to the camera or the board would make a spent
-			# command's direction do something unrelated.
+			if direction.x != 0:
+				_action_row.set_focus_slot(_action_row.step_slot(direction.x))
+			# Consumed either way, vertical included: these four keys belong to
+			# the open command surface for as long as it is open.
 			return true
 
 
@@ -587,9 +584,9 @@ func _id_at(rows: Array, index: int) -> String:
 ## possible through the ring's own API — the empty-id guard covers the case
 ## where nothing is focused at all.
 func _activate_focused_command() -> void:
-	if _action_ring == null:
+	if _action_row == null:
 		return
-	var entry_id := _action_ring.focused_entry_id()
+	var entry_id := _action_row.focused_entry_id()
 	if entry_id.is_empty():
 		return
 	entry_activated.emit(entry_id)
@@ -598,7 +595,7 @@ func _activate_focused_command() -> void:
 ## The ring was clicked. It has already moved focus to the clicked slot, so
 ## this only has to forward — going back through `_activate_focused_command()`
 ## rather than trusting the signal's payload keeps one activation path.
-func _on_ring_entry_activated(_entry_id: String) -> void:
+func _on_row_entry_activated(_entry_id: String) -> void:
 	_activate_focused_command()
 
 
@@ -693,41 +690,48 @@ func _build_window(width: float, capacity: int, parent: Control = null) -> NoggW
 	return window
 
 
-## Centres the ring on a point in host-viewport screen space, clamped so it
-## never overhangs `visible_rect`. Called every frame by the scene controller,
-## which owns the camera this position is derived from.
+## Hangs the action row above `anchor` — a point in host-viewport screen space,
+## normally the top of the acting unit's model — clamped so it never overhangs
+## `visible_rect`. Called every frame by the scene controller, which owns the
+## camera this position is derived from.
+##
+## The row sits above rather than on the unit because, unlike the diamond it
+## replaced, a horizontal strip centred on a unit covers that unit. The lift is
+## applied here rather than folded into the anchor so the caller stays a pure
+## projection and this file keeps every decision about where the row sits.
 ##
 ## Clamping rather than hiding at the edge: a unit standing in a screen corner
 ## is a normal position to take a turn from, and a command surface that
 ## disappears exactly when the unit is cornered would be unusable at the moment
-## it matters. The ring detaching slightly from its unit is the lesser cost,
-## and it stays visibly nearer that unit than any other.
-func setRingScreenPosition(centre: Vector2, visible_rect: Rect2) -> void:
-	if _action_ring == null:
+## it matters. The row detaching slightly from its unit is the lesser cost, and
+## it stays visibly nearer that unit than any other.
+func setActionRowAnchor(anchor: Vector2, visible_rect: Rect2) -> void:
+	if _action_row == null:
 		return
-	# Offset by the ICON centre, not half the Control: the label band hangs
-	# below the icon square, so halving the size would push the ring up by half
-	# a label and leave it sitting off its unit.
-	var wanted: Vector2 = centre - _action_ring.icon_centre()
-	if visible_rect.size.x > _action_ring.size.x and visible_rect.size.y > _action_ring.size.y:
+	var wanted: Vector2 = (
+		anchor
+		- _action_row.anchor_offset()
+		- Vector2(0.0, NoggThemeScript.ACTION_ROW_LIFT)
+	)
+	if visible_rect.size.x > _action_row.size.x and visible_rect.size.y > _action_row.size.y:
 		wanted.x = clampf(
-			wanted.x, visible_rect.position.x, visible_rect.end.x - _action_ring.size.x
+			wanted.x, visible_rect.position.x, visible_rect.end.x - _action_row.size.x
 		)
 		wanted.y = clampf(
-			wanted.y, visible_rect.position.y, visible_rect.end.y - _action_ring.size.y
+			wanted.y, visible_rect.position.y, visible_rect.end.y - _action_row.size.y
 		)
-	_action_ring.position = wanted.round()
+	_action_row.position = wanted.round()
 
 
-## Advances the ring's focus tween. Driven from the scene controller's frame
+## Advances the row's focus tween. Driven from the scene controller's frame
 ## loop, matching how the status badge rows are advanced.
-func advanceRing(delta: float) -> void:
-	if _action_ring != null and _action_ring.visible:
-		_action_ring.advance(delta)
+func advanceActionRow(delta: float) -> void:
+	if _action_row != null and _action_row.visible:
+		_action_row.advance(delta)
 
 
-func actionRing() -> ActionRing:
-	return _action_ring
+func actionRow() -> ActionRow:
+	return _action_row
 
 
 func _build_cursor(window: NoggWindow) -> MenuCursor:
