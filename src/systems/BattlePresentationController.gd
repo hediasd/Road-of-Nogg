@@ -660,7 +660,35 @@ func _update_action_ring(delta: float) -> void:
 	# returns arrive as Variant and `:=` cannot infer from them.
 	var screenPos: Vector2 = retro_renderer.world_to_screen(viewportPos)
 	var visibleRect: Rect2 = retro_renderer.get_display_rect()
-	command_menu.setRingScreenPosition(screenPos, visibleRect)
+	command_menu.setRingScreenPosition(screenPos, _ring_safe_rect(visibleRect))
+
+
+## The display rect with the docked status windows carved off the bottom.
+##
+## Clamping to the raw display rect is not enough: it reaches the bottom of the
+## screen, which is exactly where the actor/target readouts are, so a unit
+## deployed on the board's near edge — team 1's whole starting row — put the
+## ring's label straight through the actor window's heading. Both are pale text
+## on a dark body, so neither survived the overlap.
+##
+## Only *visible* windows are subtracted, which is what makes this worth doing
+## rather than reserving the band unconditionally: since the status windows
+## started closing when they have nothing to show, that band is usually free,
+## and a ring that avoided it anyway would be dodging a window that is not
+## there.
+func _ring_safe_rect(displayRect: Rect2) -> Rect2:
+	var floor_y := displayRect.end.y
+	for window in [actor_window, target_window]:
+		if window != null and window.visible:
+			floor_y = minf(floor_y, window.position.y)
+	# Never invert the rect: a viewport short enough that the windows cover the
+	# whole board should fall back to the unclamped rect rather than hand out a
+	# negative-height one, which would clamp the ring to a single point.
+	if floor_y <= displayRect.position.y:
+		return displayRect
+	return Rect2(
+		displayRect.position, Vector2(displayRect.size.x, floor_y - displayRect.position.y)
+	)
 
 
 

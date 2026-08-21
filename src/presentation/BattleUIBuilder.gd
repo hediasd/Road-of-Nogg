@@ -17,11 +17,23 @@ const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 const TurnOrderRailScript = preload("res://src/presentation/TurnOrderRail.gd")
 
-## docs/UI_DESIGN.md §8: 6 rows (heading + HP + ATK/DEF + SPD/MOV, with two
-## spare rows). Width is `NoggThemeScript.STATUS_WINDOW_WIDTH`, not redeclared
-## here — a local const of a literal number could never track
-## `NoggTheme.ui_scale` (see NoggTheme.gd's "Window widths" block).
-const STATUS_WINDOW_CAPACITY := 6
+## docs/UI_DESIGN.md §8: heading + HP + ATK/DEF + SPD/MOV, and that is the
+## whole content — `BattlePresentationController._renderStatusWindow()` adds
+## exactly these four rows and nothing conditionally adds a fifth (Resonance
+## goes into a *cell* of an existing row, not a row of its own).
+##
+## Was 6. The two spare rows were never filled by anything, and a NoggWindow's
+## height is a function of declared capacity rather than of rows actually
+## added (trait 6), so they were 52 device pixels of empty frame at the
+## shipping scale — on the one element the audit found occluding the board's
+## near edge, where team 1 deploys. Capacity should be a readout's real
+## content, not headroom for content it does not have.
+##
+## Width is `NoggThemeScript.STATUS_WINDOW_WIDTH`, not redeclared here — a
+## local const of a literal number could never track `NoggTheme.ui_scale` (see
+## NoggTheme.gd's "Window widths" block). It stays as measured: the HP row's
+## worst case ("999 / 999") and the third-column Resonance cell both need it.
+const STATUS_WINDOW_CAPACITY := 4
 ## Upper-left, below the prompt and above the centred command window.
 ## Three rows show the active unit plus the next two queued units. Width is
 ## `NoggThemeScript.TURN_ORDER_WIDTH` and its top offset is

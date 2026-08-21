@@ -215,13 +215,39 @@ func advance(delta: float) -> bool:
 	return changed
 
 
-## Total extent, so the caller can clamp the ring inside the display rect
-## without knowing its internals. Square, and measured from the widest slot
-## icon at its focused size — the ring must not overhang the screen edge on the
-## frame a slot happens to be grown.
-func extent() -> float:
+## The square the four icons occupy, measured at a slot's *focused* size — the
+## ring must not overhang the screen edge on the frame a slot happens to be
+## grown.
+func icon_extent() -> float:
 	var grown := NoggThemeScript.ACTION_RING_ICON * NoggThemeScript.ACTION_RING_FOCUS_SCALE
 	return NoggThemeScript.ACTION_RING_RADIUS * 2.0 + grown
+
+
+## Height of the band under the icons that carries the focused command's name.
+## `ROW_HEIGHT` is the theme's body-font line box plus air — exactly what a
+## one-line label needs — so it is reused rather than re-derived from metrics.
+func label_band() -> float:
+	return NoggThemeScript.ACTION_RING_LABEL_GAP + float(NoggThemeScript.ROW_HEIGHT)
+
+
+## Full size of this Control: the icon square plus the label band beneath it.
+##
+## The label is inside these bounds deliberately. An earlier version sized the
+## Control to the icons alone and drew the label past the bottom edge, which
+## Godot permits — so the label rendered fine but sat outside everything that
+## reasons about this widget's rectangle, and the caller's edge clamp could not
+## see it. Anything drawn has to be measured.
+func full_size() -> Vector2:
+	var extent := icon_extent()
+	return Vector2(extent, extent + label_band())
+
+
+## Where the icons' centre sits inside `full_size()`. Not the Control's centre:
+## the label band hangs below the icon square, so the caller anchoring the ring
+## to a unit must offset by this rather than by half the size.
+func icon_centre() -> Vector2:
+	var extent := icon_extent()
+	return Vector2(extent * 0.5, extent * 0.5)
 
 
 ## Narrows this Control's hit area to the icon rects.
@@ -239,7 +265,7 @@ func _has_point(point: Vector2) -> bool:
 ## or -1. Hit-tested at the icon's resting size rather than its focused size,
 ## so a slot's clickable area does not breathe as the focus tween runs.
 func slot_at_point(point: Vector2) -> int:
-	var centre := size * 0.5
+	var centre := icon_centre()
 	for index in range(SLOTS.size()):
 		if not _is_activatable(index):
 			continue
@@ -309,7 +335,7 @@ func _slots_differ(built: Array) -> bool:
 
 
 func _draw() -> void:
-	var centre := size * 0.5
+	var centre := icon_centre()
 	for index in range(SLOTS.size()):
 		var entry: Dictionary = _slots[index]
 		if entry.is_empty():

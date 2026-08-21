@@ -634,8 +634,8 @@ there is nothing left for them to compete over.
 | **Action ring** | Centred on the acting unit, projected per frame | `ACTION_RING_RADIUS` 26 / 52 from centre, `ACTION_RING_ICON` 16 / 32 per icon | Four command icons: Move north, Attack east, Pass south, Spell west, plus the focused command's name beneath. Replaced the docked command window — see the note below |
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | `SPELL_WIDTH` 340 / 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
 | **Turn rail** | Top-centre, `TURN_RAIL_TOP` | `TURN_RAIL_TILE_WIDTH` 20 / 40 x `TURN_RAIL_TILE_HEIGHT` 28 / 56 per tile, up to `TURN_RAIL_CAPACITY` | Portrait tiles: a rendered model miniature, team-coloured frame, round-relative queue number, and a health strip. Crosses the round boundary with a dashed divider; entries past it are a projection and draw at `TURN_RAIL_PROJECTED_ALPHA` |
-| **Actor status** | Bottom-left, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3. `open()`s when a monster is showing, `close()`s otherwise — see the note below |
-| **Target** | Bottom-right, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Same fixed-cell shape and open/close behaviour as actor status |
+| **Actor status** | Bottom-left, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 4 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3. `open()`s when a monster is showing, `close()`s otherwise — see the note below |
+| **Target** | Bottom-right, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 4 rows | Same fixed-cell shape and open/close behaviour as actor status |
 | **Confirm** | Same origin as Command, replacing it | `COMMAND_WIDTH` 110 / 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
 | **Forecast** | Above Command, **left-aligned** with it | `FORECAST_WIDTH` 340 / 680 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible while aiming *and* while confirming |
 | **Prompt** | Top-centre, below the rail, own `NoggTheme.PROMPT_LAYER` | `PROMPT_WIDTH` 470 / 940, 1 row | `Select a destination.`, `Choose an action, or Pass to end the turn.` — transient, closed rather than shown empty; see the note below |
@@ -655,6 +655,26 @@ fixed position computed from viewport size alone, so nothing reflows off their
 visibility. Both start `visible = false` at construction rather than
 open()-then-immediately-close()-ing at battle start, which the Control default
 of `visible = true` would otherwise do.
+
+**The status windows are four rows, not six.** Heading, HP, ATK/DEF, SPD/MOV
+is the entire content — `_renderStatusWindow()` adds exactly those and nothing
+conditionally adds a fifth, since Resonance goes into a *cell* of an existing
+row rather than a row of its own. Because a `NoggWindow`'s height is a
+function of declared capacity and not of rows actually added (trait 6), the
+two spare rows were 52 device pixels of empty frame at the shipping scale, on
+the element the audit found occluding the board's near edge where team 1
+deploys. Width is unchanged: the HP row's `999 / 999` worst case and the
+third-column Resonance cell both still need it.
+
+**The action ring is clamped against the docked windows, not just the display
+rect.** The raw display rect reaches the bottom of the screen, which is where
+those readouts live, so a unit on the board's near edge put the ring's label
+through the actor window's heading — pale text over pale text on the same dark
+body. `BattlePresentationController._ring_safe_rect()` subtracts only the
+windows that are *currently visible*, which is what makes it worth doing
+rather than reserving the band unconditionally: since those windows started
+closing when they have nothing to show, the band is usually free, and a ring
+dodging an absent window would be the same clutter in a different place.
 
 **The command window is gone; its list is now the board-anchored action
 ring.** It docked to a fixed screen corner and named commands in words, which

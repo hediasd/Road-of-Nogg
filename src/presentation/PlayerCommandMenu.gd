@@ -149,8 +149,7 @@ func _ready() -> void:
 	_action_ring = ActionRingScript.new()
 	_action_ring.name = "ActionRing"
 	_action_ring.visible = false
-	var ring_extent: float = _action_ring.extent()
-	_action_ring.size = Vector2(ring_extent, ring_extent)
+	_action_ring.size = _action_ring.full_size()
 	_action_ring.entry_activated.connect(_on_ring_entry_activated)
 	add_child(_action_ring)
 
@@ -706,8 +705,10 @@ func _build_window(width: float, capacity: int, parent: Control = null) -> NoggW
 func setRingScreenPosition(centre: Vector2, visible_rect: Rect2) -> void:
 	if _action_ring == null:
 		return
-	var half := _action_ring.size * 0.5
-	var wanted := centre - half
+	# Offset by the ICON centre, not half the Control: the label band hangs
+	# below the icon square, so halving the size would push the ring up by half
+	# a label and leave it sitting off its unit.
+	var wanted: Vector2 = centre - _action_ring.icon_centre()
 	if visible_rect.size.x > _action_ring.size.x and visible_rect.size.y > _action_ring.size.y:
 		wanted.x = clampf(
 			wanted.x, visible_rect.position.x, visible_rect.end.x - _action_ring.size.x
