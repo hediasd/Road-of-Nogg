@@ -611,6 +611,7 @@ func _advance_battle() -> void:
 func _process(delta: float) -> void:
 	_step_deliberation()
 	_update_status_badges(delta)
+	_update_action_ring(delta)
 
 
 ## The badge rows follow their units through movement tweens and camera motion,
@@ -621,6 +622,45 @@ func _update_status_badges(delta: float) -> void:
 	if lifecycle != Lifecycle.BATTLE or visual_adapter == null:
 		return
 	visual_adapter.update_status_badges(delta, get_viewport().get_mouse_position())
+
+
+## Keeps the action ring centred on the acting unit.
+##
+## Per-frame for the same reason the badge rows are: the ring has to follow its
+## unit through movement tweens and camera motion, and neither emits a signal
+## this could hang off. The projection chain — `unproject_position` into the
+## battle SubViewport, then `world_to_screen` through the renderer's
+## aspect-preserving display rect — is the same one `_pan_camera_to_active_unit`
+## and the damage numbers use, so letterboxing and the low-resolution presets
+## keep the anchor exact.
+##
+## Placement runs even while the ring is hidden. Position and visibility are
+## owned by different things (this, and the menu's phase), and skipping the
+## placement of a hidden ring would let it reappear for one frame at wherever
+## the previous unit stood.
+func _update_action_ring(delta: float) -> void:
+	if lifecycle != Lifecycle.BATTLE or battle_ui == null:
+		return
+	var command_menu = battle_ui.command_menu
+	if command_menu == null:
+		return
+	command_menu.advanceRing(delta)
+	if player_turn == null or not player_turn.isActive():
+		return
+	if camera == null or visual_adapter == null or retro_renderer == null:
+		return
+	var worldPos := visual_adapter.get_monster_center_world_position(
+		player_turn.activeMonsterID
+	)
+	if camera.is_position_behind(worldPos):
+		return
+	var viewportPos := camera.unproject_position(worldPos)
+	# Annotated rather than inferred, for the reason given on
+	# `_pan_camera_to_active_unit`: `retro_renderer` has no class_name, so its
+	# returns arrive as Variant and `:=` cannot infer from them.
+	var screenPos: Vector2 = retro_renderer.world_to_screen(viewportPos)
+	var visibleRect: Rect2 = retro_renderer.get_display_rect()
+	command_menu.setRingScreenPosition(screenPos, visibleRect)
 
 
 
