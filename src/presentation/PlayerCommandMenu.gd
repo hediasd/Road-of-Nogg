@@ -86,13 +86,36 @@ var _spell_index := -1
 var _confirm_index := -1
 var _mode := ROOT
 var _prompt_text := ""
+## Where the prompt window attaches, instead of `self` like every other window
+## here. Set by `BattleUIBuilder` via `set_prompt_layer_root()` before this
+## node enters the tree, so the prompt can live on `NoggTheme.PROMPT_LAYER` —
+## above the dev bar — while the rest of this menu stays on the game layer.
+## `null` (the default) falls back to `self`, so a caller that never sets this
+## still gets a working, merely un-elevated, prompt.
+var _prompt_layer_root: Control = null
+
+
+## Must be called before this node enters the tree — `_ready()` reads it once,
+## synchronously, to decide the prompt window's parent.
+func set_prompt_layer_root(root: Control) -> void:
+	_prompt_layer_root = root
 
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
-	_prompt_window = _build_window(NoggThemeScript.PROMPT_WIDTH, 1)
+	_prompt_window = _build_window(NoggThemeScript.PROMPT_WIDTH, 1, _prompt_layer_root)
+	# Readout only, same as the actor/target status windows: nothing here ever
+	# connects its gui_input. Left at the default STOP filter it would now
+	# intercept clicks meant for the dev bar underneath it, since it renders
+	# above DEV_LAYER on PROMPT_LAYER.
+	_prompt_window.set_input_transparent(true)
+	# Starts closed: `_refresh_prompt()` now drives open()/close() off whether
+	# there is a real message, and the Control default of visible = true would
+	# otherwise open() at construction just to close() again once the first
+	# (likely empty) status arrives.
+	_prompt_window.visible = false
 	_forecast_window = _build_window(NoggThemeScript.FORECAST_WIDTH, 2)
 	_forecast_window.visible = false
 	_command_window = _build_window(NoggThemeScript.COMMAND_WIDTH, COMMAND_CAPACITY)
@@ -615,9 +638,12 @@ func _on_window_gui_input(event: InputEvent, which: String) -> void:
 
 # --- construction and layout ------------------------------------------------
 
-func _build_window(width: float, capacity: int) -> NoggWindow:
+## `parent` overrides where the window attaches; only the prompt window uses
+## this (see `_prompt_layer_root`) — every other window keeps parenting under
+## `self`, which is what passing `null` reproduces.
+func _build_window(width: float, capacity: int, parent: Control = null) -> NoggWindow:
 	var window := NoggWindowScript.new()
-	add_child(window)
+	(parent if parent != null else self).add_child(window)
 	window.set_row_capacity(capacity)
 	window.size = Vector2(width, NoggThemeScript.window_height(capacity))
 	return window
@@ -669,13 +695,24 @@ func _layout_windows() -> void:
 	)
 
 
+## Audit finding: "Choose a command." said nothing the open command window
+## did not already say, and a 940px bar saying nothing was the third-largest
+## permanently-drawn element in the HUD. `PlayerTurnController._menuStatusText()`
+## now returns "" for that baseline case, so this mostly closes rather than
+## showing filler — matching the open()/close() treatment
+## `BattlePresentationController._renderStatusWindow()` already gives the
+## actor/target windows, for the same reason: nothing else reflows off this
+## window's visibility, so there is no layout cost to hiding it, only a
+## legibility gain.
 func _refresh_prompt() -> void:
 	_prompt_window.clear_rows()
 	if _prompt_text.is_empty():
-		_prompt_window.visible = false
+		if _prompt_window.visible:
+			_prompt_window.close()
 		return
+	if not _prompt_window.visible:
+		_prompt_window.open()
 	_prompt_window.add_row(_prompt_text)
-	_prompt_window.visible = true
 
 
 ## Command labels and menu chrome render in caps; proper nouns do not. Spell

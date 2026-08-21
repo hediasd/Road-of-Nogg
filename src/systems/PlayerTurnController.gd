@@ -427,12 +427,18 @@ func _enterMenu(statusOverride: String = "") -> void:
 	menu_changed.emit()
 
 
+## Empty for the baseline case (both phases still open): the command window
+## being open already says "choose a command," and a prompt that repeats it
+## was the third-largest permanently-drawn element in the HUD for zero new
+## information. The other two strings stay — each names a constraint the
+## command window's enabled/disabled rows don't spell out on their own (which
+## specific phase is now closed off, and that Pass still ends the turn).
 func _menuStatusText(phases: Dictionary) -> String:
 	if phases["has_moved"] and not phases["has_acted"]:
 		return "Choose an action, or Pass to end the turn."
 	if phases["has_acted"] and not phases["has_moved"]:
 		return "Choose where to move, or Pass to end the turn."
-	return "Choose a command."
+	return ""
 
 
 func _enterMoveSelect() -> void:

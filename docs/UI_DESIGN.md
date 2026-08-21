@@ -615,7 +615,7 @@ there is nothing left for them to compete over.
 | **Target** | Bottom-right, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 6 rows | Same fixed-cell shape and open/close behaviour as actor status |
 | **Confirm** | Same origin as Command, replacing it | `COMMAND_WIDTH` 110 / 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
 | **Forecast** | Above Command, **left-aligned** with it | `FORECAST_WIDTH` 340 / 680 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible while aiming *and* while confirming |
-| **Prompt** | Top-centre, below the rail | `PROMPT_WIDTH` 470 / 940, 1 row | `Select a destination`, `Select a target` — replaces today's status label |
+| **Prompt** | Top-centre, below the rail, own `NoggTheme.PROMPT_LAYER` | `PROMPT_WIDTH` 470 / 940, 1 row | `Select a destination.`, `Choose an action, or Pass to end the turn.` — transient, closed rather than shown empty; see the note below |
 | **Battle log** | Right edge, full height | scrolling | The one deliberate exception to trait 5; a log is a scrollback, not a menu |
 
 **The two status windows no longer show an empty frame when there is nothing
@@ -632,6 +632,34 @@ fixed position computed from viewport size alone, so nothing reflows off their
 visibility. Both start `visible = false` at construction rather than
 open()-then-immediately-close()-ing at battle start, which the Control default
 of `visible = true` would otherwise do.
+
+**The prompt no longer shows "Choose a command." while the command window is
+already open, and it now sits on its own layer above the dev bar.**
+`PlayerTurnController._menuStatusText()` returns `""` for that baseline case —
+the command window being open already says as much, and the prompt saying it
+too was the third-largest permanently-drawn element in the HUD. The other two
+status strings stay, since each names something the command window's
+enabled/disabled rows do not: which specific phase (move or act) is now closed
+off, and that Pass still ends the turn. `PlayerCommandMenu._refresh_prompt()`
+drives this the same way the status windows work above: `open()`/`close()` off
+whether there is text, not a bare `visible` flip.
+
+Separately, `BACKLOG_CRITICAL.md` recorded the prompt rendering behind the dev
+bar at the shipping `ui_scale`, since both dock to the same top band and
+`DEV_LAYER` draws over `GAME_LAYER`. Docking the prompt below the dev bar's
+band was the other candidate that backlog entry named, and was rejected here
+because it would make a developer-only action (F1) move a player-facing
+element. `PlayerCommandMenu` now takes an externally-supplied parent for the
+prompt window alone (`set_prompt_layer_root()`, called by `BattleUIBuilder`
+before the node enters the tree) rather than parenting it under `self` like
+every other window here, so it can live on `NoggTheme.PROMPT_LAYER` — one above
+`DEV_LAYER` — while the rest of the command surface stays on the game layer.
+Reparenting it out from under `action_panel` also removed the visibility
+coupling that Control hierarchy gave it for free (an invisible ancestor hides
+every descendant regardless of the descendant's own `visible`), so
+`BattleUIBuilder` now states that coupling explicitly: the new layer's root
+mirrors `action_panel.visible` via its `visibility_changed` signal, keeping the
+prompt's effective visibility identical to before the split.
 
 **`PROMPT_WIDTH` and `FORECAST_WIDTH` changed value, not just unit — this
 was a real, pre-existing bug found while re-measuring the window budgets.**
@@ -715,14 +743,18 @@ teach the player it is a game mechanic.
 
 ### The split
 
-Two `CanvasLayer`s, two themes, one rule.
+Three `CanvasLayer`s, two themes, one rule: **theme follows audience, not
+layer number.** The prompt sits numerically above the dev layer so developer
+chrome can never occlude a player-facing message (§8's note on
+`NoggTheme.PROMPT_LAYER`), but it is built with `build_game_theme()` like every
+other window here — a higher layer number does not make it developer UI.
 
-| | Game layer | Dev layer |
-|---|---|---|
-| Layer | `10` | `20` (always above) |
-| Theme | `build_game_theme()` | `build_dev_theme()` |
-| Holds | Command, Spell, Actor, Target, Forecast, Prompt, Log | Top bar, graphics menu, screenshot, save replay |
-| `F1` | **unaffected** | toggles visibility |
+| | Game layer | Dev layer | Prompt layer |
+|---|---|---|---|
+| Layer | `10` | `20` (above game) | `21` (above dev) |
+| Theme | `build_game_theme()` | `build_dev_theme()` | `build_game_theme()` |
+| Holds | Command, Spell, Actor, Target, Forecast, Log | Top bar, graphics menu, screenshot, save replay | Prompt only |
+| `F1` | **unaffected** | toggles visibility | **unaffected** — mirrors `action_panel.visible` instead, so it tracks whether a player turn is active, not whether the dev bar is shown |
 
 `F1` toggles the dev layer only, so a clean screenshot still shows the game UI
 as a player sees it — which is the actual reason the key exists. It was

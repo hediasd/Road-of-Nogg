@@ -24,6 +24,18 @@ const CRT_LAYER := -20
 const WORLD_EFFECT_LAYER := 9
 const GAME_LAYER := 10
 const DEV_LAYER := 20
+## The player-facing prompt window only (`PlayerCommandMenu._prompt_window`),
+## which BACKLOG_CRITICAL.md records as overlapped by the dev bar at the
+## shipping ui_scale: both dock to the same top band, DEV_LAYER draws over
+## GAME_LAYER, and the prompt loses. Docking it below the dev bar's band
+## instead was the other candidate the backlog names, rejected because it
+## would make the prompt jump position whenever the dev bar (F1) toggles — a
+## developer-only action moving a player-facing element is worse than the
+## layer split it would fix. A dedicated layer keeps the prompt's position
+## fixed regardless of dev-bar visibility and settles which one wins on the
+## only defensible grounds: a message meant for the player should never be
+## occluded by developer chrome.
+const PROMPT_LAYER := DEV_LAYER + 1
 
 ## The `ui_through_crt` toggle. The CRT shader (`crt_display.gdshader`)
 ## reads `hint_screen_texture`, i.e. it distorts whatever was already drawn to

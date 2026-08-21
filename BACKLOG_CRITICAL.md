@@ -216,27 +216,3 @@ Two pieces remain open:
   through the adapter and event path. The `Battle25D` shutdown access violation
   above is a prerequisite for that last one.
 
-## The prompt window renders behind the developer HUD
-
-At the shipping `ui_scale` of 2, the top-centre prompt window ("Choose a
-command.", "Select a destination.") is overlapped by the developer bar and its
-text is partially unreadable. `DEV_LAYER` (20) sits above `GAME_LAYER` (10), so
-the dev bar wins the overlap.
-
-**Pre-existing, not caused by the Pixel-Exact UI cycle** — confirmed by
-capturing the real scene before and after that work: `PROMPT_TOP` resolves to
-exactly its historical 24px at x2, so the layout there is byte-identical to what
-shipped previously. The collision was already present at the narrower
-pre-cycle `PROMPT_WIDTH` too, since the prompt is horizontally centred and the
-dev bar's left panel reaches well past the prompt's left edge either way.
-
-It happens not to bite at `ui_scale` 3, where the prompt's scaled top offset
-carries it clear of the dev bar's text — which is luck, not a fix.
-
-Two candidate resolutions, both design decisions rather than mechanical fixes:
-dock the prompt below the dev bar's reserved band, or give the prompt its own
-layer above `DEV_LAYER` on the grounds that a player-facing prompt should never
-be occluded by developer chrome. `docs/UI_DESIGN.md` §9 asserts the two layers
-stay visually distinct but does not say which wins a positional conflict.
-
-Only visible while the dev bar is shown; F1 hides it.

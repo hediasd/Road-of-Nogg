@@ -210,9 +210,37 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	actionPanel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	actionPanel.visible = false
 	game_root.add_child(actionPanel)
+
+	# The prompt window's own CanvasLayer, on NoggTheme.PROMPT_LAYER — above
+	# DEV_LAYER — so a player-facing message is never occluded by the dev bar
+	# (BACKLOG_CRITICAL.md, "The prompt window renders behind the developer
+	# HUD"). Built with the game theme, same as `game_root`, since the prompt
+	# is player-facing chrome, not developer chrome — §9 must still hold even
+	# though this layer number sits above DEV_LAYER.
+	var promptLayer = CanvasLayer.new()
+	promptLayer.name = "PromptLayer"
+	promptLayer.layer = NoggThemeScript.PROMPT_LAYER
+	root.add_child(promptLayer)
+	var promptRoot = _buildThemedRoot(promptLayer, NoggThemeScript.build_game_theme())
+
 	var commandMenu: PlayerCommandMenu = PlayerCommandMenuScript.new()
 	commandMenu.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Must run before add_child(): PlayerCommandMenu reads this once in
+	# _ready(), which Godot calls synchronously as the node enters the tree.
+	commandMenu.set_prompt_layer_root(promptRoot)
 	actionPanel.add_child(commandMenu)
+
+	# Reproduces, across the new CanvasLayer split, exactly the visibility
+	# coupling the prompt window had for free when it was still a descendant
+	# of actionPanel: an ancestor Control hidden makes every descendant
+	# invisible regardless of the descendant's own `visible` flag. Now that the
+	# prompt lives on a sibling CanvasLayer instead of inside actionPanel's
+	# subtree, that coupling has to be stated explicitly or it silently stops
+	# applying — the effective visibility becomes `promptRoot.visible AND
+	# _prompt_window.visible` either way, matching the old
+	# `actionPanel.visible AND _prompt_window.visible`.
+	promptRoot.visible = actionPanel.visible
+	actionPanel.visibility_changed.connect(func(): promptRoot.visible = actionPanel.visible)
 
 	var targetWindow: NoggWindow = NoggWindowScript.new()
 	game_root.add_child(targetWindow)
