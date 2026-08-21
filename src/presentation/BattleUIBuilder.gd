@@ -191,6 +191,12 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	# viewport, including the near edge of the board where team 1 deploys, and a
 	# Control consumes clicks by default — leaving those units unselectable.
 	actorWindow.set_input_transparent(true)
+	# Starts closed, not merely empty: `_renderStatusWindow` drives open()/close()
+	# off whether a monster is showing, and starting from the Control default
+	# (visible = true) would open() at construction just to immediately close()
+	# the moment battle setup calls `_clearStatusWindows()` — a visible flicker
+	# for a state nothing ever intended to show.
+	actorWindow.visible = false
 
 	# A plain full-rect Control, not a styled PanelContainer: the command menu
 	# now draws its own NoggWindow frames and docks its windows itself per
@@ -214,6 +220,7 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	targetWindow.set_row_capacity(STATUS_WINDOW_CAPACITY)
 	targetWindow.size = status_window_size
 	targetWindow.set_input_transparent(true)
+	targetWindow.visible = false
 
 	# The turn order is a top-docked portrait rail, not a docked window. It owns
 	# the top band and the prompt sits below it: the rail is persistent and the

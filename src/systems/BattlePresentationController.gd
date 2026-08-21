@@ -1351,13 +1351,28 @@ func _setTargetPanelMonster(monsterID: int) -> void:
 ## the window empty rather than showing placeholder text — an empty frame
 ## reads as "nothing selected" without inventing a second visual language for
 ## the same idea (item 4).
+## Docked, fixed-position windows, so "keep the space, drop the frame" (audit
+## finding: an empty status window is the single largest permanently-drawn
+## element in the HUD) costs nothing here — nothing else reflows off these
+## windows' visibility, only their `reposition_status_windows` position, which
+## reads viewport size, not window state. `open()`/`close()` rather than a bare
+## `visible` flip: both already exist on `NoggWindow` with the shared
+## scale/fade tween and a generation guard against an open racing a close, so
+## reusing them is free and keeps this window's transitions visually
+## consistent with the spell list and confirm window.
 func _renderStatusWindow(window: NoggWindow, monsterID: int) -> void:
 	window.clear_rows()
 	if monsterID == -1 or sim == null:
+		if window.visible:
+			window.close()
 		return
 	var monster = sim.state.getMonster(monsterID)
 	if monster == null:
+		if window.visible:
+			window.close()
 		return
+	if not window.visible:
+		window.open()
 	window.add_row(monster.name)
 	if monster.elements.size() > NoggThemeScript.STATUS_CELL_OFFSETS.size():
 		push_warning("BattlePresentationController: status window shows only the first three elements for %s" % monster.name)
