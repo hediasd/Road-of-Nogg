@@ -94,76 +94,105 @@ static func _fill_rect(image: Image, left: int, top: int, width: int, height: in
 				image.set_pixel(x, y, color)
 
 
-## An "L" silhouette read as leg-plus-foot: the plainest shape that still
-## reads as footwear rather than as a generic block.
+## A boot in profile, facing right: a narrow shaft with the foot extending to
+## one side only.
+##
+## The asymmetry is the entire read. A vertical bar centred on a horizontal one
+## is a hammer, and a bar with a wide cap at both ends is an anvil -- the first
+## two drafts were each of those in turn. Shaft flush with the heel, toe
+## overhanging forward, one corner clipped so the toe is not a square.
 static func _draw_boot(image: Image, color: Color) -> void:
-	_fill_rect(image, 6, 2, 4, 7, color)
-	_fill_rect(image, 3, 8, 2, 4, color)
-	_fill_rect(image, 5, 9, 8, 3, color)
+	_fill_rect(image, 4, 2, 4, 9, color)
+	_fill_rect(image, 4, 11, 9, 3, color)
+	# Clip the toe's upper corner so the foot tapers instead of ending square.
+	image.set_pixel(12, 11, BACKGROUND)
+	# Cuff seam. Without it the silhouette is exactly the letter L; one dark
+	# row across the shaft is the cheapest thing that makes it read as footwear.
+	_fill_rect(image, 4, 4, 4, 1, BACKGROUND)
 
 
-## A diagonal blade with a crossguard and hilt — the same construction
-## `StatusEffectIcons._draw_sword` uses for `atk_buff`/`atk_debuff`, redrawn
-## here rather than shared: the two files answer different questions (status
-## vs. command) and neither should import the other over one shape.
+## A blade on the up-right diagonal with a crossguard perpendicular to it, a
+## short grip, and a pommel.
+##
+## The guard runs down-right specifically because it must cross the blade at a
+## right angle: drawn axis-aligned it reads as a bracket stuck to the side of a
+## line. It is kept short -- four pixels -- because a long one reads as a
+## second blade and turns the glyph into a pair of scissors.
+##
+## Diagonal is also the point of the silhouette: it is the only shape here that
+## is neither a box nor built on the centre cross, so it cannot be confused
+## with the magic star at a glance.
 static func _draw_sword(image: Image, color: Color) -> void:
-	for offset in range(7):
-		image.set_pixel(4 + offset, 10 - offset, color)
-		image.set_pixel(5 + offset, 10 - offset, color)
-	_fill_rect(image, 3, 10, 4, 2, color)
-	_fill_rect(image, 2, 12, 3, 2, color)
+	# Stepped 2x2 blocks, not a one-pixel trace: at 45 degrees a single-pixel
+	# line is only ~0.7px thick perpendicular, which survives the 4x zoom but
+	# disappears into a scratch at the native 32px the ring actually draws.
+	for offset in range(9):
+		_fill_rect(image, 3 + offset, 10 - offset, 2, 2, color)
+	# Guard: two pixels thick, or it reads as a check mark rather than a bar.
+	for offset in range(5):
+		image.set_pixel(3 + offset, 7 + offset, color)
+		image.set_pixel(3 + offset, 8 + offset, color)
+	# Pommel, on the blade axis below the guard, joined to it by the grip.
+	_fill_rect(image, 1, 12, 3, 2, color)
 
 
-## An eight-point sparkle: a cross plus four short diagonal ticks. Distinct
-## from `StatusEffectIcons`'s plain plus and its `focus` glyph (a plus over a
-## dark punch-out) by the diagonal ticks alone.
+## A four-point star with concave flanks.
+##
+## Concave is the whole difference from a plus: each arm tapers to two pixels
+## instead of ending square, which is what separates this from
+## `StatusEffectIcons`'s `plus` and `focus` glyphs. Both axes taper through the
+## same width ladder, so the star is balanced -- an earlier draft tapered only
+## the vertical and read as a horizontal bar with a stub on top.
 static func _draw_sparkle(image: Image, color: Color) -> void:
-	_fill_rect(image, 7, 3, 2, 10, color)
-	_fill_rect(image, 3, 7, 10, 2, color)
-	for offset in range(3):
-		image.set_pixel(5 + offset, 5 + offset, color)
-		image.set_pixel(10 - offset, 5 + offset, color)
-		image.set_pixel(5 + offset, 10 - offset, color)
-		image.set_pixel(10 - offset, 10 - offset, color)
+	var widths := [2, 2, 4, 4, 6, 12, 12, 6, 4, 4, 2, 2]
+	for index in range(widths.size()):
+		var width: int = widths[index]
+		_fill_rect(image, 8 - width / 2, 2 + index, width, 1, color)
 
 
-## Two triangles narrowing to a shared neck, built as one horizontal strip per
-## row rather than a filled diamond, so the waist actually pinches instead of
-## reading as a bowtie.
-static func _draw_hourglass(image: Image, color: Color) -> void:
-	_fill_rect(image, 3, 2, 10, 1, color)
-	_fill_rect(image, 4, 3, 8, 1, color)
-	_fill_rect(image, 5, 4, 6, 1, color)
-	_fill_rect(image, 6, 5, 4, 1, color)
-	_fill_rect(image, 7, 6, 2, 1, color)
-	_fill_rect(image, 7, 7, 2, 1, color)
-	_fill_rect(image, 7, 8, 2, 1, color)
-	_fill_rect(image, 6, 9, 4, 1, color)
-	_fill_rect(image, 5, 10, 6, 1, color)
-	_fill_rect(image, 4, 11, 8, 1, color)
-	_fill_rect(image, 3, 12, 10, 1, color)
-	_fill_rect(image, 3, 13, 10, 1, color)
-
-
-## An open ring with an arrowhead at the gap — the standard "rewind" shape,
-## traced as an arc of points rather than fill_rects: every other shape here is
-## rectilinear, and a ring is the one silhouette a stack of rectangles cannot
-## approximate without reading as a gear.
+## An open ring with a triangular head at the gap.
+##
+## Filled as an annulus -- a distance test per pixel -- rather than traced as a
+## parametric arc. Tracing a circle this small lands successive points on the
+## same pixel and then skips one, so the stroke comes out visibly dotted no
+## matter how fine the angular step; testing every pixel against a radius band
+## gives a solid stroke by construction.
+##
+## The head is a real triangle. Two overlapping rectangles read as a lump
+## welded to the ring, and an arrowhead is the only thing distinguishing "undo"
+## from a letter C.
 static func _draw_rewind(image: Image, color: Color) -> void:
-	var center := Vector2(8.0, 8.5)
-	var radius := 5.0
-	# Sweep clockwise from the arrowhead's gap, stopping short of a full
-	# circle so the two ends are visibly open, not just adjacent.
-	for degrees in range(35, 300, 8):
-		var rad := deg_to_rad(float(degrees))
-		var x := int(round(center.x + cos(rad) * radius))
-		var y := int(round(center.y + sin(rad) * radius))
-		if x >= 1 and x < ICON_SIZE - 1 and y >= 1 and y < ICON_SIZE - 1:
+	var center := Vector2(7.5, 8.5)
+	for y in range(1, ICON_SIZE - 1):
+		for x in range(1, ICON_SIZE - 1):
+			var offset := Vector2(float(x), float(y)) - center
+			var distance := offset.length()
+			if distance < 3.2 or distance > 5.4:
+				continue
+			# Leave the upper-left quadrant open for the head.
+			if offset.x < 0.0 and offset.y < 0.0:
+				continue
 			image.set_pixel(x, y, color)
-			image.set_pixel(x, y - 1, color)
-	# Arrowhead at the sweep's start (~35 degrees), pointing back along the arc.
-	_fill_rect(image, 10, 2, 3, 2, color)
-	_fill_rect(image, 12, 3, 2, 3, color)
+	# Head at the ring's top end, pointing LEFT along the tangent. Direction is
+	# not decoration: an arrow sweeping clockwise is the redo glyph, and this
+	# slot is undo.
+	var head := [2, 3, 4, 3, 2]
+	for index in range(head.size()):
+		_fill_rect(image, 8 - head[index], 2 + index, head[index], 1, color)
+
+
+## Two triangles narrowing to a shared neck, one horizontal strip per row so
+## the waist actually pinches instead of reading as a bowtie. Symmetric top to
+## bottom -- the first draft carried an extra row on the bottom cap, which
+## tilted the whole glyph.
+static func _draw_hourglass(image: Image, color: Color) -> void:
+	var widths := [10, 8, 6, 4, 2, 2, 4, 6, 8, 10]
+	for index in range(widths.size()):
+		var width: int = widths[index]
+		_fill_rect(image, 8 - width / 2, 3 + index, width, 1, color)
+	# Caps, overhanging the sand so the glyph reads as a framed vessel.
+	_fill_rect(image, 2, 2, 12, 1, color)
+	_fill_rect(image, 2, 13, 12, 1, color)
 
 
 static func _draw_plus(image: Image, color: Color) -> void:
