@@ -14,6 +14,7 @@ const PRESET_NONE := RenderPresetCatalogScript.NONE
 const PRESET_DITHERED_HORIZON := RenderPresetCatalogScript.DITHERED_HORIZON
 const PRESET_TACTICAL_SOFT := RenderPresetCatalogScript.TACTICAL_SOFT
 const PRESET_SATURATED_CRT := RenderPresetCatalogScript.SATURATED_CRT
+const PRESET_HALFTONE_PRESS := RenderPresetCatalogScript.HALFTONE_PRESS
 const PRESET_TACTICS_CLASSIC := RenderPresetCatalogScript.TACTICS_CLASSIC
 const PRESET_WEATHERED_STONE := RenderPresetCatalogScript.WEATHERED_STONE
 const PRESET_FOGGY_SURVIVAL := RenderPresetCatalogScript.FOGGY_SURVIVAL
@@ -27,10 +28,12 @@ const LOOK_CONTRAST := "contrast"
 const LOOK_SATURATION := "saturation"
 const LOOK_COLOR_LEVELS := "color_levels"
 const LOOK_DITHER := "dither"
+const LOOK_DUOTONE := "duotone"
 const CRT_SCANLINE := "scanline"
 const CRT_SCANLINE_SIZE := "scanline_size"
 const CRT_MASK := "mask"
 const CRT_MASK_SIZE := "mask_size"
+const CRT_MASK_DOTS := "mask_dots"
 const CRT_VIGNETTE := "vignette"
 const CRT_FLICKER := "flicker"
 const CRT_COLOR_BLEED := "color_bleed"
@@ -75,10 +78,19 @@ var contrast: float = 1.0
 var saturation: float = 1.0
 var color_levels: float = 0.0
 var dither_strength: float = 0.0
+## Blend toward the three-stop ink ramp below. Zero is a no-op, so every
+## preset that does not name it keeps full colour.
+var duotone_strength: float = 0.0
+## The ink ramp itself. Preset-owned rather than slider-owned: the graphics
+## menu exposes the strength, not the palette.
+var duotone_shadow := Color(0.05, 0.03, 0.02)
+var duotone_mid := Color(0.85, 0.20, 0.12)
+var duotone_paper := Color(1.0, 0.94, 0.87)
 var crt_scanline_strength: float = 0.22
 var crt_scanline_size: float = 1.0
 var crt_mask_strength: float = 0.1
 var crt_mask_size: float = 1.0
+var crt_mask_dot_strength: float = 0.0
 var crt_vignette_strength: float = 0.2
 var crt_flicker_strength: float = 0.02
 var crt_color_bleed: float = 0.8
@@ -256,6 +268,8 @@ func set_look_parameter(parameter: String, value: float, persist: bool = true) -
 			color_levels = clampf(value, 0.0, 64.0)
 		LOOK_DITHER:
 			dither_strength = clampf(value, 0.0, 0.15)
+		LOOK_DUOTONE:
+			duotone_strength = clampf(value, 0.0, 1.0)
 		_:
 			push_warning("Unknown look parameter '%s'." % parameter)
 			return
@@ -291,6 +305,8 @@ func get_look_parameter(parameter: String) -> float:
 			return color_levels
 		LOOK_DITHER:
 			return dither_strength
+		LOOK_DUOTONE:
+			return duotone_strength
 	return 0.0
 
 
@@ -301,9 +317,11 @@ func set_crt_parameter(parameter: String, value: float, persist: bool = true) ->
 		CRT_SCANLINE_SIZE:
 			crt_scanline_size = clampf(value, 0.5, 4.0)
 		CRT_MASK:
-			crt_mask_strength = clampf(value, 0.0, 0.3)
+			crt_mask_strength = clampf(value, 0.0, 1.0)
 		CRT_MASK_SIZE:
 			crt_mask_size = clampf(value, 1.0, 6.0)
+		CRT_MASK_DOTS:
+			crt_mask_dot_strength = clampf(value, 0.0, 1.0)
 		CRT_VIGNETTE:
 			crt_vignette_strength = clampf(value, 0.0, 0.6)
 		CRT_FLICKER:
@@ -346,6 +364,8 @@ func get_crt_parameter(parameter: String) -> float:
 			return crt_mask_strength
 		CRT_MASK_SIZE:
 			return crt_mask_size
+		CRT_MASK_DOTS:
+			return crt_mask_dot_strength
 		CRT_VIGNETTE:
 			return crt_vignette_strength
 		CRT_FLICKER:
@@ -390,6 +410,10 @@ func _apply_display_parameters() -> void:
 	crt_material.set_shader_parameter("saturation", saturation)
 	crt_material.set_shader_parameter("color_levels", color_levels)
 	crt_material.set_shader_parameter("dither_strength", dither_strength)
+	crt_material.set_shader_parameter("duotone_strength", duotone_strength)
+	crt_material.set_shader_parameter("duotone_shadow", duotone_shadow)
+	crt_material.set_shader_parameter("duotone_mid", duotone_mid)
+	crt_material.set_shader_parameter("duotone_paper", duotone_paper)
 	crt_material.set_shader_parameter("scanline_strength", crt_scanline_strength)
 	crt_material.set_shader_parameter(
 		"scanline_size", crt_scanline_size * float(NoggThemeScript.ui_scale)
@@ -398,6 +422,7 @@ func _apply_display_parameters() -> void:
 	crt_material.set_shader_parameter(
 		"mask_size", crt_mask_size * float(NoggThemeScript.ui_scale)
 	)
+	crt_material.set_shader_parameter("mask_dot_strength", crt_mask_dot_strength)
 	crt_material.set_shader_parameter("vignette_strength", crt_vignette_strength)
 	crt_material.set_shader_parameter("flicker_strength", crt_flicker_strength)
 	crt_material.set_shader_parameter("color_bleed", crt_color_bleed)
@@ -452,6 +477,34 @@ func _apply_preset_values(preset: String) -> bool:
 			crt_color_bleed = 1.5
 			crt_noise_strength = 0.035
 			crt_glow_strength = 0.25
+		PRESET_HALFTONE_PRESS:
+			# The reference this chases is a printed panel, not a monitor. Two
+			# values carry that: `duotone_strength` replaces the palette with
+			# the ink ramp outright, and `crt_mask_dot_strength` turns the
+			# phosphor stripe into a dot lattice. Saturation is pulled right
+			# down first because the ramp is driven by luminance -- leaving
+			# colour up only muddies which stop a pixel lands on.
+			retro_enabled = true
+			render_size = Vector2i(640, 480)
+			nearest_filter_enabled = true
+			crt_enabled = true
+			brightness = 1.25
+			contrast = 1.3
+			saturation = 0.3
+			color_levels = 6.0
+			dither_strength = 0.05
+			duotone_strength = 0.92
+			duotone_shadow = Color("0d0705")
+			duotone_mid = Color("d8321c")
+			duotone_paper = Color("ffeede")
+			crt_scanline_strength = 0.18
+			crt_mask_strength = 0.5
+			crt_mask_dot_strength = 0.45
+			crt_vignette_strength = 0.22
+			crt_flicker_strength = 0.006
+			crt_color_bleed = 2.2
+			crt_noise_strength = 0.02
+			crt_glow_strength = 0.35
 		PRESET_TACTICS_CLASSIC:
 			retro_enabled = true
 			render_size = Vector2i(320, 240)
@@ -516,10 +569,15 @@ func _set_neutral_values() -> void:
 	saturation = 1.0
 	color_levels = 0.0
 	dither_strength = 0.0
+	duotone_strength = 0.0
+	duotone_shadow = Color(0.05, 0.03, 0.02)
+	duotone_mid = Color(0.85, 0.20, 0.12)
+	duotone_paper = Color(1.0, 0.94, 0.87)
 	crt_scanline_strength = 0.22
 	crt_scanline_size = 1.0
 	crt_mask_strength = 0.1
 	crt_mask_size = 1.0
+	crt_mask_dot_strength = 0.0
 	crt_vignette_strength = 0.2
 	crt_flicker_strength = 0.02
 	crt_color_bleed = 0.8
@@ -698,6 +756,12 @@ func _load_settings() -> void:
 	dither_strength = clampf(float(config.get_value(
 		"look", "dither_strength", dither_strength
 	)), 0.0, 0.15)
+	duotone_strength = clampf(float(config.get_value(
+		"look", "duotone_strength", duotone_strength
+	)), 0.0, 1.0)
+	duotone_shadow = Color(config.get_value("look", "duotone_shadow", duotone_shadow))
+	duotone_mid = Color(config.get_value("look", "duotone_mid", duotone_mid))
+	duotone_paper = Color(config.get_value("look", "duotone_paper", duotone_paper))
 	affine_mapping_enabled = bool(config.get_value(
 		"rendering",
 		"affine_mapping_enabled",
@@ -711,7 +775,10 @@ func _load_settings() -> void:
 	)), 0.5, 4.0)
 	crt_mask_strength = clampf(float(config.get_value(
 		"crt", "mask_strength", crt_mask_strength
-	)), 0.0, 0.3)
+	)), 0.0, 1.0)
+	crt_mask_dot_strength = clampf(float(config.get_value(
+		"crt", "mask_dot_strength", crt_mask_dot_strength
+	)), 0.0, 1.0)
 	crt_mask_size = clampf(float(config.get_value(
 		"crt", "mask_size", crt_mask_size
 	)), 1.0, 6.0)
@@ -750,10 +817,15 @@ func _save_settings() -> void:
 	config.set_value("look", "saturation", saturation)
 	config.set_value("look", "color_levels", color_levels)
 	config.set_value("look", "dither_strength", dither_strength)
+	config.set_value("look", "duotone_strength", duotone_strength)
+	config.set_value("look", "duotone_shadow", duotone_shadow)
+	config.set_value("look", "duotone_mid", duotone_mid)
+	config.set_value("look", "duotone_paper", duotone_paper)
 	config.set_value("crt", "scanline_strength", crt_scanline_strength)
 	config.set_value("crt", "scanline_size", crt_scanline_size)
 	config.set_value("crt", "mask_strength", crt_mask_strength)
 	config.set_value("crt", "mask_size", crt_mask_size)
+	config.set_value("crt", "mask_dot_strength", crt_mask_dot_strength)
 	config.set_value("crt", "vignette_strength", crt_vignette_strength)
 	config.set_value("crt", "flicker_strength", crt_flicker_strength)
 	config.set_value("crt", "color_bleed", crt_color_bleed)

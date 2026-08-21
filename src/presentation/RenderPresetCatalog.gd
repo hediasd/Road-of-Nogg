@@ -7,6 +7,7 @@ const NONE := "none"
 const DITHERED_HORIZON := "dithered_horizon"
 const TACTICAL_SOFT := "tactical_soft"
 const SATURATED_CRT := "saturated_crt"
+const HALFTONE_PRESS := "halftone_press"
 const TACTICS_CLASSIC := "tactics_classic"
 const WEATHERED_STONE := "weathered_stone"
 const FOGGY_SURVIVAL := "foggy_survival"
@@ -34,6 +35,11 @@ const PRESETS := [
 		"id": SATURATED_CRT,
 		"label": "Saturated CRT",
 		"description": "Vivid color, scanlines and RGB bleed like the third reference."
+	},
+	{
+		"id": HALFTONE_PRESS,
+		"label": "Halftone Press",
+		"description": "Duotone ink on a hard dot grid, like a printed panel photographed off a screen."
 	},
 	{
 		"id": TACTICS_CLASSIC,

@@ -20,7 +20,7 @@ static func build(
 	panel.offset_left = -440
 	panel.offset_top = 70
 	panel.offset_right = -20
-	panel.offset_bottom = 610
+	panel.offset_bottom = 660
 	panel.visible = false
 
 	var style = StyleBoxFlat.new()
@@ -128,6 +128,10 @@ static func build(
 		lookTab, "Saturation", 0.0, 2.0, 0.05, 1.0,
 		callbacks["look_parameter_changed"], "saturation"
 	)
+	lookSliders["duotone"] = _add_slider(
+		lookTab, "Duotone", 0.0, 1.0, 0.05, 0.0,
+		callbacks["look_parameter_changed"], "duotone"
+	)
 	lookSliders["color_levels"] = _add_slider(
 		lookTab, "Color levels", 0.0, 64.0, 1.0, 0.0,
 		callbacks["look_parameter_changed"], "color_levels"
@@ -168,12 +172,16 @@ static func build(
 		callbacks["crt_parameter_changed"], "scanline_size"
 	)
 	crtSliders["mask"] = _add_slider(
-		crtTab, "RGB mask", 0.0, 0.3, 0.01, 0.1,
+		crtTab, "RGB mask", 0.0, 1.0, 0.01, 0.1,
 		callbacks["crt_parameter_changed"], "mask"
 	)
 	crtSliders["mask_size"] = _add_slider(
 		crtTab, "Mask size", 1.0, 6.0, 0.25, 1.0,
 		callbacks["crt_parameter_changed"], "mask_size"
+	)
+	crtSliders["mask_dots"] = _add_slider(
+		crtTab, "Mask dots", 0.0, 1.0, 0.01, 0.0,
+		callbacks["crt_parameter_changed"], "mask_dots"
 	)
 	crtSliders["vignette"] = _add_slider(
 		crtTab, "Vignette", 0.0, 0.6, 0.01, 0.2,
