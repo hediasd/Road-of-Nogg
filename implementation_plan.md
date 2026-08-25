@@ -659,6 +659,82 @@ assumes — a basic attack from the active unit at current position and elevatio
 monsters; cooldowns updating live; paging; open and close under every phase;
 no docked window resize.
 
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+The key is held `C`, and `_handle_deep_card_input` is deliberately the same
+shape as the threat overlay's handler — press opens, release closes, echo
+ignored — with one difference that is the point: it is **not gated on an active
+player turn**. The threat overlay is computed relative to whoever is acting and
+means nothing without one. The card is the free-look inspector's deep page, and
+the phases where a player has time to read it are CPU playback and after the
+battle ends. `_clear_deep_card()` exists because of that ungating: a release
+only reaches `_unhandled_input` while the lifecycle is BATTLE, so a card still
+held when the battle finishes would otherwise never be told to close.
+
+Two extractions, following the pattern the earlier items set of sharing one
+definition rather than reimplementing. `PlayerTurnController.spellEntriesFor()`
+is now static and takes a monster, with `spellEntries()` delegating for the
+active one — the entries were always a pure function of the monster, and the
+card lists them for a unit whose turn it is not.
+`PlayerCommandMenu.spell_value()` became public and static for the same reason,
+so a cooldown cannot read one way in the spell window and another on the card.
+
+**The card repeats nothing the docked windows already show.** HP, ATK/DEF,
+SPD/MOV, elements and Resonance are all on screen while it is up, so it carries
+only what has no surface anywhere else. That is what let the whole readout fit
+in 16 rows at its worst case rather than needing a second screen.
+
+**Hits-to-kill states its assumption in the row itself, not in prose beside the
+card.** The count comes from the same `calculateBasicDamage()` the aiming
+forecast uses with the same `is_simulation` flag, and the value carries the
+elevation modifier it was computed under in the forecast's own `%d%% elevation`
+vocabulary — elevation being precisely the term that changes when either unit
+moves. The dim row beneath names the attacker. When the question has no answer
+(nothing acting, the hovered unit *is* the actor, or it is that actor's ally)
+the row says which rather than showing a bare dash. The forecast is gathered in
+`BattlePresentationController`, not in `DeepCard`: nothing under
+`src/presentation/` reaches into `src/systems/` or into a resolver, and this
+item was not the place to start.
+
+**The width is measured output, and measuring caught a real over-run.** The
+first wording, `basic attack from <Name>, here`, needed 380 units against the
+340 the card had been given — the same class of defect §8 already records for
+`PROMPT_WIDTH` and `FORECAST_WIDTH`. Moving the attacker into the value column
+where every other value on the card sits brought the worst case to 308, and
+`DEEP_CARD_WIDTH_UNITS` is 310. `debug/measure_deep_card.gd` (gitignored)
+builds the card's real rows for every monster in the shipping catalog, reports
+the widest, prints one rendered card for review, and checks the vertical fit:
+the card spans 63..244 design units, the prompt ends at 59, and the docked
+status windows begin at 286. Because a design-unit screen is ~360 tall at every
+`ui_scale`, that one check covers all four scales.
+
+Live cooldowns are driven off `_refreshStatusWindows()` rather than `_process`:
+a cooldown only moves when a cast resolves, and a cast already pushes a readout
+refresh, so the card stays current without the per-frame row rebuild LEG-2
+specifically guarded the docked windows against.
+
+**The wheel pages the card while it is open.** It has no cursor, so §7a's "walk
+past the last row" rule cannot apply, and its footer arrows are a click the
+player would have to take their hand off the board to make. Claimed only while
+the card is open, so camera zoom is untouched otherwise. Only the deepest unit
+in the shipping catalog (16 rows against a capacity of 12) pages at all.
+
+**Found while reviewing a rendered card, and deliberately not fixed here:** a
+spell blocked by anything other than a cooldown still reads `CD 0`, because
+`spell_value()` has only a boolean to work from while `can_cast()` refuses for
+three different reasons. `Roses at Summers End` reads `CD 0` all battle. That is
+pre-existing behaviour of the spell window, which this item is required to match
+rather than diverge from, so it is recorded in `BACKLOG_CRITICAL.md` instead.
+
+Probe: `--check-only` reports no parse errors on any of the seven changed
+scripts, and the measurement script loads `DeepCard`, `NoggWindow`,
+`PlayerCommandMenu` and `PlayerTurnController` and runs clean. A headless
+editor import registered `DeepCard` in the script class cache and generated its
+`.gd.uid`, since a newly added `class_name` is absent from that cache until the
+project is rescanned — the same trap LEG-3, LEG-4 and LEG-7 each hit. It emitted
+only the documented editor-quit progress-dialog shutdown noise. None of this is
+acceptance evidence.
+
 ### LEG-10 — Consolidated legibility and regression validation
 
 **Model:** Opus 5 / GPT Sol

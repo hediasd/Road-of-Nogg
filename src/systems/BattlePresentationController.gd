@@ -70,6 +70,10 @@ const DITHER_HOVER_DWELL_SECONDS := 0.08
 var _hoverCandidateMonsterID: int = -1
 var _hoverCandidateSince: int = 0
 var _threat_overlay_active: bool = false
+## Whether the deep card's key is currently held. Tracked here rather than read
+## off the window, for the same reason `_status_window_open` exists: `close()`
+## is a coroutine and the window stays `visible` all the way through it.
+var _deep_card_held: bool = false
 ## The full danger-zone union, held while `T` is down so hovering an enemy can
 ## re-tint it without recomputing every enemy's contribution again.
 var _threat_tiles: Array = []
@@ -269,6 +273,7 @@ func _show_setup() -> void:
 		visual_adapter.dispose()
 	visual_adapter = null
 	sim = null
+	_clear_deep_card()
 	battle_ui.game_canvas.visible = false
 	battle_ui.dev_canvas.visible = false
 	battle_ui.action_panel.visible = false
@@ -793,6 +798,7 @@ func _finish_battle(winner: int) -> void:
 	_update_active_unit_dim()
 	_update_model_dither()
 	battle_ui.action_panel.visible = false
+	_clear_deep_card()
 	visual_adapter.clear_tactical_overlays()
 	visual_adapter.release_player_cursor()
 	# The adapter queues the victory message after every preceding visual action;
@@ -970,6 +976,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE:
 		return
 	if _handle_threat_input(event):
+		get_viewport().set_input_as_handled()
+		return
+	if _handle_deep_card_input(event):
 		get_viewport().set_input_as_handled()
 		return
 	# Per-action animation skip, bound to ui_accept rather than its own key.
@@ -1177,6 +1186,128 @@ func _clear_threat_overlay() -> void:
 	_threat_overlay_active = false
 	_threat_tiles = []
 	_threat_bounds = {}
+
+
+## The deep card's held key, deliberately the same shape as `_handle_threat_input`
+## above: press opens, release closes, echo ignored. `C` for card; nothing else
+## in the battle scene binds it.
+##
+## **Not gated on an active player turn, unlike `T`.** The threat overlay is
+## computed relative to whoever is acting and means nothing without one; the
+## card is the free-look inspector's deep page, and it has to answer during CPU
+## playback and after the battle ends, which is exactly when a player has the
+## time to read it.
+##
+## `Ctrl` is checked on the press only. Checking it on the release as well would
+## strand the card open whenever the player happened to hold Ctrl down while the
+## card was up, because the release would stop matching.
+func _handle_deep_card_input(event: InputEvent) -> bool:
+	if event is InputEventMouseButton:
+		return _handle_deep_card_paging(event as InputEventMouseButton)
+	if not event is InputEventKey:
+		return false
+	var key_event := event as InputEventKey
+	if key_event.keycode != KEY_C and key_event.physical_keycode != KEY_C:
+		return false
+	if key_event.pressed:
+		if key_event.echo or key_event.ctrl_pressed or _deep_card_held:
+			return false
+		_deep_card_held = true
+		_refreshDeepCard()
+		return true
+	if _deep_card_held:
+		_deep_card_held = false
+		_refreshDeepCard()
+		return true
+	return false
+
+
+## While the card is up the wheel pages it instead of zooming the camera.
+##
+## The card has no cursor, so it cannot inherit the spell list's "walk past the
+## last row to turn the page" rule, and its footer arrows are a click the player
+## would have to take their hand off the board to make. The wheel is the one
+## control already under the hand that is not holding the key. Claimed only
+## while the card is actually open, so camera zoom is untouched at every other
+## moment.
+func _handle_deep_card_paging(event: InputEventMouseButton) -> bool:
+	if not _deep_card_held or not event.pressed:
+		return false
+	if battle_ui == null or battle_ui.deep_card == null or not battle_ui.deep_card.is_open():
+		return false
+	if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+		battle_ui.deep_card.turn_page(-1)
+		return true
+	if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+		battle_ui.deep_card.turn_page(1)
+		return true
+	return false
+
+
+## Rebuilds the card from the unit under the pointer, or closes it when the key
+## is up or the pointer is over nothing.
+##
+## Driven from the same refresh the docked readouts use rather than from
+## `_process`: a cooldown only changes when a cast resolves, and a cast already
+## pushes a readout refresh, so the card stays live without rebuilding its rows
+## every frame - the churn `_updateReadoutHover` already guards the docked
+## windows against.
+func _refreshDeepCard() -> void:
+	if battle_ui == null or battle_ui.deep_card == null:
+		return
+	var monster = sim.state.getMonster(_readoutHoverMonsterID) if (
+		sim != null and _readoutHoverMonsterID != -1
+	) else null
+	if not _deep_card_held or monster == null:
+		battle_ui.deep_card.hide_card()
+		return
+	battle_ui.deep_card.show_for(
+		monster,
+		PlayerTurnControllerScript.spellEntriesFor(monster),
+		_deepCardKillForecast(monster)
+	)
+
+
+## What a basic attack from the acting unit would do to `monster` right now, or
+## why the question has no answer.
+##
+## Gathered here rather than inside `DeepCard` because nothing under
+## `src/presentation/` reaches into `src/systems/` or into a resolver, and this
+## is a fact about the battle rather than about the window. The card decides the
+## wording; this decides whether there is a number to word at all.
+##
+## Keyed on the turn order's active unit, not on `player_turn`, so the card
+## still answers during a CPU turn. `is_simulation = true` is the same read-only
+## flag the aiming forecast passes, so inspecting a unit cannot fire a passive,
+## and the damage is taken from the two units' current positions, which is what
+## makes the card's stated assumption true rather than approximate.
+func _deepCardKillForecast(monster) -> Dictionary:
+	var attacker = sim.state.getMonster(_active_turn_order_id) if (
+		sim != null and _active_turn_order_id != -1
+	) else null
+	if attacker == null:
+		return {"damage": 0, "attacker": "", "reason": "no_actor"}
+	if attacker.uniqueID == monster.uniqueID:
+		return {"damage": 0, "attacker": attacker.name, "reason": "is_actor"}
+	if attacker.team == monster.team:
+		return {"damage": 0, "attacker": attacker.name, "reason": "same_team"}
+	return {
+		"damage": sim.combatResolver.calculateBasicDamage(attacker, monster, true),
+		"elevation": sim.combatResolver.getElevationPercent(
+			attacker.uniqueID, monster.uniqueID
+		),
+		"attacker": attacker.name,
+		"reason": ""
+	}
+
+
+## Drops the card and forgets the key. A release only reaches `_unhandled_input`
+## while the lifecycle is BATTLE, so a card still held when the battle ends or
+## the scene returns to setup would otherwise never be told to close.
+func _clear_deep_card() -> void:
+	_deep_card_held = false
+	if battle_ui != null and battle_ui.deep_card != null:
+		battle_ui.deep_card.hide_card()
 
 
 func _player_turn_active() -> bool:
@@ -1404,6 +1535,7 @@ func _refreshStatusWindows() -> void:
 			actorID = _readoutHoverMonsterID
 	_renderStatusWindow(actor_window, actorID)
 	_renderStatusWindow(target_window, targetID)
+	_refreshDeepCard()
 
 
 ## Empties both windows and forgets the hover, so a battle start or a click on
@@ -1414,6 +1546,7 @@ func _clearStatusWindows() -> void:
 	_targetPanelMonsterID = -1
 	_readoutHoverMonsterID = -1
 	_refreshHoverReach()
+	_refreshDeepCard()
 	if actor_window == null or target_window == null:
 		return
 	_renderStatusWindow(actor_window, -1)

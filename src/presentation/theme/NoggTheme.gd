@@ -491,6 +491,33 @@ const TURN_ORDER_WIDTH_UNITS := 275.0
 ## comment already carried.
 const PAGER_WIDTH_UNITS := 95.0
 const PAGER_ARROW_GAP_UNITS := 3.0
+## Deep card (docs/UI_DESIGN.md §8): the held-key reference readout. Measured by
+## `debug/measure_deep_card.gd`, which builds the card's real rows for every
+## monster in the shipping catalog and reports the widest. That worst case is
+## the kill caption — `basic attack by` against the longest monster name in the
+## game — at 308 units, not the spell rows, which are the same names the spell
+## window carries but without its cursor gutter. Rerun the script if the font,
+## `FONT_SIZE_BODY_UNITS`, `CONTENT_INSET_UNITS`, or the card's row set changes.
+const DEEP_CARD_WIDTH_UNITS := 310.0
+## Fixed top edge. The card grows downward from here rather than staying
+## centred, so sweeping from a one-spell unit to a seven-spell one does not make
+## the window jump under a stationary pointer.
+##
+## Derived, not picked, and spelled out as a literal because two of its three
+## terms are declared further down this file: `PROMPT_TOP` 34, plus the 25 units
+## a one-row window occupies (`CONTENT_INSET_UNITS` twice plus one
+## `ROW_HEIGHT_UNITS`), plus `WINDOW_STACK_GAP_UNITS` 4.
+##
+## A design-unit screen is ~360 tall at every `ui_scale` — that is exactly what
+## `UI_SCALE_STEP_HEIGHT` makes true — so this one number clears the prompt
+## above and the docked status windows below at every supported scale, with the
+## card at its deepest. `debug/measure_deep_card.gd` reports those figures.
+const DEEP_CARD_TOP_UNITS := 63.0
+## Page size, and therefore the card's maximum height (trait 6). The worst case
+## the shipping catalog produces is 16 rows — six fixed rows, seven spells, a
+## passive, and two section headings — so the deepest unit in the game pages
+## exactly once rather than reaching for most of the screen.
+const DEEP_CARD_CAPACITY := 12
 
 ## Screen-edge docking offsets. Rendered multi-scale validation found these
 ## unscaled: the width migration left the positional literals that
@@ -515,6 +542,8 @@ static var STATUS_WINDOW_WIDTH: float
 static var TURN_ORDER_WIDTH: float
 static var PAGER_WIDTH: float
 static var PAGER_ARROW_GAP: float
+static var DEEP_CARD_WIDTH: float
+static var DEEP_CARD_TOP: float
 static var TURN_RAIL_TILE_WIDTH: float
 static var TURN_RAIL_TILE_HEIGHT: float
 static var TURN_RAIL_GAP: float
@@ -680,6 +709,8 @@ static func _recompute() -> void:
 	TURN_ORDER_WIDTH = _scaled(TURN_ORDER_WIDTH_UNITS)
 	PAGER_WIDTH = _scaled(PAGER_WIDTH_UNITS)
 	PAGER_ARROW_GAP = _scaled(PAGER_ARROW_GAP_UNITS)
+	DEEP_CARD_WIDTH = _scaled(DEEP_CARD_WIDTH_UNITS)
+	DEEP_CARD_TOP = _scaled(DEEP_CARD_TOP_UNITS)
 	TURN_RAIL_TILE_WIDTH = _scaled(TURN_RAIL_TILE_WIDTH_UNITS)
 	TURN_RAIL_TILE_HEIGHT = _scaled(TURN_RAIL_TILE_HEIGHT_UNITS)
 	TURN_RAIL_GAP = _scaled(TURN_RAIL_GAP_UNITS)

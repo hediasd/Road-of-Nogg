@@ -452,7 +452,7 @@ func _rebuild_spell_rows() -> void:
 	for spell in _spells:
 		var ready := bool(spell["ready"])
 		descriptors.append({
-			"label": str(spell["name"]), "value": _spell_value(spell), "disabled": not ready
+			"label": str(spell["name"]), "value": spell_value(spell), "disabled": not ready
 		})
 		_spell_rows.append({
 			"id": _spell_id(spell),
@@ -498,8 +498,12 @@ func _on_spell_row_built(row: Control, full_index: int) -> void:
 ## Cooldown is shown rather than hidden so the player can see what is coming
 ## back. Range only matters for a spell that can actually be cast now.
 ## `self_targeted` (not `range == 0`) picks the `Self` label — see the comment
-## where `spellEntries()` sets that key.
-func _spell_value(spell: Dictionary) -> String:
+## where `spellEntriesFor()` sets that key.
+##
+## Public and static because the deep card lists the same spells for a unit
+## whose turn it is not, and a second copy of this formatting is exactly how a
+## cooldown ends up reading one way in the menu and another on the card.
+static func spell_value(spell: Dictionary) -> String:
 	if not bool(spell["ready"]):
 		return "CD %d" % int(spell["cooldown_remaining"])
 	if bool(spell.get("self_targeted", false)):

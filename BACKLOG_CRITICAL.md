@@ -48,6 +48,24 @@ player is asked to commit to an effect the UI never states. The authored fields
 are already on `Spell` and the affected-target list is already computed, so
 this is a presentation gap, not a missing mechanic.
 
+## A spell blocked by anything except a cooldown still reads `CD 0`
+
+`PlayerCommandMenu.spell_value()` shows a range for a ready spell and
+`CD <remaining>` for every spell that is not, but `Monster.can_cast()` refuses a
+spell for three separate reasons: an unexpired cooldown, an element the caster
+does not carry, and a sequence-level-4 spell whose Resonance bar is not full.
+Only the first has a remaining count, so the other two render as `CD 0` -- a
+spell that is greyed out, claims zero turns of cooldown, and still cannot be
+cast. `Roses at Summers End` on `Walker of the Woods` is the shipping example:
+it is a level-4 Resonance finisher, so it reads `CD 0` for the entire battle
+until the wood bar fills.
+
+The fix belongs in `spell_value()`, which is the single shared formatter for
+both the spell window and the deep card, so correcting it corrects both at
+once. It needs `can_cast()`'s reason rather than its boolean, which means
+widening what `PlayerTurnController.spellEntriesFor()` reports -- the entry
+already carries `cooldown_remaining` and `ready`, and the missing piece is why.
+
 ## Monster spell kits
 
 - **Blue Crowned Pidgeon:** has no spells at all. Assign at least one Wind set

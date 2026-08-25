@@ -187,11 +187,22 @@ func menuEntries() -> Array:
 
 
 func spellEntries() -> Array:
-	## Every spell the active monster owns, ready or not. Cooldowns are shown
-	## rather than hidden so the player can see what is coming back.
+	## Every spell the active monster owns, ready or not.
 	if activeMonsterID == -1:
 		return []
-	var monster = _sim.state.getMonster(activeMonsterID)
+	return spellEntriesFor(_sim.state.getMonster(activeMonsterID))
+
+
+## Every spell `monster` owns, ready or not. Cooldowns are shown rather than
+## hidden so the player can see what is coming back.
+##
+## Static, and taking the monster rather than reading `activeMonsterID`, because
+## the deep card lists these same spells for a unit whose turn it is not. The
+## entries are a pure function of the monster — `can_cast()`, the cooldown
+## table, and the spell's own range — so nothing here needed the turn's state to
+## begin with, and extracting it is what keeps the two lists from drifting on
+## what "ready" means.
+static func spellEntriesFor(monster) -> Array:
 	if monster == null:
 		return []
 	var entries: Array = []
@@ -249,7 +260,7 @@ func selectSpell(setIndex: int, spellIndex: int) -> void:
 	for entry in spellEntries():
 		if entry["set_index"] == setIndex and entry["spell_index"] == spellIndex:
 			# "Range 0" is honest for a spell that genuinely has one (Think,
-			# Thought — see spellEntries()) but wrong for a true self spell,
+			# Thought — see spellEntriesFor()) but wrong for a true self spell,
 			# where the concept of range does not apply at all.
 			var range_text = (
 				"self" if bool(entry["self_targeted"])

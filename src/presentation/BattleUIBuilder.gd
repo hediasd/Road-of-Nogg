@@ -16,6 +16,7 @@ const PlayerCommandMenuScript = preload("res://src/presentation/PlayerCommandMen
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 const TurnOrderRailScript = preload("res://src/presentation/TurnOrderRail.gd")
+const DeepCardScript = preload("res://src/presentation/DeepCard.gd")
 
 ## docs/UI_DESIGN.md §8: heading + HP + ATK/DEF + SPD/MOV, and that is the
 ## whole content — `BattlePresentationController._renderStatusWindow()` adds
@@ -271,6 +272,15 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	turnOrderRail.visible = false
 	game_root.add_child(turnOrderRail)
 
+	# The deep card positions itself: its height is a function of the unit it is
+	# describing, so it has to lay out whenever its contents change rather than
+	# only on `resized`, and it is deliberately not part of the docked windows'
+	# reposition pass. Added after the two status windows so it draws over them
+	# if a very tall card ever reaches that far down the screen.
+	var deepCard: DeepCardScript = DeepCardScript.new()
+	deepCard.name = "DeepCard"
+	game_root.add_child(deepCard)
+
 	# Positioned from the viewport size on `resized` rather than read once at
 	# build time: `game_root.get_viewport_rect()` immediately after the canvas
 	# is built is not reliably the final displayed size — the same class of
@@ -306,6 +316,7 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	refs.actor_window = actorWindow
 	refs.target_window = targetWindow
 	refs.turn_order_rail = turnOrderRail
+	refs.deep_card = deepCard
 	refs.reposition_windows = reposition_status_windows
 	refs.log_label = logLabel
 	refs.log_panel = logPanel

@@ -494,6 +494,7 @@ same key press sometimes move and sometimes not.
 | `ui_accept` | Activate the focused command / the cursor's row |
 | `ui_cancel` | Close the focused child window; if root, cancel the phase |
 | `T` (held during a player turn) | Show the enemy danger zone; release to restore the current movement/target overlays |
+| `C` (held) | Open the deep card for the unit under the pointer; release to close. Unlike `T`, not gated on a player turn — it answers during CPU playback and after the battle ends too |
 | Mouse motion over a unit on the board | Fill the docked status readout with that unit, immediately, **in every phase** |
 | Mouse motion over a row icon | Focus that slot (no activation) |
 | Left click on a row icon | Focus that slot, then activate |
@@ -502,6 +503,7 @@ same key press sometimes move and sometimes not.
 | Left click on `◀` / `▶` | Page |
 | Right click | Same as `ui_cancel` |
 | Mouse wheel over a window | Move cursor one row |
+| Mouse wheel, while the deep card is open | Turn the card's page instead of zooming the camera |
 | Left click on the pending target tile, during `CONFIRM_ACTION` | Confirm — same as clicking `CONFIRM` |
 | Left click anywhere else on the board, during `CONFIRM_ACTION` | Cancel — same as clicking `CANCEL` |
 
@@ -648,6 +650,7 @@ there is nothing left for them to compete over.
 | **Confirm** | Same origin as Command, replacing it | `COMMAND_WIDTH` 110 / 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
 | **Forecast** | Above Command, **left-aligned** with it | `FORECAST_WIDTH` 340 / 680 × 2 rows | Hit chance and damage range in `TEXT_FORECAST`; visible while aiming *and* while confirming |
 | **Prompt** | Top-centre, below the rail, own `NoggTheme.PROMPT_LAYER` | `PROMPT_WIDTH` 470 / 940, 1 row | `Select a destination.`, `Choose an action, or Pass to end the turn.` — transient, closed rather than shown empty; see the note below |
+| **Deep card** | Horizontally centred, fixed top at `DEEP_CARD_TOP` 63 | `DEEP_CARD_WIDTH` 310 / 620 x up to `DEEP_CARD_CAPACITY` 12 rows | Held-`C` reference readout for the unit under the pointer: race, JUMP and LUCK with its derived critical chance, hits-to-kill from the acting unit, the race elemental matchup, the full spell list with live cooldowns, and passives. Sizes to its content and pages past 12 rows |
 | **Battle log** | Right edge, full height | scrolling | The one deliberate exception to trait 5; a log is a scrollback, not a menu |
 
 **The two status windows no longer show an empty frame when there is nothing
@@ -821,6 +824,50 @@ player-turn controller publishes the spell's declared effects and affected unit
 IDs; the rail re-runs the canonical speed sort with those effects merged by the
 same rule live state uses. Cancelling clears the projection, while committing
 rebuilds it from the now-authoritative state.
+
+**The deep card is a separate window, and it repeats nothing.** Trait 6 fixes
+the docked readouts at a declared capacity precisely so their values cannot
+jitter the layout, and that rule is worth more than the rows a deeper readout
+would cost it. So the card carries only what has no surface anywhere else: the
+full spell list with live cooldowns and ranges, passives, JUMP, LUCK with the
+critical percentage that is the stat's only gameplay meaning, the race elemental
+matchup, and how many basic attacks the acting unit needs to remove the hovered
+one. HP, ATK/DEF, SPD/MOV, elements and Resonance are deliberately absent —
+they are already on screen in the docked windows while the card is up.
+
+**The race matchup is why the card is worth a window rather than a convenience.**
+It swings damage by +/-20%, is fully live in `RaceReferences.getDamageMultiplier()`,
+and appeared nowhere in the UI at all before this: a player watching a spell land
+for noticeably more or less than expected had no surface anywhere that explained
+why. It renders as two grouped rows, `WEAK` and `RESIST`, rather than one row per
+element — a race's table holds at most four entries carrying only two distinct
+multipliers, so grouping costs no information and saves three rows.
+
+**Hits-to-kill is a derived number and states what it assumes.** The count comes
+from the same `CombatResolver.calculateBasicDamage()` the aiming forecast uses,
+with the same `is_simulation` flag, so an inspection cannot fire a passive. The
+value carries the elevation modifier it was computed under in the forecast's own
+`%d%% elevation` vocabulary, and the dim row beneath it names the attacker; when
+the question has no answer — nothing is acting, the hovered unit *is* the actor,
+or it is that actor's ally — the row says which rather than showing a bare `-`.
+
+**It sizes to its content, from a fixed top edge.** Nothing reflows off a
+transient centred window, which is what lets it follow the spell list's rule —
+capacity from content, capped, paging beyond — instead of the docked windows'.
+The top edge is fixed rather than the card being centred vertically: sweeping
+from a one-spell unit to a seven-spell one would otherwise make the window jump
+under a stationary pointer. `DEEP_CARD_TOP` is derived from the prompt band it
+clears, and because a design-unit screen is ~360 tall at every `ui_scale`, one
+number clears the prompt above and the docked status windows below at all four
+scales with the card at its deepest. `debug/measure_deep_card.gd` (gitignored)
+builds the card's real rows for every monster in the shipping catalog and reports
+both the widest row and that vertical fit; the width is its output, not a choice.
+
+**The wheel pages it.** The card has no cursor, so it cannot inherit §7a's "walk
+past the last row" rule, and its footer arrows are a click the player would have
+to take their hand off the board to make. The wheel is the one control already
+under the hand that is not holding the key. It is claimed only while the card is
+actually open, so camera zoom is untouched at every other moment.
 
 **The forecast is left-aligned, not right-aligned.** An earlier draft of this
 table said right-aligned to the command window; that cannot hold once the
