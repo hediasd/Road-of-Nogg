@@ -109,7 +109,7 @@ driving.
 confirm, CPU turns and battle end; last-write-wins behaviour against combat
 playback; no per-frame rebuild.
 
-**Resolution (2026-08-15):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-15):** Implemented. **Validated 2026-08-25.**
 
 The readout is now composed rather than written directly. `_actorPanelMonsterID`
 and `_targetPanelMonsterID` hold committed state — written by the click
@@ -178,7 +178,7 @@ overlay clear paths were not written to expect.
 itself, in every phase; interaction with held `T`; overlay restoration on
 release; no leaked overlay nodes across turns.
 
-**Resolution (2026-08-15):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-15):** Implemented. **Validated 2026-08-25.**
 
 **Precedence is additive**, decided by the user. Hover reach draws on a third
 overlay layer, `HoverReachOverlays`, added for exactly the reason the threat
@@ -291,7 +291,7 @@ squares that **grow on hover**, and are sized ahead of authored art the user
 will supply. Distinct silhouettes stay in scope as the placeholder until that
 art lands.
 
-**Resolution (2026-08-15):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-15):** Implemented. **Validated 2026-08-25.**
 
 **Sizing, which is the part built for the art rather than for today.** Icons are
 authored at `StatusIconRegistry.SOURCE_PX` (32) square. A badge rests at half
@@ -517,8 +517,8 @@ and ascension tier, including duplicates; portrait lighting; rail sizing and the
 resolved prompt docking at every `ui_scale`; no leaked viewports or textures at
 battle end and application exit; no simulator mutation from the display path.
 
-**Resolution (2026-08-15):** Implemented; pending end-of-plan validation, with
-one sub-feature deferred and named below.
+**Resolution (2026-08-15):** Implemented, with one sub-feature deferred and
+named below. **Validated 2026-08-25.**
 
 **The blocking docking decision was taken rather than deferred**, on the
 recommendation this item already carried: the rail owns the top band and the
@@ -563,7 +563,7 @@ Also caught, and the same root cause as LEG-3 and LEG-4: newly added
 rescanned, so `TurnOrderRail` and `PortraitRenderer` failed as type annotations
 in three files. Preloaded script consts again.
 
-**Deferred sub-feature resolved 2026-08-25; pending end-of-plan validation.**
+**Deferred sub-feature resolved 2026-08-25; validated the same day.**
 `PlayerTurnController` now publishes the declared effects and affected unit IDs
 for the spell under the player's cursor. `BattlePresentationController` applies
 those only to the projected next-round sort, and `TurnManager` merges them with
@@ -601,7 +601,7 @@ altered a CPU decision would be a gameplay regression disguised as a UI change.
 additivity with the movement and reach overlays; unchanged CPU decisions against
 a fixed seed.
 
-**Resolution (2026-08-15):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-15):** Implemented. **Validated 2026-08-25.**
 
 **The plan's suggested approach was not taken, and the deviation is the point.**
 It proposed widening `ThreatMap.generate()`'s return shape to carry a per-source
@@ -659,7 +659,7 @@ assumes — a basic attack from the active unit at current position and elevatio
 monsters; cooldowns updating live; paging; open and close under every phase;
 no docked window resize.
 
-**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+**Resolution (2026-08-25):** Implemented. **Validated the same day.**
 
 The key is held `C`, and `_handle_deep_card_input` is deliberately the same
 shape as the threat overlay's handler — press opens, release closes, echo
@@ -777,6 +777,93 @@ grep for this cycle's item identifiers outside this file, rewrite any persistent
 hits as durable descriptions, move any genuinely open work to the appropriate
 backlog and name it to the user, then clear this plan file in the same session
 per the plan lifecycle policy.
+
+**Resolution (2026-08-25):** Validation passed. Every covered item is now done.
+
+**The manual pass was replaced by two harnesses, and that substitution is the
+main thing to know about this run.** `debug/verify_leg_final.gd` drives the real
+`Battle25D` scene through one seeded Player vs CPU battle with synthetic input,
+asserting the union of the cycle's behaviour; `debug/capture_leg_final.gd` runs
+the same battle windowed and photographs it, because whether a badge reads at a
+downsampled preset is a judgement from a frame and not something an assertion
+can make. Both are gitignored scratch, matching the existing `debug/verify_*.gd`
+pattern. Marker: `LEG FINAL: all checks passed`.
+
+Asserted, in one battle rather than one flow per feature: hover fills the docked
+readout and routes ally left / enemy right in MENU, MOVE_SELECT and
+TARGET_SELECT; leaving hover restores the *committed* readout rather than a
+stale snapshot; hover reach paints and clears without destroying the acting
+unit's own overlay; every status effect resolves to a distinct silhouette *and*
+a distinct resting chip colour; the rail carries exactly one divider with
+round-relative numbering on both sides, its projection matches the canonical
+speed sort, and a pending SPD buff reorders that projection without touching the
+live queue; the danger zone attributes to a hovered enemy, stays even for a
+hovered ally, and clears on release; the deep card opens, matches the catalog,
+picks up a cooldown applied while it is open, pages under the wheel, resizes no
+docked window, and closes on release; a defeated unit loses its badge row and
+its rail tile; the card and its key do not survive the battle ending or the
+return to setup; and `ConsoleVisualAdapter` still declares every method
+`IBattleVisualAdapter` does.
+
+**CPU decisions are unchanged, proved rather than argued.**
+`scripts/demo_battle.gd` on its fixed seed produces a 1556-line transcript
+hashing to `518dbc77a4932a2f6fe9d831c2b55572e311445a47d4f836e0ee9a0f293158f0`
+both at `db64708^` — the commit before this cycle opened — and at HEAD. The
+baseline was run from a `git worktree` at that ref rather than by disturbing the
+working tree. This matters because the cycle really did change simulation-layer
+files: `ThreatMap`, `TurnManager`, `BattleState`, and a new `ReachQuery`.
+
+**Caller sweep.** Every caller of every changed shared surface was enumerated and
+exercised: `spell_value()` (spell window and deep card — a dedicated check
+asserts the two format identically), `spellEntriesFor()` (spell window and
+card), `ThreatMap.generate`/`accumulateEnemy`/`beginMap`/`threateningEnemies`
+(four AI brains plus `CommandDeliberation`, all covered by the byte-identical
+transcript) and `threatFor` (the overlay), `speedSortedIDs`/`effectiveSpeed`
+(the simulator's own sort via the transcript, the rail via the rail check),
+`ReachQuery.forMonster` (both the hover overlay and move select, simultaneously),
+`show_threat_options`/`show_hover_reach` (the Godot adapter and the no-op
+player-turn stubs), and `set_full_rows` (spell, confirm, and card windows).
+
+**Two defects were found and fixed here.**
+
+The first is the reason this item insists on captures. The deep card rendered
+`HITS TO KILL 45` — arithmetically right, since `Envoy of Lightning` at ATK 3
+against DEF 3 lands the `max(1, atk - def)` floor — but a bare `45` reads as a
+bug rather than as the fact it is. The value now carries the per-hit figure it
+was divided from, `45 (1 dmg)`, plus the elevation modifier when there is one.
+Re-measured: the widest row is unchanged at 308 units, because the kill row was
+never the row setting the width.
+
+The second was in the harness rather than the product, and is recorded because
+it made a check silently pass: the spell-window agreement check indexed the
+window's page bounds into the entry list, and the window's rows are the spells
+*plus a trailing `< Back`*, so the last index threw and aborted the function
+before its assertions ran. A green run with a `SCRIPT ERROR` in stderr is not a
+green run.
+
+**Multi-scale and preset coverage is by capture, and the finding is that the
+render ladder cannot reach these surfaces at all.** 24 frames at `ui_scale` 2
+(1152x648) and 3 (1920x1080), each at the default preset, the harshest 480x360
+retro rung, and the CRT pass with and without `ui_through_crt`. The card, the
+docked windows, the prompt and the rail are native-resolution `CanvasLayer` UI,
+so the downsample never touches them; only `ui_through_crt` can, and at the
+shipping CRT parameters the text stays legible. What the retro rung does affect
+is the board-space work — reach, the attributed danger zone, and the badges —
+and those read at 480x360. Frames are in `debug/leg_shots/`.
+
+**Known limits of this run, stated rather than glossed.** Headless letterboxes
+the battle viewport to roughly 64x48, which puts the docked windows off-screen
+and leaves only a handful of tiles with a clickable screen point; the verifier
+therefore places the units it needs onto tiles that resolve, and re-derives every
+screen point after each phase change because the camera director pans and a
+point captured before a pan means a different tile after it. Vertical fit against
+the docked windows is asserted against a design-unit screen in
+`_check_ui_scale_geometry` and in `debug/measure_deep_card.gd`, not against those
+off-screen positions. The verifier still exits with the pre-existing
+`Battle25D` teardown access violation recorded in `BACKLOG_CRITICAL.md`, which
+is why the printed marker and not the exit code is the evidence. And judging the
+HUD *in motion* — badges while units move and the camera turns — remains
+genuinely outside what a still frame or an assertion can establish.
 
 ## Deliberately excluded
 

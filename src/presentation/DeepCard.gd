@@ -201,12 +201,20 @@ func _matchup_text(monster) -> Dictionary:
 	}
 
 
-## The elevation modifier rides along with the count rather than being left to
-## a vaguer "at current positions": it is the one part of the calculation that
-## changes the moment either unit moves, it is the reason the same attacker
-## needs a different number of hits from a different tile, and it is already how
-## the aiming forecast words the same modifier (`%d%% elevation`). Omitted at
-## 100%, where there is no modifier to disclose.
+## The count, the per-hit damage it was divided from, and the elevation modifier
+## that damage was computed under.
+##
+## **The per-hit figure is not decoration.** Shipped stats put most exchanges at
+## `max(1, atk - def)`, and a defender whose DEF meets the attacker's ATK takes
+## exactly 1 a hit — so the honest answer is routinely forty-odd hits. A bare
+## `45` reads as a bug; `45 (1 dmg)` reads as the fact it is, and pointing at
+## that pace is the whole reason this cycle exists. Whether the pace is right is
+## a balance question this card deliberately does not answer.
+##
+## The elevation modifier is included for the same reason the caption names the
+## attacker: it is the one term that changes the moment either unit moves, and
+## it is already how the aiming forecast words the same thing
+## (`%d%% elevation`). Omitted at 100%, where there is no modifier to disclose.
 func _kill_value(monster, kill_forecast: Dictionary) -> String:
 	var damage := int(kill_forecast.get("damage", 0))
 	if damage <= 0:
@@ -214,8 +222,8 @@ func _kill_value(monster, kill_forecast: Dictionary) -> String:
 	var hits := ceili(float(monster.hitpoints) / float(damage))
 	var elevation := int(kill_forecast.get("elevation", 100))
 	if elevation == 100:
-		return str(hits)
-	return "%d at %d%% elev" % [hits, elevation]
+		return "%d (%d dmg)" % [hits, damage]
+	return "%d (%d dmg, %d%% elev)" % [hits, damage, elevation]
 
 
 ## The attacker goes in the value column like every other value on the card,

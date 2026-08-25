@@ -48,6 +48,24 @@ player is asked to commit to an effect the UI never states. The authored fields
 are already on `Spell` and the affected-target list is already computed, so
 this is a presentation gap, not a missing mechanic.
 
+## Health is readable for at most two units out of eight
+
+The docked actor and target windows are the only surfaces carrying HP, and they
+show one unit each. In a 4v4 the other six are unreadable without moving the
+pointer to each in turn. The turn rail's tiles carry a health strip, but only
+for the handful of units the rail is currently showing, and only as a bar with
+no numbers.
+
+This was going to be answered by a health-and-level plate under every unit. That
+plate was built, redrawn, and then rejected outright by the user -- "Remove the
+healthbar and the level next to it, I dont like it" -- and reverted in `2d0bb81`.
+The finding outlived the feature: it is still true, and it now has no planned
+owner. Whatever takes it up should not be a plate under each unit.
+
+The deep card narrowed it rather than closing it: holding `C` over a unit gives
+that unit's full readout, including how many basic attacks the acting unit needs
+to remove it. That still answers one unit at a time.
+
 ## A spell blocked by anything except a cooldown still reads `CD 0`
 
 `PlayerCommandMenu.spell_value()` shows a range for a ready spell and
