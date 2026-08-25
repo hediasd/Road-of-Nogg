@@ -635,7 +635,7 @@ there is nothing left for them to compete over.
 |---|---|---|---|
 | **Action row** | Above the acting unit, projected per frame | `ACTION_ROW_ICON` 16 / 32 per icon, `ACTION_ROW_GAP` 5 / 10 between, lifted `ACTION_ROW_LIFT` above the model top | Four command icons left to right — Move, Attack, Spell, Pass — plus the focused command's name beneath. Replaced the docked command window — see the note below |
 | **Spell** | Right of Command, `WINDOW_STACK_GAP` | `SPELL_WIDTH` 340 / 680 × up to 8 rows | Sized to the monster's spell count + `< BACK`, capped at 8; pages beyond that. Two-column: spell name left, `Rng N` / `CD n` right in `TEXT_ACCENT` |
-| **Turn rail** | Top-centre, `TURN_RAIL_TOP` | `TURN_RAIL_TILE_WIDTH` 20 / 40 x `TURN_RAIL_TILE_HEIGHT` 28 / 56 per tile, up to `TURN_RAIL_CAPACITY` | Portrait tiles: a rendered model miniature, team-coloured frame, round-relative queue number, and a health strip. Crosses the round boundary with a dashed divider; entries past it are a projection and draw at `TURN_RAIL_PROJECTED_ALPHA` |
+| **Turn rail** | Top-centre, `TURN_RAIL_TOP` | `TURN_RAIL_TILE_WIDTH` 20 / 40 x `TURN_RAIL_TILE_HEIGHT` 28 / 56 per tile, up to `TURN_RAIL_CAPACITY` | Portrait tiles: a rendered model miniature, team-coloured frame, round-relative queue number, and a health strip. Crosses the round boundary with a dashed divider; entries past it are a projection and draw at `TURN_RAIL_PROJECTED_ALPHA`. While aiming or confirming a speed-changing spell, that projection previews the resulting next-round order without mutating battle state |
 | **Actor status** | Bottom-left, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 4 rows | Name heading in `TEXT_ACCENT`; fixed-cell `HP`, `ATK`/`DEF`, and `SPD`/`MOV` rows, with authored element codes and three-cell Resonance bars in column 3. `open()`s when a monster is showing, `close()`s otherwise — see the note below |
 | **Target** | Bottom-right, fixed | `STATUS_WINDOW_WIDTH` 270 / 540 × 4 rows | Same fixed-cell shape and open/close behaviour as actor status |
 | **Confirm** | Same origin as Command, replacing it | `COMMAND_WIDTH` 110 / 220 × 2 rows | `CONFIRM / CANCEL`. Docked on top of the command window rather than beside it so the cursor does not travel when the phase changes; the command window hides rather than dimming, because confirm replaces the command list instead of descending from it |
@@ -808,6 +808,12 @@ round that is structurally invisible. The rail is also **centred and resizes
 with the queue**, which is why `BattleUIRefs` exposes its relayout callable —
 a docked window can lay out once on `resized`, but a centred element whose width
 changes has to lay out whenever its contents do.
+
+The projected side also responds to an uncommitted speed buff or debuff. The
+player-turn controller publishes the spell's declared effects and affected unit
+IDs; the rail re-runs the canonical speed sort with those effects merged by the
+same rule live state uses. Cancelling clears the projection, while committing
+rebuilds it from the now-authoritative state.
 
 **The forecast is left-aligned, not right-aligned.** An earlier draft of this
 table said right-aligned to the command window; that cannot hold once the

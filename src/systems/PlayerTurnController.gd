@@ -34,6 +34,9 @@ signal menu_changed
 signal status_changed(text: String)
 ## Read-only outcome preview for the action awaiting confirmation.
 signal forecast_changed(text: String)
+## Declared effects grouped by the units the pending spell would affect. The
+## rail consumes this read-only projection; no state is mutated to preview it.
+signal turn_order_preview_changed(pendingEffectsByMonster: Dictionary)
 ## Every phase is spent, or the player passed. The scene controller closes the
 ## turn out from here: end the turn, check the win condition, resume pacing.
 signal turn_finished(monsterID: int)
@@ -131,6 +134,7 @@ func endTurnNow() -> void:
 	_reachableTiles = []
 	_attackableTiles = []
 	_validTargetPositions = []
+	turn_order_preview_changed.emit({})
 	menu_changed.emit()
 	turn_finished.emit(completedID)
 
@@ -413,6 +417,7 @@ func _enterMenu(statusOverride: String = "") -> void:
 	_pendingTargetPos = Vector2i(-1, -1)
 	_confirmSkippedTargetSelect = false
 	forecast_changed.emit("")
+	turn_order_preview_changed.emit({})
 	var pos = _sim.state.getMonsterPosition(activeMonsterID)
 	gridCursor = pos
 	_adapter.clear_tactical_overlays()
@@ -498,6 +503,7 @@ func _enterTargetSelect(
 	_pendingTargetPos = Vector2i(-1, -1)
 	_confirmSkippedTargetSelect = false
 	forecast_changed.emit("")
+	turn_order_preview_changed.emit({})
 	var fromPos = _sim.state.getMonsterPosition(activeMonsterID)
 	if action == "attack":
 		_validTargetPositions = _sim.combatResolver.getBasicAttackTargetPositionsFrom(
@@ -645,6 +651,7 @@ func _refreshTargetPreview(centerPos: Vector2i) -> void:
 	var affected_target_ids: Array = [] if target == null else [target_id]
 	var beneficial = false
 	var armed_spell_name := ""
+	var previewSpell: Spell = null
 	if _pendingAction == "spell":
 		var armed_caster = _sim.state.getMonster(activeMonsterID)
 		if armed_caster != null:
@@ -653,7 +660,7 @@ func _refreshTargetPreview(centerPos: Vector2i) -> void:
 			][_selectedSpellIndex].name
 	if _pendingAction == "spell":
 		var caster = _sim.state.getMonster(activeMonsterID)
-		var spell = caster.spellSets[_selectedSpellSet][_selectedSpellIndex]
+		previewSpell = caster.spellSets[_selectedSpellSet][_selectedSpellIndex]
 		var from_pos = _sim.state.getMonsterPosition(activeMonsterID)
 		affected_positions = _sim.combatResolver.getSpellAffectedPositionsFrom(
 			activeMonsterID,
@@ -671,11 +678,15 @@ func _refreshTargetPreview(centerPos: Vector2i) -> void:
 			centerPos,
 			true
 		)
-		beneficial = spell.heals or spell.targetType == "self"
+		beneficial = previewSpell.heals or previewSpell.targetType == "self"
 	_adapter.show_target_options(_validTargetPositions, affected_positions, beneficial)
 	_adapter.show_target_cursor(centerPos)
 	_adapter.show_target_status(target_id)
 	forecast_changed.emit(_forecastText(centerPos))
+	_emitTurnOrderPreview(
+		previewSpell if _canConfirmTarget(centerPos) else null,
+		affected_target_ids
+	)
 	var armed_prefix := ("%s: " % armed_spell_name) if not armed_spell_name.is_empty() else ""
 	if target != null:
 		var target_name = "yourself" if target.uniqueID == activeMonsterID else target.name
@@ -692,6 +703,22 @@ func _refreshTargetPreview(centerPos: Vector2i) -> void:
 		status_changed.emit("%sChoose a target tile. %d unit(s) in the affected area." % [
 			armed_prefix, affected_target_ids.size()
 		])
+
+
+func _emitTurnOrderPreview(spell: Spell, affectedTargetIDs: Array) -> void:
+	var speedEffects: Array = []
+	if spell != null:
+		for definition in spell.effects:
+			if definition is Dictionary and int(definition.get("SPD_BONUS", 0)) != 0:
+				speedEffects.append(definition.duplicate(true))
+	if speedEffects.is_empty():
+		turn_order_preview_changed.emit({})
+		return
+
+	var pendingEffectsByMonster: Dictionary = {}
+	for targetID in affectedTargetIDs:
+		pendingEffectsByMonster[int(targetID)] = speedEffects.duplicate(true)
+	turn_order_preview_changed.emit(pendingEffectsByMonster)
 
 func _commitAction() -> void:
 	var result = _sim.executeActionPhase(
@@ -718,6 +745,7 @@ func _resolveThenReturnToMenu() -> void:
 	## while the model is still walking would mean aiming from a tile the unit
 	## has already left on screen.
 	phase = Phase.RESOLVING
+	turn_order_preview_changed.emit({})
 	menu_changed.emit()
 	if not _adapter.isAnimationBusy():
 		_enterMenu()

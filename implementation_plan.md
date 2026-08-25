@@ -563,12 +563,16 @@ Also caught, and the same root cause as LEG-3 and LEG-4: newly added
 rescanned, so `TurnOrderRail` and `PortraitRenderer` failed as type annotations
 in three files. Preloaded script consts again.
 
-**Deferred: the SPD-change preview.** The rail projects the next round from
-current state, so an applied speed change is reflected immediately, but a
-*pending* one is not previewed before the player commits. That needs a hook into
-`PlayerTurnController`'s in-flight action rather than a state read, and it is the
-one piece of this item's end state not delivered. Recorded here rather than
-silently dropped.
+**Deferred sub-feature resolved 2026-08-25; pending end-of-plan validation.**
+`PlayerTurnController` now publishes the declared effects and affected unit IDs
+for the spell under the player's cursor. `BattlePresentationController` applies
+those only to the projected next-round sort, and `TurnManager` merges them with
+the same public, side-effect-free value rule `BattleState.addEffect()` uses.
+Target changes reorder the projection immediately; cancel clears it; commit
+rebuilds from authoritative state. The current-round queue is never changed.
+Intermediate smoke: a waited Godot 4.4 editor-load probe exited 0 with no
+parser or resource-load errors. It emitted only the documented editor-quit
+progress-dialog shutdown noise; this is not acceptance evidence.
 
 ### LEG-8 — Attribute the danger zone to a single enemy
 

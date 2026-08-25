@@ -33,11 +33,18 @@ func sortBySpeed() -> void:
 ## same function the simulator runs is what stops a forecast from disagreeing
 ## with the order that actually resolves — a preview that lies is worse than no
 ## preview.
-static func speedSortedIDs(state: BattleState, ids: Array) -> Array:
+static func speedSortedIDs(
+		state: BattleState,
+		ids: Array,
+		pendingEffectsByMonster: Dictionary = {}) -> Array:
 	var sorted := ids.duplicate()
 	sorted.sort_custom(func(a, b):
-		var spd_a = effectiveSpeed(state, a)
-		var spd_b = effectiveSpeed(state, b)
+		var spd_a = effectiveSpeed(
+			state, a, pendingEffectsByMonster.get(int(a), [])
+		)
+		var spd_b = effectiveSpeed(
+			state, b, pendingEffectsByMonster.get(int(b), [])
+		)
 		if spd_a == spd_b:
 			return a < b
 		return spd_a > spd_b
@@ -45,13 +52,33 @@ static func speedSortedIDs(state: BattleState, ids: Array) -> Array:
 	return sorted
 
 
-static func effectiveSpeed(state: BattleState, monsterID: int) -> int:
+static func effectiveSpeed(
+		state: BattleState,
+		monsterID: int,
+		pendingEffectDefinitions: Array = []) -> int:
 	var monster = state.getMonster(monsterID)
 	if monster == null:
 		return 0
 	var speed: int = monster.speed
+	var speedBonusesByEffect: Dictionary = {}
 	for effect in state.getActiveEffects(monsterID):
-		speed += effect.get("spd_bonus", 0)
+		var bonus := int(effect.get("spd_bonus", 0))
+		speed += bonus
+		if bonus != 0:
+			speedBonusesByEffect[str(effect.get("name", ""))] = bonus
+	for definition in pendingEffectDefinitions:
+		if not definition is Dictionary or not definition.has("SPD_BONUS"):
+			continue
+		var effectName := str(definition.get("NAME", ""))
+		if effectName.is_empty():
+			continue
+		var previousBonus := int(speedBonusesByEffect.get(effectName, 0))
+		var mergedBonus := int(BattleState.mergedEffectValue(
+			previousBonus if speedBonusesByEffect.has(effectName) else null,
+			int(definition["SPD_BONUS"])
+		))
+		speed += mergedBonus - previousBonus
+		speedBonusesByEffect[effectName] = mergedBonus
 	return speed
 
 

@@ -250,7 +250,7 @@ func addEffect(monsterID: int, effectName: String, duration: int,
 			effect["sourceSpellName"] = sourceSpellName
 			effect["damagePerTurn"] = damagePerTurn
 			for key in effectData:
-				effect[key] = _mergedEffectValue(effect.get(key), effectData[key])
+				effect[key] = mergedEffectValue(effect.get(key), effectData[key])
 			return
 
 	var newEffect = {
@@ -265,11 +265,13 @@ func addEffect(monsterID: int, effectName: String, duration: int,
 	activeEffects[monsterID].append(newEffect)
 
 
-func _mergedEffectValue(existingValue, incomingValue):
+static func mergedEffectValue(existingValue, incomingValue):
 	## On refresh, a numeric bonus keeps whichever value has the greater
 	## magnitude, preserving its sign, so re-casting a weaker buff or debuff
 	## cannot downgrade a stronger one already active. Anything non-numeric, or
 	## a key applied for the first time, always takes the incoming value.
+	## Public and side-effect free so forecasts can model the same merge without
+	## copying or mutating the live effect array.
 	var existingIsNumeric = existingValue is int or existingValue is float
 	var incomingIsNumeric = incomingValue is int or incomingValue is float
 	if not existingIsNumeric or not incomingIsNumeric:

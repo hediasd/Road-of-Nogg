@@ -113,6 +113,9 @@ var player_turn: PlayerTurnControllerScript
 var _pending_player_turn_id: int = -1
 var _turn_order_ids: Array = []
 var _active_turn_order_id: int = -1
+## Declared effects for the action currently under the player's cursor. These
+## affect only the next-round projection; the current round is already queued.
+var _turn_order_pending_effects: Dictionary = {}
 ## The CPU decision currently being computed across frames, and whose turn it
 ## belongs to. While this is set the turn is already open — startNextTurn() has
 ## run — so no other turn may begin until it resolves or is cancelled.
@@ -502,6 +505,7 @@ func _start_battle(config: BattleSetupConfig) -> void:
 	player_turn.menu_changed.connect(_on_player_menu_changed)
 	player_turn.status_changed.connect(_set_action_status)
 	player_turn.forecast_changed.connect(battle_ui.command_menu.setForecast)
+	player_turn.turn_order_preview_changed.connect(_on_turn_order_preview_changed)
 	player_turn.turn_finished.connect(_on_player_turn_finished)
 	player_turn.spell_list_requested.connect(_on_spell_list_requested)
 	var size = sim.state.boardSize
@@ -1630,6 +1634,7 @@ func _on_turn_order_defeated(monsterID: int, _killerID: int) -> void:
 
 
 func _clear_turn_order_display() -> void:
+	_turn_order_pending_effects.clear()
 	if turn_order_rail == null:
 		return
 	turn_order_rail.set_entries([])
@@ -1646,6 +1651,11 @@ func _refresh_turn_order_display() -> void:
 		if battle_ui != null and battle_ui.reposition_windows.is_valid():
 			battle_ui.reposition_windows.call()
 	turn_order_rail.visible = not entries.is_empty()
+
+
+func _on_turn_order_preview_changed(pendingEffectsByMonster: Dictionary) -> void:
+	_turn_order_pending_effects = pendingEffectsByMonster.duplicate(true)
+	_refresh_turn_order_display()
 
 
 ## The queue this round, then as much of the next round as fits.
@@ -1672,7 +1682,7 @@ func _buildTurnRailEntries() -> Array:
 		ordinal += 1
 
 	var projected: Array = TurnManagerScript.speedSortedIDs(
-		sim.state, sim.state.getAliveMonsterIDs()
+		sim.state, sim.state.getAliveMonsterIDs(), _turn_order_pending_effects
 	)
 	ordinal = 1
 	var first := true
