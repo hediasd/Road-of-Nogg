@@ -16,15 +16,22 @@
 extends CanvasLayer
 
 const NoggBitmapFontScript = preload("res://src/presentation/theme/NoggBitmapFont.gd")
+const NoggHeraldFontScript = preload("res://src/presentation/theme/NoggHeraldFont.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 ## Which face the specimen draws with.
 const FONT_SOURCE := "source"
 const FONT_BAKED := "baked"
 const FONT_GAME := "game"
+## Nogg Herald, the display face. It gets the same live-source/baked pair as
+## Terminal because it has the same authoring loop: edit `glyphs.txt`, press R.
+const FONT_HERALD_SOURCE := "herald_source"
+const FONT_HERALD_BAKED := "herald_baked"
 const FONT_OPTIONS := [
 	{"id": FONT_SOURCE, "label": "Nogg Terminal (live source)"},
 	{"id": FONT_BAKED, "label": "Nogg Terminal (baked .res)"},
+	{"id": FONT_HERALD_SOURCE, "label": "Nogg Herald (live source)"},
+	{"id": FONT_HERALD_BAKED, "label": "Nogg Herald (baked .res)"},
 	{"id": FONT_GAME, "label": "Game font (XenoText)"},
 ]
 
@@ -167,6 +174,8 @@ var _scale: int = 2
 var _edgeSize: int = 1
 var _sourceFont: FontFile
 var _bakedFont: FontFile
+var _heraldSourceFont: FontFile
+var _heraldBakedFont: FontFile
 var _gameFont: Font
 var _loadError: String = ""
 var _lastCanvasScale: float = -1.0
@@ -221,6 +230,18 @@ func reload_source() -> void:
 		)
 	else:
 		_bakedFont = null
+
+	# Herald is rebuilt on the same keystroke. A parse failure in its source is
+	# reported separately from Terminal's so R does not blame the wrong file.
+	_heraldSourceFont = NoggHeraldFontScript.build_font_from_source()
+	if _heraldSourceFont == null and _loadError.is_empty():
+		_loadError = "NoggHerald/glyphs.txt failed to parse - see the error log"
+	if ResourceLoader.exists(NoggHeraldFontScript.RESOURCE_PATH):
+		_heraldBakedFont = ResourceLoader.load(
+			NoggHeraldFontScript.RESOURCE_PATH, "FontFile", ResourceLoader.CACHE_MODE_IGNORE
+		)
+	else:
+		_heraldBakedFont = null
 	if _gameFont == null:
 		_gameFont = NoggThemeScript.build_game_theme().default_font
 	# Recorded here rather than only in `_ready`, so a rebuild triggered by
@@ -287,7 +308,27 @@ func describe() -> String:
 
 
 func _fontSize() -> int:
-	return NoggBitmapFontScript.NOMINAL_SIZE * _scale
+	return _nominalSize() * _scale
+
+
+## The nominal size of whichever face is selected.
+##
+## **Not a constant, because the two bitmap faces do not share one.** Terminal is
+## 12, Herald is 13, and both declare `FIXED_SIZE_SCALE_INTEGER_ONLY`, so a size
+## that is not a whole multiple of the *selected* face's nominal is floored to
+## the next multiple down rather than interpolated. Leaving this hardcoded to
+## Terminal's 12 would have drawn Herald at 13 whenever the scale was 2 -- just
+## over half the intended height, silently, which reads as the face being badly
+## drawn rather than as the size being wrong.
+##
+## XenoText is dynamic and renders any size honestly, so it rides Terminal's
+## grid without caring.
+func _nominalSize() -> int:
+	match _fontId:
+		FONT_HERALD_SOURCE, FONT_HERALD_BAKED:
+			return NoggHeraldFontScript.NOMINAL_SIZE
+		_:
+			return NoggBitmapFontScript.NOMINAL_SIZE
 
 
 func _buildTree() -> void:
@@ -428,6 +469,10 @@ func _selectedFont() -> Font:
 	match _fontId:
 		FONT_BAKED:
 			return _bakedFont if _bakedFont != null else _sourceFont
+		FONT_HERALD_SOURCE:
+			return _heraldSourceFont
+		FONT_HERALD_BAKED:
+			return _heraldBakedFont if _heraldBakedFont != null else _heraldSourceFont
 		FONT_GAME:
 			return _gameFont
 		_:

@@ -66,7 +66,8 @@
 ## can answer -- it is the one place the shipping render stack and arbitrary
 ## sample copy meet. Combine with `--hide-hud --capture-at=` for a clean plate:
 ##   --text                  show the specimen overlay (X toggles it)
-##   --text-font=<source|baked|game>   which face to draw with
+##   --text-font=<source|baked|herald_source|herald_baked|game>
+##                                     which face to draw with
 ##   --text-sample=<reference|pangram|charset|battle>  which copy to draw
 ##   --text-scale=<1-4>      whole-multiple zoom of the design size
 ##   --text-edge=<shadow|outline|none>  drop shadow (the reference's own
