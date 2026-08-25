@@ -107,7 +107,19 @@ validates at the end of that item. See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for
 the executable workflow and Windows safeguards. Do not claim the plan complete
 until that final manual validation has run.
 
-Shared presentation resources are compatibility surfaces: their verification
-scope is the complete caller set, not the feature that motivated the edit.
-Prefer an owned variant for local visual tuning. For VFX-specific ownership and
-donor-capture rules, see [`VFX_DESIGN.md`](./VFX_DESIGN.md).
+Existing VFX and animations are read-only references while authoring a new one.
+Study them freely to preserve the project's visual language, but copy any
+borrowed implementation into new, explicitly owned code before changing it.
+Do not make a new animation work by modifying, extracting, parameterizing, or
+retuning an existing animation's methods, timeline, resources, or shared
+helpers. Duplication is preferable to coupling unrelated effects through a
+premature abstraction.
+
+Shared presentation code and resources are compatibility surfaces. A new visual
+feature must leave every existing caller's appearance, timing, playback, and
+lifecycle unchanged. If the shared contract itself genuinely needs revision,
+handle that as separately scoped compatibility work, enumerate the complete
+caller set, and validate every caller. That caller sweep is a regression gate,
+not permission to let feature-specific tuning leak into shared behavior. For
+VFX-specific ownership and donor-capture rules, see
+[`VFX_DESIGN.md`](./VFX_DESIGN.md).

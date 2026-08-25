@@ -130,13 +130,27 @@ not byte comparison.
 
 ## 4. Conventions for a new effect
 
-### Fork siblings; author everything else fresh
+### Existing effects are references; fork siblings and author everything else fresh
 
 **A new effect starts from a blank file unless an existing effect is its
 sibling.** Siblings share a *structure*, not a category: the same layer roles in
 the same arrangement, the same shape of timeline, the same carrier geometry.
 Two effects being "both spells", "both elemental", or "both area" makes them
 neither siblings nor candidates for shared code.
+
+Existing effects are read-only while a new one is being authored. Viewing their
+files and captures is strongly encouraged: they establish the project's motion,
+palette, density, and timing language. Borrowing means copying a structural
+sibling into files owned by the new profile, renaming it, and only then editing
+the copy. It never means changing the donor in place, calling the donor's
+internal methods, moving its methods into a shared helper, adding parameters or
+branches to it, or retuning a shared helper so the new effect can use it.
+
+The isolation requirement covers the complete behavior of every existing
+effect: appearance, phase timing, animation-speed and pause response, node and
+draw-call roster, disposal, and catalog selection. If any of those changes, the
+new effect is not complete. Put the differing behavior in an effect-owned
+method, shader, texture, material, profile constant, or other owned resource.
 
 The choice, in order:
 
@@ -280,11 +294,13 @@ minimum range of 1 and maximum range of 5. `VFX_PROFILE` changes only its
 presentation; target-bound effects continue to consume the generic cast context
 without a spell-name branch in the adapter.
 
-### Resource ownership and donor-effect guardrails
+### Implementation ownership and donor-effect guardrails
 
-Anything returned by a shared texture or material factory is a compatibility
-surface. A local visual experiment must not silently redefine that surface for
-every caller. The ownership rule is encoded in names:
+Anything consumed by more than one effect is a compatibility surface. This
+includes helper and lifecycle methods, shaders, animation timelines, textures,
+materials, factories, and profile data. A local visual experiment must not
+silently redefine that surface for every caller. The resource ownership rule is
+encoded in names:
 
 | Factory family | Contract | Current consumers |
 | --- | --- | --- |
@@ -304,17 +320,21 @@ built. A mismatch is intentionally loud. Updating a fingerprint is not the fix
 for a spell-specific request; it is reserved for an intentional neutral-contract
 migration after the complete consumer sweep below has been accepted.
 
-Before changing any shared VFX resource:
+New-effect work does not change a shared VFX implementation. If a shared
+contract independently requires migration, separate that work from effect
+authoring and then:
 
-1. Search for every caller of the texture and material factory.
+1. Search for every caller of the method, timeline, shader, texture, material,
+   factory, or profile data.
 2. Classify the change as a neutral-contract correction or effect-specific
    tuning. Effect-specific tuning gets a new owned variant.
 3. Put every caller—not only the commissioned spell—into final validation.
 4. Compare stored goldens where present and capture the carrier timeline where
    no golden exists.
 
-This is a completion gate. A clean target-effect sheet does not validate a
-shared factory change. The regression that established the rule changed Ice's
+This is a completion gate, not permission to combine a compatibility migration
+with new-effect tuning. A clean target-effect sheet does not validate a shared
+implementation change. The regression that established the rule changed Ice's
 shared radial disc and puff into pixelated Ice silhouettes; Magenta's unchanged
 core disappeared and the cyan debug target marker underneath was mistaken for
 the effect's centre. The code-level split prevents Ice tuning from reaching
@@ -968,7 +988,7 @@ A workable default for a new effect:
 | Skeleton renders | One capture at mid-timeline, any radius. Layers present, footprint right, nothing else claimed. | after registration |
 | Phase structure | `--capture-sheet` across the phase boundaries the design names. | after the shader's motion is in |
 | Radius sweep | One sheet per radius: 1, the carrier's, and a large one. | before tuning |
-| Final look | Sheet at the carrier's real radius and shape, plus the donor effect still rendering. | before goldens |
+| Final look | Sheet at the carrier's real radius and shape, plus unchanged captures of the donor and existing callers of reused dependencies. | before goldens |
 
 Cheapest form, one launch per checkpoint:
 
@@ -989,9 +1009,10 @@ conversation about it happens while it is still cheap to change.
 
 1. **Confirm the carrier.** Which spell selects this profile, and what are its
    `RADIUS` and `AREA_SHAPE`? Design to that, not to a hypothetical.
-2. **Decide fork vs. fresh** by §4's sibling test. Fork only a structural
-   sibling — then rename and change only what the new look requires. Otherwise
-   start from a blank file and keep just the `VfxPlayback` contract.
+2. **Decide fork vs. fresh** by §4's sibling test. Treat the donor as read-only.
+   Fork only a structural sibling into files owned by the new profile, rename
+   every reference, and then change only the owned copy. Otherwise start from a
+   blank file and keep just the `VfxPlayback` contract.
 3. **Author the shader** as a pure function of `INDEX` and `playback_time`.
 4. **Set the layer roster.** Drop inherited layers with no equivalent — that is
    what frees node budget for new ones.
@@ -1004,7 +1025,9 @@ conversation about it happens while it is still cheap to change.
    **show it** — that is a proof checkpoint, not a private check (§6).
 10. **Sweep radius** 1 / carrier / large, and validate the carrier's real
     shape, not just the defaults.
-11. **Check the donor effect still renders** — forks share `VfxTextures`.
+11. **Prove isolation.** Confirm the diff does not alter the donor or shared
+    behavior. Render the donor and every existing caller of reused dependencies;
+    any appearance, timing, playback, or lifecycle change fails the effect.
 12. **Record goldens** once the look is settled.
 
 **When planning the work, check whether the validation item names any

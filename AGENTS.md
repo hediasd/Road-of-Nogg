@@ -28,11 +28,14 @@ the rationale; this file is the concise operational contract.
 - Fail loudly on critical state desynchronization. Review large or deeply
   nested code for extraction, but do not stop solely at a numeric threshold.
 - Keep commits focused. Stage only files that belong to the current task.
-- Treat shared presentation textures, materials, factories, and theme tokens as
-  compatibility surfaces. Spell- or screen-specific tuning must use an owned
-  variant rather than redefining a neutral/shared primitive in place. If a
-  shared surface intentionally changes, enumerate every caller and include all
-  of them in the final validation scope.
+- Treat every existing VFX and animation, plus shared presentation textures,
+  materials, factories, helper methods, timelines, and theme tokens, as a
+  compatibility surface. New work may inspect an existing effect and may copy
+  a structural sibling, but it must edit only the new effect's owned copy. Do
+  not retune, generalize, extract, parameterize, or otherwise change donor or
+  shared behavior to make the new animation work. A shared-contract migration
+  is separate, explicitly scoped work: enumerate every caller and prove that
+  their appearance, timing, playback, and lifecycle remain unchanged.
 
 ## Documentation routing
 
@@ -54,10 +57,13 @@ the rationale; this file is the concise operational contract.
 
 ## Implementation plans
 
-- Every plan item must carry an explicit model assignment, drawn from exactly
-  two tiers: **Sonnet 5 / GPT Terra** for single-file mechanical work and for
-  multi-file work with a stated end state; **Opus 5 / GPT Sol** for
-  architectural boundaries, extraction, and balance or design decisions.
+- Every plan item must carry an explicit **Model** assignment and an adjacent
+  **Model rationale**, drawn from exactly two tiers: **Sonnet 5 / GPT Terra**
+  for single-file mechanical work and for multi-file work with a stated end
+  state; **Opus 5 / GPT Sol** for architectural boundaries, extraction, and
+  balance or design decisions. The rationale must connect concrete properties
+  of that item — such as scope, ambiguity, boundary impact, and judgment or
+  risk — to the selected tier; merely restating the model label is insufficient.
   Assign per item, never per phase. Do not route work below the Sonnet 5 /
   GPT Terra tier — smaller models are not used on this project.
 - Every implementation item names its risk and the behavior its change adds to
@@ -130,10 +136,11 @@ Windows safeguards in `docs/DEVELOPMENT.md`.
   plan. Do not reopen every prior item merely to repeat the same validation.
 - A single-item plan validates at the end of that item because there is no
   repeated per-item validation to avoid.
-- VFX work that changes a shared primitive or factory must render every effect
-  returned by a caller search, not only the commissioned effect. Compare stored
-  goldens where they exist; a target-effect capture alone cannot complete the
-  validation.
+- New VFX or animation work must render the donor and every existing caller of
+  any dependency it reuses. Compare stored goldens where they exist. Any change
+  to an existing effect's appearance, timing, playback, or lifecycle fails the
+  item; move the tuning into the new effect's owned code or resources. A caller
+  sweep is a regression gate, not permission to edit shared behavior.
 
 ## Backlog maintenance
 
