@@ -216,3 +216,32 @@ Two pieces remain open:
   through the adapter and event path. The `Battle25D` shutdown access violation
   above is a prerequisite for that last one.
 
+## Battle legibility additions still lack consolidated validation
+
+The 2026-08-15 battle-legibility cycle implemented hover-driven status readout,
+hover movement and strike reach, distinct status-effect silhouettes, the top
+portrait turn-order rail, and per-enemy danger-zone attribution. Each focused
+change was committed, but the combined native/retro gameplay pass never ran
+before work moved to a new VFX cycle on 2026-08-25.
+
+The remaining acceptance scope is one complete 4v4 Player vs CPU battle plus
+the decisive portions at 480x360 with CRT both above and below the UI. Exercise
+hover in every command phase, round rollover and a double turn, status stacks,
+enemy-specific threat tinting, pause, both speed sliders, defeat, battle exit,
+and UI scale 3. Confirm the console adapter still loads and fixed-seed CPU
+decisions remain unchanged. Per-change evidence remains recoverable from the
+commits dated 2026-08-15.
+
+## The deep unit reference card is still unbuilt
+
+The battle has no surface that explains a unit's full spell list and live
+cooldowns, passives, JUMP, LUCK-derived critical chance, race elemental matchup,
+or basic-attack hits-to-kill against the active unit. Race affinity can change
+damage by 20 percent in either direction, so its complete absence is a current
+legibility gap rather than optional encyclopedic detail.
+
+Build this as a separate held-key `NoggWindow`, paged rather than scrolled, for
+the unit under the pointer. It must not resize the six-row docked readout.
+Hits-to-kill must use the same combat math as the forecast and state its current
+position/elevation assumptions. Validate live cooldown updates, paging, every
+command phase, and release/teardown behavior.
