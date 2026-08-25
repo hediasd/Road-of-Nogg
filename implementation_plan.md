@@ -66,7 +66,28 @@ overly smooth or tapered mesh would miss the source's low-poly cylinder.
 ground contact, layer toggles, source anchoring, camera-yaw consistency, proxy
 readability, and unchanged Solar Storm rendering.
 
-**Resolution:** Not started.
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+The debug catalog now owns `technique_charge_aura`: a fresh playback and
+profile, one owned wall/ground shader, and a 64x64 RGBA opacity mask generated
+with the built-in image tool and downsampled into
+`assets/vfx/technique_charge_aura/aura_panel.png`. Ten independent wall faces
+each map the complete square mask; a separate plane supplies the bright ground
+circle. `configure_cast_context()` reanchors only this playback to the existing
+source position. The only pre-existing source edit is one additive catalog
+preload and row; no donor row or implementation changed.
+
+Intermediate smoke evidence, not final acceptance: the focused editor
+import/parse probe exited 0 and generated every new `.uid`; the fresh worktree's
+known Windows progress-dialog import crash was bypassed with a temporary copy of
+the main workspace's ignored import cache and in-progress font asset, after
+which the asset import and rendered harness path completed. Hidden-window
+captures at normalized time 0.50 exited 0 for yaw 0, 90, 180, ground-only, and
+wall-only. The first plate exposed excessive transparent headroom; the owned
+shader now remaps the mask over the full character-height prism while retaining
+a faint level top. The accepted checkpoint sheet is outside the repository at
+`aura-proofs/aura1-checkpoint-sheet.png`. The temporary font copy was removed;
+the user's original font work was never modified.
 
 ### AURA-2 — Author deterministic flicker, noise, and lifecycle
 
