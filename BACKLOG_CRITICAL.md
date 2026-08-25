@@ -92,8 +92,15 @@ this is a presentation gap, not a missing mechanic.
   roaming, blocked-empty confirmation, a zero-hit `Dark Nova` cast, mouse
   picking across two elevations and two rotated camera yaws, and both phase
   orders.
-- **Still open: camera-relative controls and broader visual accessibility.**
-  Cursor movement is board-relative, so it does not follow a rotated camera.
+- **Camera-relative controls are resolved.**
+  `BattlePresentationController._board_direction_for()` rotates an arrow key
+  into the board direction it points at under the current camera, quantised to
+  quadrants (the board is a square grid, so each key must resolve to exactly
+  one axis; a continuous rotation is ambiguous at 45 degrees). It became
+  load-bearing rather than cosmetic when `BattleCameraDirector` started
+  rotating the camera on its own during CPU turns — the director settles to an
+  exact quadrant before a player turn opens, so the mapping is exact rather
+  than an approximation. Broader visual accessibility remains open.
 - **`debug/drive_battle.gd` now covers ten checks, up from five.** Its
   occupied-only target assertions were replaced with positional ones, and it
   gained typed reference/lifecycle coverage, animation-flow and pause/resume

@@ -32,6 +32,20 @@ const MOVE_ARC_CLEARANCE := 0.3
 ## not be redeclared here: a redeclared signal is a different signal, and a
 ## controller connected through the port would never be notified.
 
+## A spell's area effect has begun PLAYING — not resolved, not queued.
+##
+## Emitted from `_start_cast_area_animation()`, at the frame the effect is
+## created and `play()`ed, so a listener that reframes the camera arrives with
+## the effect instead of before it (which would pan to an empty tile) or after
+## it (which would pan to an explosion the player already missed). The
+## simulator resolves a cast long before this, and the action can sit queued
+## behind others in between, so neither the sim event nor the enqueue site is
+## a usable moment for anything visual.
+##
+## Carries the affected area rather than the caster: what wants framing is
+## where the spell LANDS.
+signal cast_area_started(center_world: Vector3, radius: int)
+
 var state: BattleState
 var root_node: Node3D
 var visual_parent: Node3D
@@ -1133,6 +1147,10 @@ func _start_cast_area_animation(action: VisualAction) -> bool:
 	effect.set_playback_scale(0.0 if isVisualPaused() else _animation_speed_scale)
 	_active_cast_effect = _track_live_effect(effect, resolved_profile)
 	effect.play(action.vfx_seed, VfxPlayback.MODE_BATTLE)
+	# After play(), so a listener reacting synchronously cannot observe a
+	# half-built effect; the camera only reads the coordinates below anyway,
+	# but the ordering keeps that true for any future listener.
+	cast_area_started.emit(_coord_to_surface_pos3d(action.coord), action.vfx_radius)
 	var hold_duration := (
 		effect.get_total_duration()
 		* SpellVfxCatalogScript.actionHoldFraction(action.vfx_profile)

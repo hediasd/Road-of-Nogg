@@ -505,6 +505,13 @@ same key press sometimes move and sometimes not.
 | Left click on the pending target tile, during `CONFIRM_ACTION` | Confirm — same as clicking `CONFIRM` |
 | Left click anywhere else on the board, during `CONFIRM_ACTION` | Cancel — same as clicking `CANCEL` |
 
+**Arrow keys during tile aiming are screen-relative, not board-relative.**
+`moveCursor()` takes board directions, so the controller rotates the key into
+the board direction it points at under the current camera
+(`_board_direction_for()`), quantised to quadrants. At the camera's original
+yaw this is the identity, so a player who never sees a rotated camera is
+unaffected.
+
 During TARGET_SELECT, spell aiming gives the vertical pair a different meaning: up and down cycle ready spells, recompute the legal target set, and keep the current tile only when it remains legal. Left and right continue cycling legal targets. Attack aiming keeps all four directions on target cycling.
 
 Disabled rows are skipped by keyboard movement and are inert to hover and
@@ -858,6 +865,34 @@ other window here — a higher layer number does not make it developer UI.
 | Theme | `build_game_theme()` | `build_dev_theme()` | `build_game_theme()` |
 | Holds | Command, Spell, Actor, Target, Forecast, Log | Top bar, graphics menu, screenshot, save replay | Prompt only |
 | `F1` | **unaffected** | toggles visibility | **unaffected** — mirrors `action_panel.visible` instead, so it tracks whether a player turn is active, not whether the dev bar is shown |
+
+### The camera has two modes, and they follow different rules
+
+The battle camera runs under one of two rules, and which applies depends on who
+is driving:
+
+| | Free | Director |
+|---|---|---|
+| Owns the view | The player | `BattleCameraDirector` |
+| May rotate / zoom on its own | **Never** | Yes, deliberately |
+| Framing call | `panFocusTo()` — position only | `frameTo()` / `orbitBy()` / `settleToQuadrant()` |
+| Guarantee | The player's framing is never overwritten | The player's framing is restored intact on exit |
+
+Free mode is the original rule `BattleCameraController` was built around: *the
+camera may guarantee visibility but never take authorship of the view.* It
+still holds there absolutely — free mode moves `focus_point` and nothing else.
+
+Director mode is *defined* by taking authorship, so the rule could not stay
+global. What replaces it is reversibility: entering director mode snapshots the
+player's exact yaw, pitch, zoom, and focus, and leaving restores them rather
+than resetting to defaults. What is not acceptable in either mode is one camera
+that sometimes respects the player's framing and sometimes does not, which is
+why the split is by mode and not by call site.
+
+Director mode rotates only during a CPU turn and always settles to an exact
+90-degree quadrant before a player turn opens. That is what lets §6's tile
+aiming snap arrow keys to the camera exactly rather than approximately — the
+player only ever aims from one of four clean orientations.
 
 `F1` toggles the dev layer only, so a clean screenshot still shows the game UI
 as a player sees it — which is the actual reason the key exists. It was

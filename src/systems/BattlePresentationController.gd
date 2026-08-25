@@ -6,6 +6,7 @@ const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.
 const ReachQueryScript = preload("res://src/battle_sim/ReachQuery.gd")
 const TurnManagerScript = preload("res://src/battle_sim/TurnManager.gd")
 const PortraitRendererScript = preload("res://src/presentation/PortraitRenderer.gd")
+const BattleCameraDirectorScript = preload("res://src/presentation/BattleCameraDirector.gd")
 const TurnOrderRailScript = preload("res://src/presentation/TurnOrderRail.gd")
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
 const BattleSetupPresetsScript = preload("res://src/factories/BattleSetupPresets.gd")
@@ -25,13 +26,6 @@ const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const ResonanceBarScript = preload("res://src/presentation/theme/ResonanceBar.gd")
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
 
-## Margin, in the same logical screen space `docs/UI_DESIGN.md` §8 measures
-## windows against, that keeps the active unit clear of the displayed view's
-## edge rather than merely inside it. `RetroRenderController.get_display_rect()`
-## is used rather than the raw viewport rect because retro rendering can
-## letterbox the world image inside the window; a unit sitting in the letterbox
-## bar would otherwise read as "visible".
-const CAMERA_FOCUS_EDGE_MARGIN := 64.0
 
 ## How far the simulation may run ahead of visual playback before it waits for
 ## room. Well under VisualActionQueue.MAX_QUEUED_ACTIONS so overflow recovery
@@ -51,6 +45,12 @@ var sim: BattleSimulator
 var visual_adapter: GodotVisualAdapter
 var turn_timer: Timer
 var camera: BattleCameraController
+## Owns camera framing while director mode is on, and reproduces the old
+## pan-to-active-unit behaviour exactly while it is off. Built once the
+## camera and adapter exist; every camera decision this controller used to
+## make now routes through it, so there is only ever one opinion about
+## where the camera belongs.
+var camera_director: BattleCameraDirector
 var retro_renderer
 
 ## The one unit currently rendered dim for a spent turn phase, or -1. Tracked
@@ -528,7 +528,21 @@ func _start_battle(config: BattleSetupConfig) -> void:
 
 func _create_visual_adapter(state: BattleState) -> IBattleVisualAdapter:
 	visual_adapter = GodotVisualAdapterScript.new(state, self, retro_renderer.world_root)
+	# Rebuilt per battle alongside the adapter it reads: the director holds a
+	# reference to it, and a director outliving one battle into the next would
+	# be querying a disposed adapter for unit positions.
+	camera_director = BattleCameraDirectorScript.new(camera, visual_adapter, retro_renderer)
+	visual_adapter.cast_area_started.connect(_on_cast_area_started)
 	return visual_adapter
+
+
+## The camera's cue to reframe onto a spell, raised by the adapter at the frame
+## the effect starts playing. Routed through the controller rather than
+## connected adapter-to-director directly so the director keeps one owner and
+## one lifetime.
+func _on_cast_area_started(center_world: Vector3, radius: int) -> void:
+	if camera_director != null:
+		camera_director.on_cast_started(center_world, radius)
 
 
 func _on_new_battle_pressed() -> void:
@@ -614,6 +628,11 @@ func _advance_battle() -> void:
 		return
 	_deliberation = deliberation
 	_deliberating_monster_id = monsterID
+	# The camera's window onto a CPU turn opens here and closes when playback
+	# drains — not when deliberation finishes, which is 2-11 frames later and
+	# far too short to show anything.
+	if camera_director != null:
+		camera_director.on_cpu_turn_began(monsterID)
 
 
 func _process(delta: float) -> void:
@@ -638,7 +657,7 @@ func _update_status_badges(delta: float) -> void:
 ## unit through movement tweens and camera motion, and neither emits a signal
 ## this could hang off. The projection chain — `unproject_position` into the
 ## battle SubViewport, then `world_to_screen` through the renderer's
-## aspect-preserving display rect — is the same one `_pan_camera_to_active_unit`
+## aspect-preserving display rect — is the same one `BattleCameraDirector`
 ## and the damage numbers use, so letterboxing and the low-resolution presets
 ## keep the anchor exact.
 ##
@@ -669,7 +688,7 @@ func _update_action_row(delta: float) -> void:
 		return
 	var viewportPos := camera.unproject_position(worldPos)
 	# Annotated rather than inferred, for the reason given on
-	# `_pan_camera_to_active_unit`: `retro_renderer` has no class_name, so its
+	# `BattleCameraDirector._frame_unit()`: `retro_renderer` has no class_name, so its
 	# returns arrive as Variant and `:=` cannot infer from them.
 	var screenPos: Vector2 = retro_renderer.world_to_screen(viewportPos)
 	var visibleRect: Rect2 = retro_renderer.get_display_rect()
@@ -785,31 +804,17 @@ func _begin_player_turn(monsterID: int) -> void:
 	turn_timer.stop()
 	battle_ui.play_button.disabled = false
 	battle_ui.action_panel.visible = true
-	_pan_camera_to_active_unit(monsterID)
+	if camera_director != null:
+		camera_director.on_player_turn_began(monsterID)
 	player_turn.beginTurn(monsterID)
 
 
-## Guarantees the active unit is on screen; never re-authors the view. Only
-## pans when the unit is genuinely off-screen or inside the edge margin — a
-## turn beginning with it already comfortably framed moves the camera not at
-## all. Deliberately does not extend to CPU turns; whether the camera follows
-## enemy actions is a pacing decision, left open.
-func _pan_camera_to_active_unit(monsterID: int) -> void:
-	if camera == null or visual_adapter == null or retro_renderer == null:
-		return
-	var worldPos := visual_adapter.get_monster_world_position(monsterID)
-	if camera.is_position_behind(worldPos):
-		camera.panFocusTo(worldPos)
-		return
-	var viewportPos := camera.unproject_position(worldPos)
-	# Annotated rather than inferred: `retro_renderer` is deliberately untyped
-	# (it is constructed with `_init(self)` and has no class_name), so its
-	# return values arrive as Variant and `:=` cannot infer from them.
-	var screenPos: Vector2 = retro_renderer.world_to_screen(viewportPos)
-	var visibleRect: Rect2 = retro_renderer.get_display_rect().grow(-CAMERA_FOCUS_EDGE_MARGIN)
-	if visibleRect.has_point(screenPos):
-		return
-	camera.panFocusTo(worldPos)
+## The pacing question this file used to leave open — "whether the camera
+## follows enemy actions" — is now settled: it does, through
+## `BattleCameraDirector`, but only in director mode and only under the same
+## off-screen-only rule that has always governed the player turn. The body
+## that used to live here is `BattleCameraDirector._frame_unit()`, unchanged,
+## so free mode still behaves exactly as it did.
 
 
 func _on_player_turn_finished(_monsterID: int) -> void:
@@ -1079,7 +1084,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.is_action_pressed("ui_up"): direction = Vector2i.UP
 			elif event.is_action_pressed("ui_down"): direction = Vector2i.DOWN
 			if direction != Vector2i.ZERO:
-				player_turn.moveCursor(direction)
+				player_turn.moveCursor(_board_direction_for(direction))
 				get_viewport().set_input_as_handled()
 				return
 
@@ -1718,11 +1723,50 @@ func _turnRailEntry(
 func _on_animation_queue_drained() -> void:
 	if lifecycle != Lifecycle.BATTLE:
 		return
+	if camera_director != null:
+		camera_director.on_turn_playback_drained()
 	_try_begin_pending_player_turn()
 	if _pending_player_turn_id != -1 or _player_turn_active():
 		return
 	if battle_ui.play_button.button_pressed and turn_timer.is_stopped():
 		turn_timer.start()
+
+## Turns a screen-relative arrow key into the board direction it points at
+## under the current camera.
+##
+## `moveCursor()` takes BOARD directions — `Vector2i.LEFT` is one tile toward
+## -X, with no camera term — which is only the same thing as "left on screen"
+## while the camera sits at its original yaw. Rotate the view and the same key
+## starts moving the cursor somewhere else on screen, which is the defect
+## BACKLOG_CRITICAL.md recorded as "cursor movement is board-relative, so it
+## does not follow a rotated camera". It became load-bearing rather than
+## cosmetic once `BattleCameraDirector` started rotating the camera on its own.
+##
+## **Quantised to quadrants, never applied continuously.** The board is a
+## square grid, so each key must resolve to exactly one board axis; a
+## continuous rotation is genuinely ambiguous at 45 degrees and would have to
+## pick an axis arbitrarily. Snapping means the mapping flips exactly when the
+## player's own sense of "left" flips. In director mode this is not even an
+## approximation: the camera settles to an exact quadrant before a player turn
+## opens, so `nearestQuadrantYaw()` is reporting the angle the camera is
+## actually at.
+##
+## The geometry: at yaw 0 the camera looks down -Z with +X to the right, which
+## is exactly the historical mapping (board +X is screen right, board -Y is
+## screen up), so quadrant 0 is the identity and nothing changes for a player
+## who never rotates. Each further quadrant rotates the board vector by -90
+## degrees, which for integer vectors is `(x, y) -> (y, -x)` and stays exact.
+func _board_direction_for(screenDirection: Vector2i) -> Vector2i:
+	if camera == null:
+		return screenDirection
+	var quadrant := posmod(
+		int(round(camera.nearestQuadrantYaw() / (PI * 0.5))), 4
+	)
+	var result := screenDirection
+	for _step in range(quadrant):
+		result = Vector2i(result.y, -result.x)
+	return result
+
 
 ## `layerMask` defaults to both pick layers, which is the ordinary "what is
 ## nearest under the pointer" query. `_mouse_to_battle_coord()` narrows it to
