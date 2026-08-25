@@ -78,6 +78,14 @@ cast. `Roses at Summers End` on `Walker of the Woods` is the shipping example:
 it is a level-4 Resonance finisher, so it reads `CD 0` for the entire battle
 until the wood bar fills.
 
+**The surface that would explain it is on the other side of the screen.** A
+level-4 finisher's real gate is a Resonance bar, and that bar is drawn as a
+three-cell graphic in the third column of the docked status window -- correct,
+live, and with nothing anywhere connecting it to the greyed row in the spell
+list. So the player is told "cooldown", shown a zero, and left to discover
+Resonance somewhere else entirely. That makes this a legibility defect as much
+as a formatting one: the row names the wrong mechanic.
+
 The fix belongs in `spell_value()`, which is the single shared formatter for
 both the spell window and the deep card, so correcting it corrects both at
 once. It needs `can_cast()`'s reason rather than its boolean, which means
