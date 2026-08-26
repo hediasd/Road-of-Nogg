@@ -5,6 +5,7 @@
 *.cfg text eol=lf
 *.json text eol=lf
 *.md text eol=lf
+*.py text eol=lf
 *.gdshader text eol=lf
 
 # Append-only ledgers: concatenate both sides instead of conflicting when a

@@ -266,4 +266,3 @@ Two pieces remain open:
   primitive with every returned effect rendered; and a real cast in `Battle25D`
   through the adapter and event path. The `Battle25D` shutdown access violation
   above is a prerequisite for that last one.
-
