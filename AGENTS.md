@@ -98,10 +98,9 @@ A plan lives in `docs/plans/<cycle-slug>.md`. Several cycles may be active at
 once — they are independent, and a session touches exactly one.
 `docs/plans/README.md` carries the item and wave template.
 
-**One grandfathered cycle:** `implementation_plan.md` at the repository root
-holds the Second Window Skin cycle, opened before this contract. Finish it
-where it is — its existing per-item Resolution sections stay as written — and
-delete the file when the cycle closes. Every new cycle goes in `docs/plans/`.
+There is no `implementation_plan.md` at the repository root. It held one cycle
+at a time under the previous contract and was removed when the Second Window
+Skin cycle closed; do not recreate it.
 
 **A cycle file is frozen the moment execution starts.** No executing session
 edits it, ever. Everything execution produces lives in commits. This is what
