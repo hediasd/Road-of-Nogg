@@ -56,15 +56,41 @@ and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
 
 ## Workflow and repository safety
 
-- Inspect the working tree before substantial work and preserve changes not
-  created by the current task.
+This repository has one human owner and several agent sessions working in it
+concurrently, on `main`, in a single working tree. That shape is deliberate,
+and it changes what "safety" means here.
+
+**Branches were not buying safety; they were buying conflicts.** Because the
+same person drives every session, a branch per session produced merges between
+sessions that were never in genuine disagreement — most conflicts were in
+bookkeeping files rather than in code. Working on `main` removes the merge
+entirely. What replaces it:
+
+- **Path ownership.** A plan item declares the paths it may write, and two
+  items run concurrently only when those sets are disjoint. Disjointness is
+  what prevents a lost update; it is designed into the plan's wave table rather
+  than discovered at merge time.
+- **Commit shape as the rollback unit.** One item, one commit, disjoint paths,
+  tagged with a `Plan-Item:` trailer. `git revert` on such a commit is a clean
+  undo that later items do not fight, which is the property a branch was
+  supposed to provide.
+- **Explicit-path staging.** In a shared tree the index is shared too, so
+  `git add -A` and `git commit -a` will capture another session's unfinished
+  work. Commits name their paths.
+- **A dirty tree carries no information.** It reflects other sessions, so
+  pausing on it, reporting it, or cleaning it is friction with no safety value.
+  Destructive whole-tree commands (`stash`, `reset --hard`, `clean`, pathspec-
+  less `restore`) are correspondingly dangerous and are user-invoked only.
+
+Beyond that:
+
 - Use a written plan when coordination, rollback risk, or architectural impact
   warrants one. Small and well-bounded changes can proceed directly even when
   they touch several files.
 - Keep generated diagnostics out of tracked source. Put reusable utilities in
   `scripts/`.
-- Keep commits reviewable and stage only task-owned files. Pushing is a user or
-  release decision, not a mandatory prerequisite for local work.
+- Keep commits reviewable. Push `main` at wave boundaries so `origin/main`
+  stays a usable recovery point.
 - For complex UI, create a mockup when visual direction is genuinely undecided
   or the user asks for one. A mockup is not required for every `Control` tree.
 
@@ -80,6 +106,9 @@ and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
   maintenance work.
 - [`LEARNINGS.md`](./LEARNINGS.md): verified reusable discoveries, not session history.
 - [`DEVELOPMENT.md`](./DEVELOPMENT.md): executable commands and environment safeguards.
+- [`plans/`](./plans/): one file per active implementation cycle, frozen once
+  execution starts and deleted when the cycle closes. Execution state lives in
+  commit messages, not here — see `AGENTS.md`, "Recording what an item found".
 
 Update the owning document when its truth changes. Do not repeat entire rules
 across several files. Add a backlog item only when it has a clear outcome and
@@ -100,12 +129,21 @@ owns the reference roster and links to aspect studies. Aspect files should:
 
 There is no automated test suite or check runner in this repository right now;
 the previous suite, GUT, and their runners were removed to be rebuilt fresh.
-For a multi-item implementation plan, record each implementation item as
-**implemented; pending end-of-plan validation** and exercise the combined
-affected behavior once in the plan's final validation item. A single-item plan
-validates at the end of that item. See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for
-the executable workflow and Windows safeguards. Do not claim the plan complete
-until that final manual validation has run.
+For a multi-item implementation plan, each implementation item is
+**implemented; pending end-of-plan validation**, and the combined affected
+behavior is exercised once in the plan's final validation item. A single-item
+plan validates at the end of that item. See [`DEVELOPMENT.md`](./DEVELOPMENT.md)
+for the executable workflow and Windows safeguards. Do not claim the plan
+complete until that final manual validation has run.
+
+Concurrency makes this stricter rather than looser. Manual validation observes
+the whole working tree, so a launch during a wave renders other sessions'
+half-finished work alongside the item under test, and any conclusion drawn from
+it is unsound in both directions — a failure may not be yours, and a pass may
+depend on something about to change. Final validation therefore runs alone, in
+a quiet tree, after every implementation item is committed. During a wave, an
+agent that hits a failure outside its own paths reports it and keeps going; it
+does not repair another session's work in progress.
 
 Existing VFX and animations are read-only references while authoring a new one.
 Study them freely to preserve the project's visual language, but copy any

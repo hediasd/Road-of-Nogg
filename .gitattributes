@@ -7,6 +7,11 @@
 *.md text eol=lf
 *.gdshader text eol=lf
 
+# Append-only ledgers: concatenate both sides instead of conflicting when a
+# side branch lands. Duplicates are cheaper to prune than a blocked merge.
+BACKLOG_CRITICAL.md merge=union
+BACKLOG_LONGTERM.md merge=union
+
 # Common asset formats: never treated as text, even when the underlying
 # format happens to be JSON or XML (glTF, Collada).
 *.png binary

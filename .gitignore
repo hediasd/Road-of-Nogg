@@ -18,6 +18,7 @@ thumbs.db
 # IDE
 .vscode/
 .idea/
+.claude/worktrees/
 
 # Generated diagnostics
 /debug/
