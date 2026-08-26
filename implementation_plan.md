@@ -523,6 +523,53 @@ catalog, not carried over by character count from the Terminal measurement.
 skins at `ui_scale` 1 through 4; the three-digit padding holding its column; the
 cursor centred in its gutter.
 
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+Widths moved into `WindowSkinCatalog` and are stored per skin, not shared at the
+maximum of the two. Brigandine Plate's are measured by one stated rule — worst
+real string, plus at least five design units of headroom, rounded up to a
+multiple of ten. Measured: command 90, spell 248, prompt 332, forecast 267,
+status cell 211, pager 63, card 240. Shipped: 100 / 260 / 340 / 280 / 220 / 70 /
+250. `nogg` keeps its historical authored values, because the skin is frozen and
+re-deriving numbers that already ship would be a change nobody asked for dressed
+as a measurement.
+
+**`STATUS_CELL_OFFSET_UNITS` was not derivable from any existing harness, and
+now is.** `measure_px4_widths.gd` *consumed* the offsets to size the window
+rather than producing them, which was fine while one face was assumed. It now
+reports what each column's content actually ends at, per row — column 1 must
+clear the widest *paired* column-0 cell, column 2 must clear column 1's end and
+the `HP` row's longer value. Terminal's `[0, 96, 192]` technically satisfied
+Herald's requirements of 58 and 134, but left 38 and 58 units of dead space,
+visible in a capture as a gap between `DEF` and the element cell. Brigandine
+Plate ships `[0, 76, 152]`, and the status window drops from 270 units to 220.
+
+**Two defects the measurement caught, both invisible without it.**
+
+`DEEP_CARD_TOP_UNITS` was the literal 63, written as "PROMPT_TOP plus a one-row
+window plus a stack gap" — an arithmetic that is only true for `nogg`. Under a
+skin with a larger inset and taller pitch the prompt ends at 70, so the literal
+put the card straight through it. It is now derived from those three terms, and
+`window_height_units()` exists so it can be, since `_recompute()` needs the
+height in units before the scaled values it rounds into are assigned.
+
+And the card at 12 rows reached into the docked status windows: 282 against a
+272 ceiling. `deep_card_capacity` is now skin-varying at 11 for this skin. The
+deepest unit in the catalog builds 16 rows, so it pages once either way — the
+lost row costs a page turn on nothing.
+
+**`TURN_ORDER_WIDTH` is deleted rather than re-measured.** It sized the docked
+turn-order window the portrait rail replaced, and a caller search found nothing
+reading it but a stale comment. `TURN_ORDER_TOP` and
+`BattleUIBuilder.TURN_ORDER_CAPACITY` were dead for the same reason and went
+with it. Re-measuring a token nothing reads would have been the wrong kind of
+diligence.
+
+Verified: `--check-only` clean on all five touched scripts; both measurement
+harnesses report every window fitting with no dock clash under either skin; and
+the token dump still matches the pre-cycle baseline for `nogg` at all four
+`ui_scale` values, 272 values compared.
+
 ### SKIN-7 — Extend the skin past the windows
 
 **Model:** Opus 5 / GPT Sol

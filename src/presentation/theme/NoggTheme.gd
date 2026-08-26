@@ -514,15 +514,15 @@ const ROW_CAPACITY_DEFAULT := 8
 # prompt or forecast content, only command/spell/actor — and is fixed here
 # because authoring a new canonical width was the moment to fix it, not a
 # reason found and then reproduced.
-const COMMAND_WIDTH_UNITS := 110.0
-const SPELL_WIDTH_UNITS := 340.0
+static var COMMAND_WIDTH_UNITS: float
+static var SPELL_WIDTH_UNITS: float
 ## Widened on Nogg Terminal adoption: the face is a third wider than XenoText,
 ## and the longest real status line ("Preview tile (12, 12). Empty-center
 ## casting is disabled.") needs 460 units against the previous 348.
-const PROMPT_WIDTH_UNITS := 470.0
+static var PROMPT_WIDTH_UNITS: float
 ## Likewise: "Cast spends action, cooldown & Resonance" needs 332 units against
 ## the previous 252.
-const FORECAST_WIDTH_UNITS := 340.0
+static var FORECAST_WIDTH_UNITS: float
 ## **Unchanged by the font swap**, and the reason is worth recording. An earlier
 ## measurement fed this window the string "Elements / Fire, Wind, Ice, Darkness"
 ## and concluded it needed 288 units. That layout does not exist: the status
@@ -532,18 +532,12 @@ const FORECAST_WIDTH_UNITS := 340.0
 ## `NoggWindow.add_stat_row()` actually produces, the binding cell needs 243
 ## units, which 270 already covered. Two of these still fit side by side with
 ## margins inside a 1152-unit-wide screen at x1.
-const STATUS_WINDOW_WIDTH_UNITS := 270.0
-## Sized to the row this window actually builds — `"<marker>  <name>"` against
-## a `"#<id>"` value column — not to a bare name. Measuring the name alone
-## under-sized it and left it truncating mid-word on screen
-## ("Envoy of Lig#100"), which is what rendering the real scene caught. The
-## worst real row is `NEXT  Polar Weather Wizard` + `#100` at 264 units.
-const TURN_ORDER_WIDTH_UNITS := 275.0
+static var STATUS_WINDOW_WIDTH_UNITS: float
 ## Pager footer: two arrows plus a short page-count label. Still provisional —
 ## nothing in the shipping catalog pages today, so there is no real content to
 ## measure against, matching the honest uncertainty the original constant's
 ## comment already carried.
-const PAGER_WIDTH_UNITS := 95.0
+static var PAGER_WIDTH_UNITS: float
 const PAGER_ARROW_GAP_UNITS := 3.0
 ## Deep card (docs/UI_DESIGN.md §8): the held-key reference readout. Measured by
 ## `debug/measure_deep_card.gd`, which builds the card's real rows for every
@@ -552,26 +546,24 @@ const PAGER_ARROW_GAP_UNITS := 3.0
 ## game — at 308 units, not the spell rows, which are the same names the spell
 ## window carries but without its cursor gutter. Rerun the script if the font,
 ## `FONT_SIZE_BODY_UNITS`, `CONTENT_INSET_UNITS`, or the card's row set changes.
-const DEEP_CARD_WIDTH_UNITS := 310.0
+static var DEEP_CARD_WIDTH_UNITS: float
 ## Fixed top edge. The card grows downward from here rather than staying
 ## centred, so sweeping from a one-spell unit to a seven-spell one does not make
 ## the window jump under a stationary pointer.
 ##
-## Derived, not picked, and spelled out as a literal because two of its three
-## terms are declared further down this file: `PROMPT_TOP` 34, plus the 25 units
-## a one-row window occupies (`CONTENT_INSET_UNITS` twice plus one
-## `ROW_HEIGHT_UNITS`), plus `WINDOW_STACK_GAP_UNITS` 4.
-##
-## A design-unit screen is ~360 tall at every `ui_scale` — that is exactly what
-## `UI_SCALE_STEP_HEIGHT` makes true — so this one number clears the prompt
-## above and the docked status windows below at every supported scale, with the
-## card at its deepest. `debug/measure_deep_card.gd` reports those figures.
-const DEEP_CARD_TOP_UNITS := 63.0
+## **Derived, not a literal, because a skin changes both of its terms.** It is
+## the prompt's bottom edge -- `PROMPT_TOP` plus the height of a one-row window
+## -- plus `WINDOW_STACK_GAP`. Under `nogg` that evaluates to the 63 this was
+## written as; under a skin with a larger inset and a taller row it does not,
+## and the literal put the card through the prompt. Caught by
+## `debug/measure_px4_widths.gd`, which now checks the dock against the two
+## surfaces it has to sit between.
+static var DEEP_CARD_TOP_UNITS: float
 ## Page size, and therefore the card's maximum height (trait 6). The worst case
 ## the shipping catalog produces is 16 rows — six fixed rows, seven spells, a
 ## passive, and two section headings — so the deepest unit in the game pages
 ## exactly once rather than reaching for most of the screen.
-const DEEP_CARD_CAPACITY := 12
+static var DEEP_CARD_CAPACITY: int
 
 ## Screen-edge docking offsets. Rendered multi-scale validation found these
 ## unscaled: the width migration left the positional literals that
@@ -583,7 +575,6 @@ const SCREEN_MARGIN_UNITS := 10.0
 ## prompt is transient, so the persistent element holds the stable position —
 ## see docs/UI_DESIGN.md §8.
 const PROMPT_TOP_UNITS := 34.0
-const TURN_ORDER_TOP_UNITS := 50.0
 ## Vertical gap between the forecast window and the command window above which
 ## it sits.
 const FORECAST_GAP_UNITS := 4.0
@@ -593,7 +584,6 @@ static var SPELL_WIDTH: float
 static var PROMPT_WIDTH: float
 static var FORECAST_WIDTH: float
 static var STATUS_WINDOW_WIDTH: float
-static var TURN_ORDER_WIDTH: float
 static var PAGER_WIDTH: float
 static var PAGER_ARROW_GAP: float
 static var DEEP_CARD_WIDTH: float
@@ -610,7 +600,6 @@ static var TURN_RAIL_HEALTH: float
 
 static var SCREEN_MARGIN: float
 static var PROMPT_TOP: float
-static var TURN_ORDER_TOP: float
 static var FORECAST_GAP: float
 
 static var FRAME_RING_PX: int
@@ -748,6 +737,19 @@ static func _apply_skin_tokens() -> void:
 	# the second call would scale already-scaled numbers.
 	STATUS_CELL_OFFSET_UNITS = (values["status_cell_offset_units"] as Array).duplicate()
 
+	COMMAND_WIDTH_UNITS = float(values["command_width_units"])
+	SPELL_WIDTH_UNITS = float(values["spell_width_units"])
+	PROMPT_WIDTH_UNITS = float(values["prompt_width_units"])
+	FORECAST_WIDTH_UNITS = float(values["forecast_width_units"])
+	STATUS_WINDOW_WIDTH_UNITS = float(values["status_window_width_units"])
+	PAGER_WIDTH_UNITS = float(values["pager_width_units"])
+	DEEP_CARD_WIDTH_UNITS = float(values["deep_card_width_units"])
+	DEEP_CARD_CAPACITY = int(values["deep_card_capacity"])
+	# The prompt's bottom edge plus a stack gap. Both terms follow the skin.
+	DEEP_CARD_TOP_UNITS = (
+		PROMPT_TOP_UNITS + window_height_units(1) + WINDOW_STACK_GAP_UNITS
+	)
+
 
 ## True when this skin draws no halo at all. Read by `build_window_halo()`,
 ## which then declines to build the node rather than building a transparent one:
@@ -821,7 +823,6 @@ static func _recompute() -> void:
 	PROMPT_WIDTH = _scaled(PROMPT_WIDTH_UNITS)
 	FORECAST_WIDTH = _scaled(FORECAST_WIDTH_UNITS)
 	STATUS_WINDOW_WIDTH = _scaled(STATUS_WINDOW_WIDTH_UNITS)
-	TURN_ORDER_WIDTH = _scaled(TURN_ORDER_WIDTH_UNITS)
 	PAGER_WIDTH = _scaled(PAGER_WIDTH_UNITS)
 	PAGER_ARROW_GAP = _scaled(PAGER_ARROW_GAP_UNITS)
 	DEEP_CARD_WIDTH = _scaled(DEEP_CARD_WIDTH_UNITS)
@@ -838,7 +839,6 @@ static func _recompute() -> void:
 
 	SCREEN_MARGIN = _scaled(SCREEN_MARGIN_UNITS)
 	PROMPT_TOP = _scaled(PROMPT_TOP_UNITS)
-	TURN_ORDER_TOP = _scaled(TURN_ORDER_TOP_UNITS)
 	FORECAST_GAP = _scaled(FORECAST_GAP_UNITS)
 
 ## Content tint for a window that has handed focus to a child. Roughly the
@@ -854,6 +854,17 @@ const CONTENT_INACTIVE_MODULATE := Color(0.45, 0.47, 0.52, 1.0)
 ## Height of a window with the given row capacity, frame inset included.
 static func window_height(row_capacity: int) -> float:
 	return float(CONTENT_INSET * 2 + row_capacity * ROW_HEIGHT)
+
+
+## The same height in design units rather than device pixels.
+##
+## Needed because `DEEP_CARD_TOP_UNITS` is derived from it during
+## `_recompute()`, before the scaled `CONTENT_INSET` and `ROW_HEIGHT` those two
+## are rounded into exist. Deriving the dock from the rounded values instead
+## would make it disagree with itself by a pixel at scales where the inset
+## rounds up.
+static func window_height_units(row_capacity: int) -> float:
+	return CONTENT_INSET_UNITS * 2.0 + float(row_capacity) * ROW_HEIGHT_UNITS
 
 
 ## The battle UI Theme. Assign to a root Control and every Label, Panel, and

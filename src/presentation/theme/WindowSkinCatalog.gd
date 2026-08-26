@@ -65,7 +65,20 @@ const VALUES := {
 		"halo_shadow_offset_units": Vector2(0.5, 1.0),
 		"halo_fill": Color(0.0, 0.0, 0.0, 0.28),
 		"halo_shadow": Color(0.0, 0.0, 0.0, 0.58),
-		"status_cell_offset_units": [0.0, 96.0, 192.0]
+		"status_cell_offset_units": [0.0, 96.0, 192.0],
+		# `nogg`'s widths are its historical authored values, not fresh output from
+		# `debug/measure_px4_widths.gd`. The skin is frozen for this cycle and
+		# validation asserts it, so re-deriving numbers that already ship -- and
+		# that carry more slack than the measurement alone would give them -- would
+		# be a change nobody asked for dressed as a measurement.
+		"command_width_units": 110.0,
+		"spell_width_units": 340.0,
+		"prompt_width_units": 470.0,
+		"forecast_width_units": 340.0,
+		"status_window_width_units": 270.0,
+		"pager_width_units": 95.0,
+		"deep_card_width_units": 310.0,
+		"deep_card_capacity": 12
 	},
 	BRIGANDINE_PLATE: {
 		"font_path": "res://assets/Fonts/NoggHerald/NoggHerald.res",
@@ -95,10 +108,39 @@ const VALUES := {
 		"halo_shadow_offset_units": Vector2.ZERO,
 		"halo_fill": Color(0.0, 0.0, 0.0, 0.0),
 		"halo_shadow": Color(0.0, 0.0, 0.0, 0.0),
-		# Provisional: measured against Nogg Terminal at a 6-unit inset, so both
-		# terms are wrong for this skin. Re-measured once Herald is actually
-		# under the HUD.
-		"status_cell_offset_units": [0.0, 96.0, 192.0]
+		# Derived from `debug/measure_px4_widths.gd`, which reports what each
+		# column's content actually ends at. Column 1 must clear the widest
+		# *paired* column-0 cell (58 under Herald) and column 2 must clear
+		# column 1's end. Terminal's [0, 96, 192] satisfied both but left 38 and
+		# 40 units of dead space respectively -- visible in a capture as a gap
+		# between DEF and the element cell.
+		"status_cell_offset_units": [0.0, 76.0, 152.0],
+		# Every width below is measured output, by one stated rule: the worst real
+		# string this skin can render, plus at least five design units of
+		# headroom, rounded up to a multiple of ten. The headroom is not
+		# decoration -- `PROMPT_WIDTH` once shipped 76 device pixels short of a
+		# real status line, and a catalog gaining one longer monster name is all
+		# it takes to truncate a window sized to its exact worst case.
+		#
+		# Measured: command 90, spell 248, prompt 332, forecast 267, status cell
+		# 211, pager 63, card 240. Rerun `debug/measure_px4_widths.gd` and
+		# `debug/measure_deep_card.gd` if the face, the body size, or the inset
+		# changes -- each of the three moves every one of them.
+		"command_width_units": 100.0,
+		"spell_width_units": 260.0,
+		"prompt_width_units": 340.0,
+		"forecast_width_units": 280.0,
+		"status_window_width_units": 220.0,
+		# Measured for the first time here. `nogg`'s 95 was authored as openly
+		# provisional because nothing in the catalog paged when it was written;
+		# the deep card pages now, and "12 / 12" between two arrows needs 63.
+		"pager_width_units": 70.0,
+		"deep_card_width_units": 250.0,
+		# Eleven, not twelve. The deep card docks below the prompt and must stop
+		# short of the status windows, and this skin's taller row pitch and
+		# larger inset leave room for one row fewer. The deepest unit in the
+		# catalog is 16 rows, so it pages once under either skin.
+		"deep_card_capacity": 11
 	}
 }
 

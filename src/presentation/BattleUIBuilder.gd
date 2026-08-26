@@ -35,11 +35,6 @@ const DeepCardScript = preload("res://src/presentation/DeepCard.gd")
 ## NoggTheme.gd's "Window widths" block). It stays as measured: the HP row's
 ## worst case ("999 / 999") and the third-column Resonance cell both need it.
 const STATUS_WINDOW_CAPACITY := 4
-## Upper-left, below the prompt and above the centred command window.
-## Three rows show the active unit plus the next two queued units. Width is
-## `NoggThemeScript.TURN_ORDER_WIDTH` and its top offset is
-## `NoggThemeScript.TURN_ORDER_TOP`, for the same reason.
-const TURN_ORDER_CAPACITY := 3
 
 
 static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:

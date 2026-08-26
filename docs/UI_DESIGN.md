@@ -461,10 +461,42 @@ same focus behaviour, and the same paging and marquee rules.
 | Fill alpha | 0.86 | **0.78** |
 | Content inset | 6 units, one value | **11 units, one value** |
 | Row pitch | 13 units on a 12-unit cell | **14 units on a 13-unit cell** |
+| Status cell offsets | 0 / 96 / 192 | **0 / 76 / 152** |
+| Command, Spell, Prompt, Forecast | 110 / 340 / 470 / 340 | **100 / 260 / 340 / 280** |
+| Status window, Pager, Deep card | 270 / 95 / 310 | **220 / 70 / 250** |
+| Deep card capacity | 12 rows | **11 rows** |
 
 Shared and never skin-varying: canvas layer numbers, the text colour roles,
 every tween duration, the cursor's own geometry, and the marquee timings. The
 reference speaks to none of them.
+
+**Every width is a function of the face and the inset, so widths are per skin.**
+They live in `WindowSkinCatalog` rather than as shared constants, and they are
+not shared at the maximum of the two skins: a shared maximum would make the
+tighter skin carry the looser one's slack, which is visible as exactly the empty
+frame this skin exists to remove. Brigandine Plate's are measured by one stated
+rule — the worst real string the skin can render, plus at least five design
+units of headroom, rounded up to a multiple of ten. The headroom is not
+decoration: `PROMPT_WIDTH` once shipped 76 device pixels short of a real status
+line, and a catalog gaining one longer monster name is all it takes to truncate
+a window sized to its exact worst case.
+
+`nogg`'s widths are its historical authored values rather than fresh output from
+the same rule. The skin is frozen for this cycle and validation asserts it by
+token, so re-deriving numbers that already ship would be a change nobody asked
+for dressed as a measurement.
+
+**The deep card's capacity is skin-varying, and that is arithmetic rather than
+taste.** The card docks below the prompt and must stop short of the docked
+status windows. Brigandine Plate's larger inset and taller pitch leave room for
+eleven rows where `nogg` fits twelve. The deepest unit in the catalog builds 16
+rows, so the card pages once under either skin — the capacity change costs a
+page turn on nothing.
+
+**`DEEP_CARD_TOP` is derived, not a literal**, for the same reason: it is the
+prompt's bottom edge plus `WINDOW_STACK_GAP`, and both terms follow the skin.
+Written as the literal 63 it was correct for `nogg` and put the card straight
+through the prompt under Brigandine Plate.
 
 **Every number in the Brigandine Plate column is measured output.**
 `debug/sample_reference_ui.gd` (gitignored) reads
@@ -730,9 +762,19 @@ the two columns slide across each other.
 
 Every game window, its dock, and its size.
 
-**Widths are measured, not chosen, and now live in `NoggTheme` as design units**:
-`COMMAND_WIDTH`, `SPELL_WIDTH`, `PROMPT_WIDTH`, `FORECAST_WIDTH`,
-`STATUS_WINDOW_WIDTH`, `TURN_ORDER_WIDTH`, `PAGER_WIDTH`. Each was previously a
+**Widths are measured, not chosen, and live in `WindowSkinCatalog` as
+per-skin design units**: `COMMAND_WIDTH`, `SPELL_WIDTH`, `PROMPT_WIDTH`,
+`FORECAST_WIDTH`, `STATUS_WINDOW_WIDTH`, `PAGER_WIDTH`, `DEEP_CARD_WIDTH`.
+`NoggTheme` exposes them scaled, as it always did; what changed is that they are
+a function of the active skin's face and inset rather than of one face. The
+table below reports `nogg`'s. See §4a for Brigandine Plate's and for the rule
+they were measured by.
+
+`TURN_ORDER_WIDTH` is gone rather than re-measured: it sized the docked
+turn-order window that the portrait rail replaced, and nothing had read it since.
+`TURN_ORDER_TOP` and `BattleUIBuilder.TURN_ORDER_CAPACITY` went with it.
+
+Each width was previously a
 `const` of a literal device-pixel number local to whichever file built that
 window (`BattleUIBuilder`, `PlayerCommandMenu`, `NoggWindow`) — correct at the
 scale it was measured at, but unable to track `NoggTheme.ui_scale`, so a window
