@@ -283,14 +283,22 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	# session (see docs/LEARNINGS.md, Process behavior). A one-shot read left
 	# both windows sitting well above the true bottom margin. Mirrors
 	# PlayerCommandMenu's own resized-driven `_layout_windows()`.
+	##
+	# Reads STATUS_WINDOW_WIDTH live on every call rather than closing over the
+	# `status_window_size` computed above: that local is only correct for the
+	# skin active at build time, and a later skin switch has to change what
+	# this closure positions against, not just what constructed the windows.
 	var reposition_status_windows := func() -> void:
 		var viewport_size = game_root.get_viewport_rect().size
+		var window_size := Vector2(
+			NoggThemeScript.STATUS_WINDOW_WIDTH, NoggThemeScript.window_height(STATUS_WINDOW_CAPACITY)
+		)
 		actorWindow.position = Vector2(
-			NoggThemeScript.SCREEN_MARGIN, viewport_size.y - status_window_size.y - NoggThemeScript.SCREEN_MARGIN
+			NoggThemeScript.SCREEN_MARGIN, viewport_size.y - window_size.y - NoggThemeScript.SCREEN_MARGIN
 		)
 		targetWindow.position = Vector2(
-			viewport_size.x - status_window_size.x - NoggThemeScript.SCREEN_MARGIN,
-			viewport_size.y - status_window_size.y - NoggThemeScript.SCREEN_MARGIN
+			viewport_size.x - window_size.x - NoggThemeScript.SCREEN_MARGIN,
+			viewport_size.y - window_size.y - NoggThemeScript.SCREEN_MARGIN
 		)
 		# Centred, because a rail that grows and shrinks with the queue would
 		# otherwise shift its whole contents every time a unit dies.
@@ -300,6 +308,23 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 		)
 	game_root.resized.connect(reposition_status_windows)
 	reposition_status_windows.call()
+
+	# Restyles what this function built directly (the rail's own restyle is
+	# unconditional — TurnOrderRail.restyle() is cheap even when it is not
+	# currently showing anything) and re-derives the size a skin switch moves,
+	# which `reposition_status_windows` above does not touch. `deep_card` and
+	# `command_menu` restyle themselves through their own methods; the caller
+	# invokes those separately, since this builder does not own their internals.
+	var restyle_status_windows := func() -> void:
+		var window_size := Vector2(
+			NoggThemeScript.STATUS_WINDOW_WIDTH, NoggThemeScript.window_height(STATUS_WINDOW_CAPACITY)
+		)
+		actorWindow.size = window_size
+		actorWindow.restyle()
+		targetWindow.size = window_size
+		targetWindow.restyle()
+		turnOrderRail.restyle()
+		reposition_status_windows.call()
 
 	refs.game_canvas = game_canvas
 	refs.dev_canvas = dev_canvas
@@ -313,6 +338,9 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 	refs.turn_order_rail = turnOrderRail
 	refs.deep_card = deepCard
 	refs.reposition_windows = reposition_status_windows
+	refs.restyle_windows = restyle_status_windows
+	refs.game_theme_root = game_root
+	refs.prompt_theme_root = promptRoot
 	refs.log_label = logLabel
 	refs.log_panel = logPanel
 	refs.action_panel = actionPanel

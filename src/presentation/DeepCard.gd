@@ -80,6 +80,22 @@ func show_for(monster, spell_entries: Array, kill_forecast: Dictionary) -> void:
 		_window.open()
 
 
+## Repaints the card's chrome under the currently active skin.
+##
+## Content is deliberately left alone here — width, row capacity and the rows
+## themselves are all rebuilt from scratch on every `show_for()` call already,
+## which the hover-driven refresh cycle calls constantly, so the caller
+## re-populating the card (`_refreshDeepCard()`) after this is what actually
+## brings its content current. This function only has to fix the chrome of a
+## card that happens to be open at the exact moment the skin changes, so the
+## frame the player is looking at updates immediately rather than on the next
+## accidental mouse move.
+func restyle() -> void:
+	_window.size.x = NoggThemeScript.DEEP_CARD_WIDTH
+	_window.restyle()
+	_layout()
+
+
 func hide_card() -> void:
 	_monster_id = -1
 	if not _open:

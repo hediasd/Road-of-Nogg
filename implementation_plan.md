@@ -311,6 +311,79 @@ re-target the active tweens; `is_instance_valid` alone does not cover it.
 CONFIRM_ACTION, an open spell list, a page turn, an open deep card, and CPU
 playback; the cursor still landing on the right row afterwards.
 
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+**This item was materially larger than "single-file," and that is worth stating
+plainly rather than leaving the model rationale looking wrong in hindsight.**
+`NoggWindow.restyle()` is the mechanical core the rationale describes, but a
+live switch has to reach every window's *owner*, because width is the caller's
+responsibility (trait 6's own rule) and a restyled window does not resize
+itself. The actual edit touched `NoggWindow`, `MenuCursor` (a new
+`reposition_gutter()` — the class's own contract already forbids moving
+`position.x` after `_ready()` without restarting the bob), `PlayerCommandMenu`,
+`DeepCard`, `BattleUIBuilder`/`BattleUIRefs`, and a new orchestrating
+`BattlePresentationController.set_window_skin()`. No new design boundary was
+drawn anywhere in that sweep, though — every decision follows mechanically from
+what SKIN-2 already fixed, which is what actually justifies the tier.
+
+**`_ready()`'s own comment on `configure_for_window_height()` describes this
+exact hazard for `ui_scale` and defers it as separate, harder work — worth
+reading before assuming this item was simpler than that one.** It names the
+same failure mode this item had to solve: a `Theme`'s font and styleboxes are
+copied in at build time while code reading a token directly sees the change
+immediately, and the gap between those two is worse than not switching at all.
+That comment's answer for `ui_scale` was "not now." This item's answer for a
+skin switch had to be "now," because switching is the feature — so
+`set_window_skin()` is the rebuild-and-relayout sweep that comment named as the
+missing piece, scoped strictly to skin tokens. `ui_scale` itself remains
+untouched and deferred, exactly as before.
+
+**The risk as written assumed `set_active()` has callers; it does not, anywhere
+in this codebase.** `_active_tween` — the one tween that actually targets a
+node `restyle()` frees (`_rim`) — is therefore never running in current
+practice, and the mid-tween hazard the item worried about was already narrower
+than stated. `restyle()` still kills it unconditionally rather than trusting
+that absence to hold forever. The tween that IS routinely live during a
+restyle, `_open_tween` (the open/close scale-and-fade), turns out to be safe by
+construction: it targets `self`, which `restyle()` never frees, only the
+halo/body/rim children. Verified rather than assumed:
+`debug/verify_skin_restyle.gd` fires `open()` and switches skin one frame later,
+deliberately inside `TWEEN_WINDOW_OPEN`'s 0.10s, and the window survives.
+
+**One real defect, found by capture rather than by reasoning about it in
+advance.** A status window still showing a monster at the moment of a switch
+put its third column outside the newly-resized frame. The cause is a real
+asymmetry between the two row-building paths: `add_row()`'s label and value
+live inside an `HBoxContainer` that keeps reflowing on its own, so the
+row-height patch `restyle()` applies is sufficient — confirmed in the capture,
+where the open spell list survives a live switch with no defect at all. But
+`add_stat_row()` bakes each cell's x position from `STATUS_CELL_OFFSETS`
+*at construction time*, which nothing about a chrome-only restyle touches.
+`set_window_skin()` now calls `_refreshStatusWindows()` after restyling, which
+rebuilds actor, target and (through its own existing call) the deep card from
+scratch against the live tokens — the only thing that actually moves a baked
+cell, and the same treatment `_refreshDeepCard()` already existed to give the
+card.
+
+**Verification, both by assertion and by looking.**
+`debug/verify_skin_restyle.gd` drives a real battle and switches skin inside
+MENU, MOVE_SELECT, TARGET_SELECT, CONFIRM_ACTION, an open spell list (checking
+the cursor's y against `row_rect()` and its x against the new `CURSOR_INSET`),
+an open and paged deep card, mid-CPU-playback, the named mid-open-tween race,
+and six switches back to back with nothing in between — `SKIN RESTYLE: all
+checks passed`. `debug/capture_skin_switch.gd` opens a spell list under `nogg`,
+switches to Brigandine Plate live, and switches back, so the transition and its
+reversibility are both visible rather than only asserted. `nogg`'s 272 tokens
+remain identical to the pre-cycle baseline throughout — this item recomputes
+nothing about that skin's own values, only builds the machinery to leave it
+between switches.
+
+**Deliberately not wired: `StatusBadgeRow.restyle()`.** SKIN-7 gave it one, but
+every token a badge reads — `STATUS_BADGE_SIZE`, `TEXT_PRIMARY`, the shared
+`OUTLINE` — was already confirmed non-skin-varying when that item shipped. A
+badge has nothing to change on a switch, so calling it from here would be a
+sweep with no effect to show for it.
+
 ### SKIN-4 — Put Nogg Herald under the whole battle UI
 
 **Model:** Opus 5 / GPT Sol

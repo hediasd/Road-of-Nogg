@@ -81,6 +81,20 @@ func set_visible_cursor(cursor_visible: bool) -> void:
 	visible = cursor_visible
 
 
+## Moves the cursor's resting x to a new gutter offset and restarts the bob
+## around it — for a skin switch, where `NoggTheme.CURSOR_INSET` (derived from
+## the skin's ring thickness) can change while this cursor is alive.
+##
+## Not just `position.x = x`: the class doc at the top of this file is explicit
+## that setting `position.x` after `_ready()` "only fights the bob's next step
+## back toward the wrong origin," because `_start_bob()` captured the OLD
+## `position.x` as its centre and keeps tweening around it. Restarting the bob
+## is what makes a post-`_ready()` reposition actually stick.
+func reposition_gutter(x: float) -> void:
+	position.x = x
+	_start_bob()
+
+
 func _start_bob() -> void:
 	if _bob_tween and _bob_tween.is_valid():
 		_bob_tween.kill()

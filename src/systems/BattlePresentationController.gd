@@ -415,6 +415,56 @@ func _on_ui_through_crt_toggled(enabled: bool) -> void:
 	_sync_rendering_options()
 
 
+## Switches the active `NoggTheme` window skin and repaints every live game
+## window in place, with no scene reload. Not wired to any control yet — this
+## is the mechanism a dropdown calls, not the dropdown.
+##
+## **Why a full restyle sweep is unavoidable, and why nothing did this for
+## `ui_scale`.** A `Theme`'s font and styleboxes are copied in at
+## `build_game_theme()` time; code that reads a `NoggTheme` token directly at
+## draw or layout time sees the new value immediately. Those two update at
+## different moments, and the gap between them — a cursor sized for the new
+## skin inside a window still framed for the old one — is worse than not
+## switching at all. `_ready()`'s own note next to
+## `configure_for_window_height()` names exactly this hazard for `ui_scale` and
+## defers it as separate work; a skin switch cannot defer it, because switching
+## *is* the feature, so this sweep is what actually closes that gap rather than
+## leaving it open. `ui_scale` itself is untouched and stays deferred.
+##
+## Order: the theme tokens move first (`set_skin()`), then the `Theme`
+## resources that were copied from the old ones are rebuilt and reassigned, and
+## only then are the windows told to repaint — a window restyled against tokens
+## that had not moved yet would just rebuild its old look.
+func set_window_skin(id: String) -> void:
+	if not NoggThemeScript.set_skin(id):
+		return
+	if battle_ui == null:
+		return
+
+	# The dev canvas is deliberately not rebuilt — docs/UI_DESIGN.md §9 keeps
+	# the developer HUD in its own face and styling under every skin.
+	battle_ui.game_theme_root.theme = NoggThemeScript.build_game_theme()
+	battle_ui.prompt_theme_root.theme = NoggThemeScript.build_game_theme()
+
+	# Restyles the actor/target windows and the rail, and repositions all
+	# three — the one call, since `BattleUIBuilder` is what owns their sizing
+	# and docking together, not this controller.
+	if battle_ui.restyle_windows.is_valid():
+		battle_ui.restyle_windows.call()
+	battle_ui.command_menu.restyle()
+	battle_ui.deep_card.restyle()
+	# Chrome is now current everywhere, but CONTENT built from add_stat_row()
+	# is not: it bakes each cell's x position from STATUS_CELL_OFFSETS at
+	# construction time rather than reading it live, unlike an add_row() row's
+	# label/value, which an HBoxContainer keeps reflowing on its own. Found by
+	# capture, not by reasoning about it in the abstract: a status window still
+	# showing a monster at the moment of the switch put its third column
+	# outside the newly-resized frame. _refreshStatusWindows() rebuilds actor,
+	# target and (through it) the deep card from scratch against the live
+	# tokens, which is the only thing that actually moves a baked cell.
+	_refreshStatusWindows()
+
+
 func _on_seed_changed(_value: float) -> void:
 	for team in [1, 2]:
 		var preset: OptionButton = _setup_team_preset(team)

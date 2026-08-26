@@ -160,6 +160,47 @@ func _ready() -> void:
 
 # --- public API (unchanged shape; BattlePresentationController calls these) --
 
+## Repaints every window and control this menu owns under the currently
+## active skin, in place.
+##
+## Order matters. Each window is resized to the new skin's width and restyled
+## before its cursor is touched, because the cursor's re-snap reads
+## `focus_index()`, which answers from the window's OWN geometry — asking it
+## before `restyle()` ran would snap to where the row used to be. The action
+## row is resized here rather than left to its own `restyle()`, which only
+## redraws (see `ActionRow.restyle()`): its full extent follows `ROW_HEIGHT`
+## through `label_band()`, and that is skin-varying now.
+func restyle() -> void:
+	_prompt_window.size.x = NoggThemeScript.PROMPT_WIDTH
+	_prompt_window.restyle()
+
+	_forecast_window.size.x = NoggThemeScript.FORECAST_WIDTH
+	_forecast_window.restyle()
+
+	_spell_window.size.x = NoggThemeScript.SPELL_WIDTH
+	_spell_window.restyle()
+
+	_confirm_window.size.x = NoggThemeScript.COMMAND_WIDTH
+	_confirm_window.restyle()
+
+	_spell_cursor.reposition_gutter(NoggThemeScript.CURSOR_INSET)
+	_confirm_cursor.reposition_gutter(NoggThemeScript.CURSOR_INSET)
+	# Re-snaps rather than re-selects: the index is unchanged, only where it
+	# draws is. `focus_index()` on an index already on the current page is a
+	# no-op turn (`_go_to_page` returns early when the target page already
+	# matches), so this cannot smuggle in an unwanted page change.
+	if _spell_index >= 0:
+		_spell_cursor.snap_to_row(_spell_window.focus_index(_spell_index)["rect"])
+	if _confirm_index >= 0:
+		_confirm_cursor.snap_to_row(_confirm_window.focus_index(_confirm_index)["rect"])
+
+	if _action_row != null:
+		_action_row.size = _action_row.full_size()
+		_action_row.restyle()
+
+	_layout_windows()
+
+
 func setStatus(text: String) -> void:
 	_prompt_text = text
 	_refresh_prompt()

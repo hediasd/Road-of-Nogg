@@ -19,6 +19,11 @@ const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const PagerArrowScript = preload("res://src/presentation/theme/PagerArrow.gd")
 
 var _content: VBoxContainer
+## `null` under a skin with no halo. Tracked as a field, not a `_ready()`
+## local, so `restyle()` can find and free it without guessing whether one
+## exists.
+var _halo: Panel
+var _body: Panel
 var _rim: Panel
 var _rows: Array[Control] = []
 var _row_capacity: int = NoggThemeScript.ROW_CAPACITY_DEFAULT
@@ -30,6 +35,12 @@ var _visibility_generation := 0
 ## Extra left padding for rows, reserved for a MenuCursor. Zero for windows
 ## that host no cursor (prompt, forecast, docked readouts).
 var _content_indent := 0.0
+## Whether this window is tinted for focus or for a parent-with-open-child.
+## No caller sets this today -- set_active() has no callers in this
+## codebase yet, so every window is nogg-default active in practice -- but
+## restyle() still has to reapply *some* state to a freshly built _rim, and
+## reading a tracked value beats assuming the answer is always true.
+var _is_active := true
 
 # --- Row overflow marquee (§7b) ---------------------------------------------
 #
@@ -91,12 +102,12 @@ func _ready() -> void:
 	# Null under a skin with no halo, and then this window simply has no halo
 	# child -- see NoggTheme.build_window_halo() for why that is a missing node
 	# rather than a transparent one.
-	var halo := NoggThemeScript.build_window_halo()
-	if halo != null:
-		add_child(halo)
+	_halo = NoggThemeScript.build_window_halo()
+	if _halo != null:
+		add_child(_halo)
 
-	var body := NoggThemeScript.build_window_body()
-	add_child(body)
+	_body = NoggThemeScript.build_window_body()
+	add_child(_body)
 
 	_content = VBoxContainer.new()
 	_content.name = "Content"
@@ -144,6 +155,7 @@ func set_input_transparent(transparent: bool) -> void:
 ## than restyling each row) also means a disabled row inside an inactive
 ## window compounds correctly to the dimmest state, with no extra bookkeeping.
 func set_active(active: bool) -> void:
+	_is_active = active
 	if _active_tween and _active_tween.is_valid():
 		_active_tween.kill()
 	var frame_target := NoggThemeScript.FRAME_ACTIVE if active else NoggThemeScript.FRAME_INACTIVE
@@ -159,6 +171,97 @@ func set_active(active: bool) -> void:
 	_active_tween.tween_property(
 		_content, "modulate", content_target, NoggThemeScript.TWEEN_FOCUS
 	)
+
+
+## Repaints this window under the currently active skin, in place, without
+## losing what it is showing.
+##
+## Rebuilds the halo, body and rim -- the same trio `_ready()` builds --
+## because whether a halo exists at all is itself skin-dependent
+## (`build_window_halo()` may now return `null` where it built a node before,
+## not merely a re-tinted one) and every other chrome property is baked into a
+## `StyleBoxFlat` at construction rather than read live at draw time.
+##
+## `_content` and its rows are deliberately NOT rebuilt: row labels carry their
+## own colour overrides, and rebuilding would drop the marquee's in-flight
+## state and the page a paged window is currently showing. The row height
+## bookkeeping below is the one piece of row state that does have to move, so
+## that `row_rect()`'s arithmetic keeps agreeing with what the container
+## actually lays out (its own doc comment states that agreement as the reason
+## it is arithmetic rather than read off the node).
+##
+## **The caller sizes width before calling this**, exactly as `_ready()`
+## expects width sized before `add_child()` — see the class doc at the top of
+## this file. This only ever derives height, via `set_row_capacity()`.
+func restyle() -> void:
+	# _active_tween targets _rim, which is about to be freed. A killed tween
+	# never fires again regardless, but killing it before the free is what
+	# keeps this from ever depending on tween/free ordering.
+	if _active_tween and _active_tween.is_valid():
+		_active_tween.kill()
+
+	if _halo != null and is_instance_valid(_halo):
+		remove_child(_halo)
+		_halo.queue_free()
+	_halo = null
+	if _body != null and is_instance_valid(_body):
+		remove_child(_body)
+		_body.queue_free()
+	if _rim != null and is_instance_valid(_rim):
+		remove_child(_rim)
+		_rim.queue_free()
+
+	# Rebuilt in the same order `_ready()` uses, and re-established with
+	# `move_child()`: `add_child()` always appends, so adding halo and body
+	# again would stack them AFTER `_content`, drawing the body over the rows
+	# instead of under them.
+	_halo = NoggThemeScript.build_window_halo()
+	if _halo != null:
+		add_child(_halo)
+		move_child(_halo, 0)
+
+	_body = NoggThemeScript.build_window_body()
+	add_child(_body)
+	move_child(_body, 1 if _halo != null else 0)
+
+	_content.offset_left = NoggThemeScript.CONTENT_INSET + _content_indent
+	_content.offset_top = NoggThemeScript.CONTENT_INSET
+	_content.offset_right = -NoggThemeScript.CONTENT_INSET
+	_content.offset_bottom = -NoggThemeScript.CONTENT_INSET
+
+	_rim = NoggThemeScript.build_window_frame()
+	add_child(_rim)  # appended last: draws over the body and the rows.
+	_rim.self_modulate = (
+		NoggThemeScript.FRAME_ACTIVE if _is_active else NoggThemeScript.FRAME_INACTIVE
+	)
+	_content.modulate = (
+		NoggThemeScript.CONTENT_ACTIVE_MODULATE if _is_active
+		else NoggThemeScript.CONTENT_INACTIVE_MODULATE
+	)
+
+	set_row_capacity(_row_capacity)  # re-derives size.y from the new skin.
+
+	# Existing rows were built under the old skin's ROW_HEIGHT and carry it as
+	# their own cached `custom_minimum_size.y`. row_rect() reads the CURRENT
+	# theme value, so a row that kept its old cached height would disagree
+	# with the arithmetic the instant anything asks where it is — including
+	# the cursor. Sub-row detail (a label's baked vertical centring, the label
+	# clip wrapper's own height) is not chased here: it is a sub-pixel residue
+	# at the scale these numbers move by, and fixing it needs the row rebuild
+	# this function deliberately avoids. It self-heals on the next
+	# add_row()/clear_rows() cycle, which every one of these windows goes
+	# through routinely.
+	for row in _rows:
+		row.custom_minimum_size.y = NoggThemeScript.ROW_HEIGHT
+
+	if _footer != null and is_instance_valid(_footer):
+		_footer.size.x = NoggThemeScript.PAGER_WIDTH
+		_footer.restyle()
+		if _footer_label != null:
+			_footer_label.add_theme_font_size_override(
+				"font_size", NoggThemeScript.FONT_SIZE_FOOTER
+			)
+		_update_footer()
 
 
 ## Reserves extra left padding inside the window for a MenuCursor, so the
