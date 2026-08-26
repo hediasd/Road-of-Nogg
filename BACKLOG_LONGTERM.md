@@ -277,3 +277,16 @@ Two things are genuinely still open:
   text is ever themed (rather than drawing its own halo the way
   `DamageNumberBillboard` does), it will want the halo rather than the shadow,
   since a shadow only defends one side.
+
+## Finish exposing effect tunables in the VFX authoring panel
+
+The debug scene's descriptor-driven tuning panel and CLI overrides are complete,
+and `SpellCastAura` exposes its full parameter roster. Four older effects still
+use the safe empty-roster fallback: `IceStormEffect`, `FireStormEffect`,
+`MagentaReductionEffect`, and `IceTargetEncasementEffect`.
+
+Review each effect separately and expose only parameters whose update path is
+actually wired. Their constants are spread across build-time and per-frame code,
+so copying a roster mechanically can create controls that appear to work but do
+nothing. Validate rebuild-class parameters at a pinned seed and normalized time,
+then run the existing VFX golden comparison to prove defaults did not change.
