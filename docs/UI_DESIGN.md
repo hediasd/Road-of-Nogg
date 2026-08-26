@@ -158,9 +158,9 @@ be mistakable for game affordances.
 against 12 px at the same size — so every window width in `NoggTheme` was
 re-measured against it on adoption rather than inherited. `PROMPT_WIDTH`,
 `FORECAST_WIDTH` and `TURN_ORDER_WIDTH` had to grow; `COMMAND_WIDTH`,
-`SPELL_WIDTH` and `STATUS_WINDOW_WIDTH` already had the headroom. Re-run
-`debug/measure_px4_widths.gd` if the face, a font size unit, or
-`CONTENT_INSET` changes.
+`SPELL_WIDTH` and `STATUS_WINDOW_WIDTH` already had the headroom. Re-measure
+every width if the face, a font size unit, or `CONTENT_INSET` changes — §8
+carries the method and what it has to produce.
 
 `xenotext.otf` stays in the repo as `XENOTEXT_FONT_PATH` and remains selectable
 in the VFX debug scene's text specimen (`--text-font=game`) for comparison. `Shining Force 2.ttf` and `PressStart2P` remain
@@ -498,19 +498,27 @@ prompt's bottom edge plus `WINDOW_STACK_GAP`, and both terms follow the skin.
 Written as the literal 63 it was correct for `nogg` and put the card straight
 through the prompt under Brigandine Plate.
 
-**Every number in the Brigandine Plate column is measured output.**
-`debug/sample_reference_ui.gd` (gitignored) reads
+**Every number in the Brigandine Plate column is measured output**, read off
 `assets/ui/references/brigandine2.png` — Brigandine: The Legend of Forsena, PS1
-— locates its dialogue panel by scanning for the border, and reports each
-property. The image is 320x240, so **one source pixel is 1.50 design units**: a
-design-unit screen is ~360 tall at every `ui_scale`, and it is the ratio that
-transfers, not the pixel count. Rerun it if the reference is replaced.
+— rather than estimated from it. The image is 320x240, so **one source pixel is
+1.50 design units**: a design-unit screen is ~360 tall at every `ui_scale`, and
+it is the ratio that transfers, not the pixel count.
 
-**The fill alpha is a measured band, not a measured point.** The sampler solves
-it by comparing how much brightness varies under the panel with how much it
+The sampling method, recorded because the harness is not in version control
+(see §8): locate the dialogue panel by scanning the lower band for the longest
+run of bright, near-neutral pixels — its top border — then walk that border down
+for the panel's extent. Border thickness and colour read directly off it. The
+text inset is the distance from the border's inner edge to the first near-white
+glyph pixel on each side. The row pitch is the distance between the *starts* of
+consecutive bands of rows carrying glyph ink, which is the pitch; the gap
+between bands is the leading, and the two differ by the cell height. Re-sample
+all of it if the reference image is replaced.
+
+**The fill alpha is a measured band, not a measured point.** It is solved by
+comparing how much brightness varies under the panel with how much it
 varies just outside: the constant term cancels out of a range, so no pixel needs
-to correspond to any other. It reports 0.363, 0.506 and 0.724 on red, green and
-blue. The blue figure is the least trustworthy — the band surrounding the panel
+to correspond to any other. That yields 0.363, 0.506 and 0.724 on red, green
+and blue. The blue figure is the least trustworthy — the band surrounding the panel
 includes open water the panel does not cover, which inflates blue's variance and
 therefore its apparent alpha — and the method as a whole is biased *upward*
 whenever the surroundings are more varied than what the panel hides, which here
@@ -798,12 +806,37 @@ window (`BattleUIBuilder`, `PlayerCommandMenu`, `NoggWindow`) — correct at the
 scale it was measured at, but unable to track `NoggTheme.ui_scale`, so a window
 sized to its worst-case content at x2 would clip that same content at x4, where
 the glyphs inside it are twice as wide but the window holding them had not
-moved. `debug/measure_px4_widths.gd` (gitignored) re-measures every one of
-these against this project's actual worst-case strings — real spell names, real
-monster names, real `PlayerTurnController` status/forecast text, not
-placeholders — at `ui_scale = 1`, where a design unit and a device pixel are
-the same number. Rerun it if the font, `FONT_SIZE_BODY_UNITS`, or
-`CONTENT_INSET_UNITS` changes; all three move these numbers.
+moved. **Every one of these is measured against this project's actual
+worst-case strings** — real spell names, real monster names, real
+`PlayerTurnController` status/forecast text, not placeholders — at
+`ui_scale = 1`, where a design unit and a device pixel are the same number.
+Re-measure if the font, `FONT_SIZE_BODY_UNITS`, or `CONTENT_INSET_UNITS`
+changes; all three move every one of these numbers.
+
+**The method is written down here rather than a filename, because the harness
+that runs it is not in version control.** Measuring diagnostics live under
+`/debug/`, which is gitignored — so a script named in this document is a path
+that may or may not exist on the machine reading it, and the ones that produced
+the numbers below have since been cleared. That is a reason to record the
+method, not the tool. Rebuild it when a change forces a re-measure:
+
+- Configure the theme at `ui_scale = 1` and take the game font and body size
+  from it, so the numbers come out in design units with no conversion step to
+  introduce error.
+- For a **list window**, the requirement is
+  `CONTENT_INSET * 2 + label + value`, measured with `Font.get_string_size()`,
+  plus `CURSOR_GUTTER_WIDTH` for the windows that host a cursor (spell,
+  confirm) and a gap between the two columns when a value is present.
+- For a **fixed-cell readout**, that formula describes a layout the window does
+  not use. Measure each cell as
+  `CONTENT_INSET + STATUS_CELL_OFFSETS[column] + label + gap + value` — the gap
+  being `STATUS_CELL_TEXT_GAP` for a text value and `STATUS_CELL_CONTROL_GAP`
+  for a drawn control — and take the rightmost column's end.
+- `STATUS_CELL_OFFSETS` is an input to that, so deriving it needs its own pass:
+  a column's offset must clear the previous column's content *on the rows that
+  pair them*, which is not the same as clearing the widest cell in the window.
+- §4a records the rounding rule the second skin's widths were derived by, and
+  the values each one came out at.
 
 There is no width *budget* to fit inside anymore. `project.godot` used to cap
 every 2D panel to a shared 1152 × 648 logical base (now replaced by
@@ -844,8 +877,8 @@ of `visible = true` would otherwise do.
 against.** Before this cycle it was ~39% of a 1152x648 frame — actor and
 target windows 26%, prompt 6%, command window 5%, rail 2% — and it was static:
 identical whether the player was mid-decision or watching an enemy turn.
-Measured at 13.1% after, in the MENU phase with a unit selected, by
-`debug/verify_ui_final.gd`, which asserts the ceiling rather than trusting it.
+Measured at 13.1% after, in the MENU phase with a unit selected, by a harness
+that asserted the ceiling rather than trusting it.
 The saving is almost entirely *conditional* rather than smaller chrome: the
 target window and prompt are absent unless they have something to say, and the
 command window's replacement is anchored to the unit instead of reserving a
@@ -949,7 +982,7 @@ the old `FORECAST_WIDTH` (460px) was 44px short of
 `"Cast spends action, cooldown & Resonance"` (needs 504px). Both strings are
 verbatim from `PlayerTurnController._forecastText()`/its status lines, not
 hypothetical worst cases. This predates the width-budget correction entirely —
-`debug/preview_theme.gd`'s own `WIDTH_CASES` never covered prompt or forecast
+the theme preview harness's own width cases never covered prompt or forecast
 content, only command/spell/actor — so nothing before this measured it. Fixed
 by widening both to their true requirement rather than reproducing the old,
 too-narrow number in a new unit. Command, Spell, Turn order, and the status
@@ -1031,9 +1064,10 @@ from a one-spell unit to a seven-spell one would otherwise make the window jump
 under a stationary pointer. `DEEP_CARD_TOP` is derived from the prompt band it
 clears, and because a design-unit screen is ~360 tall at every `ui_scale`, one
 number clears the prompt above and the docked status windows below at all four
-scales with the card at its deepest. `debug/measure_deep_card.gd` (gitignored)
-builds the card's real rows for every monster in the shipping catalog and reports
-both the widest row and that vertical fit; the width is its output, not a choice.
+scales with the card at its deepest. Both that fit and the card's width are
+measured, not chosen: build the card's real rows for every monster in the
+shipping catalog, take the widest, and check the resulting height against the
+prompt above and the docked status windows below at the card's own capacity.
 
 **The wheel pages it.** The card has no cursor, so it cannot inherit §7a's "walk
 past the last row" rule, and its footer arrows are a click the player would have

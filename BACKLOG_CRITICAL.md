@@ -27,7 +27,7 @@ after that marker during engine cleanup.
 The shared XenoText, translucent body, thin pale rim, and exterior halo are
 implemented, but the preview harness was not updated and the consolidated
 normal-window visual pass did not run before the user redirected work to the
-ice-storm cycle. Update debug/preview_theme.gd so it exercises the shipping
+ice-storm cycle. Build a theme preview harness that exercises the shipping
 NoggWindow renderer over hostile bright/dark backgrounds, active/inactive
 focus states, paging, docked status boxes, and a viewport edge. Then run the
 integrated 1152x648 Player vs CPU pass in normal and UI-through-CRT modes,
@@ -145,7 +145,7 @@ already carries `cooldown_remaining` and `ready`, and the missing piece is why.
   rotating the camera on its own during CPU turns — the director settles to an
   exact quadrant before a player turn opens, so the mapping is exact rather
   than an approximation. Broader visual accessibility remains open.
-- **`debug/drive_battle.gd` now covers ten checks, up from five.** Its
+- **The headless input driver covered ten checks, up from five.** Its
   occupied-only target assertions were replaced with positional ones, and it
   gained typed reference/lifecycle coverage, animation-flow and pause/resume
   coverage, and the empty-center targeting flow.
