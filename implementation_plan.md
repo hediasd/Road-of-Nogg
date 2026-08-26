@@ -360,6 +360,55 @@ Herald source, not a change to how windows lay out.
 through 4; the status cells holding their columns as values change; no glyph
 falling back to a system face.
 
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+**This item needed no product code, and that is the finding rather than a
+shortcut.** Making the face a skin token in SKIN-2 was sufficient:
+`build_game_theme()` already took its font path as a defaulted argument reading
+`GAME_FONT_PATH`, and `_load_pixel_font()` already branched on `.res` versus
+`.ttf`, so pointing the token at Herald put it under every window, the prompt,
+the forecast, the status cells and the deep card at once. The work here was the
+sweep and the evidence, not an edit.
+
+`debug/capture_skin.gd` is what made that judgeable before the live-switch
+plumbing exists: it sets the skin **before instantiating the scene**, which
+sidesteps the fact that a `Theme` is built once as the canvas roots are created
+and a `NoggWindow` builds its chrome in `_ready()`. Booting into a skin needs no
+product code and no restyle path.
+
+**Every monospace assumption the item listed was checked against a rendered
+frame, and all of them hold.**
+
+- `add_stat_row()` value placement survives, as predicted — it measures the
+  label rather than assuming an advance, so Herald's proportional `HP`, `ATK`,
+  `DEF`, `SPD` and `MOV` labels each get their own width and the values sit
+  where they should.
+- The `%03d` padding survives on Herald's tabular digit advance. `040 / 040`
+  and `003` hold their columns in the capture, which is the only reason the
+  fixed cells still work.
+- No glyph falls back: Herald's codepoint set is identical to Terminal's, so
+  every HUD string renders in-face at both scales.
+- The negative kerning does not misbehave at row scale. The uppercase pairs the
+  item singled out as most at risk — `HITS TO KILL`, `WEAK`, `RESIST`, and the
+  stat labels — read cleanly with no touching or collision at x2 or x3.
+- `CURSOR_INSET_UNITS` following the ring, from SKIN-2, is visibly correct: the
+  spell window's cursor sits clear of the thicker 1.5-unit ring rather than on
+  it.
+
+**Two problems are visible in the capture and both belong to later items, named
+here so they are not rediscovered.** The fill at alpha 0.55 is too transparent
+over a lit board — the spell window and the deep card wash out against bright
+terrain, exactly as SKIN-5's risk note predicted. And the 11-unit inset, correct
+as a proportion of the reference's large two-row panel, makes our *small*
+windows mostly padding: a one-row prompt is 30% inset by height against the
+reference panel's 15%. That is SKIN-6's, and it means the reference's inset does
+not transfer in absolute units to windows much smaller than the one it was
+measured from.
+
+Probe: the capture harness runs clean at both scales and prints
+`CAPTURE COMPLETE`; the theme report confirms Herald at 13 units, inset 11, row
+14, ring 1.5, radius 0 and no halo.
+
 ### SKIN-5 — Author the Brigandine Plate chrome
 
 **Model:** Opus 5 / GPT Sol
