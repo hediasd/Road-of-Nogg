@@ -751,6 +751,74 @@ Load the persisted skin before the first theme is built.
 **Adds to final validation:** Skin surviving a restart; setup screen and
 in-battle menu agreeing; the dev HUD unchanged under both.
 
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+`WindowSkinCatalog` gained `labels()`/`values()`/`description(id)`, replacing
+`labels_for()`/`description_for()` from SKIN-2 before anything ever called
+them — those matched no existing convention, while `RenderPresetCatalog`
+already carries this exact shape and name for the identical job of feeding
+`_add_option()`/`_addOptionRow()`. Two catalogs feeding one dropdown-building
+helper with two different naming schemes would have been the drift this
+project's own dropdown code already avoids everywhere else, so it was fixed
+before it shipped rather than left as a second convention.
+
+**Persistence and live application are deliberately two different methods
+in two different classes, not one.** `RetroRenderController.set_window_skin()`
+only stores the preference and writes it to `user://rendering.cfg` under the
+same `[rendering]` section `ui_through_crt` already lives in — one settings
+file, as the item asked, not a second one for a value that happens to be a UI
+choice rather than a rendering one. `BattlePresentationController` still owns
+`set_window_skin()` from SKIN-3, the live-apply path. A shared
+`_apply_window_skin(id)` calls the live path first and the persist second,
+mirroring how the render-preset pair (`_on_rendering_preset_selected` /
+`_on_battle_rendering_preset_selected`) already reads its own dropdown and
+shares one underlying controller underneath, rather than introducing a new
+pattern for one more setting.
+
+**The risk fired during implementation, exactly as named, and in the most
+literal form possible.** `BattleGraphicsMenu.build()` re-maps the outer
+callback dictionary into a smaller one before passing it to the graphics
+panel — a detail invisible from the call site — and the first version of this
+item added `window_skin_selected` to the outer dictionary only. The dev menu's
+panel build then read a missing key and threw, silently leaving
+`battle_ui.graphics` null for the rest of that session; the render-preset
+dropdown right next to it kept working because its own key was already being
+forwarded. Caught by the verification harness reading `null.window_skin_option`
+and Godot printing the error to stderr while the harness's own assertions kept
+passing against a null value that happened to compare true — worth recording
+because a green run with a `SCRIPT ERROR` in stderr has already been the wrong
+kind of evidence once this cycle. Fixed by forwarding the key; the harness
+re-ran clean with no stderr output afterward.
+
+**The load-order risk the item named — reading the persisted skin before the
+first `Theme` is built — is now closed, and closed in the specific spot the
+item named.** `NoggThemeScript.set_skin(retro_renderer.window_skin)` runs in
+`_ready()` immediately after `RetroRenderController.new(self)` constructs
+(which is where the persisted value loads) and before `_build_battle_ui()`.
+Verified against a genuine restart simulation rather than the same live
+session: `debug/verify_skin_persistence.gd` constructs a second, disposable
+`RetroRenderController` against a throwaway probe host after persisting a
+choice, and its freshly-loaded `window_skin` matches. The probe host exists
+because `RetroRenderController`'s constructor unconditionally builds a whole
+second viewport/CanvasLayer set under whatever it is given — doing that to the
+battle already on screen would have left two render pipelines running side by
+side merely to check a settings load.
+
+**Verification touches the real `user://rendering.cfg`**, the same file every
+render-preset and CRT capture already run this cycle has written to. Backed up
+before running and restored byte-for-byte after, confirmed by diff — this
+cycle's own debug tooling leaves no more residue in the user's real settings
+than it found.
+
+`debug/verify_skin_persistence.gd`: dropdown item counts and metadata match the
+catalog; selecting from the setup screen applies live, persists to the correct
+section and key, and the in-battle dropdown picks up the change; selecting from
+the in-battle dropdown does the same in reverse; a fresh load reads back the
+persisted value; the dev canvas and graphics panel survive every switch —
+`SKIN PERSISTENCE: all checks passed`. `debug/capture_skin_dropdown.gd`
+confirms both dropdowns render legibly, at the shipping scale, in their real
+surroundings.
+
 ### SKIN-9 — Consolidated skin validation
 
 **Model:** Opus 5 / GPT Sol

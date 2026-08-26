@@ -4,6 +4,7 @@ class_name BattleGraphicsMenu
 extends RefCounted
 
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
+const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
 const BattleGraphicsMenuRefsScript = preload("res://src/presentation/BattleGraphicsMenuRefs.gd")
 
 
@@ -88,6 +89,13 @@ static func build(
 		["nearest", "linear"]
 	)
 	upscaleOption.item_selected.connect(callbacks["feature_selected"])
+	var windowSkinOption = _add_option(
+		options,
+		"Window Skin",
+		WindowSkinCatalogScript.labels(),
+		WindowSkinCatalogScript.values()
+	)
+	windowSkinOption.item_selected.connect(callbacks["window_skin_selected"])
 
 	var presetDescription = Label.new()
 	presetDescription.name = "PresetDescription"
@@ -213,6 +221,7 @@ static func build(
 	refs.crt_hint = crtHint
 	refs.crt_sliders = crtSliders
 	refs.ui_through_crt_button = uiThroughCrtButton
+	refs.window_skin_option = windowSkinOption
 	return refs
 
 

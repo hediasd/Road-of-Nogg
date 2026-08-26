@@ -135,6 +135,12 @@ func _ready() -> void:
 	NoggThemeScript.configure_for_window_height(get_window().size.y)
 
 	retro_renderer = RetroRenderControllerScript.new(self)
+	# Before _build_battle_ui(): a Theme's font and styleboxes are copied in at
+	# build time, not read live, so the persisted skin has to be current before
+	# the first one is built or the game opens on the wrong skin for one frame
+	# and then visibly corrects itself. RetroRenderControllerScript.new() above
+	# already loaded the persisted value into retro_renderer.window_skin.
+	NoggThemeScript.set_skin(retro_renderer.window_skin)
 	_setup_background()
 	_setup_camera_and_lighting()
 	_build_battle_ui()
@@ -207,7 +213,8 @@ func _build_battle_ui() -> void:
 		"graphics_feature_selected": Callable(self, "_on_battle_rendering_feature_selected"),
 		"look_parameter_changed": Callable(self, "_on_look_parameter_changed"),
 		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed"),
-		"ui_through_crt_toggled": Callable(self, "_on_ui_through_crt_toggled")
+		"ui_through_crt_toggled": Callable(self, "_on_ui_through_crt_toggled"),
+		"window_skin_selected": Callable(self, "_on_battle_window_skin_selected")
 	})
 	turn_timer = battle_ui.turn_timer
 	actor_window = battle_ui.actor_window
@@ -232,6 +239,7 @@ func _build_setup_ui() -> void:
 			"seed_changed": Callable(self, "_on_seed_changed"),
 			"rendering_preset_selected": Callable(self, "_on_rendering_preset_selected"),
 			"rendering_feature_selected": Callable(self, "_on_rendering_feature_selected"),
+			"window_skin_selected": Callable(self, "_on_setup_window_skin_selected"),
 			"confirmed": Callable(self, "_on_setup_confirmed")
 		},
 		MapReferencesScript.getNames(),
@@ -307,6 +315,10 @@ func _on_monster_selected(_selectedIndex: int, team: int, _slotIndex: int) -> vo
 func _sync_rendering_options() -> void:
 	if setup_ui != null:
 		_select_option_by_metadata(
+			setup_ui.window_skin_option,
+			retro_renderer.window_skin
+		)
+		_select_option_by_metadata(
 			setup_ui.render_mode_option,
 			retro_renderer.render_preset
 		)
@@ -321,6 +333,10 @@ func _sync_rendering_options() -> void:
 
 	if battle_ui == null:
 		return
+	_select_option_by_metadata(
+		battle_ui.graphics.window_skin_option,
+		retro_renderer.window_skin
+	)
 	_select_option_by_metadata(
 		battle_ui.graphics.look_option,
 		retro_renderer.render_preset
@@ -413,6 +429,31 @@ func _on_crt_parameter_changed(value: float, parameter: String) -> void:
 func _on_ui_through_crt_toggled(enabled: bool) -> void:
 	retro_renderer.set_ui_through_crt(enabled)
 	_sync_rendering_options()
+
+
+## Setup-screen and in-battle dev-menu callbacks share this rather than one
+## calling the other, matching how the render-preset pair
+## (`_on_rendering_preset_selected` / `_on_battle_rendering_preset_selected`)
+## already reads its own dropdown and shares `retro_renderer` underneath.
+##
+## `set_window_skin()` (the live-apply path) runs before persisting, not after:
+## it validates the id against `WindowSkinCatalog` and is the one place that
+## already knows whether the switch actually did anything, and there is
+## nothing worth persisting a rejected id for.
+func _apply_window_skin(id: String) -> void:
+	set_window_skin(id)
+	retro_renderer.set_window_skin(id)
+	_sync_rendering_options()
+
+
+func _on_setup_window_skin_selected(_index: int) -> void:
+	var option: OptionButton = setup_ui.window_skin_option
+	_apply_window_skin(option.get_item_metadata(option.selected))
+
+
+func _on_battle_window_skin_selected(_index: int) -> void:
+	var option: OptionButton = battle_ui.graphics.window_skin_option
+	_apply_window_skin(option.get_item_metadata(option.selected))
 
 
 ## Switches the active `NoggTheme` window skin and repaints every live game

@@ -169,18 +169,31 @@ static func values_for(id: String) -> Dictionary:
 	return VALUES[id]
 
 
-static func label_for(id: String) -> String:
+## Matches `RenderPresetCatalog.labels()`/`.values()`/`.description()`'s exact
+## shape and naming, rather than the `label_for`/`description_for` this file
+## used before anything called it: the two catalogs feed the same
+## `BattleGraphicsMenu._add_option()` helper, and a second naming convention
+## for one job is the drift this project's own dropdown-building code already
+## avoids elsewhere.
+static func labels() -> Array[String]:
+	var result: Array[String] = []
 	for skin in SKINS:
-		if str(skin["id"]) == id:
-			return str(skin["label"])
-	return id
+		result.append(str(skin["label"]))
+	return result
 
 
-static func description_for(id: String) -> String:
+static func values() -> Array[String]:
+	var result: Array[String] = []
+	for skin in SKINS:
+		result.append(str(skin["id"]))
+	return result
+
+
+static func description(id: String) -> String:
 	for skin in SKINS:
 		if str(skin["id"]) == id:
 			return str(skin["description"])
-	return ""
+	return description(DEFAULT)
 
 
 ## Fails loudly on a skin whose body size would resample its own face.

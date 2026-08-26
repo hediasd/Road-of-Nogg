@@ -2,6 +2,7 @@ class_name BattleSetupUI
 extends RefCounted
 
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
+const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const BattleSetupUIRefsScript = preload("res://src/presentation/BattleSetupUIRefs.gd")
 
@@ -107,11 +108,19 @@ static func build(
 		["nearest", "linear"],
 		"Choose crisp nearest-neighbor pixels or smooth world upscaling."
 	)
-	for option in [renderModeOption, geometryOption, upscaleOption]:
+	var windowSkinOption = _addOptionRow(
+		renderingGrid,
+		"Window Skin",
+		WindowSkinCatalogScript.labels(),
+		WindowSkinCatalogScript.values(),
+		"The battle HUD's window look. Applies live and persists."
+	)
+	for option in [renderModeOption, geometryOption, upscaleOption, windowSkinOption]:
 		option.custom_minimum_size.x = 118
 	renderModeOption.item_selected.connect(callbacks["rendering_preset_selected"])
 	geometryOption.item_selected.connect(callbacks["rendering_feature_selected"])
 	upscaleOption.item_selected.connect(callbacks["rendering_feature_selected"])
+	windowSkinOption.item_selected.connect(callbacks["window_skin_selected"])
 
 	var teams = HBoxContainer.new()
 	teams.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -147,6 +156,7 @@ static func build(
 	refs.render_mode_option = renderModeOption
 	refs.geometry_option = geometryOption
 	refs.upscale_option = upscaleOption
+	refs.window_skin_option = windowSkinOption
 	refs.seed_input = seedInput
 	refs.team_1_preset = team1["preset"]
 	refs.team_2_preset = team2["preset"]

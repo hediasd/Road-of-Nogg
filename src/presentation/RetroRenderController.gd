@@ -7,6 +7,7 @@ extends RefCounted
 const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
+const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
 const CRT_DISPLAY_SHADER = preload("res://assets/shaders/crt_display.gdshader")
 const SETTINGS_PATH := "user://rendering.cfg"
 const MIN_VIEWPORT_SIZE := Vector2i(2, 2)
@@ -65,6 +66,13 @@ var crt_overlay: ColorRect
 var crt_material: ShaderMaterial
 var ui_through_crt: bool = false
 var render_preset: String = PRESET_NONE
+## The battle HUD's window skin. Not a rendering property in its own right --
+## nothing here applies it to anything -- but it is a presentation preference
+## exactly like `ui_through_crt`, which already lives in this same file and
+## the same settings section for the same reason: one settings file, not two.
+## `BattlePresentationController.set_window_skin()` is what actually applies a
+## skin to the live UI; this is only where the choice is stored and persisted.
+var window_skin: String = WindowSkinCatalogScript.DEFAULT
 var render_size := Vector2i(640, 480)
 var retro_enabled: bool = false
 var crt_enabled: bool = false
@@ -344,6 +352,24 @@ func set_crt_parameter(parameter: String, value: float, persist: bool = true) ->
 ## Moves the CRT shader's own layer above or below the game UI (item 2). The
 ## dev canvas (`NoggTheme.DEV_LAYER`) is always the topmost of the three, so it
 ## is never affected by this toggle either way.
+## Stores and optionally persists the window-skin preference. Does not apply
+## it to anything -- `BattlePresentationController.set_window_skin()` is the
+## live-apply path, called separately by whichever control (setup screen or
+## dev menu) the player used. Falling back to the current value on an unknown
+## id, rather than storing garbage, matches `WindowSkinCatalog.values_for()`'s
+## own fallback for the identical failure mode: a settings file naming a skin
+## that no longer exists should not corrupt the stored preference either.
+func set_window_skin(id: String, persist: bool = true) -> void:
+	if not WindowSkinCatalogScript.has_skin(id):
+		push_warning("RetroRenderController: unknown window skin '%s'." % id)
+		return
+	if id == window_skin:
+		return
+	window_skin = id
+	if persist:
+		_save_settings()
+
+
 func set_ui_through_crt(enabled: bool, persist: bool = true) -> void:
 	ui_through_crt = enabled
 	crt_overlay_layer.layer = (
@@ -709,6 +735,12 @@ func _load_settings() -> void:
 	ui_through_crt = bool(config.get_value(
 		"rendering", "ui_through_crt", ui_through_crt
 	))
+	# Unconditional for the same reason ui_through_crt is: which window skin
+	# the HUD renders in is orthogonal to which render preset is active, not a
+	# property the preset carries.
+	var savedSkin = str(config.get_value("rendering", "window_skin", window_skin))
+	if WindowSkinCatalogScript.has_skin(savedSkin):
+		window_skin = savedSkin
 	if render_preset != PRESET_CUSTOM:
 		return
 	retro_enabled = bool(config.get_value(
@@ -810,6 +842,7 @@ func _save_settings() -> void:
 	config.set_value("rendering", "nearest_filter_enabled", nearest_filter_enabled)
 	config.set_value("rendering", "affine_mapping_enabled", affine_mapping_enabled)
 	config.set_value("rendering", "ui_through_crt", ui_through_crt)
+	config.set_value("rendering", "window_skin", window_skin)
 	config.set_value("look", "render_scale", render_scale)
 	config.set_value("look", "vertex_snap_strength", vertex_snap_strength)
 	config.set_value("look", "brightness", brightness)
