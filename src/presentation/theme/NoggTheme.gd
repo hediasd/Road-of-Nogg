@@ -18,6 +18,8 @@ extends RefCounted
 # or vignette. That is deliberate (docs/UI_DESIGN.md §10): crisp menus over a
 # filtered scene keep the pixel font readable at every scanline strength and
 # stop the thin rim shimmering as mask size changes.
+const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
+
 const CRT_LAYER := -20
 ## Transient board annotations render above the world and default CRT pass, but
 ## below every player-facing or developer-facing UI element.
@@ -58,17 +60,25 @@ const CRT_OVERLAY_LAYER_THROUGH_UI := GAME_LAYER + 1
 ## brown, which is the only reason its shadow reads at all. This is the lightest
 ## rung that lets the shadow register while keeping the panel translucent —
 ## picked by eye in the VFX debug scene's text specimen against the real board.
-const WINDOW_FILL := Color(0.075, 0.058, 0.042, 0.86)
+## **Skin-varying** (`docs/UI_DESIGN.md` §4a). Assigned in `_recompute()`
+## from `WindowSkinCatalog`; the value above is `nogg`'s and is reproduced
+## there exactly. Every reader takes it at call or draw time, so promotion
+## from `const` costs nothing — verified against the full caller set.
+static var WINDOW_FILL: Color
 ## For windows that must not be read through (confirm prompts).
 const WINDOW_FILL_DEEP := Color(0.004, 0.004, 0.008, 0.90)
 ## Expanded black backplate and soft shadow outside the visible rim.
-const HALO_FILL := Color(0.0, 0.0, 0.0, 0.28)
-const HALO_SHADOW := Color(0.0, 0.0, 0.0, 0.58)
+## Skin-varying. Both are fully transparent under a skin with no halo, and
+## that skin does not build the node at all — see `build_window_halo()`.
+static var HALO_FILL: Color
+static var HALO_SHADOW: Color
 
-## Frame tint for the window holding focus.
-const FRAME_ACTIVE := Color(0.902, 0.878, 1.0)
-## Frame tint for a parent window whose child has focus.
-const FRAME_INACTIVE := Color(0.384, 0.357, 0.471)
+## Frame tint for the window holding focus. Skin-varying.
+static var FRAME_ACTIVE: Color
+## Frame tint for a parent window whose child has focus. Skin-varying, and
+## derived from the active tint at a fixed ratio in every skin, so "this
+## window is not listening" reads the same whichever skin is up.
+static var FRAME_INACTIVE: Color
 
 const TEXT_PRIMARY := Color(0.957, 0.945, 1.0)
 ## Disabled entries: spent commands, spells on cooldown. Dim, never hidden.
@@ -140,6 +150,12 @@ const UI_SCALE_STEP_HEIGHT := 360
 ## no-op at this scale, which is exactly how it is checked.
 static var ui_scale: int = 2
 
+## The active window skin. Sits beside `ui_scale` because it is the same
+## kind of value: a global presentation choice that every token below is
+## recomputed from, changed through a function rather than assigned, so
+## nothing can move it without the derived values following.
+static var skin: String = WindowSkinCatalogScript.DEFAULT
+
 
 ## Recomputes the scale from a window height. Returns whether it changed, so a
 ## caller can decide to rebuild themes and relayout without this file needing to
@@ -175,6 +191,27 @@ static func configure(scale: int) -> bool:
 	return true
 
 
+## Switches the active window skin, returning whether anything changed.
+##
+## Shaped exactly like `configure()` above, and for the same reason: both are
+## global presentation choices that every derived token is a function of, so
+## both have to be the only way that choice moves. Assigning `skin` directly
+## would leave every scaled value describing the previous one.
+##
+## Callers still have to restyle what is already on screen — a `Theme` is built
+## once and a `NoggWindow` builds its chrome in `_ready()`. This function owns
+## the tokens; it does not own the tree.
+static func set_skin(id: String) -> bool:
+	if not WindowSkinCatalogScript.has_skin(id):
+		push_warning("NoggTheme: unknown skin '%s'; keeping '%s'." % [id, skin])
+		return false
+	if id == skin:
+		return false
+	skin = id
+	_recompute()
+	return true
+
+
 ## Design units are allowed to be fractional where an existing value demands it
 ## (`RESONANCE_CELL_GAP` is 3 device pixels at x2, so 1.5 design units), but the
 ## result never is: everything lands on a whole pixel via `roundi`. Whole device
@@ -199,7 +236,10 @@ static func _scaled_int(units: float) -> int:
 ## The baked `.res` carries its own glyph cache and its own outline variants.
 ## `assets/Fonts/NoggTerminal/glyphs.txt` is the editable source of truth and
 ## `scripts/bake_bitmap_font.gd` regenerates the resource from it.
-const GAME_FONT_PATH := "res://assets/Fonts/NoggTerminal/NoggTerminal.res"
+## Skin-varying: the face itself is part of the look. The banner face is
+## not — `BANNER_FONT_PATH` resolves through the `NoggBanner` variation
+## under every skin, exactly as it always did.
+static var GAME_FONT_PATH: String
 const XENOTEXT_FONT_PATH := "res://assets/Fonts/xenotext.otf"
 const DEV_FONT_PATH := "res://assets/Fonts/Roboto-Regular.ttf"
 
@@ -235,9 +275,13 @@ const BANNER_TYPE := &"NoggBanner"
 ##
 ## The dev size is exempt: the dev face is Roboto, a dynamic font, which
 ## renders any size honestly. 6.5 units keeps it at today's 13 at x2.
-const FONT_SIZE_BODY_UNITS := 12.0
-const FONT_SIZE_HEADING_UNITS := 12.0
-const FONT_SIZE_FOOTER_UNITS := 12.0
+## Skin-varying, and constrained: a skin's body size must be a whole multiple
+## of its face's nominal size or the bitmap face resamples (§3).
+## `WindowSkinCatalog.is_valid()` enforces it rather than leaving it to a
+## reviewer, because the failure renders soft instead of erroring.
+static var FONT_SIZE_BODY_UNITS: float
+static var FONT_SIZE_HEADING_UNITS: float
+static var FONT_SIZE_FOOTER_UNITS: float
 const FONT_SIZE_DEV_UNITS := 6.5
 
 ## **The banner size follows Herald's grid, not Terminal's: whole multiples of
@@ -284,19 +328,29 @@ static var SHADOW_OFFSET: float
 
 ## Thin smooth rim and a deliberately larger exterior black halo. The halo's
 ## rect draws beyond layout bounds but does not affect them or receive input.
-const FRAME_RING_UNITS := 1.0
-const WINDOW_CORNER_RADIUS_UNITS := 3.0
-const HALO_OUTSET_UNITS := 3.0
-const HALO_SPREAD_UNITS := 5.0
-const HALO_SHADOW_OFFSET_UNITS := Vector2(0.5, 1.0)
-## Where content starts: visible rim plus breathing room.
-const CONTENT_INSET_UNITS := FRAME_RING_UNITS + 5.0
+## All skin-varying. A `HALO_OUTSET_UNITS` of zero is how a skin says it has
+## no halo; the builder reads it and declines to construct the node.
+static var FRAME_RING_UNITS: float
+static var WINDOW_CORNER_RADIUS_UNITS: float
+static var HALO_OUTSET_UNITS: float
+static var HALO_SPREAD_UNITS: float
+static var HALO_SHADOW_OFFSET_UNITS: Vector2
+## Where content starts: visible rim plus breathing room. Skin-varying, and
+## load-bearing beyond padding — `NoggWindow.row_rect()` places the cursor
+## from it, `add_row()` measures each label's clip width against it, and
+## `window_height()` counts it twice.
+static var CONTENT_INSET_UNITS: float
 ## A window's height is a function of capacity, not of content (trait 6).
-const ROW_HEIGHT_UNITS := FONT_SIZE_BODY_UNITS + 1.0
+## Skin-varying, and no longer derived from the body size: a skin sets the
+## pitch it wants against its own face's cell, which is not always cell + 1.
+static var ROW_HEIGHT_UNITS: float
 ## Fixed left edges for the docked status-window grid. The third column is
 ## reserved for element state; list rows keep their independent HBox layout.
-const STATUS_CELL_OFFSET_UNITS := [0.0, 96.0, 192.0]
-const STATUS_CELL_TEXT_GAP_UNITS := FONT_SIZE_BODY_UNITS
+## Skin-varying: measured against a face's advance and an inset, both of
+## which a skin may change.
+static var STATUS_CELL_OFFSET_UNITS: Array
+## One body cell of gap, so it follows whatever face the skin chose.
+static var STATUS_CELL_TEXT_GAP_UNITS: float
 ## Compact gap between a two-character element code and its drawn bar.
 const RESONANCE_CELL_SIZE_UNITS := 5.0
 const RESONANCE_CELL_GAP_UNITS := 1.5
@@ -622,7 +676,14 @@ static var MARQUEE_SPEED: float
 const CURSOR_WIDTH_UNITS := 5.0
 const CURSOR_HEIGHT_UNITS := 6.0
 ## Cursor's resting x: clear of the ring by a few pixels rather than on it.
-const CURSOR_INSET_UNITS := FRAME_RING_UNITS + 2.0
+##
+## Skin-varying by consequence rather than by choice. It was a `const` derived
+## from `FRAME_RING_UNITS`, and once the ring became a skin token that stopped
+## being a constant expression -- which the parser catches, but the reason to
+## follow the ring rather than pin the number is that the comment above is the
+## actual requirement: a cursor that cleared a 1.0-unit ring sits *on* a
+## 1.5-unit one.
+static var CURSOR_INSET_UNITS: float
 ## Extra left padding for rows in a window that hosts a cursor, measured from
 ## CONTENT_INSET. Covers the cursor at its widest bob excursion plus a gap, so
 ## the arrow never touches either the ring or the text:
@@ -644,11 +705,65 @@ static var CURSOR_GUTTER_WIDTH: float
 ## `_static_init` runs on class load, so the tokens are correct at the default
 ## scale before any caller has had a chance to read one — there is no window in
 ## which a consumer could observe an unconfigured value.
+## Loads the active skin's look tokens into the design-unit variables the rest
+## of `_recompute()` derives from.
+##
+## Runs first, and that ordering is the whole contract: every scaled value below
+## is a function of these, and several are functions of each other in an order
+## that already matters (`RESONANCE_BAR_WIDTH` documents one). Loading the skin
+## anywhere but the top would leave part of the file describing the previous
+## skin, which is the kind of half-applied state that reads as a rendering bug
+## rather than as a wrong value.
+static func _apply_skin_tokens() -> void:
+	if not WindowSkinCatalogScript.is_valid(skin):
+		skin = WindowSkinCatalogScript.DEFAULT
+	var values: Dictionary = WindowSkinCatalogScript.values_for(skin)
+
+	GAME_FONT_PATH = str(values["font_path"])
+	FONT_SIZE_BODY_UNITS = float(values["body_size_units"])
+	# The heading and footer sizes have always tracked the body size rather than
+	# being independently authored; a skin sets one number and all three follow.
+	FONT_SIZE_HEADING_UNITS = FONT_SIZE_BODY_UNITS
+	FONT_SIZE_FOOTER_UNITS = FONT_SIZE_BODY_UNITS
+	STATUS_CELL_TEXT_GAP_UNITS = FONT_SIZE_BODY_UNITS
+	ROW_HEIGHT_UNITS = float(values["row_height_units"])
+
+	FRAME_RING_UNITS = float(values["frame_ring_units"])
+	CURSOR_INSET_UNITS = FRAME_RING_UNITS + 2.0
+	WINDOW_CORNER_RADIUS_UNITS = float(values["corner_radius_units"])
+	CONTENT_INSET_UNITS = float(values["content_inset_units"])
+
+	HALO_OUTSET_UNITS = float(values["halo_outset_units"])
+	HALO_SPREAD_UNITS = float(values["halo_spread_units"])
+	HALO_SHADOW_OFFSET_UNITS = values["halo_shadow_offset_units"] as Vector2
+	HALO_FILL = values["halo_fill"] as Color
+	HALO_SHADOW = values["halo_shadow"] as Color
+
+	WINDOW_FILL = values["window_fill"] as Color
+	FRAME_ACTIVE = values["frame_active"] as Color
+	FRAME_INACTIVE = values["frame_inactive"] as Color
+
+	# Duplicated rather than aliased: the catalog is a shared read-only table and
+	# `_recompute()` would otherwise scale the catalog's own array in place, so
+	# the second call would scale already-scaled numbers.
+	STATUS_CELL_OFFSET_UNITS = (values["status_cell_offset_units"] as Array).duplicate()
+
+
+## True when this skin draws no halo at all. Read by `build_window_halo()`,
+## which then declines to build the node rather than building a transparent one:
+## the halo is the one chrome layer that deliberately sits outside the layout,
+## and a skin that keeps an invisible one would still be paying for a node whose
+## whole purpose is to be seen.
+static func skin_has_halo() -> bool:
+	return HALO_OUTSET_UNITS > 0.0
+
+
 static func _static_init() -> void:
 	_recompute()
 
 
 static func _recompute() -> void:
+	_apply_skin_tokens()
 	FONT_SIZE_BODY = _scaled_int(FONT_SIZE_BODY_UNITS)
 	FONT_SIZE_HEADING = _scaled_int(FONT_SIZE_HEADING_UNITS)
 	FONT_SIZE_FOOTER = _scaled_int(FONT_SIZE_FOOTER_UNITS)
@@ -902,7 +1017,15 @@ static func _base_window_panel(name: String) -> Panel:
 ## Deliberately overdraws the layout bounds to give the box a quiet black
 ## silhouette. Its corner radius grows by the same outset, keeping the halo
 ## concentric with the body and rim rather than producing a second shape.
+## The expanded backplate, or `null` under a skin that has none.
+##
+## Returning `null` rather than a transparent panel is deliberate: `NoggWindow`
+## then has no halo child at all, so the two skins agree about what the draw
+## order contains instead of one of them carrying an invisible layer that still
+## has to be kept in the right place across every restyle.
 static func build_window_halo() -> Panel:
+	if not skin_has_halo():
+		return null
 	var halo := _base_window_panel("Halo")
 	halo.offset_left = -HALO_OUTSET
 	halo.offset_top = -HALO_OUTSET

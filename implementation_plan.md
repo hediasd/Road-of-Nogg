@@ -230,6 +230,51 @@ reorder that silently.
 fractional-pixel border or half-unit inset; `nogg` identical to its pre-cycle
 capture.
 
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+`WindowSkinCatalog` carries both skins' look tokens behind
+`RenderPresetCatalog`'s id/label/description shape. `NoggTheme.set_skin()` sits
+beside `configure()` and is shaped like it, because they are the same kind of
+value: a global presentation choice every derived token is a function of, which
+therefore has to be the only way that choice moves. `_apply_skin_tokens()` runs
+first inside `_recompute()`, since several scaled values already depend on each
+other in an order that matters.
+
+**The item's stated proof does not work, and the substitute is stronger.** The
+plan proposed capturing the HUD before and after and comparing file hashes. The
+capture harness is not frame-deterministic: the menu cursor bobs on a continuous
+timer and effects animate, so **two runs of identical code produced 24 differing
+PNGs out of 24** — measured, not assumed, by running it twice against an
+unchanged tree. Any before/after pixel comparison would have "failed" no matter
+what the code did.
+
+`debug/dump_theme_tokens.gd` compares what actually determines the look instead:
+every scaled token, at every `ui_scale`, for both skins. Every visual property
+of a window is a function of those numbers, so identical tokens mean an
+identical look by construction, where a pixel diff could only ever sample.
+Against a `git worktree` at the pre-item commit, **280 token values are
+identical across all four `ui_scale` values.**
+
+**The promotion risk the item named was real and the parser caught it.**
+`CURSOR_INSET_UNITS` was a `const` defined as `FRAME_RING_UNITS + 2.0`, which
+stops being a constant expression the moment the ring becomes a skin token. It
+is now assigned alongside the ring — and following the ring is the correct
+behaviour rather than a workaround, because its own comment states the
+requirement: a cursor that clears a 1.0-unit ring sits *on* a 1.5-unit one. It
+was the only such case; every other reader of a promoted token reads it at call
+or draw time.
+
+One shape decision worth recording: a skin with no halo returns `null` from
+`build_window_halo()` and `NoggWindow` simply has no halo child, rather than
+building a transparent one. The halo is the one chrome layer that deliberately
+sits outside the layout, and keeping an invisible copy would mean both skins
+carrying a node whose entire purpose is to be seen, in a draw order that then
+has to be maintained across every restyle.
+
+Probe: `--check-only` reports no parse errors on the theme, the window, the
+controller, the UI builder or the rail; the token dump runs clean and prints
+`DUMP COMPLETE`.
+
 ### SKIN-3 — Make a live skin switch possible
 
 **Model:** Sonnet 5 / GPT Terra

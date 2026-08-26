@@ -88,8 +88,12 @@ var _footer_label: Label
 func _ready() -> void:
 	clip_contents = false
 
+	# Null under a skin with no halo, and then this window simply has no halo
+	# child -- see NoggTheme.build_window_halo() for why that is a missing node
+	# rather than a transparent one.
 	var halo := NoggThemeScript.build_window_halo()
-	add_child(halo)
+	if halo != null:
+		add_child(halo)
 
 	var body := NoggThemeScript.build_window_body()
 	add_child(body)
