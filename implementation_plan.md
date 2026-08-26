@@ -144,6 +144,51 @@ region and say in the document where each number came from.
 **Adds to final validation:** The shipped skin matches the values this section
 records, checked against a capture.
 
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+`docs/UI_DESIGN.md` §4 gains "4a. Skins" with the two skins' token table, and §3
+gains the rule that a skin's body size must be a whole multiple of its face's
+nominal size — the constraint that fixes Herald at 13 units and makes "smaller
+text" a row-pitch and width question rather than a font-size one.
+
+**The alpha method was replaced, and the failure is recorded in the document
+because it is not obvious from the method's shape.** Regressing covered pixels
+against uncovered ones paired across the border reads as the rigorous approach.
+It is not: pairs far enough apart to span the border stop seeing the same
+terrain, and pairs close enough to see the same terrain have no variance left to
+fit a slope against. Fitted at r = 0.41 with a wide gap; tightening the gap made
+it *worse*, at r = 0.27. There is no gap that satisfies both. What replaced it
+compares the *range* of brightness under the panel with the range just outside —
+the constant term cancels out of a difference, so nothing has to correspond to
+anything. It reports alpha 0.363 / 0.506 / 0.724 per channel, and the document
+records 0.55 as a starting value with an explicit 0.45–0.65 tuning band, plus
+the direction of the method's bias so whoever tunes it knows which way to move.
+
+**One measurement changed the design rather than filling in a blank.** The
+reference gives each text row 21 pixels for a 10-pixel glyph cell — a pitch of
+2.10 cells against our 1.08. Adopting that is arithmetically impossible: with
+the reference's own inset, a 360-unit design screen, the deep card at
+`DEEP_CARD_TOP` and the status windows at the bottom margin, the card's 12-row
+capacity binds the pitch to **at most ~14 units**, which on Herald's 13-unit
+cell is a pitch/cell of 1.08 — exactly what we already have. The reference
+contains no list; its dialogue panel carries two lines. So the skin adopts the
+reference's **inset**, which nearly doubles from 6 units to 11, and leaves the
+pitch where the geometry allows. At our row counts the inset is where the
+reference's air actually comes from.
+
+Two findings that make later items smaller than the plan assumed. The reference's
+border and fill already share an edge the way our construction does —
+`StyleBoxFlat` draws its border inside the panel rect and its background across
+the whole rect, so with an opaque border the two readings are
+indistinguishable, and only the radius and the colours need to change. And the
+four-sided inset asymmetry (10.5 / 12.0 / 13.5 / 10.5) is deliberately not
+adopted: `CONTENT_INSET` is read by `row_rect()`, `add_row()` and twice by
+`window_height()`, and splitting it would touch all three for at most two units
+of difference.
+
+Probe: `debug/sample_reference_ui.gd` runs clean and prints `SAMPLE COMPLETE`.
+No engine code changed in this item.
+
 ### SKIN-2 — Introduce the skin mechanism, with no visual change
 
 **Model:** Opus 5 / GPT Sol

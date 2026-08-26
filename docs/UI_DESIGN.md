@@ -332,6 +332,23 @@ same way an effect does. The `charset` sample lays printable ASCII out sixteen
 to a row, matching the baked atlas exactly: a glyph that looks wrong on screen
 is findable in the atlas at the same coordinates.
 
+### A skin's body size is a whole multiple of its face's nominal size
+
+Both shipping faces are bitmaps with baked atlases, exact at one size:
+`NoggBitmapFont` at 12 and `NoggHeraldFont.NOMINAL_SIZE` at 13. A body size that
+is not that number, or a whole multiple of it, resamples a pixel font — which is
+what the whole of "Pixel fidelity" above exists to prevent, and which a skin
+switch makes newly easy to do by accident. **A skin may choose its face; it may
+not choose an arbitrary size for it.**
+
+This is a real constraint on what a skin can promise, not a formality. Nogg
+Herald's nominal size is 13 against Nogg Terminal's 12, so a skin that adopts
+Herald gets text one unit *taller*, never shorter. Herald reads smaller anyway,
+because it is proportional with a 7-unit tabular digit advance, a 1-unit letter
+gap and a negative kerning table, against Terminal's flat 8-unit monospace
+advance — but that is a horizontal saving, and a skin wanting less vertical
+weight has to find it in row pitch and window height instead.
+
 ### Glyph coverage is a hard constraint
 
 Validate XenoText with `Font.has_char()` in the preview harness rather than by
@@ -427,6 +444,87 @@ never sees.
 - **Sizing:** size on open, then hold. A window's height is fixed for the
   lifetime of one opening and pages never shrink it. Docked readouts keep their
   fixed capacity so changing values cannot jitter the layout.
+
+### 4a. Skins
+
+The window language ships in two skins, chosen at runtime and persisted with the
+other presentation options. A skin is a named set of *look* tokens, not a second
+window system: both skins use the same `NoggWindow`, the same draw order, the
+same focus behaviour, and the same paging and marquee rules.
+
+| | **Nogg** | **Brigandine Plate** |
+|---|---|---|
+| Face, body size | Nogg Terminal, 12 units | Nogg Herald, **13 units** |
+| Corner radius | 3 units | **0 — square** |
+| Halo | present, leaking `HALO_OUTSET` beyond the frame with a soft shadow | **absent; the node is not built** |
+| Border | 1.0 unit, violet-cast `(0.902, 0.878, 1.0)` | **1.5 units, neutral `(0.937, 0.937, 0.937)`** |
+| Fill alpha | 0.86 | **0.55** |
+| Content inset | 6 units, one value | **11 units, one value** |
+| Row pitch | 13 units on a 12-unit cell | **14 units on a 13-unit cell** |
+
+Shared and never skin-varying: canvas layer numbers, the text colour roles,
+every tween duration, the cursor's own geometry, and the marquee timings. The
+reference speaks to none of them.
+
+**Every number in the Brigandine Plate column is measured output.**
+`debug/sample_reference_ui.gd` (gitignored) reads
+`assets/ui/references/brigandine2.png` — Brigandine: The Legend of Forsena, PS1
+— locates its dialogue panel by scanning for the border, and reports each
+property. The image is 320x240, so **one source pixel is 1.50 design units**: a
+design-unit screen is ~360 tall at every `ui_scale`, and it is the ratio that
+transfers, not the pixel count. Rerun it if the reference is replaced.
+
+**The fill alpha is a measured band, not a measured point.** The sampler solves
+it by comparing how much brightness varies under the panel with how much it
+varies just outside: the constant term cancels out of a range, so no pixel needs
+to correspond to any other. It reports 0.363, 0.506 and 0.724 on red, green and
+blue. The blue figure is the least trustworthy — the band surrounding the panel
+includes open water the panel does not cover, which inflates blue's variance and
+therefore its apparent alpha — and the method as a whole is biased *upward*
+whenever the surroundings are more varied than what the panel hides, which here
+they are. So 0.55 is a starting value inside the measured band and on the
+trustworthy side of it. **A skin author may move it within 0.45 to 0.65 on
+legibility evidence without re-opening this contract**; anything outside that
+band is a new measurement, not a tuning.
+
+An earlier attempt regressed covered pixels against uncovered ones paired across
+the border, which looked more rigorous and was not: pairs far enough apart to
+span the border stop seeing the same terrain, and pairs close enough to see the
+same terrain have no variance left to fit a slope against. It fitted at r = 0.41
+and then, on being tightened, at r = 0.27. Recorded because the failure is not
+obvious from the method's shape.
+
+**Border and fill share an edge, and our construction already did.** The
+sampler finds the row immediately inside the reference's border is fill, with no
+second line between them. `StyleBoxFlat` draws its border inside the panel rect
+and its background across the whole rect, so our fill already runs under our
+border; with an opaque border the two readings are indistinguishable. Nothing
+about the layering needs to change — only the radius and the colours.
+
+**The reference's row pitch is deliberately not adopted, and this is the one
+place the skin departs from it.** Measured, the reference gives each text row
+21 pixels for a 10-pixel glyph cell — a pitch of 2.10 cells, against our 1.08.
+Adopting that generosity is arithmetically impossible for anything but a
+two-line box. With the reference's inset of 11 units, a design screen of 360,
+the deep card docked at `DEEP_CARD_TOP` and the status windows at the bottom
+margin, the card's 12-row capacity binds the pitch to **at most ~14 units** —
+which on Herald's 13-unit cell is a pitch/cell of 1.08, the same ratio we
+already have. The reference contains no list; its dialogue panel carries two
+lines and can afford to let them breathe. Our spell list, deep card and status
+cells have no analogue in it, and a skin that made the deepest card taller than
+the screen would not be a skin.
+
+So the skin takes the reference's **inset** — which nearly doubles, from 6 units
+to 11 — and leaves the **pitch** where the geometry allows. That inset is where
+the reference's air actually comes from at our row counts.
+
+**The inset is one number, not four.** The reference measures 10.5 left, 12.0
+right, 13.5 top and 10.5 bottom, and the asymmetry is not adopted:
+`CONTENT_INSET` is read by `row_rect()` for cursor placement, by `add_row()` for
+the label clip width, and twice by `window_height()`, and splitting it into four
+would touch all three for a difference of at most two design units. 11 is the
+band's lower cluster, which is also the value that costs the least content
+width.
 
 ---
 
