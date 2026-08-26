@@ -107,6 +107,17 @@ func _init() -> void:
 ## command is a design decision about what the ring's geometry becomes, and
 ## silently vanishing from the player's only command surface is the worst
 ## possible way to discover one was added.
+## Repaints under a new skin.
+##
+## The row carries no style value of its own — its icons are drawn from
+## `ActionIcons`, and its label reads `FONT_SIZE_BODY`, `TEXT_PRIMARY` and the
+## shadow tokens, all of which the skin already moves. So this is a redraw, not
+## a restyle, and saying so is the point: a caller sweeping every surface should
+## not have to know which ones needed real work.
+func restyle() -> void:
+	queue_redraw()
+
+
 func set_entries(entries: Array) -> bool:
 	var built: Array = []
 	built.resize(SLOTS.size())

@@ -608,6 +608,44 @@ Herald or keeps its drawn digits, and say why.
 **Adds to final validation:** Rail, action row and badges under both skins at
 every `ui_scale`; the dev HUD unchanged under both.
 
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+**The item was much smaller than it looked, and the caller sweep is why.** Of
+the three surfaces, only one carried a style value that was not already
+skin-varying: `TurnOrderRail._ink()`, a `Color(0, 0, 0, 0.88)` literal that also
+broke this project's rule that no colour lives outside `NoggTheme`. It is the
+rail's halo — the same job the window halo does, on a different surface — so it
+became a skin token, and Brigandine Plate sets it fully transparent. Leaving it
+would have made the rail the one surface still wearing the look this skin
+removed from every window: a dark ring around each tile is a halo by another
+name.
+
+`TURN_RAIL_FRAME_UNITS` now follows the skin's window ring so a tile's edge
+carries a window's weight. It was 1.0, which is `nogg`'s ring exactly, so that
+skin does not move.
+
+**The action row and the status badges needed no change**, and saying so is the
+result rather than an omission. The row reads `FONT_SIZE_BODY`, `TEXT_PRIMARY`
+and the shadow tokens, all of which the skin already moves; the badges' chip
+colours are effect identity and their outline is the shared `OUTLINE`, neither
+of which a skin may claim. Both still gained a `restyle()`, because a caller
+sweeping every surface should not have to know which ones needed real work.
+
+**The item's risk asked whether the rail should adopt Herald, and the answer is
+no, on geometry rather than taste.** A bitmap face floors to whole multiples of
+its nominal size — 12 device pixels for Terminal, 13 for Herald — and a tile is
+`TURN_RAIL_TILE_WIDTH` 20 design units wide, so no theme face fits its corner at
+any skin or any scale. The skin with the *larger* nominal size fits worse. The
+drawn `DIGIT_GLYPHS` are not drift from a face that was an option; they exist
+because no face is. `StatusBadgeRow`'s overflow digits are drawn for the same
+reason, and the comment on both now says so rather than citing the old
+single-face arithmetic.
+
+Verified: `--check-only` clean on all five touched scripts; the capture shows
+rail tiles as clean team-coloured plates over the translucent body with no dark
+ring; and the token dump still matches the pre-cycle baseline for `nogg`, 272
+values across all four `ui_scale` values.
+
 ### SKIN-8 — Expose the toggle and persist it
 
 **Model:** Sonnet 5 / GPT Terra

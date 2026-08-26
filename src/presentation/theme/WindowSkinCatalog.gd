@@ -65,6 +65,10 @@ const VALUES := {
 		"halo_shadow_offset_units": Vector2(0.5, 1.0),
 		"halo_fill": Color(0.0, 0.0, 0.0, 0.28),
 		"halo_shadow": Color(0.0, 0.0, 0.0, 0.58),
+		# The dark ring drawn just outside a turn-rail tile. It is the rail's
+		# halo: the same job the window halo does, done by a different surface,
+		# so it belongs to the skin for the same reason.
+		"rail_ink": Color(0.0, 0.0, 0.0, 0.88),
 		"status_cell_offset_units": [0.0, 96.0, 192.0],
 		# `nogg`'s widths are its historical authored values, not fresh output from
 		# `debug/measure_px4_widths.gd`. The skin is frozen for this cycle and
@@ -108,6 +112,12 @@ const VALUES := {
 		"halo_shadow_offset_units": Vector2.ZERO,
 		"halo_fill": Color(0.0, 0.0, 0.0, 0.0),
 		"halo_shadow": Color(0.0, 0.0, 0.0, 0.0),
+		# Fully transparent, for the same reason this skin builds no window
+		# halo. A dark ring around every tile is a halo by another name, and
+		# leaving it while removing the windows' would have made the rail the
+		# one surface still wearing the look this skin replaced. The tile's
+		# team-coloured frame is its edge.
+		"rail_ink": Color(0.0, 0.0, 0.0, 0.0),
 		# Derived from `debug/measure_px4_widths.gd`, which reports what each
 		# column's content actually ends at. Column 1 must clear the widest
 		# *paired* column-0 cell (58 under Herald) and column 2 must clear

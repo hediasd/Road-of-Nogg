@@ -22,9 +22,16 @@ extends Control
 
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
-## A 3x5 cell per digit, drawn rather than typed. The shipping bitmap face floors
-## to whole multiples of 12 device pixels, far too large for a tile corner;
-## `StatusEffectIcons` already establishes drawing symbols instead of typing them.
+## A 3x5 cell per digit, drawn rather than typed. A bitmap face floors to whole
+## multiples of its nominal size — 12 device pixels for Nogg Terminal, 13 for
+## Nogg Herald — and a tile is only `TURN_RAIL_TILE_WIDTH` 20 design units wide,
+## so no theme face fits its corner at any skin or scale.
+##
+## **These stay drawn under every skin, and that is not drift.** A rail numbering
+## in one face beside windows in another would be, if a face were an option here;
+## it is not, and the skin with the *larger* nominal size would fit worse. The
+## same reasoning already governs `StatusEffectIcons` and `StatusBadgeRow`'s own
+## overflow digits.
 const DIGIT_GLYPHS := {
 	"0": ["111", "101", "101", "101", "111"],
 	"1": ["010", "110", "010", "010", "111"],
@@ -123,6 +130,14 @@ func _tile_rect(index: int) -> Rect2:
 		Vector2(x, top),
 		Vector2(NoggThemeScript.TURN_RAIL_TILE_WIDTH, NoggThemeScript.TURN_RAIL_TILE_HEIGHT)
 	)
+
+
+## Re-reads the skin's geometry and repaints. The rail caches its own size from
+## the tile metrics, so a skin change has to recompute that and not merely
+## request a redraw.
+func restyle() -> void:
+	_resize()
+	queue_redraw()
 
 
 func _resize() -> void:
@@ -285,8 +300,11 @@ func _with_alpha(colour: Color, alpha: float) -> Color:
 	return Color(colour.r, colour.g, colour.b, colour.a * alpha)
 
 
+## The dark ring just outside a tile — the rail's own halo, and skin-varying
+## for the same reason the window halo is. A literal here also broke this
+## project's rule that no colour lives outside `NoggTheme`.
 func _ink(alpha: float) -> Color:
-	return Color(0.0, 0.0, 0.0, 0.88 * alpha)
+	return _with_alpha(NoggThemeScript.RAIL_INK, alpha)
 
 
 func _fill(alpha: float) -> Color:

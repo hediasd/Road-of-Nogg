@@ -72,6 +72,8 @@ const WINDOW_FILL_DEEP := Color(0.004, 0.004, 0.008, 0.90)
 ## that skin does not build the node at all — see `build_window_halo()`.
 static var HALO_FILL: Color
 static var HALO_SHADOW: Color
+## Skin-varying. See `WindowSkinCatalog`: the rail's outer ring is its halo.
+static var RAIL_INK: Color
 
 ## Frame tint for the window holding focus. Skin-varying.
 static var FRAME_ACTIVE: Color
@@ -378,7 +380,10 @@ const TURN_RAIL_TILE_HEIGHT_UNITS := 28.0
 const TURN_RAIL_GAP_UNITS := 2.0
 ## Team-coloured border. At tile size a team-tinted model is not a reliable
 ## signal on its own, so the frame carries it instead.
-const TURN_RAIL_FRAME_UNITS := 1.0
+## Follows the skin's window ring, so a tile's edge carries the same weight
+## as a window's. It was 1.0, which is `nogg`'s ring exactly, so nothing
+## about that skin moves.
+static var TURN_RAIL_FRAME_UNITS: float
 const TURN_RAIL_TOP_UNITS := 5.0
 ## The active unit sits raised and clear of the row rhythm, so "now" reads as
 ## detached rather than merely leftmost.
@@ -727,6 +732,8 @@ static func _apply_skin_tokens() -> void:
 	HALO_SHADOW_OFFSET_UNITS = values["halo_shadow_offset_units"] as Vector2
 	HALO_FILL = values["halo_fill"] as Color
 	HALO_SHADOW = values["halo_shadow"] as Color
+	RAIL_INK = values["rail_ink"] as Color
+	TURN_RAIL_FRAME_UNITS = FRAME_RING_UNITS
 
 	WINDOW_FILL = values["window_fill"] as Color
 	FRAME_ACTIVE = values["frame_active"] as Color

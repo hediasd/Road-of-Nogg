@@ -39,6 +39,17 @@ func _init() -> void:
 ## Rebuilds the row from the unit's active effects. Returns whether anything
 ## changed, so a caller polling every frame can skip the redraw on the frames
 ## where the effects are identical — which is nearly all of them.
+## Repaints under a new skin.
+##
+## Badges carry no skin style: a chip's colour is its effect's identity and its
+## outline is the shared `OUTLINE`, neither of which a skin may claim. The
+## badge size follows `STATUS_BADGE_SIZE`, which scales but does not vary by
+## skin, so this recomputes the row's extent and repaints.
+func restyle() -> void:
+	_resize_to_entries()
+	queue_redraw()
+
+
 func set_effects(effects: Array) -> bool:
 	var built := _build_entries(effects)
 	if not _entries_differ(built):

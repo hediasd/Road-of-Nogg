@@ -547,6 +547,24 @@ and its background across the whole rect, so our fill already runs under our
 border; with an opaque border the two readings are indistinguishable. Nothing
 about the layering needs to change — only the radius and the colours.
 
+**The skin reaches past the windows, but barely has to.** The turn rail, the
+action row and the status badges all draw their own chrome, and a caller sweep
+found only one style value among them that was not already skin-varying: the
+rail's dark outer ring, a `Color(0, 0, 0, 0.88)` literal that also broke the
+rule that no colour lives outside `NoggTheme`. It is the rail's halo — the same
+job the window halo does, done by a different surface — so it is now a skin
+token and Brigandine Plate sets it fully transparent, leaving the tile's
+team-coloured frame as its edge. `TURN_RAIL_FRAME` follows the skin's window
+ring, which is a no-op for `nogg`. Everything else those three read was already
+either skin-varying or genuinely shared, and the action row and badges needed no
+change at all.
+
+**The rail's drawn digits stay drawn under every skin, and that is not drift.**
+A bitmap face floors to whole multiples of its nominal size — 12 for Terminal,
+13 for Herald — and a rail tile is 20 design units wide, so no theme face fits
+its corner at any skin or scale. The skin with the *larger* nominal size would
+fit worse. `StatusBadgeRow`'s overflow digits are drawn for the same reason.
+
 **The reference's row pitch is deliberately not adopted, and this is the one
 place the skin departs from it.** Measured, the reference gives each text row
 21 pixels for a 10-pixel glyph cell — a pitch of 2.10 cells, against our 1.08.
