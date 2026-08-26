@@ -233,27 +233,36 @@ static func _prepareNodeMaterialsRecursive(
 static func _setSplitInstanceTransform(
 		meshInstance: MeshInstance3D,
 		modelTransform: Transform3D) -> void:
-	if not _meshUsesRetroMaterial(meshInstance):
+	# Instance shader parameters consume a finite renderer-wide buffer. Most
+	# retro materials are single-colour terrain and never read this transform,
+	# so allocating four vectors for every one can exhaust the Compatibility
+	# renderer before the battle finishes building its board.
+	if not _meshUsesSplitRetroMaterial(meshInstance):
 		return
-	meshInstance.set_instance_shader_parameter("split_model_origin", modelTransform.origin)
-	meshInstance.set_instance_shader_parameter("split_model_basis_x", modelTransform.basis.x)
-	meshInstance.set_instance_shader_parameter("split_model_basis_y", modelTransform.basis.y)
-	meshInstance.set_instance_shader_parameter("split_model_basis_z", modelTransform.basis.z)
+	_setShaderParameterForMesh(meshInstance, "split_model_origin", modelTransform.origin)
+	_setShaderParameterForMesh(meshInstance, "split_model_basis_x", modelTransform.basis.x)
+	_setShaderParameterForMesh(meshInstance, "split_model_basis_y", modelTransform.basis.y)
+	_setShaderParameterForMesh(meshInstance, "split_model_basis_z", modelTransform.basis.z)
 
 
-static func _meshUsesRetroMaterial(meshInstance: MeshInstance3D) -> bool:
-	if (
-		meshInstance.material_override is ShaderMaterial and
-		meshInstance.material_override.has_meta(RETRO_MATERIAL_META)
-	):
+static func _meshUsesSplitRetroMaterial(meshInstance: MeshInstance3D) -> bool:
+	if _materialUsesSplitColor(meshInstance.material_override):
 		return true
 	if meshInstance.mesh == null:
 		return false
 	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
 		var material = meshInstance.get_surface_override_material(surfaceIndex)
-		if material is ShaderMaterial and material.has_meta(RETRO_MATERIAL_META):
+		if _materialUsesSplitColor(material):
 			return true
 	return false
+
+
+static func _materialUsesSplitColor(material: Material) -> bool:
+	return (
+		material is ShaderMaterial and
+		material.has_meta(RETRO_MATERIAL_META) and
+		material.get_shader_parameter("split_color") == true
+	)
 
 
 static func _configureSplitBoundsRecursive(
