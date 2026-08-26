@@ -78,10 +78,14 @@ const VALUES := {
 		"corner_radius_units": 0.0,
 		"frame_ring_units": 1.5,
 		"content_inset_units": 11.0,
-		# Alpha 0.55 sits inside the measured 0.363-0.724 band and on the side
-		# the method's known bias points. §4a permits 0.45-0.65 on legibility
-		# evidence without re-opening the contract.
-		"window_fill": Color(0.075, 0.058, 0.042, 0.55),
+		# 0.78 rather than the 0.55 the reference measures at. The reference is a
+		# flat painted map, so its fill lets through tone; our board is a lit 3D
+		# checkerboard, so the same fill lets through texture and the ground
+		# under a row of text stops being stable. Both 0.55 and 0.65 were tried
+		# in a real battle and are not legible. Still clearly more transparent
+		# than nogg's 0.86. §4a records the full reasoning and the 0.70-0.82
+		# band this may move within.
+		"window_fill": Color(0.075, 0.058, 0.042, 0.78),
 		"frame_active": Color(0.937, 0.937, 0.937),
 		# Derived from the active tint at the same ratio `nogg` uses between its
 		# own two, so "this window is not listening" reads the same in both.

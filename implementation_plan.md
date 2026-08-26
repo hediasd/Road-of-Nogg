@@ -445,6 +445,44 @@ panels must be built against it.
 **Adds to final validation:** Both skins over the brightest sky and the darkest
 board; focus active and inactive under both; open and close tweens under both.
 
+**Resolution (2026-08-25):** Implemented; pending end-of-plan validation.
+
+Square corners, no halo node, a 1.5-unit neutral border and `set_active()`
+tinting rim and content together all land as specified. `debug/capture_skin.gd`
+boots into a chosen skin, so this was judged against a real battle at both
+shipping scales rather than against a swatch.
+
+**The item's risk fired, and the fix is the one it sanctioned.** Removing the
+halo while making the fill more transparent pushes the same way, and over a lit
+board it went too far. The fill ships at **0.78**, not the 0.55 the reference
+measures at — and the gap between those numbers is the useful part. 0.55 was
+tried in a real battle and is not legible; nor is 0.65, the ceiling SKIN-1's
+first draft of the contract allowed. The measurement was not wrong; the
+inference from it was. The reference is a flat painted overworld map with low
+local contrast, so a fill letting 45% through lets through *tone*. Our board is
+alternating bright green tiles under a light, so the same fill lets through
+*texture*, and the ground under a row of text stops being stable even where the
+contrast ratio is fine.
+
+Rather than quietly overshoot the band, §4a is amended: it now records both
+failed values, why the reference's number does not transfer, and a new 0.70–0.82
+band. 0.78 is still visibly more transparent than `nogg`'s 0.86 — the board
+reads clearly through every window in the captures — so the request that
+prompted the skin is met.
+
+The two sanctioned alternatives were considered and rejected. The text's own
+shadow is out because the user asked for it kept as it is. A darker fill colour
+is a negligible lever: at 0.65 alpha over a 0.45-luminance tile, moving the fill
+from the current warm brown to pure black changes the result from 0.197 to
+0.158, which is not the difference between legible and not — the problem was the
+35% of high-frequency board coming through, not the tone of the 65%.
+
+Confirmed in the same captures: `CURSOR_INSET_UNITS` following the ring, from
+SKIN-2, puts the spell window's cursor clear of the thicker 1.5-unit ring rather
+than on it; and border and fill share an edge with no seam at radius 0, which
+SKIN-1 predicted from `StyleBoxFlat`'s draw order and this is the frame that
+shows it.
+
 ### SKIN-6 — Author the metrics and re-measure every width
 
 **Model:** Opus 5 / GPT Sol

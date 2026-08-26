@@ -458,7 +458,7 @@ same focus behaviour, and the same paging and marquee rules.
 | Corner radius | 3 units | **0 — square** |
 | Halo | present, leaking `HALO_OUTSET` beyond the frame with a soft shadow | **absent; the node is not built** |
 | Border | 1.0 unit, violet-cast `(0.902, 0.878, 1.0)` | **1.5 units, neutral `(0.937, 0.937, 0.937)`** |
-| Fill alpha | 0.86 | **0.55** |
+| Fill alpha | 0.86 | **0.78** |
 | Content inset | 6 units, one value | **11 units, one value** |
 | Row pitch | 13 units on a 12-unit cell | **14 units on a 13-unit cell** |
 
@@ -482,10 +482,24 @@ blue. The blue figure is the least trustworthy — the band surrounding the pane
 includes open water the panel does not cover, which inflates blue's variance and
 therefore its apparent alpha — and the method as a whole is biased *upward*
 whenever the surroundings are more varied than what the panel hides, which here
-they are. So 0.55 is a starting value inside the measured band and on the
-trustworthy side of it. **A skin author may move it within 0.45 to 0.65 on
-legibility evidence without re-opening this contract**; anything outside that
-band is a new measurement, not a tuning.
+they are. So 0.55 was the starting value: inside the measured band and on the
+trustworthy side of it.
+
+**It ships at 0.78, and the gap between those two numbers is the most useful
+thing this section records.** 0.55 was tried against a real battle and is not
+legible; so is 0.65, the top of the band the first draft of this contract
+allowed. The measurement is not wrong — the inference from it was. The reference
+is a flat painted overworld map with low local contrast, so a fill that lets 45%
+through lets through *tone*. Our board is a lit 3D scene of alternating bright
+green tiles, so the same fill lets through *texture*, and the ground under a row
+of text stops being stable even where the contrast ratio is adequate. Porting
+the number faithfully produced an unfaithful port of the legibility the number
+was achieving.
+
+0.78 is still visibly more transparent than `nogg`'s 0.86 — the board reads
+clearly through every window at both shipping scales — so the request that
+prompted the skin is met. **A skin author may move it within 0.70 to 0.82 on
+legibility evidence.** Below 0.70 is where it failed; above 0.86 is `nogg`.
 
 An earlier attempt regressed covered pixels against uncovered ones paired across
 the border, which looked more rigorous and was not: pairs far enough apart to
