@@ -1,15 +1,23 @@
 # Polygonal Technique Aura Cycle
 
+**This is a single-session cycle. Run one item at a time; do not dispatch it as
+a wave.** Its items carry no **Touches** lists and there is no wave table, and
+that is not an oversight to repair: AURA-2's write set is derivable from its
+stated end state, but AURA-3's is genuinely unknowable until the carrier
+decision it is blocked on is made, so no legal wave table can be authored for
+it. See `docs/plans/README.md`, "Single-session cycles".
+
+**It also stays on `main`.** It was already in flight when the
+branch-per-cycle contract landed on 2026-08-26, and `AGENTS.md` is explicit
+that an in-flight cycle is not retroactively moved to a branch. The next cycle
+opened gets one.
+
 **Relocated 2026-08-26.** This cycle was authored at `implementation_plan.md`
 under the previous one-plan-at-a-time contract, and moved here unchanged when
-that file was retired. Two consequences for whoever picks it up. Its per-item
-**Resolution** sections predate the rule that a cycle file is frozen during
-execution — read them as history, and record new findings in commit bodies with
-a `Plan-Item: AURA-n` trailer rather than editing this file. And its items carry
-no **Touches** lists and there is no wave table, so nothing here can be
-dispatched concurrently yet: AURA-2's write set is derivable from its stated end
-state, but AURA-3's is genuinely unknowable until the carrier decision it is
-blocked on is made.
+that file was retired. Its per-item **Resolution** sections predate the rule
+that a cycle file is frozen during execution — read them as history, and record
+new findings in commit bodies with a `Plan-Item: AURA-n` trailer rather than
+editing this file.
 
 **Opened 2026-08-25.** The previous contents were the Battle Legibility Cycle.
 Its hover readout, hover reach, status silhouettes, portrait turn-order rail,

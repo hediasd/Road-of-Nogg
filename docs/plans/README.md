@@ -1,11 +1,15 @@
 # Implementation cycles
 
-One file per active cycle, named `<cycle-slug>.md`. Several may be active at
-once. A cycle file is **frozen the moment execution starts** — no executing
-session edits it. Everything execution produces lives in commit messages, which
-is why two sessions can run at the same time without colliding.
+One file per cycle, named `<cycle-slug>.md`. **One cycle is active at a time**:
+it runs on a `plan/<cycle-slug>` branch, and the repository has one working
+tree, so a second cycle waits for the first to merge.
 
-`AGENTS.md` is the contract. This file is the shape.
+A cycle file is **frozen the moment execution starts** — no executing session
+edits it. Everything execution produces lives in commit messages, which is why
+two sessions can run at the same time without colliding.
+
+`AGENTS.md` is the contract, including the branch lifecycle and the window
+rule. This file is the shape.
 
 ## Cycle file skeleton
 
@@ -90,9 +94,14 @@ validation observes the whole working tree.
 
 ## Executing
 
+The cycle opens with `git switch -c plan/<cycle-slug>` in a quiet tree, and the
+window rule applies from that point: everything this tree commits lands on the
+branch until the cycle merges.
+
 The user dispatches a wave by opening one session per item and naming it. Each
 session commits once per item, with the finding in the message body and a
-`Plan-Item: <ID>` trailer.
+`Plan-Item: <ID>` trailer. Every session in a wave shares the branch — the
+branch is not what keeps them apart, the Touches lists are.
 
 Resume a cycle with:
 
@@ -101,5 +110,14 @@ git log --grep="Plan-Item: SKIN-" --format="%h %s"
 ```
 
 An item with a commit is implemented; the cycle is done when the validation
-item has one. There is no status table, because a status table is a file two
+item has one, after which it merges to `main` with `--no-ff` and the branch is
+deleted. There is no status table, because a status table is a file two
 sessions would have to write to.
+
+## Single-session cycles
+
+Not every cycle needs waves. A cycle whose items cannot state complete Touches
+lists — because a blocking decision makes a later item's write set unknowable —
+runs one item at a time in one session. Say so in the preamble, in place of the
+wave table, so nobody tries to dispatch it concurrently. It still gets a
+branch, a commit per item, and a final validation item.
