@@ -843,6 +843,85 @@ so they agree by construction.
 Current gap, tracked in `BACKLOG_LONGTERM.md`: ground washes carry every shape,
 but particle layers still do not handle `cross` or `line`.
 
+### Technique charge aura: debug-only source silhouette
+
+`technique_charge_aura` is a debug-catalog entry, not a production carrier.
+`SpellVfxCatalog` registers it additively; no spell selects it through
+`VFX_PROFILE`. Building it from four Digimon World 1 finishing-technique
+reference frames was authorized on 2026-08-25 explicitly to defer that
+decision. Showing it briefly on the casting entity as a pre-cast telegraph is
+the intended production direction and is recorded, not implemented, in
+`BACKLOG_LONGTERM.md`: it needs a spell to select the profile through
+`VFX_PROFILE` and a pre-cast timing hook `GodotVisualAdapter` does not
+currently have, both of which are live gameplay integration this cycle was
+opened to defer.
+
+The effect is two layers, `TechniqueChargeAuraEffect` reanchored through
+`configure_cast_context()` to the cast context's source position only — it
+never reads target fields. `polygonal_wall` is an effect-local `ArrayMesh`: a
+10-sided open cylinder (`WALL_SIDES`, `WALL_RADIUS_U` 0.74, `WALL_HEIGHT_U`
+1.62), each face mapping the complete `aura_panel.png` mask rather than
+stretching it around the circumference, so the mask repeats once per face.
+`ground_circle` is a single plane. Both read the same
+`technique_charge_aura.gdshader` and the same square RGBA mask, so the wall
+and its ground light read as one source rather than two effects sharing a
+palette. `aura_panel.png` is `AUTHORED`: generated with the editor's built-in
+image tool and downsampled to 64×64, no external reference traced.
+
+The wall renders both faces (`cull_disabled`) so it encircles the source at
+every camera yaw; an earlier `cull_back` pass showed only the near face.
+`WALL_OPACITY` is 0.47 per face, chosen so two overlapping faces integrate
+under `blend_mix`/`depth_draw_never` to the single-face peak of 0.72 the
+silhouette was accepted at (`1 - (1 - 0.47)^2 ≈ 0.72`). The ground layer is a
+radial spill centred on the source, not a rim — a bright annulus already
+means "this area is affected" elsewhere in this project's vocabulary
+(danger zones, movement range), which is the wrong statement for a non-area
+effect. Held to zero by UV radius 0.50 so the plane's own square corners never
+show as geometry, and still carrying roughly a quarter of peak at the 0.74u
+wall line, because the whole aura is only about forty pixels tall at the
+battle camera's actual orthographic framing and a spill that dies inside the
+wall radius disappears at that scale.
+
+Motion is a pure function of a `playback_time` uniform the effect pushes from
+its own clock and a small per-cast seed offset; the shader never reads `TIME`.
+That is the whole mechanism behind normalized seek landing exactly on the
+frame the same seek produced before, and behind pause/speed needing no special
+handling — a playback scale of zero simply stops changing the pushed value.
+The seed offset must stay small: it is added to the noise coordinate *after*
+scaling by `noise_scale_coarse`/`noise_scale_fine`, never before. An earlier
+version wrapped the seed up to a few hundred and added it before scaling,
+which pushed the hash's `fract()` past float32's fractional precision and
+collapsed every seed to an identical pattern. The authored envelope is
+ignite/hold/release: ease in to `IGNITE_END_NORMALIZED` (0.20), hold at full
+strength through `SETTLE_NORMALIZED_TIME` (0.88), then ease out to 0 by
+normalized time 1.0 — release begins exactly at the settle point so
+`skip_to_settle()` lands on the last fully-charged frame rather than inside
+the fade. Two noise scales modulate the mask's existing density rather than
+replacing it, so the authored silhouette still governs the shape and the noise
+only breaks it up; a bottom-anchored vertical displacement scales by the
+square of the height fraction so the wall's base is pinned by construction,
+not by a tuned-small amplitude that could drift.
+
+The build is two `MeshInstance3D` children under one root: 2 geometry
+instances, 2 draw calls, 3 effect nodes, asserted at construction against
+`MAX_GEOMETRY_INSTANCES` / `MAX_DRAW_CALLS` / `MAX_EFFECT_NODES`. It declares
+14 `tunables()` in five groups (Dimensions, Wall, Noise, Motion, Fade, Circle);
+`WALL_SIDES`, `WALL_RADIUS_U`, `WALL_HEIGHT_U`, and `GROUND_DIAMETER_U` are
+`rebuild: true` because they shape geometry assembled in `_buildOwnedLayers()`,
+every other row applies live.
+
+```bash
+Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
+  --effect=technique_charge_aura --seed=7 --hide-hud \
+  --capture-at=0.02,0.20,0.55,0.88,0.96 --capture-sheet --resolution 1400x900
+```
+
+No golden set exists yet for this effect; the plan's AURA-1/AURA-2 checkpoints
+used a standalone harness (`debug/aura1_proof.gd`, `debug/aura2_proof.gd`,
+both gitignored) rather than the debug-scene capture path, because they needed
+byte-comparison of seek and seed determinism rather than a visual sheet. The
+command above is the debug-scene equivalent for a future golden set.
+
 ---
 
 ## 5. The debug harness
