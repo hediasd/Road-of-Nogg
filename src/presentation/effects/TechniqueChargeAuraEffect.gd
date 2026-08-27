@@ -27,6 +27,119 @@ var _playing := false
 var _finished := true
 var _disposed := false
 var _autoDispose := false
+var _seedOffset := 0.0
+
+## Live-class authored values, resolved once at build time and again whenever
+## the debug panel pushes an override. Read through `tunable()` there rather
+## than per frame: a dictionary lookup inside the per-frame path would cost
+## real performance in the one tool used to judge performance.
+var _igniteEnd := TechniqueChargeAuraProfile.IGNITE_END_NORMALIZED
+var _releaseStart := TechniqueChargeAuraProfile.RELEASE_START_NORMALIZED
+var _noiseScaleCoarse := TechniqueChargeAuraProfile.NOISE_SCALE_COARSE
+var _noiseScaleFine := TechniqueChargeAuraProfile.NOISE_SCALE_FINE
+var _noiseRiseSpeed := TechniqueChargeAuraProfile.NOISE_RISE_SPEED
+var _flickerAmount := TechniqueChargeAuraProfile.FLICKER_AMOUNT
+var _displacement := TechniqueChargeAuraProfile.DISPLACEMENT_U
+var _wallBottomStrength := TechniqueChargeAuraProfile.WALL_BOTTOM_STRENGTH
+var _groundSpillAlpha := TechniqueChargeAuraProfile.GROUND_SPILL_ALPHA
+var _groundSpillOuter := TechniqueChargeAuraProfile.GROUND_SPILL_OUTER_UV
+
+
+## Live-authoring roster. `rebuild: true` marks the values consumed while the
+## mesh is assembled — the panel replays the effect for those rather than
+## nudging a uniform that nothing would re-read.
+static func tunables() -> Array[Dictionary]:
+	return [
+		{
+			"id": "WALL_SIDES", "label": "Sides", "group": "Dimensions",
+			"min": 3.0, "max": 16.0, "step": 1.0,
+			"default": float(TechniqueChargeAuraProfile.WALL_SIDES),
+			"rebuild": true,
+		},
+		{
+			"id": "WALL_RADIUS_U", "label": "Radius", "group": "Dimensions",
+			"min": 0.2, "max": 2.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.WALL_RADIUS_U,
+			"rebuild": true,
+		},
+		{
+			"id": "WALL_HEIGHT_U", "label": "Height", "group": "Dimensions",
+			"min": 0.4, "max": 4.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.WALL_HEIGHT_U,
+			"rebuild": true,
+		},
+		{
+			"id": "GROUND_DIAMETER_U", "label": "Ground size",
+			"group": "Dimensions",
+			"min": 0.5, "max": 5.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.GROUND_DIAMETER_U,
+			"rebuild": true,
+		},
+		{
+			"id": "WALL_BOTTOM_STRENGTH", "label": "Bottom strength",
+			"group": "Wall",
+			"min": 0.0, "max": 1.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.WALL_BOTTOM_STRENGTH,
+			"rebuild": false,
+		},
+		{
+			"id": "NOISE_SCALE_COARSE", "label": "Noise coarse", "group": "Noise",
+			"min": 0.5, "max": 12.0, "step": 0.1,
+			"default": TechniqueChargeAuraProfile.NOISE_SCALE_COARSE,
+			"rebuild": false,
+		},
+		{
+			"id": "NOISE_SCALE_FINE", "label": "Noise fine", "group": "Noise",
+			"min": 2.0, "max": 40.0, "step": 0.5,
+			"default": TechniqueChargeAuraProfile.NOISE_SCALE_FINE,
+			"rebuild": false,
+		},
+		{
+			"id": "NOISE_RISE_SPEED", "label": "Rise speed", "group": "Noise",
+			"min": 0.0, "max": 3.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.NOISE_RISE_SPEED,
+			"rebuild": false,
+		},
+		{
+			"id": "FLICKER_AMOUNT", "label": "Flicker", "group": "Motion",
+			"min": 0.0, "max": 0.6, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.FLICKER_AMOUNT,
+			"rebuild": false,
+		},
+		{
+			"id": "DISPLACEMENT_U", "label": "Height flutter", "group": "Motion",
+			"min": 0.0, "max": 0.3, "step": 0.005,
+			"default": TechniqueChargeAuraProfile.DISPLACEMENT_U,
+			"rebuild": false,
+		},
+		{
+			"id": "IGNITE_END_NORMALIZED", "label": "Ignite end", "group": "Fade",
+			"min": 0.02, "max": 0.6, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.IGNITE_END_NORMALIZED,
+			"rebuild": false,
+		},
+		{
+			"id": "RELEASE_START_NORMALIZED", "label": "Release start",
+			"group": "Fade",
+			"min": 0.4, "max": 1.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.RELEASE_START_NORMALIZED,
+			"rebuild": false,
+		},
+		{
+			"id": "GROUND_SPILL_ALPHA", "label": "Spill strength",
+			"group": "Circle",
+			"min": 0.0, "max": 1.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.GROUND_SPILL_ALPHA,
+			"rebuild": false,
+		},
+		{
+			"id": "GROUND_SPILL_OUTER_UV", "label": "Spill reach",
+			"group": "Circle",
+			"min": 0.2, "max": 0.5, "step": 0.005,
+			"default": TechniqueChargeAuraProfile.GROUND_SPILL_OUTER_UV,
+			"rebuild": false,
+		},
+	]
 
 
 static func createPlayback(
@@ -50,13 +163,24 @@ func configure_cast_context(context: VfxCastContext) -> void:
 	position = context.source_world_position
 
 
-func play(_seed: int, mode: String) -> void:
+func play(seed: int, mode: String) -> void:
 	assert(not _disposed, "Cannot play a disposed TechniqueChargeAuraEffect.")
 	assert(mode == MODE_REFERENCE or mode == MODE_BATTLE, "Unknown VFX playback mode.")
+	# The seed only ever offsets the noise sample point, so two seeds are two
+	# draws of the same authored material rather than two different looks.
+	#
+	# The offset must stay *small*. The shader's hash runs fract() on the sample
+	# point scaled by ~123, so a large offset lands where float32 has no
+	# fractional precision left and every seed collapses to an identical
+	# pattern. A first version scaled a wrapped seed up to ~718 and did exactly
+	# that; the seed-variation check reported no difference between two seeds.
+	# The golden-ratio scramble is computed in GDScript's 64-bit float and
+	# handed over already wrapped into a range the shader can resolve.
+	_seedOffset = fmod(float(absi(seed)) * 0.61803398875, 16.0)
 	_elapsedTime = 0.0
 	_finished = false
 	_playing = true
-	_applyVisibility(1.0)
+	_applyTimeline()
 	set_process(true)
 
 
@@ -71,7 +195,10 @@ func seek_normalized(time: float) -> void:
 	_elapsedTime = normalized_time * TechniqueChargeAuraProfile.DURATION_SECONDS
 	_finished = normalized_time >= 1.0
 	_playing = not _finished
-	_applyVisibility(0.0 if _finished else 1.0)
+	if _finished:
+		_applyVisibility(0.0)
+	else:
+		_applyTimeline()
 
 
 func skip_to_settle() -> void:
@@ -161,6 +288,7 @@ func _process(delta: float) -> void:
 		return
 	_elapsedTime += delta * _playbackScale
 	if _elapsedTime < TechniqueChargeAuraProfile.DURATION_SECONDS:
+		_applyTimeline()
 		return
 	_elapsedTime = TechniqueChargeAuraProfile.DURATION_SECONDS
 	_playing = false
@@ -170,7 +298,61 @@ func _process(delta: float) -> void:
 		dispose()
 
 
+func _readLiveTunables() -> void:
+	_igniteEnd = tunable(
+		"IGNITE_END_NORMALIZED", TechniqueChargeAuraProfile.IGNITE_END_NORMALIZED
+	)
+	_releaseStart = tunable(
+		"RELEASE_START_NORMALIZED",
+		TechniqueChargeAuraProfile.RELEASE_START_NORMALIZED
+	)
+	_noiseScaleCoarse = tunable(
+		"NOISE_SCALE_COARSE", TechniqueChargeAuraProfile.NOISE_SCALE_COARSE
+	)
+	_noiseScaleFine = tunable(
+		"NOISE_SCALE_FINE", TechniqueChargeAuraProfile.NOISE_SCALE_FINE
+	)
+	_noiseRiseSpeed = tunable(
+		"NOISE_RISE_SPEED", TechniqueChargeAuraProfile.NOISE_RISE_SPEED
+	)
+	_flickerAmount = tunable(
+		"FLICKER_AMOUNT", TechniqueChargeAuraProfile.FLICKER_AMOUNT
+	)
+	_displacement = tunable(
+		"DISPLACEMENT_U", TechniqueChargeAuraProfile.DISPLACEMENT_U
+	)
+	_wallBottomStrength = tunable(
+		"WALL_BOTTOM_STRENGTH", TechniqueChargeAuraProfile.WALL_BOTTOM_STRENGTH
+	)
+	_groundSpillAlpha = tunable(
+		"GROUND_SPILL_ALPHA", TechniqueChargeAuraProfile.GROUND_SPILL_ALPHA
+	)
+	_groundSpillOuter = tunable(
+		"GROUND_SPILL_OUTER_UV", TechniqueChargeAuraProfile.GROUND_SPILL_OUTER_UV
+	)
+
+
+func _pushLiveTunables() -> void:
+	for material: ShaderMaterial in [_groundMaterial, _wallMaterial]:
+		if material == null:
+			continue
+		material.set_shader_parameter("noise_scale_coarse", _noiseScaleCoarse)
+		material.set_shader_parameter("noise_scale_fine", _noiseScaleFine)
+		material.set_shader_parameter("noise_rise_speed", _noiseRiseSpeed)
+		material.set_shader_parameter("flicker_amount", _flickerAmount)
+		material.set_shader_parameter("displacement_u", _displacement)
+		material.set_shader_parameter("wall_bottom_strength", _wallBottomStrength)
+	if _groundMaterial != null:
+		_groundMaterial.set_shader_parameter(
+			"ground_spill_alpha", _groundSpillAlpha
+		)
+		_groundMaterial.set_shader_parameter(
+			"ground_spill_outer", _groundSpillOuter
+		)
+
+
 func _buildOwnedLayers() -> void:
+	_readLiveTunables()
 	_groundMaterial = _createOwnedMaterial(1)
 	_groundMaterial.render_priority = TechniqueChargeAuraProfile.GROUND_RENDER_PRIORITY
 	_groundMaterial.set_shader_parameter(
@@ -182,15 +364,13 @@ func _buildOwnedLayers() -> void:
 	_groundMaterial.set_shader_parameter(
 		"ground_spill_inner", TechniqueChargeAuraProfile.GROUND_SPILL_INNER_UV
 	)
-	_groundMaterial.set_shader_parameter(
-		"ground_spill_outer", TechniqueChargeAuraProfile.GROUND_SPILL_OUTER_UV
-	)
-	_groundMaterial.set_shader_parameter(
-		"ground_spill_alpha", TechniqueChargeAuraProfile.GROUND_SPILL_ALPHA
-	)
+	_groundMaterial.set_shader_parameter("ground_spill_outer", _groundSpillOuter)
+	_groundMaterial.set_shader_parameter("ground_spill_alpha", _groundSpillAlpha)
 
 	var ground_mesh := PlaneMesh.new()
-	ground_mesh.size = Vector2.ONE * TechniqueChargeAuraProfile.GROUND_DIAMETER_U
+	ground_mesh.size = Vector2.ONE * tunable(
+		"GROUND_DIAMETER_U", TechniqueChargeAuraProfile.GROUND_DIAMETER_U
+	)
 	_groundInstance = MeshInstance3D.new()
 	_groundInstance.name = "GroundCircle"
 	_groundInstance.mesh = ground_mesh
@@ -211,13 +391,15 @@ func _buildOwnedLayers() -> void:
 	_wallInstance = MeshInstance3D.new()
 	_wallInstance.name = "PolygonalWall"
 	_wallInstance.mesh = _createRepeatedFaceWall(
-		TechniqueChargeAuraProfile.WALL_SIDES,
-		TechniqueChargeAuraProfile.WALL_RADIUS_U,
-		TechniqueChargeAuraProfile.WALL_HEIGHT_U
+		tunable_int("WALL_SIDES", TechniqueChargeAuraProfile.WALL_SIDES),
+		tunable("WALL_RADIUS_U", TechniqueChargeAuraProfile.WALL_RADIUS_U),
+		tunable("WALL_HEIGHT_U", TechniqueChargeAuraProfile.WALL_HEIGHT_U)
 	)
 	_wallInstance.material_override = _wallMaterial
 	_wallInstance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_wallInstance)
+
+	_pushLiveTunables()
 
 	assert(
 		get_child_count() + 1 <= TechniqueChargeAuraProfile.MAX_EFFECT_NODES,
@@ -247,6 +429,45 @@ func _applyVisibility(visibility: float) -> void:
 	for material: ShaderMaterial in [_groundMaterial, _wallMaterial]:
 		if material != null:
 			material.set_shader_parameter("lifecycle_visibility", visibility)
+
+
+## Pushes the whole per-instant state: the envelope and the effect's own clock.
+##
+## The shader never reads `TIME`, so this is the only thing that advances it.
+## That is what makes a normalized seek exact — the image is a pure function of
+## `playback_time` and the seed — and it is why pause and speed need no special
+## handling at all: a scale of zero simply stops changing the value pushed here.
+func _applyTimeline() -> void:
+	var normalized := get_normalized_time()
+	var envelope := _envelopeAt(normalized)
+	for material: ShaderMaterial in [_groundMaterial, _wallMaterial]:
+		if material != null:
+			material.set_shader_parameter("lifecycle_visibility", envelope)
+			material.set_shader_parameter("playback_time", normalized)
+			material.set_shader_parameter("playback_seed", _seedOffset)
+
+
+## Authored ignition / hold / release. Release begins at the settle point, so
+## `skip_to_settle()` lands on the last fully-charged frame instead of inside
+## the fade.
+func _envelopeAt(normalized: float) -> float:
+	var ignite_end: float = maxf(_igniteEnd, 0.0001)
+	if normalized < ignite_end:
+		return smoothstep(0.0, ignite_end, normalized)
+	if normalized < _releaseStart:
+		return 1.0
+	return 1.0 - smoothstep(_releaseStart, 1.0, normalized)
+
+
+## Live-class overrides only. Anything that shapes geometry is marked
+## `rebuild: true` in the descriptor roster and reaches the effect through
+## `set_tunable_overrides()` before `_buildOwnedLayers()` instead.
+func _on_tunables_applied() -> void:
+	if _disposed:
+		return
+	_readLiveTunables()
+	_pushLiveTunables()
+	_applyTimeline()
 
 
 static func _createRepeatedFaceWall(sides: int, radius: float, height: float) -> ArrayMesh:

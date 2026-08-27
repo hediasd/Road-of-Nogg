@@ -7,10 +7,31 @@ class_name TechniqueChargeAuraProfile
 
 const PROFILE_ID := "technique_charge_aura"
 
-## AUTHORED static-preview duration. AURA-2 owns the final beat timing.
+## AUTHORED beat timing.
 const DURATION_SECONDS := 1.60
 const SETTLE_NORMALIZED_TIME := 0.88
 const ACTION_HOLD_FRACTION := 0.55
+
+## AURA-2 envelope. Ignition ends where the charge is fully lit; hold carries
+## the action beat at ACTION_HOLD_FRACTION; release begins exactly at the settle
+## point, which makes `skip_to_settle()` land on the last fully-charged frame
+## rather than somewhere inside the fade.
+const IGNITE_END_NORMALIZED := 0.20
+const RELEASE_START_NORMALIZED := SETTLE_NORMALIZED_TIME
+
+## AURA-2 motion. Every amplitude here is deliberately restrained: the source
+## reference charges rather than burns, and the failure modes are specific —
+## large displacement reads as flame, fast high-contrast noise reads as static.
+const NOISE_SCALE_COARSE := 3.0
+const NOISE_SCALE_FINE := 11.0
+const NOISE_RISE_SPEED := 0.55
+const FLICKER_AMOUNT := 0.16
+const DISPLACEMENT_U := 0.055
+
+## Density multiplier at the wall's base. The mask is at its most opaque there,
+## so this is the control that decides whether the foot of the wall reads as
+## light or as a solid collar.
+const WALL_BOTTOM_STRENGTH := 0.38
 
 ## AUTHORED world-space carrier: a compact decagonal wall around one model.
 const WALL_SIDES := 10
