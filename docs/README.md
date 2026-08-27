@@ -11,12 +11,16 @@ Use this page to find the source of truth instead of searching every document.
 | [Game design](./GAME_DESIGN.md) | Confirmed player-facing mechanics and constraints |
 | [UI / UX design](./UI_DESIGN.md) | Battle UI visual language, theme tokens, cursor and input model |
 | [VFX design](./VFX_DESIGN.md) | Spell effect contract, authoring conventions, and the debug harness |
-| [Backlog](./BACKLOG.md) | Durable future work not in the active task |
+| [Critical backlog](../BACKLOG_CRITICAL.md) | Incomplete work that materially affects current gameplay, correctness, or readiness |
+| [Long-term backlog](../BACKLOG_LONGTERM.md) | Deferred design, tooling, and maintenance work |
 | [Learnings](./LEARNINGS.md) | Verified reusable discoveries and review triggers |
 | [Development](./DEVELOPMENT.md) | Commands, Windows safeguards, and completion checks |
 | [Spell catalog schema](./SPELL_CATALOG_SCHEMA.md) | Authored spell-data shape and normalization boundary |
 | [Reference catalogs](./REFERENCE_CATALOGS.md) | JSON ownership and runtime conversion rules for authored catalogs |
 | [Game reference index](../gamerefs/tactical_rpg_turn_systems.md) | Comparative research and aspect studies |
+| [Lore](./LORE.md) | World, factions, and narrative canon; see also `lore/` |
+| [Monster catalog schema](./MONSTER_CATALOG_SCHEMA.md) | Authored monster-data shape and validation rules |
+| [Implementation cycles](./plans/) | The one active cycle, frozen during execution; item findings live in commit messages |
 
 ## Authority and updates
 
