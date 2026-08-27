@@ -148,31 +148,43 @@ native/retro motion readability, and stable grounded geometry.
 
 **Model:** Sonnet 5 / GPT Terra
 
-**Depends on:** AURA-2 and a blocking user decision naming the production spell
-or explicitly retaining the profile as debug-only. The current spell pipeline
-supports one `VFX_PROFILE`; combining this charge aura with an existing impact
-effect is excluded unless separately authorized as shared-pipeline work.
+**Depends on:** AURA-2.
 
-**End state:** If a carrier is approved, only that spell selects the new aura
-and its gameplay values remain identical. If the user retains debug-only scope,
-the catalog entry remains an authoring profile and no spell data changes. In
-either case, the effect's current geometry, ownership, texture provenance,
-timeline, ceilings, tunables, and capture command are documented.
+**Carrier decision (2026-08-26):** the user retains debug-only scope for this
+cycle. No spell is selected, no spell data changes, and the catalog entry stays
+an authoring profile. The user's stated production direction — the aura shown
+briefly on the casting entity just before it releases a spell, as a cast
+telegraph — is real intent but out of scope here: it implies a spell selecting
+it through `VFX_PROFILE`, which is a live gameplay-facing integration this
+cycle was opened to defer. It is recorded in `BACKLOG_LONGTERM.md` as a design
+direction, not scheduled work, so it is not lost and is not silently attempted
+under this item's debug-only scope.
 
-**Implementation:** Update at most the chosen spell's presentation metadata;
-do not change damage, range, targeting, resolver behavior, adapter flow, or any
-existing effect. Update `docs/VFX_DESIGN.md` and the module map only where they
-own current runtime truth. Record approved goldens after the visual checkpoint.
+**Touches:**
+- `docs/VFX_DESIGN.md`
+- `docs/MODULE_MAP.md` (only if it currently omits debug-catalog effects of
+  this kind — check current content before assuming a write is needed)
+- `BACKLOG_LONGTERM.md` (append-only, per `AGENTS.md`)
 
-**Risk:** A carrier that already owns a custom impact profile would silently
-lose it; source anchoring can drift on elevated terrain; documentation can claim
-battle behavior that a debug-only decision never exercised.
+**End state:** The effect's current geometry, ownership, texture provenance,
+timeline, ceilings, tunables, and capture command are documented in
+`docs/VFX_DESIGN.md`. No spell data, resolver, adapter, or existing-effect file
+changes. The cast-telegraph direction is recorded in `BACKLOG_LONGTERM.md`.
 
-**Adds to final validation:** Explicit debug-only or production status, correct
-carrier metadata if selected, unchanged gameplay catalog values, current docs,
-goldens, and real source anchoring when production integration exists.
+**Implementation:** Write the documentation entry from the settled AURA-1/5/6
+implementation, not from the plan's original description — the wall is now
+`cull_disabled` at `WALL_OPACITY = 0.47`, and the ground layer is AURA-6's spill
+rather than the original ring. Update `docs/MODULE_MAP.md` only where it
+currently owns runtime truth this effect would contradict by omission.
 
-**Resolution:** Not started; blocked after AURA-2 on carrier/user acceptance.
+**Risk:** Writing documentation against the plan's original ring-and-cull_back
+description instead of the as-shipped AURA-5/AURA-6 result would immediately
+misdocument the effect. Confirm current shader/profile state before writing.
+
+**Adds to final validation:** Current docs match shipped behavior, the deferred
+telegraph direction is captured in the backlog, and no gameplay file changed.
+
+**Resolution:** Not started.
 
 ### AURA-4 — Consolidated aura and cross-effect validation
 
@@ -317,7 +329,7 @@ The table records execution order rather than concurrency.
 | 1 | AURA-5 | closes the wall; must precede any tuning judged against it |
 | 2 | AURA-6 | ground spill, tuned against the closed wall |
 | 3 | AURA-2 | motion, authored on the settled silhouette |
-| 4 | AURA-3 | blocked: needs the carrier decision |
+| 4 | AURA-3 | debug-only scope decided 2026-08-26; unblocked |
 | 5 | AURA-4 | consolidated validation, alone, quiet tree |
 
 AURA-5 and AURA-6 share both their Touches paths, so they may not run
@@ -325,9 +337,6 @@ simultaneously. One session may take them as a **lane** — two items, two
 commits — in which case that session runs at the higher of the two tiers,
 Opus 5 / GPT Sol.
 
-AURA-3 has no **Touches** list because its write set is the carrier it
-integrates, and that carrier is the decision it is blocked on. It cannot be
-dispatched until that is answered.
 
 ## Deliberately excluded
 

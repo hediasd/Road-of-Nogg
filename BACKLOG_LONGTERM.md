@@ -290,3 +290,24 @@ actually wired. Their constants are spread across build-time and per-frame code,
 so copying a roster mechanically can create controls that appear to work but do
 nothing. Validate rebuild-class parameters at a pinned seed and normalized time,
 then run the existing VFX golden comparison to prove defaults did not change.
+
+## Technique-charge aura as a pre-cast telegraph on the casting entity
+
+The polygonal technique-charge aura (`technique_charge_aura` in
+`SpellVfxCatalog`) is debug-only by deliberate 2026-08-25/26 decision. The
+user's actual production intent is for it to appear briefly on a casting
+entity immediately before that entity releases a spell, as a visual telegraph
+of the cast rather than an impact or area effect.
+
+This is out of scope for the cycle that authored the effect, because it
+requires a spell to select it through `VFX_PROFILE` — the current pipeline
+supports one profile per spell — and a telegraph timed to precede release
+rather than accompany impact, which no existing cast-timing hook in
+`GodotVisualAdapter` currently expresses. Both are live gameplay-facing
+integration, which the authoring cycle explicitly deferred until the debug
+silhouette was accepted.
+
+Scope this as its own item when picked up: which spell(s) carry it, whether the
+telegraph timing hooks the existing pre-cast window or needs a new one, and
+whether `VfxCastContext` needs a source-only (no impact) variant for an effect
+that never resolves against a target.
