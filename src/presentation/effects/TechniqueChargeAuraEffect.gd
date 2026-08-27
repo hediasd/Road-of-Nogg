@@ -180,16 +180,13 @@ func _buildOwnedLayers() -> void:
 		"emission_energy", TechniqueChargeAuraProfile.GROUND_EMISSION_ENERGY
 	)
 	_groundMaterial.set_shader_parameter(
-		"ground_inner_radius", TechniqueChargeAuraProfile.GROUND_INNER_RADIUS_UV
+		"ground_spill_inner", TechniqueChargeAuraProfile.GROUND_SPILL_INNER_UV
 	)
 	_groundMaterial.set_shader_parameter(
-		"ground_outer_radius", TechniqueChargeAuraProfile.GROUND_OUTER_RADIUS_UV
+		"ground_spill_outer", TechniqueChargeAuraProfile.GROUND_SPILL_OUTER_UV
 	)
 	_groundMaterial.set_shader_parameter(
-		"ground_edge_softness", TechniqueChargeAuraProfile.GROUND_EDGE_SOFTNESS_UV
-	)
-	_groundMaterial.set_shader_parameter(
-		"ground_fill_alpha", TechniqueChargeAuraProfile.GROUND_FILL_ALPHA
+		"ground_spill_alpha", TechniqueChargeAuraProfile.GROUND_SPILL_ALPHA
 	)
 
 	var ground_mesh := PlaneMesh.new()

@@ -31,10 +31,15 @@ const AURA_COLOR := Color("fff08a")
 ## remains visible outside the model and wall at the battle-camera pitch.
 const GROUND_DIAMETER_U := 1.86
 const GROUND_HEIGHT_U := 0.025
-const GROUND_INNER_RADIUS_UV := 0.36
-const GROUND_OUTER_RADIUS_UV := 0.49
-const GROUND_EDGE_SOFTNESS_UV := 0.025
-const GROUND_FILL_ALPHA := 0.16
+## AURA-6: the annulus is retired. The ground is a radial spill centred on the
+## source, in plane UV, where the 1.86u plane's edge midpoint is 0.50 and the
+## 0.74u wall line falls at 0.398. Held to zero by 0.50 so the square plane's
+## corners never show; still carrying about a quarter of peak at the wall line,
+## because at the real battle framing the whole aura is roughly forty pixels
+## tall and a falloff that dies inside the wall disappears at that scale.
+const GROUND_SPILL_INNER_UV := 0.18
+const GROUND_SPILL_OUTER_UV := 0.50
+const GROUND_SPILL_ALPHA := 0.30
 const GROUND_OPACITY := 0.78
 const GROUND_EMISSION_ENERGY := 0.52
 const GROUND_RENDER_PRIORITY := 1

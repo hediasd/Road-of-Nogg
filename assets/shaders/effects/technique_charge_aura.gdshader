@@ -14,10 +14,9 @@ uniform float opacity = 0.65;
 uniform float emission_energy = 0.35;
 uniform float lifecycle_visibility = 1.0;
 
-uniform float ground_inner_radius = 0.36;
-uniform float ground_outer_radius = 0.49;
-uniform float ground_edge_softness = 0.025;
-uniform float ground_fill_alpha = 0.16;
+uniform float ground_spill_inner = 0.18;
+uniform float ground_spill_outer = 0.50;
+uniform float ground_spill_alpha = 0.42;
 
 void fragment() {
 	float mask_alpha = 0.0;
@@ -29,28 +28,27 @@ void fragment() {
 		float vertical_density = mix(0.38, 1.0, UV.y);
 		mask_alpha = texture(aura_mask, vec2(UV.x, sample_v)).a * vertical_density;
 	} else {
+		// A radial spill centred on the source, not a rim. Radii are in plane
+		// UV: the 1.86u plane puts its edge midpoint at 0.50 and the 0.74u wall
+		// line at 0.398, so the spill still carries roughly a quarter of its
+		// peak where the wall meets the ground and reaches zero before the
+		// square plane's corners can show as geometry.
 		vec2 centred = UV * 2.0 - 1.0;
 		float radius = length(centred) * 0.5;
-		float inner_edge = smoothstep(
-			ground_inner_radius - ground_edge_softness,
-			ground_inner_radius + ground_edge_softness,
+		float spill = 1.0 - smoothstep(
+			ground_spill_inner,
+			ground_spill_outer,
 			radius
 		);
-		float outer_edge = 1.0 - smoothstep(
-			ground_outer_radius - ground_edge_softness,
-			ground_outer_radius + ground_edge_softness,
-			radius
-		);
-		float rim = inner_edge * outer_edge;
-		float fill = (
-			1.0 - smoothstep(0.0, ground_outer_radius, radius)
-		) * ground_fill_alpha;
-		float grain = mix(
-			0.72,
-			1.0,
-			texture(aura_mask, vec2(UV.x, 0.86 + UV.y * 0.08)).a
-		);
-		mask_alpha = max(rim, fill) * grain;
+
+		// Grain is sampled planar, across the plane's own UV. Driving the mask's
+		// v axis from radius instead — to mirror the way the wall's gradient
+		// climbs — turns every row of the mask into a concentric ring and the
+		// spill reads as ripples. The shared identity comes from sampling the
+		// same mask, not from matching its axes. An angular u would seam at
+		// +/-PI under repeat_disable, so it is not used either.
+		float grain = mix(0.80, 1.0, texture(aura_mask, UV).a);
+		mask_alpha = spill * ground_spill_alpha * grain;
 	}
 
 	ALBEDO = aura_color.rgb;
