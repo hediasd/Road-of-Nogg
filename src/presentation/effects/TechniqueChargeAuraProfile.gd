@@ -12,14 +12,14 @@ const DURATION_SECONDS := 1.60
 const SETTLE_NORMALIZED_TIME := 0.88
 const ACTION_HOLD_FRACTION := 0.55
 
-## AURA-2 envelope. Ignition ends where the charge is fully lit; hold carries
-## the action beat at ACTION_HOLD_FRACTION; release begins exactly at the settle
-## point, which makes `skip_to_settle()` land on the last fully-charged frame
-## rather than somewhere inside the fade.
+## Ignition/hold/release envelope. Ignition ends where the charge is fully lit;
+## hold carries the action beat at ACTION_HOLD_FRACTION; release begins exactly
+## at the settle point, which makes `skip_to_settle()` land on the last
+## fully-charged frame rather than somewhere inside the fade.
 const IGNITE_END_NORMALIZED := 0.20
 const RELEASE_START_NORMALIZED := SETTLE_NORMALIZED_TIME
 
-## AURA-2 motion. Every amplitude here is deliberately restrained: the source
+## Motion. Every amplitude here is deliberately restrained: the source
 ## reference charges rather than burns, and the failure modes are specific —
 ## large displacement reads as flame, fast high-contrast noise reads as static.
 const NOISE_SCALE_COARSE := 3.0
@@ -37,10 +37,10 @@ const WALL_BOTTOM_STRENGTH := 0.38
 const WALL_SIDES := 10
 const WALL_RADIUS_U := 0.74
 const WALL_HEIGHT_U := 1.62
-## AURA-5: the wall now renders both faces (cull_disabled), so the near and far
-## halves overlap wherever the silhouette shows one wall in the old cull_back
-## render. blend_mix integrates two stacked layers at alpha a to 1-(1-a)^2, so
-## this holds the prior single-wall peak of 0.72 at that overlap.
+## The wall renders both faces (cull_disabled), so the near and far halves
+## overlap wherever the silhouette shows a single wall face when only one side
+## is culled. blend_mix integrates two stacked layers at per-face alpha a to
+## 1-(1-a)^2, so this holds a single-face peak of 0.72 at that overlap.
 const WALL_OPACITY := 0.47
 const WALL_EMISSION_ENERGY := 0.34
 const WALL_RENDER_PRIORITY := 2
@@ -52,12 +52,14 @@ const AURA_COLOR := Color("fff08a")
 ## remains visible outside the model and wall at the battle-camera pitch.
 const GROUND_DIAMETER_U := 1.86
 const GROUND_HEIGHT_U := 0.025
-## AURA-6: the annulus is retired. The ground is a radial spill centred on the
-## source, in plane UV, where the 1.86u plane's edge midpoint is 0.50 and the
-## 0.74u wall line falls at 0.398. Held to zero by 0.50 so the square plane's
-## corners never show; still carrying about a quarter of peak at the wall line,
-## because at the real battle framing the whole aura is roughly forty pixels
-## tall and a falloff that dies inside the wall disappears at that scale.
+## The ground is a radial spill centred on the source, not an annulus: a bright
+## ring already means "this area is affected" elsewhere in this project's
+## vocabulary (danger zones, movement range), which misstates a non-area
+## effect. In plane UV, the 1.86u plane's edge midpoint is 0.50 and the 0.74u
+## wall line falls at 0.398. Held to zero by 0.50 so the square plane's corners
+## never show; still carrying about a quarter of peak at the wall line, because
+## at the real battle framing the whole aura is roughly forty pixels tall and a
+## falloff that dies inside the wall disappears at that scale.
 const GROUND_SPILL_INNER_UV := 0.18
 const GROUND_SPILL_OUTER_UV := 0.50
 const GROUND_SPILL_ALPHA := 0.30

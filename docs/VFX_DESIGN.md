@@ -916,11 +916,11 @@ Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
   --capture-at=0.02,0.20,0.55,0.88,0.96 --capture-sheet --resolution 1400x900
 ```
 
-No golden set exists yet for this effect; the plan's AURA-1/AURA-2 checkpoints
-used a standalone harness (`debug/aura1_proof.gd`, `debug/aura2_proof.gd`,
-both gitignored) rather than the debug-scene capture path, because they needed
-byte-comparison of seek and seed determinism rather than a visual sheet. The
-command above is the debug-scene equivalent for a future golden set.
+No golden set exists yet for this effect; the silhouette and motion checkpoints
+that verified it used standalone harnesses (gitignored, under `debug/`) rather
+than the debug-scene capture path, because they needed byte-comparison of seek
+and seed determinism rather than a visual sheet. The command above is the
+debug-scene equivalent for a future golden set.
 
 ---
 
