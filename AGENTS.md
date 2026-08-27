@@ -21,13 +21,30 @@ the rationale; this file is the concise operational contract.
 
 One person owns this repository, and several agent sessions — Claude Code and
 others — edit the same working tree at the same time. There are no external
-contributors and no merges to defend against. Every rule below exists to stop
-concurrent sessions from overwriting each other, which is the only real hazard.
+contributors, so no merge here ever resolves a real disagreement; the only real
+hazard is concurrent sessions overwriting each other, and most rules below
+exist to stop that. Branching serves a different purpose — keeping `main`
+releasable and making a cycle undoable in one move — and buys nothing against
+the overwrite hazard.
 
-- **Work directly on `main`, in the one working tree. Do not create a branch,
-  and do not ask to.** This overrides the general habit of branching before
-  committing. Safety comes from commit shape and path ownership, not from
-  branches — see "Rolling back".
+- **A branch does not isolate sessions.** There is one working tree, so every
+  session shares its `HEAD`. Putting the tree on a branch changes nothing about
+  two sessions overwriting each other; only path ownership and explicit-path
+  staging do that. What a branch buys is a `main` that never holds a
+  half-finished cycle, and a one-command undo for a whole cycle.
+- **Regular work — anything not driven by a plan — commits directly to
+  `main`.** No branch, no ask.
+- **An implementation cycle runs on its own branch**, `plan/<cycle-slug>`,
+  created when the cycle opens and merged back with `--no-ff` when its final
+  validation passes. See "Plan lifecycle".
+- **The window rule: while a cycle branch is checked out, everything committed
+  in this tree goes on it** — plan items and unrelated work alike. Do not check
+  out `main` to slip a quick fix in beside a running cycle; the checkout would
+  change files under sessions that are mid-edit. The merge may therefore carry
+  work that was not in the plan, which is accepted.
+- **Never switch branches while another session may be running.** Creating,
+  merging, and deleting a branch happen only at cycle boundaries, in a quiet
+  tree, and the user says when the tree is quiet.
 - **A dirty `git status` is the normal state.** Other sessions have work in
   flight. It is never a reason to pause, ask, clean, or delay your own commit.
   Do not report on it, do not tidy it, do not wait for it.
@@ -54,8 +71,34 @@ concurrent sessions from overwriting each other, which is the only real hazard.
   `git restore --source=HEAD -- <your path>`.
 - **Only one session may launch the game at a time**, and the tree it launches
   carries every other session's in-flight edits. See "Running the checks".
-- A branch and a worktree are for exactly one case: work that may need to be
-  abandoned wholesale. Say so and get the user's go-ahead before creating one.
+- A separate worktree is for exactly one case: work that may need to be
+  abandoned wholesale and cannot wait for the current cycle. Say so and get the
+  user's go-ahead before creating one — a checkout pays a full `.godot`
+  reimport.
+- **Never leave a branch behind.** Any session that creates, merges, or deletes
+  a branch runs the audit in "Branch hygiene" afterwards and reports the
+  result.
+
+## Branch hygiene
+
+Report unmerged work rather than letting it accumulate. Run this whenever you
+create, merge, or delete a branch, when a cycle opens or closes, and whenever
+the user asks about branch state:
+
+```
+git branch --no-merged main
+git branch -r --no-merged main
+git worktree list
+```
+
+- Name every branch the first two commands print, with its unmerged commit
+  count, and say what it is. Silence is not a report: when both are empty, say
+  so in one line.
+- A merged branch left lying around is debris. Offer to delete it; do not
+  delete without the user's go-ahead.
+- A worktree other than the primary one is a session running elsewhere or
+  abandoned debris. Report it, check whether its `HEAD` is contained in `main`,
+  and never remove it unprompted.
 
 ## Working safely
 
@@ -87,16 +130,17 @@ concurrent sessions from overwriting each other, which is the only real hazard.
 
 ## Progress updates
 
-- While work is ongoing, keep the user informed with a concise progress update
-  at least every 15 seconds. Configure long-running commands to yield within
-  that interval when possible; otherwise update at the first tool boundary.
-- Skip redundant updates when the work completes within 15 seconds.
+- Say what you are about to do before a long or blocking operation, and report
+  what it produced at the next tool boundary.
+- Do not narrate short steps or repeat what the tool output already shows.
+  Filler updates cost tokens and tell the user nothing.
 
 ## Implementation plans
 
-A plan lives in `docs/plans/<cycle-slug>.md`. Several cycles may be active at
-once — they are independent, and a session touches exactly one.
-`docs/plans/README.md` carries the item and wave template.
+A plan lives in `docs/plans/<cycle-slug>.md`. **One cycle is active at a
+time**, because the one working tree carries one branch and the window rule
+puts everything committed during that window on it. A second cycle waits for
+the first to merge. `docs/plans/README.md` carries the item and wave template.
 
 There is no `implementation_plan.md` at the repository root. It held one cycle
 at a time under the previous contract and was removed when the Second Window
@@ -116,6 +160,14 @@ Each item carries:
   concrete properties of that item — scope, ambiguity, boundary impact,
   judgment, risk — to the selected tier; restating the label is insufficient.
   Assign per item, never per phase. Never route below Sonnet 5 / GPT Terra.
+
+  **Check the assignment before executing an item, and state the result — but
+  do not stop.** Compare the item's Model field to the model actually running.
+  If they differ, say so in one line and execute the item anyway; if several
+  consecutive items share a tier, say so and suggest batching them under one
+  correctly-sized session. This is a cost signal for the user to act on, not a
+  gate. Routing that is authored and never checked is documentation, not
+  delegation; routing that blocks costs a round trip the user never wanted.
 - **Depends on** — the items whose commits must exist first.
 - **Touches** — every path or glob the item may write, documentation included.
   This list is the item's exclusive claim while it runs, so it must be
@@ -185,29 +237,56 @@ commit's subject and body must still stand alone without it.
 
 ## Rolling back
 
-Safety on `main` comes from commit shape, not from branches.
+Rollback has two levels: the commit and the cycle.
 
 - Undo one item: `git revert <sha>`. Because items own disjoint paths,
   reverting an earlier item does not conflict with later ones.
 - Undo a wave: revert its commits newest-first.
-- A cycle's full footprint is `git log --grep="Plan-Item: <PREFIX>"`; diff its
-  first commit's parent against `HEAD` to see everything it changed.
-- Push `main` to `origin` at every wave boundary. `origin/main` is the durable
-  recovery point if the local tree becomes unrecoverable.
+- Undo a merged cycle: `git revert -m 1 <merge sha>`. This is what the `--no-ff`
+  merge is for. Read the merge's diff first — under the window rule it may
+  carry work that was never part of the plan.
+- Abandon a cycle before it merges: `main` never saw it, so leave the branch
+  unmerged and tell the user. Delete it only when they say so.
+- A cycle's item footprint is `git log --grep="Plan-Item: <PREFIX>"`.
+- Push the active branch to `origin` at every wave boundary, and push `main`
+  after each merge. The pushed branch is the durable recovery point if the
+  local tree becomes unrecoverable.
 - If `git revert` refuses or conflicts because another session holds
   uncommitted edits in the same paths, stop and tell the user. Do not force it.
-- Work that may need abandoning wholesale is the one case for a branch and
-  worktree — propose it before starting, not after.
 
 ## Plan lifecycle
 
-- Opening a cycle: a new file in `docs/plans/`, beginning with a dated
-  one-paragraph preamble stating what the cycle is for.
-- Closing a cycle: after final validation passes, move genuinely open items to
-  the appropriate backlog, name them to the user, and delete the cycle file in
-  the same commit. It stays recoverable with `git show <ref>:<path>`.
-- Do not append a new cycle to a finished file, and do not retain completed
-  items in it.
+Opening a cycle, in a quiet tree, with the user's go-ahead:
+
+```
+git switch -c plan/<cycle-slug>
+```
+
+Then add the cycle file under `docs/plans/`, beginning with a dated
+one-paragraph preamble stating what the cycle is for. From here the window rule
+applies: everything this tree commits lands on the branch.
+
+Closing a cycle, after final validation passes and no session is editing:
+
+- Move genuinely open items to the appropriate backlog, name them to the user,
+  and delete the cycle file in the same commit.
+- Merge and clean up:
+
+  ```
+  git switch main
+  git merge --no-ff plan/<cycle-slug> -m "merge: <what the cycle delivered>"
+  git push origin main
+  git branch -d plan/<cycle-slug>
+  git push origin --delete plan/<cycle-slug>
+  ```
+
+- Run the "Branch hygiene" audit and report it.
+
+The cycle file stays recoverable with `git show <ref>:<path>`. Do not append a
+new cycle to a finished file, and do not retain completed items in it.
+
+A cycle that was already in flight when this contract landed stays on `main`;
+do not retroactively move it to a branch.
 
 ## Running the checks
 
