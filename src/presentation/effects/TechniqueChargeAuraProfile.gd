@@ -16,7 +16,11 @@ const ACTION_HOLD_FRACTION := 0.55
 const WALL_SIDES := 10
 const WALL_RADIUS_U := 0.74
 const WALL_HEIGHT_U := 1.62
-const WALL_OPACITY := 0.72
+## AURA-5: the wall now renders both faces (cull_disabled), so the near and far
+## halves overlap wherever the silhouette shows one wall in the old cull_back
+## render. blend_mix integrates two stacked layers at alpha a to 1-(1-a)^2, so
+## this holds the prior single-wall peak of 0.72 at that overlap.
+const WALL_OPACITY := 0.47
 const WALL_EMISSION_ENERGY := 0.34
 const WALL_RENDER_PRIORITY := 2
 

@@ -5,7 +5,7 @@
 // deliberately static; AURA-2 will add deterministic playback-time motion.
 
 shader_type spatial;
-render_mode unshaded, blend_mix, depth_draw_never, cull_back;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled;
 
 uniform sampler2D aura_mask : source_color, filter_nearest, repeat_disable;
 uniform vec4 aura_color : source_color = vec4(1.0, 0.941, 0.541, 1.0);
