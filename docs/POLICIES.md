@@ -1,10 +1,15 @@
 # Road of Nogg Development Policies
 
-Status: current. Last reconciled: 2026-08-12.
+Status: current. Last reconciled: 2026-08-26.
 
-This document explains the project’s engineering guardrails. The concise rules
-for agents are in [`AGENTS.md`](../AGENTS.md); current commands
-and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
+This document explains **why** the project's engineering guardrails are what
+they are. [`AGENTS.md`](../AGENTS.md) is the operational contract and the only
+place a rule is stated; current commands and troubleshooting live in
+[`DEVELOPMENT.md`](./DEVELOPMENT.md).
+
+Nothing here restates a rule from `AGENTS.md`. When a rule and its rationale
+disagree, `AGENTS.md` wins and this document is out of date. Add reasoning
+here; add rules there.
 
 ## Decision authority
 
@@ -56,31 +61,47 @@ and troubleshooting live in [`DEVELOPMENT.md`](./DEVELOPMENT.md).
 
 ## Workflow and repository safety
 
-This repository has one human owner and several agent sessions working in it
-concurrently, on `main`, in a single working tree. That shape is deliberate,
-and it changes what "safety" means here.
+One human owns this repository and several agent sessions work in it
+concurrently, in a single working tree. That shape is deliberate, and it splits
+"safety" into two problems that people usually solve with the same tool.
 
-**Branches were not buying safety; they were buying conflicts.** Because the
-same person drives every session, a branch per session produced merges between
-sessions that were never in genuine disagreement — most conflicts were in
-bookkeeping files rather than in code. Working on `main` removes the merge
-entirely. What replaces it:
+**Concurrency is not a merge problem, and a branch cannot solve it.** The same
+person drives every session, so no merge here settles a real disagreement. When
+sessions each had a branch, the conflicts that appeared were in bookkeeping
+files rather than in code — `implementation_plan.md` reached 72 of 120 commits
+because every session wrote status notes into it. Worse, a branch is a property
+of the working tree, not of a session: with one tree, three concurrent sessions
+share one `HEAD` no matter what it points at, so branching buys literally
+nothing against the hazard it looks like it should address. What actually
+prevents a lost update:
 
 - **Path ownership.** A plan item declares the paths it may write, and two
   items run concurrently only when those sets are disjoint. Disjointness is
-  what prevents a lost update; it is designed into the plan's wave table rather
-  than discovered at merge time.
-- **Commit shape as the rollback unit.** One item, one commit, disjoint paths,
-  tagged with a `Plan-Item:` trailer. `git revert` on such a commit is a clean
-  undo that later items do not fight, which is the property a branch was
-  supposed to provide.
-- **Explicit-path staging.** In a shared tree the index is shared too, so
-  `git add -A` and `git commit -a` will capture another session's unfinished
-  work. Commits name their paths.
+  designed into the wave table rather than discovered at merge time.
+- **Explicit-path staging.** A shared tree means a shared index, so a commit
+  that does not name its paths captures another session's unfinished work.
 - **A dirty tree carries no information.** It reflects other sessions, so
-  pausing on it, reporting it, or cleaning it is friction with no safety value.
-  Destructive whole-tree commands (`stash`, `reset --hard`, `clean`, pathspec-
-  less `restore`) are correspondingly dangerous and are user-invoked only.
+  pausing on it or cleaning it is friction with no safety value — which is also
+  why whole-tree destructive commands are user-invoked only.
+- **Commit shape as the rollback unit.** One item, one commit, disjoint paths,
+  a `Plan-Item:` trailer. `git revert` on such a commit is a clean undo that
+  later items do not fight.
+
+**Releasability is a separate problem, and that is what branching does solve.**
+Under the shared-`main` contract every plan item landed on `main` while still
+"implemented; pending end-of-plan validation", so `main` was never a known-good
+state mid-cycle, and undoing a cycle meant enumerating its commits by hand. A
+cycle branch merged with `--no-ff` fixes both: `main` only ever advances to a
+validated cycle, and the merge commit is a single revertable handle for the
+whole thing. It is a coarse rollback layer on top of the per-item one, not a
+replacement for it.
+
+That branch is scoped to a *cycle*, never to a session, precisely because
+sessions cannot be isolated by one. The cost is the window rule: with one tree,
+work started during a cycle has nowhere else to go, so unrelated commits ride
+along on the branch and one cycle runs at a time. For a solo project that is a
+smaller price than either serializing the work or paying a 320 MB `.godot`
+reimport for a second checkout.
 
 Beyond that:
 
@@ -89,30 +110,24 @@ Beyond that:
   they touch several files.
 - Keep generated diagnostics out of tracked source. Put reusable utilities in
   `scripts/`.
-- Keep commits reviewable. Push `main` at wave boundaries so `origin/main`
-  stays a usable recovery point.
 - For complex UI, create a mockup when visual direction is genuinely undecided
   or the user asks for one. A mockup is not required for every `Control` tree.
 
 ## Documentation ownership
 
-- [`README.md`](../README.md): contributor entry point and common checks.
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md): current runtime ownership, data flow,
-  and the first-playable setup/player-control contract.
-- [`GAME_DESIGN.md`](./GAME_DESIGN.md): confirmed player-facing rules.
-- [`BACKLOG_CRITICAL.md`](../BACKLOG_CRITICAL.md): urgent gameplay, correctness,
-  and readiness work outside current scope.
-- [`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md): deferred design, tooling, and
-  maintenance work.
-- [`LEARNINGS.md`](./LEARNINGS.md): verified reusable discoveries, not session history.
-- [`DEVELOPMENT.md`](./DEVELOPMENT.md): executable commands and environment safeguards.
-- [`plans/`](./plans/): one file per active implementation cycle, frozen once
-  execution starts and deleted when the cycle closes. Execution state lives in
-  commit messages, not here — see `AGENTS.md`, "Recording what an item found".
+[`README.md`](./README.md) is the routing table: it names every document and
+what that document owns. It is the only such table — a second copy is a thing
+to keep in sync, and the copy that lived here had gone stale.
 
-Update the owning document when its truth changes. Do not repeat entire rules
-across several files. Add a backlog item only when it has a clear outcome and
-is not being completed in the current task.
+Every truth has exactly one owner. Update the owning document when that truth
+changes and link to it from elsewhere rather than restating it, because a rule
+written in two places drifts into two rules. This document's own relationship
+to `AGENTS.md` is the example: reasoning here, rules there.
+
+Two consequences worth stating. Execution state does not belong in a document —
+a cycle file is frozen once execution starts, so item findings live in commit
+messages. And a backlog entry earns its place only when it has a clear outcome
+and is not being completed in the current task.
 
 ## Game-reference research
 
@@ -129,35 +144,33 @@ owns the reference roster and links to aspect studies. Aspect files should:
 
 There is no automated test suite or check runner in this repository right now;
 the previous suite, GUT, and their runners were removed to be rebuilt fresh.
-For a multi-item implementation plan, each implementation item is
-**implemented; pending end-of-plan validation**, and the combined affected
-behavior is exercised once in the plan's final validation item. A single-item
-plan validates at the end of that item. See [`DEVELOPMENT.md`](./DEVELOPMENT.md)
-for the executable workflow and Windows safeguards. Do not claim the plan
-complete until that final manual validation has run.
+Verification is therefore manual, which is what shapes the rules in `AGENTS.md`,
+"Running the checks". See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for the
+executable workflow and Windows safeguards.
 
-Concurrency makes this stricter rather than looser. Manual validation observes
-the whole working tree, so a launch during a wave renders other sessions'
-half-finished work alongside the item under test, and any conclusion drawn from
-it is unsound in both directions — a failure may not be yours, and a pass may
-depend on something about to change. Final validation therefore runs alone, in
-a quiet tree, after every implementation item is committed. During a wave, an
-agent that hits a failure outside its own paths reports it and keeps going; it
-does not repair another session's work in progress.
+Concurrency makes manual verification stricter rather than looser, and the
+reason is that a launch observes the whole working tree rather than one item's
+diff. During a wave it renders other sessions' half-finished work alongside the
+item under test, so any conclusion is unsound in both directions — a failure
+may not be yours, and a pass may depend on something about to change. That is
+why full validation is deferred to one item running alone in a quiet tree, and
+why an agent that hits a failure outside its own paths reports it and keeps
+going instead of repairing work that is still in flight.
 
-Existing VFX and animations are read-only references while authoring a new one.
-Study them freely to preserve the project's visual language, but copy any
-borrowed implementation into new, explicitly owned code before changing it.
-Do not make a new animation work by modifying, extracting, parameterizing, or
-retuning an existing animation's methods, timeline, resources, or shared
-helpers. Duplication is preferable to coupling unrelated effects through a
-premature abstraction.
+The cost of that deferral is real and worth naming: every item is committed
+unverified, and the final validation session inherits defects in code it did
+not write. The cycle branch limits the blast radius — the unverified stretch
+never reaches `main` — but it does not shorten it.
 
-Shared presentation code and resources are compatibility surfaces. A new visual
-feature must leave every existing caller's appearance, timing, playback, and
-lifecycle unchanged. If the shared contract itself genuinely needs revision,
-handle that as separately scoped compatibility work, enumerate the complete
-caller set, and validate every caller. That caller sweep is a regression gate,
-not permission to let feature-specific tuning leak into shared behavior. For
-VFX-specific ownership and donor-capture rules, see
+The same absence of automation is why existing VFX and animations are treated
+as read-only while a new one is authored. With no regression suite, a tweak to
+a shared helper, timeline, or resource that makes a new effect look right is
+undetectable in every other caller until someone happens to look at it — and
+manual validation in this project looks at the effect under test, not at the
+donor. Duplicating a borrowed implementation into owned code costs a file;
+coupling two unrelated effects through a premature abstraction costs a silent
+regression nobody is watching for. The caller sweep required of a genuine
+shared-contract migration exists for the same reason: it is the substitute for
+the test run that does not exist. The operational form of both rules is in
+`AGENTS.md`; the VFX-specific ownership and donor-capture detail is in
 [`VFX_DESIGN.md`](./VFX_DESIGN.md).
