@@ -22,8 +22,9 @@ not a session log, policy copy, or backlog.
 
 When adding a learning, include the verified observation, the reusable rule,
 and a review trigger. Move commands to [`DEVELOPMENT.md`](./DEVELOPMENT.md),
-actionable future work to [`BACKLOG.md`](./BACKLOG.md), and architectural truth
-to [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+actionable future work to [`BACKLOG_CRITICAL.md`](../BACKLOG_CRITICAL.md) or
+[`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md), and architectural truth to
+[`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Shared visual resources
 
