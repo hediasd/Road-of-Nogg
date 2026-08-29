@@ -379,6 +379,8 @@ func _buildOwnedLayers() -> void:
 	_groundInstance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_groundInstance)
 
+	var ring_specs := _ringSpecs()
+
 	_wallMaterial = _createOwnedMaterial(0)
 	_wallMaterial.render_priority = TechniqueChargeAuraProfile.WALL_RENDER_PRIORITY
 	_wallMaterial.set_shader_parameter(
@@ -390,11 +392,12 @@ func _buildOwnedLayers() -> void:
 
 	_wallInstance = MeshInstance3D.new()
 	_wallInstance.name = "PolygonalWall"
-	_wallInstance.mesh = _createRingStackMesh(_ringSpecs())
+	_wallInstance.mesh = _createRingStackMesh(ring_specs)
 	_wallInstance.material_override = _wallMaterial
 	_wallInstance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_wallInstance)
 
+	_pushRingUniforms(ring_specs)
 	_pushLiveTunables()
 
 	assert(
@@ -506,8 +509,70 @@ func _ringSpecs() -> Array:
 			"base_radius": base_radius,
 			"length": length,
 			"lean_degrees": float(TechniqueChargeAuraProfile.RING_LEAN_DEGREES[index]),
+			"extension_scale": TechniqueChargeAuraProfile.ring_ceiling(index),
 		})
 	return specs
+
+
+## Hands the wall material the constants describing the ring stack.
+##
+## These are pushed once, at build time: they describe the rings, not the
+## moment. The only uniforms that change per frame remain the clock, the seed
+## and the two lifecycle values, which is what keeps the image a pure function
+## of the seek position.
+##
+## Base radii come from the spec list the mesh was built from rather than from
+## the profile, so a live Dimensions tunable cannot leave the shader anchoring
+## the core ring somewhere the geometry is not.
+func _pushRingUniforms(rings: Array) -> void:
+	if _wallMaterial == null:
+		return
+	var base_radius := PackedFloat32Array()
+	var ceiling := PackedFloat32Array()
+	var launch := PackedFloat32Array()
+	var rise := PackedFloat32Array()
+	var period := PackedFloat32Array()
+	var decay := PackedFloat32Array()
+	var overshoot := PackedFloat32Array()
+	var breath_scale := PackedFloat32Array()
+
+	for index in TechniqueChargeAuraProfile.RING_COUNT:
+		base_radius.append(float(rings[index]["base_radius"]))
+		ceiling.append(TechniqueChargeAuraProfile.ring_ceiling(index))
+		launch.append(float(TechniqueChargeAuraProfile.RING_LAUNCH_SECONDS[index]))
+		rise.append(float(TechniqueChargeAuraProfile.RING_RISE_SECONDS[index]))
+		period.append(
+			float(TechniqueChargeAuraProfile.RING_BOUNCE_PERIOD_SECONDS[index])
+		)
+		decay.append(float(TechniqueChargeAuraProfile.RING_BOUNCE_DECAY[index]))
+		overshoot.append(float(TechniqueChargeAuraProfile.RING_OVERSHOOT[index]))
+		breath_scale.append(
+			float(TechniqueChargeAuraProfile.RING_BREATH_SCALE[index])
+		)
+
+	_wallMaterial.set_shader_parameter("ring_base_radius", base_radius)
+	_wallMaterial.set_shader_parameter("ring_ceiling", ceiling)
+	_wallMaterial.set_shader_parameter("ring_launch", launch)
+	_wallMaterial.set_shader_parameter("ring_rise", rise)
+	_wallMaterial.set_shader_parameter("ring_period", period)
+	_wallMaterial.set_shader_parameter("ring_decay", decay)
+	_wallMaterial.set_shader_parameter("ring_overshoot", overshoot)
+	_wallMaterial.set_shader_parameter("ring_breath_scale", breath_scale)
+	_wallMaterial.set_shader_parameter(
+		"breath_min", TechniqueChargeAuraProfile.BREATH_MIN
+	)
+	_wallMaterial.set_shader_parameter(
+		"breath_max", TechniqueChargeAuraProfile.BREATH_MAX
+	)
+	_wallMaterial.set_shader_parameter(
+		"breath_face_mix", TechniqueChargeAuraProfile.BREATH_FACE_MIX
+	)
+	_wallMaterial.set_shader_parameter(
+		"ring_phase_a1", TechniqueChargeAuraProfile.RING_PHASE_A1
+	)
+	_wallMaterial.set_shader_parameter(
+		"ring_phase_a2", TechniqueChargeAuraProfile.RING_PHASE_A2
+	)
 
 
 ## Builds every ring into a single surface.
