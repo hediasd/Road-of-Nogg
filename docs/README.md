@@ -10,7 +10,7 @@ Use this page to find the source of truth instead of searching every document.
 | [Architecture](./ARCHITECTURE.md) | Current runtime ownership, boundaries, and data flow |
 | [Game design](./GAME_DESIGN.md) | Confirmed player-facing mechanics and constraints |
 | [UI / UX design](./UI_DESIGN.md) | Battle UI visual language, theme tokens, cursor and input model |
-| [VFX design](./VFX_DESIGN.md) | Spell effect contract, authoring conventions, and the debug harness |
+| [VFX design](./VFX_DESIGN.md) | Spell effect contract, authoring conventions, the house motion style for any animation, and the debug harness |
 | [Critical backlog](../BACKLOG_CRITICAL.md) | Incomplete work that materially affects current gameplay, correctness, or readiness |
 | [Long-term backlog](../BACKLOG_LONGTERM.md) | Deferred design, tooling, and maintenance work |
 | [Learnings](./LEARNINGS.md) | Verified reusable discoveries and review triggers |

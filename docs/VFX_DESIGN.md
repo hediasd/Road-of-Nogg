@@ -821,6 +821,94 @@ quarter turn. It suits deliberately ordered magic such as summoning, healing,
 growth, or an implosion. It is too orderly to be Ice Storm's dominant motion;
 there the golden angle is only the invisible distribution substrate.
 
+### Living motion: layered oscillators, never a single curve
+
+**Default to motion that is a continuous function of the effect's own clock,
+composed from more than one oscillator, with different parts of the effect
+running the same function at different constants.** This is the house style for
+animation and VFX in this project. A single tween, a keyframe track, or one
+ease from A to B produces motion that arrives and then sits there; the reason
+the technique charge aura reads as alive is that nothing in it is ever still,
+and no two parts of it are doing the same thing at the same moment.
+
+The grammar above supplies the families. This is how to compose them.
+
+**Give a quantity an entrance that resolves and an idle that never does.** Two
+systems, multiplied onto the same value, authored independently:
+
+```gdscript
+# Entrance: a damped spring. Launch to peak, then decay through the rest value.
+entrance = 1.0 + overshoot * exp(-decay * tau) * cos(TAU / period * tau)
+
+# Idle: two unrelated rates, so it has no readable loop and no countable beat.
+idle = 1.0 + amplitude * (
+    (noise(t * rateSlow) - 0.5) * 1.35 + (noise(t * rateFast) - 0.5) * 0.65
+)
+```
+
+The entrance must cross *below* its resting value on the first swing back. That
+dip is the beat that makes an arrival read as energy rather than as a progress
+bar filling; without it, an overshoot alone still reads as a curve stopping.
+Use `exp()` for the decay so the amplitude loses the same fraction over equal
+intervals, and `TAU / period` so the period is authored in seconds rather than
+in radians nobody can picture.
+
+The idle wants **noise at two unrelated rates, not a sine.** A sine gives a beat
+the eye can count; one noise rate gives a visible period once it repeats.
+Unrelated rates (1.7 and 4.3, say — not 2 and 4) never line back up inside the
+effect's lifetime.
+
+**Hand one off to the other with arithmetic, not with a schedule.** Ramp the
+idle's amplitude on the same decay term that kills the entrance. The crossover
+then falls out of the maths — there is no seam to place and no constant to keep
+in sync with the entrance's own timing:
+
+```gdscript
+idleAmplitude = idleMax - (idleMax - idleMin) * exp(-decay * tau)
+```
+
+**Give every part its own constants, and stagger them.** Same function,
+different numbers. Smaller or lighter parts should be faster, more damped, and
+carry a proportionally *larger* overshoot, so they flick where the main body
+swings. Staggering their launches by tens of milliseconds turns simultaneous
+appearance into a sequence the eye reads as cause and effect. The aura's three
+rings run periods of 420 / 320 / 260 ms, decay 2.43 / 3.40 / 4.20, overshoot
++30% / +40% / +48%, launched 0 / 40 / 80 ms apart.
+
+**Offset phase across a part's own extent.** The same oscillator sampled with a
+per-vertex or per-element phase makes motion sweep through a body rather than
+happen to all of it at once. Derive the phase from something already in the
+geometry — a position, an angle, an index — never from a random draw per frame.
+
+**Couple one factor into several channels rather than making it bigger.** At the
+battle camera's framing an effect is a few tens of pixels tall, so a 7% change
+in geometry is two or three pixels and effectively invisible. The same factor
+also driving brightness, and the amplitude of a smaller detail motion, reads
+plainly at any size and costs nothing. Reach for coupling before amplitude.
+
+Four failure modes worth naming, all of them met in practice:
+
+- **Anything varying around a closed loop must be periodic in its parameter.** A
+  value that ramps linearly with an angle wraps and tears at exactly one place;
+  a value taken from a per-face `UV.x` tears at *every* shared edge. Build such
+  quantities from sines of the angle, or from a point on a circle. This has
+  caught two separate quantities in one effect — see the technique charge aura
+  section.
+- **Build geometry at the ceiling the oscillator can reach**, derived from the
+  overshoot and the idle amplitude together, because they multiply. Otherwise an
+  overshoot clips against geometry sized for the resting pose, and the clamp
+  hiding it is invisible until someone tunes the overshoot up.
+- **Do not let the idle compete with the entrance.** That is what the ramp is
+  for. An idle at full amplitude during the launch fights the beat the entrance
+  is trying to land.
+- **Everything stays a pure function of the effect's own clock and seed.**
+  Never `TIME`, never accumulated state. §3 requires this for seek exactness and
+  pause/speed handling; layered oscillators do not weaken it, because a sum of
+  functions of `t` is still a function of `t`.
+
+Worked example with every constant and the measurements behind it: "Technique
+charge aura" later in this section.
+
 ### Footprint shape
 
 Gameplay area shapes come from `ShapeCaster` via
@@ -1256,6 +1344,9 @@ conversation about it happens while it is still cheap to change.
    every reference, and then change only the owned copy. Otherwise start from a
    blank file and keep just the `VfxPlayback` contract.
 3. **Author the shader** as a pure function of `INDEX` and `playback_time`.
+   **Compose the motion from layered oscillators** — an entrance that resolves
+   over an idle that never does, each part on its own constants — rather than a
+   single curve. See "Living motion" in §4.
 4. **Set the layer roster.** Drop inherited layers with no equivalent — that is
    what frees node budget for new ones.
 5. **Label every constant** `AUTHORED` or `DERIVED` unless measurement was
