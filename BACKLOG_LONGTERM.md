@@ -312,6 +312,14 @@ telegraph timing hooks the existing pre-cast window or needs a new one, and
 whether `VfxCastContext` needs a source-only (no impact) variant for an effect
 that never resolves against a target.
 
+Note before scheduling it: the aura grew two outward flares on 2026-08-29 and
+they do not yet read correctly. At the battle camera's pitch they present nearly
+face-on and look like flat terraced polygonal plates rather than light coming
+off the floor — the area-marker read this effect is otherwise shaped to avoid.
+The verification pass that found it is recorded under "the flares read as
+terraced plates at the battle pitch" in `docs/VFX_DESIGN.md`. Settle that before
+the effect carries a real cast, or ship the telegraph with the core wall alone.
+
 ## Carried over from the retired `docs/BACKLOG.md`
 
 `docs/BACKLOG.md` was a third backlog that `docs/README.md` still routed to
