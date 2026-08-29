@@ -94,8 +94,15 @@ git worktree list
 - Name every branch the first two commands print, with its unmerged commit
   count, and say what it is. Silence is not a report: when both are empty, say
   so in one line.
-- A merged branch left lying around is debris. Offer to delete it; do not
-  delete without the user's go-ahead.
+- A merged branch left lying around is debris. Sweep every branch that is fully
+  merged into `main` at each cycle boundary, not only the one the cycle used --
+  the user gave standing authorization for this on 2026-08-29 after seven
+  merged branches had accumulated. `git branch -d` is the safe sweep: it
+  refuses anything unmerged. It also refuses a branch that is merged to `HEAD`
+  but ahead of its own `origin/` tracking ref; that one needs `-D`, and only
+  after `git rev-list --count main..<branch>` confirms zero.
+- Deleting a branch on `origin` is a push, so it stays outward-facing: offer it,
+  do not do it unasked. Local deletion is recoverable from the reflog.
 - A worktree other than the primary one is a session running elsewhere or
   abandoned debris. Report it, check whether its `HEAD` is contained in `main`,
   and never remove it unprompted.
@@ -265,6 +272,13 @@ git switch -c plan/<cycle-slug>
 Then add the cycle file under `docs/plans/`, beginning with a dated
 one-paragraph preamble stating what the cycle is for. From here the window rule
 applies: everything this tree commits lands on the branch.
+
+Closing is not a separate errand. **The turn that finishes the cycle's last
+item also merges it and cleans up** — do not end a turn reporting "branch
+unmerged, pending merge" as though that were a resting state. An open design
+question the cycle surfaced does not hold the merge: record it in the backlog
+and the relevant design note, merge, and raise it with the user afterwards.
+Only a *failing* validation holds a merge.
 
 Closing a cycle, after final validation passes and no session is editing:
 
