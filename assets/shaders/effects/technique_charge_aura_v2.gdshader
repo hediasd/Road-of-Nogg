@@ -53,6 +53,20 @@ uniform float ring_churn_scale[3];
 // frame. Computed there in closed form rather than integrated here or
 // accumulated anywhere -- see TechniqueChargeAuraV2Profile.spin_radians().
 uniform float ring_spin_radians[3];
+
+// AUTHORED release. Everything here begins at release_seconds and finishes
+// inside release_window; the effect's total length is their sum.
+uniform float release_seconds = 1.00;
+uniform float release_window = 0.50;
+uniform float flash_seconds = 0.06;
+uniform float flash_peak = 1.35;
+uniform float blade_fade_seconds = 0.22;
+uniform float blade_sweep_seconds = 0.16;
+// +1 disperses outward, -1 collapses inward. Signed rather than branched so
+// the direction stays one constant rather than two code paths.
+uniform float release_direction = 1.0;
+uniform float release_radius_gain = 0.70;
+uniform float release_height_drop = 0.45;
 // Grade. RING_TIP_BRIGHT is a blend weight rather than a bool because uniform
 // arrays in this shader are float only; 0 keeps the core's shipped base-faint
 // curve, 1 switches a face to the flares' tip-bright one.
@@ -90,6 +104,17 @@ uniform float ground_pulse_floor = 0.55;
 
 const float RING_TAU = 6.283185307179586;
 
+// How far into the release we are, 0 before it starts and 1 at the end. The
+// eased square is shared by the expansion and the flatten so they read as one
+// motion rather than two curves layered on the same instant.
+float release_progress() {
+	return clamp(
+		(playback_seconds - release_seconds) / max(release_window, 0.0001),
+		0.0,
+		1.0
+	);
+}
+
 // How far this fragment's ring is currently extended, as a fraction of the
 // geometry that was built. The fragment stage needs it to hold the charge noise
 // still in world units while the ring grows.
@@ -97,6 +122,10 @@ varying float v_extension;
 // This ring's churn factor at the instant this vertex was placed, carried to
 // the fragment stage so alpha can swing with the same idle that moves height.
 varying float v_churnFactor;
+// Where this fragment's blade sits around the ring, 0..1. The release staggers
+// each blade's extinction by this, so the ring unzips instead of every blade
+// going out on the same frame.
+varying float v_bladeFrac;
 
 float hash21(vec2 p) {
 	vec2 h = fract(p * vec2(123.34, 456.21));
@@ -181,6 +210,7 @@ void vertex() {
 	if (layer_kind != 0) {
 		v_extension = 1.0;
 		v_churnFactor = 1.0;
+		v_bladeFrac = 0.0;
 	} else {
 		int ring = int(round(COLOR.r * 2.0));
 
@@ -251,6 +281,18 @@ void vertex() {
 		// the fragment stage never reads it, so rotating it would cost work to
 		// change nothing; it is only used above, before this point, as a
 		// per-face identity.
+		// Disperse: the ring opens outward while flattening. Applied before the
+		// spin because a uniform scale in the ground plane and a rotation about
+		// the same axis commute, so this reads the same either way and is
+		// clearer next to the geometry it scales.
+		float release = release_progress();
+		float eased = release * release;
+		float radius_scale = 1.0 + release_direction * release_radius_gain * eased;
+		float height_scale = 1.0 - release_height_drop * eased;
+		VERTEX.x *= radius_scale;
+		VERTEX.z *= radius_scale;
+		VERTEX.y *= height_scale;
+
 		float spin = ring_spin_radians[ring];
 		float spin_cos = cos(spin);
 		float spin_sin = sin(spin);
@@ -262,6 +304,9 @@ void vertex() {
 
 		v_extension = extension;
 		v_churnFactor = churn;
+		// Normalised into 0..1 from the face's own azimuth. atan returns
+		// -PI..PI, so this shifts it positive before dividing.
+		v_bladeFrac = fract((face_angle + RING_TAU * 0.5) / RING_TAU);
 	}
 }
 
@@ -322,6 +367,31 @@ void fragment() {
 		// CHURN_BRIGHT_COUPLING so the idle reads at the battle camera's
 		// framing even though a few pixels of height motion would not.
 		bright_coupling = 1.0 + churn_bright_coupling * (v_churnFactor - 1.0);
+
+		// The release, per blade.
+		//
+		// The flash comes first and alone: brightness rises and falls over
+		// flash_seconds before any alpha is taken off, so the release has an
+		// onset rather than merely starting to be less. It is most of what
+		// sells the whole thing.
+		float since_release = playback_seconds - release_seconds;
+		if (since_release >= 0.0 && since_release <= flash_seconds) {
+			bright_coupling *= 1.0 + (flash_peak - 1.0)
+				* sin(since_release / max(flash_seconds, 0.0001) * 3.14159265);
+		}
+
+		// Then the unzip. Each blade fades over blade_fade_seconds, but their
+		// starts are spread across blade_sweep_seconds by where the blade sits
+		// around the ring, so the ring goes out as a wave travelling round it
+		// rather than as thirty blades vanishing together. The last thing on
+		// screen is motion, not a shape dimming.
+		float unzip_start = flash_seconds + v_bladeFrac * blade_sweep_seconds;
+		float unzip = clamp(
+			(since_release - unzip_start) / max(blade_fade_seconds, 0.0001),
+			0.0,
+			1.0
+		);
+		bright_coupling *= pow(1.0 - unzip, 2.2);
 	} else {
 		// A radial spill centred on the source, not a rim. Radii are in plane
 		// UV: the plane's edge midpoint is 0.50, and it is sized against the

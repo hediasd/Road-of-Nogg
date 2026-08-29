@@ -37,9 +37,9 @@ var _seedOffset := 0.0
 ## the debug panel pushes an override. Read through `tunable()` there rather
 ## than per frame: a dictionary lookup inside the per-frame path would cost
 ## real performance in the one tool used to judge performance.
-var _igniteEnd := TechniqueChargeAuraV2Profile.IGNITE_END_NORMALIZED
-var _groundIgniteEnd := TechniqueChargeAuraV2Profile.GROUND_IGNITE_LEAD_NORMALIZED
-var _releaseStart := TechniqueChargeAuraV2Profile.RELEASE_START_NORMALIZED
+var _igniteSeconds := TechniqueChargeAuraV2Profile.IGNITE_SECONDS
+var _groundIgniteSeconds := TechniqueChargeAuraV2Profile.GROUND_IGNITE_SECONDS
+var _releaseSeconds := TechniqueChargeAuraV2Profile.RELEASE_SECONDS
 var _noiseScaleCoarse := TechniqueChargeAuraV2Profile.NOISE_SCALE_COARSE
 var _noiseScaleFine := TechniqueChargeAuraV2Profile.NOISE_SCALE_FINE
 var _noiseRiseSpeed := TechniqueChargeAuraV2Profile.NOISE_RISE_SPEED
@@ -118,16 +118,16 @@ static func tunables() -> Array[Dictionary]:
 			"rebuild": false,
 		},
 		{
-			"id": "IGNITE_END_NORMALIZED", "label": "Ignite end", "group": "Fade",
-			"min": 0.02, "max": 0.6, "step": 0.01,
-			"default": TechniqueChargeAuraV2Profile.IGNITE_END_NORMALIZED,
+			"id": "IGNITE_SECONDS", "label": "Ignite", "group": "Fade",
+			"min": 0.01, "max": 0.40, "step": 0.005,
+			"default": TechniqueChargeAuraV2Profile.IGNITE_SECONDS,
 			"rebuild": false,
 		},
 		{
-			"id": "RELEASE_START_NORMALIZED", "label": "Release start",
+			"id": "GROUND_IGNITE_SECONDS", "label": "Ground ignite",
 			"group": "Fade",
-			"min": 0.4, "max": 1.0, "step": 0.01,
-			"default": TechniqueChargeAuraV2Profile.RELEASE_START_NORMALIZED,
+			"min": 0.005, "max": 0.30, "step": 0.005,
+			"default": TechniqueChargeAuraV2Profile.GROUND_IGNITE_SECONDS,
 			"rebuild": false,
 		},
 		{
@@ -394,16 +394,14 @@ func _process(delta: float) -> void:
 
 
 func _readLiveTunables() -> void:
-	_igniteEnd = tunable(
-		"IGNITE_END_NORMALIZED", TechniqueChargeAuraV2Profile.IGNITE_END_NORMALIZED
+	_igniteSeconds = tunable(
+		"IGNITE_SECONDS", TechniqueChargeAuraV2Profile.IGNITE_SECONDS
 	)
-	_groundIgniteEnd = tunable(
-		"GROUND_IGNITE_LEAD_NORMALIZED",
-		TechniqueChargeAuraV2Profile.GROUND_IGNITE_LEAD_NORMALIZED
+	_groundIgniteSeconds = tunable(
+		"GROUND_IGNITE_SECONDS", TechniqueChargeAuraV2Profile.GROUND_IGNITE_SECONDS
 	)
-	_releaseStart = tunable(
-		"RELEASE_START_NORMALIZED",
-		TechniqueChargeAuraV2Profile.RELEASE_START_NORMALIZED
+	_releaseSeconds = tunable(
+		"RELEASE_SECONDS", TechniqueChargeAuraV2Profile.RELEASE_SECONDS
 	)
 	_noiseScaleCoarse = tunable(
 		"NOISE_SCALE_COARSE", TechniqueChargeAuraV2Profile.NOISE_SCALE_COARSE
@@ -537,11 +535,11 @@ func _applyTimeline() -> void:
 	var normalized := get_normalized_time()
 	if _wallMaterial != null:
 		_wallMaterial.set_shader_parameter(
-			"lifecycle_visibility", _wallEnvelopeAt(normalized)
+			"lifecycle_visibility", _wallEnvelopeAt(_elapsedTime)
 		)
 	if _groundMaterial != null:
 		_groundMaterial.set_shader_parameter(
-			"lifecycle_visibility", _groundEnvelopeAt(normalized)
+			"lifecycle_visibility", _groundEnvelopeAt(_elapsedTime)
 		)
 	# Spin is evaluated from the clock, not advanced by it. The whole array is
 	# rebuilt each frame rather than incremented, which is what makes a seek
@@ -562,35 +560,41 @@ func _applyTimeline() -> void:
 			material.set_shader_parameter("ring_spin_radians", spin)
 
 
-## The ground carries its own envelope rather than sharing the wall's.
+## The ground carries its own envelope rather than sharing the blades'.
 ##
-## It leads the wall into ignition -- GROUND_IGNITE_LEAD_NORMALIZED is roughly
-## a third of the wall's own IGNITE_END_NORMALIZED, so the floor visibly lights
-## an instant before the ring above it does, rather than the two appearing
-## together. It shares the wall's release timing, so the two layers still
-## vanish as one source at the end. The crest-tracking pulse that answers the
-## core ring's bounce is a per-fragment brightness multiplier in the shader,
-## not something this normalized-time envelope carries -- it needs the ring
-## oscillator's own seconds-based state, which only the shader has.
-func _groundEnvelopeAt(normalized: float) -> float:
-	var ignite_end: float = maxf(_groundIgniteEnd, 0.0001)
-	if normalized < ignite_end:
-		return smoothstep(0.0, ignite_end, normalized)
-	if normalized < _releaseStart:
+## It lights first -- GROUND_IGNITE_SECONDS is a third of the blades' own
+## ignite -- so the floor is visibly lit an instant before them rather than the
+## two appearing together. At the other end it trails them: it holds through
+## GROUND_LAG_SECONDS past the release and is the last thing to go dark, so the
+## floor keeps a residual glow after the blades are gone. Cutting both layers
+## on the same frame reads as a dropped frame.
+##
+## The crest-tracking pulse that answers the core ring's bounce is a
+## per-fragment brightness multiplier in the shader, not something this
+## envelope carries.
+func _groundEnvelopeAt(seconds: float) -> float:
+	var ignite: float = maxf(_groundIgniteSeconds, 0.0001)
+	if seconds < ignite:
+		return smoothstep(0.0, ignite, seconds)
+	var lag_end: float = _releaseSeconds + TechniqueChargeAuraV2Profile.GROUND_LAG_SECONDS
+	if seconds < lag_end:
 		return 1.0
-	return 1.0 - smoothstep(_releaseStart, 1.0, normalized)
+	var total: float = TechniqueChargeAuraV2Profile.DURATION_SECONDS
+	return pow(1.0 - clampf((seconds - lag_end) / maxf(total - lag_end, 0.0001), 0.0, 1.0), 1.6)
 
 
-## Authored ignition / hold / release. Release begins at the settle point, so
-## `skip_to_settle()` lands on the last fully-charged frame instead of inside
-## the fade.
-func _wallEnvelopeAt(normalized: float) -> float:
-	var ignite_end: float = maxf(_igniteEnd, 0.0001)
-	if normalized < ignite_end:
-		return smoothstep(0.0, ignite_end, normalized)
-	if normalized < _releaseStart:
-		return 1.0
-	return 1.0 - smoothstep(_releaseStart, 1.0, normalized)
+## The blades' own opacity ramp, and only that.
+##
+## There is no release term here on purpose. v1 faded its wall out with one
+## envelope over the whole layer; v2's blades go out individually, staggered by
+## their own angle so the ring unzips, which is a per-fragment decision the
+## shader makes. A layer-wide fade multiplied on top would flatten that back
+## into everything dimming together.
+func _wallEnvelopeAt(seconds: float) -> float:
+	var ignite: float = maxf(_igniteSeconds, 0.0001)
+	if seconds < ignite:
+		return smoothstep(0.0, ignite, seconds)
+	return 1.0
 
 
 ## Live-class overrides only. Anything that shapes geometry is marked
@@ -794,6 +798,19 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	material.set_shader_parameter(
 		"ground_pulse_floor", TechniqueChargeAuraV2Profile.GROUND_PULSE_FLOOR
 	)
+
+	var P := TechniqueChargeAuraV2Profile
+	material.set_shader_parameter(
+		"release_seconds", tunable("RELEASE_SECONDS", P.RELEASE_SECONDS)
+	)
+	material.set_shader_parameter("release_window", P.RELEASE_WINDOW_SECONDS)
+	material.set_shader_parameter("flash_seconds", P.FLASH_SECONDS)
+	material.set_shader_parameter("flash_peak", P.FLASH_PEAK)
+	material.set_shader_parameter("blade_fade_seconds", P.BLADE_FADE_SECONDS)
+	material.set_shader_parameter("blade_sweep_seconds", P.BLADE_SWEEP_SECONDS)
+	material.set_shader_parameter("release_direction", P.RELEASE_DIRECTION)
+	material.set_shader_parameter("release_radius_gain", P.RELEASE_RADIUS_GAIN)
+	material.set_shader_parameter("release_height_drop", P.RELEASE_HEIGHT_DROP)
 
 
 ## Builds every ring into a single surface.

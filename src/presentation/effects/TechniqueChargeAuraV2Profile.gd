@@ -7,42 +7,71 @@ class_name TechniqueChargeAuraV2Profile
 
 const PROFILE_ID := "technique_charge_aura_v2"
 
-## AUTHORED beat timing.
+## AUTHORED beat timing, in seconds.
 ##
-## The bounce and the breath both work in real seconds (RING_LAUNCH_SECONDS and
-## friends), so this is the one place a longer or shorter duration would still
-## need to be felt: the wall's own alpha envelope and the settle point below.
-const DURATION_SECONDS := 2.00
+## The release time and the release window are the two authored numbers; the
+## effect's total length is their sum, not a runtime the release stretches to
+## fill. Stretching a 0.50s dispersal to hold some other end goes limp, so if
+## the release moves, the effect simply ends earlier.
+const RELEASE_SECONDS := 1.00
+const RELEASE_WINDOW_SECONDS := 0.50
+const DURATION_SECONDS := RELEASE_SECONDS + RELEASE_WINDOW_SECONDS
 
-## Nothing is ever fully still once the breath is running, so there is no exact
-## "settled" frame to define this as. 1.20s is where the core ring's bounce
-## has decayed under the breath's own amplitude -- the handoff AURA-5C's
-## breath_amplitude() computes -- so it is the first moment that is
-## representative of the hold rather than of the entrance.
-##
-## This is deliberately no longer RELEASE_START_NORMALIZED, unlike the shipped
-## AURA-2 envelope where the two were the same constant by construction. With a
-## real hold between them, `skip_to_settle()` landing at the release point would
-## put every debug preview one frame from vanishing instead of mid-charge.
-const SETTLE_NORMALIZED_TIME := 0.60
-## The action beat -- whatever external cue (camera, sound) times itself to the
-## charge -- shares the settle point for the same reason: it is the first frame
-## that reads as "charged" rather than "arriving."
+## Nothing is ever still in v2 -- the churn runs at full amplitude throughout --
+## so there is no settled frame to point at. This is mid-charge: past the point
+## where the entrance stopped being the dominant motion, and well before the
+## release. It is what `skip_to_settle()` lands on, so it has to be the frame
+## that best represents "charged".
+const SETTLE_NORMALIZED_TIME := 0.55
+## The action beat -- whatever external cue times itself to the charge --
+## shares it, for the same reason.
 const ACTION_HOLD_FRACTION := SETTLE_NORMALIZED_TIME
 
-## Ignition/hold/release envelope for the wall's own alpha. The ring geometry's
-## bounce (RING_RISE_SECONDS[0] = 0.16s) already carries the silhouette growing
-## in, so this only has to get the wall's opacity to full quickly rather than
-## reproduce that motion a second time: 0.06s, a third of the core's rise.
-## Release begins well after the breath has taken over from the bounce, so the
-## fade always starts from the idle rather than cutting the entrance short.
-const IGNITE_END_NORMALIZED := 0.03
-const RELEASE_START_NORMALIZED := 0.89
-## The ground ignites faster than the wall -- roughly a third of the wall's own
-## ignite -- so the floor visibly lights an instant before the ring above it
-## does, rather than the two appearing together. It shares the wall's release
-## timing, so the two layers still vanish as one source.
-const GROUND_IGNITE_LEAD_NORMALIZED := 0.01
+## The wall's own opacity ramp. The blades' bounce already carries the
+## silhouette growing in, so this only has to reach full quickly rather than
+## reproduce that motion a second time. It has no release term: the release is
+## per blade (BLADE_FADE_SECONDS below), because blades go out in a wave rather
+## than together.
+const IGNITE_SECONDS := 0.06
+## The ground lights first, so the floor is visibly lit an instant before the
+## blades above it rather than the two appearing together.
+const GROUND_IGNITE_SECONDS := 0.02
+
+## AUTHORED release. Everything here starts at RELEASE_SECONDS and finishes
+## inside RELEASE_WINDOW_SECONDS.
+##
+## The flash comes first and alone: brightness rises and falls before any alpha
+## is taken off, so the release has an onset instead of merely starting to be
+## less. Without it the eye has nothing to catch.
+const FLASH_SECONDS := 0.06
+const FLASH_PEAK := 1.35
+
+## Each blade fades over BLADE_FADE_SECONDS, and their starts are spread across
+## BLADE_SWEEP_SECONDS by blade angle, so the ring unzips in the spin's own
+## direction rather than thirty blades vanishing at once. The last thing on
+## screen is motion, not a shape dimming. Last blade out at
+## RELEASE + FLASH + SWEEP + FADE = 1.44s.
+const BLADE_FADE_SECONDS := 0.22
+const BLADE_SWEEP_SECONDS := 0.16
+## The ground trails the blades and is the final thing to go dark, at 1.50s. A
+## simultaneous cut on both layers reads as a dropped frame.
+const GROUND_LAG_SECONDS := 0.18
+
+## The whip: the spin accelerates through the release, so the blades spiral
+## outward rather than travelling straight out.
+const SPIN_RELEASE_MULTIPLIER := 2.2
+
+## Direction of the dispersal: +1 expands, -1 collapses. Signed rather than
+## branched so the decision stays one constant. Expand was chosen on
+## 2026-08-29; collapse is kept reachable because the risk it answers -- an
+## outward release competing with the spell that fires immediately after -- can
+## only be judged against a real cast.
+const RELEASE_DIRECTION := 1.0
+const RELEASE_RADIUS_GAIN := 0.70
+## Both directions flatten. The flatten is what separates a charge dispersing
+## along the floor from a second spell going off a beat before the real one: a
+## tall outward burst competes, a fast low spreading ring does not.
+const RELEASE_HEIGHT_DROP := 0.45
 
 ## How strongly the ground layer's brightness tracks the core ring's own
 ## bounce, and the floor below which it will not drop even during the deepest
@@ -197,7 +226,38 @@ static func spin_radians(index: int, seconds: float) -> float:
 	var launch := deg_to_rad(SPIN_LAUNCH_DEG_PER_SEC)
 	var tau: float = maxf(SPIN_EASE_TAU_SECONDS, 0.0001)
 	var angle := hold * seconds + (launch - hold) * tau * (1.0 - exp(-seconds / tau))
+	angle += _whip_radians(seconds, hold, launch - hold, tau)
 	return angle * float(RING_SPIN_SCALE[index])
+
+
+## The extra angle the release's whip adds, in radians.
+##
+## Through the release the rate is multiplied by 1 + (M-1) * p, where p runs 0
+## to 1 across the window, so the blades spiral outward instead of travelling
+## straight out. This is the integral of that extra term alone -- exactly, not
+## approximately, because an approximation here is a closed form that quietly
+## disagrees with the constant it claims to implement, and the next person to
+## check the whip against SPIN_RELEASE_MULTIPLIER would find it short.
+##
+##     extra(s) = [hold + A e^(-s/tau)] * k * (s - R),   k = (M - 1) / window
+##
+## The hold part integrates to hold * k * x^2 / 2 with x = s - R. The eased part
+## uses the standard result for u * e^(-u/tau):
+##
+##     integral of u e^(-u/tau) from 0 to x = tau^2 - e^(-x/tau) (tau x + tau^2)
+static func _whip_radians(
+		seconds: float, hold: float, eased: float, tau: float) -> float:
+	var x := seconds - RELEASE_SECONDS
+	if x <= 0.0:
+		return 0.0
+	x = minf(x, RELEASE_WINDOW_SECONDS)
+	var k: float = (SPIN_RELEASE_MULTIPLIER - 1.0) / maxf(RELEASE_WINDOW_SECONDS, 0.0001)
+	var from_hold := hold * k * x * x * 0.5
+	var ramp := tau * tau - exp(-x / tau) * (tau * x + tau * tau)
+	var from_eased := eased * k * exp(-RELEASE_SECONDS / tau) * ramp
+	# Past the window the rate returns to its unwhipped value, so the angle the
+	# whip contributed stays constant rather than continuing to grow.
+	return from_hold + from_eased
 
 
 ## The extension each ring's geometry is built at, as a multiple of its resting
