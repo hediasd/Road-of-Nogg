@@ -435,18 +435,39 @@ func _applyVisibility(visibility: float) -> void:
 ## handling at all: a scale of zero simply stops changing the value pushed here.
 func _applyTimeline() -> void:
 	var normalized := get_normalized_time()
-	var envelope := _envelopeAt(normalized)
+	if _wallMaterial != null:
+		_wallMaterial.set_shader_parameter(
+			"lifecycle_visibility", _wallEnvelopeAt(normalized)
+		)
+	if _groundMaterial != null:
+		_groundMaterial.set_shader_parameter(
+			"lifecycle_visibility", _groundEnvelopeAt(normalized)
+		)
 	for material: ShaderMaterial in [_groundMaterial, _wallMaterial]:
 		if material != null:
-			material.set_shader_parameter("lifecycle_visibility", envelope)
 			material.set_shader_parameter("playback_time", normalized)
+			# The ring oscillator works in seconds, not in normalized time: its
+			# periods and decay rates are authored as real durations so that
+			# changing the effect's length does not silently retune every
+			# bounce in it.
+			material.set_shader_parameter("playback_seconds", _elapsedTime)
 			material.set_shader_parameter("playback_seed", _seedOffset)
+
+
+## The ground carries its own envelope rather than sharing the wall's.
+##
+## It leads the wall at ignition and pulses with the rings' crests, because a
+## wall that bounces off an unlit floor stops reading as one source. That shape
+## is AURA-5E's; the split itself has to exist first, and until then the ground
+## follows the wall exactly as it always did.
+func _groundEnvelopeAt(normalized: float) -> float:
+	return _wallEnvelopeAt(normalized)
 
 
 ## Authored ignition / hold / release. Release begins at the settle point, so
 ## `skip_to_settle()` lands on the last fully-charged frame instead of inside
 ## the fade.
-func _envelopeAt(normalized: float) -> float:
+func _wallEnvelopeAt(normalized: float) -> float:
 	var ignite_end: float = maxf(_igniteEnd, 0.0001)
 	if normalized < ignite_end:
 		return smoothstep(0.0, ignite_end, normalized)
