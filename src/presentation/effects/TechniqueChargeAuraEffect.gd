@@ -384,9 +384,6 @@ func _buildOwnedLayers() -> void:
 	_wallMaterial = _createOwnedMaterial(0)
 	_wallMaterial.render_priority = TechniqueChargeAuraProfile.WALL_RENDER_PRIORITY
 	_wallMaterial.set_shader_parameter(
-		"opacity", TechniqueChargeAuraProfile.WALL_OPACITY
-	)
-	_wallMaterial.set_shader_parameter(
 		"emission_energy", TechniqueChargeAuraProfile.WALL_EMISSION_ENERGY
 	)
 
@@ -558,6 +555,17 @@ func _pushRingUniforms(rings: Array) -> void:
 	_wallMaterial.set_shader_parameter("ring_decay", decay)
 	_wallMaterial.set_shader_parameter("ring_overshoot", overshoot)
 	_wallMaterial.set_shader_parameter("ring_breath_scale", breath_scale)
+
+	var ring_opacity := PackedFloat32Array()
+	var ring_tip_bright := PackedFloat32Array()
+	for index in TechniqueChargeAuraProfile.RING_COUNT:
+		ring_opacity.append(float(TechniqueChargeAuraProfile.RING_OPACITY[index]))
+		ring_tip_bright.append(
+			float(TechniqueChargeAuraProfile.RING_TIP_BRIGHT[index])
+		)
+	_wallMaterial.set_shader_parameter("ring_opacity", ring_opacity)
+	_wallMaterial.set_shader_parameter("ring_tip_bright", ring_tip_bright)
+
 	_wallMaterial.set_shader_parameter(
 		"breath_min", TechniqueChargeAuraProfile.BREATH_MIN
 	)
@@ -566,6 +574,13 @@ func _pushRingUniforms(rings: Array) -> void:
 	)
 	_wallMaterial.set_shader_parameter(
 		"breath_face_mix", TechniqueChargeAuraProfile.BREATH_FACE_MIX
+	)
+	_wallMaterial.set_shader_parameter(
+		"breath_bright_coupling", TechniqueChargeAuraProfile.BREATH_BRIGHT_COUPLING
+	)
+	_wallMaterial.set_shader_parameter(
+		"breath_flutter_coupling",
+		TechniqueChargeAuraProfile.BREATH_FLUTTER_COUPLING
 	)
 	_wallMaterial.set_shader_parameter(
 		"ring_phase_a1", TechniqueChargeAuraProfile.RING_PHASE_A1

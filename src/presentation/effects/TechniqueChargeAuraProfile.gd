@@ -26,7 +26,7 @@ const NOISE_SCALE_COARSE := 3.0
 const NOISE_SCALE_FINE := 11.0
 const NOISE_RISE_SPEED := 0.55
 const FLICKER_AMOUNT := 0.16
-const DISPLACEMENT_U := 0.055
+const DISPLACEMENT_U := 0.075
 
 ## Density multiplier at the wall's base. The mask is at its most opaque there,
 ## so this is the control that decides whether the foot of the wall reads as
@@ -86,6 +86,15 @@ const BREATH_MAX := 0.075
 ## shared corner has only the ragged top edge hiding it; this is what bounds it.
 const BREATH_FACE_MIX := 0.45
 
+## At the battle camera's framing the whole aura is roughly forty pixels tall,
+## so plus or minus 7.5% of height is two or three pixels -- present, but not
+## the thing that reads. Coupling the same breath factor into brightness and
+## into the top-edge flutter is what actually makes the idle visible: alpha
+## swings roughly BREATH_BRIGHT_COUPLING times as far as height does, and
+## brightness is legible at any size.
+const BREATH_BRIGHT_COUPLING := 1.6
+const BREATH_FLUTTER_COUPLING := 1.0
+
 ## AUTHORED entrance spread around the ring, in seconds of lag. Both terms are
 ## sines of the angle, so the phase is periodic by construction: a lag that
 ## ramps linearly with the angle wraps once around the ring and tears at exactly
@@ -114,24 +123,44 @@ const WALL_OPACITY := 0.47
 const WALL_EMISSION_ENERGY := 0.34
 const WALL_RENDER_PRIORITY := 2
 
+## Per-ring opacity and grade. The core keeps the shipped base-faint curve --
+## dim at the foot, strong at the top, controlled by WALL_BOTTOM_STRENGTH. The
+## flares invert that: they are near-zero where they meet the floor and
+## brightest through their leading third, because a bright leading edge reads
+## as motion and piling three rings' density at the foot would build exactly
+## the solid collar WALL_BOTTOM_STRENGTH exists to prevent. RING_TIP_BRIGHT is
+## a blend weight (0 or 1 here) rather than a bool because uniform arrays in
+## this shader are float only.
+const RING_OPACITY := [WALL_OPACITY, 0.32, 0.22]
+const RING_TIP_BRIGHT := [0.0, 1.0, 1.0]
+
 ## AUTHORED yellow-white grade from the reference's charged lower band.
 const AURA_COLOR := Color("fff08a")
 
-## AUTHORED ground contact. The plane is larger than the wall so its bright rim
-## remains visible outside the model and wall at the battle-camera pitch.
-const GROUND_DIAMETER_U := 1.86
+## AUTHORED ground contact. The plane is larger than the ring stack so its
+## bright rim remains visible outside the model at the battle-camera pitch.
+##
+## Sized against the outer flare's BUILT radius (1.3375u, from
+## RING_BASE_RADIUS_U[2] + RING_LENGTH_U[2] * ring_ceiling(2) * cos(40deg)), not
+## its resting one (1.1605u) -- the flare reaches the larger figure during its
+## own launch, and AURA-5C found that a plane sized against the resting radius
+## leaves the flare's peak sitting outside its own light. At 2.90u the built
+## radius lands at UV 0.4612, inside GROUND_SPILL_OUTER_UV with room to spare,
+## and the resting radius lands at 0.4002 -- close to the roughly-0.80-of-outer
+## placement the shipped single wall held its own line at.
+const GROUND_DIAMETER_U := 2.90
 const GROUND_HEIGHT_U := 0.025
 ## The ground is a radial spill centred on the source, not an annulus: a bright
 ## ring already means "this area is affected" elsewhere in this project's
 ## vocabulary (danger zones, movement range), which misstates a non-area
-## effect. In plane UV, the 1.86u plane's edge midpoint is 0.50 and the 0.74u
-## wall line falls at 0.398. Held to zero by 0.50 so the square plane's corners
-## never show; still carrying about a quarter of peak at the wall line, because
-## at the real battle framing the whole aura is roughly forty pixels tall and a
-## falloff that dies inside the wall disappears at that scale.
+## effect. Held to zero by 0.50 so the square plane's corners never show.
+##
+## GROUND_SPILL_ALPHA comes down from the shipped 0.30 because the flares now
+## light the floor themselves wherever they reach; the ground layer's own spill
+## only has to carry the space between and beyond them, not the whole reveal.
 const GROUND_SPILL_INNER_UV := 0.18
 const GROUND_SPILL_OUTER_UV := 0.50
-const GROUND_SPILL_ALPHA := 0.30
+const GROUND_SPILL_ALPHA := 0.22
 const GROUND_OPACITY := 0.78
 const GROUND_EMISSION_ENERGY := 0.52
 const GROUND_RENDER_PRIORITY := 1

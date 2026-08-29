@@ -49,10 +49,20 @@ uniform float ring_period[3];
 uniform float ring_decay[3];
 uniform float ring_overshoot[3];
 uniform float ring_breath_scale[3];
+// Grade. RING_TIP_BRIGHT is a blend weight rather than a bool because uniform
+// arrays in this shader are float only; 0 keeps the core's shipped base-faint
+// curve, 1 switches a face to the flares' tip-bright one.
+uniform float ring_opacity[3];
+uniform float ring_tip_bright[3];
 
 uniform float breath_min = 0.030;
 uniform float breath_max = 0.075;
 uniform float breath_face_mix = 0.45;
+// How far the breath's height factor is amplified into brightness and into the
+// top-edge flutter. Height alone is a couple of pixels at the battle camera's
+// framing; brightness is legible at any size.
+uniform float breath_bright_coupling = 1.6;
+uniform float breath_flutter_coupling = 1.0;
 uniform float ring_phase_a1 = 0.045;
 uniform float ring_phase_a2 = 0.022;
 
@@ -62,6 +72,9 @@ const float RING_TAU = 6.283185307179586;
 // geometry that was built. The fragment stage needs it to hold the charge noise
 // still in world units while the ring grows.
 varying float v_extension;
+// This ring's breath factor at the instant this vertex was placed, carried to
+// the fragment stage so alpha can swing with the same idle that moves height.
+varying float v_breathFactor;
 
 float hash21(vec2 p) {
 	vec2 h = fract(p * vec2(123.34, 456.21));
@@ -147,6 +160,7 @@ float ring_breath(int index, float seconds, float face_angle) {
 void vertex() {
 	if (layer_kind != 0) {
 		v_extension = 1.0;
+		v_breathFactor = 1.0;
 	} else {
 		int ring = int(round(COLOR.r * 2.0));
 
@@ -164,9 +178,9 @@ void vertex() {
 		// panels shimmering against each other, which its small amplitude can
 		// afford where the bounce's amplitude could not.
 		float face_angle = atan(NORMAL.z, NORMAL.x);
+		float breath = ring_breath(ring, playback_seconds, face_angle);
 
-		float factor = ring_bounce(ring, playback_seconds - phase)
-			* ring_breath(ring, playback_seconds, face_angle);
+		float factor = ring_bounce(ring, playback_seconds - phase) * breath;
 		float extension = clamp(factor / max(ring_ceiling[ring], 0.0001), 0.0, 1.0);
 
 		// Base and tip of a ring sit on the same radial line, so the base is
@@ -186,46 +200,73 @@ void vertex() {
 		// extension keeps the flutter at the leading edge as the ring grows.
 		// The amplitude stays small on purpose: a large one grows flame
 		// tongues, and this charges rather than burns.
+		//
+		// The flutter amount itself rides the breath, the same way alpha will
+		// in the fragment stage: the silhouette gets choppier on a swell and
+		// calms on an ebb instead of fluttering at one constant amount.
 		float along = 1.0 - UV.y;
+		float flutter_amount = displacement_u
+			* (1.0 + breath_flutter_coupling * (breath - 1.0));
 		float lift = value_noise(
 			vec2(UV.x * noise_scale_coarse, playback_time * 1.6)
 				+ vec2(playback_seed, playback_seed)
 		) - 0.5;
-		VERTEX.y += lift * 2.0 * displacement_u * along * along * extension;
+		VERTEX.y += lift * 2.0 * flutter_amount * along * along * extension;
 
 		v_extension = extension;
+		v_breathFactor = breath;
 	}
 }
 
 void fragment() {
 	float mask_alpha = 0.0;
+	float layer_opacity = opacity;
+	float bright_coupling = 1.0;
 	if (layer_kind == 0) {
+		int ring = int(round(COLOR.r * 2.0));
+		float along = 1.0 - UV.y;
+
 		// The authored mask reserves transparent headroom. Remap its active
 		// range over the full mesh so the prism reaches character height while
 		// retaining a faint, broadly level top edge. The geometry itself
 		// shortens as the ring retracts, so this remap holds the authored taper
 		// at the leading edge at every extension.
 		float sample_v = mix(0.34, 1.0, UV.y);
-		float vertical_density = mix(wall_bottom_strength, 1.0, UV.y);
+
+		// The core keeps its shipped base-faint curve, dim at the foot and
+		// strong at the top. A flare inverts that: near-nothing where it meets
+		// the floor, brightest through its leading third and tapering at the
+		// very tip so that edge stays soft rather than a hard bright line --
+		// stacking three rings' density at the foot would otherwise build
+		// exactly the solid collar WALL_BOTTOM_STRENGTH exists to prevent.
+		float base_faint = mix(wall_bottom_strength, 1.0, UV.y);
+		float tip_bright = smoothstep(0.0, 0.38, along)
+			* (1.0 - 0.85 * smoothstep(0.78, 1.0, along));
+		float vertical_density = mix(base_faint, tip_bright, ring_tip_bright[ring]);
 		float base = texture(aura_mask, vec2(UV.x, sample_v)).a * vertical_density;
 
 		// Noise is sampled against the ring's world extent, not against its UV.
 		// Sampled in UV it would squash and stretch with the ring, and since the
 		// height is now never constant, the texture would look like the thing
 		// that was breathing instead of the body.
-		vec2 mesh_uv = vec2(UV.x, (1.0 - UV.y) * v_extension);
+		vec2 mesh_uv = vec2(UV.x, along * v_extension);
 
 		// Noise modulates the authored density rather than replacing it, so the
 		// mask still owns the silhouette and the noise only breaks it up. The
 		// floor matters: allowed to reach zero, the wall drops out between
 		// noise cells and reads as television static instead of charge.
 		mask_alpha = base * mix(0.55, 1.15, charge_noise(mesh_uv));
+		layer_opacity = ring_opacity[ring];
+		// Alpha swings with the same breath that moves height, amplified by
+		// BREATH_BRIGHT_COUPLING so the idle reads at the battle camera's
+		// framing even though a few pixels of height motion would not.
+		bright_coupling = 1.0 + breath_bright_coupling * (v_breathFactor - 1.0);
 	} else {
 		// A radial spill centred on the source, not a rim. Radii are in plane
-		// UV: the 1.86u plane puts its edge midpoint at 0.50 and the 0.74u wall
-		// line at 0.398, so the spill still carries roughly a quarter of its
-		// peak where the wall meets the ground and reaches zero before the
-		// square plane's corners can show as geometry.
+		// UV: the plane's edge midpoint is 0.50, and it is sized against the
+		// outer flare's built radius so that ring's own peak still lands inside
+		// the spill rather than outside its own light (see GROUND_DIAMETER_U).
+		// Reaches zero before the square plane's corners can show as geometry.
 		vec2 centred = UV * 2.0 - 1.0;
 		float radius = length(centred) * 0.5;
 		float spill = 1.0 - smoothstep(
@@ -255,5 +296,9 @@ void fragment() {
 
 	ALBEDO = aura_color.rgb;
 	EMISSION = aura_color.rgb * emission_energy;
-	ALPHA = clamp(mask_alpha * opacity * lifecycle_visibility * flutter, 0.0, 1.0);
+	ALPHA = clamp(
+		mask_alpha * layer_opacity * bright_coupling * lifecycle_visibility * flutter,
+		0.0,
+		1.0
+	);
 }
