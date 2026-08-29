@@ -3,9 +3,9 @@
 ## AUTHORED from the supplied finishing-technique reference sequence. The
 ## implementation is original and owns every value and resource it consumes.
 
-class_name TechniqueChargeAuraProfile
+class_name TechniqueChargeAuraV1Profile
 
-const PROFILE_ID := "technique_charge_aura"
+const PROFILE_ID := "technique_charge_aura_v1"
 
 ## AUTHORED beat timing.
 ##

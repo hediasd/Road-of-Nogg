@@ -14,8 +14,8 @@ const AuroraVeilEffectScript = preload(
 		"res://src/presentation/effects/AuroraVeilEffect.gd")
 const SolarStormEffectScript = preload(
 		"res://src/presentation/effects/SolarStormEffect.gd")
-const TechniqueChargeAuraEffectScript = preload(
-		"res://src/presentation/effects/TechniqueChargeAuraEffect.gd")
+const TechniqueChargeAuraV1EffectScript = preload(
+		"res://src/presentation/effects/TechniqueChargeAuraV1Effect.gd")
 const GENERIC_AURA_PROFILE_ID := SpellCastAuraProfile.PROFILE_ID
 
 
@@ -29,11 +29,11 @@ static func entries() -> Array[Dictionary]:
 			"max_live": SpellCastAuraProfile.MAX_LIVE_AURAS,
 		},
 		{
-			"profile_id": TechniqueChargeAuraProfile.PROFILE_ID,
-			"display_name": "Technique Charge Aura (preview)",
-			"factory": Callable(TechniqueChargeAuraEffectScript, "createPlayback"),
-			"action_hold_fraction": TechniqueChargeAuraProfile.ACTION_HOLD_FRACTION,
-			"max_live": TechniqueChargeAuraProfile.MAX_LIVE_AURAS,
+			"profile_id": TechniqueChargeAuraV1Profile.PROFILE_ID,
+			"display_name": "Technique Charge Aura v1 (preview)",
+			"factory": Callable(TechniqueChargeAuraV1EffectScript, "createPlayback"),
+			"action_hold_fraction": TechniqueChargeAuraV1Profile.ACTION_HOLD_FRACTION,
+			"max_live": TechniqueChargeAuraV1Profile.MAX_LIVE_AURAS,
 		},
 		{
 			"profile_id": IceStormProfile.PROFILE_ID,

@@ -931,9 +931,12 @@ so they agree by construction.
 Current gap, tracked in `BACKLOG_LONGTERM.md`: ground washes carry every shape,
 but particle layers still do not handle `cross` or `line`.
 
-### Technique charge aura: debug-only source silhouette
+### Technique charge aura v1: debug-only source silhouette
 
-`technique_charge_aura` is a debug-catalog entry, not a production carrier.
+`technique_charge_aura_v1` is a debug-catalog entry, not a production
+carrier. It carries a version suffix because a v2 is being designed against
+it: v2 forks this profile under its own files per the sibling rule above and
+leaves v1 untouched, so both stay previewable side by side in the catalog.
 `SpellVfxCatalog` registers it additively; no spell selects it through
 `VFX_PROFILE`. Building it from four Digimon World 1 finishing-technique
 reference frames was authorized on 2026-08-25 explicitly to defer that
@@ -945,7 +948,7 @@ currently have, both of which are live gameplay integration this cycle was
 opened to defer.
 
 The effect is a ground plane and a **three-ring stack**,
-`TechniqueChargeAuraEffect` reanchored through `configure_cast_context()` to
+`TechniqueChargeAuraV1Effect` reanchored through `configure_cast_context()` to
 the cast context's source position only — it never reads target fields. Ring 0
 is the vertical core wall the effect originally shipped as; rings 1 and 2 are
 flares leaning outward off the floor. `RING_LEAN_DEGREES` is measured from the
@@ -1142,7 +1145,7 @@ the only thing carrying the face's azimuth to the shader.
 
 ```bash
 Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
-  --effect=technique_charge_aura --seed=7 --hide-hud \
+  --effect=technique_charge_aura_v1 --seed=7 --hide-hud \
   --capture-at=0.08,0.185,0.29,0.60,0.94 --capture-sheet --resolution 1400x900
 ```
 

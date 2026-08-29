@@ -293,7 +293,7 @@ then run the existing VFX golden comparison to prove defaults did not change.
 
 ## Technique-charge aura as a pre-cast telegraph on the casting entity
 
-The polygonal technique-charge aura (`technique_charge_aura` in
+The polygonal technique-charge aura (`technique_charge_aura_v1` in
 `SpellVfxCatalog`) is debug-only by deliberate 2026-08-25/26 decision. The
 user's actual production intent is for it to appear briefly on a casting
 entity immediately before that entity releases a spell, as a visual telegraph

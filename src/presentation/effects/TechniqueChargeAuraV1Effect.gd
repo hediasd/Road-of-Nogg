@@ -4,12 +4,15 @@
 ## process reference only: this effect owns its mesh construction, materials,
 ## texture, profile, and lifecycle implementation.
 
-class_name TechniqueChargeAuraEffect
+class_name TechniqueChargeAuraV1Effect
 extends "res://src/presentation/effects/VfxPlayback.gd"
 
 const _AURA_SHADER = preload(
-	"res://assets/shaders/effects/technique_charge_aura.gdshader"
+	"res://assets/shaders/effects/technique_charge_aura_v1.gdshader"
 )
+# v1 owns this mask. The directory keeps its unversioned name because renaming
+# an imported asset churns its .import sidecar and UID for no functional gain;
+# a v2 fork takes its own copy under its own directory rather than sharing it.
 const _AURA_MASK = preload(
 	"res://assets/vfx/technique_charge_aura/aura_panel.png"
 )
@@ -33,17 +36,17 @@ var _seedOffset := 0.0
 ## the debug panel pushes an override. Read through `tunable()` there rather
 ## than per frame: a dictionary lookup inside the per-frame path would cost
 ## real performance in the one tool used to judge performance.
-var _igniteEnd := TechniqueChargeAuraProfile.IGNITE_END_NORMALIZED
-var _groundIgniteEnd := TechniqueChargeAuraProfile.GROUND_IGNITE_LEAD_NORMALIZED
-var _releaseStart := TechniqueChargeAuraProfile.RELEASE_START_NORMALIZED
-var _noiseScaleCoarse := TechniqueChargeAuraProfile.NOISE_SCALE_COARSE
-var _noiseScaleFine := TechniqueChargeAuraProfile.NOISE_SCALE_FINE
-var _noiseRiseSpeed := TechniqueChargeAuraProfile.NOISE_RISE_SPEED
-var _flickerAmount := TechniqueChargeAuraProfile.FLICKER_AMOUNT
-var _displacement := TechniqueChargeAuraProfile.DISPLACEMENT_U
-var _wallBottomStrength := TechniqueChargeAuraProfile.WALL_BOTTOM_STRENGTH
-var _groundSpillAlpha := TechniqueChargeAuraProfile.GROUND_SPILL_ALPHA
-var _groundSpillOuter := TechniqueChargeAuraProfile.GROUND_SPILL_OUTER_UV
+var _igniteEnd := TechniqueChargeAuraV1Profile.IGNITE_END_NORMALIZED
+var _groundIgniteEnd := TechniqueChargeAuraV1Profile.GROUND_IGNITE_LEAD_NORMALIZED
+var _releaseStart := TechniqueChargeAuraV1Profile.RELEASE_START_NORMALIZED
+var _noiseScaleCoarse := TechniqueChargeAuraV1Profile.NOISE_SCALE_COARSE
+var _noiseScaleFine := TechniqueChargeAuraV1Profile.NOISE_SCALE_FINE
+var _noiseRiseSpeed := TechniqueChargeAuraV1Profile.NOISE_RISE_SPEED
+var _flickerAmount := TechniqueChargeAuraV1Profile.FLICKER_AMOUNT
+var _displacement := TechniqueChargeAuraV1Profile.DISPLACEMENT_U
+var _wallBottomStrength := TechniqueChargeAuraV1Profile.WALL_BOTTOM_STRENGTH
+var _groundSpillAlpha := TechniqueChargeAuraV1Profile.GROUND_SPILL_ALPHA
+var _groundSpillOuter := TechniqueChargeAuraV1Profile.GROUND_SPILL_OUTER_UV
 
 
 ## Live-authoring roster. `rebuild: true` marks the values consumed while the
@@ -54,96 +57,96 @@ static func tunables() -> Array[Dictionary]:
 		{
 			"id": "WALL_SIDES", "label": "Sides", "group": "Dimensions",
 			"min": 3.0, "max": 16.0, "step": 1.0,
-			"default": float(TechniqueChargeAuraProfile.WALL_SIDES),
+			"default": float(TechniqueChargeAuraV1Profile.WALL_SIDES),
 			"rebuild": true,
 		},
 		{
 			"id": "WALL_RADIUS_U", "label": "Radius", "group": "Dimensions",
 			"min": 0.2, "max": 2.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.WALL_RADIUS_U,
+			"default": TechniqueChargeAuraV1Profile.WALL_RADIUS_U,
 			"rebuild": true,
 		},
 		{
 			"id": "WALL_HEIGHT_U", "label": "Height", "group": "Dimensions",
 			"min": 0.4, "max": 4.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.WALL_HEIGHT_U,
+			"default": TechniqueChargeAuraV1Profile.WALL_HEIGHT_U,
 			"rebuild": true,
 		},
 		{
 			"id": "GROUND_DIAMETER_U", "label": "Ground size",
 			"group": "Dimensions",
 			"min": 0.5, "max": 5.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.GROUND_DIAMETER_U,
+			"default": TechniqueChargeAuraV1Profile.GROUND_DIAMETER_U,
 			"rebuild": true,
 		},
 		{
 			"id": "WALL_BOTTOM_STRENGTH", "label": "Bottom strength",
 			"group": "Wall",
 			"min": 0.0, "max": 1.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.WALL_BOTTOM_STRENGTH,
+			"default": TechniqueChargeAuraV1Profile.WALL_BOTTOM_STRENGTH,
 			"rebuild": false,
 		},
 		{
 			"id": "NOISE_SCALE_COARSE", "label": "Noise coarse", "group": "Noise",
 			"min": 0.5, "max": 12.0, "step": 0.1,
-			"default": TechniqueChargeAuraProfile.NOISE_SCALE_COARSE,
+			"default": TechniqueChargeAuraV1Profile.NOISE_SCALE_COARSE,
 			"rebuild": false,
 		},
 		{
 			"id": "NOISE_SCALE_FINE", "label": "Noise fine", "group": "Noise",
 			"min": 2.0, "max": 40.0, "step": 0.5,
-			"default": TechniqueChargeAuraProfile.NOISE_SCALE_FINE,
+			"default": TechniqueChargeAuraV1Profile.NOISE_SCALE_FINE,
 			"rebuild": false,
 		},
 		{
 			"id": "NOISE_RISE_SPEED", "label": "Rise speed", "group": "Noise",
 			"min": 0.0, "max": 3.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.NOISE_RISE_SPEED,
+			"default": TechniqueChargeAuraV1Profile.NOISE_RISE_SPEED,
 			"rebuild": false,
 		},
 		{
 			"id": "FLICKER_AMOUNT", "label": "Flicker", "group": "Motion",
 			"min": 0.0, "max": 0.6, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.FLICKER_AMOUNT,
+			"default": TechniqueChargeAuraV1Profile.FLICKER_AMOUNT,
 			"rebuild": false,
 		},
 		{
 			"id": "DISPLACEMENT_U", "label": "Height flutter", "group": "Motion",
 			"min": 0.0, "max": 0.3, "step": 0.005,
-			"default": TechniqueChargeAuraProfile.DISPLACEMENT_U,
+			"default": TechniqueChargeAuraV1Profile.DISPLACEMENT_U,
 			"rebuild": false,
 		},
 		{
 			"id": "IGNITE_END_NORMALIZED", "label": "Ignite end", "group": "Fade",
 			"min": 0.02, "max": 0.6, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.IGNITE_END_NORMALIZED,
+			"default": TechniqueChargeAuraV1Profile.IGNITE_END_NORMALIZED,
 			"rebuild": false,
 		},
 		{
 			"id": "RELEASE_START_NORMALIZED", "label": "Release start",
 			"group": "Fade",
 			"min": 0.4, "max": 1.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.RELEASE_START_NORMALIZED,
+			"default": TechniqueChargeAuraV1Profile.RELEASE_START_NORMALIZED,
 			"rebuild": false,
 		},
 		{
 			"id": "GROUND_SPILL_ALPHA", "label": "Spill strength",
 			"group": "Circle",
 			"min": 0.0, "max": 1.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.GROUND_SPILL_ALPHA,
+			"default": TechniqueChargeAuraV1Profile.GROUND_SPILL_ALPHA,
 			"rebuild": false,
 		},
 		{
 			"id": "GROUND_SPILL_OUTER_UV", "label": "Spill reach",
 			"group": "Circle",
 			"min": 0.2, "max": 0.5, "step": 0.005,
-			"default": TechniqueChargeAuraProfile.GROUND_SPILL_OUTER_UV,
+			"default": TechniqueChargeAuraV1Profile.GROUND_SPILL_OUTER_UV,
 			"rebuild": false,
 		},
 		{
 			"id": "BOUNCE_OVERSHOOT", "label": "Overshoot", "group": "Bounce",
 			"min": 0.0, "max": 1.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.RING_OVERSHOOT[0],
+			"default": TechniqueChargeAuraV1Profile.RING_OVERSHOOT[0],
 			# The mesh is built at the core's ceiling extension; a larger
 			# overshoot needs more of it built or the bounce clips against
 			# geometry sized for the old, smaller peak.
@@ -152,25 +155,25 @@ static func tunables() -> Array[Dictionary]:
 		{
 			"id": "BOUNCE_PERIOD", "label": "Period", "group": "Bounce",
 			"min": 0.1, "max": 1.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.RING_BOUNCE_PERIOD_SECONDS[0],
+			"default": TechniqueChargeAuraV1Profile.RING_BOUNCE_PERIOD_SECONDS[0],
 			"rebuild": false,
 		},
 		{
 			"id": "BOUNCE_DECAY", "label": "Decay", "group": "Bounce",
 			"min": 0.5, "max": 8.0, "step": 0.05,
-			"default": TechniqueChargeAuraProfile.RING_BOUNCE_DECAY[0],
+			"default": TechniqueChargeAuraV1Profile.RING_BOUNCE_DECAY[0],
 			"rebuild": false,
 		},
 		{
 			"id": "BREATH_MIN", "label": "Min amplitude", "group": "Breath",
 			"min": 0.0, "max": 0.15, "step": 0.005,
-			"default": TechniqueChargeAuraProfile.BREATH_MIN,
+			"default": TechniqueChargeAuraV1Profile.BREATH_MIN,
 			"rebuild": false,
 		},
 		{
 			"id": "BREATH_MAX", "label": "Max amplitude", "group": "Breath",
 			"min": 0.0, "max": 0.20, "step": 0.005,
-			"default": TechniqueChargeAuraProfile.BREATH_MAX,
+			"default": TechniqueChargeAuraV1Profile.BREATH_MAX,
 			# Feeds every ring's ceiling, core included -- same reasoning as
 			# BOUNCE_OVERSHOOT above.
 			"rebuild": true,
@@ -178,38 +181,38 @@ static func tunables() -> Array[Dictionary]:
 		{
 			"id": "BREATH_FACE_MIX", "label": "Face mix", "group": "Breath",
 			"min": 0.0, "max": 1.0, "step": 0.01,
-			"default": TechniqueChargeAuraProfile.BREATH_FACE_MIX,
+			"default": TechniqueChargeAuraV1Profile.BREATH_FACE_MIX,
 			"rebuild": false,
 		},
 		{
 			"id": "BREATH_BRIGHT_COUPLING", "label": "Bright coupling",
 			"group": "Breath",
 			"min": 0.0, "max": 4.0, "step": 0.05,
-			"default": TechniqueChargeAuraProfile.BREATH_BRIGHT_COUPLING,
+			"default": TechniqueChargeAuraV1Profile.BREATH_BRIGHT_COUPLING,
 			"rebuild": false,
 		},
 		{
 			"id": "BREATH_RATE_SLOW", "label": "Rate (slow)", "group": "Breath",
 			"min": 0.2, "max": 6.0, "step": 0.1,
-			"default": TechniqueChargeAuraProfile.BREATH_RATE_SLOW,
+			"default": TechniqueChargeAuraV1Profile.BREATH_RATE_SLOW,
 			"rebuild": false,
 		},
 		{
 			"id": "BREATH_RATE_FAST", "label": "Rate (fast)", "group": "Breath",
 			"min": 0.2, "max": 10.0, "step": 0.1,
-			"default": TechniqueChargeAuraProfile.BREATH_RATE_FAST,
+			"default": TechniqueChargeAuraV1Profile.BREATH_RATE_FAST,
 			"rebuild": false,
 		},
 		{
 			"id": "RING_PHASE_A1", "label": "Spread (1st)", "group": "Ring",
 			"min": 0.0, "max": 0.15, "step": 0.005,
-			"default": TechniqueChargeAuraProfile.RING_PHASE_A1,
+			"default": TechniqueChargeAuraV1Profile.RING_PHASE_A1,
 			"rebuild": false,
 		},
 		{
 			"id": "RING_PHASE_A2", "label": "Spread (2nd)", "group": "Ring",
 			"min": 0.0, "max": 0.10, "step": 0.005,
-			"default": TechniqueChargeAuraProfile.RING_PHASE_A2,
+			"default": TechniqueChargeAuraV1Profile.RING_PHASE_A2,
 			"rebuild": false,
 		},
 		{
@@ -237,9 +240,9 @@ static func createPlayback(
 		parent: Node3D,
 		world_position: Vector3,
 		_element_color: Color,
-		overrides: Dictionary = {}) -> TechniqueChargeAuraEffect:
-	var playback := TechniqueChargeAuraEffect.new()
-	playback.name = "TechniqueChargeAuraEffect"
+		overrides: Dictionary = {}) -> TechniqueChargeAuraV1Effect:
+	var playback := TechniqueChargeAuraV1Effect.new()
+	playback.name = "TechniqueChargeAuraV1Effect"
 	playback.position = world_position
 	parent.add_child(playback)
 	playback.set_tunable_overrides(overrides)
@@ -255,7 +258,7 @@ func configure_cast_context(context: VfxCastContext) -> void:
 
 
 func play(seed: int, mode: String) -> void:
-	assert(not _disposed, "Cannot play a disposed TechniqueChargeAuraEffect.")
+	assert(not _disposed, "Cannot play a disposed TechniqueChargeAuraV1Effect.")
 	assert(mode == MODE_REFERENCE or mode == MODE_BATTLE, "Unknown VFX playback mode.")
 	# The seed only ever offsets the noise sample point, so two seeds are two
 	# draws of the same authored material rather than two different looks.
@@ -283,7 +286,7 @@ func seek_normalized(time: float) -> void:
 	if _disposed:
 		return
 	var normalized_time := clampf(time, 0.0, 1.0)
-	_elapsedTime = normalized_time * TechniqueChargeAuraProfile.DURATION_SECONDS
+	_elapsedTime = normalized_time * TechniqueChargeAuraV1Profile.DURATION_SECONDS
 	_finished = normalized_time >= 1.0
 	_playing = not _finished
 	if _finished:
@@ -293,12 +296,12 @@ func seek_normalized(time: float) -> void:
 
 
 func skip_to_settle() -> void:
-	seek_normalized(TechniqueChargeAuraProfile.SETTLE_NORMALIZED_TIME)
+	seek_normalized(TechniqueChargeAuraV1Profile.SETTLE_NORMALIZED_TIME)
 
 
 func get_normalized_time() -> float:
 	return clampf(
-		_elapsedTime / TechniqueChargeAuraProfile.DURATION_SECONDS,
+		_elapsedTime / TechniqueChargeAuraV1Profile.DURATION_SECONDS,
 		0.0,
 		1.0
 	)
@@ -309,7 +312,7 @@ func get_elapsed_time() -> float:
 
 
 func get_total_duration() -> float:
-	return TechniqueChargeAuraProfile.DURATION_SECONDS
+	return TechniqueChargeAuraV1Profile.DURATION_SECONDS
 
 
 func is_finished() -> bool:
@@ -343,7 +346,7 @@ func set_layer_visible(layer_name: String, visible: bool) -> void:
 			if _wallInstance != null:
 				_wallInstance.visible = visible
 		_:
-			push_warning("Unknown TechniqueChargeAuraEffect layer: %s" % layer_name)
+			push_warning("Unknown TechniqueChargeAuraV1Effect layer: %s" % layer_name)
 
 
 func get_live_particle_count() -> int:
@@ -378,10 +381,10 @@ func _process(delta: float) -> void:
 	if _disposed or not _playing:
 		return
 	_elapsedTime += delta * _playbackScale
-	if _elapsedTime < TechniqueChargeAuraProfile.DURATION_SECONDS:
+	if _elapsedTime < TechniqueChargeAuraV1Profile.DURATION_SECONDS:
 		_applyTimeline()
 		return
-	_elapsedTime = TechniqueChargeAuraProfile.DURATION_SECONDS
+	_elapsedTime = TechniqueChargeAuraV1Profile.DURATION_SECONDS
 	_playing = false
 	_finished = true
 	_applyVisibility(0.0)
@@ -391,39 +394,39 @@ func _process(delta: float) -> void:
 
 func _readLiveTunables() -> void:
 	_igniteEnd = tunable(
-		"IGNITE_END_NORMALIZED", TechniqueChargeAuraProfile.IGNITE_END_NORMALIZED
+		"IGNITE_END_NORMALIZED", TechniqueChargeAuraV1Profile.IGNITE_END_NORMALIZED
 	)
 	_groundIgniteEnd = tunable(
 		"GROUND_IGNITE_LEAD_NORMALIZED",
-		TechniqueChargeAuraProfile.GROUND_IGNITE_LEAD_NORMALIZED
+		TechniqueChargeAuraV1Profile.GROUND_IGNITE_LEAD_NORMALIZED
 	)
 	_releaseStart = tunable(
 		"RELEASE_START_NORMALIZED",
-		TechniqueChargeAuraProfile.RELEASE_START_NORMALIZED
+		TechniqueChargeAuraV1Profile.RELEASE_START_NORMALIZED
 	)
 	_noiseScaleCoarse = tunable(
-		"NOISE_SCALE_COARSE", TechniqueChargeAuraProfile.NOISE_SCALE_COARSE
+		"NOISE_SCALE_COARSE", TechniqueChargeAuraV1Profile.NOISE_SCALE_COARSE
 	)
 	_noiseScaleFine = tunable(
-		"NOISE_SCALE_FINE", TechniqueChargeAuraProfile.NOISE_SCALE_FINE
+		"NOISE_SCALE_FINE", TechniqueChargeAuraV1Profile.NOISE_SCALE_FINE
 	)
 	_noiseRiseSpeed = tunable(
-		"NOISE_RISE_SPEED", TechniqueChargeAuraProfile.NOISE_RISE_SPEED
+		"NOISE_RISE_SPEED", TechniqueChargeAuraV1Profile.NOISE_RISE_SPEED
 	)
 	_flickerAmount = tunable(
-		"FLICKER_AMOUNT", TechniqueChargeAuraProfile.FLICKER_AMOUNT
+		"FLICKER_AMOUNT", TechniqueChargeAuraV1Profile.FLICKER_AMOUNT
 	)
 	_displacement = tunable(
-		"DISPLACEMENT_U", TechniqueChargeAuraProfile.DISPLACEMENT_U
+		"DISPLACEMENT_U", TechniqueChargeAuraV1Profile.DISPLACEMENT_U
 	)
 	_wallBottomStrength = tunable(
-		"WALL_BOTTOM_STRENGTH", TechniqueChargeAuraProfile.WALL_BOTTOM_STRENGTH
+		"WALL_BOTTOM_STRENGTH", TechniqueChargeAuraV1Profile.WALL_BOTTOM_STRENGTH
 	)
 	_groundSpillAlpha = tunable(
-		"GROUND_SPILL_ALPHA", TechniqueChargeAuraProfile.GROUND_SPILL_ALPHA
+		"GROUND_SPILL_ALPHA", TechniqueChargeAuraV1Profile.GROUND_SPILL_ALPHA
 	)
 	_groundSpillOuter = tunable(
-		"GROUND_SPILL_OUTER_UV", TechniqueChargeAuraProfile.GROUND_SPILL_OUTER_UV
+		"GROUND_SPILL_OUTER_UV", TechniqueChargeAuraV1Profile.GROUND_SPILL_OUTER_UV
 	)
 
 
@@ -449,27 +452,27 @@ func _pushLiveTunables() -> void:
 func _buildOwnedLayers() -> void:
 	_readLiveTunables()
 	_groundMaterial = _createOwnedMaterial(1)
-	_groundMaterial.render_priority = TechniqueChargeAuraProfile.GROUND_RENDER_PRIORITY
+	_groundMaterial.render_priority = TechniqueChargeAuraV1Profile.GROUND_RENDER_PRIORITY
 	_groundMaterial.set_shader_parameter(
-		"opacity", TechniqueChargeAuraProfile.GROUND_OPACITY
+		"opacity", TechniqueChargeAuraV1Profile.GROUND_OPACITY
 	)
 	_groundMaterial.set_shader_parameter(
-		"emission_energy", TechniqueChargeAuraProfile.GROUND_EMISSION_ENERGY
+		"emission_energy", TechniqueChargeAuraV1Profile.GROUND_EMISSION_ENERGY
 	)
 	_groundMaterial.set_shader_parameter(
-		"ground_spill_inner", TechniqueChargeAuraProfile.GROUND_SPILL_INNER_UV
+		"ground_spill_inner", TechniqueChargeAuraV1Profile.GROUND_SPILL_INNER_UV
 	)
 	_groundMaterial.set_shader_parameter("ground_spill_outer", _groundSpillOuter)
 	_groundMaterial.set_shader_parameter("ground_spill_alpha", _groundSpillAlpha)
 
 	var ground_mesh := PlaneMesh.new()
 	ground_mesh.size = Vector2.ONE * tunable(
-		"GROUND_DIAMETER_U", TechniqueChargeAuraProfile.GROUND_DIAMETER_U
+		"GROUND_DIAMETER_U", TechniqueChargeAuraV1Profile.GROUND_DIAMETER_U
 	)
 	_groundInstance = MeshInstance3D.new()
 	_groundInstance.name = "GroundCircle"
 	_groundInstance.mesh = ground_mesh
-	_groundInstance.position.y = TechniqueChargeAuraProfile.GROUND_HEIGHT_U
+	_groundInstance.position.y = TechniqueChargeAuraV1Profile.GROUND_HEIGHT_U
 	_groundInstance.material_override = _groundMaterial
 	_groundInstance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_groundInstance)
@@ -477,9 +480,9 @@ func _buildOwnedLayers() -> void:
 	var ring_specs := _ringSpecs()
 
 	_wallMaterial = _createOwnedMaterial(0)
-	_wallMaterial.render_priority = TechniqueChargeAuraProfile.WALL_RENDER_PRIORITY
+	_wallMaterial.render_priority = TechniqueChargeAuraV1Profile.WALL_RENDER_PRIORITY
 	_wallMaterial.set_shader_parameter(
-		"emission_energy", TechniqueChargeAuraProfile.WALL_EMISSION_ENERGY
+		"emission_energy", TechniqueChargeAuraV1Profile.WALL_EMISSION_ENERGY
 	)
 
 	_wallInstance = MeshInstance3D.new()
@@ -494,15 +497,15 @@ func _buildOwnedLayers() -> void:
 	_pushLiveTunables()
 
 	assert(
-		get_child_count() + 1 <= TechniqueChargeAuraProfile.MAX_EFFECT_NODES,
+		get_child_count() + 1 <= TechniqueChargeAuraV1Profile.MAX_EFFECT_NODES,
 		"Technique charge aura exceeded its authored node ceiling."
 	)
 	assert(
-		2 <= TechniqueChargeAuraProfile.MAX_GEOMETRY_INSTANCES,
+		2 <= TechniqueChargeAuraV1Profile.MAX_GEOMETRY_INSTANCES,
 		"Technique charge aura exceeded its authored geometry ceiling."
 	)
 	assert(
-		2 <= TechniqueChargeAuraProfile.MAX_DRAW_CALLS,
+		2 <= TechniqueChargeAuraV1Profile.MAX_DRAW_CALLS,
 		"Technique charge aura exceeded its authored draw-call ceiling."
 	)
 
@@ -511,7 +514,7 @@ func _createOwnedMaterial(layer_kind: int) -> ShaderMaterial:
 	var material := ShaderMaterial.new()
 	material.shader = _AURA_SHADER
 	material.set_shader_parameter("aura_mask", _AURA_MASK)
-	material.set_shader_parameter("aura_color", TechniqueChargeAuraProfile.AURA_COLOR)
+	material.set_shader_parameter("aura_color", TechniqueChargeAuraV1Profile.AURA_COLOR)
 	material.set_shader_parameter("layer_kind", layer_kind)
 	material.set_shader_parameter("lifecycle_visibility", 1.0)
 	return material
@@ -608,20 +611,20 @@ func _on_tunables_applied() -> void:
 ## larger overshoot would silently clip against geometry sized for the smaller
 ## one.
 func _ringSpecs() -> Array:
-	var sides := tunable_int("WALL_SIDES", TechniqueChargeAuraProfile.WALL_SIDES)
+	var sides := tunable_int("WALL_SIDES", TechniqueChargeAuraV1Profile.WALL_SIDES)
 	var core_overshoot := tunable(
-		"BOUNCE_OVERSHOOT", TechniqueChargeAuraProfile.RING_OVERSHOOT[0]
+		"BOUNCE_OVERSHOOT", TechniqueChargeAuraV1Profile.RING_OVERSHOOT[0]
 	)
-	var breath_max := tunable("BREATH_MAX", TechniqueChargeAuraProfile.BREATH_MAX)
+	var breath_max := tunable("BREATH_MAX", TechniqueChargeAuraV1Profile.BREATH_MAX)
 	var flare_lean_offset := tunable("FLARE_LEAN_OFFSET_DEGREES", 0.0)
 	var flare_reach_scale := tunable("FLARE_REACH_SCALE", 1.0)
 
 	var specs: Array = []
-	for index in TechniqueChargeAuraProfile.RING_COUNT:
-		var base_radius := float(TechniqueChargeAuraProfile.RING_BASE_RADIUS_U[index])
-		var length := float(TechniqueChargeAuraProfile.RING_LENGTH_U[index])
-		var lean := float(TechniqueChargeAuraProfile.RING_LEAN_DEGREES[index])
-		var overshoot := float(TechniqueChargeAuraProfile.RING_OVERSHOOT[index])
+	for index in TechniqueChargeAuraV1Profile.RING_COUNT:
+		var base_radius := float(TechniqueChargeAuraV1Profile.RING_BASE_RADIUS_U[index])
+		var length := float(TechniqueChargeAuraV1Profile.RING_LENGTH_U[index])
+		var lean := float(TechniqueChargeAuraV1Profile.RING_LEAN_DEGREES[index])
+		var overshoot := float(TechniqueChargeAuraV1Profile.RING_OVERSHOOT[index])
 		if index == 0:
 			base_radius = tunable("WALL_RADIUS_U", base_radius)
 			length = tunable("WALL_HEIGHT_U", length)
@@ -629,10 +632,10 @@ func _ringSpecs() -> Array:
 		else:
 			length *= flare_reach_scale
 			lean += flare_lean_offset
-		var ceiling := TechniqueChargeAuraProfile.ring_ceiling_for(
+		var ceiling := TechniqueChargeAuraV1Profile.ring_ceiling_for(
 			overshoot,
 			breath_max,
-			float(TechniqueChargeAuraProfile.RING_BREATH_SCALE[index])
+			float(TechniqueChargeAuraV1Profile.RING_BREATH_SCALE[index])
 		)
 		specs.append({
 			"sides": sides,
@@ -669,13 +672,13 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	# and fallback, which is what keeps a pure dict lookup consistent between
 	# the two call sites without threading a value through.
 	var core_period := tunable(
-		"BOUNCE_PERIOD", TechniqueChargeAuraProfile.RING_BOUNCE_PERIOD_SECONDS[0]
+		"BOUNCE_PERIOD", TechniqueChargeAuraV1Profile.RING_BOUNCE_PERIOD_SECONDS[0]
 	)
 	var core_decay := tunable(
-		"BOUNCE_DECAY", TechniqueChargeAuraProfile.RING_BOUNCE_DECAY[0]
+		"BOUNCE_DECAY", TechniqueChargeAuraV1Profile.RING_BOUNCE_DECAY[0]
 	)
 	var core_overshoot := tunable(
-		"BOUNCE_OVERSHOOT", TechniqueChargeAuraProfile.RING_OVERSHOOT[0]
+		"BOUNCE_OVERSHOOT", TechniqueChargeAuraV1Profile.RING_OVERSHOOT[0]
 	)
 	var flare_opacity_scale := tunable("FLARE_OPACITY_SCALE", 1.0)
 
@@ -690,33 +693,33 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	var ring_opacity := PackedFloat32Array()
 	var ring_tip_bright := PackedFloat32Array()
 
-	for index in TechniqueChargeAuraProfile.RING_COUNT:
+	for index in TechniqueChargeAuraV1Profile.RING_COUNT:
 		base_radius.append(float(rings[index]["base_radius"]))
 		# Sourced from the spec list the mesh was actually built from, not
 		# recomputed from the profile's authored default -- the geometry and
 		# this uniform have to describe the same ceiling.
 		ceiling.append(float(rings[index]["extension_scale"]))
-		launch.append(float(TechniqueChargeAuraProfile.RING_LAUNCH_SECONDS[index]))
-		rise.append(float(TechniqueChargeAuraProfile.RING_RISE_SECONDS[index]))
+		launch.append(float(TechniqueChargeAuraV1Profile.RING_LAUNCH_SECONDS[index]))
+		rise.append(float(TechniqueChargeAuraV1Profile.RING_RISE_SECONDS[index]))
 		if index == 0:
 			period.append(core_period)
 			decay.append(core_decay)
 			overshoot.append(core_overshoot)
 		else:
 			period.append(
-				float(TechniqueChargeAuraProfile.RING_BOUNCE_PERIOD_SECONDS[index])
+				float(TechniqueChargeAuraV1Profile.RING_BOUNCE_PERIOD_SECONDS[index])
 			)
-			decay.append(float(TechniqueChargeAuraProfile.RING_BOUNCE_DECAY[index]))
-			overshoot.append(float(TechniqueChargeAuraProfile.RING_OVERSHOOT[index]))
+			decay.append(float(TechniqueChargeAuraV1Profile.RING_BOUNCE_DECAY[index]))
+			overshoot.append(float(TechniqueChargeAuraV1Profile.RING_OVERSHOOT[index]))
 		breath_scale.append(
-			float(TechniqueChargeAuraProfile.RING_BREATH_SCALE[index])
+			float(TechniqueChargeAuraV1Profile.RING_BREATH_SCALE[index])
 		)
-		var op := float(TechniqueChargeAuraProfile.RING_OPACITY[index])
+		var op := float(TechniqueChargeAuraV1Profile.RING_OPACITY[index])
 		if index != 0:
 			op *= flare_opacity_scale
 		ring_opacity.append(op)
 		ring_tip_bright.append(
-			float(TechniqueChargeAuraProfile.RING_TIP_BRIGHT[index])
+			float(TechniqueChargeAuraV1Profile.RING_TIP_BRIGHT[index])
 		)
 
 	material.set_shader_parameter("ring_base_radius", base_radius)
@@ -731,47 +734,47 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	material.set_shader_parameter("ring_tip_bright", ring_tip_bright)
 
 	material.set_shader_parameter(
-		"breath_min", tunable("BREATH_MIN", TechniqueChargeAuraProfile.BREATH_MIN)
+		"breath_min", tunable("BREATH_MIN", TechniqueChargeAuraV1Profile.BREATH_MIN)
 	)
 	material.set_shader_parameter(
-		"breath_max", tunable("BREATH_MAX", TechniqueChargeAuraProfile.BREATH_MAX)
+		"breath_max", tunable("BREATH_MAX", TechniqueChargeAuraV1Profile.BREATH_MAX)
 	)
 	material.set_shader_parameter(
 		"breath_face_mix",
-		tunable("BREATH_FACE_MIX", TechniqueChargeAuraProfile.BREATH_FACE_MIX)
+		tunable("BREATH_FACE_MIX", TechniqueChargeAuraV1Profile.BREATH_FACE_MIX)
 	)
 	material.set_shader_parameter(
 		"breath_bright_coupling",
 		tunable(
 			"BREATH_BRIGHT_COUPLING",
-			TechniqueChargeAuraProfile.BREATH_BRIGHT_COUPLING
+			TechniqueChargeAuraV1Profile.BREATH_BRIGHT_COUPLING
 		)
 	)
 	material.set_shader_parameter(
 		"breath_flutter_coupling",
-		TechniqueChargeAuraProfile.BREATH_FLUTTER_COUPLING
+		TechniqueChargeAuraV1Profile.BREATH_FLUTTER_COUPLING
 	)
 	material.set_shader_parameter(
 		"breath_rate_slow",
-		tunable("BREATH_RATE_SLOW", TechniqueChargeAuraProfile.BREATH_RATE_SLOW)
+		tunable("BREATH_RATE_SLOW", TechniqueChargeAuraV1Profile.BREATH_RATE_SLOW)
 	)
 	material.set_shader_parameter(
 		"breath_rate_fast",
-		tunable("BREATH_RATE_FAST", TechniqueChargeAuraProfile.BREATH_RATE_FAST)
+		tunable("BREATH_RATE_FAST", TechniqueChargeAuraV1Profile.BREATH_RATE_FAST)
 	)
 	material.set_shader_parameter(
 		"ring_phase_a1",
-		tunable("RING_PHASE_A1", TechniqueChargeAuraProfile.RING_PHASE_A1)
+		tunable("RING_PHASE_A1", TechniqueChargeAuraV1Profile.RING_PHASE_A1)
 	)
 	material.set_shader_parameter(
 		"ring_phase_a2",
-		tunable("RING_PHASE_A2", TechniqueChargeAuraProfile.RING_PHASE_A2)
+		tunable("RING_PHASE_A2", TechniqueChargeAuraV1Profile.RING_PHASE_A2)
 	)
 	material.set_shader_parameter(
-		"ground_pulse_strength", TechniqueChargeAuraProfile.GROUND_PULSE_STRENGTH
+		"ground_pulse_strength", TechniqueChargeAuraV1Profile.GROUND_PULSE_STRENGTH
 	)
 	material.set_shader_parameter(
-		"ground_pulse_floor", TechniqueChargeAuraProfile.GROUND_PULSE_FLOOR
+		"ground_pulse_floor", TechniqueChargeAuraV1Profile.GROUND_PULSE_FLOOR
 	)
 
 
@@ -844,7 +847,7 @@ static func _appendRing(
 	# Vertex colour survives as 8-bit through every compression setting, and
 	# 0.0 / 0.5 / 1.0 round-trip exactly through that, so the identity cannot be
 	# quantised into the wrong ring.
-	var identity := float(ring_index) / float(TechniqueChargeAuraProfile.RING_COUNT - 1)
+	var identity := float(ring_index) / float(TechniqueChargeAuraV1Profile.RING_COUNT - 1)
 	var ring_color := Color(identity, 0.0, 0.0, 1.0)
 
 	for side in range(sides):
