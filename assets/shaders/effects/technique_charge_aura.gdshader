@@ -58,6 +58,9 @@ uniform float ring_tip_bright[3];
 uniform float breath_min = 0.030;
 uniform float breath_max = 0.075;
 uniform float breath_face_mix = 0.45;
+// Two unrelated rates so the idle has no readable loop or countable beat.
+uniform float breath_rate_slow = 1.7;
+uniform float breath_rate_fast = 4.3;
 // How far the breath's height factor is amplified into brightness and into the
 // top-edge flutter. Height alone is a couple of pixels at the battle camera's
 // framing; brightness is legible at any size.
@@ -153,8 +156,8 @@ float breath_amplitude(float seconds) {
 // edge can absorb. The mask has no side margin, so nothing else hides it.
 float ring_breath(int index, float seconds, float face_angle) {
 	float amount = breath_amplitude(seconds) * ring_breath_scale[index];
-	float slow = seconds * 1.7;
-	float fast = seconds * 4.3;
+	float slow = seconds * breath_rate_slow;
+	float fast = seconds * breath_rate_fast;
 	float shared =
 		(value_noise(vec2(slow, 3.1 + playback_seed)) - 0.5) * 1.35
 		+ (value_noise(vec2(fast, 8.7 + playback_seed)) - 0.5) * 0.65;

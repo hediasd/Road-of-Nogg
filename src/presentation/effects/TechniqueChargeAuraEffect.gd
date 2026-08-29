@@ -140,6 +140,96 @@ static func tunables() -> Array[Dictionary]:
 			"default": TechniqueChargeAuraProfile.GROUND_SPILL_OUTER_UV,
 			"rebuild": false,
 		},
+		{
+			"id": "BOUNCE_OVERSHOOT", "label": "Overshoot", "group": "Bounce",
+			"min": 0.0, "max": 1.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.RING_OVERSHOOT[0],
+			# The mesh is built at the core's ceiling extension; a larger
+			# overshoot needs more of it built or the bounce clips against
+			# geometry sized for the old, smaller peak.
+			"rebuild": true,
+		},
+		{
+			"id": "BOUNCE_PERIOD", "label": "Period", "group": "Bounce",
+			"min": 0.1, "max": 1.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.RING_BOUNCE_PERIOD_SECONDS[0],
+			"rebuild": false,
+		},
+		{
+			"id": "BOUNCE_DECAY", "label": "Decay", "group": "Bounce",
+			"min": 0.5, "max": 8.0, "step": 0.05,
+			"default": TechniqueChargeAuraProfile.RING_BOUNCE_DECAY[0],
+			"rebuild": false,
+		},
+		{
+			"id": "BREATH_MIN", "label": "Min amplitude", "group": "Breath",
+			"min": 0.0, "max": 0.15, "step": 0.005,
+			"default": TechniqueChargeAuraProfile.BREATH_MIN,
+			"rebuild": false,
+		},
+		{
+			"id": "BREATH_MAX", "label": "Max amplitude", "group": "Breath",
+			"min": 0.0, "max": 0.20, "step": 0.005,
+			"default": TechniqueChargeAuraProfile.BREATH_MAX,
+			# Feeds every ring's ceiling, core included -- same reasoning as
+			# BOUNCE_OVERSHOOT above.
+			"rebuild": true,
+		},
+		{
+			"id": "BREATH_FACE_MIX", "label": "Face mix", "group": "Breath",
+			"min": 0.0, "max": 1.0, "step": 0.01,
+			"default": TechniqueChargeAuraProfile.BREATH_FACE_MIX,
+			"rebuild": false,
+		},
+		{
+			"id": "BREATH_BRIGHT_COUPLING", "label": "Bright coupling",
+			"group": "Breath",
+			"min": 0.0, "max": 4.0, "step": 0.05,
+			"default": TechniqueChargeAuraProfile.BREATH_BRIGHT_COUPLING,
+			"rebuild": false,
+		},
+		{
+			"id": "BREATH_RATE_SLOW", "label": "Rate (slow)", "group": "Breath",
+			"min": 0.2, "max": 6.0, "step": 0.1,
+			"default": TechniqueChargeAuraProfile.BREATH_RATE_SLOW,
+			"rebuild": false,
+		},
+		{
+			"id": "BREATH_RATE_FAST", "label": "Rate (fast)", "group": "Breath",
+			"min": 0.2, "max": 10.0, "step": 0.1,
+			"default": TechniqueChargeAuraProfile.BREATH_RATE_FAST,
+			"rebuild": false,
+		},
+		{
+			"id": "RING_PHASE_A1", "label": "Spread (1st)", "group": "Ring",
+			"min": 0.0, "max": 0.15, "step": 0.005,
+			"default": TechniqueChargeAuraProfile.RING_PHASE_A1,
+			"rebuild": false,
+		},
+		{
+			"id": "RING_PHASE_A2", "label": "Spread (2nd)", "group": "Ring",
+			"min": 0.0, "max": 0.10, "step": 0.005,
+			"default": TechniqueChargeAuraProfile.RING_PHASE_A2,
+			"rebuild": false,
+		},
+		{
+			"id": "FLARE_LEAN_OFFSET_DEGREES", "label": "Lean", "group": "Flares",
+			"min": -20.0, "max": 20.0, "step": 0.5,
+			"default": 0.0,
+			"rebuild": true,
+		},
+		{
+			"id": "FLARE_REACH_SCALE", "label": "Reach", "group": "Flares",
+			"min": 0.5, "max": 1.8, "step": 0.02,
+			"default": 1.0,
+			"rebuild": true,
+		},
+		{
+			"id": "FLARE_OPACITY_SCALE", "label": "Opacity", "group": "Flares",
+			"min": 0.0, "max": 2.0, "step": 0.02,
+			"default": 1.0,
+			"rebuild": false,
+		},
 	]
 
 
@@ -506,22 +596,50 @@ func _on_tunables_applied() -> void:
 ##
 ## Only the core takes the live Dimensions tunables. The flares are authored
 ## relative to their own radii, and letting one slider move the core without
-## them would let the core wall cross straight through the mid flare.
+## them would let the core wall cross straight through the mid flare; a
+## FLARE_LEAN_OFFSET_DEGREES / FLARE_REACH_SCALE pair moves both flares
+## together instead, which is what keeps the panel to one set of geometry
+## sliders per flare concept rather than two independent, easily-desynced sets.
+##
+## Overshoot and the breath's max amplitude both feed a ring's ceiling
+## extension, so the live BOUNCE_OVERSHOOT and BREATH_MAX values are read here
+## too and passed through `ring_ceiling_for()` -- the mesh has to be built at
+## whatever ceiling the live values imply, not the authored default, or a
+## larger overshoot would silently clip against geometry sized for the smaller
+## one.
 func _ringSpecs() -> Array:
 	var sides := tunable_int("WALL_SIDES", TechniqueChargeAuraProfile.WALL_SIDES)
+	var core_overshoot := tunable(
+		"BOUNCE_OVERSHOOT", TechniqueChargeAuraProfile.RING_OVERSHOOT[0]
+	)
+	var breath_max := tunable("BREATH_MAX", TechniqueChargeAuraProfile.BREATH_MAX)
+	var flare_lean_offset := tunable("FLARE_LEAN_OFFSET_DEGREES", 0.0)
+	var flare_reach_scale := tunable("FLARE_REACH_SCALE", 1.0)
+
 	var specs: Array = []
 	for index in TechniqueChargeAuraProfile.RING_COUNT:
 		var base_radius := float(TechniqueChargeAuraProfile.RING_BASE_RADIUS_U[index])
 		var length := float(TechniqueChargeAuraProfile.RING_LENGTH_U[index])
+		var lean := float(TechniqueChargeAuraProfile.RING_LEAN_DEGREES[index])
+		var overshoot := float(TechniqueChargeAuraProfile.RING_OVERSHOOT[index])
 		if index == 0:
 			base_radius = tunable("WALL_RADIUS_U", base_radius)
 			length = tunable("WALL_HEIGHT_U", length)
+			overshoot = core_overshoot
+		else:
+			length *= flare_reach_scale
+			lean += flare_lean_offset
+		var ceiling := TechniqueChargeAuraProfile.ring_ceiling_for(
+			overshoot,
+			breath_max,
+			float(TechniqueChargeAuraProfile.RING_BREATH_SCALE[index])
+		)
 		specs.append({
 			"sides": sides,
 			"base_radius": base_radius,
 			"length": length,
-			"lean_degrees": float(TechniqueChargeAuraProfile.RING_LEAN_DEGREES[index]),
-			"extension_scale": TechniqueChargeAuraProfile.ring_ceiling(index),
+			"lean_degrees": lean,
+			"extension_scale": ceiling,
 		})
 	return specs
 
@@ -544,6 +662,23 @@ func _ringSpecs() -> Array:
 func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	if material == null:
 		return
+
+	# Read once: BOUNCE_* and BREATH_MAX apply to the core only (index 0), but
+	# BREATH_MAX also has to match what `_ringSpecs()` already baked into
+	# rings[index]["extension_scale"] -- both call `tunable()` with the same id
+	# and fallback, which is what keeps a pure dict lookup consistent between
+	# the two call sites without threading a value through.
+	var core_period := tunable(
+		"BOUNCE_PERIOD", TechniqueChargeAuraProfile.RING_BOUNCE_PERIOD_SECONDS[0]
+	)
+	var core_decay := tunable(
+		"BOUNCE_DECAY", TechniqueChargeAuraProfile.RING_BOUNCE_DECAY[0]
+	)
+	var core_overshoot := tunable(
+		"BOUNCE_OVERSHOOT", TechniqueChargeAuraProfile.RING_OVERSHOOT[0]
+	)
+	var flare_opacity_scale := tunable("FLARE_OPACITY_SCALE", 1.0)
+
 	var base_radius := PackedFloat32Array()
 	var ceiling := PackedFloat32Array()
 	var launch := PackedFloat32Array()
@@ -552,19 +687,36 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	var decay := PackedFloat32Array()
 	var overshoot := PackedFloat32Array()
 	var breath_scale := PackedFloat32Array()
+	var ring_opacity := PackedFloat32Array()
+	var ring_tip_bright := PackedFloat32Array()
 
 	for index in TechniqueChargeAuraProfile.RING_COUNT:
 		base_radius.append(float(rings[index]["base_radius"]))
-		ceiling.append(TechniqueChargeAuraProfile.ring_ceiling(index))
+		# Sourced from the spec list the mesh was actually built from, not
+		# recomputed from the profile's authored default -- the geometry and
+		# this uniform have to describe the same ceiling.
+		ceiling.append(float(rings[index]["extension_scale"]))
 		launch.append(float(TechniqueChargeAuraProfile.RING_LAUNCH_SECONDS[index]))
 		rise.append(float(TechniqueChargeAuraProfile.RING_RISE_SECONDS[index]))
-		period.append(
-			float(TechniqueChargeAuraProfile.RING_BOUNCE_PERIOD_SECONDS[index])
-		)
-		decay.append(float(TechniqueChargeAuraProfile.RING_BOUNCE_DECAY[index]))
-		overshoot.append(float(TechniqueChargeAuraProfile.RING_OVERSHOOT[index]))
+		if index == 0:
+			period.append(core_period)
+			decay.append(core_decay)
+			overshoot.append(core_overshoot)
+		else:
+			period.append(
+				float(TechniqueChargeAuraProfile.RING_BOUNCE_PERIOD_SECONDS[index])
+			)
+			decay.append(float(TechniqueChargeAuraProfile.RING_BOUNCE_DECAY[index]))
+			overshoot.append(float(TechniqueChargeAuraProfile.RING_OVERSHOOT[index]))
 		breath_scale.append(
 			float(TechniqueChargeAuraProfile.RING_BREATH_SCALE[index])
+		)
+		var op := float(TechniqueChargeAuraProfile.RING_OPACITY[index])
+		if index != 0:
+			op *= flare_opacity_scale
+		ring_opacity.append(op)
+		ring_tip_bright.append(
+			float(TechniqueChargeAuraProfile.RING_TIP_BRIGHT[index])
 		)
 
 	material.set_shader_parameter("ring_base_radius", base_radius)
@@ -575,34 +727,45 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	material.set_shader_parameter("ring_decay", decay)
 	material.set_shader_parameter("ring_overshoot", overshoot)
 	material.set_shader_parameter("ring_breath_scale", breath_scale)
-
-	var ring_opacity := PackedFloat32Array()
-	var ring_tip_bright := PackedFloat32Array()
-	for index in TechniqueChargeAuraProfile.RING_COUNT:
-		ring_opacity.append(float(TechniqueChargeAuraProfile.RING_OPACITY[index]))
-		ring_tip_bright.append(
-			float(TechniqueChargeAuraProfile.RING_TIP_BRIGHT[index])
-		)
 	material.set_shader_parameter("ring_opacity", ring_opacity)
 	material.set_shader_parameter("ring_tip_bright", ring_tip_bright)
 
-	material.set_shader_parameter("breath_min", TechniqueChargeAuraProfile.BREATH_MIN)
-	material.set_shader_parameter("breath_max", TechniqueChargeAuraProfile.BREATH_MAX)
 	material.set_shader_parameter(
-		"breath_face_mix", TechniqueChargeAuraProfile.BREATH_FACE_MIX
+		"breath_min", tunable("BREATH_MIN", TechniqueChargeAuraProfile.BREATH_MIN)
 	)
 	material.set_shader_parameter(
-		"breath_bright_coupling", TechniqueChargeAuraProfile.BREATH_BRIGHT_COUPLING
+		"breath_max", tunable("BREATH_MAX", TechniqueChargeAuraProfile.BREATH_MAX)
+	)
+	material.set_shader_parameter(
+		"breath_face_mix",
+		tunable("BREATH_FACE_MIX", TechniqueChargeAuraProfile.BREATH_FACE_MIX)
+	)
+	material.set_shader_parameter(
+		"breath_bright_coupling",
+		tunable(
+			"BREATH_BRIGHT_COUPLING",
+			TechniqueChargeAuraProfile.BREATH_BRIGHT_COUPLING
+		)
 	)
 	material.set_shader_parameter(
 		"breath_flutter_coupling",
 		TechniqueChargeAuraProfile.BREATH_FLUTTER_COUPLING
 	)
 	material.set_shader_parameter(
-		"ring_phase_a1", TechniqueChargeAuraProfile.RING_PHASE_A1
+		"breath_rate_slow",
+		tunable("BREATH_RATE_SLOW", TechniqueChargeAuraProfile.BREATH_RATE_SLOW)
 	)
 	material.set_shader_parameter(
-		"ring_phase_a2", TechniqueChargeAuraProfile.RING_PHASE_A2
+		"breath_rate_fast",
+		tunable("BREATH_RATE_FAST", TechniqueChargeAuraProfile.BREATH_RATE_FAST)
+	)
+	material.set_shader_parameter(
+		"ring_phase_a1",
+		tunable("RING_PHASE_A1", TechniqueChargeAuraProfile.RING_PHASE_A1)
+	)
+	material.set_shader_parameter(
+		"ring_phase_a2",
+		tunable("RING_PHASE_A2", TechniqueChargeAuraProfile.RING_PHASE_A2)
 	)
 	material.set_shader_parameter(
 		"ground_pulse_strength", TechniqueChargeAuraProfile.GROUND_PULSE_STRENGTH

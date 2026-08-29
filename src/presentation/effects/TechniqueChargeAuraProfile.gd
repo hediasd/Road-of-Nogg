@@ -118,6 +118,10 @@ const BREATH_MAX := 0.075
 ## shared corner has only the ragged top edge hiding it; this is what bounds it.
 const BREATH_FACE_MIX := 0.45
 
+## Two unrelated rates so the idle has no readable loop or countable beat.
+const BREATH_RATE_SLOW := 1.7
+const BREATH_RATE_FAST := 4.3
+
 ## At the battle camera's framing the whole aura is roughly forty pixels tall,
 ## so plus or minus 7.5% of height is two or three pixels -- present, but not
 ## the thing that reads. Coupling the same breath factor into brightness and
@@ -144,9 +148,22 @@ const RING_PHASE_A2 := 0.022
 ## does not exist, and no rebuild is needed when the ring overshoots. It has to
 ## account for the breath as well as the bounce, because both multiply.
 static func ring_ceiling(index: int) -> float:
-	return (1.0 + float(RING_OVERSHOOT[index])) * (
-		1.0 + BREATH_MAX * float(RING_BREATH_SCALE[index])
+	return ring_ceiling_for(
+		float(RING_OVERSHOOT[index]), BREATH_MAX, float(RING_BREATH_SCALE[index])
 	)
+
+
+## The formula `ring_ceiling()` applies, taking its inputs explicitly.
+##
+## The debug panel's live Bounce and Breath tunables can move the very numbers
+## `ring_ceiling()` reads, and the mesh has to be built at whatever ceiling
+## those live values imply -- not at the authored default -- or an overshoot
+## tuned upward would silently clip against geometry sized for the smaller,
+## authored one. `_ringSpecs()` calls this directly with the live values so the
+## built mesh and the ceiling uniform pushed alongside it can never disagree.
+static func ring_ceiling_for(
+		overshoot: float, breath_max: float, breath_scale: float) -> float:
+	return (1.0 + overshoot) * (1.0 + breath_max * breath_scale)
 ## The wall renders both faces (cull_disabled), so the near and far halves
 ## overlap wherever the silhouette shows a single wall face when only one side
 ## is culled. blend_mix integrates two stacked layers at per-face alpha a to
