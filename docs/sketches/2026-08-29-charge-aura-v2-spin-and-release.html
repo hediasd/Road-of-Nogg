@@ -177,7 +177,7 @@
       </div>
       <div class="transport">
         <span class="grp">
-          <span class="grp-label">Release at 1.50s</span>
+          <span class="grp-label">Shape</span>
           <button class="ui" id="btnExpand" aria-pressed="true">Expand</button>
           <button class="ui" id="btnCollapse" aria-pressed="false">Collapse</button>
           <button class="ui" id="btnUniform" aria-pressed="false">Uniform</button>
@@ -187,6 +187,19 @@
           <span class="grp-label">Systems</span>
           <button class="ui" id="btnSpin" aria-pressed="true">Spin</button>
           <button class="ui" id="btnChurn" aria-pressed="true">Churn</button>
+        </span>
+      </div>
+      <div class="transport">
+        <span class="grp">
+          <span class="grp-label">Release at</span>
+          <button class="ui" id="btnR120" aria-pressed="false">1.20s</button>
+          <button class="ui" id="btnR150" aria-pressed="true">1.50s</button>
+          <button class="ui" id="btnR170" aria-pressed="false">1.70s</button>
+        </span>
+        <span class="sep"></span>
+        <span class="grp">
+          <span class="grp-label">Entrance</span>
+          <button class="ui" id="btnTighten" aria-pressed="false">Tighten</button>
         </span>
         <span class="clock" id="readout">turn 0&deg;</span>
       </div>
@@ -232,7 +245,44 @@
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">02</p><h2>The release, beat by beat</h2></div>
+    <div class="sec-head"><p class="eyebrow">02</p><h2>Could the release come at 1.20s?</h2></div>
+    <p class="prose">Only as part of a proportional tightening. On its own it does not move the release earlier so much as delete the hold &mdash; and the hold is the frame the camera is there for.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Release</th><th>Hold</th><th>Turn completed</th><th>Blades past a point</th><th>Effect ends</th></tr></thead>
+        <tbody>
+          <tr><td class="beat">1.20 as authored</td><td class="num">0.09 s</td><td class="num">312&deg;</td><td class="num">0.6</td><td class="num">1.70 s</td></tr>
+          <tr><td class="beat">1.50 as authored</td><td class="num">0.39 s</td><td class="num">382&deg;</td><td class="num">2.5</td><td class="num">2.00 s</td></tr>
+          <tr><td class="beat">1.70 as authored</td><td class="num">0.59 s</td><td class="num">428&deg;</td><td class="num">4.0</td><td class="num">2.00 s</td></tr>
+          <tr><td class="beat">1.20 tightened</td><td class="num">0.31 s</td><td class="num">387&deg;</td><td class="num">2.5</td><td class="num">1.70 s</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption prose">Hold is measured from where the core's bounce amplitude falls under 3% &mdash; the first frame that reads as charged rather than still arriving. Blades are how many of the ten sweep past a fixed point during that hold, which is what actually makes the spin legible.</p>
+    <div class="cards" style="margin-top:22px">
+      <div class="card">
+        <p class="eyebrow">Why 1.20 alone fails</p>
+        <h3>The entrance is still settling</h3>
+        <p>The core's bounce is not spent until <b>1.11s</b>. Releasing at 1.20 leaves a <b>0.09s</b> hold &mdash; five frames &mdash; so the aura goes from arriving straight to leaving and is never simply <em>there</em>.</p>
+        <p>The spin suffers worse: <b>312&deg;</b> means it never completes a revolution, and only <b>0.6 blades</b> pass a fixed point during the hold. Something that turns less than once does not read as spinning; it reads as having swung.</p>
+      </div>
+      <div class="card pick">
+        <p class="eyebrow">What makes it work</p>
+        <h3>Compress the entrance, speed the spin</h3>
+        <p>Scale the entrance to <b>0.80&times;</b> in time (rise 0.16&rarr;0.13s, periods and decays with it) and the spin to <b>1.24&times;</b>. The bounce is then spent by 0.89s, the hold comes back to <b>0.31s</b>, and the spin completes <b>387&deg;</b> with 2.5 blades passing &mdash; matching what 1.50 gives today.</p>
+        <p>Toggle <b>Tighten</b> with release at 1.20 to see it.</p>
+      </div>
+      <div class="card pick">
+        <p class="eyebrow">The consequence to accept</p>
+        <h3>The whole effect ends at 1.70s</h3>
+        <p>The release <em>window</em> should stay 0.50s rather than stretching to fill a fixed 2.00s runtime &mdash; a 0.80s dispersal is 40% of the effect spent fading, and it goes limp. So releasing at 1.20 means the aura is over at 1.70.</p>
+        <p>That is a real change to the brief, which asked for about two seconds. If a snappier telegraph is wanted, this is the version of it; if two seconds is fixed, 1.50 already is the answer.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">03</p><h2>The release, beat by beat</h2></div>
     <div class="table-scroll">
       <table>
         <thead><tr><th>Beat</th><th>Window</th><th>What moves</th></tr></thead>
@@ -248,7 +298,7 @@
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">03</p><h2>Spin and churn</h2></div>
+    <div class="sec-head"><p class="eyebrow">04</p><h2>Spin and churn</h2></div>
     <div class="cards">
       <div class="card">
         <p class="eyebrow">Spin</p>
@@ -275,7 +325,7 @@
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">04</p><h2>Why v2 cannot keep v1's continuous ring</h2></div>
+    <div class="sec-head"><p class="eyebrow">05</p><h2>Why v2 cannot keep v1's continuous ring</h2></div>
     <div class="finding prose">
       <p><b>v1 measured the corner gap.</b> Faces share corner vertices, so when neighbours move independently the rim splits there. At v1's &plusmn;7.5% breath and a face mix of 0.45, the worst gap was 0.0337u — 0.8px at battle framing, comfortably hidden by the mask's ragged top edge.</p>
       <p>v2 asks for &plusmn;20% and near-full per-blade independence. That scales the gap by roughly 2.7&times; on amplitude and 1.8&times; on independence: about <b>4 px of notch at every corner</b>, on a rim the spin now drags across the screen where it cannot be missed. The mask has no side margin — v1's own measurement, alpha ~253 in its edge columns — so there is nothing to hide it behind.</p>
@@ -284,7 +334,7 @@
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">05</p><h2>Settled, and still open</h2></div>
+    <div class="sec-head"><p class="eyebrow">06</p><h2>Settled, and still open</h2></div>
     <div class="prose">
       <p><b>Settled 2026-08-29.</b> <b>Expand</b>, not collapse &mdash; with the flatten carrying the difference between dispersing and firing. Release moves from 1.70s to <b>1.50s</b>, spending the extra 200ms on outward travel rather than on a slower fade. Spin keeps a <b>fixed direction</b> across every cast, so the telegraph is instantly recognisable rather than varied. The <b>flares stay</b> for now, despite v1's verification finding that they read as terraced plates at the battle pitch.</p>
       <div class="q"><h3>Does the spin rescue the flares?</h3><p>The one thing v2 might fix for free. A plate that sits still reads as geometry; a plate that turns has a much better chance of reading as energy. If they still fail once spinning, cutting to a single flare or none is a one-constant change &mdash; but that judgement needs the effect actually running, so it belongs at V2-F rather than now.</p></div>
@@ -294,7 +344,7 @@
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">06</p><h2>Implementation plan</h2></div>
+    <div class="sec-head"><p class="eyebrow">07</p><h2>Implementation plan</h2></div>
     <div class="table-scroll">
       <table>
         <thead><tr><th>Item</th><th>Work</th><th>Model</th><th>Touches</th><th>Wave</th></tr></thead>
@@ -356,7 +406,23 @@
 (function () {
   "use strict";
   var TAU = Math.PI * 2, DUR = 2.00, SIDES = 10;
-  var RELEASE = 1.50, FLASH_END = 1.56;
+  // The release WINDOW is the constant, not the end of the effect: pulling the
+  // release earlier ends the whole thing earlier rather than stretching the
+  // dispersal into something limp.
+  var RELEASE = 1.50, WINDOW = 0.50;
+  var tighten = false;
+  function flashEnd() { return RELEASE + 0.06; }
+  function endTime() { return RELEASE + WINDOW; }
+  // Entrance time-scale and the matching spin boost.
+  function ts() { return tighten ? 0.80 : 1.0; }
+  function spinK() { return tighten ? 1.24 : 1.0; }
+  // Where the core's bounce amplitude falls under 3% -- the first frame that
+  // reads as charged rather than still arriving. Everything between here and
+  // RELEASE is the hold, and the hold is the frame the camera is there for.
+  function holdStart() {
+    var R = RINGS[0];
+    return R.rise * ts() + Math.log(R.over / 0.03) / (R.decay / ts());
+  }
   // Each blade fades over BLADE_FADE; their starts are spread over SWEEP, so
   // the last blade is out at FLASH_END + SWEEP + BLADE_FADE = 1.94s, leaving
   // the ground the final beat to itself.
@@ -398,9 +464,9 @@
     if (!useSpin) return 0;
     var deg = 0, step = 0.004;
     for (var s = 0; s < t; s += step) {
-      var rate = SPIN_HOLD + (SPIN_LAUNCH - SPIN_HOLD) * Math.exp(-s / 0.34);
+      var rate = (SPIN_HOLD + (SPIN_LAUNCH - SPIN_HOLD) * Math.exp(-s / 0.34)) * spinK();
       if (s >= RELEASE) {
-        rate *= 1 + (SPIN_RELEASE - 1) * clamp01((s - RELEASE) / (DUR - RELEASE));
+        rate *= 1 + (SPIN_RELEASE - 1) * clamp01((s - RELEASE) / WINDOW);
       }
       deg += rate * Math.min(step, t - s);
     }
@@ -408,11 +474,13 @@
   }
 
   function bounce(R, t) {
-    var tt = t - R.launch;
+    var k = ts();
+    var tt = t - R.launch * k;
     if (tt <= 0) return 0;
-    if (tt < R.rise) return (1 + R.over) * (1 - Math.pow(1 - tt / R.rise, 3));
-    var tau = tt - R.rise;
-    return 1 + R.over * Math.exp(-R.decay * tau) * Math.cos(TAU / R.period * tau);
+    var rise = R.rise * k;
+    if (tt < rise) return (1 + R.over) * (1 - Math.pow(1 - tt / rise, 3));
+    var tau = tt - rise;
+    return 1 + R.over * Math.exp(-(R.decay / k) * tau) * Math.cos(TAU / (R.period * k) * tau);
   }
   // Sustained per-blade churn: no ramp, no decay into an idle.
   function churn(R, t, blade) {
@@ -421,7 +489,7 @@
     return 1 + a * ((vnoise(t * 3.1 + blade * 5.7, 2.3) - 0.5) * 1.5
                   + (vnoise(t * 6.7 + blade * 11.3, 7.1) - 0.5) * 0.5);
   }
-  function releaseP(t) { return t < RELEASE ? 0 : clamp01((t - RELEASE) / (DUR - RELEASE)); }
+  function releaseP(t) { return t < RELEASE ? 0 : clamp01((t - RELEASE) / WINDOW); }
 
   function radiusScale(t) {
     var p = releaseP(t);
@@ -439,23 +507,23 @@
     return mode === "collapse" ? 1 - 0.60 * e : 1 - 0.55 * e;
   }
   function flash(t) {
-    if (t < RELEASE || t > FLASH_END) return 1;
-    var p = (t - RELEASE) / (FLASH_END - RELEASE);
+    if (t < RELEASE || t > flashEnd()) return 1;
+    var p = (t - RELEASE) / (flashEnd() - RELEASE);
     return 1 + 0.35 * Math.sin(p * Math.PI);
   }
   // Per-blade extinction, offset by the blade's own angle so the ring unzips.
   function bladeAlpha(t, angleFrac) {
     if (t < 0.03) return clamp01(t / 0.03);
-    if (t < FLASH_END) return 1;
-    if (mode === "uniform") return Math.pow(1 - clamp01((t - RELEASE) / (DUR - RELEASE)), 1.8);
-    var p = clamp01((t - FLASH_END - angleFrac * SWEEP) / BLADE_FADE);
+    if (t < flashEnd()) return 1;
+    if (mode === "uniform") return Math.pow(1 - releaseP(t), 1.8);
+    var p = clamp01((t - flashEnd() - angleFrac * SWEEP) / BLADE_FADE);
     return Math.pow(1 - p, 2.2);
   }
   function groundAlpha(t) {
     if (t < 0.02) return clamp01(t / 0.02);
     var lag = RELEASE + GROUND_LAG;
     if (t < lag) return 1;
-    return Math.pow(1 - clamp01((t - lag) / (DUR - lag)), 1.6);
+    return Math.pow(1 - clamp01((t - lag) / (endTime() - lag)), 1.6);
   }
   function v1Alpha(t) {
     if (t < 0.03) return clamp01(t / 0.03);
@@ -471,8 +539,9 @@
   function phaseName(t) {
     if (t < 0.06) return "ignite";
     if (t < 0.30) return "launch";
+    if (t >= endTime()) return "clear";
     if (t < RELEASE) return "spin + churn";
-    if (t < FLASH_END) return "flash";
+    if (t < flashEnd()) return "flash";
     return mode === "expand" ? "disperse" : "collapse";
   }
 
@@ -604,7 +673,9 @@
       btnPlay = document.getElementById("btnPlay"), btnSlow = document.getElementById("btnSlow"),
       btnSpin = document.getElementById("btnSpin"), btnChurn = document.getElementById("btnChurn"),
       btnCollapse = document.getElementById("btnCollapse"), btnExpand = document.getElementById("btnExpand"),
-      btnUniform = document.getElementById("btnUniform");
+      btnUniform = document.getElementById("btnUniform"),
+      btnR120 = document.getElementById("btnR120"), btnR150 = document.getElementById("btnR150"),
+      btnR170 = document.getElementById("btnR170"), btnTighten = document.getElementById("btnTighten");
 
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var t = reduced ? 1.62 : 0, playing = !reduced, speed = 1, last = 0;
@@ -615,7 +686,10 @@
     draw(cvV2, tc, true);
     clock.textContent = tc.toFixed(3) + " s";
     phase.textContent = tc >= DUR ? "clear" : phaseName(tc);
-    readout.textContent = "turn " + Math.round(spinDegrees(tc)) + "°";
+    var hold = RELEASE - holdStart();
+    readout.textContent =
+      "turn " + Math.round(spinDegrees(tc)) + "°  ·  hold " + hold.toFixed(2)
+      + "s  ·  ends " + endTime().toFixed(2) + "s";
   }
   function frame(now) {
     if (!last) last = now;
@@ -636,6 +710,7 @@
     btnUniform.setAttribute("aria-pressed", String(m === "uniform"));
     modeLabel.textContent = "spin · " + m;
     render();
+    render();
   }
   btnPlay.addEventListener("click", function () {
     playing = !playing; btnPlay.textContent = playing ? "Pause" : "Play";
@@ -649,6 +724,21 @@
   });
   btnChurn.addEventListener("click", function () {
     useChurn = !useChurn; btnChurn.setAttribute("aria-pressed", String(useChurn)); render();
+  });
+  function setRelease(v) {
+    RELEASE = v;
+    btnR120.setAttribute("aria-pressed", String(v === 1.20));
+    btnR150.setAttribute("aria-pressed", String(v === 1.50));
+    btnR170.setAttribute("aria-pressed", String(v === 1.70));
+    render();
+  }
+  btnR120.addEventListener("click", function () { setRelease(1.20); });
+  btnR150.addEventListener("click", function () { setRelease(1.50); });
+  btnR170.addEventListener("click", function () { setRelease(1.70); });
+  btnTighten.addEventListener("click", function () {
+    tighten = !tighten;
+    btnTighten.setAttribute("aria-pressed", String(tighten));
+    render();
   });
   btnCollapse.addEventListener("click", function () { setMode("collapse"); });
   btnExpand.addEventListener("click", function () { setMode("expand"); });
