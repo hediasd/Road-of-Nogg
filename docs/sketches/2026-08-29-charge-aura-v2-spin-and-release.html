@@ -154,7 +154,7 @@
 <div class="wrap">
   <p class="eyebrow" style="margin-top:44px">Road of Nogg &middot; VFX motion sketch &middot; charge aura v2</p>
   <h1>Charge aura v2:<br>spin, churn, disperse</h1>
-  <p class="lede prose">v1 grew out of the floor and settled into a quiet idle. v2 never settles: the whole stack <b>turns</b> around the caster, every blade <b>churns</b> up and down hard, and at <b>1.50s</b> the charge disperses outward rather than dimming. The release shape was the open question this sketch was made to settle. It is settled &mdash; <b>expand</b> &mdash; and the alternative is kept below, because the rejected option is half the record.</p>
+  <p class="lede prose">v1 grew out of the floor and settled into a quiet idle. v2 never settles: the whole stack <b>turns</b> around the caster, every blade <b>churns</b> up and down hard, and at <b>1.00s</b> the charge disperses outward rather than dimming. The release shape was the open question this sketch was made to settle. It is settled &mdash; <b>expand</b> &mdash; and the alternative is kept below, because the rejected option is half the record.</p>
 
   <section style="margin-top:36px">
     <div class="stage-shell">
@@ -192,23 +192,24 @@
       <div class="transport">
         <span class="grp">
           <span class="grp-label">Release at</span>
+          <button class="ui" id="btnR100" aria-pressed="true">1.00s</button>
           <button class="ui" id="btnR120" aria-pressed="false">1.20s</button>
-          <button class="ui" id="btnR150" aria-pressed="true">1.50s</button>
+          <button class="ui" id="btnR150" aria-pressed="false">1.50s</button>
           <button class="ui" id="btnR170" aria-pressed="false">1.70s</button>
         </span>
         <span class="sep"></span>
         <span class="grp">
           <span class="grp-label">Entrance</span>
-          <button class="ui" id="btnTighten" aria-pressed="false">Tighten</button>
+          <button class="ui" id="btnTighten" aria-pressed="true">Tighten</button>
         </span>
         <span class="clock" id="readout">turn 0&deg;</span>
       </div>
     </div>
-    <p class="caption prose">Expand is the chosen shape and the default; the other two <b>Release</b> buttons are kept so the comparison that produced the decision can still be made. Scrub to 1.50s and step forward. A 2D approximation of the proposed curves, not a Godot capture &mdash; the silhouette is indicative, the timing and amplitudes are the proposal.</p>
+    <p class="caption prose">Expand is the chosen shape and the default; the other two <b>Release</b> buttons are kept so the comparison that produced the decision can still be made. Scrub to 1.00s and step forward. A 2D approximation of the proposed curves, not a Godot capture &mdash; the silhouette is indicative, the timing and amplitudes are the proposal.</p>
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">01</p><h2>The release: expand, from 1.50s</h2></div>
+    <div class="sec-head"><p class="eyebrow">01</p><h2>The release: expand, from 1.00s</h2></div>
     <p class="prose">An aura that has been turning and churning for a second and a half has momentum. A uniform alpha ramp contradicts it &mdash; the motion is still going when the brightness admits it is over, and the last thing the eye sees is a static shape getting dimmer. The release converts that momentum into a <em>direction</em>. Three ways were considered; the outward one was chosen.</p>
     <div class="cards">
       <div class="card no">
@@ -233,7 +234,7 @@
       <div class="card pick">
         <p class="eyebrow">Detail 1 &middot; the tell</p>
         <h3>Flash before the fall</h3>
-        <p>60ms at <b>1.35&times; brightness</b> starting exactly at 1.50s, before any alpha comes off. Energy about to leave is brighter than energy idling. Without it the release has no onset &mdash; it just starts being less. This one beat is most of what sells the whole thing.</p>
+        <p>60ms at <b>1.35&times; brightness</b> starting exactly at 1.00s, before any alpha comes off. Energy about to leave is brighter than energy idling. Without it the release has no onset &mdash; it just starts being less. This one beat is most of what sells the whole thing.</p>
       </div>
       <div class="card pick">
         <p class="eyebrow">Detail 2 &middot; never all at once</p>
@@ -241,42 +242,42 @@
         <p>Each blade's extinction is offset by its own angle, so the ring <b>unzips</b> in the spin direction over ~140ms rather than all thirty blades vanishing together. The last thing on screen is motion, not a shape dimming. The per-face phase this needs already exists from v1.</p>
       </div>
     </div>
-    <p class="caption prose">Moving the release from 1.70s to 1.50s buys 200ms, and it is spent on travel rather than on a slower fade: the blades need distance for the outward direction to read at all, while each blade's own extinction stays a fast 220ms. The ground spill lags by 180ms and goes out last, so the floor keeps a residual glow after the blades are gone. A simultaneous cut on both layers reads as a dropped frame.</p>
+    <p class="caption prose">Each blade's own extinction stays a fast 220ms however early the release lands; what the release time changes is how much charge precedes it, not how quickly it ends. The ground spill lags by 180ms and goes out last, so the floor keeps a residual glow after the blades are gone. A simultaneous cut on both layers reads as a dropped frame.</p>
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">02</p><h2>Could the release come at 1.20s?</h2></div>
-    <p class="prose">Only as part of a proportional tightening. On its own it does not move the release earlier so much as delete the hold &mdash; and the hold is the frame the camera is there for.</p>
+    <div class="sec-head"><p class="eyebrow">02</p><h2>Release at 1.00s, and the tightening it forces</h2></div>
+    <p class="prose">Pulling the release earlier is not a one-constant change. The entrance has to compress with it or the release simply eats the hold &mdash; and the hold, the span where the aura is neither arriving nor leaving, is the frame the camera is there for. At 1.00s the untouched entrance has not even finished: its bounce is still settling at 1.11s, <em>after</em> the release would have started.</p>
     <div class="table-scroll">
       <table>
         <thead><tr><th>Release</th><th>Hold</th><th>Turn completed</th><th>Blades past a point</th><th>Effect ends</th></tr></thead>
         <tbody>
+          <tr><td class="beat">1.00 as authored</td><td class="num">&minus;0.11 s</td><td class="num">265&deg;</td><td class="num">0.0</td><td class="num">1.50 s</td></tr>
+          <tr><td class="beat">1.00 tightened</td><td class="num">0.30 s</td><td class="num">382&deg;</td><td class="num">2.5</td><td class="num">1.50 s</td></tr>
           <tr><td class="beat">1.20 as authored</td><td class="num">0.09 s</td><td class="num">312&deg;</td><td class="num">0.6</td><td class="num">1.70 s</td></tr>
           <tr><td class="beat">1.50 as authored</td><td class="num">0.39 s</td><td class="num">382&deg;</td><td class="num">2.5</td><td class="num">2.00 s</td></tr>
           <tr><td class="beat">1.70 as authored</td><td class="num">0.59 s</td><td class="num">428&deg;</td><td class="num">4.0</td><td class="num">2.00 s</td></tr>
-          <tr><td class="beat">1.20 tightened</td><td class="num">0.31 s</td><td class="num">387&deg;</td><td class="num">2.5</td><td class="num">1.70 s</td></tr>
         </tbody>
       </table>
     </div>
     <p class="caption prose">Hold is measured from where the core's bounce amplitude falls under 3% &mdash; the first frame that reads as charged rather than still arriving. Blades are how many of the ten sweep past a fixed point during that hold, which is what actually makes the spin legible.</p>
     <div class="cards" style="margin-top:22px">
       <div class="card">
-        <p class="eyebrow">Why 1.20 alone fails</p>
-        <h3>The entrance is still settling</h3>
-        <p>The core's bounce is not spent until <b>1.11s</b>. Releasing at 1.20 leaves a <b>0.09s</b> hold &mdash; five frames &mdash; so the aura goes from arriving straight to leaving and is never simply <em>there</em>.</p>
-        <p>The spin suffers worse: <b>312&deg;</b> means it never completes a revolution, and only <b>0.6 blades</b> pass a fixed point during the hold. Something that turns less than once does not read as spinning; it reads as having swung.</p>
+        <p class="eyebrow">Why the entrance must move too</p>
+        <h3>A negative hold is not a short one</h3>
+        <p>At 1.00s with the authored entrance the hold is <b>&minus;0.11s</b>: the release begins while the bounce is still visibly settling, so the two overlap and neither reads. The spin turns <b>265&deg;</b> &mdash; three quarters of a revolution &mdash; and no blade completes a pass during a hold that does not exist.</p>
       </div>
       <div class="card pick">
-        <p class="eyebrow">What makes it work</p>
-        <h3>Compress the entrance, speed the spin</h3>
-        <p>Scale the entrance to <b>0.80&times;</b> in time (rise 0.16&rarr;0.13s, periods and decays with it) and the spin to <b>1.24&times;</b>. The bounce is then spent by 0.89s, the hold comes back to <b>0.31s</b>, and the spin completes <b>387&deg;</b> with 2.5 blades passing &mdash; matching what 1.50 gives today.</p>
-        <p>Toggle <b>Tighten</b> with release at 1.20 to see it.</p>
+        <p class="eyebrow">The tightening, derived not guessed</p>
+        <h3>Entrance &times;0.63, spin &times;1.44</h3>
+        <p>Compress the entrance until 0.30s of settled time survives before the release, and speed the spin until it turns as far by 1.00s as 1.50s does untouched. Both fall out of the release time rather than being tuned by hand, which is why <b>Tighten</b> is a no-op at 1.50s and does progressively more the earlier the release goes.</p>
+        <p>Core rise 0.16&rarr;<b>0.101s</b>, period 0.42&rarr;<b>0.265s</b>, decay 2.43&rarr;<b>3.84</b>. Spin hold 230&rarr;<b>331&deg;/s</b>, a blade passing every 109ms.</p>
       </div>
       <div class="card pick">
-        <p class="eyebrow">The consequence to accept</p>
-        <h3>The whole effect ends at 1.70s</h3>
-        <p>The release <em>window</em> should stay 0.50s rather than stretching to fill a fixed 2.00s runtime &mdash; a 0.80s dispersal is 40% of the effect spent fading, and it goes limp. So releasing at 1.20 means the aura is over at 1.70.</p>
-        <p>That is a real change to the brief, which asked for about two seconds. If a snappier telegraph is wanted, this is the version of it; if two seconds is fixed, 1.50 already is the answer.</p>
+        <p class="eyebrow">The consequence</p>
+        <h3>Everything is over at 1.50s</h3>
+        <p>The release <em>window</em> stays 0.50s rather than stretching to fill a fixed runtime &mdash; a dispersal stretched to hold a 2.00s end goes limp. So the effect now runs <b>1.00s of charge and 0.50s of release</b>, and the last light is gone at 1.50s.</p>
+        <p>That is a quarter shorter than the two seconds the original brief asked for. It is a snappier telegraph, which suits a cue the camera cuts to; it is worth being deliberate that the brief moved.</p>
       </div>
     </div>
   </section>
@@ -287,11 +288,11 @@
       <table>
         <thead><tr><th>Beat</th><th>Window</th><th>What moves</th></tr></thead>
         <tbody>
-          <tr><td class="beat">Flash</td><td class="num">1.50 &ndash; 1.56 s</td><td>Brightness to 1.35&times; and back. Nothing else changes yet &mdash; geometry, spin and churn all continue exactly as they were. The onset is purely luminous.</td></tr>
-          <tr><td class="beat">Whip</td><td class="num">1.50 &ndash; 2.00 s</td><td>Spin accelerates from its hold rate to 2.2&times; across the window, so the blades spiral outward rather than travelling straight out.</td></tr>
-          <tr><td class="beat">Disperse</td><td class="num">1.56 &ndash; 2.00 s</td><td>Radius to +70%, height to 55%, on an ease-in. The flatten is what keeps it a spreading ring along the floor instead of a second burst. Churn keeps running underneath at full amplitude.</td></tr>
-          <tr><td class="beat">Unzip</td><td class="num">1.56 &ndash; 1.94 s</td><td>Per-blade alpha on <code>(1-p)^2.2</code> over 220ms each, their starts spread across a 160ms sweep by blade angle. First blade out at 1.78s, last at 1.94s.</td></tr>
-          <tr><td class="beat">Residual</td><td class="num">1.68 &ndash; 2.00 s</td><td>Ground spill fades last, 180ms behind the release. The floor is the final thing to go dark.</td></tr>
+          <tr><td class="beat">Flash</td><td class="num">1.00 &ndash; 1.06 s</td><td>Brightness to 1.35&times; and back. Nothing else changes yet &mdash; geometry, spin and churn all continue exactly as they were. The onset is purely luminous.</td></tr>
+          <tr><td class="beat">Whip</td><td class="num">1.00 &ndash; 1.50 s</td><td>Spin accelerates from its hold rate to 2.2&times; across the window, so the blades spiral outward rather than travelling straight out.</td></tr>
+          <tr><td class="beat">Disperse</td><td class="num">1.06 &ndash; 1.50 s</td><td>Radius to +70%, height to 55%, on an ease-in. The flatten is what keeps it a spreading ring along the floor instead of a second burst. Churn keeps running underneath at full amplitude.</td></tr>
+          <tr><td class="beat">Unzip</td><td class="num">1.06 &ndash; 1.44 s</td><td>Per-blade alpha on <code>(1-p)^2.2</code> over 220ms each, their starts spread across a 160ms sweep by blade angle. First blade out at 1.28s, last at <b>1.44s</b>.</td></tr>
+          <tr><td class="beat">Residual</td><td class="num">1.18 &ndash; 1.50 s</td><td>Ground spill fades last, 180ms behind the release. The floor is the final thing to go dark, at <b>1.50s</b>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -336,7 +337,7 @@
   <section>
     <div class="sec-head"><p class="eyebrow">06</p><h2>Settled, and still open</h2></div>
     <div class="prose">
-      <p><b>Settled 2026-08-29.</b> <b>Expand</b>, not collapse &mdash; with the flatten carrying the difference between dispersing and firing. Release moves from 1.70s to <b>1.50s</b>, spending the extra 200ms on outward travel rather than on a slower fade. Spin keeps a <b>fixed direction</b> across every cast, so the telegraph is instantly recognisable rather than varied. The <b>flares stay</b> for now, despite v1's verification finding that they read as terraced plates at the battle pitch.</p>
+      <p><b>Settled 2026-08-29.</b> <b>Expand</b>, not collapse &mdash; with the flatten carrying the difference between dispersing and firing. Release at <b>1.00s</b>, which forces the entrance to compress to 0.63&times; and the spin to 1.44&times;, and ends the whole effect at <b>1.50s</b> rather than 2.00s. Spin keeps a <b>fixed direction</b> across every cast, so the telegraph is instantly recognisable rather than varied. The <b>flares stay</b> for now, despite v1's verification finding that they read as terraced plates at the battle pitch.</p>
       <div class="q"><h3>Does the spin rescue the flares?</h3><p>The one thing v2 might fix for free. A plate that sits still reads as geometry; a plate that turns has a much better chance of reading as energy. If they still fail once spinning, cutting to a single flare or none is a one-constant change &mdash; but that judgement needs the effect actually running, so it belongs at V2-F rather than now.</p></div>
       <div class="q"><h3>Does the release compete with the spell that follows?</h3><p>The reason collapse was the earlier recommendation. The flatten is the mitigation, and it should be judged against a real cast rather than in isolation. Collapse stays on the toggle and in the constants precisely so this stays cheap to reverse.</p></div>
       <div class="q"><h3>Does +70% radius reawaken the area-marker read?</h3><p>v1 held the resting footprint at 2.3u for this reason. The expansion is transient and moving, which is the opposite of what a zone marker does, but it is still the widest this effect has ever been. Worth a look at V2-F before it is called done.</p></div>
@@ -365,14 +366,14 @@
           </tr>
           <tr>
             <td class="num">V2-C</td>
-            <td>Spin as a pure function of the clock: launch rate easing to a hold rate, per-ring differential, set on <code>rotation.y</code> rather than accumulated. Prove a seek still lands on the same frame.</td>
+            <td>Spin as a pure function of the clock: 489&deg;/s easing to a 331&deg;/s hold, per-ring differential, set on <code>rotation.y</code> rather than accumulated. Prove a seek still lands on the same frame.</td>
             <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
             <td class="num">TechniqueChargeAuraV2Effect.gd<br>TechniqueChargeAuraV2Profile.gd</td>
             <td class="num">2</td>
           </tr>
           <tr>
             <td class="num">V2-D</td>
-            <td>The release from 1.50s: flash, spin acceleration, outward radius with the height flatten, per-blade unzip offset by blade angle, and the ground's 180ms lag. One envelope family with the direction as a signed constant, so collapse stays reachable without a branch.</td>
+            <td>The release from 1.00s: flash, spin acceleration, outward radius with the height flatten, per-blade unzip offset by blade angle, and the ground's 180ms lag. One envelope family with the direction as a signed constant, so collapse stays reachable without a branch.</td>
             <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
             <td class="num">technique_charge_aura_v2.gdshader<br>TechniqueChargeAuraV2Profile.gd</td>
             <td class="num">2</td>
@@ -398,7 +399,7 @@
   </section>
 
   <footer>
-    <p>Sketch only &mdash; no engine files changed. The corner-gap figures are measured from v1; every v2 timing and amplitude is a proposal. Release shape, release time, spin direction and the flares' survival were decided 2026-08-29.</p>
+    <p>Sketch only &mdash; no engine files changed. The corner-gap figures are measured from v1; every v2 timing and amplitude is a proposal. Release shape, release time, spin direction and the flares' survival were decided 2026-08-29; the entrance and spin scales follow from the release time rather than being chosen.</p>
   </footer>
 </div>
 
@@ -409,13 +410,27 @@
   // The release WINDOW is the constant, not the end of the effect: pulling the
   // release earlier ends the whole thing earlier rather than stretching the
   // dispersal into something limp.
-  var RELEASE = 1.50, WINDOW = 0.50;
-  var tighten = false;
+  var RELEASE = 1.00, WINDOW = 0.50;
+  var tighten = true;
+  // Everything the tightening needs, derived rather than hand-tuned per
+  // release time. HOLD_UNIT is holdStart at an entrance scale of 1: the rise
+  // plus the time the core's bounce takes to decay from its overshoot to the
+  // 3% floor, both of which scale linearly with the entrance's time scale.
+  var HOLD_UNIT = 0.16 + Math.log(0.30 / 0.03) / 2.43;
+  var TARGET_HOLD = 0.30;
+  function baseTurn(T) {
+    return SPIN_HOLD * T + (SPIN_LAUNCH - SPIN_HOLD) * 0.34 * (1 - Math.exp(-T / 0.34));
+  }
+  var REFERENCE_TURN = 0;
   function flashEnd() { return RELEASE + 0.06; }
   function endTime() { return RELEASE + WINDOW; }
   // Entrance time-scale and the matching spin boost.
-  function ts() { return tighten ? 0.80 : 1.0; }
-  function spinK() { return tighten ? 1.24 : 1.0; }
+  // Compress the entrance just enough to leave TARGET_HOLD of settled time
+  // before the release, and speed the spin just enough to turn as far by the
+  // release as 1.50s does untouched. Both clamp at 1, so Tighten is a no-op
+  // wherever the timing already works.
+  function ts() { return tighten ? Math.min(1.0, (RELEASE - TARGET_HOLD) / HOLD_UNIT) : 1.0; }
+  function spinK() { return tighten ? Math.max(1.0, REFERENCE_TURN / baseTurn(RELEASE)) : 1.0; }
   // Where the core's bounce amplitude falls under 3% -- the first frame that
   // reads as charged rather than still arriving. Everything between here and
   // RELEASE is the hold, and the hold is the frame the camera is there for.
@@ -674,11 +689,12 @@
       btnSpin = document.getElementById("btnSpin"), btnChurn = document.getElementById("btnChurn"),
       btnCollapse = document.getElementById("btnCollapse"), btnExpand = document.getElementById("btnExpand"),
       btnUniform = document.getElementById("btnUniform"),
-      btnR120 = document.getElementById("btnR120"), btnR150 = document.getElementById("btnR150"),
-      btnR170 = document.getElementById("btnR170"), btnTighten = document.getElementById("btnTighten");
+      btnR100 = document.getElementById("btnR100"), btnR120 = document.getElementById("btnR120"),
+      btnR150 = document.getElementById("btnR150"), btnR170 = document.getElementById("btnR170"),
+      btnTighten = document.getElementById("btnTighten");
 
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var t = reduced ? 1.62 : 0, playing = !reduced, speed = 1, last = 0;
+  var t = reduced ? 1.10 : 0, playing = !reduced, speed = 1, last = 0;
 
   function render() {
     var tc = Math.min(t, DUR);
@@ -727,11 +743,13 @@
   });
   function setRelease(v) {
     RELEASE = v;
+    btnR100.setAttribute("aria-pressed", String(v === 1.00));
     btnR120.setAttribute("aria-pressed", String(v === 1.20));
     btnR150.setAttribute("aria-pressed", String(v === 1.50));
     btnR170.setAttribute("aria-pressed", String(v === 1.70));
     render();
   }
+  btnR100.addEventListener("click", function () { setRelease(1.00); });
   btnR120.addEventListener("click", function () { setRelease(1.20); });
   btnR150.addEventListener("click", function () { setRelease(1.50); });
   btnR170.addEventListener("click", function () { setRelease(1.70); });
@@ -746,7 +764,8 @@
   scrub.addEventListener("input", function () { pause(); t = Number(scrub.value) / 1000; render(); });
   window.addEventListener("resize", render);
 
-  if (!playing) { pause(); scrub.value = 1620; }
+  REFERENCE_TURN = baseTurn(1.50);
+  if (!playing) { pause(); scrub.value = 1100; }
   requestAnimationFrame(frame);
 })();
 </script>
