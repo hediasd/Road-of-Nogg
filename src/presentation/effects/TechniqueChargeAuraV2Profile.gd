@@ -99,37 +99,50 @@ const RING_RISE_SECONDS := [0.16, 0.11, 0.09]
 const RING_BOUNCE_PERIOD_SECONDS := [0.42, 0.32, 0.26]
 const RING_BOUNCE_DECAY := [2.43, 3.40, 4.20]
 const RING_OVERSHOOT := [0.30, 0.40, 0.48]
-const RING_BREATH_SCALE := [1.0, 1.4, 1.8]
+## Per-ring churn multiplier. Flares churn harder than the core, so the outer
+## silhouette is the busiest part of the effect.
+const RING_CHURN_SCALE := [1.0, 1.30, 1.55]
 
-## AUTHORED idle. The aura is never static: the breath runs from its first frame
-## to its last, and its amplitude grows from BREATH_MIN to BREATH_MAX on the
-## core ring's own decay term. It therefore never competes with the entrance and
-## arrives exactly where the aura would otherwise go still -- the handoff falls
-## out of the arithmetic instead of being scheduled.
+## AUTHORED idle. v1's breath ramped in as the entrance died and settled at
+## plus or minus 7.5%; v2's churn does neither. It runs at full amplitude from
+## the first frame to the last, because v2's statement is an aura that is never
+## doing nothing rather than one that arrives and holds.
 ##
-## At the battle camera's framing the whole aura is around forty pixels tall, so
-## the earlier plus or minus 3.5% was one pixel and effectively invisible. The
-## amplitude that fixes that is not the height alone; it is the height coupled
-## to brightness, which is legible at any size (AURA-5D).
-const BREATH_MIN := 0.030
-const BREATH_MAX := 0.075
-## How much of the breath is the face's own rather than shared by the whole
-## ring. Panels butt together with no side margin in the mask, so the step at a
-## shared corner has only the ragged top edge hiding it; this is what bounds it.
-const BREATH_FACE_MIX := 0.45
+## The amplitude is nearly three times v1's, which is what forces faces to be
+## drawn as discrete blades: v1 measured the corner gap at 0.0337u with its
+## breath, and this amplitude with near-full per-blade independence would scale
+## that to roughly 4px of visible notch at every corner on a continuous ring.
+## BLADE_EDGE_SOFTNESS is the answer to that, not a smaller CHURN_AMPLITUDE.
+const CHURN_AMPLITUDE := 0.20
+## How much of the churn is the blade's own rather than shared by the whole
+## ring. v1 held the equivalent at 0.45 to keep neighbouring panels close
+## enough that the step between them stayed hidden; with blades drawn discrete
+## that constraint is gone and they are free to disagree.
+const CHURN_FACE_MIX := 0.85
+## How far a blade's own azimuth offsets its churn sample. Large enough that
+## adjacent blades decorrelate rather than drift together: at ten sides the
+## azimuth steps by 0.628 rad, so this puts neighbours 3.58 apart in the noise
+## field, well past its correlation length.
+const CHURN_FACE_SPREAD := 5.7
 
 ## Two unrelated rates so the idle has no readable loop or countable beat.
-const BREATH_RATE_SLOW := 1.7
-const BREATH_RATE_FAST := 4.3
+## Faster than v1's 1.7/4.3: the blades should read as pumping, not shimmering.
+const CHURN_RATE_SLOW := 3.1
+const CHURN_RATE_FAST := 6.7
+
+## Softness of the falloff at each blade's two vertical edges, in UV.x. This is
+## what makes a face a blade rather than a panel of a continuous wall. The mask
+## carries no side margin of its own (alpha ~253 in its edge columns, measured
+## on v1), so without this the geometry's own edges are hard.
+const BLADE_EDGE_SOFTNESS := 0.26
 
 ## At the battle camera's framing the whole aura is roughly forty pixels tall,
-## so plus or minus 7.5% of height is two or three pixels -- present, but not
-## the thing that reads. Coupling the same breath factor into brightness and
-## into the top-edge flutter is what actually makes the idle visible: alpha
-## swings roughly BREATH_BRIGHT_COUPLING times as far as height does, and
-## brightness is legible at any size.
-const BREATH_BRIGHT_COUPLING := 1.6
-const BREATH_FLUTTER_COUPLING := 1.0
+## so even plus or minus 20% of height is a handful of pixels. Coupling the same
+## churn factor into brightness and into the top-edge flutter is what actually
+## makes the idle carry: alpha swings roughly CHURN_BRIGHT_COUPLING times as far
+## as height does, and brightness is legible at any size.
+const CHURN_BRIGHT_COUPLING := 1.6
+const CHURN_FLUTTER_COUPLING := 1.0
 
 ## AUTHORED entrance spread around the ring, in seconds of lag. Both terms are
 ## sines of the angle, so the phase is periodic by construction: a lag that
@@ -149,7 +162,7 @@ const RING_PHASE_A2 := 0.022
 ## account for the breath as well as the bounce, because both multiply.
 static func ring_ceiling(index: int) -> float:
 	return ring_ceiling_for(
-		float(RING_OVERSHOOT[index]), BREATH_MAX, float(RING_BREATH_SCALE[index])
+		float(RING_OVERSHOOT[index]), CHURN_AMPLITUDE, float(RING_CHURN_SCALE[index])
 	)
 
 
@@ -162,8 +175,8 @@ static func ring_ceiling(index: int) -> float:
 ## authored one. `_ringSpecs()` calls this directly with the live values so the
 ## built mesh and the ceiling uniform pushed alongside it can never disagree.
 static func ring_ceiling_for(
-		overshoot: float, breath_max: float, breath_scale: float) -> float:
-	return (1.0 + overshoot) * (1.0 + breath_max * breath_scale)
+		overshoot: float, churn_amplitude: float, churn_scale: float) -> float:
+	return (1.0 + overshoot) * (1.0 + churn_amplitude * churn_scale)
 ## The wall renders both faces (cull_disabled), so the near and far halves
 ## overlap wherever the silhouette shows a single wall face when only one side
 ## is culled. blend_mix integrates two stacked layers at per-face alpha a to

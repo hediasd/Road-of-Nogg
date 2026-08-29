@@ -48,24 +48,32 @@ uniform float ring_rise[3];
 uniform float ring_period[3];
 uniform float ring_decay[3];
 uniform float ring_overshoot[3];
-uniform float ring_breath_scale[3];
+uniform float ring_churn_scale[3];
 // Grade. RING_TIP_BRIGHT is a blend weight rather than a bool because uniform
 // arrays in this shader are float only; 0 keeps the core's shipped base-faint
 // curve, 1 switches a face to the flares' tip-bright one.
 uniform float ring_opacity[3];
 uniform float ring_tip_bright[3];
 
-uniform float breath_min = 0.030;
-uniform float breath_max = 0.075;
-uniform float breath_face_mix = 0.45;
+// v2's idle does not settle into anything. Where v1 ramped a breath in as the
+// entrance died, this churns at full amplitude from the first frame to the
+// last, so the aura is never doing nothing.
+uniform float churn_amplitude = 0.20;
+uniform float churn_face_mix = 0.85;
+// How far a face's own azimuth offsets its churn sample. Large enough that
+// neighbouring blades are decorrelated rather than close: with faces drawn as
+// discrete blades they are free to disagree, which is what v1 could not afford.
+uniform float churn_face_spread = 5.7;
+// Softness of the falloff at each blade's two vertical edges, in UV.x.
+uniform float blade_edge_softness = 0.26;
 // Two unrelated rates so the idle has no readable loop or countable beat.
-uniform float breath_rate_slow = 1.7;
-uniform float breath_rate_fast = 4.3;
-// How far the breath's height factor is amplified into brightness and into the
+uniform float churn_rate_slow = 3.1;
+uniform float churn_rate_fast = 6.7;
+// How far the churn's height factor is amplified into brightness and into the
 // top-edge flutter. Height alone is a couple of pixels at the battle camera's
 // framing; brightness is legible at any size.
-uniform float breath_bright_coupling = 1.6;
-uniform float breath_flutter_coupling = 1.0;
+uniform float churn_bright_coupling = 1.6;
+uniform float churn_flutter_coupling = 1.0;
 uniform float ring_phase_a1 = 0.045;
 uniform float ring_phase_a2 = 0.022;
 
@@ -82,9 +90,9 @@ const float RING_TAU = 6.283185307179586;
 // geometry that was built. The fragment stage needs it to hold the charge noise
 // still in world units while the ring grows.
 varying float v_extension;
-// This ring's breath factor at the instant this vertex was placed, carried to
+// This ring's churn factor at the instant this vertex was placed, carried to
 // the fragment stage so alpha can swing with the same idle that moves height.
-varying float v_breathFactor;
+varying float v_churnFactor;
 
 float hash21(vec2 p) {
 	vec2 h = fract(p * vec2(123.34, 456.21));
@@ -141,36 +149,34 @@ float ring_bounce(int index, float seconds) {
 		* cos(RING_TAU / max(ring_period[index], 0.0001) * tau);
 }
 
-// The idle never stops, and it grows into its full amplitude on the same decay
-// term that kills the core ring's bounce: it never competes with the entrance,
-// and it arrives exactly where the aura would otherwise go still.
-float breath_amplitude(float seconds) {
-	float tau = max(seconds - ring_rise[0], 0.0);
-	return breath_max - (breath_max - breath_min) * exp(-ring_decay[0] * tau);
-}
-
 // Two unrelated rates, so the idle has no readable loop and no countable beat.
-// The per-face term is a three-lobed function of the face's own azimuth rather
-// than an independent sample per face: neighbouring panels stay close, which is
-// what holds the step at their shared corner inside what the mask's ragged top
-// edge can absorb. The mask has no side margin, so nothing else hides it.
-float ring_breath(int index, float seconds, float face_angle) {
-	float amount = breath_amplitude(seconds) * ring_breath_scale[index];
-	float slow = seconds * breath_rate_slow;
-	float fast = seconds * breath_rate_fast;
+// Unlike v1's breath there is no ramp: the amplitude is the same at 0.0s as at
+// the release, because v2's entrance is not something the idle has to wait for.
+//
+// The per-face term offsets the sample by the face's own azimuth rather than
+// shaping it into a smooth lobe around the ring. v1 needed that smoothing to
+// keep neighbouring panels close, because a difference between them opened a
+// step at the corner they shared; v2 draws faces as discrete blades with soft
+// edges, so a blade disagreeing with its neighbour is the intended read rather
+// than a tear to be bounded.
+float ring_churn(int index, float seconds, float face_angle) {
+	float amount = churn_amplitude * ring_churn_scale[index];
+	float slow = seconds * churn_rate_slow;
+	float fast = seconds * churn_rate_fast;
+	float offset = face_angle * churn_face_spread;
 	float shared =
 		(value_noise(vec2(slow, 3.1 + playback_seed)) - 0.5) * 1.35
 		+ (value_noise(vec2(fast, 8.7 + playback_seed)) - 0.5) * 0.65;
 	float own =
-		(value_noise(vec2(slow + sin(3.0 * face_angle + 0.6) * 0.9, 3.1 + playback_seed)) - 0.5) * 1.35
-		+ (value_noise(vec2(fast + sin(3.0 * face_angle + 2.2) * 0.7, 8.7 + playback_seed)) - 0.5) * 0.65;
-	return 1.0 + amount * mix(shared, own, breath_face_mix);
+		(value_noise(vec2(slow + offset, 3.1 + playback_seed)) - 0.5) * 1.35
+		+ (value_noise(vec2(fast + offset * 1.7, 8.7 + playback_seed)) - 0.5) * 0.65;
+	return 1.0 + amount * mix(shared, own, churn_face_mix);
 }
 
 void vertex() {
 	if (layer_kind != 0) {
 		v_extension = 1.0;
-		v_breathFactor = 1.0;
+		v_churnFactor = 1.0;
 	} else {
 		int ring = int(round(COLOR.r * 2.0));
 
@@ -184,13 +190,12 @@ void vertex() {
 		float phase = ring_phase_a1 * sin(theta + playback_seed)
 			+ ring_phase_a2 * sin(2.0 * theta + 1.7 * playback_seed + 1.1);
 
-		// The breath is taken per face instead, from the face's own azimuth --
-		// panels shimmering against each other, which its small amplitude can
-		// afford where the bounce's amplitude could not.
+		// The churn is taken per face, from the face's own azimuth -- blades
+		// pumping against each other rather than the ring moving as one body.
 		float face_angle = atan(NORMAL.z, NORMAL.x);
-		float breath = ring_breath(ring, playback_seconds, face_angle);
+		float churn = ring_churn(ring, playback_seconds, face_angle);
 
-		float factor = ring_bounce(ring, playback_seconds - phase) * breath;
+		float factor = ring_bounce(ring, playback_seconds - phase) * churn;
 		float extension = clamp(factor / max(ring_ceiling[ring], 0.0001), 0.0, 1.0);
 
 		// Base and tip of a ring sit on the same radial line, so the base is
@@ -211,16 +216,16 @@ void vertex() {
 		// The amplitude stays small on purpose: a large one grows flame
 		// tongues, and this charges rather than burns.
 		//
-		// The flutter amount itself rides the breath, the same way alpha will
+		// The flutter amount itself rides the churn, the same way alpha does
 		// in the fragment stage: the silhouette gets choppier on a swell and
 		// calms on an ebb instead of fluttering at one constant amount.
 		float along = 1.0 - UV.y;
 		float flutter_amount = displacement_u
-			* (1.0 + breath_flutter_coupling * (breath - 1.0));
+			* (1.0 + churn_flutter_coupling * (churn - 1.0));
 		// Sampled on the ring's own circle, not from UV.x. UV.x runs 0..1
 		// within each face, so it reads 1 on one side of a shared corner and 0
 		// on the other and the flutter tore every corner -- AURA-5G measured
-		// that tear at up to 0.071u, twice what the deliberate per-face breath
+		// that tear at up to 0.071u, twice what the deliberate per-face churn
 		// contributes and the dominant term in the rim's gap. A point on the
 		// unit circle is periodic in the angle by construction, so both sides
 		// of a corner sample the same place and the flutter becomes an
@@ -233,7 +238,7 @@ void vertex() {
 		VERTEX.y += lift * 2.0 * flutter_amount * along * along * extension;
 
 		v_extension = extension;
-		v_breathFactor = breath;
+		v_churnFactor = churn;
 	}
 }
 
@@ -262,7 +267,21 @@ void fragment() {
 		float tip_bright = smoothstep(0.0, 0.38, along)
 			* (1.0 - 0.85 * smoothstep(0.78, 1.0, along));
 		float vertical_density = mix(base_faint, tip_bright, ring_tip_bright[ring]);
-		float base = texture(aura_mask, vec2(UV.x, sample_v)).a * vertical_density;
+
+		// Faces are drawn as discrete blades, not as a continuous ring. The
+		// mask has no side margin -- v1 measured alpha ~253 in its edge columns
+		// -- so two neighbouring faces at different heights leave a hard step
+		// at the corner they share, with nothing hiding it. v1 bounded that
+		// step by keeping per-face motion small; v2's churn is nearly three
+		// times v1's breath and cannot, so it stops pretending the ring is
+		// continuous. The falloff is what turns a tear into a gap between two
+		// blades, and it is also what lets the spin read as blades sweeping
+		// past rather than a wall rotating.
+		float blade_edge = smoothstep(0.0, blade_edge_softness, UV.x)
+			* smoothstep(0.0, blade_edge_softness, 1.0 - UV.x);
+
+		float base = texture(aura_mask, vec2(UV.x, sample_v)).a
+			* vertical_density * blade_edge;
 
 		// Noise is sampled against the ring's world extent, not against its UV.
 		// Sampled in UV it would squash and stretch with the ring, and since the
@@ -276,10 +295,10 @@ void fragment() {
 		// noise cells and reads as television static instead of charge.
 		mask_alpha = base * mix(0.55, 1.15, charge_noise(mesh_uv));
 		layer_opacity = ring_opacity[ring];
-		// Alpha swings with the same breath that moves height, amplified by
-		// BREATH_BRIGHT_COUPLING so the idle reads at the battle camera's
+		// Alpha swings with the same churn that moves height, amplified by
+		// CHURN_BRIGHT_COUPLING so the idle reads at the battle camera's
 		// framing even though a few pixels of height motion would not.
-		bright_coupling = 1.0 + breath_bright_coupling * (v_breathFactor - 1.0);
+		bright_coupling = 1.0 + churn_bright_coupling * (v_churnFactor - 1.0);
 	} else {
 		// A radial spill centred on the source, not a rim. Radii are in plane
 		// UV: the plane's edge midpoint is 0.50, and it is sized against the

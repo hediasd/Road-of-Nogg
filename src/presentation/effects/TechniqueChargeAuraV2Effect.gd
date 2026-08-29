@@ -166,42 +166,42 @@ static func tunables() -> Array[Dictionary]:
 			"rebuild": false,
 		},
 		{
-			"id": "BREATH_MIN", "label": "Min amplitude", "group": "Breath",
-			"min": 0.0, "max": 0.15, "step": 0.005,
-			"default": TechniqueChargeAuraV2Profile.BREATH_MIN,
-			"rebuild": false,
-		},
-		{
-			"id": "BREATH_MAX", "label": "Max amplitude", "group": "Breath",
-			"min": 0.0, "max": 0.20, "step": 0.005,
-			"default": TechniqueChargeAuraV2Profile.BREATH_MAX,
+			"id": "CHURN_AMPLITUDE", "label": "Amplitude", "group": "Churn",
+			"min": 0.0, "max": 0.40, "step": 0.005,
+			"default": TechniqueChargeAuraV2Profile.CHURN_AMPLITUDE,
 			# Feeds every ring's ceiling, core included -- same reasoning as
 			# BOUNCE_OVERSHOOT above.
 			"rebuild": true,
 		},
 		{
-			"id": "BREATH_FACE_MIX", "label": "Face mix", "group": "Breath",
+			"id": "CHURN_FACE_MIX", "label": "Blade mix", "group": "Churn",
 			"min": 0.0, "max": 1.0, "step": 0.01,
-			"default": TechniqueChargeAuraV2Profile.BREATH_FACE_MIX,
+			"default": TechniqueChargeAuraV2Profile.CHURN_FACE_MIX,
 			"rebuild": false,
 		},
 		{
-			"id": "BREATH_BRIGHT_COUPLING", "label": "Bright coupling",
-			"group": "Breath",
+			"id": "CHURN_BRIGHT_COUPLING", "label": "Bright coupling",
+			"group": "Churn",
 			"min": 0.0, "max": 4.0, "step": 0.05,
-			"default": TechniqueChargeAuraV2Profile.BREATH_BRIGHT_COUPLING,
+			"default": TechniqueChargeAuraV2Profile.CHURN_BRIGHT_COUPLING,
 			"rebuild": false,
 		},
 		{
-			"id": "BREATH_RATE_SLOW", "label": "Rate (slow)", "group": "Breath",
-			"min": 0.2, "max": 6.0, "step": 0.1,
-			"default": TechniqueChargeAuraV2Profile.BREATH_RATE_SLOW,
+			"id": "CHURN_RATE_SLOW", "label": "Rate (slow)", "group": "Churn",
+			"min": 0.2, "max": 9.0, "step": 0.1,
+			"default": TechniqueChargeAuraV2Profile.CHURN_RATE_SLOW,
 			"rebuild": false,
 		},
 		{
-			"id": "BREATH_RATE_FAST", "label": "Rate (fast)", "group": "Breath",
-			"min": 0.2, "max": 10.0, "step": 0.1,
-			"default": TechniqueChargeAuraV2Profile.BREATH_RATE_FAST,
+			"id": "CHURN_RATE_FAST", "label": "Rate (fast)", "group": "Churn",
+			"min": 0.2, "max": 14.0, "step": 0.1,
+			"default": TechniqueChargeAuraV2Profile.CHURN_RATE_FAST,
+			"rebuild": false,
+		},
+		{
+			"id": "BLADE_EDGE_SOFTNESS", "label": "Blade edge", "group": "Churn",
+			"min": 0.0, "max": 0.49, "step": 0.01,
+			"default": TechniqueChargeAuraV2Profile.BLADE_EDGE_SOFTNESS,
 			"rebuild": false,
 		},
 		{
@@ -605,8 +605,8 @@ func _on_tunables_applied() -> void:
 ## together instead, which is what keeps the panel to one set of geometry
 ## sliders per flare concept rather than two independent, easily-desynced sets.
 ##
-## Overshoot and the breath's max amplitude both feed a ring's ceiling
-## extension, so the live BOUNCE_OVERSHOOT and BREATH_MAX values are read here
+## Overshoot and the churn amplitude both feed a ring's ceiling
+## extension, so the live BOUNCE_OVERSHOOT and CHURN_AMPLITUDE values are read here
 ## too and passed through `ring_ceiling_for()` -- the mesh has to be built at
 ## whatever ceiling the live values imply, not the authored default, or a
 ## larger overshoot would silently clip against geometry sized for the smaller
@@ -616,7 +616,9 @@ func _ringSpecs() -> Array:
 	var core_overshoot := tunable(
 		"BOUNCE_OVERSHOOT", TechniqueChargeAuraV2Profile.RING_OVERSHOOT[0]
 	)
-	var breath_max := tunable("BREATH_MAX", TechniqueChargeAuraV2Profile.BREATH_MAX)
+	var churn_amplitude := tunable(
+		"CHURN_AMPLITUDE", TechniqueChargeAuraV2Profile.CHURN_AMPLITUDE
+	)
 	var flare_lean_offset := tunable("FLARE_LEAN_OFFSET_DEGREES", 0.0)
 	var flare_reach_scale := tunable("FLARE_REACH_SCALE", 1.0)
 
@@ -635,8 +637,8 @@ func _ringSpecs() -> Array:
 			lean += flare_lean_offset
 		var ceiling := TechniqueChargeAuraV2Profile.ring_ceiling_for(
 			overshoot,
-			breath_max,
-			float(TechniqueChargeAuraV2Profile.RING_BREATH_SCALE[index])
+			churn_amplitude,
+			float(TechniqueChargeAuraV2Profile.RING_CHURN_SCALE[index])
 		)
 		specs.append({
 			"sides": sides,
@@ -667,8 +669,8 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	if material == null:
 		return
 
-	# Read once: BOUNCE_* and BREATH_MAX apply to the core only (index 0), but
-	# BREATH_MAX also has to match what `_ringSpecs()` already baked into
+	# Read once: BOUNCE_* and CHURN_AMPLITUDE apply to the core only (index 0),
+	# but CHURN_AMPLITUDE also has to match what `_ringSpecs()` already baked into
 	# rings[index]["extension_scale"] -- both call `tunable()` with the same id
 	# and fallback, which is what keeps a pure dict lookup consistent between
 	# the two call sites without threading a value through.
@@ -681,6 +683,9 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	var core_overshoot := tunable(
 		"BOUNCE_OVERSHOOT", TechniqueChargeAuraV2Profile.RING_OVERSHOOT[0]
 	)
+	var churn_amplitude := tunable(
+		"CHURN_AMPLITUDE", TechniqueChargeAuraV2Profile.CHURN_AMPLITUDE
+	)
 	var flare_opacity_scale := tunable("FLARE_OPACITY_SCALE", 1.0)
 
 	var base_radius := PackedFloat32Array()
@@ -690,7 +695,7 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	var period := PackedFloat32Array()
 	var decay := PackedFloat32Array()
 	var overshoot := PackedFloat32Array()
-	var breath_scale := PackedFloat32Array()
+	var churn_scale := PackedFloat32Array()
 	var ring_opacity := PackedFloat32Array()
 	var ring_tip_bright := PackedFloat32Array()
 
@@ -712,8 +717,8 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 			)
 			decay.append(float(TechniqueChargeAuraV2Profile.RING_BOUNCE_DECAY[index]))
 			overshoot.append(float(TechniqueChargeAuraV2Profile.RING_OVERSHOOT[index]))
-		breath_scale.append(
-			float(TechniqueChargeAuraV2Profile.RING_BREATH_SCALE[index])
+		churn_scale.append(
+			float(TechniqueChargeAuraV2Profile.RING_CHURN_SCALE[index])
 		)
 		var op := float(TechniqueChargeAuraV2Profile.RING_OPACITY[index])
 		if index != 0:
@@ -730,38 +735,42 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	material.set_shader_parameter("ring_period", period)
 	material.set_shader_parameter("ring_decay", decay)
 	material.set_shader_parameter("ring_overshoot", overshoot)
-	material.set_shader_parameter("ring_breath_scale", breath_scale)
+	material.set_shader_parameter("ring_churn_scale", churn_scale)
 	material.set_shader_parameter("ring_opacity", ring_opacity)
 	material.set_shader_parameter("ring_tip_bright", ring_tip_bright)
 
+	material.set_shader_parameter("churn_amplitude", churn_amplitude)
 	material.set_shader_parameter(
-		"breath_min", tunable("BREATH_MIN", TechniqueChargeAuraV2Profile.BREATH_MIN)
+		"churn_face_mix",
+		tunable("CHURN_FACE_MIX", TechniqueChargeAuraV2Profile.CHURN_FACE_MIX)
 	)
 	material.set_shader_parameter(
-		"breath_max", tunable("BREATH_MAX", TechniqueChargeAuraV2Profile.BREATH_MAX)
+		"churn_face_spread", TechniqueChargeAuraV2Profile.CHURN_FACE_SPREAD
 	)
 	material.set_shader_parameter(
-		"breath_face_mix",
-		tunable("BREATH_FACE_MIX", TechniqueChargeAuraV2Profile.BREATH_FACE_MIX)
-	)
-	material.set_shader_parameter(
-		"breath_bright_coupling",
+		"blade_edge_softness",
 		tunable(
-			"BREATH_BRIGHT_COUPLING",
-			TechniqueChargeAuraV2Profile.BREATH_BRIGHT_COUPLING
+			"BLADE_EDGE_SOFTNESS", TechniqueChargeAuraV2Profile.BLADE_EDGE_SOFTNESS
 		)
 	)
 	material.set_shader_parameter(
-		"breath_flutter_coupling",
-		TechniqueChargeAuraV2Profile.BREATH_FLUTTER_COUPLING
+		"churn_bright_coupling",
+		tunable(
+			"CHURN_BRIGHT_COUPLING",
+			TechniqueChargeAuraV2Profile.CHURN_BRIGHT_COUPLING
+		)
 	)
 	material.set_shader_parameter(
-		"breath_rate_slow",
-		tunable("BREATH_RATE_SLOW", TechniqueChargeAuraV2Profile.BREATH_RATE_SLOW)
+		"churn_flutter_coupling",
+		TechniqueChargeAuraV2Profile.CHURN_FLUTTER_COUPLING
 	)
 	material.set_shader_parameter(
-		"breath_rate_fast",
-		tunable("BREATH_RATE_FAST", TechniqueChargeAuraV2Profile.BREATH_RATE_FAST)
+		"churn_rate_slow",
+		tunable("CHURN_RATE_SLOW", TechniqueChargeAuraV2Profile.CHURN_RATE_SLOW)
+	)
+	material.set_shader_parameter(
+		"churn_rate_fast",
+		tunable("CHURN_RATE_FAST", TechniqueChargeAuraV2Profile.CHURN_RATE_FAST)
 	)
 	material.set_shader_parameter(
 		"ring_phase_a1",
