@@ -37,6 +37,19 @@ const WALL_BOTTOM_STRENGTH := 0.38
 const WALL_SIDES := 10
 const WALL_RADIUS_U := 0.74
 const WALL_HEIGHT_U := 1.62
+
+## AUTHORED ring stack. Index 0 is the vertical core wall the effect shipped
+## with; 1 and 2 are flares that lean outward off the floor. One wall reads as
+## a caster standing in light, which is not the statement -- the flares are
+## what make the effect read as something coming up out of the ground.
+##
+## Lean is measured from the ground plane, so 90 degrees is the vertical core
+## and 40 degrees is the shallow outer splash. All three rings share WALL_SIDES
+## and are built into one surface, so the stack costs no extra draw call.
+const RING_COUNT := 3
+const RING_LEAN_DEGREES := [90.0, 62.0, 40.0]
+const RING_BASE_RADIUS_U := [WALL_RADIUS_U, 0.78, 0.90]
+const RING_LENGTH_U := [WALL_HEIGHT_U, 0.52, 0.34]
 ## The wall renders both faces (cull_disabled), so the near and far halves
 ## overlap wherever the silhouette shows a single wall face when only one side
 ## is culled. blend_mix integrates two stacked layers at per-face alpha a to

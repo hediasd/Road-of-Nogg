@@ -390,11 +390,7 @@ func _buildOwnedLayers() -> void:
 
 	_wallInstance = MeshInstance3D.new()
 	_wallInstance.name = "PolygonalWall"
-	_wallInstance.mesh = _createRepeatedFaceWall(
-		tunable_int("WALL_SIDES", TechniqueChargeAuraProfile.WALL_SIDES),
-		tunable("WALL_RADIUS_U", TechniqueChargeAuraProfile.WALL_RADIUS_U),
-		tunable("WALL_HEIGHT_U", TechniqueChargeAuraProfile.WALL_HEIGHT_U)
-	)
+	_wallInstance.mesh = _createRingStackMesh(_ringSpecs())
 	_wallInstance.material_override = _wallMaterial
 	_wallInstance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_wallInstance)
@@ -470,28 +466,119 @@ func _on_tunables_applied() -> void:
 	_applyTimeline()
 
 
-static func _createRepeatedFaceWall(sides: int, radius: float, height: float) -> ArrayMesh:
-	assert(sides >= 3, "Technique charge aura wall needs at least three sides.")
-	assert(radius > 0.0 and height > 0.0, "Aura wall dimensions must be positive.")
+## The three rings the wall mesh is assembled from, core first.
+##
+## Only the core takes the live Dimensions tunables. The flares are authored
+## relative to their own radii, and letting one slider move the core without
+## them would let the core wall cross straight through the mid flare.
+func _ringSpecs() -> Array:
+	var sides := tunable_int("WALL_SIDES", TechniqueChargeAuraProfile.WALL_SIDES)
+	var specs: Array = []
+	for index in TechniqueChargeAuraProfile.RING_COUNT:
+		var base_radius := float(TechniqueChargeAuraProfile.RING_BASE_RADIUS_U[index])
+		var length := float(TechniqueChargeAuraProfile.RING_LENGTH_U[index])
+		if index == 0:
+			base_radius = tunable("WALL_RADIUS_U", base_radius)
+			length = tunable("WALL_HEIGHT_U", length)
+		specs.append({
+			"sides": sides,
+			"base_radius": base_radius,
+			"length": length,
+			"lean_degrees": float(TechniqueChargeAuraProfile.RING_LEAN_DEGREES[index]),
+		})
+	return specs
+
+
+## Builds every ring into a single surface.
+##
+## Three MeshInstance3D children would be three geometry instances and three
+## draw calls against authored ceilings of two. One hundred and twenty vertices
+## in one surface are one of each, so the stack is free at the only budget that
+## was ever asserted. Each vertex carries its ring's identity in COLOR.r, which
+## is the only thing the shader needs in order to look the rest of that ring's
+## constants up.
+static func _createRingStackMesh(rings: Array) -> ArrayMesh:
+	assert(not rings.is_empty(), "Technique charge aura needs at least one ring.")
 	var vertices := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var uvs := PackedVector2Array()
+	var colors := PackedColorArray()
 	var indices := PackedInt32Array()
 
-	for side: int in range(sides):
+	for ring_index in rings.size():
+		_appendRing(
+			ring_index, rings[ring_index], vertices, normals, uvs, colors, indices
+		)
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+## One open polygonal ring, leaning outward from the ground plane.
+##
+## Faces keep the shipped construction: four unwelded vertices each, so every
+## face maps the complete mask rather than stretching it around the
+## circumference. The corners of neighbouring faces are built at coincident
+## positions, which is what lets the shader derive a phase from vertex position
+## and have both sides of a corner resolve to the same value.
+static func _appendRing(
+		ring_index: int,
+		ring: Dictionary,
+		vertices: PackedVector3Array,
+		normals: PackedVector3Array,
+		uvs: PackedVector2Array,
+		colors: PackedColorArray,
+		indices: PackedInt32Array) -> void:
+	var sides: int = ring["sides"]
+	var base_radius := float(ring["base_radius"])
+	var extension := float(ring["length"]) * float(ring.get("extension_scale", 1.0))
+	var lean := deg_to_rad(float(ring["lean_degrees"]))
+	assert(sides >= 3, "Technique charge aura rings need at least three sides.")
+	assert(base_radius > 0.0 and extension > 0.0, "Aura ring dimensions must be positive.")
+	# A lean of zero lays the ring flat on the floor and, worse, collapses the
+	# radial part of its normal -- which is the only thing carrying the face's
+	# own azimuth to the shader.
+	assert(
+		lean > 0.0 and lean <= PI * 0.5,
+		"Aura ring lean must be inside (0, 90] degrees."
+	)
+
+	var tip_radius := base_radius + extension * cos(lean)
+	var tip_height := extension * sin(lean)
+	var radial_normal := sin(lean)
+	var vertical_normal := -cos(lean)
+	# Vertex colour survives as 8-bit through every compression setting, and
+	# 0.0 / 0.5 / 1.0 round-trip exactly through that, so the identity cannot be
+	# quantised into the wrong ring.
+	var identity := float(ring_index) / float(TechniqueChargeAuraProfile.RING_COUNT - 1)
+	var ring_color := Color(identity, 0.0, 0.0, 1.0)
+
+	for side in range(sides):
 		var angle_a := TAU * float(side) / float(sides)
 		var angle_b := TAU * float(side + 1) / float(sides)
-		var point_a := Vector3(cos(angle_a) * radius, 0.0, sin(angle_a) * radius)
-		var point_b := Vector3(cos(angle_b) * radius, 0.0, sin(angle_b) * radius)
+		var dir_a := Vector3(cos(angle_a), 0.0, sin(angle_a))
+		var dir_b := Vector3(cos(angle_b), 0.0, sin(angle_b))
 		var outward_angle := (angle_a + angle_b) * 0.5
-		var outward := Vector3(cos(outward_angle), 0.0, sin(outward_angle))
+		var outward := Vector3(
+			cos(outward_angle) * radial_normal,
+			vertical_normal,
+			sin(outward_angle) * radial_normal
+		).normalized()
 		var base := vertices.size()
 
 		vertices.append_array(PackedVector3Array([
-			point_a,
-			point_b,
-			point_a + Vector3.UP * height,
-			point_b + Vector3.UP * height,
+			dir_a * base_radius,
+			dir_b * base_radius,
+			dir_a * tip_radius + Vector3.UP * tip_height,
+			dir_b * tip_radius + Vector3.UP * tip_height,
 		]))
 		normals.append_array(PackedVector3Array([outward, outward, outward, outward]))
 		uvs.append_array(PackedVector2Array([
@@ -499,6 +586,9 @@ static func _createRepeatedFaceWall(sides: int, radius: float, height: float) ->
 			Vector2(1.0, 1.0),
 			Vector2(0.0, 0.0),
 			Vector2(1.0, 0.0),
+		]))
+		colors.append_array(PackedColorArray([
+			ring_color, ring_color, ring_color, ring_color
 		]))
 		indices.append_array(PackedInt32Array([
 			base,
@@ -508,13 +598,3 @@ static func _createRepeatedFaceWall(sides: int, radius: float, height: float) ->
 			base + 1,
 			base + 3,
 		]))
-
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_TEX_UV] = uvs
-	arrays[Mesh.ARRAY_INDEX] = indices
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return mesh
