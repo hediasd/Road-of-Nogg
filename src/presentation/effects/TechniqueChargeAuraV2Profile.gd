@@ -219,15 +219,34 @@ const RING_PHASE_A2 := 0.022
 ## the one property this whole effect is built on not losing -- see
 ## docs/VFX_DESIGN.md section 3 -- and it is the reason this is a function
 ## rather than a counter.
-static func spin_radians(index: int, seconds: float) -> float:
+## Explicit parameters, defaulted to the authored constants, so a live tunable
+## override and the authored default call through exactly the same arithmetic
+## -- the same discipline `ring_ceiling()` / `ring_ceiling_for()` already
+## established: one formula, callable either way, never two.
+static func spin_radians(
+		index: int, seconds: float,
+		hold_deg: float = SPIN_HOLD_DEG_PER_SEC,
+		launch_deg: float = SPIN_LAUNCH_DEG_PER_SEC,
+		ease_tau: float = SPIN_EASE_TAU_SECONDS,
+		differential: float = 1.0,
+		release_seconds: float = RELEASE_SECONDS,
+		release_window: float = RELEASE_WINDOW_SECONDS,
+		release_multiplier: float = SPIN_RELEASE_MULTIPLIER) -> float:
 	if seconds <= 0.0:
 		return 0.0
-	var hold := deg_to_rad(SPIN_HOLD_DEG_PER_SEC)
-	var launch := deg_to_rad(SPIN_LAUNCH_DEG_PER_SEC)
-	var tau: float = maxf(SPIN_EASE_TAU_SECONDS, 0.0001)
+	var hold := deg_to_rad(hold_deg)
+	var launch := deg_to_rad(launch_deg)
+	var tau: float = maxf(ease_tau, 0.0001)
 	var angle := hold * seconds + (launch - hold) * tau * (1.0 - exp(-seconds / tau))
-	angle += _whip_radians(seconds, hold, launch - hold, tau)
-	return angle * float(RING_SPIN_SCALE[index])
+	angle += _whip_radians(
+		seconds, hold, launch - hold, tau,
+		release_seconds, release_window, release_multiplier
+	)
+	# `differential` scales how far this ring's rate deviates from the core's,
+	# not the rate itself -- at differential 0 every ring spins at the core's
+	# rate and the stack stops shearing; at 1 it is the authored RING_SPIN_SCALE.
+	var scale := 1.0 + (float(RING_SPIN_SCALE[index]) - 1.0) * differential
+	return angle * scale
 
 
 ## The extra angle the release's whip adds, in radians.
@@ -237,7 +256,7 @@ static func spin_radians(index: int, seconds: float) -> float:
 ## straight out. This is the integral of that extra term alone -- exactly, not
 ## approximately, because an approximation here is a closed form that quietly
 ## disagrees with the constant it claims to implement, and the next person to
-## check the whip against SPIN_RELEASE_MULTIPLIER would find it short.
+## check the whip against the release multiplier would find it short.
 ##
 ##     extra(s) = [hold + A e^(-s/tau)] * k * (s - R),   k = (M - 1) / window
 ##
@@ -246,15 +265,17 @@ static func spin_radians(index: int, seconds: float) -> float:
 ##
 ##     integral of u e^(-u/tau) from 0 to x = tau^2 - e^(-x/tau) (tau x + tau^2)
 static func _whip_radians(
-		seconds: float, hold: float, eased: float, tau: float) -> float:
-	var x := seconds - RELEASE_SECONDS
+		seconds: float, hold: float, eased: float, tau: float,
+		release_seconds: float, release_window: float,
+		release_multiplier: float) -> float:
+	var x := seconds - release_seconds
 	if x <= 0.0:
 		return 0.0
-	x = minf(x, RELEASE_WINDOW_SECONDS)
-	var k: float = (SPIN_RELEASE_MULTIPLIER - 1.0) / maxf(RELEASE_WINDOW_SECONDS, 0.0001)
+	x = minf(x, release_window)
+	var k: float = (release_multiplier - 1.0) / maxf(release_window, 0.0001)
 	var from_hold := hold * k * x * x * 0.5
 	var ramp := tau * tau - exp(-x / tau) * (tau * x + tau * tau)
-	var from_eased := eased * k * exp(-RELEASE_SECONDS / tau) * ramp
+	var from_eased := eased * k * exp(-release_seconds / tau) * ramp
 	# Past the window the rate returns to its unwhipped value, so the angle the
 	# whip contributed stays constant rather than continuing to grow.
 	return from_hold + from_eased

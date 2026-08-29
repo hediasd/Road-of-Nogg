@@ -49,6 +49,27 @@ var _wallBottomStrength := TechniqueChargeAuraV2Profile.WALL_BOTTOM_STRENGTH
 var _groundSpillAlpha := TechniqueChargeAuraV2Profile.GROUND_SPILL_ALPHA
 var _groundSpillOuter := TechniqueChargeAuraV2Profile.GROUND_SPILL_OUTER_UV
 
+## Spin and release. `_durationSeconds` is recomputed from the two live values
+## that define it every time `_readLiveTunables()` runs, rather than read as
+## the profile's static DURATION_SECONDS, so a live RELEASE_SECONDS or
+## RELEASE_WINDOW_SECONDS change immediately retimes seeking, the scrub range,
+## and natural playback end -- not just the shader's own release.
+var _spinHoldDeg := TechniqueChargeAuraV2Profile.SPIN_HOLD_DEG_PER_SEC
+var _spinLaunchDeg := TechniqueChargeAuraV2Profile.SPIN_LAUNCH_DEG_PER_SEC
+var _spinEaseTau := TechniqueChargeAuraV2Profile.SPIN_EASE_TAU_SECONDS
+var _spinDifferential := 1.0
+var _spinReleaseMultiplier := TechniqueChargeAuraV2Profile.SPIN_RELEASE_MULTIPLIER
+var _releaseWindowSeconds := TechniqueChargeAuraV2Profile.RELEASE_WINDOW_SECONDS
+var _flashSeconds := TechniqueChargeAuraV2Profile.FLASH_SECONDS
+var _flashPeak := TechniqueChargeAuraV2Profile.FLASH_PEAK
+var _bladeFadeSeconds := TechniqueChargeAuraV2Profile.BLADE_FADE_SECONDS
+var _bladeSweepSeconds := TechniqueChargeAuraV2Profile.BLADE_SWEEP_SECONDS
+var _groundLagSeconds := TechniqueChargeAuraV2Profile.GROUND_LAG_SECONDS
+var _releaseDirection := TechniqueChargeAuraV2Profile.RELEASE_DIRECTION
+var _releaseRadiusGain := TechniqueChargeAuraV2Profile.RELEASE_RADIUS_GAIN
+var _releaseHeightDrop := TechniqueChargeAuraV2Profile.RELEASE_HEIGHT_DROP
+var _durationSeconds := TechniqueChargeAuraV2Profile.DURATION_SECONDS
+
 
 ## Live-authoring roster. `rebuild: true` marks the values consumed while the
 ## mesh is assembled — the panel replays the effect for those rather than
@@ -234,6 +255,104 @@ static func tunables() -> Array[Dictionary]:
 			"default": 1.0,
 			"rebuild": false,
 		},
+		{
+			"id": "SPIN_HOLD_DEG_PER_SEC", "label": "Hold rate", "group": "Spin",
+			"min": 30.0, "max": 720.0, "step": 5.0,
+			"default": TechniqueChargeAuraV2Profile.SPIN_HOLD_DEG_PER_SEC,
+			"rebuild": false,
+		},
+		{
+			"id": "SPIN_LAUNCH_DEG_PER_SEC", "label": "Launch rate",
+			"group": "Spin",
+			"min": 30.0, "max": 900.0, "step": 5.0,
+			"default": TechniqueChargeAuraV2Profile.SPIN_LAUNCH_DEG_PER_SEC,
+			"rebuild": false,
+		},
+		{
+			"id": "SPIN_EASE_TAU_SECONDS", "label": "Ease time", "group": "Spin",
+			"min": 0.05, "max": 1.50, "step": 0.01,
+			"default": TechniqueChargeAuraV2Profile.SPIN_EASE_TAU_SECONDS,
+			"rebuild": false,
+		},
+		{
+			"id": "SPIN_DIFFERENTIAL", "label": "Differential", "group": "Spin",
+			# 0 collapses every ring onto the core's rate (no shear); 1 is the
+			# authored RING_SPIN_SCALE; past 1 exaggerates it.
+			"min": 0.0, "max": 2.0, "step": 0.02,
+			"default": 1.0,
+			"rebuild": false,
+		},
+		{
+			"id": "SPIN_RELEASE_MULTIPLIER", "label": "Whip", "group": "Spin",
+			"min": 1.0, "max": 5.0, "step": 0.05,
+			"default": TechniqueChargeAuraV2Profile.SPIN_RELEASE_MULTIPLIER,
+			"rebuild": false,
+		},
+		{
+			"id": "RELEASE_SECONDS", "label": "Release at", "group": "Release",
+			"min": 0.2, "max": 1.90, "step": 0.01,
+			"default": TechniqueChargeAuraV2Profile.RELEASE_SECONDS,
+			"rebuild": false,
+		},
+		{
+			"id": "RELEASE_WINDOW_SECONDS", "label": "Window", "group": "Release",
+			"min": 0.10, "max": 1.50, "step": 0.01,
+			"default": TechniqueChargeAuraV2Profile.RELEASE_WINDOW_SECONDS,
+			"rebuild": false,
+		},
+		{
+			"id": "FLASH_SECONDS", "label": "Flash length", "group": "Release",
+			"min": 0.01, "max": 0.30, "step": 0.005,
+			"default": TechniqueChargeAuraV2Profile.FLASH_SECONDS,
+			"rebuild": false,
+		},
+		{
+			"id": "FLASH_PEAK", "label": "Flash peak", "group": "Release",
+			"min": 1.0, "max": 3.0, "step": 0.05,
+			"default": TechniqueChargeAuraV2Profile.FLASH_PEAK,
+			"rebuild": false,
+		},
+		{
+			"id": "BLADE_FADE_SECONDS", "label": "Blade fade", "group": "Release",
+			"min": 0.02, "max": 0.80, "step": 0.01,
+			"default": TechniqueChargeAuraV2Profile.BLADE_FADE_SECONDS,
+			"rebuild": false,
+		},
+		{
+			"id": "BLADE_SWEEP_SECONDS", "label": "Unzip sweep",
+			"group": "Release",
+			"min": 0.0, "max": 0.80, "step": 0.01,
+			"default": TechniqueChargeAuraV2Profile.BLADE_SWEEP_SECONDS,
+			"rebuild": false,
+		},
+		{
+			"id": "GROUND_LAG_SECONDS", "label": "Ground lag", "group": "Release",
+			"min": 0.0, "max": 0.60, "step": 0.01,
+			"default": TechniqueChargeAuraV2Profile.GROUND_LAG_SECONDS,
+			"rebuild": false,
+		},
+		{
+			"id": "RELEASE_DIRECTION", "label": "Direction", "group": "Release",
+			# Two positions only: -1 collapses inward, +1 disperses outward.
+			# Step 2 with this range gives exactly those two values.
+			"min": -1.0, "max": 1.0, "step": 2.0,
+			"default": TechniqueChargeAuraV2Profile.RELEASE_DIRECTION,
+			"rebuild": false,
+		},
+		{
+			"id": "RELEASE_RADIUS_GAIN", "label": "Radius gain",
+			"group": "Release",
+			"min": 0.0, "max": 1.50, "step": 0.02,
+			"default": TechniqueChargeAuraV2Profile.RELEASE_RADIUS_GAIN,
+			"rebuild": false,
+		},
+		{
+			"id": "RELEASE_HEIGHT_DROP", "label": "Height drop",
+			"group": "Release",
+			"min": 0.0, "max": 0.95, "step": 0.02,
+			"default": TechniqueChargeAuraV2Profile.RELEASE_HEIGHT_DROP,
+			"rebuild": false,
+		},
 	]
 
 
@@ -287,7 +406,7 @@ func seek_normalized(time: float) -> void:
 	if _disposed:
 		return
 	var normalized_time := clampf(time, 0.0, 1.0)
-	_elapsedTime = normalized_time * TechniqueChargeAuraV2Profile.DURATION_SECONDS
+	_elapsedTime = normalized_time * _durationSeconds
 	_finished = normalized_time >= 1.0
 	_playing = not _finished
 	if _finished:
@@ -301,11 +420,7 @@ func skip_to_settle() -> void:
 
 
 func get_normalized_time() -> float:
-	return clampf(
-		_elapsedTime / TechniqueChargeAuraV2Profile.DURATION_SECONDS,
-		0.0,
-		1.0
-	)
+	return clampf(_elapsedTime / maxf(_durationSeconds, 0.0001), 0.0, 1.0)
 
 
 func get_elapsed_time() -> float:
@@ -313,7 +428,7 @@ func get_elapsed_time() -> float:
 
 
 func get_total_duration() -> float:
-	return TechniqueChargeAuraV2Profile.DURATION_SECONDS
+	return _durationSeconds
 
 
 func is_finished() -> bool:
@@ -382,10 +497,10 @@ func _process(delta: float) -> void:
 	if _disposed or not _playing:
 		return
 	_elapsedTime += delta * _playbackScale
-	if _elapsedTime < TechniqueChargeAuraV2Profile.DURATION_SECONDS:
+	if _elapsedTime < _durationSeconds:
 		_applyTimeline()
 		return
-	_elapsedTime = TechniqueChargeAuraV2Profile.DURATION_SECONDS
+	_elapsedTime = _durationSeconds
 	_playing = false
 	_finished = true
 	_applyVisibility(0.0)
@@ -427,9 +542,79 @@ func _readLiveTunables() -> void:
 	_groundSpillOuter = tunable(
 		"GROUND_SPILL_OUTER_UV", TechniqueChargeAuraV2Profile.GROUND_SPILL_OUTER_UV
 	)
+	_spinHoldDeg = tunable(
+		"SPIN_HOLD_DEG_PER_SEC", TechniqueChargeAuraV2Profile.SPIN_HOLD_DEG_PER_SEC
+	)
+	_spinLaunchDeg = tunable(
+		"SPIN_LAUNCH_DEG_PER_SEC",
+		TechniqueChargeAuraV2Profile.SPIN_LAUNCH_DEG_PER_SEC
+	)
+	_spinEaseTau = tunable(
+		"SPIN_EASE_TAU_SECONDS", TechniqueChargeAuraV2Profile.SPIN_EASE_TAU_SECONDS
+	)
+	_spinDifferential = tunable("SPIN_DIFFERENTIAL", 1.0)
+	_spinReleaseMultiplier = tunable(
+		"SPIN_RELEASE_MULTIPLIER",
+		TechniqueChargeAuraV2Profile.SPIN_RELEASE_MULTIPLIER
+	)
+	_releaseWindowSeconds = tunable(
+		"RELEASE_WINDOW_SECONDS",
+		TechniqueChargeAuraV2Profile.RELEASE_WINDOW_SECONDS
+	)
+	_flashSeconds = tunable(
+		"FLASH_SECONDS", TechniqueChargeAuraV2Profile.FLASH_SECONDS
+	)
+	_flashPeak = tunable("FLASH_PEAK", TechniqueChargeAuraV2Profile.FLASH_PEAK)
+	_bladeFadeSeconds = tunable(
+		"BLADE_FADE_SECONDS", TechniqueChargeAuraV2Profile.BLADE_FADE_SECONDS
+	)
+	_bladeSweepSeconds = tunable(
+		"BLADE_SWEEP_SECONDS", TechniqueChargeAuraV2Profile.BLADE_SWEEP_SECONDS
+	)
+	_groundLagSeconds = tunable(
+		"GROUND_LAG_SECONDS", TechniqueChargeAuraV2Profile.GROUND_LAG_SECONDS
+	)
+	_releaseDirection = tunable(
+		"RELEASE_DIRECTION", TechniqueChargeAuraV2Profile.RELEASE_DIRECTION
+	)
+	_releaseRadiusGain = tunable(
+		"RELEASE_RADIUS_GAIN", TechniqueChargeAuraV2Profile.RELEASE_RADIUS_GAIN
+	)
+	_releaseHeightDrop = tunable(
+		"RELEASE_HEIGHT_DROP", TechniqueChargeAuraV2Profile.RELEASE_HEIGHT_DROP
+	)
+	_durationSeconds = _releaseSeconds + _releaseWindowSeconds
 
 
+## Everything here is sourced through `tunable()`, so it has to be reachable
+## from both call sites `_pushRingUniforms()` cannot cover on its own: once at
+## build, from `_buildOwnedLayers()`, and again on every live, non-rebuild
+## tunable change, from `_on_tunables_applied()`. A value pushed only at build
+## looks live in the panel -- the override dict changes -- but the shader never
+## sees the new number until the next rebuild. BOUNCE_PERIOD, BOUNCE_DECAY,
+## FLARE_OPACITY_SCALE and every constant below were built that way and were
+## silently inert through a slider drag; this function is what fixes that for
+## v2, by being the one place all of them are pushed, from both call sites.
 func _pushLiveTunables() -> void:
+	var P := TechniqueChargeAuraV2Profile
+	var core_period := tunable("BOUNCE_PERIOD", P.RING_BOUNCE_PERIOD_SECONDS[0])
+	var core_decay := tunable("BOUNCE_DECAY", P.RING_BOUNCE_DECAY[0])
+	var flare_opacity_scale := tunable("FLARE_OPACITY_SCALE", 1.0)
+	var period := PackedFloat32Array()
+	var decay := PackedFloat32Array()
+	var ring_opacity := PackedFloat32Array()
+	for index in P.RING_COUNT:
+		if index == 0:
+			period.append(core_period)
+			decay.append(core_decay)
+		else:
+			period.append(float(P.RING_BOUNCE_PERIOD_SECONDS[index]))
+			decay.append(float(P.RING_BOUNCE_DECAY[index]))
+		var op := float(P.RING_OPACITY[index])
+		if index != 0:
+			op *= flare_opacity_scale
+		ring_opacity.append(op)
+
 	for material: ShaderMaterial in [_groundMaterial, _wallMaterial]:
 		if material == null:
 			continue
@@ -439,6 +624,43 @@ func _pushLiveTunables() -> void:
 		material.set_shader_parameter("flicker_amount", _flickerAmount)
 		material.set_shader_parameter("displacement_u", _displacement)
 		material.set_shader_parameter("wall_bottom_strength", _wallBottomStrength)
+
+		material.set_shader_parameter("ring_period", period)
+		material.set_shader_parameter("ring_decay", decay)
+		material.set_shader_parameter("ring_opacity", ring_opacity)
+		material.set_shader_parameter(
+			"churn_face_mix", tunable("CHURN_FACE_MIX", P.CHURN_FACE_MIX)
+		)
+		material.set_shader_parameter(
+			"blade_edge_softness",
+			tunable("BLADE_EDGE_SOFTNESS", P.BLADE_EDGE_SOFTNESS)
+		)
+		material.set_shader_parameter(
+			"churn_bright_coupling",
+			tunable("CHURN_BRIGHT_COUPLING", P.CHURN_BRIGHT_COUPLING)
+		)
+		material.set_shader_parameter(
+			"churn_rate_slow", tunable("CHURN_RATE_SLOW", P.CHURN_RATE_SLOW)
+		)
+		material.set_shader_parameter(
+			"churn_rate_fast", tunable("CHURN_RATE_FAST", P.CHURN_RATE_FAST)
+		)
+		material.set_shader_parameter(
+			"ring_phase_a1", tunable("RING_PHASE_A1", P.RING_PHASE_A1)
+		)
+		material.set_shader_parameter(
+			"ring_phase_a2", tunable("RING_PHASE_A2", P.RING_PHASE_A2)
+		)
+
+		material.set_shader_parameter("release_seconds", _releaseSeconds)
+		material.set_shader_parameter("release_window", _releaseWindowSeconds)
+		material.set_shader_parameter("flash_seconds", _flashSeconds)
+		material.set_shader_parameter("flash_peak", _flashPeak)
+		material.set_shader_parameter("blade_fade_seconds", _bladeFadeSeconds)
+		material.set_shader_parameter("blade_sweep_seconds", _bladeSweepSeconds)
+		material.set_shader_parameter("release_direction", _releaseDirection)
+		material.set_shader_parameter("release_radius_gain", _releaseRadiusGain)
+		material.set_shader_parameter("release_height_drop", _releaseHeightDrop)
 	if _groundMaterial != null:
 		_groundMaterial.set_shader_parameter(
 			"ground_spill_alpha", _groundSpillAlpha
@@ -546,7 +768,11 @@ func _applyTimeline() -> void:
 	# land on the same rotation it would have reached by playing there.
 	var spin := PackedFloat32Array()
 	for index in TechniqueChargeAuraV2Profile.RING_COUNT:
-		spin.append(TechniqueChargeAuraV2Profile.spin_radians(index, _elapsedTime))
+		spin.append(TechniqueChargeAuraV2Profile.spin_radians(
+			index, _elapsedTime,
+			_spinHoldDeg, _spinLaunchDeg, _spinEaseTau, _spinDifferential,
+			_releaseSeconds, _releaseWindowSeconds, _spinReleaseMultiplier
+		))
 
 	for material: ShaderMaterial in [_groundMaterial, _wallMaterial]:
 		if material != null:
@@ -576,11 +802,15 @@ func _groundEnvelopeAt(seconds: float) -> float:
 	var ignite: float = maxf(_groundIgniteSeconds, 0.0001)
 	if seconds < ignite:
 		return smoothstep(0.0, ignite, seconds)
-	var lag_end: float = _releaseSeconds + TechniqueChargeAuraV2Profile.GROUND_LAG_SECONDS
+	var lag_end: float = _releaseSeconds + _groundLagSeconds
 	if seconds < lag_end:
 		return 1.0
-	var total: float = TechniqueChargeAuraV2Profile.DURATION_SECONDS
-	return pow(1.0 - clampf((seconds - lag_end) / maxf(total - lag_end, 0.0001), 0.0, 1.0), 1.6)
+	return pow(
+		1.0 - clampf(
+			(seconds - lag_end) / maxf(_durationSeconds - lag_end, 0.0001), 0.0, 1.0
+		),
+		1.6
+	)
 
 
 ## The blades' own opacity ramp, and only that.
@@ -662,16 +892,19 @@ func _ringSpecs() -> Array:
 	return specs
 
 
-## Hands a material the constants describing the ring stack.
+## Hands a material the constants that only a rebuild can change.
 ##
-## These are pushed once, at build time: they describe the rings, not the
-## moment. The only uniforms that change per frame remain the clock, the seed
-## and the two lifecycle values, which is what keeps the image a pure function
-## of the seek position.
+## Everything here either comes from the geometry `rings` was actually built
+## from (base radius, ceiling) or is tied to a `rebuild: true` tunable, so a
+## live edit to it already forces `_replayAtSeed()` and this function runs
+## again fresh -- there is nothing here `_pushLiveTunables()` needs to repeat.
+## Every `rebuild: false` constant that used to live here (period, decay,
+## opacity, the churn shape terms, the release) has moved there instead, so a
+## slider drag reaches the shader without waiting for a rebuild.
 ##
 ## Pushed to both materials, not just the wall's: the ground layer's pulse
-## needs ring 0's bounce constants to answer the core's crests, and the grade
-## and geometry uniforms it has no use for are harmless sitting unread in a
+## needs ring 0's bounce constants to answer the core's crests, and the
+## geometry uniforms it has no use for are harmless sitting unread in a
 ## fragment stage that never takes the layer_kind == 0 branch.
 ##
 ## Base radii come from the spec list the mesh was built from rather than from
@@ -681,34 +914,19 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	if material == null:
 		return
 
-	# Read once: BOUNCE_* and CHURN_AMPLITUDE apply to the core only (index 0),
-	# but CHURN_AMPLITUDE also has to match what `_ringSpecs()` already baked into
-	# rings[index]["extension_scale"] -- both call `tunable()` with the same id
-	# and fallback, which is what keeps a pure dict lookup consistent between
-	# the two call sites without threading a value through.
-	var core_period := tunable(
-		"BOUNCE_PERIOD", TechniqueChargeAuraV2Profile.RING_BOUNCE_PERIOD_SECONDS[0]
-	)
-	var core_decay := tunable(
-		"BOUNCE_DECAY", TechniqueChargeAuraV2Profile.RING_BOUNCE_DECAY[0]
-	)
 	var core_overshoot := tunable(
 		"BOUNCE_OVERSHOOT", TechniqueChargeAuraV2Profile.RING_OVERSHOOT[0]
 	)
 	var churn_amplitude := tunable(
 		"CHURN_AMPLITUDE", TechniqueChargeAuraV2Profile.CHURN_AMPLITUDE
 	)
-	var flare_opacity_scale := tunable("FLARE_OPACITY_SCALE", 1.0)
 
 	var base_radius := PackedFloat32Array()
 	var ceiling := PackedFloat32Array()
 	var launch := PackedFloat32Array()
 	var rise := PackedFloat32Array()
-	var period := PackedFloat32Array()
-	var decay := PackedFloat32Array()
 	var overshoot := PackedFloat32Array()
 	var churn_scale := PackedFloat32Array()
-	var ring_opacity := PackedFloat32Array()
 	var ring_tip_bright := PackedFloat32Array()
 
 	for index in TechniqueChargeAuraV2Profile.RING_COUNT:
@@ -719,23 +937,13 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 		ceiling.append(float(rings[index]["extension_scale"]))
 		launch.append(float(TechniqueChargeAuraV2Profile.RING_LAUNCH_SECONDS[index]))
 		rise.append(float(TechniqueChargeAuraV2Profile.RING_RISE_SECONDS[index]))
-		if index == 0:
-			period.append(core_period)
-			decay.append(core_decay)
-			overshoot.append(core_overshoot)
-		else:
-			period.append(
-				float(TechniqueChargeAuraV2Profile.RING_BOUNCE_PERIOD_SECONDS[index])
-			)
-			decay.append(float(TechniqueChargeAuraV2Profile.RING_BOUNCE_DECAY[index]))
-			overshoot.append(float(TechniqueChargeAuraV2Profile.RING_OVERSHOOT[index]))
+		overshoot.append(
+			core_overshoot if index == 0
+			else float(TechniqueChargeAuraV2Profile.RING_OVERSHOOT[index])
+		)
 		churn_scale.append(
 			float(TechniqueChargeAuraV2Profile.RING_CHURN_SCALE[index])
 		)
-		var op := float(TechniqueChargeAuraV2Profile.RING_OPACITY[index])
-		if index != 0:
-			op *= flare_opacity_scale
-		ring_opacity.append(op)
 		ring_tip_bright.append(
 			float(TechniqueChargeAuraV2Profile.RING_TIP_BRIGHT[index])
 		)
@@ -744,53 +952,16 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	material.set_shader_parameter("ring_ceiling", ceiling)
 	material.set_shader_parameter("ring_launch", launch)
 	material.set_shader_parameter("ring_rise", rise)
-	material.set_shader_parameter("ring_period", period)
-	material.set_shader_parameter("ring_decay", decay)
 	material.set_shader_parameter("ring_overshoot", overshoot)
 	material.set_shader_parameter("ring_churn_scale", churn_scale)
-	material.set_shader_parameter("ring_opacity", ring_opacity)
 	material.set_shader_parameter("ring_tip_bright", ring_tip_bright)
-
 	material.set_shader_parameter("churn_amplitude", churn_amplitude)
-	material.set_shader_parameter(
-		"churn_face_mix",
-		tunable("CHURN_FACE_MIX", TechniqueChargeAuraV2Profile.CHURN_FACE_MIX)
-	)
 	material.set_shader_parameter(
 		"churn_face_spread", TechniqueChargeAuraV2Profile.CHURN_FACE_SPREAD
 	)
 	material.set_shader_parameter(
-		"blade_edge_softness",
-		tunable(
-			"BLADE_EDGE_SOFTNESS", TechniqueChargeAuraV2Profile.BLADE_EDGE_SOFTNESS
-		)
-	)
-	material.set_shader_parameter(
-		"churn_bright_coupling",
-		tunable(
-			"CHURN_BRIGHT_COUPLING",
-			TechniqueChargeAuraV2Profile.CHURN_BRIGHT_COUPLING
-		)
-	)
-	material.set_shader_parameter(
 		"churn_flutter_coupling",
 		TechniqueChargeAuraV2Profile.CHURN_FLUTTER_COUPLING
-	)
-	material.set_shader_parameter(
-		"churn_rate_slow",
-		tunable("CHURN_RATE_SLOW", TechniqueChargeAuraV2Profile.CHURN_RATE_SLOW)
-	)
-	material.set_shader_parameter(
-		"churn_rate_fast",
-		tunable("CHURN_RATE_FAST", TechniqueChargeAuraV2Profile.CHURN_RATE_FAST)
-	)
-	material.set_shader_parameter(
-		"ring_phase_a1",
-		tunable("RING_PHASE_A1", TechniqueChargeAuraV2Profile.RING_PHASE_A1)
-	)
-	material.set_shader_parameter(
-		"ring_phase_a2",
-		tunable("RING_PHASE_A2", TechniqueChargeAuraV2Profile.RING_PHASE_A2)
 	)
 	material.set_shader_parameter(
 		"ground_pulse_strength", TechniqueChargeAuraV2Profile.GROUND_PULSE_STRENGTH
@@ -798,19 +969,6 @@ func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
 	material.set_shader_parameter(
 		"ground_pulse_floor", TechniqueChargeAuraV2Profile.GROUND_PULSE_FLOOR
 	)
-
-	var P := TechniqueChargeAuraV2Profile
-	material.set_shader_parameter(
-		"release_seconds", tunable("RELEASE_SECONDS", P.RELEASE_SECONDS)
-	)
-	material.set_shader_parameter("release_window", P.RELEASE_WINDOW_SECONDS)
-	material.set_shader_parameter("flash_seconds", P.FLASH_SECONDS)
-	material.set_shader_parameter("flash_peak", P.FLASH_PEAK)
-	material.set_shader_parameter("blade_fade_seconds", P.BLADE_FADE_SECONDS)
-	material.set_shader_parameter("blade_sweep_seconds", P.BLADE_SWEEP_SECONDS)
-	material.set_shader_parameter("release_direction", P.RELEASE_DIRECTION)
-	material.set_shader_parameter("release_radius_gain", P.RELEASE_RADIUS_GAIN)
-	material.set_shader_parameter("release_height_drop", P.RELEASE_HEIGHT_DROP)
 
 
 ## Builds every ring into a single surface.
