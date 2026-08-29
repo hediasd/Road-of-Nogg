@@ -217,9 +217,18 @@ void vertex() {
 		float along = 1.0 - UV.y;
 		float flutter_amount = displacement_u
 			* (1.0 + breath_flutter_coupling * (breath - 1.0));
+		// Sampled on the ring's own circle, not from UV.x. UV.x runs 0..1
+		// within each face, so it reads 1 on one side of a shared corner and 0
+		// on the other and the flutter tore every corner -- AURA-5G measured
+		// that tear at up to 0.071u, twice what the deliberate per-face breath
+		// contributes and the dominant term in the rim's gap. A point on the
+		// unit circle is periodic in the angle by construction, so both sides
+		// of a corner sample the same place and the flutter becomes an
+		// undulation travelling around the rim rather than a per-panel
+		// sawtooth with the same sign at all ten corners.
 		float lift = value_noise(
-			vec2(UV.x * noise_scale_coarse, playback_time * 1.6)
-				+ vec2(playback_seed, playback_seed)
+			vec2(cos(theta), sin(theta)) * noise_scale_coarse
+				+ vec2(playback_time * 1.6 + playback_seed, playback_seed)
 		) - 0.5;
 		VERTEX.y += lift * 2.0 * flutter_amount * along * along * extension;
 
