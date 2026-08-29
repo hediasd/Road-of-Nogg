@@ -284,6 +284,11 @@ Closing a cycle, after final validation passes and no session is editing:
 
 - Move genuinely open items to the appropriate backlog, name them to the user,
   and delete the cycle file in the same commit.
+- **Promote any sketch worth keeping into `docs/sketches/`.** Design and motion
+  sketches are otherwise written to a scratch directory and lost. The bar is
+  high on purpose and is stated in `docs/sketches/README.md`: keep the artifact
+  that settles a judgement call, not the proof output that a commit body
+  already records.
 - Merge and clean up:
 
   ```

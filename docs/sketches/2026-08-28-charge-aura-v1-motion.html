@@ -1,0 +1,914 @@
+<title>Charge Aura Overshoot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;600&display=swap">
+<style>
+  :root {
+    --ground: #eceae3;
+    --surface: #f7f6f1;
+    --surface-2: #e3e0d6;
+    --ink: #1b1a15;
+    --ink-2: #4a4739;
+    --muted: #75705f;
+    --line: #d5d1c3;
+    --accent: #a8720c;
+    --cool: #4d6480;
+    --warn: #9a3b1f;
+    --stage: #0e0e0c;
+    --focus: #a8720c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #131311;
+      --surface: #1a1a16;
+      --surface-2: #23231d;
+      --ink: #efece0;
+      --ink-2: #cbc6b4;
+      --muted: #8f8977;
+      --line: #302f27;
+      --accent: #f2dc7e;
+      --cool: #8ba3bd;
+      --warn: #e08a63;
+      --stage: #0b0b09;
+      --focus: #f2dc7e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #131311;
+    --surface: #1a1a16;
+    --surface-2: #23231d;
+    --ink: #efece0;
+    --ink-2: #cbc6b4;
+    --muted: #8f8977;
+    --line: #302f27;
+    --accent: #f2dc7e;
+    --cool: #8ba3bd;
+    --warn: #e08a63;
+    --stage: #0b0b09;
+    --focus: #f2dc7e;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 17px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 20px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  .prose { max-width: 66ch; }
+
+  h1, h2, h3, .ui {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-variation-settings: "wdth" 112;
+    text-wrap: balance;
+  }
+  h1 {
+    font-size: clamp(34px, 5.4vw, 54px);
+    font-weight: 700;
+    line-height: 1.02;
+    letter-spacing: -0.022em;
+    margin: 56px 0 14px;
+  }
+  h2 { font-size: 25px; font-weight: 650; letter-spacing: -0.012em; margin: 0 0 6px; }
+  h3 { font-size: 15px; font-weight: 650; letter-spacing: -0.004em; margin: 0 0 6px; }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+  .lede { font-size: 19px; color: var(--ink-2); }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.87em;
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  section { margin-top: 60px; }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+    margin-bottom: 22px;
+  }
+  .sec-head .eyebrow { flex: none; }
+
+  .stage-shell {
+    background: var(--stage);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .views { grid-template-columns: 1fr; } }
+  .view { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .view canvas { width: 100%; display: block; border-radius: 2px; }
+  .view-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    color: rgba(240, 236, 224, 0.5);
+  }
+  .view-label b { font-weight: 500; color: rgba(240, 236, 224, 0.86); }
+  .view-label .now { color: #f2dc7e; }
+
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-top: 1px solid rgba(240, 236, 224, 0.12);
+    padding-top: 14px;
+  }
+  .grp { display: flex; align-items: center; gap: 8px; }
+  .grp-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgba(240, 236, 224, 0.42);
+  }
+  button.ui {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-weight: 600;
+    background: rgba(240, 236, 224, 0.08);
+    color: #efece0;
+    border: 1px solid rgba(240, 236, 224, 0.2);
+    border-radius: 2px;
+    padding: 7px 13px;
+    cursor: pointer;
+  }
+  button.ui:hover { background: rgba(242, 220, 126, 0.16); border-color: rgba(242, 220, 126, 0.5); }
+  button.ui[aria-pressed="true"] { background: rgba(242, 220, 126, 0.2); border-color: rgba(242, 220, 126, 0.6); color: #f7ecc0; }
+  :where(button, input, a):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  input[type="range"] { flex: 1 1 200px; min-width: 150px; accent-color: #f2dc7e; }
+  .clock { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; color: rgba(240, 236, 224, 0.72); font-variant-numeric: tabular-nums; }
+  .phase {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #0e0e0c;
+    background: #f2dc7e;
+    padding: 4px 9px;
+    border-radius: 2px;
+    min-width: 118px;
+    text-align: center;
+  }
+  .sep { width: 1px; align-self: stretch; background: rgba(240, 236, 224, 0.14); }
+  .caption { font-size: 14px; color: var(--muted); margin: 10px 0 0; }
+
+  .graph-card {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--surface);
+    padding: 18px 18px 10px;
+    overflow-x: auto;
+  }
+  .graph-card svg { display: block; width: 100%; min-width: 600px; height: auto; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 4px; }
+  .legend span {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .swatch { width: 18px; height: 3px; border-radius: 2px; flex: none; display: inline-block; }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  th {
+    font-family: Archivo, sans-serif;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  td.num, td.beat { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 13px; }
+  td.beat { color: var(--accent); }
+  td.up { color: var(--accent); }
+  td.down { color: var(--cool); }
+  .tag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 2px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    white-space: nowrap;
+  }
+  .tag.sol { border-color: var(--accent); color: var(--accent); }
+  .tag.terra { border-color: var(--cool); color: var(--cool); }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 16px; }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--surface);
+    padding: 16px 18px 18px;
+  }
+  .card p { font-size: 15px; margin: 0; color: var(--ink-2); }
+  .card p + p { margin-top: 10px; }
+  .card .eyebrow { margin-bottom: 8px; }
+  .card.pick { border-color: var(--accent); }
+  .q { border-left: 3px solid var(--accent); padding-left: 16px; margin: 0 0 20px; }
+  .q h3 { margin-bottom: 4px; }
+  .q p { font-size: 15.5px; color: var(--ink-2); margin: 0; }
+  .finding {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--warn);
+    border-radius: 4px;
+    background: var(--surface);
+    padding: 16px 18px;
+    margin-bottom: 22px;
+  }
+  .finding p { margin: 0; font-size: 15.5px; color: var(--ink-2); }
+  .finding p + p { margin-top: 10px; }
+  footer { margin-top: 64px; border-top: 1px solid var(--line); padding-top: 16px; font-size: 13.5px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow" style="margin-top:44px">Road of Nogg &middot; VFX motion sketch &middot; rev 4</p>
+  <h1>Charge aura:<br>three rings off the floor</h1>
+  <p class="lede prose">One wall reads as a caster standing in light. Three &mdash; a vertical core and two flares splaying outward off the ground &mdash; read as something coming <em>up out of the floor</em>. Each ring bounces on its own clock and breathes at its own amplitude, and the breath is now big enough to see: it drives height, brightness and edge flutter together, and it grows as the bounce dies.</p>
+
+  <section style="margin-top:36px">
+    <div class="stage-shell">
+      <div class="views">
+        <div class="view">
+          <div class="view-label"><b>Shipped &mdash; AURA-2</b><span>one wall &middot; 1.60 s</span></div>
+          <canvas id="cvCurrent" width="760" height="620" role="img" aria-label="Approximation of the current aura: a single wall that fades in at a fixed height and holds."></canvas>
+        </div>
+        <div class="view">
+          <div class="view-label"><b class="now">Proposed</b><span id="modeLabel">three rings &middot; 2.00 s</span></div>
+          <canvas id="cvProposed" width="760" height="620" role="img" aria-label="Approximation of the proposed aura: a vertical core wall plus two outward-leaning flares, bursting from the ground, bouncing, and breathing."></canvas>
+        </div>
+      </div>
+      <div class="transport">
+        <button class="ui" id="btnPlay" aria-pressed="true">Pause</button>
+        <input type="range" id="scrub" min="0" max="2000" step="1" value="0" aria-label="Playback time in milliseconds">
+        <span class="clock" id="clock">0.000 s</span>
+        <button class="ui" id="btnSlow" aria-pressed="false">0.25&times;</button>
+        <span class="phase" id="phase">ignite</span>
+      </div>
+      <div class="transport">
+        <span class="grp">
+          <span class="grp-label">Systems</span>
+          <button class="ui" id="btnBounce" aria-pressed="true">Bounce</button>
+          <button class="ui" id="btnBreath" aria-pressed="true">Breath</button>
+          <button class="ui" id="btnSkirts" aria-pressed="true">Flares</button>
+        </span>
+        <span class="sep"></span>
+        <span class="grp">
+          <span class="grp-label">Ring phase</span>
+          <button class="ui" id="btnLocked" aria-pressed="false">Locked</button>
+          <button class="ui" id="btnFaces" aria-pressed="false">Per face</button>
+          <button class="ui" id="btnWave" aria-pressed="true">Wave</button>
+        </span>
+        <span class="clock" id="ringRead">breath 0.0%</span>
+      </div>
+    </div>
+    <p class="caption prose">Toggle <b>Flares</b> to put the old single wall next to the new stack, and <b>Breath</b> to see what the idle contributes on its own. This is a 2D approximation of the curves the plan proposes, not a Godot capture &mdash; silhouette indicative, timing and amplitudes are the actual proposal.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">01</p><h2>Making the breath visible</h2></div>
+    <p class="prose">&plusmn;3.5% of height was about one pixel at the battle camera's framing &mdash; technically alive, practically invisible. Four changes, none of which cost a draw call:</p>
+    <div class="cards">
+      <div class="card pick">
+        <p class="eyebrow">1 &middot; bigger, but later</p>
+        <h3>Amplitude ramps in</h3>
+        <p>&plusmn;3.0% during the entrance rising to <b>&plusmn;7.5%</b> once the bounce is spent, driven by the same decay term. It never fights the bounce, and it arrives exactly where the aura would otherwise go quiet.</p>
+      </div>
+      <div class="card pick">
+        <p class="eyebrow">2 &middot; the big one</p>
+        <h3>Brightness moves with it</h3>
+        <p>Height alone is a few pixels. Coupling the same factor to alpha at 1.6&times; gives roughly &plusmn;12% brightness in phase with the swell &mdash; and brightness is legible at any size. This is what actually makes it read as breathing.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">3</p>
+        <h3>The edge flutter follows</h3>
+        <p>The existing top-edge displacement (<code>DISPLACEMENT_U</code>, today 0.055) scales with the breath instead of sitting constant, so the silhouette gets choppier on the swell and calms on the ebb. Raise its base to about 0.075 while you are there.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">4</p>
+        <h3>It shimmers around the ring</h3>
+        <p>Per-face breath phase now comes from a smooth three-lobed function of the face angle rather than an independent hash per panel. Neighbours stay close &mdash; which is what keeps the corner steps under the mask's tolerance &mdash; while opposite sides of the wall swell visibly out of step.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">02</p><h2>The three rings</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Ring</th><th>Lean</th><th>Base r</th><th>Reach</th><th>Opacity</th><th>Launch</th><th>Period</th><th>Overshoot</th></tr></thead>
+        <tbody>
+          <tr><td class="beat">Core</td><td class="num">90&deg;</td><td class="num">0.74 u</td><td class="num">1.62 u high</td><td class="num">0.47</td><td class="num">+0 ms</td><td class="num">420 ms</td><td class="num up">+30%</td></tr>
+          <tr><td class="beat">Mid flare</td><td class="num">62&deg;</td><td class="num">0.78 u</td><td class="num">r 1.02 &middot; 0.46 u high</td><td class="num">0.32</td><td class="num">+40 ms</td><td class="num">320 ms</td><td class="num up">+40%</td></tr>
+          <tr><td class="beat">Outer flare</td><td class="num">40&deg;</td><td class="num">0.90 u</td><td class="num">r 1.16 &middot; 0.22 u high</td><td class="num">0.22</td><td class="num">+80 ms</td><td class="num">260 ms</td><td class="num up">+48%</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption prose">Lean is measured from the ground plane, so 90&deg; is the vertical core and 40&deg; is the shallow outer splash. The flares are shorter, lighter, faster and more damped than the core &mdash; they flick where the core swings. Firing them 40 ms apart outward makes the burst read as a splash crown rather than three walls appearing at once.</p>
+    <div class="cards" style="margin-top:22px">
+      <div class="card pick">
+        <p class="eyebrow">Cost</p>
+        <h3>Still two draw calls</h3>
+        <p>Do <em>not</em> add two more <code>MeshInstance3D</code> children &mdash; that would be 4 instances and 4 draw calls against ceilings of 2. Append all three rings into the one <code>ArrayMesh</code>, one surface, 120 vertices, with the ring's identity and its per-ring constants baked into vertex colour at build time.</p>
+        <p>Instance, draw-call and node ceilings all stay exactly where they are, and the assertions in <code>_buildOwnedLayers()</code> keep protecting something real.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Mechanism</p>
+        <h3>A flare grows by unfurling</h3>
+        <p>Base and tip of a leaning ring sit on the same radial line, so a vertex only needs its base radius carried alongside it. The vertex stage then does <code>mix(base, full, scale)</code> &mdash; radius and height interpolate together and the ring pivots at the floor as it opens. Same single scale factor the core wall uses.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Grade</p>
+        <h3>Flares are bright at the tip</h3>
+        <p>The core wall is faint at its base and strong up top. The flares invert that: near-nothing where they meet the floor, brightest at their leading edge. Two reasons &mdash; a bright leading edge reads as motion, and piling three rings' density at the foot would build exactly the solid collar <code>WALL_BOTTOM_STRENGTH</code> exists to prevent.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Knock-on</p>
+        <h3>The ground pool has to widen</h3>
+        <p>The outer flare reaches r 1.16 u; today's ground plane is 1.86 u across, so it would sit outside its own light. That goes to about 2.50 u, and <code>GROUND_SPILL_ALPHA</code> comes down from 0.30 to roughly 0.22 because the flares now light the floor themselves.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">03</p><h2>The risk worth taking seriously</h2></div>
+    <div class="finding prose">
+      <p><b>A 2.3 u footprint starts to look like an area effect.</b> The design doc is explicit that a bright ring on the ground already means &ldquo;this area is affected&rdquo; in this project's vocabulary &mdash; danger zones, movement range &mdash; and that stating that for a single-target cast is wrong. The outer flare is the closest this effect has come to saying it.</p>
+      <p>Three things keep it on the right side: the outer ring is the faintest of the three, its arc is broken by the per-face phase rather than being a continuous circle, and it never settles into a static shape. I would hold the total footprint at 2.3 u and not push it further &mdash; and if it still reads as a zone marker in the debug scene, shorten the outer flare before dimming it, because the shape is what carries that meaning, not the brightness.</p>
+    </div>
+    <div class="finding prose">
+      <p><b>Alpha stacking at the foot.</b> <code>WALL_OPACITY</code> 0.47 was chosen so two overlapping faces integrate to the 0.72 the silhouette was accepted at. Near the base the near and far halves of three rings can now stack six deep. The tip-bright grade above is the main defence; the flare opacities of 0.32 and 0.22 are the second. This wants checking in the debug scene at the harshest preset before anything else is tuned.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">04</p><h2>The curve</h2></div>
+    <div class="graph-card">
+      <svg id="graph" viewBox="0 0 1000 320" role="img" aria-label="Height factors over two seconds for the core wall and the two flares, each launching at a different time with its own period and decay, over a constant fine wobble."></svg>
+      <div class="legend">
+        <span><i class="swatch" style="background:var(--accent)"></i>Core</span>
+        <span><i class="swatch" style="background:var(--cool)"></i>Mid flare</span>
+        <span><i class="swatch" style="background:var(--warn)"></i>Outer flare</span>
+        <span><i class="swatch" style="background:var(--ink-2)"></i>Wall alpha</span>
+        <span><i class="swatch" style="background:var(--muted);opacity:.5"></i>Breath amplitude</span>
+      </div>
+    </div>
+    <p class="caption prose">Each ring is the same maths with different constants, so there is one function to write and three sets of numbers to tune. The dashed muted line is the breath's own amplitude ramping from &plusmn;3% to &plusmn;7.5% as the bounces die &mdash; the handoff from entrance to idle, made explicit.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">05</p><h2>Decide before I build</h2></div>
+    <div class="prose">
+      <div class="q">
+        <h3>Are two flares one too many?</h3>
+        <p>Two gives a tiered splash and a silhouette that changes shape as it opens. One mid flare alone is calmer, cheaper to tune, and much further from reading as an area marker. Toggle <b>Flares</b> and judge against the single wall.</p>
+      </div>
+      <div class="q">
+        <h3>Outward or inward stagger?</h3>
+        <p>Sketched outward &mdash; core, then mid at +40 ms, then outer at +80 ms &mdash; so the burst splashes away from the caster. Reversed, it reads as energy being pulled inward and gathered, which is arguably the better statement for a <em>charge</em>. Genuinely a toss-up; say which you want and it is one line.</p>
+      </div>
+      <div class="q">
+        <h3>Is &plusmn;7.5% with coupled brightness enough now?</h3>
+        <p>It should be plainly visible at the real framing. If it still isn't, the next lever is the coupling ratio on brightness, not more height &mdash; more height starts fighting the silhouette the bounce establishes.</p>
+      </div>
+      <div class="q">
+        <h3><code>skip_to_settle()</code> still has no still frame</h3>
+        <p>Unchanged from rev 3: it should return normalized 0.60 (1.20 s), and <code>SETTLE_NORMALIZED_TIME</code> stops being the same value as the release start.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">06</p><h2>Implementation plan</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Item</th><th>Work</th><th>Model</th><th>Touches</th><th>Wave</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="num">AURA-5A</td>
+            <td>Rebuild the wall mesh as three rings in one surface: a generic ring builder taking base radius, length and lean, with ring index, base radius and per-ring constants baked into vertex colour. 120 vertices, one surface, ceilings unchanged.</td>
+            <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
+            <td class="num">TechniqueChargeAuraEffect.gd</td>
+            <td class="num">1</td>
+          </tr>
+          <tr>
+            <td class="num">AURA-5B</td>
+            <td>Vertex stage: <code>mix(base, full, scale)</code> unfurl driven by the per-ring scale, ring phase from vertex position, per-face breath phase from the normal, charge noise moved into mesh space, ground layer given its own lifecycle value.</td>
+            <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
+            <td class="num">technique_charge_aura.gdshader</td>
+            <td class="num">1</td>
+          </tr>
+          <tr>
+            <td class="num">AURA-5C</td>
+            <td>The oscillator as one deterministic function of normalized time, evaluated per ring: launch curve, damped cosine, ramping two-rate breath, periodic ring phase seeded per cast, ceiling height derived so no scale factor exceeds 1.</td>
+            <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
+            <td class="num">TechniqueChargeAuraProfile.gd<br>TechniqueChargeAuraEffect.gd</td>
+            <td class="num">1</td>
+          </tr>
+          <tr>
+            <td class="num">AURA-5D</td>
+            <td>Fragment grade: tip-bright profile for the flares against base-faint for the core, breath coupled to alpha at 1.6&times; and to the edge flutter, flare opacities, widened ground plane and reduced spill alpha.</td>
+            <td><span class="tag terra">Sonnet 5 / GPT Terra</span></td>
+            <td class="num">technique_charge_aura.gdshader<br>TechniqueChargeAuraProfile.gd</td>
+            <td class="num">2</td>
+          </tr>
+          <tr>
+            <td class="num">AURA-5E</td>
+            <td>Timeline rewrite: duration 2.00, ignite / launch / release constants, the two alpha envelopes, ground brightness tracking the core's height factor, redefined settle point.</td>
+            <td><span class="tag terra">Sonnet 5 / GPT Terra</span></td>
+            <td class="num">TechniqueChargeAuraProfile.gd<br>TechniqueChargeAuraEffect.gd</td>
+            <td class="num">2</td>
+          </tr>
+          <tr>
+            <td class="num">AURA-5F</td>
+            <td>Tunable groups &mdash; Bounce, Breath, Ring, and a per-flare group for lean, reach and opacity (rebuild-tier). Raise the edge-flutter default.</td>
+            <td><span class="tag terra">Sonnet 5 / GPT Terra</span></td>
+            <td class="num">TechniqueChargeAuraEffect.gd<br>VFXDebugController.gd</td>
+            <td class="num">2</td>
+          </tr>
+          <tr>
+            <td class="num">AURA-5G</td>
+            <td>Verify the two things this design can actually break: alpha stacking at the foot with six overlapping faces, and the rim staying watertight at peak spread from several camera yaws. Then seek exactness, seed variation, and the ceilings.</td>
+            <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
+            <td class="num">debug/ harness<br>VFXDebugScene.tscn</td>
+            <td class="num">3</td>
+          </tr>
+          <tr>
+            <td class="num">AURA-5H</td>
+            <td>Rewrite the aura section: the envelope paragraph, the two-layer description that becomes four, the mask's missing side margin as the reason for the ring wave, and the area-effect tension the outer flare introduces.</td>
+            <td><span class="tag terra">Sonnet 5 / GPT Terra</span></td>
+            <td class="num">docs/VFX_DESIGN.md</td>
+            <td class="num">3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption prose">Wave 1 grew: mesh, vertex stage and oscillator are now three files that only work together. Waves 2 and 3 stay independent within themselves. The effect remains debug-only throughout; hooking it to a real cast is still the separate backlog item.</p>
+  </section>
+
+  <footer>
+    <p>Sketch only &mdash; no engine files changed. The mask measurement is real; every timing, amplitude and radius is a proposal to argue with.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var TAU = Math.PI * 2;
+  var SIDES = 10, GROUND_U = 2.50, BOTTOM_STRENGTH = 0.38;
+  var COLS = 46, SEG = 4;
+
+  var P = {
+    duration: 2.00, ignite: 0.05,
+    breathMin: 0.030, breathMax: 0.075, breathBright: 1.6, faceMix: 0.45,
+    ringA1: 0.045, ringA2: 0.022, ringSeed: 0.9,
+    handoff: 1.04, releaseStart: 1.78, releaseLift: 0.06
+  };
+  // lean is measured from the ground plane; length is along the lean.
+  var RINGS = [
+    { id: "core",  lean: 90, baseR: 0.74, len: 1.62, opacity: 0.47,
+      launch: 0.00, riseTime: 0.16, period: 0.42, decay: 2.43, over: 0.30, breathK: 1.0, tipBright: false },
+    { id: "mid",   lean: 62, baseR: 0.78, len: 0.52, opacity: 0.32,
+      launch: 0.04, riseTime: 0.11, period: 0.32, decay: 3.40, over: 0.40, breathK: 1.4, tipBright: true },
+    { id: "outer", lean: 40, baseR: 0.90, len: 0.34, opacity: 0.22,
+      launch: 0.08, riseTime: 0.09, period: 0.26, decay: 4.20, over: 0.48, breathK: 1.8, tipBright: true }
+  ];
+  for (var r = 0; r < RINGS.length; r++) {
+    var rad = RINGS[r].lean * Math.PI / 180;
+    RINGS[r].tipR = RINGS[r].baseR + RINGS[r].len * Math.cos(rad);
+    RINGS[r].tipY = RINGS[r].len * Math.sin(rad);
+  }
+  var C = { duration: 1.60, igniteEnd: 0.32, releaseStart: 1.408, baseR: 0.74, tipR: 0.74, tipY: 1.62, opacity: 0.47 };
+
+  var useBounce = true, useBreath = true, useSkirts = true, ring = "wave";
+
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function smoothstep(a, b, x) { var t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); }
+  function fract(v) { return v - Math.floor(v); }
+
+  function hash21(x, y) {
+    var hx = fract(x * 123.34), hy = fract(y * 456.21);
+    var d = hx * (hx + 45.32) + hy * (hy + 45.32);
+    hx = fract(hx + d); hy = fract(hy + d);
+    return fract(hx * hy * 97.13 + hx);
+  }
+  function vnoise(x, y) {
+    var xi = Math.floor(x), yi = Math.floor(y);
+    var fx = x - xi, fy = y - yi;
+    var sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    var a = hash21(xi, yi), b = hash21(xi + 1, yi), c = hash21(xi, yi + 1), d = hash21(xi + 1, yi + 1);
+    var top = a + (b - a) * sx, bot = c + (d - c) * sx;
+    return top + (bot - top) * sy;
+  }
+
+  // Periodic in theta by construction: no wrap seam at the last corner.
+  function ringPhase(theta) {
+    if (ring === "locked") return 0;
+    var a = theta;
+    if (ring === "faces") a = (Math.floor(theta / TAU * SIDES) + 0.5) / SIDES * TAU;
+    return P.ringA1 * Math.sin(a + P.ringSeed) + P.ringA2 * Math.sin(2 * a + 1.7 * P.ringSeed + 1.1);
+  }
+
+  function bounceOf(R, t) {
+    var tt = t - R.launch;
+    if (tt <= 0) return 0;
+    if (!useBounce) return 1 - Math.pow(1 - clamp01(tt / 0.26), 3);
+    if (tt < R.riseTime) {
+      var p = tt / R.riseTime;
+      return (1 + R.over) * (1 - Math.pow(1 - p, 3));
+    }
+    var tau = tt - R.riseTime;
+    return 1 + R.over * Math.exp(-R.decay * tau) * Math.cos(TAU / R.period * tau);
+  }
+  // Amplitude grows as the core's bounce dies: never fights it, arrives when needed.
+  function breathAmp(t) {
+    var tau = Math.max(t - RINGS[0].riseTime, 0);
+    var w = Math.exp(-RINGS[0].decay * tau);
+    return P.breathMax - (P.breathMax - P.breathMin) * w;
+  }
+  function breathOf(R, t, theta) {
+    if (!useBreath) return 1;
+    var amp = breathAmp(t) * R.breathK;
+    var shared = (vnoise(t * 1.7, 3.1) - 0.5) * 1.35 + (vnoise(t * 4.3, 8.7) - 0.5) * 0.65;
+    if (ring === "locked") return 1 + amp * shared;
+    // Smooth three-lobed shimmer around the ring: neighbours stay close, so the
+    // corner steps stay under what the mask's ragged top can hide.
+    var a = theta;
+    if (ring === "faces") a = (Math.floor(theta / TAU * SIDES) + 0.5) / SIDES * TAU;
+    var own = (vnoise(t * 1.7 + Math.sin(3 * a + 0.6) * 0.9, 3.1) - 0.5) * 1.35
+            + (vnoise(t * 4.3 + Math.sin(3 * a + 2.2) * 0.7, 8.7) - 0.5) * 0.65;
+    return 1 + amp * (shared * (1 - P.faceMix) + own * P.faceMix);
+  }
+  function scaleOf(R, t, theta) {
+    var f = bounceOf(R, t - ringPhase(theta)) * breathOf(R, t, theta);
+    if (t >= P.releaseStart) {
+      f *= 1 + P.releaseLift * clamp01((t - P.releaseStart) / (P.duration - P.releaseStart));
+    }
+    return f < 0 ? 0 : f;
+  }
+
+  function wallAlpha(t) {
+    if (t <= 0 || t >= P.duration) return 0;
+    if (t < P.ignite) return clamp01(t / P.ignite);
+    if (t < P.releaseStart) return 1;
+    return Math.pow(1 - clamp01((t - P.releaseStart) / (P.duration - P.releaseStart)), 1.8);
+  }
+  function groundAlpha(t) {
+    if (t <= 0 || t >= P.duration) return 0;
+    var flash = 1 + 0.35 * (1 - smoothstep(0.04, 0.35, t)) * smoothstep(0, 0.04, t);
+    var pulse = 1 + 0.55 * (bounceOf(RINGS[0], Math.max(t, 0.001)) - 1);
+    if (pulse < 0.55) pulse = 0.55;
+    var base;
+    if (t < 0.045) base = clamp01(t / 0.045);
+    else if (t < P.releaseStart) base = 1;
+    else base = Math.pow(1 - clamp01((t - P.releaseStart) / (P.duration - P.releaseStart)), 1.8);
+    return base * flash * pulse;
+  }
+  function curAlpha(t) {
+    if (t <= 0 || t >= C.duration) return 0;
+    if (t < C.igniteEnd) return smoothstep(0, C.igniteEnd, t);
+    if (t < C.releaseStart) return 1;
+    return 1 - smoothstep(C.releaseStart, C.duration, t);
+  }
+  function phaseName(t) {
+    if (t < P.ignite) return "ignite";
+    if (t < 0.16) return "launch";
+    if (t < P.handoff) return "bounce";
+    if (t < P.releaseStart) return "breathing";
+    return "release";
+  }
+
+  function setup(cv) {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var cssW = cv.clientWidth || 380;
+    var cssH = Math.round(cssW * 0.86);
+    if (cv.width !== Math.round(cssW * dpr) || cv.height !== Math.round(cssH * dpr)) {
+      cv.width = Math.round(cssW * dpr);
+      cv.height = Math.round(cssH * dpr);
+    }
+    cv.style.height = cssH + "px";
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx: ctx, w: cssW, h: cssH };
+  }
+
+  function drawModel(ctx, cx, gy, u) {
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#050504";
+    var bw = 0.44 * u, bh = 0.86 * u;
+    ctx.beginPath();
+    ctx.moveTo(cx - bw * 0.5, gy);
+    ctx.lineTo(cx - bw * 0.42, gy - bh);
+    ctx.lineTo(cx + bw * 0.42, gy - bh);
+    ctx.lineTo(cx + bw * 0.5, gy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx, gy - bh - 0.22 * u, 0.24 * u, 0.25 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  var PITCH = 0.30;
+
+  function drawRing(ctx, R, t, near, geom, proposed) {
+    var cx = geom.cx, gy = geom.gy, u = geom.u;
+    var alpha = proposed ? wallAlpha(t) : curAlpha(t);
+    if (alpha <= 0.002) return;
+    var colStep = 2 / COLS;
+    for (var i = 0; i < COLS; i++) {
+      var nx = -1 + colStep * (i + 0.5);
+      var sinAbs = Math.sqrt(Math.max(0, 1 - nx * nx));
+      var theta = near ? Math.acos(nx) : TAU - Math.acos(nx);
+      var around = theta / TAU;
+      var s = proposed ? scaleOf(R, t, theta) : (alpha > 0 ? 1 : 0);
+      if (s <= 0.004) continue;
+      var rNow = R.baseR + (R.tipR - R.baseR) * s;
+      var yNow = R.tipY * s;
+      var depth = near ? 1 : -1;
+      var bx = cx + nx * R.baseR * u;
+      var by = gy + depth * R.baseR * sinAbs * u * PITCH;
+      var tx = cx + nx * rNow * u;
+      var ty = gy + depth * rNow * sinAbs * u * PITCH - yNow * u;
+      var dx = tx - bx, dy = ty - by;
+      var L = Math.sqrt(dx * dx + dy * dy);
+      if (L < 1) continue;
+      var colW = (R.baseR + rNow) * 0.5 * u * colStep + 0.8;
+      var grazing = 0.55 + 0.75 * (1 - sinAbs);
+      var faceU = fract(around * SIDES);
+      var edge = 0.35 + 0.65 * smoothstep(0, 0.14, faceU) * smoothstep(0, 0.14, 1 - faceU);
+      var bright = proposed ? 1 + P.breathBright * (breathOf(R, t, theta) - 1) : 1;
+      var segs = Math.max(2, Math.ceil(L / SEG));
+      var segLen = L / segs;
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.rotate(Math.atan2(dy, dx));
+      for (var j = 0; j < segs; j++) {
+        var v = (j + 0.5) / segs;
+        var density;
+        if (R.tipBright) density = smoothstep(0, 0.38, v) * (1 - 0.85 * smoothstep(0.78, 1.0, v));
+        else density = (BOTTOM_STRENGTH + (1 - BOTTOM_STRENGTH) * v) * (1 - smoothstep(0.60, 1.0, v));
+        var meshV = v * s;
+        var coarse = vnoise(faceU * 3 + around * 2, meshV * 5.0 - t * 0.55);
+        var fine = vnoise(faceU * 11, meshV * 15 - t * 0.94);
+        var n = 0.5 + 0.62 * (coarse * 0.65 + fine * 0.35);
+        var al = density * edge * n * grazing * alpha * bright * R.opacity * 0.62;
+        if (!near) al *= 0.60;
+        if (al <= 0.004) continue;
+        ctx.fillStyle = "rgba(255,241,150," + Math.min(al, 0.95).toFixed(3) + ")";
+        ctx.fillRect(j * segLen, -colW * 0.5, segLen + 0.7, colW);
+      }
+      ctx.restore();
+    }
+  }
+
+  function drawAura(cv, t, mode) {
+    var s = setup(cv), ctx = s.ctx, W = s.w, H = s.h;
+    ctx.fillStyle = "#0b0b09";
+    ctx.fillRect(0, 0, W, H);
+
+    var proposed = mode === "proposed";
+    var u = H * 0.26;
+    var geom = { cx: W * 0.5, gy: H * 0.84, u: u };
+    var cx = geom.cx, gy = geom.gy;
+
+    var band = ctx.createLinearGradient(0, gy - u * 0.3, 0, H);
+    band.addColorStop(0, "rgba(255,255,255,0.030)");
+    band.addColorStop(1, "rgba(255,255,255,0.004)");
+    ctx.fillStyle = band;
+    ctx.fillRect(0, gy - u * 0.3, W, H - gy + u * 0.3);
+
+    var ga = proposed ? groundAlpha(t) : curAlpha(t);
+    if (ga > 0.001) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.translate(cx, gy);
+      ctx.scale(1, PITCH);
+      var gr = (proposed ? GROUND_U : 1.86) * 0.5 * u;
+      var grad = ctx.createRadialGradient(0, 0, gr * 0.16, 0, 0, gr);
+      var g0 = Math.min((proposed ? 0.46 : 0.58) * ga, 1);
+      grad.addColorStop(0, "rgba(255,244,170," + g0.toFixed(3) + ")");
+      grad.addColorStop(0.55, "rgba(255,240,138," + (g0 * 0.42).toFixed(3) + ")");
+      grad.addColorStop(1, "rgba(255,240,138,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, gr, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    var list = proposed ? (useSkirts ? RINGS : [RINGS[0]]) : [C];
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (var i = list.length - 1; i >= 0; i--) drawRing(ctx, list[i], t, false, geom, proposed);
+    ctx.restore();
+
+    drawModel(ctx, cx, gy, u);
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (var k = 0; k < list.length; k++) drawRing(ctx, list[k], t, true, geom, proposed);
+    ctx.restore();
+
+    if (proposed) {
+      ctx.save();
+      ctx.font = "10px 'IBM Plex Mono', monospace";
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(255,241,150,0.72)";
+      ctx.fillText("core " + (RINGS[0].tipY * scaleOf(RINGS[0], t, Math.PI * 0.5)).toFixed(2) + " u", W * 0.07, H * 0.09);
+      ctx.fillStyle = "rgba(240,236,224,0.42)";
+      ctx.fillText("breath ±" + (breathAmp(t) * 100).toFixed(1) + "%", W * 0.07, H * 0.09 + 14);
+      ctx.restore();
+    }
+  }
+
+  var GW = 1000, GH = 320, PL = 52, PR = 16, PT = 16, PB = 42;
+  function gx(t) { return PL + (t / P.duration) * (GW - PL - PR); }
+  function gyv(v) { return GH - PB - v * (GH - PT - PB); }
+  var GMAX = 1.55;
+
+  function pathOf(fn, steps) {
+    var d = "", n = steps || 500;
+    for (var i = 0; i <= n; i++) {
+      var t = P.duration * i / n;
+      d += (i ? "L" : "M") + gx(t).toFixed(1) + " " + gyv(fn(t)).toFixed(1);
+    }
+    return d;
+  }
+  function txt(x, y, anchor, fill, str) {
+    return '<text x="' + x + '" y="' + y + '" text-anchor="' + anchor +
+      '" font-family="IBM Plex Mono, monospace" font-size="11" fill="' + fill + '">' + str + '</text>';
+  }
+
+  function buildGraph() {
+    var g = "";
+    var y1 = gyv(1 / GMAX);
+    g += '<line x1="' + PL + '" y1="' + y1 + '" x2="' + (GW - PR) + '" y2="' + y1 + '" stroke="var(--line)" stroke-dasharray="3 5"/>';
+    g += txt(PL - 8, y1 + 4, "end", "var(--muted)", "rest");
+    g += '<line x1="' + PL + '" y1="' + gyv(0) + '" x2="' + (GW - PR) + '" y2="' + gyv(0) + '" stroke="var(--line)"/>';
+    var marks = [[0.16, "0.16"], [0.37, "0.37"], [0.58, "0.58"], [P.handoff, "1.04"], [P.releaseStart, "1.78"]];
+    for (var m = 0; m < marks.length; m++) {
+      g += '<line x1="' + gx(marks[m][0]) + '" y1="' + PT + '" x2="' + gx(marks[m][0]) + '" y2="' + gyv(0) + '" stroke="var(--line)"/>';
+      g += txt(gx(marks[m][0]), GH - PB + 18, "middle", "var(--muted)", marks[m][1]);
+    }
+    g += txt(gx(0), GH - PB + 18, "middle", "var(--muted)", "0.00");
+    g += txt(gx(P.duration), GH - PB + 18, "end", "var(--muted)", "2.00 s");
+
+    g += '<path d="' + pathOf(function (t) { return breathAmp(t) / P.breathMax * 0.22; }, 200) +
+         '" fill="none" stroke="var(--muted)" stroke-width="1.4" stroke-dasharray="4 4" opacity="0.6"/>';
+    g += '<path d="' + pathOf(function (t) { return wallAlpha(t) * 0.5; }, 300) +
+         '" fill="none" stroke="var(--ink-2)" stroke-width="1.6"/>';
+
+    var colors = ["var(--accent)", "var(--cool)", "var(--warn)"];
+    for (var i = RINGS.length - 1; i >= 0; i--) {
+      (function (R, col, wide) {
+        g += '<path d="' + pathOf(function (t) { return scaleOf(R, t, Math.PI * 0.5) / GMAX; }, 600) +
+             '" fill="none" stroke="' + col + '" stroke-width="' + wide + '" stroke-linejoin="round"/>';
+      })(RINGS[i], colors[i], i === 0 ? 2.4 : 1.7);
+    }
+    g += '<line id="playhead" x1="' + gx(0) + '" y1="' + PT + '" x2="' + gx(0) + '" y2="' + gyv(0) + '" stroke="var(--accent)" stroke-width="1.5" opacity="0.85"/>';
+    document.getElementById("graph").innerHTML = g;
+    playhead = null;
+  }
+
+  var cvA = document.getElementById("cvCurrent"),
+      cvB = document.getElementById("cvProposed"),
+      scrub = document.getElementById("scrub"),
+      clock = document.getElementById("clock"),
+      phase = document.getElementById("phase"),
+      ringRead = document.getElementById("ringRead"),
+      modeLabel = document.getElementById("modeLabel"),
+      btnPlay = document.getElementById("btnPlay"),
+      btnSlow = document.getElementById("btnSlow"),
+      btnBounce = document.getElementById("btnBounce"),
+      btnBreath = document.getElementById("btnBreath"),
+      btnSkirts = document.getElementById("btnSkirts"),
+      btnLocked = document.getElementById("btnLocked"),
+      btnFaces = document.getElementById("btnFaces"),
+      btnWave = document.getElementById("btnWave"),
+      playhead = null;
+
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var t = reduced ? 1.2 : 0, playing = !reduced, speed = 1, last = 0;
+
+  function render() {
+    var tc = Math.min(t, P.duration);
+    drawAura(cvA, tc, "current");
+    drawAura(cvB, tc, "proposed");
+    clock.textContent = tc.toFixed(3) + " s";
+    phase.textContent = tc >= P.duration ? "clear" : phaseName(tc);
+    ringRead.textContent = "breath ±" + (breathAmp(tc) * 100).toFixed(1) + "%";
+    if (!playhead) playhead = document.getElementById("playhead");
+    if (playhead) {
+      var x = gx(tc);
+      playhead.setAttribute("x1", x);
+      playhead.setAttribute("x2", x);
+    }
+  }
+
+  function frame(now) {
+    if (!last) last = now;
+    var dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    if (playing) {
+      t += dt * speed;
+      if (t > P.duration + 0.35) t = 0;
+      scrub.value = Math.round(Math.min(t, P.duration) * 1000);
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  function pause() {
+    playing = false;
+    btnPlay.textContent = "Play";
+    btnPlay.setAttribute("aria-pressed", "false");
+  }
+  function setRing(mode) {
+    ring = mode;
+    btnLocked.setAttribute("aria-pressed", String(mode === "locked"));
+    btnFaces.setAttribute("aria-pressed", String(mode === "faces"));
+    btnWave.setAttribute("aria-pressed", String(mode === "wave"));
+    buildGraph(); render();
+  }
+  function updateModeLabel() {
+    modeLabel.textContent = (useSkirts ? "three rings" : "core only") + " · 2.00 s";
+  }
+
+  btnPlay.addEventListener("click", function () {
+    playing = !playing;
+    btnPlay.textContent = playing ? "Pause" : "Play";
+    btnPlay.setAttribute("aria-pressed", String(playing));
+    last = 0;
+  });
+  btnSlow.addEventListener("click", function () {
+    speed = speed === 1 ? 0.25 : 1;
+    btnSlow.setAttribute("aria-pressed", String(speed !== 1));
+  });
+  btnBounce.addEventListener("click", function () {
+    useBounce = !useBounce;
+    btnBounce.setAttribute("aria-pressed", String(useBounce));
+    buildGraph(); render();
+  });
+  btnBreath.addEventListener("click", function () {
+    useBreath = !useBreath;
+    btnBreath.setAttribute("aria-pressed", String(useBreath));
+    buildGraph(); render();
+  });
+  btnSkirts.addEventListener("click", function () {
+    useSkirts = !useSkirts;
+    btnSkirts.setAttribute("aria-pressed", String(useSkirts));
+    updateModeLabel(); render();
+  });
+  btnLocked.addEventListener("click", function () { setRing("locked"); });
+  btnFaces.addEventListener("click", function () { setRing("faces"); });
+  btnWave.addEventListener("click", function () { setRing("wave"); });
+  scrub.addEventListener("input", function () {
+    pause();
+    t = Number(scrub.value) / 1000;
+    render();
+  });
+  window.addEventListener("resize", render);
+
+  updateModeLabel();
+  buildGraph();
+  if (!playing) { pause(); scrub.value = 1200; }
+  requestAnimationFrame(frame);
+})();
+</script>

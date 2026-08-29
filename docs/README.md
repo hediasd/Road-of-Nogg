@@ -11,6 +11,7 @@ Use this page to find the source of truth instead of searching every document.
 | [Game design](./GAME_DESIGN.md) | Confirmed player-facing mechanics and constraints |
 | [UI / UX design](./UI_DESIGN.md) | Battle UI visual language, theme tokens, cursor and input model |
 | [VFX design](./VFX_DESIGN.md) | Spell effect contract, authoring conventions, the house motion style for any animation, and the debug harness |
+| [Sketches](./sketches/README.md) | Kept design sketches: the few debug artifacts that stayed useful after their work shipped |
 | [Critical backlog](../BACKLOG_CRITICAL.md) | Incomplete work that materially affects current gameplay, correctness, or readiness |
 | [Long-term backlog](../BACKLOG_LONGTERM.md) | Deferred design, tooling, and maintenance work |
 | [Learnings](./LEARNINGS.md) | Verified reusable discoveries and review triggers |

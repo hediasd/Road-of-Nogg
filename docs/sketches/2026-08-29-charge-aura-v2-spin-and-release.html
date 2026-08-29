@@ -1,0 +1,655 @@
+<title>Charge Aura V2 Release</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;600&display=swap">
+<style>
+  :root {
+    --ground: #eceae3; --surface: #f7f6f1; --surface-2: #e3e0d6;
+    --ink: #1b1a15; --ink-2: #4a4739; --muted: #75705f; --line: #d5d1c3;
+    --accent: #a8720c; --cool: #4d6480; --warn: #9a3b1f;
+    --stage: #0e0e0c; --focus: #a8720c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #131311; --surface: #1a1a16; --surface-2: #23231d;
+      --ink: #efece0; --ink-2: #cbc6b4; --muted: #8f8977; --line: #302f27;
+      --accent: #f2dc7e; --cool: #8ba3bd; --warn: #e08a63;
+      --stage: #0b0b09; --focus: #f2dc7e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #131311; --surface: #1a1a16; --surface-2: #23231d;
+    --ink: #efece0; --ink-2: #cbc6b4; --muted: #8f8977; --line: #302f27;
+    --accent: #f2dc7e; --cool: #8ba3bd; --warn: #e08a63;
+    --stage: #0b0b09; --focus: #f2dc7e;
+  }
+
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 17px; line-height: 1.62; margin: 0; padding: 0 20px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  .prose { max-width: 66ch; }
+  h1, h2, h3, .ui {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-variation-settings: "wdth" 112; text-wrap: balance;
+  }
+  h1 {
+    font-size: clamp(34px, 5.4vw, 54px); font-weight: 700; line-height: 1.02;
+    letter-spacing: -0.022em; margin: 56px 0 14px;
+  }
+  h2 { font-size: 25px; font-weight: 650; letter-spacing: -0.012em; margin: 0 0 6px; }
+  h3 { font-size: 15px; font-weight: 650; margin: 0 0 6px; }
+  p { margin: 0 0 14px; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin: 0;
+  }
+  .lede { font-size: 19px; color: var(--ink-2); }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.87em;
+    background: var(--surface-2); padding: 1px 5px; border-radius: 3px;
+  }
+  section { margin-top: 60px; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 14px;
+    border-top: 1px solid var(--line); padding-top: 14px; margin-bottom: 22px;
+  }
+  .sec-head .eyebrow { flex: none; }
+
+  .stage-shell {
+    background: var(--stage); border: 1px solid var(--line); border-radius: 4px;
+    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .views { grid-template-columns: 1fr; } }
+  .view { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .view canvas { width: 100%; display: block; border-radius: 2px; }
+  .view-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; display: flex;
+    justify-content: space-between; gap: 10px; color: rgba(240,236,224,0.5);
+  }
+  .view-label b { font-weight: 500; color: rgba(240,236,224,0.86); }
+  .view-label .now { color: #f2dc7e; }
+  .transport {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    border-top: 1px solid rgba(240,236,224,0.12); padding-top: 14px;
+  }
+  .grp { display: flex; align-items: center; gap: 8px; }
+  .grp-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: rgba(240,236,224,0.42);
+  }
+  button.ui {
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    font-weight: 600; background: rgba(240,236,224,0.08); color: #efece0;
+    border: 1px solid rgba(240,236,224,0.2); border-radius: 2px;
+    padding: 7px 13px; cursor: pointer;
+  }
+  button.ui:hover { background: rgba(242,220,126,0.16); border-color: rgba(242,220,126,0.5); }
+  button.ui[aria-pressed="true"] { background: rgba(242,220,126,0.2); border-color: rgba(242,220,126,0.6); color: #f7ecc0; }
+  :where(button, input, a):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  input[type="range"] { flex: 1 1 190px; min-width: 140px; accent-color: #f2dc7e; }
+  .clock { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; color: rgba(240,236,224,0.72); font-variant-numeric: tabular-nums; }
+  .phase {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: #0e0e0c;
+    background: #f2dc7e; padding: 4px 9px; border-radius: 2px;
+    min-width: 104px; text-align: center;
+  }
+  .sep { width: 1px; align-self: stretch; background: rgba(240,236,224,0.14); }
+  .caption { font-size: 14px; color: var(--muted); margin: 10px 0 0; }
+
+  .graph-card {
+    border: 1px solid var(--line); border-radius: 4px; background: var(--surface);
+    padding: 18px 18px 10px; overflow-x: auto;
+  }
+  .graph-card svg { display: block; width: 100%; min-width: 600px; height: auto; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 4px; }
+  .legend span {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
+    color: var(--muted); display: flex; align-items: center; gap: 7px;
+  }
+  .swatch { width: 18px; height: 3px; border-radius: 2px; flex: none; display: inline-block; }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  th {
+    font-family: Archivo, sans-serif; font-size: 11px; font-weight: 650;
+    letter-spacing: 0.11em; text-transform: uppercase; color: var(--muted); white-space: nowrap;
+  }
+  td.num, td.beat { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 13px; }
+  td.beat { color: var(--accent); }
+  .tag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+    padding: 2px 7px; border-radius: 2px; border: 1px solid var(--line);
+    background: var(--surface-2); white-space: nowrap;
+  }
+  .tag.sol { border-color: var(--accent); color: var(--accent); }
+  .tag.terra { border-color: var(--cool); color: var(--cool); }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 16px; }
+  .card { border: 1px solid var(--line); border-radius: 4px; background: var(--surface); padding: 16px 18px 18px; }
+  .card p { font-size: 15px; margin: 0; color: var(--ink-2); }
+  .card p + p { margin-top: 10px; }
+  .card .eyebrow { margin-bottom: 8px; }
+  .card.pick { border-color: var(--accent); border-width: 2px; }
+  .card.no { opacity: 0.72; }
+  .q { border-left: 3px solid var(--accent); padding-left: 16px; margin: 0 0 20px; }
+  .q p { font-size: 15.5px; color: var(--ink-2); margin: 0; }
+  .finding {
+    border: 1px solid var(--line); border-left: 3px solid var(--warn);
+    border-radius: 4px; background: var(--surface); padding: 16px 18px; margin-bottom: 22px;
+  }
+  .finding p { margin: 0; font-size: 15.5px; color: var(--ink-2); }
+  .finding p + p { margin-top: 10px; }
+  footer { margin-top: 64px; border-top: 1px solid var(--line); padding-top: 16px; font-size: 13.5px; color: var(--muted); }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow" style="margin-top:44px">Road of Nogg &middot; VFX motion sketch &middot; charge aura v2</p>
+  <h1>Charge aura v2:<br>spin, churn, collapse</h1>
+  <p class="lede prose">v1 grew out of the floor and settled into a quiet idle. v2 never settles: the whole stack <b>turns</b> around the caster, every blade <b>churns</b> up and down hard for the full two seconds, and at <b>1.70s</b> the charge is spent rather than dimmed. This sketch exists mainly to settle that last question — three candidate release shapes, side by side, on the same clock.</p>
+
+  <section style="margin-top:36px">
+    <div class="stage-shell">
+      <div class="views">
+        <div class="view">
+          <div class="view-label"><b>v1 &mdash; shipped</b><span>bounce, settle, fade</span></div>
+          <canvas id="cvV1" width="760" height="640" role="img" aria-label="The shipped v1 aura: rings that bounce in, settle, and fade uniformly."></canvas>
+        </div>
+        <div class="view">
+          <div class="view-label"><b class="now">v2 &mdash; proposed</b><span id="modeLabel">spin &middot; collapse</span></div>
+          <canvas id="cvV2" width="760" height="640" role="img" aria-label="The proposed v2 aura: blades spinning around the caster, churning up and down, collapsing inward at 1.7 seconds."></canvas>
+        </div>
+      </div>
+      <div class="transport">
+        <button class="ui" id="btnPlay" aria-pressed="true">Pause</button>
+        <input type="range" id="scrub" min="0" max="2000" step="1" value="0" aria-label="Playback time in milliseconds">
+        <span class="clock" id="clock">0.000 s</span>
+        <button class="ui" id="btnSlow" aria-pressed="false">0.25&times;</button>
+        <span class="phase" id="phase">ignite</span>
+      </div>
+      <div class="transport">
+        <span class="grp">
+          <span class="grp-label">Release at 1.70s</span>
+          <button class="ui" id="btnCollapse" aria-pressed="true">Collapse</button>
+          <button class="ui" id="btnExpand" aria-pressed="false">Expand</button>
+          <button class="ui" id="btnUniform" aria-pressed="false">Uniform</button>
+        </span>
+        <span class="sep"></span>
+        <span class="grp">
+          <span class="grp-label">Systems</span>
+          <button class="ui" id="btnSpin" aria-pressed="true">Spin</button>
+          <button class="ui" id="btnChurn" aria-pressed="true">Churn</button>
+        </span>
+        <span class="clock" id="readout">turn 0&deg;</span>
+      </div>
+    </div>
+    <p class="caption prose">The three <b>Release</b> buttons are the actual question. Scrub to 1.70s and step forward through each. A 2D approximation of the proposed curves, not a Godot capture &mdash; the silhouette is indicative, the timing and amplitudes are the proposal.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">01</p><h2>How the fade should work</h2></div>
+    <p class="prose">An aura that has been turning and churning for 1.7 seconds has momentum. A uniform alpha ramp contradicts it &mdash; the motion is still going when the brightness admits it is over, and the last thing the eye sees is a static shape getting dimmer. The release should convert that momentum into a <em>direction</em> instead. Three ways to do that:</p>
+    <div class="cards">
+      <div class="card no">
+        <p class="eyebrow">Option A</p>
+        <h3>Uniform fade</h3>
+        <p>What v1 does: one alpha ramp over everything. Cheapest, and it is the right answer for an effect that was already still. Here it throws away every bit of energy the previous 1.7 seconds built, and reads as a dimmer switch.</p>
+      </div>
+      <div class="card pick">
+        <p class="eyebrow">Option B &middot; recommended</p>
+        <h3>Collapse and whip</h3>
+        <p>Radius contracts to ~55% and height drops to ~40% on an ease-in, while the spin <b>accelerates 2.2&times;</b>. The charge converges on the caster and is gone. It says the energy was <em>spent</em> &mdash; which is what a pre-cast telegraph should say, since the spell fires next.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Option C</p>
+        <h3>Expand and thin</h3>
+        <p>The same machinery with one sign flipped: blades fly outward and thin as they go. Reads as a burst leaving the caster. Legitimate &mdash; but it states <em>release</em>, and the spell's own effect is about to state that far more loudly. Two releases in a row blunt each other.</p>
+      </div>
+    </div>
+    <p class="caption prose">Whichever shape wins, two details matter more than the shape does, and both are in every option above.</p>
+    <div class="cards" style="margin-top:16px">
+      <div class="card pick">
+        <p class="eyebrow">Detail 1 &middot; the tell</p>
+        <h3>Flash before the fall</h3>
+        <p>60ms at <b>1.35&times; brightness</b> starting exactly at 1.70s, before any alpha comes off. Energy about to leave is brighter than energy idling. Without it the release has no onset &mdash; it just starts being less. This one beat is most of what sells the whole thing.</p>
+      </div>
+      <div class="card pick">
+        <p class="eyebrow">Detail 2 &middot; never all at once</p>
+        <h3>Blades go out in a wave</h3>
+        <p>Each blade's extinction is offset by its own angle, so the ring <b>unzips</b> in the spin direction over ~140ms rather than all thirty blades vanishing together. The last thing on screen is motion, not a shape dimming. The per-face phase this needs already exists from v1.</p>
+      </div>
+    </div>
+    <p class="caption prose">The ground spill lags the blades by ~80ms and goes out last, so the floor keeps a residual glow for a beat after the wall is gone. A simultaneous cut on both layers reads as a dropped frame.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">02</p><h2>The release, beat by beat</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Beat</th><th>Window</th><th>What moves</th></tr></thead>
+        <tbody>
+          <tr><td class="beat">Flash</td><td class="num">1.70 &ndash; 1.76 s</td><td>Brightness to 1.35&times; and back. Nothing else changes yet &mdash; geometry, spin and churn all continue exactly as they were. The onset is purely luminous.</td></tr>
+          <tr><td class="beat">Whip</td><td class="num">1.70 &ndash; 2.00 s</td><td>Spin accelerates from its hold rate to 2.2&times; over the window. Blades shear tangentially as they converge.</td></tr>
+          <tr><td class="beat">Converge</td><td class="num">1.76 &ndash; 2.00 s</td><td>Radius to 55%, height to 40%, on an ease-in so it accelerates inward rather than drifting. Churn keeps running underneath at full amplitude.</td></tr>
+          <tr><td class="beat">Unzip</td><td class="num">1.76 &ndash; 1.94 s</td><td>Per-blade alpha on <code>(1-p)^2.2</code>, each blade offset by its angle. First blade out at 1.76s, last at ~1.90s.</td></tr>
+          <tr><td class="beat">Residual</td><td class="num">1.84 &ndash; 2.00 s</td><td>Ground spill fades last, 80ms behind the blades. The floor is the final thing to go dark.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">03</p><h2>Spin and churn</h2></div>
+    <div class="cards">
+      <div class="card">
+        <p class="eyebrow">Spin</p>
+        <h3>A flywheel, not a turntable</h3>
+        <p>Fast off the launch (~340&deg;/s), easing back to a ~230&deg;/s hold — roughly 1.55s per revolution — then accelerating into the release. A constant rate reads mechanical; a rate with a history reads driven.</p>
+        <p>The three rings turn at slightly different speeds (1.0 / 1.15 / 1.32&times;), so the stack shears instead of moving as one rigid body. That differential is most of the vortex read.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Spin</p>
+        <h3>It must be set, never accumulated</h3>
+        <p>Rotation is <code>rotation.y = spinAngle(t)</code> evaluated from the effect's own clock — never <code>+=</code> per frame. v1's whole determinism property depends on the image being a pure function of the seek position, and an accumulated rotation is the one thing that would quietly break it.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Churn</p>
+        <h3>Sustained, not decaying</h3>
+        <p>v1's breath ramps up as the entrance dies and settles around &plusmn;7.5%. v2 inverts the intent: the per-blade oscillation holds at <b>&plusmn;20%</b> for the whole two seconds and never resolves into an idle. Faster too — the blades should visibly pump, not shimmer.</p>
+      </div>
+      <div class="card pick">
+        <p class="eyebrow">Consequence</p>
+        <h3>The ring has to become blades</h3>
+        <p>This is the structural change v2 forces, and it comes straight out of v1's own measurements — see below.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">04</p><h2>Why v2 cannot keep v1's continuous ring</h2></div>
+    <div class="finding prose">
+      <p><b>v1 measured the corner gap.</b> Faces share corner vertices, so when neighbours move independently the rim splits there. At v1's &plusmn;7.5% breath and a face mix of 0.45, the worst gap was 0.0337u — 0.8px at battle framing, comfortably hidden by the mask's ragged top edge.</p>
+      <p>v2 asks for &plusmn;20% and near-full per-blade independence. That scales the gap by roughly 2.7&times; on amplitude and 1.8&times; on independence: about <b>4 px of notch at every corner</b>, on a rim the spin now drags across the screen where it cannot be missed. The mask has no side margin — v1's own measurement, alpha ~253 in its edge columns — so there is nothing to hide it behind.</p>
+      <p>The fix is not to soften the churn. It is to stop pretending the ring is continuous: make each face a <b>discrete blade</b> with soft side edges, and neighbours moving independently becomes the intended read rather than a tear. One line in the fragment stage does it — a <code>smoothstep</code> falloff on <code>UV.x</code> at both edges — with no new texture, and it makes the spin read better too, because you see individual blades sweep past instead of a wall rotating.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">05</p><h2>Decide before I build</h2></div>
+    <div class="prose">
+      <div class="q"><h3>Collapse or expand?</h3><p>I recommend collapse: the spell's own effect fires immediately afterwards and will state "release" far more loudly, so a telegraph that also bursts outward competes with it. Collapse says <em>spent</em>, which is the one thing the spell itself cannot say. One sign flip either way.</p></div>
+      <div class="q"><h3>Is 1.70s the right release, given the duration stays 2.00s?</h3><p>That leaves a 0.30s window, which is enough for flash, whip, unzip and residual only because they overlap. Pulling it earlier than ~1.65s starts eating the hold; later than ~1.75s and the unzip has to compress into something that reads as a cut.</p></div>
+      <div class="q"><h3>Does the spin keep a fixed direction across casts?</h3><p>Sketched fixed, so it becomes a recognisable signature. Seeding the direction would make casts differ, but a telegraph benefits from being identical every time — the player should recognise it instantly, not appreciate its variety.</p></div>
+      <div class="q"><h3>Do the flares survive v2 at all?</h3><p>v1's verification found they read as flat terraced plates at the battle pitch. Spin may rescue them — a plate that turns is much easier to read as energy than a plate that sits — or it may make the terracing more obvious. This sketch assumes they stay. If they still fail once spinning, v2 is the moment to cut them to a single flare or none.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">06</p><h2>Implementation plan</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Item</th><th>Work</th><th>Model</th><th>Touches</th><th>Wave</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="num">V2-A</td>
+            <td>Fork v1 into files v2 owns: profile, effect, shader, and its own copy of the mask directory. Register the catalog row so both previews sit side by side. No behaviour change in this item &mdash; a pure fork that renders identically to v1.</td>
+            <td><span class="tag terra">Sonnet 5 / GPT Terra</span></td>
+            <td class="num">TechniqueChargeAuraV2*.gd<br>technique_charge_aura_v2.gdshader<br>SpellVfxCatalog.gd</td>
+            <td class="num">1</td>
+          </tr>
+          <tr>
+            <td class="num">V2-B</td>
+            <td>Blades: soft <code>UV.x</code> falloff at both edges so faces read as discrete, and retune per-blade amplitude and face mix to the sustained &plusmn;20% churn now that corner steps no longer matter.</td>
+            <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
+            <td class="num">technique_charge_aura_v2.gdshader<br>TechniqueChargeAuraV2Profile.gd</td>
+            <td class="num">1</td>
+          </tr>
+          <tr>
+            <td class="num">V2-C</td>
+            <td>Spin as a pure function of the clock: launch rate easing to a hold rate, per-ring differential, set on <code>rotation.y</code> rather than accumulated. Prove a seek still lands on the same frame.</td>
+            <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
+            <td class="num">TechniqueChargeAuraV2Effect.gd<br>TechniqueChargeAuraV2Profile.gd</td>
+            <td class="num">2</td>
+          </tr>
+          <tr>
+            <td class="num">V2-D</td>
+            <td>The release: flash, spin acceleration, radius/height convergence, per-blade unzip offset by blade angle, and the ground's 80ms lag. All five as one envelope family so the alternative sign (expand) stays a constant rather than a branch.</td>
+            <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
+            <td class="num">technique_charge_aura_v2.gdshader<br>TechniqueChargeAuraV2Profile.gd</td>
+            <td class="num">2</td>
+          </tr>
+          <tr>
+            <td class="num">V2-E</td>
+            <td>Tunables for spin rate, differential, churn amplitude, and every release constant, so the collapse/expand decision can be made on the slider rather than in a rebuild.</td>
+            <td><span class="tag terra">Sonnet 5 / GPT Terra</span></td>
+            <td class="num">TechniqueChargeAuraV2Effect.gd</td>
+            <td class="num">3</td>
+          </tr>
+          <tr>
+            <td class="num">V2-F</td>
+            <td>Verification: seek exactness with rotation animating, per-blade gap now that blades are discrete, foot stacking under spin, and a yaw sweep. Then the design note and a decision on whether the flares survive.</td>
+            <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
+            <td class="num">debug/ harness<br>docs/VFX_DESIGN.md</td>
+            <td class="num">3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caption prose">V2-A first and alone: a fork that renders identically to v1 is the checkpoint that proves the isolation rule held before any of it starts moving differently.</p>
+  </section>
+
+  <footer>
+    <p>Sketch only &mdash; no engine files changed. The corner-gap figures are measured from v1; every v2 timing and amplitude is a proposal to argue with.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var TAU = Math.PI * 2, DUR = 2.00, SIDES = 10;
+  var RELEASE = 1.70, FLASH_END = 1.76, UNZIP_END = 1.94;
+
+  var RINGS = [
+    { lean: 90, baseR: 0.74, len: 1.62, op: 0.47, launch: 0.00, rise: 0.16, period: 0.42, decay: 2.43, over: 0.30, churn: 1.00, spin: 1.00, tip: false },
+    { lean: 62, baseR: 0.78, len: 0.52, op: 0.32, launch: 0.04, rise: 0.11, period: 0.32, decay: 3.40, over: 0.40, churn: 1.30, spin: 1.15, tip: true },
+    { lean: 40, baseR: 0.90, len: 0.34, op: 0.22, launch: 0.08, rise: 0.09, period: 0.26, decay: 4.20, over: 0.48, churn: 1.55, spin: 1.32, tip: true }
+  ];
+  RINGS.forEach(function (R) {
+    var r = R.lean * Math.PI / 180;
+    R.tipR = R.baseR + R.len * Math.cos(r);
+    R.tipY = R.len * Math.sin(r);
+  });
+
+  var CHURN = 0.20, SPIN_LAUNCH = 340, SPIN_HOLD = 230, SPIN_RELEASE = 2.2;
+  var mode = "collapse", useSpin = true, useChurn = true;
+
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+  function smoothstep(a, b, x) { var t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); }
+  function fract(v) { return v - Math.floor(v); }
+  function hash21(x, y) {
+    var hx = fract(x * 123.34), hy = fract(y * 456.21);
+    var d = hx * (hx + 45.32) + hy * (hy + 45.32);
+    return fract(fract(hx + d) * fract(hy + d) * 97.13 + fract(hx + d));
+  }
+  function vnoise(x, y) {
+    var xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi;
+    var sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    var a = hash21(xi, yi), b = hash21(xi + 1, yi), c = hash21(xi, yi + 1), d = hash21(xi + 1, yi + 1);
+    var t = a + (b - a) * sx;
+    return t + ((c + (d - c) * sx) - t) * sy;
+  }
+
+  // Spin as an absolute angle: integral of a rate that eases from launch to
+  // hold, then accelerates through the release. Never accumulated.
+  function spinDegrees(t) {
+    if (!useSpin) return 0;
+    var deg = 0, step = 0.004;
+    for (var s = 0; s < t; s += step) {
+      var rate = SPIN_HOLD + (SPIN_LAUNCH - SPIN_HOLD) * Math.exp(-s / 0.34);
+      if (s >= RELEASE) {
+        rate *= 1 + (SPIN_RELEASE - 1) * clamp01((s - RELEASE) / (DUR - RELEASE));
+      }
+      deg += rate * Math.min(step, t - s);
+    }
+    return deg;
+  }
+
+  function bounce(R, t) {
+    var tt = t - R.launch;
+    if (tt <= 0) return 0;
+    if (tt < R.rise) return (1 + R.over) * (1 - Math.pow(1 - tt / R.rise, 3));
+    var tau = tt - R.rise;
+    return 1 + R.over * Math.exp(-R.decay * tau) * Math.cos(TAU / R.period * tau);
+  }
+  // Sustained per-blade churn: no ramp, no decay into an idle.
+  function churn(R, t, blade) {
+    if (!useChurn) return 1;
+    var a = CHURN * R.churn;
+    return 1 + a * ((vnoise(t * 3.1 + blade * 5.7, 2.3) - 0.5) * 1.5
+                  + (vnoise(t * 6.7 + blade * 11.3, 7.1) - 0.5) * 0.5);
+  }
+  function releaseP(t) { return t < RELEASE ? 0 : clamp01((t - RELEASE) / (DUR - RELEASE)); }
+
+  function radiusScale(t) {
+    var p = releaseP(t);
+    if (p <= 0 || mode === "uniform") return 1;
+    var e = p * p;
+    return mode === "collapse" ? 1 - 0.45 * e : 1 + 0.55 * e;
+  }
+  function heightScale(t) {
+    var p = releaseP(t);
+    if (p <= 0 || mode === "uniform") return 1;
+    var e = p * p;
+    return mode === "collapse" ? 1 - 0.60 * e : 1 - 0.30 * e;
+  }
+  function flash(t) {
+    if (t < RELEASE || t > FLASH_END) return 1;
+    var p = (t - RELEASE) / (FLASH_END - RELEASE);
+    return 1 + 0.35 * Math.sin(p * Math.PI);
+  }
+  // Per-blade extinction, offset by the blade's own angle so the ring unzips.
+  function bladeAlpha(t, angleFrac) {
+    if (t < 0.03) return clamp01(t / 0.03);
+    if (t < FLASH_END) return 1;
+    if (mode === "uniform") return Math.pow(1 - clamp01((t - RELEASE) / (DUR - RELEASE)), 1.8);
+    var offset = angleFrac * (UNZIP_END - FLASH_END) * 0.8;
+    var p = clamp01((t - FLASH_END - offset) / (UNZIP_END - FLASH_END));
+    return Math.pow(1 - p, 2.2);
+  }
+  function groundAlpha(t) {
+    if (t < 0.02) return clamp01(t / 0.02);
+    var lag = RELEASE + 0.14;
+    if (t < lag) return 1;
+    return Math.pow(1 - clamp01((t - lag) / (DUR - lag)), 1.6);
+  }
+  function v1Alpha(t) {
+    if (t < 0.03) return clamp01(t / 0.03);
+    if (t < 1.78) return 1;
+    return Math.pow(1 - clamp01((t - 1.78) / (DUR - 1.78)), 1.8);
+  }
+  function v1Breath(t, face) {
+    var tau = Math.max(t - 0.16, 0);
+    var amp = 0.075 - 0.045 * Math.exp(-2.43 * tau);
+    return 1 + amp * ((vnoise(t * 1.7 + face * 0.9, 3.1) - 0.5) * 1.35
+                    + (vnoise(t * 4.3 + face * 1.3, 8.7) - 0.5) * 0.65);
+  }
+  function phaseName(t) {
+    if (t < 0.06) return "ignite";
+    if (t < 0.30) return "launch";
+    if (t < RELEASE) return "spin + churn";
+    if (t < FLASH_END) return "flash";
+    return mode === "expand" ? "burst" : "collapse";
+  }
+
+  var PITCH = 0.30;
+  function setup(cv) {
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = cv.clientWidth || 380, h = Math.round(w * 0.86);
+    if (cv.width !== Math.round(w * dpr) || cv.height !== Math.round(h * dpr)) {
+      cv.width = Math.round(w * dpr);
+      cv.height = Math.round(h * dpr);
+    }
+    cv.style.height = h + "px";
+    var ctx = cv.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx: ctx, w: w, h: h };
+  }
+
+  function drawModel(ctx, cx, gy, u) {
+    ctx.save();
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "#050504";
+    var bw = 0.44 * u, bh = 0.86 * u;
+    ctx.beginPath();
+    ctx.moveTo(cx - bw * 0.5, gy); ctx.lineTo(cx - bw * 0.42, gy - bh);
+    ctx.lineTo(cx + bw * 0.42, gy - bh); ctx.lineTo(cx + bw * 0.5, gy);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx, gy - bh - 0.22 * u, 0.24 * u, 0.25 * u, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function draw(cv, t, isV2) {
+    var s = setup(cv), ctx = s.ctx, W = s.w, H = s.h;
+    ctx.fillStyle = "#0b0b09"; ctx.fillRect(0, 0, W, H);
+    var u = H * 0.26, cx = W * 0.5, gy = H * 0.84;
+
+    var band = ctx.createLinearGradient(0, gy - u * 0.3, 0, H);
+    band.addColorStop(0, "rgba(255,255,255,0.030)");
+    band.addColorStop(1, "rgba(255,255,255,0.004)");
+    ctx.fillStyle = band; ctx.fillRect(0, gy - u * 0.3, W, H - gy + u * 0.3);
+
+    var ga = isV2 ? groundAlpha(t) : v1Alpha(t);
+    var fl = isV2 ? flash(t) : 1;
+    var rScale = isV2 ? radiusScale(t) : 1;
+    if (ga > 0.002) {
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      ctx.translate(cx, gy); ctx.scale(1, PITCH);
+      var gr = 2.9 * 0.5 * u * (isV2 ? Math.max(rScale, 0.6) : 1);
+      var grad = ctx.createRadialGradient(0, 0, gr * 0.16, 0, 0, gr);
+      var g0 = Math.min(0.46 * ga * fl, 1);
+      grad.addColorStop(0, "rgba(255,244,170," + g0.toFixed(3) + ")");
+      grad.addColorStop(0.55, "rgba(255,240,138," + (g0 * 0.42).toFixed(3) + ")");
+      grad.addColorStop(1, "rgba(255,240,138,0)");
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, gr, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
+    var spin = isV2 ? spinDegrees(t) * Math.PI / 180 : 0;
+    var hScale = isV2 ? heightScale(t) : 1;
+
+    // Collect every blade, then paint back to front around the model.
+    var blades = [];
+    for (var ri = 0; ri < RINGS.length; ri++) {
+      var R = RINGS[ri];
+      for (var f = 0; f < SIDES; f++) {
+        var a0 = TAU * f / SIDES + spin * (isV2 ? R.spin : 1);
+        var a1 = TAU * (f + 1) / SIDES + spin * (isV2 ? R.spin : 1);
+        var mid = (a0 + a1) * 0.5;
+        var angleFrac = fract((mid) / TAU);
+        var ext;
+        if (isV2) ext = bounce(R, t) * churn(R, t, f + ri * 13);
+        else ext = bounce(R, t) * v1Breath(t, f + ri * 13);
+        ext = Math.max(ext, 0) * hScale;
+        var alpha = isV2 ? bladeAlpha(t, angleFrac) : v1Alpha(t);
+        blades.push({ R: R, a0: a0, a1: a1, mid: mid, ext: ext, alpha: alpha * fl, depth: Math.sin(mid) });
+      }
+    }
+    blades.sort(function (p, q) { return p.depth - q.depth; });
+
+    function paint(list) {
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      for (var i = 0; i < list.length; i++) {
+        var b = list[i], R = b.R;
+        if (b.alpha <= 0.004 || b.ext <= 0.01) continue;
+        var COLS = 5;
+        for (var c = 0; c < COLS; c++) {
+          var uCoord = (c + 0.5) / COLS;
+          var ang = b.a0 + (b.a1 - b.a0) * uCoord;
+          // Soft blade edges: the change that lets neighbours move freely.
+          var edge = smoothstep(0, 0.26, uCoord) * smoothstep(0, 0.26, 1 - uCoord);
+          var rBase = R.baseR * (isV2 ? rScale : 1);
+          var rTip = (R.baseR + (R.tipR - R.baseR) * b.ext) * (isV2 ? rScale : 1);
+          var bx = cx + Math.cos(ang) * rBase * u;
+          var by = gy + Math.sin(ang) * rBase * u * PITCH;
+          var tx = cx + Math.cos(ang) * rTip * u;
+          var ty = gy + Math.sin(ang) * rTip * u * PITCH - R.tipY * b.ext * u;
+          var dx = tx - bx, dy = ty - by, L = Math.hypot(dx, dy);
+          if (L < 1) continue;
+          var colW = (TAU / SIDES / COLS) * rTip * u + 1.2;
+          var segs = Math.max(2, Math.ceil(L / 5));
+          ctx.save(); ctx.translate(bx, by); ctx.rotate(Math.atan2(dy, dx));
+          for (var j = 0; j < segs; j++) {
+            var v = (j + 0.5) / segs;
+            var dens = R.tip
+              ? smoothstep(0, 0.38, v) * (1 - 0.85 * smoothstep(0.78, 1, v))
+              : (0.38 + 0.62 * (1 - v)) * (1 - smoothstep(0.60, 1, v));
+            var n = 0.55 + 0.6 * vnoise(uCoord * 4 + b.mid, v * 6 - t * 0.6);
+            var al = dens * edge * n * b.alpha * R.op * 0.72;
+            if (al <= 0.005) continue;
+            ctx.fillStyle = "rgba(255,241,150," + Math.min(al, 0.95).toFixed(3) + ")";
+            ctx.fillRect(j * (L / segs), -colW * 0.5, L / segs + 0.8, colW);
+          }
+          ctx.restore();
+        }
+      }
+      ctx.restore();
+    }
+
+    paint(blades.filter(function (b) { return b.depth <= 0; }));
+    drawModel(ctx, cx, gy, u);
+    paint(blades.filter(function (b) { return b.depth > 0; }));
+  }
+
+  var cvV1 = document.getElementById("cvV1"), cvV2 = document.getElementById("cvV2"),
+      scrub = document.getElementById("scrub"), clock = document.getElementById("clock"),
+      phase = document.getElementById("phase"), readout = document.getElementById("readout"),
+      modeLabel = document.getElementById("modeLabel"),
+      btnPlay = document.getElementById("btnPlay"), btnSlow = document.getElementById("btnSlow"),
+      btnSpin = document.getElementById("btnSpin"), btnChurn = document.getElementById("btnChurn"),
+      btnCollapse = document.getElementById("btnCollapse"), btnExpand = document.getElementById("btnExpand"),
+      btnUniform = document.getElementById("btnUniform");
+
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var t = reduced ? 1.80 : 0, playing = !reduced, speed = 1, last = 0;
+
+  function render() {
+    var tc = Math.min(t, DUR);
+    draw(cvV1, tc, false);
+    draw(cvV2, tc, true);
+    clock.textContent = tc.toFixed(3) + " s";
+    phase.textContent = tc >= DUR ? "clear" : phaseName(tc);
+    readout.textContent = "turn " + Math.round(spinDegrees(tc)) + "°";
+  }
+  function frame(now) {
+    if (!last) last = now;
+    var dt = Math.min((now - last) / 1000, 0.05); last = now;
+    if (playing) {
+      t += dt * speed;
+      if (t > DUR + 0.35) t = 0;
+      scrub.value = Math.round(Math.min(t, DUR) * 1000);
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+  function pause() { playing = false; btnPlay.textContent = "Play"; btnPlay.setAttribute("aria-pressed", "false"); }
+  function setMode(m) {
+    mode = m;
+    btnCollapse.setAttribute("aria-pressed", String(m === "collapse"));
+    btnExpand.setAttribute("aria-pressed", String(m === "expand"));
+    btnUniform.setAttribute("aria-pressed", String(m === "uniform"));
+    modeLabel.textContent = "spin · " + m;
+    render();
+  }
+  btnPlay.addEventListener("click", function () {
+    playing = !playing; btnPlay.textContent = playing ? "Pause" : "Play";
+    btnPlay.setAttribute("aria-pressed", String(playing)); last = 0;
+  });
+  btnSlow.addEventListener("click", function () {
+    speed = speed === 1 ? 0.25 : 1; btnSlow.setAttribute("aria-pressed", String(speed !== 1));
+  });
+  btnSpin.addEventListener("click", function () {
+    useSpin = !useSpin; btnSpin.setAttribute("aria-pressed", String(useSpin)); render();
+  });
+  btnChurn.addEventListener("click", function () {
+    useChurn = !useChurn; btnChurn.setAttribute("aria-pressed", String(useChurn)); render();
+  });
+  btnCollapse.addEventListener("click", function () { setMode("collapse"); });
+  btnExpand.addEventListener("click", function () { setMode("expand"); });
+  btnUniform.addEventListener("click", function () { setMode("uniform"); });
+  scrub.addEventListener("input", function () { pause(); t = Number(scrub.value) / 1000; render(); });
+  window.addEventListener("resize", render);
+
+  if (!playing) { pause(); scrub.value = 1800; }
+  requestAnimationFrame(frame);
+})();
+</script>

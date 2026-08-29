@@ -1336,6 +1336,21 @@ item.** Continuing past a bad frame is how a session ends with a lot of
 committed code and a look nobody wants; the sheet is there so that the
 conversation about it happens while it is still cheap to change.
 
+### Keep the sketch that settled the question
+
+A proof sheet proves a thing once and the commit body records it. A *sketch* --
+an interactive motion study, a scrubbable before/after, a measurement that was
+expensive to produce -- carries the reasoning behind a decision, which is the
+part that does not survive in the code. The constants remain; what they were
+chosen against does not.
+
+Promote those into [`sketches/`](./sketches/README.md) as part of closing the
+cycle, alongside the merge and the branch sweep. Sketches are otherwise written
+to a session scratch directory and lost when it ends, so this happens before
+cleanup rather than after. The bar and the file conventions are in that
+directory's own README; it is deliberately high, because a folder of forty
+sketches is just another `debug/`.
+
 ---
 
 ## 7. Checklist for a new effect
@@ -1365,6 +1380,9 @@ conversation about it happens while it is still cheap to change.
     behavior. Render the donor and every existing caller of reused dependencies;
     any appearance, timing, playback, or lifecycle change fails the effect.
 12. **Record goldens** once the look is settled.
+13. **Promote the sketch that settled the look** into `docs/sketches/`
+    while closing the cycle, before the scratch directory it lives in is
+    gone. Proof output does not go there; see §6.
 
 **When planning the work, check whether the validation item names any
 observation the harness cannot produce.** If it does, that is item zero. This
