@@ -34,6 +34,7 @@ var _seedOffset := 0.0
 ## than per frame: a dictionary lookup inside the per-frame path would cost
 ## real performance in the one tool used to judge performance.
 var _igniteEnd := TechniqueChargeAuraProfile.IGNITE_END_NORMALIZED
+var _groundIgniteEnd := TechniqueChargeAuraProfile.GROUND_IGNITE_LEAD_NORMALIZED
 var _releaseStart := TechniqueChargeAuraProfile.RELEASE_START_NORMALIZED
 var _noiseScaleCoarse := TechniqueChargeAuraProfile.NOISE_SCALE_COARSE
 var _noiseScaleFine := TechniqueChargeAuraProfile.NOISE_SCALE_FINE
@@ -302,6 +303,10 @@ func _readLiveTunables() -> void:
 	_igniteEnd = tunable(
 		"IGNITE_END_NORMALIZED", TechniqueChargeAuraProfile.IGNITE_END_NORMALIZED
 	)
+	_groundIgniteEnd = tunable(
+		"GROUND_IGNITE_LEAD_NORMALIZED",
+		TechniqueChargeAuraProfile.GROUND_IGNITE_LEAD_NORMALIZED
+	)
 	_releaseStart = tunable(
 		"RELEASE_START_NORMALIZED",
 		TechniqueChargeAuraProfile.RELEASE_START_NORMALIZED
@@ -394,7 +399,8 @@ func _buildOwnedLayers() -> void:
 	_wallInstance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_wallInstance)
 
-	_pushRingUniforms(ring_specs)
+	_pushRingUniforms(_wallMaterial, ring_specs)
+	_pushRingUniforms(_groundMaterial, ring_specs)
 	_pushLiveTunables()
 
 	assert(
@@ -456,12 +462,21 @@ func _applyTimeline() -> void:
 
 ## The ground carries its own envelope rather than sharing the wall's.
 ##
-## It leads the wall at ignition and pulses with the rings' crests, because a
-## wall that bounces off an unlit floor stops reading as one source. That shape
-## is AURA-5E's; the split itself has to exist first, and until then the ground
-## follows the wall exactly as it always did.
+## It leads the wall into ignition -- GROUND_IGNITE_LEAD_NORMALIZED is roughly
+## a third of the wall's own IGNITE_END_NORMALIZED, so the floor visibly lights
+## an instant before the ring above it does, rather than the two appearing
+## together. It shares the wall's release timing, so the two layers still
+## vanish as one source at the end. The crest-tracking pulse that answers the
+## core ring's bounce is a per-fragment brightness multiplier in the shader,
+## not something this normalized-time envelope carries -- it needs the ring
+## oscillator's own seconds-based state, which only the shader has.
 func _groundEnvelopeAt(normalized: float) -> float:
-	return _wallEnvelopeAt(normalized)
+	var ignite_end: float = maxf(_groundIgniteEnd, 0.0001)
+	if normalized < ignite_end:
+		return smoothstep(0.0, ignite_end, normalized)
+	if normalized < _releaseStart:
+		return 1.0
+	return 1.0 - smoothstep(_releaseStart, 1.0, normalized)
 
 
 ## Authored ignition / hold / release. Release begins at the settle point, so
@@ -511,18 +526,23 @@ func _ringSpecs() -> Array:
 	return specs
 
 
-## Hands the wall material the constants describing the ring stack.
+## Hands a material the constants describing the ring stack.
 ##
 ## These are pushed once, at build time: they describe the rings, not the
 ## moment. The only uniforms that change per frame remain the clock, the seed
 ## and the two lifecycle values, which is what keeps the image a pure function
 ## of the seek position.
 ##
+## Pushed to both materials, not just the wall's: the ground layer's pulse
+## needs ring 0's bounce constants to answer the core's crests, and the grade
+## and geometry uniforms it has no use for are harmless sitting unread in a
+## fragment stage that never takes the layer_kind == 0 branch.
+##
 ## Base radii come from the spec list the mesh was built from rather than from
 ## the profile, so a live Dimensions tunable cannot leave the shader anchoring
 ## the core ring somewhere the geometry is not.
-func _pushRingUniforms(rings: Array) -> void:
-	if _wallMaterial == null:
+func _pushRingUniforms(material: ShaderMaterial, rings: Array) -> void:
+	if material == null:
 		return
 	var base_radius := PackedFloat32Array()
 	var ceiling := PackedFloat32Array()
@@ -547,14 +567,14 @@ func _pushRingUniforms(rings: Array) -> void:
 			float(TechniqueChargeAuraProfile.RING_BREATH_SCALE[index])
 		)
 
-	_wallMaterial.set_shader_parameter("ring_base_radius", base_radius)
-	_wallMaterial.set_shader_parameter("ring_ceiling", ceiling)
-	_wallMaterial.set_shader_parameter("ring_launch", launch)
-	_wallMaterial.set_shader_parameter("ring_rise", rise)
-	_wallMaterial.set_shader_parameter("ring_period", period)
-	_wallMaterial.set_shader_parameter("ring_decay", decay)
-	_wallMaterial.set_shader_parameter("ring_overshoot", overshoot)
-	_wallMaterial.set_shader_parameter("ring_breath_scale", breath_scale)
+	material.set_shader_parameter("ring_base_radius", base_radius)
+	material.set_shader_parameter("ring_ceiling", ceiling)
+	material.set_shader_parameter("ring_launch", launch)
+	material.set_shader_parameter("ring_rise", rise)
+	material.set_shader_parameter("ring_period", period)
+	material.set_shader_parameter("ring_decay", decay)
+	material.set_shader_parameter("ring_overshoot", overshoot)
+	material.set_shader_parameter("ring_breath_scale", breath_scale)
 
 	var ring_opacity := PackedFloat32Array()
 	var ring_tip_bright := PackedFloat32Array()
@@ -563,30 +583,32 @@ func _pushRingUniforms(rings: Array) -> void:
 		ring_tip_bright.append(
 			float(TechniqueChargeAuraProfile.RING_TIP_BRIGHT[index])
 		)
-	_wallMaterial.set_shader_parameter("ring_opacity", ring_opacity)
-	_wallMaterial.set_shader_parameter("ring_tip_bright", ring_tip_bright)
+	material.set_shader_parameter("ring_opacity", ring_opacity)
+	material.set_shader_parameter("ring_tip_bright", ring_tip_bright)
 
-	_wallMaterial.set_shader_parameter(
-		"breath_min", TechniqueChargeAuraProfile.BREATH_MIN
-	)
-	_wallMaterial.set_shader_parameter(
-		"breath_max", TechniqueChargeAuraProfile.BREATH_MAX
-	)
-	_wallMaterial.set_shader_parameter(
+	material.set_shader_parameter("breath_min", TechniqueChargeAuraProfile.BREATH_MIN)
+	material.set_shader_parameter("breath_max", TechniqueChargeAuraProfile.BREATH_MAX)
+	material.set_shader_parameter(
 		"breath_face_mix", TechniqueChargeAuraProfile.BREATH_FACE_MIX
 	)
-	_wallMaterial.set_shader_parameter(
+	material.set_shader_parameter(
 		"breath_bright_coupling", TechniqueChargeAuraProfile.BREATH_BRIGHT_COUPLING
 	)
-	_wallMaterial.set_shader_parameter(
+	material.set_shader_parameter(
 		"breath_flutter_coupling",
 		TechniqueChargeAuraProfile.BREATH_FLUTTER_COUPLING
 	)
-	_wallMaterial.set_shader_parameter(
+	material.set_shader_parameter(
 		"ring_phase_a1", TechniqueChargeAuraProfile.RING_PHASE_A1
 	)
-	_wallMaterial.set_shader_parameter(
+	material.set_shader_parameter(
 		"ring_phase_a2", TechniqueChargeAuraProfile.RING_PHASE_A2
+	)
+	material.set_shader_parameter(
+		"ground_pulse_strength", TechniqueChargeAuraProfile.GROUND_PULSE_STRENGTH
+	)
+	material.set_shader_parameter(
+		"ground_pulse_floor", TechniqueChargeAuraProfile.GROUND_PULSE_FLOOR
 	)
 
 

@@ -8,16 +8,48 @@ class_name TechniqueChargeAuraProfile
 const PROFILE_ID := "technique_charge_aura"
 
 ## AUTHORED beat timing.
-const DURATION_SECONDS := 1.60
-const SETTLE_NORMALIZED_TIME := 0.88
-const ACTION_HOLD_FRACTION := 0.55
+##
+## The bounce and the breath both work in real seconds (RING_LAUNCH_SECONDS and
+## friends), so this is the one place a longer or shorter duration would still
+## need to be felt: the wall's own alpha envelope and the settle point below.
+const DURATION_SECONDS := 2.00
 
-## Ignition/hold/release envelope. Ignition ends where the charge is fully lit;
-## hold carries the action beat at ACTION_HOLD_FRACTION; release begins exactly
-## at the settle point, which makes `skip_to_settle()` land on the last
-## fully-charged frame rather than somewhere inside the fade.
-const IGNITE_END_NORMALIZED := 0.20
-const RELEASE_START_NORMALIZED := SETTLE_NORMALIZED_TIME
+## Nothing is ever fully still once the breath is running, so there is no exact
+## "settled" frame to define this as. 1.20s is where the core ring's bounce
+## has decayed under the breath's own amplitude -- the handoff AURA-5C's
+## breath_amplitude() computes -- so it is the first moment that is
+## representative of the hold rather than of the entrance.
+##
+## This is deliberately no longer RELEASE_START_NORMALIZED, unlike the shipped
+## AURA-2 envelope where the two were the same constant by construction. With a
+## real hold between them, `skip_to_settle()` landing at the release point would
+## put every debug preview one frame from vanishing instead of mid-charge.
+const SETTLE_NORMALIZED_TIME := 0.60
+## The action beat -- whatever external cue (camera, sound) times itself to the
+## charge -- shares the settle point for the same reason: it is the first frame
+## that reads as "charged" rather than "arriving."
+const ACTION_HOLD_FRACTION := SETTLE_NORMALIZED_TIME
+
+## Ignition/hold/release envelope for the wall's own alpha. The ring geometry's
+## bounce (RING_RISE_SECONDS[0] = 0.16s) already carries the silhouette growing
+## in, so this only has to get the wall's opacity to full quickly rather than
+## reproduce that motion a second time: 0.06s, a third of the core's rise.
+## Release begins well after the breath has taken over from the bounce, so the
+## fade always starts from the idle rather than cutting the entrance short.
+const IGNITE_END_NORMALIZED := 0.03
+const RELEASE_START_NORMALIZED := 0.89
+## The ground ignites faster than the wall -- roughly a third of the wall's own
+## ignite -- so the floor visibly lights an instant before the ring above it
+## does, rather than the two appearing together. It shares the wall's release
+## timing, so the two layers still vanish as one source.
+const GROUND_IGNITE_LEAD_NORMALIZED := 0.01
+
+## How strongly the ground layer's brightness tracks the core ring's own
+## bounce, and the floor below which it will not drop even during the deepest
+## dip. A wall that bounces off a completely unlit floor stops reading as one
+## source with its own ground contact.
+const GROUND_PULSE_STRENGTH := 0.55
+const GROUND_PULSE_FLOOR := 0.55
 
 ## Motion. Every amplitude here is deliberately restrained: the source
 ## reference charges rather than burns, and the failure modes are specific —

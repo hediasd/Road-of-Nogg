@@ -66,6 +66,13 @@ uniform float breath_flutter_coupling = 1.0;
 uniform float ring_phase_a1 = 0.045;
 uniform float ring_phase_a2 = 0.022;
 
+// How strongly the ground's brightness tracks the core ring's own bounce
+// (index 0), and the floor it will not fall under even mid-dip. A wall
+// bouncing off a completely unlit floor stops reading as one source with its
+// own ground contact.
+uniform float ground_pulse_strength = 0.55;
+uniform float ground_pulse_floor = 0.55;
+
 const float RING_TAU = 6.283185307179586;
 
 // How far this fragment's ring is currently extended, as a fraction of the
@@ -283,6 +290,14 @@ void fragment() {
 		// +/-PI under repeat_disable, so it is not used either.
 		float grain = mix(0.80, 1.0, texture(aura_mask, UV).a);
 		mask_alpha = spill * ground_spill_alpha * grain;
+
+		// The ground answers the core ring's own bounce rather than sitting at
+		// a flat brightness under it: it re-flares on every crest and dims on
+		// every dip, floored so a deep dip never reads as the floor going dark.
+		bright_coupling = max(
+			1.0 + ground_pulse_strength * (ring_bounce(0, playback_seconds) - 1.0),
+			ground_pulse_floor
+		);
 	}
 
 	// Brightness flutter is one value for the whole effect at a given instant,
