@@ -44,4 +44,4 @@ The bar is deliberately high. A folder of forty sketches is another `debug/`.
 | Sketch | Subject | Settled |
 | --- | --- | --- |
 | [2026-08-28-charge-aura-v1-motion.html](./2026-08-28-charge-aura-v1-motion.html) | Technique charge aura v1 | The bounce/breath/ring-phase motion model, scrubbable against the single wall it replaced. The layered-oscillator house style in `VFX_DESIGN.md` generalises from this. |
-| [2026-08-29-charge-aura-v2-spin-and-release.html](./2026-08-29-charge-aura-v2-spin-and-release.html) | Technique charge aura v2 | Spin, per-blade churn, and the three candidate release shapes at 1.70s, with the reasoning for choosing collapse-and-whip. |
+| [2026-08-29-charge-aura-v2-spin-and-release.html](./2026-08-29-charge-aura-v2-spin-and-release.html) | Technique charge aura v2 | Spin, per-blade churn, and the three candidate release shapes, with the reasoning behind choosing expand-and-flatten from 1.50s. The rejected collapse stays on the toggle. |

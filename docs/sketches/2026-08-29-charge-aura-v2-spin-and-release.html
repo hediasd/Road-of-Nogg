@@ -153,8 +153,8 @@
 
 <div class="wrap">
   <p class="eyebrow" style="margin-top:44px">Road of Nogg &middot; VFX motion sketch &middot; charge aura v2</p>
-  <h1>Charge aura v2:<br>spin, churn, collapse</h1>
-  <p class="lede prose">v1 grew out of the floor and settled into a quiet idle. v2 never settles: the whole stack <b>turns</b> around the caster, every blade <b>churns</b> up and down hard for the full two seconds, and at <b>1.70s</b> the charge is spent rather than dimmed. This sketch exists mainly to settle that last question — three candidate release shapes, side by side, on the same clock.</p>
+  <h1>Charge aura v2:<br>spin, churn, disperse</h1>
+  <p class="lede prose">v1 grew out of the floor and settled into a quiet idle. v2 never settles: the whole stack <b>turns</b> around the caster, every blade <b>churns</b> up and down hard, and at <b>1.50s</b> the charge disperses outward rather than dimming. The release shape was the open question this sketch was made to settle. It is settled &mdash; <b>expand</b> &mdash; and the alternative is kept below, because the rejected option is half the record.</p>
 
   <section style="margin-top:36px">
     <div class="stage-shell">
@@ -164,7 +164,7 @@
           <canvas id="cvV1" width="760" height="640" role="img" aria-label="The shipped v1 aura: rings that bounce in, settle, and fade uniformly."></canvas>
         </div>
         <div class="view">
-          <div class="view-label"><b class="now">v2 &mdash; proposed</b><span id="modeLabel">spin &middot; collapse</span></div>
+          <div class="view-label"><b class="now">v2 &mdash; proposed</b><span id="modeLabel">spin &middot; expand</span></div>
           <canvas id="cvV2" width="760" height="640" role="img" aria-label="The proposed v2 aura: blades spinning around the caster, churning up and down, collapsing inward at 1.7 seconds."></canvas>
         </div>
       </div>
@@ -177,9 +177,9 @@
       </div>
       <div class="transport">
         <span class="grp">
-          <span class="grp-label">Release at 1.70s</span>
-          <button class="ui" id="btnCollapse" aria-pressed="true">Collapse</button>
-          <button class="ui" id="btnExpand" aria-pressed="false">Expand</button>
+          <span class="grp-label">Release at 1.50s</span>
+          <button class="ui" id="btnExpand" aria-pressed="true">Expand</button>
+          <button class="ui" id="btnCollapse" aria-pressed="false">Collapse</button>
           <button class="ui" id="btnUniform" aria-pressed="false">Uniform</button>
         </span>
         <span class="sep"></span>
@@ -191,35 +191,36 @@
         <span class="clock" id="readout">turn 0&deg;</span>
       </div>
     </div>
-    <p class="caption prose">The three <b>Release</b> buttons are the actual question. Scrub to 1.70s and step forward through each. A 2D approximation of the proposed curves, not a Godot capture &mdash; the silhouette is indicative, the timing and amplitudes are the proposal.</p>
+    <p class="caption prose">Expand is the chosen shape and the default; the other two <b>Release</b> buttons are kept so the comparison that produced the decision can still be made. Scrub to 1.50s and step forward. A 2D approximation of the proposed curves, not a Godot capture &mdash; the silhouette is indicative, the timing and amplitudes are the proposal.</p>
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">01</p><h2>How the fade should work</h2></div>
-    <p class="prose">An aura that has been turning and churning for 1.7 seconds has momentum. A uniform alpha ramp contradicts it &mdash; the motion is still going when the brightness admits it is over, and the last thing the eye sees is a static shape getting dimmer. The release should convert that momentum into a <em>direction</em> instead. Three ways to do that:</p>
+    <div class="sec-head"><p class="eyebrow">01</p><h2>The release: expand, from 1.50s</h2></div>
+    <p class="prose">An aura that has been turning and churning for a second and a half has momentum. A uniform alpha ramp contradicts it &mdash; the motion is still going when the brightness admits it is over, and the last thing the eye sees is a static shape getting dimmer. The release converts that momentum into a <em>direction</em>. Three ways were considered; the outward one was chosen.</p>
     <div class="cards">
       <div class="card no">
         <p class="eyebrow">Option A</p>
         <h3>Uniform fade</h3>
         <p>What v1 does: one alpha ramp over everything. Cheapest, and it is the right answer for an effect that was already still. Here it throws away every bit of energy the previous 1.7 seconds built, and reads as a dimmer switch.</p>
       </div>
-      <div class="card pick">
-        <p class="eyebrow">Option B &middot; recommended</p>
-        <h3>Collapse and whip</h3>
-        <p>Radius contracts to ~55% and height drops to ~40% on an ease-in, while the spin <b>accelerates 2.2&times;</b>. The charge converges on the caster and is gone. It says the energy was <em>spent</em> &mdash; which is what a pre-cast telegraph should say, since the spell fires next.</p>
-      </div>
       <div class="card">
-        <p class="eyebrow">Option C</p>
-        <h3>Expand and thin</h3>
-        <p>The same machinery with one sign flipped: blades fly outward and thin as they go. Reads as a burst leaving the caster. Legitimate &mdash; but it states <em>release</em>, and the spell's own effect is about to state that far more loudly. Two releases in a row blunt each other.</p>
+        <p class="eyebrow">Option B &middot; not taken</p>
+        <h3>Collapse and whip</h3>
+        <p>Radius contracts to ~55% and height to ~40%, spin accelerating 2.2&times;, the charge converging on the caster. It says the energy was <em>spent</em>. Kept on the toggle rather than deleted: if the expansion ever competes with the spell that follows it, this is the alternative and it is one sign flip away.</p>
+      </div>
+      <div class="card pick">
+        <p class="eyebrow">Option C &middot; chosen</p>
+        <h3>Expand and flatten</h3>
+        <p>Blades fly outward to <b>+70% radius</b> while dropping to <b>55% height</b>, spin accelerating 2.2&times; so they spiral rather than travel straight. The charge disperses along the floor.</p>
+        <p>The flattening is what makes this work rather than compete with the spell that follows. A tall outward burst is a second spell going off a beat before the real one; a fast, low, spreading ring is the charge coming apart. The expansion states the direction, the flatten states that it is <em>dissipating</em> rather than firing.</p>
       </div>
     </div>
-    <p class="caption prose">Whichever shape wins, two details matter more than the shape does, and both are in every option above.</p>
+    <p class="caption prose">Two details matter more than the shape does, and both are in every option above.</p>
     <div class="cards" style="margin-top:16px">
       <div class="card pick">
         <p class="eyebrow">Detail 1 &middot; the tell</p>
         <h3>Flash before the fall</h3>
-        <p>60ms at <b>1.35&times; brightness</b> starting exactly at 1.70s, before any alpha comes off. Energy about to leave is brighter than energy idling. Without it the release has no onset &mdash; it just starts being less. This one beat is most of what sells the whole thing.</p>
+        <p>60ms at <b>1.35&times; brightness</b> starting exactly at 1.50s, before any alpha comes off. Energy about to leave is brighter than energy idling. Without it the release has no onset &mdash; it just starts being less. This one beat is most of what sells the whole thing.</p>
       </div>
       <div class="card pick">
         <p class="eyebrow">Detail 2 &middot; never all at once</p>
@@ -227,7 +228,7 @@
         <p>Each blade's extinction is offset by its own angle, so the ring <b>unzips</b> in the spin direction over ~140ms rather than all thirty blades vanishing together. The last thing on screen is motion, not a shape dimming. The per-face phase this needs already exists from v1.</p>
       </div>
     </div>
-    <p class="caption prose">The ground spill lags the blades by ~80ms and goes out last, so the floor keeps a residual glow for a beat after the wall is gone. A simultaneous cut on both layers reads as a dropped frame.</p>
+    <p class="caption prose">Moving the release from 1.70s to 1.50s buys 200ms, and it is spent on travel rather than on a slower fade: the blades need distance for the outward direction to read at all, while each blade's own extinction stays a fast 220ms. The ground spill lags by 180ms and goes out last, so the floor keeps a residual glow after the blades are gone. A simultaneous cut on both layers reads as a dropped frame.</p>
   </section>
 
   <section>
@@ -236,11 +237,11 @@
       <table>
         <thead><tr><th>Beat</th><th>Window</th><th>What moves</th></tr></thead>
         <tbody>
-          <tr><td class="beat">Flash</td><td class="num">1.70 &ndash; 1.76 s</td><td>Brightness to 1.35&times; and back. Nothing else changes yet &mdash; geometry, spin and churn all continue exactly as they were. The onset is purely luminous.</td></tr>
-          <tr><td class="beat">Whip</td><td class="num">1.70 &ndash; 2.00 s</td><td>Spin accelerates from its hold rate to 2.2&times; over the window. Blades shear tangentially as they converge.</td></tr>
-          <tr><td class="beat">Converge</td><td class="num">1.76 &ndash; 2.00 s</td><td>Radius to 55%, height to 40%, on an ease-in so it accelerates inward rather than drifting. Churn keeps running underneath at full amplitude.</td></tr>
-          <tr><td class="beat">Unzip</td><td class="num">1.76 &ndash; 1.94 s</td><td>Per-blade alpha on <code>(1-p)^2.2</code>, each blade offset by its angle. First blade out at 1.76s, last at ~1.90s.</td></tr>
-          <tr><td class="beat">Residual</td><td class="num">1.84 &ndash; 2.00 s</td><td>Ground spill fades last, 80ms behind the blades. The floor is the final thing to go dark.</td></tr>
+          <tr><td class="beat">Flash</td><td class="num">1.50 &ndash; 1.56 s</td><td>Brightness to 1.35&times; and back. Nothing else changes yet &mdash; geometry, spin and churn all continue exactly as they were. The onset is purely luminous.</td></tr>
+          <tr><td class="beat">Whip</td><td class="num">1.50 &ndash; 2.00 s</td><td>Spin accelerates from its hold rate to 2.2&times; across the window, so the blades spiral outward rather than travelling straight out.</td></tr>
+          <tr><td class="beat">Disperse</td><td class="num">1.56 &ndash; 2.00 s</td><td>Radius to +70%, height to 55%, on an ease-in. The flatten is what keeps it a spreading ring along the floor instead of a second burst. Churn keeps running underneath at full amplitude.</td></tr>
+          <tr><td class="beat">Unzip</td><td class="num">1.56 &ndash; 1.94 s</td><td>Per-blade alpha on <code>(1-p)^2.2</code> over 220ms each, their starts spread across a 160ms sweep by blade angle. First blade out at 1.78s, last at 1.94s.</td></tr>
+          <tr><td class="beat">Residual</td><td class="num">1.68 &ndash; 2.00 s</td><td>Ground spill fades last, 180ms behind the release. The floor is the final thing to go dark.</td></tr>
         </tbody>
       </table>
     </div>
@@ -283,12 +284,12 @@
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">05</p><h2>Decide before I build</h2></div>
+    <div class="sec-head"><p class="eyebrow">05</p><h2>Settled, and still open</h2></div>
     <div class="prose">
-      <div class="q"><h3>Collapse or expand?</h3><p>I recommend collapse: the spell's own effect fires immediately afterwards and will state "release" far more loudly, so a telegraph that also bursts outward competes with it. Collapse says <em>spent</em>, which is the one thing the spell itself cannot say. One sign flip either way.</p></div>
-      <div class="q"><h3>Is 1.70s the right release, given the duration stays 2.00s?</h3><p>That leaves a 0.30s window, which is enough for flash, whip, unzip and residual only because they overlap. Pulling it earlier than ~1.65s starts eating the hold; later than ~1.75s and the unzip has to compress into something that reads as a cut.</p></div>
-      <div class="q"><h3>Does the spin keep a fixed direction across casts?</h3><p>Sketched fixed, so it becomes a recognisable signature. Seeding the direction would make casts differ, but a telegraph benefits from being identical every time — the player should recognise it instantly, not appreciate its variety.</p></div>
-      <div class="q"><h3>Do the flares survive v2 at all?</h3><p>v1's verification found they read as flat terraced plates at the battle pitch. Spin may rescue them — a plate that turns is much easier to read as energy than a plate that sits — or it may make the terracing more obvious. This sketch assumes they stay. If they still fail once spinning, v2 is the moment to cut them to a single flare or none.</p></div>
+      <p><b>Settled 2026-08-29.</b> <b>Expand</b>, not collapse &mdash; with the flatten carrying the difference between dispersing and firing. Release moves from 1.70s to <b>1.50s</b>, spending the extra 200ms on outward travel rather than on a slower fade. Spin keeps a <b>fixed direction</b> across every cast, so the telegraph is instantly recognisable rather than varied. The <b>flares stay</b> for now, despite v1's verification finding that they read as terraced plates at the battle pitch.</p>
+      <div class="q"><h3>Does the spin rescue the flares?</h3><p>The one thing v2 might fix for free. A plate that sits still reads as geometry; a plate that turns has a much better chance of reading as energy. If they still fail once spinning, cutting to a single flare or none is a one-constant change &mdash; but that judgement needs the effect actually running, so it belongs at V2-F rather than now.</p></div>
+      <div class="q"><h3>Does the release compete with the spell that follows?</h3><p>The reason collapse was the earlier recommendation. The flatten is the mitigation, and it should be judged against a real cast rather than in isolation. Collapse stays on the toggle and in the constants precisely so this stays cheap to reverse.</p></div>
+      <div class="q"><h3>Does +70% radius reawaken the area-marker read?</h3><p>v1 held the resting footprint at 2.3u for this reason. The expansion is transient and moving, which is the opposite of what a zone marker does, but it is still the widest this effect has ever been. Worth a look at V2-F before it is called done.</p></div>
     </div>
   </section>
 
@@ -321,21 +322,21 @@
           </tr>
           <tr>
             <td class="num">V2-D</td>
-            <td>The release: flash, spin acceleration, radius/height convergence, per-blade unzip offset by blade angle, and the ground's 80ms lag. All five as one envelope family so the alternative sign (expand) stays a constant rather than a branch.</td>
+            <td>The release from 1.50s: flash, spin acceleration, outward radius with the height flatten, per-blade unzip offset by blade angle, and the ground's 180ms lag. One envelope family with the direction as a signed constant, so collapse stays reachable without a branch.</td>
             <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
             <td class="num">technique_charge_aura_v2.gdshader<br>TechniqueChargeAuraV2Profile.gd</td>
             <td class="num">2</td>
           </tr>
           <tr>
             <td class="num">V2-E</td>
-            <td>Tunables for spin rate, differential, churn amplitude, and every release constant, so the collapse/expand decision can be made on the slider rather than in a rebuild.</td>
+            <td>Tunables for spin rate, differential, churn amplitude, and every release constant including the signed direction, so expand and collapse stay comparable on a slider rather than in a rebuild.</td>
             <td><span class="tag terra">Sonnet 5 / GPT Terra</span></td>
             <td class="num">TechniqueChargeAuraV2Effect.gd</td>
             <td class="num">3</td>
           </tr>
           <tr>
             <td class="num">V2-F</td>
-            <td>Verification: seek exactness with rotation animating, per-blade gap now that blades are discrete, foot stacking under spin, and a yaw sweep. Then the design note and a decision on whether the flares survive.</td>
+            <td>Verification: seek exactness with rotation animating, per-blade gap now that blades are discrete, foot stacking under spin, footprint at peak expansion, and a yaw sweep. Then the design note, and the call on whether the flares survive.</td>
             <td><span class="tag sol">Opus 5 / GPT Sol</span></td>
             <td class="num">debug/ harness<br>docs/VFX_DESIGN.md</td>
             <td class="num">3</td>
@@ -347,7 +348,7 @@
   </section>
 
   <footer>
-    <p>Sketch only &mdash; no engine files changed. The corner-gap figures are measured from v1; every v2 timing and amplitude is a proposal to argue with.</p>
+    <p>Sketch only &mdash; no engine files changed. The corner-gap figures are measured from v1; every v2 timing and amplitude is a proposal. Release shape, release time, spin direction and the flares' survival were decided 2026-08-29.</p>
   </footer>
 </div>
 
@@ -355,7 +356,11 @@
 (function () {
   "use strict";
   var TAU = Math.PI * 2, DUR = 2.00, SIDES = 10;
-  var RELEASE = 1.70, FLASH_END = 1.76, UNZIP_END = 1.94;
+  var RELEASE = 1.50, FLASH_END = 1.56;
+  // Each blade fades over BLADE_FADE; their starts are spread over SWEEP, so
+  // the last blade is out at FLASH_END + SWEEP + BLADE_FADE = 1.94s, leaving
+  // the ground the final beat to itself.
+  var SWEEP = 0.16, BLADE_FADE = 0.22, GROUND_LAG = 0.18;
 
   var RINGS = [
     { lean: 90, baseR: 0.74, len: 1.62, op: 0.47, launch: 0.00, rise: 0.16, period: 0.42, decay: 2.43, over: 0.30, churn: 1.00, spin: 1.00, tip: false },
@@ -369,7 +374,7 @@
   });
 
   var CHURN = 0.20, SPIN_LAUNCH = 340, SPIN_HOLD = 230, SPIN_RELEASE = 2.2;
-  var mode = "collapse", useSpin = true, useChurn = true;
+  var mode = "expand", useSpin = true, useChurn = true;
 
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
   function smoothstep(a, b, x) { var t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); }
@@ -422,13 +427,16 @@
     var p = releaseP(t);
     if (p <= 0 || mode === "uniform") return 1;
     var e = p * p;
-    return mode === "collapse" ? 1 - 0.45 * e : 1 + 0.55 * e;
+    return mode === "collapse" ? 1 - 0.45 * e : 1 + 0.70 * e;
   }
   function heightScale(t) {
     var p = releaseP(t);
     if (p <= 0 || mode === "uniform") return 1;
     var e = p * p;
-    return mode === "collapse" ? 1 - 0.60 * e : 1 - 0.30 * e;
+    // Expanding blades flatten hard as they go. That is what keeps the release
+    // reading as a charge dispersing along the floor rather than as a second
+    // spell going off a beat before the real one.
+    return mode === "collapse" ? 1 - 0.60 * e : 1 - 0.55 * e;
   }
   function flash(t) {
     if (t < RELEASE || t > FLASH_END) return 1;
@@ -440,13 +448,12 @@
     if (t < 0.03) return clamp01(t / 0.03);
     if (t < FLASH_END) return 1;
     if (mode === "uniform") return Math.pow(1 - clamp01((t - RELEASE) / (DUR - RELEASE)), 1.8);
-    var offset = angleFrac * (UNZIP_END - FLASH_END) * 0.8;
-    var p = clamp01((t - FLASH_END - offset) / (UNZIP_END - FLASH_END));
+    var p = clamp01((t - FLASH_END - angleFrac * SWEEP) / BLADE_FADE);
     return Math.pow(1 - p, 2.2);
   }
   function groundAlpha(t) {
     if (t < 0.02) return clamp01(t / 0.02);
-    var lag = RELEASE + 0.14;
+    var lag = RELEASE + GROUND_LAG;
     if (t < lag) return 1;
     return Math.pow(1 - clamp01((t - lag) / (DUR - lag)), 1.6);
   }
@@ -466,7 +473,7 @@
     if (t < 0.30) return "launch";
     if (t < RELEASE) return "spin + churn";
     if (t < FLASH_END) return "flash";
-    return mode === "expand" ? "burst" : "collapse";
+    return mode === "expand" ? "disperse" : "collapse";
   }
 
   var PITCH = 0.30;
@@ -600,7 +607,7 @@
       btnUniform = document.getElementById("btnUniform");
 
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  var t = reduced ? 1.80 : 0, playing = !reduced, speed = 1, last = 0;
+  var t = reduced ? 1.62 : 0, playing = !reduced, speed = 1, last = 0;
 
   function render() {
     var tc = Math.min(t, DUR);
@@ -649,7 +656,7 @@
   scrub.addEventListener("input", function () { pause(); t = Number(scrub.value) / 1000; render(); });
   window.addEventListener("resize", render);
 
-  if (!playing) { pause(); scrub.value = 1800; }
+  if (!playing) { pause(); scrub.value = 1620; }
   requestAnimationFrame(frame);
 })();
 </script>
