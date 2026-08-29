@@ -1,0 +1,770 @@
+<meta charset="utf-8">
+<title>Battle Camera Behaviour Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;600&display=swap">
+<style>
+  :root {
+    --ground: #eceae3; --surface: #f7f6f1; --surface-2: #e3e0d6;
+    --ink: #1b1a15; --ink-2: #4a4739; --muted: #75705f; --line: #d5d1c3;
+    --accent: #a8720c; --cool: #4d6480; --warn: #9a3b1f;
+    --stage: #0e0e0c; --focus: #a8720c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #131311; --surface: #1a1a16; --surface-2: #23231d;
+      --ink: #efece0; --ink-2: #cbc6b4; --muted: #8f8977; --line: #302f27;
+      --accent: #f2dc7e; --cool: #8ba3bd; --warn: #e08a63;
+      --stage: #0b0b09; --focus: #f2dc7e;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #131311; --surface: #1a1a16; --surface-2: #23231d;
+    --ink: #efece0; --ink-2: #cbc6b4; --muted: #8f8977; --line: #302f27;
+    --accent: #f2dc7e; --cool: #8ba3bd; --warn: #e08a63;
+    --stage: #0b0b09; --focus: #f2dc7e;
+  }
+
+  body {
+    background: var(--ground); color: var(--ink);
+    font-family: "Source Serif 4", Georgia, serif;
+    font-size: 17px; line-height: 1.62; margin: 0; padding: 0 20px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; }
+  .prose { max-width: 66ch; }
+  h1, h2, h3, .ui {
+    font-family: Archivo, "Helvetica Neue", Arial, sans-serif;
+    font-variation-settings: "wdth" 112; text-wrap: balance;
+  }
+  h1 {
+    font-size: clamp(34px, 5.4vw, 54px); font-weight: 700; line-height: 1.02;
+    letter-spacing: -0.022em; margin: 56px 0 14px;
+  }
+  h2 { font-size: 25px; font-weight: 650; letter-spacing: -0.012em; margin: 0 0 6px; }
+  h3 { font-size: 15px; font-weight: 650; margin: 0 0 6px; }
+  p { margin: 0 0 14px; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin: 0;
+  }
+  .lede { font-size: 19px; color: var(--ink-2); }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.87em;
+    background: var(--surface-2); padding: 1px 5px; border-radius: 3px;
+  }
+  section { margin-top: 60px; }
+  .sec-head {
+    display: flex; align-items: baseline; gap: 14px;
+    border-top: 1px solid var(--line); padding-top: 14px; margin-bottom: 22px;
+  }
+  .sec-head .eyebrow { flex: none; }
+
+  .stage-shell {
+    background: var(--stage); border: 1px solid var(--line); border-radius: 4px;
+    padding: 16px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .views { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .views { grid-template-columns: 1fr; } }
+  .view { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .view canvas { width: 100%; display: block; border-radius: 2px; }
+  .view-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; display: flex;
+    justify-content: space-between; gap: 10px; color: rgba(240,236,224,0.5);
+  }
+  .view-label b { font-weight: 500; color: rgba(240,236,224,0.86); }
+  .view-label .now { color: #f2dc7e; }
+  .transport {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    border-top: 1px solid rgba(240,236,224,0.12); padding-top: 14px;
+  }
+  .grp { display: flex; align-items: center; gap: 8px; }
+  .grp-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px;
+    letter-spacing: 0.14em; text-transform: uppercase; color: rgba(240,236,224,0.42);
+  }
+  button.ui {
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+    font-weight: 600; background: rgba(240,236,224,0.08); color: #efece0;
+    border: 1px solid rgba(240,236,224,0.2); border-radius: 2px;
+    padding: 7px 13px; cursor: pointer;
+  }
+  button.ui:hover { background: rgba(242,220,126,0.16); border-color: rgba(242,220,126,0.5); }
+  button.ui[aria-pressed="true"] { background: rgba(242,220,126,0.2); border-color: rgba(242,220,126,0.6); color: #f7ecc0; }
+  :where(button, input, a):focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  input[type="range"] { flex: 1 1 190px; min-width: 140px; accent-color: #f2dc7e; }
+  .clock { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; color: rgba(240,236,224,0.72); font-variant-numeric: tabular-nums; }
+  .phase {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: #0e0e0c;
+    background: #f2dc7e; padding: 4px 9px; border-radius: 2px;
+    min-width: 104px; text-align: center;
+  }
+  .sep { width: 1px; align-self: stretch; background: rgba(240,236,224,0.14); }
+  .caption { font-size: 14px; color: var(--muted); margin: 10px 0 0; }
+
+  .graph-card {
+    border: 1px solid var(--line); border-radius: 4px; background: var(--surface);
+    padding: 18px 18px 10px; overflow-x: auto;
+  }
+  .graph-card svg { display: block; width: 100%; min-width: 600px; height: auto; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 4px; }
+  .legend span {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
+    color: var(--muted); display: flex; align-items: center; gap: 7px;
+  }
+  .swatch { width: 18px; height: 3px; border-radius: 2px; flex: none; display: inline-block; }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  th {
+    font-family: Archivo, sans-serif; font-size: 11px; font-weight: 650;
+    letter-spacing: 0.11em; text-transform: uppercase; color: var(--muted); white-space: nowrap;
+  }
+  td.num, td.beat { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 13px; }
+  td.beat { color: var(--accent); }
+  .tag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11px;
+    padding: 2px 7px; border-radius: 2px; border: 1px solid var(--line);
+    background: var(--surface-2); white-space: nowrap;
+  }
+  .tag.sol { border-color: var(--accent); color: var(--accent); }
+  .tag.terra { border-color: var(--cool); color: var(--cool); }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 16px; }
+  .card { border: 1px solid var(--line); border-radius: 4px; background: var(--surface); padding: 16px 18px 18px; }
+  .card p { font-size: 15px; margin: 0; color: var(--ink-2); }
+  .card p + p { margin-top: 10px; }
+  .card .eyebrow { margin-bottom: 8px; }
+  .card.pick { border-color: var(--accent); border-width: 2px; }
+  .card.no { opacity: 0.72; }
+  .q { border-left: 3px solid var(--accent); padding-left: 16px; margin: 0 0 20px; }
+  .q p { font-size: 15.5px; color: var(--ink-2); margin: 0; }
+  .finding {
+    border: 1px solid var(--line); border-left: 3px solid var(--warn);
+    border-radius: 4px; background: var(--surface); padding: 16px 18px; margin-bottom: 22px;
+  }
+  .finding p { margin: 0; font-size: 15.5px; color: var(--ink-2); }
+  .finding p + p { margin-top: 10px; }
+  footer { margin-top: 64px; border-top: 1px solid var(--line); padding-top: 16px; font-size: 13.5px; color: var(--muted); }
+  .stage-grid { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 16px; }
+  @media (max-width: 820px) { .stage-grid { grid-template-columns: 1fr; } }
+  .readout {
+    font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px;
+    color: rgba(240,236,224,0.72); display: flex; flex-direction: column; gap: 7px;
+    border-left: 1px solid rgba(240,236,224,0.14); padding-left: 14px;
+  }
+  @media (max-width: 820px) { .readout { border-left: none; border-top: 1px solid rgba(240,236,224,0.14); padding: 14px 0 0; } }
+  .readout .row { display: flex; justify-content: space-between; gap: 10px; }
+  .readout .row b { font-weight: 500; color: #f2dc7e; font-variant-numeric: tabular-nums; }
+  .readout .k { color: rgba(240,236,224,0.42); letter-spacing: 0.06em; text-transform: uppercase; font-size: 10.5px; }
+  .readout hr { border: none; border-top: 1px solid rgba(240,236,224,0.14); margin: 3px 0; width: 100%; }
+  .readout pre {
+    margin: 0; font-size: 11px; line-height: 1.55; color: rgba(240,236,224,0.8);
+    background: rgba(240,236,224,0.05); padding: 9px 10px; border-radius: 2px;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .sliders { display: grid; grid-template-columns: auto 1fr auto; gap: 9px 12px; align-items: center; }
+  .sliders label { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(240,236,224,0.42); }
+  .sliders input[type="range"] { flex: none; width: 100%; min-width: 0; }
+  .sliders output { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12px; color: rgba(240,236,224,0.82); font-variant-numeric: tabular-nums; min-width: 66px; text-align: right; }
+  td.state { font-family: Archivo, sans-serif; font-weight: 650; font-size: 13.5px; white-space: nowrap; }
+  .tag.yes { border-color: var(--cool); color: var(--cool); }
+  .tag.no { border-color: var(--warn); color: var(--warn); }
+  .tag.part { border-color: var(--accent); color: var(--accent); }
+  ul.tight { margin: 0 0 14px; padding-left: 22px; }
+  ul.tight li { margin-bottom: 7px; }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow" style="margin-top:44px">Road of Nogg &middot; camera sketch &middot; battle view</p>
+  <h1>The battle camera:<br>where it opens, what it follows</h1>
+  <p class="lede prose">Two questions, one sketch. <b>Where does the battle open?</b> &mdash; explored live below, because that is a comfort judgement no formula settles. And <b>what is the camera doing at every moment of a battle?</b> &mdash; written out as tables, because the camera today has four hooks, one dead switch and no written contract, and every future argument about it should be an argument with a table rather than with a file.</p>
+  <p class="prose">Almost nothing here is implemented. The tables are the <i>target</i> behaviour; the last column of &sect;4 audits what the code does today, and it is mostly empty on purpose.</p>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">&sect;1</p><h2>What the board already decides</h2></div>
+    <p class="prose">Four facts constrain the opening shot before taste gets a vote. Three of them point at the same answer.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Fact</th><th>Where it comes from</th><th>What it forces</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="state">Yaw&nbsp;0 already faces player&nbsp;2</td>
+            <td>At yaw&nbsp;0 the camera sits at <code>+Z</code> and looks down <code>&minus;Z</code>. World <code>z</code> is grid <code>y</code>; team&nbsp;1 deploys at high&nbsp;<code>y</code>, team&nbsp;2 at low&nbsp;<code>y</code>.</td>
+            <td>&ldquo;Behind the player&nbsp;1 models, facing the player&nbsp;2 models&rdquo; <b>is</b> yaw&nbsp;0. No new angle needs inventing. The shipping camera simply sits <b>11.3&deg; off it</b>, for no recorded reason.</td>
+          </tr>
+          <tr>
+            <td class="state">Aiming snaps to quadrants</td>
+            <td><code>_board_direction_for()</code> rotates arrow keys into board directions through <code>nearestQuadrantYaw()</code>, and the director settles to an exact multiple of 90&deg; before a player turn opens.</td>
+            <td>A resting yaw that is not a multiple of 90&deg; makes that mapping an approximation rather than an identity. Of the four legal quadrants only <b>yaw&nbsp;0</b> looks at the enemy. That is the whole decision.</td>
+          </tr>
+          <tr>
+            <td class="state">The armies are diagonal</td>
+            <td>All three maps deploy team&nbsp;1 at low&nbsp;<code>x</code>/high&nbsp;<code>y</code> and team&nbsp;2 at high&nbsp;<code>x</code>/low&nbsp;<code>y</code> &mdash; opposite <i>corners</i>, not opposite <i>edges</i>.</td>
+            <td>At yaw&nbsp;0 your army opens bottom-<b>left</b> and theirs top-<b>right</b>. The board reads as a clean rectangle; the fight reads as a diagonal across it. Facing straight down the army axis instead (yaw&nbsp;&minus;63.4&deg; on Meadow) centres the fight and turns the board into a diamond. One or the other.</td>
+          </tr>
+          <tr>
+            <td class="state">The projection is orthographic</td>
+            <td><code>PROJECTION_ORTHOGONAL</code>; <code>size</code> is the view height in world units.</td>
+            <td>There is no perspective convergence to sell &ldquo;low, looking down&rdquo;. A low pitch only squashes depth, by exactly <code>sin(pitch)</code> &mdash; at 30&deg; the board is half as deep as it is wide. The cost of dropping the camera is measurable here, not a matter of taste. Camera <i>distance</i>, by the same token, does nothing at all to the image.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="finding" style="margin-top:22px">
+      <p><b>The current opening angle was never chosen.</b> <code>_setup_camera_and_lighting()</code> places the camera at <code>(6, 15, 14)</code> while <code>focus_point</code> is still the placeholder <code>(8, 0, 4)</code>, and <code>_ready()</code> derives the spherical angles from that pair: <b>yaw &minus;11.31&deg;, pitch 55.77&deg;, radius 18.14</b>. The battle then overwrites <code>focus_point</code> and <code>size</code> once the board dimensions are known &mdash; but not the angles, which keep the placeholder&rsquo;s values for the whole match.</p>
+      <p>So the opening angle is the residue of two hard-coded vectors that were never meant to survive contact with a real board. It is also why the grid sits very slightly askew on screen, and why <code>default_size</code> &mdash; snapshotted at the same moment &mdash; still holds <code>14.0</code> rather than the battle framing, which is what a double-middle-click reset returns to.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">&sect;2</p><h2>Sample positions</h2></div>
+    <p class="prose">Real board, real deployment slots, real elevation, projected exactly the way <code>_update_camera_transform()</code> does it. <b>Fit</b> solves for the smallest <code>size</code> that still holds the whole board with a one-tile margin at the current angle and aspect &mdash; the number the opening framing should be using instead of <code>max(w, h) * 0.95</code>.</p>
+
+    <div class="stage-shell">
+      <div class="stage-grid">
+        <div class="view">
+          <div class="view-label"><b id="presetLabel">Shipping &mdash; as it opens today</b><span id="fillLabel">&nbsp;</span></div>
+          <canvas id="cv" width="1040" height="600" role="img" aria-label="Orthographic projection of the battle board at the selected camera angle, with both teams deployment slots marked."></canvas>
+        </div>
+        <div class="readout">
+          <div class="sliders">
+            <label for="sYaw">Yaw</label><input type="range" id="sYaw" min="-180" max="180" step="0.1" value="-11.3"><output id="oYaw">&mdash;</output>
+            <label for="sPitch">Pitch</label><input type="range" id="sPitch" min="6" max="84" step="0.1" value="55.8"><output id="oPitch">&mdash;</output>
+            <label for="sSize">Size</label><input type="range" id="sSize" min="4" max="34" step="0.05" value="15.55"><output id="oSize">&mdash;</output>
+          </div>
+          <hr>
+          <div class="row"><span class="k">Board fills</span><b id="rFill">&mdash;</b></div>
+          <div class="row"><span class="k">Depth squash</span><b id="rSquash">&mdash;</b></div>
+          <div class="row"><span class="k">Fit size</span><b id="rFit">&mdash;</b></div>
+          <div class="row"><span class="k">Off quadrant</span><b id="rQuad">&mdash;</b></div>
+          <hr>
+          <pre id="rCode">&nbsp;</pre>
+        </div>
+      </div>
+
+      <div class="transport">
+        <span class="grp">
+          <span class="grp-label">Preset</span>
+          <button class="ui" data-preset="ship" aria-pressed="true">Shipping</button>
+          <button class="ui" data-preset="steep">Straight &amp; steep</button>
+          <button class="ui" data-preset="table">Tabletop</button>
+          <button class="ui" data-preset="low">Low</button>
+          <button class="ui" data-preset="axis">Army axis</button>
+        </span>
+        <span class="sep"></span>
+        <button class="ui" id="btnFit">Fit size</button>
+      </div>
+      <div class="transport">
+        <span class="grp">
+          <span class="grp-label">Map</span>
+          <button class="ui" data-map="0" aria-pressed="true">Meadow</button>
+          <button class="ui" data-map="1">Crossroads</button>
+          <button class="ui" data-map="2">Forest</button>
+        </span>
+        <span class="sep"></span>
+        <span class="grp">
+          <span class="grp-label">Aspect</span>
+          <button class="ui" data-aspect="w" aria-pressed="true">16:9</button>
+          <button class="ui" data-aspect="r">4:3 retro</button>
+        </span>
+      </div>
+    </div>
+
+    <p class="caption">Blue markers are team&nbsp;1 deployment slots (the player), amber are team&nbsp;2. The dashed rectangle is the camera&rsquo;s view; the small cross is <code>focus_point</code>. Models are drawn one tile tall, which is what the body meshes are.</p>
+
+    <div class="cards" style="margin-top:28px">
+      <div class="card">
+        <p class="eyebrow">Shipping</p>
+        <p>Yaw&nbsp;&minus;11.3&deg;, pitch&nbsp;55.8&deg;, size&nbsp;15.55. Nearly top-down, slightly skewed, and loose: on Meadow the same angle fits the board at <b>11.22</b>, so the frame is about 39% larger than it needs to be. Square the yaw to zero and it is worse still &mdash; 58%&nbsp;&times;&nbsp;43% of the frame. It reads as a map rather than as a battlefield.</p>
+      </div>
+      <div class="card pick">
+        <p class="eyebrow">Tabletop &mdash; try this one first</p>
+        <p>Yaw&nbsp;0, pitch&nbsp;38&deg;, fitted size. Square to the board, plainly above it, plainly looking down. Depth squashes to 0.62, which still leaves a 16&times;8 map reading as a rectangle rather than a strip, and it is low enough that models have some presence against the ground.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Low</p>
+        <p>Yaw&nbsp;0, pitch&nbsp;24&deg;. The most dramatic, and the first angle where a model in front hides the tile behind it. Worth looking at, probably not worth planning a turn from &mdash; but a strong candidate for the <i>establishing</i> shot that then rises into the resting angle.</p>
+      </div>
+      <div class="card no">
+        <p class="eyebrow">Army axis &mdash; rejected</p>
+        <p>Straight down the team&nbsp;1&rarr;team&nbsp;2 diagonal. Genuinely over your own army&rsquo;s shoulder, and genuinely the wrong shape: the board becomes a diamond and the yaw is not a quadrant, so arrow-key aiming stops being exact. Kept because the rejected option is half the record.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">&sect;3</p><h2>What the camera does, moment by moment</h2></div>
+    <p class="prose">The states are exclusive and ordered by priority: the lower a row sits, the more it outranks the rows above it. <b>Subject</b> is what the camera is centred on, <b>motion</b> is what it does on its own, and <b>owns</b> is which rule from <code>UI_DESIGN.md</code>&nbsp;&sect;9 applies &mdash; position-only, or full authorship.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>State</th><th>Entered when</th><th>Subject</th><th>Motion</th><th>Owns</th><th>Leaves on</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="state">Establish</td>
+            <td>Board dimensions are known, once per battle</td>
+            <td>Board centre</td>
+            <td>Optional: hold a wider, lower angle for ~1.2s, then ease to the resting angle</td>
+            <td>Director</td>
+            <td>First turn opens</td>
+          </tr>
+          <tr>
+            <td class="state">Planning</td>
+            <td>Player turn opens; <code>Phase.MENU</code></td>
+            <td>The acting unit</td>
+            <td>Still. Settled on a quadrant.</td>
+            <td>Director</td>
+            <td>Phase leaves <code>MENU</code></td>
+          </tr>
+          <tr>
+            <td class="state">Aiming</td>
+            <td><code>MOVE_SELECT</code> / <code>TARGET_SELECT</code></td>
+            <td>The grid cursor</td>
+            <td>Follows the cursor, position only, edge-triggered &mdash; it moves when the cursor nears the frame edge, not on every keypress</td>
+            <td>Position only</td>
+            <td>Confirm or cancel</td>
+          </tr>
+          <tr>
+            <td class="state">Confirming</td>
+            <td><code>CONFIRM_ACTION</code></td>
+            <td>Actor and target</td>
+            <td>Still, framed so both are visible</td>
+            <td>Director</td>
+            <td>Commit or cancel</td>
+          </tr>
+          <tr>
+            <td class="state">Following</td>
+            <td>A movement visual action starts</td>
+            <td>The moving unit</td>
+            <td>Tracks the unit with a short lag; never rotates</td>
+            <td>Position only</td>
+            <td>The move animation ends</td>
+          </tr>
+          <tr>
+            <td class="state">Deliberating</td>
+            <td>A CPU turn opens</td>
+            <td>The acting CPU unit</td>
+            <td>Slow orbit, <code>ORBIT_DEGREES_PER_SECOND</code>, at the resting zoom</td>
+            <td>Director</td>
+            <td>Playback drains</td>
+          </tr>
+          <tr>
+            <td class="state">Casting</td>
+            <td>A cast animation starts with radius &ge; <code>CAST_FRAME_MIN_RADIUS</code></td>
+            <td>The affected area&rsquo;s centre</td>
+            <td>Widens to fit the area plus margin. Never zooms <i>in</i>.</td>
+            <td>Director</td>
+            <td>Playback drains</td>
+          </tr>
+          <tr>
+            <td class="state">Handover</td>
+            <td>Playback for the turn drains</td>
+            <td>Whoever acts next</td>
+            <td>Stop orbiting, settle to a quadrant, reframe at the resting zoom</td>
+            <td>Director</td>
+            <td>Next turn opens</td>
+          </tr>
+          <tr>
+            <td class="state">Resolved</td>
+            <td>The battle ends</td>
+            <td>The winning side</td>
+            <td>Slow orbit, no settle &mdash; nobody aims from here</td>
+            <td>Director</td>
+            <td>Scene exits</td>
+          </tr>
+          <tr>
+            <td class="state">Player driving</td>
+            <td>Any input <code>handle_input()</code> claims: wheel, middle-drag, right-drag, reset</td>
+            <td>Whatever the player wants</td>
+            <td>None of its own. <b>Everything above abandons immediately.</b></td>
+            <td>Player</td>
+            <td>Reasserted at the next turn boundary, not mid-turn</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="q" style="margin-top:22px">
+      <p><b>Two rows carry all the risk.</b> <i>Aiming</i> is the one that will feel bad if it is done naively: a camera that recentres on every cursor keypress turns the board into a treadmill. Edge-triggered follow &mdash; the cursor moves freely inside a dead zone, and the camera only pans when it approaches the frame edge &mdash; is the difference between a helpful camera and a nauseating one. <i>Following</i> is the one the current code has no verb for at all; see &sect;5.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">&sect;4</p><h2>Which signal drives which change</h2></div>
+    <p class="prose">The state table above is the design. This one is the wiring, and the last column is the honest audit.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Moment</th><th>Signal available today</th><th>Camera call it should make</th><th>Wired</th></tr></thead>
+        <tbody>
+          <tr><td class="state">Battle opens</td><td>Board size read inline in <code>_startBattle</code></td><td>Set yaw&nbsp;0, chosen pitch, fitted size; optionally ease in from the establishing angle</td><td><span class="tag no">no</span> &mdash; focus and size are assigned directly, angles never touched</td></tr>
+          <tr><td class="state">Player turn opens</td><td><code>turn_started</code> &rarr; <code>on_player_turn_began()</code></td><td><code>settleToQuadrant()</code> then <code>frameTo(actor, resting)</code></td><td><span class="tag part">dead</span> &mdash; written, but gated on a disabled director</td></tr>
+          <tr><td class="state">Cursor moves</td><td>&mdash; <code>PlayerTurnController.setCursor()</code> / <code>moveCursor()</code> emit nothing</td><td><code>panFocusTo(cursor)</code>, edge-triggered</td><td><span class="tag no">no</span> &mdash; no signal to hang it on</td></tr>
+          <tr><td class="state">Confirm opens</td><td>&mdash; phase change is not signalled</td><td><code>frameTo(midpoint(actor, target), pair span)</code></td><td><span class="tag no">no</span></td></tr>
+          <tr><td class="state">Unit moves</td><td>Movement <code>VisualAction</code> start in the adapter</td><td>Per-frame follow, position only, released at the end of the tween</td><td><span class="tag no">no</span> &mdash; and no verb exists for it</td></tr>
+          <tr><td class="state">CPU turn opens</td><td><code>on_cpu_turn_began()</code></td><td><code>orbitBy(8.0)</code></td><td><span class="tag part">dead</span></td></tr>
+          <tr><td class="state">Cast starts</td><td><code>cast_area_started</code> &rarr; <code>on_cast_started()</code></td><td><code>frameTo(centre, span)</code>, clamped never to zoom in</td><td><span class="tag part">dead</span></td></tr>
+          <tr><td class="state">Playback drains</td><td><code>animation_queue_drained</code> &rarr; <code>on_turn_playback_drained()</code></td><td><code>settleToQuadrant()</code> then reframe the subject</td><td><span class="tag part">dead</span></td></tr>
+          <tr><td class="state">Player grabs the camera</td><td><code>handle_input()</code> returning <code>true</code></td><td><code>_cancelDirectorMotion()</code></td><td><span class="tag yes">yes</span> &mdash; the one part that works</td></tr>
+          <tr><td class="state">Battle ends</td><td><code>battle_ended</code></td><td>Frame the winner, slow orbit</td><td><span class="tag no">no</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="finding" style="margin-top:22px">
+      <p><b>The director is switched off, and nothing can switch it on.</b> <code>BattleCameraDirector.set_enabled()</code> has no caller anywhere in the project. <code>_enabled</code> is therefore <code>false</code> for the life of every battle, and all four of its hooks return on their first line &mdash; except <code>on_player_turn_began()</code>, whose free-mode branch reproduces the old &ldquo;pan only if the unit is off screen&rdquo; behaviour.</p>
+      <p>So the orbit during CPU turns, the resting zoom, the cast pull-back and the quadrant settle are all written, all documented in <code>UI_DESIGN.md</code>&nbsp;&sect;9 as though they ship, and none of them has ever run in a battle. Any camera work starts by giving that switch an owner &mdash; a graphics-menu toggle, defaulting on.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">&sect;5</p><h2>The verbs, and the one that is missing</h2></div>
+    <p class="prose">Every behaviour in &sect;3 has to be expressible as a call on <code>BattleCameraController</code>. Five verbs exist; the state table needs a sixth.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Verb</th><th>Touches</th><th>Shape</th><th>Rule</th></tr></thead>
+        <tbody>
+          <tr><td class="state"><code>panFocusTo()</code></td><td><code>focus_point</code></td><td>One-shot tween, 0.35s</td><td>Position only. Never rotates or zooms, so it can be used against a view the player set.</td></tr>
+          <tr><td class="state"><code>frameTo()</code></td><td><code>focus_point</code>, <code>size</code></td><td>One-shot parallel tween</td><td>Takes authorship. Moves and zooms; still never rotates.</td></tr>
+          <tr><td class="state"><code>orbitBy()</code></td><td><code>current_yaw</code></td><td>Continuous rate, integrated in <code>_process</code></td><td>The only verb that rotates. CPU turns and the post-battle state only.</td></tr>
+          <tr><td class="state"><code>settleToQuadrant()</code></td><td><code>current_yaw</code></td><td>One-shot tween to the nearest 90&deg;</td><td>Must complete before any aiming phase opens.</td></tr>
+          <tr><td class="state"><code>snapshot</code>/<code>restoreFreeView()</code></td><td>All four</td><td>Capture and one-shot tween back</td><td>What makes taking authorship reversible.</td></tr>
+          <tr><td class="state"><code>followTarget()</code> &mdash; <b>missing</b></td><td><code>focus_point</code></td><td>Per-frame, until released</td><td>Every existing verb tweens toward a <i>fixed</i> value. A unit sliding across three tiles is a moving target, so the &ldquo;Following&rdquo; row of &sect;3 cannot be written with any of the five above &mdash; a <code>frameTo()</code> fired at the start lands where the unit <i>will</i> be while it is still elsewhere. This wants a callable evaluated in <code>_process</code> next to the orbit integration, with the same lag behaviour, and released on the animation&rsquo;s end.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose" style="margin-top:18px">Also worth noting: <b>no verb moves pitch.</b> Only the player can, by middle-dragging. If the establishing shot is going to rise from a low angle into the resting one, pitch needs to join the tweenable set &mdash; and then <code>restoreFreeView()</code> already handles giving it back, because it snapshots pitch too.</p>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">&sect;6</p><h2>One camera, or several?</h2></div>
+    <p class="prose">The instinct is right &mdash; the behaviours really are distinct enough to want separate objects. The question is whether those objects should be <code>Camera3D</code> nodes.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Approach</th><th>How a switch looks</th><th>Cost here</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="state">Several <code>Camera3D</code>s, swap <code>current</code></td>
+            <td>An instant cut</td>
+            <td><b>Three concrete problems.</b> The status badge rows and mouse picking both read <code>camera.unproject_position()</code> and <code>project_ray_origin()</code> off the one camera the controller holds, so every reader would need to learn which camera is live. <code>nearestQuadrantYaw()</code> must have one authoritative yaw or arrow keys change meaning on a cut. And a cut is exactly wrong for the content: a tactics player is holding a mental map of the board, and a hard cut costs them that map every time the cursor moves.</td>
+          </tr>
+          <tr>
+            <td class="state">One camera, several <b>behaviours</b></td>
+            <td>A state change; the camera keeps moving continuously</td>
+            <td><b>Recommended.</b> This is what <code>BattleCameraDirector</code> already is, half-built &mdash; it just has four entry points instead of a state machine. Each row of &sect;3 becomes a small object that answers &ldquo;where should the focus be, what size, what yaw rate&rdquo;, and one place applies the winner. Everything downstream keeps its single camera reference.</td>
+          </tr>
+          <tr>
+            <td class="state">One camera, weighted blend of rigs</td>
+            <td>Rigs fade in and out; the result is a weighted average</td>
+            <td>What Cinemachine does, and overkill here. The states in &sect;3 are mutually exclusive by design and their transitions are already handled by tweens. Revisit only if two subjects ever need framing at once &mdash; and the &ldquo;Confirming&rdquo; row solves that case with a midpoint instead.</td>
+          </tr>
+          <tr>
+            <td class="state">A second camera for cuts only</td>
+            <td>Deliberate cut, then back</td>
+            <td>The one case that genuinely wants a second node: a KO or finisher cinematic, where the cut <i>is</i> the effect. Not needed for any row in &sect;3, and cheap to add later precisely because it would not be sharing state with the main rig.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">&sect;7</p><h2>Numbers to set</h2></div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Constant</th><th>Today</th><th>Proposed</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td class="state">Opening yaw</td><td class="num">&minus;11.31&deg;</td><td class="num">0&deg;</td><td>Accidental today. Zero is the only quadrant facing the enemy.</td></tr>
+          <tr><td class="state">Opening pitch</td><td class="num">55.77&deg;</td><td class="num">38&deg;</td><td>Also accidental. Pick it in &sect;2 rather than from this table.</td></tr>
+          <tr><td class="state">Opening size</td><td class="num">max(w,h)&middot;0.95 + e&middot;0.35</td><td class="num">fit to bbox</td><td>The current formula ignores aspect and pitch alike. On Meadow at 16:9 it asks for 15.55 where 11.22 holds the whole board with a tile to spare. Use the <b>Fit size</b> readout; note it goes width-bound on the wide maps, which is why a low pitch leaves vertical slack no zoom can spend.</td></tr>
+          <tr><td class="state">Camera radius</td><td class="num">18.14</td><td class="num">unchanged</td><td>Irrelevant to an orthographic image. Only clipping cares.</td></tr>
+          <tr><td class="state"><code>ORBIT_DEGREES_PER_SECOND</code></td><td class="num">8.0</td><td class="num">8.0</td><td>Never observed in a running battle. Judge it once the director is switched on.</td></tr>
+          <tr><td class="state"><code>RESTING_ZOOM_FRACTION</code></td><td class="num">0.75</td><td class="num">re-judge</td><td>A fraction of the opening framing &mdash; so changing the opening size changes the resting zoom too.</td></tr>
+          <tr><td class="state"><code>CAST_FRAME_MIN_RADIUS</code></td><td class="num">2</td><td class="num">2</td><td>Below this a cast never moves the camera.</td></tr>
+          <tr><td class="state"><code>CAST_FRAME_MARGIN_TILES</code></td><td class="num">3.0</td><td class="num">3.0</td><td>&mdash;</td></tr>
+          <tr><td class="state"><code>FOCUS_EDGE_MARGIN</code></td><td class="num">64 px</td><td class="num">64 px</td><td>Measured against <code>get_display_rect()</code>, so letterbox bars do not count as visible.</td></tr>
+          <tr><td class="state">Cursor dead zone</td><td class="num">&mdash;</td><td class="num">~0.6 of the frame</td><td>New. The cursor roams freely inside it; the camera pans only outside it.</td></tr>
+          <tr><td class="state">Follow lag</td><td class="num">&mdash;</td><td class="num">~0.18 s</td><td>New. Enough that the camera reads as chasing rather than as glued.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">&sect;8</p><h2>Still open</h2></div>
+    <ul class="tight prose">
+      <li><b>Does the board flip for player&nbsp;2?</b> Yaw&nbsp;0 is &ldquo;behind team&nbsp;1&rdquo;. In a hot-seat or PvP battle, either team&nbsp;2 plans from behind the enemy, or the resting yaw becomes 180&deg; on their turns &mdash; which is a quadrant, so it is legal, but it is a 180&deg; rotation between every turn.</li>
+      <li><b>Does the establishing shot exist at all?</b> It is the one state in &sect;3 that is pure presentation. Cheapest version: open at the resting angle and skip it entirely.</li>
+      <li><b>Does the camera follow the cursor, or does the cursor stay inside the camera?</b> &sect;3 assumes the second. The first is simpler and worse.</li>
+      <li><b>Who owns the director switch?</b> A graphics-menu toggle is the obvious home, but a camera mode is not really a graphics setting.</li>
+      <li><b>Pitch during an orbit.</b> A drifting camera that also rose and fell slightly would read as alive rather than mechanical &mdash; and would be the first VFX-style layered oscillator applied to the camera. Also the easiest thing here to overdo.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Road of Nogg &middot; battle camera sketch &middot; 2026-08-29. Board geometry, deployment slots and elevation read from <code>data/maps.json</code>; projection reproduced from <code>BattleCameraController._update_camera_transform()</code>. Behaviour tables are proposals, not shipped behaviour &mdash; the audit column in &sect;4 says what is real.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var MAPS = [{"name":"Meadow","size":[16,8],"heights":[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0],[0,0,0,0,1,1,2,1,1,2,1,1,0,0,0,0],[0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,0],[0,0,0,0,1,1,1,0,0,1,1,1,0,0,0,0],[0,0,0,0,1,1,2,1,1,2,1,1,0,0,0,0],[0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],"layout":["................",".TT.............",".T..............",".......WW.......",".......WW.......","..............T.",".............TT.","................"],"t1":[[2,6],[1,7],[1,6],[2,7]],"t2":[[13,0],[14,1],[14,0],[13,1]]},{"name":"Crossroads","size":[8,8],"heights":[[0,0,0,0,0,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,1,2,2,1,0,0],[0,0,1,2,2,1,0,0],[0,0,0,1,1,0,0,0],[0,0,0,1,1,0,0,0],[0,0,0,0,0,0,0,0]],"layout":["........","..W..W..","..W..W..","........","........","..W..W..","..W..W..","........"],"t1":[[0,5],[0,6],[1,5],[1,6]],"t2":[[7,1],[7,2],[6,1],[6,2]]},{"name":"Forest","size":[16,16],"heights":[[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0],[0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],[0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,1,1,1,2,2,2,2,1,1,1,0,0,0],[0,0,0,1,1,1,2,2,2,2,1,1,1,0,0,0],[0,0,0,1,1,1,2,2,2,2,1,1,1,0,0,0],[0,0,0,1,1,1,2,2,2,2,1,1,1,0,0,0],[0,0,0,1,1,1,2,2,2,2,1,1,1,0,0,0],[0,0,0,1,1,1,2,2,2,2,1,1,1,0,0,0],[0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0],[0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],[0,0,0,0,1,1,1,1,1,1,1,1,0,0,0,0],[0,0,0,0,0,1,1,1,1,1,1,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]],"layout":["...............T","T..............T","T..TT......TT..T","T..TT......TT..T","T..............T","T....TT..TT....T","T....T....T....T","T..............T","T..............T","T....T....T....T","T....TT..TT....T","T..............T","T..TT......TT..T","T..TT......TT..T","T..............T","T..............."],"t1":[[1,13],[1,14],[2,13],[2,14]],"t2":[[14,1],[14,2],[13,1],[13,2]]}];
+  var CELL = 0.5, SURF = 0.25, MODEL_H = 0.9, RADIUS = 18.138;
+
+  var cv = document.getElementById("cv"), ctx = cv.getContext("2d");
+  var mapIdx = 0, aspect = 16 / 9;
+  var yaw = -11.31, pitch = 55.77, size = 15.55;
+
+  var el = {
+    yaw: document.getElementById("sYaw"), pitch: document.getElementById("sPitch"), size: document.getElementById("sSize"),
+    oYaw: document.getElementById("oYaw"), oPitch: document.getElementById("oPitch"), oSize: document.getElementById("oSize"),
+    fill: document.getElementById("rFill"), squash: document.getElementById("rSquash"),
+    fit: document.getElementById("rFit"), quad: document.getElementById("rQuad"),
+    code: document.getElementById("rCode"), preset: document.getElementById("presetLabel"),
+    fillLabel: document.getElementById("fillLabel")
+  };
+
+  function rad(d) { return d * Math.PI / 180; }
+  function dot(a, b) { return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]; }
+  function map() { return MAPS[mapIdx]; }
+
+  function maxHeight() {
+    var m = map(), best = 0;
+    for (var y = 0; y < m.heights.length; y++)
+      for (var x = 0; x < m.heights[y].length; x++) best = Math.max(best, m.heights[y][x]);
+    return best;
+  }
+  function focusPoint() {
+    var m = map();
+    return [(m.size[0] - 1) * 0.5, maxHeight() * CELL * 0.5, (m.size[1] - 1) * 0.5];
+  }
+  function shippingSize() {
+    var m = map();
+    return Math.max(m.size[0], m.size[1]) * 0.95 + maxHeight() * CELL * 0.35;
+  }
+  function basis() {
+    var cy = Math.cos(rad(yaw)), sy = Math.sin(rad(yaw));
+    var cp = Math.cos(rad(pitch)), sp = Math.sin(rad(pitch));
+    return { X: [cy, 0, -sy], Y: [-sp * sy, cp, -sp * cy], Z: [cp * sy, sp, cp * cy] };
+  }
+  function flat(p, F, b) {
+    var v = [p[0] - F[0], p[1] - F[1], p[2] - F[2]];
+    return { u: dot(v, b.X), w: dot(v, b.Y), d: dot(v, b.Z) };
+  }
+
+  // Every world point the board occupies, for bounding-box work.
+  function corners() {
+    var m = map(), out = [], x, y;
+    for (y = 0; y <= m.size[1]; y++) {
+      for (x = 0; x <= m.size[0]; x++) {
+        var h = 0, dy, dx;
+        for (dy = -1; dy <= 0; dy++) for (dx = -1; dx <= 0; dx++) {
+          var gy = y + dy, gx = x + dx;
+          if (gy >= 0 && gy < m.size[1] && gx >= 0 && gx < m.size[0]) h = Math.max(h, m.heights[gy][gx]);
+        }
+        out.push([x - 0.5, 0, y - 0.5]);
+        out.push([x - 0.5, h * CELL + SURF, y - 0.5]);
+      }
+    }
+    return out;
+  }
+
+  function boardExtent() {
+    var F = focusPoint(), b = basis(), pts = corners();
+    var lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
+    for (var i = 0; i < pts.length; i++) {
+      var s = flat(pts[i], F, b);
+      lo[0] = Math.min(lo[0], s.u); hi[0] = Math.max(hi[0], s.u);
+      lo[1] = Math.min(lo[1], s.w); hi[1] = Math.max(hi[1], s.w);
+    }
+    return { u: hi[0] - lo[0], w: hi[1] - lo[1], cu: (lo[0] + hi[0]) / 2, cw: (lo[1] + hi[1]) / 2 };
+  }
+
+  function fitSize() {
+    var e = boardExtent(), margin = 2.0; // one tile of clear space on each side
+    return Math.max(e.w + margin, (e.u + margin) / aspect);
+  }
+
+  function terrainColor(ch, h) {
+    var base;
+    if (ch === "W") base = [58, 96, 132];
+    else if (ch === "T") base = [56, 84, 52];
+    else base = [86, 108, 66];
+    var lift = 1 + h * 0.13;
+    return "rgb(" + Math.min(255, base[0] * lift | 0) + "," + Math.min(255, base[1] * lift | 0) + "," + Math.min(255, base[2] * lift | 0) + ")";
+  }
+
+  function draw() {
+    var W = cv.width, H = cv.height;
+    var F = focusPoint(), b = basis();
+    var frameH = size, frameW = size * aspect;
+    var k = Math.min(H * 0.80 / frameH, W * 0.88 / frameW);
+    var cx = W / 2, cy = H / 2;
+    function px(s) { return [cx + s.u * k, cy - s.w * k]; }
+
+    ctx.fillStyle = "#0b0b09";
+    ctx.fillRect(0, 0, W, H);
+
+    var m = map(), cells = [], x, y;
+    for (y = 0; y < m.size[1]; y++) for (x = 0; x < m.size[0]; x++) {
+      var c = flat([x, 0, y], F, b);
+      cells.push({ x: x, y: y, d: c.d });
+    }
+    cells.sort(function (a, c) { return a.d - c.d; });
+
+    function quad(p, fill, stroke) {
+      ctx.beginPath();
+      for (var i = 0; i < p.length; i++) {
+        var q = px(flat(p[i], F, b));
+        if (i === 0) ctx.moveTo(q[0], q[1]); else ctx.lineTo(q[0], q[1]);
+      }
+      ctx.closePath();
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+    }
+
+    var camDir = b.Z;
+    for (var i = 0; i < cells.length; i++) {
+      var cxg = cells[i].x, cyg = cells[i].y;
+      var h = m.heights[cyg][cxg], top = h * CELL + SURF;
+      var ch = m.layout[cyg].charAt(cxg);
+      // Side skirts first, only the two faces pointing at the camera.
+      var skirt = "rgba(20,26,18,0.85)";
+      if (camDir[0] > 0) quad([[cxg + 0.5, 0, cyg - 0.5], [cxg + 0.5, top, cyg - 0.5], [cxg + 0.5, top, cyg + 0.5], [cxg + 0.5, 0, cyg + 0.5]], skirt, null);
+      else quad([[cxg - 0.5, 0, cyg - 0.5], [cxg - 0.5, top, cyg - 0.5], [cxg - 0.5, top, cyg + 0.5], [cxg - 0.5, 0, cyg + 0.5]], skirt, null);
+      if (camDir[2] > 0) quad([[cxg - 0.5, 0, cyg + 0.5], [cxg - 0.5, top, cyg + 0.5], [cxg + 0.5, top, cyg + 0.5], [cxg + 0.5, 0, cyg + 0.5]], skirt, null);
+      else quad([[cxg - 0.5, 0, cyg - 0.5], [cxg - 0.5, top, cyg - 0.5], [cxg + 0.5, top, cyg - 0.5], [cxg + 0.5, 0, cyg - 0.5]], skirt, null);
+      quad([[cxg - 0.5, top, cyg - 0.5], [cxg + 0.5, top, cyg - 0.5], [cxg + 0.5, top, cyg + 0.5], [cxg - 0.5, top, cyg + 0.5]],
+        terrainColor(ch, h), "rgba(0,0,0,0.35)");
+    }
+
+    // Deployment slots, drawn after the ground so they are never buried.
+    function marker(slot, color) {
+      var h = m.heights[slot[1]][slot[0]], top = h * CELL + SURF;
+      var foot = px(flat([slot[0], top, slot[1]], F, b));
+      var head = px(flat([slot[0], top + MODEL_H, slot[1]], F, b));
+      ctx.strokeStyle = color; ctx.lineWidth = 3.2; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(foot[0], foot[1]); ctx.lineTo(head[0], head[1]); ctx.stroke();
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(head[0], head[1], 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath(); ctx.ellipse(foot[0], foot[1], 7 * k / 18, 7 * k / 18 * Math.sin(rad(pitch)), 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    for (var t = 0; t < m.t1.length; t++) marker(m.t1[t], "#7fb2e0");
+    for (var t2 = 0; t2 < m.t2.length; t2++) marker(m.t2[t2], "#f2c14e");
+
+    // Camera view rectangle and focus cross.
+    ctx.setLineDash([6, 5]);
+    ctx.strokeStyle = "rgba(240,236,224,0.45)"; ctx.lineWidth = 1.2;
+    ctx.strokeRect(cx - frameW * k / 2, cy - frameH * k / 2, frameW * k, frameH * k);
+    ctx.setLineDash([]);
+    ctx.strokeStyle = "rgba(242,220,126,0.8)"; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - 7, cy); ctx.lineTo(cx + 7, cy);
+    ctx.moveTo(cx, cy - 7); ctx.lineTo(cx, cy + 7);
+    ctx.stroke();
+  }
+
+  function refresh() {
+    el.oYaw.textContent = yaw.toFixed(1) + "°";
+    el.oPitch.textContent = pitch.toFixed(1) + "°";
+    el.oSize.textContent = size.toFixed(2);
+
+    var e = boardExtent();
+    var fw = size * aspect, fh = size;
+    var fillW = Math.min(1, e.u / fw), fillH = Math.min(1, e.w / fh);
+    el.fill.textContent = Math.round(fillW * 100) + "% × " + Math.round(fillH * 100) + "%";
+    el.fillLabel.textContent = "fills " + Math.round(fillW * 100) + "% wide, " + Math.round(fillH * 100) + "% tall";
+    el.squash.textContent = Math.sin(rad(pitch)).toFixed(3);
+    el.fit.textContent = fitSize().toFixed(2);
+
+    var off = Math.abs(yaw - Math.round(yaw / 90) * 90);
+    el.quad.textContent = off < 0.05 ? "exact" : off.toFixed(2) + "°";
+
+    var F = focusPoint();
+    var cp = Math.cos(rad(pitch)), sp = Math.sin(rad(pitch));
+    var pos = [
+      F[0] + RADIUS * cp * Math.sin(rad(yaw)),
+      F[1] + RADIUS * sp,
+      F[2] + RADIUS * cp * Math.cos(rad(yaw))
+    ];
+    el.code.textContent =
+      "# yaw " + yaw.toFixed(2) + "°  pitch " + pitch.toFixed(2) + "°\n" +
+      "camera.size = " + size.toFixed(2) + "\n" +
+      "camera.focus_point = Vector3(" + F[0].toFixed(1) + ", " + F[1].toFixed(2) + ", " + F[2].toFixed(1) + ")\n" +
+      "camera.position = Vector3(" + pos[0].toFixed(2) + ", " + pos[1].toFixed(2) + ", " + pos[2].toFixed(2) + ")";
+
+    draw();
+  }
+
+  function setPreset(name) {
+    var m = map();
+    if (name === "ship") { yaw = -11.31; pitch = 55.77; size = shippingSize(); }
+    else if (name === "steep") { yaw = 0; pitch = 55; size = fitAt(0, 55); }
+    else if (name === "table") { yaw = 0; pitch = 38; size = fitAt(0, 38); }
+    else if (name === "low") { yaw = 0; pitch = 24; size = fitAt(0, 24); }
+    else if (name === "axis") {
+      var c1 = centroid(m.t1), c2 = centroid(m.t2);
+      yaw = Math.atan2(c1[0] - c2[0], c1[1] - c2[1]) * 180 / Math.PI;
+      pitch = 38; size = fitAt(yaw, 38);
+    }
+    el.yaw.value = yaw; el.pitch.value = pitch; el.size.value = size;
+    var labels = { ship: "Shipping — as it opens today", steep: "Straight & steep", table: "Tabletop", low: "Low", axis: "Army axis — rejected" };
+    el.preset.textContent = labels[name];
+    refresh();
+  }
+  function centroid(slots) {
+    var sx = 0, sy = 0;
+    for (var i = 0; i < slots.length; i++) { sx += slots[i][0]; sy += slots[i][1]; }
+    return [sx / slots.length, sy / slots.length];
+  }
+  function fitAt(y, p) {
+    var sy = yaw, sp = pitch;
+    yaw = y; pitch = p;
+    var v = fitSize();
+    yaw = sy; pitch = sp;
+    return v;
+  }
+
+  function group(attr, handler) {
+    var nodes = document.querySelectorAll("[data-" + attr + "]");
+    for (var i = 0; i < nodes.length; i++) {
+      (function (node) {
+        node.addEventListener("click", function () {
+          for (var j = 0; j < nodes.length; j++) nodes[j].setAttribute("aria-pressed", nodes[j] === node ? "true" : "false");
+          handler(node.getAttribute("data-" + attr));
+        });
+      })(nodes[i]);
+    }
+  }
+  group("preset", setPreset);
+  group("map", function (v) { mapIdx = parseInt(v, 10); setPreset(currentPreset()); });
+  group("aspect", function (v) { aspect = v === "r" ? 4 / 3 : 16 / 9; refresh(); });
+
+  function currentPreset() {
+    var nodes = document.querySelectorAll("[data-preset]");
+    for (var i = 0; i < nodes.length; i++) if (nodes[i].getAttribute("aria-pressed") === "true") return nodes[i].getAttribute("data-preset");
+    return "ship";
+  }
+
+  el.yaw.addEventListener("input", function () { yaw = parseFloat(this.value); refresh(); });
+  el.pitch.addEventListener("input", function () { pitch = parseFloat(this.value); refresh(); });
+  el.size.addEventListener("input", function () { size = parseFloat(this.value); refresh(); });
+  document.getElementById("btnFit").addEventListener("click", function () {
+    size = fitSize(); el.size.value = size; refresh();
+  });
+
+  setPreset("ship");
+})();
+</script>
