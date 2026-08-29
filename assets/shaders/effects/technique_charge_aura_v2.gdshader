@@ -49,6 +49,10 @@ uniform float ring_period[3];
 uniform float ring_decay[3];
 uniform float ring_overshoot[3];
 uniform float ring_churn_scale[3];
+// Absolute spin angle per ring, in radians, pushed from the effect's clock each
+// frame. Computed there in closed form rather than integrated here or
+// accumulated anywhere -- see TechniqueChargeAuraV2Profile.spin_radians().
+uniform float ring_spin_radians[3];
 // Grade. RING_TIP_BRIGHT is a blend weight rather than a bool because uniform
 // arrays in this shader are float only; 0 keeps the core's shipped base-faint
 // curve, 1 switches a face to the flares' tip-bright one.
@@ -236,6 +240,25 @@ void vertex() {
 				+ vec2(playback_time * 1.6 + playback_seed, playback_seed)
 		) - 0.5;
 		VERTEX.y += lift * 2.0 * flutter_amount * along * along * extension;
+
+		// Spin last, after everything that reads the vertex's own angle.
+		// `theta` and `face_angle` above are taken from the unrotated geometry
+		// on purpose: the entrance phase and a blade's churn are properties of
+		// the blade, so they travel with it as it comes round rather than
+		// sweeping past a pattern fixed in world space.
+		//
+		// NORMAL is deliberately left unrotated. The material is `unshaded` and
+		// the fragment stage never reads it, so rotating it would cost work to
+		// change nothing; it is only used above, before this point, as a
+		// per-face identity.
+		float spin = ring_spin_radians[ring];
+		float spin_cos = cos(spin);
+		float spin_sin = sin(spin);
+		VERTEX = vec3(
+			VERTEX.x * spin_cos + VERTEX.z * spin_sin,
+			VERTEX.y,
+			-VERTEX.x * spin_sin + VERTEX.z * spin_cos
+		);
 
 		v_extension = extension;
 		v_churnFactor = churn;

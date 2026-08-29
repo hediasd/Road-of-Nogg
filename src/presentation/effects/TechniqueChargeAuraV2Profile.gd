@@ -144,6 +144,28 @@ const BLADE_EDGE_SOFTNESS := 0.26
 const CHURN_BRIGHT_COUPLING := 1.6
 const CHURN_FLUTTER_COUPLING := 1.0
 
+## AUTHORED spin. The stack turns around the caster, fast off the launch and
+## easing back to a hold rate -- a constant rate reads mechanical, a rate with a
+## history reads driven.
+##
+## These are properties of the effect, not a budget balanced against its
+## duration. An earlier draft scaled them up to "recover" the turn that an
+## earlier release cost; that was rejected, and the rejection is the rule: how
+## fast the ring turns is what the effect is, and moving the release does not
+## change it. At the 1.00s release the stack reaches roughly 265 degrees, three
+## quarters of a revolution, and that is the correct amount.
+##
+## Direction is fixed across every cast -- no seed term. A telegraph should be
+## recognised instantly, not appreciated for its variety.
+const SPIN_LAUNCH_DEG_PER_SEC := 340.0
+const SPIN_HOLD_DEG_PER_SEC := 230.0
+## Time constant of the ease from launch rate to hold rate.
+const SPIN_EASE_TAU_SECONDS := 0.34
+## Per-ring multiplier. The rings turn at slightly different speeds so the stack
+## shears instead of rotating as one rigid body; that differential is most of
+## what makes it read as a vortex rather than a turntable.
+const RING_SPIN_SCALE := [1.0, 1.15, 1.32]
+
 ## AUTHORED entrance spread around the ring, in seconds of lag. Both terms are
 ## sines of the angle, so the phase is periodic by construction: a lag that
 ## ramps linearly with the angle wraps once around the ring and tears at exactly
@@ -151,6 +173,31 @@ const CHURN_FLUTTER_COUPLING := 1.0
 ## to half a period and opposite sides stop reading as one object.
 const RING_PHASE_A1 := 0.045
 const RING_PHASE_A2 := 0.022
+
+
+## Absolute spin angle for one ring at an instant, in radians.
+##
+## Set from the clock, never accumulated. The rate eases exponentially from the
+## launch rate to the hold rate, and this is that rate's integral in closed
+## form:
+##
+##     rate(s)  = hold + (launch - hold) * exp(-s / tau)
+##     angle(t) = hold * t + (launch - hold) * tau * (1 - exp(-t / tau))
+##
+## Writing `rotation.y += rate * delta` instead would look identical while
+## playing and produce a different frame after a seek, because the accumulated
+## value depends on the path taken rather than on the position reached. That is
+## the one property this whole effect is built on not losing -- see
+## docs/VFX_DESIGN.md section 3 -- and it is the reason this is a function
+## rather than a counter.
+static func spin_radians(index: int, seconds: float) -> float:
+	if seconds <= 0.0:
+		return 0.0
+	var hold := deg_to_rad(SPIN_HOLD_DEG_PER_SEC)
+	var launch := deg_to_rad(SPIN_LAUNCH_DEG_PER_SEC)
+	var tau: float = maxf(SPIN_EASE_TAU_SECONDS, 0.0001)
+	var angle := hold * seconds + (launch - hold) * tau * (1.0 - exp(-seconds / tau))
+	return angle * float(RING_SPIN_SCALE[index])
 
 
 ## The extension each ring's geometry is built at, as a multiple of its resting

@@ -543,6 +543,13 @@ func _applyTimeline() -> void:
 		_groundMaterial.set_shader_parameter(
 			"lifecycle_visibility", _groundEnvelopeAt(normalized)
 		)
+	# Spin is evaluated from the clock, not advanced by it. The whole array is
+	# rebuilt each frame rather than incremented, which is what makes a seek
+	# land on the same rotation it would have reached by playing there.
+	var spin := PackedFloat32Array()
+	for index in TechniqueChargeAuraV2Profile.RING_COUNT:
+		spin.append(TechniqueChargeAuraV2Profile.spin_radians(index, _elapsedTime))
+
 	for material: ShaderMaterial in [_groundMaterial, _wallMaterial]:
 		if material != null:
 			material.set_shader_parameter("playback_time", normalized)
@@ -552,6 +559,7 @@ func _applyTimeline() -> void:
 			# bounce in it.
 			material.set_shader_parameter("playback_seconds", _elapsedTime)
 			material.set_shader_parameter("playback_seed", _seedOffset)
+			material.set_shader_parameter("ring_spin_radians", spin)
 
 
 ## The ground carries its own envelope rather than sharing the wall's.
