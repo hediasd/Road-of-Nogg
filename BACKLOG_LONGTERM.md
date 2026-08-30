@@ -320,6 +320,33 @@ The verification pass that found it is recorded under "the flares read as
 terraced plates at the battle pitch" in `docs/VFX_DESIGN.md`. Settle that before
 the effect carries a real cast, or ship the telegraph with the core wall alone.
 
+## v1 charge aura's live tunables are inert until a rebuild
+
+`TechniqueChargeAuraV1Effect.gd` pushes several `rebuild: false` tunables to
+the shader only from `_pushRingUniforms()`, which runs once at build. The debug
+panel's live path (`apply_tunables()` -> `_on_tunables_applied()` ->
+`_pushLiveTunables()`) updates the override dictionary but never calls
+`_pushRingUniforms()` again, so dragging any of those sliders changes the dict
+and leaves the shader reading its build-time value.
+
+Affected: `BOUNCE_PERIOD`, `BOUNCE_DECAY`, `BREATH_FACE_MIX`,
+`BREATH_BRIGHT_COUPLING`, `BREATH_RATE_SLOW`, `BREATH_RATE_FAST`,
+`RING_PHASE_A1`, `RING_PHASE_A2`, `FLARE_OPACITY_SCALE`.
+
+Found on 2026-08-29 while implementing AURA2-E, which fixed the same defect in
+v2 by moving every `rebuild: false` push into `_pushLiveTunables()` (which runs
+from both call sites) and leaving `_pushRingUniforms()` owning only geometry
+and rebuild-tier constants. v1 is a closed cycle and was outside that cycle's
+Touches lists, so it was left alone rather than reopened.
+
+It hides well: a `--tune=` override supplied at launch works correctly, because
+that path goes through the build. Only an interactive slider drag exposes it,
+which is why neither v1's own AURA-5G pass nor v2's caught it until the two
+call sites were traced deliberately. `debug/aura_v2_live_tune_proof.gd` is the
+harness shape that catches this class of bug and would port to v1 directly.
+
+Small and mechanical when picked up: mirror v2's split.
+
 ## Carried over from the retired `docs/BACKLOG.md`
 
 `docs/BACKLOG.md` was a third backlog that `docs/README.md` still routed to
