@@ -308,6 +308,14 @@
         <thead><tr><th>State</th><th>Entered when</th><th>Subject</th><th>Motion</th><th>Owns</th><th>Leaves on</th></tr></thead>
         <tbody>
           <tr>
+            <td class="state">Setup</td>
+            <td>The setup menu is showing &mdash; before any battle exists</td>
+            <td>The selected map, and optionally the chosen rosters on their slots</td>
+            <td>Slow orbit behind the menu. See &sect;8.</td>
+            <td>Preview</td>
+            <td>Confirm</td>
+          </tr>
+          <tr>
             <td class="state">Establish</td>
             <td>Board dimensions are known, once per battle</td>
             <td>Board centre</td>
@@ -404,6 +412,8 @@
       <table>
         <thead><tr><th>Moment</th><th>Signal available today</th><th>Camera call it should make</th><th>Wired</th></tr></thead>
         <tbody>
+          <tr><td class="state">Setup menu opens</td><td><code>_show_setup()</code></td><td>Build the preview board, <code>orbitBy()</code> slowly</td><td><span class="tag no">no</span> &mdash; the world is built and empty, and the adapter is disposed here</td></tr>
+          <tr><td class="state">Map dropdown changes</td><td>&mdash; <code>map_option</code> has no <code>item_selected</code> connection</td><td>Rebuild the preview board</td><td><span class="tag no">no</span> &mdash; the map is read once, at confirm</td></tr>
           <tr><td class="state">Battle opens</td><td>Board size read inline in <code>_startBattle</code></td><td>Set yaw&nbsp;0, chosen pitch, fitted size; optionally ease in from the establishing angle</td><td><span class="tag no">no</span> &mdash; focus and size are assigned directly, angles never touched</td></tr>
           <tr><td class="state">Player turn opens</td><td><code>turn_started</code> &rarr; <code>on_player_turn_began()</code></td><td><code>settleToQuadrant()</code> then <code>frameTo(actor, resting)</code></td><td><span class="tag part">dead</span> &mdash; written, but gated on a disabled director</td></tr>
           <tr><td class="state">Cursor moves</td><td>&mdash; <code>PlayerTurnController.setCursor()</code> / <code>moveCursor()</code> emit nothing</td><td><code>panFocusTo(cursor)</code>, edge-triggered</td><td><span class="tag no">no</span> &mdash; no signal to hang it on</td></tr>
@@ -500,12 +510,57 @@
   </section>
 
   <section>
-    <div class="sec-head"><p class="eyebrow">&sect;8</p><h2>Still open</h2></div>
+    <div class="sec-head"><p class="eyebrow">&sect;8</p><h2>Before the battle: the setup screen</h2></div>
+    <p class="prose">Orbit the selected map slowly behind the setup menu. This costs less than it looks, because <b>the world is already there</b>: <code>_ready()</code> builds the retro renderer, the camera, the directional light, the <code>WorldEnvironment</code> and the sky shader before <code>_show_setup()</code> ever runs. The setup menu is a <code>CanvasLayer</code> at layer&nbsp;20 parented to the controller, so it sits above the CRT output at native resolution over a full-rect dim of <code>Color(0.015, 0.025, 0.06, 0.82)</code>. The world already shows through that dim at 18% today. It is simply empty.</p>
+
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Piece</th><th>State today</th><th>What it needs</th></tr></thead>
+        <tbody>
+          <tr><td class="state">World, camera, sky, lighting</td><td>Built in <code>_ready()</code>, before setup shows</td><td>Nothing</td></tr>
+          <tr><td class="state">The dim behind the menu</td><td>Alpha 0.82 &mdash; 18% of the world passes through</td><td>Down to roughly 0.55, or replaced by a vignette so the panel stays readable while the board shows at the corners</td></tr>
+          <tr><td class="state">Terrain meshes</td><td>Built in <code>_on_battle_started()</code>, driven by the <code>battle_started</code> event</td><td>Extract the column loop into a <code>build_terrain(board_size)</code> that the event handler calls. Then a preview can build a board with no running simulation.</td></tr>
+          <tr><td class="state">A board to build from</td><td><code>BattleSimulator.new()</code> plus <code>loadMap()</code> already yields a <code>BattleState</code> with heights and terrain and no monsters</td><td>A throwaway simulator owned by the preview, disposed on confirm</td></tr>
+          <tr><td class="state">Reacting to the dropdown</td><td><code>map_option</code> has no <code>item_selected</code> connection &mdash; the map is read once, at confirm</td><td>One connection, rebuilding the preview</td></tr>
+          <tr><td class="state">The orbit itself</td><td><code>orbitBy()</code> exists, works, and has never been seen</td><td>Nothing</td></tr>
+          <tr><td class="state">Preview lifetime</td><td><code>_show_setup()</code> disposes the adapter and nulls <code>sim</code></td><td>The preview owns its own adapter and simulator, separate from the battle&rsquo;s</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cards" style="margin-top:24px">
+      <div class="card pick">
+        <p class="eyebrow">The strong version</p>
+        <p>Build the preview from the <i>live config</i>, not from the map alone. The setup screen already knows both rosters and the map&rsquo;s deployment slots &mdash; which is exactly what <code>BattleSetupFactory.createSimulator()</code> consumes. Then you watch the actual matchup assemble as you change the dropdowns, and Confirm becomes &ldquo;keep this one&rdquo;. The cost is a rebuild per roster change rather than per map change.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">Why it belongs before the angle is chosen</p>
+        <p>&sect;2 approximates the projection in HTML. It cannot show the retro preset, the CRT pass, the sky, the lighting, or how a model actually reads against a tile. An orbiting setup preview is the same board under the real renderer, which makes it the cheapest angle harness that will ever exist here &mdash; park the orbit at yaw&nbsp;0 and the preview <i>is</i> the opening shot.</p>
+      </div>
+      <div class="card">
+        <p class="eyebrow">It also makes the orbit observable</p>
+        <p><code>ORBIT_DEGREES_PER_SECOND = 8.0</code> has never been seen by anyone, because the director has never been switched on (&sect;4). A menu is a safe place to find out whether 8&deg;/s reads as drift or as a fairground ride, with no turn waiting on the answer.</p>
+      </div>
+      <div class="card no">
+        <p class="eyebrow">Two things to get right</p>
+        <p>The preview&rsquo;s yaw must not leak into the battle. It ends wherever the player left it, and the opening framing has to be exactly yaw&nbsp;0 &mdash; so <code>_start_battle()</code> must set the angles explicitly, which &sect;7 says it should be doing regardless.</p>
+        <p>Rebuild on change, never per frame. Forest is 16&times;16 with columns several blocks deep, which is a few hundred meshes &mdash; a cost already paid once per battle, and a different bargain entirely if it is paid every frame on a menu.</p>
+      </div>
+    </div>
+
+    <div class="finding" style="margin-top:22px">
+      <p><b>One thing it will quietly expose.</b> The setup panel is a raw blue <code>PanelContainer</code> with a hand-rolled <code>StyleBoxFlat</code> &mdash; it predates <code>NoggTheme</code> and is the one screen not wearing the game&rsquo;s own chrome. Today it reads as a placeholder over an empty sky. Put a real battlefield behind it and the mismatch stops being ignorable. Worth knowing before the work, not after it.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><p class="eyebrow">&sect;9</p><h2>Still open</h2></div>
     <ul class="tight prose">
       <li><b>Does the board flip for player&nbsp;2?</b> Yaw&nbsp;0 is &ldquo;behind team&nbsp;1&rdquo;. In a hot-seat or PvP battle, either team&nbsp;2 plans from behind the enemy, or the resting yaw becomes 180&deg; on their turns &mdash; which is a quadrant, so it is legal, but it is a 180&deg; rotation between every turn.</li>
       <li><b>Does the establishing shot exist at all?</b> It is the one state in &sect;3 that is pure presentation. Cheapest version: open at the resting angle and skip it entirely.</li>
       <li><b>Does the camera follow the cursor, or does the cursor stay inside the camera?</b> &sect;3 assumes the second. The first is simpler and worse.</li>
       <li><b>Who owns the director switch?</b> A graphics-menu toggle is the obvious home, but a camera mode is not really a graphics setting.</li>
+      <li><b>Does the setup preview show the map, or the matchup?</b> &sect;8 argues for the matchup, which costs a rebuild every time a roster dropdown moves. The map-only version is cheaper and rebuilds far less often.</li>
       <li><b>Pitch during an orbit.</b> A drifting camera that also rose and fell slightly would read as alive rather than mechanical &mdash; and would be the first VFX-style layered oscillator applied to the camera. Also the easiest thing here to overdo.</li>
     </ul>
   </section>
