@@ -321,7 +321,27 @@ const WALL_RENDER_PRIORITY := 2
 ## the solid collar WALL_BOTTOM_STRENGTH exists to prevent. RING_TIP_BRIGHT is
 ## a blend weight (0 or 1 here) rather than a bool because uniform arrays in
 ## this shader are float only.
-const RING_OPACITY := [WALL_OPACITY, 0.32, 0.22]
+##
+## **The flares are switched off (2026-08-29, AURA2-F).** v1's verification
+## found they read as flat terraced plates at the battle camera's 55.8-degree
+## pitch; v2 kept them on the hypothesis that spin would rescue that. It does
+## not. Captured at six camera yaws half a face apart and at three points in
+## the timeline, they read as a segmented flat ring at every one -- which is
+## *closer* to an area marker than v1's continuous version was, because the
+## blade gaps make it look like a deliberately drawn circle. The core alone
+## reads as light rising around the caster, which is the statement.
+##
+## The cause is geometric, not a tuning miss: a surface leaning 40 or 62
+## degrees off the ground presents nearly face-on to a camera pitched 55.8
+## degrees down, so it projects as a plate however it is graded or dimmed.
+## Reviving the idea needs different geometry -- a much steeper lean, or a
+## different carrier entirely -- not a pass over these numbers.
+##
+## Restoring them is this one line: [WALL_OPACITY, 0.32, 0.22]. The geometry is
+## still built (the shader's uniform arrays are sized 3, and the ring identity
+## baked into vertex colour divides by RING_COUNT - 1), so this is the whole
+## switch and nothing downstream needs to change.
+const RING_OPACITY := [WALL_OPACITY, 0.0, 0.0]
 const RING_TIP_BRIGHT := [0.0, 1.0, 1.0]
 
 ## AUTHORED yellow-white grade from the reference's charged lower band.
