@@ -1,8 +1,13 @@
 # Effects
 
-One page per effect profile. What a given effect *does* — its layers, its
-constants, its timeline, the measurements behind its numbers, and the questions
-it left open — belongs here.
+One page per effect, with every version of that effect on it. What a given
+effect *does* — its layers, its constants, its timeline, the measurements
+behind its numbers, and the questions it left open — belongs here.
+
+Versions share a page rather than getting one each, because a new version is
+usually an argument with the old one: v2's decisions are answers to
+measurements v1 recorded, and splitting them puts the question and its answer
+in different files.
 
 [`../VFX_DESIGN.md`](../VFX_DESIGN.md) is the other half: the contract every
 effect implements, the conventions they are all authored under, the debug
@@ -17,11 +22,10 @@ to 35% of a document that calls itself conventions and authoring workflow.
 
 ## Pages
 
-| Page | Profile | Status |
+| Page | Profiles | Status |
 | --- | --- | --- |
 | [Generic spell-cast aura](./spell-cast-aura.md) | `spell_cast_aura` | The default carrier a spell falls back to when it names no other profile |
-| [Technique charge aura v1](./technique-charge-aura-v1.md) | `technique_charge_aura_v1` | Debug-only. Rises, bounces, settles into a quiet idle |
-| [Technique charge aura v2](./technique-charge-aura-v2.md) | `technique_charge_aura_v2` | Debug-only. Forked from v1: spins, churns, disperses outward |
+| [Technique charge aura](./technique-charge-aura.md) | `technique_charge_aura_v1`, `technique_charge_aura_v2` | Debug-only, both versions live. v1 rises and settles; v2 spins, churns and disperses |
 
 Effects with no page yet — Ice Storm, Fire Storm, Magenta Reduction, Ice Target
 Encasement, Aurora Veil, Solar Storm — are documented only by their code and
@@ -32,11 +36,16 @@ all at once.
 
 ## Writing one
 
-- **Name the file after the profile id**, hyphenated: `technique_charge_aura_v2`
-  becomes `technique-charge-aura-v2.md`. A reader who has the id from a catalog
-  row or a `--effect=` flag should be able to guess the filename.
-- **Open with the profile id and a one-line statement of what it is**, then link
-  back to `VFX_DESIGN.md` and to any sibling version.
+- **Name the file after the effect, with the version suffix dropped**:
+  `technique_charge_aura_v2` becomes `technique-charge-aura.md`. A reader who
+  has an id from a catalog row or a `--effect=` flag should be able to guess the
+  filename by stripping `_vN`.
+- **Open with what the effect is across all its versions**, a table of them, and
+  a link back to `VFX_DESIGN.md`. Then one `##` section per version, newest
+  last, so the page reads in the order the decisions were made.
+- **Give a version its own section even when it supersedes another.** Do not
+  delete the old one: the reason a constant changed is usually only legible
+  next to what it changed from.
 - **Prefer measured claims to descriptions.** "The mask carries alpha ~253 in
   its edge columns, so panels butt together with no margin" is worth writing
   down; "the mask has hard edges" is not. Numbers a future reader can re-derive

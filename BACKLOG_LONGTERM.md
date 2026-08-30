@@ -317,8 +317,8 @@ they do not yet read correctly. At the battle camera's pitch they present nearly
 face-on and look like flat terraced polygonal plates rather than light coming
 off the floor — the area-marker read this effect is otherwise shaped to avoid.
 The verification pass that found it is recorded under "the flares read as
-terraced plates at the battle pitch" in `docs/effects/technique-charge-aura-v1.md`,
-and resolved in `docs/effects/technique-charge-aura-v2.md`. Settle that before
+terraced plates at the battle pitch" in `docs/effects/technique-charge-aura.md`,
+and resolved under that page's v2 section. Settle that before
 the effect carries a real cast, or ship the telegraph with the core wall alone.
 
 ## v1 charge aura's live tunables are inert until a rebuild
