@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapGround.gd" id="1_ground"]
+[ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapCameraRig.gd" id="2_camera"]
+
+[node name="WorldMap" type="Node3D"]
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+cast_shadow = 0
+gi_mode = 0
+script = ExtResource("1_ground")
+
+[node name="Camera" type="Camera3D" parent="."]
+keep_aspect = 0
+fov = 25.0
+near = 0.5
+far = 4000.0
+script = ExtResource("2_camera")
