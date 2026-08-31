@@ -85,8 +85,11 @@ const SECTIONS := [
 		"rows": [
 			{"key": Uniforms.K_CLOUD_STRENGTH, "label": "Cloud shadow", "type": ROW_SLIDER,
 				"min": 0.0, "max": 0.6, "step": 0.01},
+			# Capped at 40 rather than 160: cloud_scale is world units per noise cell, so
+			# past roughly a third of the region's width the whole visible ground samples
+			# one cell and the control silently stops doing anything.
 			{"key": Uniforms.K_CLOUD_SCALE, "label": "Cloud scale", "type": ROW_SLIDER,
-				"min": 5.0, "max": 160.0, "step": 1.0},
+				"min": 2.0, "max": 40.0, "step": 0.5},
 			{"key": Uniforms.K_CLOUD_SPEED, "label": "Cloud speed", "type": ROW_SLIDER,
 				"min": 0.0, "max": 6.0, "step": 0.1},
 		],

@@ -48,7 +48,11 @@ uniform float curvature_k : hint_range(0.0, 0.02) = 0.0;
 // Cloud shadows. Off in the reference; present because the debug scene must be able to
 // explore them and because they are the cheapest thing that makes a static map feel alive.
 uniform float cloud_strength : hint_range(0.0, 0.6) = 0.0;
-uniform float cloud_scale = 40.0;
+// World units per noise cell. This is bounded above by the REGION size, not by taste:
+// `cloud_cover` needs several cells across the visible ground to read as cloud rather than
+// a flat tint, so a scale much past a third of the region's width does nothing at all.
+// Measured on the 48-tile region: usable to ~16, negligible by 40, exactly zero by 80.
+uniform float cloud_scale = 12.0;
 uniform float cloud_speed = 1.2;
 
 varying vec3 world_position;

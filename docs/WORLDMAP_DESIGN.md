@@ -124,6 +124,14 @@ feel alive. The noise is generated in the shader rather than sampled: no particu
 shape has been asked for, and a texture would be one more asset to keep in step with the
 region art.
 
+`cloud_scale` is **world units per noise cell, and is bounded above by the region size**,
+not by taste. The cover function needs several cells across the visible ground to read as
+cloud rather than as a flat tint, so past roughly a third of the region's width it does
+nothing at all. Measured on the 48-tile region: usable to ~16, negligible by 40, and
+exactly zero by 80. The default is 12. This is a real trap when porting numbers from the
+HTML explorer, whose noise used a different coordinate convention -- a value of 40 came
+across and silently did nothing.
+
 ### Filtering, and why the sparkle is kept
 
 On this project the pixel noise and optical artefacts are wanted. The question is not how
@@ -182,14 +190,44 @@ The split of responsibility:
 
 Yaw is absent from the framing keys on purpose. It is pinned to 0 and is not a choice.
 
-## 6. Open
+## 6. Validated
 
+Checked against the running game with frames read back from a `SubViewport`, so each of
+these is a pixel test rather than the arithmetic that produced it:
+
+- Every one of the seven presets renders; none produces a flat frame.
+- Haze, curvature and cloud shadows each change the frame independently, and no
+  `WorldEnvironment` is involved anywhere.
+- The `fit` preset shows no void panning to all four region corners and the centre. The
+  negative control passes too: `tile_exact` shows ~17k void pixels on the same region, as
+  the region-size constraint predicts, so the test is capable of failing.
+- Region `temp` loads by id and its declared 48x64 tiles match its 768x1024 texture.
+- The debug scene's dropdown and `--preset=` produce identical readouts for all seven.
+- The ground material's transfer function is **exact**: five swatches, saturated green and
+  blue among them, render back at precisely their source values with fog off. There is no
+  colour-space error in the rig.
+
+`WorldMapCameraRig`'s framing maths reproduces the HTML explorer independently -- 53.26
+tiles across, 7.21 buffer px per tile, ratio 2.906, 155 tiles of region needed -- so two
+implementations of the same trigonometry agree.
+
+## 7. Open
+
+- **The fog band is heavier than the reference, and this is a judgement call rather than a
+  defect.** Every preset sets `fog_start` at roughly the frame's near depth, so haze begins
+  at the bottom edge of the screen and grows across the whole visible range. That is
+  faithful to the HTML explorer, but the explorer's fog was itself eyeballed off a
+  photographed CRT, and rendering the same framing with fog disabled shows art far closer
+  to the reference's saturation. The material is exact, so this is purely a question of
+  where the band sits. Suggested starting point: push `fog_start` out to roughly the
+  midpoint of the visible depth range rather than its near edge, leaving the near half of
+  the frame clean. The debug scene is the place to settle it.
 - The region id `temp` is a placeholder. Naming it is a lore question.
 - Whether the camera eases between a close travelling framing and a pulled-back planning
   one by context, rather than sitting at one height, is unresolved. If travel time is a
-  resource the player needs a view that shows where the roads go, and the reference
-  framing is not that view.
+  resource the player needs a view that shows where the roads go, and the reference framing
+  is not that view.
 - Whether region art will be produced at the ~155-tile width the reference framing needs,
-  or whether the camera commits to something closer. This is a real design choice, not
-  only a texture budget: it changes how much of the world the player can weigh at once
-  when deciding where to spend travel time.
+  or whether the camera commits to something closer. This is a real design choice, not only
+  a texture budget: it changes how much of the world the player can weigh at once when
+  deciding where to spend travel time.
