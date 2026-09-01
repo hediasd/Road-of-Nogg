@@ -7,10 +7,6 @@
 // would stop reading as a reflection, which is the motif the reference leans on
 // hardest. See §4 of docs/VFX_DESIGN.md for the fork-vs-fresh decision.
 //
-// Depth is written never but still tested, which is deliberate: bodies standing
-// in front of the panel occlude it, reproducing the reference's composition of
-// a dark silhouette in front of the aura.
-//
 // Every value is a pure function of `playback_time` and position. Nothing
 // integrates across frames, which is what lets AuroraVeilEffect report exact
 // normalized seek and lets the debug harness scrub in either direction. The

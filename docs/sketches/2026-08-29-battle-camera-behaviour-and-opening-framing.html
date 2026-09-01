@@ -519,8 +519,8 @@
         <tbody>
           <tr><td class="state">World, camera, sky, lighting</td><td>Built in <code>_ready()</code>, before setup shows</td><td>Nothing</td></tr>
           <tr><td class="state">The dim behind the menu</td><td>Alpha 0.82 &mdash; 18% of the world passes through</td><td>Down to roughly 0.55, or replaced by a vignette so the panel stays readable while the board shows at the corners</td></tr>
-          <tr><td class="state">Terrain meshes</td><td>Built in <code>_on_battle_started()</code>, driven by the <code>battle_started</code> event</td><td>Extract the column loop into a <code>build_terrain(board_size)</code> that the event handler calls. Then a preview can build a board with no running simulation.</td></tr>
-          <tr><td class="state">A board to build from</td><td><code>BattleSimulator.new()</code> plus <code>loadMap()</code> already yields a <code>BattleState</code> with heights and terrain and no monsters</td><td>A throwaway simulator owned by the preview, disposed on confirm</td></tr>
+          <tr><td class="state">Terrain and models</td><td>Built in <code>_on_battle_started()</code> and <code>_on_monster_spawned()</code>, driven by events</td><td><b>Nothing.</b> <code>BattleSimulator.startBattle()</code> only snapshots initial state and emits <code>battle_started</code> &mdash; it starts no round, turn or timer. Build the real simulator, call <code>startBattle()</code>, never call <code>turnManager.startNewRound()</code>, and the board and both rosters appear with no new build path at all. <i>Corrected after this section was first written, which assumed a terrain-only path would have to be extracted.</i></td></tr>
+          <tr><td class="state">A board to build from</td><td><code>BattleSetupFactory.createSimulator()</code> already consumes exactly what the setup screen holds &mdash; map, both rosters, deployment slots</td><td>A throwaway simulator and adapter owned by the preview, disposed on confirm</td></tr>
           <tr><td class="state">Reacting to the dropdown</td><td><code>map_option</code> has no <code>item_selected</code> connection &mdash; the map is read once, at confirm</td><td>One connection, rebuilding the preview</td></tr>
           <tr><td class="state">The orbit itself</td><td><code>orbitBy()</code> exists, works, and has never been seen</td><td>Nothing</td></tr>
           <tr><td class="state">Preview lifetime</td><td><code>_show_setup()</code> disposes the adapter and nulls <code>sim</code></td><td>The preview owns its own adapter and simulator, separate from the battle&rsquo;s</td></tr>
@@ -531,7 +531,7 @@
     <div class="cards" style="margin-top:24px">
       <div class="card pick">
         <p class="eyebrow">The strong version</p>
-        <p>Build the preview from the <i>live config</i>, not from the map alone. The setup screen already knows both rosters and the map&rsquo;s deployment slots &mdash; which is exactly what <code>BattleSetupFactory.createSimulator()</code> consumes. Then you watch the actual matchup assemble as you change the dropdowns, and Confirm becomes &ldquo;keep this one&rdquo;. The cost is a rebuild per roster change rather than per map change.</p>
+        <p>Build the preview from the <i>live config</i>, not from the map alone &mdash; which turns out to be the <i>cheaper</i> version, not the more expensive one, since it needs no new build path. The setup screen already knows both rosters and the map&rsquo;s deployment slots &mdash; which is exactly what <code>BattleSetupFactory.createSimulator()</code> consumes. Then you watch the actual matchup assemble as you change the dropdowns, and Confirm becomes &ldquo;keep this one&rdquo;. The cost is a rebuild per roster change rather than per map change.</p>
       </div>
       <div class="card">
         <p class="eyebrow">Why it belongs before the angle is chosen</p>

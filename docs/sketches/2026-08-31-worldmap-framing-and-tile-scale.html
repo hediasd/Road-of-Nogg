@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>World map framing explorer</title>
+<style>
+  :root{
+    --bg:#12141a; --panel:#1b1e27; --edge:#2b3040; --ink:#dfe4ee;
+    --dim:#8a93a8; --accent:#7fd3a8; --warn:#e8b166;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:13px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:22px 26px 14px;max-width:1500px;margin:0 auto}
+  h1{font-size:19px;margin:0 0 10px;letter-spacing:.2px}
+  .lede{max-width:74ch;color:var(--dim);margin:0 0 4px}
+  .lede b{color:var(--ink);font-weight:600}
+  .verdict{max-width:74ch;margin:12px 0 0;padding:9px 12px;border-left:3px solid var(--warn);
+           background:#221d15;color:#e3d3bb;border-radius:0 4px 4px 0}
+  main{display:flex;gap:18px;align-items:flex-start;padding:8px 26px 40px;
+       max-width:1500px;margin:0 auto;flex-wrap:wrap}
+  .stage{flex:1 1 700px;min-width:520px}
+  canvas{display:block;width:100%;max-width:960px;background:#000;border:1px solid var(--edge);
+         border-radius:5px;cursor:grab;image-rendering:pixelated}
+  canvas.drag{cursor:grabbing}
+  .hint{color:var(--dim);margin:8px 0 0;font-size:12px}
+  .panel{flex:0 0 336px;background:var(--panel);border:1px solid var(--edge);
+         border-radius:6px;padding:14px 15px}
+  .grp{margin:0 0 15px}
+  .grp:last-child{margin-bottom:0}
+  .grp>h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);
+          margin:0 0 9px;font-weight:700}
+  .row{display:flex;align-items:center;gap:9px;margin:0 0 7px}
+  .row label{flex:0 0 118px;color:var(--dim);font-size:12px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+  .row .val{flex:0 0 54px;text-align:right;font-variant-numeric:tabular-nums;
+            font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+  .row select,.row input[type=color]{flex:1;background:#0e1016;color:var(--ink);
+            border:1px solid var(--edge);border-radius:4px;padding:3px 5px;font-size:12px}
+  .row input[type=color]{padding:1px;height:24px}
+  .chk{display:flex;align-items:center;gap:7px;margin:0 0 6px;color:var(--dim);font-size:12px}
+  .chk input{accent-color:var(--accent)}
+  button{background:#242938;color:var(--ink);border:1px solid var(--edge);border-radius:4px;
+         padding:5px 9px;font-size:12px;cursor:pointer;margin:3px 4px 0 0}
+  button:hover{background:#2e3446;border-color:#414965}
+  .readout{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--dim);
+           background:#0e1016;border:1px solid var(--edge);border-radius:4px;padding:8px 9px;
+           white-space:pre;overflow-x:auto;line-height:1.6}
+  .notes{max-width:1500px;margin:0 auto;padding:0 26px 60px}
+  .notes h2{font-size:14px;margin:26px 0 8px;color:var(--accent)}
+  .notes p,.notes li{max-width:80ch;color:#b6bdcd}
+  .notes code{background:#0e1016;border:1px solid var(--edge);border-radius:3px;
+              padding:1px 4px;font-size:12px}
+  .drop{outline:2px dashed var(--accent);outline-offset:-6px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>World map framing explorer</h1>
+  <p class="lede">
+    What is being decided: the camera and fog numbers for the out-of-battle world map — a painted
+    region PNG laid on a ground plane in the same <code>Node3D</code> world the battle uses, viewed
+    from above at a fixed yaw, the far distance washing out into haze. Specifically <b>pitch,
+    vertical FOV, camera height, fog band, ground curvature, world-units-per-map-pixel</b>, and the
+    one that decides an art spec rather than a camera setting: <b>whether the region PNG is drawn
+    plain top-down or pre-stretched vertically</b> to survive the perspective squash. It also
+    carries the render-scale and filtering comparison, on the understanding that on this project
+    the sparkle and pixel noise are part of the look rather than a defect to remove.
+  </p>
+  <p class="verdict"><b>Settled.</b> The clean console capture has <b>no horizon</b> — the map
+    runs off the top of the frame and the fog is a mild distance wash that never completes on
+    screen — which ruled out every framing with a fogged horizon line and put pitch well above
+    <code>fov/2</code>. <b>Pitch 60 / FOV 25</b> follows from the reference's ~3:1 near-to-far
+    depth ratio. Scale came from counting 16 px tiles rather than judging: ~53 across the bottom
+    edge at ~7.5 buffer px each, the ground minified ~2.1×. Pre-stretching the art was rejected
+    (only 1.15× at this pitch). Sprites are drawn at fixed screen size, not billboarded.
+    These numbers were then ported to GDScript in <code>WorldMapCameraRig</code> and reproduce
+    this page independently — 53.26 tiles, 7.21 px/tile, ratio 2.906, 155 tiles of region
+    needed — so two implementations agree. The largest thing this page found is not a camera
+    number at all: <b>a region must be <code>tiles_across × ratio</code> wide</b>, so the
+    reference framing needs a ~155-tile region and the 48-tile map supplied here can only fill
+    ~16 tiles across.</p>
+</header>
+
+<main>
+  <div class="stage">
+    <canvas id="cv" width="960" height="540"></canvas>
+    <p class="hint">
+      Drag to pan the camera. <b>Load your own region PNG</b> — the built-in map is a schematic
+      placeholder, not art, and judging fog or scale against it will mislead you. The file is read
+      locally in the browser and never leaves this machine.
+      <input type="file" id="file" accept="image/*" style="margin-left:6px">
+    </p>
+  </div>
+
+  <div class="panel">
+    <div class="grp">
+      <h2>Presets</h2>
+      <div id="presetButtons"></div>
+      <p style="margin:7px 0 0;color:var(--dim);font-size:11.5px" id="presetNote"></p>
+    </div>
+
+    <div class="grp">
+      <h2>Camera</h2>
+      <div class="row"><label>Pitch (deg)</label><input type="range" id="pitch" min="2" max="70" step="0.5"><span class="val" id="pitch_v"></span></div>
+      <div class="row"><label>Vertical FOV</label><input type="range" id="fov" min="20" max="110" step="0.5"><span class="val" id="fov_v"></span></div>
+      <div class="row"><label>Height (tiles)</label><input type="range" id="height" min="2" max="220" step="0.5"><span class="val" id="height_v"></span></div>
+      <div class="chk"><input type="checkbox" id="drift"><label for="drift">Drift forward (judge shimmer in motion)</label></div>
+    </div>
+
+    <div class="grp">
+      <h2>Ground</h2>
+      <div class="row"><label>Units / map px</label><input type="range" id="wpt" min="0.02" max="0.5" step="0.005"><span class="val" id="wpt_v"></span></div>
+      <div class="row"><label>Vert. pre-stretch</label><input type="range" id="vstretch" min="0.5" max="4" step="0.01"><span class="val" id="vstretch_v"></span></div>
+      <div class="row"><label>Curvature k</label><input type="range" id="curve" min="0" max="0.02" step="0.0001"><span class="val" id="curve_v"></span></div>
+      <button id="fitStretch">Pre-stretch = 1 / sin(pitch)</button>
+      <button id="recenter">Recentre</button>
+    </div>
+
+    <div class="grp">
+      <h2>Fog &amp; sky</h2>
+      <div class="row"><label>Fog start</label><input type="range" id="fogStart" min="0" max="300" step="1"><span class="val" id="fogStart_v"></span></div>
+      <div class="row"><label>Fog end</label><input type="range" id="fogEnd" min="5" max="500" step="1"><span class="val" id="fogEnd_v"></span></div>
+      <div class="row"><label>Fog curve</label><input type="range" id="fogPow" min="0.4" max="4" step="0.05"><span class="val" id="fogPow_v"></span></div>
+      <div class="row"><label>Fog colour</label><input type="color" id="fogColor"></div>
+      <div class="row"><label>Sky top</label><input type="color" id="skyTop"></div>
+      <div class="row"><label>Off-map void</label><input type="color" id="voidColor"></div>
+      <div class="chk"><input type="checkbox" id="showSky"><label for="showSky">Draw sky above horizon</label></div>
+    </div>
+
+    <div class="grp">
+      <h2>Texture filtering</h2>
+      <div class="row"><label>Mode</label>
+        <select id="filter">
+          <option value="nearest">Nearest (crisp, shimmers)</option>
+          <option value="trilinear">Trilinear mip (stable, blurry)</option>
+          <option value="aniso">Anisotropic (crisp + stable)</option>
+        </select></div>
+      <div class="row"><label>Max aniso</label><input type="range" id="maxAniso" min="1" max="16" step="1"><span class="val" id="maxAniso_v"></span></div>
+      <div class="row"><label>Render scale</label>
+        <select id="renderScale">
+          <option value="1">1.00 — native (960 wide)</option>
+          <option value="0.667">0.67 — 640 wide</option>
+          <option value="0.5">0.50 — 480 wide</option>
+          <option value="0.4">0.40 — 384 wide, reference tile density</option>
+          <option value="0.333">0.33 — 320 wide</option>
+        </select></div>
+    </div>
+
+    <div class="grp">
+      <h2>Life</h2>
+      <div class="chk"><input type="checkbox" id="clouds"><label for="clouds">Cloud shadows</label></div>
+      <div class="row"><label>Strength</label><input type="range" id="cloudStrength" min="0" max="0.6" step="0.01"><span class="val" id="cloudStrength_v"></span></div>
+      <div class="row"><label>Scale</label><input type="range" id="cloudScale" min="5" max="120" step="1"><span class="val" id="cloudScale_v"></span></div>
+      <div class="row"><label>Speed</label><input type="range" id="cloudSpeed" min="0" max="6" step="0.1"><span class="val" id="cloudSpeed_v"></span></div>
+      <div class="chk"><input type="checkbox" id="marker"><label for="marker">Party marker + blob shadow</label></div>
+      <div class="row"><label>Sprite</label>
+        <select id="spriteMode">
+          <option value="fixed">Fixed screen size (reference)</option>
+          <option value="world">World-space billboard</option>
+        </select></div>
+      <div class="row"><label>Sprite px</label><input type="range" id="spritePx" min="8" max="48" step="1"><span class="val" id="spritePx_v"></span></div>
+      <div class="row"><label>World height</label><input type="range" id="partyH" min="0.5" max="20" step="0.1"><span class="val" id="partyH_v"></span></div>
+      <div class="chk"><input type="checkbox" id="tileGrid"><label for="tileGrid">16 px tile grid (count the tiles)</label></div>
+    </div>
+
+    <div class="grp">
+      <h2>Reference overlay</h2>
+      <p style="margin:0 0 8px;color:var(--dim);font-size:11.5px">Load the console screenshot being
+        matched. It draws over the render, so the horizon, the fog band and the sprite scale line up
+        directly instead of being argued about.</p>
+      <input type="file" id="reffile" accept="image/*" style="width:100%;font-size:11px">
+      <div class="row" style="margin-top:8px"><label>Opacity</label><input type="range" id="refOpacity" min="0" max="1" step="0.01"><span class="val" id="refOpacity_v"></span></div>
+      <div class="row"><label>Crop bars %</label><input type="range" id="refCrop" min="0" max="25" step="0.5"><span class="val" id="refCrop_v"></span></div>
+      <div class="chk"><input type="checkbox" id="guides"><label for="guides">Horizon guide line</label></div>
+    </div>
+
+    <div class="grp">
+      <h2>Readout</h2>
+      <div class="readout" id="readout"></div>
+      <button id="copy">Copy settings</button>
+      <button id="reset">Reset</button>
+    </div>
+  </div>
+</main>
+
+<div class="notes">
+  <h2>What the knobs mean in Godot terms</h2>
+  <ul>
+    <li><b>Pitch</b> → <code>Camera3D.rotation_degrees.x = -pitch</code>, yaw fixed at 0. Yaw is
+      deliberately not a knob: a painted map has one baked light direction and upright icons, so
+      rotating it breaks both, and a fixed yaw is what lets roads and cities be composited into the
+      PNG instead of being separate meshes.</li>
+    <li><b>Vertical FOV</b> → <code>Camera3D.fov</code> (vertical, since <code>keep_aspect</code>
+      defaults to <code>KEEP_HEIGHT</code>). Pitch and FOV are not independent here, and the
+      constraint is the first thing to internalise: <b>the horizon is only on screen when
+      pitch &lt; fov/2.</b> The reference is comfortably on the other side of that line — no
+      horizon, no sky, the map simply leaves the top of the frame — so the first decision is not
+      "where does the horizon sit" but "is there one at all", and the reference says no.
+      Given that, the number that describes the look is the <b>near-to-far depth ratio</b>
+      across the frame, which is what sets how strongly the world converges; the readout reports
+      the bottom-of-screen ray angle (<code>pitch + fov/2</code>) alongside it. Pitch alone tells
+      you nothing, and neither does FOV alone — they trade against each other at constant ratio.</li>
+    <li><b>Curvature k</b> → the ground is <code>y = -k·d²</code> where <code>d</code> is forward
+      distance. A vertex shader on a subdivided <code>PlaneMesh</code>. At <code>k = 0</code> the
+      plane is flat and the horizon sits where the maths puts it; raising <code>k</code> pulls the
+      horizon nearer and makes the world fall away like a globe. Note it changes the fog band you
+      need, because the far ground stops existing sooner.</li>
+    <li><b>Fog</b> → do this in the same custom shader as everything else. Godot's environment fog
+      is skipped by unshaded materials, so trying to drive this from
+      <code>WorldEnvironment</code> will fight you and will also couple the map's fog to whatever
+      environment the battle scene wants.</li>
+    <li><b>Off-map void</b> shows where the PNG ends. Whatever colour you pick, the goal is to tune
+      fog so the void is never visible — that is the measurement this sketch exists to produce, and
+      it converts directly into how much margin the art needs past the playable area.</li>
+  </ul>
+
+  <h2>The pre-stretch decision</h2>
+  <p>A map drawn plain top-down (like a paper map) gets vertically compressed by the pitch — a
+    circular lake reads as an ellipse only <code>sin(pitch)</code> as tall as it is wide in the
+    near field, and flatter than that toward the horizon. Two honest answers. <b>Accept it</b> —
+    this is what the console reference does, and it reads fine because the eye reads the squash as
+    ground rather than as distortion. <b>Or pre-stretch</b> the PNG vertically by
+    <code>1 / sin(pitch)</code> so near-field shapes read round.</p>
+  <p><b>Decided: accept the squash.</b> The steep reference pitch is what settles it. At 60°
+    the compensating stretch is only <b>1.15×</b> — small enough that pre-stretching buys almost
+    nothing while still locking the art to one pitch forever and costing a non-square source
+    texture. It is worth knowing the earlier shallow framings were a different story: at 22° the
+    compensation is 2.67×, so a 2048 px wide region would have needed a 5500 px tall source. That
+    framing is gone, and the argument for pre-stretching went with it. Still tell whoever draws the
+    map that vertical distances compress by ~13%, so anything that must read as a specific shape (a
+    circular lake, a city footprint) is worth checking here before the art is finished. The button
+    and the wide slider remain so the alternative can be seen rather than argued about.</p>
+
+  <h2>The filtering decision</h2>
+  <p><b>Read this before reaching for the filter dropdown.</b> On this project the pixel noise, the
+    sparkle and the optical artefacts are <i>wanted</i> — they are the texture of the genre, not
+    defects to be engineered away. So the question is not "how do we stop the shimmer", it is
+    <b>"how do we render so the shimmer reads as texture rather than as a bug"</b>, and the answer
+    to that is mostly <b>render scale</b>, not filtering. A low internal buffer makes aliasing
+    coherent and chunky; a native buffer with nearest makes it fine-grained and twitchy, which is
+    the version that reads as broken. The default here is 0.50 for that reason.</p>
+  <p>The mechanism, for when you do want to reason about it: each screen row of this rig is a
+    constant world depth, so the horizontal and vertical texel footprints differ enormously — that
+    difference <i>is</i> the anisotropy, and it is why a plain mip chain looks like mud here while
+    nearest looks like static. Turn on <b>Drift forward</b> before judging any of it; a still frame
+    will not show you sparkle at all. The <b>Same framing, filtered</b> preset is there to show
+    what the clean version costs you, as a comparison rather than a recommendation.</p>
+  <p><b>Measured while building this, and it changes the priority:</b> the three filter modes
+    produce <i>identical</i> output across the near two-thirds of the frame, because at any sane
+    units-per-map-pixel the near ground is <b>magnified</b> — one map pixel covers several screen
+    pixels — and magnification has no mip level to choose. They only diverge in a band in the
+    mid-distance where the texture starts minifying. With the default fog band that whole band is
+    already 50–90% fog, so the fog is doing most of the anti-aliasing and the filter setting is a
+    much smaller decision than it looks. The readout line to trust is <code>worst visible</code>:
+    if it stays at or below 1 texel/px, the ground is magnified everywhere you can actually see and
+    nearest is correct — keep the crisp pixels. Push the fog out and it climbs immediately, which
+    is the real reason to keep the fog band tight.</p>
+
+  <h2>Tiles, sprites, and the thing that decides the zoom</h2>
+  <p>The map is 16×16 tiles and so are the sprites, and that pins the scale far better than any
+    amount of eyeballing the camera. In the reference — a 256×224 frame — a 16 px tile lands at
+    about <b>7.5 frame pixels</b> at the bottom of the screen. The ground is <b>minified roughly
+    2×</b> even at its nearest point, which puts ~34 tiles across the bottom edge. This canvas is
+    16:9 rather than 8:7, so the equivalent framing is <b>~53 tiles</b>; turn on the tile grid and
+    count them. Getting this wrong by 3× is the difference between "a world map" and "standing in
+    a field", and it is invisible until you count.</p>
+  <p>Two consequences worth stating separately, because they are different decisions:</p>
+  <ul>
+    <li><b>Framing</b> is <i>tiles across the frame</i>. It is set by camera height against
+      units-per-map-pixel, and it is resolution-independent.</li>
+    <li><b>Pixel density</b> is <i>buffer pixels per tile</i>. It is set by render scale alone. The
+      reference's 7.5 needs a ~384-wide buffer at this framing; a native 960-wide buffer gives 18
+      and the ground stops being minified at all, which loses the sparkle along with the look.
+      This is the concrete reason render scale, not filtering, is the lever.</li>
+  </ul>
+  <p><b>Sprites do not shrink with distance in the reference</b> — units at the top of the frame
+    are no smaller than those at the bottom, and all of them are drawn far larger than a ground
+    tile at the same depth. They are blitted at native pixel size, not billboarded in world space.
+    The sprite mode toggle shows both; <code>fixed</code> is the reference behaviour and
+    <code>world</code> is the naive 3D answer, which shrinks the far party to a third of the near
+    one. Worth deciding early: fixed screen size keeps the party readable and retro-correct, but it
+    means the party is not really "in" the scene, and anything that must sit convincingly on the
+    ground — a shadow, a road highlight touching its feet — has to be positioned in world space
+    even though the sprite is not.</p>
+
+  <h2>Not modelled here</h2>
+  <p>Roads as <code>Curve3D</code> paths, the node graph and its travel costs, encounter markers,
+    route preview, the menu overlay, and the heavy cloud layer that later hides unexplored regions.
+    Those are gameplay and data questions; this file only settles what the camera and the ground
+    material have to be.</p>
+</div>
+
+<script>
+"use strict";
+const RAD = Math.PI / 180;
+
+/* ---------------------------------------------------------------- state */
+/* Seeded to the clean console capture. The single most important thing that capture settles:
+   THERE IS NO HORIZON. The map runs off the top of the frame and the fog never completes on
+   screen - it is a mild distance wash, not a wall. So pitch is well above fov/2 and the sky
+   never draws.
+
+   Derived rather than guessed: in the reference, tree sprites are ~22 px tall at the bottom
+   of the frame and ~7 px near the top, so the far/near depth ratio is ~3:1. Solving
+     R = (u.sin+cos)(sin+u.cos) / ((cos-u.sin)(sin-u.cos)),  u = tan(fov/2)
+   for R = 3 gives pitch 60 / fov 25. Height and units-per-map-pixel then follow from sprite
+   height (~28 px at mid-frame) and visible texel size (~2.5 screen px at the bottom). */
+/* Scale is fixed by the tile grid, not guessed. The map is 16x16 tiles and so are the
+   sprites. In the reference (a 256x224 frame) a 16 px tile renders at ~7.5 frame px at the
+   bottom of the screen - the ground is MINIFIED about 2x - which puts ~34 tiles across the
+   bottom edge. This canvas is 16:9 rather than the reference's 8:7, so at the same vertical
+   FOV it shows ~1.56x more width: ~53 tiles across. Use the tile grid overlay to count.
+
+   World scale is chosen so 1 tile = 1 world unit (wpt = 1/16), which makes every other
+   number readable: camera height 66 = 66 tiles up, fog 21..116 = tiles of depth. */
+const REFERENCE = {
+  pitch: 60, fov: 25, height: 66, curve: 0,
+  wpt: 0.0625, vStretch: 1.0,
+  fogStart: 21, fogEnd: 116, fogPow: 1.4,
+  fogColor: "#cfe9f5", skyTop: "#8fc3dd", voidColor: "#000000", showSky: true,
+  filter: "nearest", maxAniso: 8, renderScale: 0.4,
+  clouds: false, cloudStrength: 0.28, cloudScale: 40, cloudSpeed: 1.2,
+  marker: true, partyH: 4.8, spriteMode: "fixed", spritePx: 16, drift: false,
+  refOpacity: 0.5, refCrop: 0, guides: false, tileGrid: false
+};
+/* ------------------------------------------------------------------ presets
+
+   Camera height is the zoom knob: at 1 tile = 1 world unit, tiles-across scales linearly
+   with height, so every entry below is the reference geometry (pitch 60 / fov 25, the ~3:1
+   near-far ratio) re-flown at a different altitude. Fog scales with height too, or the wash
+   lands in the wrong place. The loaded region is 48 x 64 tiles, so anything much above ~46
+   tiles across shows the plane edge at the sides - which is faithful to the source, but
+   worth knowing you are looking at.                                                        */
+/* The loaded region is 48 tiles wide. With a 2.89:1 near-far ratio the frame's far edge is
+   2.89x wider than its near edge, so the widest framing this map can fill is 48/2.89 = ~16
+   tiles across - roughly a third of the reference's 53. This preset is that limit. */
+const FIT_PRESET = { height: 20, fogStart: 6, fogEnd: 35, renderScale: 0.4 };
+
+const PRESETS = [
+  { id: "fit", label: "0 — Fits this region", height: 20, fogStart: 6, fogEnd: 35,
+    renderScale: 0.4,
+    note: "Not a reference match — the widest framing temp_map.png can actually fill. " +
+          "At 48 tiles wide it supports ~16 tiles across the bottom, about a third of the " +
+          "reference's 53, because the frame's far edge is 2.89x wider than its near edge. " +
+          "Everything below is the framing you want; this is the framing this art allows." },
+  { id: "ogre", label: "A — Tile-exact", height: 66, fogStart: 21, fogEnd: 116,
+    renderScale: 0.4,
+    note: "Derived from the 16 px tile grid in the sharpest capture: ~53 tiles across, 7.5 " +
+          "buffer px per tile, ground minified ~2.1x. The most defensible of these — every " +
+          "number is a count rather than a judgement. Region is narrower than this view, so " +
+          "the map edge shows at the sides." },
+  { id: "fight", label: "B — Closer capture", height: 45, fogStart: 14, fogEnd: 79,
+    renderScale: 0.4,
+    note: "Matches the 512x448 'FIGHT IT OUT' capture, where tiles land at ~11 source px " +
+          "rather than 7.5 — about 1.5x more zoomed in than A. Fills this region's width " +
+          "properly. Reads as a place rather than a theatre; probably the travelling view." },
+  { id: "crt", label: "C — CRT photo", height: 56, fogStart: 12, fogEnd: 74, fogPow: 1.1,
+    fogColor: "#d8ecf2", renderScale: 0.333,
+    note: "The photographed CRT shot: between A and B in zoom, but with a much heavier and " +
+          "earlier haze, and a coarser buffer. Some of that wash is the CRT rather than the " +
+          "game — treat the fog here as an upper bound, not a target." },
+  { id: "overview", label: "D — Route planning", height: 105, fogStart: 34, fogEnd: 185,
+    renderScale: 0.4,
+    note: "Beyond any of the sources: pulled back far enough to see a whole region at once. " +
+          "Not a reference match — included because if travel time is a resource the player " +
+          "needs a view that shows where the roads go. Note the tile sparkle gets worse." },
+  { id: "walk", label: "E — Walking", height: 30, fogStart: 10, fogEnd: 53,
+    renderScale: 0.4,
+    note: "Tighter than any source. Individual tiles are large and the party dominates. " +
+          "Good for the moment a road is being walked, bad for deciding where to go — " +
+          "which is the argument for the camera easing between E and D by context." },
+  { id: "filtered", label: "F — A, filtered", height: 66, fogStart: 21, fogEnd: 116,
+    renderScale: 1, filter: "aniso", clouds: true,
+    note: "Preset A at native resolution with anisotropic filtering and cloud shadows on. " +
+          "Kept as the comparison that shows what the clean version costs: the ground stops " +
+          "being minified, the sparkle disappears, and it stops looking like the reference." }
+];
+const DEFAULTS = REFERENCE;
+const K = Object.assign({}, DEFAULTS);
+let refImg = null;
+let camX = 0, camZ = 0;
+
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d", { alpha: false });
+const buf = document.createElement("canvas");
+const bctx = buf.getContext("2d", { alpha: false });
+let img = null;                       // ImageData holder for the render buffer
+let mips = null;                      // texture mip pyramid
+let mapW = 0, mapH = 0;               // level-0 texture size
+
+/* ------------------------------------------------------- placeholder map */
+/* Deliberately schematic. It exists so the rig has something with edges and a
+   road to alias against; it is not art and must not be used to judge colour,
+   fog tint, or how busy the real map will look. */
+function placeholderMap(w, h) {
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  g.fillStyle = "#2f56c8"; g.fillRect(0, 0, w, h);
+  g.fillStyle = "#4b78e0";
+  for (let y = 0; y < h; y += 8) for (let x = (y / 8 % 2) * 8; x < w; x += 16) g.fillRect(x, y, 8, 4);
+
+  // landmass
+  g.fillStyle = "#37a63f";
+  g.beginPath();
+  const cx = w * 0.5, cy = h * 0.5, R = Math.min(w, h) * 0.36;
+  for (let a = 0; a <= 360; a += 6) {
+    const r = R * (1 + 0.22 * Math.sin(a * 2.1 * RAD) + 0.13 * Math.sin(a * 5.3 * RAD + 1.1));
+    const x = cx + Math.cos(a * RAD) * r, y = cy + Math.sin(a * RAD) * r * 0.92;
+    a ? g.lineTo(x, y) : g.moveTo(x, y);
+  }
+  g.closePath(); g.fill();
+  g.strokeStyle = "#7fd8ff"; g.lineWidth = Math.max(2, w / 320); g.stroke();
+
+  // mountains
+  g.fillStyle = "#b09a63";
+  for (const [mx, my, mr] of [[0.42, 0.30, 0.10], [0.60, 0.36, 0.08], [0.55, 0.62, 0.09]]) {
+    g.beginPath(); g.ellipse(w * mx, h * my, w * mr, h * mr * 0.6, 0, 0, 7); g.fill();
+  }
+
+  // river
+  g.strokeStyle = "#4f8ae8"; g.lineWidth = Math.max(3, w / 190); g.lineCap = "round";
+  g.beginPath(); g.moveTo(w * 0.50, h * 0.22);
+  g.bezierCurveTo(w * 0.56, h * 0.42, w * 0.40, h * 0.56, w * 0.44, h * 0.72);
+  g.bezierCurveTo(w * 0.46, h * 0.84, w * 0.36, h * 0.88, w * 0.30, h * 0.95);
+  g.stroke();
+
+  // road
+  g.strokeStyle = "#efe6b8"; g.lineWidth = Math.max(2, w / 300); g.lineCap = "round";
+  g.beginPath(); g.moveTo(w * 0.24, h * 0.30);
+  g.bezierCurveTo(w * 0.42, h * 0.24, w * 0.46, h * 0.52, w * 0.62, h * 0.50);
+  g.bezierCurveTo(w * 0.76, h * 0.49, w * 0.70, h * 0.74, w * 0.50, h * 0.78);
+  g.stroke();
+
+  // settlements
+  g.fillStyle = "#e8e8ec"; g.strokeStyle = "#2a2a33"; g.lineWidth = Math.max(1, w / 640);
+  for (const [nx, ny] of [[0.24, 0.30], [0.62, 0.50], [0.50, 0.78], [0.74, 0.22]]) {
+    const s = w * 0.026;
+    g.fillRect(w * nx - s / 2, h * ny - s / 2, s, s);
+    g.strokeRect(w * nx - s / 2, h * ny - s / 2, s, s);
+  }
+  /* Scattered trees at constant texture size, and a fine dither over the land. These are what
+     make convergence, haze and sparkle legible: a flat colour field shows none of the three,
+     which is why the map underneath must never be judged as a flat colour field either. */
+  const id = g.getImageData(0, 0, w, h), px = id.data;
+  const isLand = (x, y) => { const i = (y * w + x) * 4; return px[i + 1] > px[i + 2] + 20; };
+  const tree = 16;                                                    // one tile, like the real art
+  const nTrees = Math.round((w / 16) * (h / 16) * 0.30);              // ~30% of tiles wooded
+  for (let i = 0; i < nTrees; i++) {
+    const x = ((Math.random() * (w / 16 - 2) | 0) + 1) * 16;
+    const y = ((Math.random() * (h / 16 - 2) | 0) + 1) * 16;
+    if (!isLand(x + 8, y + 8)) continue;
+    for (let dy = 0; dy < tree; dy++) for (let dx = 0; dx < tree; dx++) {
+      if ((dx === 0 || dx === tree - 1) && (dy === 0)) continue;      // rounded crown
+      const o = ((y + dy) * w + (x + dx)) * 4;
+      const dark = dy >= tree - 1;
+      px[o] = dark ? 40 : 26; px[o + 1] = dark ? 78 : 112; px[o + 2] = dark ? 36 : 44;
+    }
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const o = (y * w + x) * 4;
+    if (px[o + 1] <= px[o + 2] + 20) continue;                        // land only
+    const n = ((x * 7 + y * 13) % 5 - 2) * 5;
+    px[o] += n; px[o + 1] += n; px[o + 2] += n;
+  }
+  g.putImageData(id, 0, 0);
+  return id;
+}
+
+/* ----------------------------------------------------------- mip pyramid */
+function buildMips(id) {
+  const levels = [];
+  let w = id.width, h = id.height;
+  let data = new Uint8Array(id.data.buffer.slice(0));
+  levels.push({ w, h, data });
+  while (w > 1 || h > 1) {
+    const nw = Math.max(1, w >> 1), nh = Math.max(1, h >> 1);
+    const dst = new Uint8Array(nw * nh * 4);
+    for (let y = 0; y < nh; y++) {
+      const y0 = Math.min(h - 1, y * 2), y1 = Math.min(h - 1, y * 2 + 1);
+      for (let x = 0; x < nw; x++) {
+        const x0 = Math.min(w - 1, x * 2), x1 = Math.min(w - 1, x * 2 + 1);
+        const a = (y0 * w + x0) * 4, b = (y0 * w + x1) * 4,
+              c = (y1 * w + x0) * 4, d = (y1 * w + x1) * 4, o = (y * nw + x) * 4;
+        for (let ch = 0; ch < 4; ch++)
+          dst[o + ch] = (data[a + ch] + data[b + ch] + data[c + ch] + data[d + ch] + 2) >> 2;
+      }
+    }
+    levels.push({ w: nw, h: nh, data: dst });
+    data = dst; w = nw; h = nh;
+  }
+  return levels;
+}
+
+function setMap(id) {
+  mips = buildMips(id);
+  mapW = id.width; mapH = id.height;
+  recentre();
+}
+
+/* ----------------------------------------------------------- cloud noise */
+const NS = 256;
+const noise = (function (size) {
+  const acc = new Float32Array(size * size);
+  let amp = 1, tot = 0;
+  for (let o = 0; o < 4; o++) {
+    const cells = 4 << o, g = new Float32Array(cells * cells);
+    for (let i = 0; i < g.length; i++) g[i] = Math.random();
+    const step = size / cells;
+    for (let y = 0; y < size; y++) {
+      const fy = y / step, iy = Math.floor(fy), ty = fy - iy;
+      const y0 = iy % cells, y1 = (y0 + 1) % cells, sy = ty * ty * (3 - 2 * ty);
+      for (let x = 0; x < size; x++) {
+        const fx = x / step, ix = Math.floor(fx), tx = fx - ix;
+        const x0 = ix % cells, x1 = (x0 + 1) % cells, sx = tx * tx * (3 - 2 * tx);
+        const a = g[y0 * cells + x0], b = g[y0 * cells + x1];
+        const c = g[y1 * cells + x0], d = g[y1 * cells + x1];
+        const top = a + (b - a) * sx, bot = c + (d - c) * sx;
+        acc[y * size + x] += amp * (top + (bot - top) * sy);
+      }
+    }
+    tot += amp; amp *= 0.5;
+  }
+  const out = new Uint8Array(size * size);
+  for (let i = 0; i < acc.length; i++) {
+    let v = (acc[i] / tot - 0.38) / 0.34;            // contrast: patchy, not uniform haze
+    out[i] = Math.max(0, Math.min(1, v)) * 255;
+  }
+  return out;
+})(NS);
+
+/* ------------------------------------------------------------- ray maths */
+let F = 0, CS = 0, SN = 0;
+function rayT(py) {
+  const diry = py * CS - F * SN;
+  const dirz = -py * SN - F * CS;
+  let t;
+  if (K.curve > 1e-9) {
+    const a = K.curve * dirz * dirz, b = diry, D = b * b - 4 * a * K.height;
+    if (D < 0) return null;
+    t = (-b - Math.sqrt(D)) / (2 * a);
+  } else {
+    if (diry > -1e-9) return null;
+    t = -K.height / diry;
+  }
+  return t > 0 ? { t, dirz } : null;
+}
+
+function recentre() {
+  const d0 = K.height / Math.tan(K.pitch * RAD);       // depth of the ground point at screen centre
+  camX = (mapW * K.wpt) / 2;
+  camZ = (mapH * K.wpt / K.vStretch) / 2 + d0;
+}
+
+function hex(h) {
+  return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+}
+
+/* ------------------------------------------------------------- rendering */
+let rw = 0, rh = 0, lastInfo = "";
+// hoisted subsample scratch (max aniso = 16) so the row loop allocates nothing
+const us = new Float64Array(16), du = new Float64Array(16), vs = new Int32Array(16);
+
+function render(timeMs) {
+  if (!mips) return;
+  const dw = cv.width, dh = cv.height;
+  const nw = Math.max(64, Math.round(dw * K.renderScale));
+  const nh = Math.max(36, Math.round(dh * K.renderScale));
+  if (nw !== rw || nh !== rh) {
+    rw = nw; rh = nh; buf.width = rw; buf.height = rh;
+    img = bctx.createImageData(rw, rh);
+  }
+  const px = img.data;
+
+  F = (rh / 2) / Math.tan(K.fov * 0.5 * RAD);
+  CS = Math.cos(K.pitch * RAD); SN = Math.sin(K.pitch * RAD);
+
+  const [fr, fg, fb] = hex(K.fogColor);
+  const [sr, sg, sb] = hex(K.skyTop);
+  const [vr, vg, vb] = hex(K.voidColor);
+  const fogSpan = Math.max(0.001, K.fogEnd - K.fogStart);
+  const maxLod = mips.length - 1;
+  const cloudT = (timeMs / 1000) * K.cloudSpeed;
+
+  // pass 1 — per-row geometry, so the horizon row is known before the sky is drawn
+  const rows = new Array(rh);
+  let horizonRow = rh;
+  for (let sy = 0; sy < rh; sy++) {
+    const r = rayT(rh / 2 - sy - 0.5);
+    if (!r) { rows[sy] = null; continue; }
+    if (sy < horizonRow) horizonRow = sy;
+    const rTop = rayT(rh / 2 - sy), rBot = rayT(rh / 2 - sy - 1);
+    const zc = camZ + r.t * r.dirz;
+    let footZ;
+    if (rTop && rBot) footZ = Math.abs((rBot.t * rBot.dirz) - (rTop.t * rTop.dirz));
+    else footZ = Math.abs(zc - camZ) * 0.5 + 1e3;      // row straddles the horizon
+    rows[sy] = { t: r.t, z: zc, depth: -r.t * r.dirz, footZ };
+  }
+
+  // pass 2 — fill
+  for (let sy = 0; sy < rh; sy++) {
+    const row = rows[sy];
+    let o = sy * rw * 4;
+
+    if (!row) {                                        // sky
+      const u = horizonRow > 0 ? sy / horizonRow : 1;
+      const R = sr + (fr - sr) * u, G = sg + (fg - sg) * u, B = sb + (fb - sb) * u;
+      if (!K.showSky) { for (let x = 0; x < rw; x++) { px[o++] = 8; px[o++] = 9; px[o++] = 12; px[o++] = 255; } }
+      else { for (let x = 0; x < rw; x++) { px[o++] = R; px[o++] = G; px[o++] = B; px[o++] = 255; } }
+      continue;
+    }
+
+    const fog = Math.pow(Math.min(1, Math.max(0, (row.depth - K.fogStart) / fogSpan)), K.fogPow);
+    if (fog > 0.998) {                                 // fully fogged: skip sampling entirely
+      for (let x = 0; x < rw; x++) { px[o++] = fr; px[o++] = fg; px[o++] = fb; px[o++] = 255; }
+      continue;
+    }
+
+    // footprint in level-0 texels, per screen pixel
+    const rx = row.t / K.wpt;
+    const rz = (row.footZ * K.vStretch) / K.wpt;
+
+    let lod = 0, N = 1;
+    if (K.filter === "trilinear") {
+      lod = Math.log2(Math.max(rx, rz, 1e-6));
+    } else if (K.filter === "aniso") {
+      const mn = Math.max(1e-6, Math.min(rx, rz)), mx = Math.max(rx, rz);
+      lod = Math.log2(mn);
+      N = Math.max(1, Math.min(K.maxAniso, Math.round(mx / mn)));
+    }
+    lod = Math.max(0, Math.min(maxLod, Math.round(lod)));
+    const L = mips[lod], LD = L.data, LW = L.w, LH = L.h, sc = 1 / (1 << lod);
+
+    // per-subsample scanline setup (each subsample is its own depth, hence its own t)
+    let live = 0;
+    for (let i = 0; i < N; i++) {
+      const sub = N === 1 ? row : (function () {
+        const r = rayT(rh / 2 - sy - (i + 0.5) / N);
+        return r ? { t: r.t, z: camZ + r.t * r.dirz } : null;
+      })();
+      if (!sub) { vs[i] = -1; continue; }
+      const v = Math.floor((sub.z * K.vStretch / K.wpt) * sc);
+      if (v < 0 || v >= LH) { vs[i] = -1; continue; }
+      vs[i] = v;
+      du[i] = (sub.t / K.wpt) * sc;
+      us[i] = ((camX + sub.t * (0.5 - rw / 2)) / K.wpt) * sc;
+      live++;
+    }
+
+    const cInv = 1 / K.cloudScale;
+    // tile lattice, in level-0 map pixels: one line every 16 px on both axes, thickened to
+    // one screen pixel so it stays visible however hard the ground is minified
+    const gdu = row.t / K.wpt;
+    let gu = (camX + row.t * (0.5 - rw / 2)) / K.wpt;
+    const gv = row.z * K.vStretch / K.wpt;
+    const gdv = row.footZ * K.vStretch / K.wpt;
+    const vOnLine = K.tileGrid && (((gv % 16) + 16) % 16) < Math.max(gdv, 0.9);
+    for (let x = 0; x < rw; x++) {
+      let R = vr, G = vg, B = vb;
+      if (live) {
+        let ar = 0, ag = 0, ab = 0, n = 0;
+        for (let i = 0; i < N; i++) {
+          const v = vs[i]; if (v < 0) continue;
+          const u = Math.floor(us[i]);
+          if (u < 0 || u >= LW) continue;
+          const k = (v * LW + u) * 4;
+          ar += LD[k]; ag += LD[k + 1]; ab += LD[k + 2]; n++;
+        }
+        if (n) { R = ar / n; G = ag / n; B = ab / n; }
+      }
+      if (K.clouds && live) {
+        const wx = camX + row.t * (x - rw / 2 + 0.5);
+        const nu = (((wx * cInv + cloudT) % NS) + NS) % NS | 0;
+        const nv = (((row.z * cInv) % NS) + NS) % NS | 0;
+        const m = 1 - K.cloudStrength * (noise[nv * NS + nu] / 255);
+        R *= m; G *= m; B *= m;
+      }
+      R = R + (fr - R) * fog; G = G + (fg - G) * fog; B = B + (fb - B) * fog;
+      if (K.tileGrid && (vOnLine || (((gu % 16) + 16) % 16) < Math.max(gdu, 0.9))) {
+        R = R * 0.35 + 255 * 0.65; G = G * 0.35 + 60 * 0.65; B = B * 0.35 + 90 * 0.65;
+      }
+      px[o++] = R; px[o++] = G; px[o++] = B; px[o++] = 255;
+      gu += gdu;
+      for (let i = 0; i < N; i++) us[i] += du[i];
+    }
+  }
+
+  bctx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(buf, 0, 0, rw, rh, 0, 0, dw, dh);
+
+  if (K.marker) drawMarker(dw, dh);
+  if (K.guides) drawGuides(dw, dh, horizonRow);
+  if (refImg && K.refOpacity > 0) drawRef(dw, dh);
+  updateReadout(rows, horizonRow);
+}
+
+function drawGuides(dw, dh, horizonRow) {
+  const hy = horizonRow >= rh ? -1 : (horizonRow / rh) * dh;
+  ctx.save();
+  ctx.strokeStyle = "#ff5f7a"; ctx.lineWidth = 1; ctx.setLineDash([6, 5]);
+  if (hy >= 0) { ctx.beginPath(); ctx.moveTo(0, hy + 0.5); ctx.lineTo(dw, hy + 0.5); ctx.stroke(); }
+  ctx.setLineDash([]);
+  ctx.strokeStyle = "rgba(255,95,122,.5)";
+  ctx.beginPath(); ctx.moveTo(dw / 2, dh / 2 - 9); ctx.lineTo(dw / 2, dh / 2 + 9);
+  ctx.moveTo(dw / 2 - 9, dh / 2); ctx.lineTo(dw / 2 + 9, dh / 2); ctx.stroke();
+  if (hy >= 0) {
+    ctx.fillStyle = "#ff5f7a"; ctx.font = "11px ui-monospace,Consolas,monospace";
+    ctx.fillText("horizon  " + (100 * horizonRow / rh).toFixed(0) + "%", 6, hy - 5);
+  }
+  ctx.restore();
+}
+
+/* The reference is a letterboxed console capture; crop the bars off before stretching it
+   to the render, or the horizon will line up against black instead of against ground. */
+function drawRef(dw, dh) {
+  const iw = refImg.naturalWidth, ih = refImg.naturalHeight;
+  const cut = ih * (K.refCrop / 100);
+  ctx.save();
+  ctx.globalAlpha = K.refOpacity;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(refImg, 0, cut, iw, ih - 2 * cut, 0, 0, dw, dh);
+  ctx.restore();
+}
+
+/* project a world point (relative to the camera's ground position) to display pixels */
+function project(dx, dy, dz, dw, dh) {
+  const f = (dh / 2) / Math.tan(K.fov * 0.5 * RAD);
+  const y = dy - K.height;
+  const yc = y * CS - dz * SN;
+  const zc = y * SN + dz * CS;
+  if (zc >= -1e-6) return null;
+  return { x: dw / 2 + f * dx / -zc, y: dh / 2 - f * yc / -zc, d: -zc };
+}
+
+function drawMarker(dw, dh) {
+  const d0 = K.height / Math.tan(K.pitch * RAD);       // ground point at screen centre
+  const base = project(0, 0, -d0, dw, dh);
+  if (!base) return;
+  /* Fixed mode is what the reference does: the sprite is blitted at its native pixel size into
+     the low-res buffer, so it does NOT shrink with depth and is drawn far larger than a ground
+     tile at the same distance. World mode is the naive 3D billboard, kept for comparison. */
+  let h;
+  if (K.spriteMode === "fixed") {
+    h = K.spritePx * (dh / rh);
+  } else {
+    const top = project(0, K.partyH, -d0, dw, dh);
+    if (!top) return;
+    h = Math.max(4, base.y - top.y);
+  }
+  const w = h * 0.62;
+  ctx.save();
+  ctx.globalAlpha = 0.38; ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.ellipse(base.x, base.y, w * 0.46, w * 0.46 * Math.sin(K.pitch * RAD), 0, 0, 7);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#f4e7c8"; ctx.strokeStyle = "#20232c"; ctx.lineWidth = 2;
+  ctx.fillRect(base.x - w / 2, base.y - h, w, h);
+  ctx.strokeRect(base.x - w / 2, base.y - h, w, h);
+  ctx.fillStyle = "#20232c";
+  ctx.fillRect(base.x - w / 2, base.y - h, w, Math.max(2, h * 0.28));
+  ctx.restore();
+}
+
+function updateReadout(rows, horizonRow) {
+  const bottom = rows[rh - 1], mid = rows[Math.min(rh - 1, Math.round(rh * 0.85))];
+  const near = bottom ? bottom.depth : NaN;
+  const l = [];
+  l.push("horizon          " + (horizonRow >= rh
+        ? "no ground on screen at all"
+        : horizonRow === 0
+          ? "ABOVE the frame - none visible, no sky (matches reference)"
+          : "row " + horizonRow + " / " + rh + "  (" + (100 * horizonRow / rh).toFixed(0) + "% down)"));
+  l.push("bottom ray       " + (K.pitch + K.fov / 2).toFixed(1) + " deg below horizontal");
+  // The number that actually characterises the look: how far the world recedes across the frame.
+  const topRow = rows[Math.max(0, Math.min(rh - 1, horizonRow))];
+  if (topRow && bottom) l.push("near:far ratio   1 : " + (topRow.depth / bottom.depth).toFixed(2) +
+        (horizonRow === 0 ? "  (full frame - reference is ~1:3)" : "  (clipped by the horizon)"));
+  l.push("near depth       " + (isFinite(near) ? near.toFixed(1) : "-") + " units");
+  l.push("depth @85% down  " + (mid ? mid.depth.toFixed(1) : "-") + " units");
+  if (bottom) {
+    // The scale check that matters: the reference is ~34 tiles across an 8:7 frame, which is
+    // ~53 across this 16:9 one, at ~7.5 screen px per tile.
+    const tiles = (rw * bottom.t / K.wpt) / 16;
+    l.push("tiles across     " + tiles.toFixed(0) + " at the bottom edge  (reference ~53 here)");
+    l.push("px per tile      " + (16 / (bottom.t / K.wpt)).toFixed(1) + " buffer px near" +
+           (topRow ? ",  " + (16 / (topRow.t / K.wpt)).toFixed(1) + " far" : "") +
+           "  (reference 7.5)");
+    l.push("texels/px near   " + (bottom.t / K.wpt).toFixed(2) + " x  " +
+           (bottom.footZ * K.vStretch / K.wpt).toFixed(2) + " z");
+    /* The far edge of the frame is `ratio` times wider than the near edge, so a region has to
+       be that much wider than the bottom-edge span or the plane edge shows. This is the number
+       that sizes the art, and it is brutal: it multiplies, it does not add a margin. */
+    if (topRow) {
+      const need = Math.ceil(tiles * (topRow.depth / bottom.depth));
+      const have = Math.round(mapW / 16);
+      l.push("region needed    " + need + " tiles wide to fill the frame (have " + have +
+             (need > have ? ")  <-- EDGES SHOW" : ")  ok"));
+    }
+  }
+  if (mid) {
+    l.push("texels/px @85%   " + (mid.t / K.wpt).toFixed(2) + " x  " +
+           (mid.footZ * K.vStretch / K.wpt).toFixed(2) + " z");
+  }
+  // The numbers that decide the filter setting: the worst minification and the worst
+  // anisotropy that survive the fog. Rows the fog has already eaten cannot alias.
+  const span = Math.max(0.001, K.fogEnd - K.fogStart);
+  let peakAn = 0, peakMin = 0, peakRow = -1;
+  for (let sy = 0; sy < rh; sy++) {
+    const r = rows[sy]; if (!r) continue;
+    const fog = Math.pow(Math.min(1, Math.max(0, (r.depth - K.fogStart) / span)), K.fogPow);
+    if (fog > 0.5) continue;                           // more than half fog cannot visibly alias
+    const rx = r.t / K.wpt, rz = r.footZ * K.vStretch / K.wpt;
+    const an = Math.max(rx, rz) / Math.max(1e-6, Math.min(rx, rz));
+    if (an > peakAn) { peakAn = an; peakRow = sy; }
+    peakMin = Math.max(peakMin, rx, rz);
+  }
+  if (peakRow >= 0) {
+    l.push("worst visible    " + peakMin.toFixed(2) + " texels/px  (" +
+           (peakMin <= 1 ? "magnified - chunky, cannot sparkle" : "minified - will sparkle") + ")");
+    l.push("worst aniso      " + peakAn.toFixed(1) + " : 1 at row " + peakRow +
+           (peakMin <= 1 ? "" : "  (aniso " + K.maxAniso + "x " +
+            (peakAn > K.maxAniso ? "would not cover it)" : "would cover it)")));
+  } else {
+    l.push("worst visible    - (fog covers all ground)");
+  }
+  l.push("map size         " + mapW + " x " + mapH + " px  =  " +
+        (mapW / 16).toFixed(0) + " x " + (mapH / 16).toFixed(0) + " tiles  =  " +
+        (mapW * K.wpt).toFixed(0) + " x " + (mapH * K.wpt / K.vStretch).toFixed(0) + " units");
+  lastInfo = l.join("\n");
+  document.getElementById("readout").textContent = lastInfo;
+}
+
+/* ------------------------------------------------------------------- ui */
+const BIND = ["pitch", "fov", "height", "curve", "wpt", "vStretch", "fogStart", "fogEnd",
+              "fogPow", "maxAniso", "cloudStrength", "cloudScale", "cloudSpeed", "partyH",
+              "refOpacity", "refCrop", "spritePx"];
+const IDS = { vStretch: "vstretch" };
+const DEC = { curve: 4, wpt: 4, vStretch: 2, cloudStrength: 2, fogPow: 2, height: 1,
+              pitch: 1, fov: 1, cloudSpeed: 1, partyH: 1, refOpacity: 2, refCrop: 1 };
+const FLAGS = ["showSky", "clouds", "marker", "drift", "guides", "tileGrid"];
+
+function el(key) { return document.getElementById(IDS[key] || key); }
+
+function syncUI() {
+  for (const k of BIND) {
+    const e = el(k); e.value = K[k];
+    document.getElementById(e.id + "_v").textContent = Number(K[k]).toFixed(DEC[k] ?? 0);
+  }
+  for (const k of ["fogColor", "skyTop", "voidColor", "filter", "renderScale", "spriteMode"])
+    document.getElementById(k).value = K[k];
+  for (const k of FLAGS)
+    document.getElementById(k).checked = K[k];
+}
+
+for (const k of BIND) el(k).addEventListener("input", e => {
+  K[k] = parseFloat(e.target.value);
+  document.getElementById(e.target.id + "_v").textContent = Number(K[k]).toFixed(DEC[k] ?? 0);
+});
+for (const k of ["fogColor", "skyTop", "voidColor", "filter", "spriteMode"])
+  document.getElementById(k).addEventListener("input", e => { K[k] = e.target.value; });
+document.getElementById("renderScale").addEventListener("input",
+  e => { K.renderScale = parseFloat(e.target.value); });
+for (const k of FLAGS)
+  document.getElementById(k).addEventListener("input", e => { K[k] = e.target.checked; });
+
+document.getElementById("fitStretch").onclick = () => {
+  K.vStretch = Math.min(4, 1 / Math.sin(K.pitch * RAD)); syncUI();
+};
+document.getElementById("recenter").onclick = recentre;
+function applyPreset(p) {
+  const keep = { refOpacity: K.refOpacity, refCrop: K.refCrop, guides: K.guides };
+  Object.assign(K, p, keep);                       // a preset must not clear the overlay you set up
+  syncUI(); recentre();
+}
+(function buildPresets() {
+  const host = document.getElementById("presetButtons"), note = document.getElementById("presetNote");
+  for (const p of PRESETS) {
+    const b = document.createElement("button");
+    b.textContent = p.label;
+    b.onclick = () => {
+      const { id, label, note: n, ...settings } = p;
+      applyPreset(Object.assign({}, REFERENCE, settings));
+      note.textContent = n;
+    };
+    host.appendChild(b);
+  }
+  note.textContent = PRESETS[0].note;
+})();
+document.getElementById("reset").onclick = () => { Object.assign(K, DEFAULTS); syncUI(); recentre(); };
+document.getElementById("copy").onclick = () => {
+  const txt =
+`# World map framing — ${new Date().toISOString().slice(0, 10)}
+
+Camera3D
+  rotation_degrees = (-${K.pitch.toFixed(1)}, 0, 0)      # yaw fixed at 0
+  fov              = ${K.fov.toFixed(1)}                 # vertical (keep_aspect = KEEP_HEIGHT)
+  height above ground = ${K.height.toFixed(2)} units
+
+Ground material (single custom spatial shader, unshaded + manual fog)
+  world units per map pixel = ${K.wpt.toFixed(3)}
+  vertical pre-stretch      = ${K.vStretch.toFixed(2)}
+  curvature k               = ${K.curve.toFixed(4)}      # y = -k * d^2
+  fog start / end / curve   = ${K.fogStart} / ${K.fogEnd} / ${K.fogPow.toFixed(2)}
+  fog colour                = ${K.fogColor}
+  sky top                   = ${K.skyTop}
+  cloud shadows             = ${K.clouds ? K.cloudStrength.toFixed(2) + " strength, scale " + K.cloudScale + ", speed " + K.cloudSpeed : "off"}
+
+Texture import
+  filter = ${K.filter}${K.filter === "aniso" ? ", " + K.maxAniso + "x" : ""}, mipmaps on
+  judged at render scale ${K.renderScale}
+
+${lastInfo}
+`;
+  navigator.clipboard.writeText(txt).then(
+    () => { const b = document.getElementById("copy"); b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy settings", 1200); });
+};
+
+// pan
+let dragging = false, lx = 0, ly = 0;
+cv.addEventListener("pointerdown", e => {
+  dragging = true; lx = e.clientX; ly = e.clientY;
+  cv.classList.add("drag"); cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const s = (cv.clientWidth / cv.width);
+  const d0 = K.height / Math.tan(K.pitch * RAD);
+  const scale = (d0 * 2 * Math.tan(K.fov * 0.5 * RAD)) / (cv.height * s);
+  camX -= (e.clientX - lx) * scale;
+  camZ -= (e.clientY - ly) * scale / Math.max(0.15, Math.sin(K.pitch * RAD));
+  lx = e.clientX; ly = e.clientY;
+});
+addEventListener("pointerup", () => { dragging = false; cv.classList.remove("drag"); });
+
+// map loading
+function loadFile(f) {
+  if (!f) return;
+  const url = URL.createObjectURL(f);
+  const im = new Image();
+  im.onload = () => {
+    const c = document.createElement("canvas");
+    c.width = im.naturalWidth; c.height = im.naturalHeight;
+    c.getContext("2d").drawImage(im, 0, 0);
+    setMap(c.getContext("2d").getImageData(0, 0, c.width, c.height));
+    URL.revokeObjectURL(url);
+  };
+  im.src = url;
+}
+document.getElementById("file").addEventListener("change", e => loadFile(e.target.files[0]));
+document.getElementById("reffile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const im = new Image();
+  im.onload = () => { refImg = im; };
+  im.src = URL.createObjectURL(f);
+});
+cv.addEventListener("dragover", e => { e.preventDefault(); cv.classList.add("drop"); });
+cv.addEventListener("dragleave", () => cv.classList.remove("drop"));
+cv.addEventListener("drop", e => {
+  e.preventDefault(); cv.classList.remove("drop");
+  loadFile(e.dataTransfer.files[0]);
+});
+
+/* ------------------------------------------------------------------ loop */
+/* While this sketch was in use the region PNG was embedded as a data URI, because a
+   file:// page loading a file:// image taints the canvas and breaks the mip build. That
+   embed was stripped on promotion -- a 400 KB blob is not what "self-contained" asks for --
+   so this copy opens on the procedural placeholder. Load a real region with the file input
+   or by dropping one on the canvas. */
+setMap(placeholderMap(2048, 2048));     // synchronous: the render loop must never see a null texture
+if (window.EMBEDDED_MAP) {                // real region swaps in when it decodes
+  const im = new Image();
+  im.onload = () => {
+    const cc = document.createElement("canvas");
+    cc.width = im.naturalWidth; cc.height = im.naturalHeight;
+    const g2 = cc.getContext("2d");
+    g2.drawImage(im, 0, 0);
+    setMap(g2.getImageData(0, 0, cc.width, cc.height));
+    applyPreset(Object.assign({}, REFERENCE, FIT_PRESET));
+  };
+  im.src = window.EMBEDDED_MAP;
+}
+syncUI();
+let prev = performance.now();
+(function frame(now) {
+  const dt = Math.min(0.1, (now - prev) / 1000); prev = now;
+  if (K.drift) camZ -= dt * 6;
+  render(now);
+  requestAnimationFrame(frame);
+})(performance.now());
+</script>
+</body>
+</html>

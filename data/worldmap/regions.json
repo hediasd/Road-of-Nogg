@@ -1,0 +1,9 @@
+[
+	{
+		"NAME": "temp",
+		"DESCRIPTION": "Placeholder region supplied for the ground rig cycle. 48x64 tiles, well short of the ~155 tiles the tile-exact framing needs -- its plane edges are expected to show. Naming this region is a lore question, not decided here.",
+		"TEXTURE": "res://assets/worldmap/regions/temp.png",
+		"TILES_WIDE": 48,
+		"TILES_TALL": 64
+	}
+]

@@ -246,3 +246,10 @@ diameter) and scales uniformly with the carrier's footprint.
   default it never uses. The `DROP_RADIUS` finding itself stands — a drop
   narrower than one cell vanishes into the snap — only the cell count quoted
   alongside it is the wrong one.
+
+  Where the 56 came from is now traceable: it is
+  [Aurora Veil](./aurora-veil.md)'s **profile** value. Forking the veil's shader
+  carried its running value into this shader's default, and this profile then
+  raised it to 64 without the default following. A fork inherits the donor's
+  tuned numbers as its defaults, which is convenient until someone reads a
+  default as though it were live.

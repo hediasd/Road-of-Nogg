@@ -25,18 +25,15 @@ to 35% of a document that calls itself conventions and authoring workflow.
 | Page | Profiles | Status |
 | --- | --- | --- |
 | [Generic spell-cast aura](./spell-cast-aura.md) | `spell_cast_aura` | The default carrier a spell falls back to when it names no other profile |
+| [Aurora Veil](./aurora-veil.md) | `aurora_veil` | Carried by the Aurora Veil spell. One iridescent curtain panel; the author-fresh half of the fork rule |
 | [Solar Storm](./solar-storm.md) | `solar_storm` (+ five ladder rungs) | Carried by the Solar Storm spell. A coronagraph panel: occulter, streams, ejection front, melt |
 | [Technique charge aura](./technique-charge-aura.md) | `technique_charge_aura_v1`, `technique_charge_aura_v2` | Debug-only, both versions live. v1 rises and settles; v2 spins, churns and disperses |
 
 Effects with no page yet — Ice Storm, Fire Storm, Magenta Reduction, Ice
-Target Encasement, Aurora Veil — are documented only by their code and commit
-history. Several are described generically in `VFX_DESIGN.md` (the target-bound
+Target Encasement — are documented only by their code and commit history.
+Several are described generically in `VFX_DESIGN.md` (the target-bound
 volumetric shells section covers the encasement's shape, for instance). Give one
 a page when it next changes, rather than backfilling them all at once.
-
-Aurora Veil is the one most worth doing next: Solar Storm is its fork, and its
-page repeatedly explains itself by contrast with a veil that has no page of its
-own.
 
 ## Writing one
 
