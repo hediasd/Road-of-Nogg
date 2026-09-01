@@ -30,7 +30,7 @@
 ## Every interactive control is also reachable from the command line, so a validation pass
 ## is scriptable rather than a sequence of clicks:
 ##   --preset=<id>       framing preset to open with (default: tile_exact)
-##   --region=<id>       region to load (default: the first catalogued region)
+##   --region=<id>       region to load (default: the catalogue's default region)
 ##   --tile-grid         start with the 16 px tile grid on
 ##   --hide-hud          start with the panel hidden, for clean captures
 ##   --quit-after=<n>    quit after n frames, for bounded probes
@@ -352,8 +352,7 @@ func _presetFromArguments() -> String:
 
 
 func _regionFromArguments() -> String:
-	var ids := RegionCatalog.ids()
-	var fallback := ids[0] if ids.size() > 0 else ""
+	var fallback := RegionCatalog.defaultRegion()
 	var wanted := Arguments.string("--region=")
 	if wanted.is_empty():
 		return fallback

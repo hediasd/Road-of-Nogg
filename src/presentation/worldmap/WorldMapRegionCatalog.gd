@@ -71,6 +71,15 @@ static func description(regionID: String) -> String:
 	return str(_index[regionID].get("DESCRIPTION", ""))
 
 
+## The region a scene opens on when none is named. Explicit rather than "whichever entry
+## happens to be first", so reordering the file cannot silently change it.
+static func defaultRegion() -> String:
+	for reference in list:
+		if bool(reference.get("DEFAULT", false)):
+			return str(reference["NAME"])
+	return str(list[0]["NAME"]) if list.size() > 0 else ""
+
+
 static func fogColorFor(regionID: String) -> Color:
 	if not _index.has(regionID):
 		return Color("cfe9f5")

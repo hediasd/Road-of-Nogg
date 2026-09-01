@@ -17,6 +17,7 @@
 		"TILES_TALL": 22,
 		"TILE_PIXELS": 8,
 		"FOG_COLOR": "bae8e2",
-		"VOID_COLOR": "37aeae"
+		"VOID_COLOR": "37aeae",
+		"DEFAULT": true
 	}
 ]

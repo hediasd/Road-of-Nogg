@@ -27,6 +27,7 @@ const CRT := "crt"
 const OVERVIEW := "overview"
 const WALKING := "walking"
 const OVERLAND := "overland"
+const CURVED_CLOSE := "curved_close"
 const FILTERED := "filtered"
 const CUSTOM := "custom"
 
@@ -129,6 +130,27 @@ const PRESETS := [
 			Uniforms.K_CURVATURE: 0.0008,
 			Uniforms.K_FOG_START: 62.5,
 			Uniforms.K_FOG_END: 331.25,
+		},
+	},
+	{
+		"id": CURVED_CLOSE,
+		"label": "Curved Close",
+		"description": "Hand-tuned in the debug scene on 2026-09-01 against region temp2 and "
+			+ "kept. The closest and most strongly curved framing yet -- height 20.5 with "
+			+ "curvature 0.0039, so the world falls away sharply and reads as a small place "
+			+ "rather than a surveyed region. Also the highest render scale of any preset at "
+			+ "0.76, which is what lets it hold detail this close in. Note it inherits the "
+			+ "default fog band, which at this height starts well beyond the far edge of the "
+			+ "frame -- so nothing in view is hazed, deliberately.",
+		"framing": {
+			Uniforms.K_PITCH: 58.5,
+			Uniforms.K_FOV: 26.0,
+			Uniforms.K_HEIGHT: 20.5,
+			Uniforms.K_CURVATURE: 0.0039,
+			Uniforms.K_RENDER_SCALE: 0.76,
+			Uniforms.K_SPRITE_MODE: Uniforms.SPRITE_WORLD,
+			Uniforms.K_SKY_OFFSET: -0.15,
+			Uniforms.K_SKY_SCALE: 1.85,
 		},
 	},
 	{
