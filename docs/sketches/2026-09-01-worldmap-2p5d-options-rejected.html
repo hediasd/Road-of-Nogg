@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>World map 2.5D options</title>
+<style>
+  :root{--bg:#12141a;--panel:#1b1e27;--edge:#2b3040;--ink:#dfe4ee;--dim:#8a93a8;--accent:#7fd3a8;--warn:#e8b166}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:22px 26px 12px;max-width:1500px;margin:0 auto}
+  h1{font-size:19px;margin:0 0 10px}
+  .lede{max-width:76ch;color:var(--dim);margin:0}
+  .lede b{color:var(--ink)}
+  .warn{max-width:76ch;margin:12px 0 0;padding:9px 12px;border-left:3px solid var(--warn);background:#221d15;color:#e3d3bb;border-radius:0 4px 4px 0}
+  main{display:flex;gap:18px;align-items:flex-start;padding:8px 26px 40px;max-width:1500px;margin:0 auto;flex-wrap:wrap}
+  .stage{flex:1 1 700px;min-width:520px}
+  #sheet{display:block;width:100%;max-width:960px;background:#0e1016;border:1px solid var(--edge);border-radius:5px;image-rendering:pixelated}
+  canvas{display:block;width:100%;max-width:960px;background:#000;border:1px solid var(--edge);border-radius:5px;image-rendering:pixelated;cursor:grab}
+  canvas.drag{cursor:grabbing}
+  .panel{flex:0 0 330px;background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:14px 15px}
+  .grp{margin:0 0 15px}
+  .grp>h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);margin:0 0 9px;font-weight:700}
+  .row{display:flex;align-items:center;gap:9px;margin:0 0 7px}
+  .row label{flex:0 0 112px;color:var(--dim);font-size:12px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+  .row .val{flex:0 0 50px;text-align:right;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .modes button{display:block;width:100%;text-align:left;margin:0 0 5px;padding:7px 9px;background:#242938;color:var(--ink);border:1px solid var(--edge);border-radius:4px;cursor:pointer;font-size:12px}
+  .modes button:hover{background:#2e3446}
+  .modes button.on{background:#1d3d31;border-color:var(--accent);color:#d8f4e6}
+  .modes button small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+  .modes button.on small{color:#9fcbb8}
+  .note{color:var(--dim);font-size:11.5px;margin:8px 0 0}
+  .readout{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--dim);background:#0e1016;border:1px solid var(--edge);border-radius:4px;padding:8px 9px;white-space:pre;line-height:1.6}
+  .notes{max-width:1500px;margin:0 auto;padding:0 26px 60px}
+  .notes h2{font-size:14px;margin:26px 0 8px;color:var(--accent)}
+  .notes p,.notes li{max-width:82ch;color:#b6bdcd}
+  .notes code{background:#0e1016;border:1px solid var(--edge);border-radius:3px;padding:1px 4px;font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>World map 2.5D options</h1>
+  <p class="lede">
+    Trees and mountains are painted into the region texture, so they lie in the ground plane
+    and take the same perspective squash as the terrain. At the <b>Overland</b> framing's 40.5°
+    pitch that is obvious — a mountain reads as a stain. This page renders the same view
+    <b>eleven</b> ways so the options can be compared against the real map rather than
+    described. <b>Start with J.</b> The earlier options are kept because the ones that fail
+    are worth seeing fail.
+  </p>
+  <p class="warn"><b>Verdict: all of it rejected, 2026-09-01.</b> Eleven ways of giving the
+    world map depth were built and compared against the real region art. None was kept. The
+    map stays flat, which is what the console references it is modelled on actually do. This
+    page is preserved because the failures are specific and worth not repeating — each option
+    below carries why it failed, and three of them failed for reasons that were only visible
+    once rendered, not from reasoning about them.</p>
+  <p class="warn"><b>The region art is embedded no longer.</b> Load a region PNG with the file
+    input to drive this page; it opens on a procedural placeholder otherwise.</p>
+</header>
+
+<main>
+  <div class="stage">
+    <canvas id="cv" width="960" height="540"></canvas>
+    <canvas id="sheet" width="1152" height="468" style="margin-top:12px"></canvas>
+    <p class="note">Drag to pan. The camera starts on the saved <b>Overland</b> framing, curvature
+      included — watch the props bend with the ground as you raise it.</p>
+  </div>
+
+  <div class="panel">
+    <div class="grp modes">
+      <h2>Option</h2>
+      <div id="modeButtons"></div>
+    </div>
+
+    <div class="grp">
+      <h2>Props</h2>
+      <div class="row"><label>Tree height</label><input type="range" id="treeHeight" min="0.2" max="6" step="0.1"><span class="val" id="treeHeight_v"></span></div>
+      <div class="row"><label>Mountain height</label><input type="range" id="mountHeight" min="0.2" max="10" step="0.1"><span class="val" id="mountHeight_v"></span></div>
+      <div class="row"><label>Shadow</label><input type="range" id="shadow" min="0" max="0.8" step="0.02"><span class="val" id="shadow_v"></span></div>
+      <div class="row"><label>Parallax</label><input type="range" id="parallax" min="0" max="8" step="0.1"><span class="val" id="parallax_v"></span></div>
+      <div class="row"><label>Relief light</label><input type="range" id="relief" min="0" max="2.5" step="0.05"><span class="val" id="relief_v"></span></div>
+      <div class="row"><label>Slices</label><input type="range" id="slices" min="2" max="24" step="1"><span class="val" id="slices_v"></span></div>
+      <div class="row"><label>Prop height</label><input type="range" id="propScale" min="0.3" max="3" step="0.05"><span class="val" id="propScale_v"></span></div>
+      <div class="row"><label>Slice height</label><input type="range" id="sliceHeight" min="0.2" max="5" step="0.1"><span class="val" id="sliceHeight_v"></span></div>
+    </div>
+
+    <div class="grp">
+      <h2>Camera</h2>
+      <div class="row"><label>Pitch</label><input type="range" id="pitch" min="15" max="80" step="0.5"><span class="val" id="pitch_v"></span></div>
+      <div class="row"><label>Vertical FOV</label><input type="range" id="fov" min="10" max="70" step="0.5"><span class="val" id="fov_v"></span></div>
+      <div class="row"><label>Height</label><input type="range" id="height" min="10" max="200" step="0.5"><span class="val" id="height_v"></span></div>
+      <div class="row"><label>Curvature k</label><input type="range" id="curve" min="0" max="0.004" step="0.00002"><span class="val" id="curve_v"></span></div>
+      <div class="row"><label>Fog start</label><input type="range" id="fogStart" min="0" max="300" step="1"><span class="val" id="fogStart_v"></span></div>
+      <div class="row"><label>Fog end</label><input type="range" id="fogEnd" min="10" max="600" step="1"><span class="val" id="fogEnd_v"></span></div>
+      <button id="sheetBtn" style="background:#242938;color:var(--ink);border:1px solid var(--edge);border-radius:4px;padding:5px 9px;cursor:pointer;font-size:12px;margin-right:4px">Redraw contact sheet</button>
+      <button id="reset" style="background:#242938;color:var(--ink);border:1px solid var(--edge);border-radius:4px;padding:5px 9px;cursor:pointer;font-size:12px">Reset to Overland</button>
+    </div>
+
+    <div class="grp">
+      <h2>Readout</h2>
+      <div class="readout" id="readout"></div>
+    </div>
+  </div>
+</main>
+
+<div class="notes">
+  <h2>What each option costs</h2>
+  <ul>
+    <li><b>A — Flat.</b> What ships today. Baseline for comparison.</li>
+    <li><b>B — Contact shadows.</b> An ellipse under every prop tile, in the ground layer. Not
+      2.5D at all, but it is the cheapest thing that stops props reading as stains, and standing
+      props will need shadows anyway. One art pass, no code, no new data.</li>
+    <li><b>C — Billboard props.</b> <i>Superseded by J, and kept to show why it failed:</i>
+      it cuts sprites on the 16 px <b>tile grid</b>, but these objects are 10–40 px and do not
+      align to tiles, so it slices straight through them. Trees become upright quads standing
+      on the ground. In the game
+      this is one <code>MultiMeshInstance3D</code> per atlas and one instance per tile, so
+      thousands of trees cost one draw call. <b>Fixed yaw is what makes it cheap</b>: nothing ever
+      rotates, so there is no billboarding maths and the artist draws each prop once in a fixed
+      three-quarter view rather than eight directions.</li>
+    <li><b>D — Extruded tiles.</b> <i>Rejected:</i> quantising organic mountain blobs to the
+      tile grid turns them into a staircase of cubes. Each tile gets a height and becomes a box, textured on top by
+      the existing art. Mountains get true silhouette and occlusion. Billboarding a mountain
+      reads as a cardboard cutout because they are wide; extrusion does not. The asset is
+      <b>one pixel per tile</b> — a 48×64 greyscale image for this whole region.</li>
+    <li><b>E — Both.</b> Props billboarded, landforms extruded. The recommendation.</li>
+    <li><b>J — Decomp billboards.</b> <b>The one that works.</b> Magnify the region art and
+      every object on it is already drawn in oblique view with a top and a front: each
+      mountain has a pale lit crest above a dark body, the fort has a light roof over a
+      battlemented wall, the trees are conical and lit from one side. That is the same
+      structure GBC tile art has, and it is what the Pokémon decomps exploit — standing such
+      a sprite up shows it at roughly the angle it was already painted for. Each object is
+      found by connected-component search, erased from the ground, and stood upright anchored
+      where its base met the floor. Its own pixel height becomes its world height, so a
+      mountain stands taller than a tree with no authored per-object data. In the engine this
+      is one <code>MultiMesh</code>, one draw call, and no billboarding maths at all, because
+      the fixed yaw means a quad already faces the camera.</li>
+    <li><b>K — Decomp + relief.</b> J with G's lighting applied to the ground it stands on.</li>
+    <li><b>F — Parallax offset.</b> No geometry: the ground shader offsets its texture lookup
+      along the view vector by a height value. Free, and it degrades exactly where it is needed —
+      shallow angles. Overland is its worst case. Included so the failure is visible rather than
+      argued.</li>
+  </ul>
+
+  <h2>The gotcha to design around first</h2>
+  <p>Anything that stands up has to <b>bend with the ground</b>. Overland uses curvature —
+    <code>y = -k·d²</code> applied in the ground shader's vertex stage. The moment props become
+    separate meshes they must apply the identical bend, or they sink into the ground near the
+    horizon and float in the mid-field. Raise <b>Curvature k</b> here with option E on: the props
+    follow because this page applies the same displacement to them. In the engine that means
+    curvature stops being a ground-shader detail and becomes a shared world-space function every
+    world-map mesh includes. Cheap now, painful to retrofit.</p>
+
+  <h2>Decisions this forces</h2>
+  <ul>
+    <li><b>Sprite scaling.</b> Props here are world-space, so they shrink with distance. The
+      party marker in the engine is currently <i>fixed screen size</i>. At Overland's 2.06:1 depth
+      ratio the party would read wrong against the far trees. One of the two has to change.</li>
+    <li><b>Alpha handling.</b> Use alpha-scissor, not blend, so props write depth and sort against
+      each other correctly. It is also the right aesthetic call — no soft edges in pixel art.</li>
+    <li><b>Fog must apply to props identically</b> or they punch out of the haze. Another reason
+      to factor fog into a shared include alongside curvature.</li>
+    <li><b>Height couples to gameplay.</b> If terrain gains elevation, roads painted on flat ground
+      no longer sit on it and the node graph becomes height-aware. Worth deciding whether terrain
+      height is purely cosmetic or something roads must respect.</li>
+    <li><b>The art has to be split.</b> This page fakes it by colour-key. Really shipping C, D or E
+      means trees and mountains leave the ground layer, or you see both copies. That, not the
+      code, is the real expense.</li>
+  </ul>
+</div>
+
+<script>window.EMBEDDED_MAP_2P5D = "";</script>
+<script>
+"use strict";
+const RAD = Math.PI / 180;
+
+const MODES = [
+  ["flat",     "A — Flat (current)",      "Props painted into the ground plane."],
+  ["shadow",   "B — Contact shadows",     "Flat, plus an ellipse under each prop."],
+  ["billboard","C — Billboard props",     "Trees stand up; mountains stay flat."],
+  ["extrude",  "D — Extruded tiles",      "Mountains get volume; trees stay flat."],
+  ["both",     "E — Billboards + extrusion", "The recommendation."],
+  ["parallax", "F — Parallax offset",     "No geometry. Fails at shallow pitch."],
+  ["normal",   "G — Normal-map relief",   "No geometry at all. Lights a derived height field."],
+  ["slices",   "H — Layered slices",      "Volume that follows the painted outline, not the tile grid."],
+  ["normslice","I — Slices + relief",     "H with G's lighting on top."],
+  ["decomp",   "J — Decomp billboards",   "Sprites segmented and stood up. The good one."],
+  ["decomprel","K — Decomp + relief",     "J with G's lighting on the ground."],
+];
+
+const DEFAULTS = {
+  mode: "both",
+  pitch: 40.5, fov: 20, height: 62.5, curve: 0.0008,
+  fogStart: 62.5, fogEnd: 331, fogPow: 1.4,
+  treeHeight: 1.4, mountHeight: 2.2, shadow: 0.34, parallax: 2.0,
+  relief: 1.0, slices: 10, sliceHeight: 1.6, propScale: 1.0,
+};
+const K = Object.assign({}, DEFAULTS);
+const WPT = 0.0625;                 // world units per map pixel; 1 tile = 1 world unit
+const TILE = 16;
+const FOG = [0.812, 0.914, 0.961];  // #cfe9f5
+const RENDER_SCALE = 0.4;
+
+let camX = 0, camZ = 0;
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d", { alpha: false });
+const buf = document.createElement("canvas");
+const bctx = buf.getContext("2d");
+let rw = 0, rh = 0, img = null;
+
+let mapW = 0, mapH = 0, tilesX = 0, tilesY = 0;
+let srcData = null;                 // original region, Uint8ClampedArray
+let groundNoTrees = null, groundNoProps = null;   // Uint8ClampedArray variants
+let treeSheet = null;               // canvas: tree pixels only, rest transparent
+let kind = null;                    // Int8Array per tile: 0 ground, 1 tree, 2 mountain
+let heightMap = null;               // Float32Array per tile, 0..1
+
+const GROUND = 0, TREE = 1, MOUNT = 2;
+
+/* ---------------------------------------------------------- classification */
+/* Measured off the region's own palette rather than guessed: grass is (24,168,0) and
+   (40,176,0); water sits at b>180; mountains are olive, r roughly equal to g with b far
+   lower; trees are a much darker green with r under 30. Those separate cleanly. */
+function isTree(r, g, b) { return r < 30 && g >= 100 && g <= 158 && b < 40; }
+// Grass sits at (24,168,0) and (40,176,0); trees at (8,128,0)..(16,152,0). The green
+// upper bound is the whole discriminator and it is tight -- 168 instead of 158 here
+// classified 61% of the region as forest.
+function isMountain(r, g, b) { return r > 88 && b < 110 && g > 88 && Math.abs(r - g) < 60 && r > b + 40; }
+
+function classify() {
+  tilesX = mapW / TILE | 0;
+  tilesY = mapH / TILE | 0;
+  kind = new Int8Array(tilesX * tilesY);
+  heightMap = new Float32Array(tilesX * tilesY);
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      let tree = 0, mount = 0, n = 0;
+      for (let y = 0; y < TILE; y += 2) {
+        for (let x = 0; x < TILE; x += 2) {
+          const i = ((ty * TILE + y) * mapW + (tx * TILE + x)) * 4;
+          const r = srcData[i], g = srcData[i + 1], b = srcData[i + 2];
+          if (isTree(r, g, b)) tree++;
+          else if (isMountain(r, g, b)) mount++;
+          n++;
+        }
+      }
+      const idx = ty * tilesX + tx;
+      // Mountains win ties: a wooded slope should extrude, not float.
+      if (mount / n > 0.35) { kind[idx] = MOUNT; heightMap[idx] = Math.min(1, mount / n * 1.4); }
+      else if (tree / n > 0.22) { kind[idx] = TREE; heightMap[idx] = tree / n; }
+    }
+  }
+}
+
+/* Grass fill for tiles whose prop has been lifted out of the ground layer. Flat, and
+   honestly so -- real art would paint what is underneath. */
+const GRASS = [30, 170, 4];
+
+function buildLayers() {
+  groundNoTrees = new Uint8ClampedArray(srcData);
+  groundNoProps = new Uint8ClampedArray(srcData);
+  const sheet = document.createElement("canvas");
+  sheet.width = mapW; sheet.height = mapH;
+  const sctx = sheet.getContext("2d");
+  const sheetData = sctx.createImageData(mapW, mapH);
+  const sd = sheetData.data;
+
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      const k = kind[ty * tilesX + tx];
+      if (k === GROUND) continue;
+      for (let y = 0; y < TILE; y++) {
+        for (let x = 0; x < TILE; x++) {
+          const px = tx * TILE + x, py = ty * TILE + y;
+          const i = (py * mapW + px) * 4;
+          const r = srcData[i], g = srcData[i + 1], b = srcData[i + 2];
+          if (k === TREE) {
+            if (isTree(r, g, b)) {
+              sd[i] = r; sd[i + 1] = g; sd[i + 2] = b; sd[i + 3] = 255;
+              groundNoTrees[i] = GRASS[0]; groundNoTrees[i + 1] = GRASS[1]; groundNoTrees[i + 2] = GRASS[2];
+              groundNoProps[i] = GRASS[0]; groundNoProps[i + 1] = GRASS[1]; groundNoProps[i + 2] = GRASS[2];
+            }
+          } else {
+            groundNoProps[i] = GRASS[0]; groundNoProps[i + 1] = GRASS[1]; groundNoProps[i + 2] = GRASS[2];
+          }
+        }
+      }
+    }
+  }
+  sctx.putImageData(sheetData, 0, 0);
+  treeSheet = sheet;
+}
+
+/* The relief pass. This is the normal-mapping route, and the reason it works where the
+   cube extrusion did not: the height field is built per PIXEL from the colour masks and
+   then blurred, so it follows the painted outline of a mountain instead of quantising it
+   to the 16 px tile grid. Sobel on that field gives a surface normal, and a directional
+   light gives relief -- with no geometry, no art split, and nothing turning into a box.
+ 
+   The known trap with deriving normals from pixel art is that the art usually has shading
+   already painted in, so a height field taken from LUMINANCE double-shades it. This takes
+   the field from the masks instead, which carries no baked light, and then lights it from
+   the same top-left the art is painted from so the two reinforce rather than fight. */
+let shade = null;      // Float32Array, one lambert multiplier per texel
+let propSheet = null;  // Uint8ClampedArray RGBA: props opaque, everything else clear
+
+function boxBlur(src, w, hgt, radius, passes) {
+  let a = src, b = new Float32Array(src.length);
+  for (let p = 0; p < passes; p++) {
+    for (let y = 0; y < hgt; y++) {
+      let sum = 0;
+      for (let x = -radius; x <= radius; x++) sum += a[y * w + Math.min(w - 1, Math.max(0, x))];
+      for (let x = 0; x < w; x++) {
+        b[y * w + x] = sum / (radius * 2 + 1);
+        sum -= a[y * w + Math.min(w - 1, Math.max(0, x - radius))];
+        sum += a[y * w + Math.min(w - 1, Math.max(0, x + radius + 1))];
+      }
+    }
+    const t = a; a = b; b = t;
+    for (let x = 0; x < w; x++) {
+      let sum = 0;
+      for (let y = -radius; y <= radius; y++) sum += a[Math.min(hgt - 1, Math.max(0, y)) * w + x];
+      for (let y = 0; y < hgt; y++) {
+        b[y * w + x] = sum / (radius * 2 + 1);
+        sum -= a[Math.min(hgt - 1, Math.max(0, y - radius)) * w + x];
+        sum += a[Math.min(hgt - 1, Math.max(0, y + radius + 1)) * w + x];
+      }
+    }
+    const t2 = a; a = b; b = t2;
+  }
+  return a;
+}
+
+function buildRelief() {
+  const n = mapW * mapH;
+  let field = new Float32Array(n);
+  const sheet = new Uint8ClampedArray(n * 4);
+  for (let i = 0, p = 0; i < n; i++, p += 4) {
+    const r = srcData[p], g = srcData[p + 1], b = srcData[p + 2];
+    if (isMountain(r, g, b)) {
+      field[i] = 1.0;
+      sheet[p] = r; sheet[p + 1] = g; sheet[p + 2] = b; sheet[p + 3] = 255;
+    } else if (isTree(r, g, b)) {
+      field[i] = 0.55;
+      sheet[p] = r; sheet[p + 1] = g; sheet[p + 2] = b; sheet[p + 3] = 255;
+    }
+  }
+  propSheet = sheet;
+  field = boxBlur(field, mapW, mapH, 3, 3);
+
+  // Sobel -> normal -> lambert against a top-left key, matching the art's painted light.
+  const LX = -0.55, LY = -0.62, LZ = 0.56;
+  shade = new Float32Array(n);
+  for (let y = 0; y < mapH; y++) {
+    const yUp = Math.max(0, y - 1) * mapW, yDn = Math.min(mapH - 1, y + 1) * mapW, yc = y * mapW;
+    for (let x = 0; x < mapW; x++) {
+      const xL = Math.max(0, x - 1), xR = Math.min(mapW - 1, x + 1);
+      const dx = (field[yc + xR] - field[yc + xL]) * 24.0;
+      const dy = (field[yDn + x] - field[yUp + x]) * 24.0;
+      // Normal of the height field, normalised.
+      const inv = 1.0 / Math.sqrt(dx * dx + dy * dy + 1.0);
+      const nx = -dx * inv, ny = -dy * inv, nz = inv;
+      shade[yc + x] = Math.max(0.0, nx * LX + ny * LY + nz * LZ);
+    }
+  }
+}
+
+/* The decomp route, and the one that actually works.
+ 
+   Magnifying the region art shows every object on it is ALREADY drawn in oblique view with
+   a top and a front: each mountain has a pale lit crest above a dark body, the fort has a
+   light roof over a dark battlemented wall, the trees are conical and lit from one side.
+   That is the same structure GBC tile art has, which is what the Pokemon decomps exploit --
+   standing such a sprite up shows it at roughly the angle it was already painted for.
+ 
+   The earlier billboard attempt failed because it cut on the 16 px TILE grid, and these are
+   10-40 px objects that do not align to tiles, so it sliced straight through them.
+   Segmenting by connected component instead keeps each object whole. */
+const MIN_PIXELS = 14;    // below this it is speckle, not a sprite
+const MAX_SPAN = 220;     // merged ranges are legitimate; only reject absurdities
+
+let components = null;    // [{x, y, w, h, baseZ}] sorted far to near
+let decompGround = null;  // Uint8ClampedArray: kept components erased to grass
+let propCanvas = null;    // canvas: prop pixels only, everything else transparent
+
+/* Widened from the first attempt: the original r>88 cut missed the dark BODY of every
+   mountain, which halved each sprite and left the offcuts painted on the grass as scars. */
+function isPropPixel(r, g, b) {
+  const mountain = r > 52 && b < 120 && g > 52 && Math.abs(r - g) < 60 && r > b + 30;
+  const tree = r < 30 && g >= 100 && g <= 158 && b < 40;
+  const built = r > 120 && g > 120 && b > 110 && Math.abs(r - b) < 60;
+  return mountain || tree || built;
+}
+
+function buildComponents() {
+  const n = mapW * mapH;
+  const mask = new Uint8Array(n);
+  for (let i = 0, p = 0; i < n; i++, p += 4) {
+    if (isPropPixel(srcData[p], srcData[p + 1], srcData[p + 2])) mask[i] = 1;
+  }
+
+  const seen = new Uint8Array(n);
+  const stack = new Int32Array(n);
+  const comps = [];
+  const keptPixels = [];
+  for (let start = 0; start < n; start++) {
+    if (!mask[start] || seen[start]) continue;
+    let sp = 0;
+    stack[sp++] = start;
+    seen[start] = 1;
+    let minx = mapW, maxx = 0, miny = mapH, maxy = 0, count = 0;
+    const members = [];
+    while (sp > 0) {
+      const q = stack[--sp];
+      const qx = q % mapW, qy = (q / mapW) | 0;
+      count++; members.push(q);
+      if (qx < minx) minx = qx; if (qx > maxx) maxx = qx;
+      if (qy < miny) miny = qy; if (qy > maxy) maxy = qy;
+      for (let dy = -1; dy <= 1; dy++) {
+        const ny = qy + dy;
+        if (ny < 0 || ny >= mapH) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = qx + dx;
+          if (nx < 0 || nx >= mapW) continue;
+          const np = ny * mapW + nx;
+          if (mask[np] && !seen[np]) { seen[np] = 1; stack[sp++] = np; }
+        }
+      }
+    }
+    if (count < MIN_PIXELS) continue;
+    if (maxx - minx > MAX_SPAN || maxy - miny > MAX_SPAN) continue;
+    comps.push({ x: minx, y: miny, w: maxx - minx + 1, h: maxy - miny + 1,
+      baseZ: (maxy + 1) * WPT });
+    for (const m of members) keptPixels.push(m);
+  }
+
+  // Far to near: the camera looks toward -Z, so the smallest world Z is farthest.
+  comps.sort((a, b) => a.baseZ - b.baseZ);
+  components = comps;
+
+  // Erase ONLY what is actually stood up. Erasing the whole mask left a hole wherever a
+  // component had been rejected.
+  decompGround = new Uint8ClampedArray(srcData);
+  for (const m of keptPixels) {
+    const p = m * 4;
+    decompGround[p] = GRASS[0]; decompGround[p + 1] = GRASS[1]; decompGround[p + 2] = GRASS[2];
+  }
+
+  const c = document.createElement("canvas");
+  c.width = mapW; c.height = mapH;
+  const g = c.getContext("2d");
+  const id = g.createImageData(mapW, mapH);
+  for (const m of keptPixels) {
+    const p = m * 4;
+    id.data[p] = srcData[p]; id.data[p + 1] = srcData[p + 1];
+    id.data[p + 2] = srcData[p + 2]; id.data[p + 3] = 255;
+  }
+  g.putImageData(id, 0, 0);
+  propCanvas = c;
+}
+
+/* One sprite per component, anchored where its bottom row met the ground. Its own pixel
+   height becomes its world height, so a mountain stands taller than a tree with no
+   authored per-object data at all. */
+function drawComponents() {
+  bctx.imageSmoothingEnabled = false;
+  const fogRGB = "rgb(" + (FOG[0] * 255 | 0) + "," + (FOG[1] * 255 | 0) + "," + (FOG[2] * 255 | 0) + ")";
+  for (const c of components) {
+    const worldW = c.w * WPT;
+    const worldH = c.h * WPT * K.propScale;
+    const baseX = (c.x + c.w * 0.5) * WPT;
+    const base = project(baseX, 0, c.baseZ);
+    const top = project(baseX, worldH, c.baseZ);
+    const side = project(baseX + worldW, 0, c.baseZ);
+    if (!base || !top || !side) continue;
+    const wpx = Math.abs(side.x - base.x);
+    const hpx = base.y - top.y;
+    if (wpx < 0.4 || hpx < 0.4) continue;
+    const dx = base.x - wpx / 2, dy = base.y - hpx;
+    bctx.drawImage(propCanvas, c.x, c.y, c.w, c.h, dx, dy, wpx, hpx);
+    const f = fogAt(base.fwd);
+    if (f > 0.01) {
+      bctx.save();
+      bctx.globalAlpha = f;
+      bctx.globalCompositeOperation = "source-atop";
+      bctx.fillStyle = fogRGB;
+      bctx.fillRect(dx, dy, wpx, hpx);
+      bctx.restore();
+    }
+  }
+}
+
+/* ------------------------------------------------------------ ray + project */
+let F = 0, CS = 0, SN = 0;
+
+/* Solves for where a screen row meets the ground. The curvature term matters: `project()`
+   bends props by -k*d^2, so a flat ground scanline would leave every prop floating. Same
+   quadratic the framing explorer uses. `h` lets raised layers reuse this untouched. */
+function rayT(py, h) {
+  const height = (h === undefined) ? K.height : h;
+  const diry = py * CS - F * SN;
+  const dirz = -py * SN - F * CS;
+  let t;
+  if (K.curve > 1e-12) {
+    const a = K.curve * dirz * dirz, b = diry, disc = b * b - 4 * a * height;
+    if (disc < 0) return null;
+    t = (-b - Math.sqrt(disc)) / (2 * a);
+  } else {
+    if (diry > -1e-9) return null;
+    t = height / -diry;
+  }
+  return t > 0 ? { t, dirz } : null;
+}
+
+/* World point -> screen. `wy` is height ABOVE the flat ground; the curvature bend is added
+   here so props sit on the same curved surface the ground shader draws. */
+function project(wx, wy, wz) {
+  const fwd = camZ - wz;
+  const dx = wx - camX;
+  const dy = (wy - K.curve * fwd * fwd) - K.height;
+  const dz = -fwd;
+  const yCam = dy * CS - dz * SN;
+  const zCam = dy * SN + dz * CS;
+  if (zCam >= -1e-6) return null;
+  return { x: rw / 2 + F * dx / -zCam, y: rh / 2 - F * yCam / -zCam, fwd };
+}
+
+function fogAt(fwd) {
+  return Math.pow(Math.min(1, Math.max(0, (fwd - K.fogStart) / Math.max(1e-3, K.fogEnd - K.fogStart))), K.fogPow);
+}
+
+function fogged(rgb, f) {
+  return [
+    Math.round(rgb[0] + (FOG[0] * 255 - rgb[0]) * f),
+    Math.round(rgb[1] + (FOG[1] * 255 - rgb[1]) * f),
+    Math.round(rgb[2] + (FOG[2] * 255 - rgb[2]) * f),
+  ];
+}
+
+function recentre() {
+  const d0 = K.height / Math.tan(K.pitch * RAD);
+  camX = tilesX * 0.5;
+  camZ = tilesY * 0.5 + d0;
+}
+
+/* ------------------------------------------------------------------ ground */
+function drawGround(texture) {
+  const px = img.data;
+  const fr = FOG[0] * 255, fg = FOG[1] * 255, fb = FOG[2] * 255;
+  const useParallax = K.mode === "parallax";
+  const lit = (K.mode === "normal" || K.mode === "normslice" || K.mode === "decomprel") && shade;
+  for (let sy = 0; sy < rh; sy++) {
+    const r = rayT(rh / 2 - sy - 0.5);
+    let o = sy * rw * 4;
+    if (!r) { for (let x = 0; x < rw; x++) { px[o++] = 8; px[o++] = 9; px[o++] = 12; px[o++] = 255; } continue; }
+    const worldZ = camZ + r.t * r.dirz;
+    const fwd = -r.t * r.dirz;
+    const f = fogAt(fwd);
+    const du = r.t / WPT;
+    let u = (camX + r.t * (0.5 - rw / 2)) / WPT;
+    const vBase = worldZ / WPT;
+    for (let x = 0; x < rw; x++) {
+      let uu = u, vv = vBase;
+      if (useParallax) {
+        // Offset the lookup along the view vector by the tile's height. Free, and it
+        // shears rather than lifts -- which is the whole point of showing it.
+        const tu = Math.floor(uu / TILE), tv = Math.floor(vv / TILE);
+        if (tu >= 0 && tu < tilesX && tv >= 0 && tv < tilesY) {
+          const h = heightMap[tv * tilesX + tu];
+          vv += h * K.parallax / WPT * 0.06;
+        }
+      }
+      const ui = Math.floor(uu), vi = Math.floor(vv);
+      let R = 0, G = 0, B = 0;
+      if (ui >= 0 && ui < mapW && vi >= 0 && vi < mapH) {
+        const idx = vi * mapW + ui, i = idx * 4;
+        R = texture[i]; G = texture[i + 1]; B = texture[i + 2];
+        if (lit) {
+          // Relief is applied as a gain around 1, so flat ground keeps its painted value
+          // and only sloped parts of the height field pick up light or shadow.
+          const m = 1 + (shade[idx] - 0.5) * K.relief;
+          R *= m; G *= m; B *= m;
+        }
+      }
+      px[o++] = R + (fr - R) * f;
+      px[o++] = G + (fg - G) * f;
+      px[o++] = B + (fb - B) * f;
+      px[o++] = 255;
+      u += du;
+    }
+  }
+  bctx.putImageData(img, 0, 0);
+}
+
+/* ------------------------------------------------------- props over ground */
+function drawShadows() {
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      const k = kind[ty * tilesX + tx];
+      if (k === GROUND) continue;
+      const c = project(tx + 0.5, 0, ty + 0.5);
+      if (!c) continue;
+      const edge = project(tx + 1.0, 0, ty + 0.5);
+      if (!edge) continue;
+      const rx = Math.abs(edge.x - c.x) * 0.95;
+      if (rx < 0.4) continue;
+      bctx.save();
+      bctx.globalAlpha = K.shadow * (1 - fogAt(c.fwd));
+      bctx.fillStyle = "#000";
+      bctx.beginPath();
+      bctx.ellipse(c.x, c.y, rx, rx * Math.sin(K.pitch * RAD), 0, 0, 7);
+      bctx.fill();
+      bctx.restore();
+    }
+  }
+}
+
+function drawExtrusions() {
+  bctx.imageSmoothingEnabled = false;
+  // Far to near: worldZ 0 is farthest, because the camera looks toward -Z.
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      const idx = ty * tilesX + tx;
+      if (kind[idx] !== MOUNT) continue;
+      const h = heightMap[idx] * K.mountHeight;
+      const b0 = project(tx, 0, ty), b1 = project(tx + 1, 0, ty);
+      const b2 = project(tx + 1, 0, ty + 1), b3 = project(tx, 0, ty + 1);
+      const t0 = project(tx, h, ty), t1 = project(tx + 1, h, ty);
+      const t2 = project(tx + 1, h, ty + 1), t3 = project(tx, h, ty + 1);
+      if (!b0 || !b1 || !b2 || !b3 || !t0 || !t1 || !t2 || !t3) continue;
+      const i = ((ty * TILE + TILE / 2) * mapW + tx * TILE + TILE / 2) * 4;
+      const base = [srcData[i], srcData[i + 1], srcData[i + 2]];
+      const f = fogAt(b2.fwd);
+      const top = fogged(base, f);
+      const near = fogged([base[0] * 0.62, base[1] * 0.62, base[2] * 0.62], f);
+      const side = fogged([base[0] * 0.46, base[1] * 0.46, base[2] * 0.46], f);
+      // Near face (+Z, toward camera), then the two side faces, then the lit top.
+      poly([b3, b2, t2, t3], near);
+      poly([b0, b3, t3, t0], side);
+      poly([b1, b2, t2, t1], side);
+      poly([t0, t1, t2, t3], top);
+    }
+  }
+}
+
+function poly(points, rgb) {
+  bctx.fillStyle = "rgb(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + ")";
+  bctx.beginPath();
+  bctx.moveTo(points[0].x, points[0].y);
+  for (let i = 1; i < points.length; i++) bctx.lineTo(points[i].x, points[i].y);
+  bctx.closePath();
+  bctx.fill();
+}
+
+function drawBillboards() {
+  bctx.imageSmoothingEnabled = false;
+  for (let ty = 0; ty < tilesY; ty++) {
+    for (let tx = 0; tx < tilesX; tx++) {
+      const idx = ty * tilesX + tx;
+      if (kind[idx] !== TREE) continue;
+      const h = K.treeHeight;
+      const base = project(tx + 0.5, 0, ty + 0.5);
+      const top = project(tx + 0.5, h, ty + 0.5);
+      const right = project(tx + 1.5, 0, ty + 0.5);
+      if (!base || !top || !right) continue;
+      const wpx = Math.abs(right.x - base.x);
+      const hpx = base.y - top.y;
+      if (wpx < 0.5 || hpx < 0.5) continue;
+      const f = fogAt(base.fwd);
+      bctx.globalAlpha = 1;
+      bctx.drawImage(treeSheet, tx * TILE, ty * TILE, TILE, TILE,
+        base.x - wpx / 2, base.y - hpx, wpx, hpx);
+      if (f > 0.01) {
+        // Haze has to reach the props too, or they punch out of the distance.
+        bctx.save();
+        bctx.globalAlpha = f;
+        bctx.globalCompositeOperation = "source-atop";
+        bctx.fillStyle = "rgb(" + (FOG[0] * 255 | 0) + "," + (FOG[1] * 255 | 0) + "," + (FOG[2] * 255 | 0) + ")";
+        bctx.fillRect(base.x - wpx / 2, base.y - hpx, wpx, hpx);
+        bctx.restore();
+      }
+    }
+  }
+}
+
+/* Draws the prop sheet as a plane lifted `yOff` above the ground. Because it is the same
+   scanline solve with a smaller camera height, the lifted copy lands in exactly the right
+   place under the same curvature -- and it clips to the painted silhouette, which is what
+   the tile-grid extrusion could never do. */
+function drawRaisedLayer(yOff, darken) {
+  const px = img.data;
+  const fr = FOG[0] * 255, fg = FOG[1] * 255, fb = FOG[2] * 255;
+  for (let sy = 0; sy < rh; sy++) {
+    const r = rayT(rh / 2 - sy - 0.5, K.height - yOff);
+    if (!r) continue;
+    const worldZ = camZ + r.t * r.dirz;
+    const vi = Math.floor(worldZ / WPT);
+    if (vi < 0 || vi >= mapH) continue;
+    const f = fogAt(-r.t * r.dirz);
+    const du = r.t / WPT;
+    let u = (camX + r.t * (0.5 - rw / 2)) / WPT;
+    let o = sy * rw * 4;
+    for (let x = 0; x < rw; x++) {
+      const ui = Math.floor(u);
+      if (ui >= 0 && ui < mapW) {
+        const idx = vi * mapW + ui, i = idx * 4;
+        if (propSheet[i + 3] > 128) {
+          let R = propSheet[i] * darken, G = propSheet[i + 1] * darken, B = propSheet[i + 2] * darken;
+          if ((K.mode === "normslice") && shade) {
+            const m = 1 + (shade[idx] - 0.5) * K.relief;
+            R *= m; G *= m; B *= m;
+          }
+          px[o] = R + (fr - R) * f;
+          px[o + 1] = G + (fg - G) * f;
+          px[o + 2] = B + (fb - B) * f;
+        }
+      }
+      o += 4; u += du;
+    }
+  }
+}
+
+function drawSlices() {
+  const n = Math.round(K.slices);
+  for (let k = 0; k < n; k++) {
+    const frac = n === 1 ? 1 : k / (n - 1);
+    // Lower slices are the side wall, so they darken; the top slice keeps full colour.
+    drawRaisedLayer(frac * K.sliceHeight, 0.55 + 0.45 * frac);
+  }
+  bctx.putImageData(img, 0, 0);
+}
+
+/* ------------------------------------------------------------------ render */
+function render() {
+  const dw = cv.width, dh = cv.height;
+  const nw = Math.round(dw * RENDER_SCALE), nh = Math.round(dh * RENDER_SCALE);
+  if (nw !== rw || nh !== rh) {
+    rw = nw; rh = nh; buf.width = rw; buf.height = rh;
+    img = bctx.createImageData(rw, rh);
+  }
+  F = (rh / 2) / Math.tan(K.fov * 0.5 * RAD);
+  CS = Math.cos(K.pitch * RAD); SN = Math.sin(K.pitch * RAD);
+
+  const mode = K.mode;
+  const texture = (mode === "both" || mode === "extrude") ? groundNoProps
+    : (mode === "billboard") ? groundNoTrees
+    : (mode === "slices" || mode === "normslice") ? groundNoProps
+    : (mode === "decomp" || mode === "decomprel") ? decompGround
+    : srcData;
+  drawGround(texture);
+
+  if (mode === "decomp" || mode === "decomprel") drawComponents();
+  if (mode === "slices" || mode === "normslice") drawSlices();
+  if (mode === "shadow") drawShadows();
+  if (mode === "extrude" || mode === "both") { drawShadows(); drawExtrusions(); }
+  if (mode === "billboard" || mode === "both") { drawShadows(); drawBillboards(); }
+
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(buf, 0, 0, rw, rh, 0, 0, dw, dh);
+  updateReadout();
+}
+
+function updateReadout() {
+  let trees = 0, mounts = 0;
+  for (let i = 0; i < kind.length; i++) { if (kind[i] === TREE) trees++; else if (kind[i] === MOUNT) mounts++; }
+  const near = rayT(-rh / 2), far = rayT(rh / 2);
+  const lines = [];
+  lines.push("region        " + tilesX + " x " + tilesY + " tiles");
+  lines.push("tree tiles    " + trees + "  (" + (100 * trees / kind.length).toFixed(1) + "%)");
+  lines.push("mountain      " + mounts + "  (" + (100 * mounts / kind.length).toFixed(1) + "%)");
+  lines.push("billboards    " + (K.mode === "billboard" || K.mode === "both" ? trees : 0) + " quads");
+  const boxed = (K.mode === "extrude" || K.mode === "both") ? mounts : 0;
+  lines.push("boxes         " + boxed + "  (" + (boxed * 4) + " faces)");
+  lines.push("sprites       " + (components ? components.size || components.length : 0) + " segmented");
+  if (near && far) {
+    lines.push("depth         " + (-near.t * near.dirz).toFixed(1) + " to " + (-far.t * far.dirz).toFixed(1) + " units");
+    lines.push("near:far      1 : " + ((far.t * far.dirz) / (near.t * near.dirz)).toFixed(2));
+  }
+  lines.push("buffer        " + rw + " x " + rh);
+  document.getElementById("readout").textContent = lines.join("\n");
+}
+
+/* ---------------------------------------------------------------------- ui */
+// Browsers restore form control values across reloads and can fire `input` while doing
+// it, which quietly overwrote the declared defaults with the last session's drag.
+for (const el of document.querySelectorAll("input")) el.setAttribute("autocomplete", "off");
+
+const BIND = ["treeHeight", "mountHeight", "shadow", "parallax", "relief", "slices", "sliceHeight", "propScale", "pitch", "fov", "height", "curve", "fogStart", "fogEnd"];
+const DEC = { curve: 5, relief: 2, slices: 0, sliceHeight: 1, propScale: 2, treeHeight: 1, mountHeight: 1, shadow: 2, parallax: 1, pitch: 1, fov: 1, height: 1 };
+
+function syncUI() {
+  for (const k of BIND) {
+    const e = document.getElementById(k);
+    e.value = K[k];
+    document.getElementById(k + "_v").textContent = Number(K[k]).toFixed(DEC[k] ?? 0);
+  }
+  for (const b of document.querySelectorAll("#modeButtons button")) {
+    b.classList.toggle("on", b.dataset.mode === K.mode);
+  }
+}
+
+for (const k of BIND) {
+  document.getElementById(k).addEventListener("input", e => {
+    K[k] = parseFloat(e.target.value);
+    document.getElementById(k + "_v").textContent = Number(K[k]).toFixed(DEC[k] ?? 0);
+    render();
+  });
+}
+
+(function buildModes() {
+  const host = document.getElementById("modeButtons");
+  for (const [id, label, blurb] of MODES) {
+    const b = document.createElement("button");
+    b.dataset.mode = id;
+    b.innerHTML = label + "<small>" + blurb + "</small>";
+    b.onclick = () => { K.mode = id; syncUI(); render(); };
+    host.appendChild(b);
+  }
+})();
+
+/* Renders all six options into one grid at the current camera, which is the only way to
+   compare them honestly -- flipping between modes one at a time makes every option look
+   better than the one before it. */
+function contactSheet() {
+  const sc = document.getElementById("sheet");
+  const g = sc.getContext("2d");
+  const cols = 3, cellW = rw, cellH = rh, labelH = 18;
+  const rows = Math.ceil(MODES.length / cols);
+  sc.width = cols * cellW;
+  sc.height = rows * (cellH + labelH);
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = "#0e1016";
+  g.fillRect(0, 0, sc.width, sc.height);
+  const saved = K.mode;
+  MODES.forEach(([id, label], i) => {
+    K.mode = id;
+    render();
+    const cx = (i % cols) * cellW;
+    const cy = Math.floor(i / cols) * (cellH + labelH);
+    g.drawImage(buf, cx, cy + labelH);
+    g.fillStyle = "#dfe4ee";
+    g.font = "12px ui-sans-serif, sans-serif";
+    g.fillText(label, cx + 5, cy + 13);
+  });
+  K.mode = saved;
+  render();
+}
+
+document.getElementById("sheetBtn").onclick = contactSheet;
+document.getElementById("reset").onclick = () => {
+  Object.assign(K, DEFAULTS); syncUI(); recentre(); render();
+};
+
+let dragging = false, lx = 0, ly = 0;
+cv.addEventListener("pointerdown", e => {
+  dragging = true; lx = e.clientX; ly = e.clientY;
+  cv.classList.add("drag"); cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const s = cv.clientWidth / cv.width;
+  const d0 = K.height / Math.tan(K.pitch * RAD);
+  const scale = (d0 * 2 * Math.tan(K.fov * 0.5 * RAD)) / (cv.height * s);
+  camX -= (e.clientX - lx) * scale;
+  camZ -= (e.clientY - ly) * scale / Math.max(0.15, Math.sin(K.pitch * RAD));
+  lx = e.clientX; ly = e.clientY;
+  render();
+});
+addEventListener("pointerup", () => { dragging = false; cv.classList.remove("drag"); });
+
+/* ---------------------------------------------------------------------boot */
+function boot(image) {
+  const c = document.createElement("canvas");
+  c.width = image.naturalWidth; c.height = image.naturalHeight;
+  const g = c.getContext("2d");
+  g.drawImage(image, 0, 0);
+  mapW = c.width; mapH = c.height;
+  srcData = g.getImageData(0, 0, mapW, mapH).data;
+  classify();
+  buildLayers();
+  buildRelief();
+  buildComponents();
+  syncUI();
+  recentre();
+  render();
+  contactSheet();
+}
+
+const im = new Image();
+im.onload = () => boot(im);
+im.src = window.EMBEDDED_MAP_2P5D;
+</script>
+</body>
+</html>

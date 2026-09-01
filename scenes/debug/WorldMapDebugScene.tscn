@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://j6eb3ywuojok"]
 
-[ext_resource type="Script" path="res://src/presentation/debug/WorldMapDebugController.gd" id="1_controller"]
+[ext_resource type="Script" uid="uid://biqm3j3aekk66" path="res://src/presentation/debug/WorldMapDebugController.gd" id="1_controller"]
 
 [sub_resource type="StyleBoxFlat" id="1_panel_style"]
 content_margin_left = 10.0

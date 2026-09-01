@@ -248,7 +248,36 @@ Two differences remain and are deliberate, each confirmed by isolating it:
 Re-deriving these numbers is one command each: `probe_allpresets.gd` in the game, and the
 band-signature snippet against the explorer's internal buffer.
 
-## 7. Open
+## 7. Rejected: 2.5D depth for the ground
+
+Explored 2026-09-01 and **rejected in full**. The map stays flat. Eleven approaches were
+built and rendered against the real region art; the sketch is
+`docs/sketches/2026-09-01-worldmap-2p5d-options-rejected.html`.
+
+What failed, and why, so none of it is re-proposed from reasoning alone:
+
+- **Per-tile extrusion.** Quantising organic mountain blobs to the 16 px tile grid turns
+  them into a staircase of cubes.
+- **Tile-grid billboards.** The objects in this art are 10-40 px and do not align to tiles,
+  so cutting sprites on tile boundaries slices straight through them.
+- **Parallax offset.** Shears the texture rather than lifting it, and at the Overland
+  framing's 40.5 degree pitch it scores *below* plain contact shadows. Its worst case is
+  exactly the framing in use.
+- **Contact shadow ellipses.** Read as smudges under objects, not as contact.
+- **Normal-map relief** from a mask-derived height field, and **connected-component sprites
+  stood upright** in the manner of the Pokemon GBC decomps, both got much closer and were
+  still rejected on look.
+
+One measurement worth keeping from it: a metric that reports *how much* a frame changed
+says nothing about whether the change is good. Ranking these options by mean pixel
+difference put the cube extrusion first, and it was the worst of them.
+
+An observation about the art worth keeping too: every object in the region PNG is already
+drawn in **oblique view with a top and a front** -- each mountain has a pale lit crest above
+a dark body, the fort a light roof over a battlemented wall. That is why the map reads as
+having depth while lying perfectly flat, and it is the reason flat is the right answer here.
+
+## 8. Open
 
 - The region id `temp` is a placeholder. Naming it is a lore question.
 - Whether the camera eases between a close travelling framing and a pulled-back planning
