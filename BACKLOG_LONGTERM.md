@@ -348,6 +348,41 @@ harness shape that catches this class of bug and would port to v1 directly.
 
 Small and mechanical when picked up: mirror v2's split.
 
+## World map ground rig: four decisions the cycle deliberately left open
+
+Recorded 2026-08-31 when the world map ground rig cycle closed. The rig itself is
+built and validated; these are the judgement calls it surfaced and did not make.
+Full detail, with the measurements behind each, is in `docs/WORLDMAP_DESIGN.md`
+section 7.
+
+**The fog band is heavier than the reference.** Every preset in
+`WorldMapFramingCatalog` sets `fog_start` at roughly the frame's near depth, so
+haze begins at the bottom edge of the screen and grows across the whole visible
+range. That is faithful to the HTML explorer the numbers came from, but the
+explorer's fog was itself eyeballed off a photographed CRT. Validation proved the
+ground material's transfer function is *exact* — five flat swatches render back at
+precisely their source values with fog off — so this is purely where the band sits,
+not a colour bug. Suggested starting point: push `fog_start` out to roughly the
+midpoint of the visible depth range, leaving the near half of the frame clean.
+`scenes/debug/WorldMapDebugScene.tscn` is the place to settle it.
+
+**The region id `temp` is a placeholder.** Naming the first region is a lore
+question, not a code one.
+
+**Whether the camera eases between framings by context.** It currently sits at one
+height per framing. If travel time becomes a resource the player needs a view that
+shows where the roads go, and the reference framing is not that view — the
+`overview` and `walking` presets bracket the range an eased camera would move
+between.
+
+**Whether region art gets produced at the width the framing needs.** The far edge
+of the frame is ~2.9x wider than the near edge, so a region must be
+`tiles_across x ratio` tiles wide or its plane edges show: ~155 tiles for the
+reference framing, against the 48 the first region has. The alternative is
+committing the camera to something closer. This is a design choice rather than
+only a texture budget — it decides how much of the world the player can weigh at
+once when choosing where to spend travel time.
+
 ## Carried over from the retired `docs/BACKLOG.md`
 
 `docs/BACKLOG.md` was a third backlog that `docs/README.md` still routed to
