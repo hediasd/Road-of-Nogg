@@ -36,13 +36,18 @@ const STATUS_ROWS := [
 	["needed", "Region needed"],
 	["depth", "Depth range"],
 	["buffer", "Buffer"],
+	["sky", "Sky"],
 	["horizon", "Horizon"],
 ]
 
 ## The control declaration. Each row is one framing key; `type` picks the widget and the
 ## remaining fields configure it. Ranges are deliberately wider than the presets use --
 ## this is the surface a framing is chosen on, so it has to be able to leave them behind.
-const SECTIONS := [
+##
+## A `static var` rather than a `const` because the sky row draws its options from
+## `WorldMapSkyCatalog`, and a const cannot call a function. Duplicating the catalog's ids
+## here to keep it const would put the two out of step the first time a sky is added.
+static var SECTIONS := [
 	{
 		"id": "camera",
 		"title": "Camera",
@@ -90,6 +95,19 @@ const SECTIONS := [
 				"min": 2.0, "max": 40.0, "step": 0.5},
 			{"key": Uniforms.K_CLOUD_SPEED, "label": "Cloud speed", "type": ROW_SLIDER,
 				"min": 0.0, "max": 6.0, "step": 0.1},
+		],
+	},
+	{
+		"id": "sky",
+		"title": "Sky",
+		"rows": [
+			{"key": Uniforms.K_SKY, "label": "Backdrop", "type": ROW_OPTION,
+				"options": WorldMapSkyCatalog.labels(), "values": WorldMapSkyCatalog.ids()},
+			{"key": Uniforms.K_SKY_OFFSET, "label": "Horizon", "type": ROW_SLIDER,
+				"min": -1.0, "max": 1.0, "step": 0.005},
+			{"key": Uniforms.K_SKY_SCALE, "label": "Zoom", "type": ROW_SLIDER,
+				"min": 0.2, "max": 4.0, "step": 0.05},
+			{"key": Uniforms.K_SKY_TINT, "label": "Tint", "type": ROW_COLOR},
 		],
 	},
 	{

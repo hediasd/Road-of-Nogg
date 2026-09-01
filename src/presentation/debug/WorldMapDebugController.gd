@@ -6,6 +6,7 @@
 ## - `WorldMapDebugHud` -- control construction, collapsible sections, status readout.
 ## - `WorldMapFramingCatalog` -- the named framings and what each one came from.
 ## - `WorldMapRegionCatalog` -- available regions and their tile dimensions.
+## - `WorldMapSkyCatalog` -- available backdrops.
 ##
 ## The `SubViewport` is not decoration. `render_scale` is a framing key here, and buffer
 ## pixels per tile is what decides whether the ground is minified enough for its sparkle to
@@ -34,7 +35,8 @@
 ##   --hide-hud          start with the panel hidden, for clean captures
 ##   --quit-after=<n>    quit after n frames, for bounded probes
 ## and an override for every framing key, applied over the chosen preset:
-##   --pitch= --fov= --height= --fog_start= --fog_end= --fog_curve=
+##   --pitch= --fov= --height= --fog_start= --fog_end= --fog_curve= --sky=
+##   --sky_offset= --sky_scale= --sky_tint=
 ##   --fog_curve= --fog_color= --void_color= --curvature= --cloud_strength=
 ##   --cloud_scale= --cloud_speed= --filter_mode= --render_scale= --sprite_mode=
 
@@ -59,6 +61,7 @@ var _display: TextureRect
 var _map: Node3D
 var _ground: WorldMapGround
 var _camera: WorldMapCameraRig
+var _sky: WorldMapSky
 var _tileGrid: MeshInstance3D
 
 var _regionID := ""
@@ -78,6 +81,7 @@ func _ready() -> void:
 	_viewport.add_child(_map)
 	_ground = _map.get_node("Ground")
 	_camera = _map.get_node("Camera")
+	_sky = _map.get_node("Camera/Sky")
 	_camera.current = true
 
 	_buildTileGrid()
@@ -87,6 +91,13 @@ func _ready() -> void:
 	_regionID = _regionFromArguments()
 	var base := FramingCatalog.framingFor(_presetID)
 	_framing = _framingFromArguments(base)
+	# --sky= rides the generic per-key override loop, which only coerces types. Without this
+	# a typo silently turned the backdrop off while the readout still named it, unlike
+	# --preset= and --region= which both warn and fall back.
+	var skyID := str(_framing[Uniforms.K_SKY])
+	if not WorldMapSkyCatalog.has(skyID):
+		push_warning("WorldMapDebugController: unknown sky '%s'" % skyID)
+		_framing[Uniforms.K_SKY] = Uniforms.SKY_OFF
 	# A command-line override leaves the framing no longer matching the preset it started
 	# from, so it reports Custom for the same reason a control edit does. Without this the
 	# readout and the copied settings block would both name a preset that is not in effect.
@@ -191,6 +202,8 @@ func _loadRegion(regionID: String) -> void:
 func _applyFraming() -> void:
 	_ground.applyFraming(_framing)
 	_camera.applyFraming(_framing)
+	# After the camera, because the backdrop is sized against its FOV.
+	_sky.applyFraming(_framing, _camera, Vector2(get_viewport().get_visible_rect().size))
 	# The region rect is in WORLD units. It happens to equal the tile count under the
 	# one-tile-one-unit invariant, but going through the rect keeps that in a single place.
 	var rect := _ground.regionRect()
@@ -230,12 +243,19 @@ func _refreshStatus() -> void:
 		],
 		"depth": "%.1f to %.1f units" % [readout["near_depth"], readout["far_depth"]],
 		"buffer": "%d x %d" % [int(buffer.x), int(buffer.y)],
+		"sky": _skyLabel(),
 		"horizon": (
 			"on screen at pitch < fov/2"
 			if readout["horizon_on_screen"]
 			else "above the frame (matches reference)"
 		),
 	})
+
+
+func _skyLabel() -> String:
+	var id := str(_framing.get(Uniforms.K_SKY, Uniforms.SKY_OFF))
+	var index := WorldMapSkyCatalog.ids().find(id)
+	return WorldMapSkyCatalog.labels()[index] if index >= 0 else id
 
 
 func _presetLabel() -> String:

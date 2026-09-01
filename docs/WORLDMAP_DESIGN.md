@@ -152,6 +152,34 @@ exactly zero by 80. The default is 12. This is a real trap when porting numbers 
 HTML explorer, whose noise used a different coordinate convention -- a value of 40 came
 across and silently did nothing.
 
+### The backdrop
+
+Wherever the ground stops, a backdrop can show through. It is a **quad parented to the
+camera**, sized to fill the frustum at 2000 units -- far beyond any ground plane the rig
+builds, well inside the camera's 4000 unit far plane. A flat backdrop rather than a dome is
+enough because yaw is pinned to 0 and the camera never rolls, so the sky can only ever be
+seen from one direction. Offset and zoom happen in UV, so the quad always fills the frame
+exactly and only the image slides inside it.
+
+It is deliberately **not** a `WorldEnvironment` sky, for the same reason the fog is not
+environment fog: introducing an environment purely for a background would couple the world
+map's sky to the battle scene's, for no gain.
+
+**Enabling a backdrop makes the ground discard its off-map fragments** rather than paint the
+void colour. This is not optional -- the plane is far larger than the region, so its fogged
+void otherwise sits in front of the sky and hides everything except the strip above the
+plane's own edge. With the backdrop off, the void colour behaves exactly as before.
+
+Skies live in `WorldMapSkyCatalog`, a flat list rather than a JSON catalog because there are
+two of them and they are chosen by eye. If skies ever become per-region or per-time-of-day
+it should move to `data/worldmap/` beside the regions, in the same shape.
+
+`temp2_sunset` is `Skies2.png` recoloured onto region `temp2`'s own seven colours: upper sky
+and muted bands to its dark teal, the bright band to its sea teal, the sun to its orange, the
+lower field to its sand. Every destination colour is one the region actually uses, so a
+backdrop cannot drift off-palette from the map in front of it. That constraint is worth
+keeping for any future sky.
+
 ### Filtering, and why the sparkle is kept
 
 On this project the pixel noise and optical artefacts are wanted. The question is not how

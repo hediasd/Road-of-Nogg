@@ -45,6 +45,7 @@ const U_CURVATURE_K := "curvature_k"
 const U_CLOUD_STRENGTH := "cloud_strength"
 const U_CLOUD_SCALE := "cloud_scale"
 const U_CLOUD_SPEED := "cloud_speed"
+const U_SHOW_SKY_BEYOND := "show_sky_beyond"
 
 const REGION_SAMPLERS := [U_REGION_NEAREST, U_REGION_NEAREST_MIP, U_REGION_LINEAR_MIP]
 
@@ -75,6 +76,16 @@ const K_FILTER_MODE := "filter_mode"
 ## low-resolution buffer is an opt-in retro treatment, here it is a framing decision that
 ## decides how many buffer pixels a tile gets. `sprite_mode` picks whether map sprites are
 ## blitted at fixed screen size (what the reference does) or billboarded in world space.
+## Backdrop keys. Not shader uniforms on the GROUND material -- they drive `WorldMapSky`,
+## which is a separate quad. They live in the framing because changing them changes the
+## framing's look, and because it gives them command-line parity for free.
+const K_SKY := "sky"
+const K_SKY_OFFSET := "sky_offset"
+const K_SKY_SCALE := "sky_scale"
+const K_SKY_TINT := "sky_tint"
+
+const SKY_OFF := "off"
+
 const K_RENDER_SCALE := "render_scale"
 const K_SPRITE_MODE := "sprite_mode"
 
@@ -98,6 +109,10 @@ const FRAMING_KEYS := [
 	K_FILTER_MODE,
 	K_RENDER_SCALE,
 	K_SPRITE_MODE,
+	K_SKY,
+	K_SKY_OFFSET,
+	K_SKY_SCALE,
+	K_SKY_TINT,
 ]
 
 ## The reference framing, derived in `debug/worldmap/worldmap-framing.html`. Presets vary
@@ -119,6 +134,10 @@ const DEFAULTS := {
 	K_FILTER_MODE: FILTER_NEAREST,
 	K_RENDER_SCALE: 0.4,
 	K_SPRITE_MODE: SPRITE_FIXED,
+	K_SKY: SKY_OFF,
+	K_SKY_OFFSET: 0.0,
+	K_SKY_SCALE: 1.0,
+	K_SKY_TINT: Color.WHITE,
 }
 
 
@@ -151,3 +170,5 @@ static func applyToMaterial(
 	material.set_shader_parameter(U_CLOUD_SCALE, f[K_CLOUD_SCALE])
 	material.set_shader_parameter(U_CLOUD_SPEED, f[K_CLOUD_SPEED])
 	material.set_shader_parameter(U_FILTER_MODE, f[K_FILTER_MODE])
+	# A backdrop replaces the void: off-map fragments are discarded so the sky shows through.
+	material.set_shader_parameter(U_SHOW_SKY_BEYOND, str(f[K_SKY]) != SKY_OFF)

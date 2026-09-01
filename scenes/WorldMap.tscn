@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapGround.gd" id="1_ground"]
 [ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapCameraRig.gd" id="2_camera"]
+[ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapSky.gd" id="3_sky"]
 
 [node name="WorldMap" type="Node3D"]
 
@@ -16,3 +17,9 @@ fov = 25.0
 near = 0.5
 far = 4000.0
 script = ExtResource("2_camera")
+
+[node name="Sky" type="MeshInstance3D" parent="Camera"]
+cast_shadow = 0
+gi_mode = 0
+visible = false
+script = ExtResource("3_sky")

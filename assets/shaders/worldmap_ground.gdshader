@@ -41,6 +41,10 @@ uniform float fog_end = 116.0;
 uniform float fog_curve : hint_range(0.2, 4.0) = 1.4;
 uniform vec4 fog_color : source_color = vec4(0.812, 0.914, 0.961, 1.0);
 uniform vec4 void_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+// With a backdrop enabled the off-map area must show it rather than a void colour. The
+// plane is deliberately far larger than the region, so without this its fogged void sits in
+// front of the sky and hides all but the strip above the plane's own edge.
+uniform bool show_sky_beyond = false;
 
 // Ground curvature: y = -k * d^2 in view space, so the world falls away with distance.
 // Zero is flat and is the reference. Non-zero pulls the horizon nearer.
@@ -144,6 +148,8 @@ void fragment() {
 	// at the screen edges.
 	float depth = CAMERA_POSITION_WORLD.z - world_position.z;
 	float fog = pow(clamp((depth - fog_start) / max(fog_end - fog_start, 0.001), 0.0, 1.0), fog_curve);
+
+	if (off_map && show_sky_beyond) { discard; }
 
 	vec3 ground = off_map ? void_color.rgb : albedo;
 	ALBEDO = to_linear(mix(to_gamma(ground), to_gamma(fog_color.rgb), fog));
