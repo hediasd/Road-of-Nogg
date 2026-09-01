@@ -35,10 +35,13 @@ static func reloadCatalog(path: String = JSON_PATH) -> bool:
 		var texturePath := str(reference.get("TEXTURE", ""))
 		var tilesWide := int(reference.get("TILES_WIDE", 0))
 		var tilesTall := int(reference.get("TILES_TALL", 0))
-		if texturePath.is_empty() or tilesWide <= 0 or tilesTall <= 0:
+		# Tile pixel size varies per region -- some art is drawn on an 8 px grid, some 16.
+		var tilePixels := int(reference.get("TILE_PIXELS", Uniforms.DEFAULT_TILE_PIXELS))
+		if texturePath.is_empty() or tilesWide <= 0 or tilesTall <= 0 or tilePixels <= 0:
 			push_warning("WorldMapRegionCatalog: invalid entry '%s'" % nameKey)
 			return false
 		reference["TILES"] = Vector2i(tilesWide, tilesTall)
+		reference["TILE_PIXELS"] = tilePixels
 		newList.append(reference)
 		newIndex[nameKey] = reference
 
@@ -62,6 +65,12 @@ static func description(regionID: String) -> String:
 	if not _index.has(regionID):
 		return ""
 	return str(_index[regionID].get("DESCRIPTION", ""))
+
+
+static func tilePixelsFor(regionID: String) -> int:
+	if not _index.has(regionID):
+		return Uniforms.DEFAULT_TILE_PIXELS
+	return _index[regionID]["TILE_PIXELS"]
 
 
 static func tilesFor(regionID: String) -> Vector2i:
@@ -90,14 +99,15 @@ static func loadRegion(regionID: String) -> Dictionary:
 		return {}
 
 	var tiles: Vector2i = reference["TILES"]
-	var expected := Vector2(tiles.x * Uniforms.TILE_PIXELS, tiles.y * Uniforms.TILE_PIXELS)
+	var tilePixels: int = reference["TILE_PIXELS"]
+	var expected := Vector2(tiles.x * tilePixels, tiles.y * tilePixels)
 	if texture.get_size() != expected:
 		push_warning(
 			(
 				"WorldMapRegionCatalog: region '%s' texture is %s px but TILES_WIDE/"
-				+ "TILES_TALL declare %s tiles (%s px)"
+				+ "TILES_TALL/TILE_PIXELS declare %s tiles of %d px (%s px)"
 			)
-			% [regionID, texture.get_size(), tiles, expected]
+			% [regionID, texture.get_size(), tiles, tilePixels, expected]
 		)
 		return {}
 
@@ -105,4 +115,5 @@ static func loadRegion(regionID: String) -> Dictionary:
 		"id": regionID,
 		"texture": texture,
 		"tiles": tiles,
+		"tile_pixels": tilePixels,
 	}

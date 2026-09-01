@@ -59,8 +59,6 @@ const SECTIONS := [
 		"id": "ground",
 		"title": "Ground",
 		"rows": [
-			{"key": Uniforms.K_UNITS_PER_MAP_PIXEL, "label": "Units / map px",
-				"type": ROW_SLIDER, "min": 0.01, "max": 0.5, "step": 0.0025},
 			{"key": Uniforms.K_CURVATURE, "label": "Curvature k", "type": ROW_SLIDER,
 				"min": 0.0, "max": 0.02, "step": 0.0001},
 			{"key": Uniforms.K_VOID_COLOR, "label": "Off-map void", "type": ROW_COLOR},

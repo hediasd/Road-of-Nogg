@@ -11,21 +11,29 @@ live explorer and the reasoning. This note records the conclusions and the contr
 
 ## 1. The tile convention
 
-Map art is authored on a **16 px tile grid**, and **one tile is one world unit**.
+**One tile is one world unit.** That is the whole convention, and it is what makes every
+other number in the rig readable as a tile count: a camera height of 62.5 is 62.5 tiles up,
+a fog end of 331 is 331 tiles of depth, a 31x22 region is 31x22 tiles.
 
-That makes `units_per_map_pixel` exactly `1/16 = 0.0625`, and it makes every other
-number in the rig readable as a tile count: a camera height of 66 is 66 tiles up, a fog
-end of 116 is 116 tiles of depth, a 768×1024 region is 48×64 tiles. The alternative —
-normalising to metres, or matching the battle board's cell size — buys nothing and costs
-the ability to check a framing by counting tiles in a screenshot.
+A tile's **pixel size is a property of the art, not of the world**, and it varies per region.
+`temp` is drawn on a 16 px grid, `temp2` on an 8 px grid. It is declared per region as
+`TILE_PIXELS` in `data/worldmap/regions.json`, validated against the texture on load, and it
+**never reaches the camera**: a 31x22 region of 8 px tiles and a 31x22 region of 16 px tiles
+occupy the same ground and frame identically, differing only in how many texels each tile
+gets. A region's world size simply *is* its tile count.
 
-Sprites are 16×16 too, and are drawn at **fixed screen size**, not as world-space
-billboards. In the reference, units at the top of the frame are no smaller than those at
-the bottom, and all of them are drawn far larger than a ground tile at the same depth. A
-world-space billboard renders the far party at a third the size of the near one. The
-consequence to keep in mind: the party is not really *in* the scene, so anything that
-must sit convincingly on the ground — a blob shadow, a road highlight touching its feet
-— is positioned in world space even though the sprite it belongs to is not.
+This was originally written with 16 hardcoded and a `units_per_map_pixel` framing key that
+happened to cancel out. The first 8 px region exposed it. The key is gone -- it was redundant
+with the tile count, and it was actively harmful: it was also a live slider in the debug
+scene, and moving it sent the camera off the map, which the focus clamp then hid by
+recentring.
+
+Sprites are drawn at **fixed screen size**, not as world-space billboards. In the reference,
+units at the top of the frame are no smaller than those at the bottom, and all are drawn far
+larger than a ground tile at the same depth. A world-space billboard renders the far party at
+a third the size of the near one. The consequence to keep in mind: the party is not really
+*in* the scene, so anything that must sit convincingly on the ground -- a blob shadow, a road
+highlight touching its feet -- is positioned in world space even though the sprite is not.
 
 ## 2. There is no horizon
 

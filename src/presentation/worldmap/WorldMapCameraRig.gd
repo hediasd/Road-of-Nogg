@@ -51,16 +51,14 @@ func framingReadout(viewport_size: Vector2i) -> Dictionary:
 	var near := _rayAt(-buffer.y * 0.5, buffer.y)
 	var far := _rayAt(buffer.y * 0.5, buffer.y)
 
-	# At one tile per world unit the horizontal world span IS the tile count, so tiles
-	# across is just the buffer width times the near ray's parameter. The units_per_map_pixel
-	# term cancels exactly; it is left in so a future non-16 tile size does not silently lie.
-	var tile_units: float = float(Uniforms.TILE_PIXELS) * float(
-		_framing[Uniforms.K_UNITS_PER_MAP_PIXEL]
-	)
+	# At one tile per world unit the horizontal world span IS the tile count, so tiles across
+	# is just the buffer width times the near ray's parameter. A region's tile PIXEL size
+	# never enters this: an 8 px-tile map and a 16 px-tile map at the same framing show the
+	# same tile count, differing only in how many texels each tile gets.
 	var near_t: float = near["t"]
 	var near_depth: float = near["depth"]
 	var far_depth: float = far["depth"]
-	var tiles_across: float = buffer.x * near_t / tile_units
+	var tiles_across: float = buffer.x * near_t
 	var ratio: float = far_depth / near_depth if near_depth > 0.0 else 0.0
 
 	return {

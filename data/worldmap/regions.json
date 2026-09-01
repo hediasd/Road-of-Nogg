@@ -1,9 +1,18 @@
 [
 	{
 		"NAME": "temp",
-		"DESCRIPTION": "Placeholder region supplied for the ground rig cycle. 48x64 tiles, well short of the ~155 tiles the tile-exact framing needs -- its plane edges are expected to show. Naming this region is a lore question, not decided here.",
+		"DESCRIPTION": "Placeholder region supplied for the ground rig cycle. 48x64 tiles of 16 px, well short of the ~155 tiles the tile-exact framing needs -- its plane edges are expected to show. Naming this region is a lore question, not decided here.",
 		"TEXTURE": "res://assets/worldmap/regions/temp.png",
 		"TILES_WIDE": 48,
-		"TILES_TALL": 64
+		"TILES_TALL": 64,
+		"TILE_PIXELS": 16
+	},
+	{
+		"NAME": "temp2",
+		"DESCRIPTION": "Second placeholder region, supplied 2026-09-01. 31x22 tiles of 8 px -- the first region drawn on the 8 px grid, and the one that showed the rig had a 16 px tile size hardcoded. Seven colours, no alpha, sea-dominant.",
+		"TEXTURE": "res://assets/worldmap/regions/temp2.png",
+		"TILES_WIDE": 31,
+		"TILES_TALL": 22,
+		"TILE_PIXELS": 8
 	}
 ]

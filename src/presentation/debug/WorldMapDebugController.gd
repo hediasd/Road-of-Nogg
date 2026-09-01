@@ -34,7 +34,7 @@
 ##   --hide-hud          start with the panel hidden, for clean captures
 ##   --quit-after=<n>    quit after n frames, for bounded probes
 ## and an override for every framing key, applied over the chosen preset:
-##   --pitch= --fov= --height= --units_per_map_pixel= --fog_start= --fog_end=
+##   --pitch= --fov= --height= --fog_start= --fog_end= --fog_curve=
 ##   --fog_curve= --fog_color= --void_color= --curvature= --cloud_strength=
 ##   --cloud_scale= --cloud_speed= --filter_mode= --render_scale= --sprite_mode=
 
@@ -191,9 +191,8 @@ func _loadRegion(regionID: String) -> void:
 func _applyFraming() -> void:
 	_ground.applyFraming(_framing)
 	_camera.applyFraming(_framing)
-	# The region rect is in WORLD units and tracks units_per_map_pixel; the tile count does
-	# not. Using tiles here sent the camera off the map whenever that slider left its
-	# default, which the focus clamp then quietly hid by recentring.
+	# The region rect is in WORLD units. It happens to equal the tile count under the
+	# one-tile-one-unit invariant, but going through the rect keeps that in a single place.
 	var rect := _ground.regionRect()
 	_camera.panTo(rect.position + rect.size * 0.5, rect)
 	_applyRenderScale()

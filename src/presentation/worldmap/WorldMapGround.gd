@@ -37,14 +37,9 @@ var _material: ShaderMaterial
 func configure(tiles: Vector2i, texture: Texture2D, framing: Dictionary) -> void:
 	var complete := Uniforms.complete(framing)
 	region_tiles = tiles
-	# One tile is one world unit, so the region's world size IS its tile count. Going
-	# through units_per_map_pixel rather than asserting that keeps the convention in one
-	# place -- see WORLDMAP_DESIGN.md section 1.
-	var units_per_pixel: float = complete[Uniforms.K_UNITS_PER_MAP_PIXEL]
-	region_size = Vector2(
-		float(tiles.x * Uniforms.TILE_PIXELS) * units_per_pixel,
-		float(tiles.y * Uniforms.TILE_PIXELS) * units_per_pixel
-	)
+	# One tile is one world unit, so the region's world size IS its tile count. The tile's
+	# pixel size does not appear here at all -- see WORLDMAP_DESIGN.md section 1.
+	region_size = Vector2(float(tiles.x), float(tiles.y))
 	region_origin = Vector2.ZERO
 
 	var margin: float = float(complete[Uniforms.K_FOG_END]) * FOG_MARGIN_FACTOR

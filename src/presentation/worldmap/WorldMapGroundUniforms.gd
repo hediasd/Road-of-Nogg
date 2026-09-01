@@ -17,11 +17,16 @@
 class_name WorldMapGroundUniforms
 extends RefCounted
 
-## Map art is authored on a 16 px tile grid, and one tile is one world unit. That
-## convention is what makes every other number in the rig readable as a tile count:
-## camera height, fog distances, and region size all speak the same unit as the art.
-const TILE_PIXELS := 16
-const WORLD_UNITS_PER_MAP_PIXEL := 1.0 / float(TILE_PIXELS)
+## One tile is one world unit. That convention is what makes every other number in the rig
+## readable as a tile count: camera height, fog distances and region size all speak the same
+## unit as the art.
+##
+## A tile's PIXEL size is a property of the art, not of the world, and it varies per region --
+## some maps are drawn on an 8 px grid, some on 16. It therefore lives in
+## `WorldMapRegionCatalog` and never reaches the camera: a 31 x 22 region of 8 px tiles and a
+## 31 x 22 region of 16 px tiles occupy the same ground and frame identically, differing only
+## in texel density. This constant is only the fallback for a region that omits it.
+const DEFAULT_TILE_PIXELS := 16
 
 ## Shader uniform names. The three region samplers all receive the same texture; see the
 ## `filter_mode` comment in the shader for why one sampler cannot serve all three modes.
@@ -54,7 +59,6 @@ const FILTER_LINEAR_MIPMAP := 2
 const K_PITCH := "pitch"
 const K_FOV := "fov"
 const K_HEIGHT := "height"
-const K_UNITS_PER_MAP_PIXEL := "units_per_map_pixel"
 const K_FOG_START := "fog_start"
 const K_FOG_END := "fog_end"
 const K_FOG_CURVE := "fog_curve"
@@ -82,7 +86,6 @@ const FRAMING_KEYS := [
 	K_PITCH,
 	K_FOV,
 	K_HEIGHT,
-	K_UNITS_PER_MAP_PIXEL,
 	K_FOG_START,
 	K_FOG_END,
 	K_FOG_CURVE,
@@ -104,7 +107,6 @@ const DEFAULTS := {
 	K_PITCH: 60.0,
 	K_FOV: 25.0,
 	K_HEIGHT: 66.0,
-	K_UNITS_PER_MAP_PIXEL: WORLD_UNITS_PER_MAP_PIXEL,
 	K_FOG_START: 21.0,
 	K_FOG_END: 116.0,
 	K_FOG_CURVE: 1.4,
