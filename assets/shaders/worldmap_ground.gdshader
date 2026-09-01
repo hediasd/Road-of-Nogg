@@ -19,13 +19,14 @@ render_mode unshaded, cull_disabled, depth_draw_opaque, shadows_disabled;
 // mode; there is no way to change a hint from GDScript. One extra binding of an already
 // resident texture is cheaper than the alternatives, and the debug scene needs the
 // comparison. `filter_mode` selects:
-//   0 NEAREST      no mipmaps. Maximum sparkle. What the low-resolution reference does.
-//   1 NEAREST_MIP  crisp when magnified, stable when minified. The default.
+//   0 NEAREST      no mipmaps. Maximum sparkle. The DEFAULT, and what the reference
+//                  does -- the sparkle is wanted here, see WORLDMAP_DESIGN.md.
+//   1 NEAREST_MIP  crisp when magnified, stable when minified. Measurably softer.
 //   2 LINEAR_MIP   smooth. The comparison that shows what the clean version costs.
 uniform sampler2D region_nearest : source_color, filter_nearest, repeat_disable;
 uniform sampler2D region_nearest_mip : source_color, filter_nearest_mipmap_anisotropic, repeat_disable;
 uniform sampler2D region_linear_mip : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
-uniform int filter_mode : hint_range(0, 2) = 1;
+uniform int filter_mode : hint_range(0, 2) = 0;
 
 // Where the region sits on the plane, in world units. The plane is deliberately larger
 // than the region so fog has somewhere to close before the art runs out; everything
@@ -56,6 +57,21 @@ uniform float cloud_scale = 12.0;
 uniform float cloud_speed = 1.2;
 
 varying vec3 world_position;
+
+// The fog blend happens in GAMMA space, not linear. That is a deliberate departure from
+// physical correctness: the framing and fog numbers were tuned in an 8-bit sRGB explorer
+// against console captures, and 8-bit hardware blended in gamma space too. Blending the
+// same fog fraction in linear space lands visibly lighter -- roughly 0.50 against 0.39 on a
+// mid green at 29% fog -- so a linear blend would silently invalidate every tuned number.
+vec3 to_gamma(vec3 c) {
+	return mix(c * 12.92, 1.055 * pow(max(c, vec3(0.0031308)), vec3(1.0 / 2.4)) - 0.055,
+		step(vec3(0.0031308), c));
+}
+
+vec3 to_linear(vec3 c) {
+	return mix(c / 12.92, pow((max(c, vec3(0.04045)) + 0.055) / 1.055, vec3(2.4)),
+		step(vec3(0.04045), c));
+}
 
 float hash21(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -118,11 +134,17 @@ void fragment() {
 		albedo *= 1.0 - cloud_strength * cloud_cover(cloud_uv);
 	}
 
-	// Planar depth, not radial: each screen row of this rig is a constant world depth, so
-	// planar depth keeps the haze a horizontal band instead of bulging at the screen edges.
-	float depth = -VERTEX.z;
+	// GROUND-PLANE forward distance, not view-space depth. These are different quantities
+	// and the difference is roughly 3x at this pitch: a fragment at the bottom of the frame
+	// is 21 units forward along the ground but 68 units along the camera's tilted forward
+	// axis. Every fog number in WorldMapFramingCatalog was derived against the former, so
+	// using `-VERTEX.z` here fogged the entire frame and compressed the gradient to half its
+	// range. Yaw is pinned to 0 and forward is -Z, so the ground distance is exactly the
+	// world-Z difference -- which also keeps the haze a horizontal band rather than bulging
+	// at the screen edges.
+	float depth = CAMERA_POSITION_WORLD.z - world_position.z;
 	float fog = pow(clamp((depth - fog_start) / max(fog_end - fog_start, 0.001), 0.0, 1.0), fog_curve);
-	albedo = mix(albedo, fog_color.rgb, fog);
 
-	ALBEDO = off_map ? mix(void_color.rgb, fog_color.rgb, fog) : albedo;
+	vec3 ground = off_map ? void_color.rgb : albedo;
+	ALBEDO = to_linear(mix(to_gamma(ground), to_gamma(fog_color.rgb), fog));
 }

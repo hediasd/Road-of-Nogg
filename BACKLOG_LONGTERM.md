@@ -348,23 +348,18 @@ harness shape that catches this class of bug and would port to v1 directly.
 
 Small and mechanical when picked up: mirror v2's split.
 
-## World map ground rig: four decisions the cycle deliberately left open
+## World map ground rig: three decisions the cycle deliberately left open
 
-Recorded 2026-08-31 when the world map ground rig cycle closed. The rig itself is
-built and validated; these are the judgement calls it surfaced and did not make.
-Full detail, with the measurements behind each, is in `docs/WORLDMAP_DESIGN.md`
+Recorded 2026-08-31 when the world map ground rig cycle closed; corrected
+2026-09-01. The rig itself is built and validated; these are the judgement calls
+it surfaced and did not make. Full detail is in `docs/WORLDMAP_DESIGN.md`
 section 7.
 
-**The fog band is heavier than the reference.** Every preset in
-`WorldMapFramingCatalog` sets `fog_start` at roughly the frame's near depth, so
-haze begins at the bottom edge of the screen and grows across the whole visible
-range. That is faithful to the HTML explorer the numbers came from, but the
-explorer's fog was itself eyeballed off a photographed CRT. Validation proved the
-ground material's transfer function is *exact* — five flat swatches render back at
-precisely their source values with fog off — so this is purely where the band sits,
-not a colour bug. Suggested starting point: push `fog_start` out to roughly the
-midpoint of the visible depth range, leaving the near half of the frame clean.
-`scenes/debug/WorldMapDebugScene.tscn` is the place to settle it.
+A fourth entry was removed on 2026-09-01. It claimed the fog band was heavier
+than the reference and that where it sat was a taste question. It was not — it
+was two defects, and the render now matches the explorer to within 1/255. See
+`docs/WORLDMAP_DESIGN.md` section 4 and the "Verified against the explorer"
+subsection.
 
 **The region id `temp` is a placeholder.** Naming the first region is a lore
 question, not a code one.

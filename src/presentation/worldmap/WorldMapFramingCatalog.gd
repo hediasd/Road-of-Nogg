@@ -125,7 +125,7 @@ const PRESETS := [
 			Uniforms.K_FOG_START: 21.0,
 			Uniforms.K_FOG_END: 116.0,
 			Uniforms.K_RENDER_SCALE: 1.0,
-			Uniforms.K_FILTER_MODE: Uniforms.FILTER_LINEAR_MIPMAP,
+			Uniforms.K_FILTER_MODE: Uniforms.FILTER_NEAREST_MIPMAP,
 			Uniforms.K_CLOUD_STRENGTH: 0.28,
 		},
 	},

@@ -104,11 +104,23 @@ Pass order is fixed:
 3. Blend toward the fog colour by planar depth.
 4. Substitute the void colour where the sample falls outside the region rectangle.
 
-Planar depth rather than radial, because each screen row of this rig is a constant world
-depth — planar depth keeps the haze a horizontal band instead of bulging at the screen
+The depth the fog uses is the **ground-plane forward distance** — how far the fragment lies
+ahead of the camera along the ground — and specifically *not* the view-space depth along the
+camera's tilted forward axis. At pitch 60 those differ by about 3x: a fragment at the bottom
+of the frame is 21 units forward along the ground but 68 along the view axis. Every fog
+number was tuned against the former, so using view depth fogs the entire frame and halves
+the gradient's range. Yaw is pinned to 0, so the ground distance is exactly the world-Z
+difference. It is also planar rather than radial, because each screen row of this rig is a
+constant ground distance — planar depth keeps the haze a horizontal band instead of bulging at the screen
 edges. The void is *substituted* rather than blended so an off-map fragment never carries
 a smeared edge texel, and it is placed after fog so a fogged region edge stays soft while
 an unfogged one reads as a hard plane edge, which is what the reference does.
+
+The fog blend happens in **gamma space, not linear**. This is a deliberate departure from
+physical correctness: the framing and fog numbers were tuned in an 8-bit sRGB explorer
+against console captures, and the hardware being imitated blended in gamma space too.
+Blending the same fog fraction in linear space lands visibly lighter — about 0.50 against
+0.39 on a mid green at 29% fog — so a linear blend silently invalidates every tuned number.
 
 The plane is deliberately **larger than the region** so fog has somewhere to close before
 the art runs out. `region_origin` and `region_size` say where the art sits on it.
@@ -148,9 +160,15 @@ a hint cannot be changed from GDScript:
 
 | mode | filtering | use |
 |------|-----------|-----|
-| 0 | nearest, no mipmaps | maximum sparkle; what the low-resolution reference does |
-| 1 | nearest + mipmap + anisotropic | crisp magnified, stable minified. **Default** |
+| 0 | nearest, no mipmaps | maximum sparkle; what the reference does. **Default** |
+| 1 | nearest + mipmap + anisotropic | crisp magnified, stable minified; measurably softer |
 | 2 | linear + mipmap + anisotropic | smooth; the comparison, not the target |
+
+Mode 0 is the default because it is what the explorer's reference preset used, and matching
+it is the point. Measured as mean adjacent-pixel difference at `tile_exact`: mode 0 scores
+12.04 against the explorer's 12.02, while mode 1 scores 7.70 — a third less sharp. Mode 1 is
+the right answer if the far-field sparkle ever becomes a problem, but on this project the
+sparkle is wanted, so it costs more than it buys.
 
 Region textures import with **nearest filtering and mipmaps generated**. Godot's importer
 defaults to linear with mipmaps off, which is exactly backwards for this rig: the near
@@ -211,17 +229,27 @@ these is a pixel test rather than the arithmetic that produced it:
 tiles across, 7.21 buffer px per tile, ratio 2.906, 155 tiles of region needed -- so two
 implementations of the same trigonometry agree.
 
+### Verified against the explorer
+
+The game render and `debug/worldmap/worldmap-framing.html` were compared band by band at
+identical settings — same region, same 384x216 buffer, camera positions matching to 0.01.
+Mean per-band channel error across six horizontal bands went **266 -> 74 -> ~1** as the two
+defects above were fixed. All seven presets now agree with the explorer to within 1/255.
+
+Two differences remain and are deliberate, each confirmed by isolating it:
+
+- **`filtered` differs by ~5-9 per channel**, entirely because of the cloud layer. With
+  clouds off it matches exactly. The shader generates noise procedurally; the explorer
+  samples a precomputed tile. Different noise, different mean cover — not a defect.
+- **`overview` differs at the top of the frame**, entirely because of the camera's focus
+  clamp. The explorer has no clamp; the rig pushes the focus back to keep void off screen
+  (from z=32 to z=35.6 at that framing). Unclamped, the two match exactly.
+
+Re-deriving these numbers is one command each: `probe_allpresets.gd` in the game, and the
+band-signature snippet against the explorer's internal buffer.
+
 ## 7. Open
 
-- **The fog band is heavier than the reference, and this is a judgement call rather than a
-  defect.** Every preset sets `fog_start` at roughly the frame's near depth, so haze begins
-  at the bottom edge of the screen and grows across the whole visible range. That is
-  faithful to the HTML explorer, but the explorer's fog was itself eyeballed off a
-  photographed CRT, and rendering the same framing with fog disabled shows art far closer
-  to the reference's saturation. The material is exact, so this is purely a question of
-  where the band sits. Suggested starting point: push `fog_start` out to roughly the
-  midpoint of the visible depth range rather than its near edge, leaving the near half of
-  the frame clean. The debug scene is the place to settle it.
 - The region id `temp` is a placeholder. Naming it is a lore question.
 - Whether the camera eases between a close travelling framing and a pulled-back planning
   one by context, rather than sitting at one height, is unresolved. If travel time is a
