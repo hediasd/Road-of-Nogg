@@ -211,11 +211,11 @@ func _buildRow(grid: GridContainer, row: Dictionary, onFramingChanged: Callable)
 		slider.min_value = float(row["min"])
 		slider.max_value = float(row["max"])
 		slider.step = step
-		slider.custom_minimum_size = Vector2(170.0, 0.0)
+		slider.custom_minimum_size = Vector2(110.0, 0.0)
 		slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(slider)
 		var readback := Label.new()
-		readback.custom_minimum_size = Vector2(56.0, 0.0)
+		readback.custom_minimum_size = Vector2(52.0, 0.0)
 		grid.add_child(readback)
 		slider.value_changed.connect(
 			func(value: float) -> void:
@@ -226,7 +226,7 @@ func _buildRow(grid: GridContainer, row: Dictionary, onFramingChanged: Callable)
 		_controls[key] = slider
 	elif rowType == ROW_COLOR:
 		var picker := ColorPickerButton.new()
-		picker.custom_minimum_size = Vector2(170.0, 24.0)
+		picker.custom_minimum_size = Vector2(110.0, 24.0)
 		picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(picker)
 		grid.add_child(Control.new())
