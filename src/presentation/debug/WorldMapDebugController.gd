@@ -89,7 +89,10 @@ func _ready() -> void:
 
 	_presetID = _presetFromArguments()
 	_regionID = _regionFromArguments()
-	var base := FramingCatalog.framingFor(_presetID)
+	# The region is resolved BEFORE the framing, because it owns the fog and void colours.
+	# Building the framing first would leave those keys absent, so a --fog_color= override
+	# would have nothing to coerce against and the colour pickers would open empty.
+	var base := _resolveRegionColours(FramingCatalog.framingFor(_presetID), _regionID)
 	_framing = _framingFromArguments(base)
 	# --sky= rides the generic per-key override loop, which only coerces types. Without this
 	# a typo silently turned the backdrop off while the readout still named it, unlike
@@ -175,7 +178,14 @@ func _onRegionSelected(index: int) -> void:
 	var ids := RegionCatalog.ids()
 	if index < 0 or index >= ids.size():
 		return
+	# Switching region adopts that region's fog and void, discarding anything the pickers
+	# had set. Predictable beats clever here: a different place looks like itself until you
+	# change it again, rather than inheriting the last place's sea colour.
+	_framing.erase(Uniforms.K_FOG_COLOR)
+	_framing.erase(Uniforms.K_VOID_COLOR)
+	_framing = _resolveRegionColours(_framing, ids[index])
 	_loadRegion(ids[index])
+	_hud.setFraming(_framing)
 	_applyFraming()
 
 
@@ -188,6 +198,14 @@ func _onFramingEdited() -> void:
 	_applyFraming()
 
 
+## Fills in whichever of the region-owned colours the framing has not named for itself, so
+## a preset that specifies a fog colour keeps it and every other preset inherits the place's.
+func _resolveRegionColours(framing: Dictionary, regionID: String) -> Dictionary:
+	return Uniforms.completeForRegion(
+		framing, RegionCatalog.fogColorFor(regionID), RegionCatalog.voidColorFor(regionID)
+	)
+
+
 func _loadRegion(regionID: String) -> void:
 	var region := RegionCatalog.loadRegion(regionID)
 	if region.is_empty():
@@ -195,7 +213,9 @@ func _loadRegion(regionID: String) -> void:
 		return
 	_regionID = regionID
 	_regionTiles = region["tiles"]
-	_ground.configure(_regionTiles, region["texture"], _framing)
+	_ground.configure(
+		_regionTiles, region["texture"], _framing, region["fog_color"], region["void_color"]
+	)
 	_rebuildTileGrid()
 
 

@@ -152,6 +152,21 @@ exactly zero by 80. The default is 12. This is a real trap when porting numbers 
 HTML explorer, whose noise used a different coordinate convention -- a value of 40 came
 across and silently did nothing.
 
+### What lies beyond the edge belongs to the region
+
+`fog_color` and `void_color` are owned by the **region**, not the framing. What lies past a
+map's edge and the haze it fades into are properties of the place: `temp`'s sea is deep blue,
+`temp2`'s is teal, and one framing applied to both would give one of them the wrong void.
+They are declared in `data/worldmap/regions.json` and are deliberately absent from
+`Uniforms.DEFAULTS`, so `complete()` leaves them unset and `completeForRegion()` fills them.
+That absence is what makes "the region's, unless the framing says otherwise" expressible at
+all. Precedence runs **region -> preset -> explicit override**, so the CRT preset keeps its
+own fog colour while every other preset inherits the place's.
+
+Setting a region's void to its **own sea colour** is what removes the map's edge: the world
+reads as ocean continuing into the haze rather than a slab floating in a void. This is the
+answer to "what goes behind the map", and it is why the backdrop below is off by default.
+
 ### The backdrop
 
 Wherever the ground stops, a backdrop can show through. It is a **quad parented to the
@@ -284,7 +299,32 @@ Two differences remain and are deliberate, each confirmed by isolating it:
 Re-deriving these numbers is one command each: `probe_allpresets.gd` in the game, and the
 band-signature snippet against the explorer's internal buffer.
 
-## 7. Rejected: 2.5D depth for the ground
+## 7. Rejected: a sky behind the map
+
+Tried 2026-09-01 and rejected. The backdrop exists and works, but is **off by default** and
+should stay that way except at a shallow framing.
+
+The reason is geometric, not technical. Every framing in use has pitch 40-60 degrees against
+a FOV of 20-25, so `pitch >> fov/2` and **every ray in the frustum points downward** -- the
+mathematical horizon sits above the top of the frame at all times, which is section 2 of this
+note and what the debug readout reports on every screenshot. There is no direction in which
+the camera sees sky. What lies beyond the map's edge is not sky, it is off the edge of the
+world, and painting a sunset there reads as a slab lying on a poster.
+
+Measured across seven framings spanning heavy zoom to pulled back and curvature 0 to 0.003:
+the ground's far edge lands anywhere from **0% to 44%** down the frame, while a
+camera-parented backdrop's horizon is pinned at 45%. They agreed twice, by coincidence.
+
+**A cube or a sphere would not fix this.** A skybox is the right tool when the camera can
+look at the sky; here it would render exactly what a flat quad renders -- whichever part of
+it falls below the horizon -- for more geometry and a dome to maintain. The mismatch is not
+caused by the backdrop's shape.
+
+The answer is not to put something behind the map but to **extend the map**: give the region
+a void colour equal to its own sea, and let the fog close the distance. Verified at every
+framing, because there is no second element that has to agree with the camera.
+
+## 8. Rejected: 2.5D depth for the ground
 
 Explored 2026-09-01 and **rejected in full**. The map stays flat. Eleven approaches were
 built and rendered against the real region art; the sketch is
@@ -313,7 +353,7 @@ drawn in **oblique view with a top and a front** -- each mountain has a pale lit
 a dark body, the fort a light roof over a battlemented wall. That is why the map reads as
 having depth while lying perfectly flat, and it is the reason flat is the right answer here.
 
-## 8. Open
+## 9. Open
 
 - The region id `temp` is a placeholder. Naming it is a lore question.
 - Whether the camera eases between a close travelling framing and a pulled-back planning

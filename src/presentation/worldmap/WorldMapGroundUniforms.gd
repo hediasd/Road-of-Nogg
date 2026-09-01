@@ -49,6 +49,14 @@ const U_SHOW_SKY_BEYOND := "show_sky_beyond"
 
 const REGION_SAMPLERS := [U_REGION_NEAREST, U_REGION_NEAREST_MIP, U_REGION_LINEAR_MIP]
 
+## Colours a REGION owns rather than a framing. What lies beyond the map's edge, and the
+## haze the map fades into, are properties of the place: temp's sea is deep blue, temp2's is
+## teal, and one framing applied to both would give one of them the wrong void. They are
+## deliberately absent from `DEFAULTS`, so `complete()` leaves them unset and
+## `completeForRegion()` fills them -- which is what makes "region unless the framing says
+## otherwise" expressible at all.
+const REGION_COLOR_KEYS := [K_FOG_COLOR, K_VOID_COLOR]
+
 ## `filter_mode` values, matching the shader's branch order.
 const FILTER_NEAREST := 0
 const FILTER_NEAREST_MIPMAP := 1
@@ -125,8 +133,6 @@ const DEFAULTS := {
 	K_FOG_START: 21.0,
 	K_FOG_END: 116.0,
 	K_FOG_CURVE: 1.4,
-	K_FOG_COLOR: Color("cfe9f5"),
-	K_VOID_COLOR: Color.BLACK,
 	K_CURVATURE: 0.0,
 	K_CLOUD_STRENGTH: 0.0,
 	K_CLOUD_SCALE: 12.0,
@@ -144,6 +150,17 @@ const DEFAULTS := {
 ## Fills in every key a partial framing omits. Callers should treat the result as the only
 ## valid thing to read from; a preset is authored as a diff against `DEFAULTS`, so indexing
 ## a raw preset will miss keys that were never written.
+## Region colours first, then the framing over the top, so a preset that names a fog colour
+## (the CRT one does) still wins while every other preset simply inherits the region's.
+static func completeForRegion(framing: Dictionary, fogColor: Color, voidColor: Color) -> Dictionary:
+	var result := complete(framing)
+	if not framing.has(K_FOG_COLOR):
+		result[K_FOG_COLOR] = fogColor
+	if not framing.has(K_VOID_COLOR):
+		result[K_VOID_COLOR] = voidColor
+	return result
+
+
 static func complete(framing: Dictionary) -> Dictionary:
 	var result := DEFAULTS.duplicate(true)
 	for key in framing:
@@ -163,8 +180,9 @@ static func applyToMaterial(
 	material.set_shader_parameter(U_FOG_START, f[K_FOG_START])
 	material.set_shader_parameter(U_FOG_END, f[K_FOG_END])
 	material.set_shader_parameter(U_FOG_CURVE, f[K_FOG_CURVE])
-	material.set_shader_parameter(U_FOG_COLOR, f[K_FOG_COLOR])
-	material.set_shader_parameter(U_VOID_COLOR, f[K_VOID_COLOR])
+	# Defensive: a framing that never went through completeForRegion has no colours.
+	material.set_shader_parameter(U_FOG_COLOR, f.get(K_FOG_COLOR, Color.WHITE))
+	material.set_shader_parameter(U_VOID_COLOR, f.get(K_VOID_COLOR, Color.BLACK))
 	material.set_shader_parameter(U_CURVATURE_K, f[K_CURVATURE])
 	material.set_shader_parameter(U_CLOUD_STRENGTH, f[K_CLOUD_STRENGTH])
 	material.set_shader_parameter(U_CLOUD_SCALE, f[K_CLOUD_SCALE])

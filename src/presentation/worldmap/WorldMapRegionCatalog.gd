@@ -42,6 +42,10 @@ static func reloadCatalog(path: String = JSON_PATH) -> bool:
 			return false
 		reference["TILES"] = Vector2i(tilesWide, tilesTall)
 		reference["TILE_PIXELS"] = tilePixels
+		# What lies beyond the edge, and the haze the map fades into, belong to the place.
+		# Defaulted rather than required so an older entry still loads.
+		reference["FOG_COLOR"] = Color(str(reference.get("FOG_COLOR", "cfe9f5")))
+		reference["VOID_COLOR"] = Color(str(reference.get("VOID_COLOR", "000000")))
 		newList.append(reference)
 		newIndex[nameKey] = reference
 
@@ -65,6 +69,18 @@ static func description(regionID: String) -> String:
 	if not _index.has(regionID):
 		return ""
 	return str(_index[regionID].get("DESCRIPTION", ""))
+
+
+static func fogColorFor(regionID: String) -> Color:
+	if not _index.has(regionID):
+		return Color("cfe9f5")
+	return _index[regionID]["FOG_COLOR"]
+
+
+static func voidColorFor(regionID: String) -> Color:
+	if not _index.has(regionID):
+		return Color.BLACK
+	return _index[regionID]["VOID_COLOR"]
 
 
 static func tilePixelsFor(regionID: String) -> int:
@@ -116,4 +132,6 @@ static func loadRegion(regionID: String) -> Dictionary:
 		"texture": texture,
 		"tiles": tiles,
 		"tile_pixels": tilePixels,
+		"fog_color": reference["FOG_COLOR"],
+		"void_color": reference["VOID_COLOR"],
 	}

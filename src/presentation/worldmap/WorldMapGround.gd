@@ -26,6 +26,9 @@ const PLANE_SUBDIVISIONS := 64
 const FOG_MARGIN_FACTOR := 1.0
 
 var region_tiles := Vector2i(48, 64)
+## The region's own colours, used for any framing that does not name its own.
+var region_fog_color := Color("cfe9f5")
+var region_void_color := Color.BLACK
 var region_origin := Vector2.ZERO
 var region_size := Vector2(48.0, 64.0)
 
@@ -34,8 +37,11 @@ var _material: ShaderMaterial
 
 ## Builds the plane for a region and applies a framing. Safe to call again with a
 ## different region or framing; the mesh is rebuilt only when the size actually changes.
-func configure(tiles: Vector2i, texture: Texture2D, framing: Dictionary) -> void:
-	var complete := Uniforms.complete(framing)
+func configure(tiles: Vector2i, texture: Texture2D, framing: Dictionary,
+		fogColor := Color("cfe9f5"), voidColor := Color.BLACK) -> void:
+	region_fog_color = fogColor
+	region_void_color = voidColor
+	var complete := Uniforms.completeForRegion(framing, region_fog_color, region_void_color)
 	region_tiles = tiles
 	# One tile is one world unit, so the region's world size IS its tile count. The tile's
 	# pixel size does not appear here at all -- see WORLDMAP_DESIGN.md section 1.
@@ -55,7 +61,12 @@ func configure(tiles: Vector2i, texture: Texture2D, framing: Dictionary) -> void
 ## scene makes on every control change, so it must stay allocation-free.
 func applyFraming(framing: Dictionary) -> void:
 	_ensureMaterial()
-	Uniforms.applyToMaterial(_material, framing, region_origin, region_size)
+	Uniforms.applyToMaterial(
+		_material,
+		Uniforms.completeForRegion(framing, region_fog_color, region_void_color),
+		region_origin,
+		region_size
+	)
 
 
 ## World-space rectangle the region art occupies, for the camera rig's pan clamp.

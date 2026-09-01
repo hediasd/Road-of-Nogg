@@ -5,7 +5,9 @@
 		"TEXTURE": "res://assets/worldmap/regions/temp.png",
 		"TILES_WIDE": 48,
 		"TILES_TALL": 64,
-		"TILE_PIXELS": 16
+		"TILE_PIXELS": 16,
+		"FOG_COLOR": "cfe9f5",
+		"VOID_COLOR": "4058d8"
 	},
 	{
 		"NAME": "temp2",
@@ -13,6 +15,8 @@
 		"TEXTURE": "res://assets/worldmap/regions/temp2.png",
 		"TILES_WIDE": 31,
 		"TILES_TALL": 22,
-		"TILE_PIXELS": 8
+		"TILE_PIXELS": 8,
+		"FOG_COLOR": "bae8e2",
+		"VOID_COLOR": "37aeae"
 	}
 ]
