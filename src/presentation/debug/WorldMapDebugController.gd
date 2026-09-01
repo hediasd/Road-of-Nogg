@@ -191,10 +191,11 @@ func _loadRegion(regionID: String) -> void:
 func _applyFraming() -> void:
 	_ground.applyFraming(_framing)
 	_camera.applyFraming(_framing)
-	_camera.panTo(
-		Vector2(float(_regionTiles.x) * 0.5, float(_regionTiles.y) * 0.5),
-		_ground.regionRect()
-	)
+	# The region rect is in WORLD units and tracks units_per_map_pixel; the tile count does
+	# not. Using tiles here sent the camera off the map whenever that slider left its
+	# default, which the focus clamp then quietly hid by recentring.
+	var rect := _ground.regionRect()
+	_camera.panTo(rect.position + rect.size * 0.5, rect)
 	_applyRenderScale()
 
 
@@ -228,7 +229,7 @@ func _refreshStatus() -> void:
 		"needed": "%d tiles wide (have %d)%s" % [
 			int(needed), have, "   <-- EDGES SHOW" if needed > float(have) else "   ok"
 		],
-		"depth": "%.1f to %.1f tiles" % [readout["near_depth"], readout["far_depth"]],
+		"depth": "%.1f to %.1f units" % [readout["near_depth"], readout["far_depth"]],
 		"buffer": "%d x %d" % [int(buffer.x), int(buffer.y)],
 		"horizon": (
 			"on screen at pitch < fov/2"

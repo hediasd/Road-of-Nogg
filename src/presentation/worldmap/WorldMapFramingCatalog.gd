@@ -26,6 +26,7 @@ const CLOSER := "closer"
 const CRT := "crt"
 const OVERVIEW := "overview"
 const WALKING := "walking"
+const OVERLAND := "overland"
 const FILTERED := "filtered"
 const CUSTOM := "custom"
 
@@ -111,6 +112,23 @@ const PRESETS := [
 			Uniforms.K_FOG_START: 10.0,
 			Uniforms.K_FOG_END: 53.0,
 			Uniforms.K_RENDER_SCALE: 0.4,
+		},
+	},
+	{
+		"id": OVERLAND,
+		"label": "Overland",
+		"description": "Hand-tuned in the debug scene on 2026-09-01 and kept. Shallower "
+			+ "pitch and narrower FOV than the reference framings, and the only preset that "
+			+ "uses ground curvature, so the world falls away toward the top of the frame "
+			+ "rather than running flat off it. Covers about the same 53 tiles as "
+			+ "Tile-Exact but reads as standing in the landscape rather than surveying it.",
+		"framing": {
+			Uniforms.K_PITCH: 40.5,
+			Uniforms.K_FOV: 20.0,
+			Uniforms.K_HEIGHT: 62.5,
+			Uniforms.K_CURVATURE: 0.0008,
+			Uniforms.K_FOG_START: 62.5,
+			Uniforms.K_FOG_END: 331.25,
 		},
 	},
 	{

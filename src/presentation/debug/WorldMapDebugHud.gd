@@ -51,7 +51,7 @@ const SECTIONS := [
 				"min": 2.0, "max": 85.0, "step": 0.5},
 			{"key": Uniforms.K_FOV, "label": "Vertical FOV", "type": ROW_SLIDER,
 				"min": 10.0, "max": 110.0, "step": 0.5},
-			{"key": Uniforms.K_HEIGHT, "label": "Height (tiles)", "type": ROW_SLIDER,
+			{"key": Uniforms.K_HEIGHT, "label": "Height (units)", "type": ROW_SLIDER,
 				"min": 2.0, "max": 220.0, "step": 0.5},
 		],
 	},
