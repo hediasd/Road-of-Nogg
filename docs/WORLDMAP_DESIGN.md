@@ -353,7 +353,136 @@ drawn in **oblique view with a top and a front** -- each mountain has a pale lit
 a dark body, the fort a light roof over a battlemented wall. That is why the map reads as
 having depth while lying perfectly flat, and it is the reason flat is the right answer here.
 
-## 9. Open
+## 9. Standing structures
+
+Buildings painted into a region's ground art can be lifted out and stood back up as
+billboarded sprites. `WorldMapProps` does it, `WorldMapDebugHud`'s Structures section
+selects the mode, and the prototype is `debug/worldmap/standing-structures.html`.
+
+This is not a reversal of section 8. That rejected standing up *everything* -- mountains and
+trees included -- and failed because those are organic blobs drawn in oblique view. Buildings
+are a different case: small, rectangular, and already drawn as **front elevations**. A house
+on temp2 is a teal upper wall with three windows over a white wall with an orange door, and
+there is no roof in the image at all, so tipping it upright shows it at the angle it was
+painted for.
+
+### The squash is not cos(pitch)
+
+The load-bearing correction. A world-vertical quad seen from a camera pitched down by `p` is
+squashed, and the obvious guess -- one factor `cos p` for the whole frame -- is wrong. For a
+sprite of world height `h` and width `W` at ground distance `f`:
+
+    hpx / wpx = (h/W) * f / (D - h*sin p),    D = H*sin p + f*cos p
+
+so the squash is `f/D`: **zero at the camera's feet, `1/cos p` far away, and exactly `cos p`
+at the centre of the frame and nowhere else.** Measured on Curved Close it runs **0.33 at the
+near edge to 0.76 at the far edge** -- a 2.3x swing inside one frame. A single global gain
+therefore cannot be right anywhere but the middle: applied as `1/cos p` it left the near house
+at `h/w 0.931` and the far one at `1.291` against a painted `0.875`.
+
+### The three modes are two answers, and they are the same rectangle
+
+| Mode | What it does | Cost |
+|---|---|---|
+| `world` | Nothing. The uncorrected baseline. | Up to **52.5%** aspect error across one frame. |
+| `gain` | Solves the identity per sprite for the height that lands on painted proportions. | The object is genuinely taller in world space, by a factor that changes as the camera moves. |
+| `face` | Godot's `BILLBOARD_ENABLED`. | The quad's top leans away by `h sin p`, claiming ground it is not standing on. |
+
+`face` works because putting the camera's up-axis into the identity gives `A = 1, B = 0`, so
+`hpx/wpx = h/W` exactly, at every distance and every pitch, with no correction term. That,
+not "it cancels cos p", is why it is the robust answer -- and with yaw pinned, Godot's own
+billboard *is* that case, so the engine does it correctly for free.
+
+**Measured, the two converge completely.** In the sketch every sprite corner agrees to
+**0.00 px at every pitch tested**; in the engine `probe_props.gd` reports **0.00% worst
+aspect error** across all nine structures for `gain`. They are not similar, they are the same
+rectangle, by construction: same base, same width, same forced `h/w`. They differ only in
+what they claim about world space, and neither claim is observable while sprites are the only
+3D thing in the scene. **Prefer `face`** -- it needs no per-object solve and no per-frame
+update.
+
+Two traps found while porting, both of which pass silently:
+
+- The correction is **not bounded below by 1**. Past the frame centre a vertical quad is
+  magnified rather than squashed, so far sprites are corrected *downward*. Clamping at 1.0
+  leaves everything beyond the middle of the frame too tall -- the same defect the mode
+  exists to remove.
+- Curvature must **carry** a sprite, not deform it. The projection applies the drop `k*d^2`
+  per point from that point's own distance, which is right for the ground -- the ground *is*
+  the curved surface -- and wrong for anything standing on it. The whole quad takes the drop
+  belonging to its base.
+
+### Finding structures does not generalise, and trees never will
+
+The extractor is a **bootstrap for temp2, not a pipeline**, and this was measured rather than
+assumed. `probe_segmentation_limits.gd` runs the identical colour key over both regions:
+
+| | temp2 | temp |
+|---|---|---|
+| palette | 7 colours | 1080 colours |
+| components found | 9 | 302 |
+| distinct box shapes | 2 | 10 |
+| median component | 50 px | 1 px |
+| components of <= 4 px | 0 (0%) | 283 (94%) |
+
+Nine-out-of-nine on temp2 is a property of *that map's palette*: three of its seven colours
+appear nowhere but on buildings. temp is dithered, no colour in it is exclusive, and the same
+rule returns 302 blobs of which 94% are noise.
+
+Trees are worse and cannot work at all. A tree is made of the same pigment as the vegetation
+it stands in. Bucketing every green pixel on temp by its green channel
+(`probe_tree_key.gd`) gives one continuous population -- 9k/34k/26k/14k/24k/236k/123k/12k --
+with **no trough to threshold at**. Any cut that catches trees takes a slab of grass with it.
+
+**The answer is to author it, not detect it.** Give a region a second image the same size, a
+prop layer, transparent except where props sit, with the ground painted complete underneath.
+Extraction becomes exact instead of inferred, it works for trees, and the ground-patch
+guesswork disappears because the artist painted what is under the house. Everything below the
+extraction -- the billboard maths, the anchoring, the atlas -- is indifferent to where the
+sprite list came from.
+
+### Known gaps
+
+- **Props are not fogged.** The ground fogs in the shader; the sprites do not, so a distant
+  structure will pop out of the haze. It does not show at Curved Close because structures sit
+  at 13-22 units against a fog start of 21. Fixing it needs a sprite shader.
+- **The art carries a black outline** that was drawn to read on a flat top-down sprite. Stood
+  up and magnified it becomes a bold vertical bar down each side of every building. That is an
+  art decision, not a rendering one.
+- **The day/night sun and cast shadows exist only in the sketch.** See section 10.
+
+## 10. Daylight, in the sketch only
+
+Built in `debug/worldmap/standing-structures.html` and **not yet in the engine**. Recorded
+because the decisions were measured and should not be re-litigated from scratch.
+
+- A cast shadow is the sprite's **silhouette sheared onto the ground**: the foot edge stays,
+  the top edge lands `h * cot(elevation)` away opposite the sun, giving a parallelogram.
+- The silhouette is **solid**. Transparent pixels inside a structure must not punch holes in
+  its shadow -- a building has a solid door and glazed windows. Background is found by
+  flooding in from the bounding-box edge, four-connected; anything unreached is solid.
+- Shadows use the sprite's **true height, not its billboard height**. The billboard
+  correction is a screen-space trick, and letting it into the lighting swings every shadow by
+  2x when the gain is on.
+- Shadows are accumulated opaque and **composited once**, so two crossing shadows form a
+  union. Ground in shadow twice over is just ground in shadow.
+- **The sun stays on the camera's own side (`+Z`)**, so shadows always fall away from the
+  viewer. Shadows in front cover the ground the player is walking into and read as grime.
+- **The sun keeps two elevations.** One is honest and reaches zero at both ends of the day,
+  driving light colour, lamps and shadow opacity. The other never drops below a floor and is
+  the one shadow *geometry* uses, because `cot(elevation)` runs away at the horizon. Measured
+  against a house 1.00 tile wide: a floor of 27 degrees gives shadows running 0.47 tiles at
+  noon to 1.68 at the day's edges, against 3.50 at a 10 degree floor. Direction carries the
+  reading of what time it is; length only has to stay legible.
+- **Lamps after dark** are an emissive mask plus an additive ground pool. The mask rule
+  fitted to temp2 -- white with a teal neighbour in the same row, plus orange -- is the wrong
+  shape for a pipeline. An emissive mask belongs in the prop layer, painted by whoever
+  painted the prop.
+
+What the day cycle cannot do: **the art has its lighting baked in**. Cast shadows move and
+the overall colour moves, but the shading on the buildings themselves does not.
+
+## 11. Open
 
 - The region id `temp` is a placeholder. Naming it is a lore question.
 - Whether the camera eases between a close travelling framing and a pulled-back planning

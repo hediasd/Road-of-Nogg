@@ -1,8 +1,9 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapGround.gd" id="1_ground"]
 [ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapCameraRig.gd" id="2_camera"]
 [ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapSky.gd" id="3_sky"]
+[ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapProps.gd" id="4_props"]
 
 [node name="WorldMap" type="Node3D"]
 
@@ -10,6 +11,9 @@
 cast_shadow = 0
 gi_mode = 0
 script = ExtResource("1_ground")
+
+[node name="Props" type="Node3D" parent="."]
+script = ExtResource("4_props")
 
 [node name="Camera" type="Camera3D" parent="."]
 keep_aspect = 0

@@ -100,6 +100,29 @@ const K_SPRITE_MODE := "sprite_mode"
 const SPRITE_FIXED := "fixed"
 const SPRITE_WORLD := "world"
 
+## How structures painted into a region's ground art are stood back up. Not a shader uniform
+## -- it drives `WorldMapProps`, which owns its own sprites -- but it travels with a framing
+## because it changes the framing's look and because that buys command-line parity for free.
+##
+## `off` leaves the region exactly as painted, which is what everything shipped before this
+## key existed did, so it is the default and nothing changes until structures are asked for.
+##
+## The other three are the same rectangle on screen by two different routes, which was
+## measured rather than assumed: at every pitch tested `face` and `gain` agree to 0.00 px.
+## They differ only in what they claim about world space. `world` is the uncorrected
+## baseline, kept because it is what the defect looks like.
+const K_BILLBOARD := "billboard"
+
+const BILLBOARD_OFF := "off"
+const BILLBOARD_WORLD := "world"
+const BILLBOARD_GAIN := "gain"
+const BILLBOARD_FACE := "face"
+
+const BILLBOARD_IDS := [BILLBOARD_OFF, BILLBOARD_WORLD, BILLBOARD_GAIN, BILLBOARD_FACE]
+const BILLBOARD_LABELS := [
+	"Off (as painted)", "World-vertical", "Proportion gain", "Face camera",
+]
+
 ## Every framing key, in the order a readout or a control panel should present them.
 const FRAMING_KEYS := [
 	K_PITCH,
@@ -117,6 +140,7 @@ const FRAMING_KEYS := [
 	K_FILTER_MODE,
 	K_RENDER_SCALE,
 	K_SPRITE_MODE,
+	K_BILLBOARD,
 	K_SKY,
 	K_SKY_OFFSET,
 	K_SKY_SCALE,
@@ -140,6 +164,7 @@ const DEFAULTS := {
 	K_FILTER_MODE: FILTER_NEAREST,
 	K_RENDER_SCALE: 0.4,
 	K_SPRITE_MODE: SPRITE_FIXED,
+	K_BILLBOARD: BILLBOARD_OFF,
 	K_SKY: SKY_OFF,
 	K_SKY_OFFSET: 0.0,
 	K_SKY_SCALE: 1.0,

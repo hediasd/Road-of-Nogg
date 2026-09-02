@@ -30,6 +30,7 @@ const ROW_OPTION := "option"
 const STATUS_ROWS := [
 	["preset", "Preset"],
 	["region", "Region"],
+	["structures", "Structures"],
 	["tiles", "Tiles across"],
 	["density", "Px per tile"],
 	["ratio", "Near:far"],
@@ -95,6 +96,14 @@ static var SECTIONS := [
 				"min": 2.0, "max": 40.0, "step": 0.5},
 			{"key": Uniforms.K_CLOUD_SPEED, "label": "Cloud speed", "type": ROW_SLIDER,
 				"min": 0.0, "max": 6.0, "step": 0.1},
+		],
+	},
+	{
+		"id": "structures",
+		"title": "Structures",
+		"rows": [
+			{"key": Uniforms.K_BILLBOARD, "label": "Stand up", "type": ROW_OPTION,
+				"options": Uniforms.BILLBOARD_LABELS, "values": Uniforms.BILLBOARD_IDS},
 		],
 	},
 	{

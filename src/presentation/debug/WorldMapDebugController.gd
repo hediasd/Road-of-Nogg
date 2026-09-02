@@ -26,6 +26,14 @@
 ## Core shortcuts use letters because project.godot defines no custom input actions and the
 ## built-in UI owns Enter, Escape, Space and the arrows.
 ## G tile grid | H hide hud | C copy settings | R reset to the selected preset
+## F recentre the camera on the region
+##
+## DRAG TO PAN. Hold the left mouse button on the view and drag. Screen pixels are converted
+## to world units through the framing itself, so a drag moves the ground under the cursor at
+## roughly the cursor's own speed at any zoom. Panning here is deliberately UNCLAMPED, unlike
+## the shipping `panTo(focus, rect)` call: a debug tool has to be able to look at the map's
+## edge, which is exactly what the clamp exists to prevent. The readout keeps flagging
+## `EDGES SHOW`, so the clamp's reason stays visible while its behaviour is suspended.
 ##
 ## Every interactive control is also reachable from the command line, so a validation pass
 ## is scriptable rather than a sequence of clicks:
@@ -36,7 +44,7 @@
 ##   --quit-after=<n>    quit after n frames, for bounded probes
 ## and an override for every framing key, applied over the chosen preset:
 ##   --pitch= --fov= --height= --fog_start= --fog_end= --fog_curve= --sky=
-##   --sky_offset= --sky_scale= --sky_tint=
+##   --sky_offset= --sky_scale= --sky_tint= --billboard=
 ##   --fog_curve= --fog_color= --void_color= --curvature= --cloud_strength=
 ##   --cloud_scale= --cloud_speed= --filter_mode= --render_scale= --sprite_mode=
 
@@ -63,6 +71,7 @@ var _ground: WorldMapGround
 var _camera: WorldMapCameraRig
 var _sky: WorldMapSky
 var _tileGrid: MeshInstance3D
+var _props: WorldMapProps
 
 var _regionID := ""
 var _regionTiles := Vector2i.ZERO
@@ -70,6 +79,14 @@ var _presetID := FramingCatalog.TILE_EXACT
 var _framing: Dictionary = {}
 var _quitAfter := 0
 var _frames := 0
+
+## Where the camera is looking. Held here rather than recomputed from the region on every
+## apply, or a drag would be undone by the next control edit.
+var _focus := Vector2.ZERO
+var _dragging := false
+var _propCounts := {"count": 0, "houses": 0, "towers": 0}
+var _region: Dictionary = {}
+var _billboard := Uniforms.BILLBOARD_OFF
 
 
 func _ready() -> void:
@@ -82,6 +99,7 @@ func _ready() -> void:
 	_ground = _map.get_node("Ground")
 	_camera = _map.get_node("Camera")
 	_sky = _map.get_node("Camera/Sky")
+	_props = _map.get_node("Props")
 	_camera.current = true
 
 	_buildTileGrid()
@@ -101,6 +119,12 @@ func _ready() -> void:
 	if not WorldMapSkyCatalog.has(skyID):
 		push_warning("WorldMapDebugController: unknown sky '%s'" % skyID)
 		_framing[Uniforms.K_SKY] = Uniforms.SKY_OFF
+	# Same trap as --sky=: the generic override loop only coerces types, so a typo would
+	# silently leave the structures flat while the readout named a mode.
+	var billboardID := str(_framing[Uniforms.K_BILLBOARD])
+	if not Uniforms.BILLBOARD_IDS.has(billboardID):
+		push_warning("WorldMapDebugController: unknown billboard mode '%s'" % billboardID)
+		_framing[Uniforms.K_BILLBOARD] = Uniforms.BILLBOARD_OFF
 	# A command-line override leaves the framing no longer matching the preset it started
 	# from, so it reports Custom for the same reason a control edit does. Without this the
 	# readout and the copied settings block would both name a preset that is not in effect.
@@ -145,6 +169,40 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_copySettings()
 		KEY_R:
 			_onPresetSelected(FramingCatalog.values().find(_presetID))
+		KEY_F:
+			_recentre()
+
+
+## Drag to pan. The conversion is the framing's own: at the frame's centre one screen height
+## spans `2 * centre_depth * tan(fov/2)` world units, and the vertical axis is divided by
+## sin(pitch) because dragging up the screen moves further across the ground than dragging
+## sideways does -- the ground is being seen at an angle. Without that term a diagonal drag
+## slides diagonally on screen but not on the map.
+func _unhandled_input(event: InputEvent) -> void:
+	var button := event as InputEventMouseButton
+	if button != null and button.button_index == MOUSE_BUTTON_LEFT:
+		_dragging = button.pressed
+		return
+	var motion := event as InputEventMouseMotion
+	if motion == null or not _dragging:
+		return
+	var window := get_viewport().get_visible_rect().size
+	if window.y <= 0.0:
+		return
+	var pitch := deg_to_rad(float(_framing[Uniforms.K_PITCH]))
+	var centreDepth := float(_framing[Uniforms.K_HEIGHT]) / tan(pitch)
+	var unitsPerPixel := (centreDepth * 2.0 * tan(deg_to_rad(float(_framing[Uniforms.K_FOV])) * 0.5)) / window.y
+	_focus.x -= motion.relative.x * unitsPerPixel
+	_focus.y -= motion.relative.y * unitsPerPixel / maxf(0.15, sin(pitch))
+	_camera.panTo(_focus)
+	_props.updateGain(_camera)
+
+
+func _recentre() -> void:
+	var rect := _ground.regionRect()
+	_focus = rect.position + rect.size * 0.5
+	_camera.panTo(_focus)
+	_props.updateGain(_camera)
 
 
 func _buildUi() -> void:
@@ -212,22 +270,46 @@ func _loadRegion(regionID: String) -> void:
 		push_warning("WorldMapDebugController: could not load region '%s'" % regionID)
 		return
 	_regionID = regionID
+	_region = region
 	_regionTiles = region["tiles"]
-	_ground.configure(
-		_regionTiles, region["texture"], _framing, region["fog_color"], region["void_color"]
-	)
+	_focus = Vector2(float(_regionTiles.x), float(_regionTiles.y)) * 0.5
+	_refreshProps()
 	_rebuildTileGrid()
 
 
+## Rebuilds the structures and hands the resulting ground texture to the ground rig.
+##
+## Order matters and is the whole reason this is one function. The props pass is what DECIDES
+## what the ground texture is: with structures standing, the ground must be the patched copy,
+## or every building is drawn twice -- once lying down where it was painted, and once standing
+## up next to itself.
+func _refreshProps() -> void:
+	if _region.is_empty():
+		return
+	_billboard = str(_framing.get(Uniforms.K_BILLBOARD, Uniforms.BILLBOARD_OFF))
+	_propCounts = _props.rebuild(
+		_region["texture"], RegionCatalog.tilePixelsFor(_regionID), _billboard
+	)
+	_ground.configure(
+		_regionTiles, _propCounts["ground"], _framing,
+		_region["fog_color"], _region["void_color"]
+	)
+
+
 func _applyFraming() -> void:
+	# Changing the mode changes the ground TEXTURE, not just a uniform, so it needs the full
+	# props pass rather than the cheap per-frame update.
+	if str(_framing.get(Uniforms.K_BILLBOARD, Uniforms.BILLBOARD_OFF)) != _billboard:
+		_refreshProps()
 	_ground.applyFraming(_framing)
 	_camera.applyFraming(_framing)
 	# After the camera, because the backdrop is sized against its FOV.
 	_sky.applyFraming(_framing, _camera, Vector2(get_viewport().get_visible_rect().size))
 	# The region rect is in WORLD units. It happens to equal the tile count under the
 	# one-tile-one-unit invariant, but going through the rect keeps that in a single place.
-	var rect := _ground.regionRect()
-	_camera.panTo(rect.position + rect.size * 0.5, rect)
+	# Unclamped: see the DRAG TO PAN note at the top of this file.
+	_camera.panTo(_focus)
+	_props.applyMode(str(_framing.get(Uniforms.K_BILLBOARD, Uniforms.BILLBOARD_OFF)), _camera)
 	_applyRenderScale()
 
 
@@ -253,6 +335,7 @@ func _refreshStatus() -> void:
 	_hud.setStatus({
 		"preset": _presetLabel(),
 		"region": "%s  (%d x %d tiles)" % [_regionID, _regionTiles.x, _regionTiles.y],
+		"structures": _structureLabel(),
 		"tiles": "%.1f across the bottom edge" % readout["tiles_across"],
 		"density": "%.1f buffer px" % readout["buffer_px_per_tile"],
 		"ratio": "1 : %.2f" % readout["near_far_ratio"],
@@ -270,6 +353,17 @@ func _refreshStatus() -> void:
 			else "above the frame (matches reference)"
 		),
 	})
+
+
+func _structureLabel() -> String:
+	var mode := str(_framing.get(Uniforms.K_BILLBOARD, Uniforms.BILLBOARD_OFF))
+	if mode == Uniforms.BILLBOARD_OFF:
+		return "off (region as painted)"
+	var index := Uniforms.BILLBOARD_IDS.find(mode)
+	var label: String = Uniforms.BILLBOARD_LABELS[index] if index >= 0 else mode
+	return "%s  --  %d up (%d houses, %d towers)" % [
+		label, _propCounts["count"], _propCounts["houses"], _propCounts["towers"]
+	]
 
 
 func _skyLabel() -> String:
