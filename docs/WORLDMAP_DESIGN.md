@@ -468,6 +468,15 @@ because the decisions were measured and should not be re-litigated from scratch.
   union. Ground in shadow twice over is just ground in shadow.
 - **The sun stays on the camera's own side (`+Z`)**, so shadows always fall away from the
   viewer. Shadows in front cover the ground the player is walking into and read as grime.
+- **The azimuth sweeps a narrow arc, not the full semicircle.** A full 180 degrees puts the
+  sun due east at dawn, and a shadow cast from due east points due *west* -- sideways across
+  the screen with no northward component at all. Held inside +/- 52 degrees of north, the
+  northward reach never goes negative and the lean tops out at 48 degrees instead of 90,
+  while the direction still turns visibly through the day.
+- **The shadow is a trapezoid.** The foot edge keeps the caster's width; the tip is wider.
+  That is the penumbra spreading with distance, and it is also what stops the shadow reading
+  as a dash: lying flat and receding, a shadow is foreshortened far harder than the upright
+  sprite beside it, so one exactly as wide as the house collapses to a line.
 - **The sun keeps two elevations.** One is honest and reaches zero at both ends of the day,
   driving light colour, lamps and shadow opacity. The other never drops below a floor and is
   the one shadow *geometry* uses, because `cot(elevation)` runs away at the horizon. Measured
