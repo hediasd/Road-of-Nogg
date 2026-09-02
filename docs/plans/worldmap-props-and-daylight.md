@@ -381,9 +381,10 @@ are building.
 
 **End state:** After dark a structure lights a circular area of ground around it. The night is
 **not applied** inside that circle, so the ground keeps its daytime colours; nothing in the
-lamp path can produce a colour the art does not already contain. The structure's own emissive
-pixels hold their colour instead of taking the night tint. Lamps rise as the sun sets, driven
-by the honest elevation rather than a hardcoded hour.
+lamp path can produce a colour the art does not already contain. **The structures inside a lit
+circle are lit too** — a building standing in its own pool of light must not be the one dark
+thing in it — and its emissive pixels hold their colour on top of that. Lamps rise as the sun
+sets, driven by the honest elevation rather than a hardcoded hour.
 
 **Implementation:** **Subtractive, not additive.** A lamp is a region where the night is
 withheld, not warm light painted on top. That is the whole item. An additive glow — which the
@@ -413,6 +414,11 @@ Four shapes were prototyped and measured at map-pixel resolution in the sketch:
   The band is centred on `frac = 0.5`, which is where a ring boundary sits, and the pattern
   sweeps across it. The Bayer index comes from **map** coordinates.
 - **Additive glow.** Kept only as the comparison that shows why the others exist.
+
+The sprite and the ground must take their tint from **one function and one field**. A building
+lit to one value while the grass under it is lit to another is the exact seam this is meant to
+remove, and it is invisible in a thumbnail. Measured at 22:00 on the building pixels: 80,92,98
+with no lamps, 132,153,112 under stepped rings, against 130,156,124 in full daylight.
 
 **Risk:** The lamp circle reading as a hole punched in the night rather than as light. Tint
 lit pixels toward a slightly warm value rather than to neutral white; the sketch's `LIT`
