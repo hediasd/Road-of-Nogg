@@ -36,9 +36,9 @@ When this closes:
   and a colour that moves from dawn through noon to night.
 - Structures **cast shadows** onto the ground — solid silhouettes, sheared by the sun,
   composited once so crossing shadows form a union rather than a darker patch.
-- The shadow's **edge treatment is a decision somebody looked at**, chosen against the
-  reference the user painted, rather than inherited from what a canvas affine blit happens to
-  produce.
+- Those shadows **read as pixel art and stay reading as it** while the sun moves and the
+  camera pans: edges on map-pixel boundaries, colours from the region's own palette, and a sun
+  quantised so the shadow steps between stable shapes instead of crawling.
 - Buildings **light their windows after dark** and spill a low pool onto the ground.
 - All of it is reachable from the debug console and from the command line.
 
@@ -76,20 +76,18 @@ When this closes:
   correction is a screen-space trick. Letting it into the lighting swings every shadow by 2×
   when the gain is switched on.
 
+- **The shadow mask lives in map space and must not be "optimised" into screen space.** A
+  screen-space shadow quad is what a 3D engine makes easy, renders fewer pixels, and needs no
+  extra texture — and it is the reason procedural shadows do not look painted. Its edge lands
+  at arbitrary sub-pixel positions and angles that do not align to the map's grid, and it
+  crawls under camera motion. No edge treatment repairs that. See WMP-4.
+
 - **Drag-to-pan in the debug scene is deliberately unclamped**, unlike the shipping
   `panTo(focus, rect)`. A debug tool has to be able to look at the map's edge, which is
   exactly what the clamp exists to prevent. The readout keeps flagging `EDGES SHOW`.
 
 - **The tower's bottom row is a painted ground shadow** and is deliberately excluded from the
   standing sprite (`rows = h - 1`). It is not an off-by-one.
-
-## Blocking input
-
-**WMP-6 cannot start until the user supplies the shadow they painted next to the towers.**
-It was asked for and could not be found: `temp2.png` hashes identical to `HEAD`
-(`ab68cc0a1aeadc6e469b29db8767a817`), and nothing newer exists in the project or in
-Downloads. WMP-6 is the item that chooses the edge treatment, and choosing it without the
-reference is exactly the guessing this plan is meant to avoid. Every other item is unblocked.
 
 ## Items
 
@@ -206,42 +204,59 @@ nine structures and must still report 0.00%.
 **Adds to final validation:** all three billboard modes still measure 0.00% aspect error;
 props and ground agree in colour at the fog's far edge.
 
-### WMP-4 — Cast shadows on the ground
+### WMP-4 — Cast shadows as a map-space mask
 
 **Model:** Opus 5 / GPT Sol
 
-**Model rationale:** New rendering with several independent ways to be quietly wrong — the
-silhouette's fill rule, the shear, the composite order, and the interaction with the ground's
-curvature. Each was found by looking at a render in the sketch rather than by reasoning, and
-each has a "looks fine, is wrong" failure mode. The composite decision in particular is a
-structural choice about how shadows accumulate, not a parameter.
+**Model rationale:** This is an architectural choice that decides whether the shadows can
+ever look like pixel art, and the obvious implementation is the wrong one. Screen-space
+shadow quads are what a 3D engine makes easy and they cannot be made to read as painted at
+any edge treatment. Choosing the other representation, and seeing why, is the item.
 
 **Depends on:** WMP-3.
 
 **Touches:**
-- `assets/shaders/worldmap_shadow.gdshader` (new)
+- `src/presentation/worldmap/WorldMapShadowMask.gd` (new)
 - `src/presentation/worldmap/WorldMapProps.gd`
+- `src/presentation/worldmap/WorldMapGround.gd`
+- `assets/shaders/worldmap_ground.gdshader`
 - `debug/worldmap/probe_shadows.gd` (new)
 
-**End state:** Each structure casts a shadow onto the ground: its **solid** silhouette,
-sheared so the foot edge stays put and the tip lands `h · cot(elevation)` away opposite the
-sun, widening to `shadow_spread` at the tip. Shadows accumulate into one pass and composite
-once, so two crossing shadows form a union. Shadow geometry takes the curve drop belonging to
-its base.
+**End state:** Shadows are rendered into a **region-sized mask texture in map-pixel space**
+(248×176 for temp2), which the ground shader samples with the same UV and the same nearest
+filter it already uses for the region art. A shadow's edge therefore lands on exact map
+pixels, aligned with the terrain's own pixel grid, and it is fogged, curved and filtered by
+the ground path for free because it *is* the ground.
 
-**Implementation:** The silhouette is solid, not the sprite's alpha. Transparent pixels
-*inside* a structure — the tower's open belfry, the gap beside a doorway — must not punch
-holes in its shadow, because a building has a solid door and glazed windows. Find background
-by flooding in from the bounding-box edge, four-connected; anything the flood cannot reach is
-solid whatever colour it was. Taking the alpha directly gave the tower a shadow with a hole
-through the middle.
+**Implementation:** The insight that makes this simple: a shadow lies on the ground plane,
+and **map space is the ground plane**. So the shear is a plain 2D affine in map pixels —
+the foot edge stays, the tip edge moves by `h · cot(elevation)` converted to map pixels and
+widens by `shadow_spread`. There is no 3D projection anywhere in the shadow path, and no
+possibility of the shadow disagreeing with the ground about where it is.
 
-**Risk:** Double-darkening where shadows overlap, which is invisible on temp2's nine
-well-spaced structures and obvious the moment a village is dense. The probe places two
-structures deliberately overlapping and asserts the crossed region is no darker than either
-shadow alone.
+Build it as a `SubViewport` sized to the region in map pixels, with one 2D polygon per prop
+carrying the silhouette, drawn opaque. Its texture is the mask. Three properties fall out of
+that rather than needing to be engineered:
 
-**Adds to final validation:** overlapping shadows form a union; no shadow has a hole in it.
+- **Union compositing is free.** Every shadow is drawn opaque into the same buffer, so two
+  crossing shadows cannot double-darken. Ground in shadow twice over is just ground in shadow.
+- **Fog, curvature and filtering are free.** The ground already does all three, and the mask
+  rides the same sample.
+- **The mask is tiny.** 44k pixels for temp2, regenerated only when the sun moves.
+
+The silhouette is **solid**, not the sprite's alpha. Transparent pixels *inside* a structure —
+the tower's open belfry, the gap beside a doorway — must not punch holes in its shadow,
+because a building has a solid door and glazed windows. Find background by flooding in from
+the bounding-box edge, four-connected; anything the flood cannot reach is solid whatever
+colour it was. Taking the alpha directly gave the tower a shadow with a hole through the
+middle.
+
+**Risk:** The mask and the region art drifting out of alignment by a pixel, which reads as a
+shadow that is subtly detached from its building. The probe asserts a structure's shadow at a
+noon sun starts on the exact map pixel row its foot occupies.
+
+**Adds to final validation:** shadow edges land on map-pixel boundaries; overlapping shadows
+form a union; a shadow's foot is pixel-exact against its caster.
 
 ### WMP-5 — Daylight controls in the debug console
 
@@ -274,53 +289,73 @@ readout makes visible immediately.
 **Adds to final validation:** every daylight key is reachable from both the panel and the
 command line.
 
-### WMP-6 — Choose the shadow's edge
+### WMP-6 — Make the shadows read as pixel art, and hold still
 
 **Model:** Opus 5 / GPT Sol
 
-**Model rationale:** A judgment call with a house style at stake and a history of measurement
-misleading on exactly this kind of question — ranking 2.5D options by mean pixel difference
-once put the worst option first. The deliverable is a decision plus the evidence for it, and
-the three candidates differ in what they claim about the art's identity, not in cost.
+**Model rationale:** The judgment item. Three decisions that interact, a house style at stake,
+and a history on this exact map of a metric recommending the worst option. What "good" means
+here cannot be written down in advance, which is the whole reason the item exists separately
+from WMP-4 rather than being folded into it.
 
-**Depends on:** WMP-4, **and the user's painted reference** (see Blocking input).
+**Depends on:** WMP-4, WMP-5.
 
 **Touches:**
-- `assets/shaders/worldmap_shadow.gdshader`
+- `assets/shaders/worldmap_ground.gdshader`
+- `src/presentation/worldmap/WorldMapShadowMask.gd`
+- `data/worldmap/regions.json`
 - `docs/sketches/2026-09-02-worldmap-shadow-edge.html` (new)
 - `docs/WORLDMAP_DESIGN.md` §10
 
-**End state:** The shadow edge is one of three treatments, chosen by looking, with the other
-two recorded as rejected and why. The sketch shows all three side by side at several framings
-and times of day, against the user's painted reference.
+**End state:** Shadows look painted rather than composited, and they stay looking painted
+while the sun moves and the camera pans. Three decisions are made, each with the rejected
+alternatives and the reason recorded.
 
-**Implementation:** The current edge is not a decision, it is a side effect: the sketch draws
-shadows as **hard-edged affine texture-mapped triangles** with nearest sampling, so the edge
-is whatever the rasteriser produces. In the engine it becomes an alpha-cut quad, which is the
-same hard edge by a different route. The three candidates:
+**Implementation:** WMP-4 buys pixel alignment. It does not buy the look. Three separate
+questions remain, and they are separate — an answer to one does not imply an answer to
+another:
 
-1. **Hard alpha cut.** What exists. Pure, cheap, and consistent with a flat seven-colour
-   palette that has no gradients anywhere else in it.
-2. **Ordered-dither fringe.** A Bayer threshold across a band at the shadow's edge, so
-   softness is faked with the palette rather than with new colours. This is the 8-bit-authentic
-   answer and the one that fits "pixel noise and optical discrepancies are beauty for this type
-   of game". Dither must be anchored in **screen space**, or the pattern swims as the camera
-   pans.
-3. **True alpha gradient.** Smooth, and the one most likely to read as modern and wrong
-   against this art. Included because it is cheap to try and because rejecting it from
-   reasoning alone is what this project keeps getting wrong.
+**1. What colour is a shadowed pixel?**
+- *Multiply or darken.* Arithmetic. Introduces colours the palette does not contain — a
+  darkened sand that is not any of temp2's seven — which is precisely what makes procedural
+  shading look grafted onto pixel art.
+- *Palette-mapped.* Every terrain colour gets an authored shadowed counterpart, so shadowed
+  sand is the specific colour someone chose for sand-in-shadow. Seven entries for temp2. This
+  is how the art would be painted by hand and is the strong candidate.
+- *Derived palette map.* Multiply, then snap to the nearest existing palette entry. Free, no
+  authoring, and it may collapse two terrain colours onto one shadowed colour and lose the
+  boundary between them. Worth measuring before assuming it does.
 
-Judge by looking. Do **not** rank these by a pixel-difference metric against the reference: a
-metric of that kind reports how much changed, not whether it is better, and it has already
-produced one bad recommendation on this exact map.
+**2. What happens at the edge?**
+- *Hard.* At map-pixel resolution a hard edge **is** a pixel edge, which is a much stronger
+  position than it was in screen space. Likely correct for a flat seven-colour palette with no
+  gradients anywhere else in it.
+- *Ordered dither in map space.* A Bayer threshold across a one- or two-pixel band, dithering
+  between lit and shadowed palette entries. Palette-locked, authentic to the era, and the
+  thing that fits "pixel noise and optical discrepancies are beauty". In map space the pattern
+  is anchored to the terrain and cannot swim.
+- *Alpha gradient.* Included only to be rejected on sight; it necessarily produces
+  off-palette colours and is question 1 in disguise.
 
-**Risk:** Choosing an edge that reads at Curved Close and falls apart at a pulled-back framing
-where the shadow is a handful of pixels. The sketch must show every candidate at the near and
-far framings, not only the one it was tuned at.
+**3. How does it move?** This is the one that decides whether it looks *consistent*, and it
+has no analogue in a still image. A sun rotating continuously drags a hard pixel edge across
+the map one pixel at a time, and the boundary pixels flicker as it goes — the shadow crawls.
+The fix is to **quantise the sun's azimuth** to a fixed number of steps so the mask changes
+between stable configurations instead of shimmering. Find the step count by looking at it in
+motion: too few and the shadow visibly snaps, too many and it crawls. The same question
+applies to elevation, which changes the length.
 
-**Adds to final validation:** the chosen edge holds at both the closest and the most pulled-back
-preset.
+Judge all three by **looking, and looking at motion**. Do not rank them by pixel difference
+against anything: that metric reports how much changed rather than whether it improved, and it
+has already produced one bad recommendation on this map. The sketch must show the candidates
+at rest *and* stepping through a day, because question 3 is invisible in a still.
 
+**Risk:** Tuning at Curved Close and shipping something that falls apart pulled back, where a
+shadow is a handful of map pixels and a two-pixel dither band is the whole shadow. Every
+candidate is shown at the closest and the most pulled-back preset.
+
+**Adds to final validation:** shadows hold their look across the framing range and do not
+crawl as the sun steps through a day.
 ### WMP-7 — Lamps after dark
 
 **Model:** Sonnet 5 / GPT Terra
@@ -398,9 +433,10 @@ Wave 2 is a single item because `WorldMapProps.gd` and `WorldMapGroundUniforms.g
 spine of this cycle — nearly everything reads one or both — and WMP-3 rewrites how props are
 drawn. Nothing can safely run beside it.
 
-Wave 4 pairs the two items that touch different shaders. WMP-6 may stall on the blocking
-input; if it does, run WMP-7 alone and hold WMP-6 for its own wave rather than letting it
-block WMP-8.
+Wave 4 pairs the two items that touch different shaders: WMP-6 works on the ground shader and
+the shadow mask, WMP-7 on the prop shader and the prop art. WMP-6 also needs WMP-5's clock,
+because question 3 — whether the shadow crawls — is invisible in a still and can only be judged
+by stepping a day.
 
 ## Deliberately excluded
 
@@ -413,6 +449,9 @@ block WMP-8.
   The relief experiment of 2026-09-01 is a reason to be careful about the second.
 - **The black outline bars.** Stood up and magnified, the art's own outline becomes a vertical
   bar down each side of a building. That is an art call, not a rendering one.
+- **Shadows falling on anything but the ground.** The mask is the ground plane, so a building
+  cannot shade its neighbour's wall. That needs a different representation and there is nothing
+  on temp2 close enough together to want it.
 - **Shadows for anything but structures.** Trees become possible once a prop layer exists, but
   temp2 has none and inventing them to test against is how the last 2.5D attempt went wrong.
 - **Sorting and a depth buffer for dense prop fields.** Nine well-spaced structures do not
