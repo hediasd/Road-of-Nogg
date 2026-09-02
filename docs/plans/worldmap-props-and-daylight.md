@@ -6,10 +6,12 @@ selectable from the debug console in three modes. Two things about it are known 
 temporary and one is known to be missing, and all three were measured rather than assumed —
 `docs/WORLDMAP_DESIGN.md` §9 carries the numbers.
 
-The extractor is a **bootstrap for one map**. The same colour key that finds 9 of 9 structures
-on temp2 returns 302 components on temp, 94% of them four pixels or smaller. Trees cannot work
-at all: tree-green and grass-green are one continuous population with no trough to threshold
-at. This cycle replaces detection with authorship.
+The extractor is **fitted to one map**. The same colour key that finds 9 of 9 structures on
+temp2 returns 302 components on temp, 94% of them four pixels or smaller. Trees cannot work at
+all: tree-green and grass-green are one continuous population with no trough to threshold at.
+The layered fix for that is understood and deliberately deferred — see "Deliberately
+excluded". What this cycle does instead is stop the rule being hardcoded, so a map with its
+own disjoint palette needs data rather than code.
 
 The props are also **unfogged**, which does not show at Curved Close only because structures
 sit at 13–22 units against a fog start of 21. And the day/night sun with its cast shadows,
@@ -25,10 +27,8 @@ simulation cycle: the clock drives pixels and nothing else.
 
 When this closes:
 
-- A region can carry an **authored prop layer** — a second image the same size, transparent
-  except where props sit, with the ground painted complete underneath. Extraction from it is
-  exact, works for trees, and needs no ground patching. The colour key survives as a
-  documented fallback for regions without one.
+- A region **declares the colours that identify its structures**, so a second map is a data
+  change rather than a code change. Buildings still emerge from the single ground PNG.
 - Props are drawn by **one shader** that does billboarding, the ground's own fog, and the
   day's light tint, so a distant structure fades into the same haze the ground does instead
   of popping out of it.
@@ -39,7 +39,9 @@ When this closes:
 - Those shadows **read as pixel art and stay reading as it** while the sun moves and the
   camera pans: edges on map-pixel boundaries, colours from the region's own palette, and a sun
   quantised so the shadow steps between stable shapes instead of crawling.
-- Buildings **light their windows after dark** and spill a low pool onto the ground.
+- Buildings **light a circle of ground after dark** by withholding the night inside it, so the
+  lamp reveals the daytime palette instead of adding light to it, and cannot produce a colour
+  the art does not already contain.
 - All of it is reachable from the debug console and from the command line.
 
 ## Present-state facts an executing agent must not "fix"
@@ -63,6 +65,10 @@ When this closes:
 - **Props being unfogged is this cycle's WMP-3, not a bug to patch early.** Do not reach for
   `Sprite3D.modulate` as a stopgap: modulate multiplies, and fog blends *toward* a pale
   colour, so it cannot be expressed that way.
+
+- **The single ground PNG is a decision, not an oversight.** Buildings emerge from the region
+  art and there is no second layer. Do not add one; see "Deliberately excluded" for why it is
+  deferred and what would have to change first.
 
 - **302 components on temp is not a thresholding failure.** temp is dithered and no colour in
   it is exclusive to anything. A better threshold does not exist; that is the finding, and it
@@ -91,14 +97,13 @@ When this closes:
 
 ## Items
 
-### WMP-1 — Give a region an authored prop layer
+### WMP-1 — Move the extraction rule into region data
 
 **Model:** Sonnet 5 / GPT Terra
 
-**Model rationale:** A stated end state across a small, known set of files: one catalog
-accessor, one JSON key, one branch at the top of `rebuild()`, and an export probe. The hard
-part — deciding that authorship beats detection — is already settled and measured in §9. No
-boundary is being moved; the prop source becomes a parameter of something that already exists.
+**Model rationale:** A stated end state across a small, known set of files: constants move from
+GDScript into a catalog accessor and a JSON block, and the matcher reads them. The decision —
+that the single PNG stays for now — is made here in the plan, so what is left is mechanical.
 
 **Depends on:** nothing.
 
@@ -106,29 +111,28 @@ boundary is being moved; the prop source becomes a parameter of something that a
 - `src/presentation/worldmap/WorldMapRegionCatalog.gd`
 - `src/presentation/worldmap/WorldMapProps.gd`
 - `data/worldmap/regions.json`
-- `assets/worldmap/regions/temp2_props.png` (new)
-- `assets/worldmap/regions/temp2_ground.png` (new)
 - `debug/worldmap/probe_prop_layer.gd` (new)
 
-**End state:** A region may declare `PROPS` and `GROUND` textures in `regions.json`. When
-`PROPS` is present, `WorldMapProps.rebuild()` takes its structures from that layer's
-connected alpha components and uses `GROUND` untouched — no colour key, no patching, no modal
-fill. When it is absent the current colour-key path runs unchanged, so temp keeps working.
-temp2 ships both layers, exported from what the extractor finds today, and renders
-identically through either path.
+**End state:** A region declares the colours that identify its structures, and
+`WorldMapProps` reads them rather than carrying temp2's palette as GDScript constants. A
+second map with its own disjoint palette becomes a data change, not a code change. temp2
+finds exactly the same 9 structures as before, with the same rects and kinds.
 
-**Implementation:** The export is the part worth getting right, because it is what makes this
-checkable rather than aspirational: `probe_prop_layer.gd` runs the existing extractor once and
-writes `temp2_props.png` (bounding boxes, transparent elsewhere) and `temp2_ground.png` (the
-patched ground). That gives a real layer to test against *and* hands the artist a starting file
-to paint over rather than a blank canvas. Structures come from alpha components in the prop
-layer, which is why a tree works here and cannot work through a colour key.
+**Implementation:** The single ground PNG stays and buildings keep emerging from it — that is
+a decision, not an oversight, and the layered alternative is recorded under
+"Deliberately excluded" with the measurement that motivates it. What this item removes is the
+*hardcoding*: `_isBuilt`'s three colour tests, `_isDoor`'s orange, the aspect threshold that
+separates towers from houses, and the minimum component size all become region properties.
 
-**Risk:** The two paths silently diverging. The probe asserts the same structure count, kinds
-and rects from both, on temp2, and fails loudly if not.
+Keep the tolerances — the matcher is `abs(channel - value) < tol`, not equality, because the
+PNG round-trips through import. Do not "simplify" it to an exact match.
 
-**Adds to final validation:** temp2 renders identically through the prop layer and the colour
-key; temp still loads through the fallback.
+**Risk:** A region omitting the block and silently finding nothing. Absent keys fall back to
+the current constants, and the readout already reports the structure count, so a region that
+finds zero says so on screen.
+
+**Adds to final validation:** temp2 finds 9 structures (7 houses, 2 towers) from region data
+alone; temp still loads and renders flat.
 
 ### WMP-2 — A sun the world map can ask the time of
 
@@ -356,42 +360,66 @@ candidate is shown at the closest and the most pulled-back preset.
 
 **Adds to final validation:** shadows hold their look across the framing range and do not
 crawl as the sun steps through a day.
-### WMP-7 — Lamps after dark
+### WMP-7 — Lamps after dark, subtractive
 
-**Model:** Sonnet 5 / GPT Terra
+**Model:** Opus 5 / GPT Sol
 
-**Model rationale:** Two well-specified effects — an emissive mask on the prop shader and an
-additive ground pool — both prototyped, with the placement question already answered by WMP-1.
-The one genuine design decision, that an emissive mask belongs in the prop layer rather than in
-a colour rule, is made here in the plan.
+**Model rationale:** The mechanism is a design decision with a house style at stake, not a
+parameter — additive and subtractive light are different models that happen to look similar in
+a thumbnail, and only one of them can stay inside the palette. It also shares the light-level
+representation with WMP-4 and WMP-6, so getting it wrong fragments the thing those two items
+are building.
 
-**Depends on:** WMP-1, WMP-3.
+**Depends on:** WMP-1, WMP-3, WMP-4.
 
 **Touches:**
-- `src/presentation/worldmap/WorldMapProps.gd`
+- `src/presentation/worldmap/WorldMapShadowMask.gd`
+- `assets/shaders/worldmap_ground.gdshader`
 - `assets/shaders/worldmap_prop.gdshader`
-- `assets/worldmap/regions/temp2_props.png`
+- `src/presentation/worldmap/WorldMapProps.gd`
+- `data/worldmap/regions.json`
 
-**End state:** After dark, a structure's emissive pixels hold their colour instead of taking
-the night tint, and each structure spills a low additive pool onto the ground whose radius is
-`lamp_reach`. Lamps come up as the sun goes down, driven by the honest elevation, not by a
-hardcoded hour.
+**End state:** After dark a structure lights a circular area of ground around it. The night is
+**not applied** inside that circle, so the ground keeps its daytime colours; nothing in the
+lamp path can produce a colour the art does not already contain. The structure's own emissive
+pixels hold their colour instead of taking the night tint. Lamps rise as the sun sets, driven
+by the honest elevation rather than a hardcoded hour.
 
-**Implementation:** The emissive mask is **authored into the prop layer**, not derived. The
-sketch's rule — white with a teal neighbour in the same row, plus orange — is fitted to one
-map's art and is the wrong shape for a pipeline; carry it once to generate the initial mask,
-then let it be painted. A lit window is emissive: lerp the whole pixel toward the lamp colour
-rather than multiplying by the night tint and adding warmth back, which gives a muddy grey.
-The ground pool is an ellipse squashed by `sin(pitch)`, because a circle of light on the ground
-is a circle seen at the camera's angle; drawing it round is what makes ground decals read as
-stickers on the lens.
+**Implementation:** **Subtractive, not additive.** A lamp is a region where the night is
+withheld, not warm light painted on top. That is the whole item. An additive glow — which the
+sketch keeps as a comparison mode — invents colours between the palette entries and is what
+makes procedural light look grafted onto pixel art.
 
-**Risk:** Additive pools blowing out to white where structures cluster. temp2 has a
-three-house cluster that is the test case.
+The lamp field is a distance field in **map-pixel space**, the same space as WMP-4's shadow
+mask, and for the same reason: its edge then lands on the terrain's own grid and cannot swim
+under camera motion. Shadow and lamp are the same mechanism seen twice — both modulate a
+per-pixel light level, and the palette decides what a level looks like. Build them as one
+representation; two parallel systems that happen to agree is the failure mode here.
 
-**Adds to final validation:** lamps rise and fall with the sun; the three-house cluster does
-not clip to white.
+Combine overlapping lamps with **max, not sum**. Two lamps together light a wider area, not a
+brighter one, and summing is exactly what blows a cluster out to white. temp2's three-house
+cluster is the test case.
 
+Four shapes were prototyped and measured at map-pixel resolution in the sketch:
+
+- **Hard circle.** One level, a clean pixel circle. The most graphic answer.
+- **Stepped rings.** Concentric levels; the classic tile-era light radius. Quantise with
+  `round`, not `ceil` — `ceil` biases the whole lit area outward by half a level and puts the
+  outermost ring one step brighter than the falloff says.
+- **Dithered rings.** Ordered dither, **confined to a narrow band where two levels meet**.
+  This is the one with a trap in it, and it was caught by reading the light field at map-pixel
+  resolution rather than by looking at a thumbnail: a plain Bayer threshold across the whole
+  falloff alternates on nearly every pixel of the light and reads as noise, not as softness.
+  The band is centred on `frac = 0.5`, which is where a ring boundary sits, and the pattern
+  sweeps across it. The Bayer index comes from **map** coordinates.
+- **Additive glow.** Kept only as the comparison that shows why the others exist.
+
+**Risk:** The lamp circle reading as a hole punched in the night rather than as light. Tint
+lit pixels toward a slightly warm value rather than to neutral white; the sketch's `LIT`
+constant is the starting point, not a final answer.
+
+**Adds to final validation:** no lamp produces a colour outside the region's palette; the
+three-house cluster does not clip; lamps rise and fall with the sun.
 ### WMP-8 — Validation and the design note
 
 **Model:** Opus 5 / GPT Sol
@@ -452,6 +480,12 @@ by stepping a day.
 - **Shadows falling on anything but the ground.** The mask is the ground plane, so a building
   cannot shade its neighbour's wall. That needs a different representation and there is nothing
   on temp2 close enough together to want it.
+- **A separate prop layer, for now.** The measurement stands: a per-region second image,
+  transparent except where props sit with the ground painted complete underneath, makes
+  extraction exact instead of inferred, works for trees, and deletes the ground-patch
+  guesswork. It is deferred because it needs art that does not exist and because the single
+  PNG is good enough for the maps in hand. Everything this cycle builds below the extraction
+  survives that change unaltered, which is what makes deferring it cheap.
 - **Shadows for anything but structures.** Trees become possible once a prop layer exists, but
   temp2 has none and inventing them to test against is how the last 2.5D attempt went wrong.
 - **Sorting and a depth buffer for dense prop fields.** Nine well-spaced structures do not
