@@ -195,14 +195,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	_focus.x -= motion.relative.x * unitsPerPixel
 	_focus.y -= motion.relative.y * unitsPerPixel / maxf(0.15, sin(pitch))
 	_camera.panTo(_focus)
-	_props.updateGain(_camera)
 
 
 func _recentre() -> void:
 	var rect := _ground.regionRect()
 	_focus = rect.position + rect.size * 0.5
 	_camera.panTo(_focus)
-	_props.updateGain(_camera)
 
 
 func _buildUi() -> void:
@@ -307,7 +305,7 @@ func _applyFraming() -> void:
 	# one-tile-one-unit invariant, but going through the rect keeps that in a single place.
 	# Unclamped: see the DRAG TO PAN note at the top of this file.
 	_camera.panTo(_focus)
-	_props.applyMode(str(_framing.get(Uniforms.K_BILLBOARD, Uniforms.BILLBOARD_OFF)), _camera)
+	_props.applyFraming(_framing)
 	_applyRenderScale()
 
 

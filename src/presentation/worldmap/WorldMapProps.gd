@@ -27,6 +27,20 @@ extends Node3D
 
 const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
 const RegionCatalog = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.gd")
+const PROP_SHADER = preload("res://assets/shaders/worldmap_prop.gdshader")
+
+const U_ATLAS := "atlas"
+const U_SPRITE_RECT := "sprite_rect"
+const U_BILLBOARD_MODE := "billboard_mode"
+const U_PROP_HEIGHT := "prop_height"
+const U_LIGHT_TINT := "light_tint"
+
+## Shader values for the three drawable modes, in the shader's branch order.
+const SHADER_MODE := {
+	Uniforms.BILLBOARD_WORLD: 0,
+	Uniforms.BILLBOARD_GAIN: 1,
+	Uniforms.BILLBOARD_FACE: 2,
+}
 
 var _structures: Array = []
 ## The region's own answer to "what is a building here", from `regions.json`. Empty means the
@@ -82,71 +96,56 @@ func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 	}
 
 
-## Applies the billboard mode. `gain` is the only one that needs the camera, because its
-## correction is per-sprite and depends on how far away each sprite is.
-func applyMode(mode: String, camera: WorldMapCameraRig) -> void:
+## Applies a framing to every prop. Cheap and allocation-free: the billboard modes all live in
+## the shader now, so nothing here walks geometry or rescales a node.
+##
+## `updateGain`'s per-frame CPU pass is gone with it. It existed only because Sprite3D's own
+## material could not be replaced without losing its billboarding, so the one mode that needed
+## maths had to do it on the CPU.
+func applyFraming(framing: Dictionary) -> void:
+	var f := Uniforms.complete(framing)
+	var mode := str(f[Uniforms.K_BILLBOARD])
 	_mode = mode
-	for child in get_children():
-		var sprite := child as Sprite3D
-		if sprite == null:
-			continue
-		# Godot's own full billboard IS the lambda = 1 case: with yaw pinned, facing the
-		# camera plane is exactly rotating the quad's up-axis onto the camera's. That is
-		# why this mode needs no maths here -- the engine already does it, correctly, and
-		# for free. See WORLDMAP_DESIGN.md for the derivation it matches.
-		sprite.billboard = (
-			BaseMaterial3D.BILLBOARD_ENABLED
-			if mode == Uniforms.BILLBOARD_FACE
-			else BaseMaterial3D.BILLBOARD_DISABLED
-		)
-		if mode != Uniforms.BILLBOARD_GAIN:
-			sprite.scale.y = 1.0
-	if mode == Uniforms.BILLBOARD_GAIN:
-		updateGain(camera)
-
-
-## Per-sprite height correction for the world-vertical mode, recomputed as the camera moves.
-##
-## A world-vertical quad is squashed by `f / D` -- ground distance over view depth -- which
-## is NOT cos(pitch): that value holds only at the exact centre of the frame, and across one
-## frame at the reference framing the squash runs 0.33 near to 0.76 far. So the correction
-## has to be per sprite, from that sprite's own distance, and it is a closed-form solve
-## rather than a fudge:
-##
-##     h = h0 * D / (f + h0 * sin(pitch))
-##
-## which is the general `h0*D / (A*D + yb*B + h0*B)` with the up-axis world-vertical, where
-## `A*D + yb*B` collapses to `f` exactly.
-func updateGain(camera: WorldMapCameraRig) -> void:
-	if camera == null or _mode != Uniforms.BILLBOARD_GAIN:
+	if not SHADER_MODE.has(mode):
 		return
-	# Worked in the rig's own terms -- pitch and position -- rather than through
-	# `global_transform`. Props and camera are siblings under an origin-parented map, so the
-	# two agree, and this cannot be caught out by node order or by a probe that drives the
-	# rig before the tree is live.
-	var pitch := deg_to_rad(-camera.rotation_degrees.x)
-	var cs := cos(pitch)
-	var sn := sin(pitch)
-	var camPos := camera.position
+	var sun := WorldMapSun.at(f)
+	var tint: Color = sun["tint"]
+	var strength: float = f[Uniforms.K_LIGHT_TINT]
+	# light_tint blends out to neutral so the day cycle can be taken back out without
+	# unpicking it, the same way the sketch's Light tint slider does.
+	var light := Vector3(
+		1.0 + (tint.r - 1.0) * strength,
+		1.0 + (tint.g - 1.0) * strength,
+		1.0 + (tint.b - 1.0) * strength
+	)
 	for child in get_children():
-		var sprite := child as Sprite3D
-		if sprite == null:
+		var quad := child as MeshInstance3D
+		if quad == null:
 			continue
-		var base := sprite.position
-		var depth := -((base.y - camPos.y) * sn + (base.z - camPos.z) * cs)
-		var forward := camPos.z - base.z
-		var h0: float = sprite.get_meta("prop_height", 1.0)
-		var denom := forward + h0 * sn
-		# The correction is NOT bounded below by 1. Past the frame centre a vertical quad is
-		# magnified rather than squashed -- the factor f/D passes through cos(pitch) at the
-		# centre and keeps climbing to 1/cos(pitch) -- so far sprites are corrected DOWNWARD.
-		# Clamping at 1.0 would silently leave everything beyond the middle of the frame too
-		# tall, which is the same defect this mode exists to remove.
-		sprite.scale.y = clampf(depth / denom, 0.1, 8.0) if denom > 0.001 else 1.0
+		var material := quad.material_override as ShaderMaterial
+		if material == null:
+			continue
+		material.set_shader_parameter(U_BILLBOARD_MODE, int(SHADER_MODE[mode]))
+		material.set_shader_parameter(U_LIGHT_TINT, light)
+		material.set_shader_parameter(Uniforms.U_FOG_START, f[Uniforms.K_FOG_START])
+		material.set_shader_parameter(Uniforms.U_FOG_END, f[Uniforms.K_FOG_END])
+		material.set_shader_parameter(Uniforms.U_FOG_CURVE, f[Uniforms.K_FOG_CURVE])
+		material.set_shader_parameter(
+			Uniforms.U_FOG_COLOR, f.get(Uniforms.K_FOG_COLOR, Color.WHITE)
+		)
 
 
 func structureCount() -> int:
 	return _structures.size()
+
+
+## A structure's PAINTED height-to-width ratio -- what its on-screen box should measure if the
+## billboard is doing its job. 0.875 for temp2's houses, 1.500 for its towers.
+func artAspect(index: int) -> float:
+	if index < 0 or index >= _structures.size():
+		return 0.0
+	var s: Dictionary = _structures[index]
+	return float(s["rows"]) / float(s["w"])
 
 
 func _clearSprites() -> void:
@@ -320,28 +319,44 @@ func _buildSprites() -> void:
 	# One tile is one world unit, so a map pixel is 1/tile_pixels of a unit. This is the only
 	# place a region's tile PIXEL size is allowed to matter; the camera never sees it.
 	var pixelSize := 1.0 / float(_tilePixels)
+	var atlasSize := Vector2(float(_spriteSheet.get_width()), float(_spriteSheet.get_height()))
 	for s in _structures:
-		var sprite := Sprite3D.new()
-		sprite.texture = _spriteSheet
-		sprite.region_enabled = true
-		sprite.region_rect = Rect2(s["x"], s["y"], s["w"], s["rows"])
-		sprite.pixel_size = pixelSize
-		sprite.shaded = false
-		sprite.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-		# Discard rather than blend: these are hard-edged pixel sprites, and an alpha-blended
-		# sprite is drawn in the transparent pass where it neither writes depth nor sorts
-		# against its neighbours reliably.
-		sprite.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
-		# Anchored at its FOOT. `offset` is in texture pixels and lifts the image so the node
-		# origin sits on the bottom edge, which is what keeps the base planted when the gain
-		# mode scales Y or the billboard mode spins the quad.
-		sprite.centered = true
-		sprite.offset = Vector2(0.0, float(s["rows"]) * 0.5)
+		var worldW := float(s["w"]) * pixelSize
 		var worldH := float(s["rows"]) * pixelSize
-		sprite.set_meta("prop_height", worldH)
-		sprite.position = Vector3(
+
+		var quad := QuadMesh.new()
+		quad.size = Vector2(worldW, worldH)
+		# Anchored at its FOOT. The shader's billboard turns the quad about the model origin
+		# and the gain mode scales VERTEX.y from it, so both keep the base planted only
+		# because the origin IS the base.
+		quad.center_offset = Vector3(0.0, worldH * 0.5, 0.0)
+
+		var material := ShaderMaterial.new()
+		material.shader = PROP_SHADER
+		material.set_shader_parameter(U_ATLAS, _spriteSheet)
+		material.set_shader_parameter(U_SPRITE_RECT, Vector4(
+			float(s["x"]) / atlasSize.x,
+			float(s["y"]) / atlasSize.y,
+			float(s["w"]) / atlasSize.x,
+			float(s["rows"]) / atlasSize.y
+		))
+		material.set_shader_parameter(U_PROP_HEIGHT, worldH)
+		material.set_shader_parameter(U_BILLBOARD_MODE, int(SHADER_MODE.get(_mode, 2)))
+
+		var instance := MeshInstance3D.new()
+		instance.mesh = quad
+		instance.material_override = material
+		instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+		instance.set_meta("prop_height", worldH)
+		instance.set_meta("prop_rows", int(s["rows"]))
+		instance.set_meta("prop_kind", str(s["kind"]))
+		instance.set_meta("prop_rect", Rect2(
+			float(s["x"]), float(s["y"]), float(s["w"]), float(s["rows"])
+		))
+		instance.position = Vector3(
 			(float(s["x"]) + float(s["w"]) * 0.5) * pixelSize,
 			0.0,
 			float(s["y"] + s["h"]) * pixelSize
 		)
-		add_child(sprite)
+		add_child(instance)

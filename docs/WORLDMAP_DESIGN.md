@@ -441,11 +441,36 @@ guesswork disappears because the artist painted what is under the house. Everyth
 extraction -- the billboard maths, the anchoring, the atlas -- is indifferent to where the
 sprite list came from.
 
+### One shader, not Sprite3D
+
+Props are drawn by `worldmap_prop.gdshader` on a quad, not by `Sprite3D`. Sprite3D gives
+billboarding away free, which is what made `face` cheap -- but its material cannot be replaced
+without losing that, so `gain` had to be a CPU pass rescaling every sprite every frame, and
+there was nowhere to put fog at all. Props therefore did not fog while the ground did.
+
+All three modes now live in the vertex stage and the CPU pass is gone. The fog is a
+transcription of the ground shader's, including both of its deliberate departures from the
+obvious -- ground-plane distance rather than view-space depth, and a gamma-space blend. If the
+ground's fog changes, this must change with it.
+
+Two things caught while porting, neither of which announces itself:
+
+- **The camera's basis is in `INV_VIEW_MATRIX`, not `VIEW_MATRIX`.** `VIEW_MATRIX` is the
+  world-to-view transform and its columns are not the camera's axes. Taking `sin(pitch)` from
+  the wrong one still produces a plausible-looking sprite.
+- **Measuring a vertical sprite's width from its bounding box measures the lean, not the
+  proportions.** A world-vertical quad seen from above has its top edge nearer the camera, so
+  the top projects wider than the base and the box width is the top width. Compared against
+  the vertical extent that made a *correct* `gain` sprite look 23% wrong. The width has to come
+  from the projection -- one tile at the prop's base -- or from the foot row.
+
+Measured end to end by `probe_props.gd`, rendering each prop alone and reading its pixels:
+`world` 28-33% off painted proportions, `gain` and `face` both **1.2% worst**, and identical
+to each other at 63/37/37 px. `probe_prop_fog.gd` closes the fog and watches the prop-to-ground
+colour gap halve, 1.236 to 0.598.
+
 ### Known gaps
 
-- **Props are not fogged.** The ground fogs in the shader; the sprites do not, so a distant
-  structure will pop out of the haze. It does not show at Curved Close because structures sit
-  at 13-22 units against a fog start of 21. Fixing it needs a sprite shader.
 - **The art carries a black outline** that was drawn to read on a flat top-down sprite. Stood
   up and magnified it becomes a bold vertical bar down each side of every building. That is an
   art decision, not a rendering one.
