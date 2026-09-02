@@ -287,9 +287,7 @@ func _refreshProps() -> void:
 	if _region.is_empty():
 		return
 	_billboard = str(_framing.get(Uniforms.K_BILLBOARD, Uniforms.BILLBOARD_OFF))
-	_propCounts = _props.rebuild(
-		_region["texture"], RegionCatalog.tilePixelsFor(_regionID), _billboard
-	)
+	_propCounts = _props.rebuild(_region["texture"], _regionID, _billboard)
 	_ground.configure(
 		_regionTiles, _propCounts["ground"], _framing,
 		_region["fog_color"], _region["void_color"]

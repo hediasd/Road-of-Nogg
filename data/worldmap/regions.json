@@ -18,6 +18,15 @@
 		"TILE_PIXELS": 8,
 		"FOG_COLOR": "bae8e2",
 		"VOID_COLOR": "37aeae",
+		"STRUCTURES": {
+			"KEY_COLORS": ["f5fff5", "021500", "0b696a"],
+			"KEY_TOLERANCE": 45,
+			"DOOR_COLORS": ["e69900"],
+			"DOOR_TOLERANCE": 42,
+			"MIN_PIXELS": 8,
+			"TOWER_ASPECT": 1.2,
+			"TOWER_TRIM_ROWS": 1
+		},
 		"DEFAULT": true
 	}
 ]

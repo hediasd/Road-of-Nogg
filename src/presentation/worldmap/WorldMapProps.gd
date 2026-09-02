@@ -26,16 +26,12 @@ class_name WorldMapProps
 extends Node3D
 
 const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
-
-## Anything smaller than this is dithering noise rather than a building. It is a guard on a
-## detector already known not to generalise, not a claim that it now does.
-const MIN_COMPONENT_PX := 8
-
-## Structures taller than they are wide are towers. On temp2 that is 8x13 against 8x7, which
-## is not close enough to need anything cleverer.
-const TOWER_ASPECT := 1.2
+const RegionCatalog = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.gd")
 
 var _structures: Array = []
+## The region's own answer to "what is a building here", from `regions.json`. Empty means the
+## region declares none, which is the honest state for a map whose palette is not disjoint.
+var _rule: Dictionary = {}
 var _spriteSheet: ImageTexture
 var _tilePixels := Uniforms.DEFAULT_TILE_PIXELS
 var _mode := Uniforms.BILLBOARD_OFF
@@ -45,12 +41,18 @@ var _mode := Uniforms.BILLBOARD_OFF
 ## `WorldMapGround` -- the source with the structures painted out -- plus a count for the
 ## readout. Returns the source texture unchanged when the mode is off, so nothing about the
 ## shipped ground rig changes until structures are explicitly asked for.
-func rebuild(source: Texture2D, tilePixels: int, mode: String) -> Dictionary:
+func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 	_clearSprites()
 	_structures.clear()
-	_tilePixels = maxi(1, tilePixels)
+	_rule = RegionCatalog.structureRuleFor(regionID)
+	_tilePixels = maxi(1, RegionCatalog.tilePixelsFor(regionID))
 	_mode = mode
 	if source == null or mode == Uniforms.BILLBOARD_OFF:
+		return {"ground": source, "count": 0, "houses": 0, "towers": 0}
+	# A region that declares no structure colours has none to find. Saying so here rather than
+	# running a component pass that returns nothing keeps "this map has no props" distinct
+	# from "the detector failed".
+	if not RegionCatalog.hasStructureRule(regionID):
 		return {"ground": source, "count": 0, "houses": 0, "towers": 0}
 
 	var image := source.get_image()
@@ -155,18 +157,30 @@ func _clearSprites() -> void:
 
 # --- extraction ----------------------------------------------------------------------
 
+## Channel distance rather than equality: the PNG round-trips through import, so a colour
+## comes back near its authored value rather than exactly on it.
+func _matches(r: int, g: int, b: int, palette: Array, tolerance: float) -> bool:
+	for entry in palette:
+		var c: Color = entry
+		if (
+			absf(float(r) - c.r * 255.0) < tolerance
+			and absf(float(g) - c.g * 255.0) < tolerance
+			and absf(float(b) - c.b * 255.0) < tolerance
+		):
+			return true
+	return false
+
+
 func _isBuilt(r: int, g: int, b: int) -> bool:
-	var white := r > 200 and g > 200 and b > 200
-	var black := r < 60 and g < 70 and b < 60
-	var teal := absi(r - 11) < 45 and absi(g - 105) < 45 and absi(b - 106) < 45
-	return white or black or teal
+	return _matches(r, g, b, _rule.get("KEY_COLORS", []), float(_rule.get("KEY_TOLERANCE", 45.0)))
 
 
-## Orange is a TERRAIN colour on this map, so it cannot be part of the key -- but inside a
-## structure's bounding box it is the door. Keying alone left a door-shaped hole in every
-## house and a door-shaped smudge on the ground where the house used to be.
+## A door colour is one a structure shares with the terrain, so it cannot be part of the key --
+## on temp2 the door orange is also a terrain colour. It counts as structure only INSIDE a
+## bounding box the key already found. Keying alone left a door-shaped hole in every house and
+## a door-shaped smudge on the ground where the house used to be.
 func _isDoor(r: int, g: int, b: int) -> bool:
-	return absi(r - 230) < 40 and absi(g - 153) < 45 and b < 80
+	return _matches(r, g, b, _rule.get("DOOR_COLORS", []), float(_rule.get("DOOR_TOLERANCE", 42.0)))
 
 
 func _findStructures(image: Image) -> Array:
@@ -217,16 +231,17 @@ func _findStructures(image: Image) -> Array:
 					if mask[np] == 1 and seen[np] == 0:
 						seen[np] = 1
 						stack.push_back(np)
-		if count < MIN_COMPONENT_PX:
+		if count < int(_rule.get("MIN_PIXELS", 8)):
 			continue
 		var bw := maxx - minx + 1
 		var bh := maxy - miny + 1
-		var kind := "tower" if float(bh) / float(bw) > TOWER_ASPECT else "house"
+		var kind := "tower" if float(bh) / float(bw) > float(_rule.get("TOWER_ASPECT", 1.2)) else "house"
+		var trim: int = int(_rule.get("TOWER_TRIM_ROWS", 0)) if kind == "tower" else 0
 		found.append({
 			"x": minx, "y": miny, "w": bw, "h": bh, "kind": kind,
-			# The tower's bottom row is a painted ground shadow, not part of the building.
-			# Standing it up puts a dark band under the tower's feet.
-			"rows": bh - 1 if kind == "tower" else bh,
+			# Rows the region asks to be dropped from a tower's foot: temp2 paints a ground
+			# shadow there, and standing it up puts a dark band under the tower's feet.
+			"rows": maxi(1, bh - trim),
 		})
 	# Far to near, so painter's order is correct without a depth sort at draw time.
 	found.sort_custom(func(a, b): return int(a["y"]) < int(b["y"]))
