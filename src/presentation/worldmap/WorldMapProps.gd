@@ -34,6 +34,9 @@ const U_SPRITE_RECT := "sprite_rect"
 const U_BILLBOARD_MODE := "billboard_mode"
 const U_PROP_HEIGHT := "prop_height"
 const U_LIGHT_TINT := "light_tint"
+const U_EMISSIVE_AMOUNT := "emissive_amount"
+const U_EMISSIVE_COLOR := "emissive_color"
+const U_EMISSIVE_MASK := "emissive_mask"
 
 ## Shader values for the three drawable modes, in the shader's branch order.
 const SHADER_MODE := {
@@ -45,6 +48,7 @@ const SHADER_MODE := {
 var _structures: Array = []
 ## Solid, hole-filled outlines of each structure, for the shadows they cast.
 var _silhouette: Image
+var _emissive: ImageTexture
 var _shadows := WorldMapShadowMask.new()
 ## The region's own answer to "what is a building here", from `regions.json`. Empty means the
 ## region declares none, which is the honest state for a map whose palette is not disjoint.
@@ -89,6 +93,7 @@ func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 	var sheet := _buildSpriteSheet(image)
 	_spriteSheet = ImageTexture.create_from_image(sheet)
 	_silhouette = _buildSilhouette(sheet)
+	_emissive = ImageTexture.create_from_image(_buildEmissive(image))
 	_buildSprites()
 
 	var towers := 0
@@ -117,15 +122,17 @@ func applyFraming(framing: Dictionary) -> void:
 		return
 	var sun := WorldMapSun.at(f)
 	_rebuildShadows(f, sun)
-	var tint: Color = sun["tint"]
-	var strength: float = f[Uniforms.K_LIGHT_TINT]
-	# light_tint blends out to neutral so the day cycle can be taken back out without
-	# unpicking it, the same way the sketch's Light tint slider does.
-	var light := Vector3(
-		1.0 + (tint.r - 1.0) * strength,
-		1.0 + (tint.g - 1.0) * strength,
-		1.0 + (tint.b - 1.0) * strength
-	)
+	var night: float = sun["night"] * float(f[Uniforms.K_LAMP_STRENGTH])
+	# A building standing inside its own pool of light must not be the one dark thing in it, so
+	# the sprite takes the SAME tint the ground under it takes. A structure sits at the centre
+	# of its own lamp, so it is fully lit whenever lamps are on.
+	var lampsOn: bool = str(f[Uniforms.K_LAMP_MODE]) != Uniforms.LAMP_OFF and float(f[Uniforms.K_LAMP_REACH]) > 0.0
+	var light := _lightVector(f, sun)
+	if lampsOn and night > 0.0:
+		var lit := WorldMapSun.litTint(
+			Color(light.x, light.y, light.z), night
+		)
+		light = Vector3(lit.r, lit.g, lit.b)
 	for child in get_children():
 		var quad := child as MeshInstance3D
 		if quad == null:
@@ -135,6 +142,10 @@ func applyFraming(framing: Dictionary) -> void:
 			continue
 		material.set_shader_parameter(U_BILLBOARD_MODE, int(SHADER_MODE[mode]))
 		material.set_shader_parameter(U_LIGHT_TINT, light)
+		material.set_shader_parameter(U_EMISSIVE_AMOUNT, night if lampsOn else 0.0)
+		material.set_shader_parameter(U_EMISSIVE_COLOR, Vector3(
+			WorldMapSun.LAMP_EMISSIVE.r, WorldMapSun.LAMP_EMISSIVE.g, WorldMapSun.LAMP_EMISSIVE.b
+		))
 		material.set_shader_parameter(Uniforms.U_FOG_START, f[Uniforms.K_FOG_START])
 		material.set_shader_parameter(Uniforms.U_FOG_END, f[Uniforms.K_FOG_END])
 		material.set_shader_parameter(Uniforms.U_FOG_CURVE, f[Uniforms.K_FOG_CURVE])
@@ -190,12 +201,33 @@ func _rebuildShadows(framing: Dictionary, sun: Dictionary) -> void:
 	var step: Vector2 = sun["shadow_step"] if bool(sun["up"]) else Vector2.ZERO
 	if strength <= 0.0:
 		step = Vector2.ZERO
+	var night: float = sun["night"] * float(framing[Uniforms.K_LAMP_STRENGTH])
 	_shadows.rebuild(
-		_structures, _silhouette, _mapSize, step, float(framing[Uniforms.K_SHADOW_SPREAD])
+		_structures, _silhouette, _mapSize, step, float(framing[Uniforms.K_SHADOW_SPREAD]),
+		{
+			"mode": str(framing[Uniforms.K_LAMP_MODE]),
+			"amount": night,
+			"reach": float(framing[Uniforms.K_LAMP_REACH]),
+			"levels": int(framing[Uniforms.K_LAMP_LEVELS]),
+			"core": float(framing[Uniforms.K_LAMP_CORE]),
+			"dither": float(framing[Uniforms.K_LAMP_DITHER]),
+		}
 	)
 	var ground := get_parent().get_node_or_null("Ground") as WorldMapGround if get_parent() != null else null
 	if ground != null:
-		ground.setShadowMask(_shadows.texture(), strength)
+		ground.setLighting(_shadows.texture(), strength, _lightVector(framing, sun), night)
+
+
+## The day's tint as the shaders want it, with `light_tint` blending the whole effect out so the
+## day cycle can be taken back out without unpicking it.
+func _lightVector(framing: Dictionary, sun: Dictionary) -> Vector3:
+	var tint: Color = sun["tint"]
+	var amount: float = framing[Uniforms.K_LIGHT_TINT]
+	return Vector3(
+		1.0 + (tint.r - 1.0) * amount,
+		1.0 + (tint.g - 1.0) * amount,
+		1.0 + (tint.b - 1.0) * amount
+	)
 
 
 func _clearSprites() -> void:
@@ -421,6 +453,46 @@ func _seedFlood(
 	queue.push_back(index)
 
 
+## Which pixels light themselves after dark, from the region's declaration. Two rules, because
+## temp2's art needs both: an outright colour list (its orange door and tower trim), and
+## "this colour beside that one in the same row", which is how `TWTWTWTT` picks out three
+## one-pixel windows set in a teal wall while correctly leaving the white lower wall alone.
+func _buildEmissive(image: Image) -> Image:
+	var w := image.get_width()
+	var h := image.get_height()
+	var out := Image.create_empty(w, h, false, Image.FORMAT_R8)
+	out.fill(Color(0.0, 0.0, 0.0, 1.0))
+	var colours: Array = _rule.get("EMISSIVE_COLORS", [])
+	var tolerance := float(_rule.get("EMISSIVE_TOLERANCE", 42.0))
+	var neighbour: Variant = _rule.get("EMISSIVE_NEIGHBOUR", null)
+	for s in _structures:
+		for y in range(s["y"], int(s["y"]) + int(s["rows"])):
+			for x in range(s["x"], int(s["x"]) + int(s["w"])):
+				var c := image.get_pixel(x, y)
+				var r := int(c.r * 255.0)
+				var g := int(c.g * 255.0)
+				var b := int(c.b * 255.0)
+				var lit := _matches(r, g, b, colours, tolerance)
+				if not lit and neighbour != null and r > 200 and g > 200 and b > 200:
+					for dx in [-1, 1]:
+						var nx: int = x + int(dx)
+						if nx < int(s["x"]) or nx >= int(s["x"]) + int(s["w"]):
+							continue
+						var n := image.get_pixel(nx, y)
+						if _matches(
+							int(n.r * 255.0), int(n.g * 255.0), int(n.b * 255.0),
+							[neighbour], float(_rule.get("KEY_TOLERANCE", 45.0))
+						):
+							lit = true
+				if lit:
+					out.set_pixel(x, y, Color(1.0, 0.0, 0.0, 1.0))
+	return out
+
+
+func emissiveTexture() -> ImageTexture:
+	return _emissive
+
+
 # --- sprites -------------------------------------------------------------------------
 
 func _buildSprites() -> void:
@@ -442,6 +514,7 @@ func _buildSprites() -> void:
 		var material := ShaderMaterial.new()
 		material.shader = PROP_SHADER
 		material.set_shader_parameter(U_ATLAS, _spriteSheet)
+		material.set_shader_parameter(U_EMISSIVE_MASK, _emissive)
 		material.set_shader_parameter(U_SPRITE_RECT, Vector4(
 			float(s["x"]) / atlasSize.x,
 			float(s["y"]) / atlasSize.y,

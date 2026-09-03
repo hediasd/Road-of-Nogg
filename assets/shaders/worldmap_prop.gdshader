@@ -36,6 +36,14 @@ uniform vec4 fog_color : source_color = vec4(0.812, 0.914, 0.961, 1.0);
 // from WorldMapSun so the two cannot disagree about what time it is.
 uniform vec3 light_tint = vec3(1.0, 1.0, 1.0);
 
+// Pixels that light themselves after dark, in the atlas's own coordinates. A lit window is
+// EMISSIVE: it replaces the night rather than being multiplied by it. Multiplying a window by
+// a blue night and adding warmth back gives a muddy grey-green; lerping the whole pixel toward
+// the lamp colour is what reads as "there is a light in there".
+uniform sampler2D emissive_mask : hint_default_black, filter_nearest, repeat_disable;
+uniform vec3 emissive_color = vec3(1.0, 0.839, 0.541);
+uniform float emissive_amount : hint_range(0.0, 1.0) = 0.0;
+
 // Fog is evaluated once per PROP, at its foot, and carried down as a varying. A structure is
 // one object a tile across, not a surface: fogging it per fragment would run a haze gradient
 // up its height, and under `face` the quad leans toward the camera so that gradient would
@@ -114,5 +122,8 @@ void fragment() {
 	// ground's; blending in linear space put the two on visibly different curves and was one
 	// of the three defects behind the original convergence failure.
 	vec3 albedo = texel.rgb * light_tint;
+	if (emissive_amount > 0.0 && texture(emissive_mask, uv).r > 0.5) {
+		albedo = mix(albedo, emissive_color, emissive_amount);
+	}
 	ALBEDO = to_linear(mix(to_gamma(albedo), to_gamma(fog_color.rgb * light_tint), prop_fog));
 }

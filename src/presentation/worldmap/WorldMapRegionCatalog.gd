@@ -97,6 +97,11 @@ static func _structureRule(raw: Variant) -> Dictionary:
 	var doors: Array[Color] = []
 	for entry in source.get("DOOR_COLORS", []):
 		doors.append(Color(str(entry)))
+	var emissive: Array[Color] = []
+	for entry in source.get("EMISSIVE_COLORS", []):
+		emissive.append(Color(str(entry)))
+	var neighbourRaw := str(source.get("EMISSIVE_NEIGHBOUR", ""))
+	var neighbour: Variant = Color(neighbourRaw) if not neighbourRaw.is_empty() else null
 	return {
 		"KEY_COLORS": keys,
 		# Channel distance in 0-255, matching how the colours are written in the JSON.
@@ -110,6 +115,15 @@ static func _structureRule(raw: Variant) -> Dictionary:
 		"MIN_PIXELS": int(source.get("MIN_PIXELS", 8)),
 		# Taller than this multiple of its width and it is a tower rather than a house.
 		"TOWER_ASPECT": float(source.get("TOWER_ASPECT", 1.2)),
+		# Pixels that light themselves after dark. Declared rather than derived: an emissive
+		# mask is an art property, and the rule that finds temp2's windows -- white with a
+		# dark-teal neighbour in the same row, which is how `TWTWTWTT` reads and which
+		# correctly leaves the white lower wall alone -- is fitted to one map's art and is the
+		# wrong shape for a pipeline. `EMISSIVE_NEIGHBOUR` names that companion colour; a
+		# region that omits it lights only its EMISSIVE_COLORS.
+		"EMISSIVE_COLORS": emissive,
+		"EMISSIVE_TOLERANCE": float(source.get("EMISSIVE_TOLERANCE", 42.0)),
+		"EMISSIVE_NEIGHBOUR": neighbour,
 		# Rows to drop from a tower's foot: temp2 paints a ground shadow there, and standing
 		# it up puts a dark band under the tower.
 		"TOWER_TRIM_ROWS": int(source.get("TOWER_TRIM_ROWS", 0)),

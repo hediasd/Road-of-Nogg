@@ -62,10 +62,14 @@ func configure(tiles: Vector2i, texture: Texture2D, framing: Dictionary,
 ## shadows land on the terrain's pixel grid rather than at arbitrary screen positions. It also
 ## means fog, curvature and filtering apply to a shadow for free -- it rides the ground's
 ## sample because it IS the ground.
-func setShadowMask(mask: Texture2D, strength: float) -> void:
+func setLighting(mask: Texture2D, shadowStrength: float, light: Vector3, night: float) -> void:
 	_ensureMaterial()
 	_material.set_shader_parameter(Uniforms.U_SHADOW_MASK, mask)
-	_material.set_shader_parameter(Uniforms.U_SHADOW_STRENGTH, strength if mask != null else 0.0)
+	_material.set_shader_parameter(
+		Uniforms.U_SHADOW_STRENGTH, shadowStrength if mask != null else 0.0
+	)
+	_material.set_shader_parameter(Uniforms.U_LIGHT_TINT, light)
+	_material.set_shader_parameter(Uniforms.U_NIGHT_AMOUNT, night if mask != null else 0.0)
 
 
 ## Re-applies framing without touching the mesh or the texture. This is the call the debug

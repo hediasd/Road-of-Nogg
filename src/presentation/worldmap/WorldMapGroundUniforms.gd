@@ -50,6 +50,9 @@ const U_SHOW_SKY_BEYOND := "show_sky_beyond"
 ## own UV -- see `WorldMapShadowMask`.
 const U_SHADOW_MASK := "shadow_mask"
 const U_SHADOW_STRENGTH := "shadow_strength"
+const U_LIGHT_TINT := "light_tint"
+const U_LAMP_LIT := "lamp_lit"
+const U_NIGHT_AMOUNT := "night_amount"
 
 const REGION_SAMPLERS := [U_REGION_NEAREST, U_REGION_NEAREST_MIP, U_REGION_LINEAR_MIP]
 
@@ -146,19 +149,24 @@ const K_LAMP_LEVELS := "lamp_levels"
 const K_LAMP_CORE := "lamp_core"
 const K_LAMP_DITHER := "lamp_dither"
 
-## How a lamp shapes the region where night is withheld. Every one but `glow` is SUBTRACTIVE:
-## it withholds the night rather than adding light, so none of them can produce a colour the
-## region's art does not already contain. `glow` is kept because being able to see the
-## alternative is what makes the others' reason legible.
+## How a lamp shapes the region where the night is withheld. ALL of these are SUBTRACTIVE --
+## they differ only in how the falloff is shaped, never in the mechanism. A lamp is a region
+## where the night is not applied, so the ground under it keeps its daytime colours and nothing
+## here can produce a colour the region's art does not already contain.
+##
+## THERE IS DELIBERATELY NO ADDITIVE MODE. The sketch keeps one as a comparison, because seeing
+## warm light painted on top is what makes the subtractive choice legible; shipping one here
+## would ship the thing this rejected. `smooth` is the unquantised falloff, which is the
+## closest the engine gets and is still subtractive.
 const LAMP_OFF := "off"
 const LAMP_HARD := "hard"
 const LAMP_BAND := "band"
 const LAMP_DITHER := "dither"
-const LAMP_GLOW := "glow"
+const LAMP_SMOOTH := "smooth"
 
-const LAMP_IDS := [LAMP_OFF, LAMP_HARD, LAMP_BAND, LAMP_DITHER, LAMP_GLOW]
+const LAMP_IDS := [LAMP_OFF, LAMP_HARD, LAMP_BAND, LAMP_DITHER, LAMP_SMOOTH]
 const LAMP_LABELS := [
-	"Off", "Hard circle", "Stepped rings", "Dithered rings", "Additive glow",
+	"Off", "Hard circle", "Stepped rings", "Dithered rings", "Smooth falloff",
 ]
 const BILLBOARD_LABELS := [
 	"Off (as painted)", "World-vertical", "Proportion gain", "Face camera",
