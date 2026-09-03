@@ -369,6 +369,12 @@ func _refreshStatus() -> void:
 			int(needed), have, "   <-- EDGES SHOW" if needed > float(have) else "   ok"
 		],
 		"depth": "%.1f to %.1f units" % [readout["near_depth"], readout["far_depth"]],
+		# Flagged rather than merely reported, for the same reason EDGES SHOW is: the symptom
+		# is the map vanishing, which reads as a bug rather than as a setting.
+		"curve": "%.2f of the frame%s" % [
+			readout["curve_fold"],
+			"   <-- CURVE FOLDS THE MAP OUT OF FRAME" if float(readout["curve_fold"]) > 1.0 else ""
+		],
 		"buffer": "%d x %d" % [int(buffer.x), int(buffer.y)],
 		"sky": _skyLabel(),
 		"horizon": (

@@ -136,7 +136,14 @@ const BILLBOARD_IDS := [BILLBOARD_OFF, BILLBOARD_WORLD, BILLBOARD_GAIN, BILLBOAR
 ## buys command-line parity for free.
 ##
 ## Defaults are chosen so a framing naming none of them renders exactly as it did before the
-## sun existed: mid-morning light, shadows off, lamps off.
+## sun existed -- but WITHOUT making the day cycle a no-op, which is a trap this fell into once.
+## `light_tint` at 0 blends the sun out entirely, so dragging Time of day in the debug console
+## did nothing at all until a second, unrelated slider was raised: a control that silently
+## depends on another is worse than one that is absent.
+##
+## Instead the tint is fully on and the clock starts at NOON, where the day's colour is exactly
+## neutral (1, 1, 1). Existing framings therefore render identically, and moving the clock works
+## immediately. Shadows and lamps stay off, so nothing appears that was not there before.
 const K_TIME_OF_DAY := "time_of_day"
 const K_SUN_HIGH := "sun_high"
 const K_SUN_LOW := "sun_low"
@@ -259,7 +266,7 @@ const DEFAULTS := {
 	K_RENDER_SCALE: 0.4,
 	K_SPRITE_MODE: SPRITE_FIXED,
 	K_BILLBOARD: BILLBOARD_OFF,
-	K_TIME_OF_DAY: 9.5,
+	K_TIME_OF_DAY: 12.0,
 	K_SUN_HIGH: 62.0,
 	K_SUN_LOW: 27.0,
 	K_SUN_ARC: 52.0,
@@ -270,7 +277,7 @@ const DEFAULTS := {
 	K_SHADOW_BAND: 1.5,
 	K_SHADOW_COLOR_MODE: SHADOW_COLOR_PALETTE,
 	K_SHADOW_STEPS: 16.0,
-	K_LIGHT_TINT: 0.0,
+	K_LIGHT_TINT: 1.0,
 	K_LAMP_MODE: LAMP_OFF,
 	K_LAMP_STRENGTH: 1.0,
 	K_LAMP_REACH: 2.6,

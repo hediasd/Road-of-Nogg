@@ -163,6 +163,17 @@ func applyFraming(framing: Dictionary) -> void:
 		material.set_shader_parameter(Uniforms.U_FOG_END, f[Uniforms.K_FOG_END])
 		material.set_shader_parameter(Uniforms.U_FOG_CURVE, f[Uniforms.K_FOG_CURVE])
 		material.set_shader_parameter(Uniforms.U_CURVATURE_K, f[Uniforms.K_CURVATURE])
+		# Godot culls a MeshInstance3D against the AABB of its MESH, which knows nothing about
+		# what the vertex shader does. This shader moves the quad -- down by `k * d^2` for the
+		# curve, and about its foot for the billboard -- so at any real curvature the geometry
+		# sits far from where the culler thinks it is, and buildings vanish while the ground
+		# they stand on is plainly still on screen. The margin covers what the curve can
+		# displace them by at the far edge of the plane.
+		quad.extra_cull_margin = clampf(
+			float(f[Uniforms.K_CURVATURE]) * pow(float(f[Uniforms.K_FOG_END]) * 2.0, 2.0)
+				+ float(quad.get_meta("prop_height", 1.0)) * 2.0,
+			0.0, 16384.0
+		)
 		material.set_shader_parameter(
 			Uniforms.U_FOG_COLOR, f.get(Uniforms.K_FOG_COLOR, Color.WHITE)
 		)

@@ -36,6 +36,7 @@ const STATUS_ROWS := [
 	["ratio", "Near:far"],
 	["needed", "Region needed"],
 	["depth", "Depth range"],
+	["curve", "Curve fold"],
 	["buffer", "Buffer"],
 	["sky", "Sky"],
 	["horizon", "Horizon"],

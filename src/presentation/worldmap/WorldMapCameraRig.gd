@@ -73,7 +73,28 @@ func framingReadout(viewport_size: Vector2i) -> Dictionary:
 		"region_tiles_needed": ceil(tiles_across * ratio),
 		"buffer_size": buffer,
 		"horizon_on_screen": _framing[Uniforms.K_PITCH] < float(_framing[Uniforms.K_FOV]) * 0.5,
+		# How much of the frame the curve eats. The ground falls by k*d^2 in VIEW depth, so
+		# across one frame it drops by the difference between its near and far ends -- and once
+		# that exceeds the frame's own vertical reach the map folds away and leaves the frame
+		# showing void. Buildings go first, because they sit at mid-distance, which is exactly
+		# what "the buildings disappeared" looks like from the outside.
+		"curve_fold": _curveFold(near_depth, far_depth),
 	}
+
+
+## Curve drop across the visible depth range, as a multiple of the frame's vertical world span.
+## Below 1 the curve bends the ground within the frame; above 1 it carries it out.
+func _curveFold(near_ground: float, far_ground: float) -> float:
+	var k: float = _framing[Uniforms.K_CURVATURE]
+	if k <= 0.0:
+		return 0.0
+	var height: float = _framing[Uniforms.K_HEIGHT]
+	var near_view := sqrt(height * height + near_ground * near_ground)
+	var far_view := sqrt(height * height + far_ground * far_ground)
+	var drop_span := k * (far_view * far_view - near_view * near_view)
+	var centre_view := height / maxf(0.0001, sin(deg_to_rad(float(_framing[Uniforms.K_PITCH]))))
+	var frame_span := 2.0 * centre_view * tan(deg_to_rad(float(_framing[Uniforms.K_FOV])) * 0.5)
+	return drop_span / maxf(0.0001, frame_span)
 
 
 ## Ground footprint of the frame: the near and far world-Z bounds and the half-width at
@@ -99,7 +120,34 @@ func _place() -> void:
 	# Depth from the camera to the ground point it is looking at. The camera sits that far
 	# along +Z from the focus, because forward is -Z.
 	var centre_depth := height / tan(deg_to_rad(pitch))
-	position = Vector3(focus.x, height, focus.y + centre_depth)
+	position = Vector3(focus.x, height - _curveDropAtFocus(), focus.y + centre_depth)
+
+
+## How far the ground has fallen at the point the camera is aiming at.
+##
+## The ground shader bends the world by `curvature_k * d^2` where d is VIEW depth, so the
+## surface drops away from the camera rather than from the origin. Nothing told the rig, so it
+## went on aiming at the flat y = 0 plane while the ground sank beneath it. At the shipped
+## framings the error is small -- 2.3 units at Curved Close, lost inside the frame -- and it
+## grows with the square of distance: at height 70 and k = 0.006 the ground is 59 units below
+## where the camera is looking, and the entire map leaves the frame. Buildings go first,
+## because they sit at mid-distance, which is why this reads as "the buildings disappeared".
+##
+## Matching the drop keeps the focus framed. It is not solved to a fixed point -- moving the
+## camera changes view depths, which changes the drop -- but one step takes the error from
+## tens of units to a fraction of one, and iterating would make the camera's position depend
+## on itself for no visible gain.
+func _curveDropAtFocus() -> float:
+	var k: float = _framing[Uniforms.K_CURVATURE]
+	if k <= 0.0:
+		return 0.0
+	var pitch := deg_to_rad(float(_framing[Uniforms.K_PITCH]))
+	var sin_pitch := sin(pitch)
+	if sin_pitch < 0.0001:
+		return 0.0
+	# View depth of the focus: the camera looks down the hypotenuse, not along the ground.
+	var view_depth := float(_framing[Uniforms.K_HEIGHT]) / sin_pitch
+	return k * view_depth * view_depth
 
 
 ## Ray parameters for one screen row, in the same form the HTML explorer uses: `t` scales
