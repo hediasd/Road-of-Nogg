@@ -36,6 +36,15 @@ uniform vec4 fog_color : source_color = vec4(0.812, 0.914, 0.961, 1.0);
 // from WorldMapSun so the two cannot disagree about what time it is.
 uniform vec3 light_tint = vec3(1.0, 1.0, 1.0);
 
+// The ground bends by `curvature_k * d^2` in its own vertex stage. A prop that does not take
+// the same drop hangs in the air, and the gap grows with the SQUARE of distance -- measured at
+// 13 px of daylight between a building and its own shadow at k = 0.006.
+//
+// The drop is taken from the BASE's depth and applied to the whole quad, so the curve CARRIES
+// the sprite rather than shearing it. Per-vertex would stretch a building as the ground falls
+// away under it, which is the same mistake the sketch made before it projected props rigidly.
+uniform float curvature_k : hint_range(0.0, 0.02) = 0.0;
+
 // Pixels that light themselves after dark, in the atlas's own coordinates. A lit window is
 // EMISSIVE: it replaces the night rather than being multiplied by it. Multiplying a window by
 // a blue night and adding warmth back gives a muddy grey-green; lerping the whole pixel toward
@@ -72,6 +81,11 @@ void vertex() {
 	float depth = camera_world.z - base_world.z;
 	prop_fog = pow(clamp((depth - fog_start) / max(fog_end - fog_start, 0.001), 0.0, 1.0), fog_curve);
 
+	// Matches the ground's curve exactly: same constant, same quantity. The ground uses the
+	// VIEW depth of the vertex, so this uses the view depth of the prop's base.
+	float view_depth = -(VIEW_MATRIX * vec4(base_world, 1.0)).z;
+	float curve_drop = curvature_k * view_depth * view_depth;
+
 	if (billboard_mode == 2) {
 		// FACE CAMERA. Rebuild the modelview from the camera's own basis, keeping the model's
 		// translation -- so the quad turns about its foot and stays planted.
@@ -80,11 +94,13 @@ void vertex() {
 		// hpx/wpx = h/W exactly: painted proportions at every distance and every pitch, with
 		// no correction term at all. That, and not "it cancels cos(pitch)", is why this mode
 		// is the robust one.
+		// The curve drop rides in the translation column, because this mode replaces the
+		// model transform outright and a VERTEX offset would be discarded with it.
 		MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
 			vec4(normalize(INV_VIEW_MATRIX[0].xyz), 0.0),
 			vec4(normalize(INV_VIEW_MATRIX[1].xyz), 0.0),
 			vec4(normalize(INV_VIEW_MATRIX[2].xyz), 0.0),
-			MODEL_MATRIX[3]
+			MODEL_MATRIX[3] - vec4(0.0, curve_drop, 0.0, 0.0)
 		);
 	} else if (billboard_mode == 1) {
 		// PROPORTION GAIN. The quad stays honestly vertical and its world height is scaled
@@ -99,7 +115,6 @@ void vertex() {
 		// world-to-view transform and its columns are not the camera's axes. Camera forward is
 		// -INV_VIEW_MATRIX[2], so sin(pitch) is that column's own y.
 		float sin_pitch = clamp(INV_VIEW_MATRIX[2].y, 0.0, 1.0);
-		float view_depth = -(VIEW_MATRIX * vec4(base_world, 1.0)).z;
 		float denom = depth + prop_height * sin_pitch;
 		// NOT clamped below at 1. Past the frame centre a vertical quad is magnified rather
 		// than squashed, so far props correct DOWNWARD; a floor of 1.0 looks like the obvious
@@ -109,6 +124,11 @@ void vertex() {
 		VERTEX.y *= gain;
 	}
 	// billboard_mode == 0 is world-vertical: the quad as authored, and the uncorrected look.
+
+	if (billboard_mode != 2) {
+		// The model has an identity basis, so a model-space Y offset is a world-space one.
+		VERTEX.y -= curve_drop;
+	}
 }
 
 void fragment() {

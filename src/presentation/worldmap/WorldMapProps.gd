@@ -127,10 +127,14 @@ func applyFraming(framing: Dictionary) -> void:
 	var f := Uniforms.complete(framing)
 	var mode := str(f[Uniforms.K_BILLBOARD])
 	_mode = mode
+	var sun := WorldMapSun.at(f)
+	# BEFORE the early return, and not inside it. The ground's daylight is pushed from here,
+	# so returning first left the day cycle dead for every framing that is not standing
+	# structures up -- which is every framing by default, since `billboard` defaults to off.
+	# Measured when it broke: noon and midnight came back at 0.6028 mean brightness alike.
+	_rebuildShadows(f, sun)
 	if not SHADER_MODE.has(mode):
 		return
-	var sun := WorldMapSun.at(f)
-	_rebuildShadows(f, sun)
 	var night: float = sun["night"] * float(f[Uniforms.K_LAMP_STRENGTH])
 	# A building standing inside its own pool of light must not be the one dark thing in it, so
 	# the sprite takes the SAME tint the ground under it takes. A structure sits at the centre
@@ -158,6 +162,7 @@ func applyFraming(framing: Dictionary) -> void:
 		material.set_shader_parameter(Uniforms.U_FOG_START, f[Uniforms.K_FOG_START])
 		material.set_shader_parameter(Uniforms.U_FOG_END, f[Uniforms.K_FOG_END])
 		material.set_shader_parameter(Uniforms.U_FOG_CURVE, f[Uniforms.K_FOG_CURVE])
+		material.set_shader_parameter(Uniforms.U_CURVATURE_K, f[Uniforms.K_CURVATURE])
 		material.set_shader_parameter(
 			Uniforms.U_FOG_COLOR, f.get(Uniforms.K_FOG_COLOR, Color.WHITE)
 		)
