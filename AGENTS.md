@@ -35,7 +35,7 @@ the overwrite hazard.
 - **Regular work — anything not driven by a plan — commits directly to
   `main`.** No branch, no ask.
 - **An implementation cycle runs on its own branch**, `plan/<cycle-slug>`,
-  created when the cycle opens and merged back with `--no-ff` when its final
+  created when the cycle opens and merged back with `--no-ff` when its
   validation passes. See "Plan lifecycle".
 - **The window rule: while a cycle branch is checked out, everything committed
   in this tree goes on it** — plan items and unrelated work alike. Do not check
@@ -175,16 +175,34 @@ Each item carries:
   correctly-sized session. This is a cost signal for the user to act on, not a
   gate. Routing that is authored and never checked is documentation, not
   delegation; routing that blocks costs a round trip the user never wanted.
+
+  **Name the tier in conversation, not only in the plan file.** Any time you
+  say what the next item, wave or lane is — a status recap, a suggestion at the
+  end of a turn — give its suggested tier alongside it. The user dispatches
+  from that sentence. For a folded validation, route the lane to the higher of
+  the two tiers it covers.
 - **Depends on** — the items whose commits must exist first.
 - **Touches** — every path or glob the item may write, documentation included.
   This list is the item's exclusive claim while it runs, so it must be
   complete. An item that cannot state its full write set is not ready to
   dispatch.
-- **End state**, **Implementation**, **Risk**, and **Adds to final validation**.
+- **End state**, **Implementation**, and **Risk**.
+- **Validation** — classify every check the end state needs, as one or both of:
+  - **Self-contained:** decidable from the item's own paths without observing
+    the running game — data and catalog consistency, doc cross-references, a
+    narrow load or parse probe of scenes the item owns, grep audits. The item
+    runs these itself and records the result in its own commit body. Never
+    defer a self-contained check.
+  - **Deferred:** needs the game launched and its behaviour or appearance
+    looked at, so it needs a quiet tree. One consolidated line.
 
-A multi-item plan ends with one validation item that depends on every
-implementation item, has its own model assignment, and consolidates the full
-manual gameplay and integration checks.
+  An item with no Deferred line is fully verified when it commits.
+
+**Deferred checks, not item count, decide the plan's validation shape.** A
+cycle whose items are all self-contained has no validation item at all. A cycle
+with deferred checks has exactly one, depending on every item that feeds it,
+with its own model assignment — and "Where validation runs" below settles
+whether it needs a wave to itself.
 
 Mark items that require a user decision as blocking, and say so plainly rather
 than proceeding on an assumption. Where a fix legitimately changes a passing
@@ -214,7 +232,36 @@ the plan author's job, and it is the point where conflicts are designed out.
   and share a Touches list. Prefer this to splitting related work across
   sessions — it removes a conflict surface and re-reads the context once. Still
   one commit per item.
-- The final validation item is always alone in its own wave.
+
+### Where validation runs
+
+The invariant is a **quiet tree** — no other session editing — because a launch
+observes the whole tree rather than one item's diff. A wave of its own is one
+way to get a quiet tree, not the requirement itself. The plan author picks one
+of three forms and names it in the wave table:
+
+- **Inline** — no validation item exists, because no item had a deferred
+  check; each item proved its own checks when it committed. Write
+  `validation: inline, no deferred checks` where the final wave would be.
+- **Folded** — the validation item is the tail of the final wave's single
+  session, taken as a lane: implement, commit, then validate in the now-quiet
+  tree and commit the validation item separately. Legal only when all three
+  hold: the final wave runs **one** session, that session already owns the code
+  the deferred checks look at, and acceptance is observable pass/fail rather
+  than a fresh-eyes judgement of look, feel or design. This is the form to
+  reach for — it drops a dispatch round trip and a re-read of the same context.
+- **Standalone** — the validation item runs alone in the last wave. Use it
+  whenever folding is not legal, which it is not when the final wave has two or
+  more sessions, when acceptance is a judgement about appearance or design that
+  the implementing session cannot fairly make about its own work, or when the
+  deferred checks span subsystems built in different waves. If in doubt, this
+  is the safe choice — an unnecessary standalone wave costs a round trip, a
+  wrongly folded one costs a validation nobody independently made.
+
+A validation wave need not be last. When a boundary item is what every later
+wave builds on, the plan may place an **early validation wave** right after it —
+alone, quiet tree, its own item and commit — so the rest of the cycle stops
+inheriting an unverified foundation. Checks it clears do not repeat later.
 
 ## Recording what an item found
 
@@ -226,8 +273,10 @@ update.
 - The body states what was implemented, what the plan assumed that turned out
   to be false, what was deliberately not done and why, and any evidence.
 - The last trailer line is `Plan-Item: <ITEM-ID>`.
-- An implementation item's status is **implemented; pending end-of-plan
-  validation** until the validation item's commit exists.
+- An item carrying a deferred check is **implemented; pending validation**
+  until the validation item's commit exists. An item whose Validation is
+  entirely self-contained is verified as of its own commit — say that, not the
+  pending phrase.
 
 A fresh session resumes a cycle from the cycle file plus:
 
@@ -280,7 +329,8 @@ question the cycle surfaced does not hold the merge: record it in the backlog
 and the relevant design note, merge, and raise it with the user afterwards.
 Only a *failing* validation holds a merge.
 
-Closing a cycle, after final validation passes and no session is editing:
+Closing a cycle, after the cycle's validation passes and no session is
+editing:
 
 - Move genuinely open items to the appropriate backlog, name them to the user,
   and delete the cycle file in the same commit.
@@ -316,19 +366,26 @@ Windows safeguards in `docs/DEVELOPMENT.md`.
 **The tree you launch contains every concurrent session's in-flight edits.**
 That has consequences:
 
-- Do not launch the game during a wave. A narrow compile/load probe is allowed
-  when later items cannot safely build on potentially unusable code; record it
-  as an intermediate smoke check, not acceptance evidence.
+- **Launching is gated on a quiet tree, not on a wave boundary.** Do not
+  launch the game while another session may be editing, and a wave of two or
+  more sessions is never quiet. A narrow compile/load probe is allowed even
+  then when later items cannot safely build on potentially unusable code;
+  record it as an intermediate smoke check, not acceptance evidence.
 - If a probe fails in a path you do not own, report it in one line and continue
   your own item. Do not fix it — it is another session's work mid-flight.
-- Full validation runs in the final validation item, alone, after every
-  implementation item in the cycle is committed and no other session is
-  editing. Exercise the union of the plan's affected behaviors and reuse one
+- A self-contained check runs inside the item that owns it, and its result
+  goes in that item's commit body. Do not push it into the validation item:
+  deferring checks that never needed a quiet tree is what used to make
+  validation an extra wave.
+- Deferred checks run in the validation item, in the form the wave table names
+  — inline, folded or standalone — after every item feeding it is committed and
+  no other session is editing. Exercise the union of those checks and reuse one
   integrated flow where it covers several items.
-- If final validation finds a defect, fix it in that session, rerun the
+- If validation finds a defect, fix it in that session, rerun the
   relevant consolidated checks, and record both in that item's commit. Do not
   reopen every prior item to repeat the same validation.
-- A single-item plan validates at the end of that item.
+- A single-item plan validates at the end of that item — the degenerate case
+  of the folded form.
 
 At an item boundary, cheap local integrity checks stay appropriate: inspect
 your own focused diff with `git diff HEAD -- <your paths>`, run

@@ -1,6 +1,6 @@
 # Road of Nogg Development Policies
 
-Status: current. Last reconciled: 2026-08-26.
+Status: current. Last reconciled: 2026-09-03.
 
 This document explains **why** the project's engineering guardrails are what
 they are. [`AGENTS.md`](../AGENTS.md) is the operational contract and the only
@@ -152,15 +152,32 @@ Concurrency makes manual verification stricter rather than looser, and the
 reason is that a launch observes the whole working tree rather than one item's
 diff. During a wave it renders other sessions' half-finished work alongside the
 item under test, so any conclusion is unsound in both directions — a failure
-may not be yours, and a pass may depend on something about to change. That is
-why full validation is deferred to one item running alone in a quiet tree, and
-why an agent that hits a failure outside its own paths reports it and keeps
-going instead of repairing work that is still in flight.
+may not be yours, and a pass may depend on something about to change. Hence the
+quiet tree: no other session editing while behaviour is being judged, and an
+agent that hits a failure outside its own paths reports it and keeps going
+instead of repairing work still in flight.
 
-The cost of that deferral is real and worth naming: every item is committed
-unverified, and the final validation session inherits defects in code it did
-not write. The cycle branch limits the blast radius — the unverified stretch
-never reaches `main` — but it does not shorten it.
+**The quiet tree is the invariant; a validation wave is only one way to buy
+one.** Deferring *all* verification to a lone final item conflated the two, and
+the conflation cost twice. It swept up checks that never observed the tree at
+all — a catalog that must stay consistent, a doc reference that must resolve, a
+scene that must still load — and parked them a wave away from the session that
+knew why they mattered. And it lengthened the stretch in which every item sits
+committed and unverified, because the only verification event was at the end.
+Classifying each check as self-contained or deferred fixes both: self-contained
+checks are proved in the item that created them, and only the checks that
+genuinely need a launch wait. When those remaining checks belong to a last wave
+that is already a single session, isolating that session from nobody is pure
+dispatch overhead, so validation folds into it; two live sessions, or an
+acceptance test that is really a judgement about how something looks, still
+earn a wave of their own — the second because an implementing session grading
+its own visual work is not an independent look at it.
+
+What remains of the cost is worth naming: items with deferred checks are still
+committed unverified, and the validating session inherits defects in code it
+may not have written. The cycle branch limits the blast radius — the unverified
+stretch never reaches `main` — and an early validation wave after a boundary
+item shortens it, at the price of pausing concurrency once.
 
 The same absence of automation is why existing VFX and animations are treated
 as read-only while a new one is authored. With no regression suite, a tweak to
