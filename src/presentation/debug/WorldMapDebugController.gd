@@ -26,7 +26,7 @@
 ## Core shortcuts use letters because project.godot defines no custom input actions and the
 ## built-in UI owns Enter, Escape, Space and the arrows.
 ## G tile grid | H hide hud | C copy settings | R reset to the selected preset
-## F recentre the camera on the region
+## F recentre the camera on the region | T run/stop the clock
 ##
 ## DRAG TO PAN. Hold the left mouse button on the view and drag. Screen pixels are converted
 ## to world units through the framing itself, so a drag moves the ground under the cursor at
@@ -45,6 +45,10 @@
 ## and an override for every framing key, applied over the chosen preset:
 ##   --pitch= --fov= --height= --fog_start= --fog_end= --fog_curve= --sky=
 ##   --sky_offset= --sky_scale= --sky_tint= --billboard=
+##   --time_of_day= --sun_high= --sun_low= --sun_arc= --sun_reach=
+##   --shadow_strength= --shadow_spread= --light_tint=
+##   --lamp_mode= --lamp_strength= --lamp_reach= --lamp_levels= --lamp_core= --lamp_dither=
+##   --run-clock         start with the day running
 ##   --fog_curve= --fog_color= --void_color= --curvature= --cloud_strength=
 ##   --cloud_scale= --cloud_speed= --filter_mode= --render_scale= --sprite_mode=
 
@@ -84,6 +88,9 @@ var _frames := 0
 ## apply, or a drag would be undone by the next control edit.
 var _focus := Vector2.ZERO
 var _dragging := false
+## Wall-clock driven, so how fast a day passes does not depend on frame rate.
+var _clockRunning := false
+const DAY_SECONDS := 40.0
 var _propCounts := {"count": 0, "houses": 0, "towers": 0}
 var _region: Dictionary = {}
 var _billboard := Uniforms.BILLBOARD_OFF
@@ -125,6 +132,10 @@ func _ready() -> void:
 	if not Uniforms.BILLBOARD_IDS.has(billboardID):
 		push_warning("WorldMapDebugController: unknown billboard mode '%s'" % billboardID)
 		_framing[Uniforms.K_BILLBOARD] = Uniforms.BILLBOARD_OFF
+	var lampID := str(_framing[Uniforms.K_LAMP_MODE])
+	if not Uniforms.LAMP_IDS.has(lampID):
+		push_warning("WorldMapDebugController: unknown lamp mode '%s'" % lampID)
+		_framing[Uniforms.K_LAMP_MODE] = Uniforms.LAMP_OFF
 	# A command-line override leaves the framing no longer matching the preset it started
 	# from, so it reports Custom for the same reason a control edit does. Without this the
 	# readout and the copied settings block would both name a preset that is not in effect.
@@ -140,11 +151,17 @@ func _ready() -> void:
 	if Arguments.flag("--hide-hud"):
 		_hud.toggleVisible()
 
+	_clockRunning = Arguments.flag("--run-clock")
 	_quitAfter = Arguments.integer("--quit-after=", 0)
 	_applyFraming()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if _clockRunning:
+		var hour: float = float(_framing[Uniforms.K_TIME_OF_DAY])
+		_framing[Uniforms.K_TIME_OF_DAY] = fposmod(hour + delta * (24.0 / DAY_SECONDS), 24.0)
+		_hud.setFraming(_framing)
+		_applyFraming()
 	# The readout is resolution-dependent, and the window can be resized at any time, so it
 	# is refreshed per frame rather than only when a control moves.
 	_refreshStatus()
@@ -171,6 +188,8 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			_onPresetSelected(FramingCatalog.values().find(_presetID))
 		KEY_F:
 			_recentre()
+		KEY_T:
+			_clockRunning = not _clockRunning
 
 
 ## Drag to pan. The conversion is the framing's own: at the frame's centre one screen height
@@ -348,7 +367,42 @@ func _refreshStatus() -> void:
 			if readout["horizon_on_screen"]
 			else "above the frame (matches reference)"
 		),
+		"clock": _clockLabel(),
+		"sun": _sunLabel(),
+		"shadow": _shadowLabel(),
 	})
+
+
+## The two elevations are reported separately on purpose. They are not interchangeable, and a
+## readout that showed one number would hide the reason shadows stay legible at 06:05.
+func _sunLabel() -> String:
+	var sun := WorldMapSun.at(_framing)
+	if not bool(sun["up"]):
+		return "down"
+	return "geometry %.0f deg   light %.0f deg   azimuth %.0f deg" % [
+		rad_to_deg(sun["elevation"]), rad_to_deg(sun["lit"]), rad_to_deg(sun["azimuth"])
+	]
+
+
+func _shadowLabel() -> String:
+	if float(_framing[Uniforms.K_SHADOW_STRENGTH]) <= 0.0:
+		return "off"
+	var sun := WorldMapSun.at(_framing)
+	if not bool(sun["up"]):
+		return "none -- sun is down"
+	var step: Vector2 = sun["shadow_step"]
+	return "%.2f tiles per tile of height%s   north %.2f" % [
+		float(sun["shadow_reach"]), "   (CLAMPED)" if bool(sun["clamped"]) else "", -step.y
+	]
+
+
+func _clockLabel() -> String:
+	var night := WorldMapSun.nightAt(WorldMapSun.at(_framing)["lit"])
+	return "%s   %s   lamps %.0f%%" % [
+		WorldMapSun.clockText(float(_framing[Uniforms.K_TIME_OF_DAY])),
+		"running (T)" if _clockRunning else "stopped (T)",
+		night * float(_framing[Uniforms.K_LAMP_STRENGTH]) * 100.0
+	]
 
 
 func _structureLabel() -> String:
