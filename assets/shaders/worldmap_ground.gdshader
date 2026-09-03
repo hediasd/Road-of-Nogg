@@ -46,6 +46,51 @@ uniform vec4 void_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
 // front of the sky and hides all but the strip above the plane's own edge.
 uniform bool show_sky_beyond = false;
 
+// Cast shadows, as a mask in MAP-PIXEL space sampled with the region's own UV and its own
+// nearest filter. That is the whole reason shadows land on the terrain's pixel grid instead of
+// at arbitrary sub-pixel screen positions, and why they do not crawl when the camera pans -- a
+// screen-space shadow quad cannot be made to read as pixel art at any edge treatment.
+//
+// It also means a shadow is fogged, curved and filtered for free: it rides the same sample the
+// ground does, because it IS the ground.
+// R carries the cast shadow, G the lamp light. One texture because they are the same
+// mechanism seen twice: both modulate a per-pixel light level on the ground.
+uniform sampler2D shadow_mask : hint_default_black, filter_nearest, repeat_disable;
+uniform float shadow_strength : hint_range(0.0, 1.0) = 0.0;
+
+// The day's light, as a multiplier. `lamp_lit` is what a lamp-lit pixel is tinted BY -- not
+// white, because a lamp is warm and holding it slightly warm keeps a lit circle from reading
+// as a hole punched in the night.
+uniform vec3 light_tint = vec3(1.0, 1.0, 1.0);
+uniform vec3 lamp_lit = vec3(1.06, 0.98, 0.84);
+// How much night there is to withhold. A lamp is SUBTRACTIVE: it does not add warm light on
+// top, it is a region where the night is not applied, so the ground under it keeps its daytime
+// colours. Nothing in this path can produce a colour the region's art does not contain, which
+// is the whole difference between a light that belongs to a flat palette and one grafted on.
+uniform float night_amount : hint_range(0.0, 1.0) = 0.0;
+
+// How a shadowed pixel gets its colour. 0 multiplies, which is arithmetic and invents colours
+// the palette does not contain -- a darkened sand that is not any of this map's seven. 1 snaps
+// the darkened result back to the nearest colour the art actually uses, so every shadowed
+// pixel is one somebody painted. The palette is read from the region texture at load: it IS
+// whatever was painted, and a hand-kept list would drift from the PNG silently.
+uniform int shadow_color_mode : hint_range(0, 1) = 0;
+uniform vec4 palette[16];
+uniform int palette_size = 0;
+
+vec3 snap_to_palette(vec3 c) {
+	if (palette_size <= 0) { return c; }
+	vec3 best = palette[0].rgb;
+	float bestDistance = 1e9;
+	for (int i = 0; i < palette_size; i++) {
+		vec3 entry = palette[i].rgb;
+		vec3 d = c - entry;
+		float distance = dot(d, d);
+		if (distance < bestDistance) { bestDistance = distance; best = entry; }
+	}
+	return best;
+}
+
 // Ground curvature: y = -k * d^2 in view space, so the world falls away with distance.
 // Zero is flat and is the reference. Non-zero pulls the horizon nearer.
 uniform float curvature_k : hint_range(0.0, 0.02) = 0.0;
@@ -133,6 +178,20 @@ void fragment() {
 		albedo = texture(region_nearest_mip, uv).rgb;
 	}
 
+	// Before the clouds and well before the fog: a shadow is something lying ON the ground, so
+	// it must be dimmed by distance along with the ground rather than painted over the haze.
+	vec2 masks = off_map ? vec2(0.0) : texture(shadow_mask, uv).rg;
+	if (shadow_strength > 0.0 && masks.r > 0.0) {
+		vec3 shaded = albedo * (1.0 - shadow_strength * masks.r);
+		albedo = shadow_color_mode == 1 ? snap_to_palette(shaded) : shaded;
+	}
+
+	// The day's light, with the night withheld wherever a lamp reaches. Ground and props take
+	// this from the same values, so a building cannot end up lit to one value while the grass
+	// under it is lit to another -- that seam is invisible in a thumbnail and obvious in motion.
+	vec3 tint = mix(light_tint, lamp_lit, clamp(masks.g * night_amount, 0.0, 1.0));
+	albedo *= tint;
+
 	if (cloud_strength > 0.0) {
 		vec2 cloud_uv = world_position.xz / cloud_scale + vec2(TIME * cloud_speed * 0.05, 0.0);
 		albedo *= 1.0 - cloud_strength * cloud_cover(cloud_uv);
@@ -151,6 +210,8 @@ void fragment() {
 
 	if (off_map && show_sky_beyond) { discard; }
 
-	vec3 ground = off_map ? void_color.rgb : albedo;
-	ALBEDO = to_linear(mix(to_gamma(ground), to_gamma(fog_color.rgb), fog));
+	// Fog and void take the same light as the ground. Leaving them fixed is what makes a day
+	// cycle fall apart: a pale teal horizon behind a midnight-blue map reads as a bug.
+	vec3 ground = off_map ? void_color.rgb * light_tint : albedo;
+	ALBEDO = to_linear(mix(to_gamma(ground), to_gamma(fog_color.rgb * light_tint), fog));
 }

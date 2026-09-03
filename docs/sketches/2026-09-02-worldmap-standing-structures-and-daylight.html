@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Standing structures on temp2</title>
+<style>
+  :root{--bg:#12141a;--panel:#1b1e27;--edge:#2b3040;--ink:#dfe4ee;--dim:#8a93a8;--accent:#7fd3a8;--warn:#e8b166}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:22px 26px 12px;max-width:1500px;margin:0 auto}
+  h1{font-size:19px;margin:0 0 10px}
+  .lede{max-width:78ch;color:var(--dim);margin:0}
+  .lede b{color:var(--ink)}
+  .warn{max-width:78ch;margin:12px 0 0;padding:9px 12px;border-left:3px solid var(--warn);background:#221d15;color:#e3d3bb;border-radius:0 4px 4px 0}
+  main{display:flex;gap:18px;align-items:flex-start;padding:8px 26px 40px;max-width:1500px;margin:0 auto;flex-wrap:wrap}
+  .stage{flex:1 1 700px;min-width:520px}
+  canvas{display:block;width:100%;max-width:960px;background:#000;border:1px solid var(--edge);border-radius:5px;image-rendering:pixelated;cursor:grab}
+  canvas.drag{cursor:grabbing}
+  #sheet,#sweep,#lampstrip{display:block;width:100%;max-width:960px;margin-top:12px;background:#0e1016;border:1px solid var(--edge);border-radius:5px;image-rendering:pixelated;cursor:default}
+  .cap{max-width:78ch;color:var(--dim);margin:6px 0 0;font-size:12px}
+  .panel{flex:0 0 330px;background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:14px 15px}
+  .grp{margin:0 0 15px}
+  .grp>h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);margin:0 0 9px;font-weight:700}
+  .row{display:flex;align-items:center;gap:9px;margin:0 0 7px}
+  .row label{flex:0 0 108px;color:var(--dim);font-size:12px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+  .row .val{flex:0 0 50px;text-align:right;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .modes button,.btn{display:block;width:100%;text-align:left;margin:0 0 5px;padding:7px 9px;background:#242938;color:var(--ink);border:1px solid var(--edge);border-radius:4px;cursor:pointer;font-size:12px}
+  .modes button:hover,.btn:hover{background:#2e3446}
+  .modes button.on{background:#1d3d31;border-color:var(--accent);color:#d8f4e6}
+  .modes button small,.btn small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+  .modes button.on small{color:#9fcbb8}
+  .readout{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--dim);background:#0e1016;border:1px solid var(--edge);border-radius:4px;padding:8px 9px;white-space:pre;line-height:1.6}
+  .notes{max-width:1500px;margin:0 auto;padding:0 26px 60px}
+  .notes h2{font-size:14px;margin:26px 0 8px;color:var(--accent)}
+  .notes p,.notes li{max-width:82ch;color:#b6bdcd}
+  .notes code{background:#0e1016;border:1px solid var(--edge);border-radius:3px;padding:1px 4px;font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Standing structures on temp2</h1>
+  <p class="lede">
+    <b>Kept 2026-09-02.</b> This is the sketch that settled how structures stand up on the
+    world map, and it is preserved because three of its findings were reached by
+    <i>looking</i> and would be expensive to re-derive: that the vertical squash is not
+    <code>cos(pitch)</code>, that a shadow must be a solid silhouette sheared in map space, and
+    that a lamp should withhold the night rather than add light. All three shipped; the
+    reasoning is <code>docs/WORLDMAP_DESIGN.md</code> sections 9 and 10.
+  </p>
+  <p class="lede" style="margin-top:8px">
+    One thing here deliberately did <b>not</b> ship: the <b>Additive glow</b> lamp mode. It is
+    kept only as the comparison that makes the subtractive choice legible &mdash; seeing warm
+    light painted on top, inventing colours the seven-colour palette does not contain, is what
+    shows why every shipped mode withholds the night instead.
+  </p>
+  <p class="lede" style="margin-top:8px">
+    temp2 has <b>nine structures</b> painted into it &mdash; seven houses and two towers. This
+    lifts them out of the ground layer, patches the ground where they were, and stands them
+    back up as <b>billboarded sprites</b> under a <b>day/night sun</b> that casts real
+    directional shadows. Camera opens on the saved <b>Curved Close</b> framing at 09:30.
+  </p>
+  <p class="warn"><b>Why this is narrower than the earlier 2.5D attempt, and why that matters.</b>
+    That one tried to stand up <i>everything</i> &mdash; mountains, trees, the lot &mdash; and failed
+    because it cut sprites on the tile grid and turned organic blobs into cubes. Structures
+    are different: small, rectangular, and made of three colours nothing else on the map uses,
+    so they are unambiguous to find. Solid boxes and cylinders were tried on top of this and
+    dropped; the sprite is the thing worth keeping.</p>
+  <p class="warn"><b>Corrected while building this.</b> These sprites are <b>front
+    elevations</b> &mdash; a house is a teal upper wall with three windows above a white lower wall
+    with an orange door, and there is no roof in the image at all. That is exactly why
+    standing them up works: they are already drawn from the angle a standing quad shows them
+    at. The other correction: the door is <b>orange</b>, a colour the map uses elsewhere, so
+    the colour key misses it &mdash; patching only the keyed pixels left the door behind on the
+    ground as a smudge. The bounding box is the sprite, so that is what gets patched.</p>
+</header>
+
+<main>
+  <div class="stage">
+    <canvas id="cv" width="960" height="540"></canvas>
+    <canvas id="sheet" width="1152" height="360"></canvas>
+    <p class="cap">Drag the top view to pan. The strip above shows all four modes at the current camera.</p>
+    <canvas id="sweep" width="1152" height="360"></canvas>
+    <canvas id="lampstrip" width="1152" height="360"></canvas>
+    <p class="cap"><b>The lamp shapes, at 22:00.</b> Same scene, same radius, five treatments.
+      The first three withhold the night inside a circle and so can only ever show colours the
+      art already contains; <b>Additive glow</b> paints warm light on top and invents its own.
+      <b>No lamps</b> is the night with nothing done to it.</p>
+    <p class="cap"><b>The pitch sweep.</b> The same scene at four pitches. Top row is
+      world-vertical with no correction &mdash; what the sprites did before. Bottom row is
+      whatever the knobs currently say. Watch the top row flatten as the camera pitches over,
+      and watch it flatten <i>unevenly</i>: the houses low in the frame lose far more height
+      than the ones near the top, which is the distance-dependence the readout measures.</p>
+  </div>
+
+  <div class="panel">
+    <div class="grp modes"><h2>Mode</h2><div id="modeButtons"></div></div>
+
+    <div class="grp">
+      <h2>Billboard</h2>
+      <div class="row"><label>Face camera &lambda;</label><input type="range" id="faceCam" min="0" max="1" step="0.01"><span class="val" id="faceCam_v"></span></div>
+      <div class="row"><label>Follow curve &micro;</label><input type="range" id="followCurve" min="0" max="1" step="0.01"><span class="val" id="followCurve_v"></span></div>
+      <div class="row"><label>Pitch gain g</label><input type="range" id="pitchGain" min="0" max="1" step="0.01"><span class="val" id="pitchGain_v"></span></div>
+      <button class="btn" id="presetNone">World-vertical<small>&lambda; 0 &micro; 0 g 0 &mdash; the honest baseline</small></button>
+      <button class="btn" id="presetGain">Proportion gain<small>&lambda; 0 &micro; 0 g 1 &mdash; upright, per-sprite correction</small></button>
+      <button class="btn" id="presetFace">Face camera<small>&lambda; 1 &micro; 0 g 0 &mdash; the textbook billboard</small></button>
+    </div>
+
+    <div class="grp">
+      <h2>Structures</h2>
+      <div class="row"><label>Height</label><input type="range" id="standScale" min="0.3" max="4" step="0.05"><span class="val" id="standScale_v"></span></div>
+      <div class="row"><label>Width</label><input type="range" id="widthScale" min="0.5" max="2" step="0.05"><span class="val" id="widthScale_v"></span></div>
+    </div>
+
+    <div class="grp">
+      <h2>Daylight</h2>
+      <div class="row"><label>Time of day</label><input type="range" id="time" min="0" max="24" step="0.05"><span class="val" id="time_v"></span></div>
+      <button class="btn" id="play">Run the day<small>Animate sunrise to sunset</small></button>
+      <div class="row"><label>Noon height</label><input type="range" id="sunHigh" min="20" max="85" step="1"><span class="val" id="sunHigh_v"></span></div>
+      <div class="row"><label>Lowest sun</label><input type="range" id="sunLow" min="5" max="55" step="1"><span class="val" id="sunLow_v"></span></div>
+      <div class="row"><label>Sun arc</label><input type="range" id="sunArc" min="0" max="90" step="1"><span class="val" id="sunArc_v"></span></div>
+      <div class="row"><label>Shadow spread</label><input type="range" id="spread" min="1" max="4" step="0.05"><span class="val" id="spread_v"></span></div>
+      <div class="row"><label>Max reach</label><input type="range" id="sunReach" min="0.5" max="20" step="0.25"><span class="val" id="sunReach_v"></span></div>
+      <div class="row"><label>Cast shadow</label><input type="range" id="shadow" min="0" max="1" step="0.02"><span class="val" id="shadow_v"></span></div>
+      <div class="row"><label>Contact</label><input type="range" id="contact" min="0" max="0.5" step="0.01"><span class="val" id="contact_v"></span></div>
+      <div class="row"><label>Light tint</label><input type="range" id="tint" min="0" max="1" step="0.02"><span class="val" id="tint_v"></span></div>
+    </div>
+
+    <div class="grp">
+      <h2>Lamps after dark</h2>
+      <div class="row"><label>Lamp strength</label><input type="range" id="lampStrength" min="0" max="1" step="0.02"><span class="val" id="lampStrength_v"></span></div>
+      <div class="row"><label>Spill reach</label><input type="range" id="lightReach" min="0" max="6" step="0.1"><span class="val" id="lightReach_v"></span></div>
+      <div class="row"><label>Levels</label><input type="range" id="lampLevels" min="1" max="6" step="1"><span class="val" id="lampLevels_v"></span></div>
+      <div class="row"><label>Core size</label><input type="range" id="ringCore" min="0" max="0.85" step="0.01"><span class="val" id="ringCore_v"></span></div>
+      <div class="row"><label>Dither band</label><input type="range" id="ditherBand" min="0.05" max="1" step="0.05"><span class="val" id="ditherBand_v"></span></div>
+      <div class="modes"><div id="lampButtons"></div></div>
+      <button class="btn" id="presetNight">Jump to midnight<small>See the lamps with the sun down</small></button>
+    </div>
+
+    <div class="grp">
+      <h2>Camera</h2>
+      <div class="row"><label>Pitch</label><input type="range" id="pitch" min="20" max="80" step="0.5"><span class="val" id="pitch_v"></span></div>
+      <div class="row"><label>Vertical FOV</label><input type="range" id="fov" min="12" max="60" step="0.5"><span class="val" id="fov_v"></span></div>
+      <div class="row"><label>Height</label><input type="range" id="height" min="6" max="90" step="0.5"><span class="val" id="height_v"></span></div>
+      <div class="row"><label>Curvature k</label><input type="range" id="curve" min="0" max="0.008" step="0.0001"><span class="val" id="curve_v"></span></div>
+      <div class="row"><label>Fog start</label><input type="range" id="fogStart" min="0" max="200" step="1"><span class="val" id="fogStart_v"></span></div>
+      <div class="row"><label>Fog end</label><input type="range" id="fogEnd" min="5" max="400" step="1"><span class="val" id="fogEnd_v"></span></div>
+      <button class="btn" id="reset">Reset to Curved Close</button>
+    </div>
+
+    <div class="grp"><h2>Readout</h2><div class="readout" id="readout"></div></div>
+  </div>
+</main>
+
+<div class="notes">
+  <h2>What billboarding is actually fixing</h2>
+  <p>A sprite stood upright in the world is a vertical quad, and a vertical quad seen from a
+    pitched-down camera is squashed. The obvious guess is that the squash is
+    <code>cos p</code>, one number for the whole frame. <b>It is not</b>, and the readout in
+    this sketch is what caught it. Working the projection through, a sprite of world height
+    <code>h</code> and width <code>W</code> standing at ground distance <code>f</code>
+    projects to</p>
+  <p><code>hpx / wpx = (h/W) &times; f / (D &minus; h sin p)</code>, where
+    <code>D = H sin p + f cos p</code> is the view depth of its foot.</p>
+  <p>So the squash is <code>f / D</code>: <b>0 at the camera's own feet, rising to
+    1&thinsp;/&thinsp;cos&nbsp;p far away, and passing through exactly <code>cos p</code> at the centre of
+    the frame and nowhere else.</b> On the Curved Close framing it measures <b>0.33 at the
+    near edge and 0.76 at the far edge</b> &mdash; a 2.3&times; swing inside a single frame. A house
+    at the bottom of the screen is squashed more than twice as hard as one at the top.</p>
+  <p>That is the fact everything else follows from, and it rules out the fix I reached for
+    first. The sketch exposes three knobs so they can be judged apart.</p>
+
+  <h2>&lambda; &mdash; face the camera</h2>
+  <p>The textbook billboard. The quad's up-axis rotates from world-up
+    <code>(0,1,0)</code> toward the camera's own up-axis, which in world space is
+    <code>(0, cos p, &minus;sin p)</code>. Put <code>A</code> and <code>B</code> for that axis into
+    the identity above and they come out <code>A&nbsp;=&nbsp;1</code>, <code>B&nbsp;=&nbsp;0</code>, so
+    <code>hpx/wpx&nbsp;=&nbsp;h/W</code> &mdash; <b>painted proportions exactly, at every distance and
+    every pitch, with no correction term at all.</b> That, and not "it cancels cos&nbsp;p", is
+    the real reason &lambda; is the robust answer.</p>
+  <p>The cost is a lie about footprint. The camera's up-axis leans <i>into</i> the scene, so a
+    fully-facing sprite tips its top away from the viewer by <code>h sin p</code>. A tower
+    1.5 tiles tall at 58.5&deg; has its roof sitting 1.28 tiles behind its own foot, covering
+    ground it is not standing on. Behind is much cheaper than in front &mdash; a tall object
+    occludes what is behind it anyway &mdash; but on a map where the player walks a road past that
+    tower, it is a tile and a quarter of hidden road.</p>
+
+  <h2>g &mdash; proportion gain</h2>
+  <p>The fix that keeps the quad honestly vertical: scale its world height until the
+    projection lands on painted proportions anyway. Because the identity is closed-form it
+    inverts exactly &mdash; <code>h = h&#8320;D / (AD + y<sub>b</sub>B + h&#8320;B)</code> &mdash; so this is a
+    solve, not a fudge, and <code>g</code> blends linearly from none of it to all of it.</p>
+  <p><b>What I got wrong first, and it is worth stating plainly:</b> I applied a single
+    <code>1/cos p</code> to every sprite, on the belief that the squash was one number for
+    the whole frame. Measured, that left the near house at <code>h/w 0.931</code> and the far
+    one at <code>1.291</code> against a painted <code>0.875</code> &mdash; over-corrected at the
+    top of the screen, under-corrected at the bottom, wrong by up to 48%. The gain has to be
+    <b>per sprite, from its own distance</b>. The readout's <code>spread</code> row is that
+    error: it reads 0 only when proportions actually hold in depth.</p>
+  <p>What it costs: the object is genuinely taller in the world than its art implies, and by
+    a factor that changes as the camera moves. With nothing else 3D in the scene that costs
+    nothing. It starts to matter the moment two structures can occlude each other.</p>
+  <p><b>And here is where the two converge &mdash; completely.</b> I expected them to land close
+    and wrote "to within a term". Measured, every sprite corner agrees to
+    <b>0.00 px at every pitch tested</b>. They are not similar, they are the same rectangle,
+    and by construction: the base and the width are identical in both, the solve forces the
+    same <code>h/w</code>, and a rectangle is nothing more than that. They differ only in what
+    they claim about world space &mdash; &lambda; leans a correctly-sized quad, g keeps an oversized one
+    upright &mdash; and neither claim is observable while sprites are the only 3D thing in the
+    scene. So this is not a choice between two looks. It is a choice about which lie you would
+    rather be holding when something else 3D eventually shows up, and &lambda; is the cheaper one
+    to hold: it needs no per-object solve, and it is one line in a vertex shader.</p>
+
+  <h2>&micro; &mdash; follow the curve</h2>
+  <p>This one is about the second half of the question, and the honest answer is that it is
+    <b>nearly a no-op</b>. The ground is bent by <code>y = &minus;k d&sup2;</code>, so its surface tips
+    away from the camera by <code>atan(2kd)</code>; &micro; rotates the sprite's up-axis onto that
+    local normal so it stands perpendicular to the ground it is actually on. With yaw pinned
+    and the sprite an axis-aligned screen rectangle, though, tipping it has <i>no visual
+    signature except a height change</i> &mdash; and any proportion correction removes exactly that.
+    So &micro; is only visible at <code>g&nbsp;&lt;&nbsp;1</code>, and at <code>g&nbsp;=&nbsp;1</code> it does
+    nothing you can see. Left in the panel because that is worth being able to check rather
+    than take on trust.</p>
+  <p>Which means curvature was never the hard half. It reaches sprites through their base
+    position, which the projection already handles correctly, and through a height change any
+    correction absorbs. The one thing it genuinely broke is below.</p>
+
+  <h2>Curvature was also deforming the sprites, and should not have been</h2>
+  <p>A real defect this turned up. The projection applies the curve drop
+    <code>k d&sup2;</code> per <i>point</i>, using each point's own distance. That is right for the
+    ground, which <i>is</i> the curved surface. It is wrong for anything standing on it: the
+    moment &lambda; or &micro; moves a sprite's top to a different distance than its foot, the two ends
+    take different drops and the sprite is <b>sheared by the curve</b> rather than carried by
+    it. Sprites now project rigidly &mdash; the whole quad takes the drop belonging to its base.
+    This never showed before only because a world-vertical sprite's top and foot sit at the
+    same distance, so the bug had nothing to bite on.</p>
+
+  <h2>How the structures are found &mdash; and why it will not last</h2>
+  <p>No cleverness and no authored data. temp2 has a seven-colour palette, and three of those
+    colours &mdash; near-white <code>245,255,245</code>, near-black <code>2,21,0</code> and dark teal
+    <code>11,105,106</code> &mdash; appear nowhere except on structures. Keying those, then taking
+    connected components, finds exactly nine things and sorts them into two shapes by aspect
+    ratio alone: <b>seven 8&times;7 houses</b> and <b>two 8&times;13 towers</b>. The tower's bottom
+    row is a painted ground shadow, so it is dropped from the standing sprite and patched out
+    of the ground.</p>
+  <p><b>Asked whether this generalises, I measured it instead of guessing, and the answer is
+    no.</b> Running the identical detector over the other region tells the whole story:</p>
+  <table>
+    <tr><th>&nbsp;</th><th>temp2</th><th>temp</th></tr>
+    <tr><td>palette</td><td>7 colours</td><td>1080 colours</td></tr>
+    <tr><td>components found</td><td>9</td><td>302</td></tr>
+    <tr><td>distinct box shapes</td><td>2</td><td>10</td></tr>
+    <tr><td>median component</td><td>50 px</td><td>1 px</td></tr>
+    <tr><td>components of &le;4 px</td><td>0 (0%)</td><td>283 (94%)</td></tr>
+  </table>
+  <p>On temp the same rule returns <b>302 blobs of which 94% are four pixels or smaller</b> &mdash;
+    it has latched onto dithering noise, because temp is anti-aliased and no colour in it is
+    exclusive to anything. The nine-out-of-nine result is a property of <i>that one map's
+    palette</i>, not a method. It happens to work; it does not generalise.</p>
+
+  <h2>Trees are worse, and for a different reason</h2>
+  <p>Buildings are at least made of pigment nothing else uses. A tree is made of the same
+    pigment as the vegetation it stands in, so no key can separate them &mdash; not a better
+    threshold, not a smarter one. Bucketing every green pixel on temp by its green channel
+    shows one continuous population with <b>no gap anywhere</b>:</p>
+  <table>
+    <tr><th>green channel</th><th>80-95</th><th>96-111</th><th>112-127</th><th>128-143</th><th>144-159</th><th>160-175</th><th>176-191</th><th>192-207</th></tr>
+    <tr><td>pixels</td><td>9k</td><td>34k</td><td>26k</td><td>14k</td><td>24k</td><td>236k</td><td>123k</td><td>12k</td></tr>
+  </table>
+  <p>If tree-green were separable there would be a trough between two humps. There is one
+    hump. Any threshold that catches the trees catches a slab of grass with them, and
+    <b>temp2 has no trees at all</b> to tune against &mdash; its seven colours are sea, sand,
+    grass, orange, and the three building colours.</p>
+
+  <h2>So: do not detect. Author it.</h2>
+  <p>The recommendation this measurement leads to is that structures should <b>not be painted
+    into the ground PNG</b> in the first place. Give a region a second image the same size &mdash;
+    a prop layer, transparent except where props sit &mdash; and paint the ground complete
+    underneath it. Then extraction is exact rather than inferred, it costs nothing at
+    runtime, it works for trees and anything else, and the ground patch problem disappears
+    entirely because there is nothing to patch: the artist painted what is under the house.
+    It is also less work for the artist than keeping a palette disjoint by hand.</p>
+  <p>The colour key stays useful as a <b>bootstrap</b> &mdash; it is how temp2 works today without
+    anyone drawing a second layer &mdash; but it should be understood as scaffolding for one map,
+    not the pipeline. Everything else in this sketch (the billboard maths, the shadows, the
+    ground patch) is indifferent to where the sprite list came from.</p>
+
+  <h2>Daylight and cast shadows</h2>
+  <p>The shadow of a standing sprite is its <b>silhouette sheared onto the ground</b> along the
+    sun: the foot edge stays where it is, the top edge lands <code>h &middot; cot(elevation)</code>
+    away in the direction opposite the sun, which makes a parallelogram drawn as two affine
+    triangles. Silhouette, not rectangle &mdash; it costs the same and it is the difference
+    between a tree casting a tree-shaped shadow and a tree casting a crate.</p>
+  <p>The sun stays on <b>the camera's own side of the map</b>, so every shadow is thrown away
+    from the viewer. Shadows in front cover the ground the player is walking into and read as
+    grime; shadows behind read as depth.</p>
+  <p><b>It sweeps a narrow arc, not the full east-to-west semicircle.</b> Swinging the whole
+    180&deg; puts the sun on the horizon due east at dawn, and a shadow cast from due east points
+    due <i>west</i> &mdash; straight across the screen with no northward component at all. Those were
+    the sideways streaks. Holding the arc inside <b>&plusmn;52&deg;</b> of north keeps every shadow
+    leaning away while still sweeping visibly:</p>
+  <table>
+    <tr><th>clock</th><th>06:30</th><th>08:00</th><th>09:30</th><th>11:00</th><th>12:30</th><th>14:00</th><th>15:30</th><th>17:00</th></tr>
+    <tr><td>northward reach</td><td>1.10</td><td>0.84</td><td>0.66</td><td>0.55</td><td>0.54</td><td>0.61</td><td>0.77</td><td>1.00</td></tr>
+    <tr><td>degrees off north</td><td>48</td><td>35</td><td>22</td><td>9</td><td>4</td><td>17</td><td>30</td><td>43</td></tr>
+  </table>
+  <p>Northward reach never goes negative and the lean tops out at 48&deg;, against a full 90&deg; &mdash;
+    a shadow pointing due sideways &mdash; before. The direction still turns through the day, which
+    is what carries the reading of what time it is.</p>
+  <p><b>The shadow is a trapezoid, not a parallelogram.</b> The foot edge keeps the caster's
+    own width; the tip edge is <b>Shadow spread</b> times wider. Physically that is the
+    penumbra widening with distance from what casts it &mdash; only the contact edge is truly
+    sharp. Practically it is what stops the shadow reading as a dash: a shadow lying flat and
+    receding north is foreshortened by the camera far harder than the upright sprite beside
+    it, so one exactly as wide as the house disappears into a line.</p>
+
+  <p><b>The silhouette is solid, not the sprite's alpha.</b> Transparent pixels <i>inside</i> a
+    structure &mdash; the tower's open belfry, the gap beside a doorway &mdash; must not punch holes in
+    its shadow, because a real building has a solid door and glazed windows and light does not
+    pour through the middle of it. Background is found by flooding in from the bounding box
+    edge, four-connected, and everything the flood cannot reach is solid whatever colour it
+    was. Taking the alpha directly gave the tower a shadow with a hole through it.</p>
+  <p><b>The sun keeps two elevations, on purpose.</b> One is honest and goes to zero at both
+    ends of the day &mdash; it drives the light colour, the lamps, and how strongly the shadow
+    reads. The other never drops below <b>Lowest sun</b>, and it is the one the shadow
+    <i>geometry</i> uses. <code>cot(elevation)</code> runs away as the sun touches the horizon,
+    and a shadow twenty tiles long and one tile wide reads as a scratch on the lens rather
+    than as a building. Measured against a house that is 1.00 tile wide and 0.88 tall:</p>
+  <table>
+    <tr><th>Lowest sun</th><th>10&deg;</th><th>18&deg;</th><th>22&deg;</th><th>27&deg;</th><th>32&deg;</th><th>40&deg;</th></tr>
+    <tr><td>longest shadow</td><td>3.50</td><td>2.60</td><td>2.11</td><td><b>1.68</b></td><td>1.38</td><td>1.03</td></tr>
+    <tr><td>at noon</td><td>0.47</td><td>0.47</td><td>0.47</td><td><b>0.47</b></td><td>0.47</td><td>0.47</td></tr>
+  </table>
+  <p>Default is <b>27&deg;</b>: the shadow runs from 0.47 tiles at noon to 1.68 at the day's
+    edges, a 3.6&times; swing that is plainly legible as time passing without ever going thin.
+    Holding the geometric elevation in a flattering band costs nothing readable, because
+    &quot;what time is it&quot; comes from the <i>direction</i> the shadows point, not their length.</p>
+
+  <p>Three decisions worth surfacing rather than burying:</p>
+  <ul>
+    <li><b>Shadows use the sprite's true height, not its billboard height.</b> The billboard
+      correction is a screen-space trick to keep proportions readable. Letting it into the
+      lighting would swing every shadow by 2&times; when the gain is switched on &mdash; a rendering
+      choice leaking into what is meant to be a physical cue.</li>
+    <li><b>Shadows are accumulated opaque and composited once.</b> Drawn individually at
+      partial alpha, two shadows crossing would darken where they overlap, which is wrong:
+      ground in shadow twice over is just ground in shadow.</li>
+    <li><b>The geometric sun never sets.</b> Holding elevation above a floor is physically
+      wrong, and it is the reason shadows stay readable at 06:05. The alternative is a
+      sunrise nobody wants to look at.</li>
+  </ul>
+  <p>The light tint is a <b>model, not a measurement</b> &mdash; unlike the projection maths in this
+    file there is nothing to check it against except whether it reads. It is applied to the
+    ground, the fog, the void and the sprites together; tinting the ground alone and leaving a
+    pale teal horizon behind a midnight-blue map is what makes a day cycle look broken.
+    The <b>Light tint</b> slider takes it back out so the shadows can be judged on their own.</p>
+  <p><b>What the day cycle cannot do here.</b> The art has its lighting <i>baked in</i> &mdash; the
+    map is painted with a fixed sun, and a house sprite is a front elevation with its shading
+    already in the pixels. So the cast shadows move and the overall colour moves, but the
+    <i>shading on the buildings themselves does not</i>. At dawn a house is lit warm from every
+    side at once. Fixing that properly means either separate sprites per lighting direction or
+    a normal map per prop, and the earlier relief experiment on this map is a reason to be
+    cautious about the second.</p>
+
+  <h2>Patching the ground underneath</h2>
+  <p>Each structure's pixels are replaced with the most common terrain colour found in a ring
+    around it, rather than one flat fill for the whole map. A house on sand gets sand, one on
+    the olive grass gets olive. The seam is still visible if you look for it in mode
+    <b>C</b> &mdash; real art would paint what is underneath rather than infer it &mdash; but it is good
+    enough to judge whether the standing version is worth pursuing.</p>
+
+  <h2>What this does not settle</h2>
+  <ul>
+    <li><b>Whether it should ship.</b> Nine objects on one small map is a good showcase and a
+      weak sample. The question is what it looks like on a map with a hundred.</li>
+    <li><b>Sorting.</b> These are drawn far-to-near with no depth buffer, which is fine while
+      structures never overlap. They will overlap on a denser map, and &lambda; and g both make
+      that happen sooner by giving every sprite more screen height.</li>
+    <li><b>Whether the day cycle belongs on the world map at all.</b> It is built here
+      because it was asked for and because it is the honest way to ground a standing sprite,
+      but a map whose art has a baked sun fights it, and travel time being a resource means
+      the clock would need to mean something in the simulation too.</li>
+    <li><b>The party sprite.</b> These are world-space and shrink with distance. The engine's
+      marker is fixed screen size. One of the two has to give.</li>
+  </ul>
+</div>
+
+<script>window.EMBEDDED_TEMP2="data:image/png;base64,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";</script>
+<script>
+"use strict";
+const RAD = Math.PI / 180;
+
+const MODES = [
+  ["flat",  "A - Flat (as painted)",   "The map exactly as it is today."],
+  ["mask",  "B - Structures found",    "What the colour key picked out."],
+  ["erase", "C - Ground patched",      "Structures removed, ground filled in."],
+  ["stand", "D - Standing up",         "Sprites stood upright and billboarded."],
+];
+
+/* Curved Close, the framing copied out of the debug panel. temp2 is drawn on an 8 px tile
+   grid and one tile is one world unit, so a map pixel is 1/8 of a unit. */
+const DEFAULTS = {
+  mode: "stand",
+  pitch: 58.5, fov: 26, height: 20.5, curve: 0.0039,
+  fogStart: 21, fogEnd: 116, fogPow: 1.4,
+  standScale: 1.0, widthScale: 1.0,
+  faceCam: 0.0, followCurve: 0.0, pitchGain: 1.0,
+  time: 9.5, sunHigh: 62, sunLow: 27, sunArc: 52, sunReach: 4.0, spread: 1.7, shadow: 0.55, contact: 0.12, tint: 1.0,
+  lampStrength: 1.0, lightReach: 2.6, lampMode: "band", lampLevels: 3, ditherBand: 0.5, ringCore: 0.35,
+};
+const K = Object.assign({}, DEFAULTS);
+const WPT = 1 / 8;
+const RENDER_SCALE = 0.76;
+const FOG = [0.729, 0.910, 0.886];   // temp2's own pale teal
+const VOID = [0.216, 0.682, 0.682];  // temp2's own sea teal
+
+let camX = 0, camZ = 0;
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d", { alpha: false });
+const buf = document.createElement("canvas");
+const bctx = buf.getContext("2d");
+let rw = 0, rh = 0, img = null;
+/* Set while rendering the contact strips, so they can be drawn small and fast without
+   disturbing the main canvas. */
+let sizeOverride = null;
+
+let mapW = 0, mapH = 0;
+let srcData = null, patched = null;
+let structures = [];
+let propCanvas = null;
+let shadowSprite = null;
+let propData = null;
+let emissive = null;
+/* One tinted copy of the sprite sheet per distinct light, plus a per-sprite scratch for fog.
+   The scratch matters: `source-atop` only restricts to opaque pixels, and the main buffer is
+   opaque everywhere, so filling fog straight onto it painted a rectangle over the GROUND
+   around each sprite rather than over the sprite. On a transparent scratch it does what it
+   is supposed to. */
+const tintedProps = new Map();
+const spriteScratch = document.createElement("canvas");
+const sscx = spriteScratch.getContext("2d");
+/* Shadows are accumulated here opaque and composited once, so overlapping shadows form a
+   union rather than stacking into a darker patch where they cross. */
+const shadowBuf = document.createElement("canvas");
+const sbctx = shadowBuf.getContext("2d");
+
+/* ------------------------------------------------------------- identifying */
+/* Three of temp2's seven colours appear only on structures. That is the whole detector. */
+function isBuilt(r, g, b) {
+  const white = r > 200 && g > 200 && b > 200;
+  const black = r < 60 && g < 70 && b < 60;
+  const darkTeal = Math.abs(r - 11) < 45 && Math.abs(g - 105) < 45 && Math.abs(b - 106) < 45;
+  return white || black || darkTeal;
+}
+
+function isTerrain(r, g, b) { return !isBuilt(r, g, b); }
+
+function findStructures() {
+  const n = mapW * mapH;
+  const mask = new Uint8Array(n);
+  for (let i = 0, p = 0; i < n; i++, p += 4) {
+    if (isBuilt(srcData[p], srcData[p + 1], srcData[p + 2])) mask[i] = 1;
+  }
+  const seen = new Uint8Array(n);
+  const stack = new Int32Array(n);
+  const found = [];
+  for (let start = 0; start < n; start++) {
+    if (!mask[start] || seen[start]) continue;
+    let sp = 0; stack[sp++] = start; seen[start] = 1;
+    let minx = mapW, maxx = 0, miny = mapH, maxy = 0;
+    const members = [];
+    while (sp > 0) {
+      const q = stack[--sp];
+      const qx = q % mapW, qy = (q / mapW) | 0;
+      members.push(q);
+      if (qx < minx) minx = qx; if (qx > maxx) maxx = qx;
+      if (qy < miny) miny = qy; if (qy > maxy) maxy = qy;
+      for (let dy = -1; dy <= 1; dy++) {
+        const ny = qy + dy; if (ny < 0 || ny >= mapH) continue;
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = qx + dx; if (nx < 0 || nx >= mapW) continue;
+          const np = ny * mapW + nx;
+          if (mask[np] && !seen[np]) { seen[np] = 1; stack[sp++] = np; }
+        }
+      }
+    }
+    if (members.length < 4) continue;
+    const w = maxx - minx + 1, h = maxy - miny + 1;
+    // Aspect alone separates them: houses are 8x7, towers 8x13.
+    const kind = (h / w) > 1.2 ? "tower" : "house";
+    found.push({
+      x: minx, y: miny, w: w, h: h, members: members, kind: kind,
+      // The tower's bottom row is a painted ground shadow, not part of the building.
+      rows: kind === "tower" ? h - 1 : h,
+      baseZ: (maxy + 1) * WPT,
+    });
+  }
+  found.sort((a, b) => a.baseZ - b.baseZ);   // far to near; camera looks toward -Z
+  structures = found;
+}
+
+/* Patch each structure with the most common terrain colour in a ring around it, so a house
+   on sand gets sand and one on grass gets grass, rather than one flat fill everywhere. The
+   whole BOUNDING BOX is patched, not just the keyed pixels: the orange door is a colour the
+   map uses elsewhere, so keying alone leaves it behind on the ground. */
+function patchGround() {
+  patched = new Uint8ClampedArray(srcData);
+  for (const s of structures) {
+    const tally = new Map();
+    for (let y = s.y - 2; y < s.y + s.h + 2; y++) {
+      for (let x = s.x - 2; x < s.x + s.w + 2; x++) {
+        if (x < 0 || y < 0 || x >= mapW || y >= mapH) continue;
+        if (x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h) continue;
+        const p = (y * mapW + x) * 4;
+        const r = srcData[p], g = srcData[p + 1], b = srcData[p + 2];
+        if (!isTerrain(r, g, b)) continue;
+        const key = (r << 16) | (g << 8) | b;
+        tally.set(key, (tally.get(key) || 0) + 1);
+      }
+    }
+    let best = 0, bestN = -1;
+    for (const [k, v] of tally) if (v > bestN) { bestN = v; best = k; }
+    const fr = (best >> 16) & 255, fg = (best >> 8) & 255, fb = best & 255;
+    for (let y = s.y; y < s.y + s.h; y++) {
+      for (let x = s.x; x < s.x + s.w; x++) {
+        if (x < 0 || y < 0 || x >= mapW || y >= mapH) continue;
+        const p = (y * mapW + x) * 4;
+        patched[p] = fr; patched[p + 1] = fg; patched[p + 2] = fb;
+      }
+    }
+  }
+
+  const c = document.createElement("canvas");
+  c.width = mapW; c.height = mapH;
+  const g = c.getContext("2d");
+  const id = g.createImageData(mapW, mapH);
+  /* The sprite is the BOUNDING BOX minus background, not the keyed pixels. Keying alone
+     drops the orange door -- orange is a terrain colour, so the key rejects it -- and left
+     a hole in the middle of every house. Inside a structure's box, orange is the door; the
+     sea, sand and grass colours are background showing through the box corners. */
+  for (const s of structures) {
+    for (let y = s.y; y < s.y + s.h; y++) {
+      for (let x = s.x; x < s.x + s.w; x++) {
+        const p = (y * mapW + x) * 4;
+        const r = srcData[p], g2 = srcData[p + 1], b = srcData[p + 2];
+        const isOrange = Math.abs(r - 230) < 40 && Math.abs(g2 - 153) < 45 && b < 80;
+        if (!isBuilt(r, g2, b) && !isOrange) continue;
+        id.data[p] = r; id.data[p + 1] = g2; id.data[p + 2] = b; id.data[p + 3] = 255;
+      }
+    }
+  }
+  g.putImageData(id, 0, 0);
+  propCanvas = c;
+  propData = id.data;
+
+  /* Which pixels are lit from inside after dark. Reading the art off the pixel grid, a house
+     is `TWTWTWTT` -- three ONE-pixel white windows set in a dark teal wall -- over `.WWDDWW.`,
+     a white wall with an orange door. So "white with a teal neighbour in the same row" picks
+     out the windows and correctly leaves the white lower wall alone, and orange picks out the
+     door on the house and the trim openings on the tower (which has no teal at all).
+
+     This is a rule fitted to one map's art, and it is the wrong shape for a real pipeline: an
+     emissive mask belongs in the prop layer, painted by whoever painted the prop. It is here
+     because the question was what it would LOOK like, and that question deserves an answer
+     before anyone builds the plumbing for it. */
+  emissive = new Uint8Array(mapW * mapH);
+  for (const s of structures) {
+    for (let y = s.y; y < s.y + s.rows; y++) {
+      for (let x = s.x; x < s.x + s.w; x++) {
+        const p = (y * mapW + x) * 4;
+        const r = srcData[p], g2 = srcData[p + 1], b = srcData[p + 2];
+        const isWhite = r > 200 && g2 > 200 && b > 200;
+        const isOrange = Math.abs(r - 230) < 40 && Math.abs(g2 - 153) < 45 && b < 80;
+        let lit = isOrange;
+        if (isWhite) {
+          for (const dx of [-1, 1]) {
+            const nx = x + dx;
+            if (nx < s.x || nx >= s.x + s.w) continue;
+            const q = (y * mapW + nx) * 4;
+            if (Math.abs(srcData[q] - 11) < 45 && Math.abs(srcData[q + 1] - 105) < 45 &&
+                Math.abs(srcData[q + 2] - 106) < 45) lit = true;
+          }
+        }
+        if (lit) emissive[y * mapW + x] = 1;
+      }
+    }
+  }
+
+  /* Silhouette, for cast shadows -- and it is deliberately SOLID. Transparent pixels inside
+     a structure (the tower's open belfry, the gap either side of a doorway) must not punch
+     holes in its shadow: a real building has a solid door and glazed windows, and light does
+     not pour through the middle of it. So background is found by flooding IN FROM THE
+     BOUNDING BOX EDGE, 4-connected, and everything the flood cannot reach is solid whatever
+     colour it was. Taking the sprite's own alpha instead gave the tower a shadow with a hole
+     through the middle. */
+  const sil = document.createElement("canvas");
+  sil.width = mapW; sil.height = mapH;
+  const sg = sil.getContext("2d");
+  const sid = sg.createImageData(mapW, mapH);
+  for (const s of structures) {
+    const bw = s.w, bh = s.rows;
+    const outside = new Uint8Array(bw * bh);
+    const q = [];
+    const solidAt = function (lx, ly) {
+      const p = ((s.y + ly) * mapW + (s.x + lx)) * 4;
+      return id.data[p + 3] > 0;
+    };
+    for (let lx = 0; lx < bw; lx++) {
+      for (const ly of [0, bh - 1]) {
+        const i = ly * bw + lx;
+        if (!outside[i] && !solidAt(lx, ly)) { outside[i] = 1; q.push(i); }
+      }
+    }
+    for (let ly = 0; ly < bh; ly++) {
+      for (const lx of [0, bw - 1]) {
+        const i = ly * bw + lx;
+        if (!outside[i] && !solidAt(lx, ly)) { outside[i] = 1; q.push(i); }
+      }
+    }
+    while (q.length) {
+      const i = q.pop(), lx = i % bw, ly = (i / bw) | 0;
+      const step = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (const d of step) {
+        const nx = lx + d[0], ny = ly + d[1];
+        if (nx < 0 || ny < 0 || nx >= bw || ny >= bh) continue;
+        const ni = ny * bw + nx;
+        if (outside[ni] || solidAt(nx, ny)) continue;
+        outside[ni] = 1; q.push(ni);
+      }
+    }
+    for (let ly = 0; ly < bh; ly++) {
+      for (let lx = 0; lx < bw; lx++) {
+        if (outside[ly * bw + lx]) continue;
+        const p = ((s.y + ly) * mapW + (s.x + lx)) * 4;
+        sid.data[p] = 0; sid.data[p + 1] = 0; sid.data[p + 2] = 0; sid.data[p + 3] = 255;
+      }
+    }
+  }
+  sg.putImageData(sid, 0, 0);
+  shadowSprite = sil;
+}
+
+/* ------------------------------------------------------------ ray + project */
+let F = 0, CS = 0, SN = 0;
+
+function rayT(py) {
+  const diry = py * CS - F * SN;
+  const dirz = -py * SN - F * CS;
+  let t;
+  if (K.curve > 1e-12) {
+    const a = K.curve * dirz * dirz, disc = diry * diry - 4 * a * K.height;
+    if (disc < 0) return null;
+    t = (-diry - Math.sqrt(disc)) / (2 * a);
+  } else {
+    if (diry > -1e-9) return null;
+    t = K.height / -diry;
+  }
+  return t > 0 ? { t, dirz } : null;
+}
+
+/* `anchorFwd` is the distance whose curve drop this point takes. Pass nothing for ground,
+   which IS the curved surface and so takes its own; pass a structure's base distance for
+   anything standing on it, so the curve carries the object instead of shearing it. */
+function project(wx, wy, wz, anchorFwd) {
+  const fwd = camZ - wz;
+  const af = anchorFwd === undefined ? fwd : anchorFwd;
+  const dy = (wy - K.curve * af * af) - K.height;
+  const dz = -fwd;
+  const yCam = dy * CS - dz * SN;
+  const zCam = dy * SN + dz * CS;
+  if (zCam >= -1e-6) return null;
+  return { x: rw / 2 + F * (wx - camX) / -zCam, y: rh / 2 - F * yCam / -zCam, fwd };
+}
+
+function fogAt(f) {
+  return Math.pow(Math.min(1, Math.max(0, (f - K.fogStart) / Math.max(1e-3, K.fogEnd - K.fogStart))), K.fogPow);
+}
+
+function recentre() {
+  camX = mapW * WPT * 0.5;
+  camZ = mapH * WPT * 0.5 + K.height / Math.tan(K.pitch * RAD);
+}
+
+/* --------------------------------------------------------------- billboard */
+/* A sprite's up-axis in world space, as (y, z). Yaw is pinned, so x is always 0 and the
+   sprite stays an axis-aligned screen rectangle however far it tips.
+
+   Two rotations away from world-up, and they tip the SAME way -- both lean the top away
+   from the viewer, into the scene:
+     lambda  toward the camera's own up-axis (0, cos p, -sin p). A fixed angle.
+     mu      onto the curved ground's local normal (0, 1, -2kd). Grows with distance. */
+function upAxis(fwd) {
+  const l = K.faceCam, m = K.followCurve;
+  const camY = Math.cos(K.pitch * RAD), camZc = -Math.sin(K.pitch * RAD);
+  const slope = 2 * K.curve * fwd;
+  const n = Math.hypot(1, slope);
+  const curY = 1 / n, curZ = -slope / n;
+  const y = 1 + l * (camY - 1) + m * (curY - 1);
+  const z = l * camZc + m * curZ;
+  const len = Math.hypot(y, z) || 1;
+  return [y / len, z / len];
+}
+
+/* THE SQUASH IS NOT cos(pitch). Working the projection through, a sprite of world height h
+   and width W standing at ground distance f projects to
+
+       hpx / wpx = (h / W) * (A*D + yb*B) / (D - h*B)
+
+   where D is the view depth of its base, yb its camera-space height, and A, B are its
+   up-axis resolved onto the camera's axes. For a world-vertical sprite that collapses to
+
+       hpx / wpx = (h / W) * f / (D - h*sin p),      D = H*sin p + f*cos p
+
+   so the squash f/D runs from 0 at the camera's own feet to 1/cos p far away, passing
+   through exactly cos p at the CENTRE of the frame and nowhere else. Measured on this
+   framing it is 0.33 at the near edge and 0.76 at the far edge -- a 2.3x swing inside one
+   frame, which is why no single global gain can fix it. */
+function upAxisCam(uy, uz) {
+  return { A: uy * CS - uz * SN, B: uy * SN + uz * CS };
+}
+
+/* World height whose projection lands exactly on the sprite's painted proportions, solved
+   from the identity above. For a camera-facing sprite (A = 1, B = 0) it returns h0 -- such a
+   sprite is already at painted proportions, which is the real reason lambda works. */
+function exactHeight(h0, D, yb, A, B) {
+  const den = A * D + yb * B + h0 * B;
+  if (!(den > 1e-4)) return h0 * 8;
+  return Math.min(h0 * 8, h0 * D / den);
+}
+
+/* ------------------------------------------------------------------ the sun */
+/* A day is a rotation and a height, nothing more. The sun rises due +X (screen right),
+   swings through -Z (the far side of the map) at noon so shadows fall toward the viewer
+   where they can be seen, and sets at -X. Elevation is a half-sine over the daylight hours.
+
+   Everything below is a lighting MODEL, not a measurement -- unlike the projection maths in
+   this file there is no right answer to check it against, only whether it reads. */
+const DAWN = 6, DUSK = 18;
+
+function sunDir(t) {
+  const day = (t - DAWN) / (DUSK - DAWN);          // 0 at sunrise, 1 at sunset
+  if (day <= 0 || day >= 1) return { up: false, el: 0, lit: 0, az: 0, x: 0, y: -1, z: 0 };
+  const arc = Math.sin(day * Math.PI);
+  /* TWO elevations, on purpose.
+
+     `lit` is the honest one -- it goes to zero at both ends of the day and drives the light
+     colour, the lamps and the shadow's opacity.
+
+     `el` is the one the SHADOW GEOMETRY uses, and it never drops below `sunLow`. cot(el)
+     runs away as the sun touches the horizon, and a shadow twenty tiles long and one tile
+     wide reads as a scratch on the lens rather than as a building. Holding the geometric
+     elevation in a flattering band costs nothing legible, because the reading of "what time
+     is it" comes from the direction the shadows point, not from their length. */
+  const lit = arc * (K.sunHigh * RAD);
+  const el = (K.sunLow + (K.sunHigh - K.sunLow) * arc) * RAD;
+  /* Azimuth sweeps a NARROW ARC centred on due north, not the full east-to-west semicircle.
+
+     Swinging the full 180 degrees means the sun sits on the horizon due east at dawn, and a
+     shadow cast from due east points due WEST -- straight across the screen, with no
+     northward component at all. Those are the sideways streaks. Holding the arc inside
+     +/- `sunArc` of north keeps every shadow leaning away from the viewer while still
+     sweeping visibly through the day, which is what carries the reading of what time it is.
+
+     az is measured so 90 degrees puts the sun at +Z, the camera's own side, and therefore
+     throws the shadow to -Z: away, up-screen, north. */
+  const az = (90 + K.sunArc * (2 * day - 1)) * RAD;
+  return {
+    up: true, el: el, lit: lit, az: az,
+    x: Math.cos(el) * Math.cos(az), y: Math.sin(el), z: Math.cos(el) * Math.sin(az),
+  };
+}
+
+/* Ground-plane offset cast by one unit of height. Blows up as the sun touches the horizon,
+   so it is clamped -- physically wrong, and the alternative is a shadow the length of the
+   map at 06:01. */
+function shadowStep(sun) {
+  if (!sun.up || sun.y < 1e-4) return { x: 0, z: 0, len: 0 };
+  let kx = -sun.x / sun.y, kz = -sun.z / sun.y;
+  const len = Math.hypot(kx, kz);
+  if (len > K.sunReach) { kx *= K.sunReach / len; kz *= K.sunReach / len; }
+  return { x: kx, z: kz, len: Math.min(len, K.sunReach) };
+}
+
+/* Light colour through the day. Keyframes, linearly interpolated -- warm at the ends, plain
+   at noon, cold and dim at night. Applied to the ground, the fog and the sprites alike, so
+   the whole frame moves together instead of sprites floating in a differently-lit world. */
+const SKY_KEYS = [
+  [0.0, 0.34, 0.41, 0.68], [4.5, 0.40, 0.46, 0.72], [5.8, 0.62, 0.56, 0.74],
+  [6.8, 1.26, 0.88, 0.66], [9.0, 1.06, 1.01, 0.95], [12.0, 1.00, 1.00, 1.00],
+  [15.0, 1.06, 1.00, 0.94], [17.2, 1.30, 0.82, 0.58], [18.6, 0.74, 0.58, 0.76],
+  [20.5, 0.44, 0.47, 0.72], [24.0, 0.34, 0.41, 0.68],
+];
+
+function dayTint(t) {
+  let a = SKY_KEYS[0], b = SKY_KEYS[SKY_KEYS.length - 1];
+  for (let i = 0; i < SKY_KEYS.length - 1; i++) {
+    if (t >= SKY_KEYS[i][0] && t <= SKY_KEYS[i + 1][0]) { a = SKY_KEYS[i]; b = SKY_KEYS[i + 1]; }
+  }
+  const u = b[0] === a[0] ? 0 : (t - a[0]) / (b[0] - a[0]);
+  const mix = function (i) { return a[i] + (b[i] - a[i]) * u; };
+  // K.tint blends the whole effect out, so the shadows can be judged on their own.
+  const w = K.tint;
+  return [1 + (mix(1) - 1) * w, 1 + (mix(2) - 1) * w, 1 + (mix(3) - 1) * w];
+}
+
+/* How "on" the lamps are. Driven off the sun's own height rather than the clock, so the
+   lights come up as the sun goes down instead of snapping at a hardcoded hour. */
+function nightFactor(t) {
+  const s = sunDir(t);
+  if (!s.up) return 1;
+  return Math.max(0, Math.min(1, 1 - Math.sin(s.lit) * 4.0));
+}
+
+const LAMP = [255, 214, 138];
+/* What a lit pixel is tinted BY. Not white: a lamp is warm, and holding it slightly warm keeps
+   the lit circle from reading as a hole punched in the night. Shared by the ground and the
+   sprites deliberately -- a building lit to one value while the grass under it is lit to
+   another is the exact seam this is meant to avoid. */
+const LIT = [1.06, 0.98, 0.84];
+
+/* The tint a point takes, given the day's light and how lit it is by lamps. One function so
+   the ground and the standing sprites cannot disagree. */
+function litTint(tint, k) {
+  if (k <= 0) return tint;
+  return [
+    tint[0] + (LIT[0] - tint[0]) * k,
+    tint[1] + (LIT[1] - tint[1]) * k,
+    tint[2] + (LIT[2] - tint[2]) * k,
+  ];
+}
+
+function clockText(t) {
+  const hh = Math.floor(t) % 24, mm = Math.floor((t - Math.floor(t)) * 60);
+  return (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+}
+
+/* Affine texture-mapped triangle: clip, solve the affine carrying the source triangle onto
+   the destination, blit. Used for the shadow silhouettes, which are arbitrary parallelograms
+   on the ground rather than screen rectangles. */
+function texTriangle(g, image, s, d) {
+  const u0 = s[0][0], v0 = s[0][1], u1 = s[1][0], v1 = s[1][1], u2 = s[2][0], v2 = s[2][1];
+  let x0 = d[0][0], y0 = d[0][1], x1 = d[1][0], y1 = d[1][1], x2 = d[2][0], y2 = d[2][1];
+  // Nudge out from the centroid, or antialiasing leaves a hairline seam down every quad.
+  const gx = (x0 + x1 + x2) / 3, gy = (y0 + y1 + y2) / 3, grow = 1.02;
+  x0 = gx + (x0 - gx) * grow; y0 = gy + (y0 - gy) * grow;
+  x1 = gx + (x1 - gx) * grow; y1 = gy + (y1 - gy) * grow;
+  x2 = gx + (x2 - gx) * grow; y2 = gy + (y2 - gy) * grow;
+  const du1 = u1 - u0, dv1 = v1 - v0, du2 = u2 - u0, dv2 = v2 - v0;
+  const det = du1 * dv2 - du2 * dv1;
+  if (Math.abs(det) < 1e-9) return;
+  const a = (dv2 * (x1 - x0) - dv1 * (x2 - x0)) / det;
+  const b = (du1 * (x2 - x0) - du2 * (x1 - x0)) / det;
+  const c = (dv2 * (y1 - y0) - dv1 * (y2 - y0)) / det;
+  const e = (du1 * (y2 - y0) - du2 * (y1 - y0)) / det;
+  g.save();
+  g.beginPath();
+  g.moveTo(x0, y0); g.lineTo(x1, y1); g.lineTo(x2, y2); g.closePath();
+  g.clip();
+  g.transform(a, c, b, e, x0 - a * u0 - b * v0, y0 - c * u0 - e * v0);
+  g.drawImage(image, 0, 0);
+  g.restore();
+}
+
+/* --------------------------------------------------------- lamp light field */
+/* SUBTRACTIVE, not additive. A lamp does not add warm light on top of the night; it is a
+   region where the night is NOT APPLIED, so the ground underneath keeps its daytime colours.
+   That is how a tile-era game did it, and it is the difference between a light that invents
+   colours the palette does not contain and one that only ever shows colours already in the
+   art.
+
+   The field lives in MAP-PIXEL space for the same reason the shadow mask does: its edge then
+   lands on the terrain's own grid and cannot swim under camera motion. It is a distance
+   field, built once per radius change; the time of day scales it per frame. */
+let lampField = null;
+let lampFieldKey = "";
+
+function buildLampField() {
+  const key = K.lightReach.toFixed(2) + ":" + structures.length;
+  if (lampField !== null && lampFieldKey === key) return;
+  lampField = new Float32Array(mapW * mapH);
+  lampFieldKey = key;
+  const rpx = K.lightReach / WPT;                 // radius in MAP PIXELS
+  if (rpx < 0.5) return;
+  for (const s of structures) {
+    const cx = s.x + s.w * 0.5;
+    const cy = s.y + s.h;                          // the foot, where the doorway is
+    const x0 = Math.max(0, Math.floor(cx - rpx)), x1 = Math.min(mapW - 1, Math.ceil(cx + rpx));
+    const y0 = Math.max(0, Math.floor(cy - rpx)), y1 = Math.min(mapH - 1, Math.ceil(cy + rpx));
+    for (let y = y0; y <= y1; y++) {
+      for (let x = x0; x <= x1; x++) {
+        const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy) / rpx;
+        if (d >= 1) continue;
+        // Max, not sum: two lamps overlapping give a wider lit area, not a brighter one.
+        // Summing is what makes clustered lights blow out to white.
+        const v = 1 - d;
+        const i = y * mapW + x;
+        if (v > lampField[i]) lampField[i] = v;
+      }
+    }
+  }
+}
+
+/* Ordered dither, anchored to MAP pixels so the pattern belongs to the terrain rather than
+   to the screen. Anchored to the screen it crawls as the camera pans. */
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
+/* How lit one map pixel is, 0 = full night, 1 = full day. The four modes differ ONLY in how
+   the raw distance field is shaped -- the mechanism underneath is identical. */
+function litnessAt(idx, mx, my) {
+  const raw0 = lampField === null ? 0 : lampField[idx];
+  if (raw0 <= 0) return 0;
+  const n = Math.max(1, Math.round(K.lampLevels));
+  if (K.lampMode === "hard") return 1;       // one level; ring sizing has nothing to shape
+  if (K.lampMode === "glow") return raw0;    // smooth -- the realistic one, for contrast
+
+  /* RING SIZING. The falloff is linear in distance, so quantising it directly gives rings of
+     equal width and no way to say "a bigger bright middle". `ringCore` carves out a fraction
+     of the RADIUS held at full brightness, and the remaining levels split what is left.
+
+     The light's outer boundary does not move: `raw` still reaches 0 at exactly the same
+     distance whatever the core is. Growing the core therefore trades width away from the
+     middle rings, not from the light's reach. */
+  let raw = raw0;
+  if (K.ringCore > 0.001) {
+    const dn = 1 - raw0;                              // 0 at the centre, 1 at the edge
+    if (dn <= K.ringCore) return 1;
+    const u = (dn - K.ringCore) / Math.max(1e-4, 1 - K.ringCore);
+    // Spans (n-1)/n down to 0, so the ring just outside the core is one level below full
+    // rather than rounding back up into it.
+    raw = (1 - u) * (n - 1) / n;
+  }
+
+  if (K.lampMode === "band") {
+    // round, not ceil: ceil biases the whole lit area outward by half a level, which puts the
+    // outermost ring one step brighter than the falloff says it should be.
+    return Math.round(raw * n) / n;
+  }
+  /* Dither ONLY in a narrow band where two levels meet. Dithering across the whole falloff --
+     which is what a plain Bayer threshold on the gradient does -- puts a checkerboard over
+     every pixel of the light instead of only at its rings, and reads as noise rather than as a
+     soft edge. Measured on one house it alternated on almost every pixel. A ring boundary sits
+     at frac = 0.5, so the band is centred there. */
+  const scaled = raw * n;
+  const base = Math.floor(scaled);
+  const frac = scaled - base;
+  const half = Math.max(0.02, K.ditherBand) * 0.5;
+  if (frac < 0.5 - half) return base / n;
+  if (frac > 0.5 + half) return Math.min(1, (base + 1) / n);
+  const th = (BAYER4[(my & 3) * 4 + (mx & 3)] + 0.5) / 16;
+  const local = (frac - (0.5 - half)) / (2 * half);
+  return Math.min(1, (base + (local > th ? 1 : 0)) / n);
+}
+
+/* ------------------------------------------------------------------ render */
+function drawGround(texture, highlight) {
+  const px = img.data;
+  const tint = dayTint(K.time);
+  const night = nightFactor(K.time) * K.lampStrength;
+  const lamps = night > 0.01 && K.lightReach > 0 && K.lampMode !== "off";
+  if (lamps) buildLampField();
+  const fr = FOG[0] * 255 * tint[0], fg = FOG[1] * 255 * tint[1], fb = FOG[2] * 255 * tint[2];
+  const vr = VOID[0] * 255 * tint[0], vg = VOID[1] * 255 * tint[1], vb = VOID[2] * 255 * tint[2];
+  for (let sy = 0; sy < rh; sy++) {
+    const r = rayT(rh / 2 - sy - 0.5);
+    let o = sy * rw * 4;
+    if (!r) { for (let x = 0; x < rw; x++) { px[o++] = 10; px[o++] = 11; px[o++] = 14; px[o++] = 255; } continue; }
+    const f = fogAt(-r.t * r.dirz);
+    const v = Math.floor((camZ + r.t * r.dirz) / WPT);
+    const du = r.t / WPT;
+    let u = (camX + r.t * (0.5 - rw / 2)) / WPT;
+    for (let x = 0; x < rw; x++) {
+      const ui = Math.floor(u);
+      let R = vr, G = vg, B = vb;
+      if (ui >= 0 && ui < mapW && v >= 0 && v < mapH) {
+        const idx = v * mapW + ui;
+        const i = idx * 4;
+        let t0 = tint[0], t1 = tint[1], t2 = tint[2];
+        if (lamps) {
+          // The lamp WITHHOLDS the night rather than adding light: lerp the pixel's tint back
+          // toward the lit value. Nothing here can produce a colour brighter than the art.
+          const lt = litTint(tint, litnessAt(idx, ui, v) * night);
+          t0 = lt[0]; t1 = lt[1]; t2 = lt[2];
+        }
+        R = texture[i] * t0; G = texture[i + 1] * t1; B = texture[i + 2] * t2;
+        if (highlight && isBuilt(srcData[i], srcData[i + 1], srcData[i + 2])) {
+          R = 255; G = 60; B = 90;
+        }
+      }
+      px[o++] = R + (fr - R) * f;
+      px[o++] = G + (fg - G) * f;
+      px[o++] = B + (fb - B) * f;
+      px[o++] = 255;
+      u += du;
+    }
+  }
+  bctx.putImageData(img, 0, 0);
+}
+
+/* Screen rectangle for one structure, or null if it is off-frame or degenerate. */
+function spriteRect(s) {
+  const worldW = s.w * WPT * K.widthScale;
+  const h0 = s.rows * WPT * K.standScale;
+  const baseX = (s.x + s.w * 0.5) * WPT;
+  const f = camZ - s.baseZ;
+  const up = upAxis(f);
+  const cam = upAxisCam(up[0], up[1]);
+
+  // The base's own camera-space position, which the exact solve needs.
+  // The ground DROPS by k*f*f, so its world y is negative. Same expression as project().
+  const dy = -(K.curve * f * f) - K.height, dz = -f;
+  const yb = dy * CS - dz * SN;
+  const D = -(dy * SN + dz * CS);
+  const worldH = h0 + K.pitchGain * (exactHeight(h0, D, yb, cam.A, cam.B) - h0);
+
+  const base = project(baseX, 0, s.baseZ);
+  // The top takes its BASE's curve drop, not its own: the curve must carry the sprite, not
+  // shear it. Only observable once lambda or mu moves the top off the base's distance.
+  const top = project(baseX, worldH * up[0], s.baseZ + worldH * up[1], f);
+  const side = project(baseX + worldW, 0, s.baseZ);
+  if (!base || !top || !side) return null;
+  const wpx = Math.abs(side.x - base.x), hpx = base.y - top.y;
+  if (wpx < 0.5 || hpx < 0.5) return null;
+  return {
+    x: base.x - wpx / 2, y: base.y - hpx, w: wpx, h: hpx,
+    baseX: base.x, baseY: base.y, fwd: f, squash: f / D, gain: worldH / h0,
+  };
+}
+
+/* Cast shadows. The shadow of a standing sprite is its silhouette sheared onto the ground
+   along the sun: the foot edge stays put, the top edge lands `h * cot(elevation)` away in
+   the direction opposite the sun. That makes a parallelogram on the ground, which is drawn
+   as two affine triangles.
+
+   The shear uses the sprite's TRUE world height, not its billboard-corrected one. The
+   billboard correction is a screen-space trick to keep proportions readable; letting it into
+   the lighting would swing every shadow by 2x when the gain is switched on, which is a
+   rendering choice leaking into what is meant to be a physical cue. */
+function drawShadows() {
+  const sun = sunDir(K.time);
+  if (!sun.up || K.shadow <= 0) return;
+  const step = shadowStep(sun);
+  if (step.len < 1e-3) return;
+
+  shadowBuf.width = rw; shadowBuf.height = rh;
+  sbctx.clearRect(0, 0, rw, rh);
+  sbctx.imageSmoothingEnabled = false;
+
+  let drew = 0;
+  for (const s of structures) {
+    const worldW = s.w * WPT * K.widthScale;
+    const h = s.rows * WPT * K.standScale;          // true height, deliberately ungained
+    const bx = (s.x + s.w * 0.5) * WPT, bz = s.baseZ;
+    const offX = h * step.x, offZ = h * step.z;
+
+    /* A TRAPEZOID, not a parallelogram: the foot edge keeps the caster's own width and the
+       tip edge is `spread` times wider. Two reasons, and the second is the one that matters
+       here.
+
+       Physically, a shadow's penumbra widens with distance from what casts it -- only the
+       contact edge is truly sharp. Practically, a shadow lying flat on the ground and
+       receding north is foreshortened by the camera far harder than the upright sprite
+       beside it, so a shadow exactly as wide as the house reads as a thin dash. Widening the
+       far end is what makes it read as a shadow rather than as a scratch. */
+    const halfNear = worldW * 0.5;
+    const halfFar = worldW * 0.5 * K.spread;
+
+    // Four ground points: the foot edge, and the widened edge displaced by the shear.
+    const q = [
+      project(bx - halfNear, 0, bz), project(bx + halfNear, 0, bz),
+      project(bx + halfFar + offX, 0, bz + offZ), project(bx - halfFar + offX, 0, bz + offZ),
+    ];
+    if (q.some(function (p) { return !p; })) continue;
+
+    // The silhouette's foot edge is its bottom row, its top edge the top row.
+    const uv = [
+      [s.x, s.y + s.rows], [s.x + s.w, s.y + s.rows], [s.x + s.w, s.y], [s.x, s.y],
+    ];
+    const P = q.map(function (p) { return [p.x, p.y]; });
+    sbctx.globalAlpha = Math.max(0, 1 - fogAt(q[0].fwd));
+    texTriangle(sbctx, shadowSprite, [uv[0], uv[1], uv[2]], [P[0], P[1], P[2]]);
+    texTriangle(sbctx, shadowSprite, [uv[0], uv[2], uv[3]], [P[0], P[2], P[3]]);
+    drew++;
+  }
+  if (drew === 0) return;
+
+  // One composite, so shadows that cross form a union instead of a darker patch.
+  // Opacity tracks sun height. A low sun throws a long shadow AND a soft one -- the
+  // penumbra spreads with distance from the caster -- and at full strength those long
+  // shadows read as hard diagonal bars laid over the map rather than as light.
+  bctx.save();
+  bctx.globalAlpha = K.shadow * Math.min(1, Math.sin(sun.lit) * 2.2);
+  bctx.drawImage(shadowBuf, 0, 0);
+  bctx.restore();
+}
+
+function tintedSprites(tint, night) {
+  const key = tint[0].toFixed(3) + "," + tint[1].toFixed(3) + "," + tint[2].toFixed(3) +
+    "," + night.toFixed(3) + "," + K.lampStrength.toFixed(2);
+  const hit = tintedProps.get(key);
+  if (hit !== undefined) return hit;
+  const canvas = document.createElement("canvas");
+  canvas.width = mapW; canvas.height = mapH;
+  const g = canvas.getContext("2d");
+  const out = g.createImageData(mapW, mapH);
+  const lit = night * K.lampStrength;
+  for (let i = 0, px = 0; i < propData.length; i += 4, px++) {
+    let r = Math.min(255, propData[i] * tint[0]);
+    let g2 = Math.min(255, propData[i + 1] * tint[1]);
+    let b = Math.min(255, propData[i + 2] * tint[2]);
+    // A lit window is emissive: it does NOT take the night tint, it replaces it. Multiplying
+    // a window by a blue night and then adding warmth back gives a muddy grey-green; lerping
+    // the whole pixel toward the lamp colour is what reads as "there is a light in there".
+    if (lit > 0 && emissive[px] === 1) {
+      r += (LAMP[0] - r) * lit; g2 += (LAMP[1] - g2) * lit; b += (LAMP[2] - b) * lit;
+    }
+    out.data[i] = r; out.data[i + 1] = g2; out.data[i + 2] = b;
+    out.data[i + 3] = propData[i + 3];
+  }
+  g.putImageData(out, 0, 0);
+  // Bounded: litness is quantised, so only a handful of distinct tints ever exist per frame.
+  if (tintedProps.size > 24) tintedProps.clear();
+  tintedProps.set(key, canvas);
+  return canvas;
+}
+
+/* How lit a whole structure is. Sampled at its FOOT, and applied to the whole sprite rather
+   than per pixel: a building is one object standing in a pool of light, not a surface being
+   shaded, and lighting its base differently from its roof would read as a gradient painted
+   onto a flat sprite. In practice a structure sits at the centre of its own lamp, so this is
+   1 whenever lamps are on -- but going through the field means a structure with no lamp of
+   its own still picks up a neighbour's. */
+function structureLitness(s) {
+  if (lampField === null || K.lampMode === "off" || K.lightReach <= 0) return 0;
+  const mx = Math.min(mapW - 1, Math.max(0, Math.round(s.x + s.w * 0.5)));
+  const my = Math.min(mapH - 1, Math.max(0, s.y + s.h));
+  return litnessAt(my * mapW + mx, mx, my);
+}
+
+/* The additive comparison mode only. Every other lamp shape is subtractive and has already
+   happened, per pixel, inside drawGround -- this is the one that paints warm light on top and
+   so is the one that can invent colours the palette does not contain.
+
+   The pool is a screen ellipse squashed by sin(pitch), because a circle of light on the ground
+   is a circle seen at the camera's angle. Drawing it round is the single thing that makes
+   ground decals read as stickers on the lens. */
+function drawLamps() {
+  const night = nightFactor(K.time) * K.lampStrength;
+  if (K.lampMode !== "glow" || night <= 0.01 || K.lightReach <= 0) return;
+  bctx.save();
+  bctx.globalCompositeOperation = "lighter";
+  for (const s of structures) {
+    const bx = (s.x + s.w * 0.5) * WPT;
+    const base = project(bx, 0, s.baseZ);
+    const edge = project(bx + K.lightReach, 0, s.baseZ);
+    if (!base || !edge) continue;
+    const rx = Math.abs(edge.x - base.x);
+    if (rx < 0.5) continue;
+    const ry = rx * Math.sin(K.pitch * RAD);
+    const a = night * 0.5 * (1 - fogAt(base.fwd));
+    bctx.save();
+    bctx.translate(base.x, base.y);
+    bctx.scale(1, ry / rx);
+    // Built AFTER the transform and centred on the origin: a gradient's coordinates live in
+    // the space current when it is painted, so one made in screen space then translated
+    // lands nowhere near the pool it is meant to fill.
+    const grad = bctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+    grad.addColorStop(0, "rgba(" + LAMP[0] + "," + LAMP[1] + "," + LAMP[2] + "," + a.toFixed(3) + ")");
+    grad.addColorStop(0.45, "rgba(" + LAMP[0] + "," + LAMP[1] + "," + LAMP[2] + "," + (a * 0.35).toFixed(3) + ")");
+    grad.addColorStop(1, "rgba(" + LAMP[0] + "," + LAMP[1] + "," + LAMP[2] + ",0)");
+    bctx.fillStyle = grad;
+    bctx.beginPath();
+    bctx.arc(0, 0, rx, 0, 7);
+    bctx.fill();
+    bctx.restore();
+  }
+  bctx.restore();
+}
+
+function drawStanding() {
+  bctx.imageSmoothingEnabled = false;
+  const tint = dayTint(K.time);
+  const night = nightFactor(K.time) * K.lampStrength;
+  if (night > 0.01) buildLampField();
+  for (const s of structures) {
+    const r = spriteRect(s);
+    if (!r) continue;
+    const f = fogAt(r.fwd);
+
+    // A building standing inside its own pool of light must not be the one dark thing in it.
+    // Same litTint the ground uses, from the same field, so the sprite and the grass it
+    // stands on are lit to the same value.
+    const lit = night > 0.01 ? structureLitness(s) * night : 0;
+    const sheet = tintedSprites(litTint(tint, lit), nightFactor(K.time));
+    const fogRGB = "rgb(" + (Math.min(255, FOG[0] * 255 * tint[0]) | 0) + "," +
+      (Math.min(255, FOG[1] * 255 * tint[1]) | 0) + "," +
+      (Math.min(255, FOG[2] * 255 * tint[2]) | 0) + ")";
+
+    // A small contact patch that never leaves. The cast shadow does the directional work,
+    // but it vanishes at night and shortens to nothing near noon, and without this the
+    // sprites unstick from the ground at exactly those times.
+    if (K.contact > 0) {
+      bctx.save();
+      bctx.globalAlpha = K.contact * (1 - f);
+      bctx.fillStyle = "#000";
+      bctx.beginPath();
+      bctx.ellipse(r.baseX, r.baseY, r.w * 0.42, r.w * 0.42 * Math.sin(K.pitch * RAD), 0, 0, 7);
+      bctx.fill();
+      bctx.restore();
+    }
+
+    if (f > 0.01) {
+      spriteScratch.width = s.w; spriteScratch.height = s.rows;
+      sscx.imageSmoothingEnabled = false;
+      sscx.clearRect(0, 0, s.w, s.rows);
+      sscx.drawImage(sheet, s.x, s.y, s.w, s.rows, 0, 0, s.w, s.rows);
+      sscx.globalAlpha = f;
+      sscx.globalCompositeOperation = "source-atop";
+      sscx.fillStyle = fogRGB;
+      sscx.fillRect(0, 0, s.w, s.rows);
+      sscx.globalAlpha = 1;
+      sscx.globalCompositeOperation = "source-over";
+      bctx.drawImage(spriteScratch, 0, 0, s.w, s.rows, r.x, r.y, r.w, r.h);
+    } else {
+      bctx.drawImage(sheet, s.x, s.y, s.w, s.rows, r.x, r.y, r.w, r.h);
+    }
+  }
+}
+
+function render() {
+  const dw = sizeOverride ? sizeOverride[0] : cv.width;
+  const dh = sizeOverride ? sizeOverride[1] : cv.height;
+  const nw = Math.round(dw * RENDER_SCALE), nh = Math.round(dh * RENDER_SCALE);
+  if (nw !== rw || nh !== rh) {
+    rw = nw; rh = nh; buf.width = rw; buf.height = rh;
+    img = bctx.createImageData(rw, rh);
+  }
+  F = (rh / 2) / Math.tan(K.fov * 0.5 * RAD);
+  CS = Math.cos(K.pitch * RAD); SN = Math.sin(K.pitch * RAD);
+
+  const mode = K.mode;
+  drawGround(mode === "erase" || mode === "stand" ? patched : srcData, mode === "mask");
+  if (mode === "stand") { drawLamps(); drawShadows(); drawStanding(); }
+
+  if (sizeOverride) return;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(buf, 0, 0, rw, rh, 0, 0, dw, dh);
+  updateReadout();
+}
+
+/* ------------------------------------------------------------------ strips */
+const STRIP_SIZE = [480, 270];
+
+function stripLabel(g, text, x, y, colour) {
+  g.fillStyle = colour || "#dfe4ee";
+  g.font = "12px ui-sans-serif, sans-serif";
+  g.fillText(text, x, y);
+}
+
+function contactSheet() {
+  const sc = document.getElementById("sheet");
+  const g = sc.getContext("2d");
+  const labelH = 18;
+  const saved = K.mode;
+  sizeOverride = STRIP_SIZE;
+  render();
+  sc.width = MODES.length * rw;
+  sc.height = rh + labelH;
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = "#0e1016"; g.fillRect(0, 0, sc.width, sc.height);
+  MODES.forEach(function (m, i) {
+    K.mode = m[0]; render();
+    g.drawImage(buf, i * rw, labelH);
+    stripLabel(g, m[1], i * rw + 5, 13);
+  });
+  K.mode = saved;
+  sizeOverride = null;
+  render();
+}
+
+const SWEEP_PITCHES = [35, 50, 65, 80];
+
+/* The pitch sweep. Two rows of the same four pitches: world-vertical on top, whatever the
+   knobs currently say underneath. Re-centres per pitch on the ground point the main view is
+   looking at, so the sweep is about the sprites and not about where the camera drifted. */
+function pitchSweep() {
+  const sc = document.getElementById("sweep");
+  const g = sc.getContext("2d");
+  const labelH = 18;
+  const saved = {
+    mode: K.mode, pitch: K.pitch,
+    faceCam: K.faceCam, followCurve: K.followCurve, pitchGain: K.pitchGain,
+  };
+  const savedZ = camZ;
+  const focusZ = camZ - K.height / Math.tan(K.pitch * RAD);
+  const rows = [
+    ["world-vertical   L 0  M 0  g 0", { faceCam: 0, followCurve: 0, pitchGain: 0 }, "#e8b166"],
+    ["current   L " + K.faceCam.toFixed(2) + "  M " + K.followCurve.toFixed(2) + "  g " + K.pitchGain.toFixed(2),
+      { faceCam: K.faceCam, followCurve: K.followCurve, pitchGain: K.pitchGain }, "#7fd3a8"],
+  ];
+
+  sizeOverride = STRIP_SIZE;
+  K.mode = "stand";
+  render();
+  sc.width = SWEEP_PITCHES.length * rw;
+  sc.height = rows.length * (rh + labelH);
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = "#0e1016"; g.fillRect(0, 0, sc.width, sc.height);
+
+  rows.forEach(function (row, ri) {
+    Object.assign(K, row[1]);
+    const y0 = ri * (rh + labelH);
+    SWEEP_PITCHES.forEach(function (p, ci) {
+      K.pitch = p;
+      camZ = focusZ + K.height / Math.tan(p * RAD);
+      render();
+      g.drawImage(buf, ci * rw, y0 + labelH);
+      stripLabel(g, "pitch " + p + " deg", ci * rw + 5, y0 + 13);
+    });
+    stripLabel(g, row[0], 5, y0 + rh + labelH - 5, row[2]);
+  });
+
+  Object.assign(K, saved);
+  camZ = savedZ;
+  sizeOverride = null;
+  render();
+}
+
+/* The lamp comparison. Pinned to 22:00 regardless of the clock, because the whole question
+   is what these look like with the sun down. */
+function lampStrip() {
+  const sc = document.getElementById("lampstrip");
+  const g = sc.getContext("2d");
+  const labelH = 18;
+  const saved = { mode: K.mode, time: K.time, lampMode: K.lampMode };
+  sizeOverride = STRIP_SIZE;
+  K.mode = "stand";
+  K.time = 22;
+  render();
+  sc.width = LAMP_MODES.length * rw;
+  sc.height = rh + labelH;
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = "#0e1016"; g.fillRect(0, 0, sc.width, sc.height);
+  LAMP_MODES.forEach(function (m, i) {
+    K.lampMode = m[0];
+    render();
+    g.drawImage(buf, i * rw, labelH);
+    stripLabel(g, m[1], i * rw + 5, 13);
+  });
+  Object.assign(K, saved);
+  sizeOverride = null;
+  render();
+}
+
+let stripTimer = 0;
+function scheduleStrips() {
+  clearTimeout(stripTimer);
+  stripTimer = setTimeout(function () { contactSheet(); lampStrip(); pitchSweep(); }, 220);
+}
+
+function updateReadout() {
+  let towers = 0, houses = 0;
+  for (const s of structures) (s.kind === "tower" ? towers++ : houses++);
+  const near = rayT(-rh / 2), far = rayT(rh / 2);
+  const l = [];
+  l.push("map           " + mapW + " x " + mapH + " px = " + (mapW / 8) + " x " + (mapH / 8) + " tiles of 8 px");
+  l.push("structures    " + structures.length + "  (" + houses + " houses, " + towers + " towers)");
+  if (near && far) {
+    l.push("depth         " + (-near.t * near.dirz).toFixed(1) + " to " + (-far.t * far.dirz).toFixed(1) + " units");
+    l.push("near:far      1 : " + ((far.t * far.dirz) / (near.t * near.dirz)).toFixed(2));
+  }
+  l.push("buffer        " + rw + " x " + rh);
+  const sun = sunDir(K.time);
+  const step = shadowStep(sun);
+  l.push("");
+  l.push("clock         " + clockText(K.time) + (sun.up ? "" : "   (sun down -- no cast shadow)"));
+  if (sun.up) {
+    l.push("sun           elevation " + (sun.el / RAD).toFixed(1) + " deg   azimuth " +
+      (sun.az / RAD).toFixed(0) + " deg");
+    l.push("shadow reach  " + step.len.toFixed(2) + " tiles per tile of height" +
+      (step.len >= K.sunReach - 1e-6 ? "   (CLAMPED)" : ""));
+  }
+  const nf = nightFactor(K.time);
+  l.push("lamps         " + (nf * K.lampStrength * 100).toFixed(0) + "%   spill " +
+    K.lightReach.toFixed(1) + " tiles");
+  l.push("");
+  l.push("cos(pitch)    " + Math.cos(K.pitch * RAD).toFixed(3) + "   true squash only at frame centre");
+
+  // The metric that decides everything: does a house still read at its painted proportions,
+  // and does it do so at BOTH ends of the frame?
+  const hs = structures.filter(function (s) { return s.kind === "house"; });
+  const shots = [];
+  for (const s of hs) { const r = spriteRect(s); if (r) shots.push(r); }
+  if (shots.length) {
+    shots.sort(function (a, b) { return a.fwd - b.fwd; });
+    const one = function (r) {
+      return "h/w " + (r.h / r.w).toFixed(3) + "   squash " + r.squash.toFixed(3) +
+        "   gain x" + r.gain.toFixed(2);
+    };
+    const near = shots[0], far = shots[shots.length - 1];
+    l.push("");
+    l.push("house as art  h/w " + (hs[0].rows / hs[0].w).toFixed(3));
+    l.push("  nearest     " + one(near));
+    l.push("  farthest    " + one(far));
+    l.push("  spread      " + (Math.abs(far.h / far.w - near.h / near.w) /
+      (hs[0].rows / hs[0].w) * 100).toFixed(1) + "%  <- 0 means proportions hold in depth");
+  }
+  document.getElementById("readout").textContent = l.join("\n");
+}
+
+/* ---------------------------------------------------------------------- ui */
+const BIND = ["faceCam", "followCurve", "pitchGain", "standScale", "widthScale",
+  "time", "sunHigh", "sunLow", "sunArc", "sunReach", "spread", "shadow", "contact", "tint", "lampStrength", "lightReach", "lampLevels", "ringCore", "ditherBand",
+  "pitch", "fov", "height", "curve", "fogStart", "fogEnd"];
+const DEC = {
+  curve: 4, faceCam: 2, followCurve: 2, pitchGain: 2,
+  standScale: 2, widthScale: 2, shadow: 2, contact: 2, tint: 2,
+  time: 2, sunHigh: 0, sunLow: 0, sunArc: 0, sunReach: 2, spread: 2, lampStrength: 2, lightReach: 1, lampLevels: 0, ringCore: 2, ditherBand: 2,
+  pitch: 1, fov: 1, height: 1,
+};
+
+function valText(k) {
+  if (k === "time") return clockText(K.time);
+  return Number(K[k]).toFixed(DEC[k] === undefined ? 0 : DEC[k]);
+}
+
+for (const el of document.querySelectorAll("input")) el.setAttribute("autocomplete", "off");
+
+function syncUI() {
+  for (const k of BIND) {
+    const e = document.getElementById(k);
+    e.value = K[k];
+    document.getElementById(k + "_v").textContent = valText(k);
+  }
+  for (const b of document.querySelectorAll("#modeButtons button")) {
+    b.classList.toggle("on", b.dataset.mode === K.mode);
+  }
+  for (const b of document.querySelectorAll("#lampButtons button")) {
+    b.classList.toggle("on", b.dataset.lamp === K.lampMode);
+  }
+}
+
+for (const k of BIND) {
+  document.getElementById(k).addEventListener("input", function (e) {
+    K[k] = parseFloat(e.target.value);
+    document.getElementById(k + "_v").textContent = valText(k);
+    render();
+    scheduleStrips();
+  });
+}
+
+(function buildModes() {
+  const host = document.getElementById("modeButtons");
+  for (const m of MODES) {
+    const b = document.createElement("button");
+    b.dataset.mode = m[0];
+    b.innerHTML = m[1] + "<small>" + m[2] + "</small>";
+    b.onclick = function () { K.mode = m[0]; syncUI(); render(); scheduleStrips(); };
+    host.appendChild(b);
+  }
+})();
+
+/* The four lamp shapes. Every one but `glow` is SUBTRACTIVE -- it withholds the night rather
+   than adding light -- so none of them can produce a colour the art does not already contain. */
+const LAMP_MODES = [
+  ["hard", "Hard circle", "Night simply not applied inside the radius."],
+  ["band", "Stepped rings", "Concentric levels. The tile-era light radius."],
+  ["dither", "Dithered rings", "Ordered dither between levels, anchored to map pixels."],
+  ["glow", "Additive glow", "The realistic one, for contrast. Invents colours."],
+  ["off", "No lamps", "Night everywhere."],
+];
+
+(function buildLampModes() {
+  const host = document.getElementById("lampButtons");
+  for (const m of LAMP_MODES) {
+    const b = document.createElement("button");
+    b.dataset.lamp = m[0];
+    b.innerHTML = m[1] + "<small>" + m[2] + "</small>";
+    b.onclick = function () { K.lampMode = m[0]; K.mode = "stand"; syncUI(); render(); scheduleStrips(); };
+    host.appendChild(b);
+  }
+})();
+
+function applyKnobs(l, m, g) {
+  K.faceCam = l; K.followCurve = m; K.pitchGain = g;
+  K.mode = "stand"; syncUI(); render(); scheduleStrips();
+}
+document.getElementById("presetNone").onclick = function () { applyKnobs(0, 0, 0); };
+document.getElementById("presetGain").onclick = function () { applyKnobs(0, 0, 1); };
+document.getElementById("presetFace").onclick = function () { applyKnobs(1, 0, 0); };
+document.getElementById("presetNight").onclick = function () {
+  K.time = 22; K.mode = "stand"; syncUI(); render(); scheduleStrips();
+};
+
+/* Running the day. Wall-clock driven so the speed does not depend on frame rate, and the
+   strips are left alone while it plays -- rebuilding eight extra frames per tick would cost
+   more than the view itself. */
+let playing = false, lastTick = 0;
+const DAY_SECONDS = 24;
+
+function tick(now) {
+  if (!playing) return;
+  if (lastTick === 0) lastTick = now;
+  K.time = (K.time + ((now - lastTick) / 1000) * (24 / DAY_SECONDS)) % 24;
+  lastTick = now;
+  document.getElementById("time").value = K.time;
+  document.getElementById("time_v").textContent = clockText(K.time);
+  render();
+  requestAnimationFrame(tick);
+}
+
+document.getElementById("play").onclick = function () {
+  playing = !playing;
+  lastTick = 0;
+  this.innerHTML = playing
+    ? "Stop<small>Pause the clock where it is</small>"
+    : "Run the day<small>Animate sunrise to sunset</small>";
+  if (playing) requestAnimationFrame(tick); else scheduleStrips();
+};
+
+document.getElementById("reset").onclick = function () {
+  Object.assign(K, DEFAULTS); syncUI(); recentre(); render(); contactSheet(); lampStrip(); pitchSweep();
+};
+
+let dragging = false, lx = 0, ly = 0;
+cv.addEventListener("pointerdown", function (e) {
+  dragging = true; lx = e.clientX; ly = e.clientY;
+  cv.classList.add("drag"); cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener("pointermove", function (e) {
+  if (!dragging) return;
+  const s = cv.clientWidth / cv.width;
+  const d0 = K.height / Math.tan(K.pitch * RAD);
+  const scale = (d0 * 2 * Math.tan(K.fov * 0.5 * RAD)) / (cv.height * s);
+  camX -= (e.clientX - lx) * scale;
+  camZ -= (e.clientY - ly) * scale / Math.max(0.15, Math.sin(K.pitch * RAD));
+  lx = e.clientX; ly = e.clientY;
+  render();
+});
+addEventListener("pointerup", function () {
+  if (!dragging) return;
+  dragging = false; cv.classList.remove("drag"); scheduleStrips();
+});
+
+/* -------------------------------------------------------------------- boot */
+const im = new Image();
+im.onload = function () {
+  const c = document.createElement("canvas");
+  c.width = im.naturalWidth; c.height = im.naturalHeight;
+  const g = c.getContext("2d");
+  g.drawImage(im, 0, 0);
+  mapW = c.width; mapH = c.height;
+  srcData = g.getImageData(0, 0, mapW, mapH).data;
+  findStructures();
+  patchGround();
+  syncUI();
+  recentre();
+  render();
+  contactSheet();
+  lampStrip();
+  pitchSweep();
+};
+im.src = window.EMBEDDED_TEMP2;
+</script>
+</body>
+</html>

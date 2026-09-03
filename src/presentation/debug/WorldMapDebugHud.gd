@@ -39,6 +39,9 @@ const STATUS_ROWS := [
 	["buffer", "Buffer"],
 	["sky", "Sky"],
 	["horizon", "Horizon"],
+	["clock", "Clock"],
+	["sun", "Sun"],
+	["shadow", "Shadow"],
 ]
 
 ## The control declaration. Each row is one framing key; `type` picks the widget and the
@@ -104,6 +107,62 @@ static var SECTIONS := [
 		"rows": [
 			{"key": Uniforms.K_BILLBOARD, "label": "Stand up", "type": ROW_OPTION,
 				"options": Uniforms.BILLBOARD_LABELS, "values": Uniforms.BILLBOARD_IDS},
+		],
+	},
+	{
+		"id": "daylight",
+		"title": "Daylight",
+		"rows": [
+			{"key": Uniforms.K_TIME_OF_DAY, "label": "Time of day", "type": ROW_SLIDER,
+				"min": 0.0, "max": 24.0, "step": 0.05},
+			{"key": Uniforms.K_SUN_HIGH, "label": "Noon height", "type": ROW_SLIDER,
+				"min": 20.0, "max": 85.0, "step": 1.0},
+			# The floor under the GEOMETRIC elevation, not the light. cot(elevation) runs away
+			# at the horizon and a shadow twenty tiles long reads as a scratch on the lens.
+			{"key": Uniforms.K_SUN_LOW, "label": "Lowest sun", "type": ROW_SLIDER,
+				"min": 5.0, "max": 55.0, "step": 1.0},
+			# Half-width of the azimuth sweep about due north. At 90 the sun runs the full
+			# east-to-west semicircle and dawn shadows point straight across the screen.
+			{"key": Uniforms.K_SUN_ARC, "label": "Sun arc", "type": ROW_SLIDER,
+				"min": 0.0, "max": 90.0, "step": 1.0},
+			{"key": Uniforms.K_SUN_REACH, "label": "Max reach", "type": ROW_SLIDER,
+				"min": 0.5, "max": 20.0, "step": 0.25},
+			{"key": Uniforms.K_SHADOW_STRENGTH, "label": "Cast shadow", "type": ROW_SLIDER,
+				"min": 0.0, "max": 1.0, "step": 0.02},
+			{"key": Uniforms.K_SHADOW_SPREAD, "label": "Shadow spread", "type": ROW_SLIDER,
+				"min": 1.0, "max": 4.0, "step": 0.05},
+			{"key": Uniforms.K_SHADOW_COLOR_MODE, "label": "Shadow colour", "type": ROW_OPTION,
+				"options": Uniforms.SHADOW_COLOR_LABELS, "values": Uniforms.SHADOW_COLOR_IDS},
+			{"key": Uniforms.K_SHADOW_EDGE, "label": "Shadow edge", "type": ROW_OPTION,
+				"options": Uniforms.SHADOW_EDGE_LABELS, "values": Uniforms.SHADOW_EDGE_IDS},
+			{"key": Uniforms.K_SHADOW_BAND, "label": "Edge band (px)", "type": ROW_SLIDER,
+				"min": 0.5, "max": 6.0, "step": 0.5},
+			# Discrete sun headings. 0 is continuous, which crawls; too few and it visibly
+			# snaps. Measured, 16 cuts the ticks on which the mask changes from 21/23 to 13/23.
+			{"key": Uniforms.K_SHADOW_STEPS, "label": "Sun headings", "type": ROW_SLIDER,
+				"min": 0.0, "max": 64.0, "step": 1.0},
+			{"key": Uniforms.K_LIGHT_TINT, "label": "Light tint", "type": ROW_SLIDER,
+				"min": 0.0, "max": 1.0, "step": 0.02},
+		],
+	},
+	{
+		"id": "lamps",
+		"title": "Lamps after dark",
+		"rows": [
+			{"key": Uniforms.K_LAMP_MODE, "label": "Shape", "type": ROW_OPTION,
+				"options": Uniforms.LAMP_LABELS, "values": Uniforms.LAMP_IDS},
+			{"key": Uniforms.K_LAMP_STRENGTH, "label": "Strength", "type": ROW_SLIDER,
+				"min": 0.0, "max": 1.0, "step": 0.02},
+			{"key": Uniforms.K_LAMP_REACH, "label": "Spill reach", "type": ROW_SLIDER,
+				"min": 0.0, "max": 6.0, "step": 0.1},
+			{"key": Uniforms.K_LAMP_LEVELS, "label": "Levels", "type": ROW_SLIDER,
+				"min": 1.0, "max": 6.0, "step": 1.0},
+			# Fraction of the RADIUS held at full brightness. Growing it trades width away from
+			# the middle rings, not from the light's reach: the outer boundary does not move.
+			{"key": Uniforms.K_LAMP_CORE, "label": "Core size", "type": ROW_SLIDER,
+				"min": 0.0, "max": 0.85, "step": 0.01},
+			{"key": Uniforms.K_LAMP_DITHER, "label": "Dither band", "type": ROW_SLIDER,
+				"min": 0.05, "max": 1.0, "step": 0.05},
 		],
 	},
 	{

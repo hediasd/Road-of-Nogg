@@ -357,7 +357,8 @@ having depth while lying perfectly flat, and it is the reason flat is the right 
 
 Buildings painted into a region's ground art can be lifted out and stood back up as
 billboarded sprites. `WorldMapProps` does it, `WorldMapDebugHud`'s Structures section
-selects the mode, and the prototype is `debug/worldmap/standing-structures.html`.
+selects the mode, and the sketch is
+`docs/sketches/2026-09-02-worldmap-standing-structures-and-daylight.html`.
 
 This is not a reversal of section 8. That rejected standing up *everything* -- mountains and
 trees included -- and failed because those are organic blobs drawn in oblique view. Buildings
@@ -441,57 +442,173 @@ guesswork disappears because the artist painted what is under the house. Everyth
 extraction -- the billboard maths, the anchoring, the atlas -- is indifferent to where the
 sprite list came from.
 
+### One shader, not Sprite3D
+
+Props are drawn by `worldmap_prop.gdshader` on a quad, not by `Sprite3D`. Sprite3D gives
+billboarding away free, which is what made `face` cheap -- but its material cannot be replaced
+without losing that, so `gain` had to be a CPU pass rescaling every sprite every frame, and
+there was nowhere to put fog at all. Props therefore did not fog while the ground did.
+
+All three modes now live in the vertex stage and the CPU pass is gone. The fog is a
+transcription of the ground shader's, including both of its deliberate departures from the
+obvious -- ground-plane distance rather than view-space depth, and a gamma-space blend. If the
+ground's fog changes, this must change with it.
+
+Two things caught while porting, neither of which announces itself:
+
+- **The camera's basis is in `INV_VIEW_MATRIX`, not `VIEW_MATRIX`.** `VIEW_MATRIX` is the
+  world-to-view transform and its columns are not the camera's axes. Taking `sin(pitch)` from
+  the wrong one still produces a plausible-looking sprite.
+- **Measuring a vertical sprite's width from its bounding box measures the lean, not the
+  proportions.** A world-vertical quad seen from above has its top edge nearer the camera, so
+  the top projects wider than the base and the box width is the top width. Compared against
+  the vertical extent that made a *correct* `gain` sprite look 23% wrong. The width has to come
+  from the projection -- one tile at the prop's base -- or from the foot row.
+
+Measured end to end by `probe_props.gd`, rendering each prop alone and reading its pixels:
+`world` 28-33% off painted proportions, `gain` and `face` both **1.2% worst**, and identical
+to each other at 63/37/37 px. `probe_prop_fog.gd` closes the fog and watches the prop-to-ground
+colour gap halve, 1.236 to 0.598.
+
 ### Known gaps
 
-- **Props are not fogged.** The ground fogs in the shader; the sprites do not, so a distant
-  structure will pop out of the haze. It does not show at Curved Close because structures sit
-  at 13-22 units against a fog start of 21. Fixing it needs a sprite shader.
 - **The art carries a black outline** that was drawn to read on a flat top-down sprite. Stood
   up and magnified it becomes a bold vertical bar down each side of every building. That is an
   art decision, not a rendering one.
 - **The day/night sun and cast shadows exist only in the sketch.** See section 10.
 
-## 10. Daylight, in the sketch only
+## 10. Daylight, cast shadows and lamps
 
-Built in `debug/worldmap/standing-structures.html` and **not yet in the engine**. Recorded
-because the decisions were measured and should not be re-litigated from scratch.
+In the engine. `WorldMapSun` turns a time of day into a direction, a colour and a shear;
+`WorldMapShadowMask` renders the results into a mask in map space; the ground and prop shaders
+read it. The sketch that settled it is
+`docs/sketches/2026-09-02-worldmap-standing-structures-and-daylight.html`.
 
-- A cast shadow is the sprite's **silhouette sheared onto the ground**: the foot edge stays,
-  the top edge lands `h * cot(elevation)` away opposite the sun, giving a parallelogram.
-- The silhouette is **solid**. Transparent pixels inside a structure must not punch holes in
-  its shadow -- a building has a solid door and glazed windows. Background is found by
-  flooding in from the bounding-box edge, four-connected; anything unreached is solid.
-- Shadows use the sprite's **true height, not its billboard height**. The billboard
-  correction is a screen-space trick, and letting it into the lighting swings every shadow by
-  2x when the gain is on.
-- Shadows are accumulated opaque and **composited once**, so two crossing shadows form a
-  union. Ground in shadow twice over is just ground in shadow.
-- **The sun stays on the camera's own side (`+Z`)**, so shadows always fall away from the
-  viewer. Shadows in front cover the ground the player is walking into and read as grime.
-- **The azimuth sweeps a narrow arc, not the full semicircle.** A full 180 degrees puts the
-  sun due east at dawn, and a shadow cast from due east points due *west* -- sideways across
-  the screen with no northward component at all. Held inside +/- 52 degrees of north, the
-  northward reach never goes negative and the lean tops out at 48 degrees instead of 90,
-  while the direction still turns visibly through the day.
-- **The shadow is a trapezoid.** The foot edge keeps the caster's width; the tip is wider.
-  That is the penumbra spreading with distance, and it is also what stops the shadow reading
-  as a dash: lying flat and receding, a shadow is foreshortened far harder than the upright
-  sprite beside it, so one exactly as wide as the house collapses to a line.
-- **The sun keeps two elevations.** One is honest and reaches zero at both ends of the day,
-  driving light colour, lamps and shadow opacity. The other never drops below a floor and is
-  the one shadow *geometry* uses, because `cot(elevation)` runs away at the horizon. Measured
-  against a house 1.00 tile wide: a floor of 27 degrees gives shadows running 0.47 tiles at
-  noon to 1.68 at the day's edges, against 3.50 at a 10 degree floor. Direction carries the
-  reading of what time it is; length only has to stay legible.
-- **Lamps after dark** are an emissive mask plus an additive ground pool. The mask rule
-  fitted to temp2 -- white with a teal neighbour in the same row, plus orange -- is the wrong
-  shape for a pipeline. An emissive mask belongs in the prop layer, painted by whoever
-  painted the prop.
+### Shadows live in map-pixel space
 
-What the day cycle cannot do: **the art has its lighting baked in**. Cast shadows move and
-the overall colour moves, but the shading on the buildings themselves does not.
+The representation is the whole decision. A screen-space shadow quad is what a 3D engine makes
+easy and it **cannot** be made to read as pixel art at any edge treatment: its edge lands at
+arbitrary sub-pixel positions and angles that do not align to the map's grid, and it crawls
+under camera motion.
 
-## 11. Open
+A shadow lies on the ground plane, and **map space is the ground plane**, so the shear is a
+plain 2D affine in map pixels with no 3D projection anywhere. Four properties then fall out
+rather than needing to be built: edges land on exact map pixels; fog, curvature and filtering
+come free because the mask rides the ground's own sample; crossing shadows form a union because
+every shadow writes at full value; and the mask is 44k pixels that only change when the sun
+moves. Shadow and lamp share one texture -- R and G -- because they are the same mechanism seen
+twice.
+
+### The sun keeps two elevations
+
+`lit` reaches zero at both ends of the day and drives light colour, lamps and shadow opacity.
+`elevation` never drops below `sun_low` and is what the shadow GEOMETRY uses, because
+`cot(elevation)` runs away at the horizon. Measured, for a 0.88-tile house:
+
+| `sun_low` | 10 deg | 18 deg | 22 deg | **27 deg** | 32 deg | 40 deg |
+|---|---|---|---|---|---|---|
+| longest shadow | 3.50 | 2.60 | 2.11 | **1.68** | 1.38 | 1.03 tiles |
+
+The azimuth sweeps a narrow arc about due north rather than the full semicircle. A full sweep
+puts the sun due east at dawn, and a shadow cast from due east points due *west* -- sideways
+across the screen with no northward component at all.
+
+### What alignment does not answer
+
+Three questions remain once the mask is pixel-aligned, and they were decided by measurement
+and by looking.
+
+**What colour is a shadowed pixel.** `multiply` darkens arithmetically and puts **10 distinct
+colours on screen for a 7-colour map** -- it invents three. `palette` snaps the darkened result
+to the nearest colour the art actually uses and holds at **7**. Looked at, the difference is
+not subtle: multiply gives a muddy brown-grey smear, while palette turns a shadow on sand into
+the map's own darker orange and it reads as painted terrain. **Palette is the default.** Its
+cost is real and worth knowing: **3 of temp2's 7 colours collapse onto a shared shadowed
+colour**, so where a shadow crosses those terrain boundaries the boundary disappears. The
+palette is read from the region texture at load rather than declared, because the palette *is*
+whatever was painted and a hand-kept list drifts from the PNG silently.
+
+**What happens at the edge.** At map-pixel resolution `hard` is already a pixel edge, which is
+a far stronger position than it was in screen space -- there are no gradients anywhere else in
+this art. `dither` feathers the outer boundary with an ordered pattern anchored to MAP pixels,
+removing about 37% of the shadow's pixels (565 to 355 on temp2). It dithers only near the
+border; applied across the whole shadow it checkerboards the lot and reads as noise.
+
+**How it moves.** The one that decides whether it looks *consistent*, and it has no analogue in
+a still. Walking the sun in four-minute ticks and counting mask pixels that change:
+
+| sun headings | mean pixels changed per tick | ticks that changed at all |
+|---|---|---|
+| continuous | 10.7 | 21/23 |
+| 64 | 22.0 | 17/23 |
+| 32 | 12.1 | 14/23 |
+| **16** | **9.5** | **13/23** |
+
+Quantising the heading trades frequency for size: the mask changes on fewer ticks but jumps
+further when it does. 16 is the default. The residual motion is the shadow's **length**, which
+is deliberately left continuous -- it changes slowly, and quantising it makes shadows visibly
+pop in and out as the sun climbs.
+
+### Lamps are subtractive
+
+A lamp is a circular region where the night is **not applied**, so the ground keeps its daytime
+colours. Nothing in that path can produce a colour the art does not contain. Measured, no
+subtractive shape pushes a single pixel past what full daylight gave it, and none clips.
+
+**There is deliberately no additive mode in the engine.** The sketch keeps one, because seeing
+warm light painted on top is what makes the subtractive choice legible; shipping one here would
+ship the thing this rejected.
+
+Overlapping lamps combine with **max, not sum** -- two lamps light a wider area, not a brighter
+one, and summing is what blows a cluster out to white. The shapes differ measurably: hard 8496,
+band 2702, dither 2708, smooth 2536 lit map px.
+
+**The buildings inside a lit circle are lit too**, from the same field and the same function as
+the ground. Mean building colour at 22:00: **0.382 unlit, 0.550 lit, against 0.523 in full
+daylight**. A building standing in its own pool of light must not be the one dark thing in it.
+
+Ring sizing: `lamp_core` holds a fraction of the radius at full brightness and the remaining
+levels split what is left. The outer boundary does not move, so growing the core trades width
+away from the middle rings rather than from the light's reach -- 8/15/9 px at core 0, 16/10/6
+at 0.35, both spanning 32 px.
+
+### What the day cycle still cannot do
+
+**The art has its lighting baked in.** Cast shadows move and the overall colour moves, but the
+shading on a building's own face does not. Fixing that means per-direction sprites or a normal
+map per prop, and the relief experiment of 2026-09-01 is a reason to be careful about the
+second.
+
+## 11. Validated
+
+Every claim in sections 9 and 10 is checked by a probe in `debug/worldmap/`, and each is
+written so it can fail. Run them together when touching this rig:
+
+| Probe | What it holds | Needs a renderer |
+|---|---|---|
+| `probe_prop_layer.gd` | temp2 finds 9 structures in 2 shapes from region data; temp declares none and finds none | no |
+| `probe_sun.gd` | northward component never negative; geometric elevation never below `sun_low`; the `sun_low` table matches the sketch | no |
+| `probe_shadows.gd` | silhouette solid; feet planted at every hour; mask values only 0 and 1 | no |
+| `probe_props.gd` | `world` 51% off painted proportions, `gain` and `face` 1.2% | yes |
+| `probe_prop_fog.gd` | prop-to-ground colour gap halves as fog closes | yes |
+| `probe_lamps.gd` | no shape exceeds daylight or clips; shapes produce different lit areas; buildings lit by their own lamps | yes |
+| `probe_shadow_look.gd` | palette mode holds 7 colours against multiply's 10; quantised headings change on fewer ticks | yes |
+
+`probe_validation.gd` still passes its original 18 checks, negative control included.
+
+Three of these were rewritten after they passed while measuring nothing, which is the failure
+mode worth guarding against here:
+
+- `probe_props.gd` compared a sprite's height against its **bounding-box** width, which on a
+  world-vertical quad is the *top* width and measures the lean. It reported a correct `gain`
+  sprite as 23% wrong and sent me hunting a shader bug that did not exist.
+- `probe_lamps.gd` first counted pixels brighter than daylight across the whole frame and got
+  777 for every mode alike, including the control. Those were the emissive windows, which are
+  supposed to be brighter. The claim is about the ground, so the props are hidden for it.
+- `probe_shadows.gd` read the mask through `ImageTexture.get_image()`, which does not reliably
+  reflect an in-place `update()`. Coverage came back identical at three different sun angles.
+
+## 12. Open
 
 - The region id `temp` is a placeholder. Naming it is a lore question.
 - Whether the camera eases between a close travelling framing and a pulled-back planning

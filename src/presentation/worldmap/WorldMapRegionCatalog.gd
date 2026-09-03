@@ -46,6 +46,7 @@ static func reloadCatalog(path: String = JSON_PATH) -> bool:
 		# Defaulted rather than required so an older entry still loads.
 		reference["FOG_COLOR"] = Color(str(reference.get("FOG_COLOR", "cfe9f5")))
 		reference["VOID_COLOR"] = Color(str(reference.get("VOID_COLOR", "000000")))
+		reference["STRUCTURES"] = _structureRule(reference.get("STRUCTURES", {}))
 		newList.append(reference)
 		newIndex[nameKey] = reference
 
@@ -78,6 +79,71 @@ static func defaultRegion() -> String:
 		if bool(reference.get("DEFAULT", false)):
 			return str(reference["NAME"])
 	return str(list[0]["NAME"]) if list.size() > 0 else ""
+
+
+## How a region's structures are told apart from its terrain, as data rather than as
+## constants in `WorldMapProps`. A region whose palette gives buildings their own colours can
+## declare them here and be found without a code change; one that omits the block declares
+## that it has no findable structures, which is the honest default for a dithered map where
+## no colour is exclusive to anything.
+##
+## The tolerances are load-bearing and deliberately not equality: the PNG round-trips through
+## import, so a colour comes back near its authored value rather than on it.
+static func _structureRule(raw: Variant) -> Dictionary:
+	var source: Dictionary = raw if raw is Dictionary else {}
+	var keys: Array[Color] = []
+	for entry in source.get("KEY_COLORS", []):
+		keys.append(Color(str(entry)))
+	var doors: Array[Color] = []
+	for entry in source.get("DOOR_COLORS", []):
+		doors.append(Color(str(entry)))
+	var emissive: Array[Color] = []
+	for entry in source.get("EMISSIVE_COLORS", []):
+		emissive.append(Color(str(entry)))
+	var neighbourRaw := str(source.get("EMISSIVE_NEIGHBOUR", ""))
+	var neighbour: Variant = Color(neighbourRaw) if not neighbourRaw.is_empty() else null
+	return {
+		"KEY_COLORS": keys,
+		# Channel distance in 0-255, matching how the colours are written in the JSON.
+		"KEY_TOLERANCE": float(source.get("KEY_TOLERANCE", 45.0)),
+		# Colours that belong to a structure but are shared with the terrain -- temp2's door
+		# orange is a terrain colour, so it cannot be part of the key. Counted as structure
+		# only INSIDE a found bounding box; outside one it is terrain and stays terrain.
+		"DOOR_COLORS": doors,
+		"DOOR_TOLERANCE": float(source.get("DOOR_TOLERANCE", 42.0)),
+		# Below this a component is dithering noise, not a building.
+		"MIN_PIXELS": int(source.get("MIN_PIXELS", 8)),
+		# Taller than this multiple of its width and it is a tower rather than a house.
+		"TOWER_ASPECT": float(source.get("TOWER_ASPECT", 1.2)),
+		# Pixels that light themselves after dark. Declared rather than derived: an emissive
+		# mask is an art property, and the rule that finds temp2's windows -- white with a
+		# dark-teal neighbour in the same row, which is how `TWTWTWTT` reads and which
+		# correctly leaves the white lower wall alone -- is fitted to one map's art and is the
+		# wrong shape for a pipeline. `EMISSIVE_NEIGHBOUR` names that companion colour; a
+		# region that omits it lights only its EMISSIVE_COLORS.
+		"EMISSIVE_COLORS": emissive,
+		"EMISSIVE_TOLERANCE": float(source.get("EMISSIVE_TOLERANCE", 42.0)),
+		"EMISSIVE_NEIGHBOUR": neighbour,
+		# Rows to drop from a tower's foot: temp2 paints a ground shadow there, and standing
+		# it up puts a dark band under the tower.
+		"TOWER_TRIM_ROWS": int(source.get("TOWER_TRIM_ROWS", 0)),
+	}
+
+
+## Empty `KEY_COLORS` means the region has declared no structures. Callers use this rather
+## than probing the dictionary, so "no block" and "an empty block" behave identically.
+static func hasStructureRule(regionID: String) -> bool:
+	if not _index.has(regionID):
+		return false
+	var rule: Dictionary = _index[regionID]["STRUCTURES"]
+	var keys: Array = rule["KEY_COLORS"]
+	return not keys.is_empty()
+
+
+static func structureRuleFor(regionID: String) -> Dictionary:
+	if not _index.has(regionID):
+		return _structureRule({})
+	return _index[regionID]["STRUCTURES"]
 
 
 static func fogColorFor(regionID: String) -> Color:

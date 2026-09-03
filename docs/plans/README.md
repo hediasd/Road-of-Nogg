@@ -60,7 +60,12 @@ is not a rationale.>
 
 **Risk:** <What this could break, and how to notice.>
 
-**Adds to final validation:** <One line the validation item consolidates.>
+**Validation:**
+- Self-contained: <checks this item runs and records itself — data, docs, a
+  load probe of scenes it owns. Omit the line if there are none.>
+- Deferred: <one line needing the game launched in a quiet tree, for the
+  validation item to consolidate. Omit the line if there are none — an item
+  with no deferred check is verified when it commits.>
 ```
 
 **Touches** is the item's exclusive claim while it runs, and it is what makes
@@ -89,8 +94,23 @@ A wave is legal only when every item's dependencies are already committed and
 the items' Touches lists are pairwise disjoint. Authoring this table is where
 conflicts are designed out — it is the plan author's job, not the executor's.
 
-The final validation item is always alone in its own wave, because manual
-validation observes the whole working tree.
+### Naming the validation form
+
+`AGENTS.md`, "Where validation runs", owns the rule. The table has to say which
+of the three forms applies, because it changes how the last wave is dispatched:
+
+```markdown
+| 4 | SKIN-9 | validation, alone, quiet tree |          <- standalone
+| 4 | SKIN-7 + SKIN-9 | one session; validation folded |  <- folded
+| — | validation: inline, no deferred checks |            <- inline
+```
+
+Folding is legal only when the last wave is a single session that already owns
+what the deferred checks look at, and acceptance is pass/fail rather than a
+judgement about how something looks. Two or more sessions in the last wave, or
+a design judgement in the acceptance, forces standalone. An **early validation
+wave** — alone, mid-cycle, right after a boundary item — is allowed and stops
+later waves building on something unverified.
 
 ## Executing
 
@@ -120,4 +140,6 @@ Not every cycle needs waves. A cycle whose items cannot state complete Touches
 lists — because a blocking decision makes a later item's write set unknowable —
 runs one item at a time in one session. Say so in the preamble, in place of the
 wave table, so nobody tries to dispatch it concurrently. It still gets a
-branch, a commit per item, and a final validation item.
+branch and a commit per item, and its validation is folded into the last
+item's session by construction — there is never a second session to isolate it
+from.

@@ -46,6 +46,16 @@ const U_CLOUD_STRENGTH := "cloud_strength"
 const U_CLOUD_SCALE := "cloud_scale"
 const U_CLOUD_SPEED := "cloud_speed"
 const U_SHOW_SKY_BEYOND := "show_sky_beyond"
+## The cast-shadow mask and how hard it bites. In map-pixel space, sampled with the region's
+## own UV -- see `WorldMapShadowMask`.
+const U_SHADOW_MASK := "shadow_mask"
+const U_SHADOW_STRENGTH := "shadow_strength"
+const U_LIGHT_TINT := "light_tint"
+const U_LAMP_LIT := "lamp_lit"
+const U_NIGHT_AMOUNT := "night_amount"
+const U_SHADOW_COLOR_MODE := "shadow_color_mode"
+const U_PALETTE := "palette"
+const U_PALETTE_SIZE := "palette_size"
 
 const REGION_SAMPLERS := [U_REGION_NEAREST, U_REGION_NEAREST_MIP, U_REGION_LINEAR_MIP]
 
@@ -119,6 +129,72 @@ const BILLBOARD_GAIN := "gain"
 const BILLBOARD_FACE := "face"
 
 const BILLBOARD_IDS := [BILLBOARD_OFF, BILLBOARD_WORLD, BILLBOARD_GAIN, BILLBOARD_FACE]
+
+## Daylight. Not shader uniforms on the ground material in themselves -- they drive
+## `WorldMapSun`, which turns them into a direction, a colour and a shadow shear -- but they
+## live in the framing because changing them changes the framing's look, and because that
+## buys command-line parity for free.
+##
+## Defaults are chosen so a framing naming none of them renders exactly as it did before the
+## sun existed: mid-morning light, shadows off, lamps off.
+const K_TIME_OF_DAY := "time_of_day"
+const K_SUN_HIGH := "sun_high"
+const K_SUN_LOW := "sun_low"
+const K_SUN_ARC := "sun_arc"
+const K_SUN_REACH := "sun_reach"
+const K_SHADOW_STRENGTH := "shadow_strength"
+const K_SHADOW_SPREAD := "shadow_spread"
+## How the shadow's edge is drawn, and how its colour is chosen. Both are the questions
+## alignment does not answer: putting the mask in map space buys pixel-aligned edges, and says
+## nothing about what colour a shadowed pixel should be or what happens at the boundary.
+const K_SHADOW_EDGE := "shadow_edge"
+const K_SHADOW_BAND := "shadow_band"
+const K_SHADOW_COLOR_MODE := "shadow_color_mode"
+## Discrete sun directions. A continuously rotating sun drags a hard pixel edge across the map
+## one pixel at a time and the boundary flickers -- the shadow crawls. Quantising the azimuth
+## makes the mask step between stable shapes instead. Zero disables it.
+const K_SHADOW_STEPS := "shadow_steps"
+
+const SHADOW_EDGE_HARD := "hard"
+const SHADOW_EDGE_DITHER := "dither"
+const SHADOW_EDGE_IDS := [SHADOW_EDGE_HARD, SHADOW_EDGE_DITHER]
+const SHADOW_EDGE_LABELS := ["Hard", "Dithered"]
+
+## `multiply` darkens arithmetically and invents colours the palette does not contain -- a
+## darkened sand that is not any of temp2's seven. `palette` snaps the darkened result back to
+## the nearest colour the region's art actually uses, so a shadowed pixel is always a colour
+## somebody painted.
+const SHADOW_COLOR_MULTIPLY := "multiply"
+const SHADOW_COLOR_PALETTE := "palette"
+const SHADOW_COLOR_IDS := [SHADOW_COLOR_MULTIPLY, SHADOW_COLOR_PALETTE]
+const SHADOW_COLOR_LABELS := ["Multiply", "Palette-snapped"]
+const K_LIGHT_TINT := "light_tint"
+const K_LAMP_MODE := "lamp_mode"
+const K_LAMP_STRENGTH := "lamp_strength"
+const K_LAMP_REACH := "lamp_reach"
+const K_LAMP_LEVELS := "lamp_levels"
+const K_LAMP_CORE := "lamp_core"
+const K_LAMP_DITHER := "lamp_dither"
+
+## How a lamp shapes the region where the night is withheld. ALL of these are SUBTRACTIVE --
+## they differ only in how the falloff is shaped, never in the mechanism. A lamp is a region
+## where the night is not applied, so the ground under it keeps its daytime colours and nothing
+## here can produce a colour the region's art does not already contain.
+##
+## THERE IS DELIBERATELY NO ADDITIVE MODE. The sketch keeps one as a comparison, because seeing
+## warm light painted on top is what makes the subtractive choice legible; shipping one here
+## would ship the thing this rejected. `smooth` is the unquantised falloff, which is the
+## closest the engine gets and is still subtractive.
+const LAMP_OFF := "off"
+const LAMP_HARD := "hard"
+const LAMP_BAND := "band"
+const LAMP_DITHER := "dither"
+const LAMP_SMOOTH := "smooth"
+
+const LAMP_IDS := [LAMP_OFF, LAMP_HARD, LAMP_BAND, LAMP_DITHER, LAMP_SMOOTH]
+const LAMP_LABELS := [
+	"Off", "Hard circle", "Stepped rings", "Dithered rings", "Smooth falloff",
+]
 const BILLBOARD_LABELS := [
 	"Off (as painted)", "World-vertical", "Proportion gain", "Face camera",
 ]
@@ -141,6 +217,24 @@ const FRAMING_KEYS := [
 	K_RENDER_SCALE,
 	K_SPRITE_MODE,
 	K_BILLBOARD,
+	K_TIME_OF_DAY,
+	K_SUN_HIGH,
+	K_SUN_LOW,
+	K_SUN_ARC,
+	K_SUN_REACH,
+	K_SHADOW_STRENGTH,
+	K_SHADOW_SPREAD,
+	K_SHADOW_EDGE,
+	K_SHADOW_BAND,
+	K_SHADOW_COLOR_MODE,
+	K_SHADOW_STEPS,
+	K_LIGHT_TINT,
+	K_LAMP_MODE,
+	K_LAMP_STRENGTH,
+	K_LAMP_REACH,
+	K_LAMP_LEVELS,
+	K_LAMP_CORE,
+	K_LAMP_DITHER,
 	K_SKY,
 	K_SKY_OFFSET,
 	K_SKY_SCALE,
@@ -165,6 +259,24 @@ const DEFAULTS := {
 	K_RENDER_SCALE: 0.4,
 	K_SPRITE_MODE: SPRITE_FIXED,
 	K_BILLBOARD: BILLBOARD_OFF,
+	K_TIME_OF_DAY: 9.5,
+	K_SUN_HIGH: 62.0,
+	K_SUN_LOW: 27.0,
+	K_SUN_ARC: 52.0,
+	K_SUN_REACH: 4.0,
+	K_SHADOW_STRENGTH: 0.0,
+	K_SHADOW_SPREAD: 1.7,
+	K_SHADOW_EDGE: SHADOW_EDGE_HARD,
+	K_SHADOW_BAND: 1.5,
+	K_SHADOW_COLOR_MODE: SHADOW_COLOR_PALETTE,
+	K_SHADOW_STEPS: 16.0,
+	K_LIGHT_TINT: 0.0,
+	K_LAMP_MODE: LAMP_OFF,
+	K_LAMP_STRENGTH: 1.0,
+	K_LAMP_REACH: 2.6,
+	K_LAMP_LEVELS: 3.0,
+	K_LAMP_CORE: 0.35,
+	K_LAMP_DITHER: 0.5,
 	K_SKY: SKY_OFF,
 	K_SKY_OFFSET: 0.0,
 	K_SKY_SCALE: 1.0,
