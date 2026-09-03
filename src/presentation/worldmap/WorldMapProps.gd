@@ -43,11 +43,15 @@ const SHADER_MODE := {
 }
 
 var _structures: Array = []
+## Solid, hole-filled outlines of each structure, for the shadows they cast.
+var _silhouette: Image
+var _shadows := WorldMapShadowMask.new()
 ## The region's own answer to "what is a building here", from `regions.json`. Empty means the
 ## region declares none, which is the honest state for a map whose palette is not disjoint.
 var _rule: Dictionary = {}
 var _spriteSheet: ImageTexture
 var _tilePixels := Uniforms.DEFAULT_TILE_PIXELS
+var _mapSize := Vector2i.ZERO
 var _mode := Uniforms.BILLBOARD_OFF
 
 
@@ -76,12 +80,15 @@ func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 		image.decompress()
 	image.convert(Image.FORMAT_RGBA8)
 
+	_mapSize = Vector2i(image.get_width(), image.get_height())
 	_structures = _findStructures(image)
 	if _structures.is_empty():
 		return {"ground": source, "count": 0, "houses": 0, "towers": 0}
 
 	var ground := _patchGround(image)
-	_spriteSheet = ImageTexture.create_from_image(_buildSpriteSheet(image))
+	var sheet := _buildSpriteSheet(image)
+	_spriteSheet = ImageTexture.create_from_image(sheet)
+	_silhouette = _buildSilhouette(sheet)
 	_buildSprites()
 
 	var towers := 0
@@ -109,6 +116,7 @@ func applyFraming(framing: Dictionary) -> void:
 	if not SHADER_MODE.has(mode):
 		return
 	var sun := WorldMapSun.at(f)
+	_rebuildShadows(f, sun)
 	var tint: Color = sun["tint"]
 	var strength: float = f[Uniforms.K_LIGHT_TINT]
 	# light_tint blends out to neutral so the day cycle can be taken back out without
@@ -135,6 +143,30 @@ func applyFraming(framing: Dictionary) -> void:
 		)
 
 
+## The cast-shadow mask, in map-pixel space, or null when nothing casts one.
+func shadowTexture() -> ImageTexture:
+	return _shadows.texture()
+
+
+## The shadow mask as an Image, for probes. See `WorldMapShadowMask.image()`.
+func shadowImage() -> Image:
+	return _shadows.image()
+
+
+## Read-only views for probes. The shadow decisions live in map-pixel space, so measuring them
+## means reading these rather than a render.
+func silhouetteImage() -> Image:
+	return _silhouette
+
+
+func spriteSheetImage() -> Image:
+	return _spriteSheet.get_image() if _spriteSheet != null else null
+
+
+func structureAt(index: int) -> Dictionary:
+	return _structures[index] if index >= 0 and index < _structures.size() else {}
+
+
 func structureCount() -> int:
 	return _structures.size()
 
@@ -146,6 +178,24 @@ func artAspect(index: int) -> float:
 		return 0.0
 	var s: Dictionary = _structures[index]
 	return float(s["rows"]) / float(s["w"])
+
+
+## Redraws the cast-shadow mask and hands it to the ground, which is where a shadow lands.
+##
+## Pushed to the sibling Ground rather than routed through whoever owns the scene: the shadow
+## belongs to the props that cast it, the ground is only the surface it falls on, and a caller
+## in between would have to know about both for no reason.
+func _rebuildShadows(framing: Dictionary, sun: Dictionary) -> void:
+	var strength: float = framing[Uniforms.K_SHADOW_STRENGTH]
+	var step: Vector2 = sun["shadow_step"] if bool(sun["up"]) else Vector2.ZERO
+	if strength <= 0.0:
+		step = Vector2.ZERO
+	_shadows.rebuild(
+		_structures, _silhouette, _mapSize, step, float(framing[Uniforms.K_SHADOW_SPREAD])
+	)
+	var ground := get_parent().get_node_or_null("Ground") as WorldMapGround if get_parent() != null else null
+	if ground != null:
+		ground.setShadowMask(_shadows.texture(), strength)
 
 
 func _clearSprites() -> void:
@@ -311,6 +361,64 @@ func _buildSpriteSheet(image: Image) -> Image:
 					continue
 				out.set_pixel(x, y, c)
 	return out
+
+
+## A SOLID outline per structure, for its shadow. Deliberately not the sprite's alpha:
+## transparent pixels INSIDE a structure -- the tower's open belfry, the gap beside a doorway --
+## must not punch holes in its shadow, because a building has a solid door and glazed windows
+## and light does not pour through the middle of it. Taking the alpha directly gave the tower a
+## shadow with a hole through it.
+##
+## Background is found by flooding IN FROM THE BOUNDING BOX EDGE, four-connected; anything the
+## flood cannot reach is solid whatever colour it was. Four-connected rather than eight on
+## purpose: it is the conservative direction, and filling a pixel that should have been open
+## costs less here than leaking through a diagonal gap and hollowing the shadow out.
+func _buildSilhouette(sheet: Image) -> Image:
+	var w := sheet.get_width()
+	var h := sheet.get_height()
+	var out := Image.create_empty(w, h, false, Image.FORMAT_R8)
+	out.fill(Color(0.0, 0.0, 0.0, 1.0))
+	for s in _structures:
+		var sx: int = s["x"]
+		var sy: int = s["y"]
+		var bw: int = s["w"]
+		var bh: int = s["rows"]
+		var outside := PackedByteArray()
+		outside.resize(bw * bh)
+		var queue := PackedInt32Array()
+		for lx in bw:
+			for ly in [0, bh - 1]:
+				_seedFlood(sheet, outside, queue, sx, sy, bw, bh, lx, ly)
+		for ly in bh:
+			for lx in [0, bw - 1]:
+				_seedFlood(sheet, outside, queue, sx, sy, bw, bh, lx, ly)
+		while not queue.is_empty():
+			var q: int = queue[queue.size() - 1]
+			queue.remove_at(queue.size() - 1)
+			var qx := q % bw
+			var qy := q / bw
+			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+				_seedFlood(sheet, outside, queue, sx, sy, bw, bh, qx + d.x, qy + d.y)
+		for ly in bh:
+			for lx in bw:
+				if outside[ly * bw + lx] == 0:
+					out.set_pixel(sx + lx, sy + ly, Color(1.0, 0.0, 0.0, 1.0))
+	return out
+
+
+func _seedFlood(
+	sheet: Image, outside: PackedByteArray, queue: PackedInt32Array,
+	sx: int, sy: int, bw: int, bh: int, lx: int, ly: int
+) -> void:
+	if lx < 0 or ly < 0 or lx >= bw or ly >= bh:
+		return
+	var index := ly * bw + lx
+	if outside[index] == 1:
+		return
+	if sheet.get_pixel(sx + lx, sy + ly).a >= 0.5:
+		return
+	outside[index] = 1
+	queue.push_back(index)
 
 
 # --- sprites -------------------------------------------------------------------------

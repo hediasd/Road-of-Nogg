@@ -57,6 +57,17 @@ func configure(tiles: Vector2i, texture: Texture2D, framing: Dictionary,
 	Uniforms.applyToMaterial(_material, complete, region_origin, region_size)
 
 
+## Receives the cast-shadow mask from `WorldMapProps`. The mask is in MAP-PIXEL space and is
+## sampled with the region's own UV and its own nearest filter, which is the whole reason
+## shadows land on the terrain's pixel grid rather than at arbitrary screen positions. It also
+## means fog, curvature and filtering apply to a shadow for free -- it rides the ground's
+## sample because it IS the ground.
+func setShadowMask(mask: Texture2D, strength: float) -> void:
+	_ensureMaterial()
+	_material.set_shader_parameter(Uniforms.U_SHADOW_MASK, mask)
+	_material.set_shader_parameter(Uniforms.U_SHADOW_STRENGTH, strength if mask != null else 0.0)
+
+
 ## Re-applies framing without touching the mesh or the texture. This is the call the debug
 ## scene makes on every control change, so it must stay allocation-free.
 func applyFraming(framing: Dictionary) -> void:

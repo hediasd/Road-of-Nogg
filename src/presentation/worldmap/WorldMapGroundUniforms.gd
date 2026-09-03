@@ -46,6 +46,10 @@ const U_CLOUD_STRENGTH := "cloud_strength"
 const U_CLOUD_SCALE := "cloud_scale"
 const U_CLOUD_SPEED := "cloud_speed"
 const U_SHOW_SKY_BEYOND := "show_sky_beyond"
+## The cast-shadow mask and how hard it bites. In map-pixel space, sampled with the region's
+## own UV -- see `WorldMapShadowMask`.
+const U_SHADOW_MASK := "shadow_mask"
+const U_SHADOW_STRENGTH := "shadow_strength"
 
 const REGION_SAMPLERS := [U_REGION_NEAREST, U_REGION_NEAREST_MIP, U_REGION_LINEAR_MIP]
 

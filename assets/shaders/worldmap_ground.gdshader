@@ -46,6 +46,16 @@ uniform vec4 void_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
 // front of the sky and hides all but the strip above the plane's own edge.
 uniform bool show_sky_beyond = false;
 
+// Cast shadows, as a mask in MAP-PIXEL space sampled with the region's own UV and its own
+// nearest filter. That is the whole reason shadows land on the terrain's pixel grid instead of
+// at arbitrary sub-pixel screen positions, and why they do not crawl when the camera pans -- a
+// screen-space shadow quad cannot be made to read as pixel art at any edge treatment.
+//
+// It also means a shadow is fogged, curved and filtered for free: it rides the same sample the
+// ground does, because it IS the ground.
+uniform sampler2D shadow_mask : hint_default_black, filter_nearest, repeat_disable;
+uniform float shadow_strength : hint_range(0.0, 1.0) = 0.0;
+
 // Ground curvature: y = -k * d^2 in view space, so the world falls away with distance.
 // Zero is flat and is the reference. Non-zero pulls the horizon nearer.
 uniform float curvature_k : hint_range(0.0, 0.02) = 0.0;
@@ -131,6 +141,12 @@ void fragment() {
 		albedo = texture(region_linear_mip, uv).rgb;
 	} else {
 		albedo = texture(region_nearest_mip, uv).rgb;
+	}
+
+	// Before the clouds and well before the fog: a shadow is something lying ON the ground, so
+	// it must be dimmed by distance along with the ground rather than painted over the haze.
+	if (shadow_strength > 0.0 && !off_map) {
+		albedo *= 1.0 - shadow_strength * texture(shadow_mask, uv).r;
 	}
 
 	if (cloud_strength > 0.0) {
