@@ -47,6 +47,7 @@
 ##   --sky_offset= --sky_scale= --sky_tint= --billboard=
 ##   --time_of_day= --sun_high= --sun_low= --sun_arc= --sun_reach=
 ##   --shadow_strength= --shadow_spread= --light_tint=
+##   --shadow_edge= --shadow_band= --shadow_color_mode= --shadow_steps=
 ##   --lamp_mode= --lamp_strength= --lamp_reach= --lamp_levels= --lamp_core= --lamp_dither=
 ##   --run-clock         start with the day running
 ##   --fog_curve= --fog_color= --void_color= --curvature= --cloud_strength=
@@ -132,6 +133,14 @@ func _ready() -> void:
 	if not Uniforms.BILLBOARD_IDS.has(billboardID):
 		push_warning("WorldMapDebugController: unknown billboard mode '%s'" % billboardID)
 		_framing[Uniforms.K_BILLBOARD] = Uniforms.BILLBOARD_OFF
+	for pair in [
+		[Uniforms.K_SHADOW_EDGE, Uniforms.SHADOW_EDGE_IDS, Uniforms.SHADOW_EDGE_HARD],
+		[Uniforms.K_SHADOW_COLOR_MODE, Uniforms.SHADOW_COLOR_IDS, Uniforms.SHADOW_COLOR_PALETTE],
+	]:
+		var value := str(_framing[pair[0]])
+		if not (pair[1] as Array).has(value):
+			push_warning("WorldMapDebugController: unknown %s '%s'" % [pair[0], value])
+			_framing[pair[0]] = pair[2]
 	var lampID := str(_framing[Uniforms.K_LAMP_MODE])
 	if not Uniforms.LAMP_IDS.has(lampID):
 		push_warning("WorldMapDebugController: unknown lamp mode '%s'" % lampID)

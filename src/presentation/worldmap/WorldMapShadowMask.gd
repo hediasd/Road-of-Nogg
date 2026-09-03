@@ -80,7 +80,7 @@ func mapSize() -> Vector2i:
 ## sprite beside it.
 func rebuild(
 	structures: Array, silhouette: Image, mapSize: Vector2i, step: Vector2, spread: float,
-	lamp: Dictionary
+	lamp: Dictionary, edge: Dictionary
 ) -> void:
 	_ensure(mapSize)
 	if _image == null:
@@ -91,7 +91,7 @@ func rebuild(
 	if not structures.is_empty() and silhouette != null and step.length() > 0.0001:
 		_silhouetteBits = _packSilhouette(silhouette)
 		for s in structures:
-			_drawOne(s, step, spread)
+			_drawOne(s, _quantise(step, int(edge.get("steps", 0))), spread, edge)
 	_writeLamps(lamp)
 
 	_image.set_data(_size.x, _size.y, false, Image.FORMAT_RGBA8, _buffer)
@@ -235,7 +235,21 @@ func _ensure(mapSize: Vector2i) -> void:
 	_lampDirty = true
 
 
-func _drawOne(s: Dictionary, step: Vector2, spread: float) -> void:
+## Snaps the sun's direction to one of `steps` headings, keeping its length. A continuously
+## rotating sun drags a hard pixel edge across the map one pixel at a time and the boundary
+## flickers as it goes -- the shadow crawls, which is invisible in a still and the first thing
+## the eye catches in motion. Stepping the heading makes the mask jump between stable shapes.
+## The LENGTH is deliberately left continuous: it changes slowly and quantising it would make
+## shadows visibly pop in and out as the sun climbs.
+func _quantise(step: Vector2, steps: int) -> Vector2:
+	if steps <= 0 or step.length() < 0.0001:
+		return step
+	var angle := step.angle()
+	var quantum := TAU / float(steps)
+	return Vector2.RIGHT.rotated(roundf(angle / quantum) * quantum) * step.length()
+
+
+func _drawOne(s: Dictionary, step: Vector2, spread: float, edge: Dictionary) -> void:
 	var sx: int = s["x"]
 	var sy: int = s["y"]
 	var sw: int = s["w"]
@@ -251,6 +265,12 @@ func _drawOne(s: Dictionary, step: Vector2, spread: float) -> void:
 	var offY := step.y * float(rows)
 	if absf(offY) < 0.0001:
 		return
+
+	var dithered: bool = str(edge.get("edge", "hard")) == "dither"
+	# Band width as a FRACTION of the shadow, so a small shadow does not end up entirely
+	# dither. Expressed in map pixels by the caller and normalised here against the shadow's
+	# own extent, which is what keeps it looking the same on a house and on a tower.
+	var bandWidth := clampf(float(edge.get("band", 1.5)) / maxf(1.0, float(rows)), 0.02, 0.9)
 
 	# The foot edge is the sprite's bottom row, where it meets the ground.
 	var footY := float(sy + rows)
@@ -280,6 +300,18 @@ func _drawOne(s: Dictionary, step: Vector2, spread: float) -> void:
 			srcX = clampi(srcX, sx, sx + sw - 1)
 			if _silhouetteBits[srcY * _size.x + srcX] == 0:
 				continue
+			# The EDGE. At map-pixel resolution "hard" is already a pixel edge, which is a much
+			# stronger position than it was in screen space -- there are no gradients anywhere
+			# else in this art. `dither` feathers the outer boundary instead, with an ordered
+			# pattern anchored to MAP pixels so it belongs to the terrain and cannot swim as the
+			# camera pans. It dithers only near the border: applied across the whole shadow it
+			# would checkerboard the entire thing and read as noise.
+			if dithered:
+				var edgeness := minf(minf(u, 1.0 - u), 1.0 - v) / bandWidth
+				if edgeness < 1.0:
+					var threshold := (float(BAYER4[(my & 3) * 4 + (mx & 3)]) + 0.5) / 16.0
+					if edgeness < threshold:
+						continue
 			# Written at full value, never accumulated: that is what makes crossing shadows a
 			# union rather than a darker patch.
 			_buffer[(my * _size.x + mx) * 4] = 255

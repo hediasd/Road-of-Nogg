@@ -53,6 +53,9 @@ const U_SHADOW_STRENGTH := "shadow_strength"
 const U_LIGHT_TINT := "light_tint"
 const U_LAMP_LIT := "lamp_lit"
 const U_NIGHT_AMOUNT := "night_amount"
+const U_SHADOW_COLOR_MODE := "shadow_color_mode"
+const U_PALETTE := "palette"
+const U_PALETTE_SIZE := "palette_size"
 
 const REGION_SAMPLERS := [U_REGION_NEAREST, U_REGION_NEAREST_MIP, U_REGION_LINEAR_MIP]
 
@@ -141,6 +144,30 @@ const K_SUN_ARC := "sun_arc"
 const K_SUN_REACH := "sun_reach"
 const K_SHADOW_STRENGTH := "shadow_strength"
 const K_SHADOW_SPREAD := "shadow_spread"
+## How the shadow's edge is drawn, and how its colour is chosen. Both are the questions
+## alignment does not answer: putting the mask in map space buys pixel-aligned edges, and says
+## nothing about what colour a shadowed pixel should be or what happens at the boundary.
+const K_SHADOW_EDGE := "shadow_edge"
+const K_SHADOW_BAND := "shadow_band"
+const K_SHADOW_COLOR_MODE := "shadow_color_mode"
+## Discrete sun directions. A continuously rotating sun drags a hard pixel edge across the map
+## one pixel at a time and the boundary flickers -- the shadow crawls. Quantising the azimuth
+## makes the mask step between stable shapes instead. Zero disables it.
+const K_SHADOW_STEPS := "shadow_steps"
+
+const SHADOW_EDGE_HARD := "hard"
+const SHADOW_EDGE_DITHER := "dither"
+const SHADOW_EDGE_IDS := [SHADOW_EDGE_HARD, SHADOW_EDGE_DITHER]
+const SHADOW_EDGE_LABELS := ["Hard", "Dithered"]
+
+## `multiply` darkens arithmetically and invents colours the palette does not contain -- a
+## darkened sand that is not any of temp2's seven. `palette` snaps the darkened result back to
+## the nearest colour the region's art actually uses, so a shadowed pixel is always a colour
+## somebody painted.
+const SHADOW_COLOR_MULTIPLY := "multiply"
+const SHADOW_COLOR_PALETTE := "palette"
+const SHADOW_COLOR_IDS := [SHADOW_COLOR_MULTIPLY, SHADOW_COLOR_PALETTE]
+const SHADOW_COLOR_LABELS := ["Multiply", "Palette-snapped"]
 const K_LIGHT_TINT := "light_tint"
 const K_LAMP_MODE := "lamp_mode"
 const K_LAMP_STRENGTH := "lamp_strength"
@@ -197,6 +224,10 @@ const FRAMING_KEYS := [
 	K_SUN_REACH,
 	K_SHADOW_STRENGTH,
 	K_SHADOW_SPREAD,
+	K_SHADOW_EDGE,
+	K_SHADOW_BAND,
+	K_SHADOW_COLOR_MODE,
+	K_SHADOW_STEPS,
 	K_LIGHT_TINT,
 	K_LAMP_MODE,
 	K_LAMP_STRENGTH,
@@ -235,6 +266,10 @@ const DEFAULTS := {
 	K_SUN_REACH: 4.0,
 	K_SHADOW_STRENGTH: 0.0,
 	K_SHADOW_SPREAD: 1.7,
+	K_SHADOW_EDGE: SHADOW_EDGE_HARD,
+	K_SHADOW_BAND: 1.5,
+	K_SHADOW_COLOR_MODE: SHADOW_COLOR_PALETTE,
+	K_SHADOW_STEPS: 16.0,
 	K_LIGHT_TINT: 0.0,
 	K_LAMP_MODE: LAMP_OFF,
 	K_LAMP_STRENGTH: 1.0,

@@ -72,6 +72,19 @@ func setLighting(mask: Texture2D, shadowStrength: float, light: Vector3, night: 
 	_material.set_shader_parameter(Uniforms.U_NIGHT_AMOUNT, night if mask != null else 0.0)
 
 
+## How a shadowed pixel gets its colour. `multiply` darkens arithmetically and invents colours
+## the palette does not contain; `palette` snaps the darkened result back to the nearest colour
+## the art actually uses, so a shadowed pixel is always one somebody painted.
+func setShadowPalette(mode: String, palette: PackedColorArray) -> void:
+	_ensureMaterial()
+	_material.set_shader_parameter(
+		Uniforms.U_SHADOW_COLOR_MODE, 1 if mode == Uniforms.SHADOW_COLOR_PALETTE else 0
+	)
+	_material.set_shader_parameter(Uniforms.U_PALETTE_SIZE, palette.size())
+	if palette.size() > 0:
+		_material.set_shader_parameter(Uniforms.U_PALETTE, palette)
+
+
 ## Re-applies framing without touching the mesh or the texture. This is the call the debug
 ## scene makes on every control change, so it must stay allocation-free.
 func applyFraming(framing: Dictionary) -> void:

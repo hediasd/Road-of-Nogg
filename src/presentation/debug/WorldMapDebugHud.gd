@@ -131,6 +131,16 @@ static var SECTIONS := [
 				"min": 0.0, "max": 1.0, "step": 0.02},
 			{"key": Uniforms.K_SHADOW_SPREAD, "label": "Shadow spread", "type": ROW_SLIDER,
 				"min": 1.0, "max": 4.0, "step": 0.05},
+			{"key": Uniforms.K_SHADOW_COLOR_MODE, "label": "Shadow colour", "type": ROW_OPTION,
+				"options": Uniforms.SHADOW_COLOR_LABELS, "values": Uniforms.SHADOW_COLOR_IDS},
+			{"key": Uniforms.K_SHADOW_EDGE, "label": "Shadow edge", "type": ROW_OPTION,
+				"options": Uniforms.SHADOW_EDGE_LABELS, "values": Uniforms.SHADOW_EDGE_IDS},
+			{"key": Uniforms.K_SHADOW_BAND, "label": "Edge band (px)", "type": ROW_SLIDER,
+				"min": 0.5, "max": 6.0, "step": 0.5},
+			# Discrete sun headings. 0 is continuous, which crawls; too few and it visibly
+			# snaps. Measured, 16 cuts the ticks on which the mask changes from 21/23 to 13/23.
+			{"key": Uniforms.K_SHADOW_STEPS, "label": "Sun headings", "type": ROW_SLIDER,
+				"min": 0.0, "max": 64.0, "step": 1.0},
 			{"key": Uniforms.K_LIGHT_TINT, "label": "Light tint", "type": ROW_SLIDER,
 				"min": 0.0, "max": 1.0, "step": 0.02},
 		],

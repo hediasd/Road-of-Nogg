@@ -476,45 +476,106 @@ colour gap halve, 1.236 to 0.598.
   art decision, not a rendering one.
 - **The day/night sun and cast shadows exist only in the sketch.** See section 10.
 
-## 10. Daylight, in the sketch only
+## 10. Daylight, cast shadows and lamps
 
-Built in `debug/worldmap/standing-structures.html` and **not yet in the engine**. Recorded
-because the decisions were measured and should not be re-litigated from scratch.
+In the engine. `WorldMapSun` turns a time of day into a direction, a colour and a shear;
+`WorldMapShadowMask` renders the results into a mask in map space; the ground and prop shaders
+read it. Prototyped in `debug/worldmap/standing-structures.html`.
 
-- A cast shadow is the sprite's **silhouette sheared onto the ground**: the foot edge stays,
-  the top edge lands `h * cot(elevation)` away opposite the sun, giving a parallelogram.
-- The silhouette is **solid**. Transparent pixels inside a structure must not punch holes in
-  its shadow -- a building has a solid door and glazed windows. Background is found by
-  flooding in from the bounding-box edge, four-connected; anything unreached is solid.
-- Shadows use the sprite's **true height, not its billboard height**. The billboard
-  correction is a screen-space trick, and letting it into the lighting swings every shadow by
-  2x when the gain is on.
-- Shadows are accumulated opaque and **composited once**, so two crossing shadows form a
-  union. Ground in shadow twice over is just ground in shadow.
-- **The sun stays on the camera's own side (`+Z`)**, so shadows always fall away from the
-  viewer. Shadows in front cover the ground the player is walking into and read as grime.
-- **The azimuth sweeps a narrow arc, not the full semicircle.** A full 180 degrees puts the
-  sun due east at dawn, and a shadow cast from due east points due *west* -- sideways across
-  the screen with no northward component at all. Held inside +/- 52 degrees of north, the
-  northward reach never goes negative and the lean tops out at 48 degrees instead of 90,
-  while the direction still turns visibly through the day.
-- **The shadow is a trapezoid.** The foot edge keeps the caster's width; the tip is wider.
-  That is the penumbra spreading with distance, and it is also what stops the shadow reading
-  as a dash: lying flat and receding, a shadow is foreshortened far harder than the upright
-  sprite beside it, so one exactly as wide as the house collapses to a line.
-- **The sun keeps two elevations.** One is honest and reaches zero at both ends of the day,
-  driving light colour, lamps and shadow opacity. The other never drops below a floor and is
-  the one shadow *geometry* uses, because `cot(elevation)` runs away at the horizon. Measured
-  against a house 1.00 tile wide: a floor of 27 degrees gives shadows running 0.47 tiles at
-  noon to 1.68 at the day's edges, against 3.50 at a 10 degree floor. Direction carries the
-  reading of what time it is; length only has to stay legible.
-- **Lamps after dark** are an emissive mask plus an additive ground pool. The mask rule
-  fitted to temp2 -- white with a teal neighbour in the same row, plus orange -- is the wrong
-  shape for a pipeline. An emissive mask belongs in the prop layer, painted by whoever
-  painted the prop.
+### Shadows live in map-pixel space
 
-What the day cycle cannot do: **the art has its lighting baked in**. Cast shadows move and
-the overall colour moves, but the shading on the buildings themselves does not.
+The representation is the whole decision. A screen-space shadow quad is what a 3D engine makes
+easy and it **cannot** be made to read as pixel art at any edge treatment: its edge lands at
+arbitrary sub-pixel positions and angles that do not align to the map's grid, and it crawls
+under camera motion.
+
+A shadow lies on the ground plane, and **map space is the ground plane**, so the shear is a
+plain 2D affine in map pixels with no 3D projection anywhere. Four properties then fall out
+rather than needing to be built: edges land on exact map pixels; fog, curvature and filtering
+come free because the mask rides the ground's own sample; crossing shadows form a union because
+every shadow writes at full value; and the mask is 44k pixels that only change when the sun
+moves. Shadow and lamp share one texture -- R and G -- because they are the same mechanism seen
+twice.
+
+### The sun keeps two elevations
+
+`lit` reaches zero at both ends of the day and drives light colour, lamps and shadow opacity.
+`elevation` never drops below `sun_low` and is what the shadow GEOMETRY uses, because
+`cot(elevation)` runs away at the horizon. Measured, for a 0.88-tile house:
+
+| `sun_low` | 10 deg | 18 deg | 22 deg | **27 deg** | 32 deg | 40 deg |
+|---|---|---|---|---|---|---|
+| longest shadow | 3.50 | 2.60 | 2.11 | **1.68** | 1.38 | 1.03 tiles |
+
+The azimuth sweeps a narrow arc about due north rather than the full semicircle. A full sweep
+puts the sun due east at dawn, and a shadow cast from due east points due *west* -- sideways
+across the screen with no northward component at all.
+
+### What alignment does not answer
+
+Three questions remain once the mask is pixel-aligned, and they were decided by measurement
+and by looking.
+
+**What colour is a shadowed pixel.** `multiply` darkens arithmetically and puts **10 distinct
+colours on screen for a 7-colour map** -- it invents three. `palette` snaps the darkened result
+to the nearest colour the art actually uses and holds at **7**. Looked at, the difference is
+not subtle: multiply gives a muddy brown-grey smear, while palette turns a shadow on sand into
+the map's own darker orange and it reads as painted terrain. **Palette is the default.** Its
+cost is real and worth knowing: **3 of temp2's 7 colours collapse onto a shared shadowed
+colour**, so where a shadow crosses those terrain boundaries the boundary disappears. The
+palette is read from the region texture at load rather than declared, because the palette *is*
+whatever was painted and a hand-kept list drifts from the PNG silently.
+
+**What happens at the edge.** At map-pixel resolution `hard` is already a pixel edge, which is
+a far stronger position than it was in screen space -- there are no gradients anywhere else in
+this art. `dither` feathers the outer boundary with an ordered pattern anchored to MAP pixels,
+removing about 37% of the shadow's pixels (565 to 355 on temp2). It dithers only near the
+border; applied across the whole shadow it checkerboards the lot and reads as noise.
+
+**How it moves.** The one that decides whether it looks *consistent*, and it has no analogue in
+a still. Walking the sun in four-minute ticks and counting mask pixels that change:
+
+| sun headings | mean pixels changed per tick | ticks that changed at all |
+|---|---|---|
+| continuous | 10.7 | 21/23 |
+| 64 | 22.0 | 17/23 |
+| 32 | 12.1 | 14/23 |
+| **16** | **9.5** | **13/23** |
+
+Quantising the heading trades frequency for size: the mask changes on fewer ticks but jumps
+further when it does. 16 is the default. The residual motion is the shadow's **length**, which
+is deliberately left continuous -- it changes slowly, and quantising it makes shadows visibly
+pop in and out as the sun climbs.
+
+### Lamps are subtractive
+
+A lamp is a circular region where the night is **not applied**, so the ground keeps its daytime
+colours. Nothing in that path can produce a colour the art does not contain. Measured, no
+subtractive shape pushes a single pixel past what full daylight gave it, and none clips.
+
+**There is deliberately no additive mode in the engine.** The sketch keeps one, because seeing
+warm light painted on top is what makes the subtractive choice legible; shipping one here would
+ship the thing this rejected.
+
+Overlapping lamps combine with **max, not sum** -- two lamps light a wider area, not a brighter
+one, and summing is what blows a cluster out to white. The shapes differ measurably: hard 8496,
+band 2702, dither 2708, smooth 2536 lit map px.
+
+**The buildings inside a lit circle are lit too**, from the same field and the same function as
+the ground. Mean building colour at 22:00: **0.382 unlit, 0.550 lit, against 0.523 in full
+daylight**. A building standing in its own pool of light must not be the one dark thing in it.
+
+Ring sizing: `lamp_core` holds a fraction of the radius at full brightness and the remaining
+levels split what is left. The outer boundary does not move, so growing the core trades width
+away from the middle rings rather than from the light's reach -- 8/15/9 px at core 0, 16/10/6
+at 0.35, both spanning 32 px.
+
+### What the day cycle still cannot do
+
+**The art has its lighting baked in.** Cast shadows move and the overall colour moves, but the
+shading on a building's own face does not. Fixing that means per-direction sprites or a normal
+map per prop, and the relief experiment of 2026-09-01 is a reason to be careful about the
+second.
 
 ## 11. Open
 

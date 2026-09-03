@@ -69,6 +69,28 @@ uniform vec3 lamp_lit = vec3(1.06, 0.98, 0.84);
 // is the whole difference between a light that belongs to a flat palette and one grafted on.
 uniform float night_amount : hint_range(0.0, 1.0) = 0.0;
 
+// How a shadowed pixel gets its colour. 0 multiplies, which is arithmetic and invents colours
+// the palette does not contain -- a darkened sand that is not any of this map's seven. 1 snaps
+// the darkened result back to the nearest colour the art actually uses, so every shadowed
+// pixel is one somebody painted. The palette is read from the region texture at load: it IS
+// whatever was painted, and a hand-kept list would drift from the PNG silently.
+uniform int shadow_color_mode : hint_range(0, 1) = 0;
+uniform vec4 palette[16];
+uniform int palette_size = 0;
+
+vec3 snap_to_palette(vec3 c) {
+	if (palette_size <= 0) { return c; }
+	vec3 best = palette[0].rgb;
+	float bestDistance = 1e9;
+	for (int i = 0; i < palette_size; i++) {
+		vec3 entry = palette[i].rgb;
+		vec3 d = c - entry;
+		float distance = dot(d, d);
+		if (distance < bestDistance) { bestDistance = distance; best = entry; }
+	}
+	return best;
+}
+
 // Ground curvature: y = -k * d^2 in view space, so the world falls away with distance.
 // Zero is flat and is the reference. Non-zero pulls the horizon nearer.
 uniform float curvature_k : hint_range(0.0, 0.02) = 0.0;
@@ -159,8 +181,9 @@ void fragment() {
 	// Before the clouds and well before the fog: a shadow is something lying ON the ground, so
 	// it must be dimmed by distance along with the ground rather than painted over the haze.
 	vec2 masks = off_map ? vec2(0.0) : texture(shadow_mask, uv).rg;
-	if (shadow_strength > 0.0) {
-		albedo *= 1.0 - shadow_strength * masks.r;
+	if (shadow_strength > 0.0 && masks.r > 0.0) {
+		vec3 shaded = albedo * (1.0 - shadow_strength * masks.r);
+		albedo = shadow_color_mode == 1 ? snap_to_palette(shaded) : shaded;
 	}
 
 	// The day's light, with the night withheld wherever a lamp reaches. Ground and props take

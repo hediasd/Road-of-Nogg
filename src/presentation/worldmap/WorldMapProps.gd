@@ -38,6 +38,10 @@ const U_EMISSIVE_AMOUNT := "emissive_amount"
 const U_EMISSIVE_COLOR := "emissive_color"
 const U_EMISSIVE_MASK := "emissive_mask"
 
+## The shader's palette array size. temp2 uses seven colours; the cap is where snapping stops
+## being cheap, not a claim about how many a region may have.
+const PALETTE_CAP := 16
+
 ## Shader values for the three drawable modes, in the shader's branch order.
 const SHADER_MODE := {
 	Uniforms.BILLBOARD_WORLD: 0,
@@ -49,6 +53,10 @@ var _structures: Array = []
 ## Solid, hole-filled outlines of each structure, for the shadows they cast.
 var _silhouette: Image
 var _emissive: ImageTexture
+## Every distinct colour in the region's art. Read from the texture rather than declared: the
+## palette IS whatever was painted, and asking an artist to keep a JSON list in step with a PNG
+## is a promise that will be broken silently.
+var _palette: PackedColorArray = PackedColorArray()
 var _shadows := WorldMapShadowMask.new()
 ## The region's own answer to "what is a building here", from `regions.json`. Empty means the
 ## region declares none, which is the honest state for a map whose palette is not disjoint.
@@ -94,6 +102,7 @@ func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 	_spriteSheet = ImageTexture.create_from_image(sheet)
 	_silhouette = _buildSilhouette(sheet)
 	_emissive = ImageTexture.create_from_image(_buildEmissive(image))
+	_palette = _readPalette(image)
 	_buildSprites()
 
 	var towers := 0
@@ -211,11 +220,19 @@ func _rebuildShadows(framing: Dictionary, sun: Dictionary) -> void:
 			"levels": int(framing[Uniforms.K_LAMP_LEVELS]),
 			"core": float(framing[Uniforms.K_LAMP_CORE]),
 			"dither": float(framing[Uniforms.K_LAMP_DITHER]),
+		},
+		{
+			"edge": str(framing[Uniforms.K_SHADOW_EDGE]),
+			"band": float(framing[Uniforms.K_SHADOW_BAND]),
+			"steps": int(framing[Uniforms.K_SHADOW_STEPS]),
 		}
 	)
 	var ground := get_parent().get_node_or_null("Ground") as WorldMapGround if get_parent() != null else null
 	if ground != null:
 		ground.setLighting(_shadows.texture(), strength, _lightVector(framing, sun), night)
+		ground.setShadowPalette(
+			str(framing[Uniforms.K_SHADOW_COLOR_MODE]), _palette
+		)
 
 
 ## The day's tint as the shaders want it, with `light_tint` blending the whole effect out so the
@@ -487,6 +504,33 @@ func _buildEmissive(image: Image) -> Image:
 				if lit:
 					out.set_pixel(x, y, Color(1.0, 0.0, 0.0, 1.0))
 	return out
+
+
+## The region's palette, up to the shader's array size. Ordered by how much of the map each
+## colour covers, so if a map ever has more colours than the cap it is the rarest that fall off
+## rather than whichever happened to be scanned last.
+func _readPalette(image: Image) -> PackedColorArray:
+	var tally := {}
+	for y in image.get_height():
+		for x in image.get_width():
+			var c := image.get_pixel(x, y)
+			var key := (int(c.r * 255.0) << 16) | (int(c.g * 255.0) << 8) | int(c.b * 255.0)
+			tally[key] = int(tally.get(key, 0)) + 1
+	var keys: Array = tally.keys()
+	keys.sort_custom(func(a, b): return int(tally[a]) > int(tally[b]))
+	var out := PackedColorArray()
+	for i in mini(keys.size(), PALETTE_CAP):
+		var k: int = keys[i]
+		out.append(Color8((k >> 16) & 255, (k >> 8) & 255, k & 255))
+	return out
+
+
+func paletteAt(index: int) -> Color:
+	return _palette[index] if index >= 0 and index < _palette.size() else Color.BLACK
+
+
+func paletteSize() -> int:
+	return _palette.size()
 
 
 func emissiveTexture() -> ImageTexture:
