@@ -357,7 +357,8 @@ having depth while lying perfectly flat, and it is the reason flat is the right 
 
 Buildings painted into a region's ground art can be lifted out and stood back up as
 billboarded sprites. `WorldMapProps` does it, `WorldMapDebugHud`'s Structures section
-selects the mode, and the prototype is `debug/worldmap/standing-structures.html`.
+selects the mode, and the sketch is
+`docs/sketches/2026-09-02-worldmap-standing-structures-and-daylight.html`.
 
 This is not a reversal of section 8. That rejected standing up *everything* -- mountains and
 trees included -- and failed because those are organic blobs drawn in oblique view. Buildings
@@ -480,7 +481,8 @@ colour gap halve, 1.236 to 0.598.
 
 In the engine. `WorldMapSun` turns a time of day into a direction, a colour and a shear;
 `WorldMapShadowMask` renders the results into a mask in map space; the ground and prop shaders
-read it. Prototyped in `debug/worldmap/standing-structures.html`.
+read it. The sketch that settled it is
+`docs/sketches/2026-09-02-worldmap-standing-structures-and-daylight.html`.
 
 ### Shadows live in map-pixel space
 
@@ -577,7 +579,36 @@ shading on a building's own face does not. Fixing that means per-direction sprit
 map per prop, and the relief experiment of 2026-09-01 is a reason to be careful about the
 second.
 
-## 11. Open
+## 11. Validated
+
+Every claim in sections 9 and 10 is checked by a probe in `debug/worldmap/`, and each is
+written so it can fail. Run them together when touching this rig:
+
+| Probe | What it holds | Needs a renderer |
+|---|---|---|
+| `probe_prop_layer.gd` | temp2 finds 9 structures in 2 shapes from region data; temp declares none and finds none | no |
+| `probe_sun.gd` | northward component never negative; geometric elevation never below `sun_low`; the `sun_low` table matches the sketch | no |
+| `probe_shadows.gd` | silhouette solid; feet planted at every hour; mask values only 0 and 1 | no |
+| `probe_props.gd` | `world` 51% off painted proportions, `gain` and `face` 1.2% | yes |
+| `probe_prop_fog.gd` | prop-to-ground colour gap halves as fog closes | yes |
+| `probe_lamps.gd` | no shape exceeds daylight or clips; shapes produce different lit areas; buildings lit by their own lamps | yes |
+| `probe_shadow_look.gd` | palette mode holds 7 colours against multiply's 10; quantised headings change on fewer ticks | yes |
+
+`probe_validation.gd` still passes its original 18 checks, negative control included.
+
+Three of these were rewritten after they passed while measuring nothing, which is the failure
+mode worth guarding against here:
+
+- `probe_props.gd` compared a sprite's height against its **bounding-box** width, which on a
+  world-vertical quad is the *top* width and measures the lean. It reported a correct `gain`
+  sprite as 23% wrong and sent me hunting a shader bug that did not exist.
+- `probe_lamps.gd` first counted pixels brighter than daylight across the whole frame and got
+  777 for every mode alike, including the control. Those were the emissive windows, which are
+  supposed to be brighter. The claim is about the ground, so the props are hidden for it.
+- `probe_shadows.gd` read the mask through `ImageTexture.get_image()`, which does not reliably
+  reflect an in-place `update()`. Coverage came back identical at three different sun angles.
+
+## 12. Open
 
 - The region id `temp` is a placeholder. Naming it is a lore question.
 - Whether the camera eases between a close travelling framing and a pulled-back planning
