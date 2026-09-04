@@ -502,6 +502,21 @@ every shadow writes at full value; and the mask is 44k pixels that only change w
 moves. Shadow and lamp share one texture -- R and G -- because they are the same mechanism seen
 twice.
 
+### The default is not zero
+
+`shadow_strength` ships at 0.5, not 0.0. Zero was the original default and it fell into a trap
+this codebase has now hit three times: a control that silently depends on a second, unrelated
+control in a different part of the interface reads as broken rather than as off. Standing a
+structure up (`billboard`, in the Structures section) gave no visual reason to suspect a shadow
+slider existed in the Daylight section, so the shadow this whole system exists to draw never
+appeared unless someone already knew to raise it by hand. `light_tint` fell into the identical
+shape once, and cloud shadows on props fell into a variant of it once (see §12's validated
+findings) -- three instances of the same failure is a pattern, not a coincidence, and the fix is
+the same each time: default the dependent control on, not off. 0.5 is the value `probe_shadows.gd`
+already exercises and reports as legible. It costs nothing where no structure stands: the mask
+`WorldMapShadowMask` builds from an empty structure list is empty, so a nonzero strength has
+nothing to multiply.
+
 ### The sun keeps two elevations
 
 `lit` reaches zero at both ends of the day and drives light colour, lamps and shadow opacity.

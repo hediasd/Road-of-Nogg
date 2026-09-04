@@ -169,7 +169,15 @@ const BILLBOARD_IDS := [BILLBOARD_OFF, BILLBOARD_WORLD, BILLBOARD_GAIN, BILLBOAR
 ##
 ## Instead the tint is fully on and the clock starts at NOON, where the day's colour is exactly
 ## neutral (1, 1, 1). Existing framings therefore render identically, and moving the clock works
-## immediately. Shadows and lamps stay off, so nothing appears that was not there before.
+## immediately. Lamps stay off, so nothing appears that was not there before.
+##
+## SHADOW_STRENGTH IS THE ONE EXCEPTION, and deliberately so -- it fell into the identical trap
+## the paragraph above describes. A shadow needs a caster to fall on, so at 0.0 it was a second
+## control silently gated on a first ("Stand up" in billboard mode) in a different HUD section
+## entirely: turning structures on gave no visual reason to suspect a shadow slider existed.
+## Nonzero costs nothing where there is no structure standing -- the mask WorldMapShadowMask
+## builds from an empty structure list is empty, so shadow_strength has nothing to multiply.
+## 0.5 is the value `probe_shadows.gd` already exercises and reports as legible.
 const K_TIME_OF_DAY := "time_of_day"
 const K_SUN_HIGH := "sun_high"
 const K_SUN_LOW := "sun_low"
@@ -301,7 +309,7 @@ const DEFAULTS := {
 	K_SUN_LOW: 27.0,
 	K_SUN_ARC: 52.0,
 	K_SUN_REACH: 4.0,
-	K_SHADOW_STRENGTH: 0.0,
+	K_SHADOW_STRENGTH: 0.5,
 	K_SHADOW_SPREAD: 1.7,
 	K_SHADOW_EDGE: SHADOW_EDGE_HARD,
 	K_SHADOW_BAND: 1.5,
