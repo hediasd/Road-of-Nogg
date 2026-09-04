@@ -400,6 +400,44 @@ framing, a size ceiling tied to the frame, or accepting that weather is simply
 large up close — it is a judgement for whoever next tunes the presets, not a
 defect in what this cycle shipped.
 
+## World map: a cloud shadow is cut to a hard line at the region's edge
+
+Recorded 2026-09-04 when the world map QoL cycle closed, found by looking at
+renders during that cycle's validation rather than by any measurement in it.
+
+The cloud shadow mask exists only inside the region rectangle, so a cloud whose
+shadow crosses the coast has that shadow **clipped to a hard straight line**. On
+open water — where the region's void colour is its own sea colour, so the map's
+edge is otherwise invisible — the remainder reads as a dark rectangular sliver
+floating on the sea with no cloud above it and no edge to explain it.
+
+This is pre-existing: the same slivers are visible in the captures from the
+clouds cycle. It may occur more often now, because placement changed from a
+jittered lattice to a golden-ratio scatter that reaches the field's margins
+evenly, where the lattice's outermost cells never did.
+
+Options, none obviously right: extend the shadow mask past the region by the
+field's own margin; fade a shadow out as it approaches the region edge; or
+accept it, on the grounds that the map's edge is a place the shipped camera
+clamp keeps off screen anyway. The last is only defensible while the pan clamp
+stays — the debug console pans unclamped and shows the artifact today.
+
+## World map: no preset stands structures up
+
+Recorded 2026-09-04 when the world map QoL cycle closed.
+
+Cast shadows now default on, so a structure casts a visible shadow the moment
+it stands up. But `billboard` still defaults to `off` and **no shipped framing
+preset overrides it**, so the standing structures, their shadows and their
+lamps are all invisible until someone changes a control in the Structures
+section. The whole daylight and shadow system is therefore undiscoverable from
+the presets alone.
+
+Curating one "populated" preset that stands structures up with shadows and
+lamps at sensible values would fix that. It was deliberately excluded from the
+QoL cycle because choosing which preset and which values is a curation
+judgement rather than a defect fix.
+
 *A second finding from the same cycle, `WorldMapCameraRig._curveDropAtFocus()`
 overshooting at high curvature, is not listed here — it already has an active
 follow-up task rather than a backlog entry.*
