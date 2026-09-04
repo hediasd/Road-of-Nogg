@@ -355,6 +355,14 @@ func _refreshStatus() -> void:
 	var needed: float = readout["region_tiles_needed"]
 	var have := _regionTiles.x
 	var buffer: Vector2 = readout["buffer_size"]
+	# Under the ground outranks folded: both leave the frame empty, but only the first one is
+	# the camera having nowhere to stand, and reading "0.63 of the frame" next to a black
+	# window is what sent the last search after the clouds instead of after the rig.
+	var curve_warning := ""
+	if bool(readout["camera_below_ground"]):
+		curve_warning = "   <-- CAMERA IS UNDER THE GROUND, FRAME IS EMPTY"
+	elif float(readout["curve_fold"]) > 1.0:
+		curve_warning = "   <-- CURVE FOLDS THE MAP OUT OF FRAME"
 
 	_hud.setStatus({
 		"preset": _presetLabel(),
@@ -371,10 +379,7 @@ func _refreshStatus() -> void:
 		"depth": "%.1f to %.1f units" % [readout["near_depth"], readout["far_depth"]],
 		# Flagged rather than merely reported, for the same reason EDGES SHOW is: the symptom
 		# is the map vanishing, which reads as a bug rather than as a setting.
-		"curve": "%.2f of the frame%s" % [
-			readout["curve_fold"],
-			"   <-- CURVE FOLDS THE MAP OUT OF FRAME" if float(readout["curve_fold"]) > 1.0 else ""
-		],
+		"curve": "%.2f of the frame%s" % [readout["curve_fold"], curve_warning],
 		"buffer": "%d x %d" % [int(buffer.x), int(buffer.y)],
 		"sky": _skyLabel(),
 		"horizon": (
