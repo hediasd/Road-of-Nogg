@@ -50,10 +50,10 @@
 ##   --shadow_edge= --shadow_band= --shadow_color_mode= --shadow_steps=
 ##   --lamp_mode= --lamp_strength= --lamp_reach= --lamp_levels= --lamp_core= --lamp_dither=
 ##   --run-clock         start with the day running
-##   --fog_curve= --fog_color= --void_color= --curvature= --cloud_strength=
-##   --cloud_scale= --cloud_speed= --filter_mode= --render_scale= --sprite_mode=
+##   --fog_curve= --fog_color= --void_color= --curvature=
+##   --filter_mode= --render_scale= --sprite_mode=
 ##   --clouds= --cloud_count= --cloud_size= --cloud_altitude= --cloud_opacity=
-##   --wind_speed= --wind_angle= --cloud_seed=
+##   --wind_speed= --wind_angle= --cloud_seed= --cloud_shadow= --cloud_softness=
 
 extends Node
 
@@ -80,6 +80,7 @@ var _sky: WorldMapSky
 var _tileGrid: MeshInstance3D
 var _props: WorldMapProps
 var _clouds: WorldMapClouds
+var _regionTilePixels := 8
 
 var _regionID := ""
 var _regionTiles := Vector2i.ZERO
@@ -179,6 +180,10 @@ func _process(delta: float) -> void:
 		_framing[Uniforms.K_TIME_OF_DAY] = fposmod(hour + delta * (24.0 / DAY_SECONDS), 24.0)
 		_hud.setFraming(_framing)
 		_applyFraming()
+	# The wind moves the field every frame, inside WorldMapClouds' own clock, so the shadow
+	# layer has to be pushed per frame too. Without this a shadow only catches up with its
+	# cloud when some unrelated control is touched.
+	_ground.setCloudField(_clouds.field())
 	# The readout is resolution-dependent, and the window can be resized at any time, so it
 	# is refreshed per frame rather than only when a control moves.
 	_refreshStatus()
@@ -306,11 +311,15 @@ func _loadRegion(regionID: String) -> void:
 	_regionID = regionID
 	_region = region
 	_regionTiles = region["tiles"]
+	_regionTilePixels = int(region["tile_pixels"])
 	_focus = Vector2(float(_regionTiles.x), float(_regionTiles.y)) * 0.5
 	_refreshProps()
 	# After the props, because the clouds size their lattice from the region and the region is
 	# only settled once the props pass has decided what the ground texture is.
 	_clouds.configure(_regionTiles, int(region["tile_pixels"]), _framing)
+	_ground.configureCloudShadows(
+		_regionTiles * int(region["tile_pixels"]), str(_framing[Uniforms.K_CLOUDS])
+	)
 	_rebuildTileGrid()
 
 
@@ -346,6 +355,10 @@ func _applyFraming() -> void:
 	_camera.panTo(_focus)
 	_props.applyFraming(_framing)
 	_clouds.applyFraming(_framing)
+	_ground.configureCloudShadows(
+		_regionTiles * _regionTilePixels, str(_framing[Uniforms.K_CLOUDS])
+	)
+	_ground.setCloudField(_clouds.field())
 	_applyRenderScale()
 
 

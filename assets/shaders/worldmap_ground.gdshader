@@ -6,7 +6,8 @@
 // would couple the map's haze to whatever environment the battle scene wants. See
 // docs/WORLDMAP_DESIGN.md.
 //
-// Pass order is fixed: sample -> cloud shadow multiply -> fog blend -> void substitution.
+// Pass order is fixed: sample -> shadows (cast and cloud, unioned) -> light -> fog blend ->
+// void substitution.
 // The void is substituted rather than blended so an off-map fragment never carries a
 // smeared edge texel, and it is placed after fog so a fogged region edge stays soft while
 // an unfogged one reads as a hard plane edge -- which is what the reference does.
@@ -95,15 +96,23 @@ vec3 snap_to_palette(vec3 c) {
 // Zero is flat and is the reference. Non-zero pulls the horizon nearer.
 uniform float curvature_k : hint_range(0.0, 0.02) = 0.0;
 
-// Cloud shadows. Off in the reference; present because the debug scene must be able to
-// explore them and because they are the cheapest thing that makes a static map feel alive.
-uniform float cloud_strength : hint_range(0.0, 0.6) = 0.0;
-// World units per noise cell. This is bounded above by the REGION size, not by taste:
-// `cloud_cover` needs several cells across the visible ground to read as cloud rather than
-// a flat tint, so a scale much past a third of the region's width does nothing at all.
-// Measured on the 48-tile region: usable to ~16, negligible by 40, exactly zero by 80.
-uniform float cloud_scale = 12.0;
-uniform float cloud_speed = 1.2;
+// Cloud shadows, as COVERAGE IN MAP-PIXEL SPACE -- the same space the cast-shadow mask lives
+// in, sampled with the same region UV and the same nearest filter, for the same reasons: edges
+// land on the terrain's own grid, they do not crawl when the camera pans, and the shadow is
+// fogged and curved and filtered for free because it rides the ground's own sample.
+//
+// It replaced four octaves of value noise, which had no shape anybody drew, no cloud above it
+// to explain it, and no altitude. Do not reintroduce a procedural fallback: a cloud shadow with
+// no cloud is the thing this removed.
+uniform sampler2D cloud_mask : hint_default_black, filter_nearest, repeat_disable;
+uniform float cloud_shadow_strength : hint_range(0.0, 1.0) = 0.0;
+// How far the dithered fringe reaches, in MAP pixels. Zero is a hard edge, which is what the
+// art is and what the rest of the map does.
+uniform float cloud_softness : hint_range(0.0, 4.0) = 0.0;
+// The region in map pixels. Needed so the dither can be anchored to MAP pixels rather than to
+// screen pixels -- a screen-anchored pattern swims under the camera and is the single fastest
+// way to make pixel art stop looking like pixel art.
+uniform vec2 map_size = vec2(248.0, 176.0);
 
 varying vec3 world_position;
 
@@ -122,35 +131,36 @@ vec3 to_linear(vec3 c) {
 		step(vec3(0.04045), c));
 }
 
-float hash21(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-}
+// Ordered dither for the cloud shadow's fringe, indexed by MAP pixel. Same 4x4 matrix
+// WorldMapShadowMask uses on the CPU for the lamps, so the two treatments cannot drift.
+const float BAYER4[16] = float[16](
+	0.0, 8.0, 2.0, 10.0,
+	12.0, 4.0, 14.0, 6.0,
+	3.0, 11.0, 1.0, 9.0,
+	15.0, 7.0, 13.0, 5.0
+);
 
-float value_noise(vec2 p) {
-	vec2 i = floor(p);
-	vec2 f = fract(p);
-	vec2 u = f * f * (3.0 - 2.0 * f);
-	float a = hash21(i);
-	float b = hash21(i + vec2(1.0, 0.0));
-	float c = hash21(i + vec2(0.0, 1.0));
-	float d = hash21(i + vec2(1.0, 1.0));
-	return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-}
-
-// Four octaves, then contrast-stretched so the result is patchy cloud rather than uniform
-// haze. Generated rather than sampled: no particular cloud shape has been asked for, and a
-// texture would be one more asset to keep in step with the region art.
-float cloud_cover(vec2 p) {
-	float total = 0.0;
-	float amplitude = 1.0;
-	float sum = 0.0;
-	for (int octave = 0; octave < 4; octave++) {
-		total += amplitude * value_noise(p);
-		sum += amplitude;
-		amplitude *= 0.5;
-		p *= 2.0;
-	}
-	return clamp((total / sum - 0.38) / 0.34, 0.0, 1.0);
+// Cloud coverage at a map position, with its edge broken up rather than blurred.
+//
+// A BLUR IS NOT AVAILABLE HERE. The art's alpha is binary, and the whole point of the palette
+// snap is that no colour appears that the region does not already contain -- a blurred edge
+// produces exactly those in-between values. So softness dithers instead, and only in a band at
+// the boundary: applied across the whole shape it checkerboards the entire shadow, which the
+// sketch did once before confining it.
+float cloud_shadow_coverage(vec2 uv) {
+	float centre = texture(cloud_mask, uv).r;
+	if (cloud_softness <= 0.0 || centre <= 0.0) { return centre; }
+	vec2 step_uv = (cloud_softness + 0.5) / map_size;
+	float outside = 1.0 - min(
+		min(texture(cloud_mask, uv + vec2(step_uv.x, 0.0)).r,
+			texture(cloud_mask, uv - vec2(step_uv.x, 0.0)).r),
+		min(texture(cloud_mask, uv + vec2(0.0, step_uv.y)).r,
+			texture(cloud_mask, uv - vec2(0.0, step_uv.y)).r)
+	);
+	if (outside <= 0.0) { return centre; }
+	ivec2 cell = ivec2(mod(floor(uv * map_size), 4.0));
+	float threshold = (BAYER4[cell.y * 4 + cell.x] + 0.5) / 16.0;
+	return threshold < 0.5 ? centre : 0.0;
 }
 
 void vertex() {
@@ -181,8 +191,18 @@ void fragment() {
 	// Before the clouds and well before the fog: a shadow is something lying ON the ground, so
 	// it must be dimmed by distance along with the ground rather than painted over the haze.
 	vec2 masks = off_map ? vec2(0.0) : texture(shadow_mask, uv).rg;
-	if (shadow_strength > 0.0 && masks.r > 0.0) {
-		vec3 shaded = albedo * (1.0 - shadow_strength * masks.r);
+	float cast_shade = shadow_strength * masks.r;
+	float cloud_shade = 0.0;
+	if (!off_map && cloud_shadow_strength > 0.0) {
+		cloud_shade = cloud_shadow_strength * cloud_shadow_coverage(uv);
+	}
+	// MAX, NOT SUM. A building already in shadow does not get darker for being under a cloud
+	// too -- shadows union, they do not stack, and summing them lands between palette entries
+	// where snapping has to guess. It is the same reasoning the lamps use, and it is why this
+	// is ONE darkening followed by ONE snap rather than two of each.
+	float shade = max(cast_shade, cloud_shade);
+	if (shade > 0.0) {
+		vec3 shaded = albedo * (1.0 - shade);
 		albedo = shadow_color_mode == 1 ? snap_to_palette(shaded) : shaded;
 	}
 
@@ -191,11 +211,6 @@ void fragment() {
 	// under it is lit to another -- that seam is invisible in a thumbnail and obvious in motion.
 	vec3 tint = mix(light_tint, lamp_lit, clamp(masks.g * night_amount, 0.0, 1.0));
 	albedo *= tint;
-
-	if (cloud_strength > 0.0) {
-		vec2 cloud_uv = world_position.xz / cloud_scale + vec2(TIME * cloud_speed * 0.05, 0.0);
-		albedo *= 1.0 - cloud_strength * cloud_cover(cloud_uv);
-	}
 
 	// GROUND-PLANE forward distance, not view-space depth. These are different quantities
 	// and the difference is roughly 3x at this pitch: a fragment at the bottom of the frame

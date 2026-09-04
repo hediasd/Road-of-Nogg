@@ -116,15 +116,15 @@ static var SECTIONS := [
 				"min": 0.0, "max": 360.0, "step": 5.0},
 			{"key": Uniforms.K_CLOUD_SEED, "label": "Arrangement", "type": ROW_SLIDER,
 				"min": 0.0, "max": 32.0, "step": 1.0},
-			{"key": Uniforms.K_CLOUD_STRENGTH, "label": "Cloud shadow", "type": ROW_SLIDER,
-				"min": 0.0, "max": 0.6, "step": 0.01},
-			# Capped at 40 rather than 160: cloud_scale is world units per noise cell, so
-			# past roughly a third of the region's width the whole visible ground samples
-			# one cell and the control silently stops doing anything.
-			{"key": Uniforms.K_CLOUD_SCALE, "label": "Cloud scale", "type": ROW_SLIDER,
-				"min": 2.0, "max": 40.0, "step": 0.5},
-			{"key": Uniforms.K_CLOUD_SPEED, "label": "Cloud speed", "type": ROW_SLIDER,
-				"min": 0.0, "max": 6.0, "step": 0.1},
+			# 0.4 is where the ground darkened and snapped lands on the two colours the
+			# artist actually painted the shadow art in. Above 0.55 sea and sand both snap
+			# to the near-black and the shadow stops reading as shadow.
+			{"key": Uniforms.K_CLOUD_SHADOW, "label": "Shadow depth", "type": ROW_SLIDER,
+				"min": 0.0, "max": 1.0, "step": 0.05},
+			# In MAP pixels, and a dither rather than a blur -- a blur produces colours
+			# between the palette's entries, which is the thing the snap exists to prevent.
+			{"key": Uniforms.K_CLOUD_SOFTNESS, "label": "Edge dither (px)", "type": ROW_SLIDER,
+				"min": 0.0, "max": 4.0, "step": 0.5},
 		],
 	},
 	{

@@ -14,6 +14,7 @@ extends MeshInstance3D
 
 const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
 const GROUND_SHADER = preload("res://assets/shaders/worldmap_ground.gdshader")
+const CloudShadowLayer = preload("res://src/presentation/worldmap/WorldMapCloudShadows.gd")
 
 ## Curvature is a quadratic, so it needs far fewer segments than its span suggests to look
 ## smooth -- 64 holds up at the explorer's maximum k of 0.02 across a 250-unit plane. This
@@ -33,6 +34,7 @@ var region_origin := Vector2.ZERO
 var region_size := Vector2(48.0, 64.0)
 
 var _material: ShaderMaterial
+var _cloudShadows: WorldMapCloudShadows
 
 
 ## Builds the plane for a region and applies a framing. Safe to call again with a
@@ -70,6 +72,32 @@ func setLighting(mask: Texture2D, shadowStrength: float, light: Vector3, night: 
 	)
 	_material.set_shader_parameter(Uniforms.U_LIGHT_TINT, light)
 	_material.set_shader_parameter(Uniforms.U_NIGHT_AMOUNT, night if mask != null else 0.0)
+
+
+## Points the cloud shadow layer at this region and hands its texture to the material.
+##
+## The layer is a child of the ground rather than a sibling because it is not a thing in the
+## world -- it is a channel of the ground's own surface, in the ground's own map-pixel space,
+## and the only node that ever reads it is this one.
+func configureCloudShadows(mapPixels: Vector2i, setID: String) -> void:
+	_ensureMaterial()
+	if _cloudShadows == null:
+		_cloudShadows = CloudShadowLayer.new()
+		_cloudShadows.name = "CloudShadows"
+		add_child(_cloudShadows)
+	_cloudShadows.configure(mapPixels, setID)
+	_material.set_shader_parameter(Uniforms.U_CLOUD_MASK, _cloudShadows.shadowTexture())
+	# The dither is anchored to MAP pixels, so the shader has to know how many there are. A
+	# screen-anchored pattern swims under a panning camera, which is the fastest way to stop
+	# pixel art looking like pixel art.
+	_material.set_shader_parameter(Uniforms.U_MAP_SIZE, Vector2(mapPixels))
+
+
+## The cloud positions `WorldMapClouds` already placed. Pushed rather than recomputed: two
+## derivations of the same field is two chances for a shadow to sit under nothing.
+func setCloudField(field: Array) -> void:
+	if _cloudShadows != null:
+		_cloudShadows.setField(field)
 
 
 ## How a shadowed pixel gets its colour. `multiply` darkens arithmetically and invents colours

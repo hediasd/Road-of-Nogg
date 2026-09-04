@@ -156,17 +156,16 @@ const PRESETS := [
 	{
 		"id": FILTERED,
 		"label": "Tile-Exact, Filtered",
-		"description": "Tile-Exact at native resolution with anisotropic filtering and "
-			+ "cloud shadows on. The comparison, not a recommendation: it shows what the "
-			+ "clean version costs. The ground stops being minified, the sparkle "
-			+ "disappears, and it stops looking like the reference.",
+		"description": "Tile-Exact at native resolution with anisotropic filtering. The "
+			+ "comparison, not a recommendation: it shows what the clean version costs. The "
+			+ "ground stops being minified, the sparkle disappears, and it stops looking "
+			+ "like the reference.",
 		"framing": {
 			Uniforms.K_HEIGHT: 66.0,
 			Uniforms.K_FOG_START: 21.0,
 			Uniforms.K_FOG_END: 116.0,
 			Uniforms.K_RENDER_SCALE: 1.0,
 			Uniforms.K_FILTER_MODE: Uniforms.FILTER_NEAREST_MIPMAP,
-			Uniforms.K_CLOUD_STRENGTH: 0.28,
 		},
 	},
 	{

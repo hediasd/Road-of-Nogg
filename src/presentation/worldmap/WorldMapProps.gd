@@ -77,12 +77,8 @@ func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 	_rule = RegionCatalog.structureRuleFor(regionID)
 	_tilePixels = maxi(1, RegionCatalog.tilePixelsFor(regionID))
 	_mode = mode
-	if source == null or mode == Uniforms.BILLBOARD_OFF:
-		return {"ground": source, "count": 0, "houses": 0, "towers": 0}
-	# A region that declares no structure colours has none to find. Saying so here rather than
-	# running a component pass that returns nothing keeps "this map has no props" distinct
-	# from "the detector failed".
-	if not RegionCatalog.hasStructureRule(regionID):
+	_palette = PackedColorArray()
+	if source == null:
 		return {"ground": source, "count": 0, "houses": 0, "towers": 0}
 
 	var image := source.get_image()
@@ -91,6 +87,23 @@ func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 	if image.is_compressed():
 		image.decompress()
 	image.convert(Image.FORMAT_RGBA8)
+
+	# BEFORE the early returns, and not after. The palette is a property of the REGION, not of
+	# the props pass, and it is what keeps every shadowed pixel on a colour somebody painted.
+	# Cloud shadows do not need a single structure to exist, so leaving this behind the
+	# structures gate left them snapping against an EMPTY palette with the default billboard
+	# mode -- which silently degrades to arithmetic darkening and invents colours the map does
+	# not contain. Same shape as the day cycle's tint, which was pushed from here and hidden
+	# behind the same gate for the same reason.
+	_palette = _readPalette(image)
+
+	if mode == Uniforms.BILLBOARD_OFF:
+		return {"ground": source, "count": 0, "houses": 0, "towers": 0}
+	# A region that declares no structure colours has none to find. Saying so here rather than
+	# running a component pass that returns nothing keeps "this map has no props" distinct
+	# from "the detector failed".
+	if not RegionCatalog.hasStructureRule(regionID):
+		return {"ground": source, "count": 0, "houses": 0, "towers": 0}
 
 	_mapSize = Vector2i(image.get_width(), image.get_height())
 	_structures = _findStructures(image)
@@ -102,7 +115,6 @@ func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 	_spriteSheet = ImageTexture.create_from_image(sheet)
 	_silhouette = _buildSilhouette(sheet)
 	_emissive = ImageTexture.create_from_image(_buildEmissive(image))
-	_palette = _readPalette(image)
 	_buildSprites()
 
 	var towers := 0

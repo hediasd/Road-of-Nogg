@@ -42,9 +42,10 @@ const U_FOG_CURVE := "fog_curve"
 const U_FOG_COLOR := "fog_color"
 const U_VOID_COLOR := "void_color"
 const U_CURVATURE_K := "curvature_k"
-const U_CLOUD_STRENGTH := "cloud_strength"
-const U_CLOUD_SCALE := "cloud_scale"
-const U_CLOUD_SPEED := "cloud_speed"
+const U_CLOUD_MASK := "cloud_mask"
+const U_CLOUD_SHADOW_STRENGTH := "cloud_shadow_strength"
+const U_CLOUD_SOFTNESS := "cloud_softness"
+const U_MAP_SIZE := "map_size"
 const U_SHOW_SKY_BEYOND := "show_sky_beyond"
 ## The cast-shadow mask and how hard it bites. In map-pixel space, sampled with the region's
 ## own UV -- see `WorldMapShadowMask`.
@@ -84,9 +85,7 @@ const K_FOG_CURVE := "fog_curve"
 const K_FOG_COLOR := "fog_color"
 const K_VOID_COLOR := "void_color"
 const K_CURVATURE := "curvature"
-const K_CLOUD_STRENGTH := "cloud_strength"
-const K_CLOUD_SCALE := "cloud_scale"
-const K_CLOUD_SPEED := "cloud_speed"
+
 const K_FILTER_MODE := "filter_mode"
 
 ## Not shader uniforms. `render_scale` is the world map's own internal buffer scale and is
@@ -120,6 +119,14 @@ const K_CLOUD_OPACITY := "cloud_opacity"
 const K_WIND_SPEED := "wind_speed"
 const K_WIND_ANGLE := "wind_angle"
 const K_CLOUD_SEED := "cloud_seed"
+
+## How hard a cloud's shadow bites, and how far its fringe is dithered in MAP pixels. The
+## default is not a taste judgement: at 0.4 the ground darkened and snapped to temp2's palette
+## comes back as `0b696a` over sea and `e69900` over sand, which are precisely the two colours
+## the artist painted the supplied shadow art in. The derivation and the art agree, so the
+## number is the one they agree at.
+const K_CLOUD_SHADOW := "cloud_shadow"
+const K_CLOUD_SOFTNESS := "cloud_softness"
 
 const CLOUDS_OFF := "off"
 
@@ -236,9 +243,6 @@ const FRAMING_KEYS := [
 	K_FOG_COLOR,
 	K_VOID_COLOR,
 	K_CURVATURE,
-	K_CLOUD_STRENGTH,
-	K_CLOUD_SCALE,
-	K_CLOUD_SPEED,
 	K_FILTER_MODE,
 	K_RENDER_SCALE,
 	K_SPRITE_MODE,
@@ -273,6 +277,8 @@ const FRAMING_KEYS := [
 	K_WIND_SPEED,
 	K_WIND_ANGLE,
 	K_CLOUD_SEED,
+	K_CLOUD_SHADOW,
+	K_CLOUD_SOFTNESS,
 ]
 
 ## The reference framing, derived in `debug/worldmap/worldmap-framing.html`. Presets vary
@@ -286,9 +292,6 @@ const DEFAULTS := {
 	K_FOG_END: 116.0,
 	K_FOG_CURVE: 1.4,
 	K_CURVATURE: 0.0,
-	K_CLOUD_STRENGTH: 0.0,
-	K_CLOUD_SCALE: 12.0,
-	K_CLOUD_SPEED: 1.2,
 	K_FILTER_MODE: FILTER_NEAREST,
 	K_RENDER_SCALE: 0.4,
 	K_SPRITE_MODE: SPRITE_FIXED,
@@ -328,6 +331,8 @@ const DEFAULTS := {
 	K_WIND_SPEED: 0.35,
 	K_WIND_ANGLE: 250.0,
 	K_CLOUD_SEED: 3.0,
+	K_CLOUD_SHADOW: 0.4,
+	K_CLOUD_SOFTNESS: 0.0,
 }
 
 
@@ -368,9 +373,15 @@ static func applyToMaterial(
 	material.set_shader_parameter(U_FOG_COLOR, f.get(K_FOG_COLOR, Color.WHITE))
 	material.set_shader_parameter(U_VOID_COLOR, f.get(K_VOID_COLOR, Color.BLACK))
 	material.set_shader_parameter(U_CURVATURE_K, f[K_CURVATURE])
-	material.set_shader_parameter(U_CLOUD_STRENGTH, f[K_CLOUD_STRENGTH])
-	material.set_shader_parameter(U_CLOUD_SCALE, f[K_CLOUD_SCALE])
-	material.set_shader_parameter(U_CLOUD_SPEED, f[K_CLOUD_SPEED])
+	# Gated on the cloud SET, in one place, because the strength slider and the on/off control
+	# are different keys. Leaving the strength live with the clouds off would darken the map with
+	# whatever the layer last held -- a shadow cast by nothing, which is precisely what the noise
+	# this replaced was.
+	var cloudsOn: bool = str(f[K_CLOUDS]) != CLOUDS_OFF
+	material.set_shader_parameter(
+		U_CLOUD_SHADOW_STRENGTH, f[K_CLOUD_SHADOW] if cloudsOn else 0.0
+	)
+	material.set_shader_parameter(U_CLOUD_SOFTNESS, f[K_CLOUD_SOFTNESS])
 	material.set_shader_parameter(U_FILTER_MODE, f[K_FILTER_MODE])
 	# A backdrop replaces the void: off-map fragments are discarded so the sky shows through.
 	material.set_shader_parameter(U_SHOW_SKY_BEYOND, str(f[K_SKY]) != SKY_OFF)
