@@ -104,6 +104,25 @@ const K_SKY_TINT := "sky_tint"
 
 const SKY_OFF := "off"
 
+## Cloud keys. Like the backdrop's, these are NOT uniforms on the ground material -- they drive
+## `WorldMapClouds`, which owns its own quads. They live in the framing because changing them
+## changes the framing's look, and because it gives them command-line parity for free.
+##
+## `K_CLOUD_SIZE` IS AN INTEGER MULTIPLE OF THE ART'S NATIVE SIZE, not a width in tiles. The
+## cloud sheet is 8 px blocks under a 1 px outline, and neither survives a fractional scale --
+## the blocks stop being square and the outline stops being one pixel wide. See
+## `WorldMapCloudCatalog`.
+const K_CLOUDS := "clouds"
+const K_CLOUD_COUNT := "cloud_count"
+const K_CLOUD_SIZE := "cloud_size"
+const K_CLOUD_ALTITUDE := "cloud_altitude"
+const K_CLOUD_OPACITY := "cloud_opacity"
+const K_WIND_SPEED := "wind_speed"
+const K_WIND_ANGLE := "wind_angle"
+const K_CLOUD_SEED := "cloud_seed"
+
+const CLOUDS_OFF := "off"
+
 const K_RENDER_SCALE := "render_scale"
 const K_SPRITE_MODE := "sprite_mode"
 
@@ -246,6 +265,14 @@ const FRAMING_KEYS := [
 	K_SKY_OFFSET,
 	K_SKY_SCALE,
 	K_SKY_TINT,
+	K_CLOUDS,
+	K_CLOUD_COUNT,
+	K_CLOUD_SIZE,
+	K_CLOUD_ALTITUDE,
+	K_CLOUD_OPACITY,
+	K_WIND_SPEED,
+	K_WIND_ANGLE,
+	K_CLOUD_SEED,
 ]
 
 ## The reference framing, derived in `debug/worldmap/worldmap-framing.html`. Presets vary
@@ -288,6 +315,19 @@ const DEFAULTS := {
 	K_SKY_OFFSET: 0.0,
 	K_SKY_SCALE: 1.0,
 	K_SKY_TINT: Color.WHITE,
+	# Clouds start ON, unlike the noise they replace: they are art now rather than a shader
+	# effect to be compared against its absence, and a default of off is how a feature gets
+	# reported as broken. Six of a possible fifteen for temp2 -- see WorldMapCloudField, whose
+	# lattice is sized from the art, so capacity is a property of the region and not a number
+	# chosen here.
+	K_CLOUDS: "temp2",
+	K_CLOUD_COUNT: 6.0,
+	K_CLOUD_SIZE: 1.0,
+	K_CLOUD_ALTITUDE: 6.0,
+	K_CLOUD_OPACITY: 0.85,
+	K_WIND_SPEED: 0.35,
+	K_WIND_ANGLE: 250.0,
+	K_CLOUD_SEED: 3.0,
 }
 
 

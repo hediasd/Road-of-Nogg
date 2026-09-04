@@ -39,6 +39,7 @@ const STATUS_ROWS := [
 	["curve", "Curve fold"],
 	["buffer", "Buffer"],
 	["sky", "Sky"],
+	["clouds", "Clouds"],
 	["horizon", "Horizon"],
 	["clock", "Clock"],
 	["sun", "Sun"],
@@ -91,6 +92,30 @@ static var SECTIONS := [
 		"id": "life",
 		"title": "Life",
 		"rows": [
+			{"key": Uniforms.K_CLOUDS, "label": "Clouds", "type": ROW_OPTION,
+				"options": ["Off"] + WorldMapCloudCatalog.labels(),
+				"values": [Uniforms.CLOUDS_OFF] + WorldMapCloudCatalog.ids()},
+			# The field clamps this to what the region and the art can hold without any two
+			# clouds overlapping -- fifteen for temp2. The slider runs past that on purpose,
+			# because a larger region holds more, and the readout names the ceiling so the
+			# dead zone at the top is visible rather than silent.
+			{"key": Uniforms.K_CLOUD_COUNT, "label": "Count", "type": ROW_SLIDER,
+				"min": 0.0, "max": 24.0, "step": 1.0},
+			# WHOLE MULTIPLES ONLY. The art is 8 px blocks under a 1 px outline; at 1.5x the
+			# blocks stop being square and the outline stops being a pixel. See
+			# WorldMapCloudCatalog.
+			{"key": Uniforms.K_CLOUD_SIZE, "label": "Size (x native)", "type": ROW_SLIDER,
+				"min": 1.0, "max": 3.0, "step": 1.0},
+			{"key": Uniforms.K_CLOUD_ALTITUDE, "label": "Altitude", "type": ROW_SLIDER,
+				"min": 0.5, "max": 30.0, "step": 0.5},
+			{"key": Uniforms.K_CLOUD_OPACITY, "label": "Opacity", "type": ROW_SLIDER,
+				"min": 0.0, "max": 1.0, "step": 0.05},
+			{"key": Uniforms.K_WIND_SPEED, "label": "Wind speed", "type": ROW_SLIDER,
+				"min": 0.0, "max": 4.0, "step": 0.05},
+			{"key": Uniforms.K_WIND_ANGLE, "label": "Wind angle", "type": ROW_SLIDER,
+				"min": 0.0, "max": 360.0, "step": 5.0},
+			{"key": Uniforms.K_CLOUD_SEED, "label": "Arrangement", "type": ROW_SLIDER,
+				"min": 0.0, "max": 32.0, "step": 1.0},
 			{"key": Uniforms.K_CLOUD_STRENGTH, "label": "Cloud shadow", "type": ROW_SLIDER,
 				"min": 0.0, "max": 0.6, "step": 0.01},
 			# Capped at 40 rather than 160: cloud_scale is world units per noise cell, so
