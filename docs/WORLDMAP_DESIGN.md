@@ -709,19 +709,65 @@ within 0.003; the twelfth is a genuine boundary case, not a defect -- the check 
 at an integer map pixel while the shader samples by continuous UV, and within about one texel
 of a shadow's own edge the two can legitimately land on different texels.
 
-### Placement is a jittered lattice sized from the art, not a fixed grid
+### Placement is a golden-ratio scatter, not a grid
 
 The visible slice of a plane at altitude is smaller than the visible ground -- the cloud ray is
 `camera_height - altitude` long rather than `camera_height` -- so uniform-random placement can
-leave the sky measurably "covered" while nothing is actually on screen. The field is instead a
-lattice whose cell size comes from the cloud's own native size, so cells are never smaller than
-what they hold; for temp2 that is 3x5 cells over a 336x216 extent (the region plus one cloud of
-margin on each axis), a capacity of fifteen. Cells are drawn in a seeded shuffled order, so
-lowering the count scatters the remaining clouds rather than emptying the lattice from one edge.
+leave the sky measurably "covered" while nothing is actually on screen. That is why placement is
+structured at all.
 
-The wrap seam sits at that margin, not at the region's own edge -- wrapping over the region
-itself would put a cloud's re-entry at an edge the camera is already looking at, and temp2 is
-small enough that both edges are commonly on screen together.
+**A jittered lattice was the first answer and it was wrong.** Cells were sized from the cloud's
+own native size so no two could overlap, which sounds harmless. On temp2 it produced 3x5 cells
+of 112 x 43.2 against an 88 x 40 cloud, so the horizontal slack was 24 px and **the vertical
+slack was 3.2 px**: every cloud was pinned to one of five near-exact rows. The field read as
+clouds stacked in even columns, because that is what it was.
+
+What replaces it is the golden ratio's two-dimensional generalisation -- the **R2 (Roberts)
+sequence**, stepping by the reciprocals of the **plastic number**, the constant that does for two
+dimensions what phi does for one. Its prefixes are well distributed at every prefix length, which
+covers three requirements at once: the coverage guarantee the lattice existed for, with no grid
+to read; a low count that is already scattered, so the lattice's separate shuffled reveal order
+is gone; and a deterministic sequence, so the field still reproduces from its seed. The seed
+enters as a **toroidal shift of the whole sequence**, which leaves its discrepancy untouched --
+shifting a low-discrepancy set on the torus gives another one -- so every arrangement is as
+evenly spread as every other, unlike a jitter whose quality varies with the draw.
+
+**Non-overlap is still a hard guarantee**, because `worldmap_cloud.gdshader` depends on it: it
+draws `depth_draw_never` with `blend_mix`, so two clouds crossing would double-blend into a
+denser patch and drag their 1 px outlines through one another. Candidates are taken from the
+sequence and rejected on contact, measured on the torus so a cloud that has wrapped cannot land
+on one that has not.
+
+**The ceiling fell from 15 to 11 on temp2, and that is the trade rather than a regression.** A
+grid reaches a packing density scattered rectangles cannot, and the grid is what read as
+mechanical; the shipped count is six, so the reachable ceiling still has room above what is
+used. The ceiling is **measured by running the placer**, not derived from an area formula, and
+that distinction is load-bearing: what decides how many rectangles fit is how the reserved
+rectangle divides into the wrap extent, which is a step function of both. Reserving 3 px of
+wander fits 11 clouds and reserving 4 px fits 7 -- a 36% drop for 5% more reserved area, and no
+packing fraction predicts both. Walking the sequence cannot disagree with what placement will
+do, because it is the same walk; it is memoised per field geometry and walked with a fixed seed,
+so the console's ceiling does not move when the Arrangement slider does.
+
+### Every cloud takes the same wind, plus an idle of its own
+
+With one shared wind vector the field translates as a rigid sheet and reads as a painted
+backdrop being slid past. Each cloud therefore carries a slow wander of its own -- two sines on
+their own periods and phases, the house "idle that never resolves" from `docs/VFX_DESIGN.md`.
+
+**Giving each cloud a slightly different SPEED is the obvious fix and cannot be used here.** A
+faster cloud eventually catches a slower one, which breaks the non-overlap guarantee above at
+some unpredictable later time rather than at t = 0 where anyone would look for it; and over
+minutes it scrambles the careful scatter back toward uniform random, losing the coverage
+property that motivated structured placement in the first place. A bounded oscillation can do
+neither. The rejection test reserves the wander's own amplitude on each axis -- twice, since two
+clouds can approach from both sides at once -- so non-overlap holds at every clock value rather
+than only at placement. Verified by sweeping 240 seconds at zero wind: 0 overlapping pairs, and
+no cloud further than 8.5 px from where it started.
+
+The wrap seam sits at the field's margin, not at the region's own edge -- wrapping over the
+region itself would put a cloud's re-entry at an edge the camera is already looking at, and
+temp2 is small enough that both edges are commonly on screen together.
 
 ### Validated
 
@@ -733,9 +779,15 @@ small enough that both edges are commonly on screen together.
 - `probe_cloud_art.gd`: the sheet lands on exactly temp2's seven colours (0 px off), alpha is
   binary, all four pieces are intact at their declared rects, and each shadow is verified as
   drawn rather than copied from its cloud's silhouette.
-- `probe_cloud_field.gd`: parallax, shadow linearity in altitude, mirror symmetry about noon,
-  no shadow with the sun down, determinism from a seed, and continuity across 138 observed
-  wraps in a 600-second walk -- all measured, none assumed.
+- `probe_cloud_field.gd`: shadow linearity in altitude, mirror symmetry about noon, no shadow
+  with the sun down, determinism from a seed, and continuity across 139 observed wraps in a
+  600-second walk -- all measured, none assumed. It also holds the scatter: **the grid check is
+  written so it can fail**, reproducing the old jittered lattice inline and requiring it to
+  score worse on the identical metric (8 pairs of clouds sharing a row against the scatter's 0).
+  A "clouds are scattered" check that has never been shown a grid measures nothing. Non-overlap
+  is asserted at capacity, across a 240-second sweep of the idle, and across 33 seeds; every one
+  of those seeds reaches the measured ceiling, which is what makes the ceiling a promise rather
+  than an estimate.
 - `probe_clouds.gd`: 0 pixels off palette with cast and cloud shadows both active; the removed
   noise system is confirmed gone by a grep audit across six files, not merely by a passing test.
 - `probe_cloud_on_props.gd`: the prop/ground correlation above, plus the palette-derived
