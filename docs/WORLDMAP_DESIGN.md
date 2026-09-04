@@ -108,9 +108,12 @@ battle scene wants.
 Pass order is fixed:
 
 1. Sample the region texture.
-2. Multiply by cloud shadow.
-3. Blend toward the fog colour by planar depth.
-4. Substitute the void colour where the sample falls outside the region rectangle.
+2. Darken by the cast-shadow and cloud-shadow masks, unioned with `max` and snapped to the
+   region's palette -- see §10 and §12. (Not a plain multiply: that described the procedural
+   cloud noise this shader no longer carries.)
+3. Apply the day's light tint, withheld wherever a lamp reaches -- see §10.
+4. Blend toward the fog colour by planar depth.
+5. Substitute the void colour where the sample falls outside the region rectangle.
 
 The depth the fog uses is the **ground-plane forward distance** — how far the fragment lies
 ahead of the camera along the ground — and specifically *not* the view-space depth along the
@@ -608,7 +611,166 @@ mode worth guarding against here:
 - `probe_shadows.gd` read the mask through `ImageTexture.get_image()`, which does not reliably
   reflect an in-place `update()`. Coverage came back identical at three different sun angles.
 
-## 12. Open
+## 12. World map clouds
+
+In the engine. `WorldMapCloudField` derives placement, wind and each shadow's offset;
+`WorldMapClouds` stands the art up at altitude; `WorldMapCloudShadows` renders their shadows
+into a mask in map space, read by the ground and prop shaders alongside the cast-shadow mask.
+The sketch that opened it is `docs/sketches/2026-09-04-worldmap-clouds.html`; it was extended,
+not fully superseded -- see below for what it got right and what the art corrected.
+
+### A cloud is a horizontal sprite at altitude
+
+The ground is real geometry viewed at a steep pitch, so a flat quad parallel to it gets the
+camera's own perspective and parallax for nothing -- no separate projection, no scroll hack.
+Measured over a 4-unit pan against a ground that moved 26.97 px: a cloud at altitude 3 slides
+0.60 px further, at 6 it is 1.21 px further, at 12 it is 2.50 px, at 24 it is 5.17 px --
+monotone in altitude, as the geometry requires.
+
+Its shadow lands on the ground by the same relation the standing structures use,
+`altitude x cot(sun elevation)`, opposite the sun, with altitude standing in for a building's
+height. It is unclamped, unlike the buildings' own `shadow_step`: that value carries a
+`sun_reach` limit meant to stop a *building* becoming a twenty-tile scratch, and a cloud's
+shadow being far from its cloud at a low sun is correct rather than a defect to clamp away.
+
+### The art fixed two things the plan had guessed at
+
+**The display scale is not a free slider.** Every piece in the supplied sheet resolves to
+whole 8x8 px blocks under a 1 px outline -- the only cells that are not one flat colour are the
+ten the outline steps through. That pins the scale at exactly 1:1 against map pixels: 88x40,
+which on temp2's 8 px tiles is 11x5 tiles. At any other scale the blocks stop being square and
+the outline stops being one pixel wide, and at a fractional scale the palette goes with them.
+The console's Size control takes a whole multiple of native rather than a free width in tiles.
+
+**Each shadow is drawn, not scaled from its cloud.** Shadow A is cloud A with its top two
+block-rows narrowed and shifted; shadow B is cloud B a full row shorter with its top widened --
+foreshortening applied by hand, differently to each shape. A `spread` factor scaling a shadow
+against its cloud, which both the plan and the sketch carried, would only have resampled by
+approximation what the artist had already done exactly. It does not exist in the engine.
+
+### The shadow's colour is not a taste setting
+
+The supplied shadow art is painted in `0b696a` and `e69900` -- temp2's own shadowed sea and
+shadowed sand. The artist reached the same conclusion the standing structures' shadows did: a
+shadow is shadowed *terrain*, not a translucent overlay, so a fixed-colour shadow sprite is
+only correct over the terrain it was painted for. The engine therefore takes the art for its
+*shape* only -- a coverage mask, white on black -- and derives the colour by darkening the
+ground and snapping to its own palette, the same mechanism the cast shadows use.
+
+Darkening a palette colour and snapping it back reproduces the artist's exact two colours for
+every shade from 0.25 to 0.50:
+
+| shade | `37aeae` (sea) becomes | `ffd363` (sand) becomes |
+|---|---|---|
+| 0.20 | `37aeae` (no change) | `ffd363` (no change) |
+| **0.25** | `0b696a` -- matches the art | `e69900` -- matches the art |
+| **0.40 (default)** | `0b696a` | `e69900` |
+| 0.50 | `0b696a` | `e69900` |
+| 0.55 | `0b696a` | `0b696a` -- sand collapses onto sea |
+| 0.70 | `021500` | `021500` -- both to near-black |
+
+The default sits in the middle of the band the derivation and the art agree on. Above 0.55 the
+shadow stops distinguishing sand from sea, which is the ceiling a "how dark" slider has to
+respect rather than a number chosen by eye.
+
+Cast and cloud shadows combine with **max, not sum**, and the combined result takes one
+darkening pass and one snap -- the same reasoning the lamps use. A building already in its own
+shadow does not get darker again for standing under a cloud too; summing would land the result
+between two palette entries and force the snap to guess. Measured with both active at once: 0
+pixels off temp2's seven-colour palette.
+
+### Softness dithers; it does not blur
+
+The art's alpha is binary -- 55,872 fully clear pixels, 9,664 fully opaque, zero partial -- so
+any softness has to be invented at render time. A blur is not available: it produces colours
+between the palette's entries, which is the entire reason the snap exists. Softness is instead
+an ordered dither on the coverage mask's edge, anchored to `floor(uv * map_size)` in **map**
+pixels (never screen pixels, or the pattern swims under a panning camera), reusing the same
+4x4 Bayer matrix the lamps already carry. It is confined to a band at the boundary -- applied
+across the whole shape it checkerboards the entire shadow, which an earlier pass of this
+mechanism did once before being confined. At 3 px of dither the shadow loses area rather than
+fading, and stays at 0 pixels off palette.
+
+### Cloud shadows reach the standing structures too
+
+A cloud sliding under a building without darkening it is the same seam the subtractive lamps
+exist to remove on the night side -- the ground moves and the thing standing on it does not,
+which reads as a cutout. The prop shader samples the cloud mask **once, at the prop's base**,
+in the vertex stage, and applies it flatly across the whole quad -- the same treatment
+`prop_fog` already gets, for the same reason: a standing sprite occupies map pixels it is not
+actually standing on, so a per-fragment lookup would sample whatever the building happens to
+stand in front of and stripe the sprite with shadow that belongs to the background.
+
+Measured, in de-gamma'd linear luminance across a seed sweep that put a single cloud's shadow
+over a known tower and then away from it: the prop's mean brightness dropped 0.2611 on covered
+trials against clear ones, the ground immediately beside its foot dropped 0.1684 -- both
+positive, moving together. Eleven of twelve trials matched the shader's own linear multiply to
+within 0.003; the twelfth is a genuine boundary case, not a defect -- the check reads coverage
+at an integer map pixel while the shader samples by continuous UV, and within about one texel
+of a shadow's own edge the two can legitimately land on different texels.
+
+### Placement is a jittered lattice sized from the art, not a fixed grid
+
+The visible slice of a plane at altitude is smaller than the visible ground -- the cloud ray is
+`camera_height - altitude` long rather than `camera_height` -- so uniform-random placement can
+leave the sky measurably "covered" while nothing is actually on screen. The field is instead a
+lattice whose cell size comes from the cloud's own native size, so cells are never smaller than
+what they hold; for temp2 that is 3x5 cells over a 336x216 extent (the region plus one cloud of
+margin on each axis), a capacity of fifteen. Cells are drawn in a seeded shuffled order, so
+lowering the count scatters the remaining clouds rather than emptying the lattice from one edge.
+
+The wrap seam sits at that margin, not at the region's own edge -- wrapping over the region
+itself would put a cloud's re-entry at an edge the camera is already looking at, and temp2 is
+small enough that both edges are commonly on screen together.
+
+### Validated
+
+- Clouds appear in all nine shipped framing presets, at their own height and pitch, with a
+  full field (fifteen clouds). Every combination in a curvature x height x pitch sweep that
+  left the camera with any geometric room above the ground it aims at drew its clouds; every
+  loss was traced to zero clouds projecting into the frame at all -- a camera-placement fact,
+  not a culling defect -- and none was traced to the `extra_cull_margin` guard.
+- `probe_cloud_art.gd`: the sheet lands on exactly temp2's seven colours (0 px off), alpha is
+  binary, all four pieces are intact at their declared rects, and each shadow is verified as
+  drawn rather than copied from its cloud's silhouette.
+- `probe_cloud_field.gd`: parallax, shadow linearity in altitude, mirror symmetry about noon,
+  no shadow with the sun down, determinism from a seed, and continuity across 138 observed
+  wraps in a 600-second walk -- all measured, none assumed.
+- `probe_clouds.gd`: 0 pixels off palette with cast and cloud shadows both active; the removed
+  noise system is confirmed gone by a grep audit across six files, not merely by a passing test.
+- `probe_cloud_on_props.gd`: the prop/ground correlation above, plus the palette-derived
+  discovery that `WorldMapProps` had been reading the region's palette only after its early
+  returns -- meaning a cloud shadow with the default billboard mode (`off`, no structures)
+  degraded silently to arithmetic darkening and put 27,508 pixels off palette. Fixed in the
+  same item that found it, since it is upstream of everything WMC-4 and WMC-5 measure.
+
+### What this closing pass actually looked at
+
+Every number above was measured before this pass began. What had not happened is anyone
+looking at a render -- the sketch's own author never saw one composite. Eight framed
+screenshots and a tight before/after crop on a shadowed tower were rendered and inspected
+directly for this section, resolving that gap:
+
+- The overview at Tile-Exact reads as intended: clouds sit visibly above the terrain, their
+  shadows are legible dark patches rather than a wash, and the shadow's position visibly
+  differs between 08:00 and 12:00.
+- The softness dither is subtle and reads as a broken-up edge rather than a smear, consistent
+  with the rest of the map's hard-edged pixel art.
+- The palette cost of a translucent cloud *body* (17 colours, 27,508 px off palette at the
+  default 0.85 opacity, against 0 at full opacity) is real by the numbers and close to
+  invisible by eye at this frame size -- a case where the measured defect and the visual one
+  diverge, worth knowing for whoever tunes the default next.
+- The cloud-on-prop effect is visible without instrumentation: the same tower reads
+  perceptibly greyer in the "covered" crop than in the "clear" one, at the same camera
+  position, same time of day, same everything but the one cloud's seed.
+- **Not fixed, and worth flagging rather than silently accepting:** at Curved Close and Closer,
+  a single native-scale cloud spans roughly a third to a half of the frame's width, and its own
+  body can sit close enough to structures to partly occlude them rather than just shadow them.
+  The fixed native scale that WMC-1 established is correct for the art and correct for
+  Tile-Exact; it was never tested against a close framing until this pass looked at one. See
+  "Open".
+
+## 13. Open
 
 - The region id `temp` is a placeholder. Naming it is a lore question.
 - Whether the camera eases between a close travelling framing and a pulled-back planning
@@ -619,3 +781,23 @@ mode worth guarding against here:
   or whether the camera commits to something closer. This is a real design choice, not only
   a texture budget: it changes how much of the world the player can weigh at once when
   deciding where to spend travel time.
+- **A single native-scale cloud dominates a close framing.** At Curved Close and Closer it
+  spans roughly a third to a half of the frame's width and its body can sit near enough to a
+  structure to partly occlude it rather than just shadow it -- found by actually looking at a
+  render while closing the clouds cycle, not by any measurement in it. The fixed native scale
+  is correct for the art and correct at Tile-Exact; nothing in the clouds cycle adjusts count
+  or size by framing, and the console's own Count/Size ranges do not currently know a close
+  camera is looking. Whichever direction this resolves in -- fewer clouds by default at a
+  closer framing, a size ceiling tied to the frame, or leaving it as weather that is simply
+  large up close -- it is a judgement, not a bug, and belongs to whoever next tunes the
+  presets.
+- **`WorldMapCameraRig._curveDropAtFocus()` overshoots badly at higher curvature**, surfaced
+  while adding clouds and not fixed in that cycle. It estimates the ground's drop from the
+  camera's *nominal* view depth before the camera has moved to compensate for it; at
+  `curvature 0.012, height 90, pitch 45` the estimate is 104.4 units against a real drop of
+  0.7, which puts the camera 104 units below the ground it is aiming at and renders an empty
+  frame. `curve_fold` does not catch it -- it reads 0.63 for that framing, well under its own
+  1.0 warning threshold, because the fold metric was built to catch the world leaving frame
+  from *above*, not the camera ending up *underneath*. The shipped presets are unaffected
+  (curvature 0.0008 and 0.0039, far below where the estimate's error becomes visible); this
+  only bites a curvature the console's own slider can reach but no preset uses.

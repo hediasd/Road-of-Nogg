@@ -378,6 +378,32 @@ committing the camera to something closer. This is a design choice rather than
 only a texture budget — it decides how much of the world the player can weigh at
 once when choosing where to spend travel time.
 
+## World map clouds: a single cloud dominates a close framing
+
+Recorded 2026-09-04 when the world map clouds cycle closed. Clouds and their
+shadows are built and validated; this is a judgement call the cycle surfaced by
+actually looking at a render, and deliberately did not make. Full detail is in
+`docs/WORLDMAP_DESIGN.md` section 12 ("What this closing pass actually looked
+at") and section 13 ("Open").
+
+**A single native-scale cloud spans roughly a third to a half of the frame's
+width at Curved Close and Closer**, and its own body can sit close enough to a
+structure to partly occlude it rather than just shadow it. The display scale
+is fixed at native by the art itself (the sheet is 8 px blocks under a 1 px
+outline, and no other scale keeps the blocks square or the outline one pixel
+wide — see section 12), which is correct at Tile-Exact and was never tested
+against a closer framing until this pass rendered one. Nothing in the console
+currently ties cloud count or size to how close the camera is.
+
+Whichever direction this resolves in — fewer clouds by default at a closer
+framing, a size ceiling tied to the frame, or accepting that weather is simply
+large up close — it is a judgement for whoever next tunes the presets, not a
+defect in what this cycle shipped.
+
+*A second finding from the same cycle, `WorldMapCameraRig._curveDropAtFocus()`
+overshooting at high curvature, is not listed here — it already has an active
+follow-up task rather than a backlog entry.*
+
 ## Carried over from the retired `docs/BACKLOG.md`
 
 `docs/BACKLOG.md` was a third backlog that `docs/README.md` still routed to

@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Clouds over temp2</title>
+<style>
+  :root{--bg:#12141a;--panel:#1b1e27;--edge:#2b3040;--ink:#dfe4ee;--dim:#8a93a8;--accent:#7fd3a8;--warn:#e8b166}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:13px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+  header{padding:22px 26px 12px;max-width:1500px;margin:0 auto}
+  h1{font-size:19px;margin:0 0 10px}
+  .lede{max-width:78ch;color:var(--dim);margin:0}
+  .lede b{color:var(--ink)}
+  .warn{max-width:78ch;margin:12px 0 0;padding:9px 12px;border-left:3px solid var(--warn);background:#221d15;color:#e3d3bb;border-radius:0 4px 4px 0}
+  main{display:flex;gap:18px;align-items:flex-start;padding:8px 26px 40px;max-width:1500px;margin:0 auto;flex-wrap:wrap}
+  .stage{flex:1 1 700px;min-width:520px}
+  canvas{display:block;width:100%;max-width:960px;background:#000;border:1px solid var(--edge);border-radius:5px;image-rendering:pixelated;cursor:grab}
+  canvas.drag{cursor:grabbing}
+  #strip{display:block;width:100%;max-width:960px;margin-top:12px;background:#0e1016;border:1px solid var(--edge);border-radius:5px;image-rendering:pixelated;cursor:default}
+  .cap{max-width:78ch;color:var(--dim);margin:6px 0 0;font-size:12px}
+  .panel{flex:0 0 330px;background:var(--panel);border:1px solid var(--edge);border-radius:6px;padding:14px 15px}
+  .grp{margin:0 0 15px}
+  .grp>h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent);margin:0 0 9px;font-weight:700}
+  .row{display:flex;align-items:center;gap:9px;margin:0 0 7px}
+  .row label{flex:0 0 108px;color:var(--dim);font-size:12px}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+  .row .val{flex:0 0 52px;text-align:right;font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .modes button,.btn{display:block;width:100%;text-align:left;margin:0 0 5px;padding:7px 9px;background:#242938;color:var(--ink);border:1px solid var(--edge);border-radius:4px;cursor:pointer;font-size:12px}
+  .modes button:hover,.btn:hover{background:#2e3446}
+  .modes button.on{background:#1d3d31;border-color:var(--accent);color:#d8f4e6}
+  .modes button small,.btn small{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+  .modes button.on small{color:#9fcbb8}
+  .readout{font-family:ui-monospace,Consolas,monospace;font-size:11.5px;color:var(--dim);background:#0e1016;border:1px solid var(--edge);border-radius:4px;padding:8px 9px;white-space:pre;line-height:1.6}
+  .notes{max-width:1500px;margin:0 auto;padding:0 26px 60px}
+  .notes h2{font-size:14px;margin:26px 0 8px;color:var(--accent)}
+  .notes p,.notes li{max-width:82ch;color:#b6bdcd}
+  .notes code{background:#0e1016;border:1px solid var(--edge);border-radius:3px;padding:1px 4px;font-size:12px}
+  .notes table{border-collapse:collapse;font-family:ui-monospace,Consolas,monospace;font-size:12px;margin:8px 0}
+  .notes th,.notes td{border:1px solid var(--edge);padding:4px 10px;text-align:right}
+  .notes th:first-child,.notes td:first-child{text-align:left;color:var(--dim)}
+  .notes th{color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Clouds over temp2</h1>
+  <p class="lede">
+    Replacing the procedural cloud shadows with the <b>supplied art</b>: two cloud shapes and
+    two ground shadows. A cloud is a <b>horizontal sprite at altitude</b>, so it rides the same
+    mode-7 scanline pass the ground does &mdash; one ray per screen row, intersected with a plane
+    at cloud height instead of at zero. Its shadow lands on the ground by the same shear the
+    buildings use: <code>altitude &times; cot(sun elevation)</code>, opposite the sun.
+  </p>
+  <p class="warn"><b>Two things the art says that are worth knowing before choosing anything.</b>
+    <b>There is no transparency in it.</b> 55,872 fully clear pixels, 9,664 fully opaque,
+    <b>zero</b> partial &mdash; so any softness has to be applied at render time rather than read
+    from the file. And <b>the two shadows are different colours, both from temp2's own
+    palette</b>: <code>08696a</code> is its shadowed sea and <code>e69900</code> its shadowed
+    sand. That is not a translucent overlay, it is <i>shadowed terrain</i> &mdash; the same thing
+    the building shadows arrived at by snapping to the palette. Which means a fixed-colour
+    shadow sprite is only right over the terrain it was drawn for, and the <b>Palette</b> mode
+    below is the one that generalises.</p>
+  <p class="warn"><b>Settled, 2026-09-04, in the engine.</b> Both judgement calls this sketch
+    raised were confirmed once the art was actually measured: the sheet is 8&nbsp;px blocks
+    under a 1&nbsp;px outline, which pins the display scale at <b>exactly native</b> &mdash; the
+    <code>Size</code> slider below does not survive that finding, and the shipped control takes
+    a whole multiple of native instead. And each shadow is drawn by hand with its own
+    foreshortening (shadow B is a full row shorter than its cloud), not derived from the cloud
+    by a scale factor, so <code>Spread</code> is gone too. Darkening the ground and snapping to
+    its palette reproduces the artist's own two shadow colours exactly at shade 0.25&ndash;0.50;
+    0.40 is the default. <b>One thing this sketch could not show and the engine now can:</b> at
+    a close framing (Curved Close, Closer) a single native-scale cloud spans 30&ndash;50% of the
+    frame's width, which reads as intended weather at Tile-Exact and as a cloud eating the map
+    up close. Recorded as open in <code>WORLDMAP_DESIGN.md</code> &sect;12, not fixed here.</p>
+</header>
+
+<main>
+  <div class="stage">
+    <canvas id="cv" width="960" height="540"></canvas>
+    <p class="cap">Drag to pan. Clouds drift; <b>Run</b> animates wind and the clock together.</p>
+    <canvas id="strip" width="1152" height="300"></canvas>
+    <p class="cap"><b>How the shadow takes its colour.</b> Same clouds, same sun, four
+      treatments. <b>Sprite</b> uses the art's own colour, which is right only over the terrain
+      it was painted for. <b>Palette</b> snaps the shadowed ground to the nearest colour the map
+      actually uses. <b>Multiply</b> darkens arithmetically. <b>Noise</b> is the procedural
+      shadow this replaces.</p>
+  </div>
+
+  <div class="panel">
+    <div class="grp modes"><h2>Shadow colour</h2><div id="shadowButtons"></div></div>
+
+    <div class="grp">
+      <h2>Clouds</h2>
+      <div class="row"><label>Count</label><input type="range" id="count" min="0" max="24" step="1"><span class="val" id="count_v"></span></div>
+      <div class="row"><label>Size (tiles)</label><input type="range" id="size" min="2" max="20" step="0.5"><span class="val" id="size_v"></span></div>
+      <div class="row"><label>Altitude</label><input type="range" id="altitude" min="0.5" max="30" step="0.5"><span class="val" id="altitude_v"></span></div>
+      <div class="row"><label>Opacity</label><input type="range" id="cloudAlpha" min="0" max="1" step="0.02"><span class="val" id="cloudAlpha_v"></span></div>
+      <div class="row"><label>Wind speed</label><input type="range" id="wind" min="0" max="4" step="0.05"><span class="val" id="wind_v"></span></div>
+      <div class="row"><label>Wind angle</label><input type="range" id="windAngle" min="0" max="360" step="5"><span class="val" id="windAngle_v"></span></div>
+      <div class="row"><label>Spread</label><input type="range" id="spread" min="1" max="4" step="0.1"><span class="val" id="spread_v"></span></div>
+    </div>
+
+    <div class="grp">
+      <h2>Shadow</h2>
+      <div class="row"><label>Strength</label><input type="range" id="shadowAlpha" min="0" max="1" step="0.02"><span class="val" id="shadowAlpha_v"></span></div>
+      <div class="row"><label>Softness</label><input type="range" id="softness" min="0" max="1" step="0.05"><span class="val" id="softness_v"></span></div>
+      <div class="row"><label>Time of day</label><input type="range" id="time" min="6.2" max="17.8" step="0.05"><span class="val" id="time_v"></span></div>
+      <div class="row"><label>Sun height</label><input type="range" id="sunHigh" min="20" max="85" step="1"><span class="val" id="sunHigh_v"></span></div>
+      <div class="row"><label>Lowest sun</label><input type="range" id="sunLow" min="10" max="60" step="1"><span class="val" id="sunLow_v"></span></div>
+      <button class="btn" id="play">Run<small>Drift the wind and the clock</small></button>
+    </div>
+
+    <div class="grp">
+      <h2>Camera</h2>
+      <div class="row"><label>Pitch</label><input type="range" id="pitch" min="20" max="80" step="0.5"><span class="val" id="pitch_v"></span></div>
+      <div class="row"><label>Vertical FOV</label><input type="range" id="fov" min="12" max="60" step="0.5"><span class="val" id="fov_v"></span></div>
+      <div class="row"><label>Height</label><input type="range" id="height" min="6" max="90" step="0.5"><span class="val" id="height_v"></span></div>
+      <div class="row"><label>Curvature k</label><input type="range" id="curve" min="0" max="0.008" step="0.0001"><span class="val" id="curve_v"></span></div>
+      <button class="btn" id="reset">Reset</button>
+    </div>
+
+    <div class="grp"><h2>Readout</h2><div class="readout" id="readout"></div></div>
+  </div>
+</main>
+
+<div class="notes">
+  <h2>A cloud is a horizontal sprite, not a billboard</h2>
+  <p>The map is seen from above at a steep pitch, so a cloud lies <b>flat</b> like the ground
+    rather than standing up like a building. That makes it the same problem the ground already
+    solves: one ray per screen row, intersected with a horizontal plane. The only difference is
+    the plane's height &mdash; <code>camera_height &minus; altitude</code> instead of
+    <code>camera_height</code>. Clouds are therefore perspective-correct for free, and they
+    take the same curvature the ground does, so they stay parallel to it rather than sliding
+    across it as the world bends.</p>
+  <p>It also gives <b>parallax for nothing</b>. A cloud and the ground beneath it land on
+    different screen rows because their rays hit at different distances, so panning the camera
+    slides the cloud against the map by exactly the amount its altitude earns.</p>
+
+  <h2>The shadow is the building shadow's shear, reused</h2>
+  <p>A cloud's shadow lands <code>altitude &times; cot(elevation)</code> away from it, opposite
+    the sun &mdash; the identical relation the standing structures use, with altitude in place of
+    building height. So the shadow moves with the time of day, the two stay locked together as
+    the wind blows, and a cloud directly overhead at noon sits almost on its own shadow while
+    one at 07:00 throws it far to the north-west.</p>
+  <p>The shadow is drawn into the <b>same map-space mask</b> the building shadows use, at the
+    same resolution as the region art. Its edge therefore lands on map pixels and cannot crawl
+    when the camera pans, which is the whole reason that representation was chosen.</p>
+
+  <h2>What the supplied art settles, and what it does not</h2>
+  <p>Measured: <b>zero partial alpha</b>. Every pixel is either fully clear or fully opaque, so
+    the <b>Opacity</b> and <b>Softness</b> knobs here are applied at render time and are a
+    decision, not a property of the file. Softness dithers the shadow's edge in map space
+    rather than blurring it, for the same reason the building shadows do.</p>
+  <p>Also measured: the two shadow sprites are <code>08696a</code> and <code>e69900</code>,
+    which are temp2's shadowed sea and shadowed sand. The artist drew shadowed <i>terrain</i>.
+    That is the same answer palette-snapping reached independently for the building shadows,
+    and it is why <b>Sprite</b> mode looks right over one terrain and wrong over the next while
+    <b>Palette</b> mode works everywhere.</p>
+
+  <h2>The art's colours are a hair off the map's</h2>
+  <p>Worth fixing at source, and easy to miss by eye. Four of the five colours in the cloud
+    sheet are <i>almost</i> temp2's, and not quite:</p>
+  <table>
+    <tr><th>in the sheet</th><th>nearest map colour</th><th>off by</th></tr>
+    <tr><td>#31aeac</td><td>#37aeae &nbsp;sea</td><td>6, 0, 2</td></tr>
+    <tr><td>#08696a</td><td>#0b696a &nbsp;dark teal</td><td>3, 0, 0</td></tr>
+    <tr><td>#ffd262</td><td>#ffd363 &nbsp;sand</td><td>0, 1, 1</td></tr>
+    <tr><td>#f6fff6</td><td>#f5fff5 &nbsp;white</td><td>1, 0, 1</td></tr>
+    <tr><td>#e69900</td><td>#e69900 &nbsp;orange</td><td><b>exact</b></td></tr>
+  </table>
+  <p>Only the orange lands on the palette. The rest read as the right colour and are not it,
+    which is how a seven-colour map quietly becomes an eleven-colour one. Measured on the
+    ground alone, with the clouds themselves excluded: <b>Sprite</b> mode puts 42,410 pixels
+    outside the palette and <b>Palette</b> mode puts <b>zero</b>. That is the cheapest argument
+    for snapping, and the cheapest fix is to correct the five values in the source PNG.</p>
+  <p>The near-miss sea colour <code>#31aeac</code> appears on <i>both</i> the clouds and the
+    shadows &mdash; it is the one-pixel outline around each shape. So the outline was meant to be
+    the map's own sea and is not, which will show wherever a cloud crosses the coast.</p>
+
+  <h2>What this replaces</h2>
+  <p>The shipped ground shader carries <code>cloud_strength</code>, <code>cloud_scale</code> and
+    <code>cloud_speed</code>, driving a procedural noise field. It is off in every preset. The
+    <b>Noise</b> option reproduces it for comparison: it is cheap and it never repeats, but it
+    has no shape anybody drew, no cloud above it to explain it, and no altitude, so it cannot
+    parallax and cannot move with the sun.</p>
+</div>
+
+<script>window.EMBEDDED_TEMP2="data:image/png;base64,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";</script>
+<script>window.EMBEDDED_CLOUDS="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEACAYAAABccqhmAAAAAXNSR0IArs4c6QAAA+VJREFUeJzt3T2KFEEYBuBeMZC9gd7ARDAUM8HETPEEm4geaBcTTyCamQhmYrhg4g30BovZGCw9zCzOsExVddU33/NEG2xQdFW/9d8zTQAAAAAAAAAAAAAAAAAAAMBoTnoX4PGnj6v57+8vX/QtzC09/fxl/fflq9fdnyG79WhfkdrH3d4FmAK9+LO5vJsVzbiWbl+R2sed3gUA+uk+PLlaXa1u8W/DOj057f4M2a13+xq9fRgBQGICABITAJCYAIDEmi9QRNzn7y3SPnJrGdvPkvW/yDmALBVXS6R95CVkaz9L1r8pACTWfHjZex82utH3kVvL3n5a178RACQmACAxAQCJCQBIrHiBIeM+7ZKiLwJqH/XVPCdQ5RyAimUf7aOumucETAEgseLhZfZ92taiTwG0j7ZK24cRACQmAAbmLgCtCQBIbIivArNNz89SBEBj0RfxOG6mAJCYAIDEBAAkJgAgseIAsGK9m2fjGbTkLgBQpMo24JxEbn1d0+tt0z7qqtm+wu9R975sYp+/TO/6KxW9/k0BIDEBAIkJAEhMAEBi4QOg54q71f5ykZ9h5LLPwgcAcLijuA689D7zMST/SKKdE1D/AAAAAAAAAMCIQt9lnjZ+f/7X12+9i7Ll4fNn01Th99uhpaM4Cjzayz8NWia46SgCADhM+AAYuacduWwwHUMAAIcTAJCYAIDEBAAk1n2Pet7Hnyyarc1nCCbnCIqtfp6t29efHx/6FuaW7j85W/998uhD0/of4otAXvxt8/PYDAIOF+XFn83l3QyCVkwBILHuw8t7b9+F/mmo1v5enHevo8h+v59Ct68Hb9q+o0YAkJgAgMQEACQmACCx4m1A+/jsE3EffiT/W8SseU6gyjkALz77ePHrqnlOwBQAEisOAL0/++j926nxbI0AIDEBMDB3AWhNAEBiQ9wGZJuen6UIgMYOucxzeXHepjBwgykAJCYAIDEBAIkJAEisOACsWO/m2SzzXbus3AUAilTZBpx7OvcCrun5t809lXsBddQcVYX/4GTvj4r6aGeZ0T/a2fqjnL2ZAkBiAgASEwCQmACAxMIHQM8Vd6v95UY+JzBy2WoJHwDA4Y7iOvDS5xD0/HWNdk4gQ88PAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5PEPUlfvWrlAvg0AAAAASUVORK5CYII=";</script>
+<script>
+"use strict";
+const RAD = Math.PI / 180;
+
+/* The supplied sheet, read rather than assumed: four pieces, two pairs. Cloud on top, its
+   ground shadow beneath it. The shadow shapes are flatter than the clouds -- a shadow seen on
+   the ground at this pitch, not a copy of the silhouette. */
+const CLOUD_PAIRS = [
+  { cloud: [16, 16, 88, 40], shadow: [16, 64, 88, 40] },
+  { cloud: [152, 16, 88, 40], shadow: [152, 72, 88, 32] },
+];
+
+const SHADOW_MODES = [
+  ["palette", "Palette", "Snap the shadowed ground to a colour the map already uses."],
+  ["sprite", "Sprite", "The art's own colour. Right over one terrain, wrong over the next."],
+  ["multiply", "Multiply", "Darken arithmetically. Invents colours the palette lacks."],
+  ["noise", "Noise", "The procedural field this replaces."],
+];
+
+const DEFAULTS = {
+  shadowMode: "palette",
+  count: 12, size: 5, altitude: 6, cloudAlpha: 1.0,
+  wind: 0.9, windAngle: 250, spread: 1.15,
+  shadowAlpha: 0.5, softness: 0.35,
+  time: 9.0, sunHigh: 62, sunLow: 27,
+  pitch: 58.5, fov: 26, height: 20.5, curve: 0.0039,
+  fogStart: 21, fogEnd: 116, fogPow: 1.4,
+};
+const K = Object.assign({}, DEFAULTS);
+const WPT = 1 / 8;
+const RENDER_SCALE = 0.76;
+const FOG = [0.729, 0.910, 0.886];
+const VOID = [0.216, 0.682, 0.682];
+
+let camX = 0, camZ = 0, clock = 0;
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d", { alpha: false });
+const buf = document.createElement("canvas");
+const bctx = buf.getContext("2d");
+let rw = 0, rh = 0, img = null, sizeOverride = null;
+
+let mapW = 0, mapH = 0, srcData = null, palette = [];
+let sheet = null, sheetCtx = null;
+/* The cloud layer is the MAP'S OWN SIZE and sampled with a wrap, so the pattern repeats every
+   31 tiles. Twice the map was the first guess and it was wrong in a way worth recording:
+   the visible slice of a plane at altitude is much smaller than the visible ground -- the
+   cloud ray is `camera - altitude` long instead of `camera`, so it covers about 60% of the
+   depth at this framing -- and eight clouds scattered over 62 x 44 units almost never landed
+   in it. Measured, the visible clouds sat entirely in the top two rows of the frame. */
+let layerW = 0, layerH = 0;
+let cloudLayer = null, cloudData = null;
+let shadowLayer = null, shadowData = null;
+let clouds = [];
+
+/* ------------------------------------------------------------------- the sun */
+function sunDir(t) {
+  const day = (t - 6) / 12;
+  const arc = Math.sin(Math.max(0, Math.min(1, day)) * Math.PI);
+  const el = (K.sunLow + (K.sunHigh - K.sunLow) * arc) * RAD;
+  const az = (90 + 52 * (2 * day - 1)) * RAD;
+  return { el, az, x: Math.cos(el) * Math.cos(az), y: Math.sin(el), z: Math.cos(el) * Math.sin(az) };
+}
+
+/* Ground offset a shadow takes per unit of HEIGHT -- the identical relation the standing
+   structures use, with a cloud's altitude in place of a building's height. */
+function shadowStep() {
+  const s = sunDir(K.time);
+  if (s.y < 1e-4) return { x: 0, z: 0, len: 0 };
+  const kx = -s.x / s.y, kz = -s.z / s.y;
+  return { x: kx, z: kz, len: Math.hypot(kx, kz) };
+}
+
+/* ------------------------------------------------------------------- clouds */
+/* Clouds sit on a JITTERED GRID, not at uniform random positions.
+   Random placement leaves holes, and the hole that matters is the one in view: the visible
+   slice of a plane at altitude is far smaller than the map -- at altitude 6 it is about
+   112 x 75 of the 248 x 176 layer -- so seven clouds scattered at random missed it entirely
+   and the sky came back empty while the layer measured 9% covered. A grid with jitter keeps
+   the placement irregular while guaranteeing that any window of roughly one cell contains
+   one. */
+function seedClouds() {
+  clouds = [];
+  let seed = 12345;
+  const rand = () => (seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  const cols = 5, rows = 5;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (clouds.length >= 24) break;
+      clouds.push({
+        x: ((c + 0.15 + rand() * 0.7) / cols) * layerW * WPT,
+        z: ((r + 0.15 + rand() * 0.7) / rows) * layerH * WPT,
+        pair: (r + c) % CLOUD_PAIRS.length,
+        scale: 0.7 + rand() * 0.6,
+      });
+    }
+  }
+  // Shuffled so the Count slider reveals them scattered rather than filling row by row.
+  for (let i = clouds.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const tmp = clouds[i]; clouds[i] = clouds[j]; clouds[j] = tmp;
+  }
+}
+
+const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+
+/* Both layers are redrawn only when something they depend on moves. They are map-resolution
+   images, so a cloud edge lands on map pixels exactly as a building shadow does. */
+function buildLayers() {
+  const cl = cloudLayer.getContext("2d");
+  const sl = shadowLayer.getContext("2d");
+  cl.clearRect(0, 0, layerW, layerH);
+  sl.clearRect(0, 0, layerW, layerH);
+  cl.imageSmoothingEnabled = false;
+  sl.imageSmoothingEnabled = false;
+
+  const step = shadowStep();
+  const offX = step.x * K.altitude / WPT;
+  const offZ = step.z * K.altitude / WPT;
+  const drift = clock * K.wind;
+  const wx = Math.cos(K.windAngle * RAD) * drift / WPT;
+  const wz = Math.sin(K.windAngle * RAD) * drift / WPT;
+
+  const n = Math.round(K.count);
+  for (let i = 0; i < n; i++) {
+    const c = clouds[i];
+    const pair = CLOUD_PAIRS[c.pair];
+    const w = (K.size * c.scale) / WPT;
+    const h = w * (pair.cloud[3] / pair.cloud[2]);
+    // Wrapped so a cloud leaving one edge arrives at the other; the layer is drawn three times
+    // across so a cloud straddling the seam is not cut in half.
+    const bx = mod(c.x / WPT + wx, layerW);
+    const bz = mod(c.z / WPT + wz, layerH);
+    for (const dx of [-layerW, 0, layerW]) {
+      for (const dz of [-layerH, 0, layerH]) {
+        cl.drawImage(sheet, pair.cloud[0], pair.cloud[1], pair.cloud[2], pair.cloud[3],
+          bx + dx - w / 2, bz + dz - h / 2, w, h);
+        const sw = w * K.spread;
+        const sh = sw * (pair.shadow[3] / pair.shadow[2]);
+        sl.drawImage(sheet, pair.shadow[0], pair.shadow[1], pair.shadow[2], pair.shadow[3],
+          bx + dx + offX - sw / 2, bz + dz + offZ - sh / 2, sw, sh);
+      }
+    }
+  }
+  cloudData = cl.getImageData(0, 0, layerW, layerH).data;
+  shadowData = sl.getImageData(0, 0, layerW, layerH).data;
+}
+
+function mod(a, b) { return ((a % b) + b) % b; }
+
+/* -------------------------------------------------------------- ray + render */
+let F = 0, CS = 0, SN = 0;
+
+/* One ray, intersected with a horizontal plane `above` units below the camera. The ground
+   passes the camera's own height; the cloud layer passes that minus the altitude. Same
+   function, because a cloud layer IS a ground plane at a different height. */
+function rayT(py, above) {
+  const diry = py * CS - F * SN;
+  const dirz = -py * SN - F * CS;
+  let t;
+  if (K.curve > 1e-12) {
+    const a = K.curve * dirz * dirz, disc = diry * diry - 4 * a * above;
+    if (disc < 0) return null;
+    t = (-diry - Math.sqrt(disc)) / (2 * a);
+  } else {
+    if (diry > -1e-9) return null;
+    t = above / -diry;
+  }
+  return t > 0 ? { t, dirz } : null;
+}
+
+function fogAt(f) {
+  return Math.pow(Math.min(1, Math.max(0, (f - K.fogStart) / Math.max(1e-3, K.fogEnd - K.fogStart))), K.fogPow);
+}
+
+function snapToPalette(r, g, b) {
+  let best = 0, bestD = 1e9;
+  for (let i = 0; i < palette.length; i++) {
+    const p = palette[i];
+    const d = (r - p[0]) * (r - p[0]) + (g - p[1]) * (g - p[1]) + (b - p[2]) * (b - p[2]);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return palette[best];
+}
+
+/* Procedural noise, reproducing the shipped ground shader's cloud field, so the thing being
+   replaced is visible beside its replacement rather than described. */
+function noiseAt(x, z) {
+  const s = 12;
+  let v = Math.sin(x / s * 1.7 + clock * 0.6) * Math.cos(z / s * 1.3 - clock * 0.4)
+    + 0.5 * Math.sin((x + z) / s * 2.6 + clock * 0.9);
+  return Math.max(0, Math.min(1, v * 0.5 + 0.42));
+}
+
+function render() {
+  const dw = sizeOverride ? sizeOverride[0] : cv.width;
+  const dh = sizeOverride ? sizeOverride[1] : cv.height;
+  const nw = Math.round(dw * RENDER_SCALE), nh = Math.round(dh * RENDER_SCALE);
+  if (nw !== rw || nh !== rh) {
+    rw = nw; rh = nh; buf.width = rw; buf.height = rh;
+    img = bctx.createImageData(rw, rh);
+  }
+  F = (rh / 2) / Math.tan(K.fov * 0.5 * RAD);
+  CS = Math.cos(K.pitch * RAD); SN = Math.sin(K.pitch * RAD);
+  buildLayers();
+
+  const px = img.data;
+  const fr = FOG[0] * 255, fg = FOG[1] * 255, fb = FOG[2] * 255;
+  const vr = VOID[0] * 255, vg = VOID[1] * 255, vb = VOID[2] * 255;
+  const above = Math.max(0.01, K.height - K.altitude);
+  const noiseMode = K.shadowMode === "noise";
+
+  for (let sy = 0; sy < rh; sy++) {
+    const py = rh / 2 - sy - 0.5;
+    const g = rayT(py, K.height);
+    const c = rayT(py, above);
+    let o = sy * rw * 4;
+    for (let x = 0; x < rw; x++) {
+      let R = 10, G = 11, B = 14;
+      let fog = 0;
+      if (g) {
+        fog = fogAt(-g.t * g.dirz);
+        const wz = camZ + g.t * g.dirz;
+        const wx = camX + g.t * (x - rw / 2 + 0.5);
+        const ui = Math.floor(wx / WPT), vi = Math.floor(wz / WPT);
+        R = vr; G = vg; B = vb;
+        if (ui >= 0 && ui < mapW && vi >= 0 && vi < mapH) {
+          const i = (vi * mapW + ui) * 4;
+          R = srcData[i]; G = srcData[i + 1]; B = srcData[i + 2];
+        }
+        // The cloud's shadow, in MAP space, sampled with a wrap.
+        let shade = 0;
+        if (noiseMode) {
+          shade = noiseAt(wx, wz) * K.shadowAlpha;
+        } else {
+          const sx = Math.floor(mod(wx / WPT, layerW)), sz = Math.floor(mod(wz / WPT, layerH));
+          const si = (sz * layerW + sx) * 4;
+          if (shadowData[si + 3] > 127) {
+            shade = K.shadowAlpha;
+            // Softness dithers the EDGE in map space rather than blurring it: a blur would
+            // put colours between the palette entries, which is the thing this art avoids.
+            if (K.softness > 0 && edgeOf(sx, sz)) {
+              const th = (BAYER4[(sz & 3) * 4 + (sx & 3)] + 0.5) / 16;
+              if (th < K.softness) shade = 0;
+            }
+            if (K.shadowMode === "sprite") {
+              R = shadowData[si]; G = shadowData[si + 1]; B = shadowData[si + 2];
+              shade = 0;
+            }
+          }
+        }
+        if (shade > 0) {
+          let sr = R * (1 - shade), sg = G * (1 - shade), sb = B * (1 - shade);
+          if (K.shadowMode === "palette") {
+            const p = snapToPalette(sr, sg, sb);
+            sr = p[0]; sg = p[1]; sb = p[2];
+          }
+          R = sr; G = sg; B = sb;
+        }
+      }
+      // The cloud itself, above everything, at its own ray.
+      if (c && K.cloudAlpha > 0) {
+        const cwz = camZ + c.t * c.dirz;
+        const cwx = camX + c.t * (x - rw / 2 + 0.5);
+        const cx = Math.floor(mod(cwx / WPT, layerW)), cz = Math.floor(mod(cwz / WPT, layerH));
+        const ci = (cz * layerW + cx) * 4;
+        if (cloudData[ci + 3] > 127) {
+          const a = K.cloudAlpha;
+          R = cloudData[ci] * a + R * (1 - a);
+          G = cloudData[ci + 1] * a + G * (1 - a);
+          B = cloudData[ci + 2] * a + B * (1 - a);
+          fog = fogAt(-c.t * c.dirz);
+        }
+      }
+      px[o++] = R + (fr - R) * fog;
+      px[o++] = G + (fg - G) * fog;
+      px[o++] = B + (fb - B) * fog;
+      px[o++] = 255;
+    }
+  }
+  bctx.putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+  if (sizeOverride) return;
+  ctx.drawImage(buf, 0, 0, rw, rh, 0, 0, cv.width, cv.height);
+  updateReadout();
+}
+
+/* Is this shadow pixel on the shape's boundary? Cheap 4-neighbour test on the layer's alpha. */
+function edgeOf(x, z) {
+  const at = (a, b) => shadowData[(mod(b, layerH) * layerW + mod(a, layerW)) * 4 + 3] > 127;
+  return !(at(x - 1, z) && at(x + 1, z) && at(x, z - 1) && at(x, z + 1));
+}
+
+function updateReadout() {
+  const s = sunDir(K.time);
+  const step = shadowStep();
+  const l = [];
+  l.push("map            " + mapW + " x " + mapH + " px, layer " + layerW + " x " + layerH);
+  l.push("palette        " + palette.length + " colours");
+  l.push("clouds         " + Math.round(K.count) + " of 24, " + K.size.toFixed(1) + " tiles");
+  l.push("altitude       " + K.altitude.toFixed(1) + " units");
+  l.push("sun elevation  " + (s.el / RAD).toFixed(1) + " deg");
+  l.push("shadow offset  " + (step.len * K.altitude).toFixed(1) + " tiles from the cloud");
+  l.push("cloud ray      camera - altitude = " + (K.height - K.altitude).toFixed(1));
+  if (K.height - K.altitude <= 0.02) l.push("  (camera is AT or BELOW the cloud layer)");
+  document.getElementById("readout").textContent = l.join("\n");
+}
+
+/* ---------------------------------------------------------------------- ui */
+const BIND = ["count", "size", "altitude", "cloudAlpha", "wind", "windAngle", "spread",
+  "shadowAlpha", "softness", "time", "sunHigh", "sunLow",
+  "pitch", "fov", "height", "curve"];
+const DEC = { curve: 4, cloudAlpha: 2, shadowAlpha: 2, softness: 2, size: 1, altitude: 1,
+  wind: 2, spread: 1, time: 2, pitch: 1, fov: 1, height: 1 };
+
+for (const el of document.querySelectorAll("input")) el.setAttribute("autocomplete", "off");
+
+function valText(k) {
+  if (k === "time") {
+    const hh = Math.floor(K.time), mm = Math.floor((K.time - hh) * 60);
+    return (hh < 10 ? "0" : "") + hh + ":" + (mm < 10 ? "0" : "") + mm;
+  }
+  return Number(K[k]).toFixed(DEC[k] === undefined ? 0 : DEC[k]);
+}
+
+function syncUI() {
+  for (const k of BIND) {
+    document.getElementById(k).value = K[k];
+    document.getElementById(k + "_v").textContent = valText(k);
+  }
+  for (const b of document.querySelectorAll("#shadowButtons button")) {
+    b.classList.toggle("on", b.dataset.mode === K.shadowMode);
+  }
+}
+
+for (const k of BIND) {
+  document.getElementById(k).addEventListener("input", e => {
+    K[k] = parseFloat(e.target.value);
+    document.getElementById(k + "_v").textContent = valText(k);
+    render();
+    scheduleStrip();
+  });
+}
+
+(function buildModes() {
+  const host = document.getElementById("shadowButtons");
+  for (const m of SHADOW_MODES) {
+    const b = document.createElement("button");
+    b.dataset.mode = m[0];
+    b.innerHTML = m[1] + "<small>" + m[2] + "</small>";
+    b.onclick = () => { K.shadowMode = m[0]; syncUI(); render(); scheduleStrip(); };
+    host.appendChild(b);
+  }
+})();
+
+function strip() {
+  const sc = document.getElementById("strip");
+  const g = sc.getContext("2d");
+  const labelH = 18;
+  const saved = K.shadowMode;
+  sizeOverride = [420, 250];
+  render();
+  sc.width = SHADOW_MODES.length * rw;
+  sc.height = rh + labelH;
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = "#0e1016"; g.fillRect(0, 0, sc.width, sc.height);
+  SHADOW_MODES.forEach((m, i) => {
+    K.shadowMode = m[0]; render();
+    g.drawImage(buf, i * rw, labelH);
+    g.fillStyle = "#dfe4ee"; g.font = "12px ui-sans-serif, sans-serif";
+    g.fillText(m[1], i * rw + 5, 13);
+  });
+  K.shadowMode = saved;
+  sizeOverride = null;
+  render();
+}
+
+let stripTimer = 0;
+function scheduleStrip() {
+  clearTimeout(stripTimer);
+  stripTimer = setTimeout(strip, 240);
+}
+
+let playing = false, lastTick = 0;
+function tick(now) {
+  if (!playing) return;
+  if (!lastTick) lastTick = now;
+  const dt = (now - lastTick) / 1000;
+  lastTick = now;
+  clock += dt;
+  K.time = 6.2 + ((K.time - 6.2 + dt * 0.6) % 11.6);
+  document.getElementById("time").value = K.time;
+  document.getElementById("time_v").textContent = valText("time");
+  render();
+  requestAnimationFrame(tick);
+}
+document.getElementById("play").onclick = function () {
+  playing = !playing;
+  lastTick = 0;
+  this.innerHTML = playing ? "Stop<small>Freeze the wind and the clock</small>"
+    : "Run<small>Drift the wind and the clock</small>";
+  if (playing) requestAnimationFrame(tick); else scheduleStrip();
+};
+
+document.getElementById("reset").onclick = () => {
+  Object.assign(K, DEFAULTS); clock = 0; syncUI(); recentre(); render(); strip();
+};
+
+function recentre() {
+  camX = mapW * WPT * 0.5;
+  camZ = mapH * WPT * 0.5 + K.height / Math.tan(K.pitch * RAD);
+}
+
+let dragging = false, lx = 0, ly = 0;
+cv.addEventListener("pointerdown", e => {
+  dragging = true; lx = e.clientX; ly = e.clientY;
+  cv.classList.add("drag"); cv.setPointerCapture(e.pointerId);
+});
+cv.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  const s = cv.clientWidth / cv.width;
+  const d0 = K.height / Math.tan(K.pitch * RAD);
+  const scale = (d0 * 2 * Math.tan(K.fov * 0.5 * RAD)) / (cv.height * s);
+  camX -= (e.clientX - lx) * scale;
+  camZ -= (e.clientY - ly) * scale / Math.max(0.15, Math.sin(K.pitch * RAD));
+  lx = e.clientX; ly = e.clientY;
+  render();
+});
+addEventListener("pointerup", () => {
+  if (!dragging) return;
+  dragging = false; cv.classList.remove("drag"); scheduleStrip();
+});
+
+/* -------------------------------------------------------------------- boot */
+let ready = 0;
+function boot() {
+  if (++ready < 2) return;
+  layerW = mapW; layerH = mapH;
+  cloudLayer = document.createElement("canvas");
+  cloudLayer.width = layerW; cloudLayer.height = layerH;
+  shadowLayer = document.createElement("canvas");
+  shadowLayer.width = layerW; shadowLayer.height = layerH;
+  seedClouds();
+  syncUI();
+  recentre();
+  render();
+  strip();
+}
+
+const mapImage = new Image();
+mapImage.onload = () => {
+  const c = document.createElement("canvas");
+  c.width = mapImage.naturalWidth; c.height = mapImage.naturalHeight;
+  const g = c.getContext("2d");
+  g.drawImage(mapImage, 0, 0);
+  mapW = c.width; mapH = c.height;
+  srcData = g.getImageData(0, 0, mapW, mapH).data;
+  // The palette IS whatever was painted, read rather than declared.
+  const tally = new Map();
+  for (let i = 0; i < srcData.length; i += 4) {
+    const key = (srcData[i] << 16) | (srcData[i + 1] << 8) | srcData[i + 2];
+    tally.set(key, (tally.get(key) || 0) + 1);
+  }
+  palette = [...tally.entries()].sort((a, b) => b[1] - a[1])
+    .map(e => [(e[0] >> 16) & 255, (e[0] >> 8) & 255, e[0] & 255]);
+  boot();
+};
+mapImage.src = window.EMBEDDED_TEMP2;
+
+const sheetImage = new Image();
+sheetImage.onload = () => {
+  sheet = document.createElement("canvas");
+  sheet.width = sheetImage.naturalWidth; sheet.height = sheetImage.naturalHeight;
+  sheetCtx = sheet.getContext("2d");
+  sheetCtx.drawImage(sheetImage, 0, 0);
+  boot();
+};
+sheetImage.src = window.EMBEDDED_CLOUDS;
+</script>
+</body>
+</html>

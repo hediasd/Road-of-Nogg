@@ -50,8 +50,10 @@
 ##   --shadow_edge= --shadow_band= --shadow_color_mode= --shadow_steps=
 ##   --lamp_mode= --lamp_strength= --lamp_reach= --lamp_levels= --lamp_core= --lamp_dither=
 ##   --run-clock         start with the day running
-##   --fog_curve= --fog_color= --void_color= --curvature= --cloud_strength=
-##   --cloud_scale= --cloud_speed= --filter_mode= --render_scale= --sprite_mode=
+##   --fog_curve= --fog_color= --void_color= --curvature=
+##   --filter_mode= --render_scale= --sprite_mode=
+##   --clouds= --cloud_count= --cloud_size= --cloud_altitude= --cloud_opacity=
+##   --wind_speed= --wind_angle= --cloud_seed= --cloud_shadow= --cloud_softness=
 
 extends Node
 
@@ -77,6 +79,8 @@ var _camera: WorldMapCameraRig
 var _sky: WorldMapSky
 var _tileGrid: MeshInstance3D
 var _props: WorldMapProps
+var _clouds: WorldMapClouds
+var _regionTilePixels := 8
 
 var _regionID := ""
 var _regionTiles := Vector2i.ZERO
@@ -108,6 +112,7 @@ func _ready() -> void:
 	_camera = _map.get_node("Camera")
 	_sky = _map.get_node("Camera/Sky")
 	_props = _map.get_node("Props")
+	_clouds = _map.get_node("Clouds")
 	_camera.current = true
 
 	_buildTileGrid()
@@ -141,6 +146,10 @@ func _ready() -> void:
 		if not (pair[1] as Array).has(value):
 			push_warning("WorldMapDebugController: unknown %s '%s'" % [pair[0], value])
 			_framing[pair[0]] = pair[2]
+	var cloudSet := str(_framing[Uniforms.K_CLOUDS])
+	if cloudSet != Uniforms.CLOUDS_OFF and not WorldMapCloudCatalog.has(cloudSet):
+		push_warning("WorldMapDebugController: unknown cloud set '%s'" % cloudSet)
+		_framing[Uniforms.K_CLOUDS] = Uniforms.CLOUDS_OFF
 	var lampID := str(_framing[Uniforms.K_LAMP_MODE])
 	if not Uniforms.LAMP_IDS.has(lampID):
 		push_warning("WorldMapDebugController: unknown lamp mode '%s'" % lampID)
@@ -171,6 +180,11 @@ func _process(delta: float) -> void:
 		_framing[Uniforms.K_TIME_OF_DAY] = fposmod(hour + delta * (24.0 / DAY_SECONDS), 24.0)
 		_hud.setFraming(_framing)
 		_applyFraming()
+	# The wind moves the field every frame, inside WorldMapClouds' own clock, so the shadow
+	# layer has to be pushed per frame too. Without this a shadow only catches up with its
+	# cloud when some unrelated control is touched.
+	_ground.setCloudField(_clouds.field())
+	_props.setCloudShadows(_ground.cloudShadowTexture(), _ground.regionRect().position, _ground.regionRect().size)
 	# The readout is resolution-dependent, and the window can be resized at any time, so it
 	# is refreshed per frame rather than only when a control moves.
 	_refreshStatus()
@@ -298,8 +312,15 @@ func _loadRegion(regionID: String) -> void:
 	_regionID = regionID
 	_region = region
 	_regionTiles = region["tiles"]
+	_regionTilePixels = int(region["tile_pixels"])
 	_focus = Vector2(float(_regionTiles.x), float(_regionTiles.y)) * 0.5
 	_refreshProps()
+	# After the props, because the clouds size their lattice from the region and the region is
+	# only settled once the props pass has decided what the ground texture is.
+	_clouds.configure(_regionTiles, int(region["tile_pixels"]), _framing)
+	_ground.configureCloudShadows(
+		_regionTiles * int(region["tile_pixels"]), str(_framing[Uniforms.K_CLOUDS])
+	)
 	_rebuildTileGrid()
 
 
@@ -334,6 +355,16 @@ func _applyFraming() -> void:
 	# Unclamped: see the DRAG TO PAN note at the top of this file.
 	_camera.panTo(_focus)
 	_props.applyFraming(_framing)
+	_clouds.applyFraming(_framing)
+	_ground.configureCloudShadows(
+		_regionTiles * _regionTilePixels, str(_framing[Uniforms.K_CLOUDS])
+	)
+	_ground.setCloudField(_clouds.field())
+	# AFTER configureCloudShadows, not before: that call is what gives the ground's shadow
+	# layer a texture to hand back. Props read the SAME render rather than building their own,
+	# so a cloud shadow can never disagree between the ground under a building and the building
+	# itself.
+	_props.setCloudShadows(_ground.cloudShadowTexture(), _ground.regionRect().position, _ground.regionRect().size)
 	_applyRenderScale()
 
 
@@ -377,6 +408,7 @@ func _refreshStatus() -> void:
 		],
 		"buffer": "%d x %d" % [int(buffer.x), int(buffer.y)],
 		"sky": _skyLabel(),
+		"clouds": _cloudLabel(),
 		"horizon": (
 			"on screen at pitch < fov/2"
 			if readout["horizon_on_screen"]
@@ -386,6 +418,22 @@ func _refreshStatus() -> void:
 		"sun": _sunLabel(),
 		"shadow": _shadowLabel(),
 	})
+
+
+## Names the ceiling as well as the count. The count slider runs past what the region can hold
+## without overlaps, so without the ceiling its top end would be a control that silently stops
+## doing anything -- which is exactly the failure the day cycle shipped with once.
+func _cloudLabel() -> String:
+	if str(_framing[Uniforms.K_CLOUDS]) == Uniforms.CLOUDS_OFF:
+		return "off"
+	var size: Vector2i = _clouds.cloudMapPixels()
+	var capacity := _clouds.capacity()
+	var asked := int(round(float(_framing[Uniforms.K_CLOUD_COUNT])))
+	return "%d of %d max   %d x %d map px   altitude %.1f%s" % [
+		_clouds.visibleCount(), capacity, size.x, size.y,
+		float(_framing[Uniforms.K_CLOUD_ALTITUDE]),
+		"   <-- CLAMPED" if asked > capacity else ""
+	]
 
 
 ## The two elevations are reported separately on purpose. They are not interchangeable, and a
