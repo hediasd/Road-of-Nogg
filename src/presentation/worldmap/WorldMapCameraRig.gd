@@ -79,6 +79,9 @@ func framingReadout(viewport_size: Vector2i) -> Dictionary:
 		# showing void. Buildings go first, because they sit at mid-distance, which is exactly
 		# what "the buildings disappeared" looks like from the outside.
 		"curve_fold": _curveFold(near_depth, far_depth),
+		# Not something `curve_fold` can express: it is a ratio across the frame, and a camera
+		# under the surface renders nothing at all while reporting a perfectly ordinary one.
+		"camera_below_ground": _cameraBelowGround(),
 	}
 
 
@@ -120,7 +123,13 @@ func _place() -> void:
 	# Depth from the camera to the ground point it is looking at. The camera sits that far
 	# along +Z from the focus, because forward is -Z.
 	var centre_depth := height / tan(deg_to_rad(pitch))
-	position = Vector3(focus.x, height - _curveDropAtFocus(), focus.y + centre_depth)
+	position = Vector3(focus.x, _cameraElevation(), focus.y + centre_depth)
+
+
+## The camera's world y: `height` above the ground AS DRAWN at the focus, which is `height`
+## less the curve's drop there. On a flat map it is just the height.
+func _cameraElevation() -> float:
+	return float(_framing[Uniforms.K_HEIGHT]) - _curveDropAtFocus()
 
 
 ## How far the ground has fallen at the point the camera is aiming at.
@@ -128,26 +137,57 @@ func _place() -> void:
 ## The ground shader bends the world by `curvature_k * d^2` where d is VIEW depth, so the
 ## surface drops away from the camera rather than from the origin. Nothing told the rig, so it
 ## went on aiming at the flat y = 0 plane while the ground sank beneath it. At the shipped
-## framings the error is small -- 2.3 units at Curved Close, lost inside the frame -- and it
+## framings the error is small -- 2.0 units at Curved Close, lost inside the frame -- and it
 ## grows with the square of distance: at height 70 and k = 0.006 the ground is 59 units below
 ## where the camera is looking, and the entire map leaves the frame. Buildings go first,
 ## because they sit at mid-distance, which is why this reads as "the buildings disappeared".
 ##
-## Matching the drop keeps the focus framed. It is not solved to a fixed point -- moving the
-## camera changes view depths, which changes the drop -- but one step takes the error from
-## tens of units to a fraction of one, and iterating would make the camera's position depend
-## on itself for no visible gain.
+## Matching the drop keeps the focus framed, and it is solved to the fixed point rather than
+## estimated. Moving the camera changes the focus's view depth, which changes the drop, which
+## moves the camera -- so its y is on both sides and the fixed point is a quadratic. Writing u
+## for the settled view depth, `k*sin*u^2 + u - height/sin = 0`; `view_depth` below is that
+## positive root, rearranged into a form that never subtracts two nearly equal numbers (the
+## textbook root does, and at the shipped curvatures the whole term IS the difference).
+##
+## Taking a single step from the NOMINAL view depth `height/sin(pitch)` -- the depth the camera
+## would have if it had not moved -- was the earlier approach, and it overshoots badly rather
+## than landing "a fraction of a unit" out: once the camera drops, its real view depth is much
+## shorter and the real drop much smaller, but the whole nominal drop has already been
+## subtracted. At k = 0.012, height 90, pitch 75 it took 104.2 units for a real drop of 38.1 and
+## left the camera under the ground, rendering an empty frame. Only the debug slider reaches
+## those curvatures -- the shipped presets are 0.0008 and 0.0039 -- which is why it stood.
 func _curveDropAtFocus() -> float:
 	var k: float = _framing[Uniforms.K_CURVATURE]
 	if k <= 0.0:
 		return 0.0
-	var pitch := deg_to_rad(float(_framing[Uniforms.K_PITCH]))
-	var sin_pitch := sin(pitch)
+	var height: float = _framing[Uniforms.K_HEIGHT]
+	var sin_pitch := sin(deg_to_rad(float(_framing[Uniforms.K_PITCH])))
 	if sin_pitch < 0.0001:
 		return 0.0
-	# View depth of the focus: the camera looks down the hypotenuse, not along the ground.
-	var view_depth := float(_framing[Uniforms.K_HEIGHT]) / sin_pitch
+	# Settled view depth of the focus, measured to where the ground's undisplaced vertex sits,
+	# because that is the depth the shader squares. The 4*k*height under the root carries no
+	# pitch: the pitch cancels out of the discriminant and survives only as the divisor.
+	var view_depth := 2.0 * height / (sin_pitch * (1.0 + sqrt(1.0 + 4.0 * k * height)))
 	return k * view_depth * view_depth
+
+
+## Whether the camera has sunk beneath the ground it is supposed to be looking down on.
+##
+## `curve_fold` cannot see this and never could: it measures the drop ACROSS the frame, so a
+## buried camera reads an unremarkable 0.63 while the frame renders completely empty. The test
+## is against the ground directly beneath the camera, which is the nearest ground there is and
+## therefore the highest, the curve only ever falling with distance. Its view depth is the
+## camera's own elevation foreshortened by the pitch.
+##
+## The exact solve puts the camera `height` above the drawn focus, so this is unreachable at
+## anything like a sane framing -- but it is still reachable at the far end of the debug
+## sliders (k = 0.02, height 110, pitch 45 lands 3.5 units under), and an empty frame that
+## reports as fine is exactly the failure this readout exists to prevent.
+func _cameraBelowGround() -> bool:
+	var k: float = maxf(0.0, float(_framing[Uniforms.K_CURVATURE]))
+	var elevation := _cameraElevation()
+	var view_depth := elevation * sin(deg_to_rad(float(_framing[Uniforms.K_PITCH])))
+	return elevation <= -k * view_depth * view_depth
 
 
 ## Ray parameters for one screen row, in the same form the HTML explorer uses: `t` scales
