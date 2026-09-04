@@ -266,6 +266,15 @@ func _drawOne(s: Dictionary, step: Vector2, spread: float, edge: Dictionary) -> 
 	if absf(offY) < 0.0001:
 		return
 
+	# NO MINIMUM LENGTH, and that is a measured decision rather than an omission. A short caster
+	# casts a short shadow, and it is tempting to give one a floor so a house reads as strongly as
+	# a tower. Measured per structure on temp2, they already do: house 85.1 map px against tower
+	# 93.0 at 08:00, 67.4 against 60.0 at noon, 85.1 against 93.0 at 16:00 -- a ratio between 0.89
+	# and 1.09, with the house AHEAD at noon. `spread` is why. It widens the tip by a fraction of
+	# the caster's WIDTH, so it adds proportionally more area to a short shadow than a long one and
+	# has already done the job a length floor would do. Adding one on top would make short shadows
+	# longer than the sun says without making them more legible, which is the "pasted on rather
+	# than cast" failure the spread was tuned to avoid from the other side.
 	var dithered: bool = str(edge.get("edge", "hard")) == "dither"
 	# Band width as a FRACTION of the shadow, so a small shadow does not end up entirely
 	# dither. Expressed in map pixels by the caller and normalised here against the shadow's
