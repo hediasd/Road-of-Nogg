@@ -74,6 +74,14 @@ func setLighting(mask: Texture2D, shadowStrength: float, light: Vector3, night: 
 	_material.set_shader_parameter(Uniforms.U_NIGHT_AMOUNT, night if mask != null else 0.0)
 
 
+## The rendered cloud shadow coverage, or null before `configureCloudShadows` has run once.
+## `WorldMapProps` reads this too -- a standing structure has to agree with the ground beneath
+## it about where a cloud shadow falls, and there is exactly one render of the layer to agree
+## on.
+func cloudShadowTexture() -> Texture2D:
+	return null if _cloudShadows == null else _cloudShadows.shadowTexture()
+
+
 ## Points the cloud shadow layer at this region and hands its texture to the material.
 ##
 ## The layer is a child of the ground rather than a sibling because it is not a thing in the

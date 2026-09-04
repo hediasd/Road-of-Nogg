@@ -53,11 +53,29 @@ uniform sampler2D emissive_mask : hint_default_black, filter_nearest, repeat_dis
 uniform vec3 emissive_color = vec3(1.0, 0.839, 0.541);
 uniform float emissive_amount : hint_range(0.0, 1.0) = 0.0;
 
+// A cloud passing over darkens the building too, by the same amount it darkens the ground
+// around it -- otherwise the shadow's edge slides UNDER the structures instead of crossing the
+// scene as one line, which is the seam the subtractive lamps exist to remove on the night side.
+//
+// SAMPLED ONCE AT THE BASE, not per fragment, and not through the ground's own shadow_mask
+// uniform -- this is `cloud_mask` alone, deliberately without the cast-shadow layer mixed in.
+// A standing sprite occupies map pixels it is not actually standing ON; a per-fragment lookup
+// would sample ground the building merely stands in FRONT of, and the sprite would be striped
+// by whatever shadow happens to fall behind it. The base is the one map pixel that is honestly
+// this prop's own position, which is the same reasoning that puts `prop_fog` at the foot.
+uniform sampler2D cloud_mask : hint_default_black, filter_nearest, repeat_disable;
+uniform float cloud_shadow_strength : hint_range(0.0, 1.0) = 0.0;
+uniform vec2 region_origin = vec2(0.0, 0.0);
+uniform vec2 region_size = vec2(48.0, 64.0);
+
 // Fog is evaluated once per PROP, at its foot, and carried down as a varying. A structure is
 // one object a tile across, not a surface: fogging it per fragment would run a haze gradient
 // up its height, and under `face` the quad leans toward the camera so that gradient would
 // change with the camera rather than with where the building is.
 varying float prop_fog;
+// How much a cloud is shadowing this prop's own ground point, in [0, 1]. Carried the same way
+// `prop_fog` is: computed once at the base, applied flatly across the whole quad.
+varying float prop_cloud_shade;
 
 vec3 to_gamma(vec3 c) {
 	return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2));
@@ -80,6 +98,9 @@ void vertex() {
 	// Yaw is pinned and forward is -Z, so ground distance is the world-Z difference.
 	float depth = camera_world.z - base_world.z;
 	prop_fog = pow(clamp((depth - fog_start) / max(fog_end - fog_start, 0.001), 0.0, 1.0), fog_curve);
+
+	vec2 cloud_uv = (base_world.xz - region_origin) / region_size;
+	prop_cloud_shade = cloud_shadow_strength * texture(cloud_mask, cloud_uv).r;
 
 	// Matches the ground's curve exactly: same constant, same quantity. The ground uses the
 	// VIEW depth of the vertex, so this uses the view depth of the prop's base.
@@ -145,5 +166,9 @@ void fragment() {
 	if (emissive_amount > 0.0 && texture(emissive_mask, uv).r > 0.5) {
 		albedo = mix(albedo, emissive_color, emissive_amount);
 	}
+	// Before the fog blend, not after: a cloud shadow lies ON the surface the same way the
+	// ground's own cast shadows do, so it has to be dimmed by distance along with everything
+	// else rather than painted over the haze.
+	albedo *= 1.0 - prop_cloud_shade;
 	ALBEDO = to_linear(mix(to_gamma(albedo), to_gamma(fog_color.rgb * light_tint), prop_fog));
 }

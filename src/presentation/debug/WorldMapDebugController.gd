@@ -184,6 +184,7 @@ func _process(delta: float) -> void:
 	# layer has to be pushed per frame too. Without this a shadow only catches up with its
 	# cloud when some unrelated control is touched.
 	_ground.setCloudField(_clouds.field())
+	_props.setCloudShadows(_ground.cloudShadowTexture(), _ground.regionRect().position, _ground.regionRect().size)
 	# The readout is resolution-dependent, and the window can be resized at any time, so it
 	# is refreshed per frame rather than only when a control moves.
 	_refreshStatus()
@@ -359,6 +360,11 @@ func _applyFraming() -> void:
 		_regionTiles * _regionTilePixels, str(_framing[Uniforms.K_CLOUDS])
 	)
 	_ground.setCloudField(_clouds.field())
+	# AFTER configureCloudShadows, not before: that call is what gives the ground's shadow
+	# layer a texture to hand back. Props read the SAME render rather than building their own,
+	# so a cloud shadow can never disagree between the ground under a building and the building
+	# itself.
+	_props.setCloudShadows(_ground.cloudShadowTexture(), _ground.regionRect().position, _ground.regionRect().size)
 	_applyRenderScale()
 
 

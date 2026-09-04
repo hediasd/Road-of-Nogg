@@ -38,6 +38,10 @@ const U_EMISSIVE_AMOUNT := "emissive_amount"
 const U_EMISSIVE_COLOR := "emissive_color"
 const U_EMISSIVE_MASK := "emissive_mask"
 
+## Reuses `WorldMapGroundUniforms`' own names -- the ground and the props read the identical
+## cloud shadow texture with the identical UV formula, and a second set of names for the same
+## thing invites the two to drift.
+
 ## The shader's palette array size. temp2 uses seven colours; the cap is where snapping stops
 ## being cheap, not a claim about how many a region may have.
 const PALETTE_CAP := 16
@@ -65,6 +69,12 @@ var _spriteSheet: ImageTexture
 var _tilePixels := Uniforms.DEFAULT_TILE_PIXELS
 var _mapSize := Vector2i.ZERO
 var _mode := Uniforms.BILLBOARD_OFF
+## The rendered cloud shadow coverage and the region's world rect it is keyed to. Set from
+## outside via `setCloudShadows` -- WorldMapProps has no SubViewport of its own, and building a
+## second one here would render the same field twice and risk the two drifting apart.
+var _cloudMask: Texture2D
+var _regionOrigin := Vector2.ZERO
+var _regionSize := Vector2(48.0, 64.0)
 
 
 ## Rebuilds from a region. Returns the ground texture the caller should hand to
@@ -135,6 +145,25 @@ func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 ## `updateGain`'s per-frame CPU pass is gone with it. It existed only because Sprite3D's own
 ## material could not be replaced without losing its billboarding, so the one mode that needed
 ## maths had to do it on the CPU.
+## Points the props at the cloud shadow layer WorldMapGround already renders, and the world
+## rect it covers. Call before `applyFraming` so the first frame is not one behind; safe to call
+## again on every frame the layer moves, since it only writes shader parameters.
+func setCloudShadows(mask: Texture2D, regionOrigin: Vector2, regionSize: Vector2) -> void:
+	_cloudMask = mask
+	_regionOrigin = regionOrigin
+	_regionSize = regionSize
+	for child in get_children():
+		var quad := child as MeshInstance3D
+		if quad == null:
+			continue
+		var material := quad.material_override as ShaderMaterial
+		if material == null:
+			continue
+		material.set_shader_parameter(Uniforms.U_CLOUD_MASK, _cloudMask)
+		material.set_shader_parameter(Uniforms.U_REGION_ORIGIN, _regionOrigin)
+		material.set_shader_parameter(Uniforms.U_REGION_SIZE, _regionSize)
+
+
 func applyFraming(framing: Dictionary) -> void:
 	var f := Uniforms.complete(framing)
 	var mode := str(f[Uniforms.K_BILLBOARD])
@@ -153,6 +182,10 @@ func applyFraming(framing: Dictionary) -> void:
 	# of its own lamp, so it is fully lit whenever lamps are on.
 	var lampsOn: bool = str(f[Uniforms.K_LAMP_MODE]) != Uniforms.LAMP_OFF and float(f[Uniforms.K_LAMP_REACH]) > 0.0
 	var light := _lightVector(f, sun)
+	# Gated on the cloud SET rather than left live: with clouds off the mask still holds
+	# whatever it last rendered, and a nonzero strength against a stale mask is a shadow cast
+	# by nothing -- the same trap the ground's own gating avoids.
+	var cloudShadow: float = float(f[Uniforms.K_CLOUD_SHADOW]) if str(f[Uniforms.K_CLOUDS]) != Uniforms.CLOUDS_OFF else 0.0
 	if lampsOn and night > 0.0:
 		var lit := WorldMapSun.litTint(
 			Color(light.x, light.y, light.z), night
@@ -189,6 +222,10 @@ func applyFraming(framing: Dictionary) -> void:
 		material.set_shader_parameter(
 			Uniforms.U_FOG_COLOR, f.get(Uniforms.K_FOG_COLOR, Color.WHITE)
 		)
+		material.set_shader_parameter(Uniforms.U_CLOUD_SHADOW_STRENGTH, cloudShadow)
+		material.set_shader_parameter(Uniforms.U_CLOUD_MASK, _cloudMask)
+		material.set_shader_parameter(Uniforms.U_REGION_ORIGIN, _regionOrigin)
+		material.set_shader_parameter(Uniforms.U_REGION_SIZE, _regionSize)
 
 
 ## The cast-shadow mask, in map-pixel space, or null when nothing casts one.
