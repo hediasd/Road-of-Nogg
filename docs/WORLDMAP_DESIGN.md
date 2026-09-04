@@ -552,6 +552,32 @@ already exercises and reports as legible. It costs nothing where no structure st
 `WorldMapShadowMask` builds from an empty structure list is empty, so a nonzero strength has
 nothing to multiply.
 
+### Rejected: a legibility floor for short casters
+
+A house is 7 map pixels tall against a tower's 12, so a house's shadow is roughly half the
+length -- which looks like an obvious case for a minimum shadow length, or a per-kind spread
+floor, so a small building reads as strongly as a tall one.
+
+**Measured, the disparity does not exist.** Shadow area per structure on temp2:
+
+| | 08:00 | 12:00 | 16:00 |
+|---|---|---|---|
+| house | 85.1 map px | 67.4 | 85.1 |
+| tower | 93.0 map px | 60.0 | 93.0 |
+| ratio | 1.09 | 0.89 | 1.09 |
+
+The house is *ahead* at noon. `shadow_spread` is the reason: it widens the tip by a fraction of
+the caster's **width**, not its height, so it adds proportionally more area to a short shadow
+than to a long one and has already done the work a length floor would do. Confirmed by looking
+as well as by counting -- at a close framing both read clearly, and at Tile-Exact neither is
+legible because the structures themselves are about twelve pixels tall, which is a framing fact
+rather than a shadow one.
+
+So there is no minimum length, and one should not be added without a measurement that
+contradicts the table above. Adding one would make short shadows longer than the sun says
+without making them easier to see, which is the "pasted on rather than cast" failure that
+`shadow_spread`'s own tuning avoids from the other direction.
+
 ### The sun keeps two elevations
 
 `lit` reaches zero at both ends of the day and drives light colour, lamps and shadow opacity.
