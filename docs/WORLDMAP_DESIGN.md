@@ -370,6 +370,41 @@ on temp2 is a teal upper wall with three windows over a white wall with an orang
 there is no roof in the image at all, so tipping it upright shows it at the angle it was
 painted for.
 
+### A structure stands on a tile, not where it was painted
+
+The extractor finds a structure's bounding box in the art, and the obvious thing to do is stand
+the sprite up at the bottom edge of that box. That is what this did, and it was wrong in a way
+that is only visible once you know to look for it.
+
+Because the art is a **front elevation**, the box is the building's width by its HEIGHT -- the
+only part of it that touches the ground is the bottom row. Measured on temp2, all nine
+structures are exactly one tile wide, start on an exact multiple of the tile size, and have
+their bottom row on an exact tile **boundary**. Every building was therefore standing on the
+line between two tiles rather than in either of them, which is what made them read as pasted
+onto the map instead of standing on it. The correction is uniform: half a tile north.
+
+So a structure is re-anchored onto the centre of the tile its bottom row falls in. In world
+units that is simply `tile + 0.5` on each axis, because one tile is one world unit. Note it is
+the bottom **painted row** that picks the tile, not the boundary below it: `y + h` is already
+the first row of the next tile down, and flooring that would stand a building one tile nearer
+the viewer than the one it was drawn in.
+
+**The whole structure moves, not just the sprite**, and that is the load-bearing part. A
+structure's record is the single input to four separate things -- the sprite, its cast shadow,
+its silhouette and its lamp -- and three of those are derived in map-pixel space by
+`WorldMapShadowMask` from the same `x`, `y` and `rows`. Moving only the rendered quad would have
+left every building standing half a tile north of its own shadow and its own pool of light: a
+worse defect than the one being fixed, and one **no probe could have caught**, because the mask
+and the record would still have agreed with each other perfectly. Re-anchoring the record
+instead means everything downstream follows for free and the rule lives in one place.
+
+Two consequences worth knowing. The structure keeps `art_x` / `art_y` for the things that must
+still work in the original coordinates -- the ground patch has to paint out the terrain where
+the building really was, and the atlas and emissive builds have to READ from there while
+WRITING at the new position. And the move changes only `x` and `y`: width and `rows` are
+untouched, which is why the billboard modes' agreement below is undisturbed by it -- they force
+the same `h/w` from the same numbers, and none of those numbers moved.
+
 ### The squash is not cos(pitch)
 
 The load-bearing correction. A world-vertical quad seen from a camera pitched down by `p` is

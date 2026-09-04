@@ -406,7 +406,53 @@ func _findStructures(image: Image) -> Array:
 			# shadow there, and standing it up puts a dark band under the tower's feet.
 			"rows": maxi(1, bh - trim),
 		})
-	# Far to near, so painter's order is correct without a depth sort at draw time.
+	return _standOnTiles(found)
+
+
+## Moves each structure from where it was PAINTED to the centre of the map tile it stands in.
+##
+## WHY THE PAINTED POSITION IS NOT THE STANDING POSITION. The art is a front elevation, so the
+## box a structure was found in is its width by its HEIGHT -- what touches the ground is only the
+## bottom row. On temp2 every one of the nine is exactly one tile wide, starts on an exact
+## multiple of the tile size, and has its bottom row on an exact tile BOUNDARY: measured, all
+## nine stood on the line between two tiles rather than in either of them. Standing a building on
+## a tile edge is what made them read as pasted onto the map rather than standing on it.
+##
+## THE WHOLE STRUCTURE MOVES, NOT JUST THE SPRITE, and that is the load-bearing decision here.
+## A structure's record is the single input to four separate things -- the sprite, its cast
+## shadow, its silhouette and its lamp -- and three of those are derived in map-pixel space by
+## `WorldMapShadowMask` from `x`, `y` and `rows`. Moving only the rendered quad would have left a
+## building standing half a tile north of its own shadow and its own pool of light: a worse
+## defect than the one being fixed, and one no probe measuring the mask against the record could
+## have caught, because both sides would still have agreed with each other. Re-anchoring the
+## record instead means everything downstream follows for free, and the anchoring rule exists in
+## exactly one place.
+##
+## `art_x` / `art_y` keep where the pixels actually came from. Only three things want them: the
+## ground patch, which must paint out the terrain where the building really was, and the atlas
+## and emissive builds, which READ from there while WRITING at the new position.
+func _standOnTiles(found: Array) -> Array:
+	var tile := maxi(1, _tilePixels)
+	for s in found:
+		s["art_x"] = int(s["x"])
+		s["art_y"] = int(s["y"])
+		# The bottom PAINTED row, not the boundary below it. `y + h` is already the first row of
+		# the next tile down, so flooring that would anchor a building one tile further from the
+		# viewer than the one it was drawn standing in.
+		var footRow: int = int(s["y"]) + int(s["h"]) - 1
+		var tileY: int = footRow / tile
+		var tileX: int = int(floorf((float(s["x"]) + float(s["w"]) * 0.5) / float(tile)))
+		# The foot lands on the tile's centre line, so the sprite -- which `_buildSprites` places
+		# at `y + h` -- ends up standing exactly there.
+		var placedY: int = int(roundf((float(tileY) + 0.5) * float(tile))) - int(s["h"])
+		var placedX: int = int(roundf((float(tileX) + 0.5) * float(tile) - float(s["w"]) * 0.5))
+		# Clamped so a structure near an edge cannot be relocated off the atlas it is written
+		# into. Nothing on temp2 comes close; a region with buildings against its border would
+		# otherwise lose pixels silently.
+		s["x"] = clampi(placedX, 0, maxi(0, _mapSize.x - int(s["w"])))
+		s["y"] = clampi(placedY, 0, maxi(0, _mapSize.y - int(s["h"])))
+	# Far to near, so painter's order is correct without a depth sort at draw time. Sorted AFTER
+	# the move, because the move is what decides how near a structure now is.
 	found.sort_custom(func(a, b): return int(a["y"]) < int(b["y"]))
 	return found
 
@@ -420,8 +466,11 @@ func _patchGround(image: Image) -> Image:
 	var out := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
 	out.blit_rect(image, Rect2i(0, 0, w, h), Vector2i.ZERO)
 	for s in _structures:
-		var sx: int = s["x"]
-		var sy: int = s["y"]
+		# ART coordinates, not the standing position: this paints out the terrain where the
+		# building's pixels actually are. Patching where it now STANDS would leave the original
+		# painted building on the map and blank a patch of innocent ground half a tile away.
+		var sx: int = s["art_x"]
+		var sy: int = s["art_y"]
 		var sw: int = s["w"]
 		var sh: int = s["h"]
 		var tally := {}
@@ -463,8 +512,13 @@ func _buildSpriteSheet(image: Image) -> Image:
 	var out := Image.create_empty(w, h, false, Image.FORMAT_RGBA8)
 	out.fill(Color(0, 0, 0, 0))
 	for s in _structures:
-		for y in range(s["y"], s["y"] + s["rows"]):
-			for x in range(s["x"], s["x"] + s["w"]):
+		# READ from the art, WRITE at the standing position. The atlas is keyed at the region's
+		# own coordinates so a sprite's rect is simply where its structure is, and after
+		# `_standOnTiles` that is the tile it stands in rather than where it was painted.
+		var dx: int = int(s["x"]) - int(s["art_x"])
+		var dy: int = int(s["y"]) - int(s["art_y"])
+		for y in range(int(s["art_y"]), int(s["art_y"]) + int(s["rows"])):
+			for x in range(int(s["art_x"]), int(s["art_x"]) + int(s["w"])):
 				if x < 0 or y < 0 or x >= w or y >= h:
 					continue
 				var c := image.get_pixel(x, y)
@@ -473,7 +527,9 @@ func _buildSpriteSheet(image: Image) -> Image:
 				var b := int(c.b * 255.0)
 				if not _isBuilt(r, g, b) and not _isDoor(r, g, b):
 					continue
-				out.set_pixel(x, y, c)
+				if x + dx < 0 or y + dy < 0 or x + dx >= w or y + dy >= h:
+					continue
+				out.set_pixel(x + dx, y + dy, c)
 	return out
 
 
@@ -548,8 +604,14 @@ func _buildEmissive(image: Image) -> Image:
 	var tolerance := float(_rule.get("EMISSIVE_TOLERANCE", 42.0))
 	var neighbour: Variant = _rule.get("EMISSIVE_NEIGHBOUR", null)
 	for s in _structures:
-		for y in range(s["y"], int(s["y"]) + int(s["rows"])):
-			for x in range(s["x"], int(s["x"]) + int(s["w"])):
+		# Same read-there, write-here split as the atlas: the mask has to line up with the sprite
+		# it lights, and the sprite now stands on its tile rather than where it was painted.
+		var ox: int = int(s["art_x"])
+		var oy: int = int(s["art_y"])
+		var shiftX: int = int(s["x"]) - ox
+		var shiftY: int = int(s["y"]) - oy
+		for y in range(oy, oy + int(s["rows"])):
+			for x in range(ox, ox + int(s["w"])):
 				var c := image.get_pixel(x, y)
 				var r := int(c.r * 255.0)
 				var g := int(c.g * 255.0)
@@ -558,7 +620,7 @@ func _buildEmissive(image: Image) -> Image:
 				if not lit and neighbour != null and r > 200 and g > 200 and b > 200:
 					for dx in [-1, 1]:
 						var nx: int = x + int(dx)
-						if nx < int(s["x"]) or nx >= int(s["x"]) + int(s["w"]):
+						if nx < ox or nx >= ox + int(s["w"]):
 							continue
 						var n := image.get_pixel(nx, y)
 						if _matches(
@@ -566,8 +628,8 @@ func _buildEmissive(image: Image) -> Image:
 							[neighbour], float(_rule.get("KEY_TOLERANCE", 45.0))
 						):
 							lit = true
-				if lit:
-					out.set_pixel(x, y, Color(1.0, 0.0, 0.0, 1.0))
+				if lit and x + shiftX >= 0 and y + shiftY >= 0 and x + shiftX < w and y + shiftY < h:
+					out.set_pixel(x + shiftX, y + shiftY, Color(1.0, 0.0, 0.0, 1.0))
 	return out
 
 
