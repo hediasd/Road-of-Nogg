@@ -23,7 +23,11 @@ const NoggHeraldFontScript = preload("res://src/presentation/theme/NoggHeraldFon
 const NOGG := "nogg"
 const BRIGANDINE_PLATE := "brigandine_plate"
 
-const DEFAULT := NOGG
+## The skin a fresh install opens in, and the fallback whenever a requested
+## id is unknown. Brigandine Plate is the look this project is aiming at, so
+## it is what a player who never opens the dropdown should see; `nogg` stays
+## selectable rather than becoming dead weight.
+const DEFAULT := BRIGANDINE_PLATE
 
 ## Dropdown metadata, in display order.
 const SKINS := [

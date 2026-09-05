@@ -452,6 +452,13 @@ other presentation options. A skin is a named set of *look* tokens, not a second
 window system: both skins use the same `NoggWindow`, the same draw order, the
 same focus behaviour, and the same paging and marquee rules.
 
+**Brigandine Plate is the default.** A fresh install opens in it and it is
+the fallback whenever a requested skin id is unknown; `nogg` stays in the
+dropdown, one selection away. Note that changing the default moves nobody
+who already has a `window_skin` persisted in `user://rendering.cfg` — a
+saved choice outranks the default, which is the point of saving it — so a
+profile that predates this change keeps rendering whatever it last chose.
+
 | | **Nogg** | **Brigandine Plate** |
 |---|---|---|
 | Face, body size | Nogg Terminal, 12 units | Nogg Herald, **13 units** |
