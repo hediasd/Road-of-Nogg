@@ -461,27 +461,42 @@ profile that predates this change keeps rendering whatever it last chose.
 
 | | **Nogg** | **Brigandine Plate** |
 |---|---|---|
-| Face, body size | Nogg Terminal, 12 units | Nogg Herald, **13 units** |
+| Face, body size | Nogg Terminal, 12 units | **Nogg Terminal, 12 units — same face** |
 | Corner radius | 3 units | **0 — square** |
 | Halo | present, leaking `HALO_OUTSET` beyond the frame with a soft shadow | **absent; the node is not built** |
 | Border | 1.0 unit, violet-cast `(0.902, 0.878, 1.0)` | **1.5 units, neutral `(0.937, 0.937, 0.937)`** |
-| Fill alpha | 0.86 | **0.78** |
+| Fill | warm `(0.075, 0.058, 0.042)` at 0.86 | **neutral `(0, 0, 0)` at 0.55** |
 | Content inset | 6 units, one value | **11 units, one value** |
-| Row pitch | 13 units on a 12-unit cell | **14 units on a 13-unit cell** |
-| Status cell offsets | 0 / 96 / 192 | **0 / 76 / 152** |
-| Command, Spell, Prompt, Forecast | 110 / 340 / 470 / 340 | **100 / 260 / 340 / 280** |
-| Status window, Pager, Deep card | 270 / 95 / 310 | **220 / 70 / 250** |
+| Row pitch | 13 units on a 12-unit cell | **14 units on a 12-unit cell** |
+| Status cell offsets | 0 / 96 / 192 | 0 / 96 / 192 — same face, same offsets |
+| Command, Spell, Prompt, Forecast | 110 / 340 / 470 / 340 | **90 / 340 / 560 / 340** |
+| Status window, Pager, Deep card | 270 / 95 / 310 | **270 / 100 / 320** |
 | Deep card capacity | 12 rows | **11 rows** |
 
 Shared and never skin-varying: canvas layer numbers, the text colour roles,
-every tween duration, the cursor's own geometry, and the marquee timings. The
-reference speaks to none of them.
+every tween duration, the cursor's own geometry, and the marquee timings.
+
+**The text colour roles are a known mismatch, not a case the reference is
+silent on.** This section used to claim the reference "speaks to none of"
+these. It does speak to colour: sampling the brightest three per cent of pixels
+inside its dialogue panel gives `(0.9686, 0.9686, 0.9686)` — every glyph the
+same neutral white, with no accent role at all. We paint every value column in
+`TEXT_ACCENT (1.0, 0.843, 0.400)` gold, which is the most visible remaining
+difference from the reference now that the face and fill are closer. It is left
+alone deliberately: gold is load-bearing elsewhere — `BattlePresentationController`
+uses it to mark HP below one third — so making the roles skin-varying is a
+behaviour change to a gameplay signal, not a look change, and belongs to its own
+cycle.
 
 **Every width is a function of the face and the inset, so widths are per skin.**
 They live in `WindowSkinCatalog` rather than as shared constants, and they are
 not shared at the maximum of the two skins: a shared maximum would make the
 tighter skin carry the looser one's slack, which is visible as exactly the empty
-frame this skin exists to remove. Brigandine Plate's are measured by one stated
+frame this skin exists to remove. Now that both skins share a face, the *only*
+term that still differs is the inset — but the widths are still measured rather
+than derived as `nogg + 10`, because `nogg`'s own numbers are authored rather
+than measured and deriving from them would inherit slack that no measurement
+supports. Brigandine Plate's are measured by one stated
 rule — the worst real string the skin can render, plus at least five design
 units of headroom, rounded up to a multiple of ten. The headroom is not
 decoration: `PROMPT_WIDTH` once shipped 76 device pixels short of a real status
@@ -495,8 +510,10 @@ for dressed as a measurement.
 
 **The deep card's capacity is skin-varying, and that is arithmetic rather than
 taste.** The card docks below the prompt and must stop short of the docked
-status windows. Brigandine Plate's larger inset and taller pitch leave room for
-eleven rows where `nogg` fits twelve. The deepest unit in the catalog builds 16
+status windows. `window_height_units()` is `inset * 2 + rows * pitch`, and
+Brigandine Plate's larger inset and taller pitch leave room for
+eleven rows where `nogg` fits twelve. Neither term follows the face, so the
+switch to Terminal left the capacity exactly where it was. The deepest unit in the catalog builds 16
 rows, so the card pages once under either skin — the capacity change costs a
 page turn on nothing.
 
@@ -504,6 +521,19 @@ page turn on nothing.
 prompt's bottom edge plus `WINDOW_STACK_GAP`, and both terms follow the skin.
 Written as the literal 63 it was correct for `nogg` and put the card straight
 through the prompt under Brigandine Plate.
+
+**The face is Terminal, and that is a compromise the reference does not
+offer.** The reference's text face is *proportional with a one-pixel stroke*;
+an ink run-length histogram across its dialogue panel returns 469 runs of one
+pixel against 21 of two. This repo has proportional-at-two-pixels (Herald, whose
+own header calls it the display face for "big outlined text over the board") and
+monospaced-at-one-pixel (Terminal). The skin first chose Herald, matching the
+proportional widths and taking a doubled stroke weight, and the result read
+visibly chunky where the reference is fine. Weight is what the eye resolves
+first at this size, so the trade is now made the other way: Terminal matches the
+stroke and loses the proportional spacing, which shows as airier letterspacing
+than the reference has. Closing the gap properly means authoring a
+one-pixel proportional face, which is a font job rather than a skin token.
 
 **Every number in the Brigandine Plate column is measured output**, read off
 `assets/ui/references/brigandine2.png` — Brigandine: The Legend of Forsena, PS1
@@ -532,21 +562,28 @@ whenever the surroundings are more varied than what the panel hides, which here
 they are. So 0.55 was the starting value: inside the measured band and on the
 trustworthy side of it.
 
-**It ships at 0.78, and the gap between those two numbers is the most useful
-thing this section records.** 0.55 was tried against a real battle and is not
-legible; so is 0.65, the top of the band the first draft of this contract
-allowed. The measurement is not wrong — the inference from it was. The reference
-is a flat painted overworld map with low local contrast, so a fill that lets 45%
-through lets through *tone*. Our board is a lit 3D scene of alternating bright
-green tiles, so the same fill lets through *texture*, and the ground under a row
-of text stops being stable even where the contrast ratio is adequate. Porting
-the number faithfully produced an unfaithful port of the legibility the number
-was achieving.
+**It ships at 0.55, the measured value, over a neutral black fill.** It
+previously shipped at 0.78, on the finding that 0.55 and 0.65 were both tried
+against a real battle and were not legible. That finding was real but it was
+made against the *wrong fill colour*: the RGB was `(0.075, 0.058, 0.042)`, byte
+identical to `nogg`'s warm brown, inherited from the house skin and never
+measured. Hue and alpha were never varied independently, so "0.55 is not
+legible" was really "0.55 of a warm brown is not legible", and the fix applied
+was to the term that had not been measured wrong.
 
-0.78 is still visibly more transparent than `nogg`'s 0.86 — the board reads
-clearly through every window at both shipping scales — so the request that
-prompted the skin is met. **A skin author may move it within 0.70 to 0.82 on
-legibility evidence.** Below 0.70 is where it failed; above 0.86 is `nogg`.
+The reference's panel has no colour of its own. Sampling straight down through
+its top border, the map underneath goes `(0.067, 0.455, 0.165)` to
+`(0.035, 0.196, 0.098)` — the same hue, roughly halved. It is a neutral tint
+over the map, not a slab. Ours now behaves the same way, and the board reads
+through it as varying ground rather than as a darkened rectangle.
+
+**If text over the board is unstable again, alpha is the token to move, not the
+hue.** The old 0.70–0.82 band was derived under the warm fill and does not
+transfer; re-establish it against a real battle before trusting it. The
+concern behind it stands: the reference is a flat painted overworld map with low
+local contrast, so a fill that lets 45% through lets through *tone*, while our
+board is a lit 3D scene of alternating bright green tiles and the same fill lets
+through *texture*.
 
 An earlier attempt regressed covered pixels against uncovered ones paired across
 the border, which looked more rigorous and was not: pairs far enough apart to

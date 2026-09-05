@@ -89,24 +89,40 @@ const VALUES := {
 		"deep_card_capacity": 12
 	},
 	BRIGANDINE_PLATE: {
-		"font_path": "res://assets/Fonts/NoggHerald/NoggHerald.res",
-		"body_size_units": float(NoggHeraldFontScript.NOMINAL_SIZE),
-		# 1.08 cells, the same ratio `nogg` carries. The reference's own pitch is
-		# 2.10 cells and is deliberately not adopted: it is the pitch of a
-		# two-line dialogue box, and at the deep card's twelve-row capacity it
-		# would make the card taller than the screen. §4a records the arithmetic.
+		# Terminal, not Herald. The reference's text face has a one-pixel
+		# stroke -- an ink run-length histogram over its dialogue panel is 469
+		# runs of one pixel against 21 of two -- and `NoggHeraldFont`'s own
+		# header describes Herald as the *display* face, "two pixels of stroke",
+		# for "big outlined text over the board". Matching the reference's
+		# proportional widths cost a doubled stroke weight, and weight is what
+		# the eye reads first: the skin came out chunky where the reference is
+		# fine. Terminal is monospaced rather than proportional, so it is not
+		# the reference's face either, but it is the one this repo has whose
+		# stroke matches. §4a records the trade.
+		"font_path": "res://assets/Fonts/NoggTerminal/NoggTerminal.res",
+		"body_size_units": 12.0,
+		# Unchanged at 14: the pitch is measured off the reference and does not
+		# follow the face. It now sits on a 12-unit cell rather than a 13-unit
+		# one, so the leading grows from one unit to two.
 		"row_height_units": 14.0,
 		"corner_radius_units": 0.0,
 		"frame_ring_units": 1.5,
 		"content_inset_units": 11.0,
-		# 0.78 rather than the 0.55 the reference measures at. The reference is a
-		# flat painted map, so its fill lets through tone; our board is a lit 3D
-		# checkerboard, so the same fill lets through texture and the ground
-		# under a row of text stops being stable. Both 0.55 and 0.65 were tried
-		# in a real battle and are not legible. Still clearly more transparent
-		# than nogg's 0.86. §4a records the full reasoning and the 0.70-0.82
-		# band this may move within.
-		"window_fill": Color(0.075, 0.058, 0.042, 0.78),
+		# Neutral black at the reference's measured 0.55, replacing a warm brown
+		# at 0.78. The RGB was the defect: it was byte-identical to `nogg`'s
+		# (0.075, 0.058, 0.042), inherited rather than measured, so the skin
+		# carried the house look's warmth into a panel that has none. Sampling
+		# straight down through the reference panel's top border, the map under
+		# it goes (0.067, 0.455, 0.165) to (0.035, 0.196, 0.098) -- the same hue,
+		# roughly halved. The reference panel is a neutral tint over the map,
+		# not a slab with a colour of its own.
+		#
+		# The alpha returns to the measured value too. A previous pass raised it
+		# to 0.78 for legibility over a lit 3D board and judged 0.55 unreadable,
+		# which was a real finding -- but it was made against a warm fill, and
+		# hue and alpha were never varied independently. If text over the board
+		# is unstable again, this is the token to move, not the hue.
+		"window_fill": Color(0.0, 0.0, 0.0, 0.55),
 		"frame_active": Color(0.937, 0.937, 0.937),
 		# Derived from the active tint at the same ratio `nogg` uses between its
 		# own two, so "this window is not listening" reads the same in both.
@@ -122,13 +138,12 @@ const VALUES := {
 		# one surface still wearing the look this skin replaced. The tile's
 		# team-coloured frame is its edge.
 		"rail_ink": Color(0.0, 0.0, 0.0, 0.0),
-		# Derived from `debug/measure_px4_widths.gd`, which reports what each
-		# column's content actually ends at. Column 1 must clear the widest
-		# *paired* column-0 cell (58 under Herald) and column 2 must clear
-		# column 1's end. Terminal's [0, 96, 192] satisfied both but left 38 and
-		# 40 units of dead space respectively -- visible in a capture as a gap
-		# between DEF and the element cell.
-		"status_cell_offset_units": [0.0, 76.0, 152.0],
+		# Back to Terminal's offsets, because the face is Terminal again. The
+		# [0, 76, 152] these replace were derived for Herald's proportional
+		# advances and are too tight for a monospaced cell: the offsets are a
+		# function of the face and nothing else, so the two skins sharing a face
+		# share these.
+		"status_cell_offset_units": [0.0, 96.0, 192.0],
 		# Every width below is measured output, by one stated rule: the worst real
 		# string this skin can render, plus at least five design units of
 		# headroom, rounded up to a multiple of ten. The headroom is not
@@ -136,24 +151,30 @@ const VALUES := {
 		# real status line, and a catalog gaining one longer monster name is all
 		# it takes to truncate a window sized to its exact worst case.
 		#
-		# Measured: command 90, spell 248, prompt 332, forecast 267, status cell
-		# 211, pager 63, card 240. Rerun `debug/measure_px4_widths.gd` and
-		# `debug/measure_deep_card.gd` if the face, the body size, or the inset
-		# changes -- each of the three moves every one of them.
-		"command_width_units": 100.0,
-		"spell_width_units": 260.0,
-		"prompt_width_units": 340.0,
-		"forecast_width_units": 280.0,
-		"status_window_width_units": 220.0,
-		# Measured for the first time here. `nogg`'s 95 was authored as openly
-		# provisional because nothing in the catalog paged when it was written;
-		# the deep card pages now, and "12 / 12" between two arrows needs 63.
-		"pager_width_units": 70.0,
-		"deep_card_width_units": 250.0,
-		# Eleven, not twelve. The deep card docks below the prompt and must stop
-		# short of the status windows, and this skin's taller row pitch and
-		# larger inset leave room for one row fewer. The deepest unit in the
-		# catalog is 16 rows, so it pages once under either skin.
+		# Re-measured for Terminal at 12 by the harness UI_DESIGN 8 describes,
+		# rebuilt from that section. Raw requirements: command 84, spell 328,
+		# prompt 550, forecast 326, status 258, pager 94, card 314.
+		#
+		# The prompt is the one that moved hardest -- 340 to 560 -- and it is
+		# the same trap 4a already records. The worst real prompt is not the
+		# obvious "Choose an action, or Pass to end the turn." (358) but
+		# `PlayerTurnController`'s confirm line with the longest monster name
+		# substituted in: "Confirm Attack at Polar Weather Wizard, or cancel to
+		# choose again." at 550. Nothing marquees it -- the overflow marquee in
+		# NoggWindow 7b is for cursor-focused *list rows* -- so a short prompt
+		# window clips instead of scrolling.
+		"command_width_units": 90.0,
+		"spell_width_units": 340.0,
+		"prompt_width_units": 560.0,
+		"forecast_width_units": 340.0,
+		"status_window_width_units": 270.0,
+		# "12 / 12" between two arrows, under Terminal, needs 94.
+		"pager_width_units": 100.0,
+		"deep_card_width_units": 320.0,
+		# Still eleven. Capacity is a function of `content_inset_units` and
+		# `row_height_units` only -- `window_height_units()` is inset * 2 +
+		# rows * pitch -- and the face change moved neither, so the card's
+		# vertical fit below the prompt is exactly what it was.
 		"deep_card_capacity": 11
 	}
 }
