@@ -8,6 +8,7 @@ const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactor
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
+const WindowFrameFilterCatalogScript = preload("res://src/presentation/theme/WindowFrameFilterCatalog.gd")
 const CRT_DISPLAY_SHADER = preload("res://assets/shaders/crt_display.gdshader")
 const SETTINGS_PATH := "user://rendering.cfg"
 const MIN_VIEWPORT_SIZE := Vector2i(2, 2)
@@ -73,6 +74,11 @@ var render_preset: String = PRESET_NONE
 ## `BattlePresentationController.set_window_skin()` is what actually applies a
 ## skin to the live UI; this is only where the choice is stored and persisted.
 var window_skin: String = WindowSkinCatalogScript.DEFAULT
+
+## The frame-art comparison filter. Persisted beside `window_skin` so a session
+## spent comparing variants survives a restart; `BattlePresentationController`
+## is what applies it, exactly as with the skin.
+var frame_filter: String = WindowFrameFilterCatalogScript.DEFAULT
 var render_size := Vector2i(640, 480)
 var retro_enabled: bool = false
 var crt_enabled: bool = false
@@ -366,6 +372,20 @@ func set_window_skin(id: String, persist: bool = true) -> void:
 	if id == window_skin:
 		return
 	window_skin = id
+	if persist:
+		_save_settings()
+
+
+## Stores the frame-art filter, on the same terms as `set_window_skin()` above:
+## this owns the persisted value only, and the live apply is the presentation
+## controller's `set_frame_filter()`.
+func set_frame_filter(id: String, persist: bool = true) -> void:
+	if not WindowFrameFilterCatalogScript.has_filter(id):
+		push_warning("RetroRenderController: unknown frame filter '%s'." % id)
+		return
+	if id == frame_filter:
+		return
+	frame_filter = id
 	if persist:
 		_save_settings()
 
@@ -741,6 +761,9 @@ func _load_settings() -> void:
 	var savedSkin = str(config.get_value("rendering", "window_skin", window_skin))
 	if WindowSkinCatalogScript.has_skin(savedSkin):
 		window_skin = savedSkin
+	var savedFilter = str(config.get_value("rendering", "frame_filter", frame_filter))
+	if WindowFrameFilterCatalogScript.has_filter(savedFilter):
+		frame_filter = savedFilter
 	if render_preset != PRESET_CUSTOM:
 		return
 	retro_enabled = bool(config.get_value(
@@ -843,6 +866,7 @@ func _save_settings() -> void:
 	config.set_value("rendering", "affine_mapping_enabled", affine_mapping_enabled)
 	config.set_value("rendering", "ui_through_crt", ui_through_crt)
 	config.set_value("rendering", "window_skin", window_skin)
+	config.set_value("rendering", "frame_filter", frame_filter)
 	config.set_value("look", "render_scale", render_scale)
 	config.set_value("look", "vertex_snap_strength", vertex_snap_strength)
 	config.set_value("look", "brightness", brightness)

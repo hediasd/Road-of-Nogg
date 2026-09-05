@@ -19,6 +19,7 @@ extends RefCounted
 # filtered scene keep the pixel font readable at every scanline strength and
 # stop the thin rim shimmering as mask size changes.
 const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
+const WindowFrameFilterCatalogScript = preload("res://src/presentation/theme/WindowFrameFilterCatalog.gd")
 
 const CRT_LAYER := -20
 ## Transient board annotations render above the world and default CRT pass, but
@@ -158,6 +159,12 @@ static var ui_scale: int = 2
 ## nothing can move it without the derived values following.
 static var skin: String = WindowSkinCatalogScript.DEFAULT
 
+## The comparison filter applied to the active skin's frame art. A debug
+## affordance -- see `WindowFrameFilterCatalog`. Sits beside `skin` because it
+## is the same kind of global choice: the frame texture is derived from it, so
+## it has to move through `set_frame_filter()` rather than by assignment.
+static var frame_filter: String = WindowFrameFilterCatalogScript.DEFAULT
+
 
 ## Recomputes the scale from a window height. Returns whether it changed, so a
 ## caller can decide to rebuild themes and relayout without this file needing to
@@ -203,6 +210,23 @@ static func configure(scale: int) -> bool:
 ## Callers still have to restyle what is already on screen — a `Theme` is built
 ## once and a `NoggWindow` builds its chrome in `_ready()`. This function owns
 ## the tokens; it does not own the tree.
+## Switches the frame-art filter, returning whether anything changed.
+##
+## Shaped like `set_skin()` and `configure()`, and owning the same contract:
+## it rebuilds the derived texture and leaves restyling the tree to the caller.
+## Cheap to call under a skin with no frame art -- there is simply nothing to
+## filter, and `_rebuild_frame_texture()` returns early.
+static func set_frame_filter(id: String) -> bool:
+	if not WindowFrameFilterCatalogScript.has_filter(id):
+		push_warning("NoggTheme: unknown frame filter '%s'; keeping '%s'." % [id, frame_filter])
+		return false
+	if id == frame_filter:
+		return false
+	frame_filter = id
+	_recompute()
+	return true
+
+
 static func set_skin(id: String) -> bool:
 	if not WindowSkinCatalogScript.has_skin(id):
 		push_warning("NoggTheme: unknown skin '%s'; keeping '%s'." % [id, skin])
@@ -1107,14 +1131,74 @@ static func _rebuild_frame_texture() -> void:
 		push_warning("NoggTheme: frame region %s is outside '%s'." % [region, WINDOW_FRAME_TEXTURE_PATH])
 		return
 	var cropped := image.get_region(region)
+
+	# The comparison filter runs on the cropped source, before any scaling, so
+	# every variant is judged on the same pixels the art actually carries.
+	var filter: Dictionary = WindowFrameFilterCatalogScript.values_for(frame_filter)
+	cropped = _filter_frame_image(cropped, filter)
+
+	# `downscale` shrinks the source, so the nine-patch margins -- which slice
+	# that source -- have to shrink with it or they would cut past the corners.
+	var margin_divisor := float(filter["downscale"])
+	if margin_divisor > 1.0:
+		var small := Vector2i(
+			int(round(float(cropped.get_width()) / margin_divisor)),
+			int(round(float(cropped.get_height()) / margin_divisor))
+		)
+		cropped.resize(small.x, small.y, Image.INTERPOLATE_NEAREST)
+
+	# `draw_scale` is what "coarsen" means: one art pixel covering more screen.
+	# Rounded to a whole number because the art is pixel art and a fractional
+	# point-scale reintroduces exactly the resampling this path exists to avoid.
+	var factor: int = maxi(1, int(round(float(ui_scale) * float(filter["draw_scale"]))))
 	cropped.resize(
-		region.size.x * ui_scale, region.size.y * ui_scale, Image.INTERPOLATE_NEAREST
+		cropped.get_width() * factor, cropped.get_height() * factor, Image.INTERPOLATE_NEAREST
 	)
 	WINDOW_FRAME_TEXTURE = ImageTexture.create_from_image(cropped)
 	var scaled: Array = []
 	for units: float in WINDOW_FRAME_MARGIN_UNITS:
-		scaled.append(units * float(ui_scale))
+		scaled.append(round(units / margin_divisor) * float(factor))
 	WINDOW_FRAME_MARGINS = scaled
+
+
+## Applies one comparison filter's parameters to the cropped frame art.
+##
+## Pixels are classified by alpha rather than by colour: fully opaque is border
+## or shading, partly transparent is the fill the art bakes in, and clear is
+## outside the box. That holds for any art following the same convention, so a
+## redrawn file does not need this function rewritten.
+static func _filter_frame_image(src: Image, filter: Dictionary) -> Image:
+	var snap := bool(filter["snap"])
+	var deburr := bool(filter["deburr"])
+	var fill_alpha := float(filter["fill_alpha"])
+	var dither := float(filter["dither"])
+	if not snap and not deburr and fill_alpha < 0.0 and is_zero_approx(dither):
+		return src
+	var out := Image.create(src.get_width(), src.get_height(), false, Image.FORMAT_RGBA8)
+	for y in src.get_height():
+		for x in src.get_width():
+			var c := src.get_pixel(x, y)
+			if c.a < 0.10:
+				out.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				continue
+			if c.a > 0.90:
+				var lum := c.r * 0.299 + c.g * 0.587 + c.b * 0.114
+				# The dark ring outside the border. The reference has none --
+				# its map runs straight into the white line -- so both `snap`
+				# and `deburr` drop it; they differ on what happens to the
+				# lighter greys, which `deburr` keeps and `snap` whitens.
+				if lum < 0.45 and (snap or deburr):
+					out.set_pixel(x, y, Color(0.0, 0.0, 0.0, 0.0))
+				elif snap:
+					out.set_pixel(x, y, Color(1.0, 1.0, 1.0, 1.0))
+				else:
+					out.set_pixel(x, y, c)
+				continue
+			var alpha := c.a if fill_alpha < 0.0 else fill_alpha
+			if not is_zero_approx(dither):
+				alpha += dither if (x + y) % 2 == 0 else -dither
+			out.set_pixel(x, y, Color(c.r, c.g, c.b, clampf(alpha, 0.0, 1.0)))
+	return out
 
 
 ## The window body: the skin's frame art when it has any, otherwise the

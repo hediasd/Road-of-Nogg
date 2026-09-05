@@ -141,6 +141,7 @@ func _ready() -> void:
 	# and then visibly corrects itself. RetroRenderControllerScript.new() above
 	# already loaded the persisted value into retro_renderer.window_skin.
 	NoggThemeScript.set_skin(retro_renderer.window_skin)
+	NoggThemeScript.set_frame_filter(retro_renderer.frame_filter)
 	_setup_background()
 	_setup_camera_and_lighting()
 	_build_battle_ui()
@@ -214,7 +215,8 @@ func _build_battle_ui() -> void:
 		"look_parameter_changed": Callable(self, "_on_look_parameter_changed"),
 		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed"),
 		"ui_through_crt_toggled": Callable(self, "_on_ui_through_crt_toggled"),
-		"window_skin_selected": Callable(self, "_on_battle_window_skin_selected")
+		"window_skin_selected": Callable(self, "_on_battle_window_skin_selected"),
+		"frame_filter_selected": Callable(self, "_on_frame_filter_selected")
 	})
 	turn_timer = battle_ui.turn_timer
 	actor_window = battle_ui.actor_window
@@ -338,6 +340,10 @@ func _sync_rendering_options() -> void:
 		retro_renderer.window_skin
 	)
 	_select_option_by_metadata(
+		battle_ui.graphics.frame_filter_option,
+		retro_renderer.frame_filter
+	)
+	_select_option_by_metadata(
 		battle_ui.graphics.look_option,
 		retro_renderer.render_preset
 	)
@@ -456,6 +462,14 @@ func _on_battle_window_skin_selected(_index: int) -> void:
 	_apply_window_skin(option.get_item_metadata(option.selected))
 
 
+func _on_frame_filter_selected(_index: int) -> void:
+	var option: OptionButton = battle_ui.graphics.frame_filter_option
+	var id: String = option.get_item_metadata(option.selected)
+	set_frame_filter(id)
+	retro_renderer.set_frame_filter(id)
+	_sync_rendering_options()
+
+
 ## Switches the active `NoggTheme` window skin and repaints every live game
 ## window in place, with no scene reload. Not wired to any control yet — this
 ## is the mechanism a dropdown calls, not the dropdown.
@@ -479,6 +493,24 @@ func _on_battle_window_skin_selected(_index: int) -> void:
 func set_window_skin(id: String) -> void:
 	if not NoggThemeScript.set_skin(id):
 		return
+	_restyle_live_windows()
+
+
+## Switches the frame-art comparison filter and repaints, on the same terms.
+##
+## Shares `_restyle_live_windows()` with `set_window_skin()` rather than
+## repeating it: a filter change moves `WINDOW_FRAME_TEXTURE`, and every window
+## baked its stylebox from that texture at construction, so the sweep a skin
+## switch needs is exactly the sweep this needs. See `WindowFrameFilterCatalog`
+## for what these are and why they are debug-only.
+func set_frame_filter(id: String) -> void:
+	if not NoggThemeScript.set_frame_filter(id):
+		return
+	_restyle_live_windows()
+
+
+## Rebuilds every live window against the current tokens, with no scene reload.
+func _restyle_live_windows() -> void:
 	if battle_ui == null:
 		return
 

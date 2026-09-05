@@ -5,6 +5,7 @@ extends RefCounted
 
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
+const WindowFrameFilterCatalogScript = preload("res://src/presentation/theme/WindowFrameFilterCatalog.gd")
 const BattleGraphicsMenuRefsScript = preload("res://src/presentation/BattleGraphicsMenuRefs.gd")
 
 
@@ -96,6 +97,16 @@ static func build(
 		WindowSkinCatalogScript.values()
 	)
 	windowSkinOption.item_selected.connect(callbacks["window_skin_selected"])
+	# Debug affordance, and deliberately only here rather than also on the setup
+	# screen: the setup screen is player-facing, and this exists to compare
+	# post-processed frame art against the reference in a live battle.
+	var frameFilterOption = _add_option(
+		options,
+		"Frame Filter",
+		WindowFrameFilterCatalogScript.labels(),
+		WindowFrameFilterCatalogScript.values()
+	)
+	frameFilterOption.item_selected.connect(callbacks["frame_filter_selected"])
 
 	var presetDescription = Label.new()
 	presetDescription.name = "PresetDescription"
@@ -222,6 +233,7 @@ static func build(
 	refs.crt_sliders = crtSliders
 	refs.ui_through_crt_button = uiThroughCrtButton
 	refs.window_skin_option = windowSkinOption
+	refs.frame_filter_option = frameFilterOption
 	return refs
 
 

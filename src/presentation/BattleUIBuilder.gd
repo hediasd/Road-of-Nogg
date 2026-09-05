@@ -168,7 +168,8 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 			"look_parameter_changed": callbacks["look_parameter_changed"],
 			"crt_parameter_changed": callbacks["crt_parameter_changed"],
 			"ui_through_crt_toggled": callbacks["ui_through_crt_toggled"],
-			"window_skin_selected": callbacks["window_skin_selected"]
+			"window_skin_selected": callbacks["window_skin_selected"],
+			"frame_filter_selected": callbacks["frame_filter_selected"]
 		}
 	)
 	graphicsButton.toggled.connect(func(pressed):

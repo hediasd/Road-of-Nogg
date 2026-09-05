@@ -564,6 +564,36 @@ surface.
 the repository; the PNG here does not update when it is edited. Re-export on
 change.
 
+**Frame filters are a debug affordance, in the Graphics menu only.**
+`WindowFrameFilterCatalog` carries seven post-processing variants of the frame
+art -- `none`, `deburr`, `coarse`, `hard`, `hard_coarse`, `dither`, `lossy` --
+selectable live from the in-battle Graphics menu and persisted beside
+`window_skin`. They exist to judge a possible change to the art in a real
+battle before committing to redrawing it. **The intended end state is that the
+art is redrawn and the game ships on `none`**: a filtered file and the source it
+came from disagree forever, which is the trap `window_fill` fell into when it
+was inherited rather than measured. The filter is deliberately absent from the
+setup screen, which is player-facing.
+
+Three of the seven record findings rather than offering a look:
+
+- `hard` snaps every pixel to border, fill or nothing. It sounds right and is
+  not: the reference *has* antialiasing along its diagonal, so removing all of
+  it moves away from the reference rather than toward it.
+- `dither` cannot work and is kept to show why. A nine-patch stretches a single
+  middle column across the whole window, so any pattern in that column smears
+  into stripes. A dithered fill would have to be a tiled overlay, not part of
+  the nine-patch.
+- `deburr` is the closest a filter gets: it drops the one-pixel dark ring the
+  art carries outside its border -- the reference has no such ring, its map runs
+  straight into the white line -- keeps the greys, coarsens by 1.5 so one art
+  pixel covers what one reference pixel covers, and thins the fill to the
+  measured 0.55.
+
+The measured gap `deburr` is closing: the reference's border is one source pixel
+at 1.50 design units, while the art's is one pixel at 1.00, so the shipping
+border reads finer than Brigandine's by half again.
+
 **The face is Terminal, and that is a compromise the reference does not
 offer.** The reference's text face is *proportional with a one-pixel stroke*;
 an ink run-length histogram across its dialogue panel returns 469 runs of one
