@@ -53,6 +53,13 @@ const SKINS := [
 ## than leaving it to a reviewer.
 const VALUES := {
 	NOGG: {
+		# Empty means "this skin draws its own frame", the same way a halo
+		# outset of zero means "this skin has no halo": the builder reads it and
+		# takes the code-drawn path instead of constructing a texture style.
+		"frame_texture_path": "",
+		"frame_texture_region": Rect2(0.0, 0.0, 0.0, 0.0),
+		# left, top, right, bottom
+		"frame_texture_margins": [0.0, 0.0, 0.0, 0.0],
 		"font_path": "res://assets/Fonts/NoggTerminal/NoggTerminal.res",
 		"body_size_units": 12.0,
 		"row_height_units": 13.0,
@@ -89,6 +96,24 @@ const VALUES := {
 		"deep_card_capacity": 12
 	},
 	BRIGANDINE_PLATE: {
+		# The frame is authored art, not drawn geometry. `briganborders.png` is
+		# a 64x32 sheet carrying one box; the region below is that box's exact
+		# bounding rect, and the margins are its exact nine-patch slice. Both
+		# were measured off the file rather than chosen: the margins are where
+		# the art stops varying along each axis, which is the largest band that
+		# can be stretched without smearing the cut corners into the straight
+		# edges.
+		#
+		# Left is 8 where the other three are 7 because the box is 24 wide and
+		# 23 tall -- one column asymmetric. That is the art's shape, reproduced
+		# rather than corrected here.
+		#
+		# The fill is baked into the art at black 0.75, so this skin paints no
+		# separate body fill and `window_fill` below is unused by it. See
+		# UI_DESIGN 4a.
+		"frame_texture_path": "res://assets/ui/briganborders.png",
+		"frame_texture_region": Rect2(0.0, 1.0, 24.0, 23.0),
+		"frame_texture_margins": [8.0, 7.0, 7.0, 7.0],
 		# Terminal, not Herald. The reference's text face has a one-pixel
 		# stroke -- an ink run-length histogram over its dialogue panel is 469
 		# runs of one pixel against 21 of two -- and `NoggHeraldFont`'s own

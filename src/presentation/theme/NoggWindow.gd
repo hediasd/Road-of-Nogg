@@ -119,9 +119,12 @@ func _ready() -> void:
 	_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_content)
 
-	# Added last so it draws over the body and the rows.
+	# Added last so it draws over the body and the rows. Null under a skin whose
+	# frame is authored art: the body already drew the border, and a second
+	# panel over the rows would only cover them.
 	_rim = NoggThemeScript.build_window_frame()
-	add_child(_rim)
+	if _rim != null:
+		add_child(_rim)
 
 	set_row_capacity(_row_capacity)
 	set_input_transparent(_input_transparent)
@@ -165,8 +168,15 @@ func set_active(active: bool) -> void:
 	)
 	_active_tween = create_tween()
 	_active_tween.set_parallel(true)
+	# Whichever node carries this skin's frame is the one focus tints: the rim
+	# when the frame is drawn, the body when it is art. Tinting the body takes
+	# the art's fill with it, which is correct -- under an art skin the plate is
+	# one surface, so "this window is not listening" dims the whole plate.
 	_active_tween.tween_property(
-		_rim, "self_modulate", frame_target, NoggThemeScript.TWEEN_FOCUS
+		_rim if _rim != null else _body,
+		"self_modulate",
+		frame_target,
+		NoggThemeScript.TWEEN_FOCUS
 	)
 	_active_tween.tween_property(
 		_content, "modulate", content_target, NoggThemeScript.TWEEN_FOCUS
@@ -194,7 +204,7 @@ func set_active(active: bool) -> void:
 ## expects width sized before `add_child()` — see the class doc at the top of
 ## this file. This only ever derives height, via `set_row_capacity()`.
 func restyle() -> void:
-	# _active_tween targets _rim, which is about to be freed. A killed tween
+	# _active_tween targets the frame node, which is about to be freed. A killed tween
 	# never fires again regardless, but killing it before the free is what
 	# keeps this from ever depending on tween/free ordering.
 	if _active_tween and _active_tween.is_valid():
@@ -230,8 +240,10 @@ func restyle() -> void:
 	_content.offset_bottom = -NoggThemeScript.CONTENT_INSET
 
 	_rim = NoggThemeScript.build_window_frame()
-	add_child(_rim)  # appended last: draws over the body and the rows.
-	_rim.self_modulate = (
+	if _rim != null:
+		add_child(_rim)  # appended last: draws over the body and the rows.
+	var frame_node: Panel = _rim if _rim != null else _body
+	frame_node.self_modulate = (
 		NoggThemeScript.FRAME_ACTIVE if _is_active else NoggThemeScript.FRAME_INACTIVE
 	)
 	_content.modulate = (

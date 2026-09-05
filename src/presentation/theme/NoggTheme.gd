@@ -333,6 +333,21 @@ static var SHADOW_OFFSET: float
 ## All skin-varying. A `HALO_OUTSET_UNITS` of zero is how a skin says it has
 ## no halo; the builder reads it and declines to construct the node.
 static var FRAME_RING_UNITS: float
+## Authored frame art, when the active skin has any. Empty path means the skin
+## draws its own frame from a `StyleBoxFlat`, and every value below is unused.
+##
+## `WINDOW_FRAME_TEXTURE` is *derived*, not loaded: the source is pixel art and
+## the UI runs at integer `ui_scale`, so the image is cropped to its region and
+## point-scaled by that factor once per `_recompute()`. Letting `StyleBoxTexture`
+## stretch a 24x23 source to a 540-pixel window would resample the one-pixel
+## border into mush, and its `texture_margin_*` slices the *source*, so it has
+## no scale of its own to set.
+static var WINDOW_FRAME_TEXTURE_PATH: String
+static var WINDOW_FRAME_REGION: Rect2
+static var WINDOW_FRAME_MARGIN_UNITS: Array
+static var WINDOW_FRAME_TEXTURE: Texture2D
+static var WINDOW_FRAME_MARGINS: Array
+
 static var WINDOW_CORNER_RADIUS_UNITS: float
 static var HALO_OUTSET_UNITS: float
 static var HALO_SPREAD_UNITS: float
@@ -735,6 +750,10 @@ static func _apply_skin_tokens() -> void:
 	RAIL_INK = values["rail_ink"] as Color
 	TURN_RAIL_FRAME_UNITS = FRAME_RING_UNITS
 
+	WINDOW_FRAME_TEXTURE_PATH = str(values["frame_texture_path"])
+	WINDOW_FRAME_REGION = values["frame_texture_region"] as Rect2
+	WINDOW_FRAME_MARGIN_UNITS = (values["frame_texture_margins"] as Array).duplicate()
+
 	WINDOW_FILL = values["window_fill"] as Color
 	FRAME_ACTIVE = values["frame_active"] as Color
 	FRAME_INACTIVE = values["frame_inactive"] as Color
@@ -792,6 +811,8 @@ static func _recompute() -> void:
 	STATUS_CELL_TEXT_GAP = _scaled_int(STATUS_CELL_TEXT_GAP_UNITS)
 	STATUS_CELL_CONTROL_GAP = _scaled(STATUS_CELL_CONTROL_GAP_UNITS)
 	WINDOW_STACK_GAP = _scaled_int(WINDOW_STACK_GAP_UNITS)
+
+	_rebuild_frame_texture()
 
 	var offsets: Array = []
 	for units: float in STATUS_CELL_OFFSET_UNITS:
@@ -1057,9 +1078,66 @@ static func build_window_halo() -> Panel:
 	return halo
 
 
-## The translucent near-black body. Its geometry exactly matches the rim.
+## Whether the active skin's frame comes from authored art rather than geometry.
+static func skin_has_frame_texture() -> bool:
+	return WINDOW_FRAME_TEXTURE != null
+
+
+## Crops the skin's frame art to its region and point-scales it by `ui_scale`.
+##
+## Null when the skin has no frame art, when the file is missing, or when the
+## region falls outside the image -- in every one of those cases the window
+## builders fall back to the code-drawn frame rather than failing to build a
+## window at all. A missing texture should cost the look, not the HUD.
+static func _rebuild_frame_texture() -> void:
+	WINDOW_FRAME_TEXTURE = null
+	WINDOW_FRAME_MARGINS = [0.0, 0.0, 0.0, 0.0]
+	if WINDOW_FRAME_TEXTURE_PATH.is_empty():
+		return
+	if not ResourceLoader.exists(WINDOW_FRAME_TEXTURE_PATH):
+		push_warning("NoggTheme: frame art '%s' is missing; drawing the frame instead." % WINDOW_FRAME_TEXTURE_PATH)
+		return
+	var source: Texture2D = load(WINDOW_FRAME_TEXTURE_PATH)
+	if source == null:
+		push_warning("NoggTheme: frame art '%s' failed to load." % WINDOW_FRAME_TEXTURE_PATH)
+		return
+	var image := source.get_image()
+	var region := Rect2i(WINDOW_FRAME_REGION)
+	if not Rect2i(Vector2i.ZERO, image.get_size()).encloses(region):
+		push_warning("NoggTheme: frame region %s is outside '%s'." % [region, WINDOW_FRAME_TEXTURE_PATH])
+		return
+	var cropped := image.get_region(region)
+	cropped.resize(
+		region.size.x * ui_scale, region.size.y * ui_scale, Image.INTERPOLATE_NEAREST
+	)
+	WINDOW_FRAME_TEXTURE = ImageTexture.create_from_image(cropped)
+	var scaled: Array = []
+	for units: float in WINDOW_FRAME_MARGIN_UNITS:
+		scaled.append(units * float(ui_scale))
+	WINDOW_FRAME_MARGINS = scaled
+
+
+## The window body: the skin's frame art when it has any, otherwise the
+## translucent near-black fill whose geometry exactly matches the rim.
+##
+## The art carries its own fill, so a skin drawing from art paints no separate
+## body colour underneath -- `WINDOW_FILL` goes unread rather than being blended
+## with the art and darkening it twice.
 static func build_window_body() -> Panel:
 	var body := _base_window_panel("Body")
+	if skin_has_frame_texture():
+		var textured := StyleBoxTexture.new()
+		textured.texture = WINDOW_FRAME_TEXTURE
+		textured.set_texture_margin(SIDE_LEFT, WINDOW_FRAME_MARGINS[0])
+		textured.set_texture_margin(SIDE_TOP, WINDOW_FRAME_MARGINS[1])
+		textured.set_texture_margin(SIDE_RIGHT, WINDOW_FRAME_MARGINS[2])
+		textured.set_texture_margin(SIDE_BOTTOM, WINDOW_FRAME_MARGINS[3])
+		body.add_theme_stylebox_override("panel", textured)
+		# Mirrors what build_window_frame() does for the rim: the node carrying
+		# the frame starts at the active tint, so a freshly built window matches
+		# a restyled one instead of drawing untinted until focus first moves.
+		body.self_modulate = FRAME_ACTIVE
+		return body
 	body.add_theme_stylebox_override(
 		"panel", _rounded_window_style(WINDOW_FILL, WINDOW_CORNER_RADIUS)
 	)
@@ -1068,7 +1146,16 @@ static func build_window_body() -> Panel:
 
 ## Transparent, thin pale rim. Focus tints this panel only; the halo remains
 ## stable while the content dims, so focus reads as state rather than glow.
+##
+## `null` under a skin whose frame is art, because the art already drew the
+## border as part of the body. Returning nothing rather than a transparent
+## panel follows `build_window_halo()`: the draw order then contains what each
+## skin actually has, instead of one skin carrying an invisible layer that every
+## restyle still has to keep in the right place. `NoggWindow` retargets its
+## focus tween at the body when this returns nothing.
 static func build_window_frame() -> Panel:
+	if skin_has_frame_texture():
+		return null
 	var rim := _base_window_panel("Rim")
 	var style := _rounded_window_style(Color(0.0, 0.0, 0.0, 0.0), WINDOW_CORNER_RADIUS)
 	style.border_color = Color.WHITE

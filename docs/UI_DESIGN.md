@@ -462,10 +462,10 @@ profile that predates this change keeps rendering whatever it last chose.
 | | **Nogg** | **Brigandine Plate** |
 |---|---|---|
 | Face, body size | Nogg Terminal, 12 units | **Nogg Terminal, 12 units — same face** |
-| Corner radius | 3 units | **0 — square** |
+| Frame | drawn: `StyleBoxFlat`, 3-unit radius | **art: `briganborders.png` as a nine-patch** |
 | Halo | present, leaking `HALO_OUTSET` beyond the frame with a soft shadow | **absent; the node is not built** |
-| Border | 1.0 unit, violet-cast `(0.902, 0.878, 1.0)` | **1.5 units, neutral `(0.937, 0.937, 0.937)`** |
-| Fill | warm `(0.075, 0.058, 0.042)` at 0.86 | **neutral `(0, 0, 0)` at 0.55** |
+| Border | 1.0 unit, violet-cast `(0.902, 0.878, 1.0)` | **from the art** — `frame_ring_units` unread |
+| Fill | warm `(0.075, 0.058, 0.042)` at 0.86 | **from the art**, black at 0.75 — `window_fill` unread |
 | Content inset | 6 units, one value | **11 units, one value** |
 | Row pitch | 13 units on a 12-unit cell | **14 units on a 12-unit cell** |
 | Status cell offsets | 0 / 96 / 192 | 0 / 96 / 192 — same face, same offsets |
@@ -521,6 +521,48 @@ page turn on nothing.
 prompt's bottom edge plus `WINDOW_STACK_GAP`, and both terms follow the skin.
 Written as the literal 63 it was correct for `nogg` and put the card straight
 through the prompt under Brigandine Plate.
+
+### The frame is authored art
+
+Brigandine Plate no longer draws its frame; it wears one.
+`assets/ui/briganborders.png` is a 64x32 sheet carrying a single 24x23 box with
+cut corners, a white border and its own translucent fill, applied as a
+nine-patch. The skin carries three tokens for it — `frame_texture_path`, the
+region, and the margins — and an empty path means "draw the frame instead",
+which is what `nogg` sets. `nogg` is untouched by any of this.
+
+**The region and margins are measured off the file, not chosen.** The region is
+the art's exact bounding rect, `Rect2(0, 1, 24, 23)`. The margins are where the
+art stops varying along each axis, which is the largest band that can stretch
+without smearing the cut corners into the straight edges: left 8, and 7 on the
+other three. Left differs by one because the box is 24 wide and 23 tall; that
+asymmetry is the art's, reproduced rather than corrected.
+
+**The art is point-scaled by `ui_scale`, not stretched by the nine-patch.**
+`StyleBoxTexture.texture_margin_*` slices the *source*, so the style has no
+scale of its own; letting it stretch a 24-pixel source across a 540-pixel window
+would resample the one-pixel border into mush. `_rebuild_frame_texture()`
+instead crops to the region and point-scales by the current `ui_scale` once per
+`_recompute()`, and scales the margins to match. A missing or unreadable file
+warns and falls back to the drawn frame: the look is what should fail, not the
+HUD.
+
+**Two tokens go unread under this skin**, and that is the cost of the art
+carrying them. `window_fill` still holds the measured `(0, 0, 0)` at 0.55, but
+the art bakes its own fill at 0.75, and painting both would darken the plate
+twice. `frame_ring_units` is likewise the art's business now. Changing either
+means editing the Aseprite source and re-exporting, not editing the catalog.
+
+**The frame node moves with the frame.** `build_window_frame()` returns `null`
+under an art skin — the same idiom `build_window_halo()` already uses — because
+the body drew the border and a second panel over the rows would only cover
+them. `NoggWindow` then retargets its focus tween at the body, so dimming an
+unfocused window dims the whole plate, which is correct when the plate is one
+surface.
+
+**The repo's copy is an export.** The source is an Aseprite file kept outside
+the repository; the PNG here does not update when it is edited. Re-export on
+change.
 
 **The face is Terminal, and that is a compromise the reference does not
 offer.** The reference's text face is *proportional with a one-pixel stroke*;

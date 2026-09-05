@@ -349,13 +349,20 @@ func _buildTree() -> void:
 	_window.offset_bottom = -SCREEN_MARGIN
 	_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_window)
-	_window.add_child(NoggThemeScript.build_window_halo())
+	# Both builders return null under a skin that has no such layer -- no halo,
+	# or a frame that is authored art and already drawn by the body -- so both
+	# are guarded rather than added blind.
+	var specimen_halo := NoggThemeScript.build_window_halo()
+	if specimen_halo != null:
+		_window.add_child(specimen_halo)
 	# Built by the theme so the corner radius and geometry stay the shipping
 	# ones; only the fill colour is overridden below. A locally constructed
 	# panel would drift from the real window the moment a token changed.
 	_windowBody = NoggThemeScript.build_window_body()
 	_window.add_child(_windowBody)
-	_window.add_child(NoggThemeScript.build_window_frame())
+	var specimen_rim := NoggThemeScript.build_window_frame()
+	if specimen_rim != null:
+		_window.add_child(specimen_rim)
 
 	_body = Label.new()
 	_body.name = "Body"
@@ -460,7 +467,12 @@ func _selectedFill() -> Color:
 func _applyWindowFill() -> void:
 	if _windowBody == null:
 		return
-	var style := _windowBody.get_theme_stylebox("panel").duplicate() as StyleBoxFlat
+	# Nothing to repaint when the body is frame art: the fill is baked into the
+	# image, so there is no bg_color to set and the cast below would fail.
+	var current := _windowBody.get_theme_stylebox("panel")
+	if not (current is StyleBoxFlat):
+		return
+	var style := current.duplicate() as StyleBoxFlat
 	style.bg_color = _selectedFill()
 	_windowBody.add_theme_stylebox_override("panel", style)
 
