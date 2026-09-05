@@ -3,9 +3,9 @@
 Items here need prompt resolution because they leave current gameplay incomplete
 or misleading.
 
-## Battle25D crashes while releasing script resources at application exit
+## BattleDebugScene crashes while releasing script resources at application exit
 
-Loading `scenes/Battle25D.tscn` and closing it returns Windows access-violation
+Loading `scenes/debug/BattleDebugScene.tscn` and closing it returns Windows access-violation
 code `-1073741819`. Godot reports `ObjectDB instances leaked at exit` and 46
 GDScript/shader resources still in use. The failure occurs on the untouched
 setup screen before a simulator, visual adapter, or spell aura exists, under
@@ -131,7 +131,7 @@ already carries `cooldown_remaining` and `ready`, and the missing piece is why.
   `CombatResolver` math real resolution uses. The command menu, playback pause,
   surface-accurate picking, and Spell/`< BACK` navigation are stabilized.
 - **Positional targeting has passed headless in-window acceptance**
-  (2026-07-31). The pass drove the real `Battle25D` scene through synthetic
+  (2026-07-31). The pass drove the real `BattleDebugScene` scene through synthetic
   input for legal empty and occupied centers, target cycling with no free grid
   roaming, blocked-empty confirmation, a zero-hit `Dark Nova` cast, mouse
   picking across two elevations and two rotated camera yaws, and both phase
@@ -177,7 +177,7 @@ harness, with baseline goldens recorded in `debug/vfx_golden/`. Its final
 validation pass was never completed, and the effect shipped anyway. What is
 still unexercised:
 
-- **Battle integration.** `Smoke Tower` has never been cast in `Battle25D` — no
+- **Battle integration.** `Smoke Tower` has never been cast in `BattleDebugScene` — no
   terrain, no units, no queue pacing, no CRT compositing in an actual battle.
   This is the significant gap; everything else below is narrower.
 - **Adapter lifecycle:** overlap/cap, skip, pause, and speed paths, plus the
@@ -211,7 +211,7 @@ The effect therefore ships on nothing but debug-harness captures.
 
 What is still unexercised:
 
-- **Battle integration.** Snowzilla has never cast `Ice Statue` in `Battle25D`.
+- **Battle integration.** Snowzilla has never cast `Ice Statue` in `BattleDebugScene`.
   Needed: at least two visibly different target bodies, short and long legal
   range, an elevated terrain case, event-time placement, transparent-cyan
   readability through CRT, damage-number separation, queue pacing, defeat
@@ -263,6 +263,6 @@ Two pieces remain open:
   backward seek, skip-to-settle, overlap, replay, disposal and scene exit;
   measured real-time visual and action-hold duration; identical frames for
   identical normalized time and seed; a caller search across every changed shared
-  primitive with every returned effect rendered; and a real cast in `Battle25D`
-  through the adapter and event path. The `Battle25D` shutdown access violation
+  primitive with every returned effect rendered; and a real cast in `BattleDebugScene`
+  through the adapter and event path. The `BattleDebugScene` shutdown access violation
   above is a prerequisite for that last one.

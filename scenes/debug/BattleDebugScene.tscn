@@ -2,5 +2,5 @@
 
 [ext_resource type="Script" uid="uid://h6pq62v73rn5" path="res://src/systems/BattlePresentationController.gd" id="1_test"]
 
-[node name="Battle25D" type="Node3D"]
+[node name="BattleDebugScene" type="Node3D"]
 script = ExtResource("1_test")

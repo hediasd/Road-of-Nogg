@@ -57,7 +57,7 @@ Base monster, map, spell, race, and passive definitions are read-only inputs.
 
 ## Setup and battle construction
 
-`Battle25D.tscn` creates the animated sky and setup overlay first. It does not
+`BattleDebugScene.tscn` creates the animated sky and setup overlay first. It does not
 create a simulator, map, or monster visual before confirmation.
 
 On Confirm:
@@ -353,7 +353,7 @@ the main thread, and calls `sim.executeTurn()` — which calls
 `brain.decideTurn()` inline. Deliberation therefore happens *inside* a frame,
 and the frame is as long as the decision.
 
-Measured on a real CPU vs CPU battle (`Battle25D`, seed 42, headless, so these
+Measured on a real CPU vs CPU battle (`BattleDebugScene`, seed 42, headless, so these
 numbers exclude render cost and understate a real window):
 
 | | idle frames | frames carrying a turn |
@@ -459,7 +459,7 @@ is a real architectural change and should be planned, not slipped in.
 
 ## Single runtime
 
-`project.godot` launches `scenes/Battle25D.tscn`, which uses the canonical
+`project.godot` launches `scenes/debug/BattleDebugScene.tscn`, which uses the canonical
 presentation controller. This is the only battle runtime: the earlier
 rollback scene and its board/camera/input scripts were removed once the
 current runtime covered their behavior, and `git log` is their archive. A

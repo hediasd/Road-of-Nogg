@@ -23,7 +23,7 @@ disagree, ARCHITECTURE wins and this file is the one to correct.
 | `src/presentation/theme/` | Reusable HUD widgets and theme tokens | `NoggTheme`, `NoggWindow`, `MenuCursor`, `PagerArrow`, `ResonanceBar` | Godot `Control` API | simulation | [`UI_DESIGN.md`](./UI_DESIGN.md) |
 | `src/presentation/effects/` | Transient visual effects | `VfxPlayback` (the contract), `SpellVfxCatalog`, `SpellCastAura`, `IceStormEffect`/`IceStormProfile`, `FireStormEffect`/`FireStormProfile`, `VfxTextures`, `DamageNumberBillboard` | Godot 3D API | simulation | [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
 | `src/systems/` | Scene lifecycle and player-turn orchestration | `BattlePresentationController` (scene root), `PlayerTurnController` | simulation and presentation | being imported by either | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| `scenes/` | Godot scenes | `Battle25D.tscn` (the entry scene), `Monster.tscn`, `map01.tscn` | `src/systems/`, `src/presentation/` | — | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| `scenes/` | Godot scenes | `debug/BattleDebugScene.tscn` (the entry scene), `Monster.tscn`, `map01.tscn` | `src/systems/`, `src/presentation/` | — | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | `scripts/` | Headless tooling, run via `SceneTree` | `demo_battle.gd`, `update_gamerefs.gd` | simulation | being imported by runtime code | [`DEVELOPMENT.md`](./DEVELOPMENT.md) |
 
 `data/` is loaded only through `src/factories/`. Nothing else reads the JSON
@@ -54,7 +54,7 @@ data/  ──►  src/factories/  ──►  src/entities/
                             src/presentation/
                                       ▲
                                       │
-                             src/systems/  ──►  scenes/Battle25D.tscn
+                             src/systems/  ──►  scenes/debug/BattleDebugScene.tscn
 ```
 
 Authored data and setup feed the headless simulation; `src/systems/`
