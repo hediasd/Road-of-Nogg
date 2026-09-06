@@ -41,7 +41,8 @@
 ## is why this class does not call `super._unhandled_input`: the base class's left-drag-pans-
 ## the-camera would otherwise compete with left click as a tool input. `KEY_F` is claimed here
 ## rather than left to the base's inherited `_recentre()`, and marked handled, so the two do not
-## both fire for one keypress.
+## both fire for one keypress. Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes -- see
+## `WorldMapEditHistory` for why they are wired here even though nothing feeds them yet.
 
 extends "res://src/presentation/debug/WorldMapDebugController.gd"
 
@@ -90,6 +91,17 @@ var _routeCount: Dictionary = {}
 ## class note on input ownership.
 var _cameraOrbiting := false
 var _cameraPanning := false
+
+## Undo/redo, wired now even though nothing feeds it yet. `WorldMapEditHistory` is decoupled
+## from any particular document -- it operates on whatever `WorldMapTileData` it is handed -- so
+## there is nothing wrong with owning it before the editor has one open; WME-9's brushes are
+## what will call `beginStroke` / `paintCell` / `endStroke` on it. Until then Ctrl+Z and Ctrl+Y
+## are live keys that correctly do nothing, because `_document` is null and `canUndo()` is
+## false, rather than dead keys nobody has bound yet.
+var _history := WorldMapEditHistory.new()
+## The currently open authored document, or null. Set by whatever later item gives the editor a
+## document to edit; nothing here creates one.
+var _document: WorldMapTileData = null
 
 
 func _ready() -> void:
@@ -236,8 +248,47 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_TAB:
 			_editorCamera.toggleOrtho()
 			get_viewport().set_input_as_handled()
+		KEY_Z:
+			if not key.ctrl_pressed:
+				super._unhandled_key_input(event)
+				return
+			if key.shift_pressed:
+				_redo()
+			else:
+				_undo()
+			get_viewport().set_input_as_handled()
+		KEY_Y:
+			if not key.ctrl_pressed:
+				super._unhandled_key_input(event)
+				return
+			_redo()
+			get_viewport().set_input_as_handled()
 		_:
 			super._unhandled_key_input(event)
+
+
+func _undo() -> void:
+	if _document == null:
+		return
+	var touched := _history.undo(_document)
+	if not touched.is_empty():
+		_onHistoryApplied(touched)
+
+
+func _redo() -> void:
+	if _document == null:
+		return
+	var touched := _history.redo(_document)
+	if not touched.is_empty():
+		_onHistoryApplied(touched)
+
+
+## What a live document's renderer needs invalidated after undo or redo touches a set of cells --
+## empty until a later item gives the editor a baked document and a baker to invalidate. `touched`
+## is the exact `{layerID, cells}` `WorldMapEditHistory.undo`/`redo` returns, which is what makes
+## this the same invalidation a forward edit would have triggered rather than a coarser guess.
+func _onHistoryApplied(_touched: Dictionary) -> void:
+	pass
 
 
 ## What "routing" can mean before a data model: identify the target and stop there. A locked

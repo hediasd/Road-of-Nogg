@@ -237,6 +237,8 @@ shipped once and was caught only by dispatching through `Input.parse_input_event
 | Top-down orthographic | Tab |
 | **Back to the shipping framing** | Space |
 | Frame the region | F |
+| Undo | Ctrl+Z |
+| Redo | Ctrl+Y or Ctrl+Shift+Z |
 
 ### Layers
 
@@ -395,3 +397,54 @@ Godot's importer defaults are backwards for this rig. A freshly generated `.impo
 The baked artifact is patched to match, and `probe_bake_parity.gd` asserts it — comparing
 against `temp2.png.import` itself rather than a remembered constant, so the check fails loudly
 if region art's own settings ever change.
+
+## 10. Undo and redo
+
+`WorldMapEditHistory` undoes and redoes at **stroke** granularity: a drag across forty cells is
+one undo entry, not forty. It is decoupled from any particular document -- it operates on
+whatever `WorldMapTileData` it is handed -- so `WorldMapEditorController` owns one and wires
+Ctrl+Z / Ctrl+Y now, even though nothing feeds it edits yet. Pressing them today correctly does
+nothing, because there is no open document; a later item gives the editor one to edit and calls
+`beginStroke` / `paintCell` / `endStroke` on it.
+
+### Commands store the delta, not a snapshot
+
+A full-region snapshot per stroke is unaffordable at real region sizes — a 155-tile region is
+tens of thousands of cells, and most are untouched by any one stroke. A command carries
+`{layerID, changes}`, where `changes` maps each touched cell to its `before` and `after` value.
+
+### Coalescing is explicit, not inferred
+
+`beginStroke` opens a command, `endStroke` closes it. Nothing guesses where a stroke starts or
+ends from timing or mouse state — a drag tool opens on press and closes on release; a tool with
+no release of its own (a flood fill triggered by one click) opens and closes within the same
+call. Both are the same API used two different ways, which keeps a brush's shape uniform:
+`beginStroke()`, some `paintCell()` calls, `endStroke()`.
+
+### Repainting a cell within a stroke keeps the original `before`
+
+A drag that crosses the same cell twice must undo to the value the cell held **before the
+stroke**, not to an intermediate value from partway through it. `changes[cell].before` is
+pinned on the cell's first write in the open stroke; `.after` advances on every write. A cell
+whose net effect is zero — painted back to what it started as — is dropped when the stroke
+closes, and a stroke that nets to nothing anywhere is not pushed at all, mirroring
+`WorldMapTileData.setCell`'s own "returns whether anything changed" contract one level up.
+
+### What undo and redo return
+
+`{layerID, cells}` — exactly the cells a command touched, no more and no less. A caller uses
+this to invalidate a renderer's cache for those cells and nothing else, which is what makes it
+the same invalidation a forward edit would have triggered rather than a coarser guess. An undo
+that invalidates less than the forward edit did leaves stale pixels with nothing to report it —
+the same failure a skipped shadow-mask rebake is, in `WorldMapProps`'s own domain.
+
+### The risk this file has to not have
+
+A command capturing a reference rather than a copy, so undoing corrupts the history it undid
+from. Every value stored is a `String` or a `Vector2i`, both value types in GDScript, and
+`beginStroke` allocates a genuinely new `Dictionary` rather than clearing and reusing one —
+reusing one across strokes would let a later stroke silently rewrite an earlier, already-pushed
+command. Verified rather than reasoned about: `probe_edit_history.gd` fuzzes a hundred
+randomised strokes against a real map, undoes every one, and asserts the data lands back on its
+exact starting bytes — 92 of 100 strokes had a net effect in the committed run, and all 92
+round-tripped exactly, forward and back.
