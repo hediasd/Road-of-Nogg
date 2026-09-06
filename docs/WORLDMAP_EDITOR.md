@@ -339,3 +339,59 @@ therefore temp2's first 240 px, not all 248.**
 It is not yet listed in `regions.json`: it has no bake, and WME-6 adds the entry when it can
 actually produce one. The catalog's authored path is exercised against a scratch catalog in
 `probe_tile_format.gd` instead.
+
+## 9. The bake
+
+`WorldMapBaker` composes an authored region's tile data into the single texture the ground
+shader samples. The bake **is** the render representation, not a compatibility shim — the
+alternative (a tile-index texture plus an atlas sampled live in the shader) was rejected because
+§4 of `WORLDMAP_DESIGN.md` keeps three sampler uniforms on one texture: an atlas cannot be
+mipmapped without bleeding across tile borders, and nearest-filtered at magnification it is one
+texel-rounding error from sampling its neighbour.
+
+### One texture object, updated in place
+
+`bake()` creates the `ImageTexture` once; every later flush calls `update()` on that same
+object. The ground's samplers already point at it, so a re-bake needs **no call into
+`WorldMapGround` at all** — and in particular not `configure()`, which would rebuild the mesh
+for a change that is only pixels.
+
+### Partial recomposition, full upload
+
+**Godot 4 has no partial 2D texture upload.** `ImageTexture.update()` and
+`RenderingServer.texture_2d_update()` both take a whole image; verified against 4.4 rather than
+assumed. So the dirty-rect model governs the **composition** — the part whose cost scales with
+region size, since a stroke on a 155-tile region otherwise re-blits ~24,000 tiles to change one
+— while the upload is whole-texture regardless.
+
+Flushing is therefore something to do once after a batch of edits, not once per cell.
+
+Dirty rects are kept as a **list, not a union**: two edits at opposite corners of a map would
+union into the whole map, which is the full rebuild the model exists to avoid. Each rect snaps
+**out** to whole tiles, so a cel-grade edit always dirties the tile beneath it and a cel brush
+cannot leave the ground under it stale. A mark already covered by an existing rect is absorbed,
+so a drag across one tile does not accumulate a hundred identical entries.
+
+`flush()` clears each dirty rect to transparent before recomposing it. Without that, a cell
+whose tile was *erased* would keep showing its old pixels, since compositing draws over rather
+than replaces.
+
+Layers compose in declaration order, with `blend_rect` rather than `blit_rect` so an overlay
+tile's transparent pixels let the ground beneath show through.
+
+### Parity: an unusually exact acceptance test
+
+Because the bootstrap tileset was cut out of `temp2` rather than drawn fresh, reassembling
+`temp2_authored` from those tiles must reproduce `temp2` itself — **not "looks the same", the
+same bytes.** It does: 240 × 176 baked, byte-identical to temp2's first 240 px.
+
+That single assertion covers the whole chain at once: the sheet cut, the ledger hashes, the cell
+ids the authoring pass resolved, and the compositing order and blend mode used here.
+
+### The artifact's import settings
+
+Godot's importer defaults are backwards for this rig. A freshly generated `.import` carries
+`mipmaps/generate=false`; region art carries `true`, because §4 wants mips for the far field.
+The baked artifact is patched to match, and `probe_bake_parity.gd` asserts it — comparing
+against `temp2.png.import` itself rather than a remembered constant, so the check fails loudly
+if region art's own settings ever change.
