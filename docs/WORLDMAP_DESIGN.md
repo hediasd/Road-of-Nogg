@@ -113,6 +113,44 @@ both. Fixing yaw is also what allows roads and settlements to be composited into
 region PNG instead of existing as separate meshes. Orbit belongs to the battle camera;
 it is not coming here for parity.
 
+### Editor views are beside the contract, not a relaxation of it
+
+`WorldMapEditorCamera` adds orbit, unclamped pan, a dolly zoom and a top-down orthographic mode.
+None of it ships, and **`WorldMapCameraRig` is not modified to provide any of it**.
+
+It is a *subclass*, and that is the load-bearing decision. "Snap back to what ships" has to BE
+the shipping placement rather than a second implementation that agrees today and drifts later,
+so in contract mode `_place()` defers to `super` and the two rigs are the same code.
+`probe_editor_camera.gd` asserts they are identical -- position, rotation, FOV, projection,
+`keep_aspect` and the whole framing readout -- across all ten presets, which is an assertion a
+reimplementation could only ever have made approximately.
+
+Three things about the freedoms:
+
+- **The orbit is an authoring aid, not a preview.** The art has one baked light direction and
+  upright icons, so a rotated view shows the map lit from a direction it was never painted for.
+  It is wrong on purpose. `offContractReason()` reports why the view is off-contract, the editor
+  puts that on screen, and **nothing about how the map looks may be judged from a view that
+  reports one**.
+- **Zoom dollies and never touches FOV.** FOV is one half of the near-to-far ratio `R` above, so
+  moving it silently rescales what every preset was solved for.
+- **Pan is unclamped**, like the debug scene's and unlike the shipping `panTo(focus, rect)`. An
+  authoring tool has to be able to look at the map's edge, which is exactly what the shipping
+  clamp prevents.
+
+The orbit turns around the focus **as the shader draws it** -- fallen by `k*d^2` at its own view
+depth. Orbiting around `y = 0` makes the map slide under the cursor by an error that grows with
+the square of distance: invisible close in, gross far out. This needs no fixed-point solve,
+unlike `_curveDropAtFocus()` in the shipping rig: that one is given a height and has to discover
+the view depth that settles with it, while under an orbit the focus's view depth simply *is* the
+orbit distance. Measured, the aim holds to 0.00001 units through a full 360 degrees at curvatures
+0, 0.003 and 0.02.
+
+The backdrop needs nothing: it is a quad parented to the camera, so it follows an orbit for free,
+and it stays camera-local through orbit and pan. Under the orthographic view it is sized from a
+FOV that projection does not use, which leaves it over-covering the frame -- 705 units of quad
+against a 617 unit frame in the probe -- and over-covering is safe.
+
 ### The region-size constraint
 
 The far edge of the frame is `R` times wider than the near edge, so:
