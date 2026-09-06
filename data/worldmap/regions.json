@@ -1,21 +1,21 @@
 [
 	{
 		"NAME": "temp",
-		"DESCRIPTION": "Placeholder region supplied for the ground rig cycle. 48x64 tiles of 16 px, well short of the ~155 tiles the tile-exact framing needs -- its plane edges are expected to show. Naming this region is a lore question, not decided here.",
+		"DESCRIPTION": "Placeholder region supplied for the ground rig cycle. 48x64 blocks of 16 px, which is 48x64 walk tiles -- this art was already on the tile grid, so the tile law left it unchanged. Well short of the ~155 tiles the tile-exact framing needs; its plane edges are expected to show. Naming this region is a lore question, not decided here.",
 		"TEXTURE": "res://assets/worldmap/regions/temp.png",
 		"TILES_WIDE": 48,
 		"TILES_TALL": 64,
-		"TILE_PIXELS": 16,
+		"GRID": 16,
 		"FOG_COLOR": "cfe9f5",
 		"VOID_COLOR": "4058d8"
 	},
 	{
 		"NAME": "temp2",
-		"DESCRIPTION": "Second placeholder region, supplied 2026-09-01. 31x22 tiles of 8 px -- the first region drawn on the 8 px grid, and the one that showed the rig had a 16 px tile size hardcoded. Seven colours, no alpha, sea-dominant.",
+		"DESCRIPTION": "Second placeholder region, supplied 2026-09-01. 31x22 blocks of 8 px, drawn on the CEL grid -- so under the tile law it is 15.5 x 11 walk tiles, not 31x22, and it renders at half the ground it used to cover. Legacy painted art, deliberately not re-cut. Seven colours, no alpha, sea-dominant.",
 		"TEXTURE": "res://assets/worldmap/regions/temp2.png",
 		"TILES_WIDE": 31,
 		"TILES_TALL": 22,
-		"TILE_PIXELS": 8,
+		"GRID": 8,
 		"FOG_COLOR": "bae8e2",
 		"VOID_COLOR": "37aeae",
 		"STRUCTURES": {

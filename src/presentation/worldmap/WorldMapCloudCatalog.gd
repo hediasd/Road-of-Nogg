@@ -21,8 +21,8 @@ extends RefCounted
 
 const TEMP2 := "temp2"
 
-## Every piece is 8 px-block art. `tile_pixels` is the grid it was drawn against, and it is what
-## makes `pieceTiles()` a whole number rather than a rounding.
+## Every piece is 8 px-block art -- the cel grid. That is the grid it was drawn against, and it
+## is what makes `pieceTiles()` a whole number rather than a rounding.
 const BLOCK_PIXELS := 8
 
 const SETS := [
@@ -92,9 +92,8 @@ static func pieceAt(setID: String, index: int) -> Dictionary:
 ## A piece's cloud size in MAP PIXELS at its native 1:1 scale -- which is simply its rect size,
 ## stated as a function so callers stop reaching into the rect for it. The renderers size clouds
 ## from this rather than from a free width, because the art is 8 px blocks under a 1 px outline
-## and neither survives a fractional scale. Divide by the REGION's `tile_pixels` for tiles; do
-## not divide by `BLOCK_PIXELS`, which is the grid the art was drawn on and equals temp2's tile
-## size only by coincidence.
+## and neither survives a fractional scale. Divide by `Uniforms.TILE_PIXELS` for tiles; do not
+## divide by `BLOCK_PIXELS`, which is the cel grid the art was drawn on and is half a tile.
 static func pieceMapPixels(setID: String, index: int) -> Vector2i:
 	var piece := pieceAt(setID, index)
 	if piece.is_empty():

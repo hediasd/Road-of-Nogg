@@ -21,12 +21,24 @@ extends RefCounted
 ## readable as a tile count: camera height, fog distances and region size all speak the same
 ## unit as the art.
 ##
-## A tile's PIXEL size is a property of the art, not of the world, and it varies per region --
-## some maps are drawn on an 8 px grid, some on 16. It therefore lives in
-## `WorldMapRegionCatalog` and never reaches the camera: a 31 x 22 region of 8 px tiles and a
-## 31 x 22 region of 16 px tiles occupy the same ground and frame identically, differing only
-## in texel density. This constant is only the fallback for a region that omits it.
-const DEFAULT_TILE_PIXELS := 16
+## THE TWO GRIDS. A tile is 16 map pixels and one world unit, ALWAYS, and it is the only grid
+## anything in the game can observe: an entity walks tiles, collision is per tile, elevation is
+## per tile corner. A cel is 8 map pixels, four to a tile, and it exists for art detail alone --
+## nothing an entity can stand on, walk through or be blocked by is ever expressed in cels.
+##
+## The ratio is a constant, not a per-region property, which is what makes a cel index a shift
+## off a tile index and removes every runtime conversion that could disagree. A region drawn on
+## some other grid is legacy art: its `GRID` in `regions.json` sizes the texture check and
+## nothing else, and its world extent is still its pixel size divided by TILE_PIXELS.
+##
+## This replaced a per-region `TILE_PIXELS` that was read as a world quantity in four places.
+## Under that rule an 8 px region and a 16 px region of the same tile count occupied the same
+## ground, which is exactly what the law now denies: they occupy ground in proportion to their
+## pixels, because a pixel is worth a fixed fraction of a unit.
+const TILE_PIXELS := 16
+const CEL_PIXELS := 8
+## Cels per tile on each axis. Four per tile.
+const CELS_PER_TILE := TILE_PIXELS / CEL_PIXELS
 
 ## Shader uniform names. The three region samplers all receive the same texture; see the
 ## `filter_mode` comment in the shader for why one sampler cannot serve all three modes.

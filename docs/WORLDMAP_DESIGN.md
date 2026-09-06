@@ -9,24 +9,58 @@ yet and are not implied by anything below.
 Every number was derived in `debug/worldmap/worldmap-framing.html`, which carries the
 live explorer and the reasoning. This note records the conclusions and the contracts.
 
-## 1. The tile convention
+## 1. The tile law
 
-**One tile is one world unit.** That is the whole convention, and it is what makes every
-other number in the rig readable as a tile count: a camera height of 62.5 is 62.5 tiles up,
-a fog end of 331 is 331 tiles of depth, a 31x22 region is 31x22 tiles.
+**A tile is 16 map pixels and one world unit, always.** Fixed 2026-09-05, and it is what makes
+every other number in the rig readable as a tile count: a camera height of 62.5 is 62.5 tiles
+up, a fog end of 331 is 331 tiles of depth.
 
-A tile's **pixel size is a property of the art, not of the world**, and it varies per region.
-`temp` is drawn on a 16 px grid, `temp2` on an 8 px grid. It is declared per region as
-`TILE_PIXELS` in `data/worldmap/regions.json`, validated against the texture on load, and it
-**never reaches the camera**: a 31x22 region of 8 px tiles and a 31x22 region of 16 px tiles
-occupy the same ground and frame identically, differing only in how many texels each tile
-gets. A region's world size simply *is* its tile count.
+There are exactly **two grids**, and their ratio is a constant rather than a per-region
+property:
 
-This was originally written with 16 hardcoded and a `units_per_map_pixel` framing key that
-happened to cancel out. The first 8 px region exposed it. The key is gone -- it was redundant
-with the tile count, and it was actively harmful: it was also a live slider in the debug
-scene, and moving it sent the camera off the map, which the focus clamp then hid by
-recentring.
+| | pixels | world | owns |
+|---|---|---|---|
+| **Tile** | 16 | 1 unit | walking, collision, elevation, prop anchoring -- everything an entity can observe |
+| **Cel** | 8 | 1/2 unit | art detail, four to a tile, observable by nothing |
+
+Because the ratio is fixed, a cel index is a shift off a tile index and there is no runtime
+conversion that can disagree with another. **Nothing an entity can stand on, walk through or be
+blocked by is ever expressed in cels.**
+
+A map pixel is therefore worth a fixed 1/16 of a world unit, and **a region's world extent is
+its pixel size divided by 16** -- not its declared block count. `regions.json` still declares
+`TILES_WIDE`/`TILES_TALL` in the grid the art was drawn on, with `GRID` naming that grid, and
+those three sizes the texture check and nothing else. `WorldMapRegionCatalog` is the only file
+allowed to read `GRID`, and `probe_tile_law.gd` enforces that.
+
+### What the law replaced, and what it cost
+
+Until 2026-09-05 the pixel size of a tile was **a property of the art, varying per region** --
+`temp` on a 16 px grid, `temp2` on 8 -- and it was read as a world quantity in four places. Under
+that rule a 31x22 region of 8 px tiles and a 31x22 region of 16 px tiles occupied the same
+ground. The law denies exactly that: they occupy ground in proportion to their pixels.
+
+The consequence lands on `temp2`, and it is not cosmetic. Its art is 248x176 px, so it is
+**15.5 x 11 walk tiles**, not the 31x22 it declares in blocks, and it now covers half the ground
+it used to. It is legacy painted art drawn on the cel grid and is deliberately not re-cut.
+
+Three readings of "tile" were being conflated, and each had to be decided separately rather than
+having a constant substituted into it:
+
+- **Prop anchoring** divided by the region's art grid, so temp2's structures snapped to 8 px
+  centres -- half of which are exactly the boundary between two 16 px walk tiles. That is
+  buildings standing on tile lines, the identical defect section 9 exists to remove, and it was
+  invisible because the record and its shadow still agreed with each other.
+- **The lamp radius** in `WorldMapShadowMask` converted tiles to pixels by multiplying by the
+  *structure's own pixel width*, which was correct only while a structure was believed to be
+  exactly one tile wide. Under the law temp2's buildings are half a tile wide, and a lamp scaled
+  by the building would have given a house half the reach its framing asked for, plausibly.
+- **The cloud field** wanted pixels-per-unit, which is now the same number everywhere and stops
+  being a per-region lookup at all.
+
+An earlier version of this section recorded a `units_per_map_pixel` framing key that was
+removed for being redundant with the tile count and for sending the camera off the map when
+moved. The law makes that number a constant, which is the end of that story.
 
 Sprites are drawn at **fixed screen size**, not as world-space billboards. In the reference,
 units at the top of the frame are no smaller than those at the bottom, and all are drawn far
@@ -378,10 +412,17 @@ that is only visible once you know to look for it.
 
 Because the art is a **front elevation**, the box is the building's width by its HEIGHT -- the
 only part of it that touches the ground is the bottom row. Measured on temp2, all nine
-structures are exactly one tile wide, start on an exact multiple of the tile size, and have
-their bottom row on an exact tile **boundary**. Every building was therefore standing on the
+structures are exactly one 8 px block wide, start on an exact multiple of that block, and have
+their bottom row on an exact block **boundary**. Every building was therefore standing on the
 line between two tiles rather than in either of them, which is what made them read as pasted
 onto the map instead of standing on it. The correction is uniform: half a tile north.
+
+**Read this in cels, not tiles.** When it was written, temp2's 8 px blocks were believed to be
+its tiles, so "one tile wide" and "half a tile north" meant 8 px. Under the tile law (section 1)
+those blocks are **cels**: temp2's buildings are half a walk tile wide, and the anchoring snaps
+to the 16 px tile grid. The rule is unchanged -- a structure stands on the centre of the tile its
+bottom painted row falls in -- but the grid it snaps to is now a constant rather than the
+region's art grid, and re-anchoring moved every temp2 building by up to half a tile.
 
 So a structure is re-anchored onto the centre of the tile its bottom row falls in. In world
 units that is simply `tile + 0.5` on each axis, because one tile is one world unit. Note it is

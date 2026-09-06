@@ -25,8 +25,9 @@ const U_SPRITE_RECT := "sprite_rect"
 const U_CLOUD_OPACITY := "cloud_opacity"
 const U_LIGHT_TINT := "light_tint"
 
-var _tiles := Vector2i(31, 22)
-var _tilePixels := 8
+## The region in MAP PIXELS. The cloud art, the lattice and the shadow layer all work in map
+## pixels, so the region arrives in them rather than as a tile count multiplied back out here.
+var _mapPx := Vector2i(248, 176)
 var _setID := Uniforms.CLOUDS_OFF
 var _framing := {}
 var _field: Array = []
@@ -39,12 +40,11 @@ func _ready() -> void:
 
 ## Rebuilds the quads for a region and a cloud set. Safe to call again; the quads are only
 ## rebuilt when the set or the region actually changes.
-func configure(tiles: Vector2i, tilePixels: int, framing: Dictionary) -> void:
+func configure(mapPx: Vector2i, framing: Dictionary) -> void:
 	var f := Uniforms.complete(framing)
 	var wanted := str(f[Uniforms.K_CLOUDS])
-	var changed := wanted != _setID or tiles != _tiles or tilePixels != _tilePixels
-	_tiles = tiles
-	_tilePixels = maxi(1, tilePixels)
+	var changed := wanted != _setID or mapPx != _mapPx
+	_mapPx = mapPx
 	_setID = wanted
 	# Before `_rebuild`, not after: the rebuild sizes the lattice from `_config()`, which reads
 	# the framing. Leaving it until `applyFraming` builds a field of zero quads on first call
@@ -111,7 +111,7 @@ func _config() -> Dictionary:
 	var cloudRect: Rect2i = (pieces[0] as Dictionary)["cloud"]
 	var shadowRect: Rect2i = (pieces[0] as Dictionary)["shadow"]
 	return {
-		CloudField.K_FIELD: Vector2i(_tiles.x * _tilePixels, _tiles.y * _tilePixels),
+		CloudField.K_FIELD: _mapPx,
 		CloudField.K_CLOUD: cloudRect.size * scale,
 		CloudField.K_SHADOW: shadowRect.size * scale,
 		CloudField.K_PIECES: pieces.size(),
@@ -120,7 +120,7 @@ func _config() -> Dictionary:
 		CloudField.K_WIND_SPEED: float(_framing[Uniforms.K_WIND_SPEED]),
 		CloudField.K_WIND_ANGLE: float(_framing[Uniforms.K_WIND_ANGLE]),
 		CloudField.K_SEED: int(round(float(_framing[Uniforms.K_CLOUD_SEED]))),
-		CloudField.K_PIXELS_PER_UNIT: float(_tilePixels),
+		CloudField.K_PIXELS_PER_UNIT: float(Uniforms.TILE_PIXELS),
 	}
 
 
@@ -135,7 +135,7 @@ func _place() -> void:
 	var sun := WorldMapSun.at(_framing)
 	_field = CloudField.at(config, sun, _clock)
 
-	var pixelSize := 1.0 / float(_tilePixels)
+	var pixelSize := 1.0 / float(Uniforms.TILE_PIXELS)
 	var cloudSize: Vector2i = config[CloudField.K_CLOUD]
 	var altitude := float(_framing[Uniforms.K_CLOUD_ALTITUDE])
 	# The same derivation WorldMapProps uses, from the SAME sun dictionary -- not a second call

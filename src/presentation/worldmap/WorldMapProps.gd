@@ -66,7 +66,6 @@ var _shadows := WorldMapShadowMask.new()
 ## region declares none, which is the honest state for a map whose palette is not disjoint.
 var _rule: Dictionary = {}
 var _spriteSheet: ImageTexture
-var _tilePixels := Uniforms.DEFAULT_TILE_PIXELS
 var _mapSize := Vector2i.ZERO
 var _mode := Uniforms.BILLBOARD_OFF
 ## The rendered cloud shadow coverage and the region's world rect it is keyed to. Set from
@@ -85,7 +84,6 @@ func rebuild(source: Texture2D, regionID: String, mode: String) -> Dictionary:
 	_clearSprites()
 	_structures.clear()
 	_rule = RegionCatalog.structureRuleFor(regionID)
-	_tilePixels = maxi(1, RegionCatalog.tilePixelsFor(regionID))
 	_mode = mode
 	_palette = PackedColorArray()
 	if source == null:
@@ -432,7 +430,7 @@ func _findStructures(image: Image) -> Array:
 ## ground patch, which must paint out the terrain where the building really was, and the atlas
 ## and emissive builds, which READ from there while WRITING at the new position.
 func _standOnTiles(found: Array) -> Array:
-	var tile := maxi(1, _tilePixels)
+	var tile := Uniforms.TILE_PIXELS
 	for s in found:
 		s["art_x"] = int(s["x"])
 		s["art_y"] = int(s["y"])
@@ -667,9 +665,9 @@ func emissiveTexture() -> ImageTexture:
 # --- sprites -------------------------------------------------------------------------
 
 func _buildSprites() -> void:
-	# One tile is one world unit, so a map pixel is 1/tile_pixels of a unit. This is the only
-	# place a region's tile PIXEL size is allowed to matter; the camera never sees it.
-	var pixelSize := 1.0 / float(_tilePixels)
+	# One tile is one world unit and 16 map pixels, so a map pixel is 1/16 of a unit. Fixed by
+	# the tile law -- it is no longer a per-region number, and the camera still never sees it.
+	var pixelSize := 1.0 / float(Uniforms.TILE_PIXELS)
 	var atlasSize := Vector2(float(_spriteSheet.get_width()), float(_spriteSheet.get_height()))
 	for s in _structures:
 		var worldW := float(s["w"]) * pixelSize

@@ -32,6 +32,8 @@
 class_name WorldMapShadowMask
 extends RefCounted
 
+const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
+
 var _image: Image
 var _texture: ImageTexture
 var _size := Vector2i.ZERO
@@ -128,14 +130,19 @@ func _ensureLampDistance(structures: Array, reachTiles: float) -> void:
 	_lampTouched = PackedInt32Array()
 	if reachTiles <= 0.0 or structures.is_empty():
 		return
-	# The reach is in TILES; the field is in map pixels. One tile is `tilePixels` map pixels,
-	# and a structure is `w` map pixels wide across one tile, so `w` is the conversion.
+	# The reach is in TILES; the field is in map pixels. A tile is `Uniforms.TILE_PIXELS` map
+	# pixels, always, so that is the conversion.
+	#
+	# This used to multiply by the structure's own pixel width, which was correct only while a
+	# structure was believed to be exactly one tile wide -- true of temp2 only because its 8 px
+	# art was read as 8 px tiles. Under the tile law those buildings are half a tile wide, and
+	# scaling a lamp by the building's width would give a house half the reach the framing asked
+	# for while looking entirely plausible.
+	var radius := reachTiles * float(Uniforms.TILE_PIXELS)
+	if radius < 0.5:
+		return
 	for s in structures:
-		var sw: int = s["w"]
-		var radius := reachTiles * float(sw)
-		if radius < 0.5:
-			continue
-		var cx := float(s["x"]) + float(sw) * 0.5
+		var cx := float(s["x"]) + float(int(s["w"])) * 0.5
 		var cy := float(int(s["y"]) + int(s["rows"]))
 		var x0 := maxi(0, int(floorf(cx - radius)))
 		var x1 := mini(_size.x - 1, int(ceilf(cx + radius)))

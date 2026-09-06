@@ -80,10 +80,13 @@ var _sky: WorldMapSky
 var _tileGrid: MeshInstance3D
 var _props: WorldMapProps
 var _clouds: WorldMapClouds
-var _regionTilePixels := 8
 
 var _regionID := ""
-var _regionTiles := Vector2i.ZERO
+## The region in walk tiles (one world unit each) and in map pixels. Both come from the catalog
+## rather than being derived from each other here, because the conversion between them is the
+## tile law and it lives in exactly one place.
+var _regionTiles := Vector2.ZERO
+var _regionMapPx := Vector2i.ZERO
 var _presetID := FramingCatalog.TILE_EXACT
 var _framing: Dictionary = {}
 var _quitAfter := 0
@@ -312,14 +315,14 @@ func _loadRegion(regionID: String) -> void:
 	_regionID = regionID
 	_region = region
 	_regionTiles = region["tiles"]
-	_regionTilePixels = int(region["tile_pixels"])
-	_focus = Vector2(float(_regionTiles.x), float(_regionTiles.y)) * 0.5
+	_regionMapPx = region["map_px"]
+	_focus = _regionTiles * 0.5
 	_refreshProps()
 	# After the props, because the clouds size their lattice from the region and the region is
 	# only settled once the props pass has decided what the ground texture is.
-	_clouds.configure(_regionTiles, int(region["tile_pixels"]), _framing)
+	_clouds.configure(_regionMapPx, _framing)
 	_ground.configureCloudShadows(
-		_regionTiles * int(region["tile_pixels"]), str(_framing[Uniforms.K_CLOUDS])
+		_regionMapPx, str(_framing[Uniforms.K_CLOUDS])
 	)
 	_rebuildTileGrid()
 
@@ -357,7 +360,7 @@ func _applyFraming() -> void:
 	_props.applyFraming(_framing)
 	_clouds.applyFraming(_framing)
 	_ground.configureCloudShadows(
-		_regionTiles * _regionTilePixels, str(_framing[Uniforms.K_CLOUDS])
+		_regionMapPx, str(_framing[Uniforms.K_CLOUDS])
 	)
 	_ground.setCloudField(_clouds.field())
 	# AFTER configureCloudShadows, not before: that call is what gives the ground's shadow
@@ -397,7 +400,7 @@ func _refreshStatus() -> void:
 
 	_hud.setStatus({
 		"preset": _presetLabel(),
-		"region": "%s  (%d x %d tiles)" % [_regionID, _regionTiles.x, _regionTiles.y],
+		"region": "%s  (%s tiles)" % [_regionID, _regionTiles],
 		"structures": _structureLabel(),
 		"tiles": "%.1f across the bottom edge" % readout["tiles_across"],
 		"density": "%.1f buffer px" % readout["buffer_px_per_tile"],
@@ -515,16 +518,16 @@ func _buildTileGrid() -> void:
 func _rebuildTileGrid() -> void:
 	var mesh := _tileGrid.mesh as ImmediateMesh
 	mesh.clear_surfaces()
-	if _regionTiles.x + _regionTiles.y > TILE_GRID_MAX_LINES:
+	if _regionTiles.x + _regionTiles.y > float(TILE_GRID_MAX_LINES):
 		push_warning("WorldMapDebugController: tile grid suppressed, region too large")
 		return
 	var width := float(_regionTiles.x)
 	var height := float(_regionTiles.y)
 	mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	for x in range(_regionTiles.x + 1):
+	for x in range(int(ceilf(_regionTiles.x)) + 1):
 		mesh.surface_add_vertex(Vector3(float(x), TILE_GRID_HEIGHT, 0.0))
 		mesh.surface_add_vertex(Vector3(float(x), TILE_GRID_HEIGHT, height))
-	for z in range(_regionTiles.y + 1):
+	for z in range(int(ceilf(_regionTiles.y)) + 1):
 		mesh.surface_add_vertex(Vector3(0.0, TILE_GRID_HEIGHT, float(z)))
 		mesh.surface_add_vertex(Vector3(width, TILE_GRID_HEIGHT, float(z)))
 	mesh.surface_end()
