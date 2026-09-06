@@ -20,10 +20,17 @@ var root: CanvasLayer
 var column: VBoxContainer
 var badge: Label
 var toolOption: OptionButton
+var tileOption: OptionButton
+var seedSpin: SpinBox
+var status: Label
+var saveButton: Button
 
 var _layerButtons: Array[Button] = []
 var _layerVisibilityToggles: Array[CheckButton] = []
 var _layerLockToggles: Array[CheckButton] = []
+var _layerIDs: Array[String] = []
+var _layerLabels: Array[String] = []
+var _tileIDs: Array[String] = []
 
 
 func _init(hudRoot: CanvasLayer) -> void:
@@ -47,6 +54,7 @@ func build(
 	_buildBadge()
 	_buildToolSelector(tools, onToolSelected)
 	_buildLayerList(layers, onLayerSelected, onVisibilityToggled, onLockToggled)
+	_buildBrushControls()
 
 
 func _buildBadge() -> void:
@@ -102,6 +110,8 @@ func _buildLayerList(
 		var layer: Dictionary = layers[i]
 		var id := str(layer["id"])
 		var enabled := bool(layer.get("enabled", false))
+		_layerIDs.append(id)
+		_layerLabels.append(str(layer["label"]))
 
 		var select := Button.new()
 		select.text = str(layer["label"]) + ("" if enabled else "  (empty)")
@@ -138,6 +148,84 @@ func _buildLayerList(
 func setActiveLayer(index: int) -> void:
 	for i in _layerButtons.size():
 		_layerButtons[i].button_pressed = (i == index)
+
+
+func setLayerEnabled(id: String, enabled: bool) -> void:
+	var index := _layerIDs.find(id)
+	if index < 0:
+		return
+	_layerButtons[index].text = _layerLabels[index] + ("" if enabled else "  (empty)")
+	_layerButtons[index].modulate = Color(1.0, 1.0, 1.0, 1.0 if enabled else 0.5)
+
+
+func _buildBrushControls() -> void:
+	column.add_child(HSeparator.new())
+	var tileRow := HBoxContainer.new()
+	column.add_child(tileRow)
+	tileRow.add_child(_label("Tile"))
+	tileOption = OptionButton.new()
+	tileOption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tileOption.focus_mode = Control.FOCUS_NONE
+	tileRow.add_child(tileOption)
+
+	var seedRow := HBoxContainer.new()
+	column.add_child(seedRow)
+	seedRow.add_child(_label("Scatter seed"))
+	seedSpin = SpinBox.new()
+	seedSpin.min_value = 0
+	seedSpin.max_value = 2147483647
+	seedSpin.step = 1
+	seedSpin.value = 1
+	seedSpin.allow_greater = false
+	seedSpin.allow_lesser = false
+	seedSpin.focus_mode = Control.FOCUS_NONE
+	seedRow.add_child(seedSpin)
+
+	saveButton = Button.new()
+	saveButton.text = "Save authored map"
+	saveButton.focus_mode = Control.FOCUS_NONE
+	column.add_child(saveButton)
+
+	status = Label.new()
+	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	status.text = "Choose an authored region to edit."
+	column.add_child(status)
+
+
+func setTileChoices(ids: Array[String], selectedID := "") -> void:
+	_tileIDs = ids.duplicate()
+	tileOption.clear()
+	# Erasing is a tile choice rather than a separate tool, so every shape can erase.
+	tileOption.add_item("Erase (-)")
+	for id in _tileIDs:
+		tileOption.add_item(id)
+	var index := _tileIDs.find(selectedID)
+	tileOption.selected = index + 1 if index >= 0 else (1 if not _tileIDs.is_empty() else 0)
+	tileOption.disabled = _tileIDs.is_empty()
+
+
+func selectedTileID() -> String:
+	if tileOption == null or tileOption.selected <= 0:
+		return WorldMapTileData.EMPTY
+	var index := tileOption.selected - 1
+	return _tileIDs[index] if index >= 0 and index < _tileIDs.size() else WorldMapTileData.EMPTY
+
+
+func selectTileID(id: String) -> void:
+	if id == WorldMapTileData.EMPTY:
+		tileOption.selected = 0
+		return
+	var index := _tileIDs.find(id)
+	if index >= 0:
+		tileOption.selected = index + 1
+
+
+func scatterSeed() -> int:
+	return int(seedSpin.value)
+
+
+func setStatus(message: String) -> void:
+	status.text = message
 
 
 func _label(text: String) -> Label:
