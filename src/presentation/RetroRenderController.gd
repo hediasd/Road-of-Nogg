@@ -9,6 +9,7 @@ const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCa
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
 const WindowFrameFilterCatalogScript = preload("res://src/presentation/theme/WindowFrameFilterCatalog.gd")
+const HudLayoutCatalogScript = preload("res://src/presentation/theme/HudLayoutCatalog.gd")
 const CRT_DISPLAY_SHADER = preload("res://assets/shaders/crt_display.gdshader")
 const SETTINGS_PATH := "user://rendering.cfg"
 const MIN_VIEWPORT_SIZE := Vector2i(2, 2)
@@ -79,6 +80,12 @@ var window_skin: String = WindowSkinCatalogScript.DEFAULT
 ## spent comparing variants survives a restart; `BattlePresentationController`
 ## is what applies it, exactly as with the skin.
 var frame_filter: String = WindowFrameFilterCatalogScript.DEFAULT
+
+## The HUD layout and the UI scale. Persisted together because they constrain
+## each other: a layout fits a screen measured in design units, and `ui_scale`
+## is what decides how big that screen is.
+var hud_layout: String = HudLayoutCatalogScript.DEFAULT
+var ui_scale: int = 3
 var render_size := Vector2i(640, 480)
 var retro_enabled: bool = false
 var crt_enabled: bool = false
@@ -386,6 +393,26 @@ func set_frame_filter(id: String, persist: bool = true) -> void:
 	if id == frame_filter:
 		return
 	frame_filter = id
+	if persist:
+		_save_settings()
+
+
+func set_hud_layout(id: String, persist: bool = true) -> void:
+	if not HudLayoutCatalogScript.has_layout(id):
+		push_warning("RetroRenderController: unknown HUD layout '%s'." % id)
+		return
+	if id == hud_layout:
+		return
+	hud_layout = id
+	if persist:
+		_save_settings()
+
+
+func set_ui_scale(scale: int, persist: bool = true) -> void:
+	var wanted := clampi(scale, 1, 4)
+	if wanted == ui_scale:
+		return
+	ui_scale = wanted
 	if persist:
 		_save_settings()
 
@@ -764,6 +791,10 @@ func _load_settings() -> void:
 	var savedFilter = str(config.get_value("rendering", "frame_filter", frame_filter))
 	if WindowFrameFilterCatalogScript.has_filter(savedFilter):
 		frame_filter = savedFilter
+	var savedLayout = str(config.get_value("rendering", "hud_layout", hud_layout))
+	if HudLayoutCatalogScript.has_layout(savedLayout):
+		hud_layout = savedLayout
+	ui_scale = clampi(int(config.get_value("rendering", "ui_scale", ui_scale)), 1, 4)
 	if render_preset != PRESET_CUSTOM:
 		return
 	retro_enabled = bool(config.get_value(
@@ -867,6 +898,8 @@ func _save_settings() -> void:
 	config.set_value("rendering", "ui_through_crt", ui_through_crt)
 	config.set_value("rendering", "window_skin", window_skin)
 	config.set_value("rendering", "frame_filter", frame_filter)
+	config.set_value("rendering", "hud_layout", hud_layout)
+	config.set_value("rendering", "ui_scale", ui_scale)
 	config.set_value("look", "render_scale", render_scale)
 	config.set_value("look", "vertex_snap_strength", vertex_snap_strength)
 	config.set_value("look", "brightness", brightness)

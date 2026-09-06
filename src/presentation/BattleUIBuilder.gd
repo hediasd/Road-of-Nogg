@@ -169,7 +169,9 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 			"crt_parameter_changed": callbacks["crt_parameter_changed"],
 			"ui_through_crt_toggled": callbacks["ui_through_crt_toggled"],
 			"window_skin_selected": callbacks["window_skin_selected"],
-			"frame_filter_selected": callbacks["frame_filter_selected"]
+			"frame_filter_selected": callbacks["frame_filter_selected"],
+			"hud_layout_selected": callbacks["hud_layout_selected"],
+			"ui_scale_selected": callbacks["ui_scale_selected"]
 		}
 	)
 	graphicsButton.toggled.connect(func(pressed):
@@ -356,11 +358,31 @@ static func build(root: Node, callbacks: Dictionary) -> BattleUIRefs:
 ## `CanvasLayer`, so every game/dev panel needs one common ancestor carrying it
 ## for fonts and styleboxes to cascade. `mouse_filter = IGNORE` keeps the root
 ## itself out of the way of clicks; children still receive input normally.
+## The HUD root every game window hangs from, carrying the Theme and -- since
+## the faces are bitmaps -- the texture filter.
+##
+## **`TEXTURE_FILTER_NEAREST` is set here and it is load-bearing.** Both faces
+## are baked bitmap atlases pinned to `fixed_size` with
+## `FIXED_SIZE_SCALE_INTEGER_ONLY`, so the glyph *quads* scale by whole numbers
+## -- but the atlas is still sampled through the canvas item's filter, and the
+## inherited default resolves to linear here regardless of
+## `rendering/textures/canvas_textures/default_texture_filter` being 0. Measured
+## on a rendered capture: at font size 36 the glyph pixels came back as ten
+## luminance levels with 10.5% of them intermediate, and forcing nearest on the
+## same string gives exactly two levels and zero intermediate pixels. The same
+## was true at 24, which is what every build has shipped -- so this was blurring
+## the HUD long before `ui_scale` became selectable; a bigger scale only made it
+## legible as blur rather than as softness.
+##
+## Set on the root rather than per Label: `CanvasItem.texture_filter` defaults
+## to `TEXTURE_FILTER_PARENT_NODE`, so one assignment reaches every window, row,
+## cursor and card built beneath it.
 static func _buildThemedRoot(canvas: CanvasLayer, theme: Theme) -> Control:
 	var root = Control.new()
 	root.name = "ThemedRoot"
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	root.theme = theme
 	canvas.add_child(root)
 	return root

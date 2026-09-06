@@ -20,6 +20,7 @@ extends RefCounted
 # stop the thin rim shimmering as mask size changes.
 const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
 const WindowFrameFilterCatalogScript = preload("res://src/presentation/theme/WindowFrameFilterCatalog.gd")
+const HudLayoutCatalogScript = preload("res://src/presentation/theme/HudLayoutCatalog.gd")
 
 const CRT_LAYER := -20
 ## Transient board annotations render above the world and default CRT pass, but
@@ -165,6 +166,10 @@ static var skin: String = WindowSkinCatalogScript.DEFAULT
 ## it has to move through `set_frame_filter()` rather than by assignment.
 static var frame_filter: String = WindowFrameFilterCatalogScript.DEFAULT
 
+## The active HUD layout. Orthogonal to `skin`: a skin says what a window looks
+## like, a layout says how much room it may take. See `HudLayoutCatalog`.
+static var hud_layout: String = HudLayoutCatalogScript.DEFAULT
+
 
 ## Recomputes the scale from a window height. Returns whether it changed, so a
 ## caller can decide to rebuild themes and relayout without this file needing to
@@ -216,6 +221,19 @@ static func configure(scale: int) -> bool:
 ## it rebuilds the derived texture and leaves restyling the tree to the caller.
 ## Cheap to call under a skin with no frame art -- there is simply nothing to
 ## filter, and `_rebuild_frame_texture()` returns early.
+## Switches the HUD layout, returning whether anything changed. Same contract
+## as `set_skin()`: owns the tokens, leaves the tree to the caller.
+static func set_hud_layout(id: String) -> bool:
+	if not HudLayoutCatalogScript.has_layout(id):
+		push_warning("NoggTheme: unknown HUD layout '%s'; keeping '%s'." % [id, hud_layout])
+		return false
+	if id == hud_layout:
+		return false
+	hud_layout = id
+	_recompute()
+	return true
+
+
 static func set_frame_filter(id: String) -> bool:
 	if not WindowFrameFilterCatalogScript.has_filter(id):
 		push_warning("NoggTheme: unknown frame filter '%s'; keeping '%s'." % [id, frame_filter])
@@ -529,7 +547,9 @@ const ACTION_ROW_DISABLED_ALPHA := 0.35
 ## Counts, not lengths. These do not scale — three resonance cells stay three
 ## cells at every size, and a window holding eight rows holds eight rows.
 const RESONANCE_BAR_CELLS := 3
-const ROW_CAPACITY_DEFAULT := 8
+## Layout-varying: the compact layout caps a list window lower, because at
+## ui_scale 3 an eight-row spell window reaches the docked status windows.
+static var ROW_CAPACITY_DEFAULT: int = 8
 
 # --- Window widths ---------------------------------------------------------
 #
@@ -564,6 +584,10 @@ static var SPELL_WIDTH_UNITS: float
 ## and the longest real status line ("Preview tile (12, 12). Empty-center
 ## casting is disabled.") needs 460 units against the previous 348.
 static var PROMPT_WIDTH_UNITS: float
+## How many rows the prompt window is built with. Layout-varying and with no
+## skin counterpart: it is the difference between a prompt that clips its worst
+## string and one that wraps it.
+static var PROMPT_ROWS: int = 1
 ## Likewise: "Cast spends action, cooldown & Resonance" needs 332 units against
 ## the previous 252.
 static var FORECAST_WIDTH_UNITS: float
@@ -614,11 +638,13 @@ static var DEEP_CARD_CAPACITY: int
 ## place those windows behind, so at x3 the windows grew while their margins
 ## did not and the whole HUD crept toward the screen edges. A margin is a length
 ## like any other and has to scale with what it separates.
-const SCREEN_MARGIN_UNITS := 10.0
+## Layout-varying. See `HudLayoutCatalog`.
+static var SCREEN_MARGIN_UNITS: float = 10.0
 ## Below the turn rail, which owns the top band. The rail is persistent and the
 ## prompt is transient, so the persistent element holds the stable position —
 ## see docs/UI_DESIGN.md §8.
-const PROMPT_TOP_UNITS := 34.0
+## Layout-varying. See `HudLayoutCatalog`.
+static var PROMPT_TOP_UNITS: float = 34.0
 ## Vertical gap between the forecast window and the command window above which
 ## it sits.
 const FORECAST_GAP_UNITS := 4.0
@@ -795,9 +821,44 @@ static func _apply_skin_tokens() -> void:
 	PAGER_WIDTH_UNITS = float(values["pager_width_units"])
 	DEEP_CARD_WIDTH_UNITS = float(values["deep_card_width_units"])
 	DEEP_CARD_CAPACITY = int(values["deep_card_capacity"])
-	# The prompt's bottom edge plus a stack gap. Both terms follow the skin.
+
+	_apply_layout_tokens()
+
+
+## Layout tokens, applied over the skin's.
+##
+## Deliberately last: where a skin and a layout both name a token, the layout
+## wins. A skin's widths were measured for the face it carries, but they were
+## measured against *a screen*, and which screen that is now depends on
+## `ui_scale`. The layout is the one that knows.
+##
+## `PROMPT_ROWS` has no skin counterpart at all -- it is purely a fit decision,
+## and the reason the compact prompt does not clip its worst string.
+static func _apply_layout_tokens() -> void:
+	var layout: Dictionary = HudLayoutCatalogScript.values_for(hud_layout)
+	SCREEN_MARGIN_UNITS = float(layout["screen_margin_units"])
+	PROMPT_TOP_UNITS = float(layout["prompt_top_units"])
+	CONTENT_INSET_UNITS = float(layout["content_inset_units"])
+	ROW_HEIGHT_UNITS = float(layout["row_height_units"])
+	ROW_CAPACITY_DEFAULT = int(layout["row_capacity_default"])
+	PROMPT_ROWS = int(layout["prompt_rows"])
+	STATUS_CELL_OFFSET_UNITS = (layout["status_cell_offset_units"] as Array).duplicate()
+	COMMAND_WIDTH_UNITS = float(layout["command_width_units"])
+	SPELL_WIDTH_UNITS = float(layout["spell_width_units"])
+	PROMPT_WIDTH_UNITS = float(layout["prompt_width_units"])
+	FORECAST_WIDTH_UNITS = float(layout["forecast_width_units"])
+	STATUS_WINDOW_WIDTH_UNITS = float(layout["status_window_width_units"])
+	PAGER_WIDTH_UNITS = float(layout["pager_width_units"])
+	DEEP_CARD_WIDTH_UNITS = float(layout["deep_card_width_units"])
+	DEEP_CARD_CAPACITY = int(layout["deep_card_capacity"])
+	# One body cell of gap follows the face, and the face may have changed, but
+	# the inset above just did too -- so this is re-derived here rather than
+	# left at whatever the skin pass computed.
+	STATUS_CELL_TEXT_GAP_UNITS = FONT_SIZE_BODY_UNITS
+	# The prompt's bottom edge plus a stack gap. Derived last, because both
+	# terms are layout-varying and have only just settled.
 	DEEP_CARD_TOP_UNITS = (
-		PROMPT_TOP_UNITS + window_height_units(1) + WINDOW_STACK_GAP_UNITS
+		PROMPT_TOP_UNITS + window_height_units(PROMPT_ROWS) + WINDOW_STACK_GAP_UNITS
 	)
 
 

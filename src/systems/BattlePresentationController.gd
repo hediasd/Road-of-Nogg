@@ -140,6 +140,11 @@ func _ready() -> void:
 	# the first one is built or the game opens on the wrong skin for one frame
 	# and then visibly corrects itself. RetroRenderControllerScript.new() above
 	# already loaded the persisted value into retro_renderer.window_skin.
+	# Scale first: `set_skin()` and the rest derive scaled tokens, and applying
+	# them at the old scale only to rescale immediately after would build one
+	# theme nobody sees.
+	NoggThemeScript.configure(retro_renderer.ui_scale)
+	NoggThemeScript.set_hud_layout(retro_renderer.hud_layout)
 	NoggThemeScript.set_skin(retro_renderer.window_skin)
 	NoggThemeScript.set_frame_filter(retro_renderer.frame_filter)
 	_setup_background()
@@ -216,7 +221,9 @@ func _build_battle_ui() -> void:
 		"crt_parameter_changed": Callable(self, "_on_crt_parameter_changed"),
 		"ui_through_crt_toggled": Callable(self, "_on_ui_through_crt_toggled"),
 		"window_skin_selected": Callable(self, "_on_battle_window_skin_selected"),
-		"frame_filter_selected": Callable(self, "_on_frame_filter_selected")
+		"frame_filter_selected": Callable(self, "_on_frame_filter_selected"),
+		"hud_layout_selected": Callable(self, "_on_hud_layout_selected"),
+		"ui_scale_selected": Callable(self, "_on_ui_scale_selected")
 	})
 	turn_timer = battle_ui.turn_timer
 	actor_window = battle_ui.actor_window
@@ -344,6 +351,14 @@ func _sync_rendering_options() -> void:
 		retro_renderer.frame_filter
 	)
 	_select_option_by_metadata(
+		battle_ui.graphics.hud_layout_option,
+		retro_renderer.hud_layout
+	)
+	_select_option_by_metadata(
+		battle_ui.graphics.ui_scale_option,
+		str(retro_renderer.ui_scale)
+	)
+	_select_option_by_metadata(
 		battle_ui.graphics.look_option,
 		retro_renderer.render_preset
 	)
@@ -467,6 +482,34 @@ func _on_frame_filter_selected(_index: int) -> void:
 	var id: String = option.get_item_metadata(option.selected)
 	set_frame_filter(id)
 	retro_renderer.set_frame_filter(id)
+	_sync_rendering_options()
+
+
+func _on_hud_layout_selected(_index: int) -> void:
+	var option: OptionButton = battle_ui.graphics.hud_layout_option
+	var id: String = option.get_item_metadata(option.selected)
+	if NoggThemeScript.set_hud_layout(id):
+		_restyle_live_windows()
+	retro_renderer.set_hud_layout(id)
+	_sync_rendering_options()
+
+
+## Live UI rescaling, which `_build_battle_ui()`'s header used to say was out of
+## scope because no rebuild-and-relayout path existed. One does now:
+## `_restyle_live_windows()` rebuilds both Themes and restyles every window,
+## which is exactly the desync that made rescaling unsafe -- a Theme copies its
+## font size and styleboxes in at build time while `NoggWindow` and `MenuCursor`
+## read tokens live, so the two disagreed until something rebuilt the Theme.
+##
+## Kept in the Graphics menu rather than offered on the setup screen: it is a
+## developer control, and picking a scale the layout does not fit is a thing a
+## developer may legitimately want to see.
+func _on_ui_scale_selected(_index: int) -> void:
+	var option: OptionButton = battle_ui.graphics.ui_scale_option
+	var scale := int(str(option.get_item_metadata(option.selected)))
+	if NoggThemeScript.configure(scale):
+		_restyle_live_windows()
+	retro_renderer.set_ui_scale(scale)
 	_sync_rendering_options()
 
 

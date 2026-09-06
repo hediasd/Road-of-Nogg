@@ -445,6 +445,77 @@ never sees.
   lifetime of one opening and pages never shrink it. Docked readouts keep their
   fixed capacity so changing values cannot jitter the layout.
 
+### 4a-bis. HUD layouts and UI scale
+
+`ui_scale` is selectable from the Graphics menu and defaults to **3**. It is not
+a zoom: it shrinks the screen *measured in design units*. A 1152x648 window is
+576x324 design units at scale 2 and **384x216** at scale 3, and every width in
+the historical layout was measured for the first of those. The prompt alone is
+560 units against a 384-unit screen.
+
+So a bigger, still-pixel-sharp HUD is a layout change, not a font change.
+`HudLayoutCatalog` carries two:
+
+| | **roomy** | **compact** (default) |
+|---|---|---|
+| Content inset | 11 | **6** |
+| Row pitch | 14 | **13** |
+| Screen margin | 10 | **4** |
+| Status cell offsets | 0 / 96 / 192 | **0 / 68 / 108** |
+| Status window | 270 | **180** |
+| Prompt | 560, 1 row | **290, 2 rows** |
+| Spell / list capacity | 340, 8 rows | **330, 6 rows** |
+| Forecast, Deep card | 340 / 320 | **330 / 310** |
+| Fits | up to scale 2 | **up to scale 3** |
+
+A layout is applied *after* the skin and wins on every token both name: a skin's
+widths were measured for its face, but they were measured against a screen, and
+which screen that is now depends on `ui_scale`. `PROMPT_ROWS` has no skin
+counterpart at all — it is purely a fit decision, and the reason the compact
+prompt wraps rather than clips.
+
+**Compact's numbers are measured, not chosen.** The column offsets come from §8's
+pairing rule applied to the real rows: column 1 clears the ATK/SPD rows'
+column 0 (60 units), column 2 clears the HP row's (100). The widths come from
+`debug/measure_compact_layout.gd`, and the width harness now asserts *both*
+layouts, wrapping the prompt across `PROMPT_ROWS` when it measures — without
+that it reported the compact prompt 250 units short.
+
+**The vertical fit is arithmetic.** At pitch 13 and inset 6 the prompt occupies
+4..42, a six-row spell window 46..136, and the docked status windows 148..212.
+A seven-row spell window ends at 149 and collides by a unit, which is why
+`row_capacity_default` is 6 under compact.
+
+**`HudLayoutCatalog.fits()` charges the two dock styles differently**, because
+they are different: the prompt, forecast, spell and deep card are *centred*, so
+they need only be no wider than the screen, while the two status windows are
+*edge-docked* and pay `SCREEN_MARGIN` twice. Charging margins to the centred
+windows reported `roomy` as not fitting at scale 2 — the configuration it was
+measured for and has always shipped in.
+
+### 4b. Bitmap text must be point-sampled
+
+Both faces are baked bitmap atlases pinned to `fixed_size` with
+`FIXED_SIZE_SCALE_INTEGER_ONLY`, so glyph quads scale by whole numbers. That is
+necessary and was not sufficient: **the atlas is still sampled through the
+canvas item's texture filter**, and the inherited default resolves to linear
+regardless of `rendering/textures/canvas_textures/default_texture_filter` being
+0.
+
+Measured on a rendered capture at font size 36: ten luminance levels across the
+glyph pixels with 10.5% of them intermediate. Forcing
+`TEXTURE_FILTER_NEAREST` on the same string gives exactly two levels and zero
+intermediate pixels. The same held at 24, **which is what every build has
+shipped** — the HUD has been softly filtered all along, and raising `ui_scale`
+only made it legible as blur rather than as softness.
+
+`BattleUIBuilder._buildThemedRoot()` sets the filter on the HUD root rather than
+per label: `CanvasItem.texture_filter` defaults to `TEXTURE_FILTER_PARENT_NODE`,
+so one assignment reaches every window, row, cursor and card beneath it. Any
+future harness that renders windows into its own `SubViewport` has to set
+`canvas_item_default_texture_filter` to match, or it will show blur the game
+does not have.
+
 ### 4a. Skins
 
 The window language ships in two skins, chosen at runtime and persisted with the

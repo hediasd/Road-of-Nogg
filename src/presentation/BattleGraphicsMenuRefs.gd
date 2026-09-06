@@ -9,6 +9,8 @@ var panel: PanelContainer
 var look_option: OptionButton
 var window_skin_option: OptionButton
 var frame_filter_option: OptionButton
+var hud_layout_option: OptionButton
+var ui_scale_option: OptionButton
 var preset_description: Label
 var geometry_option: OptionButton
 var upscale_option: OptionButton

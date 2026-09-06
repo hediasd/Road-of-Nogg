@@ -108,7 +108,12 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
-	_prompt_window = _build_window(NoggThemeScript.PROMPT_WIDTH, 1, _prompt_layer_root)
+	# Row count from the layout, not a literal 1: the compact layout wraps the
+	# prompt across two rows because its worst real string is 550 units on one
+	# and nothing marquees the prompt, so one row would clip it.
+	_prompt_window = _build_window(
+		NoggThemeScript.PROMPT_WIDTH, NoggThemeScript.PROMPT_ROWS, _prompt_layer_root
+	)
 	# Readout only, same as the actor/target status windows: nothing here ever
 	# connects its gui_input. Left at the default STOP filter it would now
 	# intercept clicks meant for the dev bar underneath it, since it renders
@@ -843,7 +848,41 @@ func _refresh_prompt() -> void:
 		return
 	if not _prompt_window.visible:
 		_prompt_window.open()
-	_prompt_window.add_row(_prompt_text)
+	for line in _wrap_prompt(_prompt_text, NoggThemeScript.PROMPT_ROWS):
+		_prompt_window.add_row(line)
+
+
+## Splits the prompt across the layout's row count, breaking on spaces.
+##
+## Word wrapping here rather than through `Label.autowrap_mode`, because a
+## `NoggWindow` row is a fixed-height cell: an autowrapping label would grow
+## past its own row and out through the frame instead of filling the row below
+## it. One row means no wrapping at all, which is what the roomy layout wants.
+##
+## Greedy by measured width, and the last row keeps whatever is left even if it
+## overruns -- the widths are measured so that it does not, and silently
+## dropping half a sentence would be worse than a rare overhang.
+func _wrap_prompt(text: String, rows: int) -> Array[String]:
+	if rows <= 1 or text.is_empty():
+		return [text] as Array[String]
+	var font: Font = load(NoggThemeScript.GAME_FONT_PATH)
+	var size := NoggThemeScript.FONT_SIZE_BODY
+	var limit := NoggThemeScript.PROMPT_WIDTH - NoggThemeScript.CONTENT_INSET * 2.0
+	var out: Array[String] = []
+	var current := ""
+	for word in text.split(" ", false):
+		var candidate: String = word if current.is_empty() else current + " " + word
+		var fits := font.get_string_size(
+			candidate, HORIZONTAL_ALIGNMENT_LEFT, -1, size
+		).x <= limit
+		if fits or current.is_empty() or out.size() >= rows - 1:
+			current = candidate
+		else:
+			out.append(current)
+			current = word
+	if not current.is_empty():
+		out.append(current)
+	return out
 
 
 ## Command labels and menu chrome render in caps; proper nouns do not. Spell

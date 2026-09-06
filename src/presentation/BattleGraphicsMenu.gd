@@ -6,6 +6,7 @@ extends RefCounted
 const RenderPresetCatalogScript = preload("res://src/presentation/RenderPresetCatalog.gd")
 const WindowSkinCatalogScript = preload("res://src/presentation/theme/WindowSkinCatalog.gd")
 const WindowFrameFilterCatalogScript = preload("res://src/presentation/theme/WindowFrameFilterCatalog.gd")
+const HudLayoutCatalogScript = preload("res://src/presentation/theme/HudLayoutCatalog.gd")
 const BattleGraphicsMenuRefsScript = preload("res://src/presentation/BattleGraphicsMenuRefs.gd")
 
 
@@ -107,6 +108,20 @@ static func build(
 		WindowFrameFilterCatalogScript.values()
 	)
 	frameFilterOption.item_selected.connect(callbacks["frame_filter_selected"])
+	var hudLayoutOption = _add_option(
+		options,
+		"HUD Layout",
+		HudLayoutCatalogScript.labels(),
+		HudLayoutCatalogScript.values()
+	)
+	hudLayoutOption.item_selected.connect(callbacks["hud_layout_selected"])
+	var uiScaleOption = _add_option(
+		options,
+		"UI Scale",
+		["x1", "x2", "x3", "x4"] as Array[String],
+		["1", "2", "3", "4"] as Array[String]
+	)
+	uiScaleOption.item_selected.connect(callbacks["ui_scale_selected"])
 
 	var presetDescription = Label.new()
 	presetDescription.name = "PresetDescription"
@@ -234,6 +249,8 @@ static func build(
 	refs.ui_through_crt_button = uiThroughCrtButton
 	refs.window_skin_option = windowSkinOption
 	refs.frame_filter_option = frameFilterOption
+	refs.hud_layout_option = hudLayoutOption
+	refs.ui_scale_option = uiScaleOption
 	return refs
 
 
