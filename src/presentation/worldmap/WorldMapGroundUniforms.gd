@@ -61,6 +61,23 @@ const U_MAP_SIZE := "map_size"
 const U_SHOW_SKY_BEYOND := "show_sky_beyond"
 ## The cast-shadow mask and how hard it bites. In map-pixel space, sampled with the region's
 ## own UV -- see `WorldMapShadowMask`.
+## The editor's grid overlay. Deliberately NOT framing keys and deliberately absent from
+## `applyToMaterial`: the grid is editor state, not a property of a framing, and routing it
+## through the framing dictionary would put editor chrome into the contract every shipping
+## preset is written against. `WorldMapSurfacePick.applyGrid()` sets these directly, and the
+## shader's own defaults leave the overlay off for everything that never calls it.
+const U_GRID_MODE := "grid_mode"
+const U_GRID_TILE_COLOR := "grid_tile_color"
+const U_GRID_CEL_COLOR := "grid_cel_color"
+const U_GRID_LINE_PX := "grid_line_px"
+const U_CURSOR_RECT := "cursor_rect"
+const U_CURSOR_COLOR := "cursor_color"
+
+## Grid overlay modes, matching the shader's `grid_mode` branch order.
+const GRID_OFF := 0
+const GRID_TILES := 1
+const GRID_TILES_AND_CELS := 2
+
 const U_SHADOW_MASK := "shadow_mask"
 const U_SHADOW_STRENGTH := "shadow_strength"
 const U_LIGHT_TINT := "light_tint"

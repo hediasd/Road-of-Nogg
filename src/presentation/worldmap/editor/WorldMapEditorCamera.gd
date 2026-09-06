@@ -243,18 +243,48 @@ func _contractDistance() -> float:
 
 ## The world point the camera orbits: the focus AS THE SHADER DRAWS IT.
 ##
-## The ground shader bends the world by `curvature_k * d^2` in VIEW depth, so the surface under
-## the focus is not at y = 0 -- it has fallen by the drop belonging to its own distance. Orbiting
-## around y = 0 instead makes the map slide under the cursor as yaw changes, by an error that
-## grows with the square of distance and so is invisible close in and gross far out.
+## The ground shader bends the world by `curvature_k * f^2`, so the surface under the focus is
+## not at y = 0 -- it has fallen by the drop belonging to its own distance. Orbiting around y = 0
+## instead makes the map slide under the cursor as yaw changes, by an error that grows with the
+## square of distance and so is invisible close in and gross far out.
 ##
-## This needs no fixed-point solve, unlike the parent's `_curveDropAtFocus()`. The parent is
-## given a HEIGHT and has to discover the view depth that settles with it; here the view depth of
-## the focus IS `distance`, by definition of an orbit, so the drop is one multiplication.
+## IT IS A FIXED POINT, and an earlier version of this function got that wrong. The mistake was
+## reading `f` as the orbit distance: "the view depth of the focus IS `distance`, by definition
+## of an orbit, so the drop is one multiplication". It is not, because the shader takes `f` from
+## the UNDISPLACED vertex -- the ground point at y = 0 -- while `distance` measures to the DRAWN
+## focus, which has already fallen. Dropping the focus moves the camera, which changes the
+## undisplaced point's forward distance, which changes the drop.
+##
+## Writing `d` for the orbit distance and `s` for sin(pitch), the camera sits at
+## `drawnFocus - fwd * d`, so the undisplaced focus is `f = d - drop * s` ahead of it, and
+## `drop = k * f^2` closes the loop:
+##
+##     k*s^2 * D^2 - (2*k*d*s + 1) * D + k*d^2 = 0
+##
+## whose smaller root is the continuous one. Written below in the rationalised form
+## `2*k*d^2 / ((2*k*d*s + 1) + sqrt(1 + 4*k*d*s))` rather than the textbook one, because the
+## textbook root subtracts two nearly equal numbers and at these curvatures the whole term IS
+## the difference -- the same numerical trap `_curveDropAtFocus` documents in the parent.
+##
+## The wrong version put the camera at y = -139 at k = 0.02, far under the ground it was meant
+## to be looking down at, and made contract-to-free-look a teleport. This form agrees with the
+## parent's own solve to four decimals at the shipped framings, which is what makes engaging
+## free look continuous rather than a jump. `probe_pick_accuracy.gd` found it; WME-2's own probe
+## had asserted the free-look focus against this same wrong formula and so confirmed itself.
 func _drawnFocus() -> Vector3:
 	var k: float = maxf(0.0, float(_framingCopy[Uniforms.K_CURVATURE]))
 	var span := orthoSize if mode == Mode.ORTHO else distance
-	return Vector3(focus.x, -k * span * span, focus.y)
+	return Vector3(focus.x, -curveDropAt(span, k), focus.y)
+
+
+## The settled curvature drop for a focus orbited at `span` units. See `_drawnFocus`.
+func curveDropAt(span: float, k: float) -> float:
+	if k <= 0.0:
+		return 0.0
+	var pitchUsed := 90.0 if mode == Mode.ORTHO else pitch
+	var s := sin(deg_to_rad(pitchUsed))
+	var kds := k * span * s
+	return 2.0 * k * span * span / ((2.0 * kds + 1.0) + sqrt(1.0 + 4.0 * kds))
 
 
 ## Places the camera. In contract mode this IS the shipping rig -- see the class note.
