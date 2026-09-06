@@ -1,0 +1,63 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://src/presentation/worldmap/editor/WorldMapEditorController.gd" id="1_controller"]
+
+[sub_resource type="StyleBoxFlat" id="1_panel_style"]
+content_margin_left = 10.0
+content_margin_top = 8.0
+content_margin_right = 10.0
+content_margin_bottom = 8.0
+bg_color = Color(0, 0, 0, 0.86)
+
+[node name="WorldMapEditor" type="Node"]
+script = ExtResource("1_controller")
+
+[node name="World" type="SubViewport" parent="."]
+own_world_3d = true
+handle_input_locally = false
+size = Vector2i(384, 216)
+render_target_update_mode = 4
+
+[node name="Display" type="TextureRect" parent="."]
+texture_filter = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Ui" type="CanvasLayer" parent="."]
+
+[node name="PanelContainer" type="PanelContainer" parent="Ui"]
+anchors_preset = 11
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -440.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("1_panel_style")
+
+[node name="Scroll" type="ScrollContainer" parent="Ui/PanelContainer"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Column" type="VBoxContainer" parent="Ui/PanelContainer/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="EditorPanel" type="PanelContainer" parent="Ui"]
+anchor_bottom = 1.0
+offset_right = 280.0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("1_panel_style")
+
+[node name="Scroll" type="ScrollContainer" parent="Ui/EditorPanel"]
+layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="Column" type="VBoxContainer" parent="Ui/EditorPanel/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
