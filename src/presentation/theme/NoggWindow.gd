@@ -341,6 +341,20 @@ func set_row_capacity(rows: int) -> void:
 	size.y = custom_minimum_size.y
 
 
+## Vertical offset that centres a `height`-tall child in a row, floored to a
+## whole pixel.
+##
+## **The floor is the point.** Both faces are bitmaps, and a label placed at a
+## fractional y samples its atlas half a texel off, which drops or doubles a row
+## of pixels along the glyph -- it reads as the bottom of every character being
+## shaved. It only bites when `ROW_HEIGHT` and the font's line height differ by
+## an odd number, which is why it never showed under the roomy layout at
+## ui_scale 2 (28 against 24, offset 2) and appeared immediately under compact
+## at ui_scale 3 (39 against 36, offset 1.5).
+static func _centre_y(height: float) -> float:
+	return floorf((NoggThemeScript.ROW_HEIGHT - height) / 2.0)
+
+
 ## Two-column row: label left, value right in TEXT_ACCENT (TEXT_DIM if
 ## disabled). A plain HBoxContainer, never a Button — see docs/UI_DESIGN.md §5.
 ##
@@ -377,7 +391,7 @@ func add_row(label_text: String, value_text: String = "", disabled: bool = false
 	# unlike a Container-assigned size it is correct immediately, before any
 	# layout pass.
 	label.size = label.get_minimum_size()
-	label.position.y = (NoggThemeScript.ROW_HEIGHT - label.size.y) / 2.0
+	label.position.y = _centre_y(label.size.y)
 	clip.add_child(label)
 
 	var value_width := 0.0
@@ -446,7 +460,7 @@ func add_stat_row(cells: Array[Dictionary]) -> Array[Dictionary]:
 		label.text = str(cell["label"])
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		label.size = label.get_minimum_size()
-		label.position.y = (NoggThemeScript.ROW_HEIGHT - label.size.y) / 2.0
+		label.position.y = _centre_y(label.size.y)
 		cell_root.add_child(label)
 
 		var value: Control
@@ -465,7 +479,7 @@ func add_stat_row(cells: Array[Dictionary]) -> Array[Dictionary]:
 				NoggThemeScript.STATUS_CELL_TEXT_GAP if cell.has("value")
 				else NoggThemeScript.STATUS_CELL_CONTROL_GAP
 			),
-			(NoggThemeScript.ROW_HEIGHT - value.get_combined_minimum_size().y) / 2.0
+			_centre_y(value.get_combined_minimum_size().y)
 		)
 		cell_root.add_child(value)
 		handles.append({"cell": cell_root, "label": label, "value": value})

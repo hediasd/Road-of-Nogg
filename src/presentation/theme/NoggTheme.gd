@@ -851,10 +851,10 @@ static func _apply_layout_tokens() -> void:
 	PAGER_WIDTH_UNITS = float(layout["pager_width_units"])
 	DEEP_CARD_WIDTH_UNITS = float(layout["deep_card_width_units"])
 	DEEP_CARD_CAPACITY = int(layout["deep_card_capacity"])
-	# One body cell of gap follows the face, and the face may have changed, but
-	# the inset above just did too -- so this is re-derived here rather than
-	# left at whatever the skin pass computed.
-	STATUS_CELL_TEXT_GAP_UNITS = FONT_SIZE_BODY_UNITS
+	# Layout-varying rather than always one body cell. The gap sits inside every
+	# fixed cell, so it multiplies across the row: widening it pushes column 2
+	# right and the whole window with it.
+	STATUS_CELL_TEXT_GAP_UNITS = float(layout["status_cell_text_gap_units"])
 	# The prompt's bottom edge plus a stack gap. Derived last, because both
 	# terms are layout-varying and have only just settled.
 	DEEP_CARD_TOP_UNITS = (

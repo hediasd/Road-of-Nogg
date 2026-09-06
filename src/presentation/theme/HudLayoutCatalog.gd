@@ -57,6 +57,8 @@ const VALUES := {
 		"content_inset_units": 11.0,
 		"row_height_units": 14.0,
 		"status_cell_offset_units": [0.0, 96.0, 192.0],
+		# One body cell, which is what this has always been.
+		"status_cell_text_gap_units": 12.0,
 		"command_width_units": 90.0,
 		"spell_width_units": 340.0,
 		"prompt_width_units": 560.0,
@@ -78,11 +80,21 @@ const VALUES := {
 		"prompt_top_units": 4.0,
 		"content_inset_units": 6.0,
 		"row_height_units": 13.0,
-		# The tight grid, derived by §8's pairing rule: column 1 clears the
-		# ATK/SPD rows' column 0 (60 units), column 2 clears the HP row's
-		# (100). The shipping [0, 96, 192] clears neither requirement by any
-		# measurement -- they are `nogg`'s authored values, inherited.
-		"status_cell_offset_units": [0.0, 68.0, 108.0],
+		# Derived by §8's pairing rule against the rows the status window
+		# ACTUALLY builds, which is the correction: every stat row carries an
+		# element cell pinned to column 2 by `_append_resonance_cell()`, not
+		# just the HP row. So column 2 must clear the ATK/SPD rows' column 1,
+		# not merely the HP row's column 0. Deriving against the HP row alone
+		# gave [0, 68, 108] and overlapped DEF's value by 20 units on screen.
+		#
+		# At a 4-unit label/value gap: column 0 ends at 52, so column 1 is 60;
+		# column 1 ends at 112, so column 2 is 120.
+		"status_cell_offset_units": [0.0, 60.0, 120.0],
+		# 4, not one body cell. The gap sits inside every fixed cell, so it
+		# multiplies across the row: at 12 it pushes column 2 to 136 and the
+		# window to 200, and two 200-unit windows plus margins is 408 on a
+		# 384-unit screen. This is the token that buys the fit back.
+		"status_cell_text_gap_units": 4.0,
 		"command_width_units": 80.0,
 		"spell_width_units": 330.0,
 		# Two rows, not one. The worst real prompt is the confirm line with the

@@ -475,11 +475,26 @@ counterpart at all — it is purely a fit decision, and the reason the compact
 prompt wraps rather than clips.
 
 **Compact's numbers are measured, not chosen.** The column offsets come from §8's
-pairing rule applied to the real rows: column 1 clears the ATK/SPD rows'
-column 0 (60 units), column 2 clears the HP row's (100). The widths come from
-`debug/measure_compact_layout.gd`, and the width harness now asserts *both*
-layouts, wrapping the prompt across `PROMPT_ROWS` when it measures — without
-that it reported the compact prompt 250 units short.
+pairing rule applied to the real rows, and "the real rows" is the part that is
+easy to get wrong: **every stat row carries an element cell pinned to column 2**
+by `_append_resonance_cell()`, not only the HP row. So column 2 must clear the
+ATK/SPD rows' *column 1*, not merely the HP row's column 0. Deriving it against
+the HP row alone gave `[0, 68, 108]`, which shipped and overlapped DEF's value
+by 20 units on screen.
+
+The corrected grid is `[0, 60, 120]`, and it only fits because
+`status_cell_text_gap_units` is layout-varying too. The gap sits inside every
+fixed cell, so it multiplies along the row: at one body cell (12) it pushes
+column 2 to 136 and the window to 200, and two 200-unit windows plus margins is
+408 on a 384-unit screen. At 4 the window is 180 and two fit in 368.
+
+The widths come from `debug/measure_compact_layout.gd`, and the width harness
+asserts *both* layouts. Two harness bugs were worth more than the numbers they
+produced: it measured the prompt on one line regardless of `PROMPT_ROWS`
+(reporting compact 250 units short), and it approximated the resonance bar as
+`3 × 8` when `RESONANCE_BAR_WIDTH` is `3 × 5 + 2 × 1.5 = 18`, overstating every
+status requirement by six units. A harness that guesses at a constant the theme
+already exports is measuring its own guess.
 
 **The vertical fit is arithmetic.** At pitch 13 and inset 6 the prompt occupies
 4..42, a six-row spell window 46..136, and the docked status windows 148..212.
@@ -508,6 +523,14 @@ glyph pixels with 10.5% of them intermediate. Forcing
 intermediate pixels. The same held at 24, **which is what every build has
 shipped** — the HUD has been softly filtered all along, and raising `ui_scale`
 only made it legible as blur rather than as softness.
+
+**A bitmap face also has to be placed on whole pixels.** `NoggWindow` centres
+each row's label with `_centre_y()`, which floors: a label at a fractional y
+samples its atlas half a texel off and drops or doubles a row of pixels along
+the glyph, which reads as the bottom of every character being shaved. It bites
+only when `ROW_HEIGHT` and the line height differ by an odd number, so it never
+appeared under roomy at scale 2 (28 against 24, offset 2) and appeared at once
+under compact at scale 3 (39 against 36, offset 1.5).
 
 `BattleUIBuilder._buildThemedRoot()` sets the filter on the HUD root rather than
 per label: `CanvasItem.texture_filter` defaults to `TEXTURE_FILTER_PARENT_NODE`,
