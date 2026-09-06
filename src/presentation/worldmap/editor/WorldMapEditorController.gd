@@ -47,20 +47,21 @@ extends "res://src/presentation/debug/WorldMapDebugController.gd"
 
 const EditorHudScript = preload("res://src/presentation/worldmap/editor/WorldMapEditorHud.gd")
 
-## One entry per layer this programme will eventually hold data for. `enabled` is false for
-## every one of them in Phase A -- see the class note -- and a later item flips its own row to
-## true as its data model lands. The id list and order are load-bearing: WME items after this
-## one address a layer by id, not by position, but tests and tooling built against this table
-## should not need it reordered.
+## One entry per layer this tool currently means to hold data for. `enabled` is false for both
+## in Phase A -- see the class note -- and a later item flips its own row to true as its data
+## model lands. The id list and order are load-bearing: WME items after this one address a
+## layer by id, not by position, but tests and tooling built against this table should not need
+## it reordered.
+##
+## TRIMMED FROM EIGHT TO TWO AT GATE 1 (docs/plans/reviews/worldmap-editor-gate-1.md), on
+## direct request: "For now I only think the map builder should deal with ground and overlay,
+## can we add more as we go later." Height, props, walkability, graph, lighting and annotations
+## are not cancelled -- they come back as their own items when there is a reason to build them,
+## not as one bundled wave. `probe_editor_shell.gd` needed no change for this: it iterates
+## LAYERS/TOOLS generically, which is the entire point of layers being data rather than code.
 const LAYERS := [
 	{"id": "ground", "label": "Ground", "enabled": false},
-	{"id": "height", "label": "Height", "enabled": false},
 	{"id": "overlay", "label": "Overlay (roads)", "enabled": false},
-	{"id": "props", "label": "Props", "enabled": false},
-	{"id": "walkability", "label": "Walkability", "enabled": false},
-	{"id": "graph", "label": "Graph", "enabled": false},
-	{"id": "lighting", "label": "Lighting", "enabled": false},
-	{"id": "annotations", "label": "Annotations", "enabled": false},
 ]
 
 ## Two tools, chosen to prove the router rather than to edit anything -- WME-9 is where a real
