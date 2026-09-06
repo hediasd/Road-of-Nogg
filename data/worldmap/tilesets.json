@@ -1,0 +1,572 @@
+[
+	{
+		"DESCRIPTION": "Bootstrap tileset, generated 2026-09-06 by cutting region temp2 on the 16 px tile grid and deduplicating: 40 unique tiles from 165 cells. Mechanically cut from hand-painted art, so it is not semantically clean -- a tile may hold half a house -- and it is a bootstrap in the same sense the structure extractor is, not a pipeline. Cut from temp2 specifically so an authored region reassembled from it bakes back to temp2 pixel for pixel, which is the parity target WME-6 needs. temp2 is 15.5 tiles wide, so its rightmost 8 px column is a cel-grade remainder and is not represented here.",
+		"GRID_KIND": "tile",
+		"NAME": "temp2_ground",
+		"NEXT_ID": 40,
+		"PALETTE_REGION": "temp2",
+		"SHEET": "res://assets/worldmap/tilesets/temp2_ground.png",
+		"TILES": [
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					0,
+					0
+				],
+				"HASH": "f007e7f3889befdf",
+				"ID": "t000",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					1,
+					0
+				],
+				"HASH": "dd75330372f78967",
+				"ID": "t001",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					2,
+					0
+				],
+				"HASH": "1b74897330e0d21e",
+				"ID": "t002",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					3,
+					0
+				],
+				"HASH": "c81af45caabc0a37",
+				"ID": "t003",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					4,
+					0
+				],
+				"HASH": "53811f9c88e1e1e6",
+				"ID": "t004",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					5,
+					0
+				],
+				"HASH": "4b38ba6be1276fbf",
+				"ID": "t005",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					6,
+					0
+				],
+				"HASH": "17c2d8ff83621626",
+				"ID": "t006",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					7,
+					0
+				],
+				"HASH": "526ab6f604490373",
+				"ID": "t007",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					0,
+					1
+				],
+				"HASH": "e99ca8072a728cf5",
+				"ID": "t008",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					1,
+					1
+				],
+				"HASH": "8334e657094880db",
+				"ID": "t009",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					2,
+					1
+				],
+				"HASH": "355fac13fa98fe49",
+				"ID": "t010",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					3,
+					1
+				],
+				"HASH": "aa36510b33575f66",
+				"ID": "t011",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					4,
+					1
+				],
+				"HASH": "56f8472c723d95f2",
+				"ID": "t012",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					5,
+					1
+				],
+				"HASH": "6d2776511145fcca",
+				"ID": "t013",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					6,
+					1
+				],
+				"HASH": "62e1c010820fec08",
+				"ID": "t014",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					7,
+					1
+				],
+				"HASH": "fb141cf66c22c1f0",
+				"ID": "t015",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					0,
+					2
+				],
+				"HASH": "030ecd7c07995312",
+				"ID": "t016",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					1,
+					2
+				],
+				"HASH": "d9b828daa36064a7",
+				"ID": "t017",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					2,
+					2
+				],
+				"HASH": "0e347703e034538b",
+				"ID": "t018",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					3,
+					2
+				],
+				"HASH": "3acffffc5d6a7d87",
+				"ID": "t019",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					4,
+					2
+				],
+				"HASH": "5c7c97334b751bea",
+				"ID": "t020",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					5,
+					2
+				],
+				"HASH": "2a56727f62b4bfcd",
+				"ID": "t021",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					6,
+					2
+				],
+				"HASH": "5346f2bbe663ba46",
+				"ID": "t022",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					7,
+					2
+				],
+				"HASH": "9c118b7184604ce5",
+				"ID": "t023",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					0,
+					3
+				],
+				"HASH": "b927718c02990b80",
+				"ID": "t024",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					1,
+					3
+				],
+				"HASH": "086c44cf23ca57ca",
+				"ID": "t025",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					2,
+					3
+				],
+				"HASH": "bf51ce748a00414e",
+				"ID": "t026",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					3,
+					3
+				],
+				"HASH": "7ef9133cfd0cd3ab",
+				"ID": "t027",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					4,
+					3
+				],
+				"HASH": "54118a20d8d49a7a",
+				"ID": "t028",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					5,
+					3
+				],
+				"HASH": "9ac998bdcde69650",
+				"ID": "t029",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					6,
+					3
+				],
+				"HASH": "f5ca67ada70341ab",
+				"ID": "t030",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					7,
+					3
+				],
+				"HASH": "5b685ba3b1d6c77f",
+				"ID": "t031",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					0,
+					4
+				],
+				"HASH": "e080eed92e79d22c",
+				"ID": "t032",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					1,
+					4
+				],
+				"HASH": "45e22627d112b9a6",
+				"ID": "t033",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					2,
+					4
+				],
+				"HASH": "81f216f21f41e557",
+				"ID": "t034",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					3,
+					4
+				],
+				"HASH": "94f3264db02ed793",
+				"ID": "t035",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					4,
+					4
+				],
+				"HASH": "0045c458a9033652",
+				"ID": "t036",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					5,
+					4
+				],
+				"HASH": "fb2d1e7997dbc9b1",
+				"ID": "t037",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					6,
+					4
+				],
+				"HASH": "4e0b17e17997d531",
+				"ID": "t038",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					7,
+					4
+				],
+				"HASH": "90e6e589bf45b935",
+				"ID": "t039",
+				"LABEL": "",
+				"LIFTABLE": false,
+				"TERRAIN": "",
+				"VARIANT": "",
+				"WALKABLE": ""
+			}
+		]
+	}
+]
