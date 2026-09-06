@@ -231,7 +231,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	var motion := event as InputEventMouseMotion
 	if motion == null or not _dragging:
 		return
-	var window := get_viewport().get_visible_rect().size
+	var window := _displaySize()
 	if window.y <= 0.0:
 		return
 	var pitch := deg_to_rad(float(_framing[Uniforms.K_PITCH]))
@@ -352,7 +352,7 @@ func _applyFraming() -> void:
 	_ground.applyFraming(_framing)
 	_camera.applyFraming(_framing)
 	# After the camera, because the backdrop is sized against its FOV.
-	_sky.applyFraming(_framing, _camera, Vector2(get_viewport().get_visible_rect().size))
+	_sky.applyFraming(_framing, _camera, _displaySize())
 	# The region rect is in WORLD units. It happens to equal the tile count under the
 	# one-tile-one-unit invariant, but going through the rect keeps that in a single place.
 	# Unclamped: see the DRAG TO PAN note at the top of this file.
@@ -371,10 +371,20 @@ func _applyFraming() -> void:
 	_applyRenderScale()
 
 
+## The rect the map is actually SHOWN in. Everything that sizes the render buffer, the framing
+## readout or the sky backdrop reads this rather than the window directly, because the two are
+## not always the same rect: here `Display` is anchored to fill the whole window, so this
+## defaults to it, but a scene that gives `Display` only part of the window -- the world map
+## editor's fixed side panels leave it a shrunken centre column -- overrides this one method
+## rather than every call site that needs to know the map's actual on-screen size.
+func _displaySize() -> Vector2:
+	return get_viewport().get_visible_rect().size
+
+
 ## Sizes the internal buffer from the framing, taking the size the rig itself derived so
 ## the buffer and the readout can never disagree.
 func _applyRenderScale() -> void:
-	var window := get_viewport().get_visible_rect().size
+	var window := _displaySize()
 	var readout := _camera.framingReadout(Vector2i(window))
 	var buffer: Vector2 = readout["buffer_size"]
 	var wanted := Vector2i(maxi(int(buffer.x), 2), maxi(int(buffer.y), 2))
@@ -384,7 +394,7 @@ func _applyRenderScale() -> void:
 
 func _refreshStatus() -> void:
 	_applyRenderScale()
-	var window := get_viewport().get_visible_rect().size
+	var window := _displaySize()
 	var readout := _camera.framingReadout(Vector2i(window))
 	var needed: float = readout["region_tiles_needed"]
 	var have := _regionTiles.x
@@ -542,7 +552,7 @@ func _copySettings() -> void:
 ## Printed as well as copied, so a headless or `--quit-after` run captures it too. The
 ## shape is meant to be pasted into WorldMapFramingCatalog or a design note.
 func _settingsBlock() -> String:
-	var window := get_viewport().get_visible_rect().size
+	var window := _displaySize()
 	var readout := _camera.framingReadout(Vector2i(window))
 	var lines: Array[String] = []
 	lines.append("# World map framing -- preset %s, region %s" % [_presetID, _regionID])

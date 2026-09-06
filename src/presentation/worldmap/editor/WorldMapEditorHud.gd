@@ -71,6 +71,11 @@ func _buildToolSelector(tools: Array, onToolSelected: Callable) -> void:
 	row.add_child(_label("Tool"))
 	toolOption = OptionButton.new()
 	toolOption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Tab and Space are camera shortcuts the controller owns (ortho toggle, snap to contract).
+	# A focused OptionButton would otherwise eat Tab for focus-next and Space for "open this
+	# dropdown", so it never reaches the controller's _unhandled_key_input at all -- this is
+	# not decoration, it is the other half of that shortcut actually working.
+	toolOption.focus_mode = Control.FOCUS_NONE
 	for tool in tools:
 		toolOption.add_item(str((tool as Dictionary)["label"]))
 	toolOption.item_selected.connect(onToolSelected)
@@ -102,6 +107,9 @@ func _buildLayerList(
 		select.text = str(layer["label"]) + ("" if enabled else "  (empty)")
 		select.toggle_mode = true
 		select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		# See the tool OptionButton's own note: Tab and Space are the controller's camera
+		# shortcuts, and a focused Button would otherwise swallow Space as its own activation.
+		select.focus_mode = Control.FOCUS_NONE
 		# An empty layer stays selectable -- looking at what nothing has been authored on yet
 		# is legitimate -- it just cannot be the target of anything that mutates. Dimmed
 		# rather than disabled, so "not built yet" reads differently from "cannot be reached".
@@ -113,6 +121,7 @@ func _buildLayerList(
 		var visibility := CheckButton.new()
 		visibility.button_pressed = true
 		visibility.tooltip_text = "Visible"
+		visibility.focus_mode = Control.FOCUS_NONE
 		visibility.toggled.connect(func(on: bool) -> void: onVisibilityToggled.call(id, on))
 		grid.add_child(visibility)
 		_layerVisibilityToggles.append(visibility)
@@ -120,6 +129,7 @@ func _buildLayerList(
 		var lock := CheckButton.new()
 		lock.button_pressed = false
 		lock.tooltip_text = "Locked -- refuses tool input even while active"
+		lock.focus_mode = Control.FOCUS_NONE
 		lock.toggled.connect(func(on: bool) -> void: onLockToggled.call(id, on))
 		grid.add_child(lock)
 		_layerLockToggles.append(lock)

@@ -20,6 +20,18 @@
 ## Zoom dollies and never touches FOV. FOV is one half of the framing contract's near-to-far
 ## ratio `R = (u·sin + cos)(sin + u·cos) / ((cos − u·sin)(sin − u·cos))`, so moving it silently
 ## rescales the thing every preset was solved for. See `docs/WORLDMAP_DESIGN.md` section 3.
+##
+## HARDWARE INPUT IS NOT HANDLED HERE. This node lives inside `WorldMapEditorController`'s
+## "World" `SubViewport`, which the scene displays through a plain `TextureRect` rather than a
+## `SubViewportContainer` -- so it never receives real, engine-dispatched mouse or key events at
+## all. `_process`'s `Input.is_key_pressed` polling (Q/E, WASD) still works, because polling
+## reads global input state rather than routed events, but an `_unhandled_input` override on
+## this node would silently do nothing under real hardware input while still passing any test
+## that calls it directly -- which is exactly the bug this class shipped with once, caught only
+## by dispatching a synthetic event through `Input.parse_input_event()` rather than calling the
+## handler by name. `WorldMapEditorController` is outside that SubViewport and DOES receive real
+## events, matching the pattern its own base class already uses for drag-to-pan; it owns every
+## mouse gesture and the Tab/Space/F keys, calling the plain methods below.
 
 class_name WorldMapEditorCamera
 extends WorldMapCameraRig
@@ -71,8 +83,6 @@ var inputEnabled := true
 var _lastRegion := Rect2()
 
 var _framingCopy: Dictionary = Uniforms.DEFAULTS.duplicate(true)
-var _orbiting := false
-var _panning := false
 
 
 func _ready() -> void:
@@ -150,6 +160,13 @@ func orbitBy(deltaYaw: float, deltaPitch: float) -> void:
 	yaw = wrapf(yaw + deltaYaw, -180.0, 180.0)
 	pitch = clampf(pitch + deltaPitch, PITCH_MIN, PITCH_MAX)
 	_place()
+
+
+## `orbitBy` from a screen-space mouse delta, applying `ORBIT_SENSITIVITY` -- the counterpart to
+## `panBy` taking a screen delta for `panByWorld`. Kept here rather than in the caller so the
+## sensitivity constant stays this class's own concern.
+func orbitByScreenDelta(relative: Vector2) -> void:
+	orbitBy(relative.x * ORBIT_SENSITIVITY, -relative.y * ORBIT_SENSITIVITY)
 
 
 func snapYaw() -> void:
@@ -284,44 +301,6 @@ func _process(delta: float) -> void:
 	if pan != Vector2.ZERO:
 		var span := orthoSize if mode == Mode.ORTHO else distance
 		panByWorld(pan.normalized() * KEY_PAN_RATE * span * delta)
-
-
-func _unhandled_input(event: InputEvent) -> void:
-	if not inputEnabled:
-		return
-	if event is InputEventMouseButton:
-		var button := event as InputEventMouseButton
-		match button.button_index:
-			MOUSE_BUTTON_MIDDLE:
-				_orbiting = button.pressed
-				if not button.pressed and Input.is_key_pressed(KEY_SHIFT):
-					snapYaw()
-			MOUSE_BUTTON_RIGHT:
-				_panning = button.pressed
-			MOUSE_BUTTON_WHEEL_UP:
-				if button.pressed:
-					dollyBy(1.0)
-			MOUSE_BUTTON_WHEEL_DOWN:
-				if button.pressed:
-					dollyBy(-1.0)
-		return
-
-	if event is InputEventMouseMotion:
-		var motion := event as InputEventMouseMotion
-		if _orbiting:
-			orbitBy(motion.relative.x * ORBIT_SENSITIVITY, -motion.relative.y * ORBIT_SENSITIVITY)
-		elif _panning:
-			panBy(motion.relative)
-		return
-
-	if event is InputEventKey and (event as InputEventKey).pressed:
-		match (event as InputEventKey).keycode:
-			KEY_SPACE:
-				snapToContract()
-			KEY_TAB:
-				toggleOrtho()
-			KEY_F:
-				frameRegion(_lastRegion)
 
 
 func rememberRegion(region: Rect2) -> void:

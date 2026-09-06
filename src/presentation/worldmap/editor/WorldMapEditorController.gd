@@ -29,15 +29,19 @@
 ## exactly what Phase B's brushes need to be able to trust, and it is why the router is built
 ## and tested now rather than arriving bundled with the first brush.
 ##
-## INPUT OWNERSHIP. Left click routes to the active layer's tool. Middle-drag orbit, right-drag
-## pan and the wheel belong entirely to `WorldMapEditorCamera`'s own `_unhandled_input`, which
-## fires independently because the camera is a node in the tree -- this controller's
-## `_unhandled_input` override does not touch them and does not call `super`, because the base
-## class's left-drag-pans-the-camera behaviour would otherwise compete with left click as a
-## tool input. `KEY_F` is the one collision in `_unhandled_key_input`: both the base's
-## `_recentre()` and the editor camera's own frame-region binding want it, so this class claims
-## it and marks the event handled before the camera's `_unhandled_input` can see it too: without
-## that, one keypress moves the camera via both paths in the same frame.
+## INPUT OWNERSHIP, AND WHY IT ALL LIVES HERE RATHER THAN ON THE CAMERA. `WorldMapEditorCamera`
+## sits inside the "World" `SubViewport`, which the scene displays through a plain `TextureRect`
+## rather than a `SubViewportContainer` -- so it never receives a real, engine-dispatched mouse
+## or key event, ever. This controller is a sibling of "World", not a child of it, and DOES
+## receive them, matching the base class's own established pattern for drag-to-pan. So every
+## mouse gesture and every navigation key this class owns is read here and applied to the
+## camera through its plain methods (`orbitByScreenDelta`, `panBy`, `dollyBy`, `toggleOrtho`,
+## `snapToContract`, `snapYaw`, `frameRegion`) -- never by relying on the camera to notice
+## anything on its own. Left click routes to the active layer's tool instead of panning, which
+## is why this class does not call `super._unhandled_input`: the base class's left-drag-pans-
+## the-camera would otherwise compete with left click as a tool input. `KEY_F` is claimed here
+## rather than left to the base's inherited `_recentre()`, and marked handled, so the two do not
+## both fire for one keypress.
 
 extends "res://src/presentation/debug/WorldMapDebugController.gd"
 
@@ -81,6 +85,11 @@ var _activeTool := TOOL_NAVIGATE
 var _lastRoutedLayer := ""
 var _routeCount: Dictionary = {}
 
+## Which camera gesture the mouse is mid-drag on, held here rather than on the camera -- see the
+## class note on input ownership.
+var _cameraOrbiting := false
+var _cameraPanning := false
+
 
 func _ready() -> void:
 	for layer in LAYERS:
@@ -96,6 +105,16 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	super._process(delta)
 	_editorHud.setOffContract(_editorCamera.offContractReason())
+
+
+## `Display` does not fill the window here -- the fixed left and right panels are laid out
+## beside it, not over it, so the map has its own independent centre column. Every framing,
+## buffer-size and sky-backdrop calculation in the base class goes through
+## `_displaySize()` for exactly this reason: overriding this one method is what keeps the
+## rendered buffer, the "tiles across" readout and the sky quad describing what is actually on
+## screen instead of the window's full, wider rect.
+func _displaySize() -> Vector2:
+	return _display.get_rect().size
 
 
 ## Swaps the shipping camera for the editor's, in place. Ground, Props and Clouds are left
@@ -132,26 +151,92 @@ func _buildEditorUi() -> void:
 	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
 	_editorHud.setActiveTool(0)
 
+	# A PanelContainer whose width comes from its content's minimum size (see the .tscn: neither
+	# side panel is given a fixed pixel width) does not settle in one deferred call -- WorldMap-
+	# DebugHud builds many sections, and each can still be growing the panel's reported minimum
+	# size a frame after the last one was added. `resized` is emitted every time that settles
+	# further, so connecting to it -- rather than reading the size once -- is what makes Display
+	# converge on the panels' TRUE final width instead of freezing on however far layout had
+	# gotten when a single deferred call happened to fire.
+	var leftPanel := get_node("Ui/EditorPanel") as Control
+	var rightPanel := get_node("Ui/PanelContainer") as Control
+	leftPanel.resized.connect(_layoutDisplayBetweenPanels)
+	rightPanel.resized.connect(_layoutDisplayBetweenPanels)
+	call_deferred("_layoutDisplayBetweenPanels")
 
-## Left click routes to the active layer's tool. Every other button, and all camera movement,
-## belongs to `WorldMapEditorCamera`'s own input handling -- see the class note. Deliberately
-## does not call `super`: the base class's left-drag-pans-the-camera would otherwise compete
-## with left click as a tool input, and only one of them may own that button.
+
+## Confines `Display` to the column left over once both side panels have taken what their own
+## content actually needs. Connected to both panels' `resized` signal rather than measured once
+## -- see the connection site's own note on why one reading is not enough.
+func _layoutDisplayBetweenPanels() -> void:
+	var leftWidth: float = (get_node("Ui/EditorPanel") as Control).size.x
+	var rightWidth: float = (get_node("Ui/PanelContainer") as Control).size.x
+	if is_equal_approx(_display.offset_left, leftWidth) and is_equal_approx(_display.offset_right, -rightWidth):
+		return
+	_display.offset_left = leftWidth
+	_display.offset_right = -rightWidth
+	_applyRenderScale()
+
+
+## Left click routes to the active layer's tool. Middle-drag orbits, right-drag pans, the wheel
+## dollies -- all applied to the camera through its plain methods, per the class note. Snapping
+## yaw to 45 degrees on a Shift-released middle-drag mirrors the debug-scene convention of a
+## modifier changing what a release does rather than needing its own gesture. Deliberately does
+## not call `super`: the base class's left-drag-pans-the-camera would otherwise compete with
+## left click as a tool input, and only one of them may own that button.
 func _unhandled_input(event: InputEvent) -> void:
 	var button := event as InputEventMouseButton
-	if button != null and button.button_index == MOUSE_BUTTON_LEFT and button.pressed:
-		_routeToActiveLayer()
+	if button != null:
+		match button.button_index:
+			MOUSE_BUTTON_LEFT:
+				if button.pressed:
+					_routeToActiveLayer()
+			MOUSE_BUTTON_MIDDLE:
+				_cameraOrbiting = button.pressed
+				if not button.pressed and Input.is_key_pressed(KEY_SHIFT):
+					_editorCamera.snapYaw()
+			MOUSE_BUTTON_RIGHT:
+				_cameraPanning = button.pressed
+			MOUSE_BUTTON_WHEEL_UP:
+				if button.pressed:
+					_editorCamera.dollyBy(1.0)
+			MOUSE_BUTTON_WHEEL_DOWN:
+				if button.pressed:
+					_editorCamera.dollyBy(-1.0)
+		return
+
+	var motion := event as InputEventMouseMotion
+	if motion != null:
+		if _cameraOrbiting:
+			_editorCamera.orbitByScreenDelta(motion.relative)
+		elif _cameraPanning:
+			_editorCamera.panBy(motion.relative)
 
 
-## `KEY_F` is claimed here and marked handled so the editor camera's own binding cannot also
-## see it -- see the class note. Every other key falls through to the base class unchanged.
+## `KEY_F`, `KEY_SPACE` and `KEY_TAB` are claimed here, each marking the event handled so it
+## cannot also reach a focused HUD control's own key handling (a `Button` treats Space as
+## activate-focused-control, and Godot's default UI focus traversal treats Tab as
+## focus-next -- `WorldMapEditorHud` sets `focus_mode = FOCUS_NONE` on its own controls
+## specifically so neither can grab that focus in the first place, but marking handled here is
+## the second half of that guarantee and costs nothing when the first half already held). Every
+## other key falls through to the base class unchanged.
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
-	if key != null and key.pressed and not key.echo and key.keycode == KEY_F:
-		_editorCamera.frameRegion(_ground.regionRect())
-		get_viewport().set_input_as_handled()
+	if key == null or not key.pressed or key.echo:
+		super._unhandled_key_input(event)
 		return
-	super._unhandled_key_input(event)
+	match key.keycode:
+		KEY_F:
+			_editorCamera.frameRegion(_ground.regionRect())
+			get_viewport().set_input_as_handled()
+		KEY_SPACE:
+			_editorCamera.snapToContract()
+			get_viewport().set_input_as_handled()
+		KEY_TAB:
+			_editorCamera.toggleOrtho()
+			get_viewport().set_input_as_handled()
+		_:
+			super._unhandled_key_input(event)
 
 
 ## What "routing" can mean before a data model: identify the target and stop there. A locked
