@@ -10,6 +10,11 @@
 class_name WorldMapRegionCatalog
 extends RefCounted
 
+## What a region's truth IS. A painted region is its PNG; an authored region is its tile data,
+## and its PNG is baked from that. See the `KIND` note in `reloadCatalog`.
+const KIND_PAINTED := "painted"
+const KIND_AUTHORED := "authored"
+
 const JSON_PATH := "res://data/worldmap/regions.json"
 const JsonCatalogLoaderScript = preload("res://src/factories/JsonCatalogLoader.gd")
 const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
@@ -46,6 +51,19 @@ static func reloadCatalog(path: String = JSON_PATH) -> bool:
 			return false
 		reference["ART_BLOCKS"] = Vector2i(blocksWide, blocksTall)
 		reference["GRID"] = grid
+		# PAINTED or AUTHORED. A painted region is a hand-drawn PNG and is the truth about
+		# itself -- `temp` and `temp2` are painted and nothing about how they load changes. An
+		# authored region's truth is its tile data under `data/worldmap/authored/`, and its
+		# TEXTURE is a BUILD ARTIFACT baked from that data: generated, never hand-edited, and
+		# regenerable from the source alone. Defaulted to painted so every existing entry keeps
+		# its behaviour without being touched.
+		var kind := str(reference.get("KIND", KIND_PAINTED))
+		if kind != KIND_PAINTED and kind != KIND_AUTHORED:
+			push_warning(
+				"WorldMapRegionCatalog: region '%s' has unknown KIND '%s'" % [nameKey, kind]
+			)
+			return false
+		reference["KIND"] = kind
 		# The world extent, and the only size anything downstream is allowed to use. A map pixel
 		# is worth 1/TILE_PIXELS of a unit no matter what grid the art was drawn on, so a region
 		# of 8 px blocks covers half the ground its block count suggests. This is deliberately a
@@ -201,6 +219,19 @@ static func loadRegion(regionID: String) -> Dictionary:
 	var texturePath := str(reference["TEXTURE"])
 	var texture := ResourceLoader.load(texturePath) as Texture2D
 	if texture == null:
+		# An authored region's texture is baked, so a missing one means the bake has not been
+		# run -- a different problem from a painted region's art having gone missing, and worth
+		# saying so rather than reporting "could not load" and leaving someone hunting for a PNG
+		# that was never meant to be committed by hand.
+		if str(reference["KIND"]) == KIND_AUTHORED:
+			push_warning(
+				(
+					"WorldMapRegionCatalog: authored region '%s' has no baked texture at %s. "
+					+ "Its source is %s; run the baker."
+				)
+				% [regionID, texturePath, tileDataPathFor(regionID)]
+			)
+			return {}
 		push_warning(
 			"WorldMapRegionCatalog: could not load texture at %s for region '%s'"
 			% [texturePath, regionID]
@@ -228,4 +259,29 @@ static func loadRegion(regionID: String) -> Dictionary:
 		"map_px": blocks * grid,
 		"fog_color": reference["FOG_COLOR"],
 		"void_color": reference["VOID_COLOR"],
+		"kind": reference["KIND"],
 	}
+
+
+static func kindFor(regionID: String) -> String:
+	if not _index.has(regionID):
+		return KIND_PAINTED
+	return str(_index[regionID]["KIND"])
+
+
+static func isAuthored(regionID: String) -> bool:
+	return kindFor(regionID) == KIND_AUTHORED
+
+
+## Where an authored region's tile data lives. Painted regions have none, and this returns the
+## path they WOULD use rather than an empty string, so a diagnostic can name it.
+static func tileDataPathFor(regionID: String) -> String:
+	return "res://data/worldmap/authored/%s.json" % regionID
+
+
+## An authored region's source. Returns null for a painted region, or when the file is missing
+## or unreadable -- `WorldMapTileData` warns about which.
+static func tileDataFor(regionID: String) -> WorldMapTileData:
+	if not isAuthored(regionID):
+		return null
+	return WorldMapTileData.loadFrom(tileDataPathFor(regionID))

@@ -186,11 +186,54 @@ static func gridPixels(gridKind: String) -> int:
 
 ## SHA-256 of a tile's raw RGBA8 bytes, truncated. Alpha is included: two tiles differing only
 ## in transparency are genuinely different tiles.
+##
+## Prefer `hashCell()` over calling this with bytes gathered by hand -- see the trap it exists
+## to close.
 static func hashBytes(bytes: PackedByteArray) -> String:
 	var context := HashingContext.new()
 	context.start(HashingContext.HASH_SHA256)
 	context.update(bytes)
 	return context.finish().hex_encode().substr(0, HASH_CHARS)
+
+
+## THE one definition of "a tile's bytes". Every hash of a cell goes through here, and that is
+## not tidiness -- it closes a trap that produced identical-looking pixels hashing differently.
+##
+## `Image.get_region()` PRESERVES MIPMAPS. A 16x16 cell taken from an image that carries a mip
+## chain returns 1364 bytes, not 1024: the region brings 256 + 64 + 16 + 4 + 1 pixels with it.
+## Region art imports with `mipmaps/generate=true` (`WORLDMAP_DESIGN.md` section 4 wants them for
+## the far field), while a sheet read from its PNG has none -- so cutting the same tile from a
+## region and from a sheet produced two different hashes for byte-identical pixels, and the
+## first authored region matched 0 of its 165 cells against a ledger built from its own art.
+##
+## The bytes compared differ in LENGTH, not in content, which is what made it look like an
+## impossible failure: a byte-by-byte walk over the overlap reports zero differences.
+## An image in the one form this file hashes and reads: RGBA8, uncompressed, no mip chain.
+## Anything cutting cells for comparison against a ledger must go through here first -- see
+## `hashCell` for what happens when two callers normalise differently.
+static func normalise(image: Image) -> Image:
+	var working := image
+	if working.is_compressed():
+		working = working.duplicate()
+		working.decompress()
+	if working.has_mipmaps():
+		if working == image:
+			working = working.duplicate()
+		working.clear_mipmaps()
+	if working.get_format() != Image.FORMAT_RGBA8:
+		if working == image:
+			working = working.duplicate()
+		working.convert(Image.FORMAT_RGBA8)
+	return working
+
+
+static func hashCell(image: Image, rect: Rect2i) -> String:
+	var piece := image.get_region(rect)
+	if piece.has_mipmaps():
+		piece.clear_mipmaps()
+	if piece.get_format() != Image.FORMAT_RGBA8:
+		piece.convert(Image.FORMAT_RGBA8)
+	return hashBytes(piece.get_data())
 
 
 ## Cuts a sheet into grid cells, in a fixed row-major order so a re-import of an unchanged sheet
@@ -213,13 +256,7 @@ static func hashBytes(bytes: PackedByteArray) -> String:
 ## a collision worth a human's attention; identical pixels hashing alike is just a duplicate
 ## tile, which is ordinary and which `reconcile` handles by cell.
 static func cutSheet(image: Image, gridPx: int) -> Dictionary:
-	var working := image
-	if working.is_compressed():
-		working = working.duplicate()
-		working.decompress()
-	if working.get_format() != Image.FORMAT_RGBA8:
-		working = working.duplicate()
-		working.convert(Image.FORMAT_RGBA8)
+	var working := normalise(image)
 
 	var cells: Array = []
 	var collisions: Array = []
@@ -235,7 +272,7 @@ static func cutSheet(image: Image, gridPx: int) -> Dictionary:
 				blank += 1
 				continue
 			var bytes := piece.get_data()
-			var digest := hashBytes(bytes)
+			var digest := hashCell(working, rect)
 			if seen.has(digest) and seen[digest] != bytes:
 				collisions.append(digest)
 			seen[digest] = bytes
@@ -363,10 +400,7 @@ static func offPaletteColours(image: Image, palette: PackedColorArray) -> Array:
 	for colour in palette:
 		allowed[_key(colour)] = true
 	var offending: Dictionary = {}
-	var working := image
-	if working.get_format() != Image.FORMAT_RGBA8:
-		working = working.duplicate()
-		working.convert(Image.FORMAT_RGBA8)
+	var working := normalise(image)
 	for y in working.get_height():
 		for x in working.get_width():
 			var pixel := working.get_pixel(x, y)
@@ -433,9 +467,7 @@ static func loadSheetImage(sheetPath: String) -> Image:
 	var image := Image.new()
 	if image.load(sheetPath) != OK:
 		return null
-	if image.get_format() != Image.FORMAT_RGBA8:
-		image.convert(Image.FORMAT_RGBA8)
-	return image
+	return normalise(image)
 
 
 ## Imports a tileset's sheet and reconciles it against the ledger the catalog already holds.

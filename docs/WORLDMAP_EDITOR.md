@@ -81,6 +81,22 @@ The constraint — `res://` PNGs are readable as files in the source tree and no
 build — is checked rather than assumed: an export refuses loudly instead of returning an
 inexplicable `null`.
 
+### Hashing is mipmap-blind, and `hashCell()` is the only place that decides
+
+`Image.get_region()` **preserves mipmaps**. A 16 px cell taken from an image carrying a mip
+chain returns **1364 bytes, not 1024** — the region brings 256 + 64 + 16 + 4 + 1 pixels with it.
+Region art imports with `mipmaps/generate=true` (§4 of `WORLDMAP_DESIGN.md` wants them for the
+far field) while a sheet read from its PNG has none, so cutting the same tile from a region and
+from a sheet produced two different hashes for byte-identical pixels.
+
+That is not hypothetical: it made the first authored region match **0 of its 165 cells** against
+a ledger built from its own art. The failure reads as impossible, because the bytes differ in
+*length* rather than content — a byte-by-byte walk over the overlap reports zero differences.
+
+So every hash of a cell goes through `hashCell()`, and every image being cut goes through
+`normalise()` first: RGBA8, uncompressed, no mip chain. One definition of "a tile's bytes",
+because two callers normalising differently is precisely how this bug happened.
+
 ## 3. Tile identity, and why it is not the cell index
 
 **The problem.** The obvious identity for a tile is where it sits in the sheet: row 3, column 7,
@@ -233,3 +249,93 @@ when it went from eight rows to two.
 A layer carries visibility and a lock. **Lock and `enabled` are different gates**: a lock refuses
 the click outright, while `enabled` only governs whether a reached layer goes on to mutate
 anything once there is something to mutate.
+
+## 7. The authored region format
+
+An authored region is a text file under `data/worldmap/authored/<name>.json`, read and written
+by `WorldMapTileData`. Unlike the catalogs, that is a **live model** rather than a record:
+brushes mutate it, the history stack records deltas of it, and the baker reads it.
+
+```
+FORMAT_VERSION  bumped only when a change cannot be read by the previous reader
+NAME            the region id
+DESCRIPTION     what this map is
+SIZE_TILES      [w, h] in walk tiles
+PALETTE_REGION  whose palette its tilesets must stay inside
+FOG_COLOR       inherited by the place, per WORLDMAP_DESIGN.md section 4
+VOID_COLOR
+LAYERS          one block per layer -- see below
+```
+
+### The format does not enumerate layers
+
+A layer block names itself and declares how it stores its contents: `KIND: "grid"` for a dense
+lattice (run-length encoded, with its own `GRID_KIND` and `TILESET`) or `KIND: "list"` for
+sparse placed things (`ITEMS`). `WorldMapTileData` can read a layer it has never heard of.
+
+**Adding elevation, props, walkability or a travel graph later is therefore a data change with
+no migration and no version bump.** This is what reconciles two instructions that pointed
+different ways: the cycle file's WME-5 risk asks to "reserve the height layer's shape now even
+though it stays empty", while Gate 1 trimmed the editor to ground and overlay on the user's
+"can we add more as we go later". Writing an empty height block would satisfy the letter of the
+first and contradict the second, and be speculative structure besides. Being *indifferent* to
+the layer set gives the risk what it actually wanted — that Phase D cannot force a migration —
+while adding nothing Gate 1 said not to build.
+
+A grid layer's dimensions are derived, never stored: a tile-grade layer is `SIZE_TILES`, a
+cel-grade one is that times the fixed ratio. That is the tile law's constant ratio paying off.
+
+### RLE, one run per line
+
+Runs are `"<count>:<id>"`, row-major, with `-` for an empty cell — spelled as a character rather
+than an empty string so a run reads `12:-` in a diff instead of looking truncated.
+
+Each run is its own array element, which `JSON.stringify` puts on its own line, so a diff shows
+the runs that changed rather than one enormous altered string. The committed `temp2_authored`
+ground layer is 99 runs for 165 cells.
+
+A run list that does not add up to the layer's cell count is **refused**, not padded: a map
+quietly missing its last row is worse than a map that fails to load.
+
+### Versioning
+
+`FORMAT_VERSION` and a `migrate()` hook exist from the first commit, because adding one after a
+format has instances in the wild means writing the migration you did not keep the information to
+write. A **future** version is refused outright — reading a newer file by ignoring the parts it
+does not recognise is how data gets silently dropped.
+
+### Determinism
+
+A re-save with nothing changed produces a **byte-identical file**, asserted rather than assumed.
+Runs are emitted in cell order, layers in declaration order, and `JSON.stringify` sorts keys
+itself. Several sessions share one working tree; a file that reshuffles itself makes every save
+a conflict that is not a real disagreement.
+
+## 8. Painted and authored regions
+
+`regions.json` declares `KIND: "painted" | "authored"`, defaulting to painted so every existing
+entry keeps its behaviour untouched.
+
+| | truth | PNG |
+|---|---|---|
+| **painted** | the PNG itself | hand-drawn art (`temp`, `temp2`) |
+| **authored** | the tile data | a **build artifact**, baked, never hand-edited |
+
+An authored region's baked PNG is committed, so a fresh checkout renders without running a bake
+first; the linter is what flags one that disagrees with its source. An authored region whose bake
+is missing fails to load with a message naming its source file and saying to run the baker —
+a different problem from a painted region's art having gone missing, and worth saying so rather
+than sending someone hunting for a PNG that was never meant to be committed by hand.
+
+### The first authored region
+
+`temp2_authored` is built by matching every 16 px cell of `temp2` against the `temp2_ground`
+ledger: **165 of 165 cells matched**, 15 × 11 tiles.
+
+`temp2` is 15.5 walk tiles wide, so this covers its first 15 whole columns — its rightmost 8 px
+is a cel-grade remainder a tile-grade ground layer cannot hold. **The baker's parity target is
+therefore temp2's first 240 px, not all 248.**
+
+It is not yet listed in `regions.json`: it has no bake, and WME-6 adds the entry when it can
+actually produce one. The catalog's authored path is exercised against a scratch catalog in
+`probe_tile_format.gd` instead.

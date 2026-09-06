@@ -2,6 +2,7 @@
 	{
 		"NAME": "temp",
 		"DESCRIPTION": "Placeholder region supplied for the ground rig cycle. 48x64 blocks of 16 px, which is 48x64 walk tiles -- this art was already on the tile grid, so the tile law left it unchanged. Well short of the ~155 tiles the tile-exact framing needs; its plane edges are expected to show. Naming this region is a lore question, not decided here.",
+		"KIND": "painted",
 		"TEXTURE": "res://assets/worldmap/regions/temp.png",
 		"TILES_WIDE": 48,
 		"TILES_TALL": 64,
@@ -12,6 +13,7 @@
 	{
 		"NAME": "temp2",
 		"DESCRIPTION": "Second placeholder region, supplied 2026-09-01. 31x22 blocks of 8 px, drawn on the CEL grid -- so under the tile law it is 15.5 x 11 walk tiles, not 31x22, and it renders at half the ground it used to cover. Legacy painted art, deliberately not re-cut. Seven colours, no alpha, sea-dominant.",
+		"KIND": "painted",
 		"TEXTURE": "res://assets/worldmap/regions/temp2.png",
 		"TILES_WIDE": 31,
 		"TILES_TALL": 22,
