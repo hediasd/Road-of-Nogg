@@ -1119,3 +1119,174 @@ front of it, not the executor's.
 - **Travel, encounters and the party.** WME-18 authors the graph. Nothing consumes it here.
 - **Retiring the painted-region path.** `temp` is 1080 colours and dithered; it stays painted
   and stays supported. Authored and painted regions coexist.
+
+## 2026-09-06 — Product clarification and hands-on editor review
+
+Added at the user's explicit request after playtesting the map editor. This is an authorized
+addendum to the normally frozen plan, not a completion record for a WME item. The original
+items above remain intact so their assumptions and committed work can still be understood.
+The confirmed requirements below supersede conflicting assumptions in the provisional phases;
+the proposed implementation order is a recommendation to use when re-cutting those phases.
+Do not dispatch the original later waves unchanged on the strength of this review.
+
+### Confirmed intended product
+
+The user wants a 3D-oriented equivalent of Tiled, built inside Godot for this 2.5D game:
+
+- Paint ground with 16x16 tiles, with occasional 8x8 surface details.
+- Place buildings, bridges and similar objects above the ground, using upright sprites or
+  simple 3D models as appropriate. This is a separate object layer, not merely pixels
+  composited into the ground texture.
+- Raise and lower ground vertices to make smooth hills, lake basins and riverbeds.
+- Save authored maps for later use/export into actual gameplay scenes, independently of the
+  debug scene and map-building UI.
+
+These requirements bring object placement and smooth terrain into the essential authoring
+workflow. Gate 1's wish for a simple layer list still applies; its deferral of props and
+elevation must not now be read as deferring the user's core workflow indefinitely. No new
+lore, visual theme, battle movement rules or travel gameplay is decided here.
+
+### Playtest scope and evidence
+
+Launched `scenes/debug/WorldMapEditorScene.tscn` with the bundled Godot 4.4 executable,
+Forward+ on the RTX 3060, requesting a 1280x720 window. The last committed item at launch was
+`dccc89a` (stroke undo/redo). Picking/shader work was also present in the working tree without
+a WME-8 completion commit. The user explicitly directed this playtest to proceed despite
+another session being active. These are observations of that mixed working tree, not formal
+quiet-tree gate acceptance or proof of any concurrent item's completion.
+
+Used real window inputs and inspected screenshots after actions. The successful visible
+launch log contained the Godot/Vulkan startup banner and no script, shader or runtime errors
+through shutdown. An earlier sandboxed launch reported shader-cache access errors; it was
+stopped and rerun with normal user-data access before judging application behavior. Only this
+review's launched processes were stopped; the pre-existing Godot editor was left alone.
+The successful run's local log was `%TEMP%/wme-playtest-20260906.log`.
+
+| Check | Observed result |
+|---|---|
+| Initial scene | Painted `temp2` renders with clouds; editor panel and debug controls appear beside the map. |
+| Tab from initial canvas state | Switches to a top-down orthographic view; the off-contract badge identifies the mode. |
+| F in orthographic view | **Defect:** enlarges the map until much of it is cropped, instead of fitting the region. |
+| Space from initial camera interaction | Restores the gameplay framing and removes the off-contract badge. |
+| Wheel over the map | Zoom changes visibly and the badge reports a dollied camera. |
+| 16 px grid toggle | Shows/hides a visible tile lattice. This control uses the existing debug grid, not acceptance evidence for the new surface picker. |
+| Region picker | Switching from `temp2` to `temp2 authored` succeeds; the readout changes from 15.5x11 to 15x11 tiles. |
+| Tools on the authored map | The menu offers only Navigate and Inspect. Both layer rows still say empty. |
+| Inspect and click terrain | No visible tile information or editable selection appears. No paint palette or brush controls are available. |
+| Ctrl+Z | No visible content change or error. There was no editable stroke to undo, so this does not validate undo correctness. |
+| Tab after HUD interaction | Moves focus to the grid checkbox instead of switching the camera mode. |
+| Space with grid checkbox focused | **Defect:** resets the camera and also toggles the grid checkbox. One shortcut has two visible effects. |
+| Close | Playtest process exited; final log contains no application errors. |
+
+Short Q/A key taps did not establish visible orbit/pan behavior. Sustained keyboard movement
+and middle/right-button dragging were not validated in this pass; do not count them as either
+passing or broken. Curved-surface picking accuracy, large-map responsiveness, full undo/redo,
+painting, object placement, terrain sculpting, save/reopen and gameplay export were not
+validated. Most of that authoring workflow has no UI yet.
+
+### Defects and usability findings to carry into the re-cut
+
+1. **Fit-region must fit the actual editing viewport.** `WorldMapEditorCamera.frameRegion()`
+   sets orthographic size to `max(region.width, region.height) * 0.6`, without considering
+   viewport aspect. The observed portrait-shaped centre viewport makes the cropping obvious.
+   Fit all region bounds with padding, respecting projection, aspect and camera orientation.
+   Verify both the small painted/authored samples and a large region after window resizing.
+2. **Camera shortcuts need deliberate focus handling.** Reproduce Tab/Space after choosing
+   a region or tool and focusing a checkbox. Camera actions must not accidentally activate
+   HUD controls too; text entry must keep its normal input behavior. Test with real events,
+   not only direct calls to controller handlers.
+3. **Give authoring most of the window.** The two panels left roughly 36% of the captured
+   window width for the map. Clouds repeatedly obscured the small terrain while inspecting
+   it. Recommend collapsible debug controls and an obvious authoring-view option to hide
+   clouds, while retaining the complete gameplay preview for judging the shipped look.
+4. **Show document state honestly.** Selecting a populated authored sample still displays
+   Ground (empty) and Overlay (roads) (empty). Source inspection confirms `_document` remains
+   null and `_onHistoryApplied()` is empty. Connect document loading, layer availability,
+   selection and invalidation before presenting these rows as usable editing controls.
+
+Verdict: the scene is a working preview/navigation shell with useful data infrastructure.
+It is not yet an end-to-end map editor, and the camera/focus defects need correction before
+the authoring workflow is accepted. No runtime code was changed by this review.
+
+### Recommended changes to the remaining programme
+
+**Keep the foundations.** The tile/cel law, stable identity ledger, versioned map data,
+deterministic bake, stroke-delta pattern and separate editor camera remain useful. No restart
+is proposed. The existing identity limitation for pixel-identical tiles with different
+metadata remains documented; the UI must surface ambiguous re-imports rather than hiding it.
+
+**Make scene production explicit and early.** Retain authored map data as the source of truth.
+Use one map builder to construct the runtime terrain and placed objects for both the editor
+preview and gameplay. Export a reusable scene with the needed resources, without the editor
+HUD, editor camera or debug controller. A shipping camera/environment can be supplied by the
+gameplay scene. `scenes/WorldMap.tscn` already provides a separate node hierarchy, but there is
+no completed document-to-gameplay-scene export workflow. Regeneration should update generated
+map content without overwriting hand-authored gameplay additions in a wrapper scene.
+Godot 4.4 supports saving an owned node hierarchy with `PackedScene.pack()` and
+`ResourceSaver.save()`; exported child ownership and resource dependencies require explicit
+save/reload checks ([PackedScene reference](https://docs.godotengine.org/en/4.4/classes/class_packedscene.html)).
+Keep camera-dependent world curvature a rendering transform, not terrain height stored in
+the map or baked permanently into exported geometry.
+
+**Keep two understandable authoring areas.** Ground contains the 16x16 paint surface, an 8x8
+detail sublayer and terrain tools. Objects contains independently placed sprites/models.
+This need not expose eight top-level layers. The original WME-11 baked overlay is appropriate
+for surface paths/details; it cannot substitute for buildings or a raised bridge. Re-scope
+WME-12 around explicit placed assets with stable instance identity, position, orientation,
+footprint and height anchoring. Buildings normally remain upright; bridges need an authored
+deck height or support rule rather than being draped over the riverbed. Preserve the existing
+painted-region rendering path while the authored path gains these capabilities.
+
+**Bring smooth terrain forward.** Re-scope WME-15 around shared corner heights with raise,
+lower, smooth and flatten tools, brush radius/strength, and optional height snapping. The
+original mandatory integer/half-unit restriction is not necessary for this product. Its
+claim that continuous heights make slope classification undecidable is false: an explicit
+slope threshold can classify continuous heights. Choose interpolation/triangulation once;
+rendering, picking, object anchoring and exported terrain must sample the same surface.
+Extend the history beyond string tile IDs to cover numeric heights and object operations.
+Do not confuse this visual terrain model with the battle simulator's integer height rules.
+Suitable ground textures are needed to judge the final look, but dedicated cliff-face art
+should not block a smooth hill/basin prototype. Dedicated cliffs and terrain self-shadowing
+can follow the basic authoring workflow rather than being prerequisites for it.
+
+**Define modest water authoring.** A lowered basin is terrain, not a water surface. Recommend
+authored water coverage and surface height for lakes and simple river sections, stored and
+exported with the map. Flow simulation is not proposed. Decide the minimal water appearance
+with the user rather than importing a new visual style. Validate bridge clearance and shore
+placement against the same terrain surface.
+
+**Prioritize the complete document loop.** New/open/save/save-as, tileset selection,
+paint/erase, selection, visible active-tool state and undo/redo need explicit implementation
+ownership. Add safe unsaved-change handling and export/reopen feedback. Keep stroke deltas,
+but include objects and height edits in the same user-facing undo history. Measure full-size
+editing with the implemented partial CPU composition/full texture upload behavior; do not
+continue promising the original partial GPU-upload end state.
+
+### Proposed next milestone and routing
+
+The re-cut itself belongs to **Opus 5 / GPT Sol**: it changes document/runtime ownership,
+object representation, terrain semantics and item dependencies. The rows below are proposed
+delivery stages, not dispatch-ready replacement items. Each needs a complete Touches list,
+dependencies and classified checks before execution; preserve one commit per actual item.
+
+| Proposed order | Delivery | Suggested tier |
+|---|---|---|
+| 1 | Repair camera fit/focus and connect document loading, painting, history and bake updates; finish surface-picking integration. | Opus 5 / GPT Sol for integration/picking boundaries; Sonnet 5 / GPT Terra for separately scoped, fully specified UI/brush work. |
+| 2 | Prove save/reopen and production of a reusable flat map scene in a separate gameplay scene. | Opus 5 / GPT Sol. |
+| 3 | Add simple sprite/model placement and smooth terrain tools, with shared surface queries and complete undo. | Opus 5 / GPT Sol. |
+| 4 | Add the agreed minimal water representation and bridge placement to complete the example map. | Opus 5 / GPT Sol for representation; Sonnet 5 / GPT Terra for subsequently specified controls. |
+| 5 | Independently validate the whole authoring-to-gameplay workflow and measure larger-map performance. | Opus 5 / GPT Sol. |
+
+Acceptance example: create a small map, paint 16x16 grass, add 8x8 detail, sculpt a smooth hill
+and riverbed, place water, an upright building and a bridge, undo/redo tile/height/object
+changes, save and reopen, export, then instantiate that result in a gameplay scene with the
+editor absent. Verify tile appearance, terrain shape, object height and required resources
+survive this round trip. Repeat representative strokes/navigation on a realistic full-size
+region with timings. This is the first useful product milestone, not a claim that it passes
+today. Autotiling, elaborate cliffs, travel graphs and extensive ergonomics should not delay
+proving this workflow.
+
+The original wave table also needs correction during the re-cut: B1 pairs WME-4 with its
+dependent WME-5 and gives both `docs/WORLDMAP_EDITOR.md`; D4 pairs WME-18 with its dependent
+WME-19. Neither is a legal parallel wave under the repository contract. Use committed
+dependencies and disjoint Touches lists when authoring their replacements.
