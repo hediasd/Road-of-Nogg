@@ -650,7 +650,79 @@ and placed buildings — authored, undone, redone, saved, reopened and exported.
 
 ## Phase 4 — Water, bridges, and proving the whole thing
 
-Provisional until Gate 3.
+Gate 3 ruled: continue as written, with one item inserted first. Phase 4 opens by making Phase 3
+authorable, then adds water and bridges on top of a tool a person can actually drive.
+
+### WMH-10B — The editor reaches the layers it stores
+
+Inserted 2026-09-07 on the user's instruction, after Gate 3 found that the editor exposes ground
+and overlay and nothing else — every part of that gate's authoring exercise which touched heights,
+objects or detail had to be driven from a script. Numbered `10B` rather than renumbering WMH-11
+through WMH-13, for the reason WMH-5B already gives: those ids are referenced by committed
+`Plan-Item:` trailers, by three gate reviews and by `docs/WORLDMAP_EDITOR.md`.
+
+**Model:** Opus 5 / GPT Sol
+
+**Model rationale:** Every mechanism this item needs already exists and is proven — `paintHeight`,
+`placeObject`, `paintTriangle`, the history, the bake. What does not exist is the decision of how
+each one FEELS under a mouse: whether sculpting is a drag, a target height or a brush with a
+radius; what a layer row means for a layer that has no tileset to pick from; whether a detail
+click paints the triangle under the cursor or the whole hex. Those are three interaction models
+decided at once, in the two files the whole tool is fronted by, and WMH-R1 is the record of how
+contentious a feel decision in this tool can be. An item that cannot be written as a
+specification is not a Sonnet item.
+
+**Depends on:** WMH-9 (the history it routes through), WMH-10 (the detail slots it paints).
+
+**Touches:**
+- `src/presentation/worldmap/editor/WorldMapEditorController.gd`
+- `src/presentation/worldmap/editor/WorldMapEditorHud.gd`
+- `src/presentation/worldmap/editor/WorldMapBrushes.gd`
+- `src/presentation/worldmap/editor/WorldMapHeightField.gd`
+- `debug/worldmap/probe_editor_tools.gd` (new)
+
+**End state:** A person with a mouse can sculpt terrain, place and remove a building, and paint a
+sub-triangle — and undo any of it. The layer selector lists all four layers of an authored map,
+honestly, including the ones that have no tileset.
+
+**Implementation:** Three tools and the rows that make them reachable.
+
+- **`_layerEditable` is the blocker, and it is one line.** It returns true only for
+  `KIND_GRID` with a known tileset, so a height, list or detail layer can never become the active
+  layer. It has to become kind-aware rather than grid-only, and everything that assumes the active
+  layer has a tileset — `_refreshTileChoices` most of all — has to answer for a layer that has
+  none. "Honest layer rows" (WMH-5) is the standard: a row says what it is, or says it is empty.
+- **Detail painting routes through `WorldMapEditHistory`.** WMH-10 left `paintTriangle` as a
+  direct mutator with no undo, named rather than hidden in `WORLDMAP_EDITOR.md` §16; a tool that a
+  person can reach makes that gap a defect rather than a note. The history already carries three
+  delta kinds; this is a fourth, and `_valuesEqual` already handles the String values it stores.
+- **The fan test gets no third copy.** `WorldMapHeightField` owns `CORNER_OFFSETS` and the
+  barycentric test in world space; `WorldMapBaker` deliberately duplicates it in pixel space. A
+  click-to-triangle pick is a third caller, and it belongs beside the first — not as a new
+  implementation of a shape that already has two.
+- **The object tool decides placement, not art.** Buildings still ship as box placeholders (WMH-7);
+  choosing a model is not this item's job. Placing, facing and removing one is.
+
+**Out of scope, deliberately:** an object-kind palette beyond a fixed list, a footprint editor,
+and hex routing for the Rectangle and Stamp tools (still square-only, named in
+`WORLDMAP_EDITOR.md` §12, still not a blocker). This item is about reaching layers that are
+currently unreachable, not about finishing every tool that touches them.
+
+**Risk:** The item balloons. Three tools, two of the package's largest files, and a layer-row
+rework is already the widest single item in this cycle; adding "and while we are here" work to it
+is how it stops landing. The Out of scope list above is the boundary, and it is not advisory.
+
+A second risk, smaller and specific: making `_layerEditable` kind-aware without also fixing what
+reads the active layer's tileset produces a tool that silently paints nothing — the same class of
+failure Gate 1 found in the picker, where an edit was refused with no word to the user.
+
+**Validation:**
+- Self-contained: `probe_editor_tools.gd` — each of the three tools, driven through the
+  controller's own gesture entry points rather than by calling the modules underneath, changes the
+  document and is undone by one undo; the layer selector offers all four layers of a map that has
+  them; a click on a hex resolves to the triangle it landed in, not merely to the cell.
+- Deferred: sculpting, placing and detail painting each feel right under a mouse, judged in a live
+  editor session by the user.
 
 ### WMH-11 — Minimal water
 
@@ -660,7 +732,8 @@ Provisional until Gate 3.
 picks a visual language for something the game does not yet have. Representation is the hard
 part; controls over it are not.
 
-**Depends on:** WMH-10 (or Gate 3's re-cut).
+**Depends on:** WMH-10B — water is a fifth thing to author, and Gate 3's ruling was that it
+should not arrive before the four that exist are authorable.
 
 **Touches:**
 - `src/presentation/worldmap/editor/WorldMapWaterLayer.gd` (new)
@@ -758,9 +831,10 @@ WME-18 with its dependent WME-19 — which is why this table is mostly single-it
 | 9 | WMH-8 | height field; touches tile data, ground and the shader |
 | 10 | WMH-9, WMH-10 | history vs. sub-triangles — **not** disjoint, both touch tile data; split if so |
 | 11 | **WMH-R3** | **gate, alone, quiet tree** |
-| 12 | WMH-11 | water; touches tile data and export |
-| 13 | WMH-12 | bridges |
-| 14 | **WMH-13** | **validation, alone, quiet tree** |
+| 12 | WMH-10B | controller, HUD, brushes and the height field; alone |
+| 13 | WMH-11 | water; touches tile data and export |
+| 14 | WMH-12 | bridges |
+| 15 | **WMH-13** | **validation, alone, quiet tree** |
 
 WMH-5B is its own wave rather than sharing one with WMH-5: it depends on nothing WMH-5 adds, but
 WMH-10 also touches the baker, so keeping the baker's own wave clean is what lets that later
