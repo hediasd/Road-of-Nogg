@@ -105,8 +105,13 @@ func addGridLayer(layerID: String, gridKind: String, tilesetID: String) -> void:
 		_layerOrder.append(layerID)
 
 
+## A sparse layer of placed things. `NEXT_ID` is the id allocator for whatever the layer holds --
+## see `WorldMapObjectLayer` for what it means and why it only ever rises. It lives on the BLOCK
+## rather than on the document because two list layers must not share an allocator: an object and
+## a future spawn point both starting at 0 is fine, and forcing them to interleave would make
+## every id depend on what else happened to be placed first.
 func addListLayer(layerID: String) -> void:
-	layers[layerID] = {"KIND": KIND_LIST, "ITEMS": []}
+	layers[layerID] = {"KIND": KIND_LIST, "NEXT_ID": 0, "ITEMS": []}
 	if not _layerOrder.has(layerID):
 		_layerOrder.append(layerID)
 
@@ -186,6 +191,25 @@ func setCell(layerID: String, cell: Vector2i, tileID: String) -> bool:
 	return true
 
 
+## One past the highest numeric suffix any item's `ID` carries, or 0 for an empty layer. Parses
+## the id rather than trusting a stored counter, which is what makes a missing or stale `NEXT_ID`
+## self-healing instead of dangerous -- see `fromDictionary`.
+static func _highestIDPlusOne(items: Array) -> int:
+	var highest := -1
+	for entry in items:
+		if not entry is Dictionary:
+			continue
+		var id := str((entry as Dictionary).get("ID", ""))
+		var digits := ""
+		for index in range(id.length() - 1, -1, -1):
+			if not id[index].is_valid_int():
+				break
+			digits = id[index] + digits
+		if not digits.is_empty():
+			highest = maxi(highest, int(digits))
+	return highest + 1
+
+
 ## Run-length encodes a row-major cell array as `"<count>:<id>"` entries, one run per element.
 ## See the class note on why the runs are separate elements rather than one joined string.
 static func encodeRLE(cells: PackedStringArray) -> Array:
@@ -240,7 +264,12 @@ func toDictionary() -> Dictionary:
 				"RLE": encodeRLE(block["CELLS"]),
 			})
 		else:
-			blocks.append({"ID": layerID, "KIND": KIND_LIST, "ITEMS": block["ITEMS"]})
+			blocks.append({
+				"ID": layerID,
+				"KIND": KIND_LIST,
+				"NEXT_ID": block.get("NEXT_ID", 0),
+				"ITEMS": block["ITEMS"],
+			})
 	return {
 		"FORMAT_VERSION": FORMAT_VERSION,
 		"NAME": region_name,
@@ -289,7 +318,15 @@ static func fromDictionary(raw: Dictionary) -> WorldMapTileData:
 		var kind := str(block.get("KIND", KIND_GRID))
 		if kind == KIND_LIST:
 			data.addListLayer(layerID)
-			data.layers[layerID]["ITEMS"] = (block.get("ITEMS", []) as Array).duplicate(true)
+			var items := (block.get("ITEMS", []) as Array).duplicate(true)
+			data.layers[layerID]["ITEMS"] = items
+			# An absent `NEXT_ID` is DERIVED from the items rather than defaulted to zero, so a
+			# file written before the allocator existed -- or hand-edited without it -- can never
+			# reissue an id that is already in use. Only ever rises, the same contract
+			# `WorldMapTilesetCatalog.NEXT_ID` carries and for the same reason.
+			data.layers[layerID]["NEXT_ID"] = maxi(
+				int(block.get("NEXT_ID", 0)), _highestIDPlusOne(items)
+			)
 			continue
 		var gridKind := str(block.get("GRID_KIND", WorldMapTilesetCatalog.GRID_TILE))
 		data.addGridLayer(layerID, gridKind, str(block.get("TILESET", "")))

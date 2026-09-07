@@ -869,3 +869,100 @@ an existing `material_override`** before making a new one. Without that, the fir
 blank material and the map would lose its texture, extent and colours in one call.
 `probe_scene_export.gd` drives exactly that sequence on a loaded scene, and first asserts the
 cache really is null so the check cannot pass for the wrong reason.
+
+## 14. Placed objects
+
+`WorldMapObjectLayer` — WMH-7. Buildings, towers and whatever else stands **on** the map rather
+than being part of it. A `list`-kind layer, which the format already supported: adding objects
+was a data change with no migration and no version bump, which is what §7's layer-agnostic design
+was for.
+
+### An id is allocated, not derived
+
+Quests, save data and triggers will reference object ids, so an id has to survive everything that
+is not a deletion: moving the object, rotating it, re-anchoring it, saving and reloading, and any
+number of other objects being placed or removed around it. A content hash of position and kind
+survives none of those — moving a house would rename it. `get_instance_id()` is ruled out by
+`AGENTS.md` and would differ between two loads of the same file anyway.
+
+So `NEXT_ID` allocates (`o000`, `o001`, …), only ever rises, and **an id belonging to a removed
+object is never reissued** — the same contract, for the same reason, as the tileset ledger's own
+`NEXT_ID` (§3). `NEXT_ID` lives on the layer block rather than the document, so two list layers
+cannot interleave their allocators; and when a file carries no `NEXT_ID` it is **derived from the
+highest id present** rather than defaulted to zero, so a hand-edited or older file still cannot
+reissue.
+
+### What a record holds
+
+| field | meaning |
+|---|---|
+| `ID` | allocated, never reissued |
+| `KIND` | `"house"`, `"tower"` — a catalog reference later, a plain string now |
+| `CELL` | `[col, row]` offset cell, an **array** because JSON has no `Vector2i` — the tileset ledger's own `CELL` convention |
+| `FACING` | 0–5, an index into `WorldMapHexGrid.AXIAL_NEIGHBOURS`, so 0 is east |
+| `FOOTPRINT` | hex radius: 0 is the anchor cell, 1 adds its six neighbours |
+| `ANCHOR` | `terrain` (follow the ground) or `fixed` (stay at `HEIGHT`) |
+| `HEIGHT` | absolute height when `fixed`, an offset above the anchored surface when `terrain` |
+
+Six exact facings rather than free rotation, because a flat-top hex has exactly six edges to
+face — and 0–5 is exact where degrees are not.
+
+### Anchoring samples the footprint and takes the maximum
+
+Raising ground under one corner of a building must **lift** the building, not push terrain through
+its floor, so the surface it rests on is the highest cell it covers. A building floating over a
+dip on one side reads as a building on uneven ground; one buried to its windows reads as a bug.
+
+Terrain heights arrive in WMH-8, so `anchorHeight()` takes the height **sampler** as an argument
+rather than reaching for a layer that does not exist yet. Flat ground is the default and returns
+zero; WMH-8 passes the real sampler without this file changing. `probe_object_layer.gd` supplies
+its own sampler to prove an object rises with its footprint, ignores terrain outside it, and
+ignores terrain entirely when its anchor is `fixed`.
+
+### One record feeds every derived thing
+
+`WORLDMAP_DESIGN.md` §9 records what happens when it does not: temp2's structures were once
+re-anchored by moving the rendered quad instead of the record, which left every building standing
+half a tile from its own shadow and its own pool of light — **a defect no probe could catch**,
+because the mask and the record still agreed with each other perfectly.
+
+So nothing here returns a position anything downstream is expected to adjust.
+`worldPosition()` is *the* position, and a sprite, a shadow and a lamp all read it. The simple
+box `WorldMapSceneExport._objectBody()` builds is explicitly a placeholder for the **look** and
+exact about the **placement**; when object art arrives that is the one function that changes,
+because nothing downstream reads the box.
+
+### Objects in the exported scene
+
+Each object becomes a `Node3D` under an `Objects` holder, **named by its own id**, so a gameplay
+scene resolves `map.get_node("Objects/o003")` rather than searching. Kind and footprint ride as
+metadata rather than as a name suffix, so the lookup stays exact and gameplay can ask what a
+thing *is* without parsing its name.
+
+### temp2's nine structures, re-placed
+
+`temp2_hex32_authored` is the first authored **hex** document, and its nine structures are
+objects rather than ground. That is possible because the hex tileset was cut with the houses and
+towers deliberately excluded — so the ground carries patched terrain under each building and the
+buildings stand on the object layer, which is a re-placement rather than a duplication.
+
+The positions come from `WorldMapProps`' own extraction of temp2 — the same records §9's
+anchoring rule already corrected — converted from map pixels to hex cells through the building's
+**foot** (`x + w/2`, `y + h`), the only point that should decide which cell it stands in. temp2's
+art is 2× in the hex region, so a temp2 world position doubles before being resolved.
+
+Rebuilding the document also cross-validated WMH-5B: the authoring tool reads each cell at
+`cellCentre × 16 − frame/2` and matched **200 of 200** cells against the ledger, which is only
+possible if the baker's placement is the exact inverse of the original cut. The one catch worth
+recording is that the cut must be **hex-masked** before hashing — a plain rectangular cut from
+the composed region picks up the overlapping fringes of its neighbours in the frame's corners and
+matches nothing.
+
+### Known, not fixed: black notches at a hugging map's edge
+
+`temp2_hex32_authored`'s canvas hugs its lattice exactly, so the sawtooth gaps between the top
+and bottom rows of hexes are transparent texels **inside** the region rect rather than outside
+it, and they render black instead of taking the void colour. The remedy is the square-with-margin
+shape WMH-R1 settled — this document is 30.5 × 21 units with no margin, because it was built from
+the source art's own non-square extent — or making the void substitution alpha-aware. Named here
+rather than fixed, since it is about the map's shape and the ground shader, not about objects.

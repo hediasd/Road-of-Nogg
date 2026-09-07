@@ -38,6 +38,7 @@ extends RefCounted
 
 const Baker = preload("res://src/presentation/worldmap/editor/WorldMapBaker.gd")
 const MapData = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
+const ObjectLayer = preload("res://src/presentation/worldmap/editor/WorldMapObjectLayer.gd")
 
 ## Where an exported scene lands. Separated from hand-authored scenes on purpose, the same way
 ## `WorldMapBaker.GENERATED_DIR` separates baked art from painted art: everything under here is
@@ -91,6 +92,7 @@ static func buildRuntime(
 	mapRoot.add_child(ground)
 	ground.owner = mapRoot
 	configureGround(ground, data, texture, framing)
+	buildObjects(mapRoot, data, mapRoot)
 
 	mapRoot.set_meta(META_REGION, data.region_name)
 	mapRoot.set_meta(META_LAYOUT, data.layout)
@@ -98,6 +100,82 @@ static func buildRuntime(
 	mapRoot.set_meta(META_EXTENT, data.worldExtent())
 	mapRoot.set_meta(META_SOURCE, MapData.pathFor(data.region_name))
 	return mapRoot
+
+
+## Builds a node per placed object under `parent`, named by the object's own id so a gameplay
+## scene can find one by the id a quest or a save file references -- `map.get_node("Objects/o003")`
+## rather than a search. `owner` is set on everything so `pack()` captures it; pass `null` as
+## `sceneOwner` when building for a live preview that is never packed.
+##
+## UPRIGHT BY DEFAULT. Each object is a `Node3D` positioned by `ObjectLayer.worldPosition`
+## and yawed by its facing -- no pitch, no roll. What hangs under that node (a billboarded sprite
+## now, a model later) is deliberately not decided here: the POSITION is the contract every
+## derived thing reads, and section 9's lesson is that the position must have exactly one
+## definition. `WorldMapProps` remains the painted-region extractor and is untouched; this is the
+## authored path, where a building is a record rather than pixels to be found again.
+static func buildObjects(
+	parent: Node3D, data: WorldMapTileData, sceneOwner: Node, sampler := Callable()
+) -> Node3D:
+	if ObjectLayer.count(data) == 0:
+		return null
+	var holder := Node3D.new()
+	holder.name = "Objects"
+	parent.add_child(holder)
+	if sceneOwner != null:
+		holder.owner = sceneOwner
+	for record in ObjectLayer.items(data):
+		var entry: Dictionary = record
+		var node := Node3D.new()
+		node.name = str(entry.get(ObjectLayer.K_ID, "object"))
+		node.position = ObjectLayer.worldPosition(data, entry, sampler)
+		node.rotation = Vector3(0.0, ObjectLayer.facingRadians(entry), 0.0)
+		# The kind rides as metadata rather than as a name suffix, so a lookup by id stays exact
+		# and gameplay can ask what a thing IS without parsing its name.
+		node.set_meta(ObjectLayer.K_KIND, str(entry.get(ObjectLayer.K_KIND, "")))
+		node.set_meta(
+			ObjectLayer.K_FOOTPRINT, int(entry.get(ObjectLayer.K_FOOTPRINT, 0))
+		)
+		var body := _objectBody(entry)
+		node.add_child(body)
+		holder.add_child(node)
+		if sceneOwner != null:
+			node.owner = sceneOwner
+			body.owner = sceneOwner
+	return holder
+
+
+## A SIMPLE MODEL, which is the half of "upright sprites or simple models" that can be built
+## before object art exists. A box footprint-wide and standing on the anchor, unshaded so it is
+## visible in a gameplay scene that has not set up lighting yet -- the ground shader is unshaded
+## for the same reason.
+##
+## It is deliberately a placeholder for the LOOK and exact about the PLACEMENT: its base sits on
+## `y = 0` in the object's own local space, so it stands on whatever height the record anchored
+## to rather than floating at the node's centre. When object art arrives this is the one function
+## that changes; nothing downstream reads the box, because everything reads the record.
+static func _objectBody(record: Dictionary) -> MeshInstance3D:
+	var footprint := int(record.get(ObjectLayer.K_FOOTPRINT, 0))
+	# A radius-0 object covers one hex, which is two world units across.
+	var across := 2.0 * (1.0 + float(footprint))
+	var tall := 3.0 if str(record.get(ObjectLayer.K_KIND, "")) == "tower" else 2.0
+
+	var box := BoxMesh.new()
+	box.size = Vector3(across * 0.6, tall, across * 0.6)
+	var body := MeshInstance3D.new()
+	body.name = "Body"
+	body.mesh = box
+	body.position = Vector3(0.0, tall * 0.5, 0.0)
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	body.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = (
+		Color("8d6b94") if str(record.get(ObjectLayer.K_KIND, "")) == "tower"
+		else Color("d9a066")
+	)
+	body.material_override = material
+	return body
 
 
 ## Exports `data` to a packed scene. Returns `{ok, path}` on success and `{ok, error}` on any
