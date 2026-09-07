@@ -9,8 +9,10 @@ var boardSize: Vector2i
 var board: Matrix                        # Monster ID layer (0 = empty)
 var heightBoard: Matrix                  # Height layer (for future use)
 var terrainBoard: Matrix                 # Terrain ID layer
+var movementCostBoard: Matrix            # Movement-cost layer (0 = impassable)
 var mapName: String = ""
 var mapRevision: int = 1
+var battleMap: BattleMapDefinition
 
 enum {
 	TERRAIN_CLEAR = 0,     # Walkable, allows LoS
@@ -21,6 +23,14 @@ enum {
 var monsters: Dictionary = {}            # monsterID -> Monster
 var monsterPositions: Dictionary = {}    # monsterID -> Vector2i (reverse lookup)
 var teamRosters: Dictionary = {}         # team -> Array[monsterID]
+var parties: Dictionary = {}             # partyID -> BattleParty
+var monsterPartyIDs: Dictionary = {}     # monsterID -> partyID
+var teamPartyIDs: Dictionary = {}        # teamID -> Array[partyID]
+var partyOrder: Array[int] = []
+var activePartyID: int = -1
+var spentMemberIDs: Dictionary = {}
+var withdrawnPartyIDs: Dictionary = {}
+var withdrawnMonsterIDs: Dictionary = {}
 
 var roundCount: int = 0
 var turnCount: int = 0
@@ -54,10 +64,43 @@ func allocateMonsterID() -> int:
 	return monsterID
 
 func setup_board(size: Vector2i) -> void:
+	battleMap = null
 	boardSize = size
 	board = Matrix.new(size.x, size.y)
 	heightBoard = Matrix.new(size.x, size.y)
 	terrainBoard = Matrix.new(size.x, size.y)
+	movementCostBoard = Matrix.new(size.x, size.y)
+	for y in range(size.y):
+		for x in range(size.x):
+			movementCostBoard.set_at(1, Vector2i(x, y))
+
+
+func setBattleMap(definition: BattleMapDefinition) -> void:
+	assert(definition != null, "Battle map definition is required.")
+	setup_board(definition.boardSize)
+	battleMap = definition
+	mapName = definition.mapID
+	mapRevision = definition.revision
+	for y in range(boardSize.y):
+		for x in range(boardSize.x):
+			movementCostBoard.set_at(0, Vector2i(x, y))
+	for cell: Vector2i in definition.validCells():
+		heightBoard.set_at(definition.heightAt(cell), cell)
+		terrainBoard.set_at(definition.terrainStateCodeAt(cell), cell)
+		movementCostBoard.set_at(definition.movementCostAt(cell), cell)
+
+
+func registerParty(party: BattleParty) -> void:
+	assert(party != null, "Battle party is required.")
+	assert(not parties.has(party.partyID), "Duplicate party ID %d." % party.partyID)
+	parties[party.partyID] = party
+	partyOrder.append(party.partyID)
+	if not teamPartyIDs.has(party.teamID):
+		teamPartyIDs[party.teamID] = []
+	teamPartyIDs[party.teamID].append(party.partyID)
+	for memberID: int in party.memberIDs:
+		assert(not monsterPartyIDs.has(memberID), "Monster %d belongs to multiple parties." % memberID)
+		monsterPartyIDs[memberID] = party.partyID
 
 
 
@@ -65,7 +108,7 @@ func setup_board(size: Vector2i) -> void:
 
 func addMonster(monster: Monster, pos: Vector2i, team: int) -> void:
 	var id = monster.uniqueID
-	if not withinBounds(pos):
+	if not containsCell(pos):
 		push_error("Cannot add monster %d outside the board at %s." % [id, pos])
 		return
 	if isOccupied(pos):
@@ -105,6 +148,8 @@ func getMonster(monsterID: int) -> Monster:
 
 
 func getMonsterAt(pos: Vector2i) -> Monster:
+	if not containsCell(pos):
+		return null
 	var id = board.at(pos)
 	if id != 0 and monsters.has(id):
 		return monsters[id]
@@ -121,7 +166,7 @@ func moveMonsterTo(monsterID: int, newPos: Vector2i) -> void:
 	if not monsterPositions.has(monsterID):
 		push_error("Cannot move unplaced monster %d." % monsterID)
 		return
-	if not withinBounds(newPos):
+	if not containsCell(newPos):
 		push_error("Cannot move monster %d outside the board to %s." % [monsterID, newPos])
 		return
 	var destinationOccupant = board.at(newPos)
@@ -143,7 +188,7 @@ func assertValidOccupancy() -> void:
 	var occupiedTiles: Dictionary = {}
 	for monsterID in monsterPositions:
 		var pos: Vector2i = monsterPositions[monsterID]
-		assert(withinBounds(pos), "Monster %d has out-of-bounds position %s." % [monsterID, pos])
+		assert(containsCell(pos), "Monster %d has invalid position %s." % [monsterID, pos])
 		assert(
 			not occupiedTiles.has(pos),
 			"Monsters %d and %d share forbidden tile %s." %
@@ -173,23 +218,35 @@ func withinBounds(pos: Vector2i) -> bool:
 	return pos.x >= 0 and pos.x < boardSize.x and pos.y >= 0 and pos.y < boardSize.y
 
 
+func containsCell(pos: Vector2i) -> bool:
+	if not withinBounds(pos):
+		return false
+	return battleMap == null or battleMap.containsCell(pos)
+
+
 func isOccupied(pos: Vector2i) -> bool:
+	if not containsCell(pos):
+		return false
 	return board.at(pos) != 0
 
 func getHeight(pos: Vector2i) -> int:
-	if not withinBounds(pos):
+	if not containsCell(pos):
 		return -1
 	return int(heightBoard.at(pos))
 
 
 func getHeightDifference(fromPos: Vector2i, toPos: Vector2i) -> int:
-	if not withinBounds(fromPos) or not withinBounds(toPos):
+	if not containsCell(fromPos) or not containsCell(toPos):
 		return 999
 	return abs(getHeight(toPos) - getHeight(fromPos))
 
 
 
 func isWalkable(pos: Vector2i) -> bool:
+	if not containsCell(pos):
+		return false
+	if battleMap != null:
+		return battleMap.isTraversable(pos)
 	var terrain = terrainBoard.at(pos)
 	if terrain == TERRAIN_OBSTACLE or terrain == TERRAIN_ABYSS:
 		return false
@@ -197,6 +254,10 @@ func isWalkable(pos: Vector2i) -> bool:
 
 
 func isLoSBlocked(pos: Vector2i) -> bool:
+	if not containsCell(pos):
+		return false
+	if battleMap != null:
+		return battleMap.blocksLineOfSight(pos)
 	return terrainBoard.at(pos) == TERRAIN_OBSTACLE
 
 

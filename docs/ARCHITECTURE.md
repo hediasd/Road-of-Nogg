@@ -92,6 +92,35 @@ editor's established API and dimensions while allowing battle simulation, AI,
 and future nonvisual tools to depend on the lattice without importing editor
 code.
 
+### Hex battle map and scenario boundary
+
+`BattleMapDefinition` is the headless tactical map contract. Its rectangular
+`boardSize` is storage capacity; `validCells()` and `containsCell()` define the
+actual odd-column offset board, including holes. Terrain, elevation, movement
+cost, and line-of-sight state are independent of both the valid-cell mask and
+live occupancy. The board-view contract is `boardSize`, `visualScenePath`,
+row-major `validCells()`, `containsCell()`, `heightAt()`, `cellWidth`,
+`cellHeight`, and `heightStep`.
+
+`BattleMapFactory` accepts version 1, `hex_flat`, `odd_q_offset`, single-surface
+maps. Every map carries source ID, revision, fingerprint, and visual scene path.
+Only explicitly headless technical fixtures may omit the visual scene. Stacked
+standable surfaces fail at this boundary instead of being flattened into one
+cell.
+
+`BattleScenario` ties one exact map revision and source fingerprint to
+deterministic commander-led parties. Each member has a unique gameplay ID,
+monster reference, level, and valid non-overlapping deployment cell. Party and
+member counts are data-driven; the square setup's four-member roster constant
+does not apply to this path.
+
+`BattleSetupFactory.createHexState()` materializes the validated scenario into
+`BattleState`, including dense compatibility matrices, the valid-cell map,
+party indexes, team-roster projection, and explicitly identified monsters. It
+does not create a playable simulator yet. Party activation and authoritative
+hex spatial execution are the next runtime boundaries and will add a new
+state/replay version together.
+
 The current square battle is preserved as a frozen, independently runnable
 reference with its own source snapshot, resources, manifest, and launch steps.
 The active project does not load it and exposes no square/hex runtime toggle.

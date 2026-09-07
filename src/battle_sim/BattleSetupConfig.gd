@@ -4,6 +4,7 @@ extends RefCounted
 const MapReferencesScript = preload("res://src/factories/MapReferences.gd")
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const MapFactoryScript = preload("res://src/factories/MapFactory.gd")
+const BattleScenarioFactoryScript = preload("res://src/factories/BattleScenarioFactory.gd")
 
 const MODE_CPU_VS_CPU := "cpu_vs_cpu"
 const MODE_PLAYER_VS_CPU := "player_vs_cpu"
@@ -14,6 +15,11 @@ var mapName: String = "Meadow"
 var seed: int = 42
 var team1: Array[String] = []
 var team2: Array[String] = []
+var scenarioPath: String = ""
+
+
+func isHexScenario() -> bool:
+	return not scenarioPath.is_empty()
 
 
 func controllerForTeam(team: int) -> String:
@@ -23,6 +29,13 @@ func controllerForTeam(team: int) -> String:
 
 
 func serialize() -> Dictionary:
+	if isHexScenario():
+		return {
+			"formatVersion": 1,
+			"battleModel": "hex",
+			"scenarioPath": scenarioPath,
+			"seed": seed,
+		}
 	return {
 		"battleMode": battleMode,
 		"mapName": mapName,
@@ -37,6 +50,16 @@ func serialize() -> Dictionary:
 
 
 func validate() -> BattleSetupValidationResult:
+	if isHexScenario():
+		var result := BattleScenarioFactoryScript.loadFromPath(scenarioPath)
+		if result["success"]:
+			return BattleSetupValidationResult.ok()
+		return BattleSetupValidationResult.fromErrors([
+			"Invalid hex scenario: %s%s" % [
+				result["error"],
+				" (%s)" % result.get("detail", "") if not str(result.get("detail", "")).is_empty() else "",
+			]
+		])
 	var errors: Array[String] = []
 	if battleMode not in [MODE_CPU_VS_CPU, MODE_PLAYER_VS_CPU]:
 		errors.append("Unknown battle mode.")
@@ -87,4 +110,5 @@ static func fromDictionary(data: Dictionary) -> BattleSetupConfig:
 	config.seed = int(data.get("seed", 42))
 	config.team1.assign(data.get("team1", []))
 	config.team2.assign(data.get("team2", []))
+	config.scenarioPath = str(data.get("scenarioPath", ""))
 	return config

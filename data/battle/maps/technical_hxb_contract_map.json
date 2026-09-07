@@ -1,0 +1,83 @@
+[
+	{
+		"FORMAT_VERSION": 1,
+		"NAME": "technical_hxb_contract_map",
+		"REVISION": 1,
+		"GRID_KIND": "hex_flat",
+		"COORDINATES": "odd_q_offset",
+		"SURFACE_MODEL": "single",
+		"SIZE": [7, 5],
+		"CELL_METRICS": {
+			"WIDTH": 2.0,
+			"HEIGHT": 2.0,
+			"HEIGHT_STEP": 0.5
+		},
+		"SOURCE": {
+			"ID": "technical_hxb_contract_source",
+			"REVISION": 1,
+			"FINGERPRINT": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			"VISUAL_SCENE_PATH": "",
+			"HEADLESS_ONLY": true
+		},
+		"TERRAIN_DEFINITIONS": [
+			{
+				"ID": "clear",
+				"CAN_ENTER": true,
+				"CAN_PASS": true,
+				"CAN_STOP": true,
+				"MOVE_COST": 1,
+				"ENDS_MOVEMENT": false,
+				"BLOCKS_LOS": false,
+				"STATE_CODE": 0
+			},
+			{
+				"ID": "obstacle",
+				"CAN_ENTER": false,
+				"CAN_PASS": false,
+				"CAN_STOP": false,
+				"MOVE_COST": 0,
+				"ENDS_MOVEMENT": false,
+				"BLOCKS_LOS": true,
+				"STATE_CODE": 1
+			},
+			{
+				"ID": "abyss",
+				"CAN_ENTER": false,
+				"CAN_PASS": false,
+				"CAN_STOP": false,
+				"MOVE_COST": 0,
+				"ENDS_MOVEMENT": false,
+				"BLOCKS_LOS": false,
+				"STATE_CODE": 2
+			},
+			{
+				"ID": "technical_cost_4",
+				"CAN_ENTER": true,
+				"CAN_PASS": true,
+				"CAN_STOP": true,
+				"MOVE_COST": 4,
+				"ENDS_MOVEMENT": false,
+				"BLOCKS_LOS": false,
+				"STATE_CODE": 0
+			}
+		],
+		"VALID_MASK": [
+			"1111111",
+			"1111111",
+			"1110111",
+			"1111111",
+			"1111111"
+		],
+		"DEFAULT_SURFACE": {
+			"TERRAIN": "clear",
+			"ELEVATION": 0
+		},
+		"CELL_OVERRIDES": [
+			{"CELL": [3, 1], "TERRAIN": "obstacle"},
+			{"CELL": [2, 2], "ELEVATION": 2},
+			{"CELL": [2, 3], "ELEVATION": 1},
+			{"CELL": [3, 3], "TERRAIN": "technical_cost_4"},
+			{"CELL": [4, 2], "TERRAIN": "abyss"}
+		]
+	}
+]
