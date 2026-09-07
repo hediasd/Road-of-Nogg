@@ -49,6 +49,17 @@ const KIND_LIST := "list"
 ## `WorldMapHeightField` for the addressing. A third kind rather than a grid layer because the
 ## array is not one entry per cell and `layerSize()` would have to lie about it.
 const KIND_HEIGHTS := "heights"
+## Six independent triangular detail slots per hex cell -- WMH-10's sub-triangle layer, the hex
+## equivalent of a cel. Dense storage, `cols * rows * 6` tile-id entries, addressed by
+## `(col, row, triangleIndex)` through `detailIndexOf`. A fourth kind rather than a grid layer for
+## the same reason heights are not one: the address has three components and `getCell`/`setCell`
+## only take two. Detail is ART ONLY -- nothing an entity observes reads this layer, and nothing
+## here feeds `worldExtent()`, picking, or anchoring the way `heights` does.
+const KIND_DETAIL := "detail"
+## Six triangular slots per hex, fanning from its centre -- the same fan `WorldMapHeightField`
+## triangulates smooth terrain with, so a detail slot and a terrain triangle are the same region
+## of the hex by construction rather than by convention.
+const DETAIL_SLOTS_PER_CELL := 6
 
 ## How a map's cells are arranged. `square` is the original 16 px tile lattice, kept working
 ## unchanged -- `temp2_authored` is square and its byte-exact bake parity is the sharpest test in
@@ -137,6 +148,75 @@ func addHeightLayer(layerID: String) -> void:
 ## cell in each direction. See `WorldMapHeightField`'s own note on the padding.
 func heightValueCount() -> int:
 	return (size_tiles.x + 2) * (size_tiles.y + 2) * 2
+
+
+## A detail layer, sized for this map's lattice. Unlike a grid layer's `TILESET`, which is
+## required for the layer to be editable at all, this one is taken as a plain argument rather
+## than defaulted to empty -- a detail layer with no tileset can be created but nothing could ever
+## paint into it, which would be a strange thing to do silently by default.
+func addDetailLayer(layerID: String, tilesetID: String) -> void:
+	var cells := PackedStringArray()
+	cells.resize(detailValueCount())
+	cells.fill(EMPTY)
+	layers[layerID] = {
+		"KIND": KIND_DETAIL,
+		"GRID_KIND": WorldMapTilesetCatalog.GRID_TILE,
+		"TILESET": tilesetID,
+		"CELLS": cells,
+	}
+	if not _layerOrder.has(layerID):
+		_layerOrder.append(layerID)
+
+
+## How many detail values this map's lattice needs: `DETAIL_SLOTS_PER_CELL` per cell, no padding
+## -- unlike a height vertex, a triangle belongs to exactly one hex and is never shared with a
+## neighbour, so there is nothing just outside the lattice that owns one.
+func detailValueCount() -> int:
+	return size_tiles.x * size_tiles.y * DETAIL_SLOTS_PER_CELL
+
+
+## Index of one triangular slot in a detail layer's dense array, or -1 when the cell or the
+## slot index is out of range.
+func detailIndexOf(cell: Vector2i, triangleIndex: int) -> int:
+	if cell.x < 0 or cell.y < 0 or cell.x >= size_tiles.x or cell.y >= size_tiles.y:
+		return -1
+	if triangleIndex < 0 or triangleIndex >= DETAIL_SLOTS_PER_CELL:
+		return -1
+	return (cell.y * size_tiles.x + cell.x) * DETAIL_SLOTS_PER_CELL + triangleIndex
+
+
+## The tile id painted into one triangular slot, or `EMPTY`. Out-of-range reads return `EMPTY`
+## rather than erroring, matching `getCell`'s own reasoning: a brush that samples past an edge is
+## asking about a slot that is not there, and that is ordinary.
+func getDetail(layerID: String, cell: Vector2i, triangleIndex: int) -> String:
+	if not layers.has(layerID):
+		return EMPTY
+	var block: Dictionary = layers[layerID]
+	if str(block.get("KIND", "")) != KIND_DETAIL:
+		return EMPTY
+	var index := detailIndexOf(cell, triangleIndex)
+	if index < 0:
+		return EMPTY
+	return (block["CELLS"] as PackedStringArray)[index]
+
+
+## Writes one triangular slot. Returns whether anything actually changed, the same contract
+## `setCell` and `setHeightAt` both keep, so a caller has one rule for "did this edit do
+## anything" across every layer kind.
+func setDetail(layerID: String, cell: Vector2i, triangleIndex: int, tileID: String) -> bool:
+	if not layers.has(layerID):
+		return false
+	var block: Dictionary = layers[layerID]
+	if str(block.get("KIND", "")) != KIND_DETAIL:
+		return false
+	var index := detailIndexOf(cell, triangleIndex)
+	if index < 0:
+		return false
+	var cells: PackedStringArray = block["CELLS"]
+	if cells[index] == tileID:
+		return false
+	cells[index] = tileID
+	return true
 
 
 func layerIDs() -> Array[String]:
@@ -306,6 +386,16 @@ func toDictionary() -> Dictionary:
 				"KIND": KIND_HEIGHTS,
 				"RLE": encodeRLE(_heightsAsStrings(block["VALUES"])),
 			})
+		elif str(block["KIND"]) == KIND_DETAIL:
+			# Same RLE-of-CELLS shape a grid layer uses -- an unpainted detail layer is one run,
+			# same as an unsculpted height layer or a freshly authored ground layer.
+			blocks.append({
+				"ID": layerID,
+				"KIND": KIND_DETAIL,
+				"GRID_KIND": block["GRID_KIND"],
+				"TILESET": block["TILESET"],
+				"RLE": encodeRLE(block["CELLS"]),
+			})
 		else:
 			blocks.append({
 				"ID": layerID,
@@ -370,6 +460,16 @@ static func fromDictionary(raw: Dictionary) -> WorldMapTileData:
 			data.layers[layerID]["NEXT_ID"] = maxi(
 				int(block.get("NEXT_ID", 0)), _highestIDPlusOne(items)
 			)
+			continue
+		if kind == KIND_DETAIL:
+			data.addDetailLayer(layerID, str(block.get("TILESET", "")))
+			var detailRuns = block.get("RLE", [])
+			if detailRuns is Array and not (detailRuns as Array).is_empty():
+				var detailCells := decodeRLE(detailRuns, data.detailValueCount())
+				if detailCells.is_empty():
+					push_warning("WorldMapTileData: detail layer '%s' failed to decode" % layerID)
+					return null
+				data.layers[layerID]["CELLS"] = detailCells
 			continue
 		if kind == KIND_HEIGHTS:
 			data.addHeightLayer(layerID)

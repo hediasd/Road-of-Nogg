@@ -1043,3 +1043,59 @@ objects visibly stand on the hill — so this is a *shading* gap, not a terrain 
 slope-derived cue on the ground, and the framing already carries a sun direction to derive it
 from. Named here rather than fixed, since this item owns the surface and that is a question about
 how the surface is lit.
+
+## 16. Sub-triangle detail
+
+`WorldMapTileData.KIND_DETAIL` — WMH-10. Six independent triangular slots per hex, the direct hex
+equivalent of a cel: art only, painted independently, composited over the ground in the bake.
+Nothing an entity observes reads this layer — no walkability, no height, no collision.
+
+### The same fan, on purpose
+
+A detail slot and a terrain triangle are the same region of the hex **by construction**: both use
+the six triangles WMH-8's height field fans from a hex's own centre to its six corners. That was
+the design decision the cycle file settled before this item ever opened — "a hex fans into six
+triangles from its centre with no arbitrary diagonal choice — which is also the triangulation
+smooth terrain wants, so one decision serves both" — and this item is the specified implementation
+of the detail half of that sentence.
+
+### A fourth storage kind, not a grid layer
+
+A triangle's address has three components — `(col, row, slot 0–5)` — and a grid layer's
+`getCell`/`setCell` only take two, the same reason heights needed their own kind rather than a
+finer grid. Storage is dense, `cols × rows × 6` tile-id entries, **no padding**: unlike a height
+vertex, a triangle belongs to exactly one hex and is never shared with a neighbour, so there is
+nothing just outside the lattice that owns one. It serialises through the exact same
+`encodeRLE`/`decodeRLE` a grid layer's own cells use — an unpainted detail layer is one run.
+
+### Masked at bake time, not pre-masked in the art
+
+There is no dedicated detail tileset yet — the probe reuses `temp2_hex32_ground`, the only hex
+tileset in the catalog, the same bootstrap pattern WMH-2 and WMH-4 already used for ground and
+brushes. So the six slots cannot come from six pre-cut triangular art pieces; **the baker masks a
+whole tileset frame down to one fan triangle at composite time**, per pixel, before blending it
+in. A pixel's own local position (relative to the hex's own centre, in world units) is tested
+against the same barycentric fan-triangle math WMH-8's `WorldMapHeightField` uses for terrain
+sampling — deliberately **duplicated**, not called, since `WorldMapHeightField.gd` is not touched
+by this item, the same reason `tool_author_hex32.gd` once had to mirror `tool_cut_hex32.gd`'s own
+mask rather than import it.
+
+This is what makes six independently-painted slots share one 32 px frame without overwriting each
+other: `_maskToTriangle` builds a masked copy of the source frame, then `blend_rect`s only that
+copy in, so a pixel outside the target triangle is simply never touched. `probe_subtriangles.gd`
+proves this is not merely "the mask exists" but that it actually confines painting: slot 1 painted,
+then slot 4 (the opposite side of the hex) painted with a different tile, and slot 1's own
+well-inside pixels are asserted byte-identical before and after — the check that would fail first
+if masking silently degraded to "the whole frame".
+
+### No undo, and that is named rather than hidden
+
+Every other brush in `WorldMapBrushes.gd` is `(data, history, layerID, ...)` and coalesces into
+one `WorldMapEditHistory` entry. `paintTriangle` is not: it is `data.setDetail(...)` directly, with
+no stroke, no coalescing, no undo. Wiring a fourth kind into history is real work its own item
+should own, and this item's Touches list does not include `WorldMapEditHistory.gd` — which WMH-9
+already closed for tile, height and object edits. Rather than reach into a file outside this
+item's scope, or silently ship an editor tool nothing can undo without saying so, the deviation
+from every sibling brush's own shape is the marker: `paintTriangle` looking different from
+`paintCell`/`paintHeight`/`placeObject` is deliberate, and is the honest way to leave this gap
+visible until a later item closes it.

@@ -105,8 +105,12 @@ func markCellsDirty(data: WorldMapTileData, layerID: String, cells: Rect2i) -> v
 	if not data.layers.has(layerID):
 		return
 	var block: Dictionary = data.layers[layerID]
-	if str(block["KIND"]) != WorldMapTileData.KIND_GRID:
+	var kind := str(block["KIND"])
+	if kind != WorldMapTileData.KIND_GRID and kind != WorldMapTileData.KIND_DETAIL:
 		return
+	# A detail slot's affected pixels never reach beyond its own hex's frame footprint -- a
+	# triangle belongs to exactly one cell -- so the same generous hex-frame math a ground layer
+	# uses is exactly right here too, not merely reused for convenience.
 	markPixelsDirty(_cellsToPixelRect(data, block, cells))
 
 
@@ -206,15 +210,23 @@ func _composeRect(data: WorldMapTileData, rect: Rect2i) -> void:
 	var hex := data.layout == WorldMapTileData.LAYOUT_HEX_FLAT
 	for layerID in data.layerIDs():
 		var block: Dictionary = data.layers[layerID]
-		if str(block["KIND"]) != WorldMapTileData.KIND_GRID:
+		var kind := str(block["KIND"])
+		if kind != WorldMapTileData.KIND_GRID and kind != WorldMapTileData.KIND_DETAIL:
 			continue
 		var sheet: Dictionary = _sheets.get(str(block["TILESET"]), {})
 		if sheet.is_empty():
 			continue
-		var size := data.layerSize(layerID)
 		var framePx := _framePixels(str(block["TILESET"]), str(block["GRID_KIND"]))
 		var sheetImage: Image = sheet["image"]
 		var cells: Dictionary = sheet["cells"]
+		if kind == WorldMapTileData.KIND_DETAIL:
+			# Detail is the hex sub-triangle layer and has no square-map meaning at all -- a
+			# square map's cel grade already covers "finer than a tile", and a detail block
+			# should never exist on one, but this stays a no-op rather than a crash if it did.
+			if hex:
+				_composeDetailLayer(data, layerID, rect, data.size_tiles, framePx, sheetImage, cells)
+			continue
+		var size := data.layerSize(layerID)
 		if hex:
 			_composeHexLayer(data, layerID, rect, size, framePx, sheetImage, cells)
 		else:
@@ -258,6 +270,24 @@ func _composeHexLayer(
 	data: WorldMapTileData, layerID: String, rect: Rect2i, size: Vector2i, framePx: int,
 	sheetImage: Image, cellsOnSheet: Dictionary
 ) -> void:
+	var cellRange := _hexCandidateCells(rect, framePx, size)
+	for y in range(cellRange.position.y, cellRange.position.y + cellRange.size.y):
+		for x in range(cellRange.position.x, cellRange.position.x + cellRange.size.x):
+			var id := data.getCell(layerID, Vector2i(x, y))
+			if id == WorldMapTileData.EMPTY or not cellsOnSheet.has(id):
+				continue
+			var source: Vector2i = cellsOnSheet[id]
+			var from := Rect2i(source * framePx, Vector2i(framePx, framePx))
+			var to := _hexFrameOrigin(Vector2i(x, y), framePx)
+			_image.blend_rect(sheetImage, from, to)
+
+
+## The same candidate-range discovery `_composeHexLayer` used inline before this item, factored
+## out so `_composeDetailLayer` can share it exactly rather than re-deriving it: padding `rect` by
+## one frame and resolving its four corners through `WorldMapHexGrid.worldToCell`, then padding
+## THAT by one more cell in every direction. See `_composeHexLayer`'s own historical note (now
+## here) on why the extra cell of insurance is cheap and correct.
+func _hexCandidateCells(rect: Rect2i, framePx: int, size: Vector2i) -> Rect2i:
 	var padded := Rect2i(
 		rect.position - Vector2i(framePx, framePx), rect.size + Vector2i(framePx, framePx) * 2
 	)
@@ -277,18 +307,85 @@ func _composeHexLayer(
 		maxCell.y = maxi(maxCell.y, cell.y)
 	minCell -= Vector2i.ONE
 	maxCell += Vector2i.ONE
+	minCell.x = maxi(0, minCell.x)
+	minCell.y = maxi(0, minCell.y)
+	maxCell.x = mini(size.x - 1, maxCell.x)
+	maxCell.y = mini(size.y - 1, maxCell.y)
+	return Rect2i(minCell, maxCell - minCell + Vector2i.ONE)
 
-	for y in range(maxi(0, minCell.y), mini(size.y, maxCell.y + 1)):
-		for x in range(maxi(0, minCell.x), mini(size.x, maxCell.x + 1)):
-			var id := data.getCell(layerID, Vector2i(x, y))
-			if id == WorldMapTileData.EMPTY or not cellsOnSheet.has(id):
-				continue
-			var source: Vector2i = cellsOnSheet[id]
-			var from := Rect2i(source * framePx, Vector2i(framePx, framePx))
-			var centre := WorldMapHexGrid.cellCentre(Vector2i(x, y)) * Uniforms.TILE_PIXELS
-			var half := framePx * 0.5
-			var to := Vector2i(int(round(centre.x - half)), int(round(centre.y - half)))
-			_image.blend_rect(sheetImage, from, to)
+
+## The top-left of a hex's own 32 px frame in map pixels -- shared by ground and detail composit-
+## ing so the two can never disagree about where a cell's frame sits.
+func _hexFrameOrigin(cell: Vector2i, framePx: int) -> Vector2i:
+	var centre := WorldMapHexGrid.cellCentre(cell) * Uniforms.TILE_PIXELS
+	var half := framePx * 0.5
+	return Vector2i(int(round(centre.x - half)), int(round(centre.y - half)))
+
+
+## Composites the sub-triangle detail layer: for each candidate cell, each of its 6 slots that
+## names a real tile is blended in, MASKED to that slot's own fan triangle so six independently
+## painted slots can share one 32 px frame without overwriting each other -- see `_maskToTriangle`.
+## Ground first, detail after, matches `_composeRect`'s own declaration-order rule: detail is an
+## overlay on the terrain beneath it, never a replacement for it.
+func _composeDetailLayer(
+	data: WorldMapTileData, layerID: String, rect: Rect2i, size: Vector2i, framePx: int,
+	sheetImage: Image, cellsOnSheet: Dictionary
+) -> void:
+	var cellRange := _hexCandidateCells(rect, framePx, size)
+	for y in range(cellRange.position.y, cellRange.position.y + cellRange.size.y):
+		for x in range(cellRange.position.x, cellRange.position.x + cellRange.size.x):
+			var cell := Vector2i(x, y)
+			for triangleIndex in WorldMapTileData.DETAIL_SLOTS_PER_CELL:
+				var id := data.getDetail(layerID, cell, triangleIndex)
+				if id == WorldMapTileData.EMPTY or not cellsOnSheet.has(id):
+					continue
+				var source: Vector2i = cellsOnSheet[id]
+				var masked := _maskToTriangle(sheetImage, source, framePx, triangleIndex)
+				_image.blend_rect(
+					masked, Rect2i(Vector2i.ZERO, Vector2i(framePx, framePx)),
+					_hexFrameOrigin(cell, framePx)
+				)
+
+
+## A copy of one tileset frame with every pixel outside fan triangle `triangleIndex` cleared to
+## transparent. `WorldMapHeightField.CORNER_OFFSETS` is the same six corners that file's own fan
+## uses; the inside test itself (`_insideFanTriangle`) is a small, deliberate DUPLICATE of that
+## file's own `_barycentric`, not a call into it -- `WorldMapHeightField.gd` is not touched by
+## this item, the same reason `tool_author_hex32.gd` once had to mirror `tool_cut_hex32.gd`'s own
+## mask rather than import it.
+func _maskToTriangle(sheetImage: Image, source: Vector2i, framePx: int, triangleIndex: int) -> Image:
+	var masked := sheetImage.get_region(Rect2i(source * framePx, Vector2i(framePx, framePx)))
+	var a: Vector2 = WorldMapHeightField.CORNER_OFFSETS[triangleIndex]
+	var b: Vector2 = WorldMapHeightField.CORNER_OFFSETS[
+		(triangleIndex + 1) % WorldMapHeightField.CORNER_OFFSETS.size()
+	]
+	var half := float(framePx) * 0.5
+	for fy in framePx:
+		for fx in framePx:
+			var localUnits := (
+				Vector2(fx, fy) + Vector2(0.5, 0.5) - Vector2(half, half)
+			) / float(Uniforms.TILE_PIXELS)
+			if not _insideFanTriangle(localUnits, a, b):
+				masked.set_pixel(fx, fy, Color(0.0, 0.0, 0.0, 0.0))
+	return masked
+
+
+## Whether `point` (local to a hex's own centre, world units) lies in the triangle
+## `(centre=origin, a, b)` -- true exactly where all three barycentric weights are non-negative.
+## Deliberately mirrors `WorldMapHeightField._barycentric`'s own math; see `_maskToTriangle`'s note
+## on why this is a duplicate rather than a call.
+static func _insideFanTriangle(point: Vector2, a: Vector2, b: Vector2) -> bool:
+	var determinant := a.x * b.y - b.x * a.y
+	if absf(determinant) < 1e-12:
+		return false
+	var u := (point.x * b.y - b.x * point.y) / determinant
+	var v := (a.x * point.y - point.x * a.y) / determinant
+	var w := 1.0 - u - v
+	# A small outward tolerance rather than a strict >= 0, so a pixel exactly on a fan edge -- the
+	# shared boundary between two triangles -- is not left to neither of them by floating-point
+	# noise. Two adjacent slots overlapping by a hair on that seam is invisible; a hairline gap of
+	# unmasked-anything is not.
+	return u >= -1e-4 and v >= -1e-4 and w >= -1e-4
 
 
 ## The pixel size of one FRAME in this layer's tileset -- the sheet's own `FRAME_PX`, not a
@@ -312,7 +409,8 @@ func _framePixels(tilesetID: String, gridKindFallback: String) -> int:
 func _loadSheets(data: WorldMapTileData) -> void:
 	for layerID in data.layerIDs():
 		var block: Dictionary = data.layers[layerID]
-		if str(block["KIND"]) != WorldMapTileData.KIND_GRID:
+		var kind := str(block["KIND"])
+		if kind != WorldMapTileData.KIND_GRID and kind != WorldMapTileData.KIND_DETAIL:
 			continue
 		var tilesetID := str(block["TILESET"])
 		if tilesetID.is_empty() or _sheets.has(tilesetID):

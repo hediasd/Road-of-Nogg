@@ -263,6 +263,19 @@ static func eyedropper(data: WorldMapTileData, layerID: String, cell: Vector2i) 
 	return data.getCell(layerID, cell)
 
 
+## Paints one triangular detail slot (WMH-10) -- and DELIBERATELY WITHOUT `history`. Every other
+## function in this file is `(data, history, layerID, ...)` and coalesces into one undo entry;
+## this one is not, because wiring sub-triangle edits into undo is out of this item's own scope
+## (its Touches list does not include `WorldMapEditHistory.gd`, which WMH-9 already closed for
+## tile, height and object edits). Named here rather than silently left for someone to trip over:
+## a detail paint is a direct, immediate mutation, exactly `WorldMapTileData.setDetail`'s own
+## shape, until a later item extends the history file to carry a fourth kind.
+static func paintTriangle(
+	data: WorldMapTileData, layerID: String, cell: Vector2i, triangleIndex: int, tileID: String
+) -> bool:
+	return data.setDetail(layerID, cell, triangleIndex, tileID)
+
+
 static func _applyCells(
 	data: WorldMapTileData, history: WorldMapEditHistory, layerID: String,
 	cells: Array[Vector2i], tileID: String
