@@ -17,20 +17,87 @@ execution; once execution starts it is frozen and findings live in item commits.
   `plan/hex-battle-migration`. Follow AGENTS.md's branch audit and wave pushes.
   Reconcile this plan against the editor's then-current source **before the
   first item executes**, especially terrain, objects, bridges, and export.
-- **HXB-1 is a blocking product-decision gate.** The user has approved party
-  activation early, but has not specified the party queue, member order,
-  commander defeat, or effect clocks. Prepare concrete recommendations and
-  obtain the user's decisions; do not silently substitute individual initiative.
-- Preservation preference is still unanswered when this draft is written.
-  The proposed scope below is a standalone square reference. Confirm it during
-  preflight, before HXB-1 executes; HXB-1 records the result. If square must run
-  inside the active project, re-author preservation and compatibility scope
-  before execution starts; that is a materially
-  different dependency and regression budget, not a late adapter flag.
+- The user approved the initial battle rules and standalone square-reference
+  scope on 2026-09-07. HXB-1 is therefore a documentation specification rather
+  than a product-decision gate; it records the approved contract before runtime
+  work begins.
+- Square preservation means a frozen, independently runnable reference outside
+  the active product path. Hex battle becomes the sole maintained battle model.
+  Re-author the plan before execution if that preservation scope changes; an
+  in-project square/hex toggle has a materially different dependency and
+  regression budget.
 - Product choices that remain within the boundaries below are recorded in
   GAME_DESIGN.md by HXB-1, not by editing this frozen plan. A requested expansion
   beyond them requires a separately scoped follow-on cycle; no executing item
   may invent additional owned paths or promise unsupported rules.
+
+## Approved initial battle rules
+
+These decisions are the target contract for HXB-1 and all dependent items. They
+are approved product choices, not claims about the current implementation.
+Forsena supplies the main reference: Rune Knights lead troops, troops act as
+groups, battles use hexes, and commander defeat or retreat drives battle outcome.
+Runersia confirms the series-level platoon, terrain, and zone-of-control ideas.
+See the [Forsena manual](https://www.videogamemanual.com/ps1/Brigandine%20-%20The%20Legend%20of%20Forsena%20%28USA%29.pdf)
+and [Runersia game-system reference](https://brigandine.happinet-games.com/gamesystem/?lang=en).
+The exact rules below are Road of Nogg decisions where the references leave room
+for interpretation.
+
+- A round gives each surviving party one activation. At round start, order
+  parties by commander level descending, effective commander speed descending,
+  then deterministic party ID ascending. Rebuild that queue only at the next
+  round unless battle termination makes the remainder irrelevant.
+- A party has exactly one commander and a deterministic identity. Initial test
+  scenarios may designate existing monsters as commanders; this cycle does not
+  invent commander characters, names, classes, or artwork.
+- During a player party activation, the player chooses any living, eligible,
+  unspent member in any order. CPU parties choose dynamically through the same
+  canonical eligibility and command APIs. Every eligible member receives at
+  most one turn in that party activation.
+- Wait consumes that member's turn. End Party converts all remaining eligible
+  member turns into waits in deterministic member-ID order. Dead or withdrawn
+  members receive no turn and no timing tick.
+- A member may move then act or act then move where the chosen command permits
+  it. Casting after movement is allowed unless spell data says otherwise. Move
+  undo is available only before an action and before any irreversible reaction
+  or effect has occurred.
+- Status durations, cooldowns, and end-turn passives advance once when that
+  member acts, waits, is skipped, or is consumed by End Party. Mid-activation
+  effects use the same rule and cannot tick another member merely because they
+  share a party. Victory is checked after each fully resolved command/timing
+  step and before another member is selected.
+- Commander defeat forces the surviving party members to withdraw; it does not
+  kill them. Ordinary member defeat does not end the party. A team loses when
+  all of its commanders are defeated or withdrawn. If one fully resolved effect
+  removes every team's last commander simultaneously, the battle is a draw.
+- The initial board allows one unit per valid hex. Occupied cells block stopping
+  and passage. All initial traversable terrain costs one movement point; blocked
+  terrain and integer elevation/jump limits still use a weighted traversal
+  contract so later terrain rules do not require new pathfinding.
+- Zone of control ships in the first playable battle: entering a hex adjacent
+  to a living hostile unit ends the mover's movement. Enclosure bonuses, allied
+  pass-through, flying/aquatic traversal, and terrain defence/evasion remain
+  later systems.
+- Spell range uses hex distance. Circle becomes a hex disc; minimum range makes
+  it a ring. Cross becomes the center plus six axial rays. Line follows the
+  selected axial direction and excludes the caster. Self/passive radial effects
+  use a hex disc. Existing shapes receive an explicit supported mapping or a
+  loud unsupported result rather than silently retaining square geometry.
+- Line of sight is symmetric supercover. Intervening cells touched by the line
+  block it; source and target cells do not. A line exactly on an edge or vertex
+  includes every touched intervening cell, choosing conservative deterministic
+  blocking over angle-dependent gaps.
+- Presentation keeps the retro 2.5D direction and uses an oblique, flat-top hex
+  battlefield. Mouse remains the primary pointer, while keyboard/gamepad input
+  must reach all six neighbours under the camera transform. Party/member state
+  replaces the individual speed portrait rail.
+- Free member order means ordinary member speed no longer schedules turns.
+  Commander speed remains a party-order tiebreaker. A later balance cycle may
+  redefine ordinary-member speed for accuracy/evasion or another approved use;
+  this migration does not invent that balance rule.
+- Voluntary retreat, command radius penalties, enclosure bonuses, capture,
+  resurrection, turn limits, reinforcements, campaign consequences, and new
+  victory objectives remain optional follow-on systems.
 
 ## Outcome
 
@@ -70,22 +137,21 @@ execution; once execution starts it is frozen and findings live in item commits.
 | Geometry-aware spell presentation | Existing storm profiles assume Manhattan diamonds and one-unit cells | HXB-11 |
 | Tactical authoring and matching runtime export | Battle maps must be authored without making gameplay read the editor | HXB-10 |
 | Focused reproducible regression probes | This cross-layer migration needs mathematical, state, and replay evidence beyond a plausible picture | HXB-3 and each implementing item |
-| Runtime export resource inclusion | Existing export preset includes `data/*.json`; nested battle data and generated dependencies need explicit verification | HXB-14, HXB-15 |
+| Runtime export resource inclusion | Existing export preset includes `data/*.json`; nested battle data and generated dependencies need explicit verification | HXB-14, HXB-V |
 
-### Forsena fidelity candidates: decide, then scope separately
+### Forsena fidelity candidates for later scope
 
-These are potentially important to the intended game, but are not all required
-to prove this migration. HXB-1 records their disposition explicitly. Deferring
-one does not declare it unwanted.
+These are potentially important to the intended game, but are deferred by the
+approved initial contract. Deferring one does not declare it unwanted.
 
 - Command radius and its consequences outside the radius; army capacity and
   monster recruitment/upkeep. Party membership is required now; a particular
   radius penalty or capacity economy is not yet approved.
-- Zone of control, enclosure bonuses, allied pass-through, flying/aquatic
-  movement, and terrain defence/evasion. The movement contract must distinguish
-  traversal, stopping, costs, and movement termination so these can be added
-  without replacing pathfinding. Ship only the movement behaviour approved in
-  HXB-1; synthetic weighted fixtures are not production balance.
+- Enclosure bonuses, allied pass-through, flying/aquatic movement, and terrain
+  defence/evasion. Zone of control itself is required for the first playable.
+  The movement contract must distinguish traversal, stopping, costs, and
+  movement termination so later rules can be added without replacing
+  pathfinding; synthetic weighted fixtures are not production balance.
 - Voluntary retreat, castle capture, turn limits, reinforcement, and strategic
   consequences. Commander-loss and battle-end behaviour are required now;
   a campaign and every victory mode are not.
@@ -202,13 +268,13 @@ paths only. Follow AGENTS.md for pushes at wave boundaries.
 
 ## Items
 
-### HXB-1 — Establish the battle rules and preservation contract
+### HXB-1 — Record the battle rules and preservation contract
 
-**Model:** Opus 5 / GPT Sol
+**Model:** Sonnet 5 / GPT Terra
 
-**Model rationale:** The user selected party activation, but scheduling, defeat,
-timing, and preservation choices affect multiple ownership boundaries. This is
-product and architectural judgment, not a mechanical Forsena transcription.
+**Model rationale:** The user has approved every product decision. This item is
+now a bounded two-file documentation update with an exact contract and literal
+acceptance checklist; it contains no remaining design judgment.
 
 **Depends on:** cycle-opening conditions; no implementation dependency.
 
@@ -216,44 +282,37 @@ product and architectural judgment, not a mechanical Forsena transcription.
 - `docs/GAME_DESIGN.md`
 - `docs/ARCHITECTURE.md`
 
-**End state:** A user-approved initial hex ruleset is recorded as a target
-distinct from the currently shipped square behaviour. Standalone preservation
-is confirmed. Every decision in the checklist below has an explicit answer.
+**End state:** `docs/GAME_DESIGN.md` records every rule in "Approved initial
+battle rules" as the initial hex target, distinct from current square behaviour.
+`docs/ARCHITECTURE.md` records the party/simulation/presentation ownership and
+standalone square-reference boundary. Neither document presents planned work as
+already implemented.
 
-**Implementation:** **Blocking on user decisions.** Bring one coherent proposal
-and explain alternatives only where they change the product. Consult a Forsena
-manual/reference and cite specific external claims; distinguish sourced rules
-from recommendations. Resolve:
+**Implementation:** Transcribe the approved contract above into the two owned
+documents. Preserve its deterministic queue, free member selection, wait/end
+semantics, commander withdrawal/outcome, action/undo rules, per-member clocks,
+terrain/occupancy/ZOC, shape/LoS mappings, presentation target, speed consequence,
+and explicit deferrals. Cite the Forsena manual and Runersia system page for
+reference facts, while labeling Road of Nogg's exact mechanics as project rules.
+Use target/current wording so the documentation remains truthful before runtime
+items land.
 
-- party ordering and ties; when it is rebuilt; whether selection within the
-  active party is free or fixed; pass/skip/party-end semantics;
-- commander eligibility and party membership, with deterministic party IDs;
-- member defeat, commander defeat, forced withdrawal, and final battle outcome;
-- action order, casting after movement, counters/reactions, and undo eligibility;
-- cooldown/status/passive clocks (member activation, party activation, or round),
-  including skipped/withdrawn units, mid-activation effects, and victory timing;
-- LoS edge/vertex blocking policy, cross/line spell interpretation, passive
-  footprints, and an explicit disposition for every existing area shape;
-- initial terrain/elevation/occupancy rules and movement termination, plus the
-  fidelity candidates deliberately postponed;
-- battle camera/layout target; initial test armies may designate existing
-  monsters as commanders without inventing characters, names, or art.
-
-The tension is enough Forsena structure to avoid a second turn-system rewrite
-without coupling this cycle to a campaign or new content production. Record
-the decision rationale in the commit. Do not modify runtime code or apply
-unapproved penalties/stat changes. A late request for incompatible preservation
-scope requires an explicit cycle-scope decision; do not edit this frozen file
-or proceed under write claims that no longer cover the requested work.
+Do not revisit these choices, add alternate rules, modify runtime code, or apply
+new penalties/stat changes. Do not copy this cycle's item identifier into either
+long-lived document. A later request for incompatible preservation scope requires
+the queued cycle to be re-authored before execution begins.
 
 **Risk:** A vague "party turns" label lets UI, AI, replay, and status clocks
 implement different games.
 
 **Validation:**
-- Self-contained: checklist audit against GAME_DESIGN.md; each selected rule has
-  an observable example (including ties, skip, commander loss, and final actor).
-  No mandatory decision remains "TBD". Verify source citations and distinguish
-  target rules from implementation status. No deferred check.
+- Self-contained: run
+  `rg -n "party|commander|withdraw|zone of control|supercover|square reference|target|planned" docs/GAME_DESIGN.md docs/ARCHITECTURE.md`
+  and audit the matches against every bullet in "Approved initial battle rules".
+  Confirm examples cover an ordering tie, Wait, End Party, commander loss,
+  simultaneous last-commander defeat, and the final eligible member. Confirm both
+  citations resolve, no mandatory decision says `TBD`, and planned rules are not
+  described as implemented. No deferred check.
 
 ### HXB-2 — Preserve a runnable square reference
 
@@ -1131,7 +1190,7 @@ assignment, then proceeds under AGENTS.md's cost-signal rule.
 
 | Wave | Items and suggested models | Why this tier / why disjoint |
 |---|---|---|
-| 1 | HXB-1 — **Opus 5 / GPT Sol** | Product-decision gate; no runtime work before approved party semantics and preservation scope |
+| 1 | HXB-1 — **Sonnet 5 / GPT Terra** | Exact two-file transcription of the approved rules and ownership contract |
 | 2 | HXB-2 — **Opus 5 / GPT Sol**; HXB-3 — **Sonnet 5 / GPT Terra** | Dependency-safe archive judgment vs specified probe launcher; references/preservation script and hex launcher paths are disjoint |
 | 3 | HXB-4 — **Opus 5 / GPT Sol** | Shared math extraction and editor compatibility boundary |
 | 4 | HXB-5 — **Opus 5 / GPT Sol** | Map/scenario/state contracts must exist before consumers |
