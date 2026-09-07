@@ -451,7 +451,19 @@ static func fromDictionary(raw: Dictionary) -> WorldMapTileData:
 		var kind := str(block.get("KIND", KIND_GRID))
 		if kind == KIND_LIST:
 			data.addListLayer(layerID)
-			var items := (block.get("ITEMS", []) as Array).duplicate(true)
+			# Normalised through the layer that owns the schema, not copied verbatim: JSON has
+			# one number type, so every integer field of every item arrives as a float and a
+			# re-save would rewrite `[6, 4]` as `[6.0, 4.0]` -- breaking `saveTo`'s byte-identity
+			# invariant for the one layer kind whose contents the format cannot type on its own.
+			# Normalising is not validating: anything that is not a record is carried through
+			# untouched rather than dropped, so a file written by a later version keeps what
+			# this one does not recognise.
+			var items: Array = []
+			for item in (block.get("ITEMS", []) as Array):
+				items.append(
+					WorldMapObjectLayer.normaliseItem(item) if item is Dictionary
+					else item
+				)
 			data.layers[layerID]["ITEMS"] = items
 			# An absent `NEXT_ID` is DERIVED from the items rather than defaulted to zero, so a
 			# file written before the allocator existed -- or hand-edited without it -- can never

@@ -153,6 +153,31 @@ static func setFacing(data: WorldMapTileData, id: String, facing: int, layerID :
 	return true
 
 
+## Restores a record's field types after a round trip through JSON, which has one number type:
+## `CELL`, `FACING` and `FOOTPRINT` all come back as floats, so a document reopened and re-saved
+## with no edit writes `[6.0, 4.0]` where the authored file wrote `[6, 4]`. That breaks
+## `WorldMapTileData.saveTo`'s own documented invariant -- "a re-save with nothing changed
+## produces a byte-identical file" -- for exactly one layer kind: the list, alone among the four,
+## stores dictionaries the format has no schema for and therefore cannot restore on its own.
+##
+## The schema lives HERE, in the file that defines what an item means, and `WorldMapTileData`
+## asks for it by name rather than hardcoding these field types into the format. Unknown fields
+## are carried through untouched -- normalising is not the same as validating, and a record
+## written by a later version must not lose what this one does not recognise.
+static func normaliseItem(raw: Dictionary) -> Dictionary:
+	var record := raw.duplicate(true)
+	var cell := cellOf(record)
+	record[K_ID] = str(record.get(K_ID, ""))
+	record[K_KIND] = str(record.get(K_KIND, ""))
+	record[K_CELL] = [cell.x, cell.y]
+	record[K_FACING] = posmod(int(record.get(K_FACING, 0)), FACINGS)
+	record[K_FOOTPRINT] = maxi(0, int(record.get(K_FOOTPRINT, 0)))
+	record[K_HEIGHT] = float(record.get(K_HEIGHT, 0.0))
+	var anchor := str(record.get(K_ANCHOR, ANCHOR_TERRAIN))
+	record[K_ANCHOR] = anchor if anchor == ANCHOR_FIXED else ANCHOR_TERRAIN
+	return record
+
+
 static func cellOf(record: Dictionary) -> Vector2i:
 	var raw = record.get(K_CELL, [0, 0])
 	if raw is Array and (raw as Array).size() == 2:

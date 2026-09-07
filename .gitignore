@@ -34,3 +34,9 @@ Godot_v*.x86_64
 docs/battle_log.txt
 godot_out.txt
 godot_test*.txt
+
+# Exported gameplay scenes. Regenerated wholesale by WorldMapSceneExport and never committed:
+# ResourceSaver.save() assigns random resource ids per save, so an exported scene shows a
+# spurious diff every time it is written. The baked PNG next to it IS committed -- that one is
+# byte-deterministic and probe_bake_parity checks it. See docs/WORLDMAP_EDITOR.md section 13.
+/scenes/worldmap/generated/
