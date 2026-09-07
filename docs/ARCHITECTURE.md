@@ -77,6 +77,21 @@ The planned ownership split is:
   tied by source identity and geometry metadata. Runtime simulation loads only
   the headless product through its factory boundary; it never reads the editor.
 
+### Shared hex lattice
+
+`src/board/HexGrid.gd` is the headless authority for odd-column offset/axial
+conversion, the deterministic E/NE/NW/W/SW/SE neighbour order, hex distance,
+and row-major hex discs. Its public coordinates remain `Vector2i` offset cells
+so `Matrix` storage stays rectangular. Axial coordinates are an internal math
+space; callers do not repeat column-parity arithmetic.
+
+`WorldMapHexGrid` delegates those operations to `HexGrid` and retains only the
+presentation geometry needed by authoring: cell centres, world picking and cube
+rounding, lattice extents, and exact-square fitting. This wrapper preserves the
+editor's established API and dimensions while allowing battle simulation, AI,
+and future nonvisual tools to depend on the lattice without importing editor
+code.
+
 The current square battle is preserved as a frozen, independently runnable
 reference with its own source snapshot, resources, manifest, and launch steps.
 The active project does not load it and exposes no square/hex runtime toggle.

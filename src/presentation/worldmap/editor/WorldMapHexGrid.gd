@@ -1,10 +1,10 @@
 ## The hex lattice: where a cell sits in the world, which cells touch it, how far apart two are,
 ## which cell a world point falls in, and how a lattice is inscribed in a square map.
 ##
-## Every piece of hex arithmetic in the project lives here. That is the point of the file rather
-## than a tidiness preference: the one failure mode this geometry has is column-parity bugs --
-## arithmetic that is right on even columns and half a row out on odd ones -- and the only
-## reliable defence is that no caller anywhere does the parity step itself.
+## Shared lattice arithmetic lives in the headless `HexGrid`; this presentation wrapper retains
+## editor dimensions, world conversion, cube rounding, and its established public API. The one
+## failure mode this geometry has is column-parity bugs -- arithmetic that is right on even
+## columns and half a row out on odd ones -- so no caller performs the parity step itself.
 ##
 ## THREE COORDINATE SPACES, and knowing which is which is most of the work:
 ##
@@ -31,6 +31,8 @@
 class_name WorldMapHexGrid
 extends RefCounted
 
+const HexGridScript = preload("res://src/board/HexGrid.gd")
+
 ## World units. Width is vertex-to-vertex horizontally, height flat-to-flat vertically.
 const HEX_WIDTH := 2.0
 const HEX_HEIGHT := 2.0
@@ -45,20 +47,17 @@ const ODD_COL_DROP := 1.0
 ## Axial steps to the six neighbours, in the order they are returned. Flat-top, so there is no
 ## neighbour directly above or below in axial terms -- the six are E, NE, NW, W, SW, SE read on
 ## screen.
-const AXIAL_NEIGHBOURS := [
-	Vector2i(1, 0), Vector2i(1, -1), Vector2i(0, -1),
-	Vector2i(-1, 0), Vector2i(-1, 1), Vector2i(0, 1),
-]
+const AXIAL_NEIGHBOURS := HexGridScript.AXIAL_NEIGHBOURS
 
 
 ## Offset -> axial. `(col - (col & 1))` is always even, so the halving is exact and needs no
 ## rounding decision -- including for negative columns, where a naive `col / 2` would not be.
 static func offsetToAxial(cell: Vector2i) -> Vector2i:
-	return Vector2i(cell.x, cell.y - (cell.x - (cell.x & 1)) / 2)
+	return HexGridScript.offsetToAxial(cell)
 
 
 static func axialToOffset(axial: Vector2i) -> Vector2i:
-	return Vector2i(axial.x, axial.y + (axial.x - (axial.x & 1)) / 2)
+	return HexGridScript.axialToOffset(axial)
 
 
 ## The centre of a cell, in REGION-LOCAL world units, with the lattice's bounding box starting at
@@ -118,21 +117,13 @@ static func roundAxial(qf: float, rf: float) -> Vector2i:
 ## The six cells sharing an edge with this one. Hexes have no diagonal neighbours, which is why
 ## hex adjacency has none of the corner ambiguity a square grid has.
 static func neighbours(cell: Vector2i) -> Array[Vector2i]:
-	var axial := offsetToAxial(cell)
-	var out: Array[Vector2i] = []
-	for step in AXIAL_NEIGHBOURS:
-		out.append(axialToOffset(axial + (step as Vector2i)))
-	return out
+	return HexGridScript.neighbours(cell)
 
 
 ## Steps along the lattice between two cells. In cube space this is the largest of the three
 ## absolute component differences, which is the same as half their sum.
 static func distance(a: Vector2i, b: Vector2i) -> int:
-	var pa := offsetToAxial(a)
-	var pb := offsetToAxial(b)
-	var dq := pa.x - pb.x
-	var dr := pa.y - pb.y
-	return int((absi(dq) + absi(dq + dr) + absi(dr)) / 2)
+	return HexGridScript.distance(a, b)
 
 
 ## Whether a cell is inside a `cols x rows` lattice.
