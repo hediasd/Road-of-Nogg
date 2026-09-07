@@ -649,3 +649,108 @@ distance ≤ 1 and none beyond the ring. That specifically exercises hex adjacen
 square: a hex ring is a complete barrier because a hex has no diagonal neighbour to slip through,
 where the same claim for a square ring depends on which connectivity rule (4- or 8-) the flood
 fill uses.
+
+## 12. The document lifecycle
+
+New, Open, Save and Save As, all under a "Document" section of the editor's own panel, plus a
+dirty marker and a guard on discarding unsaved work — WMH-5.
+
+### The dirty flag has no setter
+
+Every earlier version of this tool had call sites set `_documentDirty = true` by hand after an
+edit. The risk that killed that approach: a call site that mutates the document and forgets to
+say so produces a document that silently loses work, and "remembered at every call site" is
+exactly the kind of invariant that erodes the first time someone adds a new one under time
+pressure.
+
+The fix is that nothing sets the flag at all. `WorldMapEditHistory`'s own class note already
+guarantees every mutation goes through it — "There is no path in this file that writes to a
+`WorldMapTileData` outside of `paintCell`" — so dirtiness is derived, not tracked:
+`_isDocumentDirty()` is `_history.undoCount() != _savedUndoDepth`, where `_savedUndoDepth` is
+set once, to whatever `undoCount()` reads, on a successful save. An edit that never calls
+`_afterCellsEdited` — including one made by poking `WorldMapBrushes` directly, which is exactly
+how `probe_document_loop.gd` proves this — still reports dirty, because there is no code path
+left that could have forgotten to.
+
+**The known gap**, named rather than hidden: undoing past the saved point and then making a
+*different* edit can land `undoCount()` back at the saved depth by coincidence, reporting clean
+on a document that is not actually the saved one. Depth alone cannot distinguish "back where I
+started" from "same distance, different place" without `WorldMapEditHistory` also carrying an
+identity per edit, which it does not do today and which this item did not add — see "What was
+not built" below.
+
+### The discard guard is logic first, dialog second
+
+`_guardDirty(action)` runs `action` immediately when the document is clean; when it is not, the
+action is stashed on `_pendingDiscardAction` and `WorldMapEditorHud.promptDiscard()` is asked to
+confirm. Every entry point that would replace or close the open document — New, Open, and the
+*inherited* region picker, which used to auto-save on switch rather than ask — goes through this
+one function, matching the dirty flag's own reasoning: a guard duplicated at each call site is a
+guard that is one new call site away from being forgotten.
+
+The dialog itself (`ConfirmationDialog`) is a thin trigger over that logic, not the thing that
+decides anything — `_confirmDiscard()` and `_cancelDiscard()` are what actually run or drop the
+pending action, and a probe drives those two directly rather than the dialog. This is not a
+workaround for testability; it is why the dialog is skipped outright under the headless dummy
+display server (`WorldMapEditorHud.promptDiscard()` checks `DisplayServer.get_name() ==
+"headless"` before calling `popup_centered()`, which errors there — a `Window` node never
+actually enters a display-backed tree under the dummy driver, confirmed by `is_inside_tree()`
+reporting `false` even after `add_child`). The state the dialog fronts is unaffected either way.
+
+### New offers only WMH-2's exact-fit lattices
+
+"New" does not take an arbitrary size. It lists `WorldMapHexGrid.exactSquareLattices()` — every
+lattice that fills its declared square with zero margin — so a brand new document never has to
+answer the margin question WMH-R1 already settled (void colour, not a terrain) before a single
+cell is painted. The smallest is 3×2; painting or picking a cell without checking
+`doc.size_tiles` first is the mistake `probe_document_loop.gd` itself made once, silently
+no-opping against `WorldMapTileData.setCell`'s own bounds check rather than erroring — worth
+naming since it is an easy trap for anything else built against this table later.
+
+A new document's ground layer is pre-assigned `temp2_hex32_ground` — the only hex tileset the
+catalog holds — and its fog/void colours are borrowed from `temp2`, that tileset's own
+`PALETTE_REGION`, so a fresh map starts looking like the place its art came from rather than an
+arbitrary grey. The overlay layer is left with no tileset, exactly like a freshly authored square
+document, so "honest layer rows" (Ground populated, Overlay dimmed and marked `(empty)`) hold for
+a brand new document without any change to how that row logic works.
+
+### Open reads the disk directly, not the region catalog
+
+`WorldMapRegionCatalog` is a static JSON catalog; a document `_newDocument` creates has no entry
+in it, and none is added by this item (exporting one is WMH-6's job — "Export a gameplay scene").
+So "Open" cannot be the inherited region picker alone: `_availableDocumentNames()` scans
+`WorldMapTileData.AUTHORED_DIR` directly, and the list this builds is what the HUD's Open row
+offers. The region picker keeps working exactly as before for the one region the catalog *does*
+know about (`temp2_authored`) — the two ways of opening a document converge on the same
+`_bakeAndDisplayDocument()` tail, so nothing about baking, layer rows or tile choices needed to
+know which path a document arrived by.
+
+### What was not built, on purpose
+
+**Hex baking.** `WorldMapBaker` sizes its canvas from `size_tiles` directly and blits each cell
+on a plain square grid — both are the square assumption, and nothing in this cycle has taught it
+`WorldMapHexGrid`'s column/row advance or the odd-column drop. A new hex document's ground
+texture is therefore wrong-sized and wrong-placed, visibly so (a small dark, garbled patch where
+the ground should read as hex-shaped terrain) — confirmed rather than assumed, in a real render
+taken for this item's own deferred check. The *document* is unaffected: `WorldMapTileData`,
+`WorldMapHexGrid` and `WorldMapBrushes` have no such gap, and `probe_document_loop.gd` proves the
+data survives new/edit/save/reopen exactly regardless. The status line says so plainly on every
+new hex document ("Ground render is provisional...") rather than shipping a silently wrong
+render, and teaching the baker hex geometry — canvas sizing from `worldExtent()`, then correct
+interlocking blit placement per cell — is left as its own item's worth of work rather than folded
+in here as a side effect.
+
+**Hex tool routing.** The controller's Rectangle and Stamp tools still call the square-only
+`WorldMapBrushes.rectangle`/`stamp` regardless of the open document's layout — WMH-4 built the
+hex equivalents (`disc`, `stampHex`) but nothing wires a "disc/RANGE" tool id or a stamp-pattern
+UI into `TOOLS`/`_beginToolGesture`. Paint, Fill, Eyedropper, Replace and Scatter all already work
+correctly on a hex document (each is either coordinate-agnostic or already reads `data.layout`
+itself); Line was fixed in this item (`_endToolGesture`'s cell list now passes the same `hex`
+flag `WorldMapBrushes.line` already used internally, so dirty-rect invalidation names the cells
+that were actually painted). Rectangle and Stamp are the two tools left pointing at a
+layout-blind path — not silently broken (a square-shaped patch of offset cells is still a
+well-formed edit, just not what the RANGE/stamp UI a hex author would expect), but worth wiring
+before this reads as finished hex tool coverage rather than hex data-and-picking coverage.
+
+Both gaps are named here rather than folded into this item's own scope, and rather than left
+undiscovered for someone to trip over later.

@@ -98,6 +98,15 @@ const TOOLS := [
 	{"id": TOOL_REPLACE, "label": "Replace kind"},
 ]
 
+## What a brand new hex document is created with. There is exactly one hex tileset in the
+## catalog right now (WMH-2's 32 px extraction), so "New" has nothing to choose between yet --
+## when a second one exists this becomes a picker, not a rewrite of `_newDocument`.
+const DEFAULT_HEX_TILESET := "temp2_hex32_ground"
+## The region whose palette and place colours a new hex document borrows, matching the tileset
+## above's own `PALETTE_REGION` -- a new map starts looking like the place its art came from
+## rather than an arbitrary grey.
+const DEFAULT_HEX_PALETTE_REGION := "temp2"
+
 var _editorCamera: WorldMapEditorCamera
 var _editorHud: WorldMapEditorHud
 var _layerLocked: Dictionary = {}
@@ -130,7 +139,15 @@ var _cursorCell: Variant = null
 var _gestureStart: Variant = null
 var _strokeOpen := false
 var _strokeTouched: Array[Vector2i] = []
-var _documentDirty := false
+## `_history.undoCount()` AT THE LAST SAVE, not a bool any call site sets. See `_isDocumentDirty`
+## -- WMH-5's own risk section calls out a dirty flag missing a mutation path as the danger, and
+## the fix is to have nothing set it at all: every mutation already goes through `_history`
+## (that file's own class note), so deriving dirtiness from its depth cannot miss a path a manual
+## flag could.
+var _savedUndoDepth := 0
+## The action a New/Open/region-switch is waiting on while the open document is dirty, or an
+## invalid `Callable` when nothing is pending. See `_guardDirty`.
+var _pendingDiscardAction: Callable = Callable()
 var _stampPattern: Array = []
 var _scatterSet: Array[String] = []
 var _pointerPosition := Vector2.ZERO
@@ -154,6 +171,7 @@ func _process(delta: float) -> void:
 	_editorHud.setOffContract(_editorCamera.offContractReason())
 	_cursorCell = _pickCell(_pointerPosition)
 	_updateGrid()
+	_editorHud.setDirty(_isDocumentDirty())
 
 
 ## `Display` does not fill the window here -- the fixed left and right panels are laid out
@@ -226,6 +244,11 @@ func _buildEditorUi() -> void:
 	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
 	_editorHud.setActiveTool(0)
 	_editorHud.saveButton.pressed.connect(_saveDocument)
+	_editorHud.buildDocumentControls(
+		_newLatticeChoices(), _requestNewDocument, _requestOpenDocument, _requestSaveAsDocument,
+		_confirmDiscard, _cancelDiscard
+	)
+	_editorHud.setOpenChoices(_availableDocumentNames())
 
 	# A PanelContainer whose width comes from its content's minimum size (see the .tscn: neither
 	# side panel is given a fixed pixel width) does not settle in one deferred call -- WorldMap-
@@ -241,9 +264,23 @@ func _buildEditorUi() -> void:
 	call_deferred("_layoutDisplayBetweenPanels")
 
 
+## Guarded by `_guardDirty` rather than the auto-save this used to do: silently saving on the
+## user's behalf is its own way to lose work, if what they actually wanted was to abandon a bad
+## edit rather than commit it. `previousIndex` is restored on the dropdown when the switch is
+## deferred behind a confirmation -- the `OptionButton` has already moved to `index` by the time
+## this signal fires (Godot updates a control's own state before emitting), and it must not keep
+## showing a region the document has not actually switched to yet.
 func _onRegionSelected(index: int) -> void:
-	if _documentDirty:
-		_saveDocument()
+	var ids := RegionCatalog.ids()
+	if index < 0 or index >= ids.size():
+		return
+	var previousIndex := ids.find(_regionID)
+	_guardDirty(_performRegionSwitch.bind(index))
+	if _pendingDiscardAction.is_valid() and previousIndex >= 0:
+		_hud.regionOption.selected = previousIndex
+
+
+func _performRegionSwitch(index: int) -> void:
 	super._onRegionSelected(index)
 	_openDocumentForRegion(_regionID)
 	_editorCamera.rememberRegion(_ground.regionRect())
@@ -471,7 +508,12 @@ func _endToolGesture(screenPosition: Vector2) -> void:
 			if Brushes.rectangle(_document, _history, _activeLayer, start, last, tileID):
 				_afterCellsEdited(_activeLayer, cells)
 		TOOL_LINE:
-			var cells := Brushes.lineCells(start, last)
+			# `Brushes.line()` already reads `_document.layout` and does the cube-lerp itself on
+			# a hex map; this call is only for the cell LIST `_afterCellsEdited` invalidates, and
+			# it must pass the same flag or it would name the square Bresenham path's cells while
+			# the hex path's own cells are what actually got painted.
+			var hex := _document.layout == MapDataScript.LAYOUT_HEX_FLAT
+			var cells := Brushes.lineCells(start, last, hex)
 			if Brushes.line(_document, _history, _activeLayer, start, last, tileID):
 				_afterCellsEdited(_activeLayer, cells)
 		TOOL_SCATTER:
@@ -499,7 +541,6 @@ func _afterCellsEdited(layerID: String, cells: Array[Vector2i]) -> void:
 	for cell in cells:
 		_baker.markCellsDirty(_document, layerID, Rect2i(cell, Vector2i.ONE))
 	_baker.flush(_document)
-	_documentDirty = true
 	_editorHud.setStatus("Changed %d %s cell%s. Ctrl+S saves." % [
 		cells.size(), layerID, "" if cells.size() == 1 else "s",
 	])
@@ -510,7 +551,6 @@ func _afterRectEdited(layerID: String, rect: Rect2i) -> void:
 		return
 	_baker.markCellsDirty(_document, layerID, rect)
 	_baker.flush(_document)
-	_documentDirty = true
 	_editorHud.setStatus("Changed %s cells. Ctrl+S saves." % layerID)
 
 
@@ -534,6 +574,15 @@ func _pickCell(screenPosition: Vector2) -> Variant:
 		return null
 	var viewportPoint := (screenPosition - drawnOrigin) / scale
 	var curvature := float(_framing.get(WorldMapGroundUniforms.K_CURVATURE, 0.0))
+	if _document.layout == MapDataScript.LAYOUT_HEX_FLAT:
+		# No cel grade on a hex map -- `pickCel` is square-only (hexagons do not subdivide into
+		# smaller hexagons; sub-tile detail is the six triangles WMH-10 fans a hex into, and
+		# `pickTile` does not resolve those). `_document.size_tiles` bounds the pick to cells the
+		# LATTICE actually holds, not the region -- see Gate 1's Finding 1: a margin cell used to
+		# come back as an ordinary answer that a paint then silently refused.
+		return SurfacePick.pickTile(
+			_editorCamera, viewportPoint, curvature, _ground.regionRect(), true, _document.size_tiles
+		)
 	return (
 		SurfacePick.pickCel(_editorCamera, viewportPoint, curvature, _ground.regionRect())
 		if _activeLayerIsCelGrade()
@@ -546,7 +595,11 @@ func _updateGrid() -> void:
 		return
 	var material := _ground.material_override as ShaderMaterial
 	var visible := _document != null and _activeTool != TOOL_NAVIGATE and _layerEditable(_activeLayer)
-	SurfacePick.applyGrid(material, _ground.regionRect(), _cursorCell, _activeLayerIsCelGrade(), visible)
+	var hex := _document != null and _document.layout == MapDataScript.LAYOUT_HEX_FLAT
+	var lattice := _document.size_tiles if hex else Vector2i.ZERO
+	SurfacePick.applyGrid(
+		material, _ground.regionRect(), _cursorCell, _activeLayerIsCelGrade(), visible, hex, lattice
+	)
 	if visible and _tileGrid != null:
 		_tileGrid.visible = false
 
@@ -566,26 +619,95 @@ func _layerEditable(layerID: String) -> bool:
 
 func _openDocumentForRegion(regionID: String) -> void:
 	_history.clear()
+	_savedUndoDepth = 0
 	_document = Regions.tileDataFor(regionID)
 	_documentPath = Regions.tileDataPathFor(regionID) if _document != null else ""
-	_documentDirty = false
 	_baker = Baker.new()
 	_cursorCell = null
 	_gestureStart = null
 	_strokeOpen = false
-	for layer in LAYERS:
-		var id := str((layer as Dictionary)["id"])
-		_editorHud.setLayerEnabled(id, _layerEditable(id))
 	if _document == null:
+		for layer in LAYERS:
+			_editorHud.setLayerEnabled(str((layer as Dictionary)["id"]), false)
 		_editorHud.setTileChoices([])
 		_editorHud.setStatus("%s is a painted preview; choose an authored region to edit." % regionID)
 		_updateGrid()
 		return
+	_bakeAndDisplayDocument("Editing %s (%s)." % [regionID, _documentPath])
+
+
+## Creates a fresh hex document at `lattice` cells -- an exact-fit size from WMH-2's own table,
+## which is all the HUD offers, so a new map never has the margin question WMH-R1 already
+## settled (void colour, not a terrain) before a single cell is painted -- named `name`, and
+## opens it exactly as `_openDocumentForRegion` would open one from disk.
+##
+## THE BAKED TEXTURE IS KNOWN WRONG FOR HEX, AND THAT IS DELIBERATELY NOT FIXED HERE.
+## `WorldMapBaker` sizes its canvas from `size_tiles` directly and blits each cell on a plain
+## square grid -- both are the SQUARE assumption, and nothing in this cycle has taught the baker
+## `WorldMapHexGrid`'s column/row advance or the odd-column drop. The DOCUMENT this creates is
+## fully correct -- `WorldMapTileData`, `WorldMapHexGrid` and `WorldMapBrushes` have no such gap,
+## and `probe_document_loop.gd` proves the data survives new/edit/save/reopen exactly. Teaching
+## the baker hex geometry is its own item's worth of work (canvas sizing AND interlocking blit
+## placement), not something to fold into "the document lifecycle" as a side effect; the status
+## line says so plainly rather than shipping a silently wrong render.
+func _newDocument(lattice: Vector2i, name: String) -> void:
+	_history.clear()
+	_savedUndoDepth = 0
+	var doc := MapDataScript.create(name, lattice, MapDataScript.LAYOUT_HEX_FLAT)
+	doc.layers["ground"]["TILESET"] = DEFAULT_HEX_TILESET
+	doc.palette_region = DEFAULT_HEX_PALETTE_REGION
+	doc.fog_color = Regions.fogColorFor(DEFAULT_HEX_PALETTE_REGION)
+	doc.void_color = Regions.voidColorFor(DEFAULT_HEX_PALETTE_REGION)
+	_document = doc
+	_documentPath = MapDataScript.pathFor(name)
+	_baker = Baker.new()
+	_cursorCell = null
+	_gestureStart = null
+	_strokeOpen = false
+	_bakeAndDisplayDocument(
+		(
+			"New hex map '%s' (%s cells). Ground render is provisional: WorldMapBaker does not "
+			+ "support hex layout yet, only the data does."
+		) % [name, lattice]
+	)
+
+
+## Opens a document BY NAME rather than by region id -- any file under `WorldMapTileData.
+## AUTHORED_DIR`, whether or not `WorldMapRegionCatalog` names it. A document `_newDocument`
+## creates has no catalog entry (exporting one into the catalog is WMH-6's job, not this one's),
+## so "Open" cannot be the inherited region picker alone; this is the other half of the loop
+## `_openDocumentForRegion` already covers for documents the catalog does know about.
+func _openDocumentByName(name: String) -> void:
+	_history.clear()
+	_savedUndoDepth = 0
+	_document = MapDataScript.loadFrom(MapDataScript.pathFor(name))
+	_documentPath = MapDataScript.pathFor(name)
+	_baker = Baker.new()
+	_cursorCell = null
+	_gestureStart = null
+	_strokeOpen = false
+	if _document == null:
+		_editorHud.setStatus("Could not open '%s'." % name)
+		return
+	_bakeAndDisplayDocument("Editing %s (%s)." % [name, _documentPath])
+
+
+## The tail `_openDocumentForRegion`, `_newDocument` and `_openDocumentByName` all share once
+## `_document` is set and cleared for a fresh start: bake, configure the ground, settle on an
+## editable layer, refresh the tile list and the Open list. `statusMessage` is the one thing
+## that differs between the three callers, so it is the only parameter.
+func _bakeAndDisplayDocument(statusMessage: String) -> void:
+	for layer in LAYERS:
+		var id := str((layer as Dictionary)["id"])
+		_editorHud.setLayerEnabled(id, _layerEditable(id))
 	var texture := _baker.bake(_document)
 	if texture == null:
-		_editorHud.setStatus("Could not bake authored region %s." % regionID)
+		_editorHud.setStatus("Could not bake '%s'." % _document.region_name)
 		return
-	_regionTiles = Vector2(_document.size_tiles)
+	# `worldExtent()`, not `Vector2(size_tiles)` -- on a hex document `size_tiles` is columns and
+	# rows, not world units, and only `worldExtent()` (already built in WMH-2) converts through
+	# `WorldMapHexGrid.latticeExtent`. A no-op change for a square document, where the two agree.
+	_regionTiles = _document.worldExtent()
 	_regionMapPx = Baker.pixelSizeOf(_document)
 	_ground.configure(
 		_regionTiles, texture, _framing, _document.fog_color, _document.void_color
@@ -599,7 +721,8 @@ func _openDocumentForRegion(regionID: String) -> void:
 				break
 	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
 	_refreshTileChoices()
-	_editorHud.setStatus("Editing %s (%s)." % [regionID, _documentPath])
+	_editorHud.setOpenChoices(_availableDocumentNames())
+	_editorHud.setStatus(statusMessage)
 
 
 func _saveDocument() -> void:
@@ -609,11 +732,109 @@ func _saveDocument() -> void:
 		return
 	var sourceSaved := _document.saveTo(_documentPath)
 	var bakeSaved := _baker.saveTo(Baker.generatedPathFor(_document.region_name))
-	_documentDirty = not (sourceSaved and bakeSaved)
+	if sourceSaved and bakeSaved:
+		_savedUndoDepth = _history.undoCount()
 	_editorHud.setStatus(
-		"Saved source and generated texture." if not _documentDirty
+		"Saved source and generated texture." if not _isDocumentDirty()
 		else "Save failed; source and generated texture were not both written."
 	)
+	_editorHud.setOpenChoices(_availableDocumentNames())
+
+
+## Writes the open document under a different name and continues editing it under that name --
+## the ordinary meaning of Save As, not a copy left behind under the old one.
+func _saveDocumentAs(name: String) -> void:
+	if _document == null or name.is_empty():
+		return
+	_document.region_name = name
+	_documentPath = MapDataScript.pathFor(name)
+	_saveDocument()
+
+
+## Every `.json` under `WorldMapTileData.AUTHORED_DIR`, sorted -- what "Open" offers. Scanned
+## from disk rather than read off `WorldMapRegionCatalog`, because a document `_newDocument`
+## creates has no catalog entry until something exports it into one.
+func _availableDocumentNames() -> Array[String]:
+	var result: Array[String] = []
+	var dir := DirAccess.open(MapDataScript.AUTHORED_DIR)
+	if dir == null:
+		return result
+	dir.list_dir_begin()
+	var entry := dir.get_next()
+	while entry != "":
+		if not dir.current_is_dir() and entry.get_extension() == "json":
+			result.append(entry.get_basename())
+		entry = dir.get_next()
+	dir.list_dir_end()
+	result.sort()
+	return result
+
+
+## WMH-2's exact-fit table, unmodified -- see the HUD's own note on why "New" offers only these
+## and not an arbitrary size.
+func _newLatticeChoices() -> Array[Vector2i]:
+	return WorldMapHexGrid.exactSquareLattices()
+
+
+## Whether the open document has any edit since the last successful save, derived from
+## `_history`'s own depth rather than a bool any call site sets -- see `_savedUndoDepth`'s own
+## note on why that is the fix for the risk this item names.
+func _isDocumentDirty() -> bool:
+	return _document != null and _history.undoCount() != _savedUndoDepth
+
+
+## Runs `action` immediately when nothing would be lost; otherwise defers it behind the HUD's
+## discard-confirmation dialog, and `action` runs only if the user actually confirms. Every entry
+## point that would replace or close the open document -- New, Open, and the inherited region
+## picker -- goes through this, so "ask before discarding" cannot be forgotten at a future call
+## site the way a manually-set dirty bool could be.
+func _guardDirty(action: Callable) -> void:
+	if not _isDocumentDirty():
+		action.call()
+		return
+	_pendingDiscardAction = action
+	_editorHud.promptDiscard()
+
+
+func _confirmDiscard() -> void:
+	var action := _pendingDiscardAction
+	_pendingDiscardAction = Callable()
+	if action.is_valid():
+		action.call()
+
+
+func _cancelDiscard() -> void:
+	_pendingDiscardAction = Callable()
+
+
+func _requestNewDocument() -> void:
+	var lattice := _editorHud.selectedNewLattice()
+	var name := _editorHud.documentNameField()
+	if lattice == Vector2i.ZERO:
+		_editorHud.setStatus("Choose a lattice size first.")
+		return
+	if name.is_empty():
+		_editorHud.setStatus("Name the new map first.")
+		return
+	_guardDirty(_newDocument.bind(lattice, name))
+
+
+func _requestOpenDocument() -> void:
+	var name := _editorHud.selectedOpenName()
+	if name.is_empty():
+		_editorHud.setStatus("Nothing to open yet.")
+		return
+	_guardDirty(_openDocumentByName.bind(name))
+
+
+## No guard: Save As never discards anything the open document held, it only chooses where the
+## save goes.
+func _requestSaveAsDocument() -> void:
+	var name := _editorHud.documentNameField()
+	if name.is_empty():
+		_editorHud.setStatus("Name the document first.")
+		return
+	_saveDocumentAs(name)
 
 
 func _refreshTileChoices() -> void:
@@ -721,3 +942,65 @@ func setActiveToolID(id: String) -> void:
 
 func setLayerLocked(id: String, locked: bool) -> void:
 	_layerLocked[id] = locked
+
+
+## WMH-5's own accessors, same reasoning as the block above: `probe_document_loop.gd` drives the
+## document lifecycle through these names rather than through `_newDocument` etc. directly, and
+## through `confirmPendingDiscard`/`cancelPendingDiscard` rather than the HUD's actual dialog --
+## see `WorldMapEditorHud.promptDiscard`'s own note on why that dialog cannot be driven headless,
+## and why that is not a gap in what gets tested: the STATE the dialog fronts is exactly what
+## these expose.
+func openDocument() -> WorldMapTileData:
+	return _document
+
+
+func documentPath() -> String:
+	return _documentPath
+
+
+func isDocumentDirty() -> bool:
+	return _isDocumentDirty()
+
+
+func hasPendingDiscard() -> bool:
+	return _pendingDiscardAction.is_valid()
+
+
+func confirmPendingDiscard() -> void:
+	_confirmDiscard()
+
+
+func cancelPendingDiscard() -> void:
+	_cancelDiscard()
+
+
+func requestNewDocument(lattice: Vector2i, name: String) -> void:
+	_editorHud.newLatticeOption.selected = _newLatticeChoices().find(lattice)
+	_editorHud.nameEdit.text = name
+	_requestNewDocument()
+
+
+func requestOpenDocument(name: String) -> void:
+	var names := _availableDocumentNames()
+	var index := names.find(name)
+	if index < 0:
+		return
+	_editorHud.openOption.selected = index
+	_requestOpenDocument()
+
+
+func requestSaveAsDocument(name: String) -> void:
+	_editorHud.nameEdit.text = name
+	_requestSaveAsDocument()
+
+
+func availableDocumentNames() -> Array[String]:
+	return _availableDocumentNames()
+
+
+func saveDocument() -> void:
+	_saveDocument()
+
+
+func layerIsEditable(id: String) -> bool:
+	return _layerEditable(id)

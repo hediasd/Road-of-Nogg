@@ -25,12 +25,28 @@ var seedSpin: SpinBox
 var status: Label
 var saveButton: Button
 
+## Document lifecycle chrome (WMH-5). `nameEdit` is shared between New and Save As: typing a
+## name and hitting New starts a fresh document under that name, typing a (possibly different)
+## name and hitting Save As writes the currently open one under it -- one field for "what name
+## am I working under" rather than two that could disagree.
+var newLatticeOption: OptionButton
+var nameEdit: LineEdit
+var newButton: Button
+var openOption: OptionButton
+var openButton: Button
+var saveAsButton: Button
+var dirtyMarker: Label
+
 var _layerButtons: Array[Button] = []
 var _layerVisibilityToggles: Array[CheckButton] = []
 var _layerLockToggles: Array[CheckButton] = []
 var _layerIDs: Array[String] = []
 var _layerLabels: Array[String] = []
 var _tileIDs: Array[String] = []
+var _newLattices: Array[Vector2i] = []
+var _confirmDialog: ConfirmationDialog
+var _onDiscardConfirmed: Callable
+var _onDiscardCancelled: Callable
 
 
 func _init(hudRoot: CanvasLayer) -> void:
@@ -190,6 +206,130 @@ func _buildBrushControls() -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.text = "Choose an authored region to edit."
 	column.add_child(status)
+
+
+## Builds the document lifecycle row: New (a lattice-size choice plus the shared name field),
+## Open (a list of documents already on disk) and Save As. `onDiscardConfirmed`/`onDiscardCancelled`
+## back the confirmation dialog New and Open are routed through whenever the open document has
+## unsaved changes -- see the controller's own `_guardDirty` for why the dialog is a thin trigger
+## over pure logic rather than the thing that decides anything itself.
+func buildDocumentControls(
+	lattices: Array[Vector2i], onNew: Callable, onOpen: Callable, onSaveAs: Callable,
+	onDiscardConfirmed: Callable, onDiscardCancelled: Callable
+) -> void:
+	_newLattices = lattices
+	column.add_child(HSeparator.new())
+	column.add_child(_label("Document"))
+
+	dirtyMarker = Label.new()
+	dirtyMarker.add_theme_color_override("font_color", Color(1.0, 0.75, 0.3))
+	dirtyMarker.text = "● Unsaved changes"
+	dirtyMarker.visible = false
+	column.add_child(dirtyMarker)
+
+	var nameRow := HBoxContainer.new()
+	column.add_child(nameRow)
+	nameRow.add_child(_label("Name"))
+	nameEdit = LineEdit.new()
+	nameEdit.text = "untitled"
+	nameEdit.placeholder_text = "map name"
+	nameEdit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nameEdit.focus_mode = Control.FOCUS_CLICK
+	nameRow.add_child(nameEdit)
+
+	var newRow := HBoxContainer.new()
+	column.add_child(newRow)
+	newRow.add_child(_label("New (hex)"))
+	newLatticeOption = OptionButton.new()
+	newLatticeOption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	newLatticeOption.focus_mode = Control.FOCUS_NONE
+	# EXACT-FIT ONLY (WMH-2's `exactSquareLattices`), not an arbitrary size field: every choice
+	# here fills its declared square with no margin, so a brand new document never has to answer
+	# the margin question WMH-R1 already settled (void colour, not a terrain) before it has even
+	# painted a single cell.
+	for lattice in lattices:
+		var extent: Vector2 = WorldMapHexGrid.latticeExtent(lattice.x, lattice.y)
+		newLatticeOption.add_item("%d x %d  (%.0f units)" % [lattice.x, lattice.y, extent.x])
+	newRow.add_child(newLatticeOption)
+	newButton = Button.new()
+	newButton.text = "New"
+	newButton.focus_mode = Control.FOCUS_NONE
+	newButton.pressed.connect(onNew)
+	newRow.add_child(newButton)
+
+	var openRow := HBoxContainer.new()
+	column.add_child(openRow)
+	openRow.add_child(_label("Open"))
+	openOption = OptionButton.new()
+	openOption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	openOption.focus_mode = Control.FOCUS_NONE
+	openRow.add_child(openOption)
+	openButton = Button.new()
+	openButton.text = "Open"
+	openButton.focus_mode = Control.FOCUS_NONE
+	openButton.pressed.connect(onOpen)
+	openRow.add_child(openButton)
+
+	saveAsButton = Button.new()
+	saveAsButton.text = "Save as (name above)"
+	saveAsButton.focus_mode = Control.FOCUS_NONE
+	saveAsButton.pressed.connect(onSaveAs)
+	column.add_child(saveAsButton)
+
+	_onDiscardConfirmed = onDiscardConfirmed
+	_onDiscardCancelled = onDiscardCancelled
+	_confirmDialog = ConfirmationDialog.new()
+	_confirmDialog.title = "Discard unsaved changes?"
+	_confirmDialog.dialog_text = (
+		"This document has unsaved changes. Discarding them cannot be undone."
+	)
+	_confirmDialog.get_ok_button().text = "Discard changes"
+	_confirmDialog.confirmed.connect(func() -> void: _onDiscardConfirmed.call())
+	_confirmDialog.canceled.connect(func() -> void: _onDiscardCancelled.call())
+	root.add_child(_confirmDialog)
+
+
+func selectedNewLattice() -> Vector2i:
+	if newLatticeOption == null or newLatticeOption.selected < 0:
+		return Vector2i.ZERO
+	var index := newLatticeOption.selected
+	return _newLattices[index] if index >= 0 and index < _newLattices.size() else Vector2i.ZERO
+
+
+func documentNameField() -> String:
+	return nameEdit.text.strip_edges() if nameEdit != null else ""
+
+
+## `names` is every document already on disk, from the controller's own directory scan --
+## this file has no opinion on where they live, only how to list them.
+func setOpenChoices(names: Array[String]) -> void:
+	openOption.clear()
+	for name in names:
+		openOption.add_item(name)
+	openOption.disabled = names.is_empty()
+
+
+func selectedOpenName() -> String:
+	if openOption == null or openOption.selected < 0 or openOption.item_count == 0:
+		return ""
+	return openOption.get_item_text(openOption.selected)
+
+
+func setDirty(dirty: bool) -> void:
+	if dirtyMarker != null:
+		dirtyMarker.visible = dirty
+
+
+## Shows the discard-confirmation dialog. Skipped under the headless dummy display server --
+## `popup_centered()` errors there because a `Window` never actually enters a display-backed
+## tree under it (verified: `is_inside_tree()` reports false even after `add_child`), and a
+## probe exercising the GUARD's pending/blocked state has no window to click anyway. The state
+## this dialog fronts (`_pendingDiscardAction` on the controller) is unaffected either way --
+## the probe drives it directly through `confirmPendingDiscard()` / `cancelPendingDiscard()`.
+func promptDiscard() -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	_confirmDialog.popup_centered()
 
 
 func setTileChoices(ids: Array[String], selectedID := "") -> void:
