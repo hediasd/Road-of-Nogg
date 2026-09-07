@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://brtyoksitxgnt"
-path="res://.godot/imported/temp2_hex_ground.png-84c280237453168d3353c8030f46db6e.ctex"
+uid="uid://klelu8i40y8"
+path="res://.godot/imported/temp2_hex32.png-780535c1d1abde6172d9cecfd2456306.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/worldmap/tilesets/temp2_hex_ground.png"
-dest_files=["res://.godot/imported/temp2_hex_ground.png-84c280237453168d3353c8030f46db6e.ctex"]
+source_file="res://assets/worldmap/regions/generated/temp2_hex32.png"
+dest_files=["res://.godot/imported/temp2_hex32.png-780535c1d1abde6172d9cecfd2456306.ctex"]
 
 [params]
 

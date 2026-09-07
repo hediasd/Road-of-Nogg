@@ -52,5 +52,16 @@
 		"GRID": 16,
 		"FOG_COLOR": "bae8e2",
 		"VOID_COLOR": "37aeae"
+	},
+	{
+		"NAME": "temp2_hex32",
+		"DESCRIPTION": "Flat-top hex prototype region, 32 px hexes reassembled from temp2_hex32_ground. 20 hexes across x 10 rows. A hex is 32 px = 2 world units wide under the current 16 px world unit, so columns advance 1.5 units. Ground only -- the nine structures are painted out and return later as placed objects. Prototype for judging hex framing; GRID 1 because the hex lattice does not land on a square block size.",
+		"KIND": "painted",
+		"TEXTURE": "res://assets/worldmap/regions/generated/temp2_hex32.png",
+		"TILES_WIDE": 488,
+		"TILES_TALL": 336,
+		"GRID": 1,
+		"FOG_COLOR": "bae8e2",
+		"VOID_COLOR": "37aeae"
 	}
 ]

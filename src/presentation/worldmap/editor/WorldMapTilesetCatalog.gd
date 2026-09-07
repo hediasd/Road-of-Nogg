@@ -108,6 +108,17 @@ static func reloadCatalog(path: String = JSON_PATH) -> bool:
 			push_warning("WorldMapTilesetCatalog: invalid entry '%s'" % nameKey)
 			return false
 		reference["GRID_KIND"] = grid
+		# FRAME SIZE IS NOT THE GRID KIND, and conflating them was a real bug. `GRID_KIND` says
+		# which of the tile law's two grids a sheet's contents belong to; `FRAME_PX` says how big
+		# each cell in the SHEET is. For square art those coincide -- a tile-grade sheet has 16 px
+		# frames -- so the distinction stayed invisible until a 32 px hex sheet arrived, was cut
+		# on the 16 px grid its kind implied, and imported 300 quarter-hexes instead of 75 hexes.
+		# Defaulted from the grid kind, so every existing square tileset is unaffected.
+		var frame := int(reference.get("FRAME_PX", gridPixels(grid)))
+		if frame <= 0:
+			push_warning("WorldMapTilesetCatalog: entry '%s' has FRAME_PX %d" % [nameKey, frame])
+			return false
+		reference["FRAME_PX"] = frame
 		reference["TILES"] = _normaliseTiles(reference.get("TILES", []))
 		# Held rather than recomputed so a removed tile's id can never be reissued: the counter
 		# only rises, and it rises past whatever the ledger already holds even if the file was
@@ -484,7 +495,7 @@ static func importSheet(tilesetID: String, palette := PackedColorArray()) -> Dic
 	if image == null:
 		return _importFailure("could not read sheet at %s" % sheetPath)
 
-	var gridPx := gridPixels(str(reference["GRID_KIND"]))
+	var gridPx := int(reference["FRAME_PX"])
 	var cut := cutSheet(image, gridPx)
 	var reconciled := reconcile(
 		reference["TILES"], cut["cells"], int(reference["NEXT_ID"])
@@ -555,6 +566,7 @@ static func save(path: String = JSON_PATH) -> bool:
 			"DESCRIPTION": reference.get("DESCRIPTION", ""),
 			"SHEET": reference["SHEET"],
 			"GRID_KIND": reference["GRID_KIND"],
+			"FRAME_PX": reference["FRAME_PX"],
 			"PALETTE_REGION": reference.get("PALETTE_REGION", ""),
 			"NEXT_ID": reference["NEXT_ID"],
 			"TILES": tiles,
