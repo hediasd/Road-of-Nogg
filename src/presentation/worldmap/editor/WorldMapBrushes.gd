@@ -263,17 +263,22 @@ static func eyedropper(data: WorldMapTileData, layerID: String, cell: Vector2i) 
 	return data.getCell(layerID, cell)
 
 
-## Paints one triangular detail slot (WMH-10) -- and DELIBERATELY WITHOUT `history`. Every other
-## function in this file is `(data, history, layerID, ...)` and coalesces into one undo entry;
-## this one is not, because wiring sub-triangle edits into undo is out of this item's own scope
-## (its Touches list does not include `WorldMapEditHistory.gd`, which WMH-9 already closed for
-## tile, height and object edits). Named here rather than silently left for someone to trip over:
-## a detail paint is a direct, immediate mutation, exactly `WorldMapTileData.setDetail`'s own
-## shape, until a later item extends the history file to carry a fourth kind.
+## Paints one triangular detail slot (WMH-10), through the history like every other brush here.
+##
+## WMH-10 shipped this as `(data, layerID, cell, index, tileID)` -- a direct mutator with no undo
+## -- because its Touches list did not include `WorldMapEditHistory.gd`, and it said so rather
+## than hiding it. WMH-10B gave the detail slots a tool a person can reach, which turned that
+## named gap into a defect, so the signature is now the same `(data, history, layerID, ...)`
+## shape as its siblings and the anomaly is gone.
+##
+## One slot per call rather than a cell list: a detail gesture selects a triangle, not a set of
+## cells, so there is no shape here for `_applyCells` to fill. The stroke is opened and closed by
+## the caller, which is what lets a drag across twenty triangles undo as one edit.
 static func paintTriangle(
-	data: WorldMapTileData, layerID: String, cell: Vector2i, triangleIndex: int, tileID: String
+	data: WorldMapTileData, history: WorldMapEditHistory, layerID: String,
+	cell: Vector2i, triangleIndex: int, tileID: String
 ) -> bool:
-	return data.setDetail(layerID, cell, triangleIndex, tileID)
+	return history.paintDetail(data, cell, triangleIndex, tileID)
 
 
 static func _applyCells(

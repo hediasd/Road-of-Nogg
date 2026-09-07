@@ -1088,14 +1088,101 @@ then slot 4 (the opposite side of the hex) painted with a different tile, and sl
 well-inside pixels are asserted byte-identical before and after — the check that would fail first
 if masking silently degraded to "the whole frame".
 
-### No undo, and that is named rather than hidden
+### No undo — closed in WMH-10B
 
-Every other brush in `WorldMapBrushes.gd` is `(data, history, layerID, ...)` and coalesces into
-one `WorldMapEditHistory` entry. `paintTriangle` is not: it is `data.setDetail(...)` directly, with
-no stroke, no coalescing, no undo. Wiring a fourth kind into history is real work its own item
-should own, and this item's Touches list does not include `WorldMapEditHistory.gd` — which WMH-9
-already closed for tile, height and object edits. Rather than reach into a file outside this
-item's scope, or silently ship an editor tool nothing can undo without saying so, the deviation
-from every sibling brush's own shape is the marker: `paintTriangle` looking different from
-`paintCell`/`paintHeight`/`placeObject` is deliberate, and is the honest way to leave this gap
-visible until a later item closes it.
+Kept as a heading rather than deleted, because how it was left is the point. WMH-10 shipped
+`paintTriangle` as `data.setDetail(...)` directly — no stroke, no coalescing, no undo — while every
+sibling brush in `WorldMapBrushes.gd` was `(data, history, layerID, ...)`. Wiring a fourth kind
+into the history was real work, and this item's Touches list did not include
+`WorldMapEditHistory.gd`; rather than reach into a file outside its scope or ship an un-undoable
+tool without saying so, **the deviation from every sibling's shape was itself the marker.**
+
+Gate 3 then found nothing could reach these slots with a mouse at all, and WMH-10B gave them a
+tool — which turned a named gap into a defect, since a person can now make edits they cannot take
+back. So detail is the history's fourth delta kind, `paintTriangle` has its siblings' signature,
+and the anomaly is gone. See §17.
+
+## 17. The tools that reach the other three layers
+
+WMH-10B, opened by Gate 3's finding that the editor exposed `ground` and `overlay` and nothing
+else: heights, objects and detail all round-tripped, undid, saved and exported correctly, and
+none of them could be authored with a mouse. Every part of that gate's own authoring exercise
+which touched them ran from a script.
+
+### Reachable and empty are different states
+
+`_layerEditable` used to ask "is this a grid layer with a known tileset", which is why a height,
+list or detail layer could never become the active one no matter what the map stored. It is now
+kind-aware, and it is joined by `_layerPopulated`, because the two questions genuinely differ:
+
+| | `_layerEditable` | `_layerPopulated` |
+|---|---|---|
+| gates | tool input, the grid overlay | the row's `(empty)` label and dimming |
+| a fresh hex map's `heights` | **true** | **false** |
+| the square `temp2_authored`'s `heights` | false — no hex lattice to sculpt | false |
+
+The three authored layers are **created by their own first edit**, not conjured onto every
+document that is opened. A height field or a detail fan on a square map would be storage for a
+lattice that does not exist, and `temp2_authored` is square — so a load-time migration would have
+been wrong for exactly the map the project already ships.
+
+### One value row, per layer kind
+
+The row that offered tile ids now offers whatever the active layer's tool takes: **Tile** over a
+grid or detail layer, **Sculpt** over heights, **Object** over the object layer. `setValueChoices`
+takes labels and values as a pair, because a sculpt step reads `Raise +0.50` and acts as `0.5`.
+
+This is the half that made the kind-aware `_layerEditable` safe. WMH-10B named the failure it was
+avoiding: a sculpt reading a tile id off a row that has none applies `float("")` — which is `0.0`,
+a silent no-op, the same class of defect as Gate 1's picker refusing a click without a word.
+
+Removing is a choice in that row rather than a tool of its own, matching `Erase (-)` on the tile
+row since WME-9.
+
+The same reasoning gives `_toolFitsLayer`: the new rows made a mismatched tool reachable for the
+first time, and `WorldMapTileData.setCell` already refuses a non-grid layer by returning `false`
+— so a paint aimed at the height layer would do nothing and say nothing. **Nothing was ever in
+danger; the silence was.** The guard exists for the message, which names both the tool's kind and
+the layer's.
+
+### Three gestures, chosen for what each edit is
+
+- **Sculpt** is a drag, stepped. Both signs sit in the value row rather than behind a modifier, so
+  lowering is exactly as discoverable as raising. Each vertex moves **at most once per stroke** —
+  three hexes share every vertex on this lattice, so a drag across neighbours would otherwise
+  raise the shared ones twice and leave a ridge along the drag. `Flatten to start` levels every
+  cell a stroke crosses to the height of the cell it began on, sampled before the first step.
+- **Place** is a click, and one click does all three verbs: an empty cell takes the selected kind,
+  an occupied one **turns** by a facing step, `Remove` deletes. No modifier keys, no second
+  control for facing.
+- **Paint triangle** is a drag that follows the **pointer**, not the cell under it — dragging
+  inside one hex crosses fan slots without ever changing cell, so following the cell would paint
+  the first slot and then nothing.
+
+### The fan test still has one definition
+
+`WorldMapHeightField.fanTriangleOf` is now that definition in world space, extracted from inside
+`sample()` so the picker and the sampler cannot disagree about which sixth of a hex a point is in.
+`WorldMapBaker` keeps its deliberate second implementation in pixel space (§16). Two is already
+one more than ideal; a third, added because the loop happened to live inside `sample`, is how the
+terrain a click lands on and the triangle it paints start drifting apart.
+
+### A sculpt that changes nothing on screen would be the real failure
+
+Heights are geometry, not pixels, so a sculpt invalidates no part of the bake — which means the
+ordinary `_afterCellsEdited` path does nothing for it. `_afterHeightsEdited` rebuilds the ground
+**surface** through the same `configureGround` the export uses, then rebuilds the object preview,
+because objects anchored to terrain have just moved with it. `probe_editor_tools.gd` asserts the
+editor's ground is a real `ArrayMesh` after a sculpt rather than the flat `PlaneMesh` — the check
+that fails first if the edit is recorded, undoable and invisible.
+
+Objects are previewed through `WorldMapSceneExport.buildObjects` with a **null scene owner** — the
+case that function already documented for a preview that is never packed — so the editor and the
+export place a building by the same code rather than by two that agree today.
+
+### Still out of scope, and still named
+
+An object-kind palette beyond `house`/`tower`, a footprint editor, and hex routing for the
+Rectangle and Stamp tools (still square-only — §12). The tool table is a list of gestures, not a
+list of commands; a smooth tool and a raise-to-target tool are the obvious next two and neither is
+here.

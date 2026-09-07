@@ -127,6 +127,30 @@ func paintHeight(data: WorldMapTileData, vertex: Vector3i, height: float) -> boo
 	return true
 
 
+## Paints one sub-triangle through the open stroke. The fourth delta kind, added in WMH-10B when
+## the detail tool made WMH-10's "no undo, named not hidden" gap reachable by a person: a slot is
+## addressed as `(col, row, slot)`, matching `WorldMapTileData.detailIndexOf`, and its value is a
+## tile id -- the same String `paintCell` stores, so `_valuesEqual` needed nothing added for it.
+##
+## A detail slot is NOT a cell, which is why this claims its own kind rather than reusing "tile":
+## undoing a stroke has to write back through `setDetail`, and a tile-kind command would write
+## through `setCell` and quietly repaint the ground instead.
+func paintDetail(
+	data: WorldMapTileData, cell: Vector2i, triangleIndex: int, tileID: String
+) -> bool:
+	if _open.is_empty():
+		push_warning("WorldMapEditHistory: paintDetail with no open stroke; call beginStroke first")
+		return false
+	if not _claimKind("detail"):
+		return false
+	var layerID: String = _open["layerID"]
+	var before := data.getDetail(layerID, cell, triangleIndex)
+	if not data.setDetail(layerID, cell, triangleIndex, tileID):
+		return false
+	_recordDelta(Vector3i(cell.x, cell.y, triangleIndex), before, tileID)
+	return true
+
+
 ## Places an object through the open stroke and records it as a creation (`before = {}`). Mirrors
 ## `WorldMapObjectLayer.place`'s own signature; the id it allocates is captured in the delta, so
 ## redoing a placement re-inserts that exact id rather than allocating a new one -- see
@@ -341,6 +365,12 @@ func _apply(data: WorldMapTileData, command: Dictionary, side: String) -> void:
 		"height":
 			for vertex in changes:
 				WorldMapHeightField.setHeightAt(data, vertex, changes[vertex][side], layerID)
+		"detail":
+			for slot in changes:
+				var target: Vector3i = slot
+				data.setDetail(
+					layerID, Vector2i(target.x, target.y), target.z, changes[slot][side]
+				)
 		"object":
 			for id in changes:
 				_applyObjectState(data, layerID, str(id), changes[id][side])

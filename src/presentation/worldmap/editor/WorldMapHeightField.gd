@@ -188,20 +188,48 @@ static func sample(data: WorldMapTileData, local: Vector2, layerID := DEFAULT_LA
 	centreValue /= float(vertices.size())
 
 	var point := local - centre
+	var slot := fanTriangleOf(point)
+	if slot < 0:
+		# Numerically outside every fan triangle, which can only happen a hair outside the hex.
+		# The centre value is the honest answer rather than a guess at which edge it fell past.
+		return centreValue
+	var weights := _barycentric(
+		point, CORNER_OFFSETS[slot], CORNER_OFFSETS[(slot + 1) % CORNER_OFFSETS.size()]
+	)
+	return (
+		weights.x * centreValue
+		+ weights.y * heightAt(data, vertices[slot], layerID)
+		+ weights.z * heightAt(data, vertices[(slot + 1) % vertices.size()], layerID)
+	)
+
+
+## Which of a hex's six fan triangles a point falls in, as an index into `CORNER_OFFSETS`, or -1
+## when it falls in none. `offset` is measured FROM THE HEX CENTRE, which is the frame the fan is
+## defined in.
+##
+## THE ONE DEFINITION OF FAN MEMBERSHIP in world space. `sample()` above is one caller and the
+## editor's detail tool is the other; `WorldMapBaker` carries a deliberate second implementation
+## in PIXEL space, for the reason its own note gives. Two is already one more than ideal -- a
+## third, added because this loop happened to live inside `sample`, is how the terrain a click
+## lands on and the terrain a triangle is painted into start disagreeing.
+static func fanTriangleOf(offset: Vector2) -> int:
 	for i in CORNER_OFFSETS.size():
 		var a: Vector2 = CORNER_OFFSETS[i]
 		var b: Vector2 = CORNER_OFFSETS[(i + 1) % CORNER_OFFSETS.size()]
-		var weights := _barycentric(point, a, b)
+		var weights := _barycentric(offset, a, b)
 		if weights.x < -INSIDE_EPSILON or weights.y < -INSIDE_EPSILON or weights.z < -INSIDE_EPSILON:
 			continue
-		return (
-			weights.x * centreValue
-			+ weights.y * heightAt(data, vertices[i], layerID)
-			+ weights.z * heightAt(data, vertices[(i + 1) % vertices.size()], layerID)
-		)
-	# Numerically outside every fan triangle, which can only happen a hair outside the hex. The
-	# centre value is the honest answer rather than a guess at which edge it fell past.
-	return centreValue
+		return i
+	return -1
+
+
+## The cell and fan triangle a REGION-LOCAL point falls in, as `(col, row, slot)` -- the same
+## shape `WorldMapTileData.detailIndexOf` addresses a detail slot by. `slot` is -1 when the point
+## resolves to a cell but to none of its triangles, which the caller must treat as "no target"
+## rather than as slot 0.
+static func triangleAt(local: Vector2) -> Vector3i:
+	var cell := WorldMapHexGrid.worldToCell(local)
+	return Vector3i(cell.x, cell.y, fanTriangleOf(local - WorldMapHexGrid.cellCentre(cell)))
 
 
 ## Barycentric weights of `point` in the triangle (origin, a, b), as (origin, a, b).
