@@ -125,10 +125,19 @@ static func solveSmooth(origin: Vector3, direction: Vector3, forward: Vector3, c
 ## square path -- and `temp2_authored`, whose byte-exact bake parity is the sharpest test in the
 ## project -- is bit-for-bit unaffected.
 ##
+## `lattice` is the hex lattice's size in cells, and BOUNDING BY IT IS NOT OPTIONAL CORRECTNESS.
+## A hex map declares a square and inscribes its lattice in it, so the region is larger than the
+## lattice by up to 1.5 units on the right and 2.0 at the bottom. Gate 1 found that picking
+## returned those margin cells as ordinary answers -- `worldToCell` is happy to name a cell that
+## does not exist -- so the cursor highlighted a hex the brush then silently refused to paint,
+## with no feedback anywhere. `Vector2i.ZERO` means "do not bound", which is what the square path
+## passes and what keeps callers that have no lattice to declare working unchanged.
+##
 ## THE RAY SOLVE IS THE SAME EITHER WAY. `surfacePoint` returns a world point and knows nothing
 ## about grids, so the hex switch changes one line here and nothing about the curvature maths.
 static func pickTile(
-	camera: Camera3D, screen: Vector2, curvature: float, region: Rect2, hex := false
+	camera: Camera3D, screen: Vector2, curvature: float, region: Rect2, hex := false,
+	lattice := Vector2i.ZERO
 ) -> Variant:
 	var point = surfacePoint(camera, screen, curvature)
 	if point == null:
@@ -138,7 +147,10 @@ static func pickTile(
 	if local.x < 0.0 or local.y < 0.0 or local.x >= region.size.x or local.y >= region.size.y:
 		return null
 	if hex:
-		return WorldMapHexGrid.worldToCell(local)
+		var cell := WorldMapHexGrid.worldToCell(local)
+		if lattice.x > 0 and lattice.y > 0 and not WorldMapHexGrid.contains(cell, lattice.x, lattice.y):
+			return null
+		return cell
 	return Vector2i(int(floor(local.x)), int(floor(local.y)))
 
 
@@ -174,7 +186,7 @@ static func pickCel(camera: Camera3D, screen: Vector2, curvature: float, region:
 ## trusting a hand port of one into the other.
 static func applyGrid(
 	material: ShaderMaterial, region: Rect2, cursor: Variant, celGrade: bool, visible := true,
-	hex := false
+	hex := false, lattice := Vector2i.ZERO
 ) -> void:
 	if material == null:
 		return
@@ -182,6 +194,9 @@ static func applyGrid(
 		material.set_shader_parameter(Uniforms.U_GRID_MODE, Uniforms.GRID_OFF)
 		return
 	material.set_shader_parameter(Uniforms.U_GRID_HEX, hex)
+	# (0, 0) means unbounded, matching `pickTile`'s own convention -- so the overlay stops at the
+	# lattice edge for exactly the cells picking will refuse, and the two cannot disagree.
+	material.set_shader_parameter(Uniforms.U_HEX_LATTICE, Vector2(lattice))
 	material.set_shader_parameter(
 		Uniforms.U_GRID_MODE,
 		Uniforms.GRID_TILES_AND_CELS if celGrade else Uniforms.GRID_TILES

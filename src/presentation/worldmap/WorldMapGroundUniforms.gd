@@ -80,6 +80,10 @@ const U_GRID_HEX := "grid_hex"
 ## `cursor_rect`, which stays corner+size and square-only, rather than overloading one uniform
 ## with two incompatible meanings.
 const U_HEX_CURSOR := "hex_cursor"
+## The hex lattice's size in cells. Separate from the region because a hex map declares a SQUARE
+## and inscribes the lattice in it -- the leftover margin is inside the region and outside the
+## lattice, and Gate 1 found the overlay drawing unpaintable hexes there.
+const U_HEX_LATTICE := "hex_lattice"
 
 ## Grid overlay modes, matching the shader's `grid_mode` branch order. The same two values
 ## apply to both the square and hex lattices -- `grid_hex` decides which shape they draw, not

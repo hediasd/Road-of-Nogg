@@ -150,6 +150,9 @@ uniform bool grid_hex = false;
 // `cursor_rect` used as xy=corner in one branch and xy=centre in another is exactly the kind of
 // thing that reads correctly once and wrongly the next time someone touches this file.
 uniform vec3 hex_cursor = vec3(0.0, 0.0, 0.0);
+// The lattice's size in CELLS (columns, rows), which on a map with margin covers less than the
+// region does. (0, 0) means unbounded. See `hex_in_lattice` for why this exists.
+uniform vec2 hex_lattice = vec2(0.0, 0.0);
 
 varying vec3 world_position;
 
@@ -315,6 +318,30 @@ float hex_subtriangle_coverage(vec2 p) {
 	return 1.0 - clamp(d / w, 0.0, 1.0);
 }
 
+// Whether a world position falls on a cell the LATTICE actually holds -- which on a map with
+// margin is a smaller area than the region.
+//
+// GATE 1 FOUND THIS AS A DEFECT. The overlay used to be bounded by `off_map`, i.e. by the
+// region, which was correct only while region and lattice were the same rectangle. A hex map
+// declares a SQUARE and inscribes the lattice in it, so the leftover margin -- up to 1.5 units
+// on the right and 2.0 at the bottom -- was being drawn full of hexes that hold no data, could
+// be highlighted, and silently swallowed any paint aimed at them.
+//
+// The test is the exact one `WorldMapHexGrid.contains` performs, on the offset coordinate:
+// `axialToOffset`'s row term `(q - (q & 1)) / 2` is integer `floor(q / 2)` for negative q as
+// well as positive, so `floor(q * 0.5)` is a faithful float port rather than an approximation.
+// `hex_lattice` of (0, 0) means "unbounded", which keeps every caller that does not set it --
+// and the whole square path, which never reaches here -- behaving exactly as before.
+bool hex_in_lattice(vec2 p) {
+	if (hex_lattice.x <= 0.0 || hex_lattice.y <= 0.0) {
+		return true;
+	}
+	vec2 axial = hex_nearest_axial(p);
+	float col = axial.x;
+	float row = axial.y + floor(axial.x * 0.5);
+	return col >= 0.0 && row >= 0.0 && col < hex_lattice.x && row < hex_lattice.y;
+}
+
 
 void vertex() {
 	// Undisplaced world position: the curvature is a visual bend, so texture lookup and
@@ -400,14 +427,21 @@ void fragment() {
 				float fill = clamp(0.5 - cursorDistance / cursorWidth, 0.0, 1.0);
 				composed = mix(composed, to_gamma(cursor_color.rgb), cursor_color.a * fill);
 			}
-			// Sub-triangle fan first so the hex lattice draws over it, matching the square
-			// path's own cel-under-tile ordering: the coarser grid wins where they coincide.
-			if (grid_mode == 2) {
-				float fan = hex_subtriangle_coverage(p) * grid_cel_color.a;
-				composed = mix(composed, to_gamma(grid_cel_color.rgb), fan);
+			// Nothing below this draws in the margin: a cell the lattice does not hold is not
+			// paintable, so advertising it with a line is a lie the user finds out about by
+			// clicking it and getting silence. The cursor above is exempt because it is only
+			// ever set from a cell the picker already resolved, and the picker now refuses
+			// margin cells too.
+			if (hex_in_lattice(p)) {
+				// Sub-triangle fan first so the hex lattice draws over it, matching the square
+				// path's own cel-under-tile ordering: the coarser grid wins where they coincide.
+				if (grid_mode == 2) {
+					float fan = hex_subtriangle_coverage(p) * grid_cel_color.a;
+					composed = mix(composed, to_gamma(grid_cel_color.rgb), fan);
+				}
+				float hexLine = hex_line_coverage(p) * grid_tile_color.a;
+				composed = mix(composed, to_gamma(grid_tile_color.rgb), hexLine);
 			}
-			float hexLine = hex_line_coverage(p) * grid_tile_color.a;
-			composed = mix(composed, to_gamma(grid_tile_color.rgb), hexLine);
 		} else {
 			if (cursor_rect.z > 0.0 && cursor_rect.w > 0.0) {
 				vec2 inside = step(cursor_rect.xy, p) * step(p, cursor_rect.xy + cursor_rect.zw);

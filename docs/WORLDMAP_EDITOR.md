@@ -574,6 +574,28 @@ independent shape, and why `probe_hex_grid_overlay.gd` asserts the shader's port
 with `WorldMapHexGrid`'s own, across a dense sample **and** the boundary points that are the only
 place a rounding bug shows.
 
+### The lattice bound, and why the region is not it
+
+**Gate 1 found this as a defect**, and it is worth stating as a rule rather than a fix: on a hex
+map the **region and the lattice are different areas**. The author declares a square; the lattice
+is inscribed in it; the leftover margin — up to 1.5 units on the right and 2.0 at the bottom — is
+inside the region and outside the lattice.
+
+Both the overlay and `pickTile` were bounded by the region, which was correct only while the two
+were the same rectangle (they still are on a square map). On a hex map with margin the result was
+that the overlay drew a column of hexes over the margin, the cursor highlighted them, picking
+returned them as ordinary cells, and the brush then silently refused the paint with no feedback
+anywhere — a hex you can point at, that lights up, and that does nothing.
+
+Both now take a lattice size: `pickTile(..., hex, lattice)` returns `null` for a cell outside it,
+and the shader's `hex_in_lattice()` gates every overlay line on the same test. `Vector2i.ZERO`
+means unbounded, so the square path and any caller with no lattice to declare are unchanged.
+The shader's port of `axialToOffset` is `row = r + floor(q * 0.5)`, which is exact rather than
+approximate: `(q - (q & 1)) / 2` in integer arithmetic is `floor(q / 2)` for negative `q` as well
+as positive. `probe_hex_grid_overlay.gd` checks the two agree across ~18,500 points, of which
+~2,850 are genuinely in the margin — a bound that is never exercised is a bound that passes
+vacuously.
+
 One `--check-only` blind spot is worth naming since it cost real time here: GDScript's parser has
 no knowledge of GLSL syntax, so a `.gdshader` file can pass `--check-only` on every `.gd` file that
 references it while itself failing to compile — `float flat = ...` parsed fine as GDScript-adjacent
