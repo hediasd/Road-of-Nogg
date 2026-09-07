@@ -23,6 +23,19 @@
 ## on a 155-tile region otherwise re-blits 24,000 tiles to change one -- while the upload is
 ## whole-texture regardless. Flushing is therefore something to do once after a batch of edits,
 ## not once per cell, which is what `markCellsDirty` + `flush` are shaped for.
+##
+## HEX FRAMES OVERLAP THEIR NEIGHBOURS, AND THAT IS DELIBERATE (WMH-5B). A hex frame is 32 px on
+## a 24 px column pitch, so adjacent columns' frames share an 8 px strip -- and the sheet already
+## carries the alpha that makes that correct (measured: 0 of 320 frame corners in
+## `temp2_hex32_ground` are opaque), so `blend_rect` composites overlapping hexagons that tile
+## the plane exactly. The consequence for THIS file is that a square layer's cells tile edge to
+## edge -- `cell * framePx` is exact, both for placement and for which cells a dirty rect
+## touches -- while a hex layer's do not: a cell whose own centre sits outside a dirty rect can
+## still have a frame that reaches into it. `_composeRect` clears each dirty rect to transparent
+## before recomposing it, so under-covering here does not merely leave a stale pixel, it ERASES a
+## strip of a neighbour that was never told to redraw. `_cellsToPixelRect` and `_composeHexLayer`
+## are both deliberately generous rather than tight because of that asymmetry -- over-covering
+## costs a handful of redundant blends; under-covering corrupts the image.
 
 class_name WorldMapBaker
 extends RefCounted
@@ -52,10 +65,16 @@ func image() -> Image:
 	return _image
 
 
-## The region's pixel size: its tile count times the tile law's constant. Not stored anywhere --
-## deriving it is what keeps a baked texture from ever disagreeing with the data's own extent.
+## The region's pixel size: its WORLD extent times the tile law's constant, not its cell count.
+## On a square map those agree (`worldExtent()` returns `Vector2(size_tiles)` there); on a hex
+## map `size_tiles` is columns and rows, and only `worldExtent()` (WMH-2) converts through
+## `WorldMapHexGrid.latticeExtent`. Not stored anywhere -- deriving it is what keeps a baked
+## texture from ever disagreeing with the data's own extent. Every lattice lands on whole
+## pixels: `COL_ADVANCE`/`ROW_ADVANCE`/`HEX_WIDTH`/`HEX_HEIGHT` are all multiples of 0.5 world
+## units, and `TILE_PIXELS` is even, so the round below is exact rather than a rounding choice.
 static func pixelSizeOf(data: WorldMapTileData) -> Vector2i:
-	return data.size_tiles * Uniforms.TILE_PIXELS
+	var extent := data.worldExtent() * Uniforms.TILE_PIXELS
+	return Vector2i(int(round(extent.x)), int(round(extent.y)))
 
 
 ## Full compose. Creates the image and the texture the first time, and reuses both afterwards so
@@ -88,9 +107,46 @@ func markCellsDirty(data: WorldMapTileData, layerID: String, cells: Rect2i) -> v
 	var block: Dictionary = data.layers[layerID]
 	if str(block["KIND"]) != WorldMapTileData.KIND_GRID:
 		return
-	var cellPx := _cellPixels(str(block["GRID_KIND"]))
-	var rect := Rect2i(cells.position * cellPx, cells.size * cellPx)
-	markPixelsDirty(rect)
+	markPixelsDirty(_cellsToPixelRect(data, block, cells))
+
+
+## The map-pixel rect a range of a layer's own cells occupies. Square: exact, because cells tile
+## edge to edge. Hex: deliberately GENEROUS, not exact -- see the class note on why an
+## under-sized rect here is a correctness bug, not merely a missed optimisation.
+func _cellsToPixelRect(data: WorldMapTileData, block: Dictionary, cells: Rect2i) -> Rect2i:
+	var framePx := _framePixels(str(block["TILESET"]), str(block["GRID_KIND"]))
+	if data.layout != WorldMapTileData.LAYOUT_HEX_FLAT:
+		return Rect2i(cells.position * framePx, cells.size * framePx)
+
+	# The tight bounding box of the RANGE's own cell centres, found from its four corners --
+	# `cellCentre`'s only non-affine term is the odd-column drop (1 world unit, 16 px), far
+	# smaller than the margins added below, so checking corners rather than every interior cell
+	# cannot miss an extremum by more than that already-covered amount.
+	var lastCol := cells.position.x + cells.size.x - 1
+	var lastRow := cells.position.y + cells.size.y - 1
+	var minCorner := Vector2(INF, INF)
+	var maxCorner := Vector2(-INF, -INF)
+	for col in [cells.position.x, lastCol]:
+		for row in [cells.position.y, lastRow]:
+			var centre := WorldMapHexGrid.cellCentre(Vector2i(col, row)) * Uniforms.TILE_PIXELS
+			minCorner.x = minf(minCorner.x, centre.x)
+			minCorner.y = minf(minCorner.y, centre.y)
+			maxCorner.x = maxf(maxCorner.x, centre.x)
+			maxCorner.y = maxf(maxCorner.y, centre.y)
+
+	# Step 1: widen from cell CENTRES to the range's own FRAME footprint.
+	var half := float(framePx) * 0.5
+	minCorner -= Vector2(half, half)
+	maxCorner += Vector2(half, half)
+	# Step 2: pad by one FULL frame beyond that -- the reach of a neighbouring cell's frame,
+	# which is exactly what "expand by one full frame on all sides" (WMH-5B's own item text) is
+	# for.
+	minCorner -= Vector2(framePx, framePx)
+	maxCorner += Vector2(framePx, framePx)
+
+	var start := Vector2i(int(floor(minCorner.x)), int(floor(minCorner.y)))
+	var finish := Vector2i(int(ceil(maxCorner.x)), int(ceil(maxCorner.y)))
+	return Rect2i(start, finish - start)
 
 
 ## Marks map pixels dirty, snapped OUT to whole tiles. Snapping to the coarsest grid means a
@@ -143,8 +199,11 @@ func flush(data: WorldMapTileData) -> bool:
 
 ## Draws every layer, in declaration order, over the given map-pixel rect. Ground first and
 ## overlays after, which is the order the layer list already carries -- so compositing order is
-## the authored order rather than a second thing to keep in step.
+## the authored order rather than a second thing to keep in step. Hex and square layers place
+## their cells differently enough (overlapping frames vs. an edge-to-edge grid) that each gets
+## its own function rather than one branching per pixel.
 func _composeRect(data: WorldMapTileData, rect: Rect2i) -> void:
+	var hex := data.layout == WorldMapTileData.LAYOUT_HEX_FLAT
 	for layerID in data.layerIDs():
 		var block: Dictionary = data.layers[layerID]
 		if str(block["KIND"]) != WorldMapTileData.KIND_GRID:
@@ -152,32 +211,98 @@ func _composeRect(data: WorldMapTileData, rect: Rect2i) -> void:
 		var sheet: Dictionary = _sheets.get(str(block["TILESET"]), {})
 		if sheet.is_empty():
 			continue
-		var cellPx := _cellPixels(str(block["GRID_KIND"]))
 		var size := data.layerSize(layerID)
-		# Only the cells the rect actually touches.
-		var first := Vector2i(rect.position.x / cellPx, rect.position.y / cellPx)
-		var last := Vector2i(
-			int(ceil(float(rect.position.x + rect.size.x) / cellPx)),
-			int(ceil(float(rect.position.y + rect.size.y) / cellPx))
-		)
+		var framePx := _framePixels(str(block["TILESET"]), str(block["GRID_KIND"]))
 		var sheetImage: Image = sheet["image"]
 		var cells: Dictionary = sheet["cells"]
-		for y in range(maxi(0, first.y), mini(size.y, last.y)):
-			for x in range(maxi(0, first.x), mini(size.x, last.x)):
-				var id := data.getCell(layerID, Vector2i(x, y))
-				if id == WorldMapTileData.EMPTY or not cells.has(id):
-					continue
-				var source: Vector2i = cells[id]
-				var from := Rect2i(source * cellPx, Vector2i(cellPx, cellPx))
-				var to := Vector2i(x * cellPx, y * cellPx)
-				# `blend_rect`, not `blit_rect`: an overlay tile with transparent pixels must let
-				# the ground beneath show through. Ground tiles are opaque, so the two agree
-				# there and only the overlay depends on the difference.
-				_image.blend_rect(sheetImage, from, to)
+		if hex:
+			_composeHexLayer(data, layerID, rect, size, framePx, sheetImage, cells)
+		else:
+			_composeSquareLayer(data, layerID, rect, size, framePx, sheetImage, cells)
 
 
-func _cellPixels(gridKind: String) -> int:
-	return WorldMapTilesetCatalog.gridPixels(gridKind)
+## The original placement: cells tile edge to edge, so the rect-to-cell-range conversion is a
+## plain divide and each cell's frame lands at exactly `cell * cellPx`.
+func _composeSquareLayer(
+	data: WorldMapTileData, layerID: String, rect: Rect2i, size: Vector2i, cellPx: int,
+	sheetImage: Image, cellsOnSheet: Dictionary
+) -> void:
+	var first := Vector2i(rect.position.x / cellPx, rect.position.y / cellPx)
+	var last := Vector2i(
+		int(ceil(float(rect.position.x + rect.size.x) / cellPx)),
+		int(ceil(float(rect.position.y + rect.size.y) / cellPx))
+	)
+	for y in range(maxi(0, first.y), mini(size.y, last.y)):
+		for x in range(maxi(0, first.x), mini(size.x, last.x)):
+			var id := data.getCell(layerID, Vector2i(x, y))
+			if id == WorldMapTileData.EMPTY or not cellsOnSheet.has(id):
+				continue
+			var source: Vector2i = cellsOnSheet[id]
+			var from := Rect2i(source * cellPx, Vector2i(cellPx, cellPx))
+			var to := Vector2i(x * cellPx, y * cellPx)
+			# `blend_rect`, not `blit_rect`: an overlay tile with transparent pixels must let
+			# the ground beneath show through. Ground tiles are opaque, so the two agree
+			# there and only the overlay depends on the difference.
+			_image.blend_rect(sheetImage, from, to)
+
+
+## Frames overlap their neighbours (see the class note), so "which cells does `rect` touch" is
+## not the square path's plain divide -- a cell whose own centre is outside `rect` can still have
+## a frame reaching into it. The candidate range comes from padding `rect` by one frame and
+## resolving its four corners through `WorldMapHexGrid.worldToCell`, then padding THAT by one
+## more cell in every direction: cheap insurance (a handful of no-op blends at the edges) against
+## the corner-based bound landing one cell short of where `worldToCell`'s own rounding would put
+## it. `probe_bake_parity.gd`'s partial-vs-full comparison is what actually proves this
+## sufficient, on both column parities, rather than this reasoning alone.
+func _composeHexLayer(
+	data: WorldMapTileData, layerID: String, rect: Rect2i, size: Vector2i, framePx: int,
+	sheetImage: Image, cellsOnSheet: Dictionary
+) -> void:
+	var padded := Rect2i(
+		rect.position - Vector2i(framePx, framePx), rect.size + Vector2i(framePx, framePx) * 2
+	)
+	var corners := [
+		Vector2(padded.position),
+		Vector2(padded.position.x + padded.size.x, padded.position.y),
+		Vector2(padded.position.x, padded.position.y + padded.size.y),
+		Vector2(padded.position + padded.size),
+	]
+	var minCell := Vector2i(2147483647, 2147483647)
+	var maxCell := Vector2i(-2147483648, -2147483648)
+	for corner in corners:
+		var cell := WorldMapHexGrid.worldToCell(corner / float(Uniforms.TILE_PIXELS))
+		minCell.x = mini(minCell.x, cell.x)
+		minCell.y = mini(minCell.y, cell.y)
+		maxCell.x = maxi(maxCell.x, cell.x)
+		maxCell.y = maxi(maxCell.y, cell.y)
+	minCell -= Vector2i.ONE
+	maxCell += Vector2i.ONE
+
+	for y in range(maxi(0, minCell.y), mini(size.y, maxCell.y + 1)):
+		for x in range(maxi(0, minCell.x), mini(size.x, maxCell.x + 1)):
+			var id := data.getCell(layerID, Vector2i(x, y))
+			if id == WorldMapTileData.EMPTY or not cellsOnSheet.has(id):
+				continue
+			var source: Vector2i = cellsOnSheet[id]
+			var from := Rect2i(source * framePx, Vector2i(framePx, framePx))
+			var centre := WorldMapHexGrid.cellCentre(Vector2i(x, y)) * Uniforms.TILE_PIXELS
+			var half := framePx * 0.5
+			var to := Vector2i(int(round(centre.x - half)), int(round(centre.y - half)))
+			_image.blend_rect(sheetImage, from, to)
+
+
+## The pixel size of one FRAME in this layer's tileset -- the sheet's own `FRAME_PX`, not a
+## constant derived from `GRID_KIND`. The two already agree for every square tileset today
+## (`FRAME_PX` defaults to `gridPixels(GRID_KIND)` when a tileset does not declare its own -- see
+## `WorldMapTilesetCatalog.reloadCatalog`), so reading `FRAME_PX` uniformly is a strict
+## generalisation rather than a new special case for hex. `FRAME_PX` exists specifically because
+## `GRID_KIND` and frame size were once conflated: a 32 px hex sheet cut on the 16 px grid its
+## `GRID_KIND` implied imported 300 quarter-hexes instead of 75.
+func _framePixels(tilesetID: String, gridKindFallback: String) -> int:
+	var reference := WorldMapTilesetCatalog.tilesetFor(tilesetID)
+	if reference.is_empty():
+		return WorldMapTilesetCatalog.gridPixels(gridKindFallback)
+	return int(reference["FRAME_PX"])
 
 
 ## Reads each tileset a layer names, once. The sheet goes through the catalog's own

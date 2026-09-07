@@ -419,6 +419,44 @@ The baked artifact is patched to match, and `probe_bake_parity.gd` asserts it �
 against `temp2.png.import` itself rather than a remembered constant, so the check fails loudly
 if region art's own settings ever change.
 
+### Hex baking (WMH-5B)
+
+Everything above is the square path, and it is bit-for-bit what it always was — `temp2_authored`
+still bakes byte-exact. Hex needed three separate fixes, because a square lattice's cells tile
+edge to edge and a hex lattice's frames **overlap**.
+
+**Canvas size** comes from `data.worldExtent()`, not `data.size_tiles` — on a hex document
+`size_tiles` is columns and rows, and only `worldExtent()` (`WorldMapHexGrid.latticeExtent`)
+converts that to world units. A no-op for a square document, where the two already agree.
+
+**Frame size** comes from the tileset's own `FRAME_PX`, not `GRID_KIND` — the hex sheet's frames
+are 32 px, where `GRID_KIND` alone would only ever say 16 or 8. This is the same conflation
+`FRAME_PX` was added to fix once already, generalised: reading it uniformly costs nothing for a
+square tileset, since `FRAME_PX` defaults to `gridPixels(GRID_KIND)` when a tileset never
+declares its own.
+
+**Placement** is `WorldMapHexGrid.cellCentre(cell) * TILE_PIXELS`, centred, rather than
+`cell * framePx`. A hex frame is 32 px on a 24 px column pitch, so adjacent columns' frames
+overlap by 8 px — and the sheet already carries the alpha that makes that correct: **0 of 320
+frame corners in `temp2_hex32_ground` are opaque**, measured directly against the PNG. Asserted
+by `probe_bake_parity.gd` rather than trusted, so a future hex sheet cut without its corner mask
+fails loudly instead of rendering as square overwrite artifacts where hexagons should meet.
+
+**The dirty-rect model needed the same overlap awareness**, and this is where the real risk
+lived: `flush()` clears each rect to transparent before recomposing it, so a dirty rect that is
+merely *close* does not leave a stale pixel the way it would on the square path — it **erases** a
+strip of a neighbour that was never told to redraw, because that neighbour's frame reached into
+the erased area and nothing repainted over it. This shows up only in the *partial*-flush path,
+never in a from-scratch bake, which is exactly the case a test that only checks full bakes would
+miss. `_cellsToPixelRect` (converting an edited cell range to the pixel rect to mark dirty) and
+`_composeHexLayer` (converting a dirty pixel rect back to the cell range to recompose) are both
+deliberately generous — padded by a full extra frame beyond the geometry actually requires —
+rather than tight, because over-covering costs a handful of redundant blends and under-covering
+corrupts the image. `probe_bake_parity.gd`'s headline hex check bakes a uniform field, edits one
+cell on an even column and one on an odd column, and asserts a partial flush is byte-identical to
+a full re-bake in both cases — the assertion that actually exercises the risk, not just the
+reasoning for it.
+
 ## 10. Undo and redo
 
 `WorldMapEditHistory` undoes and redoes at **stroke** granularity: a drag across forty cells is
@@ -727,18 +765,12 @@ know which path a document arrived by.
 
 ### What was not built, on purpose
 
-**Hex baking.** `WorldMapBaker` sizes its canvas from `size_tiles` directly and blits each cell
-on a plain square grid — both are the square assumption, and nothing in this cycle has taught it
-`WorldMapHexGrid`'s column/row advance or the odd-column drop. A new hex document's ground
-texture is therefore wrong-sized and wrong-placed, visibly so (a small dark, garbled patch where
-the ground should read as hex-shaped terrain) — confirmed rather than assumed, in a real render
-taken for this item's own deferred check. The *document* is unaffected: `WorldMapTileData`,
-`WorldMapHexGrid` and `WorldMapBrushes` have no such gap, and `probe_document_loop.gd` proves the
-data survives new/edit/save/reopen exactly regardless. The status line says so plainly on every
-new hex document ("Ground render is provisional...") rather than shipping a silently wrong
-render, and teaching the baker hex geometry — canvas sizing from `worldExtent()`, then correct
-interlocking blit placement per cell — is left as its own item's worth of work rather than folded
-in here as a side effect.
+**Hex baking was named here — and closed, in WMH-5B, scheduled immediately after.** See §9 "Hex
+baking (WMH-5B)" above: a new hex document's ground now renders as real, continuous hexagonal
+terrain, not the wrong-sized, wrong-placed placeholder this section originally described. Left as
+a heading here rather than deleted outright, as a record that the gap was found by using the
+tool, named rather than hidden, and scheduled as its own item rather than folded into WMH-5 as a
+side effect.
 
 **Hex tool routing.** The controller's Rectangle and Stamp tools still call the square-only
 `WorldMapBrushes.rectangle`/`stamp` regardless of the open document's layout — WMH-4 built the

@@ -639,17 +639,9 @@ func _openDocumentForRegion(regionID: String) -> void:
 ## Creates a fresh hex document at `lattice` cells -- an exact-fit size from WMH-2's own table,
 ## which is all the HUD offers, so a new map never has the margin question WMH-R1 already
 ## settled (void colour, not a terrain) before a single cell is painted -- named `name`, and
-## opens it exactly as `_openDocumentForRegion` would open one from disk.
-##
-## THE BAKED TEXTURE IS KNOWN WRONG FOR HEX, AND THAT IS DELIBERATELY NOT FIXED HERE.
-## `WorldMapBaker` sizes its canvas from `size_tiles` directly and blits each cell on a plain
-## square grid -- both are the SQUARE assumption, and nothing in this cycle has taught the baker
-## `WorldMapHexGrid`'s column/row advance or the odd-column drop. The DOCUMENT this creates is
-## fully correct -- `WorldMapTileData`, `WorldMapHexGrid` and `WorldMapBrushes` have no such gap,
-## and `probe_document_loop.gd` proves the data survives new/edit/save/reopen exactly. Teaching
-## the baker hex geometry is its own item's worth of work (canvas sizing AND interlocking blit
-## placement), not something to fold into "the document lifecycle" as a side effect; the status
-## line says so plainly rather than shipping a silently wrong render.
+## opens it exactly as `_openDocumentForRegion` would open one from disk. `WorldMapBaker` learned
+## hex geometry in WMH-5B, so the ground render is a real bake, not the provisional placeholder
+## an earlier version of this function warned about.
 func _newDocument(lattice: Vector2i, name: String) -> void:
 	_history.clear()
 	_savedUndoDepth = 0
@@ -664,12 +656,7 @@ func _newDocument(lattice: Vector2i, name: String) -> void:
 	_cursorCell = null
 	_gestureStart = null
 	_strokeOpen = false
-	_bakeAndDisplayDocument(
-		(
-			"New hex map '%s' (%s cells). Ground render is provisional: WorldMapBaker does not "
-			+ "support hex layout yet, only the data does."
-		) % [name, lattice]
-	)
+	_bakeAndDisplayDocument("New hex map '%s' (%s cells)." % [name, lattice])
 
 
 ## Opens a document BY NAME rather than by region id -- any file under `WorldMapTileData.
