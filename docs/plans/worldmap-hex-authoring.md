@@ -341,6 +341,90 @@ already goes through `WorldMapEditHistory`; hang the flag off that rather than o
   refused while dirty unless confirmed.
 - Deferred: the flow is clear at the keyboard.
 
+### WMH-5B — Bake a hex map
+
+Inserted 2026-09-07, after WMH-5 found the gap by creating the first hex document there was ever
+anything to bake. Numbered `5B` rather than renumbering WMH-6 through WMH-13, because those ids
+are already referenced by committed `Plan-Item:` trailers, by
+`docs/plans/reviews/worldmap-hex-gate-1.md` and by `docs/WORLDMAP_EDITOR.md` — a renumber would
+invalidate all of them to buy nothing.
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Model rationale:** Every geometric decision is settled below, each with the arithmetic that
+makes it exact, and the one subtle failure has a byte-exact test written for it. What is left is
+a careful edit to one file. No boundary moves and nothing downstream changes shape.
+
+**Depends on:** WMH-2 (the lattice geometry). Scheduled after WMH-5 so there are real hex
+documents to bake.
+
+**Touches:**
+- `src/presentation/worldmap/editor/WorldMapBaker.gd`
+- `debug/worldmap/probe_bake_parity.gd`
+- `docs/WORLDMAP_EDITOR.md`
+
+**End state:** A hex document bakes to a correct contiguous texture, a partial flush is
+byte-identical to a full re-bake, and `temp2_authored`'s square byte-exact parity is unchanged.
+WMH-5's "Ground render is provisional" status text comes back out.
+
+**Implementation:** `WorldMapBaker` assumes a square lattice in three separate places, and each
+has its own fix.
+
+- **Canvas size.** `pixelSizeOf` returns `size_tiles * TILE_PIXELS`; on a hex document
+  `size_tiles` is columns and rows, not world units. Use `data.worldExtent() * TILE_PIXELS` —
+  WMH-2 already built it, and it returns `Vector2(size_tiles)` unchanged for a square map. It
+  lands on whole pixels for every lattice, so there is no rounding decision to make:
+  `x = 24(C−1) + 32`, `y = 32(R−1) + 48`.
+
+- **Source frame size.** `_composeRect` takes its frame size from `gridPixels(GRID_KIND)` — 16 for
+  `tile`, 8 for `cel`. The hex sheet's frames are **32 px**. Read `FRAME_PX` off the tileset
+  reference `_loadSheets` already holds instead. This is the same `GRID_KIND`/`FRAME_PX`
+  conflation that once cut a 32 px sheet on a 16 px grid and imported 300 quarter-hexes instead of
+  75; `FRAME_PX` exists precisely to separate the two. A no-op for `temp2_ground`, whose
+  `FRAME_PX` is 16 and whose grid kind also says 16.
+
+- **Destination placement.** `to = cell * cellPx` is a square lattice. On hex use
+  `WorldMapHexGrid.cellCentre(cell) * TILE_PIXELS − framePx / 2`, centring each frame on the cell
+  it belongs to. Exact at both ends: cell (0,0)'s frame lands on the origin, and the last cell's
+  frame ends on the canvas corner.
+
+  Frames OVERLAP, and that is correct rather than something to design around — a 32 px frame on a
+  24 px column pitch overlaps its neighbouring columns by 8 px. The sheet already carries the
+  alpha that makes this work, measured rather than assumed: **0 of 320 frame corners in
+  `temp2_hex32_ground` are opaque**. So `blend_rect`, which the composer already uses, composites
+  hexagons that tile the plane exactly and never overwrite one another. Do not add a masking
+  pass. In particular do **not** mask at import: that would change every content hash and break
+  the append-only ledger `WorldMapTilesetCatalog` maintains. Assert the contract instead (see
+  Validation), so a future hex sheet cut without its mask fails loudly rather than rendering as
+  corner-shaped overwrite artifacts.
+
+- **The dirty rect.** `markCellsDirty` converts cells to pixels with the same square multiply, and
+  `_composeRect` inverts it to decide which cells a rect touches; both must go through the
+  placement above. And because frames overlap, a partial recompose has to redraw every cell whose
+  FRAME intersects the dirty rect, not every cell whose origin falls inside it — `_composeRect`
+  clears to transparent before compositing, so getting this wrong does not merely leave a stale
+  fringe, it ERASES an 8 px strip of up to four neighbours. Expand the marked pixel rect by one
+  full frame on all sides before snapping; the parity check below is what proves that sufficient.
+
+**Risk:** The overlap, in the partial-flush path specifically. A full bake can be perfectly
+correct while every edit quietly eats a strip of its neighbours — and that appears only while
+editing, never in a from-scratch bake, which is exactly what a naive test would check.
+
+**Validation:**
+- Self-contained: `probe_bake_parity.gd`, extended.
+  - `temp2_authored`'s existing byte-exact assertion, untouched and still passing.
+  - Canvas size equals `worldExtent × 16` exactly, across several lattices from
+    `exactSquareLattices()`.
+  - Cell (0,0)'s frame lands on the origin, every cell's frame lies inside the canvas, and the
+    union of all frames equals the canvas exactly.
+  - **Partial-flush parity:** bake fully, edit one cell, `markCellsDirty` + `flush`, and compare
+    byte-for-byte against a from-scratch bake of the same data — once for a cell in an even
+    column and once for an odd one. This is the assertion that catches the risk above.
+  - Frame-corner alpha: every frame of a 32 px hex tileset is transparent at its four corners, so
+    the overlap contract is checked rather than trusted.
+- Deferred: a painted hex map renders as continuous hexagonal terrain, with no seams and no
+  corner-shaped overwrite artifacts.
+
 ### WMH-6 — Export a gameplay scene
 
 **Model:** Opus 5 / GPT Sol
@@ -350,7 +434,8 @@ editor that made it. `PackedScene.pack()` only captures nodes it owns, and expor
 dependencies are easy to get wrong in a way that loads fine in the editor and fails from a clean
 project. It is also the first time authored data crosses out of presentation.
 
-**Depends on:** WMH-5.
+**Depends on:** WMH-5, WMH-5B. The export carries the baked terrain, so it cannot be judged
+correct while the bake it exports is not.
 
 **Touches:**
 - `src/presentation/worldmap/editor/WorldMapSceneExport.gd` (new)
@@ -666,17 +751,22 @@ WME-18 with its dependent WME-19 — which is why this table is mostly single-it
 | 2 | WMH-3, WMH-4 | ground shader + picker vs. brushes |
 | 3 | **WMH-R1** | **gate, alone, quiet tree** |
 | 4 | WMH-5 | controller and HUD |
-| 5 | WMH-6 | export; new runtime boundary, alone |
-| 6 | **WMH-R2** | **gate, alone, quiet tree** |
-| 7 | WMH-7 | object layer; touches tile data and export |
-| 8 | WMH-8 | height field; touches tile data, ground and the shader |
-| 9 | WMH-9, WMH-10 | history vs. sub-triangles — **not** disjoint, both touch tile data; split if so |
-| 10 | **WMH-R3** | **gate, alone, quiet tree** |
-| 11 | WMH-11 | water; touches tile data and export |
-| 12 | WMH-12 | bridges |
-| 13 | **WMH-13** | **validation, alone, quiet tree** |
+| 5 | WMH-5B | baker and its probe; no path shared with WMH-5 |
+| 6 | WMH-6 | export; new runtime boundary, alone |
+| 7 | **WMH-R2** | **gate, alone, quiet tree** |
+| 8 | WMH-7 | object layer; touches tile data and export |
+| 9 | WMH-8 | height field; touches tile data, ground and the shader |
+| 10 | WMH-9, WMH-10 | history vs. sub-triangles — **not** disjoint, both touch tile data; split if so |
+| 11 | **WMH-R3** | **gate, alone, quiet tree** |
+| 12 | WMH-11 | water; touches tile data and export |
+| 13 | WMH-12 | bridges |
+| 14 | **WMH-13** | **validation, alone, quiet tree** |
 
-Wave 9 is flagged rather than asserted: WMH-9 touches only the history and its probe, WMH-10
+WMH-5B is its own wave rather than sharing one with WMH-5: it depends on nothing WMH-5 adds, but
+WMH-10 also touches the baker, so keeping the baker's own wave clean is what lets that later
+pairing stay legible.
+
+Wave 10 is flagged rather than asserted: WMH-9 touches only the history and its probe, WMH-10
 touches tile data, brushes and the baker. They are disjoint **as listed**, but if WMH-9's height
 deltas turn out to need a tile-data change, it becomes two waves. The gate before it decides,
 with the code in front of it.
