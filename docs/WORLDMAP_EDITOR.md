@@ -786,3 +786,86 @@ before this reads as finished hex tool coverage rather than hex data-and-picking
 
 Both gaps are named here rather than folded into this item's own scope, and rather than left
 undiscovered for someone to trip over later.
+
+## 13. Exporting a gameplay scene
+
+`WorldMapSceneExport` turns an authored document into a reusable scene — WMH-6. Ctrl+E in the
+editor, or `exportScene(data, framing)` directly.
+
+### What a shipped map is
+
+A `Node3D` carrying region metadata, with one `Ground` (`WorldMapGround`) child holding a
+`PlaneMesh` and a `ShaderMaterial` bound to the committed bake. **No camera, no sky, no clouds,
+no HUD, no controller** — a gameplay scene supplies its own camera and environment, and the
+exported scene supplies the place. Verified by rendering one in a bare `Node3D` + `Camera3D`
+scene that touches no editor or debug class at all.
+
+`WorldMapGround` stays on the exported node deliberately: it is the class the shipping rig
+already uses, not editor code, so keeping it means the previewed ground and the shipped ground
+are literally the same class rather than two that could drift.
+
+Metadata rides on the root — region, layout, cells, extent, source path — because **only
+`@export`ed properties survive `pack()`**, and `WorldMapGround` exports none of its runtime
+state. `set_meta` does survive, so a gameplay scene can read a map's identity and extent without
+loading the authored source to get them.
+
+### One builder, so preview and export cannot drift
+
+`configureGround()` is the single definition of how a document becomes a ground: which extent it
+spans, which texture it samples, which fog and void colours it carries. The editor's live preview
+calls it, and the export calls it. A map that previews at one size and ships at another is the
+failure that shape rules out — and on a hex document it is a live risk, since `worldExtent()` and
+`size_tiles` are genuinely different numbers there.
+
+### The resource that must not be embedded
+
+**Godot does not fail when a material points at a texture with no `resource_path` — it silently
+embeds the whole image as base64.** Measured on a 64 × 64 red square while writing this item:
+
+| material's texture | exported `.tscn` |
+|---|---|
+| loaded from disk (`res://…png`) | **1,728 bytes**, PNG as an `ext_resource` |
+| created at runtime (no path) | **67,404 bytes**, image inlined as a `[sub_resource type="Image"]` |
+
+On a real map that is megabytes of pixels duplicated into the scene file, thereafter diverging
+from the PNG the baker keeps current — two copies of the same art, one of which nothing updates.
+A scene like that loads perfectly and is quietly wrong, which is exactly what a "does it load?"
+test passes. So `exportScene()` **refuses** a texture with no `resource_path` instead of falling
+back to one, and `probe_scene_export.gd` asserts that no `Image` sub-resource ever appears, that
+the PNG is present as an `ext_resource`, and that the whole scene stays under 8 KB.
+
+The consequence is a real precondition: **the bake must be saved AND imported before an export
+will run.** A freshly saved map in a running editor session has the file but not the import, so
+`ResourceLoader.exists()` is false and the export says so, naming the path it wanted. There is no
+fallback, because the only available fallback is the embedding above.
+
+### Generated scenes are not committed, and the reason is measured
+
+`ResourceSaver.save()` assigns **random id suffixes** (`id="1_23d0s"`) on every save, so exporting
+identical content twice produces different bytes. That is the opposite of the baked PNG, which is
+byte-deterministic and is therefore committed and byte-checked by `probe_bake_parity`. An
+exported scene cannot be checked that way, and committing one would show a spurious diff on every
+re-export — so exports land in `scenes/worldmap/generated/`, created on demand, and none is
+committed by this item.
+
+The two artifacts are treated differently because they genuinely differ in this property, not by
+preference.
+
+### The wrapper pattern
+
+`scenes/worldmap/generated/<name>.tscn` is regenerated wholesale and must never be hand-edited —
+the same rule `assets/worldmap/regions/generated/` already carries for baked art. Hand-authored
+additions belong in a **wrapper scene** at `scenes/worldmap/<name>.tscn` that *instances* the
+generated one. Re-exporting rewrites only the generated file; the wrapper is untouched and picks
+up the new content on its next load. That is what "re-exporting updates generated content without
+destroying hand-authored additions" means concretely.
+
+### A scene that loads and then breaks is still broken
+
+`WorldMapGround._material` is a plain variable, so it does not survive `pack()`: a loaded map has
+a good deserialised `material_override` and a null cache. `_ensureMaterial()` therefore **adopts
+an existing `material_override`** before making a new one. Without that, the first
+`applyFraming()` — the ordinary call for a gameplay scene choosing its own fog — would swap in a
+blank material and the map would lose its texture, extent and colours in one call.
+`probe_scene_export.gd` drives exactly that sequence on a loaded scene, and first asserts the
+cache really is null so the check cannot pass for the wrong reason.

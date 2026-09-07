@@ -158,7 +158,17 @@ func _rebuildMesh(plane_size: Vector2) -> void:
 	)
 
 
+## ADOPTS AN EXISTING `material_override` BEFORE MAKING A NEW ONE, and that is not defensive
+## padding -- it is what keeps an EXPORTED map working. `_material` is a plain variable, so it
+## does not survive `PackedScene.pack()`; a loaded gameplay scene therefore has a perfectly good
+## deserialised `material_override` and a null `_material`. Without the adopt below, the first
+## call to `applyFraming()` or `setLighting()` would replace that material with a blank one and
+## the map would lose its texture, its region extent and its colours in a single call -- a scene
+## that loads correctly and breaks the moment anything touches it.
 func _ensureMaterial() -> void:
+	if _material != null:
+		return
+	_material = material_override as ShaderMaterial
 	if _material != null:
 		return
 	_material = ShaderMaterial.new()

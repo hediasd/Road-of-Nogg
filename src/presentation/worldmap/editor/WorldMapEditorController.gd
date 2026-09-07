@@ -52,6 +52,7 @@ const SurfacePick = preload("res://src/presentation/worldmap/editor/WorldMapSurf
 const MapDataScript = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
 const Tilesets = preload("res://src/presentation/worldmap/editor/WorldMapTilesetCatalog.gd")
 const Baker = preload("res://src/presentation/worldmap/editor/WorldMapBaker.gd")
+const SceneExport = preload("res://src/presentation/worldmap/editor/WorldMapSceneExport.gd")
 const Regions = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.gd")
 
 ## One entry per layer this tool currently means to hold data for. `enabled` is false for both
@@ -390,6 +391,12 @@ func _unhandled_key_input(event: InputEvent) -> void:
 				return
 			_saveDocument()
 			get_viewport().set_input_as_handled()
+		KEY_E:
+			if not key.ctrl_pressed:
+				super._unhandled_key_input(event)
+				return
+			_exportScene()
+			get_viewport().set_input_as_handled()
 		_:
 			super._unhandled_key_input(event)
 
@@ -696,9 +703,10 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 	# `WorldMapHexGrid.latticeExtent`. A no-op change for a square document, where the two agree.
 	_regionTiles = _document.worldExtent()
 	_regionMapPx = Baker.pixelSizeOf(_document)
-	_ground.configure(
-		_regionTiles, texture, _framing, _document.fog_color, _document.void_color
-	)
+	# Through `WorldMapSceneExport`'s own builder rather than calling `_ground.configure()`
+	# directly -- the preview and the exported scene are then the SAME construction, so a map
+	# cannot preview at one extent and ship at another. See that file's own note.
+	SceneExport.configureGround(_ground, _document, texture, _framing)
 	_ground.configureCloudShadows(_regionMapPx, str(_framing[WorldMapGroundUniforms.K_CLOUDS]))
 	if not _layerEditable(_activeLayer):
 		for layer in LAYERS:
@@ -726,6 +734,18 @@ func _saveDocument() -> void:
 		else "Save failed; source and generated texture were not both written."
 	)
 	_editorHud.setOpenChoices(_availableDocumentNames())
+
+
+## Exports the open document to a gameplay scene (Ctrl+E). Reports the export's own error text
+## rather than a generic failure: every way this can fail -- an unsaved document, a bake Godot
+## has not imported yet -- has a different fix, and the status line is the only place a user
+## finds out which.
+func _exportScene() -> void:
+	var result := SceneExport.exportScene(_document, _framing)
+	if bool(result.get("ok", false)):
+		_editorHud.setStatus("Exported %s" % str(result["path"]))
+		return
+	_editorHud.setStatus("Export failed: %s" % str(result.get("error", "unknown")))
 
 
 ## Writes the open document under a different name and continues editing it under that name --
@@ -991,3 +1011,10 @@ func saveDocument() -> void:
 
 func layerIsEditable(id: String) -> bool:
 	return _layerEditable(id)
+
+
+## Returns the export's own `{ok, path}` / `{ok, error}` result rather than routing through the
+## status line, so `probe_scene_export.gd` can assert WHY an export was refused and not just that
+## it was.
+func exportScene() -> Dictionary:
+	return SceneExport.exportScene(_document, _framing)
