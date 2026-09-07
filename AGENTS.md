@@ -176,11 +176,13 @@ Each item carries:
   gate. Routing that is authored and never checked is documentation, not
   delegation; routing that blocks costs a round trip the user never wanted.
 
-  **Name the tier in conversation, not only in the plan file.** Any time you
-  say what the next item, wave or lane is — a status recap, a suggestion at the
-  end of a turn — give its suggested tier alongside it. The user dispatches
-  from that sentence. For a folded validation, route the lane to the higher of
-  the two tiers it covers.
+  **Name the tier in conversation, not only in the plan file — with its
+  rationale.** Any time you say what the next item, wave or lane is — a status
+  recap, a suggestion at the end of a turn — give its suggested tier alongside
+  it, plus one short clause on why that tier fits this work. The user
+  dispatches from that sentence, and a bare label gives him nothing to disagree
+  with when the routing is wrong. For a folded validation, route the lane to
+  the higher of the two tiers it covers.
 - **Depends on** — the items whose commits must exist first.
 - **Touches** — every path or glob the item may write, documentation included.
   This list is the item's exclusive claim while it runs, so it must be
@@ -203,6 +205,30 @@ cycle whose items are all self-contained has no validation item at all. A cycle
 with deferred checks has exactly one, depending on every item that feeds it,
 with its own model assignment — and "Where validation runs" below settles
 whether it needs a wave to itself.
+
+**Write each item for the tier that will run it.** The Model field is not only
+a cost decision — it decides how the item body must be written, and an item
+written for the wrong tier fails even when the routing is right.
+
+- **Sonnet 5 / GPT Terra items are specifications.** Exact paths, symbol names,
+  signatures, constants and their values; an end state phrased so it can be
+  checked literally; the verification command written out rather than
+  described. Point at an existing file to mirror instead of explaining the
+  pattern in prose. State the boundary explicitly — what the item must *not*
+  touch or "improve" — because this tier's failure mode is drifting into
+  adjacent work that belongs to another item's Touches list. Leave no open
+  question and no "decide whether".
+- **Opus 5 / GPT Sol items are briefs.** State the problem, the constraints and
+  the tension, not the solution: prescribing an implementation wastes the tier
+  being paid for. Give the context that is not recoverable from the code — why
+  the current shape exists, what was already tried and rejected — name the
+  invariants that must survive, and say plainly which decision is the session's
+  to make. Ask for the judgement and its reasoning in the commit body, so the
+  next cycle inherits it.
+- The two forms are also a check on the routing itself. If a Sonnet item cannot
+  be written without leaving something open, it is an Opus item. If an Opus
+  item reads as a step-by-step recipe, the judgement has already been made and
+  it is a Sonnet item.
 
 Mark items that require a user decision as blocking, and say so plainly rather
 than proceeding on an assumption. Where a fix legitimately changes a passing

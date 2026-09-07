@@ -54,9 +54,12 @@ is not a rationale.>
 - `src/presentation/theme/WindowSkinCatalog.gd`
 - `docs/UI_DESIGN.md` §4
 
-**End state:** <Observable, checkable.>
+**End state:** <Observable, checkable. For a Sonnet item, literally checkable
+— exact names and values.>
 
-**Implementation:** <What is not obvious from the end state.>
+**Implementation:** <What is not obvious from the end state. Sonnet: the spec —
+paths, signatures, a file to mirror, and what not to touch. Opus: the brief —
+constraints, tension, invariants, and which call is the session's to make.>
 
 **Risk:** <What this could break, and how to notice.>
 
@@ -67,6 +70,15 @@ is not a rationale.>
   validation item to consolidate. Omit the line if there are none — an item
   with no deferred check is verified when it commits.>
 ```
+
+The body is written **for the tier in the Model field** — `AGENTS.md` owns the
+rule. A Sonnet 5 / GPT Terra item is a specification: exact paths and symbols,
+a literally checkable end state, the verification command spelled out, an
+explicit "do not touch" boundary, and no open questions. An Opus 5 / GPT Sol
+item is a brief: the problem, the constraints, the tension and the invariants,
+with the decision left to the session and its reasoning requested in the commit
+body. An item that reads like the wrong form is usually routed to the wrong
+tier.
 
 **Touches** is the item's exclusive claim while it runs, and it is what makes
 concurrency safe. Include documentation. Be complete: an item that cannot state
