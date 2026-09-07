@@ -39,6 +39,55 @@ dependencies, and a "where to make a change" table — see
 [`MODULE_MAP.md`](./MODULE_MAP.md). This section stays the authority on what
 the layers *mean*; the map is the routing detail.
 
+## Approved hex battle ownership (planned)
+
+The active code still implements the square baseline described below. The hex
+migration keeps `BattleSimulator` as the only canonical runtime and
+`BattleState` as its authoritative state; it changes their topology and
+activation contracts rather than adding a parallel maintained simulator. The
+approved player-facing rules are in [`GAME_DESIGN.md`](./GAME_DESIGN.md), under
+"Approved initial hex battle target."
+
+The planned ownership split is:
+
+- Headless board code owns offset/axial conversion, six-neighbour ordering, hex
+  distance, footprints, weighted traversal, zone-of-control termination, and
+  symmetric supercover line of sight. Simulation and AI consume the same query
+  surfaces. Neither imports editor or presentation code.
+- Setup data owns the selected tactical map, deterministic party identities,
+  each party's commander and members, controllers, and deployment. A map owns
+  valid cells, terrain, height, and source identity. Presentation scenes are not
+  gameplay map definitions.
+- `BattleState` owns party membership and withdrawal state, the round's ordered
+  party queue, the active party, member eligibility/spent state, board layers,
+  occupancy, and every value needed for deterministic save and replay.
+- `BattleSimulator` owns activation transitions and is the only writer of that
+  state. It builds the round queue from commander level, effective commander
+  SPD, and deterministic party ID; opens member turns; consumes Wait and End
+  Party; advances member-owned timing once; resolves forced party withdrawal;
+  and checks victory between fully resolved member commands.
+- Player controllers and CPU brains select only from simulator-reported eligible
+  members and submit the same typed commands. They never maintain a competing
+  party queue or advance status, cooldown, passive, withdrawal, or victory state.
+- Presentation observes `BattleEvents` or `IBattleVisualAdapter`, submits intent,
+  and renders authoritative eligibility, paths, footprints, party progress, and
+  outcomes. Picking, overlays, cameras, animation callbacks, and UI controls do
+  not mutate `BattleState`.
+- Tactical authoring may produce both a visual scene and a headless map resource,
+  tied by source identity and geometry metadata. Runtime simulation loads only
+  the headless product through its factory boundary; it never reads the editor.
+
+The current square battle is preserved as a frozen, independently runnable
+reference with its own source snapshot, resources, manifest, and launch steps.
+The active project does not load it and exposes no square/hex runtime toggle.
+Hex battle is the sole maintained product path; fixes and upgrades do not flow
+back into the reference. This archive boundary avoids a second runtime family
+while keeping the old behaviour available for comparison.
+
+Until the migration lands, every section below remains a description of the
+current square implementation. Planned hex terminology must not be read as an
+already available state or command field.
+
 ## Authoritative state
 
 `BattleState` owns:
