@@ -10,6 +10,11 @@
 class_name WorldMapRegionCatalog
 extends RefCounted
 
+## What a region's truth IS. A painted region is its PNG; an authored region is its tile data,
+## and its PNG is baked from that. See the `KIND` note in `reloadCatalog`.
+const KIND_PAINTED := "painted"
+const KIND_AUTHORED := "authored"
+
 const JSON_PATH := "res://data/worldmap/regions.json"
 const JsonCatalogLoaderScript = preload("res://src/factories/JsonCatalogLoader.gd")
 const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
@@ -33,15 +38,40 @@ static func reloadCatalog(path: String = JSON_PATH) -> bool:
 	for reference in loaded["list"]:
 		var nameKey := str(reference["NAME"])
 		var texturePath := str(reference.get("TEXTURE", ""))
-		var tilesWide := int(reference.get("TILES_WIDE", 0))
-		var tilesTall := int(reference.get("TILES_TALL", 0))
-		# Tile pixel size varies per region -- some art is drawn on an 8 px grid, some 16.
-		var tilePixels := int(reference.get("TILE_PIXELS", Uniforms.DEFAULT_TILE_PIXELS))
-		if texturePath.is_empty() or tilesWide <= 0 or tilesTall <= 0 or tilePixels <= 0:
+		var blocksWide := int(reference.get("TILES_WIDE", 0))
+		var blocksTall := int(reference.get("TILES_TALL", 0))
+		# The grid the ART was drawn on, which is NOT the walk grid and never sizes the world.
+		# It exists so the texture-size check below can be expressed in the units the artist
+		# actually worked in; `temp2` is 31 x 22 blocks of 8 px, and saying so is how the check
+		# stays readable. `TILE_PIXELS` is accepted as the old spelling so an unmigrated entry
+		# still loads.
+		var grid := int(reference.get("GRID", reference.get("TILE_PIXELS", Uniforms.TILE_PIXELS)))
+		if texturePath.is_empty() or blocksWide <= 0 or blocksTall <= 0 or grid <= 0:
 			push_warning("WorldMapRegionCatalog: invalid entry '%s'" % nameKey)
 			return false
-		reference["TILES"] = Vector2i(tilesWide, tilesTall)
-		reference["TILE_PIXELS"] = tilePixels
+		reference["ART_BLOCKS"] = Vector2i(blocksWide, blocksTall)
+		reference["GRID"] = grid
+		# PAINTED or AUTHORED. A painted region is a hand-drawn PNG and is the truth about
+		# itself -- `temp` and `temp2` are painted and nothing about how they load changes. An
+		# authored region's truth is its tile data under `data/worldmap/authored/`, and its
+		# TEXTURE is a BUILD ARTIFACT baked from that data: generated, never hand-edited, and
+		# regenerable from the source alone. Defaulted to painted so every existing entry keeps
+		# its behaviour without being touched.
+		var kind := str(reference.get("KIND", KIND_PAINTED))
+		if kind != KIND_PAINTED and kind != KIND_AUTHORED:
+			push_warning(
+				"WorldMapRegionCatalog: region '%s' has unknown KIND '%s'" % [nameKey, kind]
+			)
+			return false
+		reference["KIND"] = kind
+		# The world extent, and the only size anything downstream is allowed to use. A map pixel
+		# is worth 1/TILE_PIXELS of a unit no matter what grid the art was drawn on, so a region
+		# of 8 px blocks covers half the ground its block count suggests. This is deliberately a
+		# float: `temp2` is 248 px wide, which is 15.5 walk tiles, and rounding that would either
+		# stretch the art or drop a strip of it.
+		reference["TILES"] = (
+			Vector2(float(blocksWide), float(blocksTall)) * float(grid) / float(Uniforms.TILE_PIXELS)
+		)
 		# What lies beyond the edge, and the haze the map fades into, belong to the place.
 		# Defaulted rather than required so an older entry still loads.
 		reference["FOG_COLOR"] = Color(str(reference.get("FOG_COLOR", "cfe9f5")))
@@ -158,16 +188,22 @@ static func voidColorFor(regionID: String) -> Color:
 	return _index[regionID]["VOID_COLOR"]
 
 
-static func tilePixelsFor(regionID: String) -> int:
+## The region's world extent in walk tiles, which is one world unit each. Fractional for art
+## drawn on a grid that does not divide the tile: see `TILES` in `reloadCatalog`.
+static func tilesFor(regionID: String) -> Vector2:
 	if not _index.has(regionID):
-		return Uniforms.DEFAULT_TILE_PIXELS
-	return _index[regionID]["TILE_PIXELS"]
+		return Vector2.ZERO
+	return _index[regionID]["TILES"]
 
 
-static func tilesFor(regionID: String) -> Vector2i:
+## The texture's pixel dimensions. Everything that works in map-pixel space -- the shadow mask,
+## the cloud field, the prop atlas -- wants this rather than a tile count, and asking for it
+## directly is what removed the last multiplication by a per-region tile size.
+static func mapPixelsFor(regionID: String) -> Vector2i:
 	if not _index.has(regionID):
 		return Vector2i.ZERO
-	return _index[regionID]["TILES"]
+	var blocks: Vector2i = _index[regionID]["ART_BLOCKS"]
+	return blocks * int(_index[regionID]["GRID"])
 
 
 ## Loads the region's texture and validates it against the catalog's declared tile
@@ -183,30 +219,69 @@ static func loadRegion(regionID: String) -> Dictionary:
 	var texturePath := str(reference["TEXTURE"])
 	var texture := ResourceLoader.load(texturePath) as Texture2D
 	if texture == null:
+		# An authored region's texture is baked, so a missing one means the bake has not been
+		# run -- a different problem from a painted region's art having gone missing, and worth
+		# saying so rather than reporting "could not load" and leaving someone hunting for a PNG
+		# that was never meant to be committed by hand.
+		if str(reference["KIND"]) == KIND_AUTHORED:
+			push_warning(
+				(
+					"WorldMapRegionCatalog: authored region '%s' has no baked texture at %s. "
+					+ "Its source is %s; run the baker."
+				)
+				% [regionID, texturePath, tileDataPathFor(regionID)]
+			)
+			return {}
 		push_warning(
 			"WorldMapRegionCatalog: could not load texture at %s for region '%s'"
 			% [texturePath, regionID]
 		)
 		return {}
 
-	var tiles: Vector2i = reference["TILES"]
-	var tilePixels: int = reference["TILE_PIXELS"]
-	var expected := Vector2(tiles.x * tilePixels, tiles.y * tilePixels)
+	var blocks: Vector2i = reference["ART_BLOCKS"]
+	var grid: int = reference["GRID"]
+	var expected := Vector2(blocks.x * grid, blocks.y * grid)
 	if texture.get_size() != expected:
 		push_warning(
 			(
 				"WorldMapRegionCatalog: region '%s' texture is %s px but TILES_WIDE/"
-				+ "TILES_TALL/TILE_PIXELS declare %s tiles of %d px (%s px)"
+				+ "TILES_TALL/GRID declare %s blocks of %d px (%s px)"
 			)
-			% [regionID, texture.get_size(), tiles, tilePixels, expected]
+			% [regionID, texture.get_size(), blocks, grid, expected]
 		)
 		return {}
 
 	return {
 		"id": regionID,
 		"texture": texture,
-		"tiles": tiles,
-		"tile_pixels": tilePixels,
+		# World extent in walk tiles -- a float, and not the block count for art on a finer grid.
+		"tiles": reference["TILES"],
+		"map_px": blocks * grid,
 		"fog_color": reference["FOG_COLOR"],
 		"void_color": reference["VOID_COLOR"],
+		"kind": reference["KIND"],
 	}
+
+
+static func kindFor(regionID: String) -> String:
+	if not _index.has(regionID):
+		return KIND_PAINTED
+	return str(_index[regionID]["KIND"])
+
+
+static func isAuthored(regionID: String) -> bool:
+	return kindFor(regionID) == KIND_AUTHORED
+
+
+## Where an authored region's tile data lives. Painted regions have none, and this returns the
+## path they WOULD use rather than an empty string, so a diagnostic can name it.
+static func tileDataPathFor(regionID: String) -> String:
+	return "res://data/worldmap/authored/%s.json" % regionID
+
+
+## An authored region's source. Returns null for a painted region, or when the file is missing
+## or unreadable -- `WorldMapTileData` warns about which.
+static func tileDataFor(regionID: String) -> WorldMapTileData:
+	if not isAuthored(regionID):
+		return null
+	return WorldMapTileData.loadFrom(tileDataPathFor(regionID))

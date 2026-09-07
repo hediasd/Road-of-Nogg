@@ -114,6 +114,29 @@ uniform float cloud_softness : hint_range(0.0, 4.0) = 0.0;
 // way to make pixel art stop looking like pixel art.
 uniform vec2 map_size = vec2(248.0, 176.0);
 
+// EDITOR GRID OVERLAY. Off by default, and every uniform below is inert at 0 -- the shipping
+// path sets none of them and renders exactly as it did before this existed.
+//
+// It lives in THIS shader rather than a second pass on purpose. The alternative is a separate
+// overlay mesh with its own shader transcribing the curvature displacement, and the project
+// already has one of those arrangements: `worldmap_prop.gdshader` transcribes this file's fog,
+// and section 9 of WORLDMAP_DESIGN.md records that the two must be kept in step by hand
+// forever. One displacement is worth sharing this file for.
+//
+// Drawing it here is also what makes it ride the curved surface for free: the lines are a
+// function of `world_position`, the UNDISPLACED position that already exists as a varying, so
+// they land on the ground wherever the vertex stage put it without knowing that it moved.
+//
+// 0 off, 1 tile lines, 2 tile and cel lines.
+uniform int grid_mode : hint_range(0, 2) = 0;
+uniform vec4 grid_tile_color : source_color = vec4(1.0, 1.0, 1.0, 0.30);
+uniform vec4 grid_cel_color : source_color = vec4(1.0, 1.0, 1.0, 0.12);
+// Line thickness in SCREEN pixels, held constant with distance -- see `grid_coverage`.
+uniform float grid_line_px = 1.25;
+// Cursor highlight: xy is the corner in world units, zw the size. Zero size draws nothing.
+uniform vec4 cursor_rect = vec4(0.0, 0.0, 0.0, 0.0);
+uniform vec4 cursor_color : source_color = vec4(1.0, 0.85, 0.30, 0.45);
+
 varying vec3 world_position;
 
 // The fog blend happens in GAMMA space, not linear. That is a deliberate departure from
@@ -162,6 +185,23 @@ float cloud_shadow_coverage(vec2 uv) {
 	float threshold = (BAYER4[cell.y * 4 + cell.x] + 0.5) / 16.0;
 	return threshold < 0.5 ? centre : 0.0;
 }
+
+// Coverage of a grid line at `spacing` world units, about `grid_line_px` screen pixels wide
+// however far away the ground is.
+//
+// `fwidth` of the scaled coordinate is how much of that coordinate one screen pixel spans, so
+// dividing the distance-to-line by it converts a world-space measurement into a screen-space
+// one. Without that the far half of a pitch-60 frame turns the lattice into a moire -- the
+// lines converge below one pixel apart and alias against each other. This is deliberately NOT
+// the treatment the ART gets: section 4 keeps the ground's sparkle because pixel noise is the
+// look, but an editor overlay is chrome, and chrome that shimmers is just hard to aim with.
+float grid_coverage(vec2 p, float spacing) {
+	vec2 scaled = p / spacing;
+	vec2 half_width = max(fwidth(scaled) * grid_line_px * 0.5, vec2(1e-6));
+	vec2 to_line = abs(fract(scaled - 0.5) - 0.5) / half_width;
+	return 1.0 - clamp(min(to_line.x, to_line.y), 0.0, 1.0);
+}
+
 
 void vertex() {
 	// Undisplaced world position: the curvature is a visual bend, so texture lookup and
@@ -228,5 +268,29 @@ void fragment() {
 	// Fog and void take the same light as the ground. Leaving them fixed is what makes a day
 	// cycle fall apart: a pale teal horizon behind a midnight-blue map reads as a bug.
 	vec3 ground = off_map ? void_color.rgb * light_tint : albedo;
-	ALBEDO = to_linear(mix(to_gamma(ground), to_gamma(fog_color.rgb * light_tint), fog));
+	vec3 composed = mix(to_gamma(ground), to_gamma(fog_color.rgb * light_tint), fog);
+
+	// AFTER the fog, and only on-map. The overlay is chrome rather than part of the scene, so it
+	// stays legible at the far edge of the frame instead of hazing out exactly where the tiles
+	// are smallest and aiming is hardest. Off-map it is suppressed: there is no tile out there
+	// to point at.
+	if (grid_mode > 0 && !off_map) {
+		vec2 p = world_position.xz;
+		if (cursor_rect.z > 0.0 && cursor_rect.w > 0.0) {
+			vec2 inside = step(cursor_rect.xy, p) * step(p, cursor_rect.xy + cursor_rect.zw);
+			composed = mix(composed, to_gamma(cursor_color.rgb), cursor_color.a * inside.x * inside.y);
+		}
+		// Cel lines first so the tile lines draw over them: a tile boundary is also a cel
+		// boundary, and the coarser grid is the one that should win where they coincide.
+		if (grid_mode == 2) {
+			// One cel is half a world unit -- the tile law's constant ratio, spelled here as the
+			// spacing it implies rather than as a second constant to keep in step.
+			float cel = grid_coverage(p, 0.5) * grid_cel_color.a;
+			composed = mix(composed, to_gamma(grid_cel_color.rgb), cel);
+		}
+		float tile = grid_coverage(p, 1.0) * grid_tile_color.a;
+		composed = mix(composed, to_gamma(grid_tile_color.rgb), tile);
+	}
+
+	ALBEDO = to_linear(composed);
 }

@@ -26,7 +26,9 @@ const PLANE_SUBDIVISIONS := 64
 ## which is what stops the plane's own edge from appearing before the void colour can.
 const FOG_MARGIN_FACTOR := 1.0
 
-var region_tiles := Vector2i(48, 64)
+## The region's world extent in walk tiles, one world unit each. A float because art drawn on
+## the 8 px cel grid does not land on a whole number of 16 px tiles.
+var region_tiles := Vector2(48.0, 64.0)
 ## The region's own colours, used for any framing that does not name its own.
 var region_fog_color := Color("cfe9f5")
 var region_void_color := Color.BLACK
@@ -39,15 +41,16 @@ var _cloudShadows: WorldMapCloudShadows
 
 ## Builds the plane for a region and applies a framing. Safe to call again with a
 ## different region or framing; the mesh is rebuilt only when the size actually changes.
-func configure(tiles: Vector2i, texture: Texture2D, framing: Dictionary,
+func configure(tiles: Vector2, texture: Texture2D, framing: Dictionary,
 		fogColor := Color("cfe9f5"), voidColor := Color.BLACK) -> void:
 	region_fog_color = fogColor
 	region_void_color = voidColor
 	var complete := Uniforms.completeForRegion(framing, region_fog_color, region_void_color)
 	region_tiles = tiles
-	# One tile is one world unit, so the region's world size IS its tile count. The tile's
-	# pixel size does not appear here at all -- see WORLDMAP_DESIGN.md section 1.
-	region_size = Vector2(float(tiles.x), float(tiles.y))
+	# One tile is one world unit, so the region's world size IS its tile count. A map pixel is a
+	# fixed 1/16 of a unit, and the conversion happened in the catalog -- see
+	# WORLDMAP_DESIGN.md section 1.
+	region_size = tiles
 	region_origin = Vector2.ZERO
 
 	var margin: float = float(complete[Uniforms.K_FOG_END]) * FOG_MARGIN_FACTOR

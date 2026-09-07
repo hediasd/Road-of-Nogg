@@ -1,35 +1,67 @@
 [
 	{
 		"NAME": "temp",
-		"DESCRIPTION": "Placeholder region supplied for the ground rig cycle. 48x64 tiles of 16 px, well short of the ~155 tiles the tile-exact framing needs -- its plane edges are expected to show. Naming this region is a lore question, not decided here.",
+		"DESCRIPTION": "Placeholder region supplied for the ground rig cycle. 48x64 blocks of 16 px, which is 48x64 walk tiles -- this art was already on the tile grid, so the tile law left it unchanged. Well short of the ~155 tiles the tile-exact framing needs; its plane edges are expected to show. Naming this region is a lore question, not decided here.",
+		"KIND": "painted",
 		"TEXTURE": "res://assets/worldmap/regions/temp.png",
 		"TILES_WIDE": 48,
 		"TILES_TALL": 64,
-		"TILE_PIXELS": 16,
+		"GRID": 16,
 		"FOG_COLOR": "cfe9f5",
 		"VOID_COLOR": "4058d8"
 	},
 	{
 		"NAME": "temp2",
-		"DESCRIPTION": "Second placeholder region, supplied 2026-09-01. 31x22 tiles of 8 px -- the first region drawn on the 8 px grid, and the one that showed the rig had a 16 px tile size hardcoded. Seven colours, no alpha, sea-dominant.",
+		"DESCRIPTION": "Second placeholder region, supplied 2026-09-01. 31x22 blocks of 8 px, drawn on the CEL grid -- so under the tile law it is 15.5 x 11 walk tiles, not 31x22, and it renders at half the ground it used to cover. Legacy painted art, deliberately not re-cut. Seven colours, no alpha, sea-dominant.",
+		"KIND": "painted",
 		"TEXTURE": "res://assets/worldmap/regions/temp2.png",
 		"TILES_WIDE": 31,
 		"TILES_TALL": 22,
-		"TILE_PIXELS": 8,
+		"GRID": 8,
 		"FOG_COLOR": "bae8e2",
 		"VOID_COLOR": "37aeae",
 		"STRUCTURES": {
-			"KEY_COLORS": ["f5fff5", "021500", "0b696a"],
+			"KEY_COLORS": [
+				"f5fff5",
+				"021500",
+				"0b696a"
+			],
 			"KEY_TOLERANCE": 45,
-			"DOOR_COLORS": ["e69900"],
+			"DOOR_COLORS": [
+				"e69900"
+			],
 			"DOOR_TOLERANCE": 42,
 			"MIN_PIXELS": 8,
 			"TOWER_ASPECT": 1.2,
 			"TOWER_TRIM_ROWS": 1,
-			"EMISSIVE_COLORS": ["e69900"],
+			"EMISSIVE_COLORS": [
+				"e69900"
+			],
 			"EMISSIVE_TOLERANCE": 42,
 			"EMISSIVE_NEIGHBOUR": "0b696a"
 		},
 		"DEFAULT": true
+	},
+	{
+		"NAME": "temp2_authored",
+		"DESCRIPTION": "The first authored region: composed from tile data rather than painted. Its source is data/worldmap/authored/temp2_authored.json and its TEXTURE is a BUILD ARTIFACT baked from it -- generated, never hand-edited, committed so a fresh checkout renders without running a bake. 15x11 walk tiles, reassembled from tiles cut out of temp2, and the bake reproduces temp2's first 240 px byte for byte. temp2 is 15.5 tiles wide, so its rightmost 8 px is a cel-grade remainder this tile-grade map does not cover.",
+		"KIND": "authored",
+		"TEXTURE": "res://assets/worldmap/regions/generated/temp2_authored.png",
+		"TILES_WIDE": 15,
+		"TILES_TALL": 11,
+		"GRID": 16,
+		"FOG_COLOR": "bae8e2",
+		"VOID_COLOR": "37aeae"
+	},
+	{
+		"NAME": "temp2_hex32",
+		"DESCRIPTION": "Flat-top hex prototype region, 32 px hexes reassembled from temp2_hex32_ground. 20 hexes across x 10 rows. A hex is 32 px = 2 world units wide under the current 16 px world unit, so columns advance 1.5 units. Ground only -- the nine structures are painted out and return later as placed objects. Prototype for judging hex framing; GRID 1 because the hex lattice does not land on a square block size.",
+		"KIND": "painted",
+		"TEXTURE": "res://assets/worldmap/regions/generated/temp2_hex32.png",
+		"TILES_WIDE": 488,
+		"TILES_TALL": 336,
+		"GRID": 1,
+		"FOG_COLOR": "bae8e2",
+		"VOID_COLOR": "37aeae"
 	}
 ]

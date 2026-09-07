@@ -21,12 +21,24 @@ extends RefCounted
 ## readable as a tile count: camera height, fog distances and region size all speak the same
 ## unit as the art.
 ##
-## A tile's PIXEL size is a property of the art, not of the world, and it varies per region --
-## some maps are drawn on an 8 px grid, some on 16. It therefore lives in
-## `WorldMapRegionCatalog` and never reaches the camera: a 31 x 22 region of 8 px tiles and a
-## 31 x 22 region of 16 px tiles occupy the same ground and frame identically, differing only
-## in texel density. This constant is only the fallback for a region that omits it.
-const DEFAULT_TILE_PIXELS := 16
+## THE TWO GRIDS. A tile is 16 map pixels and one world unit, ALWAYS, and it is the only grid
+## anything in the game can observe: an entity walks tiles, collision is per tile, elevation is
+## per tile corner. A cel is 8 map pixels, four to a tile, and it exists for art detail alone --
+## nothing an entity can stand on, walk through or be blocked by is ever expressed in cels.
+##
+## The ratio is a constant, not a per-region property, which is what makes a cel index a shift
+## off a tile index and removes every runtime conversion that could disagree. A region drawn on
+## some other grid is legacy art: its `GRID` in `regions.json` sizes the texture check and
+## nothing else, and its world extent is still its pixel size divided by TILE_PIXELS.
+##
+## This replaced a per-region `TILE_PIXELS` that was read as a world quantity in four places.
+## Under that rule an 8 px region and a 16 px region of the same tile count occupied the same
+## ground, which is exactly what the law now denies: they occupy ground in proportion to their
+## pixels, because a pixel is worth a fixed fraction of a unit.
+const TILE_PIXELS := 16
+const CEL_PIXELS := 8
+## Cels per tile on each axis. Four per tile.
+const CELS_PER_TILE := TILE_PIXELS / CEL_PIXELS
 
 ## Shader uniform names. The three region samplers all receive the same texture; see the
 ## `filter_mode` comment in the shader for why one sampler cannot serve all three modes.
@@ -49,6 +61,23 @@ const U_MAP_SIZE := "map_size"
 const U_SHOW_SKY_BEYOND := "show_sky_beyond"
 ## The cast-shadow mask and how hard it bites. In map-pixel space, sampled with the region's
 ## own UV -- see `WorldMapShadowMask`.
+## The editor's grid overlay. Deliberately NOT framing keys and deliberately absent from
+## `applyToMaterial`: the grid is editor state, not a property of a framing, and routing it
+## through the framing dictionary would put editor chrome into the contract every shipping
+## preset is written against. `WorldMapSurfacePick.applyGrid()` sets these directly, and the
+## shader's own defaults leave the overlay off for everything that never calls it.
+const U_GRID_MODE := "grid_mode"
+const U_GRID_TILE_COLOR := "grid_tile_color"
+const U_GRID_CEL_COLOR := "grid_cel_color"
+const U_GRID_LINE_PX := "grid_line_px"
+const U_CURSOR_RECT := "cursor_rect"
+const U_CURSOR_COLOR := "cursor_color"
+
+## Grid overlay modes, matching the shader's `grid_mode` branch order.
+const GRID_OFF := 0
+const GRID_TILES := 1
+const GRID_TILES_AND_CELS := 2
+
 const U_SHADOW_MASK := "shadow_mask"
 const U_SHADOW_STRENGTH := "shadow_strength"
 const U_LIGHT_TINT := "light_tint"
