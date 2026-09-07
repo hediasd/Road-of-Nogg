@@ -679,6 +679,10 @@ specification is not a Sonnet item.
 - `src/presentation/worldmap/editor/WorldMapEditorHud.gd`
 - `src/presentation/worldmap/editor/WorldMapBrushes.gd`
 - `src/presentation/worldmap/editor/WorldMapHeightField.gd`
+- `src/presentation/worldmap/editor/WorldMapEditHistory.gd` — added 2026-09-07 before execution,
+  on the user's instruction. Omitted from the first draft of this list by mistake: the item's own
+  End state requires detail edits to be undoable, and the history's public API (`paintCell`,
+  `paintHeight`, `placeObject`) has no call that can carry a detail slot.
 - `debug/worldmap/probe_editor_tools.gd` (new)
 
 **End state:** A person with a mouse can sculpt terrain, place and remove a building, and paint a
