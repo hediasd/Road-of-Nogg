@@ -160,15 +160,18 @@ static func pickCel(camera: Camera3D, screen: Vector2, curvature: float, region:
 	return Vector2i(int(floor(local.x * perTile)), int(floor(local.y * perTile)))
 
 
-## Drives the shader's grid overlay. `cursor` is a tile or cel coordinate to highlight, or
-## `null` for none; `celGrade` decides both which lattice the cursor covers and whether the
-## finer lines are drawn at all -- cel lines appear only while a cel-grade tool is active, so
-## the lattice on screen is always the one the current tool actually edits.
+## Drives the shader's grid overlay. `cursor` is a tile or cel coordinate to highlight (a hex
+## cell, when `hex` is true), or `null` for none. `celGrade` decides whether the finer lines are
+## drawn at all -- on a square map that means cel lines, on a hex map the sub-triangle fan --
+## so the lattice on screen is always the one the current tool actually edits.
 ##
-## STILL DRAWS A SQUARE LATTICE. The hex overlay is WMH-3's item: it needs a hex distance field in
-## the shader, because `fract()` on world XZ has no hex analogue. Until then a hex map's cursor
-## rect is the hex's bounding box rather than its silhouette, which is honest about being
-## provisional rather than quietly wrong about the shape.
+## THE HEX CURSOR IS THE HEX'S OWN SILHOUETTE, not its bounding box. An earlier version of this
+## function drew the bounding box, honestly marked provisional, because the shader had no hex
+## distance field yet; it now does (`hex_edge_distance` in `worldmap_ground.gdshader`), so the
+## cursor and the picked cell are drawn from the SAME geometry rather than an approximation of
+## it. `WorldMapHexGrid.cellCentre` is the one function both this and the shader's own
+## `hex_axial_centre` compute -- `probe_hex_grid_overlay.gd` asserts the two agree rather than
+## trusting a hand port of one into the other.
 static func applyGrid(
 	material: ShaderMaterial, region: Rect2, cursor: Variant, celGrade: bool, visible := true,
 	hex := false
@@ -178,22 +181,30 @@ static func applyGrid(
 	if not visible:
 		material.set_shader_parameter(Uniforms.U_GRID_MODE, Uniforms.GRID_OFF)
 		return
+	material.set_shader_parameter(Uniforms.U_GRID_HEX, hex)
 	material.set_shader_parameter(
 		Uniforms.U_GRID_MODE,
 		Uniforms.GRID_TILES_AND_CELS if celGrade else Uniforms.GRID_TILES
 	)
+	if hex:
+		if cursor == null:
+			material.set_shader_parameter(Uniforms.U_HEX_CURSOR, Vector3.ZERO)
+		else:
+			var cell := cursor as Vector2i
+			var centre := region.position + WorldMapHexGrid.cellCentre(cell)
+			material.set_shader_parameter(
+				Uniforms.U_HEX_CURSOR, Vector3(centre.x, centre.y, 1.0)
+			)
+		# Not read while grid_hex is true -- see the shader's own branch -- but cleared rather
+		# than left stale, so nothing downstream can be misled by inspecting it directly.
+		material.set_shader_parameter(Uniforms.U_CURSOR_RECT, Vector4.ZERO)
+		return
+
+	material.set_shader_parameter(Uniforms.U_HEX_CURSOR, Vector3.ZERO)
 	if cursor == null:
 		material.set_shader_parameter(Uniforms.U_CURSOR_RECT, Vector4.ZERO)
 		return
 	var cell := cursor as Vector2i
-	if hex:
-		var centre := region.position + WorldMapHexGrid.cellCentre(cell)
-		material.set_shader_parameter(Uniforms.U_CURSOR_RECT, Vector4(
-			centre.x - WorldMapHexGrid.HEX_WIDTH * 0.5,
-			centre.y - WorldMapHexGrid.HEX_HEIGHT * 0.5,
-			WorldMapHexGrid.HEX_WIDTH, WorldMapHexGrid.HEX_HEIGHT
-		))
-		return
 	var size := 1.0 / float(Uniforms.CELS_PER_TILE) if celGrade else 1.0
 	var corner := region.position + Vector2(float(cell.x), float(cell.y)) * size
 	material.set_shader_parameter(

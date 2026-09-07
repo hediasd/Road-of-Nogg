@@ -536,11 +536,51 @@ solve is untouched — `surfacePoint()` returns a world point and knows nothing 
 is why the hex switch cost one line there. `hex` defaults false, so the square path and
 `temp2_authored`'s byte-exact bake parity are bit-for-bit unaffected.
 
-Two things are deliberately still square and marked provisional in the source: the **grid overlay**
-still draws square lines (a hex lattice needs a distance field in the shader — WMH-3), so a hex
-cursor is currently the hex's bounding box rather than its silhouette; and **`pickCel` is
+One thing is still deliberately square and marked provisional in the source: **`pickCel` is
 square-only**, because hexagons do not tile into smaller hexagons and hex sub-tile detail is the
-six triangles a hex fans into (WMH-10).
+six triangles a hex fans into (WMH-10). The grid overlay is no longer on this list — see below.
+
+### The grid overlay
+
+`fract()` on world XZ, the square lattice's whole trick, has no hex analogue — there is no
+periodic tiling of the plane by a single `fract()` fold that reads as hexagons. The shader instead
+resolves the *nearest hex centre* for every fragment and measures a signed distance to that one
+hex's own edges, which is a small port of the CPU-side hex maths into GLSL rather than a new idea:
+
+- `hex_nearest_axial()` is `WorldMapHexGrid.worldToCell()`'s cube-rounding, inlined — same
+  independent-axis-rounding trap, same fix. Getting this step wrong reads as a lattice that is
+  fine in the middle of every hex and one cell out along every seam, which is exactly the failure
+  mode §"Rounding is the part that bites" above describes for the CPU side; the shader is not
+  exempt from it just because it runs per-fragment.
+- `hex_axial_centre()` is `WorldMapHexGrid.cellCentre()`, inlined the same way.
+- `hex_edge_distance()` is the SDF: fold the local position into one quadrant with `abs()`, then
+  take the max of the distance to the flat top edge and the distance to the slanted edge — the
+  standard convex-hexagon SDF, sized to this hex's own `2×2` unit box.
+- `hex_subtriangle_coverage()` folds further, to the two edges that survive `abs()`-folding all six
+  spokes, and measures distance to each spoke as a clamped line segment (`distance_to_spoke`) —
+  this is the sub-triangle fan, drawn only while `grid_mode == GRID_TILES_AND_CELS`, matching how
+  the square path only draws cel lines at that same mode.
+
+Two uniforms gate all of this: `grid_hex` (bool) picks hex geometry over square, and `hex_cursor`
+(`vec3`, `xy` = the hex's own centre, `z > 0.5` = active) replaces `cursor_rect` for the hex path.
+The **entire original square-path fragment code moved into an `else` branch, unmodified** — the
+shipping square maps run the exact bytes they always did, provably rather than by inspection,
+because nothing about them changed at all.
+
+The risk WMH-3's own plan text named — *"a hex SDF that is subtly wrong reads as a plausible
+lattice that does not line up with the cells picking returns"* — is why the cursor is drawn from
+`hex_edge_distance` fed the same `WorldMapHexGrid.cellCentre` the picker uses, rather than from an
+independent shape, and why `probe_hex_grid_overlay.gd` asserts the shader's ported functions agree
+with `WorldMapHexGrid`'s own, across a dense sample **and** the boundary points that are the only
+place a rounding bug shows.
+
+One `--check-only` blind spot is worth naming since it cost real time here: GDScript's parser has
+no knowledge of GLSL syntax, so a `.gdshader` file can pass `--check-only` on every `.gd` file that
+references it while itself failing to compile — `float flat = ...` parsed fine as GDScript-adjacent
+text but `flat` is a reserved GLSL interpolation qualifier, and the shader failed to compile with
+`Expected an identifier or '[' after type`. The only way to catch this class of error is to force
+an actual compile: load the shader into a live `ShaderMaterial`, attach it to a mesh inside a
+`SubViewport`, and process a frame. There is no headless-only substitute for it.
 
 ### The map format
 

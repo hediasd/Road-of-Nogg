@@ -72,8 +72,19 @@ const U_GRID_CEL_COLOR := "grid_cel_color"
 const U_GRID_LINE_PX := "grid_line_px"
 const U_CURSOR_RECT := "cursor_rect"
 const U_CURSOR_COLOR := "cursor_color"
+## Selects hex geometry over the square lattice above -- see the shader's own note on why this
+## is a separate uniform rather than a third `grid_mode` branch: `grid_mode` still means
+## off/coarse/coarse+fine either way, and `grid_hex` picks which SHAPE that applies to.
+const U_GRID_HEX := "grid_hex"
+## The hex cursor's centre and whether it is active (`.z > 0.5`) -- kept apart from
+## `cursor_rect`, which stays corner+size and square-only, rather than overloading one uniform
+## with two incompatible meanings.
+const U_HEX_CURSOR := "hex_cursor"
 
-## Grid overlay modes, matching the shader's `grid_mode` branch order.
+## Grid overlay modes, matching the shader's `grid_mode` branch order. The same two values
+## apply to both the square and hex lattices -- `grid_hex` decides which shape they draw, not
+## a separate set of mode constants -- so `GRID_TILES_AND_CELS` is also "hex + sub-triangle fan"
+## when `grid_hex` is set, per the shader's own comment on why the hex branch reuses these names.
 const GRID_OFF := 0
 const GRID_TILES := 1
 const GRID_TILES_AND_CELS := 2

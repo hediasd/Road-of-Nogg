@@ -137,6 +137,20 @@ uniform float grid_line_px = 1.25;
 uniform vec4 cursor_rect = vec4(0.0, 0.0, 0.0, 0.0);
 uniform vec4 cursor_color : source_color = vec4(1.0, 0.85, 0.30, 0.45);
 
+// HEX GEOMETRY SWITCH. Off by default -- the square path above is entirely untouched by
+// anything below, and every uniform here is inert while this is false. `WorldMapSurfacePick.
+// applyGrid()` is the only place that ever sets it true, and only when a caller explicitly asks
+// for hex mode; nothing currently does (the wiring from an open document's layout is a later
+// item's job, same as WALKABLE and LIFTABLE sat unread on a tile for two items before anything
+// used them).
+uniform bool grid_hex = false;
+// The hex cursor's CENTRE, not a corner -- a hex has no natural width/height the way a square
+// selection does, its shape is fixed by geometry and only its centre moves. `.z > 0.5` means
+// active; kept separate from `cursor_rect` rather than overloading it, because a reader seeing
+// `cursor_rect` used as xy=corner in one branch and xy=centre in another is exactly the kind of
+// thing that reads correctly once and wrongly the next time someone touches this file.
+uniform vec3 hex_cursor = vec3(0.0, 0.0, 0.0);
+
 varying vec3 world_position;
 
 // The fog blend happens in GAMMA space, not linear. That is a deliberate departure from
@@ -200,6 +214,105 @@ float grid_coverage(vec2 p, float spacing) {
 	vec2 half_width = max(fwidth(scaled) * grid_line_px * 0.5, vec2(1e-6));
 	vec2 to_line = abs(fract(scaled - 0.5) - 0.5) / half_width;
 	return 1.0 - clamp(min(to_line.x, to_line.y), 0.0, 1.0);
+}
+
+
+// HEX GRID OVERLAY. `fract()` on world XZ has no hex analogue -- a hex lattice is not a
+// rectangular repeat -- so this is a different technique from `grid_coverage()` above, not an
+// extension of it. Every function here is a direct port of
+// `src/presentation/worldmap/editor/WorldMapHexGrid.gd`, and it has to be a PORT rather than a
+// re-derivation: that file's own header explains why independent-axis rounding fails at every
+// hex seam, and a shader-side re-derivation that got the same detail wrong would draw a lattice
+// that looks plausible while disagreeing with the picker along every boundary -- exactly the
+// risk this item was scoped against. `probe_hex_grid_overlay.gd` asserts the two agree rather
+// than trusting the port by inspection.
+
+// World position (region-local) -> the nearest hex's AXIAL coordinate, as floats. Cube rounding,
+// restoring `x + y + z = 0` by recomputing whichever of the three moved furthest -- see
+// `WorldMapHexGrid.roundAxial`'s own comment for why independent rounding is wrong, not merely
+// imprecise. The forward map (world -> fractional axial) is `WorldMapHexGrid.worldToCell`'s own,
+// stopped one step before its final `axialToOffset` conversion.
+vec2 hex_nearest_axial(vec2 p) {
+	vec2 centred = p - vec2(1.0, 1.0);
+	float qf = centred.x / 1.5;
+	float rf = (centred.y - qf) / 2.0;
+
+	float xf = qf;
+	float zf = rf;
+	float yf = -xf - zf;
+	float rx = round(xf);
+	float ry = round(yf);
+	float rz = round(zf);
+	float dx = abs(rx - xf);
+	float dy = abs(ry - yf);
+	float dz = abs(rz - zf);
+	if (dx > dy && dx > dz) {
+		rx = -ry - rz;
+	} else if (dy > dz) {
+		ry = -rx - rz;
+	} else {
+		rz = -rx - ry;
+	}
+	return vec2(rx, rz);
+}
+
+// Axial (q, r) -> its cell centre, in the same region-local world units `WorldMapHexGrid.
+// cellCentre()` returns. Derived by inverting `hex_nearest_axial`'s own forward map; checked
+// against that file's own hand-computed table (axial (1, 0) -> world (2.5, 2.0)) while writing
+// this, and asserted against it by the probe rather than left to have been checked once by eye.
+vec2 hex_axial_centre(vec2 axial) {
+	return vec2(1.5 * axial.x + 1.0, 2.0 * axial.y + axial.x + 1.0);
+}
+
+// Signed distance to THIS PROJECT'S OWN flat-top hex shape -- not a generic regular hexagon.
+// World-space width equals height here (both 2 units), which is deliberately NOT the 2:sqrt(3)
+// ratio a regular hexagon has: it is what BECOMES regular once the pitch-60 camera's vertical
+// squash (sin 60 = sqrt(3)/2) is applied on screen. `local` is a world position relative to the
+// hex's own centre. Negative is inside, positive outside, zero on the boundary.
+//
+// Folding by `abs()` on both axes collapses the six edges to two unique ones -- the flat
+// top/bottom edge and one slanted edge -- and the standard rule for a convex shape's SDF, the
+// MAX of each edge's own signed distance, covers all six through that fold. `0.4472135955` is
+// `1/sqrt(5)`, the slanted edge's normal length (the edge runs from (0.5, 1) to (1, 0), a
+// direction of length sqrt(1.25); its perpendicular has length sqrt(1+4)=sqrt(5)).
+float hex_edge_distance(vec2 local) {
+	vec2 q = abs(local);
+	// `flat` is a reserved GLSL keyword (an interpolation qualifier) and cannot be a variable
+	// name here -- caught by an actual shader compile, not by GDScript's own parser, which has
+	// no opinion on GLSL keywords at all.
+	float flat_edge = q.y - 1.0;
+	float slant = (2.0 * q.x + q.y - 2.0) * 0.4472135955;
+	return max(flat_edge, slant);
+}
+
+// Distance from `p` to the line SEGMENT from the origin to `endpoint`. Used for the
+// sub-triangle fan lines below -- six spokes from a hex's centre to its own six vertices, the
+// same fan WMH-8's terrain triangulation and WMH-10's detail slots will use.
+float distance_to_spoke(vec2 p, vec2 endpoint) {
+	float t = clamp(dot(p, endpoint) / dot(endpoint, endpoint), 0.0, 1.0);
+	return length(p - endpoint * t);
+}
+
+// Coverage of the hex lattice's boundary lines. Same screen-space-constant-width treatment as
+// `grid_coverage()`, and the same reason: without it, the far half of a pitch-60 frame turns the
+// lattice into a moire.
+float hex_line_coverage(vec2 p) {
+	vec2 centre = hex_axial_centre(hex_nearest_axial(p));
+	float d = hex_edge_distance(p - centre);
+	float w = max(fwidth(d) * grid_line_px * 0.5, 1e-6);
+	return 1.0 - clamp(abs(d) / w, 0.0, 1.0);
+}
+
+// Coverage of the sub-triangle fan: six spokes from a hex's own centre to its six vertices --
+// GEOMETRY only, drawn ahead of there being any data or tool to gate it on. Folding by `abs()`
+// the same way `hex_edge_distance` does collapses the six spokes to the two unique ones this
+// tests distance against, (1, 0) and (0.5, 1).
+float hex_subtriangle_coverage(vec2 p) {
+	vec2 centre = hex_axial_centre(hex_nearest_axial(p));
+	vec2 q = abs(p - centre);
+	float d = min(distance_to_spoke(q, vec2(1.0, 0.0)), distance_to_spoke(q, vec2(0.5, 1.0)));
+	float w = max(fwidth(d) * grid_line_px * 0.5, 1e-6);
+	return 1.0 - clamp(d / w, 0.0, 1.0);
 }
 
 
@@ -276,20 +389,41 @@ void fragment() {
 	// to point at.
 	if (grid_mode > 0 && !off_map) {
 		vec2 p = world_position.xz;
-		if (cursor_rect.z > 0.0 && cursor_rect.w > 0.0) {
-			vec2 inside = step(cursor_rect.xy, p) * step(p, cursor_rect.xy + cursor_rect.zw);
-			composed = mix(composed, to_gamma(cursor_color.rgb), cursor_color.a * inside.x * inside.y);
+		if (grid_hex) {
+			// A HEX DOCUMENT'S OVERLAY. Entirely separate from the square branch below --
+			// nothing here shares state with it beyond `p`, `grid_mode` and the two colour
+			// uniforms, which the hex path reuses for the same roles (coarse lattice, fine
+			// detail) rather than needing its own.
+			if (hex_cursor.z > 0.5) {
+				float cursorDistance = hex_edge_distance(p - hex_cursor.xy);
+				float cursorWidth = max(fwidth(cursorDistance), 1e-6);
+				float fill = clamp(0.5 - cursorDistance / cursorWidth, 0.0, 1.0);
+				composed = mix(composed, to_gamma(cursor_color.rgb), cursor_color.a * fill);
+			}
+			// Sub-triangle fan first so the hex lattice draws over it, matching the square
+			// path's own cel-under-tile ordering: the coarser grid wins where they coincide.
+			if (grid_mode == 2) {
+				float fan = hex_subtriangle_coverage(p) * grid_cel_color.a;
+				composed = mix(composed, to_gamma(grid_cel_color.rgb), fan);
+			}
+			float hexLine = hex_line_coverage(p) * grid_tile_color.a;
+			composed = mix(composed, to_gamma(grid_tile_color.rgb), hexLine);
+		} else {
+			if (cursor_rect.z > 0.0 && cursor_rect.w > 0.0) {
+				vec2 inside = step(cursor_rect.xy, p) * step(p, cursor_rect.xy + cursor_rect.zw);
+				composed = mix(composed, to_gamma(cursor_color.rgb), cursor_color.a * inside.x * inside.y);
+			}
+			// Cel lines first so the tile lines draw over them: a tile boundary is also a cel
+			// boundary, and the coarser grid is the one that should win where they coincide.
+			if (grid_mode == 2) {
+				// One cel is half a world unit -- the tile law's constant ratio, spelled here as
+				// the spacing it implies rather than as a second constant to keep in step.
+				float cel = grid_coverage(p, 0.5) * grid_cel_color.a;
+				composed = mix(composed, to_gamma(grid_cel_color.rgb), cel);
+			}
+			float tile = grid_coverage(p, 1.0) * grid_tile_color.a;
+			composed = mix(composed, to_gamma(grid_tile_color.rgb), tile);
 		}
-		// Cel lines first so the tile lines draw over them: a tile boundary is also a cel
-		// boundary, and the coarser grid is the one that should win where they coincide.
-		if (grid_mode == 2) {
-			// One cel is half a world unit -- the tile law's constant ratio, spelled here as the
-			// spacing it implies rather than as a second constant to keep in step.
-			float cel = grid_coverage(p, 0.5) * grid_cel_color.a;
-			composed = mix(composed, to_gamma(grid_cel_color.rgb), cel);
-		}
-		float tile = grid_coverage(p, 1.0) * grid_tile_color.a;
-		composed = mix(composed, to_gamma(grid_tile_color.rgb), tile);
 	}
 
 	ALBEDO = to_linear(composed);
