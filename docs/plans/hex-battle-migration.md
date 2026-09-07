@@ -1,22 +1,30 @@
 # Hex battle migration
 
-Prepared 2026-09-07. **Queued; execution has not started.** This cycle makes hex
+Prepared 2026-09-07. **Opened as an isolated sibling cycle; execution starts
+after this preflight amendment commits.** This cycle makes hex
 battle the active product, preserves the square battle as a frozen runnable
 reference, and establishes commander/party activation before the first playable
 hex scene. Forsena is the principal reference for rules, style, and layout;
 other games supply candidates, not automatic requirements. The world-map hex
-authoring cycle continues independently. This file may be refined before
-execution; once execution starts it is frozen and findings live in item commits.
+authoring cycle continues in the primary checkout. This file may be refined
+before execution; once HXB-1 starts it is frozen and findings live in item
+commits.
 
 ## Opening and decision gates
 
-- Do not open a second cycle while `worldmap-hex-authoring` is active. This
-  queued document can be committed on the currently checked-out branch under
-  the window rule; authoring it does not open its execution cycle.
-- After the active cycle closes, and the user declares the tree quiet, open
-  `plan/hex-battle-migration`. Follow AGENTS.md's branch audit and wave pushes.
-  Reconcile this plan against the editor's then-current source **before the
-  first item executes**, especially terrain, objects, bridges, and export.
+- The user authorized this sibling cycle on 2026-09-07 using the repository's
+  separate-worktree exception. It runs only at `builds/worktrees/hex-battle` on
+  `plan/hex-battle-migration`; do not switch the primary checkout or perform hex
+  cycle edits there.
+- HXB-1 through HXB-3 may run while `worldmap-hex-authoring` remains active
+  because their write sets are disjoint from that cycle. HXB-4 and HXB-10 touch
+  world-map editor paths and are blocked until the world-map cycle merges to
+  `main`, the hex branch merges that new `main`, and the affected assumptions,
+  terrain, objects, bridges, export paths, and Touches lists are reconciled.
+  No later item may bypass HXB-4's gate through dependency ordering.
+- Process launches remain globally serialized across worktrees. Narrow probes
+  follow AGENTS.md's process safeguards; deferred gameplay/editor validation
+  still requires a quiet repository-wide launch window.
 - The user approved the initial battle rules and standalone square-reference
   scope on 2026-09-07. HXB-1 is therefore a documentation specification rather
   than a product-decision gate; it records the approved contract before runtime
