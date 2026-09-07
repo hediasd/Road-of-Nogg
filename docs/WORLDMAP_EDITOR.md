@@ -589,3 +589,41 @@ file loads with **no migration and no version bump** — which is what the forma
 layer-agnostic was for. On a hex map `SIZE_TILES` means columns × rows, and every grid layer is
 the lattice whatever its grid kind, because there is no finer hex lattice for a cel-grade layer to
 mean.
+
+### The hex brushes
+
+`WorldMapBrushes` stores every cell in offset, hex or square, so five of its seven tools —
+`point`, `floodFill`'s bounds check, `eyedropper`, `randomFromSet`, `replaceAllOfKind` — already
+worked on a hex map without change: they only ever reason about individual offset cells or a raw
+`Rect2i` of them, and offset storage is a plain `cols × rows` rectangle either way. Three tools
+have genuinely different hex geometry, and each is why:
+
+- **Line.** A hex has no diagonal neighbour the way a square does, so there is no "closest in
+  each of two axes" step for Bresenham to generalise to. `lineCells(from, to, hex := true)`
+  instead lerps the two endpoints' **cube** coordinates and rounds each of
+  `WorldMapHexGrid.distance()`'s evenly-spaced samples — reusing `WorldMapHexGrid.roundAxial`
+  rather than re-deriving it, so a drawn line and a pick agree on what "nearest hex" means.
+- **Rectangle → disc, what the editor UI calls RANGE.** A rectangle has no natural hex meaning —
+  a parallelogram in axial space reads skewed on screen — so the area tool on a hex map is
+  `disc()`/`discCells()`: every cell within `radius` steps of a centre, via the standard
+  cube-space disc enumeration (`3r² + 3r + 1` cells, each provably within radius by construction,
+  not by a filter pass afterward).
+- **Stamp → `stampHex()`.** Its pattern maps an **axial** offset from the anchor to a tile id,
+  not a row/col array. This is the one place parity actually bites: the same `(dx, dy)` offset
+  delta lands on a different relative hex depending on whether the anchor sits on an odd or even
+  column, while axial addition has no such seam — the exact reason `WorldMapHexGrid` keeps axial
+  as its maths space even though it stores offset.
+
+`line`, `floodFill` (its neighbour set, not its bounds check) and `stamp` are otherwise unchanged
+and remain what a square map uses; a caller picks the hex path by reading `data.layout` (`line`,
+`floodFill`) or by calling the dedicated hex function (`disc`, `stampHex`), never by a caller-side
+flag that could disagree with what the map itself declares.
+
+`probe_brushes.gd` exercises all three at **both column parities** — an even- and an odd-column
+origin for each — since column-parity bugs are, by construction, invisible from just one parity.
+The flood-fill check is the one worth spelling out: it fills from a centre with a **hex ring**
+(the cells at exactly distance 2) painted as a wall, and asserts the fill reaches every cell at
+distance ≤ 1 and none beyond the ring. That specifically exercises hex adjacency rather than
+square: a hex ring is a complete barrier because a hex has no diagonal neighbour to slip through,
+where the same claim for a square ring depends on which connectivity rule (4- or 8-) the flood
+fill uses.

@@ -4,6 +4,15 @@
 ## controller owns pointer gestures; this class owns what a point, rectangle, line, fill, stamp,
 ## scatter, or replace operation means. Keeping those halves apart lets the probe exercise every
 ## brush without a viewport and keeps one drag equal to one history command.
+##
+## HEX MAPS (WMH-4). `point`, `floodFill`, `eyedropper`, `randomFromSet` and `replaceAllOfKind`
+## are already layout-agnostic -- they only ever reason about individual OFFSET cells or a raw
+## `Rect2i` of them, and offset storage is a plain `cols x rows` rectangle whether the cells it
+## holds are square or hex (see `WorldMapHexGrid`'s own header). Three tools are not, because
+## their geometry is genuinely different on a hex lattice, and each says why at its definition:
+## `line` (no diagonal on a hex, so no Bresenham), `rectangle` (a hex disc instead --
+## see `disc`/`discCells`, what the editor UI calls RANGE), and `stamp` (offset deltas are not
+## translation-invariant across a hex parity boundary -- see `stampHex`).
 
 class_name WorldMapBrushes
 extends RefCounted
@@ -30,6 +39,8 @@ static func point(
 	return _applyCells(data, history, layerID, [cell], tileID)
 
 
+## SQUARE MAPS ONLY. A rectangle has no natural hex meaning -- a parallelogram in axial space
+## looks skewed on screen -- so a hex map's equivalent area tool is `disc`, not this.
 static func rectangle(
 	data: WorldMapTileData, history: WorldMapEditHistory, layerID: String,
 	from: Vector2i, to: Vector2i, tileID: String
@@ -47,15 +58,49 @@ static func rectangleCells(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	return result
 
 
+## The hex counterpart to `rectangle` -- what the editor UI calls RANGE. A disc of `radius` steps
+## (in `WorldMapHexGrid.distance()` terms) around `centre`, which is what a user drawing on hexes
+## expects an area tool to mean, where a rectangle or a parallelogram in axial space is not.
+static func disc(
+	data: WorldMapTileData, history: WorldMapEditHistory, layerID: String,
+	centre: Vector2i, radius: int, tileID: String
+) -> bool:
+	return _applyCells(data, history, layerID, discCells(centre, radius), tileID)
+
+
+## Standard cube-space disc enumeration: every axial offset `(dq, dr)` within `radius` steps of
+## the centre, converted back to offset. Every cell this returns is exactly `WorldMapHexGrid.
+## distance(centre, cell) <= radius` by construction, not by a separate filter pass.
+static func discCells(centre: Vector2i, radius: int) -> Array[Vector2i]:
+	var result: Array[Vector2i] = []
+	if radius < 0:
+		return result
+	var axialCentre := WorldMapHexGrid.offsetToAxial(centre)
+	for dq in range(-radius, radius + 1):
+		var rLow := maxi(-radius, -dq - radius)
+		var rHigh := mini(radius, -dq + radius)
+		for dr in range(rLow, rHigh + 1):
+			result.append(WorldMapHexGrid.axialToOffset(axialCentre + Vector2i(dq, dr)))
+	return result
+
+
 static func line(
 	data: WorldMapTileData, history: WorldMapEditHistory, layerID: String,
 	from: Vector2i, to: Vector2i, tileID: String
 ) -> bool:
-	return _applyCells(data, history, layerID, lineCells(from, to), tileID)
+	var hex := data.layout == WorldMapTileData.LAYOUT_HEX_FLAT
+	return _applyCells(data, history, layerID, lineCells(from, to, hex), tileID)
 
 
-## Integer Bresenham, inclusive at both ends and identical in every octant.
-static func lineCells(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+## Integer Bresenham, inclusive at both ends and identical in every octant. `hex` switches to a
+## cube lerp instead: a hex has no diagonal neighbour the way a square does, so there is no
+## "closest in each of two axes" step for Bresenham to generalise to, and the standard technique
+## is instead to lerp the two endpoints' CUBE coordinates and round each of `WorldMapHexGrid.
+## distance()` evenly-spaced samples -- the same cube rounding `WorldMapHexGrid.worldToCell` uses,
+## reused here rather than re-derived, so a line and a pick agree on what "nearest hex" means.
+static func lineCells(from: Vector2i, to: Vector2i, hex := false) -> Array[Vector2i]:
+	if hex:
+		return _hexLineCells(from, to)
 	var result: Array[Vector2i] = []
 	var current := from
 	var dx := absi(to.x - from.x)
@@ -77,6 +122,21 @@ static func lineCells(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	return result
 
 
+static func _hexLineCells(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	var steps := WorldMapHexGrid.distance(from, to)
+	if steps == 0:
+		return [from]
+	var a := WorldMapHexGrid.offsetToAxial(from)
+	var b := WorldMapHexGrid.offsetToAxial(to)
+	var result: Array[Vector2i] = []
+	for i in range(steps + 1):
+		var t := float(i) / float(steps)
+		var qf: float = lerp(float(a.x), float(b.x), t)
+		var rf: float = lerp(float(a.y), float(b.y), t)
+		result.append(WorldMapHexGrid.axialToOffset(WorldMapHexGrid.roundAxial(qf, rf)))
+	return result
+
+
 static func floodFill(
 	data: WorldMapTileData, history: WorldMapEditHistory, layerID: String,
 	start: Vector2i, tileID: String
@@ -87,6 +147,10 @@ static func floodFill(
 	return _applyCells(data, history, layerID, floodCells(data, layerID, start), tileID)
 
 
+## `data.layout` picks the neighbour set: 4 cardinal directions on a square map, the 6 the hex
+## has instead -- via `WorldMapHexGrid.neighbours()`, so this does not re-derive hex adjacency --
+## on a hex one. Hexes have no diagonal neighbours at all, which is why hex adjacency has none of
+## the corner ambiguity a square flood fill has to define away.
 static func floodCells(
 	data: WorldMapTileData, layerID: String, start: Vector2i
 ) -> Array[Vector2i]:
@@ -96,15 +160,21 @@ static func floodCells(
 	var pending: Array[Vector2i] = [start]
 	var visited := {start: true}
 	var cells: Array[Vector2i] = []
+	var hex := data.layout == WorldMapTileData.LAYOUT_HEX_FLAT
 	while not pending.is_empty():
 		var cell: Vector2i = pending.pop_front()
 		if data.getCell(layerID, cell) != original:
 			continue
 		cells.append(cell)
-		for neighbour in [
-			cell + Vector2i.LEFT, cell + Vector2i.RIGHT,
-			cell + Vector2i.UP, cell + Vector2i.DOWN,
-		]:
+		var candidates: Array[Vector2i]
+		if hex:
+			candidates = WorldMapHexGrid.neighbours(cell)
+		else:
+			candidates = [
+				cell + Vector2i.LEFT, cell + Vector2i.RIGHT,
+				cell + Vector2i.UP, cell + Vector2i.DOWN,
+			]
+		for neighbour in candidates:
 			if _inBounds(data, layerID, neighbour) and not visited.has(neighbour):
 				visited[neighbour] = true
 				pending.append(neighbour)
@@ -126,6 +196,28 @@ static func stamp(
 			if row[x] == null:
 				continue
 			history.paintCell(data, origin + Vector2i(x, y), str(row[x]))
+	return history.endStroke()
+
+
+## The hex counterpart to `stamp`. `pattern` maps an AXIAL offset from `origin` (a `Vector2i` of
+## `(dq, dr)`) to a tile id; a key simply absent from the dictionary is a hole, matching `stamp`'s
+## own `null`-skips convention.
+##
+## AXIAL, NOT A ROW/COL ARRAY, and this is the one place in the file that matters most: a stamp is
+## meant to be orientation-stable, the same shape wherever it lands, but offset addition is NOT
+## translation-invariant across a hex parity boundary -- the same `(dx, dy)` delta lands on a
+## different relative hex depending on whether the anchor sits on an odd or even column. Axial
+## addition has no such seam, which is the entire reason `WorldMapHexGrid` keeps axial as ITS
+## maths space even though it stores offset -- see that file's own header.
+static func stampHex(
+	data: WorldMapTileData, history: WorldMapEditHistory, layerID: String,
+	origin: Vector2i, pattern: Dictionary
+) -> bool:
+	var anchor := WorldMapHexGrid.offsetToAxial(origin)
+	history.beginStroke(layerID)
+	for delta in pattern:
+		var cell := WorldMapHexGrid.axialToOffset(anchor + (delta as Vector2i))
+		history.paintCell(data, cell, str(pattern[delta]))
 	return history.endStroke()
 
 
