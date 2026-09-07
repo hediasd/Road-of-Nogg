@@ -448,3 +448,83 @@ command. Verified rather than reasoned about: `probe_edit_history.gd` fuzzes a h
 randomised strokes against a real map, undoes every one, and asserts the data lands back on its
 exact starting bytes — 92 of 100 strokes had a net effect in the committed run, and all 92
 round-tripped exactly, forward and back.
+
+## 11. The hex lattice
+
+`WorldMapHexGrid` owns every piece of hex arithmetic in the project. That is not tidiness: the
+one failure mode this geometry has is **column-parity bugs** — arithmetic that is right on even
+columns and half a row out on odd ones — and the only reliable defence is that no caller anywhere
+performs the parity step itself.
+
+### Three coordinate spaces
+
+| Space | Role |
+|---|---|
+| **Offset `(col, row)`** | Storage and the public API. A lattice is a plain `cols × rows` rectangle, which is what the dense RLE rows, the brushes, the history's `Vector2i` keys and the baker already index by. |
+| **Axial `(q, r)`** | The maths. Neighbours and distance are trivial here and horrible in offset. |
+| **Cube `(x, y, z)`, `x+y+z = 0`** | Only inside `roundAxial`, because correct rounding is only expressible there. |
+
+The cycle file said to *store* axial. This stores offset and converts, reaching the same goal by
+the other route: what that instruction protects against is parity arithmetic scattered through
+callers, and centralising the conversion prevents that just as completely — while leaving the
+dense array a rectangle and every existing `Vector2i` caller untouched.
+
+### Geometry
+
+Flat-top, pre-stretched so hexes read regular at pitch 60, which is what makes the world
+footprint square. One hex is **2 × 2 world units**; columns advance **1.5**; rows advance **2**;
+**odd** columns drop **1**. Cell `(0,0)` is centred at `(1, 1)` — its box starts at the origin.
+
+That odd-vs-even convention is written down deliberately. Both exist in the wild, and picking one
+silently is how a half-row shift turns up at a map edge months later.
+
+### Rounding is the part that bites
+
+Rounding each axial axis independently is correct in the middle of a hex and lands **one cell out
+along every seam** — so it fails exactly where a user aims when being precise, and passes any
+test that samples hex interiors. Measured against this implementation: naive rounding is wrong on
+**33.3% of boundary points and 0% of interior points**.
+
+The fix is to round in cube space and restore `x+y+z = 0` by recomputing the component that moved
+*furthest* — the least trustworthy of the three.
+
+### The square map
+
+A region declares a **square extent**; `latticeForSquare()` inscribes the largest lattice that
+fits; the remainder is **margin**. The margin is a **bake concern, not data** — only hexes exist
+as cells, so nothing downstream ever asks whether a cell is a hex or filler.
+
+Lattices fill a square exactly when `3C = 4R + 1`. `exactSquareLattices()` lists them for a "new
+map" dialog:
+
+| cols × rows | units |
+|---|---|
+| 7 × 5 | 11 |
+| 15 × 11 | 23 |
+| 31 × 23 | 47 |
+| **103 × 77** | **155** |
+
+The last is not a coincidence worth losing: **155 units is exactly the region width
+`WORLDMAP_DESIGN.md` §3 says the reference framing needs** before the plane's own edges show. The
+hex lattice and the framing constraint agree on the same number.
+
+### Picking
+
+`pickTile(..., hex)` switches only its final mapping from a square floor to hex rounding. The ray
+solve is untouched — `surfacePoint()` returns a world point and knows nothing about grids, which
+is why the hex switch cost one line there. `hex` defaults false, so the square path and
+`temp2_authored`'s byte-exact bake parity are bit-for-bit unaffected.
+
+Two things are deliberately still square and marked provisional in the source: the **grid overlay**
+still draws square lines (a hex lattice needs a distance field in the shader — WMH-3), so a hex
+cursor is currently the hex's bounding box rather than its silhouette; and **`pickCel` is
+square-only**, because hexagons do not tile into smaller hexagons and hex sub-tile detail is the
+six triangles a hex fans into (WMH-10).
+
+### The map format
+
+`WorldMapTileData` gains `LAYOUT`: `square` or `hex_flat`, defaulting to square so every existing
+file loads with **no migration and no version bump** — which is what the format being
+layer-agnostic was for. On a hex map `SIZE_TILES` means columns × rows, and every grid layer is
+the lattice whatever its grid kind, because there is no finer hex lattice for a cel-grade layer to
+mean.

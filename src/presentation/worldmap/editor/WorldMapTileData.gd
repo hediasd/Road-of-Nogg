@@ -45,6 +45,15 @@ const AUTHORED_DIR := "res://data/worldmap/authored"
 const KIND_GRID := "grid"
 const KIND_LIST := "list"
 
+## How a map's cells are arranged. `square` is the original 16 px tile lattice, kept working
+## unchanged -- `temp2_authored` is square and its byte-exact bake parity is the sharpest test in
+## the project. `hex_flat` is the flat-top hex lattice, where `size_tiles` means COLUMNS x ROWS.
+##
+## Defaulted to square so every existing map file loads with no migration and no version bump,
+## which is what the format being layer-agnostic was for.
+const LAYOUT_SQUARE := "square"
+const LAYOUT_HEX_FLAT := "hex_flat"
+
 ## An empty cell in a grid layer. A run of these is how a layer says "nothing here", and it is
 ## deliberately not the empty string: a run reads `12:-`, which is legible in a diff, where
 ## `12:` would look like a truncation.
@@ -53,6 +62,8 @@ const EMPTY := "-"
 var region_name := ""
 var description := ""
 var size_tiles := Vector2i.ZERO
+## `square` or `hex_flat`. On a hex map `size_tiles` is the lattice's columns and rows.
+var layout := LAYOUT_SQUARE
 ## The region whose palette this map's tilesets must stay inside, and whose fog and void colours
 ## it inherits. Those belong to the PLACE, per `WORLDMAP_DESIGN.md` section 4.
 var palette_region := ""
@@ -69,10 +80,11 @@ var _layerOrder: Array[String] = []
 
 ## A new authored region with the layers Gate 1 left in scope, both empty. Any other layer is
 ## added by `addGridLayer` / `addListLayer` without this file needing to learn what it is.
-static func create(name: String, sizeTiles: Vector2i) -> WorldMapTileData:
+static func create(name: String, sizeTiles: Vector2i, mapLayout := LAYOUT_SQUARE) -> WorldMapTileData:
 	var data := WorldMapTileData.new()
 	data.region_name = name
 	data.size_tiles = sizeTiles
+	data.layout = mapLayout
 	data.addGridLayer("ground", WorldMapTilesetCatalog.GRID_TILE, "")
 	data.addGridLayer("overlay", WorldMapTilesetCatalog.GRID_CEL, "")
 	return data
@@ -103,9 +115,14 @@ func layerIDs() -> Array[String]:
 	return _layerOrder.duplicate()
 
 
-## A grid layer's dimensions in ITS OWN cells. A tile-grade layer is the region's tile size; a
-## cel-grade one is that times the fixed ratio -- which is the whole payoff of the tile law
-## making that ratio a constant rather than a per-region property.
+## A grid layer's dimensions in ITS OWN cells.
+##
+## On a SQUARE map a tile-grade layer is the region's tile size and a cel-grade one is that times
+## the fixed ratio -- the payoff of the tile law making that ratio a constant.
+##
+## On a HEX map every grid layer is the lattice, whatever its grid kind. Hexagons do not tile into
+## smaller hexagons, so there is no finer hex lattice for a cel-grade layer to mean; sub-tile
+## detail on hex is the six triangles a hex fans into, which is WMH-10 and is not a second grid.
 func layerSize(layerID: String) -> Vector2i:
 	if not layers.has(layerID):
 		return Vector2i.ZERO
@@ -116,9 +133,19 @@ func layerSize(layerID: String) -> Vector2i:
 
 
 func _gridSize(gridKind: String) -> Vector2i:
+	if layout == LAYOUT_HEX_FLAT:
+		return size_tiles
 	if gridKind == WorldMapTilesetCatalog.GRID_CEL:
 		return size_tiles * Uniforms.CELS_PER_TILE
 	return size_tiles
+
+
+## The map's extent in world units. On a hex map this is the lattice's bounding box, which is what
+## a square region is sized to contain; on a square map it is simply the tile count.
+func worldExtent() -> Vector2:
+	if layout == LAYOUT_HEX_FLAT:
+		return WorldMapHexGrid.latticeExtent(size_tiles.x, size_tiles.y)
+	return Vector2(size_tiles)
 
 
 func _cellCount(gridKind: String) -> int:
@@ -219,6 +246,7 @@ func toDictionary() -> Dictionary:
 		"NAME": region_name,
 		"DESCRIPTION": description,
 		"SIZE_TILES": [size_tiles.x, size_tiles.y],
+		"LAYOUT": layout,
 		"PALETTE_REGION": palette_region,
 		"FOG_COLOR": fog_color.to_html(false),
 		"VOID_COLOR": void_color.to_html(false),
@@ -242,6 +270,11 @@ static func fromDictionary(raw: Dictionary) -> WorldMapTileData:
 	data.region_name = str(migrated.get("NAME", ""))
 	data.description = str(migrated.get("DESCRIPTION", ""))
 	data.size_tiles = Vector2i(int(size[0]), int(size[1]))
+	var declaredLayout := str(migrated.get("LAYOUT", LAYOUT_SQUARE))
+	if declaredLayout != LAYOUT_SQUARE and declaredLayout != LAYOUT_HEX_FLAT:
+		push_warning("WorldMapTileData: unknown LAYOUT '%s'" % declaredLayout)
+		return null
+	data.layout = declaredLayout
 	data.palette_region = str(migrated.get("PALETTE_REGION", ""))
 	data.fog_color = Color(str(migrated.get("FOG_COLOR", "cfe9f5")))
 	data.void_color = Color(str(migrated.get("VOID_COLOR", "000000")))

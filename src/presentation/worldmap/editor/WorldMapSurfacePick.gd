@@ -121,7 +121,15 @@ static func solveSmooth(origin: Vector3, direction: Vector3, forward: Vector3, c
 ## `region` bounds the answer: a pick that lands off the map returns `null` rather than a
 ## negative tile, because "no tile there" and "tile -3" are different answers and only one of
 ## them is true.
-static func pickTile(camera: Camera3D, screen: Vector2, curvature: float, region: Rect2) -> Variant:
+## `hex` switches the final mapping from a square floor to hex rounding. It defaults false so the
+## square path -- and `temp2_authored`, whose byte-exact bake parity is the sharpest test in the
+## project -- is bit-for-bit unaffected.
+##
+## THE RAY SOLVE IS THE SAME EITHER WAY. `surfacePoint` returns a world point and knows nothing
+## about grids, so the hex switch changes one line here and nothing about the curvature maths.
+static func pickTile(
+	camera: Camera3D, screen: Vector2, curvature: float, region: Rect2, hex := false
+) -> Variant:
 	var point = surfacePoint(camera, screen, curvature)
 	if point == null:
 		return null
@@ -129,11 +137,17 @@ static func pickTile(camera: Camera3D, screen: Vector2, curvature: float, region
 	var local := Vector2(world.x, world.z) - region.position
 	if local.x < 0.0 or local.y < 0.0 or local.x >= region.size.x or local.y >= region.size.y:
 		return null
+	if hex:
+		return WorldMapHexGrid.worldToCell(local)
 	return Vector2i(int(floor(local.x)), int(floor(local.y)))
 
 
 ## The cel under a screen position, in CEL coordinates -- so a 15x11 tile region indexes cels
 ## 0..29 by 0..21. Same bounds rule as `pickTile`.
+##
+## SQUARE MAPS ONLY. Hexagons do not tile into smaller hexagons, so a hex map has no cel grade at
+## all; its sub-tile detail is the six triangles a hex fans into, which arrives with WMH-10 and
+## is not a coordinate this function could return.
 static func pickCel(camera: Camera3D, screen: Vector2, curvature: float, region: Rect2) -> Variant:
 	var point = surfacePoint(camera, screen, curvature)
 	if point == null:
@@ -150,8 +164,14 @@ static func pickCel(camera: Camera3D, screen: Vector2, curvature: float, region:
 ## `null` for none; `celGrade` decides both which lattice the cursor covers and whether the
 ## finer lines are drawn at all -- cel lines appear only while a cel-grade tool is active, so
 ## the lattice on screen is always the one the current tool actually edits.
+##
+## STILL DRAWS A SQUARE LATTICE. The hex overlay is WMH-3's item: it needs a hex distance field in
+## the shader, because `fract()` on world XZ has no hex analogue. Until then a hex map's cursor
+## rect is the hex's bounding box rather than its silhouette, which is honest about being
+## provisional rather than quietly wrong about the shape.
 static func applyGrid(
-	material: ShaderMaterial, region: Rect2, cursor: Variant, celGrade: bool, visible := true
+	material: ShaderMaterial, region: Rect2, cursor: Variant, celGrade: bool, visible := true,
+	hex := false
 ) -> void:
 	if material == null:
 		return
@@ -166,6 +186,14 @@ static func applyGrid(
 		material.set_shader_parameter(Uniforms.U_CURSOR_RECT, Vector4.ZERO)
 		return
 	var cell := cursor as Vector2i
+	if hex:
+		var centre := region.position + WorldMapHexGrid.cellCentre(cell)
+		material.set_shader_parameter(Uniforms.U_CURSOR_RECT, Vector4(
+			centre.x - WorldMapHexGrid.HEX_WIDTH * 0.5,
+			centre.y - WorldMapHexGrid.HEX_HEIGHT * 0.5,
+			WorldMapHexGrid.HEX_WIDTH, WorldMapHexGrid.HEX_HEIGHT
+		))
+		return
 	var size := 1.0 / float(Uniforms.CELS_PER_TILE) if celGrade else 1.0
 	var corner := region.position + Vector2(float(cell.x), float(cell.y)) * size
 	material.set_shader_parameter(
