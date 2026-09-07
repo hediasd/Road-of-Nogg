@@ -236,9 +236,30 @@ shipped once and was caught only by dispatching through `Input.parse_input_event
 | Zoom (dolly, never FOV) | wheel |
 | Top-down orthographic | Tab |
 | **Back to the shipping framing** | Space |
-| Frame the region | F |
+| Frame the region | F -- fits both axes at the display's own aspect, in either projection |
 | Undo | Ctrl+Z |
 | Redo | Ctrl+Y or Ctrl+Shift+Z |
+
+### Fitting a region: both axes, not the larger of two world numbers
+
+`frameRegion()` originally fit only `max(region.width, region.height)`, against no aspect at
+all, using a factor of 0.6 -- which is a *shrink*, not a margin, so it cropped a portrait-shaped
+viewport on whichever axis the max didn't cover. Fixed to project the region's four corners onto
+the camera's own screen-space right/up axes -- correct at any orbit orientation, since world
+width/height do not track the camera once it turns -- and take the larger of the two resulting
+extents.
+
+**Perspective needed a second correction the first fix missed.** A flat region seen from an
+oblique camera is not all at one depth: the near edge sits closer to the camera than the focus,
+the far edge further. Measuring each corner's extent from the focus alone -- as the orthographic
+branch correctly does, since parallel projection has no depth-dependent foreshortening -- silently
+underestimates the distance the *nearer* corners need under perspective, where a fixed lateral
+offset subtends a larger angle at a shorter depth. The escape this produced was small (a fraction
+of a percent of the frame) and would not have been caught by eye; `probe_editor_input_dispatch.gd`'s
+fit check, which asserts all four corners land inside the frame rather than merely looking framed,
+caught it. The fix solves each corner's own required distance -- `lateral / tan(halfFov) -
+depthOffset` -- and takes the maximum before applying one multiplicative margin, which is safe
+because a larger distance strictly increases every corner's margin at once.
 
 ### Layers
 

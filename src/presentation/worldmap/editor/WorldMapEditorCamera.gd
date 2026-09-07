@@ -212,21 +212,102 @@ func panByWorld(scaled: Vector2) -> void:
 
 ## Fits a region rect in view without clamping to it, so the edges and the void beyond them stay
 ## visible -- which is the whole reason an editor looks at a region at all.
-func frameRegion(region: Rect2) -> void:
-	if region.size == Vector2.ZERO:
+## How far past the tight fit to leave, so the region's edge sits inside the frame rather than
+## exactly on it. Multiplies the half-extents, so 1.15 is 15% of headroom on every side.
+const FRAME_MARGIN := 1.15
+
+## Fits the whole region inside `viewportAspect` (width / height of the ACTUAL display rect --
+## see the class note on why this is a parameter rather than read from the viewport). Correct at
+## any camera orientation and any aspect, including portrait.
+##
+## THE BUG THIS REPLACES fit only the LARGER of the region's world width and height, against no
+## aspect at all: `orthoSize = max(w, h) * 0.6`. That is short on two counts at once -- fitting
+## one axis while ignoring the other means the narrower axis crops whenever the viewport is not
+## square, and a FACTOR BELOW 1 shrinks the frame to less than the span it was meant to contain,
+## which is a crop with no margin rather than a fit with one. A portrait-shaped viewport made
+## both mistakes visible at once, which is how it was found.
+##
+## FIT BOTH AXES, not the larger of two world-space numbers. The region's four corners are
+## projected onto the camera's OWN screen-space right and up axes -- which is orientation
+## correct, unlike measuring world width and height, because those two axes do not track the
+## camera once it orbits. Whichever axis is REACHED FIRST, height or width, is the binding one:
+## satisfying only the other would still crop.
+func frameRegion(region: Rect2, viewportAspect: float) -> void:
+	if region.size == Vector2.ZERO or viewportAspect <= 0.0:
 		return
 	focus = region.position + region.size * 0.5
-	var span := maxf(region.size.x, region.size.y)
+
+	# The camera's own basis for the orientation it is about to use -- `Basis.from_euler` with
+	# Godot's default YXZ order is exactly what setting `rotation_degrees` produces in `_place()`,
+	# so this is the same basis the placed camera will actually have, not a re-derivation of it.
+	var pitchUsed := 90.0 if mode == Mode.ORTHO else pitch
+	var basis := Basis.from_euler(Vector3(deg_to_rad(-pitchUsed), deg_to_rad(yaw), 0.0))
+	var right: Vector3 = basis.x
+	var up: Vector3 = basis.y
+	var forward: Vector3 = -basis.z
+
+	var corners: Array[Vector2] = [
+		region.position, region.position + Vector2(region.size.x, 0.0),
+		region.position + region.size, region.position + Vector2(0.0, region.size.y),
+	]
+
 	if mode == Mode.ORTHO:
-		orthoSize = span * 0.6
+		# Orthographic has no perspective foreshortening, so a corner's depth along `forward`
+		# does not matter -- only its LATERAL offset from the focus does. This branch measures
+		# exactly that and needed no correction; only the perspective branch below did.
+		var rightExtent := 0.0
+		var upExtent := 0.0
+		for corner in corners:
+			var delta3 := Vector3(corner.x, 0.0, corner.y) - Vector3(focus.x, 0.0, focus.y)
+			rightExtent = maxf(rightExtent, absf(delta3.dot(right)))
+			upExtent = maxf(upExtent, absf(delta3.dot(up)))
+		# `size` is the FULL vertical extent under KEEP_HEIGHT (verified: size=10 shows z=-5..5),
+		# and width follows as `size * aspect` -- so the height needed to contain the horizontal
+		# extent is `2*rightExtent / aspect`, and the binding axis is whichever is larger.
+		orthoSize = maxf(2.0 * upExtent, 2.0 * rightExtent / viewportAspect) * FRAME_MARGIN
 		size = orthoSize
 		_place()
 		return
+
 	setFree()
-	# Half the span over the tangent of half the vertical FOV, with room to spare so the edge is
-	# inside the frame rather than on it.
-	var halfFov := deg_to_rad(maxf(1.0, float(_framingCopy[Uniforms.K_FOV]))) * 0.5
-	distance = clampf(span * 0.6 / tan(halfFov), DISTANCE_MIN, DISTANCE_MAX)
+	# `fov` is the VERTICAL half-angle under KEEP_HEIGHT; the horizontal half-angle it implies is
+	# `atan(tan(vFov/2) * aspect)` (verified against `is_position_in_frustum` at a known depth and
+	# aspect).
+	var halfVFov := deg_to_rad(maxf(1.0, float(_framingCopy[Uniforms.K_FOV]))) * 0.5
+	var halfHFov := atan(tan(halfVFov) * viewportAspect)
+	var tanV := tan(halfVFov)
+	var tanH := tan(halfHFov)
+
+	# PERSPECTIVE NEEDS EACH CORNER'S DEPTH, NOT ONLY ITS LATERAL OFFSET -- a mistake the first
+	# version of this function made and the probe caught. The region is a flat rectangle the
+	# camera looks at obliquely, so its corners are NOT all the same distance from the camera:
+	# the edge nearer the camera sits closer than the focus, the far edge sits further, and a
+	# fixed lateral offset subtends a LARGER angle at a nearer depth. Measuring extent from the
+	# focus alone -- as if the whole region sat at the focus's own depth -- underestimates the
+	# distance the nearer corners actually need, by an amount too small to eyeball and large
+	# enough to crop: caught as a real, if small, frustum escape, not a floating-point wobble.
+	#
+	# Camera position is `focus + distance * (-forward)` (see `_place()`), so a corner's vector
+	# FROM THE CAMERA decomposes as `(corner - focus) + distance * forward`. Dotting with the
+	# orthogonal basis: the right/up components are exactly the lateral offsets from the focus,
+	# unaffected by distance (forward is orthogonal to both) -- so those were never the bug.
+	# The FORWARD component is `distance + (corner - focus).dot(forward)`, which is NOT just
+	# `distance`: it is offset by how far ahead of or behind the focus that corner's depth is.
+	# Requiring `|lateral| <= tan(halfFov) * forwardComponent` and solving for `distance` gives,
+	# per corner, `distance >= lateral/tan(halfFov) - depthOffset`. Because a larger distance
+	# strictly increases every corner's own margin (forwardComponent grows with distance while
+	# lateral stays fixed), taking the max of this across all four corners and all four axis
+	# constraints, THEN applying one multiplicative margin, safely pads every corner at once --
+	# it is not possible for the margin to help one corner and starve another.
+	var needed := 0.0
+	for corner in corners:
+		var delta3 := Vector3(corner.x, 0.0, corner.y) - Vector3(focus.x, 0.0, focus.y)
+		var depthOffset := delta3.dot(forward)
+		var rightOffset := absf(delta3.dot(right))
+		var upOffset := absf(delta3.dot(up))
+		needed = maxf(needed, rightOffset / tanH - depthOffset)
+		needed = maxf(needed, upOffset / tanV - depthOffset)
+	distance = clampf(needed * FRAME_MARGIN, DISTANCE_MIN, DISTANCE_MAX)
 	_place()
 
 

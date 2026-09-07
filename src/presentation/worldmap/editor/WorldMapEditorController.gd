@@ -142,6 +142,7 @@ func _ready() -> void:
 		_routeCount[str(layer["id"])] = 0
 
 	super._ready()
+	_neutralizeDebugHudFocus()
 	_installEditorCamera()
 	_buildEditorUi()
 	_editorCamera.rememberRegion(_ground.regionRect())
@@ -167,6 +168,32 @@ func _displaySize() -> Vector2:
 
 ## Swaps the shipping camera for the editor's, in place. Ground, Props and Clouds are left
 ## exactly as `super._ready()` built them -- only the Camera and its Sky child move.
+## Strips keyboard focus from every control the REUSED debug HUD builds -- the framing preset and
+## region pickers, the tile-grid toggle, copy-settings, and every slider, colour picker and
+## option button `WorldMapDebugHud.SECTIONS` builds from data.
+##
+## DONE HERE, NOT IN WorldMapDebugHud. That class also builds the shipping debug scene's own
+## panel, where Tab and Space are not camera shortcuts and must keep their ordinary focus
+## behaviour -- see `WorldMapEditorHud`'s own controls, which set `focus_mode = FOCUS_NONE`
+## themselves for the same reason on chrome that belongs only to the editor. This is the other
+## half of that fix, applied from outside because the HUD it targets is not this editor's own.
+##
+## The playtest that found the original defect reproduced it specifically on the tile-grid
+## checkbox: Space toggled the grid AND reset the camera in one keypress, because the checkbox
+## had focus from having just been interacted with. `WorldMapEditorController._unhandled_key_
+## input` marking Tab/Space/F handled is the OTHER half of this fix -- that stops a focused
+## control from receiving the event at all when the SceneTree already consumed it, but only once
+## nothing upstream (the control's own focus-driven handling) has already acted on it first. A
+## control with focus intercepts before an event ever reaches "unhandled"; only removing its
+## focus closes that path.
+func _neutralizeDebugHudFocus() -> void:
+	for control in [_hud.presetOption, _hud.regionOption, _hud.tileGridToggle, _hud.copyButton]:
+		if control != null:
+			control.focus_mode = Control.FOCUS_NONE
+	for control in _hud._controls.values():
+		(control as Control).focus_mode = Control.FOCUS_NONE
+
+
 func _installEditorCamera() -> void:
 	var oldCamera := _camera
 	var sky := _sky
@@ -291,7 +318,13 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		return
 	match key.keycode:
 		KEY_F:
-			_editorCamera.frameRegion(_ground.regionRect())
+			# The aspect that matters is the DISPLAY's, not the window's -- the editor's map
+			# column is not the window, and _displaySize() is what already accounts for that
+			# (see its own note). Guarded against a zero-height display during the one frame
+			# before the panels have settled, where the aspect would be nonsensical.
+			var display := _displaySize()
+			if display.y > 0.0:
+				_editorCamera.frameRegion(_ground.regionRect(), display.x / display.y)
 			get_viewport().set_input_as_handled()
 		KEY_SPACE:
 			_editorCamera.snapToContract()
