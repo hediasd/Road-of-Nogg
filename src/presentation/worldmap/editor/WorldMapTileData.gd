@@ -44,6 +44,11 @@ const AUTHORED_DIR := "res://data/worldmap/authored"
 ## Storage kinds a layer block may declare.
 const KIND_GRID := "grid"
 const KIND_LIST := "list"
+## Terrain heights on the hex VERTEX lattice -- two floats per cell over a block padded one cell
+## in each direction, because a hex on the edge has vertices owned by cells just outside it. See
+## `WorldMapHeightField` for the addressing. A third kind rather than a grid layer because the
+## array is not one entry per cell and `layerSize()` would have to lie about it.
+const KIND_HEIGHTS := "heights"
 
 ## How a map's cells are arranged. `square` is the original 16 px tile lattice, kept working
 ## unchanged -- `temp2_authored` is square and its byte-exact bake parity is the sharpest test in
@@ -114,6 +119,24 @@ func addListLayer(layerID: String) -> void:
 	layers[layerID] = {"KIND": KIND_LIST, "NEXT_ID": 0, "ITEMS": []}
 	if not _layerOrder.has(layerID):
 		_layerOrder.append(layerID)
+
+
+## A height layer, sized for this map's lattice and created FLAT -- adding one changes nothing
+## about how a map renders until something sculpts it, which is what lets a height layer be added
+## to an existing document without touching how it already looks.
+func addHeightLayer(layerID: String) -> void:
+	var values := PackedFloat32Array()
+	values.resize(heightValueCount())
+	values.fill(0.0)
+	layers[layerID] = {"KIND": KIND_HEIGHTS, "VALUES": values}
+	if not _layerOrder.has(layerID):
+		_layerOrder.append(layerID)
+
+
+## How many height values this map's vertex lattice needs: two per cell over a block padded one
+## cell in each direction. See `WorldMapHeightField`'s own note on the padding.
+func heightValueCount() -> int:
+	return (size_tiles.x + 2) * (size_tiles.y + 2) * 2
 
 
 func layerIDs() -> Array[String]:
@@ -191,6 +214,18 @@ func setCell(layerID: String, cell: Vector2i, tileID: String) -> bool:
 	return true
 
 
+## Heights as the shortest text that round-trips them. A whole number writes as `0` rather than
+## `0.0000` so a flat field's runs stay short, and anything else keeps four decimals -- well below
+## what a 16 px world unit can express on screen, and stable across a save/load cycle.
+static func _heightsAsStrings(values: PackedFloat32Array) -> PackedStringArray:
+	var out := PackedStringArray()
+	out.resize(values.size())
+	for index in values.size():
+		var value := values[index]
+		out[index] = str(int(value)) if is_equal_approx(value, roundf(value)) else "%.4f" % value
+	return out
+
+
 ## One past the highest numeric suffix any item's `ID` carries, or 0 for an empty layer. Parses
 ## the id rather than trusting a stored counter, which is what makes a missing or stale `NEXT_ID`
 ## self-healing instead of dangerous -- see `fromDictionary`.
@@ -263,6 +298,14 @@ func toDictionary() -> Dictionary:
 				"TILESET": block["TILESET"],
 				"RLE": encodeRLE(block["CELLS"]),
 			})
+		elif str(block["KIND"]) == KIND_HEIGHTS:
+			# Run-length encoded as text, exactly like a grid layer's cells: a flat field is one
+			# run, which keeps an unsculpted map's file small and a sculpted map's diff readable.
+			blocks.append({
+				"ID": layerID,
+				"KIND": KIND_HEIGHTS,
+				"RLE": encodeRLE(_heightsAsStrings(block["VALUES"])),
+			})
 		else:
 			blocks.append({
 				"ID": layerID,
@@ -327,6 +370,18 @@ static func fromDictionary(raw: Dictionary) -> WorldMapTileData:
 			data.layers[layerID]["NEXT_ID"] = maxi(
 				int(block.get("NEXT_ID", 0)), _highestIDPlusOne(items)
 			)
+			continue
+		if kind == KIND_HEIGHTS:
+			data.addHeightLayer(layerID)
+			var runs = block.get("RLE", [])
+			if runs is Array and not (runs as Array).is_empty():
+				var text := decodeRLE(runs, data.heightValueCount())
+				if text.is_empty():
+					push_warning("WorldMapTileData: height layer '%s' failed to decode" % layerID)
+					return null
+				var values: PackedFloat32Array = data.layers[layerID]["VALUES"]
+				for index in text.size():
+					values[index] = float(text[index])
 			continue
 		var gridKind := str(block.get("GRID_KIND", WorldMapTilesetCatalog.GRID_TILE))
 		data.addGridLayer(layerID, gridKind, str(block.get("TILESET", "")))

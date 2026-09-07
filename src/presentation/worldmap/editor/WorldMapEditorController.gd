@@ -53,6 +53,7 @@ const MapDataScript = preload("res://src/presentation/worldmap/editor/WorldMapTi
 const Tilesets = preload("res://src/presentation/worldmap/editor/WorldMapTilesetCatalog.gd")
 const Baker = preload("res://src/presentation/worldmap/editor/WorldMapBaker.gd")
 const SceneExport = preload("res://src/presentation/worldmap/editor/WorldMapSceneExport.gd")
+const HeightField = preload("res://src/presentation/worldmap/editor/WorldMapHeightField.gd")
 const Regions = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.gd")
 
 ## One entry per layer this tool currently means to hold data for. `enabled` is false for both
@@ -587,8 +588,13 @@ func _pickCell(screenPosition: Vector2) -> Variant:
 		# `pickTile` does not resolve those). `_document.size_tiles` bounds the pick to cells the
 		# LATTICE actually holds, not the region -- see Gate 1's Finding 1: a margin cell used to
 		# come back as an ordinary answer that a paint then silently refused.
+		# The height sampler is what keeps the cursor on a hill rather than on the flat plane
+		# under it -- and it is the same `WorldMapHeightField.sample` the surface mesh was built
+		# from, so picking and rendering cannot disagree about where the ground is.
 		return SurfacePick.pickTile(
-			_editorCamera, viewportPoint, curvature, _ground.regionRect(), true, _document.size_tiles
+			_editorCamera, viewportPoint, curvature, _ground.regionRect(), true,
+			_document.size_tiles,
+			HeightField.pointSamplerFor(_document) if HeightField.has(_document) else Callable()
 		)
 	return (
 		SurfacePick.pickCel(_editorCamera, viewportPoint, curvature, _ground.regionRect())

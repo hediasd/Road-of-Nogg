@@ -39,6 +39,8 @@ extends RefCounted
 const Baker = preload("res://src/presentation/worldmap/editor/WorldMapBaker.gd")
 const MapData = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
 const ObjectLayer = preload("res://src/presentation/worldmap/editor/WorldMapObjectLayer.gd")
+const HeightField = preload("res://src/presentation/worldmap/editor/WorldMapHeightField.gd")
+const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
 
 ## Where an exported scene lands. Separated from hand-authored scenes on purpose, the same way
 ## `WorldMapBaker.GENERATED_DIR` separates baked art from painted art: everything under here is
@@ -68,10 +70,21 @@ static func generatedPathFor(regionName: String) -> String:
 ## `worldExtent()` rather than `size_tiles`: on a hex document those are different things --
 ## columns and rows versus world units -- and getting it wrong ships a differently sized map than
 ## the one that was authored.
+## A sculpted document hands the ground a prebuilt surface -- the hex triangulation with heights
+## baked into its vertices -- while a flat one keeps the plane it always had. Both the preview and
+## the export come through here, so terrain cannot look one way while authoring and another way
+## once shipped.
 static func configureGround(
 	ground: WorldMapGround, data: WorldMapTileData, texture: Texture2D, framing: Dictionary
 ) -> void:
-	ground.configure(data.worldExtent(), texture, framing, data.fog_color, data.void_color)
+	var extent := data.worldExtent()
+	var surface: Mesh = null
+	if HeightField.has(data):
+		var margin: float = float(
+			Uniforms.completeForRegion(framing, data.fog_color, data.void_color)[Uniforms.K_FOG_END]
+		)
+		surface = HeightField.buildSurfaceMesh(data, extent + Vector2(margin, margin) * 2.0)
+	ground.configure(extent, texture, framing, data.fog_color, data.void_color, surface)
 
 
 ## Builds the runtime hierarchy, with `owner` set on every node that must survive `pack()` --
@@ -92,7 +105,13 @@ static func buildRuntime(
 	mapRoot.add_child(ground)
 	ground.owner = mapRoot
 	configureGround(ground, data, texture, framing)
-	buildObjects(mapRoot, data, mapRoot)
+	# The sampler is what makes a building stand ON a hill rather than at zero underneath it, and
+	# it is the same `HeightField.sample` the surface mesh was built from -- so an object cannot
+	# rest on a surface the renderer does not draw.
+	buildObjects(
+		mapRoot, data, mapRoot,
+		HeightField.samplerFor(data) if HeightField.has(data) else Callable()
+	)
 
 	mapRoot.set_meta(META_REGION, data.region_name)
 	mapRoot.set_meta(META_LAYOUT, data.layout)

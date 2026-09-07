@@ -966,3 +966,80 @@ it, and they render black instead of taking the void colour. The remedy is the s
 shape WMH-R1 settled — this document is 30.5 × 21 units with no margin, because it was built from
 the source art's own non-square extent — or making the void substitution alpha-aware. Named here
 rather than fixed, since it is about the map's shape and the ground shader, not about objects.
+
+## 15. Terrain height
+
+`WorldMapHeightField` — WMH-8. Heights live on the hex **vertex** lattice, and one interpolation
+serves rendering, picking, object anchoring and export.
+
+### Why vertices, and why that makes the triangulation unambiguous
+
+A height per *cell* gives flat plateaus with a cliff at every edge — there is nowhere for a slope
+to live. Heights on vertices make the surface continuous by construction, because neighbouring
+hexes share the vertices between them and cannot disagree about the ground where they meet.
+
+**Three hexes meet at a hex vertex, not four.** A square grid's vertex is shared by four cells, so
+a quad must pick one of two diagonals and every system that samples it must pick the *same* one.
+A hex has no such choice: each hex fans into six triangles from its own centre, and it is the same
+fan the sub-triangle detail layer uses, so the two agree by construction rather than by
+convention.
+
+Six corners shared three ways is exactly **two vertices per hex**, so a vertex is addressed as
+`(ownerCol, ownerRow, index)` with index 0 or 1. Measured before anything was built on it: 400
+cells resolve to 880 distinct vertices, and across 600 vertices each sits exactly at the
+**centroid** of its three cell centres — exact even for these pre-stretched hexes, because a
+centroid survives any linear map.
+
+Storage pads the owner range by one cell in each direction, since a hex on the lattice edge has
+vertices owned by cells just outside it. It is a third block kind (`heights`) rather than a grid
+layer, because the array is not one entry per cell and `layerSize()` would have to lie about it —
+adding a kind is exactly what the layer-agnostic format was for. Values run-length encode as text
+like ground cells do, so **a flat field is one run**.
+
+### The rendered surface *is* the sampled surface
+
+`buildSurfaceMesh()` emits the same interpolation `sample()` performs: each hex's six fan
+triangles, every vertex at the height the field holds, every hex centre at the mean of its six.
+So this item's stated risk — picking and rendering sampling the surface differently, leaving the
+cursor off the visible ground on a slope — is closed **by construction** rather than by keeping
+two formulas in step. `probe_height_field.gd` asserts every mesh vertex equals `sample()` at its
+own XZ.
+
+The alternative was a displacement-mapped plane, which would have needed exactly that agreement,
+at a mesh density fine enough to resolve a one-unit feature across a plane hundreds of units wide.
+
+**No shader change was needed.** The ground shader already takes `world_position` from `VERTEX`
+*before* subtracting curvature, so height baked into the mesh lands in region space and curvature
+applies after it — which is precisely the ordering this item requires. Curvature never reaches the
+mesh, so it is never stored.
+
+The mesh is built by editor code and handed to `WorldMapGround` as a finished `Mesh`, because that
+file ships and the height field does not: an exported scene must carry geometry, not the code that
+generated it.
+
+### Picking: secant, not fixed-point
+
+Adding a height term makes the ray/surface equation `h(U) − k·f(t)²`, and `h` is a lookup rather
+than an expression, so there is no closed form. The smooth root is a good seed, and substituting
+the sampled height back into the same quadratic is one correction step.
+
+**Iterating that substitution is not enough**, and the measurement is worth keeping: it is a
+fixed-point scheme whose convergence rate is the ratio of terrain slope to ray slope — fine for a
+ray coming steeply down, barely convergent for the shallow rays near the top of the frame where
+that ratio approaches one. On a ramp of slope 0.53 seen at pitch 60, four passes left a picked
+point **2.25 units** off the surface, and every miss was near the horizon. Root-finding the
+residual by secant instead converges superlinearly regardless of ray angle: the worst miss across
+260 rays on that same slope is **0.00009 units**, where the flat solve would be off by 6.33.
+
+### Known, not fixed: unshaded terrain shows no relief at the shipping framing
+
+A sculpted hill and basin are unmistakable from an oblique angle, where the silhouette reveals
+them — and essentially **invisible at the shipping pitch-60 framing**, because the ground shader
+is unshaded by design (§4: flat colour is the look). Flat colour gives the eye no gradient, so
+relief only reads where it breaks the silhouette.
+
+The geometry is genuinely there — the probe proves every mesh vertex matches the field, and
+objects visibly stand on the hill — so this is a *shading* gap, not a terrain one. The remedy is a
+slope-derived cue on the ground, and the framing already carries a sun direction to derive it
+from. Named here rather than fixed, since this item owns the surface and that is a question about
+how the surface is lit.

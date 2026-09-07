@@ -41,8 +41,17 @@ var _cloudShadows: WorldMapCloudShadows
 
 ## Builds the plane for a region and applies a framing. Safe to call again with a
 ## different region or framing; the mesh is rebuilt only when the size actually changes.
+## `surface` replaces the flat plane with a prebuilt one, which is how sculpted terrain gets
+## here: `WorldMapHeightField.buildSurfaceMesh()` emits the hex triangulation with every vertex at
+## the height the field holds, so the rendered ground IS the sampled surface rather than an
+## approximation of it. Passed in as a finished `Mesh` rather than built here on purpose -- this
+## file ships, the height field is editor code, and an exported scene must carry geometry rather
+## than the code that generated it.
+##
+## Region space, not draw space: the mesh carries height only, and the shader subtracts curvature
+## from it afterwards. Curvature must never reach the mesh, or it would be stored in the export.
 func configure(tiles: Vector2, texture: Texture2D, framing: Dictionary,
-		fogColor := Color("cfe9f5"), voidColor := Color.BLACK) -> void:
+		fogColor := Color("cfe9f5"), voidColor := Color.BLACK, surface: Mesh = null) -> void:
 	region_fog_color = fogColor
 	region_void_color = voidColor
 	var complete := Uniforms.completeForRegion(framing, region_fog_color, region_void_color)
@@ -54,7 +63,14 @@ func configure(tiles: Vector2, texture: Texture2D, framing: Dictionary,
 	region_origin = Vector2.ZERO
 
 	var margin: float = float(complete[Uniforms.K_FOG_END]) * FOG_MARGIN_FACTOR
-	_rebuildMesh(region_size + Vector2(margin, margin) * 2.0)
+	if surface != null:
+		# A prebuilt surface is already in region-local coordinates starting at the origin, so it
+		# is placed rather than centred -- unlike `PlaneMesh`, which is centred on its own origin
+		# and has to be offset back.
+		mesh = surface
+		position = Vector3(region_origin.x, 0.0, region_origin.y)
+	else:
+		_rebuildMesh(region_size + Vector2(margin, margin) * 2.0)
 
 	_ensureMaterial()
 	for sampler in Uniforms.REGION_SAMPLERS:
