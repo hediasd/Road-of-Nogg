@@ -13,8 +13,8 @@ extends RefCounted
 ## Ground-wash footprint silhouettes, matching the area shapes
 ## `CombatResolver._spellAffectedPositions` actually casts.
 enum GroundWashShape {
-	## Manhattan diamond — what `ShapeCaster.getCircle` casts, and the shape of
-	## every area spell that does not explicitly set `AREA_SHAPE`.
+	## Legacy Manhattan-diamond mask retained for donor behavior.
+	## `ShapeCaster.getCircle` has returned a hex disc since HXB-7.
 	DIAMOND,
 	## Plus/cross arms — `ShapeCaster.getCross`, used by `AREA_SHAPE: "cross"`.
 	CROSS,
@@ -276,10 +276,11 @@ static func groundWash(
 ## Maps a `data/spells.json` `AREA_SHAPE` string onto a mask. Mirrors
 ## `CombatResolver._spellAffectedPositions`'s own match: only `cross` and
 ## `line` are special-cased there, and everything else — including `circle` and
-## any unrecognized value — falls through to `ShapeCaster.getCircle`, which is a
-## Manhattan diamond rather than a Euclidean circle. `line` has no dedicated
-## mask because its footprint depends on the cast direction, which the ground
-## wash does not receive; it falls back to the neutral disc.
+## any unrecognized value — falls through to `ShapeCaster.getCircle`, which has
+## returned a hex disc since HXB-7. This donor's legacy texture mapping is not
+## retuned here. `line` has no dedicated mask because its footprint depends on
+## the cast direction, which the ground wash does not receive; it falls back to
+## the neutral disc.
 static func groundWashShapeFor(areaShape: String) -> GroundWashShape:
 	match areaShape:
 		"cross":
@@ -442,10 +443,11 @@ static func frostVeinMaterial() -> StandardMaterial3D:
 	return _frostVeinMaterial
 
 
-## Built once with the diamond texture, since that is the shape a freshly
-## constructed effect starts with before its real footprint is known. The
-## effect swaps `albedo_texture`/`emission_texture` on its own duplicate via
-## `groundWash()` directly once `setFootprint` reports the actual area shape.
+## Built once with the legacy diamond texture before its real footprint is known.
+## `ShapeCaster.getCircle` has returned a hex disc since HXB-7; this donor setup
+## is deliberately not retuned. The effect swaps `albedo_texture`/
+## `emission_texture` on its own duplicate via `groundWash()` directly once
+## `setFootprint` reports the actual area shape.
 ##
 ## The construction-time colour is likewise only a default: both storms
 ## duplicate this material and drive `albedo_color`/`emission` from their own

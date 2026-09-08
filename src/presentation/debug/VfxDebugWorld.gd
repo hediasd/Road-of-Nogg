@@ -392,8 +392,8 @@ static func footprintPolygon(radius: int, shape: String) -> PackedVector2Array:
 				Vector2(-extent, -0.5), Vector2(extent, -0.5),
 			])
 		_:
-			# Manhattan diamond — ShapeCaster.getCircle, the default for every
-			# area spell that does not set AREA_SHAPE.
+			# Legacy Manhattan-diamond debug outline. `ShapeCaster.getCircle` has
+			# returned a hex disc since HXB-7; this donor visualization is unchanged.
 			return PackedVector2Array([
 				Vector2(extent, 0.0), Vector2(0.0, extent),
 				Vector2(-extent, 0.0), Vector2(0.0, -extent),
