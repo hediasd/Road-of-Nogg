@@ -1476,3 +1476,61 @@ Deliberately unresolved; revisit after the first playable pass.
   window may beat paging for the spell window specifically.
 - **Window open sound.** DQ's window language is half audio. No audio system
   exists yet; noted so the hooks are not designed out.
+
+---
+
+## Previewing a pending command
+
+HBP-3. Before a command is confirmed, the board shows what it would do and the
+HUD can show what it would cost. Two rules govern it.
+
+### Overlays are layers, and a preview never clears one
+
+`HexBattleVisualAdapter` keeps five independent overlay layers — `reach`,
+`hover`, `threat`, `target` and `preview` — each with its own marker set.
+Painting one never touches another, because the player aims *from* the reach: a
+preview that cleared it would delete the context the aim depends on. This is the
+same reason the square battle kept threat and hover separate rather than
+repainting one surface.
+
+`clear_tactical_overlays()` still means all of them, which is what a turn ending
+needs. A caller dropping one layer uses `clearLayer()`. Layers are stacked a
+hair apart in height so overlapping markers do not z-fight, in reading order:
+threat below, then reach, hover, target, and preview on top.
+
+### The previewed cells are the resolver's cells
+
+The affected set comes from `CombatResolver.getSpellAffectedPositionsFrom(...)`
+with `includeUncastableEmpty` true — the resolver's own comment already reserves
+that flag for presentation. **Never re-derive a shape from a radius.** That is
+the drift HXB-11 spent an item removing, and a preview that disagrees with the
+resolution is worse than no preview.
+
+### The forecast says what it actually knows
+
+**There is no roll on a basic attack.** This was checked rather than assumed:
+`calculateBasicDamage` is arithmetic over attack, defence, elevation, effect
+multipliers and damage-reduction passives, and `executeBasicAttack` applies the
+result directly. Presenting `8–14` for a number that is always `11` would be its
+own dishonesty, so an attack forecast reports one exact value.
+
+The single genuine roll in combat resolution is
+`SpellEffectResolver._rollCritical` — one `randf()` against the caster's
+critical chance. A spell's damage is therefore a **two-point distribution with a
+known probability**, not a uniform band. The forecast reports `minimum`,
+`maximum` and `critical_chance`, which collapse to one number when the chance is
+zero, and an `exact` flag that says which case this is.
+
+Two other things a bare number would hide:
+
+- **`lethal` / `possibly_lethal`.** Knowable exactly, because `take_damage`
+  clamps to remaining hitpoints. This is what the player actually wants.
+- **`reactive_risk`.** An `ON_TARGETED` passive fires *before* the attack lands
+  and can change or end the exchange, so the number is conditional on its
+  premise surviving. Flagged rather than folded into the value.
+
+Forecasting passes `is_simulation` true throughout. The damage-reduction path
+emits `passive_triggered` when it is false, and a forecast that fired battle
+events every time the cursor moved would change the battle it describes.
+`probe_preview.gd` asserts the whole serialized state is byte-identical across a
+sweep of forecasts.
