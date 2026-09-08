@@ -52,172 +52,279 @@ offset_right = 380.0
 offset_bottom = -12.0
 theme_override_styles/panel = SubResource("6_panel_style")
 
-[node name="VBoxContainer" type="VBoxContainer" parent="HUD/PanelContainer"]
+[node name="Scroll" type="ScrollContainer" parent="HUD/PanelContainer"]
 layout_mode = 2
+horizontal_scroll_mode = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HUD/PanelContainer/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
 theme_override_constants/separation = 5
 
-[node name="StatusLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="StatusLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 text = "No effect selected"
 label_settings = SubResource("5_label_settings")
 autowrap_mode = 3
 
-[node name="PlaybackSeparator" type="HSeparator" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="PlaybackSeparator" type="HSeparator" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 
-[node name="PlaybackGrid" type="GridContainer" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="PlaybackGrid" type="GridContainer" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 4
 columns = 2
 
-[node name="EffectLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="EffectLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 text = "Effect"
 
-[node name="EffectOption" type="OptionButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="EffectOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 size_flags_horizontal = 3
 clip_text = true
 
-[node name="ElementLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="ElementLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 text = "Element tint"
 
-[node name="ElementOption" type="OptionButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="ElementOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 size_flags_horizontal = 3
 clip_text = true
 
-[node name="ModeLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="ModeLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 text = "Timing mode"
 
-[node name="ModeToggle" type="CheckButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="ModeToggle" type="CheckButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 button_pressed = true
 text = "Battle speed"
 
-[node name="ScaleLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="ScaleLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 text = "Playback scale"
 
-[node name="ScaleSetting" type="SpinBox" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="ScaleSetting" type="SpinBox" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 min_value = 0.1
 max_value = 2.0
 step = 0.1
 value = 1.0
 
-[node name="SeedLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="SeedLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 text = "Seed"
 
-[node name="SeedRow" type="HBoxContainer" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid"]
+[node name="SeedRow" type="HBoxContainer" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid"]
 layout_mode = 2
 
-[node name="SeedPin" type="CheckButton" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow"]
+[node name="SeedPin" type="CheckButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/SeedRow"]
 layout_mode = 2
 text = "Pin"
 
-[node name="SeedSetting" type="SpinBox" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow"]
+[node name="SeedSetting" type="SpinBox" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/SeedRow"]
 layout_mode = 2
 size_flags_horizontal = 3
 max_value = 2.14748e+09
 value = 1.0
 
-[node name="CycleSeedButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/PlaybackGrid/SeedRow"]
+[node name="CycleSeedButton" type="Button" parent="HUD/PanelContainer/Scroll/VBoxContainer/PlaybackGrid/SeedRow"]
 layout_mode = 2
 text = "+1"
 
-[node name="CoreButtons" type="HBoxContainer" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="CoreButtons" type="HBoxContainer" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="PlayButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+[node name="PlayButton" type="Button" parent="HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons"]
 layout_mode = 2
 text = "Play"
 
-[node name="PauseButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+[node name="PauseButton" type="Button" parent="HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons"]
 layout_mode = 2
 disabled = true
 text = "Pause"
 
-[node name="SettleButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+[node name="SettleButton" type="Button" parent="HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons"]
 layout_mode = 2
 text = "Settle"
 
-[node name="OverlapButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+[node name="OverlapButton" type="Button" parent="HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons"]
 layout_mode = 2
 text = "Overlap"
 
-[node name="ScreenshotButton" type="Button" parent="HUD/PanelContainer/VBoxContainer/CoreButtons"]
+[node name="ScreenshotButton" type="Button" parent="HUD/PanelContainer/Scroll/VBoxContainer/CoreButtons"]
 layout_mode = 2
 text = "Capture once"
 
-[node name="ScrubLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="ScrubLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 text = "Timeline scrub"
 
-[node name="Scrub" type="HSlider" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="Scrub" type="HSlider" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 max_value = 1.0
 step = 0.01
 
-[node name="LayersLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="LayersLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 text = "Layers"
 
-[node name="LayerToggles" type="GridContainer" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="LayerToggles" type="GridContainer" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 4
 
-[node name="RenderSeparator" type="HSeparator" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="RenderSeparator" type="HSeparator" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 
-[node name="Controls" type="GridContainer" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="Controls" type="GridContainer" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
 layout_mode = 2
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 4
 columns = 2
 
-[node name="ResolutionLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/Controls"]
+[node name="ResolutionLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
 text = "Resolution"
 
-[node name="ResolutionOption" type="OptionButton" parent="HUD/PanelContainer/VBoxContainer/Controls"]
+[node name="ResolutionOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
 size_flags_horizontal = 3
 clip_text = true
 
-[node name="RetroLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/Controls"]
+[node name="StretchLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
+layout_mode = 2
+text = "Canvas stretch"
+
+[node name="StretchOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="RetroLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
 text = "Retro viewport"
 
-[node name="RetroToggle" type="CheckButton" parent="HUD/PanelContainer/VBoxContainer/Controls"]
+[node name="RetroToggle" type="CheckButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
 text = "Enabled"
 
-[node name="CRTLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/Controls"]
+[node name="CRTLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
 text = "CRT pass"
 
-[node name="CRTToggle" type="CheckButton" parent="HUD/PanelContainer/VBoxContainer/Controls"]
+[node name="CRTToggle" type="CheckButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
 text = "Enabled"
 
-[node name="RadiusLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer/Controls"]
+[node name="RadiusLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
 text = "Footprint radius"
 
-[node name="RadiusSetting" type="SpinBox" parent="HUD/PanelContainer/VBoxContainer/Controls"]
+[node name="RadiusSetting" type="SpinBox" parent="HUD/PanelContainer/Scroll/VBoxContainer/Controls"]
 layout_mode = 2
 min_value = 1.0
-max_value = 5.0
+max_value = 8.0
+value = 4.0
+
+[node name="TextSeparator" type="HSeparator" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
+layout_mode = 2
+
+[node name="TextLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
+layout_mode = 2
+text = "Text specimen"
+
+[node name="TextControls" type="GridContainer" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 4
+columns = 2
+
+[node name="TextShowLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+text = "Show overlay"
+
+[node name="TextToggle" type="CheckButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+text = "Visible"
+
+[node name="TextFontLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+text = "Face"
+
+[node name="TextFontOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="TextSampleLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+text = "Sample"
+
+[node name="TextSampleOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="TextScaleLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+text = "Integer scale"
+
+[node name="TextScaleSetting" type="SpinBox" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+min_value = 1.0
+max_value = 4.0
 value = 2.0
 
-[node name="HintLabel" type="Label" parent="HUD/PanelContainer/VBoxContainer"]
+[node name="TextEdgeLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
 layout_mode = 2
-text = "P play | U pause | T settle | O overlap | C capture | H hud | M mode"
+text = "Edge treatment"
+
+[node name="TextEdgeOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="TextEdgeSizeLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+text = "Edge size (design px)"
+
+[node name="TextEdgeSizeSetting" type="SpinBox" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+max_value = 3.0
+value = 1.0
+
+[node name="TextBackdropLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+text = "Backdrop"
+
+[node name="TextBackdropOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="TextFillLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+text = "Window fill"
+
+[node name="TextFillOption" type="OptionButton" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextControls"]
+layout_mode = 2
+size_flags_horizontal = 3
+clip_text = true
+
+[node name="TextButtons" type="HBoxContainer" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ReloadGlyphsButton" type="Button" parent="HUD/PanelContainer/Scroll/VBoxContainer/TextButtons"]
+layout_mode = 2
+text = "Reload glyphs.txt"
+
+[node name="HintLabel" type="Label" parent="HUD/PanelContainer/Scroll/VBoxContainer"]
+layout_mode = 2
+text = "P play | U pause | T settle | O overlap | C capture | H hud | M mode | X text | R reload glyphs"
 autowrap_mode = 3

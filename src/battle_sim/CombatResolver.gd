@@ -444,12 +444,23 @@ func _spellAffectedPositions(
 			spell.targetType != "area" and spell.self_radius <= 0):
 		affectedTiles = [centerPos]
 	else:
-		var radius = spell.self_radius if spell.targetType == "self" else spell.radius
+		var radius := _resolvedSpellRadius(spell)
 		match spell.area_shape:
 			"cross": affectedTiles = ShapeCaster.getCross(centerPos, radius)
 			"line": affectedTiles = ShapeCaster.getLine(fromPos, centerPos, radius)
 			"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, radius)
 	return affectedTiles.filter(func(pos: Vector2i) -> bool: return state.withinBounds(pos))
+
+
+## Mirrors the targeting branch above and is also the sole value emitted to
+## presentation. Keeping the calculation here prevents a radius buff from
+## affecting gameplay while its VFX silently keeps the catalog default.
+static func _resolvedSpellRadius(spell: Spell) -> int:
+	if spell.targetType == "self":
+		return maxi(spell.self_radius, 0)
+	if spell.targetType == "area" or spell.self_radius > 0:
+		return maxi(spell.radius, 0)
+	return 0
 
 
 func executeCastSpell(
@@ -484,7 +495,13 @@ func executeCastSpell(
 		casterID, spellSetIndex, spellIndex, casterPos, centerPos
 	)
 	events.spell_cast_started.emit(
-		casterID, centerPos, spell.name, spell.element, actualTargets.size()
+		casterID,
+		centerPos,
+		spell.name,
+		spell.element,
+		actualTargets.size(),
+		_resolvedSpellRadius(spell),
+		spell.area_shape
 	)
 
 	if passiveSkillResolver != null:

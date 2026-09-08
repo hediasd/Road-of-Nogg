@@ -73,13 +73,10 @@ signal row_built(row: Control, full_index: int)
 ## widget reports the input; it does not decide what it means.
 signal page_arrow_pressed(direction: int)
 
-## "12 / 15" at FONT_SIZE_FOOTER is 140px (measured); single digits (the only
-## case reachable without 73+ total rows at the current row_capacity of 8) are
-## 100px. Sized for the single-digit case with real margin, not guessed —
-## nothing in the shipping catalog pages at all today, so there is no real
-## content to measure against per docs/UI_DESIGN.md §8's usual rule.
-const PAGER_WIDTH := 190.0
-const PAGER_ARROW_GAP := 6.0
+## Owned by NoggTheme (PAGER_WIDTH / PAGER_ARROW_GAP), not redeclared here — a
+## local const of a literal number could never track `NoggTheme.ui_scale`. Still
+## provisional: nothing in the shipping catalog pages at all today, so there is
+## no real content to measure against per docs/UI_DESIGN.md §8's usual rule.
 
 var _full_rows: Array[Dictionary] = []
 var _page := 0
@@ -554,7 +551,7 @@ func _update_footer() -> void:
 		_build_footer()
 	_footer_label.text = "%d / %d" % [_page + 1, _page_count]
 	_footer.position = Vector2(
-		(size.x - PAGER_WIDTH) / 2.0, size.y - NoggThemeScript.window_height(1) / 2.0
+		(size.x - NoggThemeScript.PAGER_WIDTH) / 2.0, size.y - NoggThemeScript.window_height(1) / 2.0
 	)
 	_footer.visible = true
 
@@ -567,7 +564,7 @@ func _build_footer() -> void:
 	_footer = NoggWindow.new()
 	add_child(_footer)  # after the rim, added in _ready() — draws on top of it
 	_footer.set_row_capacity(1)
-	_footer.size.x = PAGER_WIDTH
+	_footer.size.x = NoggThemeScript.PAGER_WIDTH
 	# Only the two arrows are clickable; everything else in the footer's rect
 	# (including the label and the space around it) passes clicks through.
 	_footer.set_input_transparent(true)
@@ -575,7 +572,7 @@ func _build_footer() -> void:
 	var bar := HBoxContainer.new()
 	bar.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	bar.add_theme_constant_override("separation", PAGER_ARROW_GAP)
+	bar.add_theme_constant_override("separation", NoggThemeScript.PAGER_ARROW_GAP)
 	_footer._content.add_child(bar)
 
 	var prev_arrow := PagerArrowScript.new(false)

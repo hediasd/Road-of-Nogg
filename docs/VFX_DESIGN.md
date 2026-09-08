@@ -18,12 +18,13 @@ data/spells.json  VFX_PROFILE: "ice_area_storm"
         │
 SpellReferences   normalizes the row; VFX_PROFILE defaults to ""
         │
-CombatResolver    emits spell_cast_started for every cast
+CombatResolver    resolves gameplay targets and the live spell footprint,
+        │         then emits spell_cast_started for every cast
         │
 GodotVisualAdapter._on_spell_cast_started
-        │         copies VFX_PROFILE, RADIUS, AREA_SHAPE onto a CAST_AREA
-        │         VisualAction, derives a deterministic vfx_seed, measures
-        │         the footprint's terrain span
+        │         reads only VFX_PROFILE from the catalog; copies the event's
+        │         resolved radius and shape onto a CAST_AREA VisualAction,
+        │         derives a deterministic vfx_seed, and measures terrain span
         │
 GodotVisualAdapter._start_cast_area_animation
         │         resolves the profile, enforces the live cap, spawns,
@@ -42,6 +43,12 @@ that is a signal the contract is being worked around.
 `VFX_PROFILE` is presentation metadata with no gameplay effect. An empty or
 unrecognized value falls back to the generic aura. See
 [`SPELL_CATALOG_SCHEMA.md`](./SPELL_CATALOG_SCHEMA.md).
+
+**The cast event owns the resolved footprint.** Gameplay uses the mutable
+`Spell` instance attached to the caster, so a transient `radius += 2` must reach
+presentation from `CombatResolver`; presentation must not re-read the immutable
+catalog radius. A single-target cast reports radius 0. An area cast and a
+self-area cast report the same radius and shape used by `ShapeCaster`.
 
 ---
 
@@ -343,9 +350,10 @@ sets them to zero.
 
 ### Radius 1 to many is a correctness test
 
-An effect does not choose its radius. The carrier's `RADIUS` arrives at runtime
-through `setFootprint()`, and the same profile has to hold from a single tile to
-a wide field — `Smoke Tower` alone moved from radius 1 to 3 in one editing pass.
+An effect does not choose its radius. The live resolved radius arrives through
+the cast event and `setFootprint()`, and the same profile has to hold from a
+single tile to a wide field — including transient buffs that never change
+`data/spells.json`.
 
 **Author every dimension as a function of the footprint, and validate at radius
 1, at the carrier's real radius, and at something large (4+).** A constant
@@ -374,6 +382,77 @@ readable size at every radius, say — that is a decision worth one line of
 comment on the constant, not a silent literal. Note that this can split within
 one layer: the implosion's core keeps a near-fixed *size* for readability while
 its *height* scales, and both halves of that need saying.
+
+Counts should normally scale more slowly than occupied area. For a Manhattan
+diamond, `A(R) = 1 + 2R(R + 1)`. Ice Storm uses
+`N(R) = clamp(N0 * sqrt(A(R) / A(R0)), Nmin, Nmax)`: radius 4 occupies 41 tiles
+and radius 6 occupies 85, but the flurry grows from 120 to about 173 particles
+rather than doubling to 249. This keeps presence while preserving negative
+space and the 220-particle ceiling.
+
+### Mathematical design grammar
+
+Use constants for a job they are mathematically suited to, then judge the
+result. They are not hidden quality multipliers.
+
+| Family | Owns | Good VFX uses | Do not use it for |
+| --- | --- | --- | --- |
+| `PI` / `TAU` | angular and periodic structure | headings, arcs, orbit phase, waves, radial boundaries | arbitrary damage, counts, or timings |
+| `exp()` / e | energy changing through time | attack/release envelopes, decay, drag, frame-rate-independent response | a generic replacement for every easing curve |
+| `PHI` / golden angle | progressive low-discrepancy distribution | particle positions, shard directions, non-repeating stagger, sphere sampling | claiming a rectangle or duration is automatically beautiful |
+
+Godot exposes `PI` and `TAU` directly; `TAU` is one full turn and therefore the
+clearer constant for headings and periodic phase ([Godot `@GDScript`
+constants](https://docs.godotengine.org/en/stable/classes/class_%40gdscript.html)).
+Ice Storm uses `TAU` for shard rotation and periodic canopy motion, then snaps
+those continuous angles to an eight-heading PS1 vocabulary.
+
+Use an exponential half-life when an energy should lose the same *fraction*
+over equal time intervals:
+
+```gdscript
+var remaining := exp(-log(2.0) * elapsed / halfLife)
+var responseWeight := 1.0 - exp(-responseRate * delta)
+```
+
+The first is a readable decay contract; the second makes smoothing independent
+of frame rate. Godot provides `exp()` in global scope ([Godot
+`exp`](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html)).
+Ice Storm uses exponential charge/reveal and settle envelopes, then samples
+motion at 15 Hz so the energy arc stays natural while its display reads retro.
+
+The golden ratio is `PHI = (1 + sqrt(5)) / 2`. Its practical graphics tool is
+usually the **golden angle**, `TAU / PHI²` (about 137.508 degrees): adding one
+sample at a time tends to fill the largest remaining gaps. Schretter, Kobbelt,
+and Dehaye describe golden-ratio sequences for progressive low-discrepancy
+sampling on squares and discs ([paper and
+download](https://www.graphics.rwth-aachen.de/publication/032/)); spherical
+Fibonacci mapping applies the related construction to nearly uniform sphere
+samples ([Keinert et al., 2015](https://cris.fau.de/publications/116802224/?lang=en_GB)).
+
+Ice Storm starts flake and hero-shard directions from the golden angle, adds a
+small deterministic seeded jitter so no sunflower spiral becomes visible, and
+then applies footprint masking and PS1 quantization. The effect is expected to
+survive a count change without entirely re-clumping.
+
+The aesthetic claim is deliberately weaker than the sampling claim. Controlled
+studies have found no special preference for the golden section over nearby
+ratios ([Boselie,
+1992](https://journals.sagepub.com/doi/abs/10.2190/QB14-NK7B-ARYT-W5QT);
+[Russell,
+2000](https://journals.sagepub.com/doi/abs/10.1068/p3037)). Therefore:
+
+- do not force Fibonacci counts, golden rectangles, or `PHI`-sized timing
+  windows into every effect;
+- compare golden-angle placement against seeded random placement at identical
+  count, alpha, radius, retro, and CRT settings;
+- keep it only when it measurably reduces clumping without exposing a spiral.
+
+A golden spiral combines all three families:
+`r(theta) = r0 * exp((log(PHI) / (PI / 2)) * theta)`, growing by `PHI` each
+quarter turn. It suits deliberately ordered magic such as summoning, healing,
+growth, or an implosion. It is too orderly to be Ice Storm's dominant motion;
+there the golden angle is only the invisible distribution substrate.
 
 ### Footprint shape
 

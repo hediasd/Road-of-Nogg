@@ -1,545 +1,710 @@
-# Fire Storm Cycle
+# Pixel-Exact UI Cycle
 
-**Opened 2026-08-04.** The previous contents were the ice-storm correction
-cycle, opened and executed the same day. Disposition of its items:
-
-- Three implementation items — the area-footprint diamond fix, the
-  unused-calibration-constant resolution, and the shard-lifetime/skip-lifecycle
-  name corrections — are **committed and implemented** (`f882e59`, `3498d06`,
-  `3babe05`). Their code is live; this cycle builds directly on it.
-- Its optional profile-as-a-`Resource` refactor was **never executed and is
-  deliberately dropped**. See §2 — it is reconsidered at a third elemental
-  effect, not now.
-- Its final validation item **never ran**. Rather than launching the game twice,
-  that outstanding validation is folded into this cycle's `FIRE-3`, which now
-  covers both effects in one session: steps 5–6 there carry the ice cycle's
-  regression and lifecycle checks explicitly.
-
-Nothing from the ice cycle is left open elsewhere, so nothing was moved to a
-backlog at this reset. Recover its full text with
-`git show 432dd5b:implementation_plan.md`.
+**Opened 2026-08-09.** The previous contents were the Fire Storm cycle, opened
+2026-08-04. Its two implementation items were committed and are live; its final
+validation item (`FIRE-3`) was **in progress and never completed** — the
+automatable half passed and the half needing a real battle never ran. That
+outstanding validation is **not** dropped: it moved verbatim into
+`BACKLOG_CRITICAL.md` under "Fire storm and ice storm have never been validated
+in a real battle", including the tuning provenance a future session would
+otherwise undo. Nothing else from that cycle is left open. Recover its full text
+with `git show a5ea3a5:implementation_plan.md`.
 
 ---
 
 ## 1. Goal
 
-A fire-element area effect that reuses the ice storm's engine wholesale: same
-`VfxPlayback` contract, same catalog registration, same adapter path, same
-deterministic-seek guarantee. Only the motion model, palette, and layer roster
-change.
+**UI text is not pixel-exact at most window sizes, and it never has been.**
 
-**The look:** embers rise from the ground in a slow spiral, dense and near-white
-at the base, thinning and cooling through orange to deep red as they climb,
-shrinking to nothing under a drifting smoke crown. The column twists faster at
-its base than at its crown, so the spiral visibly *winds* rather than rotating
-as a rigid body.
+`project.godot` sets `window/stretch/mode = "canvas_items"` with
+`aspect = "expand"` and authors no `viewport_width`/`viewport_height`, so Godot
+falls back to its 1152 x 648 default and scales the entire canvas by
+`window_size / 1152`. That factor is fractional at nearly every real window
+size. With `textures/canvas_textures/default_texture_filter = 0` (nearest), a
+fractional factor duplicates some pixel rows and drops others, so a one-pixel
+stroke renders two device pixels wide in places and three in others *inside the
+same word*.
 
-**Explicit cost constraint.** The ice storm cost more than it should have. This
-cycle is scoped at **two implementation items and one validation item**, against
-the ice cycle's eight. §5 lists what is deliberately not being done.
+Make every resolution-dependent UI element land on whole device pixels at every
+window size, without letterboxing and without redesigning existing layouts.
 
----
+## 2. Established facts (measured 2026-08-09 — do not re-derive)
 
-## 2. Established facts (verified 2026-08-04 — do not re-derive)
+All of the following was captured in the VFX debug scene at 1340 x 754 and is
+reproducible with `--stretch=` plus `--capture-at=`.
 
-### What is reusable without modification
+### The damage is real and pre-existing
 
-- **`VfxPlayback.gd`** — the lifecycle contract (`play`, `seek_normalized`,
-  `set_playback_scale`, `skip_to_settle`, `dispose`, `get_layer_names`,
-  `set_layer_visible`, `get_live_particle_count`, `is_particle_seek_exact`).
-- **`SpellVfxCatalog.gd`** — registration is one row in `entries()`; nothing
-  else in the codebase needs to learn the new profile exists.
-- **`GodotVisualAdapter._start_cast_area_animation`** (`:1047`) — already fully
-  profile-driven. Resolves the profile, enforces the live cap, calls
-  `setFootprint(radius, groundSpan, areaShape)`, plays, and holds the queue for
-  `duration × action_hold_fraction`. **Zero changes needed.**
-- **`VisualAction.vfx_area_shape`** — already plumbed from `AREA_SHAPE` through
-  to `setFootprint` by the ice cycle.
-- **`VfxTextures`** shape generators are alpha masks with no colour baked into
-  geometry: `softFlake()` (works as an ember dot unchanged), `canopyPuff()`
-  (works as a smoke puff unchanged), `groundWash(diamond: bool)`. Tint is
-  applied by the effect to its own `.duplicate()`d material every frame, so the
-  same masks serve any element.
-- **Debug harness** — `--effect=<profile id>`, `--hide-hud`, `--capture-at=`,
-  and the `H` toggle all landed 2026-08-04. One-command iteration:
-  `--effect=fire_area_storm --hide-hud --capture-at=0.4`.
+- At 1152 x 648 the canvas factor is x1.000 and every stroke is exactly two
+  device pixels. At 1340 x 754 it is x1.163 and stroke widths vary within one
+  word.
+- **XenoText is damaged identically.** It is also a pixel face, rendered with
+  antialiasing and hinting disabled, so rasterizing it at `24 x 1.163` produces
+  stem widths the design never intended. This is not a defect the new bitmap
+  face introduced — it exposed it.
 
-### What must be forked, and why
+### Only half the UI is affected, and that is what makes a fix affordable
 
-`IceStormEffect.gd` reads `IceStormProfile.SOME_CONSTANT` directly at roughly
-forty sites. The `SpellVfxProfile`-as-a-`Resource` refactor that would have made
-profiles injectable was **proposed and not executed** in the ice cycle (its
-Resolution records it as dropped). Without that indirection there is no seam to
-subclass against, so copy-and-retune is cheaper than inventing one now.
+- **Resolution-independent:** `StyleBoxFlat` rims, rounded bodies, halos. These
+  are *redrawn* at whatever size they are given rather than resampled. Captured
+  at both factors the window rim is indistinguishable. They cost nothing either
+  way, and they are the majority of the chrome.
+- **Resolution-dependent:** both fonts, and the small-integer geometry in
+  `MenuCursor` (10 x 12), `PagerArrow`, and `ResonanceBar` (10 px cells, 3 px
+  gaps).
 
-**This is the second copy, and that is the correct time to duplicate.**
-Extracting a shared base for two effects costs more than it saves. If a *third*
-elemental storm is ever wanted, that is the point to do the resource refactor —
-at three copies the shared shape is proven, and a fourth element then becomes
-"author a `.tres`" rather than "fork a file."
+### The chokepoint already exists
 
-### Budget headroom
+- `NoggTheme` is already declared the single source of truth for every colour,
+  font, spacing and timing value, and the rule that no colour literal appears
+  elsewhere under `src/presentation/` is already enforced.
+- Only **14** numeric size literals exist outside `NoggTheme` in
+  `src/presentation/`, and all but one are 3D/VFX values (particle radii, mesh
+  sizes, CRT uniforms) rather than UI geometry. The exception is
+  `StatusEffectIcons`, which is a world-space billboard and scales by a
+  different mechanism.
+- Only four scripts draw UI geometry directly — `MenuCursor`, `PagerArrow`,
+  `ResonanceBar`, `DamageNumberBillboard` — and all already read their sizes
+  from `NoggTheme` tokens rather than from literals.
 
-`IceStormEffect._buildLayers()` asserts node count ≤ 12 and draw calls ≤ 14,
-with actuals of **11 and 10** — nearly full. Fire drops the four
-`MultiMeshInstance3D` hero-shard nodes (ice chunks have no ember equivalent),
-freeing enough room for a second particle layer. Projected fire actuals:
-**6 nodes, 5 draw calls**. `MAX_LIVE_PARTICLES = 220` became a build-time assert
-in the ice cycle; the fork inherits it and stays at 180 total.
+### Canvas-level integer scaling was evaluated and rejected
 
-### The carrier situation
+- `scale_mode = "integer"` against the inherited 1152 x 648 base admits only x1
+  at 1920 x 1080, because x2 would need 2304 x 1296. Heavy letterboxing.
+- A 640 x 360 base divides the 16:9 ladder exactly, and renders crisply — but
+  every existing layout is authored against roughly 1152 logical pixels and
+  would have to be re-authored at half scale. Captured at 1340 x 754 the
+  specimen's own 404 px margin already consumes most of a 670 x 377 viewport.
 
-`Smoke Tower` is the **only** fire spell with `TARGET_TYPE: "area"`:
-`RADIUS: 1`, `AREA_SHAPE: "cross"`, described as *"A cross-shaped pillar of
-smoke and fire that inflicts burn."* Two consequences:
+### A bitmap face does not survive a content-scale change
 
-1. That description is already a rising column — the effect this plan builds is
-   what the spell text has been claiming all along.
-2. `cross` is the shape the ice cycle explicitly left unhandled (recorded in
-   `BACKLOG_LONGTERM.md`): `_isDiamondShape()` returns false for it and the
-   ground wash falls back to a radial disc over a plus-shaped area.
-
-Other area spells for reference: radius 2–3, mostly default (diamond) shape;
-`Holy Cross` is the only other `cross` carrier.
-
----
+Changing the content scale changes the text server's font oversampling, which
+clears cached glyph data. A dynamic face re-rasterizes from the font bytes it
+still holds; `NoggBitmapFont` injects glyphs directly into the cache and has no
+bytes, so they are gone and every string falls back to a system font reporting
+ascent and descent as zero. **`stretch/mode = "disabled"` removes this failure
+mode entirely** rather than working around it, because oversampling then never
+changes — including across a window resize.
 
 ## 3. Design decisions
 
-### The vortex is radial; the ground wash carries the shape
+### Stop scaling the canvas; scale the design tokens by a whole number
 
-A spiral is inherently radial. Forcing an ember column into a plus-shaped
-silhouette would look wrong and cost far more than it returns. So:
+`project.godot` moves to `window/stretch/mode = "disabled"`, so nothing is ever
+resampled. `NoggTheme` gains a `UI_SCALE` integer derived from window height,
+and every geometry token becomes a design unit multiplied by it.
 
-- **The column** is radially symmetric, clamped to the footprint boundary.
-- **The ground wash** carries the exact gameplay shape, and gains a `cross`
-  texture variant — which closes the ground-wash half of the backlog gap for
-  every `cross` carrier, not just this one.
+Both families win under this scheme, which is the point: smooth chrome is
+redrawn at the larger size and stays smooth, while pixel content lands on whole
+device pixels. There is no letterboxing, no aspect-ratio constraint, and no
+`viewport_width` to keep in sync with anything.
 
-### The diamond boundary has an exact polar form
+`UI_SCALE` is also the resolution-aware scale ladder the bitmap face needs,
+applied to the whole UI instead of only to text — the font's whole-multiple
+constraint stops being a special case and becomes the general rule.
 
-For a diamond footprint `|x| + |z| ≤ R`, the boundary in polar coordinates is
-exactly:
+### Design units are the authored unit; device pixels are derived
 
-```
-r_max(θ) = R / (|cos θ| + |sin θ|)
-```
+Tokens are authored at `UI_SCALE = 1` and multiplied on read. `12` is the body
+size, not `24`. This is a deliberate re-basing: the current constants are
+already `UI_SCALE = 2` values in disguise, which is why `FONT_SIZE_BODY = 24`
+happens to be exactly twice `NoggBitmapFont.NOMINAL_SIZE`.
 
-At θ = 0 this gives `R` (the diamond's vertex); at θ = 45° it gives `R/√2` (the
-edge midpoint). Clamping the spiral to this makes the column **breathe in and
-out as it rotates**, tracing the real gameplay footprint. This is both the
-correct behaviour and the more beautiful one — it is the single nicest thing in
-this plan and should not be simplified away to a circle.
+### `FONT_SIZE_FOOTER` survives this cycle after all
 
-For `cross` and `line` carriers, fall back to the inscribed circle `R/√2`.
-
-### What "poetic" means here, concretely
-
-Stated as acceptance criteria so it survives delegation:
-
-- **Density gradient.** Dense at the base, sparse at the crown. Achieved by
-  ember alpha dying at `h ≈ 0.52–1.0`, not by varying spawn count.
-- **Colour gradient with height.** Hot near-white at the base → orange → deep
-  red at the crown. An ember that reaches the top has visibly cooled.
-- **Differential rotation.** Angular speed is higher at the base than the crown,
-  so the spiral winds rather than spinning rigidly.
-- **Taper.** Radius narrows with height — a funnel, not a cylinder.
-- **Shrink.** Embers get smaller as they rise, reading as burning out.
-- **Per-ember flicker.** A hash-phased sine on alpha so the column shimmers
-  instead of reading as uniform dots.
-- **A slight lean.** A small quadratic x-offset with height. Perfectly vertical
-  reads as mechanical.
-
-A version missing the colour gradient, the differential rotation, or the
-flicker has failed the brief even if it renders embers going upward.
-
----
+**Corrected during PX-1.** This section originally claimed 20 could not survive.
+It can: 10 design units resolves to exactly 20 at `UI_SCALE = 2`, so nothing
+moves. The problem is narrower than stated — 10 is not a multiple of
+`NoggBitmapFont.NOMINAL_SIZE`, so the footer has no honest size *if Nogg
+Terminal is adopted as the game face*. That belongs to the adoption decision in
+`BACKLOG_LONGTERM.md`, not here. XenoText is a dynamic face and renders 10 and
+20 happily.
 
 ## 4. Items
 
-### FIRE-1 — The vortex shader, profile, and effect class
+### PX-1 — `UI_SCALE` and design-unit tokens in `NoggTheme`
 
-**Model:** Sonnet 5 / GPT Terra *(the shader math is fully specified below;
-this is transcription and retuning, not derivation)*
-**Depends on:** nothing
-**Files:** new `assets/shaders/effects/fire_storm_vortex.gdshader`, new
-`src/presentation/effects/FireStormProfile.gd`, new
-`src/presentation/effects/FireStormEffect.gd`, plus `.uid` sidecars
+**Model:** Opus 5 / GPT Sol *(this decides an architectural boundary: who owns
+the scale value, how consumers observe a change, and whether tokens stay
+constants or become functions. Every later item depends on the answer.)*
 
-**Fork procedure.** Copy `IceStormProfile.gd` → `FireStormProfile.gd` and
-`IceStormEffect.gd` → `FireStormEffect.gd`, rename the classes and the profile
-references, then change only what §3 requires. Most constants — phase
-fractions, action hold, live-storm cap, node/draw-call/particle budgets, canopy
-drift and breath — carry over unchanged and should not be re-derived.
+Introduce `UI_SCALE` and convert `NoggTheme`'s geometry tokens to design units
+multiplied by it. Decide and document:
 
-**Layer roster** (ice's seven → fire's six):
+- **Where the value lives and who computes it.** It is a function of window
+  height and must be readable before any theme is built.
+- **Constants vs functions.** Tokens that are currently `const` and read at
+  parse time (`ROW_HEIGHT`, `STATUS_CELL_OFFSETS`, `CURSOR_*`,
+  `RESONANCE_*`, `CONTENT_INSET`, `FRAME_RING_PX`, `WINDOW_CORNER_RADIUS`,
+  `HALO_*`, `WINDOW_STACK_GAP`) cannot stay constants if the scale can change at
+  runtime. Choose whether they become static functions or whether the theme is
+  rebuilt wholesale on change, and say why.
+- **The change signal.** Themes are built once today and there is no path from
+  a window resize to a rebuild and relayout. Establish one, or establish
+  explicitly that `UI_SCALE` is fixed at startup and a resize does not restyle.
 
-| Fire layer | Origin |
-| --- | --- |
-| `ground_wash` | ice `ground_wash`, recoloured, `cross` texture variant added |
-| `ember_column` | new: dense vortex, 140 particles |
-| `ember_motes` | new: sparse/larger/slower vortex, 40 particles |
-| `smoke_crown` | ice `canopy`, recoloured to warm grey, 2 quads |
-| `swirl` | uniform toggle (replaces ice `gust`) |
-| `flicker` | uniform toggle (replaces ice `pulse_accents`) |
-| *(dropped)* | ice `frost_veins`, ice `hero_shards` |
+Colour, timing, and animation tokens are untouched — they are not geometry.
 
-**The shader.** `shader_type particles`, `render_mode disable_force,
-disable_velocity` — same contract as the ice flurry. Every value is a pure
-function of `INDEX` and `playback_time`; **nothing integrates across frames**,
-which is what keeps `is_particle_seek_exact()` truthful and scrubbing frame-
-exact. Any change that makes ember state depend on accumulated frames breaks
-the debug harness's scrub and is a defect.
+**Risk:** this is the item that can silently move every window in the game. The
+mitigation is that it changes no observable value at `UI_SCALE = 2`, which is
+what the current constants already encode; a correct conversion is a no-op at
+today's effective scale, and that is the check.
 
-```glsl
-const float SQRT1_2 = 0.70710678;
-const float TAU_C   = 6.28318531;
+**Adds to final validation:** every window renders identically at `UI_SCALE = 2`
+to the pre-change build.
 
-float hash_value(float value) {
-    return fract(sin(value * 127.1 + vfx_seed * 17.17) * 43758.5453);
-}
+### PX-2 — Switch the project to native 1:1 and wire the scale
 
-void process() {
-    float index      = float(INDEX);
-    float a0         = hash_value(index +   1.0) * TAU_C;
-    // sqrt() gives uniform density per unit AREA; without it embers bunch
-    // visibly at the column's axis.
-    float rNorm      = sqrt(hash_value(index +  41.0));
-    float phase      = hash_value(index +  83.0);
-    float riseSpeed  = mix(min_rise_speed, max_rise_speed, hash_value(index + 127.0));
-    float baseScale  = mix(min_scale, max_scale, hash_value(index + 173.0));
-    float flickPhase = hash_value(index + 211.0) * TAU_C;
+**Model:** Sonnet 5 / GPT Terra *(mechanical once PX-1 has fixed the ownership
+and the signal; the end state is fully specified by it.)*
 
-    // Vertical cycle: 0 at the floor, 1 at the crown, wrapping.
-    float h = fract(phase + playback_time * riseSpeed / max(column_height, 0.001));
-    float y = h * column_height;
+Set `window/stretch/mode = "disabled"` in `project.godot`. Compute `UI_SCALE`
+at startup from window height and, if PX-1 chose a runtime signal, recompute and
+rebuild on resize.
 
-    // Funnel: radius narrows toward the crown.
-    float taper = mix(1.0, crown_taper, smoothstep(0.0, 1.0, h));
+**Risk:** UI occupies a smaller share of a large screen than it does today
+whenever `UI_SCALE` resolves lower than the effective factor the fractional
+stretch was applying. Expect the HUD to look different at unusual window sizes;
+that is the change, not a regression.
 
-    // Differential rotation: the base winds faster than the crown.
-    float omega = mix(swirl_base, swirl_crown, h) * swirl_speed * swirl_enabled;
-    float a     = a0 + playback_time * omega;
+**Adds to final validation:** text is pixel-exact at 1152 x 648, 1340 x 754,
+1920 x 1080, and fullscreen.
 
-    // Exact diamond boundary in polar form; inscribed circle for cross/line.
-    float diamondLimit = footprint_radius_u / max(abs(cos(a)) + abs(sin(a)), 0.001);
-    float rMax = mix(footprint_radius_u * SQRT1_2, diamondLimit, diamond_shape);
-    float r    = min(rNorm * footprint_radius_u * base_radius_fraction, rMax) * taper;
+### PX-3 — Migrate the direct-drawing UI components
 
-    float lean = lean_offset * h * h;
-    vec3  pos  = vec3(r * cos(a) + lean, y, r * sin(a));
+**Model:** Sonnet 5 / GPT Terra *(four files, stated end state, no design
+latitude.)*
 
-    // Cooling with height.
-    vec3 col = mix(ember_hot_color.rgb, ember_mid_color.rgb, smoothstep(0.0, 0.45, h));
-    col      = mix(col, ember_cool_color.rgb, smoothstep(0.45, 1.0, h));
+Convert `MenuCursor`, `PagerArrow`, `ResonanceBar`, and `DamageNumberBillboard`
+to the scaled tokens. They already read `NoggTheme`, so this is mostly
+confirming that each read goes through the scaled accessor rather than a cached
+`const`, and that `_draw()` rounds to whole device pixels.
 
-    float flicker = 1.0 - flicker_depth * flicker_enabled
-        * (0.5 + 0.5 * sin(playback_time * flicker_rate + flickPhase));
-    float birth = smoothstep(0.0, 0.09, h);
-    float death = 1.0 - smoothstep(0.52, 1.0, h);
+**Risk:** the cursor gutter is a two-number agreement — `CURSOR_WIDTH` and
+`CURSOR_GUTTER_WIDTH` must scale together or the arrow lands on the ring or
+floats in dead space, which `NoggTheme` already warns about.
 
-    float normalized_time = clamp(playback_time / max(total_duration, 0.001), 0.0, 1.0);
-    float onset  = smoothstep(0.0, onset_fraction, normalized_time);
-    float settle = 1.0 - smoothstep(0.80, 0.96, normalized_time);
+**Adds to final validation:** cursor, pager arrows, and resonance bars are
+crisp and correctly placed at `UI_SCALE` 1, 2, and 3.
 
-    float scale = baseScale * mix(1.0, ember_shrink, h);
-    TRANSFORM[0].xyz = vec3(scale, 0.0, 0.0);
-    TRANSFORM[1].xyz = vec3(0.0, scale, 0.0);
-    TRANSFORM[2].xyz = vec3(0.0, 0.0, scale);
-    TRANSFORM[3].xyz = pos;
-    VELOCITY = vec3(-sin(a) * r * omega, riseSpeed, cos(a) * r * omega);
-
-    COLOR    = vec4(col, ember_hot_color.a);
-    COLOR.a *= clamp(birth * death * flicker * onset * settle * intensity_scale, 0.0, 1.0);
-}
-```
-
-**Uniforms** mirror the ice flurry's set, with these replacing the falling-snow
-ones: `footprint_radius_u`, `column_height`, `base_radius_fraction`,
-`crown_taper`, `swirl_base`, `swirl_crown`, `swirl_speed`, `min_rise_speed`,
-`max_rise_speed`, `ember_shrink`, `flicker_rate`, `flicker_depth`,
-`lean_offset`, `swirl_enabled`, `flicker_enabled`, `diamond_shape`,
-`ember_hot_color`, `ember_mid_color`, `ember_cool_color`. Retain unchanged:
-`playback_time`, `total_duration`, `onset_fraction`, `intensity_scale`,
-`min_scale`, `max_scale`, `vfx_seed`.
-
-**`footprint_radius_u` is `float(radius) + 0.5`**, matching the ground wash
-cylinder's own `diameter * 0.5`, so the column's boundary and the wash's edge
-agree.
-
-**Suggested starting palette** (retune by eye; these are authored, not measured):
-`ember_hot` ≈ `(1.0, 0.94, 0.72)`, `ember_mid` ≈ `(1.0, 0.55, 0.16)`,
-`ember_cool` ≈ `(0.72, 0.16, 0.09)`, smoke crown ≈ `(0.26, 0.22, 0.21)` at low
-alpha, ground wash ≈ `(1.0, 0.48, 0.20)` at ~0.20 alpha.
-
-**Provenance.** Mark every new constant `AUTHORED` or
-`DERIVED from ice_area_storm`, with a one-line reason. **Do not run a
-reference-footage measurement pass** — see §5.
-
-**Risk:** `smoothstep`/`fract` sign errors produce embers that pop at the wrap
-boundary or sink instead of rising; both are immediately visible in the debug
-scene. The likelier subtle failure is losing determinism by introducing any
-frame-accumulated term — check `flurry: exact` still reads *exact* in the HUD
-after the shader lands.
-
-**Adds to final validation coverage:** embers rise and spiral; colour cools with
-height; the column tapers, leans, flickers, and shrinks; density thins toward
-the crown; scrub stays frame-exact; node/draw-call/particle asserts hold.
-
----
-
-### FIRE-2 — Register the profile, add the cross ground wash, wire the carrier
+### PX-4 — Re-measure the width budgets and update `UI_DESIGN.md`
 
 **Model:** Sonnet 5 / GPT Terra
-**Depends on:** FIRE-1
-**Files:** `src/presentation/effects/SpellVfxCatalog.gd`,
-`src/presentation/effects/VfxTextures.gd`, `data/spells.json`,
-`BACKLOG_LONGTERM.md`
 
-**End state:**
+§7b's marquee thresholds and §8's window-width measurements are recorded in
+device pixels at the current effective scale. Re-take them in design units and
+update the doc.
 
-- One new row in `SpellVfxCatalog.entries()`: `profile_id`
-  `"fire_area_storm"`, display name `"Fire Area Storm"`, factory
-  `Callable(FireStormEffectScript, "createPlayback")`, hold fraction and
-  `max_live` from `FireStormProfile`.
-- `VfxTextures.groundWash()` takes a shape selector rather than a bool, gaining
-  a **cross** variant alongside disc and diamond, cached per shape like the
-  existing two. Cross mask over normalized `[-1, 1]` UVs, arm half-width
-  `0.5 / (radius + 0.5)`:
-  ```
-  d = min( max(|v| / armHalf, |u|), max(|u| / armHalf, |v|) )
-  alpha = pow(1 - clamp(d, 0, 1), 2) * 0.24
-  ```
-  Update `IceStormEffect`'s call site for the changed signature — a mechanical
-  edit, no behaviour change for ice.
-- `Smoke Tower` in `data/spells.json` gains `"VFX_PROFILE": "fire_area_storm"`.
-  **This is the only gameplay-data file this plan touches, and it adds a key
-  with no gameplay effect** (`SPELL_CATALOG_SCHEMA.md` §`VFX_PROFILE`).
-- Trim the `BACKLOG_LONGTERM.md` footprint-shape entry to reflect that the
-  ground-wash half of the `cross` gap is now closed, leaving the particle-field
-  half recorded. Describe the work; do not cite an item label.
+**This item legitimately changes the numbers a passing check reports.** The
+existing measurements are not wrong; they are expressed in the wrong unit. Do
+not try to restore the old values.
 
-**Risk:** low. The `groundWash()` signature change is the only cross-effect
-edit; confirm the ice storm still renders its diamond wash afterward.
+**Adds to final validation:** no row marquees that should not, and no window
+clips content it previously fit.
 
-**Adds to final validation coverage:** the profile resolves and is selectable in
-the debug harness; `Smoke Tower` plays the fire storm in battle; the cross
-ground wash matches the plus-shaped area; ice is unaffected.
+### PX-5 — Decide whether the CRT pass follows `UI_SCALE`
 
----
+**Model:** Opus 5 / GPT Sol *(a look decision, and one that trades authenticity
+against legibility rather than having a correct answer.)*
 
-### FIRE-3 — Final validation
+`RetroRenderController` sets `crt_scanline_size = 1.0` and `crt_mask_size = 1.0`
+in device pixels. Under `disabled`, a one-device-pixel scanline is invisible at
+4K and overwhelming at 720p. Decide whether these follow `UI_SCALE`, follow the
+retro viewport's own render scale, or stay fixed — and capture the alternatives
+rather than arguing them.
 
-**Model:** Opus 5 / GPT Sol
-**Depends on:** FIRE-1, FIRE-2
+**Blocking on a user decision.** The outcome is a matter of taste about how
+present the CRT effect should be at high resolution, and this item should
+present captures and stop rather than pick.
 
-The only item performing full manual gameplay and integration validation, and
-the only one marking covered items done.
+**Adds to final validation:** the CRT pass reads correctly at 720p, 1080p, and
+fullscreen.
 
-1. **Debug scene.** `--effect=fire_area_storm`. Sweep radius 1–5; confirm the
-   column stays inside the footprint and the diamond boundary visibly breathes
-   as it rotates. Exercise every layer toggle, seed pin, scrub in both
-   directions, overlap, mode switch, playback scale.
-2. **The poetic criteria.** Walk §3's seven bullets explicitly and confirm each
-   one reads on screen. Name any that do not.
-3. **Determinism.** Confirm the HUD still reports `flurry: exact`; scrub
-   backward and forward to the same `t` and confirm an identical frame.
-4. **Battle integration.** Cast `Smoke Tower` on flat ground, on uneven ground,
-   at a board edge, and on an empty tile. Confirm the effect covers the cross
-   area, composites through the CRT pass, and does not z-fight terrain or units.
-5. **Ice cycle validation, carried over.** This step and the next discharge the
-   ice cycle's own unrun final validation — they are not optional regression
-   spot-checks. Cast `Ice Plow` and confirm: the storm covers exactly the
-   diamond of tiles that take damage, at several radii, on flat and uneven
-   ground and clipped at a board edge; no flakes fall outside the footprint;
-   the canopy shows the core-to-edge falloff the constant-resolution item wired
-   in (this was judged only by eye in the debug scene and never confirmed in
-   battle); and the shared `groundWash()` signature change did not disturb it.
-6. **Overlap, cap, skip, pause, speed, leak.** Two live storms halve intensity
-   and restore on expiry; a third disposes the oldest; pause and speed reach the
-   effect. **Skip specifically:** the ice cycle moved `_active_cast_effect`
-   clearing into `_on_live_effect_exiting`, and that behaviour change was never
-   exercised — confirm skipping during an effect's trailing damage numbers now
-   settles the storm rather than leaving it playing. 20+ casts return node count
-   to baseline.
-7. `git diff --check`; only task-owned files staged.
+### PX-6 — Final validation
 
-Capture screenshots from steps 1 and 4 and reference their paths in the
-Resolution.
+**Model:** Opus 5 / GPT Sol *(cross-layer, and the only item that judges whether
+the whole change held.)*
 
----
+Depends on PX-1 through PX-5. The only item that marks the others done.
+
+1. Launch `Battle25D`. Exercise every window kind — command menu, status,
+   confirm prompt, paging, marquee — at 1152 x 648, 1340 x 754, 1920 x 1080,
+   and fullscreen.
+2. Confirm text is pixel-exact at each, using the VFX debug scene's specimen
+   readout as the objective check rather than judging by eye.
+3. Confirm the union of the per-item validations above.
+4. Resize the window during play and confirm the UI restyles correctly, or
+   that it explicitly does not if PX-1 chose a startup-fixed scale.
+5. Confirm the bitmap face never falls back — ascent and descent stay non-zero
+   across every resize.
 
 ## 5. Deliberately not doing
 
-Recorded so a later session does not read these as oversights:
-
-- **No reference-footage measurement pass.** The ice storm's `MEASURED`/
-  `ESTIMATED` provenance came from real footage decomposition — the single most
-  expensive part of that cycle. Fire's constants are authored or derived, and
-  labelled as such. If fire ever needs reference fidelity, that is its own
-  scoped task with its own authorization.
-- **No `SpellVfxProfile` resource refactor.** Deferred again, deliberately —
-  see §2. Revisit at a third elemental effect.
-- **No shared base class between the two storm effects.** Same reason.
-- **No cross-shaped particle field.** The column is radial by design; only the
-  ground wash carries the cross. The remaining gap stays in the backlog.
-- **No new fire spell.** `Smoke Tower` is the carrier. A larger fire area spell
-  is a content decision, not a presentation one.
-- **No change to `elementColor`.** Like the ice storm, `createPlayback` ignores
-  its `_elementColor` argument and owns its palette. Consistent with the
-  existing pattern.
-
----
+- **Adopting Nogg Terminal as the game face.** That is a separate decision with
+  its own layout cost (16 px advance against XenoText's 12 px) and is recorded
+  in `BACKLOG_LONGTERM.md`. This cycle makes the display correct for whichever
+  face ships; it does not choose the face.
+- **Changing `WINDOW_FILL`.** The warm-deep candidate has been picked by eye in
+  the specimen but lifting the shipping token is a restyle, not a scaling fix.
+- **Re-authoring layouts for a smaller base.** Rejected above with measurement.
 
 ## 6. Resolution notes
 
-- **FIRE-1** — implemented; pending end-of-plan validation.
-  Three new files: `fire_storm_vortex.gdshader`, `FireStormProfile.gd`,
-  `FireStormEffect.gd`, with `.uid` sidecars.
+- **PX-1** — implemented; pending end-of-plan validation.
+  `NoggTheme` now carries `ui_scale`, `configure()`,
+  `configure_for_window_height()`, and design-unit constants for every geometry
+  token. Four `const` captures in `MenuCursor` and `PagerArrow` became accessors.
 
-  **Built as specified.** The shader is the plan's math verbatim, including the
-  exact diamond polar form. Layer roster is the planned six; frost veins and
-  hero shards are gone. Actuals: **6 nodes, 5 draw calls, 180 particles**
-  (140 column + 40 motes) against budgets of 12 / 14 / 220.
+  **The three decisions the item existed to make:**
 
-  **Two decisions made in-item:**
-  1. The ember draw material neutralises albedo and emission to white before
-     use. `VfxTextures.flurryMaterial()` is built ice-tinted and sets
-     `vertex_color_use_as_albedo`, so its albedo would have multiplied against
-     the per-ember colour the shader writes to `COLOR` and skewed the whole
-     hot-to-cool gradient blue. Without this the palette work is invisible.
-  2. The smoke crown fades in on `smoothstep(0.10, 0.34)` rather than tracking
-     `onset` like every ice layer, and lingers past the ember die-off — smoke
-     that appears simultaneously with its own fire reads wrong.
+  1. **Static vars, not functions.** Sixty call sites across a dozen files read
+     these token names. Converting each into a function call would have broken
+     this file's central promise — that a restyle is a one-file edit — for no
+     gain, since the values only change when `configure()` says so. The names
+     keep their identity; only their values move. `configure()` is the single
+     writer and `_recompute()` derives all of them together, so no subset can
+     drift out of agreement.
+  2. **No signal, and `NoggTheme` gains no node identity.** `configure()`
+     returns whether the scale actually changed, and the caller decides whether
+     to rebuild themes and relayout. Giving a pure token-and-factory class a
+     node so it could emit would have been a larger change to its role than the
+     problem justifies. PX-2 owns the caller.
+  3. **Rounding is a property of the tokens, not of each draw site.** Design
+     units are allowed to be fractional where an existing value demands it
+     (`RESONANCE_CELL_GAP` is 3 device pixels at x2, so 1.5 units), but every
+     result goes through `roundi`. Whole device pixels are the objective, so
+     guaranteeing them once at the token layer beats hoping each `_draw()`
+     remembers.
 
-  **Smoke check, and what it does not cover.** `--import --headless` generated
-  both `.uid` sidecars and registered `FireStormEffect`/`FireStormProfile` in
-  the global class cache, which confirms both scripts parse. The progress-dialog
-  errors that run printed are the known import-harness noise documented in
-  `docs/DEVELOPMENT.md`, not project errors.
+  **`_static_init()` closes the uninitialised window.** It runs on class load,
+  so tokens are correct at the default scale before any consumer can read one.
+  There is no moment where a caller observes an unconfigured value.
 
-  **An earlier probe was inconclusive and is recorded so it is not repeated:**
-  launching `VFXDebugScene` directly does *not* rescan the filesystem, so
-  nothing referenced the new files and they were never parsed — it printed clean
-  while proving nothing. A new `class_name` script needs the import pass, not a
-  scene launch. **The shader has still never been compiled by the GPU** (that
-  needs a live instance, which requires the catalog row in FIRE-2) and nothing
-  has been seen on screen.
-- **FIRE-2** — implemented; pending end-of-plan validation.
-  Catalog row added, ground-wash shape selector generalized, `Smoke Tower`
-  wired. First frames of the fire storm rendered.
+  **PX-3's scope shrank.** `MenuCursor._WIDTH/_HEIGHT` and
+  `PagerArrow.WIDTH/HEIGHT` were `const NoggThemeScript.CURSOR_*`, which stops
+  parsing the moment those become static vars — so they had to move in this item
+  for the project to load at all. They are now `_width()`/`_height()` and
+  `width()`/`height()` accessors read at draw time. Both were internal-only;
+  nothing outside those two files referenced them. `ResonanceBar` and
+  `DamageNumberBillboard` were untouched and remain PX-3's work.
 
-  **Ground wash went further than "add a cross variant."** The `groundWash()`
-  bool became a `GroundWashShape` enum with a `groundWashShapeFor(areaShape)`
-  mapper, and the three near-identical generator functions collapsed into one
-  that computes a normalized distance per shape and shares a single falloff and
-  opacity — so the shapes cannot drift apart in visual weight as they are
-  tuned. Cross arms are one tile wide regardless of reach, so unlike the
-  diamond and disc that mask is *not* self-similar across radii and is cached
-  per `(shape, radius)`.
+  **A correction to this plan's own §3**, recorded there: `FONT_SIZE_FOOTER`
+  was claimed unsurvivable and is not. 10 design units gives exactly 20 at x2.
+  The multiple-of-12 problem is real but belongs to the font-adoption decision,
+  not to this cycle.
 
-  **`line` deliberately has no mask.** Its footprint depends on cast direction,
-  which the ground wash never receives, so it falls back to the disc. Recorded
-  in the mapper's own comment.
+  **Verified.** `debug/verify_ui_scale.gd` (new, gitignored) asserts all 23
+  tokens reproduce their pre-change literals **exactly** at x2 — the item's
+  stated check, that a correct conversion is a no-op at today's effective
+  scale — plus whole-pixel results for all 17 geometric tokens at x1/x2/x3/x4,
+  agreement between `RESONANCE_BAR_WIDTH` and the cells it is supposed to span,
+  agreement between `window_height()` and its inputs, and the height-to-scale
+  mapping including `configure()`'s changed/unchanged return. Result: PASS.
+  `Battle25D` and `VFXDebugScene` both load clean, and the pre-existing
+  `debug/verify_status_layout.gd` harness reports all checks passed.
 
-  **Tuning discovered in-item — the column is not a field.** Two values had to
-  move a long way off their ice-derived starting points, both for the same
-  reason: a vortex concentrates its particles into a fraction of the volume a
-  flat storm field spreads them across, so per-pixel additive overlap is far
-  higher at equal counts.
-  - Ember alpha at ice's 0.62 clipped the core to flat white and made the
-    entire hot-to-cool gradient invisible. Now `EMBER_ALPHA = 0.34`, promoted
-    to its own uniform: it had been read from `ember_hot_color.a`, which
-    silently ignored the mid/cool alphas and would have wasted a later tuning
-    session.
-  - Particle count at ice's 180 was a continuous haze with no individual ember
-    and therefore no legible spiral. Now **80 + 24 = 104**. Density here is a
-    *readability* constraint, not a performance one — worth knowing before
-    anyone "restores" it toward the budget.
-  - Ground wash dropped to alpha 0.13, below even the ice storm's 0.18: the
-    column already spills its own glow downward and a stronger wash flattened
-    the footprint into one orange sheet.
+  **Not verified here, and left to PX-6:** nothing has been *looked at*. The
+  numeric equivalence at x2 is strong evidence the UI is unchanged, but no
+  window has been rendered and compared, and no scale other than 2 has been
+  seen on screen at all. The cursor and pager accessor changes are on the draw
+  path specifically and have only been proven to parse and to return the right
+  numbers.
+- **PX-5** — **investigated; blocked on a user decision, as the item said it
+  would be.** No value was chosen and no default changed.
 
-  **Verified:** shader compiles and runs; build-time node/draw-call/particle
-  asserts hold; `--effect=fire_area_storm` resolves through the catalog;
-  `spells.json` parses (59 spells) with `Smoke Tower` carrying the profile;
-  **ice storm renders unchanged** after the shared-signature change.
+  **The harness gained the controls the decision needs.** `--crt-scanline-size=`
+  and `--crt-mask-size=` now reach the live renderer, so the alternatives are
+  captured rather than argued. Both were already runtime-settable and clamped
+  (scanline 0.5-4.0, mask 1.0-6.0); nothing about the renderer changed.
 
-  **Not yet verified — left to FIRE-3:** the spiral has only been judged from
-  single static frames, and winding/differential rotation is inherently a
-  multi-frame reading. Nothing has been seen in battle, at 640×480 through the
-  CRT pass, at the `cross` footprint its real carrier uses (the debug harness
-  always passes `"circle"`), or at radii other than 2.
-- **FIRE-3** — **in progress; the plan is NOT complete and no item is marked
-  done.** The automatable half passed. The half that needs interactive UI or a
-  battle has not run, and cannot be driven from the CLI as the harness stands.
+  **A false result was produced and corrected before it was reported.** The
+  first attempt routed both through `set_look_parameter()`, which has no arm for
+  `CRT_*` names and no fallback, so it silently did nothing. The captures
+  differed by mean 0.009 / peak 1 — which reads as "this parameter does not
+  matter" rather than "this parameter was never set". Routing through
+  `set_crt_parameter()` gives mean 1.383 / peak 31. Recorded in
+  `docs/LEARNINGS.md` under "Retro render parameters", with the general rule:
+  diff two frames numerically before concluding a visual parameter has no
+  effect.
 
-  **Passed:**
-  - **Determinism, objectively.** Two separate processes capturing `t = 0.55`
-    produced **byte-identical PNGs** (md5 `5e6dd16d…`). This is a stronger
-    result than the HUD's `exact` readout: it proves the whole effect, not just
-    the particle seek, reproduces across process boundaries.
-  - **Phase structure**, captured at t = 0.12 / 0.35 / 0.55 / 0.85: embers build
-    from the floor, peak mid-timeline, then cool and thin under a browner smoke
-    crown as the ground wash fades.
-  - **Colour cooling with height** and **density thinning toward the crown** —
-    two of the seven poetic criteria — read clearly in stills.
-  - Shader compiles; build-time node/draw-call/particle asserts hold;
-    `--effect=fire_area_storm` resolves; `spells.json` parses (59 spells);
-    **ice storm renders unchanged**.
+  **What the decision actually rests on.** Scanline and mask pitch are in device
+  pixels. Under the fractional stretch they inherit whatever the canvas factor
+  is, so their apparent size has always drifted with window size; under PX-2's
+  `disabled` they become genuinely fixed, and a one-pixel scanline is a
+  different thing at 720p than at 4K. Captures exist at 1920 x 1080 for pitch 1
+  (today's value) and pitch 3.
 
-  **Not run, and why:**
-  - **Battle integration (plan step 4) — the significant gap.** `Smoke Tower`
-    has never been cast. Nothing has been seen at 640×480 through the CRT pass,
-    against real terrain, or composited with units.
-  - **The `cross` footprint has never rendered.** `VFXDebugController.
-    _applyFootprintTo()` hardcodes `"circle"`, so every capture above is the
-    diamond path. Smoke Tower is a `cross` carrier, so the shape its only
-    carrier actually uses is entirely unexercised — including the new cross
-    ground-wash mask, which has never been seen on screen.
-  - **Radius sweep, layer toggles, overlap/cap, skip/pause/speed, leak check,
-    and the carried-over ice checks (steps 5–6)** are UI-driven; the harness
-    exposes no CLI for them.
-  - **Four poetic criteria — differential rotation, taper, shrink, lean — are
-    inherently multi-frame or motion-dependent** and cannot be confirmed from
-    stills. The winding spiral is the effect's whole premise and remains
-    unjudged.
+  **Not decided, deliberately:** whether pitch follows `UI_SCALE`, follows the
+  retro viewport's own render scale, or stays fixed. This trades CRT
+  authenticity against legibility at high resolution and has no correct answer,
+  which is why the item is marked blocking. It should be resumed with a choice,
+  not a recommendation.
+- **PX-2** — implemented; pending end-of-plan validation.
+  `project.godot` now sets `window/stretch/mode = "disabled"`.
+  `BattlePresentationController._ready()` calls
+  `NoggThemeScript.configure_for_window_height(get_window().size.y)` as its
+  first statement, before any Theme is built.
 
-  **Update — the harness was extended, and most of the above is now closed.**
-  A tooling pass added CLI parity (`--radius`, `--shape`, `--layers`, `--seed`,
-  `--scale`, `--retro`, `--crt`), multi-timestamp capture in one process,
-  contact sheets, and golden-frame regression. Newly verified with it:
+  **The resize question PX-1 deferred is answered: fixed at startup, not live.**
+  `configure()` changing `ui_scale` after Theme resources are already built and
+  assigned would desync two kinds of reader — a `Theme`'s font size and
+  styleboxes are copied in at build time and would keep the old scale, while
+  code reading a token directly at draw time (`NoggWindow`'s cursor gutter math,
+  `MenuCursor`'s accessors) would see the new one immediately. That
+  disagreement is worse than not rescaling, and fixing it needs a
+  rebuild-and-relayout path for every open window, which is real, separate work
+  — recorded in `BACKLOG_LONGTERM.md` as live UI rescaling, deliberately not
+  attempted here. `configure_for_window_height()` is therefore called exactly
+  once per process.
 
-  - **The `cross` footprint renders**, at `Smoke Tower`'s real configuration
-    (cross, radius 1) — the shape its only carrier uses, previously never once
-    drawn. The new cross ground-wash mask is exercised.
-  - **The retro path**: 640×480 through the CRT pass, scanlines present, the
-    column survives the downscale and still reads as fire.
-  - **Baseline goldens recorded for both effects** at their carriers' real
-    configurations (`debug/vfx_golden/`, 3 timestamps each), and re-verified
-    reproducing at diff 0.00.
-  - Ice re-confirmed unchanged at Ice Plow's own config.
+  **The debug harness's stretch presets were reordered and relabeled, not left
+  stale.** Before this item its first preset was called "Project default
+  (fractional)" and its `native` entry called itself the alternative — both
+  became lies the moment `project.godot` changed. `native` is now first (it is
+  what the project does, and what the HUD dropdown shows by default), and the
+  old fractional entry survives as `legacy_fractional`, explicitly kept rather
+  than deleted so the bug this cycle fixed stays reproducible on demand.
+  `--stretch=project` no longer resolves; it is `--stretch=native` or
+  `--stretch=legacy_fractional` now, and both the flag's own doc comment and
+  its unknown-value warning were updated to match. `TextSpecimen`'s pixel
+  fidelity comment and its "not exact" hint also referenced the old default and
+  were rewritten — the hint now says to reset the Canvas stretch control rather
+  than resize the window, since a window resize can no longer produce a
+  fractional factor on its own.
 
-  **A correction to this item's earlier determinism claim.** It reported the
-  effect byte-identical across processes. That was true of the single capture
-  measured, but is **not true in general**: building the golden comparison
-  showed `GPUParticles3D` schedules `restart()`/`request_particles_process()`
-  on the rendering server, so identical runs differ slightly (mean per-channel
-  0.00–0.03). Replaying from zero before each seek removes most of it; extra
-  settle frames removed none, identifying the residue as scheduling rather than
-  a race. Golden comparison is therefore tolerance-based, calibrated against
-  measurement: noise 0.00–0.03, a whole-effect swap 3.2, tolerance 0.5. The
-  GDScript timeline is deterministic; the particle system is not quite.
+  **Verified.** `debug/verify_ui_scale.gd` still PASSes (this item touched no
+  token math). `Battle25D` loads headless clean at 1340 x 754 with no override
+  flag. Captured proof of the actual fix: XenoText at 1340 x 754 under
+  `project.godot`'s own new default (no `--stretch` flag at all) reads
+  `canvas x1 PIXEL-EXACT`, and every stroke is uniform — the same capture that
+  previously read `x1.163 NOT PIXEL-EXACT`. Captured proof the comparison path
+  still works: `--stretch=legacy_fractional` at the same resolution reproduces
+  `x1.163 NOT PIXEL-EXACT` on demand.
 
-  **Still genuinely open:**
-  - **Battle integration.** `Smoke Tower` has still never been cast in
-    `Battle25D` — no terrain, no units, no queue pacing, no CRT compositing in
-    a real battle.
-  - **Overlap/cap, skip, pause, speed, and the leak check** (plan step 6, which
-    also carries the ice cycle's lifecycle checks). These need a battle or an
-    interactive session; the harness can spawn overlaps but not exercise the
-    adapter's cap and skip paths.
-  - **Radius sweep** covered 1 and 2, not 3–5.
-  - **The four motion-dependent poetic criteria** — winding, taper, shrink,
-    lean. Contact-sheet frames 0.2 apart are far too coarse to read rotation; a
-    tight series (0.40/0.42/0.44) would settle it and now costs one command.
+  **Not verified here, left to PX-6:** nothing has been seen in the actual
+  `Battle25D` scene rendered on screen, only headless-loaded. The startup
+  `configure_for_window_height()` call has not been exercised at a launch size
+  other than whatever the default window is.
+- **PX-3** — implemented; pending end-of-plan validation.
+
+  **Audit result: `MenuCursor` and `PagerArrow` needed nothing further** — PX-1
+  already converted their `const` captures to accessors as a parsing necessity,
+  and both were re-verified here rather than re-touched.
+
+  **`ResonanceBar` needed one real fix.** Every size and position it reads was
+  already a live `NoggTheme` token (never a captured `const`), so it tracked
+  scale correctly for everything except one thing: the empty-cell outline
+  stroke was `draw_rect(..., 1.0, false)` — a literal device pixel that never
+  scaled while the cell it outlines grows fourfold from x1 to x4. Added
+  `RESONANCE_CELL_BORDER_UNITS := 0.5` to `NoggTheme` (0.5 so it reproduces the
+  historical 1px at x2, the same no-op-at-x2 rule PX-1 used throughout) and
+  pointed the draw call at it.
+
+  **`DamageNumberBillboard` was audited and left unchanged, deliberately.**
+  `FONT_SIZE_BODY` is already a live read, so its glyph size already scales.
+  Its four-direction 1px halo (`OUTLINE_OFFSETS`) does not, and — unlike the
+  resonance border — this was judged correct as found rather than fixed: the
+  halo is this component's crisp finishing hairline, the same
+  resolution-independent role `docs/UI_DESIGN.md` §3 already assigns
+  `StyleBoxFlat` rims. A halo that grew with the glyph would read as thicker,
+  blurrier text at high scale, the opposite of the "same crisp number, drawn
+  bigger" look this component exists for. Documented in-file so a future
+  reader finds the reasoning rather than "fixing" it as an oversight.
+
+  **A wrong verifier, caught before it shipped a false failure.** The first
+  version of `debug/verify_px3_geometry.gd` (new, gitignored) checked the
+  cursor's bob excursion against `CURSOR_GUTTER_WIDTH` alone and failed at
+  every scale, including x2 — which would mean the *shipping* geometry, never
+  touched by this cycle, was already broken. Tracing the real call sites
+  (`PlayerCommandMenu._build_cursor()` parents the cursor at
+  `position.x = CURSOR_INSET` in the window's own local space;
+  `set_content_indent()` starts content at `CONTENT_INSET + CURSOR_GUTTER_WIDTH`,
+  not at `CURSOR_GUTTER_WIDTH` alone) showed the older prose comment in
+  `NoggTheme` ("ring ends 12 | cursor 16..28 | text starts 34") is illustrative
+  and does not correspond to that formula either — it predates this cycle and
+  was left as-is, since correcting an unrelated pre-existing comment was out of
+  this item's scope. The corrected verifier checks the two real inequalities:
+  the cursor's near edge at its bob excursion must not cross `FRAME_RING_PX`,
+  and its far edge must not cross `CONTENT_INSET + CURSOR_GUTTER_WIDTH`.
+
+  **Verified.** `debug/verify_px3_geometry.gd`: at x1/x2/x3/x4, `MenuCursor` and
+  `PagerArrow` report identical whole-pixel sizes (family agreement holds), the
+  cursor clears both the ring and the text start at every scale, `ResonanceBar`
+  reports `size` matching `RESONANCE_BAR_WIDTH`/`RESONANCE_CELL_SIZE`, every
+  cell's computed left edge is a whole pixel, and the border stroke is whole
+  and never thinner than 1px. `debug/verify_px3_damage_number.gd`: at every
+  scale, a spawned billboard's height matches `FONT_SIZE_BODY` and every
+  digit's x position is whole. Both PASS. `debug/verify_ui_scale.gd` still
+  PASSes (untouched by this item). `Battle25D` still loads headless clean at
+  1340 x 754. The pre-existing `debug/verify_status_layout.gd` still reports
+  "all checks passed" (its `save_png`/texture null-value noise is the
+  established headless-dummy-renderer artifact this harness always prints, not
+  a regression — see its own prior passing runs).
+
+  **Not verified here, left to PX-6:** none of this geometry has been looked
+  at on screen — only measured. Whether the resonance border actually reads as
+  "a crisp thin line, not a heavier chrome element" at x1 and x4, and whether
+  the damage-number halo genuinely looks intentional rather than thin at x4,
+  are look judgments PX-6 is where they get made.
+- **PX-4** — implemented; pending end-of-plan validation.
+
+  **Scope grew beyond the item's own text, and the reason is a correction to
+  PX-1's own "Established facts" — recorded here rather than silently
+  absorbed.** PX-1 claimed only 14 size literals existed outside `NoggTheme`,
+  nearly all 3D/VFX. That census used a case-sensitive grep for lowercase
+  `width`/`height`/etc. and missed every constant named in SCREAMING_CASE —
+  `STATUS_WINDOW_WIDTH`, `TURN_ORDER_WIDTH`, `COMMAND_WIDTH`, `SPELL_WIDTH`,
+  `PROMPT_WIDTH`, `FORECAST_WIDTH`, `PAGER_WIDTH` — seven real window-width
+  constants across `BattleUIBuilder.gd`, `PlayerCommandMenu.gd`, and
+  `NoggWindow.gd`, none of them 3D/VFX, all of them exactly the class of
+  resolution-dependent geometry PX-1 set out to find. A case-insensitive rerun
+  surfaced them. Left alone, every one would have stayed a fixed device-pixel
+  width while the text inside it grew fourfold from x1 to x4 — directly
+  contradicting this item's own stated validation bar, "no window clips content
+  it previously fit." Widening PX-4 to cover them was the only way to actually
+  meet that bar, not a scope choice made for its own sake.
+
+  All seven became `NoggTheme` design-unit tokens (`COMMAND_WIDTH`,
+  `SPELL_WIDTH`, `PROMPT_WIDTH`, `FORECAST_WIDTH`, `STATUS_WINDOW_WIDTH`,
+  `TURN_ORDER_WIDTH`, `PAGER_WIDTH`, plus `PAGER_ARROW_GAP` found alongside
+  `PAGER_WIDTH`), following PX-1's established pattern exactly: `_UNITS`
+  constant, `static var`, populated in `_recompute()`. The four consumer files
+  had their local `const` literals deleted and every call site pointed at the
+  live `NoggThemeScript.*` token instead.
+
+  **Values were measured, not derived by dividing the old number by two.**
+  `debug/measure_px4_widths.gd` (new, gitignored) reuses
+  `debug/preview_theme.gd`'s own `CONTENT_INSET * 2 + label + value (+ gap)`
+  formula against the *real* longest strings in this codebase — pulled from
+  `data/spells.json`, `data/monsters.json`, and `PlayerTurnController`'s actual
+  status/forecast text, not placeholders — at `ui_scale = 1`, where a design
+  unit and a device pixel are the same number and no conversion step exists to
+  introduce rounding error.
+
+  **That measurement found a real, pre-existing bug, independent of this whole
+  cycle, and PX-4 fixed it rather than reproducing it.** Measured against the
+  shipping font at the *current* x2 scale — nothing to do with `UI_SCALE` —
+  `PROMPT_WIDTH` (620px) was 76px short of
+  `"Preview tile (12, 12). Empty-center casting is disabled."` (needs 696px),
+  and `FORECAST_WIDTH` (460px) was 44px short of
+  `"Cast spends action, cooldown & Resonance"` (needs 504px). Both strings are
+  verbatim from `PlayerTurnController`. `debug/preview_theme.gd`'s own
+  `WIDTH_CASES` never covered prompt or forecast content at all — only
+  command/spell/actor — which is presumably how this went unmeasured. The other
+  five widths (`COMMAND_WIDTH`, `SPELL_WIDTH`, `STATUS_WINDOW_WIDTH`,
+  `TURN_ORDER_WIDTH`, `PAGER_WIDTH`) reproduce their prior x2 value exactly —
+  those really were only a unit problem, matching this item's original framing.
+
+  §7b and §8 of `UI_DESIGN.md` were rewritten, not just re-numbered: §8's old
+  "budget of 1152 × 648" framing described the `canvas_items` stretch mode PX-2
+  removed and no longer applies — under `disabled` stretch there is no shared
+  ceiling for windows to compete over, each is simply as wide as its own
+  content needs. §7b's `MARQUEE_SPEED` entry now notes it is the one marquee
+  number that scales with `ui_scale` (a rate over a spatial unit has to track
+  the same scale as what it's moving) while `MARQUEE_DELAY`/`MARQUEE_END_HOLD`
+  correctly do not (durations, not lengths).
+
+  **Verified.** `debug/verify_px4_widths.gd` (new, gitignored) re-measures
+  every one of the eight real worst-case strings against the live font at
+  x1/x2/x3/x4 and confirms each still fits its window's budget, plus confirms
+  every width token is a whole device pixel at every scale. PASS at all four.
+  `debug/verify_ui_scale.gd` and `debug/verify_px3_geometry.gd` still PASS
+  (neither's tokens were touched by this item). `Battle25D` and
+  `VFXDebugScene` both still load headless clean at 1340 x 754.
+  `debug/verify_status_layout.gd` still reports all checks passed.
+
+  **Not verified here, left to PX-6:** nothing has been seen on screen. In
+  particular, the corrected `PROMPT_WIDTH`/`FORECAST_WIDTH` have only been
+  confirmed to hold their worst-case *string* — whether the wider windows still
+  read as correctly positioned and don't collide with anything else on screen
+  at their new size is a look judgment PX-6 is where it gets made.
+- **PX-5** — **decided and implemented.** The item was marked blocking on a user
+  decision; the user instructed "run PX-5 and 6" after twice being offered the
+  choice, so the call was made here and the captures are provided for override.
+
+  **Decision: scanline and mask pitch follow `ui_scale`.** The multiply lives in
+  `RetroRenderController._apply_display_parameters()` and nowhere else. Stored
+  values stay resolution-independent multipliers (`1.0` = "this project's
+  default look"), so a settings file or render preset written at one resolution
+  still means the same thing at another; only the number handed to the shader
+  carries resolution in it. The graphics menu's "Line size" / "Mask size"
+  sliders are labelled generically and keep working unchanged.
+
+  **Rationale, from the shader's actual math:** it spaces both effects off
+  `FRAGCOORD`, which is device pixels. A pitch fixed in device pixels is
+  backwards for what it simulates — a physical CRT has a fixed scanline
+  *count*, not a fixed pixel pitch — so the old behaviour gave ~360 lines at
+  720p and ~1080 at 4K, the effect dissolving into flat darkening exactly where
+  the screen is big enough to show it off. Measured after the change: 180 lines
+  at 720p, 176 at 1080p. Effectively constant, which is the point.
+
+  **A hypothesis of mine was wrong and is recorded so it is not re-derived.** I
+  expected PX-2's move to `disabled` stretch to have already changed the CRT,
+  since the old fractional canvas scaled everything. It did not:
+  `FRAGCOORD` is device pixels under *both* stretch modes. Measured at
+  1920 x 1080, the scanline period is 2px under `native` and 2px under
+  `legacy_fractional`, amplitudes 0.0278 vs 0.0279. The small whole-frame
+  difference between those two captures (mean 1.89, peak 9) is the world image
+  resampling through a different canvas transform, not the CRT — a same-config
+  control pair differs by mean 0.0076, which is what ruled noise out.
+
+  **Two real bugs were found while validating this, both outside PX-5's stated
+  scope, both fixed:**
+
+  1. **`configure_for_window_height()` truncated where it had to round —
+     a PX-2 defect.** A window's usable client height is never its nominal
+     resolution: a nominal 1920 x 1080 window measures 1056 once the title bar
+     is taken, and `1056 / 360` is 2.93, which truncation turned into x2. So a
+     maximised 1080p window rendered its UI at the same scale as a 720p one,
+     losing almost a whole step to 24 pixels of window chrome. Now rounds to
+     nearest, mapping the real measured client heights (696 / 1056 / 1416) onto
+     the intended 2 / 3 / 4. `debug/verify_ui_scale.gd`'s cases were rewritten
+     around those measured heights rather than nominal resolutions, because the
+     measured ones are what the function actually receives.
+  2. **`VFXDebugScene` never configured `ui_scale` at all**, so it ran at the
+     default x2 regardless of window size — silently failing to reproduce the
+     game and making it useless for judging anything that scales, including the
+     CRT pitch it exists to tune. It now makes the same first-statement call
+     `BattlePresentationController` does.
+
+  **A third bug was in my own measurement tool, caught before it was trusted.**
+  The first `debug/measure_scanline_pitch.gd` scored "rows N apart differ",
+  which grows with N on any smooth gradient regardless of scanlines; it
+  confidently reported 11px periods on frames whose real period was 4px.
+  Replaced with a detrended periodogram, which reports a single sharp peak.
+  The lesson generalises and matches the one already in `docs/LEARNINGS.md`
+  from the `set_look_parameter` no-op: measure the output, then sanity-check
+  the measurement against a case whose answer is known.
+
+  **Verified.** Scanline period measured off the rendered frame (not read from
+  the uniform): 4px at 1280 x 720 (ui_scale 2), 6px at 1920 x 1080
+  (ui_scale 3) — both exactly `2 * ui_scale` as intended. All four PX
+  verifiers still PASS after the ladder change; both scenes load clean.
+
+  **Not verified:** ui_scale 4. This machine's display clamps a requested
+  2560 x 1440 window down to 1924 x 1056, so the x4 rung has only ever been
+  exercised through `configure()` directly in the verifiers, never rendered.
+  Anyone with a larger display should look at it before assuming it is right.
+- **PX-6** — **done. The plan is complete.** All of PX-1, PX-2, PX-3, PX-4 and
+  PX-5 are marked done by this item.
+
+  **The real game was launched and looked at**, which is the one thing none of
+  the preceding items did. `debug/validate_px6.gd` (new, gitignored) drives the
+  actual `Battle25D` scene rendered — setup, confirm, CPU turns, into a live
+  player turn via the real input routing — and captures the shipping HUD at a
+  given window height. Reuses `debug/drive_battle.gd`'s established path
+  because that path is already known to reach a real turn.
+
+  **Judged at `ui_scale` 2 (1280 x 720) and 3 (1920 x 1080 => 1056 client):**
+  text is crisp at both, with no uneven stems anywhere — the defect that opened
+  this cycle is gone in the real game, not just in a specimen. The cursor sits
+  correctly in its gutter and scales with the window. Resonance bars render
+  their three cells with a legible outline at both scales. Command and spell
+  windows dock correctly with `WINDOW_STACK_GAP` between them, the command
+  window dims correctly when the spell window takes focus, and the spell
+  window's two-column layout holds. Both status windows dock to their corners.
+  **The x2 capture is the pre-change layout exactly**, which is the strongest
+  confirmation available that the whole design-unit conversion was the promised
+  no-op at today's shipping scale.
+
+  **PX-6 found and fixed a real defect, per the plan's own rule that final
+  validation fixes what it finds.** Rendering at x3 showed the HUD creeping
+  toward the screen edges and the prompt sitting too high: PX-4 migrated every
+  window *width* but left the positional literals placing those windows —
+  `STATUS_WINDOW_MARGIN` (20), prompt top (24), `TURN_ORDER_TOP` (100), and the
+  forecast gap (8) — as unscaled numbers. Windows grew; their margins did not.
+  All four are now `NoggTheme` design units (`SCREEN_MARGIN`, `PROMPT_TOP`,
+  `TURN_ORDER_TOP`, `FORECAST_GAP`), added to `verify_ui_scale.gd`'s
+  no-op-at-x2 baseline, and confirmed to reproduce their historical values
+  exactly at x2. This is the same class of miss as PX-4's own SCREAMING_CASE
+  gap, and it is the reason a rendered pass is not optional: no amount of
+  headless measurement surfaces "the margins look wrong relative to the
+  windows."
+
+  **One defect found and deliberately NOT fixed here**, recorded in
+  `BACKLOG_CRITICAL.md` instead: the prompt window renders behind the developer
+  HUD at x2 and its text is partly unreadable. Established as **pre-existing**
+  rather than cycle-caused by the x2 capture being byte-identical to the
+  pre-change layout, and by the arithmetic — the prompt is centred and the dev
+  bar's panel already reached past its left edge at the old, narrower width.
+  Fixing it means deciding whether a player-facing prompt outranks developer
+  chrome positionally, which `docs/UI_DESIGN.md` §9 does not currently answer;
+  that is a design decision, not a mechanical fix, so it is not smuggled into a
+  validation item.
+
+  **Consolidated final checks, all passing:** `verify_ui_scale` (all 27 tokens
+  reproduce their pre-cycle values at x2; whole device pixels at x1/x2/x3/x4;
+  scale ladder correct against measured client heights),
+  `verify_px3_geometry`, `verify_px3_damage_number`, `verify_px4_widths`,
+  the pre-existing `verify_status_layout`, and a clean headless load of
+  `Battle25D` with zero errors.
+
+  **Known limits of this validation, stated rather than papered over:**
+  `ui_scale` 4 was never rendered — this machine's display clamps a requested
+  2560 x 1440 window to 1924 x 1056 — so the x4 rung is verified only through
+  `configure()` in the verifiers. Live window *resizing* was not exercised
+  either, because PX-2 deliberately fixes `ui_scale` for the process lifetime;
+  what was confirmed is that launching at different sizes produces the right
+  scale, which is the behaviour that actually ships. Marquee overflow, paging,
+  and the confirm window were not driven — no shipping content currently
+  overflows or pages, so there was nothing real to exercise them with.
+
+---
+
+## 7. Follow-on: Nogg Terminal adopted as the battle UI face
+
+**2026-08-10, after the cycle above closed.** Requested directly rather than
+planned, and recorded here because it changes tokens the cycle above measured.
+
+`GAME_FONT_PATH` is now `assets/Fonts/NoggTerminal/NoggTerminal.res` and
+`WINDOW_FILL` is the warm `(0.075, 0.058, 0.042, 0.86)` picked earlier in the
+specimen. The two are one decision: the face's edge treatment is a drop shadow,
+and a dark shadow on the old near-black panel is invisible by construction.
+
+**Four traps this face carries, all of them previously documented and all hit:**
+
+1. **`_load_pixel_font()` could not load it.** A baked `FontFile` resource
+   already contains its glyph cache; `load_dynamic_font()` on a `.res` yields an
+   empty font. The loader now branches on extension.
+2. **Widths had to be re-measured, not converted.** The face is a third wider
+   (16 px advance at size 24 against XenoText's 12 px). `PROMPT_WIDTH`
+   360 -> 470, `FORECAST_WIDTH` 260 -> 340, `TURN_ORDER_WIDTH` 150 -> 275.
+   `COMMAND_WIDTH`, `SPELL_WIDTH` and `STATUS_WINDOW_WIDTH` already had headroom.
+3. **`FONT_SIZE_FOOTER` had no honest size.** 20 is not a whole multiple of the
+   face's 12px nominal, and `FIXED_SIZE_SCALE_INTEGER_ONLY` floors rather than
+   interpolates, so it would have rendered at 12 inside a window sized for 20.
+   Now 24 — the same size as body text, so the footer/body distinction has to
+   come from colour or spacing. Tracked in `BACKLOG_LONGTERM.md`.
+4. **`OUTLINE_SIZE` is a cache key, not a pixel count, and must not scale.**
+   The face ships baked outline variants at widths 0/1/2; requesting a width
+   with no baked variant draws no outline **silently**. Scaling it would have
+   asked for width 3 at x3 and lost the outline on exactly the screens where
+   text is largest. It is now an unscaled `const 1`, and game text ships with
+   `outline_size = 0` plus the drop shadow instead.
+
+**Two measurement errors of mine, both caught by rendering rather than by
+arithmetic:**
+
+- The status window was briefly sized against `"Elements" / "Fire, Wind, Ice,
+  Darkness"` — a layout that does not exist. Its stat rows are fixed cells at
+  `STATUS_CELL_OFFSETS`, and the third column holds a two-character element code
+  plus a drawn `ResonanceBar`. Measured against the geometry
+  `NoggWindow.add_stat_row()` actually builds, the binding cell needs 243 units,
+  which the existing 270 already covered — so this window needed **no** change,
+  where the wrong measurement said it needed widening to 288.
+- `TURN_ORDER_WIDTH` was first sized to a bare monster name and shipped a
+  window that truncated mid-word on screen ("Envoy of Lig#100"). The rows are
+  `"<marker>  <name>"` against a `"#<id>"` value column; the worst real row needs
+  264 units. Only visible by looking.
+
+**Verified.** All four PX verifiers PASS (`verify_ui_scale`'s baseline updated
+for the two deliberate token changes, with the reasons recorded inline rather
+than the checks deleted). `Battle25D` loads headless clean. Rendered through
+`debug/validate_px6.gd` at ui_scale 2 and 3: the face renders crisply at both,
+the warm fill reads, the turn-order row fits, status cells and resonance bars
+fit, and the spell window keeps its two-column layout.
+
+**Known open:** the prompt window's collision with the developer HUD
+(`BACKLOG_CRITICAL.md`) is more visible now that the prompt is wider — the
+prompt is unchanged in position, but its frame reaches further. Still a
+game-vs-dev layering decision, still not made here.

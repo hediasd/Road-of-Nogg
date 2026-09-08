@@ -99,3 +99,55 @@ this is a presentation gap, not a missing mechanic.
   claim drifted from the implementation unnoticed. The other 10 have never been
   checked against actual mechanics; worth a sweep when descriptions are
   surfaced in the UI.
+
+## Fire Storm has never been validated in a real battle
+
+Fire Storm is implemented, registered, and renders correctly in the VFX debug
+harness, with baseline goldens recorded in `debug/vfx_golden/`. Its final
+validation pass was never completed, and the effect shipped anyway. What is
+still unexercised:
+
+- **Battle integration.** `Smoke Tower` has never been cast in `Battle25D` — no
+  terrain, no units, no queue pacing, no CRT compositing in an actual battle.
+  This is the significant gap; everything else below is narrower.
+- **Adapter lifecycle:** overlap/cap, skip, pause, and speed paths, plus the
+  leak check. The harness can spawn overlaps but cannot exercise the adapter's
+  own cap and skip logic, so these need a battle or an interactive session.
+- **Radius sweep** covered radii 1 and 2 only; its live radius 3 and larger
+  modifier cases remain unverified.
+- **Four motion-dependent qualities — winding, taper, shrink, lean.** These are
+  the spiral's whole premise and have only ever been judged from stills at
+  0.2-second spacing, which is far too coarse to read rotation. A tight capture
+  series (0.40 / 0.42 / 0.44) settles it and now costs one command.
+
+Worth knowing before re-tuning: the column's particle count (80 + 24) and ember
+alpha (0.34) sit far below their ice-derived starting points deliberately. A
+vortex concentrates particles into a fraction of a flat field's volume, so
+per-pixel additive overlap is much higher at equal counts — density here is a
+readability constraint, not a performance one, and "restoring" it toward the
+budget would destroy the legible spiral.
+
+## The prompt window renders behind the developer HUD
+
+At the shipping `ui_scale` of 2, the top-centre prompt window ("Choose a
+command.", "Select a destination.") is overlapped by the developer bar and its
+text is partially unreadable. `DEV_LAYER` (20) sits above `GAME_LAYER` (10), so
+the dev bar wins the overlap.
+
+**Pre-existing, not caused by the Pixel-Exact UI cycle** — confirmed by
+capturing the real scene before and after that work: `PROMPT_TOP` resolves to
+exactly its historical 24px at x2, so the layout there is byte-identical to what
+shipped previously. The collision was already present at the narrower
+pre-cycle `PROMPT_WIDTH` too, since the prompt is horizontally centred and the
+dev bar's left panel reaches well past the prompt's left edge either way.
+
+It happens not to bite at `ui_scale` 3, where the prompt's scaled top offset
+carries it clear of the dev bar's text — which is luck, not a fix.
+
+Two candidate resolutions, both design decisions rather than mechanical fixes:
+dock the prompt below the dev bar's reserved band, or give the prompt its own
+layer above `DEV_LAYER` on the grounds that a player-facing prompt should never
+be occluded by developer chrome. `docs/UI_DESIGN.md` §9 asserts the two layers
+stay visually distinct but does not say which wins a positional conflict.
+
+Only visible while the dev bar is shown; F1 hides it.

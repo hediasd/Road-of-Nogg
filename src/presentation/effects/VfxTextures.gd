@@ -24,6 +24,16 @@ enum GroundWashShape {
 }
 
 const _SOFT_FLAKE_SIZE := 16
+const SNOW_PARTICLE_FRAME_COUNT := 4
+const _SNOW_PARTICLE_FRAME_SIZE := 8
+## Exact 8x8 extraction windows from the user's authored 80x32 source, ordered
+## smallest to largest. Pixels are copied, never resampled.
+const _SNOW_PARTICLE_REGIONS: Array[Rect2i] = [
+	Rect2i(20, 20, 8, 8),
+	Rect2i(2, 4, 8, 8),
+	Rect2i(22, 4, 8, 8),
+	Rect2i(4, 21, 8, 8),
+]
 const _SHARD_MASK_SIZE := 32
 const _CANOPY_PUFF_SIZE := 64
 const _FROST_VEIN_SIZE := 128
@@ -69,8 +79,8 @@ const _BOLT_SEGMENT_HEIGHT := 8
 const _BOLT_CORE_FRACTION := 0.80
 
 ## Small hard dot — the plainest sprite here, and the one to reach for when a
-## field needs to be *countable*. `softFlake()` at the same size is a soft haze
-## whose edge is impossible to locate; this has an edge.
+## field needs to be *countable*. The legacy-named `softFlake()` is now a hard
+## ice cross, but this dot remains the neutral non-directional primitive.
 const _PIXEL_DOT_SIZE := 8
 
 ## Frames in `sparkleFrames()`. Public because a consumer has to drive the
@@ -82,6 +92,7 @@ const SPARKLE_FRAME_COUNT := 4
 ## which would put block-compression artefacts through four flat colours.
 const _SPARKLE_FRAMES = preload(
 		"res://assets/textures/effects/sparkle_frames.png")
+const _SNOW_STRIP = preload("res://assets/textures/effects/snow_strip.png")
 
 ## Alpha posterization: how many hard levels each sprite is snapped to, and the
 ## level below which it is cut to nothing. Fewer levels and a higher cutoff read
@@ -98,6 +109,7 @@ const _BOLT_POSTERIZE_LEVELS := 1
 const _DOT_POSTERIZE_LEVELS := 2
 
 static var _softFlake: ImageTexture
+static var _snowParticleFrames: ImageTexture
 static var _shardMasks: Array[ImageTexture] = []
 static var _canopyPuff: ImageTexture
 static var _frostVein: ImageTexture
@@ -107,6 +119,7 @@ static var _pixelDot: ImageTexture
 static var _groundWashByShape: Dictionary = {}
 
 static var _flurryMaterial: StandardMaterial3D
+static var _snowParticleFramesMaterial: StandardMaterial3D
 static var _shardMaterials: Array[StandardMaterial3D] = []
 static var _canopyMaterial: StandardMaterial3D
 static var _frostVeinMaterial: StandardMaterial3D
@@ -121,6 +134,26 @@ static func softFlake() -> Texture2D:
 	if _softFlake == null:
 		_softFlake = _createSoftFlake()
 	return _softFlake
+
+
+## Packs the four irregularly placed authored particles into an even 4x1 atlas
+## for BILLBOARD_PARTICLES. The source stays untouched and every texel is copied
+## one-for-one, so this is extraction rather than procedural replacement art.
+static func snowParticleFrames() -> Texture2D:
+	if _snowParticleFrames == null:
+		var source := _SNOW_STRIP.get_image()
+		var atlas := Image.create(
+				_SNOW_PARTICLE_FRAME_SIZE * SNOW_PARTICLE_FRAME_COUNT,
+				_SNOW_PARTICLE_FRAME_SIZE,
+				false,
+				Image.FORMAT_RGBA8)
+		for index: int in range(SNOW_PARTICLE_FRAME_COUNT):
+			atlas.blit_rect(
+					source,
+					_SNOW_PARTICLE_REGIONS[index],
+					Vector2i(index * _SNOW_PARTICLE_FRAME_SIZE, 0))
+		_snowParticleFrames = ImageTexture.create_from_image(atlas)
+	return _snowParticleFrames
 
 
 static func shardMask(variant: int) -> Texture2D:
@@ -187,10 +220,9 @@ static func sparkleFrames() -> Texture2D:
 
 ## A small dot with a hard edge, posterized to two levels on an 8x8 grid.
 ##
-## The counterpart to `softFlake()`, not a replacement for it: the flake's
-## radial gradient makes a soft cloud, which is right for a snow field and wrong
-## for a field of individually countable specks. Where a mote has to be *seen*
-## rather than felt, this is the sprite.
+## The neutral counterpart to the ice-specific cross returned by
+## `softFlake()`. Where a mote has to be seen without implying an element or a
+## direction, this is the sprite.
 static func pixelDot() -> Texture2D:
 	if _pixelDot == null:
 		_pixelDot = _createPixelDot()
@@ -239,9 +271,26 @@ static func flurryMaterial() -> StandardMaterial3D:
 				"IceFlurryMaterial",
 				softFlake(),
 				IceStormProfile.FLAKE_COLOR,
-				true,
+				false,
 				BaseMaterial3D.TEXTURE_FILTER_NEAREST)
 	return _flurryMaterial
+
+
+## Static particle variants selected through INSTANCE_CUSTOM.z. Animation is
+## disabled: the four frames are sizes/shapes, not a temporal sequence.
+static func snowParticleFramesMaterial() -> StandardMaterial3D:
+	if _snowParticleFramesMaterial == null:
+		_snowParticleFramesMaterial = _createMaterial(
+				"SnowParticleFramesMaterial",
+				snowParticleFrames(),
+				Color.WHITE,
+				false,
+				BaseMaterial3D.TEXTURE_FILTER_NEAREST)
+		_snowParticleFramesMaterial.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		_snowParticleFramesMaterial.particles_anim_h_frames = SNOW_PARTICLE_FRAME_COUNT
+		_snowParticleFramesMaterial.particles_anim_v_frames = 1
+		_snowParticleFramesMaterial.particles_anim_loop = false
+	return _snowParticleFramesMaterial
 
 
 static func heroShardMaterial(variant: int) -> StandardMaterial3D:
@@ -255,8 +304,8 @@ static func canopyMaterial() -> StandardMaterial3D:
 				"IceCanopyMaterial",
 				canopyPuff(),
 				IceStormProfile.CANOPY_CORE_COLOR,
-				true,
-				BaseMaterial3D.TEXTURE_FILTER_LINEAR)
+				false,
+				BaseMaterial3D.TEXTURE_FILTER_NEAREST)
 	return _canopyMaterial
 
 
@@ -338,8 +387,8 @@ static func frostVeinMaterial() -> StandardMaterial3D:
 				"IceFrostVeinMaterial",
 				frostVein(),
 				IceStormProfile.VEIN_COLOR,
-				true,
-				BaseMaterial3D.TEXTURE_FILTER_LINEAR)
+				false,
+				BaseMaterial3D.TEXTURE_FILTER_NEAREST)
 	return _frostVeinMaterial
 
 
@@ -414,8 +463,14 @@ static func _createSoftFlake() -> ImageTexture:
 	for y: int in range(_SOFT_FLAKE_SIZE):
 		for x: int in range(_SOFT_FLAKE_SIZE):
 			var point := _normalizedPoint(x, y, _SOFT_FLAKE_SIZE)
-			var radial := clampf(1.0 - point.length(), 0.0, 1.0)
-			var alpha := radial * radial * (3.0 - 2.0 * radial)
+			var absPoint := point.abs()
+			var cardinal := (
+					(absPoint.x <= 0.20 and absPoint.y <= 0.78)
+					or (absPoint.y <= 0.20 and absPoint.x <= 0.78))
+			var diagonal := (
+					absf(absPoint.x - absPoint.y) <= 0.13
+					and maxf(absPoint.x, absPoint.y) <= 0.58)
+			var alpha := 1.0 if cardinal else (0.67 if diagonal else 0.0)
 			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
 	return ImageTexture.create_from_image(image)
 
@@ -465,12 +520,17 @@ static func _createCanopyPuff() -> ImageTexture:
 			_CANOPY_PUFF_SIZE, _CANOPY_PUFF_SIZE, false, Image.FORMAT_RGBA8)
 	for y: int in range(_CANOPY_PUFF_SIZE):
 		for x: int in range(_CANOPY_PUFF_SIZE):
-			var point := _normalizedPoint(x, y, _CANOPY_PUFF_SIZE)
+			var sampleX := floori(float(x) / 4.0) * 4
+			var sampleY := floori(float(y) / 4.0) * 4
+			var point := _normalizedPoint(sampleX, sampleY, _CANOPY_PUFF_SIZE)
 			point.x *= 0.82
 			var radial := clampf(1.0 - point.length(), 0.0, 1.0)
-			var noisePoint := Vector2(float(x), float(y)) * 0.065
-			var noiseMask := lerpf(0.42, 1.0, _fbm(noisePoint))
-			var alpha := pow(radial, 1.35) * noiseMask
+			var noisePoint := Vector2(float(sampleX), float(sampleY)) * 0.065
+			var noiseMask := lerpf(0.58, 1.0, _fbm(noisePoint))
+			var alpha := _posterizeAlpha(
+					pow(radial, 0.88) * noiseMask,
+					_POSTERIZE_LEVELS,
+					_POSTERIZE_CUTOFF)
 			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
 	return ImageTexture.create_from_image(image)
 
@@ -569,12 +629,15 @@ static func _createFrostVein() -> ImageTexture:
 			for segment: Vector4 in segments:
 				var distance := _distanceToSegment(
 						point, Vector2(segment.x, segment.y), Vector2(segment.z, segment.w))
-				var core := clampf(1.0 - distance / 0.007, 0.0, 1.0) * 0.30
-				var haze := clampf(1.0 - distance / 0.025, 0.0, 1.0) * 0.08
-				alpha = maxf(alpha, core + haze)
+				var core := clampf(1.0 - distance / 0.012, 0.0, 1.0)
+				alpha = maxf(alpha, core)
 			var edgeFade := clampf(1.0 - _normalizedPoint(
 					x, y, _FROST_VEIN_SIZE).length(), 0.0, 1.0)
-			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha * edgeFade))
+			alpha = _posterizeAlpha(
+					alpha * edgeFade,
+					_POSTERIZE_LEVELS,
+					_POSTERIZE_CUTOFF)
+			image.set_pixel(x, y, Color(1.0, 1.0, 1.0, alpha))
 	return ImageTexture.create_from_image(image)
 
 

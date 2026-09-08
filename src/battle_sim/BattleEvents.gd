@@ -17,7 +17,18 @@ signal movement_targeted(monsterID: int, destination: Vector2i)
 signal monster_moved(monsterID: int, path: Array)
 signal action_targeted(monsterID: int, targetPos: Vector2i, targetID: int, action: String)
 signal monster_attacked(attackerID: int, targetPos: Vector2i, targetID: int, damage: int, targetNewHP: int)
-signal spell_cast_started(casterID: int, centerPos: Vector2i, spellName: String, element: String, targetsHit: int)
+## `resolvedRadius` and `areaShape` are the footprint the resolver actually used
+## for this cast. They deliberately travel with the event instead of being
+## re-read from immutable catalog data: transient buffs may change a live
+## Spell's radius without changing its reference definition.
+signal spell_cast_started(
+	casterID: int,
+	centerPos: Vector2i,
+	spellName: String,
+	element: String,
+	targetsHit: int,
+	resolvedRadius: int,
+	areaShape: String)
 signal monster_cast_spell(casterID: int, centerPos: Vector2i, targetID: int, spellName: String, damageLines: Array, targetNewHP: int)
 signal monster_healed(healerID: int, centerPos: Vector2i, targetID: int, spellName: String, healAmount: int, targetNewHP: int)
 signal resonance_changed(monsterID: int, element: String, oldCharge: int, newCharge: int, reason: String)

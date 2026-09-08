@@ -86,7 +86,14 @@ func _on_movement_targeted(_monsterID: int, _destination: Vector2i) -> void: pas
 func _on_monster_moved(_monsterID: int, _path: Array) -> void: pass
 func _on_action_targeted(_monsterID: int, _targetPos: Vector2i, _targetID: int, _action: String) -> void: pass
 func _on_monster_attacked(_attackerID: int, _targetPos: Vector2i, _targetID: int, _damage: int, _targetNewHP: int) -> void: pass
-func _on_spell_cast_started(_casterID: int, _centerPos: Vector2i, _spellName: String, _element: String, _targetsHit: int) -> void: pass
+func _on_spell_cast_started(
+		_casterID: int,
+		_centerPos: Vector2i,
+		_spellName: String,
+		_element: String,
+		_targetsHit: int,
+		_resolvedRadius: int,
+		_areaShape: String) -> void: pass
 func _on_monster_cast_spell(_casterID: int, _centerPos: Vector2i, _targetID: int, _spellName: String, _damageLines: Array, _targetNewHP: int) -> void: pass
 func _on_monster_healed(_healerID: int, _centerPos: Vector2i, _targetID: int, _spellName: String, _healAmount: int, _targetNewHP: int) -> void: pass
 func _on_resonance_changed(_monsterID: int, _element: String, _oldCharge: int, _newCharge: int, _reason: String) -> void: pass
