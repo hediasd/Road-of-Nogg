@@ -1,0 +1,6 @@
+{
+  "slice_sizes": [1, 3, 17, 64],
+  "stress_move": 8,
+  "stress_spell_copies": 4,
+  "minimum_small_candidates": 2
+}

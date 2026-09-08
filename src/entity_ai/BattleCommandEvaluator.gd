@@ -4,6 +4,7 @@ class_name BattleCommandEvaluator
 extends RefCounted
 
 const StatusEffectReferencesScript = preload("res://src/factories/StatusEffectReferences.gd")
+const HexGridScript = preload("res://src/board/HexGrid.gd")
 
 var state: BattleState
 var movementResolver: MovementResolver
@@ -221,8 +222,5 @@ func _statusSeverity(statusName: String) -> int:
 func _nearestEnemyDistance(fromPos: Vector2i, enemyPositions: Array[Vector2i]) -> int:
 	var result = 999
 	for enemyPos in enemyPositions:
-		result = mini(
-			result,
-			abs(fromPos.x - enemyPos.x) + abs(fromPos.y - enemyPos.y)
-		)
+		result = mini(result, HexGridScript.distance(fromPos, enemyPos))
 	return 0 if result == 999 else result

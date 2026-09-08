@@ -26,6 +26,7 @@ class_name CommandDeliberation
 extends RefCounted
 
 const ThreatMapScript = preload("res://src/algorithms/ThreatMap.gd")
+const StateRevisionScript = preload("res://src/entity_ai/StateRevision.gd")
 
 enum Phase { SETUP, THREAT, CANDIDATES, FINISHED }
 
@@ -38,6 +39,7 @@ var _phase: Phase = Phase.SETUP
 var _actor: Monster
 var _origin: Vector2i
 var _destinations: Array = []
+var _predecessors: Dictionary = {}
 var _enemyPositions: Array[Vector2i] = []
 
 var _threat: Dictionary = {}
@@ -55,6 +57,11 @@ var _currentPath: Array = []
 
 var _candidates: Array[Dictionary] = []
 var _result: BattleCommand = null
+var _resultScore: int = -2147483648
+var _resultTieKey: String = ""
+var _stateRevision: String = ""
+var _stale: bool = false
+var _workSlices: int = 0
 
 
 func _init(
@@ -66,17 +73,27 @@ func _init(
 	_state = state
 	_monsterID = monsterID
 	_weights = weights
+	_stateRevision = StateRevisionScript.capture(_state)
 
 
 func isFinished() -> bool:
 	return _phase == Phase.FINISHED
 
 
+func isStale() -> bool:
+	return _stale or (
+		not _stateRevision.is_empty()
+		and StateRevisionScript.capture(_state) != _stateRevision
+	)
+
+
 ## Runs to completion. This is what chooseCommand() and every headless caller
 ## use, so the synchronous path stays synchronous.
 func run() -> BattleCommand:
+	_checkRevision()
 	while _phase != Phase.FINISHED:
 		_advanceOne()
+	_checkRevision()
 	return result()
 
 
@@ -91,6 +108,9 @@ func run() -> BattleCommand:
 func step(budgetMsec: float) -> bool:
 	if _phase == Phase.FINISHED:
 		return true
+	_checkRevision()
+	if _phase == Phase.FINISHED:
+		return true
 	var startUsec := Time.get_ticks_usec()
 	while true:
 		_advanceOne()
@@ -101,18 +121,63 @@ func step(budgetMsec: float) -> bool:
 	return false
 
 
+## Deterministic work budgeting for party deliberation and probes. Unlike the
+## wall-clock adapter, the same slice count always advances the same cursor.
+func stepSlices(sliceCount: int, checkRevision: bool = true) -> bool:
+	if _phase == Phase.FINISHED:
+		return true
+	if checkRevision:
+		_checkRevision()
+	if _phase == Phase.FINISHED:
+		return true
+	for _slice in range(maxi(1, sliceCount)):
+		_advanceOne()
+		if _phase == Phase.FINISHED:
+			return true
+	return false
+
+
 func result() -> BattleCommand:
 	if _result != null:
 		return _result
 	return BattleCommand.wait()
 
 
+func resultScore() -> int:
+	return _resultScore
+
+
+func resultTieKey() -> String:
+	return _resultTieKey
+
+
+func candidateCount() -> int:
+	return _candidates.size()
+
+
+func workSliceCount() -> int:
+	return _workSlices
+
+
 func _advanceOne() -> void:
+	if _phase == Phase.FINISHED:
+		return
+	_workSlices += 1
 	match _phase:
 		Phase.SETUP: _stepSetup()
 		Phase.THREAT: _stepThreat()
 		Phase.CANDIDATES: _stepCandidates()
 		_: pass
+
+
+func _checkRevision() -> void:
+	if (
+		_phase != Phase.FINISHED
+		and not _stateRevision.is_empty()
+		and StateRevisionScript.capture(_state) != _stateRevision
+	):
+		_stale = true
+		_finish()
 
 
 func _stepSetup() -> void:
@@ -121,7 +186,9 @@ func _stepSetup() -> void:
 		_finish()
 		return
 	_origin = _state.getMonsterPosition(_monsterID)
-	_destinations = _evaluator.movementResolver.getReachablePositions(_monsterID)
+	var reachability: Dictionary = _evaluator.movementResolver.getReachability(_monsterID)
+	_destinations = reachability["positions"].duplicate()
+	_predecessors = reachability["predecessors"].duplicate()
 	if not _destinations.has(_origin):
 		_destinations.append(_origin)
 	_evaluator.sortPositions(_destinations)
@@ -163,14 +230,7 @@ func _stepCandidates() -> void:
 	var destination: Vector2i = _destinations[_destinationCursor]
 
 	if _subTask == 0:
-		_currentPath = (
-			[] if destination == _origin else
-			_evaluator.movementResolver.findPath(
-				_origin,
-				destination,
-				_evaluator.movementResolver.getEffectiveMove(_monsterID)
-			)
-		)
+		_currentPath = _pathTo(destination)
 		# An unreachable destination contributes nothing at all, not even a
 		# Wait — matching chooseCommand()'s `continue`.
 		if destination != _origin and _currentPath.is_empty():
@@ -190,6 +250,20 @@ func _advanceDestination() -> void:
 	_destinationCursor += 1
 	_subTask = 0
 	_currentPath = []
+
+
+func _pathTo(destination: Vector2i) -> Array:
+	if destination == _origin:
+		return []
+	var reversed: Array = []
+	var cursor := destination
+	while cursor != _origin:
+		if not _predecessors.has(cursor):
+			return []
+		reversed.append(cursor)
+		cursor = _predecessors[cursor]
+	reversed.reverse()
+	return reversed
 
 
 func _emitWaitAndAttacks(destination: Vector2i) -> void:
@@ -242,7 +316,7 @@ func _emitSpell(destination: Vector2i, spellSetIndex: int, spellIndex: int) -> v
 
 func _finish() -> void:
 	_phase = Phase.FINISHED
-	if _candidates.is_empty():
+	if _stale or _candidates.is_empty():
 		_result = BattleCommand.wait()
 		return
 	_candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
@@ -251,3 +325,5 @@ func _finish() -> void:
 		return a["tie_key"] < b["tie_key"]
 	)
 	_result = _candidates[0]["command"]
+	_resultScore = int(_candidates[0]["score"])
+	_resultTieKey = str(_candidates[0]["tie_key"])
