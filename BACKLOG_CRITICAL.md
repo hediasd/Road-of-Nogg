@@ -52,6 +52,40 @@ the ownership-cycle theory above rather than with anything the hex migration
 introduced. The sweep script is the cheapest reproducer found so far and is
 worth rebuilding when someone takes this on.
 
+**HBP-4 corrected the table above and did not reach a cause (2026-09-08).**
+
+That table reported single runs as verdicts. Each configuration does turn out to
+be deterministic — this probe's mix crashed 13 of 13, a donor-only build 0 of 5,
+a heavier hex variant 0 of 3 — so the individual rows stand, but a row reading
+"clean" only ever proved that *one* composition was clean, and the table implied
+more than it measured. `scripts/hex_battle/probe_shutdown.gd` is the committed
+reproducer; read its header before trusting any single run of anything here.
+
+What the bisection did establish:
+
+- The fault needs the hex effect path. Donors alone stay clean, including at 42
+  effects across repeated runs.
+- It is **not** "more hex code is worse", which was the obvious hypothesis and is
+  wrong. A variant that loads every hex effect script explicitly and builds all
+  fourteen catalog profiles is clean; the crashing configuration loads fewer
+  scripts and builds nine playbacks. The trigger is a particular *composition* of
+  the loaded script and resource graph at teardown, not its size, and not which
+  effects were instantiated.
+- Adding three unrelated `preload` lines to a probe flipped a configuration from
+  clean to crashing without changing a line of what it built. That is the
+  sharpest evidence that this is about the shape of the loaded graph.
+
+**What is still unknown, and it is the important part:** which object retains
+which, and why that retention outlives the resource system. HBP-4 stopped there
+rather than guess.
+
+The next step is the retained-object dump, and it has a practical obstacle worth
+recording: the crash takes the leak report with it. `--verbose` redirected
+through a shell produced an empty file on this host, and the probe launcher's own
+capture ends at the fault. Getting that dump — via the engine's own user-data log,
+a debugger, or a build that flushes before cleanup — is the first thing the
+follow-on item needs, and until someone has it, a fix cannot state its write set.
+
 ## Finish battle-window restyle validation
 
 The shared XenoText, translucent body, thin pale rim, and exterior halo are
