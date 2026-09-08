@@ -52,12 +52,38 @@ func _checkFixtureLoadsThroughRuntimeFactory() -> void:
 	var loaded := BattleMapFactoryScript.loadFromPath(
 		"res://data/battle/maps/%s.json" % FIXTURE_MAP
 	)
-	_require(loaded["success"],
-		"the exported fixture map did not load: %s %s" % [
-			loaded.get("error", ""), loaded.get("detail", "")
-		])
-	if not loaded["success"]:
-		return
+	# A FRESH CHECKOUT LEGITIMATELY CANNOT LOAD THIS MAP, and the first version of this check
+	# failed for it. Generated scenes are not committed (see .gitignore and WORLDMAP_EDITOR.md
+	# section 13), so the map's VISUAL_SCENE_PATH points at a file that only exists after someone
+	# re-exports. That is a declared state, not a fault -- BattleMapAssetManifest exists to report
+	# it -- so the missing product is asserted THROUGH the manifest, and the map's own content is
+	# then checked with the visual requirement removed. Where the product IS present, the full
+	# load must still succeed.
+	if not loaded["success"] and str(loaded.get("error", "")) == "missing_visual_resource":
+		_require(not ManifestScript.isReady(FIXTURE_MAP),
+			"the fixture map will not load but the manifest calls it ready")
+		_require(ManifestScript.missingProducts(FIXTURE_MAP).size() == 1,
+			"the manifest does not name the missing generated scene")
+		var raw := _fixtureMapDictionary()
+		if raw.is_empty():
+			failures.append("could not read the fixture map to check it headlessly")
+			return
+		var source: Dictionary = raw["SOURCE"]
+		source["VISUAL_SCENE_PATH"] = ""
+		source["HEADLESS_ONLY"] = true
+		raw["NAME"] = "technical_%s" % FIXTURE_MAP
+		loaded = BattleMapFactoryScript.fromDictionary(raw)
+		_require(loaded["success"],
+			"the fixture map is invalid beyond its pending re-export: %s" % str(loaded.get("error", "")))
+		if not loaded["success"]:
+			return
+	else:
+		_require(loaded["success"],
+			"the exported fixture map did not load: %s %s" % [
+				loaded.get("error", ""), loaded.get("detail", "")
+			])
+		if not loaded["success"]:
+			return
 	var map = loaded["definition"]
 	var document := _fixture()
 	_require(document != null, "the fixture document is missing")
@@ -312,3 +338,16 @@ func _namesFeature(unsupported: Array[Dictionary], feature: String) -> bool:
 		if str(entry.get("FEATURE", "")).contains(feature):
 			return true
 	return false
+
+
+## The fixture map's raw record, for checks that must bypass the visual-resource requirement.
+func _fixtureMapDictionary() -> Dictionary:
+	var path := "res://data/battle/maps/%s.json" % FIXTURE_MAP
+	if not FileAccess.file_exists(path):
+		return {}
+	var file := FileAccess.open(path, FileAccess.READ)
+	var parsed = JSON.parse_string(file.get_as_text())
+	file.close()
+	if parsed is Array and parsed.size() == 1 and parsed[0] is Dictionary:
+		return (parsed[0] as Dictionary).duplicate(true)
+	return {}
