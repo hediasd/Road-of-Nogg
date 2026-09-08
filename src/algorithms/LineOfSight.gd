@@ -1,74 +1,40 @@
-## LineOfSight — Dofus-style discrete Bresenham line-of-sight check.
-## Fully stateless. Pass an isBlocker callable for game-specific LoS rules.
-##
-## Algorithm details (Bresenham discrete raycast):
-##   1. Steps from source center to target center using Bresenham integer arithmetic.
-##   2. Each intermediate cell (not source, not target) is tested via isBlocker.
-##   3. Exact diagonal corner crossings use the Dofus rule: LoS is blocked
-##      only if BOTH flanking (non-diagonal) cells are blockers.
-##      If only one is blocked, the ray sneaks through the corner.
+## Symmetric conservative supercover line of sight for flat-top hex cells.
 
 class_name LineOfSight
 
+const HexGridScript = preload("res://src/board/HexGrid.gd")
+const SQRT_THREE := 1.7320508075688772
+const HEX_APOTHEM := SQRT_THREE * 0.5
+const EPSILON := 0.000001
+const HEX_NORMALS: Array[Vector2] = [
+	Vector2(0.0, 1.0),
+	Vector2(SQRT_THREE * 0.5, 0.5),
+	Vector2(SQRT_THREE * 0.5, -0.5),
+	Vector2(0.0, -1.0),
+	Vector2(-SQRT_THREE * 0.5, -0.5),
+	Vector2(-SQRT_THREE * 0.5, 0.5),
+]
 
-static func hasLoS(
-		fromPos: Vector2i,
-		toPos: Vector2i,
-		isBlocker: Callable) -> bool:
-	## Returns true if there is clear line of sight from fromPos to toPos.
-	## isBlocker: func(pos: Vector2i) -> bool
-	## Source and target cells are never passed to isBlocker.
 
-	if fromPos == toPos:
-		return true  # Same cell is always visible
+static func supercoverCells(fromPos: Vector2i, toPos: Vector2i) -> Array[Vector2i]:
+	## Every cell whose closed hex touches the centre-to-centre segment. Source
+	## and target are included in this geometry query; visibility checks skip them.
+	var result: Array[Vector2i] = []
+	for entry: Dictionary in _supercoverEntries(fromPos, toPos):
+		result.append(entry["cell"])
+	return result
 
-	var x0: int = fromPos.x
-	var y0: int = fromPos.y
-	var x1: int = toPos.x
-	var y1: int = toPos.y
 
-	var dx: int = abs(x1 - x0)
-	var dy: int = abs(y1 - y0)
-	var sx: int = 1 if x0 < x1 else -1
-	var sy: int = 1 if y0 < y1 else -1
-	var err: int = dx - dy
-
-	var cx: int = x0
-	var cy: int = y0
-
-	while true:
-		if cx == x1 and cy == y1:
-			break  # Reached the target cell
-
-		var e2: int = 2 * err
-		var stepX: bool = e2 > -dy
-		var stepY: bool = e2 < dx
-
-		if stepX and stepY:
-			# Exact diagonal corner crossing — apply Dofus corner rule.
-			# Check both flanking non-diagonal cells.
-			# LoS blocked only if BOTH flanking cells are blockers.
-			var cellA: Vector2i = Vector2i(cx + sx, cy)
-			var cellB: Vector2i = Vector2i(cx, cy + sy)
-			if isBlocker.call(cellA) and isBlocker.call(cellB):
-				return false
-			# Advance diagonally (both axes step simultaneously)
-			err += dx - dy
-			cx += sx
-			cy += sy
-		elif stepX:
-			err -= dy
-			cx += sx
-		else:
-			err += dx
-			cy += sy
-
-		# Check this intermediate cell (skip source and target)
-		if not (cx == x0 and cy == y0) and not (cx == x1 and cy == y1):
-			if isBlocker.call(Vector2i(cx, cy)):
-				return false
-
+static func hasLoS(fromPos: Vector2i, toPos: Vector2i, isBlocker: Callable) -> bool:
+	for entry: Dictionary in _supercoverEntries(fromPos, toPos):
+		var cell: Vector2i = entry["cell"]
+		if cell == fromPos or cell == toPos:
+			continue
+		if bool(isBlocker.call(cell)):
+			return false
 	return true
+
+
 static func hasHeightAwareLoS(
 		fromPos: Vector2i,
 		toPos: Vector2i,
@@ -76,13 +42,72 @@ static func hasHeightAwareLoS(
 		targetEyeHeight: float,
 		getBlockerTop: Callable,
 		epsilon: float = 0.001) -> bool:
-	## Uses the same discrete supercover/corner cells as hasLoS, but compares each
-	## intermediate blocker top against the interpolated ray height.
-	return hasLoS(fromPos, toPos, func(cell: Vector2i) -> bool:
-		var delta = Vector2(toPos - fromPos)
-		var relative = Vector2(cell - fromPos)
-		var denominator = maxf(delta.length_squared(), 1.0)
-		var t = clampf(relative.dot(delta) / denominator, 0.0, 1.0)
-		var rayHeight = lerpf(sourceEyeHeight, targetEyeHeight, t)
-		return float(getBlockerTop.call(cell)) > rayHeight + epsilon
+	## A touched cell blocks when its top rises above the ray anywhere in the
+	## segment interval inside that cell. Interpolation uses actual hex-centre
+	## geometry and the clipped entry/exit points, not offset-vector lengths.
+	for entry: Dictionary in _supercoverEntries(fromPos, toPos):
+		var cell: Vector2i = entry["cell"]
+		if cell == fromPos or cell == toPos:
+			continue
+		var enterHeight := lerpf(sourceEyeHeight, targetEyeHeight, float(entry["enter_t"]))
+		var exitHeight := lerpf(sourceEyeHeight, targetEyeHeight, float(entry["exit_t"]))
+		var lowestRayHeight := minf(enterHeight, exitHeight)
+		if float(getBlockerTop.call(cell)) > lowestRayHeight + epsilon:
+			return false
+	return true
+
+
+static func _supercoverEntries(fromPos: Vector2i, toPos: Vector2i) -> Array[Dictionary]:
+	if fromPos == toPos:
+		return [{"cell": fromPos, "enter_t": 0.0, "exit_t": 1.0}]
+	var start := _cellCenter(fromPos)
+	var finish := _cellCenter(toPos)
+	var entries: Array[Dictionary] = []
+	var candidateRadius := HexGridScript.distance(fromPos, toPos) + 1
+	for cell: Vector2i in HexGridScript.disc(fromPos, candidateRadius):
+		var interval := _segmentHexInterval(start, finish, _cellCenter(cell))
+		if interval.x < 0.0:
+			continue
+		entries.append({
+			"cell": cell,
+			"enter_t": interval.x,
+			"exit_t": interval.y,
+		})
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var delta := float(a["enter_t"]) - float(b["enter_t"])
+		if absf(delta) > EPSILON:
+			return delta < 0.0
+		var aCell: Vector2i = a["cell"]
+		var bCell: Vector2i = b["cell"]
+		return aCell.y < bCell.y or (aCell.y == bCell.y and aCell.x < bCell.x)
 	)
+	return entries
+
+
+static func _cellCenter(cell: Vector2i) -> Vector2:
+	var axial := HexGridScript.offsetToAxial(cell)
+	return Vector2(1.5 * float(axial.x), SQRT_THREE * (float(axial.y) + float(axial.x) * 0.5))
+
+
+static func _segmentHexInterval(start: Vector2, finish: Vector2, center: Vector2) -> Vector2:
+	var delta := finish - start
+	var relativeStart := start - center
+	var enter := 0.0
+	var exit := 1.0
+	for normal: Vector2 in HEX_NORMALS:
+		var numerator := HEX_APOTHEM + EPSILON - normal.dot(relativeStart)
+		var denominator := normal.dot(delta)
+		if absf(denominator) <= EPSILON:
+			if numerator < 0.0:
+				return Vector2(-1.0, -1.0)
+			continue
+		var boundary := numerator / denominator
+		if denominator > 0.0:
+			exit = minf(exit, boundary)
+		else:
+			enter = maxf(enter, boundary)
+		if enter > exit + EPSILON:
+			return Vector2(-1.0, -1.0)
+	if exit < -EPSILON or enter > 1.0 + EPSILON:
+		return Vector2(-1.0, -1.0)
+	return Vector2(clampf(enter, 0.0, 1.0), clampf(exit, 0.0, 1.0))

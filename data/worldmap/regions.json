@@ -63,5 +63,16 @@
 		"GRID": 1,
 		"FOG_COLOR": "bae8e2",
 		"VOID_COLOR": "37aeae"
+	},
+	{
+		"NAME": "hex_battle_fixture",
+		"DESCRIPTION": "The battle-map fixture authored for HXB-10: temp2_hex32_authored's geometry, art and nine building objects, plus a tactical layer marking which cells a battle is fought on and what each costs to cross. 20 x 10 hexes, of which 95 are playable; the border is deliberately off the board. Flat at elevation 0 throughout -- terrain heights are continuous over the shared hex vertex lattice, so two adjacent PLAYABLE cells cannot differ in elevation without a slope between them, and the tactical export refuses a sloped cell rather than rounding it. Its TEXTURE is a BUILD ARTIFACT baked from the source document; its gameplay scene is exported, not committed. Inherited art, not the target look.",
+		"KIND": "authored",
+		"TEXTURE": "res://assets/worldmap/regions/generated/hex_battle_fixture.png",
+		"TILES_WIDE": 488,
+		"TILES_TALL": 336,
+		"GRID": 1,
+		"FOG_COLOR": "bae8e2",
+		"VOID_COLOR": "37aeae"
 	}
 ]

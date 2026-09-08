@@ -54,6 +54,7 @@ const Tilesets = preload("res://src/presentation/worldmap/editor/WorldMapTileset
 const Baker = preload("res://src/presentation/worldmap/editor/WorldMapBaker.gd")
 const SceneExport = preload("res://src/presentation/worldmap/editor/WorldMapSceneExport.gd")
 const HeightField = preload("res://src/presentation/worldmap/editor/WorldMapHeightField.gd")
+const BattleExport = preload("res://src/presentation/worldmap/editor/WorldMapBattleExport.gd")
 const Regions = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.gd")
 
 ## One entry per layer this tool currently means to hold data for. `enabled` is false for both
@@ -73,12 +74,19 @@ const Regions = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.g
 ## built three more layer kinds that the map could store, export and undo but that this table
 ## could not name -- so the editor could paint ground and nothing else. The three added here are
 ## exactly those, no more: each one has a data model, a tool and a bake path already.
+## WIDENED AGAIN BY HXB-10 to carry the battlefield. `tactical` is a grid layer like ground and
+## overlay, but its values come from `WorldMapTacticalLayer`'s ledger rather than from a tileset:
+## it stores what a cell means to a battle, not what it looks like. That is the one place this
+## table's "a grid layer is painted from a tileset" assumption does not hold, and the three
+## kind-dispatching functions below each carry the matching exception rather than the assumption
+## being loosened for every grid layer.
 const LAYERS := [
 	{"id": "ground", "label": "Ground", "enabled": false},
 	{"id": "overlay", "label": "Overlay (roads)", "enabled": false},
 	{"id": LAYER_HEIGHTS, "label": "Terrain height", "enabled": false},
 	{"id": LAYER_OBJECTS, "label": "Objects", "enabled": false},
 	{"id": LAYER_DETAIL, "label": "Detail (triangles)", "enabled": false},
+	{"id": LAYER_TACTICAL, "label": "Tactical (battle)", "enabled": false},
 ]
 
 ## The three layers a hex document does not start with and that their own first edit creates.
@@ -91,6 +99,7 @@ const AUTHORED_HEX_LAYERS := {
 	LAYER_HEIGHTS: MapDataScript.KIND_HEIGHTS,
 	LAYER_OBJECTS: MapDataScript.KIND_LIST,
 	LAYER_DETAIL: MapDataScript.KIND_DETAIL,
+	LAYER_TACTICAL: MapDataScript.KIND_GRID,
 }
 
 ## Two tools, chosen to prove the router rather than to edit anything -- WME-9 is where a real
@@ -136,6 +145,7 @@ const TOOLS := [
 const LAYER_HEIGHTS := WorldMapHeightField.DEFAULT_LAYER
 const LAYER_OBJECTS := WorldMapObjectLayer.DEFAULT_LAYER
 const LAYER_DETAIL := "detail"
+const LAYER_TACTICAL := WorldMapTacticalLayer.DEFAULT_LAYER
 
 ## What the value row offers over a height layer. A step per click rather than a target height,
 ## because sculpting is done by repetition -- and both signs are here rather than behind a
@@ -477,7 +487,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			if not key.ctrl_pressed:
 				super._unhandled_key_input(event)
 				return
-			_exportScene()
+			if key.shift_pressed:
+				_exportBattleMap()
+			else:
+				_exportScene()
 			get_viewport().set_input_as_handled()
 		_:
 			super._unhandled_key_input(event)
@@ -554,6 +567,11 @@ func _beginToolGesture(screenPosition: Vector2) -> void:
 		_editorHud.setStatus("No map cell under the pointer.")
 		return
 	var cell := _cursorCell as Vector2i
+	# The battlefield layer is created by its first edit, the same way the height, object and
+	# detail layers are -- a document does not carry an empty one just for having been opened.
+	if _activeLayer == LAYER_TACTICAL and not _document.layers.has(LAYER_TACTICAL):
+		WorldMapTacticalLayer.ensureLayer(_document, LAYER_TACTICAL)
+		_refreshLayerRows()
 	var tileID := _editorHud.selectedTileID()
 	match _activeTool:
 		TOOL_INSPECT:
@@ -997,6 +1015,10 @@ func _layerEditable(layerID: String) -> bool:
 	if _document.layers.has(layerID):
 		var block: Dictionary = _document.layers[layerID]
 		var kind := str(block.get("KIND", ""))
+		# The tactical layer is a grid layer with no tileset -- its values are ledger ids, not
+		# tile art -- so the tileset test below would call the battlefield uneditable.
+		if layerID == LAYER_TACTICAL:
+			return _document.layout == MapDataScript.LAYOUT_HEX_FLAT
 		if kind == MapDataScript.KIND_GRID or kind == MapDataScript.KIND_DETAIL:
 			return Tilesets.has(str(block.get("TILESET", "")))
 		return kind == MapDataScript.KIND_HEIGHTS or kind == MapDataScript.KIND_LIST
@@ -1015,6 +1037,10 @@ func _layerPopulated(layerID: String) -> bool:
 		return false
 	var block: Dictionary = _document.layers[layerID]
 	var kind := str(block.get("KIND", ""))
+	# A tactical layer holds something once a cell has been painted onto it, which is a question
+	# about its cells rather than about a tileset it deliberately has none of.
+	if layerID == LAYER_TACTICAL:
+		return WorldMapTacticalLayer.playableCount(_document, layerID) > 0
 	if kind == MapDataScript.KIND_GRID or kind == MapDataScript.KIND_DETAIL:
 		return Tilesets.has(str(block.get("TILESET", "")))
 	return true
@@ -1160,6 +1186,21 @@ func _exportScene() -> void:
 	_editorHud.setStatus("Export failed: %s" % str(result.get("error", "unknown")))
 
 
+## Exports BOTH battle products together (Ctrl+Shift+E) -- the gameplay scene and the tactical
+## map, from one document, stamped with one source identity. One action rather than two on
+## purpose: exporting the halves separately is exactly how a scene ends up describing a document
+## the map no longer matches.
+##
+## A refusal reaches the status line with the unsupported feature and its cell in it, because
+## "unsupported" alone tells an author nothing about which hill to flatten.
+func _exportBattleMap() -> void:
+	var result := BattleExport.exportBoth(_document, _framing)
+	if bool(result.get("ok", false)):
+		_editorHud.setStatus("Exported battle map %s" % str(result["map_path"]))
+		return
+	_editorHud.setStatus("Battle export failed: %s" % str(result.get("error", "unknown")))
+
+
 ## Writes the open document under a different name and continues editing it under that name --
 ## the ordinary meaning of Save As, not a copy left behind under the old one.
 func _saveDocumentAs(name: String) -> void:
@@ -1262,6 +1303,23 @@ func _requestSaveAsDocument() -> void:
 ## row that had none applies `float("")`, which is 0.0, which is a no-op no one is told about.
 func _refreshValueChoices() -> void:
 	var selected := _editorHud.selectedValue() if _editorHud.tileOption != null else ""
+	# Dispatched on layer ID before kind, because the tactical layer shares KIND_GRID with ground
+	# and overlay while taking its values from a ledger rather than a tileset. Erasing back to
+	# "off the battlefield" is offered as a value, the same way the object row offers Remove:
+	# unpainting is an edit and has to go through the same stroke and the same undo entry.
+	if _activeLayer == LAYER_TACTICAL:
+		_editorHud.setValueLabel("Terrain")
+		var tacticalLabels: Array[String] = []
+		var tacticalValues: Array[String] = []
+		for terrainID: String in WorldMapTacticalLayer.knownTerrainIDs():
+			tacticalLabels.append(terrainID.capitalize())
+			tacticalValues.append(terrainID)
+		tacticalLabels.append("Off board")
+		tacticalValues.append(MapDataScript.EMPTY)
+		_editorHud.setValueChoices(tacticalLabels, tacticalValues, selected)
+		_scatterSet.clear()
+		_stampPattern = []
+		return
 	match _activeLayerKind():
 		MapDataScript.KIND_HEIGHTS:
 			_editorHud.setValueLabel("Sculpt")
@@ -1471,3 +1529,10 @@ func layerIsEditable(id: String) -> bool:
 ## it was.
 func exportScene() -> Dictionary:
 	return SceneExport.exportScene(_document, _framing)
+
+
+## Both battle products from the open document, as `WorldMapBattleExport.exportBoth`'s own
+## result. Same shape and same reason as `exportScene()` above: `probe_editor_export.gd` asserts
+## WHICH unsupported feature refused a map, which a status string cannot carry.
+func exportBattleMap() -> Dictionary:
+	return BattleExport.exportBoth(_document, _framing)

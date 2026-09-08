@@ -150,7 +150,8 @@ would be cheap to build, which is exactly why it is worth deciding on purpose.
 
 Found while validating the animation-hold work. A player turn only opens once
 the visual queue is completely empty
-(`BattlePresentationController._presentation_ready_for_player_turn()`), and
+(the square battle's `_presentation_ready_for_player_turn()`, now in the frozen
+reference; the hex equivalent is `HexBattlePlayback.canAdvance()`), and
 actions now occupy the queue substantially longer than they used to, because
 each one is held until its spawned effects are mostly through rather than
 until its own tween ends. In the real game this self-regulates: `turn_timer`
@@ -241,7 +242,7 @@ them into an untyped resource.
 
 ## Defeat animation's child-index assumptions are still fragile
 
-`GodotVisualAdapter._start_defeat_animation()` reaches into the monster
+`HexBattleVisualAdapter`'s defeat handling reaches into the monster
 container by index: child 0 for the base, child 1 for the body. Child 0 stopped
 being a mesh when the base became a stacked `Node3D` for ascension tiers, and
 the resulting `as MeshInstance3D` cast silently produced null — the whole
@@ -303,7 +304,7 @@ This is out of scope for the cycle that authored the effect, because it
 requires a spell to select it through `VFX_PROFILE` — the current pipeline
 supports one profile per spell — and a telegraph timed to precede release
 rather than accompany impact, which no existing cast-timing hook in
-`GodotVisualAdapter` currently expresses. Both are live gameplay-facing
+`HexBattleVisualAdapter` currently expresses. Both are live gameplay-facing
 integration, which the authoring cycle explicitly deferred until the debug
 silhouette was accepted.
 

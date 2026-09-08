@@ -6,11 +6,9 @@ class_name ThreatMap
 static func generate(
 		state: BattleState,
 		team: int,
-		movementResolver: MovementResolver = null,
-		combatResolver: CombatResolver = null) -> Dictionary:
+		movementResolver: MovementResolver,
+		combatResolver: CombatResolver) -> Dictionary:
 	var map: Dictionary = beginMap(state)
-	if movementResolver == null or combatResolver == null:
-		return _generateFallback(state, team, map)
 	for enemyID in threateningEnemies(state, team):
 		accumulateEnemy(state, map, enemyID, movementResolver, combatResolver)
 	return map
@@ -118,28 +116,60 @@ static func threatFor(
 		for threat in threats:
 			var spell: Spell = threat["spell"]
 			var value: int = threat["value"]
-			for dx in range(-spell.range, spell.range + 1):
-				var remaining = spell.range - absi(dx)
-				for dy in range(-remaining, remaining + 1):
-					var distance = absi(dx) + absi(dy)
-					if distance < spell.min_range:
-						continue
-					var targetPos = destination + Vector2i(dx, dy)
+			var centers := combatResolver.getSpellTargetPositionsFrom(
+				enemyID,
+				threat["set_index"],
+				threat["spell_index"],
+				destination,
+				true
+			)
+			for centerPos in centers:
+				## Query both products: affected cells define the influence map,
+				## while affected units keep area targeting filtered by the same
+				## team/shape semantics command evaluation uses.
+				var affectedPositions := combatResolver.getSpellAffectedPositionsFrom(
+					enemyID,
+					threat["set_index"],
+					threat["spell_index"],
+					destination,
+					centerPos,
+					true
+				)
+				var affectedTargets := combatResolver.getSpellAffectedTargetsFrom(
+					enemyID,
+					threat["set_index"],
+					threat["spell_index"],
+					destination,
+					centerPos,
+					true
+				)
+				var affectedUnitThreat: Dictionary = {}
+				for affectedID in affectedTargets:
+					var affectedUnit = state.getMonster(affectedID)
+					var unitThreat := 0
+					for line in spell.damage_lines:
+						unitThreat += combatResolver.calculateSpellDamage(
+							enemy,
+							affectedUnit,
+							int(line.get("damage", 0)),
+							str(line.get("element", "none")),
+							true,
+							destination
+						)
+					affectedUnitThreat[state.getMonsterPosition(affectedID)] = unitThreat
+				for targetPos in affectedPositions:
 					if not map.has(targetPos):
 						continue
-					if int(enemyThreat.get(targetPos, 0)) >= value:
-						continue
-					if combatResolver.canSpellReachPositionFrom(
-						enemyID, threat["set_index"], threat["spell_index"],
-						destination, targetPos
-					):
-						enemyThreat[targetPos] = value
+					var positionThreat := int(affectedUnitThreat.get(targetPos, value))
+					if int(enemyThreat.get(targetPos, 0)) < positionThreat:
+						enemyThreat[targetPos] = positionThreat
 
 	# Melee last: every damaging spell scores strictly above bare ATK, so any
 	# tile a spell already reached cannot be raised by a melee threat.
 	for destination in destinations:
-		for direction in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-			var meleePos = destination + direction
+		for meleePos in combatResolver.getBasicAttackTargetPositionsFrom(
+			enemyID, destination
+		):
 			if not map.has(meleePos):
 				continue
 			if int(enemyThreat.get(meleePos, 0)) >= enemy.atk:
@@ -150,21 +180,3 @@ static func threatFor(
 				enemyThreat[meleePos] = enemy.atk
 
 	return enemyThreat
-
-
-static func _generateFallback(state: BattleState, team: int, map: Dictionary) -> Dictionary:
-	for enemyID in state.getAliveMonsterIDs():
-		var enemy = state.getMonster(enemyID)
-		if enemy.team == team:
-			continue
-		var maxRange = 1
-		for spellSet in enemy.spellSets:
-			for spell in spellSet:
-				if not spell.heals:
-					maxRange = maxi(maxRange, spell.range)
-		var totalRange = enemy.move + maxRange
-		var enemyPos = state.getMonsterPosition(enemyID)
-		for pos in map:
-			if abs(pos.x - enemyPos.x) + abs(pos.y - enemyPos.y) <= totalRange:
-				map[pos] += enemy.atk
-	return map

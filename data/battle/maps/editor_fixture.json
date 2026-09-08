@@ -1,0 +1,188 @@
+[
+	{
+		"CELL_METRICS": {
+			"HEIGHT": 2.0,
+			"HEIGHT_STEP": 0.5,
+			"WIDTH": 2.0
+		},
+		"CELL_OVERRIDES": [
+			{
+				"CELL": [
+					10,
+					2
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					14,
+					2
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					16,
+					2
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					3
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					7,
+					3
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					9,
+					3
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					14,
+					3
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					4
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					7,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					8,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					9,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					10,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					11,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					12,
+					5
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					10,
+					6
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					12,
+					6
+				],
+				"TERRAIN": "blocked"
+			}
+		],
+		"COORDINATES": "odd_q_offset",
+		"DEFAULT_SURFACE": {
+			"ELEVATION": 0,
+			"TERRAIN": "clear"
+		},
+		"FORMAT_VERSION": 1,
+		"GRID_KIND": "hex_flat",
+		"NAME": "editor_fixture",
+		"REVISION": 1,
+		"SIZE": [
+			20,
+			10
+		],
+		"SOURCE": {
+			"FINGERPRINT": "sha256:6cfa710793e64c43b5fe715c36effa21229e3846c6ceac687020898d5dee9238",
+			"HEADLESS_ONLY": false,
+			"ID": "hex_battle_fixture",
+			"REVISION": 1,
+			"VISUAL_SCENE_PATH": "res://scenes/worldmap/generated/hex_battle_fixture.tscn"
+		},
+		"SURFACE_MODEL": "single",
+		"TERRAIN_DEFINITIONS": [
+			{
+				"BLOCKS_LOS": true,
+				"CAN_ENTER": false,
+				"CAN_PASS": false,
+				"CAN_STOP": false,
+				"ENDS_MOVEMENT": false,
+				"ID": "blocked",
+				"MOVE_COST": 0,
+				"STATE_CODE": 1
+			},
+			{
+				"BLOCKS_LOS": false,
+				"CAN_ENTER": true,
+				"CAN_PASS": true,
+				"CAN_STOP": true,
+				"ENDS_MOVEMENT": false,
+				"ID": "clear",
+				"MOVE_COST": 1,
+				"STATE_CODE": 0
+			},
+			{
+				"BLOCKS_LOS": false,
+				"CAN_ENTER": true,
+				"CAN_PASS": true,
+				"CAN_STOP": true,
+				"ENDS_MOVEMENT": false,
+				"ID": "rough",
+				"MOVE_COST": 2,
+				"STATE_CODE": 0
+			}
+		],
+		"VALID_MASK": [
+			"00000000000000000000",
+			"00000000000000000000",
+			"00111111111111111100",
+			"00111111111111111100",
+			"00111111111111111100",
+			"00111011111111111100",
+			"00111111111111111100",
+			"00111111111111111100",
+			"00000000000000000000",
+			"00000000000000000000"
+		]
+	}
+]

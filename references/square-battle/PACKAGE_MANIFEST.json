@@ -1,0 +1,3081 @@
+{
+    "schema_version":  1,
+    "artifact":  "frozen-square-battle",
+    "godot_version":  "4.4-stable",
+    "source_commit":  "0c101e16f6dd26062cb6c76d0b74b46d6dc73361",
+    "source_commit_timestamp":  "2026-09-06T21:50:38-03:00",
+    "runtime_paths":  [
+                          "project.godot",
+                          "export_presets.cfg",
+                          "assets",
+                          "data",
+                          "scenes",
+                          "src",
+                          "scripts/demo_battle.gd",
+                          "scripts/demo_battle.gd.uid",
+                          "docs/README.md"
+                      ],
+    "archive":  {
+                    "path":  "source.zip",
+                    "sha256":  "26ef69890641c705c0cba50003601eb6bb538b0600abf105377be805d2140006",
+                    "file_count":  573
+                },
+    "resolved_static_resources":  [
+                                      "res://assets/Fonts/NoggHerald/nogg_herald_atlas.png",
+                                      "res://assets/Fonts/NoggHerald/nogg_herald_specimen.png",
+                                      "res://assets/Fonts/NoggTerminal/nogg_terminal_atlas.png",
+                                      "res://assets/Fonts/Roboto-Regular.ttf",
+                                      "res://assets/Fonts/xenotext.otf",
+                                      "res://assets/models/Map Attempt Nov2025.gltf",
+                                      "res://assets/shaders/crt_display.gdshader",
+                                      "res://assets/shaders/effects/01_hologram.gdshader",
+                                      "res://assets/shaders/effects/02_ghost.gdshader",
+                                      "res://assets/shaders/effects/03_toon.gdshader",
+                                      "res://assets/shaders/effects/04_molten.gdshader",
+                                      "res://assets/shaders/effects/05_dissolve.gdshader",
+                                      "res://assets/shaders/effects/06_matrix.gdshader",
+                                      "res://assets/shaders/effects/07_glass.gdshader",
+                                      "res://assets/shaders/effects/08_shadow.gdshader",
+                                      "res://assets/shaders/effects/09_petrified.gdshader",
+                                      "res://assets/shaders/effects/aurora_veil_field.gdshader",
+                                      "res://assets/shaders/effects/fire_storm_vortex.gdshader",
+                                      "res://assets/shaders/effects/ice_storm_flurry.gdshader",
+                                      "res://assets/shaders/effects/ice_target_encasement.gdshader",
+                                      "res://assets/shaders/effects/magenta_implosion.gdshader",
+                                      "res://assets/shaders/effects/solar_storm_field.gdshader",
+                                      "res://assets/shaders/effects/spell_cast_footprint_aperture.gdshader",
+                                      "res://assets/shaders/effects/spell_cast_ghost_rays.gdshader",
+                                      "res://assets/shaders/effects/spell_cast_haze_field.gdshader",
+                                      "res://assets/shaders/effects/technique_charge_aura_v1.gdshader",
+                                      "res://assets/shaders/effects/technique_charge_aura_v2.gdshader",
+                                      "res://assets/shaders/pixel_aura.gdshader",
+                                      "res://assets/shaders/retro_surface.gdshader",
+                                      "res://assets/shaders/retro_surface_transparent.gdshader",
+                                      "res://assets/shaders/worldmap_cloud.gdshader",
+                                      "res://assets/shaders/worldmap_ground.gdshader",
+                                      "res://assets/shaders/worldmap_prop.gdshader",
+                                      "res://assets/shaders/worldmap_sky.gdshader",
+                                      "res://assets/textures/effects/ice_strip.png",
+                                      "res://assets/textures/effects/snow_strip.png",
+                                      "res://assets/textures/effects/sparkle_frames.png",
+                                      "res://assets/textures/Ice Golem.png",
+                                      "res://assets/textures/icon.png",
+                                      "res://assets/textures/Skies2.png",
+                                      "res://assets/textures/sky/retro_sky_2d.gdshader",
+                                      "res://assets/ui/briganborders.png",
+                                      "res://assets/vfx/spell_cast_aura/plume_flow_atlas.png",
+                                      "res://assets/vfx/technique_charge_aura/aura_panel.png",
+                                      "res://assets/vfx/technique_charge_aura_v2/aura_panel.png",
+                                      "res://assets/worldmap/clouds/temp2_clouds.png",
+                                      "res://assets/worldmap/regions/generated/temp2_authored.png",
+                                      "res://assets/worldmap/regions/generated/temp2_hex32.png",
+                                      "res://assets/worldmap/regions/temp.png",
+                                      "res://assets/worldmap/regions/temp2.png",
+                                      "res://assets/worldmap/skies/temp2_sunset.png",
+                                      "res://assets/worldmap/tilesets/temp2_ground.png",
+                                      "res://assets/worldmap/tilesets/temp2_hex32_ground.png",
+                                      "res://data/archetypes.json",
+                                      "res://data/elements.json",
+                                      "res://data/maps.json",
+                                      "res://data/monsters.json",
+                                      "res://data/passives.json",
+                                      "res://data/spells.json",
+                                      "res://data/status_effects.json",
+                                      "res://data/taxonomy.json",
+                                      "res://data/worldmap/regions.json",
+                                      "res://data/worldmap/tilesets.json",
+                                      "res://scenes/debug/BattleDebugScene.tscn",
+                                      "res://scenes/WorldMap.tscn",
+                                      "res://src/algorithms/AStarPathfinder.gd",
+                                      "res://src/algorithms/BFSFloodFill.gd",
+                                      "res://src/algorithms/LineOfSight.gd",
+                                      "res://src/algorithms/ShapeCaster.gd",
+                                      "res://src/algorithms/ThreatMap.gd",
+                                      "res://src/battle_sim/BattleSetupConfig.gd",
+                                      "res://src/battle_sim/BattleSetupFactory.gd",
+                                      "res://src/battle_sim/BattleSimulator.gd",
+                                      "res://src/battle_sim/BattleStateSerializer.gd",
+                                      "res://src/battle_sim/CombatResolver.gd",
+                                      "res://src/battle_sim/DirectDamageRules.gd",
+                                      "res://src/battle_sim/MonsterStatCalculator.gd",
+                                      "res://src/battle_sim/PassiveSkillResolver.gd",
+                                      "res://src/battle_sim/ReachQuery.gd",
+                                      "res://src/battle_sim/SpellEffectResolver.gd",
+                                      "res://src/battle_sim/TurnManager.gd",
+                                      "res://src/entities/Map.gd",
+                                      "res://src/entity_ai/BattleCommandEvaluator.gd",
+                                      "res://src/entity_ai/BerserkBrain.gd",
+                                      "res://src/entity_ai/BrainTargeting.gd",
+                                      "res://src/entity_ai/MageBrain.gd",
+                                      "res://src/entity_ai/SupportBrain.gd",
+                                      "res://src/entity_ai/TacticalBrain.gd",
+                                      "res://src/factories/BattleSetupPresets.gd",
+                                      "res://src/factories/ElementReferences.gd",
+                                      "res://src/factories/JsonCatalogLoader.gd",
+                                      "res://src/factories/MapFactory.gd",
+                                      "res://src/factories/MapReferences.gd",
+                                      "res://src/factories/MonsterFactory.gd",
+                                      "res://src/factories/MonsterReferences.gd",
+                                      "res://src/factories/RaceReferences.gd",
+                                      "res://src/factories/SpellReferences.gd",
+                                      "res://src/factories/StatusEffectReferences.gd",
+                                      "res://src/presentation/ActionIconRegistry.gd",
+                                      "res://src/presentation/ActionIcons.gd",
+                                      "res://src/presentation/ActionRow.gd",
+                                      "res://src/presentation/BattleCameraController.gd",
+                                      "res://src/presentation/BattleCameraDirector.gd",
+                                      "res://src/presentation/BattleCursorController.gd",
+                                      "res://src/presentation/BattleEnvironmentFactory.gd",
+                                      "res://src/presentation/BattleGraphicsMenu.gd",
+                                      "res://src/presentation/BattleGraphicsMenuRefs.gd",
+                                      "res://src/presentation/BattleMeshFactory.gd",
+                                      "res://src/presentation/BattleSetupUI.gd",
+                                      "res://src/presentation/BattleSetupUIRefs.gd",
+                                      "res://src/presentation/BattleUIBuilder.gd",
+                                      "res://src/presentation/BattleUIRefs.gd",
+                                      "res://src/presentation/BattleVisualEffects.gd",
+                                      "res://src/presentation/ConsoleMapRenderer.gd",
+                                      "res://src/presentation/ConsoleRoundSummary.gd",
+                                      "res://src/presentation/ConsoleVisualAdapter.gd",
+                                      "res://src/presentation/debug/TextSpecimen.gd",
+                                      "res://src/presentation/debug/VfxDebugArguments.gd",
+                                      "res://src/presentation/debug/VfxDebugCapture.gd",
+                                      "res://src/presentation/debug/VFXDebugController.gd",
+                                      "res://src/presentation/debug/VfxDebugHud.gd",
+                                      "res://src/presentation/debug/VfxDebugTuning.gd",
+                                      "res://src/presentation/debug/VfxDebugWorld.gd",
+                                      "res://src/presentation/debug/WorldMapDebugController.gd",
+                                      "res://src/presentation/debug/WorldMapDebugHud.gd",
+                                      "res://src/presentation/DeepCard.gd",
+                                      "res://src/presentation/effects/AuroraVeilEffect.gd",
+                                      "res://src/presentation/effects/DamageNumberBillboard.gd",
+                                      "res://src/presentation/effects/FireStormEffect.gd",
+                                      "res://src/presentation/effects/IceChunkMeshFactory.gd",
+                                      "res://src/presentation/effects/IceStormEffect.gd",
+                                      "res://src/presentation/effects/IceTargetEncasementEffect.gd",
+                                      "res://src/presentation/effects/MagentaReductionEffect.gd",
+                                      "res://src/presentation/effects/SolarStormEffect.gd",
+                                      "res://src/presentation/effects/SpellCastAura.gd",
+                                      "res://src/presentation/effects/SpellVfxCatalog.gd",
+                                      "res://src/presentation/effects/TechniqueChargeAuraV1Effect.gd",
+                                      "res://src/presentation/effects/TechniqueChargeAuraV2Effect.gd",
+                                      "res://src/presentation/effects/VfxCastContext.gd",
+                                      "res://src/presentation/effects/VfxPlayback.gd",
+                                      "res://src/presentation/GodotVisualAdapter.gd",
+                                      "res://src/presentation/MonsterModelFactory.gd",
+                                      "res://src/presentation/MonsterVisualRegistry.gd",
+                                      "res://src/presentation/PlayerCommandMenu.gd",
+                                      "res://src/presentation/PortraitRenderer.gd",
+                                      "res://src/presentation/RenderPresetCatalog.gd",
+                                      "res://src/presentation/RetroRenderController.gd",
+                                      "res://src/presentation/StatusBadgeRow.gd",
+                                      "res://src/presentation/StatusEffectIcons.gd",
+                                      "res://src/presentation/StatusIconRegistry.gd",
+                                      "res://src/presentation/theme/HudLayoutCatalog.gd",
+                                      "res://src/presentation/theme/MenuCursor.gd",
+                                      "res://src/presentation/theme/NoggBitmapFont.gd",
+                                      "res://src/presentation/theme/NoggHeraldFont.gd",
+                                      "res://src/presentation/theme/NoggTheme.gd",
+                                      "res://src/presentation/theme/NoggWindow.gd",
+                                      "res://src/presentation/theme/PagerArrow.gd",
+                                      "res://src/presentation/theme/ResonanceBar.gd",
+                                      "res://src/presentation/theme/WindowFrameFilterCatalog.gd",
+                                      "res://src/presentation/theme/WindowSkinCatalog.gd",
+                                      "res://src/presentation/TurnOrderRail.gd",
+                                      "res://src/presentation/VisualAction.gd",
+                                      "res://src/presentation/VisualActionQueue.gd",
+                                      "res://src/presentation/worldmap/editor/WorldMapBaker.gd",
+                                      "res://src/presentation/worldmap/editor/WorldMapBrushes.gd",
+                                      "res://src/presentation/worldmap/editor/WorldMapEditorController.gd",
+                                      "res://src/presentation/worldmap/editor/WorldMapEditorHud.gd",
+                                      "res://src/presentation/worldmap/editor/WorldMapSurfacePick.gd",
+                                      "res://src/presentation/worldmap/editor/WorldMapTileData.gd",
+                                      "res://src/presentation/worldmap/editor/WorldMapTilesetCatalog.gd",
+                                      "res://src/presentation/worldmap/WorldMapCameraRig.gd",
+                                      "res://src/presentation/worldmap/WorldMapCloudCatalog.gd",
+                                      "res://src/presentation/worldmap/WorldMapCloudField.gd",
+                                      "res://src/presentation/worldmap/WorldMapClouds.gd",
+                                      "res://src/presentation/worldmap/WorldMapCloudShadows.gd",
+                                      "res://src/presentation/worldmap/WorldMapFramingCatalog.gd",
+                                      "res://src/presentation/worldmap/WorldMapGround.gd",
+                                      "res://src/presentation/worldmap/WorldMapGroundUniforms.gd",
+                                      "res://src/presentation/worldmap/WorldMapProps.gd",
+                                      "res://src/presentation/worldmap/WorldMapRegionCatalog.gd",
+                                      "res://src/presentation/worldmap/WorldMapSky.gd",
+                                      "res://src/systems/BattlePresentationController.gd",
+                                      "res://src/systems/PlayerTurnController.gd"
+                                  ],
+    "files":  [
+                  {
+                      "path":  "assets/Fonts/advanced_pixel-7.ttf",
+                      "size":  28340,
+                      "sha256":  "fe272db84699b94c36882d2135e9e18909d61fc7080bade68f2570712d2173e3"
+                  },
+                  {
+                      "path":  "assets/Fonts/advanced_pixel-7.ttf.import",
+                      "size":  758,
+                      "sha256":  "428f2d30bc1bae54fcfa66da7089dc10b753b3fb9a4143f48003a8b46497d2e6"
+                  },
+                  {
+                      "path":  "assets/Fonts/animal-crossing-wild-world.ttf",
+                      "size":  23664,
+                      "sha256":  "0aa90e2ed7ae36b035571a505cc8741f8c5b001a7008bf69dcb5b03ca09eb08e"
+                  },
+                  {
+                      "path":  "assets/Fonts/animal-crossing-wild-world.ttf.import",
+                      "size":  788,
+                      "sha256":  "54a1f23a5d44053ed7bf8bc0ad4e0a4dd21c59834c9274e9abfc3f0049639782"
+                  },
+                  {
+                      "path":  "assets/Fonts/arialbd.ttf",
+                      "size":  749004,
+                      "sha256":  "4033d5cfc2e1acb737c95b1a1bbada6ab7ea98933d67b254cb898fde433fa81d"
+                  },
+                  {
+                      "path":  "assets/Fonts/arialbd.ttf.import",
+                      "size":  730,
+                      "sha256":  "acf220646e7090d32f8a705420cab06725e9648f5eca46f44e154a3d620f1db3"
+                  },
+                  {
+                      "path":  "assets/Fonts/basis33.ttf",
+                      "size":  39488,
+                      "sha256":  "c4355b2766d410c495a96c133347c5dee6bd54a9fae46da7c3c78d16bc9f706b"
+                  },
+                  {
+                      "path":  "assets/Fonts/basis33.ttf.import",
+                      "size":  731,
+                      "sha256":  "55a102fe229a424f97f3c456d7cab8d4b17982c2272502ba0848c9d9326acb0e"
+                  },
+                  {
+                      "path":  "assets/Fonts/bitbox.ttf",
+                      "size":  34572,
+                      "sha256":  "4cf762d73648f82c6e2bba858e0fed335bce749f4cfb4413820a4747f3276e73"
+                  },
+                  {
+                      "path":  "assets/Fonts/bitbox.ttf.import",
+                      "size":  728,
+                      "sha256":  "597c08893717a60c17dc307c476d56e511165e25a714058519bc0d2b8152b3c5"
+                  },
+                  {
+                      "path":  "assets/Fonts/joystix monospace.ttf",
+                      "size":  57596,
+                      "sha256":  "b3c2d9b6a275534bddf6fb5cdd9248741b6cbc592c6d9634e60282215d050917"
+                  },
+                  {
+                      "path":  "assets/Fonts/joystix monospace.ttf.import",
+                      "size":  761,
+                      "sha256":  "d8b4c504ea2ef8ee23f88ba6477540919973a4584c48492444682eeee2b73c5c"
+                  },
+                  {
+                      "path":  "assets/Fonts/MANASPC.TTF",
+                      "size":  9556,
+                      "sha256":  "c4d1923dfa56c08816e3d84bc96f039f32b443702edd30479f5188876ecb05d0"
+                  },
+                  {
+                      "path":  "assets/Fonts/MANASPC.TTF.import",
+                      "size":  731,
+                      "sha256":  "8d0c6d4701d0e8240159f624169e1c018cd91219991ce4a717677b0cee8c140d"
+                  },
+                  {
+                      "path":  "assets/Fonts/matrixbsc.ttf",
+                      "size":  39524,
+                      "sha256":  "49cbde38d79e40d0355284726b2cbcd3b62145deee25d289546553b4ad4a41af"
+                  },
+                  {
+                      "path":  "assets/Fonts/matrixbsc.ttf.import",
+                      "size":  736,
+                      "sha256":  "c05d78f164200b8344ebe6d9995ea9f2fa94b824a231a936b0c8e3d7cf563716"
+                  },
+                  {
+                      "path":  "assets/Fonts/NiseShiningD.TTF",
+                      "size":  18808,
+                      "sha256":  "2eec3734e9465128e6ef27349a3a64686c5683bab61429b586b75ddc0b21a440"
+                  },
+                  {
+                      "path":  "assets/Fonts/NiseShiningD.TTF.import",
+                      "size":  746,
+                      "sha256":  "755ba55ff759f90ab100020b6b56e27d4976253c260940b2c302784488d8417e"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggHerald/glyphs.txt",
+                      "size":  14544,
+                      "sha256":  "d3bcce7440be780cc8df52e2bab0ab4da23332cd588b8c5bec1eca46b0f9fad0"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggHerald/nogg_herald_atlas.png",
+                      "size":  1580,
+                      "sha256":  "acdac66862803909bd258fed8c51a80c68bd46bb1b7238bd8724aa8aaaca006a"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggHerald/nogg_herald_atlas.png.import",
+                      "size":  808,
+                      "sha256":  "e810e6cc1f79aa3e3651544cf6b1c50c1165b33ebf44e52c9717921b5010cfcc"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggHerald/nogg_herald_specimen.png",
+                      "size":  12309,
+                      "sha256":  "586c8d19b25af0eaa8f0039ff7532e24f53ea11cde27044936497540563a129d"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggHerald/nogg_herald_specimen.png.import",
+                      "size":  817,
+                      "sha256":  "cbb6438e128cb58c1d2bde509cbdc6cd354c589d1166c22a6487c2500b5c93ae"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggHerald/NoggHerald.res",
+                      "size":  232596,
+                      "sha256":  "ccc62453b59cb8a16242e29053e1bd8956d52c1a62222c969ca50c6caee0dffb"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggTerminal/glyphs.txt",
+                      "size":  13843,
+                      "sha256":  "f33992f82434042062a1fa61b2b7918f731aa0eaa4809c324f1fc1100f70efba"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggTerminal/nogg_terminal_atlas.png",
+                      "size":  1511,
+                      "sha256":  "a613132b14fb13721dda1cad14a0312eabac6ff49a3566b7cdc152fc36bdd2fb"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggTerminal/nogg_terminal_atlas.png.import",
+                      "size":  817,
+                      "sha256":  "cc039f8831d1f3f0c82185938017cd606dffd11c2af12b9821ab2f380c3212b0"
+                  },
+                  {
+                      "path":  "assets/Fonts/NoggTerminal/NoggTerminal.res",
+                      "size":  196921,
+                      "sha256":  "3526c9c3f2bf08069ec488e81af8f18f633940a67590d200a08e8144a9410a33"
+                  },
+                  {
+                      "path":  "assets/Fonts/pala.TTF",
+                      "size":  489884,
+                      "sha256":  "80d79cb49ca8562bb8cd230b0787177434fa2840cff732c7f047453081afa730"
+                  },
+                  {
+                      "path":  "assets/Fonts/pala.TTF.import",
+                      "size":  721,
+                      "sha256":  "f17c211fe69e8734a959407f8b74c037650568a0aefd135b61fa6ae7c9cc9e37"
+                  },
+                  {
+                      "path":  "assets/Fonts/PressStart2P-Regular.ttf",
+                      "size":  69748,
+                      "sha256":  "17ec7d250ff590971a6d966b4fdc5aa04d5e39a7694f4a0becb515b6a70a7228"
+                  },
+                  {
+                      "path":  "assets/Fonts/PressStart2P-Regular.ttf.import",
+                      "size":  769,
+                      "sha256":  "0cdab6a6e059e5fd0eab60c5f576d1f3d50cf4a40c1ad77b8177b8b97b4c1909"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Bold.ttf",
+                      "size":  127744,
+                      "sha256":  "594d74a49e307be7cc9e1ee5f1023684e6820cf11bcc968bee590391e1ad5a5a"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Bold.ttf.import",
+                      "size":  743,
+                      "sha256":  "f0f9cdcd5409bf23ef15f5c33efc0ba9f88088c8c0a62257f20a41aac5667608"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Light.ttf",
+                      "size":  126792,
+                      "sha256":  "ee4352049603e5960550f55444ad720d8d4ce322c0dcba1afc77de78c430d0d5"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Light.ttf.import",
+                      "size":  745,
+                      "sha256":  "d208f061596b8c4112ae2cba71c3a990f445e54c4f01ac4fe07e8aee40c4f3a1"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Medium.ttf",
+                      "size":  127488,
+                      "sha256":  "6e2ec5c5f89e4ce302bb93b46cb7cc336236501de17348e284878914c5e0e723"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Medium.ttf.import",
+                      "size":  749,
+                      "sha256":  "891f05b60a68de78b5bd7c21a91eabd6031ec415ec98fa852bde5fb8eed20793"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Regular.ttf",
+                      "size":  126072,
+                      "sha256":  "bde8a188e37aa936b167aecc5e5a3da40262f6e51fd54c584f2cf2b6b99d96ca"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Regular.ttf.import",
+                      "size":  752,
+                      "sha256":  "71cad10743998a620cade5f988954e46c51a4d67348b5d2031d3fd9197047137"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Thin.ttf",
+                      "size":  127584,
+                      "sha256":  "db1d464343bf795307bc90da83d65b93c841fb20f38662f92f1e5e2c5a1d2ec5"
+                  },
+                  {
+                      "path":  "assets/Fonts/Roboto-Thin.ttf.import",
+                      "size":  743,
+                      "sha256":  "b02cfbeeb68f1190927e2c5042dd6f25a39ff10537a5eee1c58ac6d2aa943aba"
+                  },
+                  {
+                      "path":  "assets/Fonts/Shining Force 2.ttf",
+                      "size":  17040,
+                      "sha256":  "53db9d28a8a697fb8d371cd53eb642b6e6e20f834b3e5f713ffd3f4746b014ec"
+                  },
+                  {
+                      "path":  "assets/Fonts/Shining Force 2.ttf.import",
+                      "size":  755,
+                      "sha256":  "dde2aec18a911fe015b770bb89dce67ad40cb4fe0a65df9b96d910a01b7396c8"
+                  },
+                  {
+                      "path":  "assets/Fonts/shining-force-ii-small.otf",
+                      "size":  12712,
+                      "sha256":  "d2144426f3ad8dd27fdf734763d384978f41a0f9e889967eaefd8a12f3d033b0"
+                  },
+                  {
+                      "path":  "assets/Fonts/shining-force-ii-small.otf.import",
+                      "size":  776,
+                      "sha256":  "4728ac4b40aac1e9a43b7bd7588e25d8fd6e451366c307b62d5803cefd2e7619"
+                  },
+                  {
+                      "path":  "assets/Fonts/simhei.ttf",
+                      "size":  10077260,
+                      "sha256":  "c300dacc046f57fc737dc1c4a50d2ef1e56c773f58a7de8b8ee7cbac31ee426c"
+                  },
+                  {
+                      "path":  "assets/Fonts/simhei.ttf.import",
+                      "size":  728,
+                      "sha256":  "ce35f35f2de71f21da04f289646b8d08964a29c3696bb47ca1b87f5f53dcc9e6"
+                  },
+                  {
+                      "path":  "assets/Fonts/SYNCHRONIZER_NBP.TTF",
+                      "size":  28324,
+                      "sha256":  "b46f13c8faa99e02362da0af338cc1a300a6458dfc2a67734ba438fc576768c3"
+                  },
+                  {
+                      "path":  "assets/Fonts/SYNCHRONIZER_NBP.TTF.import",
+                      "size":  757,
+                      "sha256":  "3002cde66467e98c42971d7af958f750487f3e6afba1c6c99e17e1a7ce202656"
+                  },
+                  {
+                      "path":  "assets/Fonts/THSpatial.ttf",
+                      "size":  75020,
+                      "sha256":  "dc06cf2aa3accc77cd28db9ef94430591361054b0ef982a329d9e88647eeed4b"
+                  },
+                  {
+                      "path":  "assets/Fonts/THSpatial.ttf.import",
+                      "size":  737,
+                      "sha256":  "3ed3e4d54088d815f3b4cf871bf1c3c4fcbffe07b673b592878237c72e5d8188"
+                  },
+                  {
+                      "path":  "assets/Fonts/VL-Gothic-Regular.ttf",
+                      "size":  3883852,
+                      "sha256":  "7bc537ad07905dfdb6296d7e30b205fd71b8d6159702f4ead167cab3fb9032f6"
+                  },
+                  {
+                      "path":  "assets/Fonts/VL-Gothic-Regular.ttf.import",
+                      "size":  761,
+                      "sha256":  "82f403a3bd9298466520a4b322e0a6b1b6373a96a97b8e66e90d77124fcf62e7"
+                  },
+                  {
+                      "path":  "assets/Fonts/VL-PGothic-Regular.ttf",
+                      "size":  4013852,
+                      "sha256":  "8706ff2af72686f32049c9dc13c2e489a81f2c62b386a2921d332d34d4f3e95e"
+                  },
+                  {
+                      "path":  "assets/Fonts/VL-PGothic-Regular.ttf.import",
+                      "size":  764,
+                      "sha256":  "8757b985044bc78efa47db9df19bc086e359430770145086cb992fe520510cf1"
+                  },
+                  {
+                      "path":  "assets/Fonts/xenotext.otf",
+                      "size":  31808,
+                      "sha256":  "9ec05fcce1f999f8d86627f7fccf1eae1bc65a5013bb22e719fb92f312190d97"
+                  },
+                  {
+                      "path":  "assets/Fonts/xenotext.otf.import",
+                      "size":  734,
+                      "sha256":  "f1237ac8dc3d79d1af2b198f648f79da8a542ebf4e586bc17638eca6c019fab1"
+                  },
+                  {
+                      "path":  "assets/models/BasicFarm.blend",
+                      "size":  1465192,
+                      "sha256":  "f7901f7bfe389c575d962650750fa2c9c5c1e8e16cb5331b880333cf6e9a9915"
+                  },
+                  {
+                      "path":  "assets/models/BasicField.blend",
+                      "size":  892800,
+                      "sha256":  "daadfe1934caef1d6e9f70b70daa5f50b812dbab7550d5711e3970575c6c5fe4"
+                  },
+                  {
+                      "path":  "assets/models/dae/course_parts.dae",
+                      "size":  202604,
+                      "sha256":  "74962791c106b80a71a418ff93c88c86628ff25f8a2ef1be1d037048bb358127"
+                  },
+                  {
+                      "path":  "assets/models/dae/course_parts.dae.import",
+                      "size":  896,
+                      "sha256":  "fe750b962a6e6c3502eae4e9abc51bf7736d31af916a81853358f2bd9d201530"
+                  },
+                  {
+                      "path":  "assets/models/dae/course_parts1.dae",
+                      "size":  202604,
+                      "sha256":  "74962791c106b80a71a418ff93c88c86628ff25f8a2ef1be1d037048bb358127"
+                  },
+                  {
+                      "path":  "assets/models/dae/course_parts1.dae.import",
+                      "size":  900,
+                      "sha256":  "30fd5f3f4a1ad1fbbdaa9a82d21c12eace7756c2966e01654191d587f56d448f"
+                  },
+                  {
+                      "path":  "assets/models/dae/course_test.dae",
+                      "size":  84243,
+                      "sha256":  "a126c2b2d7c8e04b32b08d85cddaf9d2a6b6ba71d82b7f020087f2a40d97c354"
+                  },
+                  {
+                      "path":  "assets/models/dae/course_test.dae.import",
+                      "size":  894,
+                      "sha256":  "2beda4fa37e292fc5f584a9d43298f739df577c77d40fd32403c4ea0d81e641b"
+                  },
+                  {
+                      "path":  "assets/models/dae/golf.material",
+                      "size":  831,
+                      "sha256":  "271223e686f63fa950200af0d22ba099d61e57e538580737b470c072500cfbf7"
+                  },
+                  {
+                      "path":  "assets/models/dae/golf_windmill.dae",
+                      "size":  29698,
+                      "sha256":  "a9c46691f4a56de80c385cd9b2c11b35348dfb129d435268304ef247c5e3c9be"
+                  },
+                  {
+                      "path":  "assets/models/dae/golf_windmill.dae.import",
+                      "size":  901,
+                      "sha256":  "7c528e2e10d36877bcf7885da5994b1ab0412a5d34aafd702d5471e8e7974ec7"
+                  },
+                  {
+                      "path":  "assets/models/Desert Board 1.gltf",
+                      "size":  114820,
+                      "sha256":  "704f2fdf9b470263fada014274685bef2f4455dd8c0c9f9b261dd7b6ab46ff76"
+                  },
+                  {
+                      "path":  "assets/models/Desert Board 1.gltf.import",
+                      "size":  940,
+                      "sha256":  "af26a74f1a3d8360401eb9b4aa8cbb4e96e871dbc88a421d4c0e89ac0ffe6e9b"
+                  },
+                  {
+                      "path":  "assets/models/Desert Board 1_0.png",
+                      "size":  2215,
+                      "sha256":  "d087480c3fb163623c6790c7e82a7f7b73fbe59f268d35757276edc204dac8c8"
+                  },
+                  {
+                      "path":  "assets/models/Desert Board 1_0.png.import",
+                      "size":  910,
+                      "sha256":  "2bf39c18d32a280d6f080458b9476429e790cfab7d84732bbce8b715946e05d5"
+                  },
+                  {
+                      "path":  "assets/models/Hills Board 1.gltf",
+                      "size":  76710,
+                      "sha256":  "88fdd8454a4876d979f98080ffa61bbf5b23f58e0e064cfade87a0ac501d459a"
+                  },
+                  {
+                      "path":  "assets/models/Hills Board 1.gltf.import",
+                      "size":  935,
+                      "sha256":  "ac2972da27f28ee1256b1a3ca864426ffba9d9198ef509e6f21585fd4bc63b1c"
+                  },
+                  {
+                      "path":  "assets/models/Hills Board 1_0.png",
+                      "size":  3629,
+                      "sha256":  "7a7d9842c2276ab38748000ea03cd09b1c224e95219ce0efe298463acc7c2d40"
+                  },
+                  {
+                      "path":  "assets/models/Hills Board 1_0.png.import",
+                      "size":  908,
+                      "sha256":  "e8597b7ca2b80f19e1fb22f0cf7cb5870c00c90635b5ec58c72b9df62c0a6fb6"
+                  },
+                  {
+                      "path":  "assets/models/Map Attempt Nov2025 v2.gltf",
+                      "size":  45925,
+                      "sha256":  "292b20ee8c46743eb31c65cbc923b253e7c536f69280211b03b1f473ca3f8a7c"
+                  },
+                  {
+                      "path":  "assets/models/Map Attempt Nov2025 v2.gltf.import",
+                      "size":  964,
+                      "sha256":  "22cfa9adc7341d8d464d80470fae987c56ca6ed9e501e4ece70741215ece5421"
+                  },
+                  {
+                      "path":  "assets/models/Map Attempt Nov2025 v2_0.png",
+                      "size":  6814,
+                      "sha256":  "3a2e0024c85f579f9fd212bc39b4bc63773fdeea033becba66302be6b2d64ea3"
+                  },
+                  {
+                      "path":  "assets/models/Map Attempt Nov2025 v2_0.png.import",
+                      "size":  935,
+                      "sha256":  "9f241be19e4357be0262ebbf955c8890fb3b96da854596c6597c0cc1a8975304"
+                  },
+                  {
+                      "path":  "assets/models/Map Attempt Nov2025.gltf",
+                      "size":  84648,
+                      "sha256":  "81e40a771438f717dd7db438638ac54eddd429af1bf6701f1568eda30376c75c"
+                  },
+                  {
+                      "path":  "assets/models/Map Attempt Nov2025.gltf.import",
+                      "size":  955,
+                      "sha256":  "359b0de9ee899be51da29253b0ca618561531c40a6d90ee4e4e4dfc11a13340f"
+                  },
+                  {
+                      "path":  "assets/models/Map Attempt Nov2025_0.png",
+                      "size":  6642,
+                      "sha256":  "274b36e0e0f568121c04bb70e4d1fdfcaac19dbe77322966c745d0bfc267d7ed"
+                  },
+                  {
+                      "path":  "assets/models/Map Attempt Nov2025_0.png.import",
+                      "size":  926,
+                      "sha256":  "d53582ef5c6813d939482956d269c63ba62465253781d77dd0f9cd743d7448ef"
+                  },
+                  {
+                      "path":  "assets/models/Map_Attempt_Nov2025.mtl",
+                      "size":  226,
+                      "sha256":  "0624a845014ea315ee27a27315160846869973db885d5427053fca9369482024"
+                  },
+                  {
+                      "path":  "assets/shaders/crt_display.gdshader",
+                      "size":  5759,
+                      "sha256":  "fce5160d3afb00790e6061ce155c04e214fd67efc58f3a99f8738b3c47388160"
+                  },
+                  {
+                      "path":  "assets/shaders/crt_display.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "8fd65f17bfc9207086ca59d0277396d72e89caa86ddb375ce5c87a9178042f62"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/01_hologram.gdshader",
+                      "size":  911,
+                      "sha256":  "1da56536e9b1575219726149923641144a0c005a987ab16ca16891be559ccfff"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/01_hologram.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "4c6fcb9a4f8926949cb34ff835ae28c53cc40da3b7e35e0309cf669bb8e4e1ec"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/02_ghost.gdshader",
+                      "size":  864,
+                      "sha256":  "a7cfbe3aeff35699575a8a4ad823d19cad709e2e68a569c343a974f2de086f94"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/02_ghost.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "d8d829fa8a6e0895793f2d4b8354c22f85ad8c4b57418bc8415cebeb4da44c09"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/03_toon.gdshader",
+                      "size":  461,
+                      "sha256":  "6699f3fbbf84a2db2bd16523322093037329da409bce2c1b7b844d5cee3de2f6"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/03_toon.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "e4d6cad9c42e56b29851c1fdff4e34d334aab1f2c5e1fbf8d702e706788e858c"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/04_molten.gdshader",
+                      "size":  768,
+                      "sha256":  "9c0d0665db6fb23cd15eef1dcf98f383b300442d7ed362287d3adc1fd17eff8b"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/04_molten.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "f0e1bff6368b27be0222c8cf09c45196ebb4d5fb512c5bc83b979d4549588095"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/05_dissolve.gdshader",
+                      "size":  785,
+                      "sha256":  "23237fab2f543976e4677e535f8fa8acb6d8286642dc54c2f2c0c0f7d65cd984"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/05_dissolve.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "5f5b5f0d3e82e1134ee0b64cc4810fc1d20fa8966236c5ab72774b428d5a9eb8"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/06_matrix.gdshader",
+                      "size":  767,
+                      "sha256":  "7393f84bcd281e2172938315c32c8ae6b6f6983ac1a92bda34d5de3838f04f13"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/06_matrix.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "82aa4eff40eeeb4f67ef8020a575c0972957910c033a4986b663d0bf2dd32d36"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/07_glass.gdshader",
+                      "size":  598,
+                      "sha256":  "0e7b03c696cce7e974c9cccb49f5c2d36560de03710745bce99193012e9055bb"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/07_glass.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "aa2707d771f2721cf9b3156fe449ce0f96b5d85dce3cfe7df96cef8386cd3a34"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/08_shadow.gdshader",
+                      "size":  279,
+                      "sha256":  "05bdf542e6bc08fbd3f5a98ed354d147b29790b2581c353ca3d21423312224ac"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/08_shadow.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "39b6d17001a53a3bd1fd88d1c7d5563c7ebfd7c0cdd5516fb2f760db54296483"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/09_petrified.gdshader",
+                      "size":  648,
+                      "sha256":  "42d46e0beae54c2b06ae1fa7c0086f34534780cde0abbb6f25d00e34d55f58d2"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/09_petrified.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "28dc2745c0d28d89131ddae2884f688cfeacfe513be046e7175879f695481c41"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/aurora_veil_field.gdshader",
+                      "size":  16937,
+                      "sha256":  "c360edf60b1f8837d46bac057ece8cefa82f60c59358a9ea9b4aab1884515e2d"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/aurora_veil_field.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "238c8a8323596f4c154ae6beb4ef965c8f1eea524659576222231bda292cfbdc"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/fire_storm_vortex.gdshader",
+                      "size":  5725,
+                      "sha256":  "5bb2fd383ae61a7ad65e5e36de93f34da44ddff97a57a67a37cfd3cfc1cd2198"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/fire_storm_vortex.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "1da0a4ba68188695fb1205106f2ad032140228a02f914765b304e6b9079547fe"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/ice_storm_flurry.gdshader",
+                      "size":  6126,
+                      "sha256":  "0337ee84d6e86fd9f24a431be1f7c3b840a997289ef406e688da16d6d0199d97"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/ice_storm_flurry.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "343108605b628aac9556240e1588b9e7c0272facf954fc4bd89daaefc31773bc"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/ice_target_encasement.gdshader",
+                      "size":  1503,
+                      "sha256":  "232870807cad6933c475ad7a703246a6e36fd398c6a83fafd4676f9f80ef6a66"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/ice_target_encasement.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "9355a9721d84eaa817aa426c2ce194804939ccf89e1a2757c846a6986e83f5c3"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/magenta_implosion.gdshader",
+                      "size":  27170,
+                      "sha256":  "f77094caaac3d0b89c63d0faa85c7596ffe58d94fd7880d9fe6f525210c1fe54"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/magenta_implosion.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "9219594add547b25d444190ea984ba1a07b09946259e31d8491d806dd1b77b9b"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/solar_storm_field.gdshader",
+                      "size":  24101,
+                      "sha256":  "5a787988a5212b790ed467a9f9854e1cdf4a3fe514d2ee80479cf965f00802c0"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/solar_storm_field.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "59caedd3c6de84355c8f813d75ffc6c3ee710fe7ab7b79095416756a8fb64284"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/spell_cast_footprint_aperture.gdshader",
+                      "size":  3851,
+                      "sha256":  "a79dea0aece534fc60da296c096afa260999bc6eb6cc193b103fc3fbded69473"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/spell_cast_footprint_aperture.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "ae1bd688b5b53d907123bb913bb9c77cad1e09dffa22ee531d5efe7675969e90"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/spell_cast_ghost_rays.gdshader",
+                      "size":  4837,
+                      "sha256":  "e734479f6e9edefeb374db3baa3f1be5ea59bd76015bec6856ee4bbcac0e7b2c"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/spell_cast_ghost_rays.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "69c494c345c7a3070f6c3067f4835b7b100eb47a4033c74ba9dbf79b4c03eac3"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/spell_cast_haze_field.gdshader",
+                      "size":  5809,
+                      "sha256":  "5a1fed4282539f571883259d9502c6a7c7ad84089c046a26b31a435c9c162eac"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/spell_cast_haze_field.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "f31a13f73a52816082dba4a8167b69543276f8c34d9c23028ffbfaf747c4e895"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/technique_charge_aura_v1.gdshader",
+                      "size":  15161,
+                      "sha256":  "b58b937fcb3e2482cc1434126e9e6f30488f59a50bdf0a6e1daddd0a1d4bf193"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/technique_charge_aura_v1.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "311a885c25fa1b20f5a291253999bce3ffd3c9ed2aace4b130e487dba6e7303e"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/technique_charge_aura_v2.gdshader",
+                      "size":  20385,
+                      "sha256":  "7b246cfcf094f3d1f3a6bc40aeecaaf16ddaa6bf72ad35d55744833905650b66"
+                  },
+                  {
+                      "path":  "assets/shaders/effects/technique_charge_aura_v2.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "81ac61240d4e365723ad7cc05d8339f339bf4687e80d4957b0b882fdb09fdba8"
+                  },
+                  {
+                      "path":  "assets/shaders/pixel_aura.gdshader",
+                      "size":  850,
+                      "sha256":  "81d839911768a3db08f5c6e12a6ecfcaf9b62a65a550bbe8be6e0bd49216f26d"
+                  },
+                  {
+                      "path":  "assets/shaders/pixel_aura.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "c9af0624761eeb52ee5ea464c0d57895325671fa31373ceb4b45c7e50279c220"
+                  },
+                  {
+                      "path":  "assets/shaders/retro_surface.gdshader",
+                      "size":  4809,
+                      "sha256":  "9447ac125642a154cd7179ac0eaf6ced1bcc6e66c55a7f43ba8fabeefb4dce3a"
+                  },
+                  {
+                      "path":  "assets/shaders/retro_surface.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "30ae6f5ac52a3e1a4e956690331df9075b326a458a022a8633a6a44992c9f9e8"
+                  },
+                  {
+                      "path":  "assets/shaders/retro_surface_transparent.gdshader",
+                      "size":  2693,
+                      "sha256":  "b056bd15b3bbb310d64703eaef39e988911e0df796dc408482b1e4bd6cfb8117"
+                  },
+                  {
+                      "path":  "assets/shaders/retro_surface_transparent.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "55b6e42519474a21e7ab0c5e3eb63f88eaacc19f97b12c28edf6c847d7bc20a5"
+                  },
+                  {
+                      "path":  "assets/shaders/worldmap_cloud.gdshader",
+                      "size":  4100,
+                      "sha256":  "990c088914e38d5839b46b053fc462bdbc33c99eba9093da2eafb80f65856108"
+                  },
+                  {
+                      "path":  "assets/shaders/worldmap_cloud.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "31bbad8d2a1d73ddcdce1dac69b246edbb09ccf0fb5a26df960c9d29279ec58a"
+                  },
+                  {
+                      "path":  "assets/shaders/worldmap_ground.gdshader",
+                      "size":  16237,
+                      "sha256":  "44fa0edde9554ba7be37ca1b163a8c33d51579f270f3695aafee885a30a91f83"
+                  },
+                  {
+                      "path":  "assets/shaders/worldmap_ground.gdshader.uid",
+                      "size":  19,
+                      "sha256":  "dbc10bcb6daff1e8dce65dd450f7057a3a8bef319d4f7c85503ff317f570bc0e"
+                  },
+                  {
+                      "path":  "assets/shaders/worldmap_prop.gdshader",
+                      "size":  9887,
+                      "sha256":  "496785fd6ddb7fa46fec322e59284ba4b5710c1d56043f47ed169e4ca0972134"
+                  },
+                  {
+                      "path":  "assets/shaders/worldmap_prop.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "75d413bd552c3bab32c385b67f6a4f716b12e9faa369302aec1cdf7e8ef6938b"
+                  },
+                  {
+                      "path":  "assets/shaders/worldmap_sky.gdshader",
+                      "size":  1391,
+                      "sha256":  "bdeed8681b7d6b5d364af98b900d2176a9779cd5891ffb4aa9847ccb898da158"
+                  },
+                  {
+                      "path":  "assets/shaders/worldmap_sky.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "00d8907924afe50acd17cf92a0e1e35aca30df6f3c40d38bba750b2cfe495bf2"
+                  },
+                  {
+                      "path":  "assets/textures/Croak.png",
+                      "size":  1773,
+                      "sha256":  "8dc750a1425974840ed57477e50464a0ace5cd8225629b5b771c9c2661b5ce17"
+                  },
+                  {
+                      "path":  "assets/textures/Croak.png.import",
+                      "size":  765,
+                      "sha256":  "03ded50819f4d11e6947c5df30a87beea04e82fa4d40c4275f09f4c2b3907b54"
+                  },
+                  {
+                      "path":  "assets/textures/Desert Board 1_0.png",
+                      "size":  2215,
+                      "sha256":  "d087480c3fb163623c6790c7e82a7f7b73fbe59f268d35757276edc204dac8c8"
+                  },
+                  {
+                      "path":  "assets/textures/Desert Board 1_0.png.import",
+                      "size":  912,
+                      "sha256":  "3987db70eb653085dd91478a2a7458fb11c740605808a36edf32d3fafdd4c104"
+                  },
+                  {
+                      "path":  "assets/textures/Desertops.png",
+                      "size":  1848,
+                      "sha256":  "8fd556f3f5f0bc0790af9ce668ee4eabef6d665c6dd3f18ac4757faf06daf547"
+                  },
+                  {
+                      "path":  "assets/textures/Desertops.png.import",
+                      "size":  777,
+                      "sha256":  "679da871e5d0b5fe0e05dc87203c46b4780d02556b74e32d2bc36727f389df37"
+                  },
+                  {
+                      "path":  "assets/textures/effects/ice_strip.png",
+                      "size":  962,
+                      "sha256":  "ae78983fc1a8a7fdbc423b8ff0c34ca85d33a563148306c57e8ad56258659c60"
+                  },
+                  {
+                      "path":  "assets/textures/effects/ice_strip.png.import",
+                      "size":  786,
+                      "sha256":  "08742fd380b6da53330142cd9eb3068e3f155ce6fd29bb50f5c24c4f2ecc3492"
+                  },
+                  {
+                      "path":  "assets/textures/effects/snow_strip.png",
+                      "size":  228,
+                      "sha256":  "1a2aa9650a821f150ce0b0830d05481e540b727e712111c6e286e9006fd230ff"
+                  },
+                  {
+                      "path":  "assets/textures/effects/snow_strip.png.import",
+                      "size":  789,
+                      "sha256":  "835d06f49580f24ba9d52f84e6457df6341508bb118a1a72364a90be2ec0fd01"
+                  },
+                  {
+                      "path":  "assets/textures/effects/sparkle_frames.png",
+                      "size":  309,
+                      "sha256":  "2f5cb4a47ec9aec7bb8d911eedc0d9a70e3657007b59c28358248716e7aa1a1b"
+                  },
+                  {
+                      "path":  "assets/textures/effects/sparkle_frames.png.import",
+                      "size":  801,
+                      "sha256":  "5dbdc37d9de3b2f6143e1d2d81e0eac8b790d0c11ca9e2d977e1a9062c23b8c2"
+                  },
+                  {
+                      "path":  "assets/textures/effects/sparkle_strip.png",
+                      "size":  328,
+                      "sha256":  "2bba2b29545fe7cbbe6b7cae0badaa4863ce170c10afc8e1f12343fcb6a140b9"
+                  },
+                  {
+                      "path":  "assets/textures/effects/sparkle_strip.png.import",
+                      "size":  797,
+                      "sha256":  "676ce1678c9b3c711181dcc8080102dd49aad1868a9c7c6ca7bccc425a03352b"
+                  },
+                  {
+                      "path":  "assets/textures/FarmHouse.png",
+                      "size":  2989,
+                      "sha256":  "eb969777d6af93419b2a9befad961c2e5b60f71c03e4ca468cebdfdef74975fe"
+                  },
+                  {
+                      "path":  "assets/textures/FarmHouse.png.import",
+                      "size":  777,
+                      "sha256":  "31e68012b9371b86d3aa9738e8735866ea75acdd5f180524eaf0d1c031f4073c"
+                  },
+                  {
+                      "path":  "assets/textures/FarmHouse2.png",
+                      "size":  2712,
+                      "sha256":  "b425d1b4747349a2ca664a87756c082638a8aa89b1fb5fc79c6c6ea439132f84"
+                  },
+                  {
+                      "path":  "assets/textures/FarmHouse2.png.import",
+                      "size":  779,
+                      "sha256":  "e74e0cc2c6142f8ffaf1e3520a71d659901a1334d3d7ae88e4e934334ff6579c"
+                  },
+                  {
+                      "path":  "assets/textures/FirstFarm.png",
+                      "size":  5292,
+                      "sha256":  "fccbb97d039465f47129bfb1ae3bbd031a7251ad021b861eab6ed3feba8cf3c0"
+                  },
+                  {
+                      "path":  "assets/textures/FirstFarm.png.import",
+                      "size":  777,
+                      "sha256":  "30e8fda3b607bfa0d3459606ada72b6366532331ecb63644f441750e339c8e64"
+                  },
+                  {
+                      "path":  "assets/textures/Hills Board 1_0.png",
+                      "size":  3629,
+                      "sha256":  "7a7d9842c2276ab38748000ea03cd09b1c224e95219ce0efe298463acc7c2d40"
+                  },
+                  {
+                      "path":  "assets/textures/Hills Board 1_0.png.import",
+                      "size":  909,
+                      "sha256":  "77e21b4f5097fd891170f7d64dc8407a12a3a3af911421c22d212549771a89d1"
+                  },
+                  {
+                      "path":  "assets/textures/Hillslingon.png",
+                      "size":  5139,
+                      "sha256":  "dc5d0722acb1fcef50317b1a0b1c28a40bafd35574640086038fa39b894dd1d4"
+                  },
+                  {
+                      "path":  "assets/textures/Hillslingon.png.import",
+                      "size":  783,
+                      "sha256":  "083b2cb8507b21ccadf6249ff97df30bf76602cd52e417c446cc1f934eed33b8"
+                  },
+                  {
+                      "path":  "assets/textures/Ice Golem.png",
+                      "size":  884,
+                      "sha256":  "fe12b8d1207608e24ac5ebf9c72bdb54374ea6965ffe343a870edebaf0addde5"
+                  },
+                  {
+                      "path":  "assets/textures/Ice Golem.png.import",
+                      "size":  777,
+                      "sha256":  "f282c9c767a21f4da2e7e2aff22bb404dbee63fa1da69833ca4cd46fe60fbb42"
+                  },
+                  {
+                      "path":  "assets/textures/icon.png",
+                      "size":  3498,
+                      "sha256":  "b5fad4ab419bc3152d018bc6d58d046d7ab92a7311449066824b3201c91935e7"
+                  },
+                  {
+                      "path":  "assets/textures/icon.png.import",
+                      "size":  810,
+                      "sha256":  "60b3d094b0e1e3064b8ffb109d8691e2012ff57ae3115267756ec7503e6faefc"
+                  },
+                  {
+                      "path":  "assets/textures/Katherine with Hoshigami Style.png",
+                      "size":  1511,
+                      "sha256":  "82740ec66e0eac4d26a208e83b7cb04e4e219e3b80175606731b765a8ca840c1"
+                  },
+                  {
+                      "path":  "assets/textures/Katherine with Hoshigami Style.png.import",
+                      "size":  840,
+                      "sha256":  "658d7932d4cc490cea88632ef0dbedc39db9da15b26b2877791acdf4c1fe267f"
+                  },
+                  {
+                      "path":  "assets/textures/Map Attempt Nov2025 v2_0.png",
+                      "size":  5050,
+                      "sha256":  "3c7240868de25335d2010e153a1d37ae4ba6304c6a67dfb264c0ef6a6adaf283"
+                  },
+                  {
+                      "path":  "assets/textures/Map Attempt Nov2025 v2_0.png.import",
+                      "size":  937,
+                      "sha256":  "d73f8896aab17a3be720a1050bd3f89bc03f5712b76fea01149f8d125ea5ae59"
+                  },
+                  {
+                      "path":  "assets/textures/Map Attempt Nov2025_0.png",
+                      "size":  6642,
+                      "sha256":  "274b36e0e0f568121c04bb70e4d1fdfcaac19dbe77322966c745d0bfc267d7ed"
+                  },
+                  {
+                      "path":  "assets/textures/Map Attempt Nov2025_0.png.import",
+                      "size":  928,
+                      "sha256":  "fce337d3c827328a75d749908cd92f138ed0565765088d3d8c3d88eb7f6e3005"
+                  },
+                  {
+                      "path":  "assets/textures/Pot Girl.png",
+                      "size":  1371,
+                      "sha256":  "146fa5708a68108fa661f964090dbf0fc55effbf902c6f4bdfec9bb8f216e806"
+                  },
+                  {
+                      "path":  "assets/textures/Pot Girl.png.import",
+                      "size":  773,
+                      "sha256":  "5149935ec91e574043dce2eab428d4cb2cc00061d60d52b97fb5e092a621fd3c"
+                  },
+                  {
+                      "path":  "assets/textures/Skies.png",
+                      "size":  785,
+                      "sha256":  "295880c29f81b17320569137bbd3a2f33f4136a9a0290b681f3aca745640d0eb"
+                  },
+                  {
+                      "path":  "assets/textures/Skies.png.import",
+                      "size":  765,
+                      "sha256":  "3b51a30afedf7626153d741630b15ac0320b417485ea093b973fe958d752b6ba"
+                  },
+                  {
+                      "path":  "assets/textures/Skies2.png",
+                      "size":  931,
+                      "sha256":  "0215e993191521050600407fee0fa578f9f7adbb641a9ab7dd4e0dbc0170581a"
+                  },
+                  {
+                      "path":  "assets/textures/Skies2.png.import",
+                      "size":  815,
+                      "sha256":  "ea297a8821afb7f8952e0d2d605498f90fbec74b94d6fefea63571d6c40962c8"
+                  },
+                  {
+                      "path":  "assets/textures/Skies3.png",
+                      "size":  1041,
+                      "sha256":  "11a6da3af535e364f3cbddb889ad9ddebc79dcc9c598166802717447bb86da90"
+                  },
+                  {
+                      "path":  "assets/textures/Skies3.png.import",
+                      "size":  768,
+                      "sha256":  "02c0e355b4a484735e537293a38e214b0ed851486a9eeba102b3ba638287a000"
+                  },
+                  {
+                      "path":  "assets/textures/sky/retro_sky.gdshader",
+                      "size":  2193,
+                      "sha256":  "61540733c701fe246d930a642ca92370d1b8ca8732b7ec83e6532e64b6949659"
+                  },
+                  {
+                      "path":  "assets/textures/sky/retro_sky.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "ce8497f397bc1d9f4f117a6610be6e1b8be01473b7fe84a2c2380607af8cb907"
+                  },
+                  {
+                      "path":  "assets/textures/sky/retro_sky_2d.gdshader",
+                      "size":  2391,
+                      "sha256":  "2c33323aa0c2b83df5a39421fa3cd5e5aac7f35855f152b271433ebf45378d39"
+                  },
+                  {
+                      "path":  "assets/textures/sky/retro_sky_2d.gdshader.uid",
+                      "size":  20,
+                      "sha256":  "f8d9d7217521837997cdbf9525bcb4563de0347a77dc5ef443f011cf5f91d7c4"
+                  },
+                  {
+                      "path":  "assets/ui/Board2D.png",
+                      "size":  646,
+                      "sha256":  "c247aeaaf221f07578f899a7ec6e38d11daed91f010fefc738e58f6b5dfc1fb2"
+                  },
+                  {
+                      "path":  "assets/ui/Board2D.png.import",
+                      "size":  813,
+                      "sha256":  "6de8eadd0aef32026375c2b73ba2caaad41bf8c7d45f8c2206b54cec6d3271da"
+                  },
+                  {
+                      "path":  "assets/ui/briganborders.png",
+                      "size":  477,
+                      "sha256":  "8b7d830fbdc2d9029134b89c503ead0eb464d0a5a04acb3c941cb40adf2ede6f"
+                  },
+                  {
+                      "path":  "assets/ui/briganborders.png.import",
+                      "size":  782,
+                      "sha256":  "61b72f5622b46f4bffa77021124676fc1fca3e03dbb0be7c307c8f199e3c52d0"
+                  },
+                  {
+                      "path":  "assets/ui/MenuCorner.png",
+                      "size":  191,
+                      "sha256":  "89084b8b7046066041edb45c98903a6ab95101b81239da77a0a85cf391e77456"
+                  },
+                  {
+                      "path":  "assets/ui/MenuCorner.png.import",
+                      "size":  822,
+                      "sha256":  "d16ab0707caeeb8a79d4d1c762a94ebd1dbf1de385edd5223a9acba5ee037557"
+                  },
+                  {
+                      "path":  "assets/ui/MenuFull.png",
+                      "size":  358,
+                      "sha256":  "d77ea5f43800f86258e684fce8ca54db72c290627cfff1773192bdaa5813abc2"
+                  },
+                  {
+                      "path":  "assets/ui/MenuFull.png.import",
+                      "size":  767,
+                      "sha256":  "441f6f97dfb2462adb30b42aae28d4196f56788b3f8815109ffa6473e86238d0"
+                  },
+                  {
+                      "path":  "assets/ui/MenuLine.png",
+                      "size":  123,
+                      "sha256":  "28baa50c7d30e29deba3cd2faae63aa62a3b74adce61a7f91ef6c4907b3d520e"
+                  },
+                  {
+                      "path":  "assets/ui/MenuLine.png.import",
+                      "size":  768,
+                      "sha256":  "2c036fc285e9e019858e093d6fa3b9ddecafc4322a4294bc48c724a5197aa763"
+                  },
+                  {
+                      "path":  "assets/ui/MenuLine2.png",
+                      "size":  117,
+                      "sha256":  "d60a633f5df9e87ca908b9b0b5039d5af01fb4e3f4840663171449fd2c5e73c6"
+                  },
+                  {
+                      "path":  "assets/ui/MenuLine2.png.import",
+                      "size":  771,
+                      "sha256":  "a6d8313bb6182fbae8144ce791cc50b9d23e13375554d2bec520c28977b247c9"
+                  },
+                  {
+                      "path":  "assets/ui/MenuMiddle.png",
+                      "size":  99,
+                      "sha256":  "d0b4f53b4b77e4b66d05fe3095a73947fdf228d114ca9bce3f11116a1e0d0514"
+                  },
+                  {
+                      "path":  "assets/ui/MenuMiddle.png.import",
+                      "size":  774,
+                      "sha256":  "3135ecf9d6373e447e839d52b0d9f6682e9c7d0186662ff07d5e80e3d0d5e62c"
+                  },
+                  {
+                      "path":  "assets/ui/references/brigandine2.png",
+                      "size":  99313,
+                      "sha256":  "80fd41ebf909141b26f4b690ad8a783a6f176136b351a7886f1d77aed4aa26af"
+                  },
+                  {
+                      "path":  "assets/ui/references/brigandine2.png.import",
+                      "size":  787,
+                      "sha256":  "eabf4d69c3fafc42eaf547d404f80986a4dcd9a178f8acaaa452c9dec39399c0"
+                  },
+                  {
+                      "path":  "assets/ui/texture.png",
+                      "size":  94,
+                      "sha256":  "17b9ce262d64866c3627bc5b6ea97046d71f144e02ac68b8e5b55194ad79e021"
+                  },
+                  {
+                      "path":  "assets/ui/texture.png.import",
+                      "size":  813,
+                      "sha256":  "b6ae729271df7485d9c88a9909217bf5ce7b1889a8ce542e3a12830d6694eed5"
+                  },
+                  {
+                      "path":  "assets/vfx/aurora_veil/preview_veil_field.py",
+                      "size":  7350,
+                      "sha256":  "f38cf0864d0f87d413b52045eeeb278977de3053da42ebfed5a4bda6114e05ec"
+                  },
+                  {
+                      "path":  "assets/vfx/solar_storm/preview_storm_field.py",
+                      "size":  7474,
+                      "sha256":  "8996133f5c95c779de6e42173c1b6232756b932c5302de82f8d81c2221bd4720"
+                  },
+                  {
+                      "path":  "assets/vfx/spell_cast_aura/compare_replica.py",
+                      "size":  29192,
+                      "sha256":  "daccae3ad4f0b79aac8cede2ad02e0b0f099b5a91b14b40dd1cae83c2b12b34d"
+                  },
+                  {
+                      "path":  "assets/vfx/spell_cast_aura/generate_plume_atlas.py",
+                      "size":  7686,
+                      "sha256":  "92d2fbc604ee287746bd0c9afbbc5bea16aa54ac47f30b55033ad3277b3ba4a3"
+                  },
+                  {
+                      "path":  "assets/vfx/spell_cast_aura/plume_flow_atlas.png",
+                      "size":  385745,
+                      "sha256":  "749521b289417f55cd7237cf889f0e744dddc08d25033cc93fc99acf672523e0"
+                  },
+                  {
+                      "path":  "assets/vfx/spell_cast_aura/plume_flow_atlas.png.import",
+                      "size":  809,
+                      "sha256":  "f0b3b31e9172ba0288e20a765492fe4e1adc0d2729377bdb69ea0756c704f34f"
+                  },
+                  {
+                      "path":  "assets/vfx/spell_cast_aura/replica_baseline.json",
+                      "size":  27819,
+                      "sha256":  "8a9d4c1a7366c5b0d831496baf20576e2d40c4328adf37f362eb746b1cc01fd8"
+                  },
+                  {
+                      "path":  "assets/vfx/spell_cast_aura/replica_convergence.json",
+                      "size":  47680,
+                      "sha256":  "f961fb8f8c98d001b972c17542736555507598568b1b8babb93eac8a2cd2a94a"
+                  },
+                  {
+                      "path":  "assets/vfx/spell_cast_aura/source_measurements.json",
+                      "size":  5175,
+                      "sha256":  "886be692d719785069dd9a14d6bbcd0165932ff54b6947d11038e1cf8cb4f9f3"
+                  },
+                  {
+                      "path":  "assets/vfx/technique_charge_aura/aura_panel.png",
+                      "size":  7565,
+                      "sha256":  "96f7e3e75d35d40bd6e73bfaa173f5f56a0d3891cd5901a7c0920b943bd4e2b3"
+                  },
+                  {
+                      "path":  "assets/vfx/technique_charge_aura/aura_panel.png.import",
+                      "size":  798,
+                      "sha256":  "6bd7290c2c6ce03999ff5b0ad666a329bd3122a7b8c3b4185ed2dc074dc6baa4"
+                  },
+                  {
+                      "path":  "assets/vfx/technique_charge_aura_v2/aura_panel.png",
+                      "size":  7565,
+                      "sha256":  "96f7e3e75d35d40bd6e73bfaa173f5f56a0d3891cd5901a7c0920b943bd4e2b3"
+                  },
+                  {
+                      "path":  "assets/vfx/technique_charge_aura_v2/aura_panel.png.import",
+                      "size":  800,
+                      "sha256":  "5b735a4b21e06f804c00050cac37e92ccff4dbdf614f11d2afd6eb5f66f039e0"
+                  },
+                  {
+                      "path":  "assets/worldmap/clouds/temp2_clouds.png",
+                      "size":  1064,
+                      "sha256":  "821359f311ec57a907e3fa7b3fbcec849eb770c0fd390593497f000539371c1b"
+                  },
+                  {
+                      "path":  "assets/worldmap/clouds/temp2_clouds.png.import",
+                      "size":  793,
+                      "sha256":  "eee3aacd407b11c16d10a2c40d85b4527aac975eeaf4a292144e1ef84e379131"
+                  },
+                  {
+                      "path":  "assets/worldmap/regions/generated/temp2_authored.png",
+                      "size":  1687,
+                      "sha256":  "e5c8e17e2d1740e3613b80a0df648c44d3c49a558b81d9a51776fc77bebd1baa"
+                  },
+                  {
+                      "path":  "assets/worldmap/regions/generated/temp2_authored.png.import",
+                      "size":  809,
+                      "sha256":  "32e824d2e16ec90bb56cee6e57a8db558c00ea9f164382eab67b298b8570aa5e"
+                  },
+                  {
+                      "path":  "assets/worldmap/regions/generated/temp2_hex32.png",
+                      "size":  2379,
+                      "sha256":  "74b6e369e07fc2b4efc343b366d6d860e9b41cc9632de86ba11f5d8b79fabd1a"
+                  },
+                  {
+                      "path":  "assets/worldmap/regions/generated/temp2_hex32.png.import",
+                      "size":  799,
+                      "sha256":  "407b4e22d70c74323bd8472649e027922d7cbe8354f75c6d4a20fced3c7aa0fb"
+                  },
+                  {
+                      "path":  "assets/worldmap/regions/temp.png",
+                      "size":  301007,
+                      "sha256":  "48b00b3fcde39f79342966919fe250b016804f3a149d7158d0317584dbbacc35"
+                  },
+                  {
+                      "path":  "assets/worldmap/regions/temp.png.import",
+                      "size":  768,
+                      "sha256":  "7d3c51dc313283a02eba61ebd17d9f1e32cff523db23e506db7264106633f6df"
+                  },
+                  {
+                      "path":  "assets/worldmap/regions/temp2.png",
+                      "size":  3299,
+                      "sha256":  "f69072d4bafb32c5a5df3612451e75667dadd06f4f6579527d4293221a78a340"
+                  },
+                  {
+                      "path":  "assets/worldmap/regions/temp2.png.import",
+                      "size":  772,
+                      "sha256":  "060938a850edab402ca88d02b52cd4f94efba2383f04baaa4089eb62673a8ee0"
+                  },
+                  {
+                      "path":  "assets/worldmap/skies/temp2_sunset.png",
+                      "size":  940,
+                      "sha256":  "f68c5e4901356188739c328a76eca36c6996670c4833ed404ee5f800fe9ab1f7"
+                  },
+                  {
+                      "path":  "assets/worldmap/skies/temp2_sunset.png.import",
+                      "size":  792,
+                      "sha256":  "aafb5efb9671a57141cfe87340449fba78b1bb7a3e3a43f94a6b61ae862fe194"
+                  },
+                  {
+                      "path":  "assets/worldmap/tilesets/temp2_ground.png",
+                      "size":  1019,
+                      "sha256":  "4347486844bd59ef78658a8a0a83261a31ee76b670f331c89f68eb5139a8464c"
+                  },
+                  {
+                      "path":  "assets/worldmap/tilesets/temp2_ground.png.import",
+                      "size":  795,
+                      "sha256":  "e829227e770122d67ebbbef58c6a01af24c310b676aa49b6537b377d66f4b859"
+                  },
+                  {
+                      "path":  "assets/worldmap/tilesets/temp2_hex32_ground.png",
+                      "size":  6122,
+                      "sha256":  "8f3608eda974e83c11a46a56ba39e40b4b11ae0e4f1810968d310a921b9c87ce"
+                  },
+                  {
+                      "path":  "assets/worldmap/tilesets/temp2_hex32_ground.png.import",
+                      "size":  812,
+                      "sha256":  "8cdba4a72f395b02ca66c387167720011d4ac8db4055c4ce1ac663f994b9eccd"
+                  },
+                  {
+                      "path":  "data/.gitkeep",
+                      "size":  0,
+                      "sha256":  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                  },
+                  {
+                      "path":  "data/archetypes.json",
+                      "size":  528,
+                      "sha256":  "fce3bfb56a9b9043e5831b71a51727caa59b9146a3d4f6a377be87a42535ad46"
+                  },
+                  {
+                      "path":  "data/elements.json",
+                      "size":  453,
+                      "sha256":  "03ef7992fafe59a14d4849d51d69078bf4807e57eafe780df17f277e3e8dcece"
+                  },
+                  {
+                      "path":  "data/maps.json",
+                      "size":  5194,
+                      "sha256":  "92fa167b8a46a298efab8d40c952e1662865f2fab2813b269840ed48453c2a5b"
+                  },
+                  {
+                      "path":  "data/monsters.json",
+                      "size":  12483,
+                      "sha256":  "c0bc84d76ac38471dac6d22186133d920110365eb4f24271ae63df229528e326"
+                  },
+                  {
+                      "path":  "data/passives.json",
+                      "size":  439,
+                      "sha256":  "53d823a06968e89e08eb1ef1e696399509f977323035f5d6f15ba2b5d7538d29"
+                  },
+                  {
+                      "path":  "data/spells.json",
+                      "size":  16577,
+                      "sha256":  "4cfb718df296be60e62666d6d34fcfb363496ec070c8a3e373e1166619df71dc"
+                  },
+                  {
+                      "path":  "data/status_effects.json",
+                      "size":  975,
+                      "sha256":  "ffc72f01fa45ea8a1cd65f0ad73d1d34741ae4c3ffa80759ba7b30f7135adbc3"
+                  },
+                  {
+                      "path":  "data/taxonomy.json",
+                      "size":  3446,
+                      "sha256":  "67bc3d69501a3f56f8b4d9fc30668a897487e15e945d0e99ff1ff326f12706cb"
+                  },
+                  {
+                      "path":  "data/worldmap/authored/temp2_authored.json",
+                      "size":  2132,
+                      "sha256":  "3bb211efae36fe6c481befd4a689d397901260389995a735c1c9d403ac17d61d"
+                  },
+                  {
+                      "path":  "data/worldmap/regions.json",
+                      "size":  2859,
+                      "sha256":  "1632ce40cae3a3887f6cb5b57d0b5446ab377d816cfbe898a5e4f58db63b74c4"
+                  },
+                  {
+                      "path":  "data/worldmap/tilesets.json",
+                      "size":  26770,
+                      "sha256":  "6e8a8ada55b37e87bb01737e752987d4f5a41235efa8f93282e18e685a1a8bc7"
+                  },
+                  {
+                      "path":  "docs/README.md",
+                      "size":  2565,
+                      "sha256":  "4d2f08cdb77a36342ae609cb2a14ad54f857a9839cee2e1f47d05ac0990da500"
+                  },
+                  {
+                      "path":  "export_presets.cfg",
+                      "size":  696,
+                      "sha256":  "2015b7cbeabde5738c3b5652991158015088f173d6063c34c498ac08f75d4b04"
+                  },
+                  {
+                      "path":  "project.godot",
+                      "size":  923,
+                      "sha256":  "cffeb955ab889b9a57add619b5b395f0c18cbd7fe0280312129553122251b216"
+                  },
+                  {
+                      "path":  "scenes/Battle25D.tscn",
+                      "size":  253,
+                      "sha256":  "e496d37e9f6c6ed1ddbdffccaa0fafdea735005d03182d7d22f17f2d9ae6c3a8"
+                  },
+                  {
+                      "path":  "scenes/debug/BattleDebugScene.tscn",
+                      "size":  260,
+                      "sha256":  "82e73faa0c6921368a870298864de9b52927d253a1b32f31c48de76816f13aed"
+                  },
+                  {
+                      "path":  "scenes/debug/VFXDebugScene.tscn",
+                      "size":  16959,
+                      "sha256":  "54b9ce5c841d0f15cc1675c524baba266641cbafe2fd7ad65928dbda047f62d1"
+                  },
+                  {
+                      "path":  "scenes/debug/WorldMapDebugScene.tscn",
+                      "size":  1367,
+                      "sha256":  "10a57834b62d0f5f2c125e854484fbeaad72534facb6d3db0f00ef1930498e57"
+                  },
+                  {
+                      "path":  "scenes/debug/WorldMapEditorScene.tscn",
+                      "size":  1673,
+                      "sha256":  "969f777163fe2edba47d6b705b5a560d7e633f13cc7f2356deed23fb19f714ee"
+                  },
+                  {
+                      "path":  "scenes/entities/Monster.tscn",
+                      "size":  876,
+                      "sha256":  "f3c539bc08a57bf1469cfd3e85e6521f2e3aa84ac1eeaae39f19e017c7f43bd6"
+                  },
+                  {
+                      "path":  "scenes/map01.tscn",
+                      "size":  544,
+                      "sha256":  "c87269d1044ee246a9e33f4794d44f58615cc2bfa01e94933dfe2b442fc0238e"
+                  },
+                  {
+                      "path":  "scenes/WorldMap.tscn",
+                      "size":  1105,
+                      "sha256":  "28794ea7df339b169a52f715dcefc24cbb81748d3b59214a58bdc28794de5f2c"
+                  },
+                  {
+                      "path":  "scripts/demo_battle.gd",
+                      "size":  1110,
+                      "sha256":  "26c7c28cd90506ca036a227f3afb73d04367a1f3f80e6d08ca4bfdb437fd7b6f"
+                  },
+                  {
+                      "path":  "scripts/demo_battle.gd.uid",
+                      "size":  20,
+                      "sha256":  "828f56d3b6eecb51ca4ddb266cc8e3d20250452b4d0a9e93f64805d2eed7e55c"
+                  },
+                  {
+                      "path":  "src/algorithms/AStarPathfinder.gd",
+                      "size":  2610,
+                      "sha256":  "3ade3d28b5e7c42a5e7c8461af54543b25754d047e8828ca0a6f979b84a24a77"
+                  },
+                  {
+                      "path":  "src/algorithms/AStarPathfinder.gd.uid",
+                      "size":  20,
+                      "sha256":  "0734b08bc123d00a65f2425def769600c26e2825efad6ee02bbdcd7ddf6be413"
+                  },
+                  {
+                      "path":  "src/algorithms/BFSFloodFill.gd",
+                      "size":  1337,
+                      "sha256":  "0baef236361a555cd27b0be87b46513e26659221ef7f499f90b816bb2d68d395"
+                  },
+                  {
+                      "path":  "src/algorithms/BFSFloodFill.gd.uid",
+                      "size":  19,
+                      "sha256":  "2384cd2088d451f0a6e980be58b84bcd8ad966a8a44ea743dde370c66030860e"
+                  },
+                  {
+                      "path":  "src/algorithms/LineOfSight.gd",
+                      "size":  2821,
+                      "sha256":  "2d4ee0281d6018bc612a128c2f8cd76de002e6c1d487b308f6da71e4a9da8090"
+                  },
+                  {
+                      "path":  "src/algorithms/LineOfSight.gd.uid",
+                      "size":  19,
+                      "sha256":  "bd8b636bb57778d7451daa2730823cad4acb0a7ff8106d54bff600c4e21f691b"
+                  },
+                  {
+                      "path":  "src/algorithms/ParabolicArc.gd",
+                      "size":  2304,
+                      "sha256":  "781b56fdbf7bec7129bc05e5230e12022dcb42c21ce4af64d31c0fe56d3cc2d1"
+                  },
+                  {
+                      "path":  "src/algorithms/ParabolicArc.gd.uid",
+                      "size":  20,
+                      "sha256":  "37d7b0b683233ad040ab5910f485e5cf3a5b1c61ae5f5c472d1784621d005e0b"
+                  },
+                  {
+                      "path":  "src/algorithms/ShapeCaster.gd",
+                      "size":  1460,
+                      "sha256":  "df2aa8f26bad88c4aa7dee7ed2d9b18041e6fa47ed2edbf96888505bef6b7466"
+                  },
+                  {
+                      "path":  "src/algorithms/ShapeCaster.gd.uid",
+                      "size":  20,
+                      "sha256":  "55f114815dff90874aa497f92a9e676c899d4e6b20f0b820482c3acf8daf4937"
+                  },
+                  {
+                      "path":  "src/algorithms/ThreatMap.gd",
+                      "size":  6305,
+                      "sha256":  "67a79aeacb812808fc8fe8f38e6b9d55e3d6eac64e286294c80c0fbc35e0ff93"
+                  },
+                  {
+                      "path":  "src/algorithms/ThreatMap.gd.uid",
+                      "size":  20,
+                      "sha256":  "8148867fa465a527f8db2c25caa6722fe224c0d0c032b48e86aa4a600184b846"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleCommand.gd",
+                      "size":  1990,
+                      "sha256":  "94620c5dee75bd6f972763642bb2abea78bbd5e7a9c164697b19abf0b718ad91"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleCommand.gd.uid",
+                      "size":  20,
+                      "sha256":  "48123498043f5d1865653321a4ddd90f16708eb4e347e91797c82fb0f907f98b"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleCommandResult.gd",
+                      "size":  1842,
+                      "sha256":  "aa68d44586a5c9da1ae689c1e3b2f93c1ae6a10d0514b1ac7db3c6ecb4656b19"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleCommandResult.gd.uid",
+                      "size":  20,
+                      "sha256":  "c1cee9e98905ad58479b2f4274a7387da0c795e2930bd7f18be1e00726c2bd71"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleEvents.gd",
+                      "size":  2456,
+                      "sha256":  "63d7943b9ec39c80d8756fc8befb860df9a1491f0abaa86168916cc4009ae61a"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleEvents.gd.uid",
+                      "size":  20,
+                      "sha256":  "e4530c9d00a323c65772e9fad8a0721a29dae5f51cd1612a779d8648f9fd31fe"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleReplayRunner.gd",
+                      "size":  3852,
+                      "sha256":  "33bd7184c1534c654733081514c1e5d72c6e65f356a3ce516782f38116edc844"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleReplayRunner.gd.uid",
+                      "size":  20,
+                      "sha256":  "58e5a111c226a9bb798bdb62df365999c0ba36635347bbf9e16f138f115a45d2"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleSetupConfig.gd",
+                      "size":  3294,
+                      "sha256":  "821a1d5d6e1e6b20bd8b841bb8f517d52f0f7fd236feddcd19496aa53b01ffe8"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleSetupConfig.gd.uid",
+                      "size":  20,
+                      "sha256":  "11fdc1f59bab123c744dd9522f12389db134147915a1963fe751e968ad7be6ff"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleSetupFactory.gd",
+                      "size":  1128,
+                      "sha256":  "481f3188d5c53416e48c973268aa1124b8e66f7455913f7d39ca2f0113ecfa8d"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleSetupFactory.gd.uid",
+                      "size":  19,
+                      "sha256":  "d658aad162eac40d004b1a49a85f1642f5fc3f546293ab78141fabbc70a0432e"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleSetupValidationResult.gd",
+                      "size":  924,
+                      "sha256":  "6b96ff19d7e0aa910875c91b23df0460baaf63e8b63c812198b48101011ff237"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleSetupValidationResult.gd.uid",
+                      "size":  20,
+                      "sha256":  "7511380c438e6b7f12767d5da7798b193612ea49f62d2691c19f7be5ecbb5aa1"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleSimulator.gd",
+                      "size":  24065,
+                      "sha256":  "8bd6e842c6d092b2d187229348b8557cf072370fa5ac506284312299e7703b6f"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleSimulator.gd.uid",
+                      "size":  20,
+                      "sha256":  "b3e68dacb8d9d67bb1aebd60c3d782219e7d8a0025bf79dfa901b88317745c7f"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleState.gd",
+                      "size":  10453,
+                      "sha256":  "aa189a0f18197ddd9de6b77daac80d42e27d59a6f2cb79d78d003abd4fe24c21"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleState.gd.uid",
+                      "size":  20,
+                      "sha256":  "c4db6f65810575d785fcfaa7562c7569fee5c0a062e6deb1d8397dab949cf371"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleStateSerializer.gd",
+                      "size":  8101,
+                      "sha256":  "2e8a836056c2dc70b81cdf2885955c2d0b80f373226564635bdf282ac4cf46fd"
+                  },
+                  {
+                      "path":  "src/battle_sim/BattleStateSerializer.gd.uid",
+                      "size":  19,
+                      "sha256":  "436f818091a0fab2cdb04bf8e78d0f45aac167b490a0da5fadf7d208b067ebd6"
+                  },
+                  {
+                      "path":  "src/battle_sim/CombatResolver.gd",
+                      "size":  21149,
+                      "sha256":  "9dc86d5d81377c3bcbf7b3b53f50ddd28e4c3fbadc4c34805809b62d02d51dec"
+                  },
+                  {
+                      "path":  "src/battle_sim/CombatResolver.gd.uid",
+                      "size":  20,
+                      "sha256":  "44ffb5151687e887cc292ab2909b1bc2015a0fc76fc451c5588e37d2a69dcf44"
+                  },
+                  {
+                      "path":  "src/battle_sim/DirectDamageRules.gd",
+                      "size":  1199,
+                      "sha256":  "76b702ffaa2837f45c67046d7b722fe9f66ed7350fb01d478a9b9974495dca9d"
+                  },
+                  {
+                      "path":  "src/battle_sim/DirectDamageRules.gd.uid",
+                      "size":  20,
+                      "sha256":  "d2535759d9c3be18f159c3a2c45b0b424c4c796a6b37afa8222d990dc8bce3f5"
+                  },
+                  {
+                      "path":  "src/battle_sim/IBattleVisualAdapter.gd",
+                      "size":  6097,
+                      "sha256":  "b151e8247da6fd52b9289a470216bb4f16520c29d46300e0e439edb55687c37b"
+                  },
+                  {
+                      "path":  "src/battle_sim/IBattleVisualAdapter.gd.uid",
+                      "size":  20,
+                      "sha256":  "1d8fe3b79942d74c37abbb86c10722eaf2f9cea9f00f1cc59f2413106193014f"
+                  },
+                  {
+                      "path":  "src/battle_sim/MonsterStatCalculator.gd",
+                      "size":  972,
+                      "sha256":  "0b655678e25db0f83625728df864428b90335835b337b9d83231fcf9d6243edd"
+                  },
+                  {
+                      "path":  "src/battle_sim/MonsterStatCalculator.gd.uid",
+                      "size":  20,
+                      "sha256":  "9cb1b99f987faa2e8479511f9a62bbd2cd1870579ad148221a3c49a3bc1e3b3c"
+                  },
+                  {
+                      "path":  "src/battle_sim/MovementResolver.gd",
+                      "size":  3897,
+                      "sha256":  "13f91d4cef8f7233a0fa21cc063ceaa1f601a9f9caa5fb6f209532779d42a786"
+                  },
+                  {
+                      "path":  "src/battle_sim/MovementResolver.gd.uid",
+                      "size":  20,
+                      "sha256":  "dac93d9fb6f0e0313e20ae9b817834a621bb2877b8506f3c6f85de627b827e23"
+                  },
+                  {
+                      "path":  "src/battle_sim/PassiveSkillResolver.gd",
+                      "size":  6206,
+                      "sha256":  "4a0ec1c43b1e3d8f2d9573f0ff3e533275c56bbe21d63a68c0268d82e9d805e7"
+                  },
+                  {
+                      "path":  "src/battle_sim/PassiveSkillResolver.gd.uid",
+                      "size":  19,
+                      "sha256":  "d3884c6a6ce34ada9bd2fef83f9e80abf421e459de61a42830dd08a8e41d8468"
+                  },
+                  {
+                      "path":  "src/battle_sim/ReachQuery.gd",
+                      "size":  2093,
+                      "sha256":  "ef8ce1c5fbeaa1ec275ff12377354d427c6630a3cd162a08ee57f76f21e9f172"
+                  },
+                  {
+                      "path":  "src/battle_sim/ReachQuery.gd.uid",
+                      "size":  20,
+                      "sha256":  "f721c422e073030e72b08e6a18ba9a37d7b150f9fdc53c3fdcb5e3e64c558f64"
+                  },
+                  {
+                      "path":  "src/battle_sim/SpellEffectResolver.gd",
+                      "size":  9816,
+                      "sha256":  "5ca181038498ab63f8e20df9fe595319a0c11e76dedd7864107c2cea1fb7ca1c"
+                  },
+                  {
+                      "path":  "src/battle_sim/SpellEffectResolver.gd.uid",
+                      "size":  20,
+                      "sha256":  "a27ee6695d1f7d1be8f85ad46fd904a552fe3a88b39d3b52c5d6edbffddf3109"
+                  },
+                  {
+                      "path":  "src/battle_sim/TurnManager.gd",
+                      "size":  4051,
+                      "sha256":  "0b37ece30afead786e764a568ea5e4a33bca3cf30e4a787399426c61676988bc"
+                  },
+                  {
+                      "path":  "src/battle_sim/TurnManager.gd.uid",
+                      "size":  20,
+                      "sha256":  "46a8f0a1b4bacce5447bba8774c54609920b65400ed781fb8acd0d225904b07d"
+                  },
+                  {
+                      "path":  "src/board/BattleBoard.gd",
+                      "size":  1655,
+                      "sha256":  "41909d3d60e6ffe62704b99d73d4575d5be100df32f7f6aed061b5649401706f"
+                  },
+                  {
+                      "path":  "src/board/BattleBoard.gd.uid",
+                      "size":  20,
+                      "sha256":  "1868f127353982c5281fdb0dc4b58b616194c7f3def97b10d8a2b3b5bb98e6cf"
+                  },
+                  {
+                      "path":  "src/board/Matrix.gd",
+                      "size":  376,
+                      "sha256":  "c8aceec50c488bc94d66e3d681e94f4a8032b005c904048866c5e7ca97465085"
+                  },
+                  {
+                      "path":  "src/board/Matrix.gd.uid",
+                      "size":  19,
+                      "sha256":  "5cbc119c058d78409e5ea793d22196436e48f041b73f0a9aa01dcc046aaf354b"
+                  },
+                  {
+                      "path":  "src/entities/Map.gd",
+                      "size":  428,
+                      "sha256":  "5bdc351ab75172974f82f27db48a136a6d581fd948ada0c24f2c18ecaca91011"
+                  },
+                  {
+                      "path":  "src/entities/Map.gd.uid",
+                      "size":  20,
+                      "sha256":  "74e77e9d45217d03d498d933f71b6db4b85715d3c4d985a4045f7f3dd7c933d7"
+                  },
+                  {
+                      "path":  "src/entities/Monster.gd",
+                      "size":  8436,
+                      "sha256":  "ab9967916bcc3ba06e2d51e46105f036281b0a921919a10e0b6f3595936d3ecf"
+                  },
+                  {
+                      "path":  "src/entities/Monster.gd.uid",
+                      "size":  19,
+                      "sha256":  "3a2818c1d6aeab407a46ed0cafafce16785c7311444484dfbf6974edbd8ca2ec"
+                  },
+                  {
+                      "path":  "src/entities/PassiveSkill.gd",
+                      "size":  1010,
+                      "sha256":  "991c02faf33eea400321876e7e0a19292209b3e66449d7ca85118043d92118df"
+                  },
+                  {
+                      "path":  "src/entities/PassiveSkill.gd.uid",
+                      "size":  19,
+                      "sha256":  "063d40815ab02bcde6b8dd270e32bed52a08a030a01e55989ec90e7857853d77"
+                  },
+                  {
+                      "path":  "src/entities/Spell.gd",
+                      "size":  4163,
+                      "sha256":  "a5a4c66bbd4f6423e891a9773a02cb9884ff8088ddb89a2dfab133afb1991e7b"
+                  },
+                  {
+                      "path":  "src/entities/Spell.gd.uid",
+                      "size":  20,
+                      "sha256":  "0df6e685676a228695115ecb9440dda1afbace23336abc566c6a126126089f83"
+                  },
+                  {
+                      "path":  "src/entity_ai/BattleCommandEvaluator.gd",
+                      "size":  7706,
+                      "sha256":  "b1b2333eee8bf78fb3dff1b1ad857e7df44fa61fe4d7d15f19708b06aafcb3e0"
+                  },
+                  {
+                      "path":  "src/entity_ai/BattleCommandEvaluator.gd.uid",
+                      "size":  20,
+                      "sha256":  "5cbad7a3aadb7bc828c836a679b3199e393b309af8fc90b477bb4bd5c42be361"
+                  },
+                  {
+                      "path":  "src/entity_ai/BerserkBrain.gd",
+                      "size":  2112,
+                      "sha256":  "e16b37f2c2d7ca731b4ca860150b6b64a13796f3908191af9bfbadc37ad380e4"
+                  },
+                  {
+                      "path":  "src/entity_ai/BerserkBrain.gd.uid",
+                      "size":  20,
+                      "sha256":  "b450277907048201501051ab1821a3d10037807e10830370dfb40a32c9d407bd"
+                  },
+                  {
+                      "path":  "src/entity_ai/BrainTargeting.gd",
+                      "size":  1671,
+                      "sha256":  "4ad6e2e058b7f72ecb95ee7906c3c2354e2994fd63001730996ca1095d1e1280"
+                  },
+                  {
+                      "path":  "src/entity_ai/BrainTargeting.gd.uid",
+                      "size":  20,
+                      "sha256":  "2f9b588a1d1fcfd056c85027b5cf221824204393ea2f57c45d907f1f5b9b0215"
+                  },
+                  {
+                      "path":  "src/entity_ai/CommandDeliberation.gd",
+                      "size":  8216,
+                      "sha256":  "3022f7dcd68df43fb208c0cd16753d413f325ee9c1afbdaac36cdbf9b9a34b83"
+                  },
+                  {
+                      "path":  "src/entity_ai/CommandDeliberation.gd.uid",
+                      "size":  20,
+                      "sha256":  "c6b4295d5cd499b90a7ab935d6b66524cb13a47f1a642ba627af0a64ff343802"
+                  },
+                  {
+                      "path":  "src/entity_ai/EntityBrain.gd",
+                      "size":  9185,
+                      "sha256":  "e9a873766f7131e80a0030da0334a2faaa88ae6234e6d84be9be604529fae330"
+                  },
+                  {
+                      "path":  "src/entity_ai/EntityBrain.gd.uid",
+                      "size":  19,
+                      "sha256":  "ebb9cc9b83a8f962ad7447f516f89af0eab93fc86c08b1fabf878677f268c314"
+                  },
+                  {
+                      "path":  "src/entity_ai/MageBrain.gd",
+                      "size":  2469,
+                      "sha256":  "b30e5949d4ef4f54d6b74313497c2bc2e93a68233fe296ba9bd906cbfadd7d9d"
+                  },
+                  {
+                      "path":  "src/entity_ai/MageBrain.gd.uid",
+                      "size":  20,
+                      "sha256":  "4ba5139ab4d60951552c6d3f8b809aab13224ad1304b5ff66ce02dd96a33af01"
+                  },
+                  {
+                      "path":  "src/entity_ai/SimpleBrain.gd.uid",
+                      "size":  20,
+                      "sha256":  "902d069f99c58878ca6961dc1a1434dfe4dfd9fd14f7caa4ea247c7b7983ab20"
+                  },
+                  {
+                      "path":  "src/entity_ai/SupportBrain.gd",
+                      "size":  2094,
+                      "sha256":  "cf46cb8a58fa714440f1d22c0cea402744381a17905adb3cb5c025351d4db988"
+                  },
+                  {
+                      "path":  "src/entity_ai/SupportBrain.gd.uid",
+                      "size":  20,
+                      "sha256":  "7db53c6f177ef45f947f67cd61ed1a27e9b7b60cc9d9de518e59a3ae7b0ae8d9"
+                  },
+                  {
+                      "path":  "src/entity_ai/TacticalBrain.gd",
+                      "size":  2426,
+                      "sha256":  "b78a1405b447f16bfe2c6657e575adad6e2c2d18b439c7f8d75e4e9d1f99fae6"
+                  },
+                  {
+                      "path":  "src/entity_ai/TacticalBrain.gd.uid",
+                      "size":  20,
+                      "sha256":  "37da301bf6bb1ae477e757a9dfcb57ca7be86bcfb5231c1b6d4b5b6a377e8c28"
+                  },
+                  {
+                      "path":  "src/factories/ArchetypeReferences.gd",
+                      "size":  1347,
+                      "sha256":  "2cf48e3044cb7a3673e95884d9287ed0619095e66311016c9e45bbb8a528f28f"
+                  },
+                  {
+                      "path":  "src/factories/ArchetypeReferences.gd.uid",
+                      "size":  20,
+                      "sha256":  "c3a21cbec49dd653671f31659302a4f9ed17ef0114af39dfe75775b1050a65e9"
+                  },
+                  {
+                      "path":  "src/factories/BattleSetupPresets.gd",
+                      "size":  1551,
+                      "sha256":  "153fba691305fa25389df9c3dea621bfcacee986f309bf96ccb5dab866cafb8a"
+                  },
+                  {
+                      "path":  "src/factories/BattleSetupPresets.gd.uid",
+                      "size":  19,
+                      "sha256":  "3c57899f0cf38eb63fa8460463080ab0850eb9cbb578004c7dc8b77f444924c2"
+                  },
+                  {
+                      "path":  "src/factories/ElementReferences.gd",
+                      "size":  1696,
+                      "sha256":  "30e07950678649aaf04042a65986d9a91bea21b31336abf5d6175a010a86376f"
+                  },
+                  {
+                      "path":  "src/factories/ElementReferences.gd.uid",
+                      "size":  20,
+                      "sha256":  "6447f07820b0d9fe42cf5939a0e000d76c6e4704df369eef9c33d3e48a1a942c"
+                  },
+                  {
+                      "path":  "src/factories/Factory.gd",
+                      "size":  188,
+                      "sha256":  "7c0506af22902f2e51d86201ae12bd489492a7fb6d7737b5a18128e11f52dcb7"
+                  },
+                  {
+                      "path":  "src/factories/Factory.gd.uid",
+                      "size":  20,
+                      "sha256":  "9183c2b75529816f39786a3000807fe52a024b513806e337d06c4a2ecf8fedfd"
+                  },
+                  {
+                      "path":  "src/factories/JsonCatalogLoader.gd",
+                      "size":  2135,
+                      "sha256":  "ff1a471689084e982a5ecf707dd256e1e622cf64ccf8e08c9a5125ed15c2685d"
+                  },
+                  {
+                      "path":  "src/factories/JsonCatalogLoader.gd.uid",
+                      "size":  20,
+                      "sha256":  "fac54eb6b378a5b2931206aad97c3b03ec030e88a0869c256cd993520fd861d5"
+                  },
+                  {
+                      "path":  "src/factories/MapFactory.gd",
+                      "size":  3876,
+                      "sha256":  "08239d76bc24ecc8d949d2e3609ff009b89da7583390e9508bc44dbb63f21909"
+                  },
+                  {
+                      "path":  "src/factories/MapFactory.gd.uid",
+                      "size":  20,
+                      "sha256":  "25234d6994bb4208cb603be43f76e3fd9b656137c923725746cbb54649810a68"
+                  },
+                  {
+                      "path":  "src/factories/MapReferences.gd",
+                      "size":  3513,
+                      "sha256":  "b84e27c156235d39fc92918b05bcae1f46c33dbd46b7b3ac7b635af31b644416"
+                  },
+                  {
+                      "path":  "src/factories/MapReferences.gd.uid",
+                      "size":  20,
+                      "sha256":  "6ada6287e625fe8e1fcc2fc6fda3b3712cb076f0ba5853fc1e1b013a008603b8"
+                  },
+                  {
+                      "path":  "src/factories/MonsterFactory.gd",
+                      "size":  681,
+                      "sha256":  "7b467ccac8772a76a5836b9231dc29b91292fdc806649c0afaf121932541e1a7"
+                  },
+                  {
+                      "path":  "src/factories/MonsterFactory.gd.uid",
+                      "size":  20,
+                      "sha256":  "4e941be3ba331dd2542b9be0a20bbfc6bc46fa2f71e4d496ed0fffce574057e5"
+                  },
+                  {
+                      "path":  "src/factories/MonsterReferences.gd",
+                      "size":  3949,
+                      "sha256":  "2b88439b6370905dc61a54dd181193a751278eb6ded0bb5ffc51ff2aac98c475"
+                  },
+                  {
+                      "path":  "src/factories/MonsterReferences.gd.uid",
+                      "size":  19,
+                      "sha256":  "e1d16ca9cf1a0126ec8f8601c948d52016802ea50b55f2608b8358202107a12d"
+                  },
+                  {
+                      "path":  "src/factories/PassiveSkillFactory.gd",
+                      "size":  453,
+                      "sha256":  "5a5593d4e4ddac925aa95bf89543437412fee483d0021026d168a37c6f5af773"
+                  },
+                  {
+                      "path":  "src/factories/PassiveSkillFactory.gd.uid",
+                      "size":  20,
+                      "sha256":  "67fba1870a9a4d5e1b7cb9e231f14cc66aa2c5b3734b72489d5fe7c76723ddc8"
+                  },
+                  {
+                      "path":  "src/factories/PassiveSkillReferences.gd",
+                      "size":  1418,
+                      "sha256":  "cec4e3d451d257104d6bf9c3785983e774ee8dda1dad5679a0e50a1dcdf4a2df"
+                  },
+                  {
+                      "path":  "src/factories/PassiveSkillReferences.gd.uid",
+                      "size":  20,
+                      "sha256":  "a7838fa5a61fd3956f8af691fe834548b3b21515450ce33792a65b82c33034a0"
+                  },
+                  {
+                      "path":  "src/factories/RaceReferences.gd",
+                      "size":  1790,
+                      "sha256":  "7c31c909e1187c9682986b99fe1c1769da240cab4cc6c5dfe9ba76892c8775e8"
+                  },
+                  {
+                      "path":  "src/factories/RaceReferences.gd.uid",
+                      "size":  20,
+                      "sha256":  "e4e7de035ee7c467ea1306e8778d91eb1037f31b938393c950cd51105ef9189a"
+                  },
+                  {
+                      "path":  "src/factories/Reference.gd",
+                      "size":  243,
+                      "sha256":  "1e7d6b5a6c30a8aa3441ebf59c2acdc6274733b2ff5788f0704a766171c5ef65"
+                  },
+                  {
+                      "path":  "src/factories/Reference.gd.uid",
+                      "size":  20,
+                      "sha256":  "5d33106c77e1ac4f4028fccac637325ab16cd2c017e103e20ef0f9276e7510e5"
+                  },
+                  {
+                      "path":  "src/factories/SpellFactory.gd",
+                      "size":  488,
+                      "sha256":  "1392951f2ec2e1d6b3d1d332762924265c7d9d78d1874968a0c82cc23a433343"
+                  },
+                  {
+                      "path":  "src/factories/SpellFactory.gd.uid",
+                      "size":  20,
+                      "sha256":  "a46b84840c2eb70ffb558f4327ae05da247b9b40276007d4fc4fb21df1deed79"
+                  },
+                  {
+                      "path":  "src/factories/SpellReferences.gd",
+                      "size":  4775,
+                      "sha256":  "b6bf1c707fd70dd8acfee628a3b661d4afb52c8e30e209ec9e21bbe7a8a0587b"
+                  },
+                  {
+                      "path":  "src/factories/SpellReferences.gd.uid",
+                      "size":  19,
+                      "sha256":  "d9fc50d7fccbf8630806bf2661c3ab38bf3b82ecafea7eacdf287ce0b0a2a720"
+                  },
+                  {
+                      "path":  "src/factories/StatusEffectReferences.gd",
+                      "size":  1659,
+                      "sha256":  "1b5937ec7a302b0f4a6684ca0ea886c198a27359aee802bfc1182f2ee06c3f46"
+                  },
+                  {
+                      "path":  "src/factories/StatusEffectReferences.gd.uid",
+                      "size":  20,
+                      "sha256":  "cd36def46894a7b307c3086b910557e731a5378d205e1c872774f6f19b93652c"
+                  },
+                  {
+                      "path":  "src/presentation/ActionIconRegistry.gd",
+                      "size":  1351,
+                      "sha256":  "ccd0d5274f18c24c8cdf7c3e7617b439cb8e00035d460334d6e7f80b815b62fa"
+                  },
+                  {
+                      "path":  "src/presentation/ActionIconRegistry.gd.uid",
+                      "size":  20,
+                      "sha256":  "aac18c1f98853b42302192720c163f378c02f34c44026f7fb70fa9fa9406eab1"
+                  },
+                  {
+                      "path":  "src/presentation/ActionIcons.gd",
+                      "size":  9711,
+                      "sha256":  "ab88243a41344aa5cec6648e6f9e3213d69b3604eea704f41bea9d720010cbda"
+                  },
+                  {
+                      "path":  "src/presentation/ActionIcons.gd.uid",
+                      "size":  20,
+                      "sha256":  "253b4fa0c79745addf119abe426cac49d0bbe68093f8d1025cff52af4635699e"
+                  },
+                  {
+                      "path":  "src/presentation/ActionRow.gd",
+                      "size":  16860,
+                      "sha256":  "37693c81467cce0ec9f32b570c08800e4d072f24497842e8001b027ef3d1c08b"
+                  },
+                  {
+                      "path":  "src/presentation/ActionRow.gd.uid",
+                      "size":  20,
+                      "sha256":  "b5a3e91090f984357bca6d7fe7aed94264db751ac001aa2d198169e0b01bc834"
+                  },
+                  {
+                      "path":  "src/presentation/BattleCameraController.gd",
+                      "size":  12987,
+                      "sha256":  "dfc0be50c4d0081f47fe46b64df1d577f6d7c8dea0a69dd49acd9c03436550ed"
+                  },
+                  {
+                      "path":  "src/presentation/BattleCameraController.gd.uid",
+                      "size":  19,
+                      "sha256":  "61b8f88f7e5fa684b7e62041ff7a23c01c7963b18da570abe183ab9b67c0d4df"
+                  },
+                  {
+                      "path":  "src/presentation/BattleCameraDirector.gd",
+                      "size":  10730,
+                      "sha256":  "57b1ea1f39c4c8c8bf15775c894908e16b3cde9e9e845ef54824f670eeec681a"
+                  },
+                  {
+                      "path":  "src/presentation/BattleCameraDirector.gd.uid",
+                      "size":  20,
+                      "sha256":  "5245df0fe83b33863e6b241ce1cc4617b794f76cfe32bb95d200796529e825d6"
+                  },
+                  {
+                      "path":  "src/presentation/BattleCursorController.gd",
+                      "size":  2564,
+                      "sha256":  "00bbeb6f2f7a9195c5e0843ee14a07206de4e5ca738ff8f9e4d7a037db8a4a44"
+                  },
+                  {
+                      "path":  "src/presentation/BattleCursorController.gd.uid",
+                      "size":  19,
+                      "sha256":  "d3dcd6ab48fd1a6685996116fa6e6f6883fe0c26009a265f58095a0d22903af9"
+                  },
+                  {
+                      "path":  "src/presentation/BattleEnvironmentFactory.gd",
+                      "size":  599,
+                      "sha256":  "fde7a6917813c87ea72cb9c353dc217d88368cbf1382d0b6a63bc4106802fb1e"
+                  },
+                  {
+                      "path":  "src/presentation/BattleEnvironmentFactory.gd.uid",
+                      "size":  19,
+                      "sha256":  "6bd04f7a2e78dc162072b87b3132c40efa1322fff0c2ef4edc11bfa3b3773677"
+                  },
+                  {
+                      "path":  "src/presentation/BattleGraphicsMenu.gd",
+                      "size":  10212,
+                      "sha256":  "27a3329236da699a6a68804be7c3031e9050fa07998ec40c9232c426c49faa05"
+                  },
+                  {
+                      "path":  "src/presentation/BattleGraphicsMenu.gd.uid",
+                      "size":  20,
+                      "sha256":  "004747fd705bf8c358fd68422c64b0c9a519787e9a6aefa0dc47335699d74f59"
+                  },
+                  {
+                      "path":  "src/presentation/BattleGraphicsMenuRefs.gd",
+                      "size":  699,
+                      "sha256":  "51de91ebea20dd270c345cb1abc8f8bdb614e2c1ba820cc40cd2f9b45017ccfb"
+                  },
+                  {
+                      "path":  "src/presentation/BattleGraphicsMenuRefs.gd.uid",
+                      "size":  19,
+                      "sha256":  "a644dac2021213a260bad3afb4c63df398690441defe3ac6f553906a961d8632"
+                  },
+                  {
+                      "path":  "src/presentation/BattleMeshFactory.gd",
+                      "size":  16882,
+                      "sha256":  "9c279fbabbd742e5a42693706b2cfe67a5b0373fad35878d9985cf0fc9cd9867"
+                  },
+                  {
+                      "path":  "src/presentation/BattleMeshFactory.gd.uid",
+                      "size":  20,
+                      "sha256":  "ea6cbd823517fe5f32420a0c00d7d4a1797063e45f986b7586cf5d915e9208de"
+                  },
+                  {
+                      "path":  "src/presentation/BattleSetupUI.gd",
+                      "size":  8327,
+                      "sha256":  "e8092d3738154dbea4a513e9bb2af3237fc86f1fa9e265fbfdd026d14fac9bf7"
+                  },
+                  {
+                      "path":  "src/presentation/BattleSetupUI.gd.uid",
+                      "size":  19,
+                      "sha256":  "7d13e180b263141986a7eeb105949f8b839f5747eb4050249c034695daeac98a"
+                  },
+                  {
+                      "path":  "src/presentation/BattleSetupUIRefs.gd",
+                      "size":  586,
+                      "sha256":  "2adcd951c38663031303ddc2cb339af3c5b459f77f1799608d287b6a119c4314"
+                  },
+                  {
+                      "path":  "src/presentation/BattleSetupUIRefs.gd.uid",
+                      "size":  19,
+                      "sha256":  "70e6a900b1f4e5510111372e494ba14df739bcc80c62a83c83d653eab01962d1"
+                  },
+                  {
+                      "path":  "src/presentation/BattleUIBuilder.gd",
+                      "size":  18443,
+                      "sha256":  "d4d44894e0cbdd97bbdd22410bad2bd992f382a6a1807c05e1387124fc735cfc"
+                  },
+                  {
+                      "path":  "src/presentation/BattleUIBuilder.gd.uid",
+                      "size":  18,
+                      "sha256":  "e0715698bfc76c0a61d5e535182c784ec430d4f870be36411d9d5c65e3b82ff1"
+                  },
+                  {
+                      "path":  "src/presentation/BattleUIRefs.gd",
+                      "size":  2045,
+                      "sha256":  "718cf27c7109d3c05bb9eabf5cc7e89871273a72431c60545fe488badb098ce2"
+                  },
+                  {
+                      "path":  "src/presentation/BattleUIRefs.gd.uid",
+                      "size":  20,
+                      "sha256":  "07c72357a8d4f4e895c4680c46c92901040b21697b8519bd649d73e3b6d9271a"
+                  },
+                  {
+                      "path":  "src/presentation/BattleVisualEffects.gd",
+                      "size":  3215,
+                      "sha256":  "3a0d5fd817d31660b265835c9fea69f88dc0926da555e26b7c95aad15e2dc7ef"
+                  },
+                  {
+                      "path":  "src/presentation/BattleVisualEffects.gd.uid",
+                      "size":  20,
+                      "sha256":  "e85d3670792e9a51256cb21274ae923fcfd1174863147c4aaf43eab966dccac7"
+                  },
+                  {
+                      "path":  "src/presentation/ConsoleMapRenderer.gd",
+                      "size":  3351,
+                      "sha256":  "d916ebe4da0d3875bad40f498409bb8bf06997c4c210287450d35e4833ed3fc9"
+                  },
+                  {
+                      "path":  "src/presentation/ConsoleMapRenderer.gd.uid",
+                      "size":  20,
+                      "sha256":  "da4367f9dabca385213753a894c87c6e36adf44f309f4bfd333941209e4d58a6"
+                  },
+                  {
+                      "path":  "src/presentation/ConsoleRoundSummary.gd",
+                      "size":  6627,
+                      "sha256":  "04c38fe8d3bf5698656cc11295aca9f9b54d339ef283259db6e264a319e3b306"
+                  },
+                  {
+                      "path":  "src/presentation/ConsoleRoundSummary.gd.uid",
+                      "size":  19,
+                      "sha256":  "c577c887aa1cc4efeaa71a36280fd16bd6ec4f8b839cb7c1ba07f7f8b63445c6"
+                  },
+                  {
+                      "path":  "src/presentation/ConsoleVisualAdapter.gd",
+                      "size":  10423,
+                      "sha256":  "f62b195ba15483c60403248f9a56774395e9cb4693d07da97f05b8c3ff8f09bd"
+                  },
+                  {
+                      "path":  "src/presentation/ConsoleVisualAdapter.gd.uid",
+                      "size":  20,
+                      "sha256":  "d996a4f88cf8b9e44b8943f0f3f77c8e4728a695fd01dbada4b13cf5a29d61a6"
+                  },
+                  {
+                      "path":  "src/presentation/debug/TextSpecimen.gd",
+                      "size":  21876,
+                      "sha256":  "3e3ccffe730c2547ede5142c28c4d94ff9dd96fcaf7a6599e756a3af8b552289"
+                  },
+                  {
+                      "path":  "src/presentation/debug/TextSpecimen.gd.uid",
+                      "size":  19,
+                      "sha256":  "28924d3be99c7b06a1a1083cb255c83f41fa62e89213198f48033f85bafee110"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugArguments.gd",
+                      "size":  2197,
+                      "sha256":  "53f3e0782b3cba80a38e59f999c9c6356f8e445e21bf7d41f7407053a13adf54"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugArguments.gd.uid",
+                      "size":  19,
+                      "sha256":  "f84218fa499336985ff264ac09eded4e38b4c7b91237376db487b760b33d8fb9"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugCapture.gd",
+                      "size":  12330,
+                      "sha256":  "8714d05bf08b8101019ee0a96ebb8ffa8568dae39bdb526192a8aad7856293c0"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugCapture.gd.uid",
+                      "size":  19,
+                      "sha256":  "3b680a324e4221d8d65a0c673ba0776e0d8f2b892b1d749d34702b867333483b"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VFXDebugController.gd",
+                      "size":  60102,
+                      "sha256":  "ccb4f604aba8b35a07616ac97678714513db56f789200a14878ec52fd8682739"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VFXDebugController.gd.uid",
+                      "size":  19,
+                      "sha256":  "6fb08d5cd3c3d71db72f8eba8f4ec2c102e3f4bc2466ccade31e4942bba437ac"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugHud.gd",
+                      "size":  11426,
+                      "sha256":  "ed3562d566fe895e7a560ff5ab93cd22fc371d14e59e7c42f0577c3aba1461c4"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugHud.gd.uid",
+                      "size":  20,
+                      "sha256":  "65927b01a78eedd4291b9900646c841d23e037e88ff5e24aefa2712ae999703d"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugTuning.gd",
+                      "size":  7235,
+                      "sha256":  "769ac737f7b6ce4007dd564fceedbff218a10349851deadc821827ff170affb9"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugTuning.gd.uid",
+                      "size":  20,
+                      "sha256":  "0c4b9cdb42e6a5f0ca002d885035de98cf7dc3dac1b6319d1d5a9281b5ba09ae"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugWorld.gd",
+                      "size":  15037,
+                      "sha256":  "7c2155bd034c9993b12dd42a2dfb8d0f748da55dcc22725c62b6744d2f1ef237"
+                  },
+                  {
+                      "path":  "src/presentation/debug/VfxDebugWorld.gd.uid",
+                      "size":  20,
+                      "sha256":  "71b910767bd8b52c5f427d54e6e0676fbf22c684c5ee93662834e489201dc7d3"
+                  },
+                  {
+                      "path":  "src/presentation/debug/WorldMapDebugController.gd",
+                      "size":  26478,
+                      "sha256":  "1b5497aa242d194e2ed5c9eab4cbe186809c08955a762ef5473ca98b46ff8e1e"
+                  },
+                  {
+                      "path":  "src/presentation/debug/WorldMapDebugController.gd.uid",
+                      "size":  20,
+                      "sha256":  "3c9bc03161e4b5ba9cd4665a6aff74495c575da9ec0b0048e195bf3696f6728a"
+                  },
+                  {
+                      "path":  "src/presentation/debug/WorldMapDebugHud.gd",
+                      "size":  16665,
+                      "sha256":  "5723be0659b154cb71d49838e1c414bd95045d8e26f653fe17bd3dac2d46f133"
+                  },
+                  {
+                      "path":  "src/presentation/debug/WorldMapDebugHud.gd.uid",
+                      "size":  20,
+                      "sha256":  "71da5b17e90074aa830a11c2f4f09273acfd0348df59ffb483a9be7576a8507c"
+                  },
+                  {
+                      "path":  "src/presentation/DeepCard.gd",
+                      "size":  12680,
+                      "sha256":  "1bcf3c550d3993aee578cdd2f07f475f2187e479eb866188161b6a2b20f70411"
+                  },
+                  {
+                      "path":  "src/presentation/DeepCard.gd.uid",
+                      "size":  20,
+                      "sha256":  "8856b36cfc2f4e820b1ad2fdc5a9122afaf5d4dcc207b3bbad349066af575286"
+                  },
+                  {
+                      "path":  "src/presentation/effects/AuroraVeilEffect.gd",
+                      "size":  19169,
+                      "sha256":  "218e3f87e4ac12843c425f1e84ec39826f106c45df4070f219c1f061833c6800"
+                  },
+                  {
+                      "path":  "src/presentation/effects/AuroraVeilEffect.gd.uid",
+                      "size":  20,
+                      "sha256":  "edf159eec0d40c571594dbd06021b1ff836fadf04f4b2744f6491bac528353c5"
+                  },
+                  {
+                      "path":  "src/presentation/effects/AuroraVeilProfile.gd",
+                      "size":  8123,
+                      "sha256":  "f49176ad44d9c9f9201d77c1d949a4849360790c63e63adada8b5521da94df32"
+                  },
+                  {
+                      "path":  "src/presentation/effects/AuroraVeilProfile.gd.uid",
+                      "size":  20,
+                      "sha256":  "381675059917d98bf27788b6575c07171779f3a17bda122d62c3ac6940a9bbec"
+                  },
+                  {
+                      "path":  "src/presentation/effects/DamageNumberBillboard.gd",
+                      "size":  7321,
+                      "sha256":  "4179b1e6e6344177bfb06b8702f2c497efc40c057b0ddcd3d43532b2573d9ce6"
+                  },
+                  {
+                      "path":  "src/presentation/effects/DamageNumberBillboard.gd.uid",
+                      "size":  20,
+                      "sha256":  "73b68a9863842f9946ab54beb744cb406cffa0fa7b82a9f1ff6e24840af806ff"
+                  },
+                  {
+                      "path":  "src/presentation/effects/FireStormEffect.gd",
+                      "size":  19950,
+                      "sha256":  "3f95de6c52deb28c2b9d5393f930cc0e3f0bf2a45266cc4c48a09a86d8573259"
+                  },
+                  {
+                      "path":  "src/presentation/effects/FireStormEffect.gd.uid",
+                      "size":  19,
+                      "sha256":  "0d8cdd791201a8feed93d73fd211aeb8d456f0eed1b891f4a9d7e0ff6f2a0690"
+                  },
+                  {
+                      "path":  "src/presentation/effects/FireStormProfile.gd",
+                      "size":  8365,
+                      "sha256":  "a43229519b75e0919e249dbcc04667db8a23ae91381dd73d8e26720b73b35ba1"
+                  },
+                  {
+                      "path":  "src/presentation/effects/FireStormProfile.gd.uid",
+                      "size":  20,
+                      "sha256":  "5b8ce0d5aed34e31ebebc5147e95c7d7d7cced6d372b6211998bd6306a7f3e8a"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceChunkMeshFactory.gd",
+                      "size":  4217,
+                      "sha256":  "af7f5191efd6f277f6ea575e1f2183e0553fd3a948c00f005ea5ed0582653fd5"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceChunkMeshFactory.gd.uid",
+                      "size":  20,
+                      "sha256":  "b09529c5e2cccfa1eca1ecbe1a21ebf610aaefa6bdc645a30b0cc8a77a69c177"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceStormEffect.gd",
+                      "size":  28091,
+                      "sha256":  "bf77a188ae9b4c8452e1f009f185c773a6ebc82642b1861420027b90db82a97d"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceStormEffect.gd.uid",
+                      "size":  20,
+                      "sha256":  "e44a3d133f71e485d667270a3d1d04b73c76c6d0273610fb98a718353c4e0081"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceStormProfile.gd",
+                      "size":  5874,
+                      "sha256":  "13320de3f30a1e987e20014ed232a70fd19e983d001ef51ede4db98fbbfc1dae"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceStormProfile.gd.uid",
+                      "size":  20,
+                      "sha256":  "f65954b920921aac638165bbeb7c8f562d21fabeafd0c1112f60a3aa94085b5e"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceTargetEncasementEffect.gd",
+                      "size":  38122,
+                      "sha256":  "bd89102d393f2ec45c1011fc6d901e21bf6060dde60fa78a1b16c5c188148f7f"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceTargetEncasementEffect.gd.uid",
+                      "size":  20,
+                      "sha256":  "a817efffd0761c62ca1b058e4285f2494423d8860509309cd8e30ae3ba8a368c"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceTargetEncasementProfile.gd",
+                      "size":  9321,
+                      "sha256":  "f082d7e1a81ef3980db21857fd06ce9a897d61380d8f5d3e331571b2fcbdaf40"
+                  },
+                  {
+                      "path":  "src/presentation/effects/IceTargetEncasementProfile.gd.uid",
+                      "size":  19,
+                      "sha256":  "c103dd36d9592247b378766f1025ec9193923ac6b161c5377a3b53cf5f1c4b96"
+                  },
+                  {
+                      "path":  "src/presentation/effects/MagentaReductionEffect.gd",
+                      "size":  34389,
+                      "sha256":  "ca0a3416027c5d4af6edee6887c34d9e99866c35c1c524a74c01013ae996f7e5"
+                  },
+                  {
+                      "path":  "src/presentation/effects/MagentaReductionEffect.gd.uid",
+                      "size":  19,
+                      "sha256":  "2e79092d3e34c7ef5139d22067e85522d6e335996c13bf338d1f2b6c6269935e"
+                  },
+                  {
+                      "path":  "src/presentation/effects/MagentaReductionProfile.gd",
+                      "size":  38448,
+                      "sha256":  "7aee2d323e653a6b5ad67f0319623f7a10d7da62e99975f3e01ebee1cbe2a1d0"
+                  },
+                  {
+                      "path":  "src/presentation/effects/MagentaReductionProfile.gd.uid",
+                      "size":  19,
+                      "sha256":  "a30856f7480901139b6cb613a36650cd385c25ed3af6ffed57d1c5878a0ca19e"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SolarStormEffect.gd",
+                      "size":  26111,
+                      "sha256":  "2e440bd4675eadb3a3e970c93d20e1f10a9075442c5462ce0e839b5e0dfc0393"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SolarStormEffect.gd.uid",
+                      "size":  20,
+                      "sha256":  "f51cdfc312b2b1c0249a28158d482fe36779367b61a7a3c072ebcd4b6f978318"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SolarStormProfile.gd",
+                      "size":  12158,
+                      "sha256":  "eada0ad5a048b56264ac45e77c175b8bd11c33219f2aeae428bf1d8e9d9526b1"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SolarStormProfile.gd.uid",
+                      "size":  20,
+                      "sha256":  "4e636adc634c8910517a80a47fcb814f05ebd3c3f16234ffef92b2b50d64c313"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SpellCastAura.gd",
+                      "size":  26594,
+                      "sha256":  "ade653372ef9147a7d7820a8dc9108d671bd55e2323f0e190ebd6a43e87b9eb5"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SpellCastAura.gd.uid",
+                      "size":  20,
+                      "sha256":  "05df1b0f24d22f7b411c81fc3247a142abc6cdd2a223481958f59f38e7df5a52"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SpellCastAuraProfile.gd",
+                      "size":  5769,
+                      "sha256":  "9abb4a2680a28da7e8b8a80fc19edd4b5499926ae2cabd6b261fb5d0b075af0c"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SpellCastAuraProfile.gd.uid",
+                      "size":  20,
+                      "sha256":  "d1b0a1dd587f07cd92fdccc3f71949c8cc0c5c2f136b167030cd781d42047303"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SpellVfxCatalog.gd",
+                      "size":  6515,
+                      "sha256":  "c8dd57a537c7c13e329ddbc4d2386e64b2801e043ba662022f8f593d719b2d93"
+                  },
+                  {
+                      "path":  "src/presentation/effects/SpellVfxCatalog.gd.uid",
+                      "size":  20,
+                      "sha256":  "8efc510b47323e38c8a25fb61b1536a126c0fff865608c474a2a5977c202b6e7"
+                  },
+                  {
+                      "path":  "src/presentation/effects/TechniqueChargeAuraV1Effect.gd",
+                      "size":  31838,
+                      "sha256":  "8205f63b21b6c7736becf19d5a3410fbd4158322781a3044d0ee21b0b6655002"
+                  },
+                  {
+                      "path":  "src/presentation/effects/TechniqueChargeAuraV1Effect.gd.uid",
+                      "size":  20,
+                      "sha256":  "6c560c042397a9e97be9837eaf815f5d81bb1f838357e83a9ffe6e5445297c76"
+                  },
+                  {
+                      "path":  "src/presentation/effects/TechniqueChargeAuraV1Profile.gd",
+                      "size":  11545,
+                      "sha256":  "ad3176ebebbd35f482e33e8efebcea3d8f3bb68d6770066a0c2bf9fa474754ae"
+                  },
+                  {
+                      "path":  "src/presentation/effects/TechniqueChargeAuraV1Profile.gd.uid",
+                      "size":  20,
+                      "sha256":  "14bc4f9646b20a496f81f42a492fc931c99c1b52b3444b7e41dc77fa9a86368d"
+                  },
+                  {
+                      "path":  "src/presentation/effects/TechniqueChargeAuraV2Effect.gd",
+                      "size":  39855,
+                      "sha256":  "de5af090ba05145d01710a7f15bcb3ac73f2527cdba9bbce46de2e7bb994f3d2"
+                  },
+                  {
+                      "path":  "src/presentation/effects/TechniqueChargeAuraV2Effect.gd.uid",
+                      "size":  19,
+                      "sha256":  "b4ce81e288f382e1949e9ffc4022d2e9a626a2f7c5bfab781d14c0935e65ebf9"
+                  },
+                  {
+                      "path":  "src/presentation/effects/TechniqueChargeAuraV2Profile.gd",
+                      "size":  19649,
+                      "sha256":  "facb59c99b2e44331f9f6eb8ecdcf4494fe1c21dce48573b4e84d730f9ef447a"
+                  },
+                  {
+                      "path":  "src/presentation/effects/TechniqueChargeAuraV2Profile.gd.uid",
+                      "size":  20,
+                      "sha256":  "8033b025c3e789c848ae1996c45a63ba4f3af33378ff3223d3a293382bda2801"
+                  },
+                  {
+                      "path":  "src/presentation/effects/VfxCastContext.gd",
+                      "size":  2073,
+                      "sha256":  "23a81f1930a7f1c7c223ce0485d7c26d632c473cc2a79588b8f363399035fd7f"
+                  },
+                  {
+                      "path":  "src/presentation/effects/VfxCastContext.gd.uid",
+                      "size":  19,
+                      "sha256":  "f05465b85f4e835230cb1b5290b5c75cfafc5a613c8314815a1385df4fe330fb"
+                  },
+                  {
+                      "path":  "src/presentation/effects/VfxPlayback.gd",
+                      "size":  4297,
+                      "sha256":  "aa874bbdb95c96290677f34f011bb356b19c6bef26a19f56dc7bd86b2f995827"
+                  },
+                  {
+                      "path":  "src/presentation/effects/VfxPlayback.gd.uid",
+                      "size":  20,
+                      "sha256":  "837edd0894053e5ac476b39a3b5ca4929772de9b000c4734c2a4f722360aa03e"
+                  },
+                  {
+                      "path":  "src/presentation/effects/VfxTextures.gd",
+                      "size":  33097,
+                      "sha256":  "028c69b25af0468e950b5eae02964d3814fc1e0493e8921e33fc0a4a6c2f4edc"
+                  },
+                  {
+                      "path":  "src/presentation/effects/VfxTextures.gd.uid",
+                      "size":  20,
+                      "sha256":  "6f51e0af4298e1743f134e163cd762c628f23731e008ca34a9461788768e16a2"
+                  },
+                  {
+                      "path":  "src/presentation/GodotVisualAdapter.gd",
+                      "size":  61568,
+                      "sha256":  "ede07bc8712eb6cef4b97b37fa622aa37b0d47a09d31e6dcfe014ad406c84d61"
+                  },
+                  {
+                      "path":  "src/presentation/GodotVisualAdapter.gd.uid",
+                      "size":  20,
+                      "sha256":  "2b53e6631e3147406c9d024c893f3e2f7a75df4e4b044f92e523460eaabae49a"
+                  },
+                  {
+                      "path":  "src/presentation/IPlayerTurnVisualAdapter.gd",
+                      "size":  3277,
+                      "sha256":  "34d24b38bccf67a4d969f32001af8ae9b017b0f7ef3708cf4587a9b68d920d5f"
+                  },
+                  {
+                      "path":  "src/presentation/IPlayerTurnVisualAdapter.gd.uid",
+                      "size":  20,
+                      "sha256":  "5a212bc3abc70e1f23f12a45ec2f3b13382f7cccb4c10131cd3e89b36b02986d"
+                  },
+                  {
+                      "path":  "src/presentation/MonsterModelFactory.gd",
+                      "size":  5068,
+                      "sha256":  "d438931be8f83211735934d310b46b3fa8bbde31341ca5de986763516607cc6e"
+                  },
+                  {
+                      "path":  "src/presentation/MonsterModelFactory.gd.uid",
+                      "size":  20,
+                      "sha256":  "f3334e4e4f629aca73788036072c36d9db72e2b8a188a95a5167507d0ddefea7"
+                  },
+                  {
+                      "path":  "src/presentation/MonsterVisualRegistry.gd",
+                      "size":  603,
+                      "sha256":  "425b8628a6d3cb7c79efd5c3d1e0751b241fa3489b99138fd6ac284cdf6155b7"
+                  },
+                  {
+                      "path":  "src/presentation/MonsterVisualRegistry.gd.uid",
+                      "size":  20,
+                      "sha256":  "30176e9d5c1ec7145ee4c0ea1d35cdbf5b6762f1b8d529582cfa680991549ead"
+                  },
+                  {
+                      "path":  "src/presentation/PlayerCommandMenu.gd",
+                      "size":  35720,
+                      "sha256":  "41f8bc32e6e73d818f04b8e36d38601663405b7f3bae81b6ca5d9680654e53bf"
+                  },
+                  {
+                      "path":  "src/presentation/PlayerCommandMenu.gd.uid",
+                      "size":  19,
+                      "sha256":  "ccf46f0e9a1f68cc94ea34e474884242e0eb96b3555406dbf842f1ac4189bebe"
+                  },
+                  {
+                      "path":  "src/presentation/PortraitRenderer.gd",
+                      "size":  6776,
+                      "sha256":  "49b74882cba992a33fd7ea97c09c883c519a4226509c3891a9356ee24e33e0ca"
+                  },
+                  {
+                      "path":  "src/presentation/PortraitRenderer.gd.uid",
+                      "size":  19,
+                      "sha256":  "79627764c2d325d8955eadf96f6e4c6c5baad2266c2e597468208fdf53428054"
+                  },
+                  {
+                      "path":  "src/presentation/RenderPresetCatalog.gd",
+                      "size":  2927,
+                      "sha256":  "f55f94155b336dda5c2cc5aa0bc4153db92e1d77bf17f9b6d7abc7e7d580442f"
+                  },
+                  {
+                      "path":  "src/presentation/RenderPresetCatalog.gd.uid",
+                      "size":  19,
+                      "sha256":  "dddaad20314c5d0dd787c26c05625f89e7b30e95b5e03e9b52759231f4294d6c"
+                  },
+                  {
+                      "path":  "src/presentation/RetroRenderController.gd",
+                      "size":  34780,
+                      "sha256":  "735332456790c03a403267fb5556380db9062f25877fc21f9a71ea166bc36248"
+                  },
+                  {
+                      "path":  "src/presentation/RetroRenderController.gd.uid",
+                      "size":  20,
+                      "sha256":  "4d17e1a1fabc410621196db21666b75f70077518b9171553f9e84a8c079d6b6a"
+                  },
+                  {
+                      "path":  "src/presentation/StatusBadgeRow.gd",
+                      "size":  10117,
+                      "sha256":  "104ed29be08384aa1fe41cea90b11cacfdf163e0681309e1833105b99bd80dea"
+                  },
+                  {
+                      "path":  "src/presentation/StatusBadgeRow.gd.uid",
+                      "size":  20,
+                      "sha256":  "76617e48ca6068b17e5fab2da2c9d147f7f728d147f0496dbc737c2e9d173768"
+                  },
+                  {
+                      "path":  "src/presentation/StatusEffectBillboard.gd.uid",
+                      "size":  20,
+                      "sha256":  "dd825595a2f9ee5611edac76f7637db8abb00f29abc3c53312ac3cb467c0c423"
+                  },
+                  {
+                      "path":  "src/presentation/StatusEffectIcons.gd",
+                      "size":  10688,
+                      "sha256":  "ee1136e8ff7002befb3ef6831e951e3d0dc8ad4ff76a8f2e919c9439ad85e0f3"
+                  },
+                  {
+                      "path":  "src/presentation/StatusEffectIcons.gd.uid",
+                      "size":  20,
+                      "sha256":  "3b25a59aac7c37b7fe3d214db6dea4c45440da6a461aa458c38a0939a45e9ae9"
+                  },
+                  {
+                      "path":  "src/presentation/StatusIconRegistry.gd",
+                      "size":  1550,
+                      "sha256":  "b6290dff5e0d21838057ecd5a8ca30a37465067cce08ea65d14816b8b834c5f7"
+                  },
+                  {
+                      "path":  "src/presentation/StatusIconRegistry.gd.uid",
+                      "size":  19,
+                      "sha256":  "f5d3909d6627748bed1e6b64d0a0e40366487f1d4ba7cb8f9decf26fbeddbaa0"
+                  },
+                  {
+                      "path":  "src/presentation/theme/HudLayoutCatalog.gd",
+                      "size":  7274,
+                      "sha256":  "d43b172aeaaa68262b8cc23c17d5cde12589cb28a8b4a8860867ecea8864058a"
+                  },
+                  {
+                      "path":  "src/presentation/theme/MenuCursor.gd",
+                      "size":  4458,
+                      "sha256":  "01abad21170772584f3215ce835e5355a43b1f7e6fa5d42ddabb250319673f57"
+                  },
+                  {
+                      "path":  "src/presentation/theme/MenuCursor.gd.uid",
+                      "size":  20,
+                      "sha256":  "92228b9374b4f06c6fb14149c727205a12ac15298674345dd20f3041e97fc490"
+                  },
+                  {
+                      "path":  "src/presentation/theme/NoggBitmapFont.gd",
+                      "size":  10827,
+                      "sha256":  "8bfd452d22355ebe07d6d64edc53757bb5f74a91b26e44bb19a428f0d23cac33"
+                  },
+                  {
+                      "path":  "src/presentation/theme/NoggBitmapFont.gd.uid",
+                      "size":  20,
+                      "sha256":  "7314066a21cd9dd684832ac711d029f478f5b435d06fd18b9c5049047490ab26"
+                  },
+                  {
+                      "path":  "src/presentation/theme/NoggHeraldFont.gd",
+                      "size":  14011,
+                      "sha256":  "0cb15700d3a53960cf8fa78dbb4fdb0e7d668740b931e75cfe74b2121386c59f"
+                  },
+                  {
+                      "path":  "src/presentation/theme/NoggHeraldFont.gd.uid",
+                      "size":  19,
+                      "sha256":  "f790140bce47666ed279769ceca54a45fd874c25ad1faa6bf2a5d69aabe9167c"
+                  },
+                  {
+                      "path":  "src/presentation/theme/NoggTheme.gd",
+                      "size":  66909,
+                      "sha256":  "92565f3eae4c2523c4d1ea153631e14fc9ec7207957a49478be4807f8ce42fce"
+                  },
+                  {
+                      "path":  "src/presentation/theme/NoggTheme.gd.uid",
+                      "size":  20,
+                      "sha256":  "1ace90169bb7fb2af41156e633c8a1faa01341ca09d6ed57aaa50355f494cfdc"
+                  },
+                  {
+                      "path":  "src/presentation/theme/NoggWindow.gd",
+                      "size":  30168,
+                      "sha256":  "d539130e031e33f5fcd0199fdf664a950b62a80df3dd4c1232243540314b1886"
+                  },
+                  {
+                      "path":  "src/presentation/theme/NoggWindow.gd.uid",
+                      "size":  19,
+                      "sha256":  "8ccd5d41fbe9bdd10b937a1ce6f9172b0d8883803793fd1a13575de148857bda"
+                  },
+                  {
+                      "path":  "src/presentation/theme/PagerArrow.gd",
+                      "size":  1847,
+                      "sha256":  "359f2f23f89b8f8d9963adb05209320c2281be985e42e955e30d104a744d914b"
+                  },
+                  {
+                      "path":  "src/presentation/theme/PagerArrow.gd.uid",
+                      "size":  20,
+                      "sha256":  "6156bb8482a65e1d34d4e01fe46ce08bf9ee53bc56f1e289490c1dca2d7ef5a7"
+                  },
+                  {
+                      "path":  "src/presentation/theme/ResonanceBar.gd",
+                      "size":  1773,
+                      "sha256":  "0ac4020d29c4b001fb8bb65539c1c5d121024285e93f846aa7f59bad97398f8b"
+                  },
+                  {
+                      "path":  "src/presentation/theme/ResonanceBar.gd.uid",
+                      "size":  20,
+                      "sha256":  "1f3471a197fdf2f1c7ab1ff87c417eabf20f211c7f7204987067906fdf34534c"
+                  },
+                  {
+                      "path":  "src/presentation/theme/WindowFrameFilterCatalog.gd",
+                      "size":  5346,
+                      "sha256":  "733898afcaa13a483c8a148de4d0aad7e1beda7be17096e77eec213453c1c4f6"
+                  },
+                  {
+                      "path":  "src/presentation/theme/WindowFrameFilterCatalog.gd.uid",
+                      "size":  19,
+                      "sha256":  "1f5912330700b12cad3af99524b0a98d214baee41e6327452f030bad5b495e71"
+                  },
+                  {
+                      "path":  "src/presentation/theme/WindowSkinCatalog.gd",
+                      "size":  12504,
+                      "sha256":  "179540a88c658b796ab8fe7df561addbb09aac429b4b813197c45fcf7f16229a"
+                  },
+                  {
+                      "path":  "src/presentation/theme/WindowSkinCatalog.gd.uid",
+                      "size":  20,
+                      "sha256":  "a8495522d5f7559c45c1b3c1b725a2467e0a839e10157eb4de0dcb6d0ff2b0aa"
+                  },
+                  {
+                      "path":  "src/presentation/TurnOrderRail.gd",
+                      "size":  11707,
+                      "sha256":  "68c81fb07706bfc6b14b9da23858d5406c8d4bd6c809370cc70c01452e1f774b"
+                  },
+                  {
+                      "path":  "src/presentation/TurnOrderRail.gd.uid",
+                      "size":  20,
+                      "sha256":  "45d125f43d9c011281ed15ac611348598152bbc0aca351a73403a58b6b7f58a2"
+                  },
+                  {
+                      "path":  "src/presentation/VisualAction.gd",
+                      "size":  2908,
+                      "sha256":  "5e545889e2044f74ad2bb8e39a5727da3c33956eb523f6b5bb123efcd2dd48e1"
+                  },
+                  {
+                      "path":  "src/presentation/VisualAction.gd.uid",
+                      "size":  20,
+                      "sha256":  "050d4ad850a2a8ae1e76c39997179cd77e4df9570fa341177ee38b0debb9a8f6"
+                  },
+                  {
+                      "path":  "src/presentation/VisualActionQueue.gd",
+                      "size":  7579,
+                      "sha256":  "d950f76f101be49e2c63b7d2968aebdf7435f1d8696db9d302fbb8b4a3ad9992"
+                  },
+                  {
+                      "path":  "src/presentation/VisualActionQueue.gd.uid",
+                      "size":  20,
+                      "sha256":  "51a38c876d18582c15b032c1f4caef9b4bf02038eb9e5ba35746f984a465d279"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapBaker.gd",
+                      "size":  10186,
+                      "sha256":  "320c6cc67b339fac09eae233043154ec7f9c6597d51cd3de7a8ed076a1e59532"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapBaker.gd.uid",
+                      "size":  19,
+                      "sha256":  "9d85e1a77d35717176227b4cbd49ea9edfd090aaada67b09c585c78ca1b842b0"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapBrushes.gd",
+                      "size":  6357,
+                      "sha256":  "e80ef8f995ea6d6edff89b28d29df737ab890a95038a4e0ce8406745e039fe78"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapBrushes.gd.uid",
+                      "size":  20,
+                      "sha256":  "78d5d7cda4efd3aed63d2752b669ebb533298bc7cfec3ef677f310f271e38b1a"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapEditHistory.gd",
+                      "size":  7772,
+                      "sha256":  "2b26168982dab26e61b779afdaa0d7dfb4a70223deda666d0a7cea0b457e335e"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapEditHistory.gd.uid",
+                      "size":  19,
+                      "sha256":  "654ee80e8648c5e47b2388f70028ef773ba770a6cc83d000033abaf01aa4bf20"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapEditorCamera.gd",
+                      "size":  14134,
+                      "sha256":  "60d8932ac472d74cfb8271ed8a25d75270a97cf279c7e1b467a79583f48f906f"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapEditorCamera.gd.uid",
+                      "size":  19,
+                      "sha256":  "3152c6fd09bed1c3ade215afd8f074d7d77e4df51fe83923efbdf0fb629f4c94"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapEditorController.gd",
+                      "size":  28179,
+                      "sha256":  "f1a618ce56a8315570e66255d047fffe0f5fe7e1dcbddf61ae7ce9e6b25dc5fc"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapEditorController.gd.uid",
+                      "size":  20,
+                      "sha256":  "6118b99b6c0fa75ae0da55afa72be7ffb1413abcd5c28d4c42f440bebdd849d7"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapEditorHud.gd",
+                      "size":  8255,
+                      "sha256":  "a5c2ae25a757c45508245bdf70b55b4fd6129e02fb904d9f5e7203106a960e89"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapEditorHud.gd.uid",
+                      "size":  20,
+                      "sha256":  "947d1b7336a02c23e5b81b4dfc6f7b4d14dee774509b465ab180884d650699b8"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapSurfacePick.gd",
+                      "size":  8674,
+                      "sha256":  "577040681f61324023cc92945a04eff34bcccfec8d17311a11b3b766e5a42896"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapSurfacePick.gd.uid",
+                      "size":  19,
+                      "sha256":  "8498040e10b7d38f8bd21912997aea37d0371fefba0e61befbcd5cf0c53ea7cc"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapTileData.gd",
+                      "size":  12938,
+                      "sha256":  "7931a57fad793cd1b29846f1627e348f5895b01143ce99dc75cb85a1f6a5a307"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapTileData.gd.uid",
+                      "size":  19,
+                      "sha256":  "ee88cde8cb6d864fe475623f686a92057a75c93c88008b6f762a855b31e8a5f8"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapTilesetCatalog.gd",
+                      "size":  26619,
+                      "sha256":  "cd53648c1cdb6951469eaa0f49170fc469aa1577934c8c9df59623ec09b48ee4"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/editor/WorldMapTilesetCatalog.gd.uid",
+                      "size":  19,
+                      "sha256":  "498b22eb36fcadcc1bb4e14d5d576bfcbb0496652e82f470d51aca1eef227b1d"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapCameraRig.gd",
+                      "size":  12658,
+                      "sha256":  "593851d9a77ce0c725e5c9db78a284adbd04b997101c9f6498527883a6e6e0f1"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapCameraRig.gd.uid",
+                      "size":  20,
+                      "sha256":  "bceff9a99761bae0a17d50019881a96a1f4d275cf23516e6e34242b709cb4809"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapCloudCatalog.gd",
+                      "size":  4272,
+                      "sha256":  "e9e6376b6b5828dfcae92f1a2d23df9903adc42bdf2ca8f6f393daf2d5a3c2d3"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapCloudCatalog.gd.uid",
+                      "size":  20,
+                      "sha256":  "f1a4194e0d1775664d85691f746e9e1bf70720cf203d5d7b4e3bff82dd9c6e68"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapCloudField.gd",
+                      "size":  16137,
+                      "sha256":  "395b3abe609e12dcd397b7e0c8a5abd2867da29d325f78b04e5a28fe4648da9c"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapCloudField.gd.uid",
+                      "size":  20,
+                      "sha256":  "15b56414276935f6649255db0c496cd3fb6591f5d1ed464167466c71ef4ec3e2"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapClouds.gd",
+                      "size":  9483,
+                      "sha256":  "064d6d08cdd44d6668be18140f6cab382048782ceb926ba30342cf187efd9672"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapClouds.gd.uid",
+                      "size":  19,
+                      "sha256":  "1de01fa2791358c8ae63d85730f7554573c9dcf70348b88007a3fef4ac309edd"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapCloudShadows.gd",
+                      "size":  5460,
+                      "sha256":  "232aa209ecb2fd81b850609475eb84ee6b7c5344d45475c544bb2450d879415b"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapCloudShadows.gd.uid",
+                      "size":  20,
+                      "sha256":  "c1c63876a203f15ebedf9230729dff8e20e1d058a9f38d198b9a4a443814de97"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapFramingCatalog.gd",
+                      "size":  7422,
+                      "sha256":  "fb4b33959b9778718fa5ad48f34d16f9d3ae18b5a6e663ff3114c9804b376bf7"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapFramingCatalog.gd.uid",
+                      "size":  20,
+                      "sha256":  "d9b5bcabd44183d472b823f1943d8ea2b5ad76b858eeda0c966ec1031652f230"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapGround.gd",
+                      "size":  7478,
+                      "sha256":  "14b53c87c7e7bf41bd34b6958505c0a378b86d150d6f243705329a20608cd121"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapGround.gd.uid",
+                      "size":  20,
+                      "sha256":  "f7d0449ad001fe99c75f004d69310d7ef614c06bf805ea1440ed4c3ce93414f4"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapGroundUniforms.gd",
+                      "size":  18931,
+                      "sha256":  "ea14f77d95848093336c6ca0d7722e806fd447a090774170ae185a357f44b6ea"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapGroundUniforms.gd.uid",
+                      "size":  20,
+                      "sha256":  "8e768d74029822f278f473c37e9a7d7e7c40d490a8b5b23c845b4ae2bcca5f06"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapProps.gd",
+                      "size":  31082,
+                      "sha256":  "74ddd2879ce417ed8aeb3158549344f0c4909c429e84cacb39e734e38df5ce1b"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapProps.gd.uid",
+                      "size":  20,
+                      "sha256":  "c43f260b78049428217323d34c3da05b07b4726c0f26279f947ccb9e2e05bc19"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapRegionCatalog.gd",
+                      "size":  12294,
+                      "sha256":  "1e7c37e0b095d3aa0815b184d334545e6ce3bffb5616e34a5dd04188551879c8"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapRegionCatalog.gd.uid",
+                      "size":  19,
+                      "sha256":  "4968a2a565a331d9400119d2df151262e4c96c73374fa76095cf7ef3773e8f58"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapShadowMask.gd",
+                      "size":  15718,
+                      "sha256":  "f3036f42b0c9cc03dda02b7248a4871e8058e1863e7ffbbbe426c198760c7eba"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapShadowMask.gd.uid",
+                      "size":  20,
+                      "sha256":  "8d70c047f1e3114c8a415cb5ae80109609aec760a1862c566e42c257001ef97f"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapSky.gd",
+                      "size":  2598,
+                      "sha256":  "9c8540e4f76564bc51279a44d3eaefae6634f02b73194c85451bd401a588f655"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapSky.gd.uid",
+                      "size":  20,
+                      "sha256":  "93623ae51a055d502f16372707010dd036f8afce432fb4e1b5a1d1b6f7421904"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapSkyCatalog.gd",
+                      "size":  2123,
+                      "sha256":  "6f7bf0b36d51fdfce8e2e2b35c2ffd62a5104811f7214803d6eafa9821fa8700"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapSkyCatalog.gd.uid",
+                      "size":  19,
+                      "sha256":  "feaa6f6570c6de71b7d42abf9177a03741d8a9b57d581b9762303d50e90fcd41"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapSun.gd",
+                      "size":  6291,
+                      "sha256":  "57f1cec9392a49e2d868dc9058b5f22377ef3f897f9c17bec798c724d9583438"
+                  },
+                  {
+                      "path":  "src/presentation/worldmap/WorldMapSun.gd.uid",
+                      "size":  20,
+                      "sha256":  "8eb226e64ff70df71723c1785f9cb8898c1eab8d5bd90ff96676b7378898c498"
+                  },
+                  {
+                      "path":  "src/systems/BattlePresentationController.gd",
+                      "size":  86846,
+                      "sha256":  "1be9c1bcc57e29d1e0e132bc07f7ac8140368c640dcf4968a54df672982e0c31"
+                  },
+                  {
+                      "path":  "src/systems/BattlePresentationController.gd.uid",
+                      "size":  19,
+                      "sha256":  "df05b9fe1bd40c27a0baf80f534fd62a903b7d2b0b4582169759fd60f7765743"
+                  },
+                  {
+                      "path":  "src/systems/PlayerTurnController.gd",
+                      "size":  29859,
+                      "sha256":  "9ddb8fa756ec9b5b4a6f347fe1ddfd016fec73f63342e37b5cbbf22db12ceef1"
+                  },
+                  {
+                      "path":  "src/systems/PlayerTurnController.gd.uid",
+                      "size":  19,
+                      "sha256":  "5b64a42177b67277063ba2f531ab39e12b3aab29899f42f1c76b7857d575596b"
+                  }
+              ],
+    "deferred_acceptance":  [
+                                "Fresh Godot import and main-scene launch",
+                                "Representative CPU vs CPU and Player vs CPU battles",
+                                "Snapshot restore and command replay parity",
+                                "Representative VFX render comparison"
+                            ]
+}

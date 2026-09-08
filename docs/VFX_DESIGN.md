@@ -12,6 +12,16 @@ Current runtime behavior overrides both this page and the effect pages. When an
 effect changes, update its page under [`effects/`](./effects/README.md); when
 the change is a rule that outlives it, bring the rule here.
 
+> **Where the named adapters live now (HXB-V).** Rules below cite
+> `GodotVisualAdapter` and `BattlePresentationController` functions by name.
+> Both were the square battle's, and the hex migration retired them to the
+> independently runnable reference under `references/square-battle/`. The
+> citations are kept because they record where each rule was derived and
+> measured, which is still true; the hex battle's counterparts are
+> `src/presentation/battle/HexBattleVisualAdapter.gd` and
+> `src/systems/hex_battle/HexBattleController.gd`, and casts reach the screen
+> through `HexBattleVfxBridge` (section 8).
+
 ---
 
 ## 1. How an effect reaches the screen
@@ -1081,3 +1091,102 @@ observation the harness cannot produce.** If it does, that is item zero. This
 has been learned twice: both the ice and fire cycles stalled on a missing
 harness capability that was plainly visible in the plan text before execution
 began.
+
+## 8. Casting on a hex board
+
+HXB-11. Everything above describes an effect on its own terms and is unchanged by the move to
+hex. What changes is the one argument an area effect receives about *where* it landed.
+
+### The square assumption, precisely
+
+Every area effect takes `setFootprint(radiusInTiles, groundSpan, areaShape)` and turns it into a
+world extent the same way:
+
+```gdscript
+var diameter := float(_footprintRadius * 2 + 1)
+```
+
+That is the bounding box of a **Manhattan diamond** of that radius, which is exactly what a square
+board's "circle" spell resolved to — `ShapeCaster.getCircle` was a diamond, and `VfxTextures`'
+default ground wash is a diamond mask for that reason.
+
+On a hex board neither half survives. HXB-7 made `getCircle` a hex disc, and a hex disc of radius
+R spans `3R + 2` world units across its columns, not `2R + 1`. At radius 4 that is **14 units of
+affected ground drawn as 9**.
+
+### What an effect is given instead
+
+`HexBattleVfxBridge` is the hex entry point, replacing `SpellVfxCatalog.create` for battle casts.
+It takes the existing `VfxCastContext` **plus** a `HexVfxFootprint`: the ordered resolved cells,
+one world position each, and a world-space `bounds` grown from every cell's *polygon corners*
+rather than its centre.
+
+**Empty cells are part of the footprint.** The bounds span every affected cell, not only those
+that held a target. A seven-cell blast with one unit standing in it is seven cells wide;
+collapsing it to that unit's body is the failure this argument exists to prevent.
+
+### Area-bound and body-bound
+
+An effect is **area-bound** if it declares `setFootprint`. That is not a judgement about how an
+effect looks — it is the literal question "does this size itself from a tile radius", and a tile
+radius is the only thing hex breaks. Everything else is **body-bound**: it draws on a caster or a
+target through `configure_cast_context`, whose world positions and model bounds were never
+tile-scaled and are already correct.
+
+So of fourteen catalog profiles, ten are area-bound (six of them Solar Storm's own version ladder)
+and four are body-bound. Body-bound profiles reuse their donor **unchanged** — there is no hex
+variant of them at all. `scripts/hex_battle/fixtures/vfx/donor_manifest.json` is that mapping
+captured as data, for HXB-V to regress against.
+
+### Subclasses, not copies
+
+The five area donors get thin owned subclasses under `src/presentation/battle/effects/`.
+GDScript methods are virtual, so overriding the one function that carries the square assumption
+inherits every other line — authored timing, density curves, layers, lifecycle — unchanged.
+
+A copied effect would be a second thing to keep in step with the original, and the instruction for
+this cycle is that donors keep their appearance and behaviour *exactly*. Sharing the code is what
+guarantees that, rather than a promise to re-check two files.
+
+Each subclass feeds the donor the radius whose own `2R + 1` reproduces the true hex span, and lets
+every authored line downstream run as it always has. The quantisation is real and bounded at half
+a cell, because `2R + 1` lands on odd integers. Where that error would be **visible** it is not
+paid at all: the ground wash is then set to the exact extent and the exact affected-cell mask.
+
+### The ground wash is the affected cells
+
+`HexVfxGroundWash` rasterises the resolved cells directly rather than picking a named mask and
+hoping it matches. A disc, a ring, a cross, a line, and an irregular set clipped by a wall all come
+out correct with no per-shape code — and "a cast hits seven cells but draws five" cannot happen,
+because the drawing *is* the seven cells.
+
+It is generated in the owned subtree rather than added to `VfxTextures`, which is a donor this
+item may not mutate. Textures are cached by footprint identity, so repeated casts on the same
+shape rasterise once.
+
+### For HXB-13
+
+The scene adapter calls:
+
+```gdscript
+var footprint := HexBattleVfxBridge.footprintFor(resolvedCells, map)
+var playback := HexBattleVfxBridge.createPlayback(
+    profileID, parent, worldPosition, colour, footprint, castContext, overrides,
+    groundSpan, areaShape
+)
+playback.play(seed, VfxPlayback.MODE_BATTLE)
+```
+
+`createPlayback` constructs, applies the cast context and the footprint, and returns. It does not
+play: seeding, mode, cancellation and teardown stay the caller's, exactly as they already are for
+`SpellVfxCatalog.create`. `resolvedCells` must be the full affected set — the cells HXB-7 resolved,
+including the empty ones.
+
+### A donor note this item could not act on
+
+`ShapeCaster.getCircle` is now a hex disc, but several donor files under
+`src/presentation/effects/` still describe it in their headers as a Manhattan diamond — true when
+written, false since HXB-7. Those files are donors this item may not modify, and no item in this
+cycle owns `src/presentation/effects/**`, so the stale prose is recorded here rather than fixed.
+It is comment drift, not behaviour: the donors' own geometry is unchanged and the hex path does not
+read those masks.

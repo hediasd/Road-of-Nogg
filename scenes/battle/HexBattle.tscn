@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bhx0battlescn1"]
+
+[ext_resource type="Script" uid="uid://pq1gghw18jsy" path="res://src/systems/hex_battle/HexBattleController.gd" id="1_hexbattle"]
+
+[node name="HexBattle" type="Node3D"]
+script = ExtResource("1_hexbattle")

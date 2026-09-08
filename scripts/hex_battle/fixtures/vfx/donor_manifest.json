@@ -1,0 +1,135 @@
+{
+	"DESCRIPTION": "Donor and caller manifest captured by HXB-11 for HXB-V's regression comparison. BINDING is how the hex bridge serves each profile: 'area' profiles declare setFootprint and receive a hex footprint through an owned subclass; 'body' profiles draw on a caster or target and reuse their donor unchanged.",
+	"PROFILES": [
+		{
+			"ACTION_HOLD_FRACTION": 0.48,
+			"BINDING": "body",
+			"DISPLAY_NAME": "Spell Cast Aura",
+			"DONOR": "res://src/presentation/effects/SpellCastAura.gd",
+			"HEX_CLASS": "",
+			"MAX_LIVE": 0,
+			"PROFILE_ID": "spell_cast_aura"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.6,
+			"BINDING": "body",
+			"DISPLAY_NAME": "Technique Charge Aura v1 (preview)",
+			"DONOR": "res://src/presentation/effects/TechniqueChargeAuraV1Effect.gd",
+			"HEX_CLASS": "",
+			"MAX_LIVE": 3,
+			"PROFILE_ID": "technique_charge_aura_v1"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.55,
+			"BINDING": "body",
+			"DISPLAY_NAME": "Technique Charge Aura v2 (preview)",
+			"DONOR": "res://src/presentation/effects/TechniqueChargeAuraV2Effect.gd",
+			"HEX_CLASS": "",
+			"MAX_LIVE": 3,
+			"PROFILE_ID": "technique_charge_aura_v2"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.45,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Ice Area Storm",
+			"DONOR": "res://src/presentation/effects/IceStormEffect.gd",
+			"HEX_CLASS": "HexIceStormEffect",
+			"MAX_LIVE": 2,
+			"PROFILE_ID": "ice_area_storm"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.45,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Fire Area Storm",
+			"DONOR": "res://src/presentation/effects/FireStormEffect.gd",
+			"HEX_CLASS": "HexFireStormEffect",
+			"MAX_LIVE": 2,
+			"PROFILE_ID": "fire_area_storm"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.45,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Magenta Reduction",
+			"DONOR": "res://src/presentation/effects/MagentaReductionEffect.gd",
+			"HEX_CLASS": "HexMagentaReductionEffect",
+			"MAX_LIVE": 2,
+			"PROFILE_ID": "magenta_reduction"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.72,
+			"BINDING": "body",
+			"DISPLAY_NAME": "Ice Target Encasement",
+			"DONOR": "res://src/presentation/effects/IceTargetEncasementEffect.gd",
+			"HEX_CLASS": "",
+			"MAX_LIVE": 2,
+			"PROFILE_ID": "ice_target_encasement"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.5,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Aurora Veil",
+			"DONOR": "res://src/presentation/effects/AuroraVeilEffect.gd",
+			"HEX_CLASS": "HexAuroraVeilEffect",
+			"MAX_LIVE": 1,
+			"PROFILE_ID": "aurora_veil"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.46,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Solar Storm v1 (wave)",
+			"DONOR": "res://src/presentation/effects/SolarStormEffect.gd",
+			"HEX_CLASS": "HexSolarStormEffect",
+			"MAX_LIVE": 1,
+			"PROFILE_ID": "solar_storm_v1"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.46,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Solar Storm v2 (pulse)",
+			"DONOR": "res://src/presentation/effects/SolarStormEffect.gd",
+			"HEX_CLASS": "HexSolarStormEffect",
+			"MAX_LIVE": 1,
+			"PROFILE_ID": "solar_storm_v2"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.46,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Solar Storm v2.1 (+loops)",
+			"DONOR": "res://src/presentation/effects/SolarStormEffect.gd",
+			"HEX_CLASS": "HexSolarStormEffect",
+			"MAX_LIVE": 1,
+			"PROFILE_ID": "solar_storm_v2_1"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.46,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Solar Storm v2.2 (+heat)",
+			"DONOR": "res://src/presentation/effects/SolarStormEffect.gd",
+			"HEX_CLASS": "HexSolarStormEffect",
+			"MAX_LIVE": 1,
+			"PROFILE_ID": "solar_storm_v2_2"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.46,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Solar Storm v2.4 (full)",
+			"DONOR": "res://src/presentation/effects/SolarStormEffect.gd",
+			"HEX_CLASS": "HexSolarStormEffect",
+			"MAX_LIVE": 1,
+			"PROFILE_ID": "solar_storm"
+		},
+		{
+			"ACTION_HOLD_FRACTION": 0.46,
+			"BINDING": "area",
+			"DISPLAY_NAME": "Solar Storm v3 (melt)",
+			"DONOR": "res://src/presentation/effects/SolarStormEffect.gd",
+			"HEX_CLASS": "HexSolarStormEffect",
+			"MAX_LIVE": 1,
+			"PROFILE_ID": "solar_storm_v3"
+		}
+	],
+	"SHARED_CALLERS": [
+		"res://src/presentation/GodotVisualAdapter.gd",
+		"res://src/presentation/debug/VFXDebugController.gd"
+	]
+}

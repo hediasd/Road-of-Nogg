@@ -3,9 +3,12 @@
 Items here need prompt resolution because they leave current gameplay incomplete
 or misleading.
 
-## BattleDebugScene crashes while releasing script resources at application exit
+## The battle scene crashes while releasing script resources at application exit
 
-Loading `scenes/debug/BattleDebugScene.tscn` and closing it returns Windows access-violation
+Observed on the square battle scene the hex migration has since retired; the
+leak it describes is a property of the shared script/resource graph rather than
+of that scene, so it is retained against `scenes/battle/HexBattle.tscn` and must
+be re-measured there. Loading the battle scene and closing it returned Windows access-violation
 code `-1073741819`. Godot reports `ObjectDB instances leaked at exit` and 46
 GDScript/shader resources still in use. The failure occurs on the untouched
 setup screen before a simulator, visual adapter, or spell aura exists, under
@@ -21,6 +24,33 @@ ownership cycle, then prove setup-screen exit and a completed live battle both
 return code 0 with no ObjectDB, RID, shader, font, or resource leak report. Do
 not treat the battle-complete marker as sufficient: the access violation occurs
 after that marker during engine cleanup.
+
+**HXB-V narrowed this considerably (2026-09-08), and the hex battle itself does
+not reproduce it.** Every shipped path now exits 0: booting
+`scenes/battle/HexBattle.tscn`, a complete CPU-vs-CPU battle in that scene, a
+Player-vs-CPU battle with real parsed input, return-to-setup followed by a
+second battle, the editor round trip, and the archived square project's own
+demo. What does reproduce it is a synthetic sweep that constructs all fourteen
+`SpellVfxCatalog` profiles through `HexBattleVfxBridge` in one process: its
+assertions all pass and its marker prints, then the process dies with
+`-1073741819` during engine cleanup.
+
+The cause is a co-occurrence, not any one class. Measured separately, all clean:
+
+| Built in one process | Result |
+|---|---|
+| All 14 donor profiles, up to 42 effects | clean |
+| All 5 hex effect subclasses | clean |
+| One hex subclass, six times over | clean |
+| All 5 hex subclasses with a real hex footprint and ground wash | clean |
+| All 14 profiles through the bridge (10 hex + 4 body donors) | **crashes** |
+
+So it is neither volume, nor a specific subclass, nor the generated ground-wash
+texture (clearing that static cache before exit does not help). It needs a
+particular mix of effect classes alive in one process, which is consistent with
+the ownership-cycle theory above rather than with anything the hex migration
+introduced. The sweep script is the cheapest reproducer found so far and is
+worth rebuilding when someone takes this on.
 
 ## Finish battle-window restyle validation
 
@@ -123,6 +153,15 @@ already carries `cooldown_remaining` and `ready`, and the missing piece is why.
 
 ## Player command UI
 
+> **Scope note (HXB-14).** The entries below describe the square battle's
+> command surface -- its action row, forecast text and spell menu -- driven by
+> `PlayerTurnController`, which the hex migration retired to the frozen
+> reference. The hex battle rebuilt member selection and the party panel, not
+> that command surface; `HexBattleMemberTurn` exposes the phases and
+> `HexBattleController` owns the schedule, but the menu, forecast and action row
+> are not yet rebuilt on hex. These remain open work, and the citations record
+> where each behaviour was specified.
+
 - **The command UI rework is done** (2026-07-29 through 2026-07-31). Turn
   execution is split into order-aware phases, the player state machine lives in
   `src/systems/PlayerTurnController.gd`, the play/pause toggle gates visual
@@ -131,20 +170,19 @@ already carries `cooldown_remaining` and `ready`, and the missing piece is why.
   `CombatResolver` math real resolution uses. The command menu, playback pause,
   surface-accurate picking, and Spell/`< BACK` navigation are stabilized.
 - **Positional targeting has passed headless in-window acceptance**
-  (2026-07-31). The pass drove the real `BattleDebugScene` scene through synthetic
+  (2026-07-31). The pass drove the real `BattleDebugScene` scene (since retired) through synthetic
   input for legal empty and occupied centers, target cycling with no free grid
   roaming, blocked-empty confirmation, a zero-hit `Dark Nova` cast, mouse
   picking across two elevations and two rotated camera yaws, and both phase
   orders.
-- **Camera-relative controls are resolved.**
-  `BattlePresentationController._board_direction_for()` rotates an arrow key
-  into the board direction it points at under the current camera, quantised to
-  quadrants (the board is a square grid, so each key must resolve to exactly
-  one axis; a continuous rotation is ambiguous at 45 degrees). It became
-  load-bearing rather than cosmetic when `BattleCameraDirector` started
-  rotating the camera on its own during CPU turns — the director settles to an
-  exact quadrant before a player turn opens, so the mapping is exact rather
-  than an approximation. Broader visual accessibility remains open.
+- **Camera-relative controls are resolved, and the hex battle resolves them
+  differently.** The square battle quantised an arrow key into one of four
+  board quadrants, which was exact because a square cell has four neighbours.
+  A flat-top hex has six and none of them is straight up on screen, so
+  `HexBattleCursor` instead projects the six neighbour centres through the live
+  camera and picks the nearest by angle, with ties broken on the established
+  neighbour order. The quadrant approach is preserved only in the frozen square
+  reference. Broader visual accessibility remains open.
 - **The headless input driver covered ten checks, up from five.** Its
   occupied-only target assertions were replaced with positional ones, and it
   gained typed reference/lifecycle coverage, animation-flow and pause/resume
@@ -177,7 +215,7 @@ harness, with baseline goldens recorded in `debug/vfx_golden/`. Its final
 validation pass was never completed, and the effect shipped anyway. What is
 still unexercised:
 
-- **Battle integration.** `Smoke Tower` has never been cast in `BattleDebugScene` — no
+- **Battle integration.** `Smoke Tower` has never been cast in a live battle — no
   terrain, no units, no queue pacing, no CRT compositing in an actual battle.
   This is the significant gap; everything else below is narrower.
 - **Adapter lifecycle:** overlap/cap, skip, pause, and speed paths, plus the
@@ -211,7 +249,7 @@ The effect therefore ships on nothing but debug-harness captures.
 
 What is still unexercised:
 
-- **Battle integration.** Snowzilla has never cast `Ice Statue` in `BattleDebugScene`.
+- **Battle integration.** Snowzilla has never cast `Ice Statue` in a live battle.
   Needed: at least two visibly different target bodies, short and long legal
   range, an elevated terrain case, event-time placement, transparent-cyan
   readability through CRT, damage-number separation, queue pacing, defeat
@@ -263,6 +301,6 @@ Two pieces remain open:
   backward seek, skip-to-settle, overlap, replay, disposal and scene exit;
   measured real-time visual and action-hold duration; identical frames for
   identical normalized time and seed; a caller search across every changed shared
-  primitive with every returned effect rendered; and a real cast in `BattleDebugScene`
-  through the adapter and event path. The `BattleDebugScene` shutdown access violation
+  primitive with every returned effect rendered; and a real cast in the battle scene
+  through the adapter and event path. The battle-scene shutdown access violation
   above is a prerequisite for that last one.

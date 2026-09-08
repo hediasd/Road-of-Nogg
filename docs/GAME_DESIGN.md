@@ -1,9 +1,112 @@
 # Game Design Baseline
 
-Status: confirmed rules and approved first-playable direction as of 2026-07-26.
+Status: confirmed rules and approved first-playable direction as of 2026-09-07.
 Creative details and balance values not recorded here still require user input.
 
-## Battle format
+The sections labeled **current square baseline** describe the implementation
+being preserved for reference. The approved hex rules are the product direction;
+they remain a target until the migration is implemented and validated.
+
+## Approved initial hex battle target
+
+Brigandine: The Legend of Forsena is the principal reference for commander-led
+troops, grouped activation, hex battle layout, and commander-driven outcomes.
+Brigandine: The Legend of Runersia also informs terrain and zone of control.
+These sources guide the structure; the exact Road of Nogg rules below are the
+approved project contract. See the [Forsena manual](https://www.videogamemanual.com/ps1/Brigandine%20-%20The%20Legend%20of%20Forsena%20%28USA%29.pdf)
+and [Runersia game-system reference](https://brigandine.happinet-games.com/gamesystem/?lang=en).
+
+### Parties, rounds, and member turns
+
+- A party has exactly one commander, a deterministic party ID, and zero or more
+  other members. Initial test scenarios may designate existing monsters as
+  commanders; the migration does not require new characters, names, classes,
+  or artwork.
+- Each surviving party receives one activation per round. At round start,
+  parties are ordered by commander level descending, effective commander SPD
+  descending, then deterministic party ID ascending. The queue is rebuilt only
+  at the next round unless battle termination makes its remainder irrelevant.
+- During a player party activation, the player may choose any living, eligible,
+  unspent member in any order. CPU parties choose dynamically through the same
+  eligibility and command rules. Each eligible member receives at most one turn
+  during that activation.
+- **Wait** consumes the selected member's turn. **End Party** converts every
+  remaining eligible member turn into a wait in deterministic member-ID order.
+  Dead or withdrawn members receive no turn and no timing tick.
+- A member may move then act or act then move where the command permits it.
+  Casting after movement is allowed unless the spell says otherwise. Movement
+  may be undone only before an action and before any irreversible reaction or
+  effect has occurred.
+- Status durations, cooldowns, and end-turn passives advance once when their
+  member acts, waits, is skipped, or is consumed by End Party. An effect created
+  during an activation follows the same rule; one member's turn never advances
+  another party member's clocks. Victory is checked after each fully resolved
+  command and timing step, before another member is selected.
+
+Free member choice removes ordinary-member SPD from turn scheduling. Commander
+SPD remains a party-order tiebreaker. A later balance decision may give ordinary
+member SPD another use, such as accuracy or evasion; no replacement benefit is
+part of this migration.
+
+Examples make the scheduling edge cases explicit:
+
+- If two commanders share level and effective SPD, the lower deterministic
+  party ID activates first.
+- If member 12 waits, member 12 is spent while another eligible member remains
+  selectable. If End Party is then chosen with members 9 and 20 eligible, their
+  waits resolve in ID order: 9, then 20.
+- If only one eligible member remains, that member may act or wait normally;
+  resolving it ends the party activation exactly once.
+
+### Defeat, withdrawal, and battle outcome
+
+- Defeating an ordinary member does not end its party. Defeating a commander
+  forces every surviving member of that party to withdraw; withdrawal does not
+  kill those members.
+- A team loses when all of its commanders are defeated or withdrawn. If one
+  fully resolved effect removes every team's last commander simultaneously,
+  the result is a draw.
+- For example, defeating the last commander on Team 2 withdraws that
+  commander's surviving members and ends the battle before another member is
+  selected. If the same resolved effect also removes Team 1's last commander,
+  neither side wins.
+
+### Hex board, movement, and targeting
+
+- The initial board permits one unit per valid flat-top hex. Occupied cells
+  block both passage and stopping. Traversable terrain initially costs one
+  movement point; obstacles and abyss remain blocked according to their terrain
+  contracts. Integer height and JUMP limit traversal.
+- The movement API is weighted even while production costs are uniform. It
+  distinguishes traversal, stopping, cost, and movement termination so later
+  terrain and movement types do not require replacement pathfinding.
+- Zone of control is part of the first playable battle. Entering a hex adjacent
+  to a living hostile unit ends the mover's movement.
+- Range uses hex distance. A circle is a hex disc, and a minimum range cuts a
+  ring from it. A cross is the center plus six axial rays. A line follows the
+  selected axial direction and excludes the caster. Self-centered and passive
+  radial effects use hex discs. Every existing area shape must receive a
+  supported mapping or an explicit unsupported result; square geometry must not
+  survive silently.
+- Line of sight uses symmetric supercover. Intervening cells touched by the
+  line can block it; source and target cells are excluded. A ray exactly on a
+  cell edge or vertex includes every touched intervening cell, producing a
+  conservative deterministic result rather than an angle-dependent gap.
+
+### Presentation and deferred systems
+
+The battlefield keeps the retro 2.5D direction with an oblique view over a
+flat-top hex layout. Mouse remains the primary pointer. Keyboard and gamepad
+navigation must reach all six neighbours under the camera transform. A
+party/member display replaces the individual speed portrait rail.
+
+The initial migration does not include voluntary retreat, command-radius
+penalties, enclosure bonuses, allied pass-through, flying or aquatic traversal,
+terrain defence/evasion, capture, resurrection, turn limits, reinforcements,
+campaign consequences, or additional victory objectives. They are optional
+follow-on systems rather than implied parts of the first playable.
+
+## Current square baseline: battle format
 
 - Battles use a square grid and currently support two teams.
 - The first playable slice is fixed 4v4 with automatic deployment.
@@ -17,7 +120,7 @@ Creative details and balance values not recorded here still require user input.
 The detailed setup, dropdown, controller, and cursor contracts are in
 [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
-## Turn and victory flow
+## Current square baseline: turn and victory flow
 
 1. A round queues all living entities by speed, highest first. Equal-speed ties
    use deterministic entity ID order.
@@ -30,7 +133,7 @@ CPU decisions and player input converge on the same validated
 command contract. A controller proposes a command; the simulator validates,
 executes, and records it.
 
-## Actions
+## Current square baseline: actions
 
 - **Move:** Orthogonal grid pathfinding, limited by MOVE.
 - **Basic attack:** Always available, currently adjacent/melee and based on ATK.
@@ -42,7 +145,7 @@ The current basic damage floor is expressed as
 `max(1, attacker.atk + action_power - target.def)`. Resolver-specific elemental,
 passive, multi-hit, healing, and status behavior may modify the result.
 
-## Board and terrain
+## Current square baseline: board and terrain
 
 - `TERRAIN_CLEAR`: walkable and does not block line of sight.
 - `TERRAIN_OBSTACLE`: unwalkable and blocks line of sight.

@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Road of Nogg"
-run/main_scene="res://scenes/debug/BattleDebugScene.tscn"
+run/main_scene="res://scenes/battle/HexBattle.tscn"
 config/features=PackedStringArray("4.4")
 config/icon="res://assets/textures/icon.png"
 

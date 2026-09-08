@@ -1320,3 +1320,124 @@ clearance the same map's own `clearance()` call reported. The box is a poor stan
 it has no rails, no deck plane wider than the object's footprint, and no visible connection to the
 banks either side — but the **position** is the thing this item is answerable for, and the render
 confirms it holds.
+
+## 20. The tactical layer, and exporting a battle map
+
+HXB-10. A region can carry a **battlefield**: which of its cells a battle is fought on, and what
+each of those costs to cross. It exports as a second product beside the gameplay scene of §13 —
+the tactical map `BattleSimulator` reads, in the schema HXB-5 defined.
+
+### It is a plain grid layer, and that is the whole design
+
+`WorldMapTacticalLayer` stores terrain ids in an ordinary `grid` layer. It adds no storage kind,
+no format version, and not one line to `WorldMapTileData` or `WorldMapEditHistory` — because the
+document format is layer-agnostic on purpose, and its own class note names "walkability" as
+exactly the kind of thing a later cycle should be able to add as *data*. So run-length encoding,
+`paintCell`'s undo/redo, and save/reopen all already worked before this layer existed.
+
+What it does need is three exceptions in `WorldMapEditorController`, all in one direction: the
+tactical layer is a grid layer with **no tileset**, because its values are ledger ids rather than
+tile art. `_layerEditable`, `_layerPopulated` and `_refreshValueChoices` each carry that exception
+rather than the "a grid layer is painted from a tileset" assumption being loosened for ground and
+overlay too.
+
+### Tactical meaning is authored, never inferred from art
+
+An empty cell on this layer means **not part of the battlefield** — not "clear ground". Deriving
+the playable area from wherever ground tiles happen to sit would read a decorative decision as a
+gameplay one, and on the existing hex document it would do visible harm: the cells under its nine
+buildings carry no ground tile precisely *because* those buildings are objects, so inference would
+delete exactly those cells from the board.
+
+For the same reason a building does not block a cell until someone says it does. The fixture says
+so explicitly — its nine buildings sit on `blocked` cells because that was painted, not because a
+tower was detected.
+
+An id outside the ledger is an **authoring error**, and refuses the export naming the cell. A typo
+that silently became walkable ground is a balance change nobody made and nobody can see.
+
+### What cannot be exported, and why refusing is the feature
+
+The tactical model is one surface per cell at an integer elevation (`SURFACE_MODEL: "single"`).
+Two authored things cannot be said in it, and both are refused by name and cell rather than
+silently approximated:
+
+| Refused | Why it cannot be represented |
+|---|---|
+| **Smooth terrain** | Heights live on the hex *vertex* lattice as continuous floats and nothing rounds them (§15). A cell whose vertices disagree is a slope, and flattening it to one integer puts the unit somewhere the ground is not. |
+| **Bridges** | A fixed-anchor deck (§19) is a second walkable surface over a cell that already has one. Dropping it silently would hand the player a bridge they can see and cannot cross. |
+
+**Authored water is not on that list.** Water here is decoration, it blocks nothing, and refusing
+a map for having a lake in it would be the opposite of what §18 built.
+
+A consequence worth stating plainly, because it constrains what a battle map can look like:
+neighbouring hexes *share* their vertices, so the surface is continuous by construction. Two
+adjacent **playable** cells therefore cannot sit at different elevations without a slope between
+them. A battle map is flat across its playable area, or its elevation changes fall on cells that
+are off the board — a cliff you cannot stand on. The fixture is flat at elevation 0.
+
+### Exporting both products at once
+
+`Ctrl+Shift+E` exports the pair; `Ctrl+E` still exports the gameplay scene alone. Both halves come
+from one document in one action on purpose — exporting them separately is exactly how a scene ends
+up describing a document the map no longer matches. Both are stamped with the same `SOURCE`: the
+region name, and a SHA-256 fingerprint of the document's own canonical bytes, so any authored
+change at all produces a different pair and a stale half is detectable rather than merely
+suspected.
+
+A refusal reaches the status line with the feature and the cell in it. "Unsupported" alone does
+not tell an author which hill to flatten.
+
+### The generated scene is not committed, so the dependency is declared
+
+Per §13, exported scenes are gitignored — `ResourceSaver.save()` assigns fresh resource ids every
+write, so a committed one shows a spurious diff on every re-export. The baked PNG *is* committed,
+because that one is byte-deterministic.
+
+That leaves a real state the project is in by policy: a fresh checkout has the tactical map and
+the art, but not the scene the map's `VISUAL_SCENE_PATH` points at. `BattleMapAssetManifest` is
+the answer — it reads the map JSON alone and reports which generated products are missing and why,
+so packaging can ask "what must exist before shipping this map" and an author can ask "why will
+this map not load". It imports no editor code and must not: a packaged game ships without one.
+
+### The PNG import prerequisite, resolved
+
+`WorldMapSceneExport` refuses to export until Godot has *imported* the baked PNG, because a
+texture with no `resource_path` embeds megabytes of base64 into the scene (§13). The supported way
+to satisfy that without opening the editor by hand is Godot's own import mode:
+
+```bash
+godot --headless --import --path .
+```
+
+`--headless --editor --quit` does **not** work for this: `--quit` ends the run after one frame and
+the filesystem scan is asynchronous, so it aborts partway ("Scan thread aborted") and writes no
+`.import` file. `--import` is documented to wait for imports to finish and then exit, which is
+what a bake-then-export sequence needs.
+
+### Regenerating the fixture
+
+`hex_battle_fixture` is committed source; its PNG is a committed build artifact, and its gameplay
+scene is not committed at all. The durable path back to both generated halves is the editor
+itself, which is why the in-editor route exists rather than a build script:
+
+1. Open the `hex_battle_fixture` region in the editor and **Ctrl+S**. Saving writes the source
+   document *and* re-bakes the PNG — one action, so the two cannot drift.
+2. `godot --headless --import --path .` once, so Godot imports the freshly baked PNG. Skipping
+   this is what produces "no importable bake at …" from the export.
+3. **Ctrl+Shift+E** — writes the gameplay scene and `data/battle/maps/editor_fixture.json`.
+
+Headlessly, the whole of step 3 is one call, so a throwaway script needs no more than this:
+
+```gdscript
+var data := WorldMapTileData.loadFrom(WorldMapTileData.pathFor("hex_battle_fixture"))
+var framing := WorldMapGroundUniforms.completeForRegion({}, data.fog_color, data.void_color)
+WorldMapBattleExport.exportBoth(data, framing, "editor_fixture")
+```
+
+Such scratch scripts belong under `builds/hex-battle/`, which is not tracked; the instructions
+above are the durable form, and the committed editor is what actually performs the export.
+
+The map id is deliberately separable from the region name: a region is a place someone authored,
+and a map is one battle fought on it. `SOURCE.ID` still carries the region, so the pair stays
+traceable to its document.

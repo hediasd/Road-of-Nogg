@@ -27,8 +27,8 @@ commands and reacts to events; it does not edit battle state directly.
 |---|---|---|
 | Simulation and data | `src/battle_sim/`, `src/algorithms/`, `src/board/`, `src/entities/`, `src/entity_ai/`, `src/factories/` | Deterministic rules, state, setup construction, content, AI decisions |
 | Presentation | `src/presentation/` | Cameras, meshes, cursor, setup/battle UI helpers, visual registry and adapters |
-| Scene orchestration | `src/systems/BattlePresentationController.gd` | Godot lifecycle, pacing, input routing, screenshots, adapter wiring |
-| Player turn | `src/systems/PlayerTurnController.gd` | Player-turn phases, command menu model, phase submission |
+| Scene orchestration | `src/systems/hex_battle/HexBattleController.gd` | Godot lifecycle, party-activation pacing, input routing, adapter wiring |
+| Member turn | `src/systems/hex_battle/HexBattleMemberTurn.gd` | One member's phases, cursor, undo, phase submission |
 
 Godot value types such as `Vector2i`, `Dictionary`, and
 `RandomNumberGenerator` are valid in the headless layer. Scene nodes, cameras,
@@ -38,6 +38,131 @@ For the per-directory breakdown — public entry points, allowed and forbidden
 dependencies, and a "where to make a change" table — see
 [`MODULE_MAP.md`](./MODULE_MAP.md). This section stays the authority on what
 the layers *mean*; the map is the routing detail.
+
+## Hex battle ownership
+
+The active code still implements the square baseline described below. The hex
+migration keeps `BattleSimulator` as the only canonical runtime and
+`BattleState` as its authoritative state; it changes their topology and
+activation contracts rather than adding a parallel maintained simulator. The
+approved player-facing rules are in [`GAME_DESIGN.md`](./GAME_DESIGN.md), under
+"Approved initial hex battle target."
+
+The planned ownership split is:
+
+- Headless board code owns offset/axial conversion, six-neighbour ordering, hex
+  distance, footprints, weighted traversal, zone-of-control termination, and
+  symmetric supercover line of sight. Simulation and AI consume the same query
+  surfaces. Neither imports editor or presentation code.
+- Setup data owns the selected tactical map, deterministic party identities,
+  each party's commander and members, controllers, and deployment. A map owns
+  valid cells, terrain, height, and source identity. Presentation scenes are not
+  gameplay map definitions.
+- `BattleState` owns party membership and withdrawal state, the round's ordered
+  party queue, the active party, member eligibility/spent state, board layers,
+  occupancy, and every value needed for deterministic save and replay.
+- `BattleSimulator` owns activation transitions and is the only writer of that
+  state. It builds the round queue from commander level, effective commander
+  SPD, and deterministic party ID; opens member turns; consumes Wait and End
+  Party; advances member-owned timing once; resolves forced party withdrawal;
+  and checks victory between fully resolved member commands.
+- Player controllers and CPU brains select only from simulator-reported eligible
+  members and submit the same typed commands. They never maintain a competing
+  party queue or advance status, cooldown, passive, withdrawal, or victory state.
+- Presentation observes `BattleEvents` or `IBattleVisualAdapter`, submits intent,
+  and renders authoritative eligibility, paths, footprints, party progress, and
+  outcomes. Picking, overlays, cameras, animation callbacks, and UI controls do
+  not mutate `BattleState`.
+- Tactical authoring may produce both a visual scene and a headless map resource,
+  tied by source identity and geometry metadata. Runtime simulation loads only
+  the headless product through its factory boundary; it never reads the editor.
+
+### Shared hex lattice
+
+`src/board/HexGrid.gd` is the headless authority for odd-column offset/axial
+conversion, the deterministic E/NE/NW/W/SW/SE neighbour order, hex distance,
+and row-major hex discs. Its public coordinates remain `Vector2i` offset cells
+so `Matrix` storage stays rectangular. Axial coordinates are an internal math
+space; callers do not repeat column-parity arithmetic.
+
+`WorldMapHexGrid` delegates those operations to `HexGrid` and retains only the
+presentation geometry needed by authoring: cell centres, world picking and cube
+rounding, lattice extents, and exact-square fitting. This wrapper preserves the
+editor's established API and dimensions while allowing battle simulation, AI,
+and future nonvisual tools to depend on the lattice without importing editor
+code.
+
+### Hex battle map and scenario boundary
+
+`BattleMapDefinition` is the headless tactical map contract. Its rectangular
+`boardSize` is storage capacity; `validCells()` and `containsCell()` define the
+actual odd-column offset board, including holes. Terrain, elevation, movement
+cost, and line-of-sight state are independent of both the valid-cell mask and
+live occupancy. The board-view contract is `boardSize`, `visualScenePath`,
+row-major `validCells()`, `containsCell()`, `heightAt()`, `cellWidth`,
+`cellHeight`, and `heightStep`.
+
+`BattleMapFactory` accepts version 1, `hex_flat`, `odd_q_offset`, single-surface
+maps. Every map carries source ID, revision, fingerprint, and visual scene path.
+Only explicitly headless technical fixtures may omit the visual scene. Stacked
+standable surfaces fail at this boundary instead of being flattened into one
+cell.
+
+`BattleScenario` ties one exact map revision and source fingerprint to
+deterministic commander-led parties. Each member has a unique gameplay ID,
+monster reference, level, and valid non-overlapping deployment cell. Party and
+member counts are data-driven; the square setup's four-member roster constant
+does not apply to this path.
+
+`BattleSetupFactory.createHexState()` materializes the validated scenario into
+`BattleState`, including dense compatibility matrices, the valid-cell map,
+party indexes, team-roster projection, and explicitly identified monsters.
+`BattleSimulator.configureHexState()` installs that state in the canonical
+runtime, rebuilds resolvers and brains, and captures the ruleset-scoped content
+fingerprint. Authoritative hex spatial execution remains a separate resolver
+boundary; it does not change activation ownership.
+
+The current square battle is preserved as a frozen, independently runnable
+reference with its own source snapshot, resources, manifest, and launch steps.
+The active project does not load it and exposes no square/hex runtime toggle.
+
+### Party activation and member turns
+
+The simulator opens a round by freezing the surviving party order from
+commander level descending, effective commander speed descending, and party ID
+ascending. `BattleState.partyOrder` records the complete round order while
+`pendingPartyIDs` contains only parties not yet opened. An active party is a
+separate lifecycle from its selected member: `activePartyID` may remain set
+while `currentMonsterID` is `-1` and the simulator waits for an authoritative
+member selection.
+
+`selectPartyMember()` is the only operation that opens a member turn. It checks
+party membership, life, withdrawal, board presence, and the activation's spent
+set before changing `currentMonsterID`. Player input, CPU deliberation, and
+replay all call this operation. A resolved command records its accepted and
+resolved outcome, fires end-turn passives, advances only that member's status
+and cooldown clocks, and marks the member spent. Exhausting eligibility closes
+the party once. `endPartyActivation()` submits ordinary wait commands for all
+remaining eligible members in member-ID order, so it shares the same timing and
+command ledger rather than maintaining a second completion path.
+
+After every member timing step, the simulator reconciles commander defeat.
+Surviving members of that commander's party leave occupancy and become
+withdrawn without losing hit points. Victory uses surviving commanders; loss of
+every team's last commander in one fully resolved step records outcome `0` as a
+draw. The next member cannot be selected after an outcome is recorded.
+
+Party state may be captured between member turns, including a partly consumed
+activation. Capture or restore with a selected member or phase accumulator is
+rejected as `partial_turn_snapshot_unsupported`; it is never treated as a new
+activation.
+Hex battle is the sole maintained product path; fixes and upgrades do not flow
+back into the reference. This archive boundary avoids a second runtime family
+while keeping the old behaviour available for comparison.
+
+Until the migration lands, every section below remains a description of the
+current square implementation. Planned hex terminology must not be read as an
+already available state or command field.
 
 ## Authoritative state
 
@@ -57,7 +182,7 @@ Base monster, map, spell, race, and passive definitions are read-only inputs.
 
 ## Setup and battle construction
 
-`BattleDebugScene.tscn` creates the animated sky and setup overlay first. It does not
+`HexBattle.tscn` creates the animated sky and setup overlay first. It does not
 create a simulator, map, or monster visual before confirmation.
 
 On Confirm:
@@ -74,7 +199,7 @@ On Confirm:
    supplied `adapterFactory` returns an `IBattleVisualAdapter` before attaching
    it.
 4. `MonsterVisualRegistry` supplies an authored scene when registered;
-   `GodotVisualAdapter` creates a procedural fallback otherwise.
+   `HexBattleVisualAdapter` creates a procedural fallback otherwise.
 5. The controller starts the battle and round, then dispatches CPU turns or
    pauses for a Team 1 player command according to the selected mode.
 
@@ -174,9 +299,9 @@ Brain subclasses provide weights rather than separate legality formulas.
 
 ## Player interaction and cursor
 
-`PlayerTurnController` owns one player-controlled turn — its phase, the command
+`HexBattleMemberTurn` owns one player-controlled member turn — its phase, the command
 menu model, and submission through the incremental turn API.
-`BattlePresentationController` routes input to it and reacts to its
+`HexBattleController` routes input to it and reacts to its
 `menu_changed`, `status_changed`, and `turn_finished` signals; it does not
 track phases itself.
 
@@ -210,7 +335,7 @@ the scene controller routes Escape and right-click through the same transition.
 Status instructions and read-only action forecasts travel on separate signals.
 
 Every rendered tile also owns a pick-only surface collider with authoritative
-tile metadata. `BattlePresentationController` raycasts the combined tile/unit
+tile metadata. `HexBattleController` raycasts the combined tile/unit
 pick layers, so a mouse selection resolves the visible terrain surface rather
 than an artificial `y = 0` plane.
 
@@ -267,12 +392,12 @@ There are two adapter contracts, and the split matters:
   narrow *interactive* additions a player turn needs: busy state, the
   `animation_queue_drained` signal, player/target cursor, target status,
   movement and target overlays, cursor release, and overlay clearing.
-  `GodotVisualAdapter` implements this one, and `PlayerTurnController` holds it
+  `HexBattleVisualAdapter` implements this one, and `HexBattleMemberTurn` holds it
   as its adapter type.
 
 Implementations inherit `animation_queue_drained` and must not redeclare it: a
 redeclared signal is a distinct signal, so a controller connected through the
-port would never be notified. `GodotVisualAdapter` copies position-bearing event data into typed
+port would never be notified. `HexBattleVisualAdapter` copies position-bearing event data into typed
 `VisualAction` snapshots in a FIFO queue, so movement, targeting, attacks,
 spells, heals, defeat, and victory play in event order without blocking the
 simulation. The queue clones each snapshot at enqueue time, preventing later
@@ -282,7 +407,7 @@ radius and area shape resolved from the live `Spell` instance. This is
 intentionally event data, not a presentation catalog lookup: transient radius
 modifiers affect targeting and VFX together even though immutable reference
 data stays unchanged. The event contains no presentation types. At enqueue
-time, `GodotVisualAdapter` converts its board coordinates and IDs into a typed
+time, `HexBattleVisualAdapter` converts its board coordinates and IDs into a typed
 `VfxCastContext`: source and impact world positions, target world positions,
 body-only target bounds, and an optional presentation-surface path sampled
 between source and impact. The adapter snapshots that path from board terrain
@@ -353,7 +478,7 @@ the main thread, and calls `sim.executeTurn()` — which calls
 `brain.decideTurn()` inline. Deliberation therefore happens *inside* a frame,
 and the frame is as long as the decision.
 
-Measured on a real CPU vs CPU battle (`BattleDebugScene`, seed 42, headless, so these
+Measured on a real CPU vs CPU battle (`HexBattle`, seed 42, headless, so these
 numbers exclude render cost and understate a real window):
 
 | | idle frames | frames carrying a turn |
@@ -420,17 +545,30 @@ is a real architectural change and should be planned, not slipped in.
 
 - All gameplay randomness flows through `BattleState.rng`.
 - Equal-speed turn ties use deterministic monster ID ordering.
-- Schema version 5 records map revision, height, level, jump, base/growth fields, resolved stats, family, ascension parent, Resonance bars, and Luck; version 2 migrates to height 0, level 1, and jump 1.
+- Legacy square schema version 5 records map revision, height, level, jump,
+  base/growth fields, resolved stats, family, ascension parent, Resonance bars,
+  and Luck; versions 2-5 remain readable only for internal square-state
+  compatibility while that code is retired.
+- Hex state schema version 6 additionally records `hex_flat`, `odd_q_offset`,
+  `hex_party_activation_v1`, exact map/scenario identity, a scoped content
+  fingerprint, parties, frozen and pending party order, selected party/member,
+  spent and withdrawn identities, activation phase/count, and battle outcome.
 - `BattleStateSerializer` produces and restores JSON-safe state, including RNG,
   IDs, board layers, rosters, effects, history, and monsters.
 - `BattleSimulator.createReplaySnapshot()` includes setup, initial/current state,
-  pending turn order, brain classes, and the controller-neutral command ledger.
-- Replay snapshots are version 5, which makes command `target_pos` canonical.
-  Versions 2-4 derive it from the recorded `target_id` immediately before each
-  legacy command executes; version 4 introduced `order`, while versions 2-3
-  still default it to `move_first`.
-- `BattleReplayRunner` reconstructs a battle from setup and replays recorded CPU
-  and player commands through normal validation/execution.
+  brain classes, explicit party/member-selection operations, and the shared
+  controller-neutral command ledger. Each command carries both its acceptance
+  and resolution result.
+- Active-project replay snapshots are hex version 6. They identify topology,
+  coordinate convention, ruleset, scenario/map revisions, map-source
+  fingerprint, and a canonical fingerprint of the relevant map, party, monster,
+  spell, and passive content. Square replay versions 2-5 return
+  `square_reference_required` and point callers to the frozen square project.
+- `BattleReplayRunner` reconstructs current setup/catalog identity before it
+  executes anything, replays party activation, member selection, and commands
+  through their normal operations, compares recorded command outcomes, then
+  compares final state, RNG, ID allocation, lifecycle, and material event
+  outcomes.
 - `restoreReplaySnapshot()` restores current state and rebuilds resolvers,
   brains, events, and the pending turn queue for continuation.
 - Simulation never writes diagnostic files. Tools and presentation decide when
@@ -459,7 +597,7 @@ is a real architectural change and should be planned, not slipped in.
 
 ## Single runtime
 
-`project.godot` launches `scenes/debug/BattleDebugScene.tscn`, which uses the canonical
+`project.godot` launches `scenes/battle/HexBattle.tscn`, which uses the canonical
 presentation controller. This is the only battle runtime: the earlier
 rollback scene and its board/camera/input scripts were removed once the
 current runtime covered their behavior, and `git log` is their archive. A

@@ -1,47 +1,50 @@
-## ShapeCaster — Math algorithms for determining Area-of-Effect grid coordinates.
-## Returns arrays of absolute Vector2i coordinates based on shapes.
+## Stable flat-top hex footprints in odd-column offset coordinates.
 
 class_name ShapeCaster
 
+const HexGridScript = preload("res://src/board/HexGrid.gd")
+
+
 static func getCircle(center: Vector2i, radius: int) -> Array[Vector2i]:
-	var result: Array[Vector2i] = []
-	for x in range(-radius, radius + 1):
-		for y in range(-radius, radius + 1):
-			if abs(x) + abs(y) <= radius:
-				result.append(center + Vector2i(x, y))
-	return result
+	return HexGridScript.disc(center, radius)
 
 
 static func getCross(center: Vector2i, radius: int) -> Array[Vector2i]:
-	var result: Array[Vector2i] = []
-	for i in range(-radius, radius + 1):
-		if i == 0:
-			result.append(center)
-		else:
-			result.append(center + Vector2i(i, 0))
-			result.append(center + Vector2i(0, i))
+	if radius < 0:
+		return []
+	var axialCenter := HexGridScript.offsetToAxial(center)
+	var result: Array[Vector2i] = [center]
+	for direction: Vector2i in HexGridScript.AXIAL_NEIGHBOURS:
+		for distance in range(1, radius + 1):
+			result.append(HexGridScript.axialToOffset(axialCenter + direction * distance))
+	result.sort_custom(_rowMajorLess)
 	return result
 
 
 static func getLine(origin: Vector2i, target: Vector2i, length: int) -> Array[Vector2i]:
-	## Draws a line projecting from origin towards target.
+	## Projects along the closest selected axial direction and excludes the caster.
+	if origin == target or length <= 0:
+		return []
+	var axialOrigin := HexGridScript.offsetToAxial(origin)
+	var direction := _directionToward(origin, target)
 	var result: Array[Vector2i] = []
-	var diff = target - origin
-	
-	# Determine primary direction (orthogonal or perfect diagonal)
-	var dir = Vector2i.ZERO
-	if abs(diff.x) > abs(diff.y):
-		dir = Vector2i(sign(diff.x), 0)
-	elif abs(diff.y) > abs(diff.x):
-		dir = Vector2i(0, sign(diff.y))
-	else:
-		dir = Vector2i(sign(diff.x), sign(diff.y))
-		
-	if dir == Vector2i.ZERO:
-		return [origin]
-	
-	# Start at 0 to include the origin tile if desired, or 1 to start adjacent
-	var startPos = origin
-	for i in range(1, length + 1):
-		result.append(startPos + (dir * i))
+	for distance in range(1, length + 1):
+		result.append(HexGridScript.axialToOffset(axialOrigin + direction * distance))
 	return result
+
+
+static func _directionToward(origin: Vector2i, target: Vector2i) -> Vector2i:
+	var bestDirection: Vector2i = HexGridScript.AXIAL_NEIGHBOURS[0]
+	var bestDistance := 2147483647
+	var axialOrigin := HexGridScript.offsetToAxial(origin)
+	for direction: Vector2i in HexGridScript.AXIAL_NEIGHBOURS:
+		var neighbor := HexGridScript.axialToOffset(axialOrigin + direction)
+		var distance := HexGridScript.distance(neighbor, target)
+		if distance < bestDistance:
+			bestDistance = distance
+			bestDirection = direction
+	return bestDirection
+
+
+static func _rowMajorLess(a: Vector2i, b: Vector2i) -> bool:
+	return a.y < b.y or (a.y == b.y and a.x < b.x)

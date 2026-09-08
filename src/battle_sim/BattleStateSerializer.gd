@@ -2,15 +2,22 @@
 
 class_name BattleStateSerializer
 
-const CURRENT_VERSION := 5
+const CURRENT_VERSION := 6
+const LEGACY_CURRENT_VERSION := 5
 const MIN_SUPPORTED_VERSION := 2
+const HEX_GRID_KIND := "hex_flat"
+const HEX_COORDINATE_CONVENTION := "odd_q_offset"
+const HEX_RULESET_ID := "hex_party_activation_v1"
 
 const MonsterFactoryScript = preload("res://src/factories/MonsterFactory.gd")
+const BattleMapFactoryScript = preload("res://src/factories/BattleMapFactory.gd")
+const BattlePartyScript = preload("res://src/entities/BattleParty.gd")
 
 
 static func serialize(state: BattleState) -> Dictionary:
-	return {
-		"version": CURRENT_VERSION,
+	var isHexPartyState := not state.parties.is_empty()
+	var data := {
+		"version": CURRENT_VERSION if isHexPartyState else LEGACY_CURRENT_VERSION,
 		"seed": state.battleSeed,
 		"rngState": state.rng.state,
 		"nextMonsterID": state.nextMonsterID,
@@ -30,6 +37,36 @@ static func serialize(state: BattleState) -> Dictionary:
 		"lastTurnStartIndex": _stringKeyedDictionary(state.last_turn_start_index),
 		"monsters": _monsters(state.monsters)
 	}
+	if not isHexPartyState:
+		return data
+	assert(state.battleMap != null, "Hex party state requires a battle map definition.")
+	assert(state.gridKind == HEX_GRID_KIND, "Hex party state has the wrong grid kind.")
+	assert(state.coordinateConvention == HEX_COORDINATE_CONVENTION,
+		"Hex party state has the wrong coordinate convention.")
+	assert(state.rulesetID == HEX_RULESET_ID, "Hex party state has the wrong ruleset.")
+	data.merge({
+		"gridKind": state.gridKind,
+		"coordinateConvention": state.coordinateConvention,
+		"rulesetID": state.rulesetID,
+		"scenarioID": state.scenarioID,
+		"scenarioRevision": state.scenarioRevision,
+		"scenarioPath": state.scenarioPath,
+		"contentFingerprint": state.contentFingerprint,
+		"battleMap": state.battleMap.toDictionary(),
+		"parties": _parties(state.parties),
+		"monsterPartyIDs": _stringKeyedDictionary(state.monsterPartyIDs),
+		"teamPartyIDs": _stringKeyedDictionary(state.teamPartyIDs),
+		"partyOrder": state.partyOrder.duplicate(),
+		"pendingPartyIDs": state.pendingPartyIDs.duplicate(),
+		"activePartyID": state.activePartyID,
+		"spentMemberIDs": _stringKeyedDictionary(state.spentMemberIDs),
+		"withdrawnPartyIDs": _stringKeyedDictionary(state.withdrawnPartyIDs),
+		"withdrawnMonsterIDs": _stringKeyedDictionary(state.withdrawnMonsterIDs),
+		"activationCount": state.activationCount,
+		"activationPhase": state.activationPhase,
+		"battleOutcome": state.battleOutcome,
+	})
+	return data
 
 
 static func jsonSafe(value):
@@ -46,7 +83,19 @@ static func deserialize(data: Dictionary) -> BattleState:
 	)
 	var state = BattleState.new(int(data.get("seed", 0)))
 	var sizeData: Dictionary = data.get("boardSize", {"x": 0, "y": 0})
-	state.setup_board(Vector2i(int(sizeData.get("x", 0)), int(sizeData.get("y", 0))))
+	var serializedSize := Vector2i(int(sizeData.get("x", 0)), int(sizeData.get("y", 0)))
+	if version >= CURRENT_VERSION:
+		assert(str(data.get("gridKind", "")) == HEX_GRID_KIND,
+			"Unsupported grid kind; use the frozen square reference for square state files.")
+		assert(str(data.get("coordinateConvention", "")) == HEX_COORDINATE_CONVENTION,
+			"Unsupported coordinate convention.")
+		assert(str(data.get("rulesetID", "")) == HEX_RULESET_ID, "Unsupported hex ruleset.")
+		var mapResult := BattleMapFactoryScript.fromDictionary(data.get("battleMap", {}))
+		assert(mapResult["success"], "Invalid serialized battle map: %s" % mapResult.get("error", ""))
+		state.setBattleMap(mapResult["definition"])
+		assert(state.boardSize == serializedSize, "Serialized map and board sizes differ.")
+	else:
+		state.setup_board(serializedSize)
 	_restoreMatrix(state.board, data.get("board", []))
 	var heightRows: Array = data.get("heightBoard", [])
 	if version == 2 and heightRows.is_empty():
@@ -69,6 +118,26 @@ static func deserialize(data: Dictionary) -> BattleState:
 	state.activeEffects = _restoreIntKeyDictionary(data.get("activeEffects", {}))
 	state.last_turn_start_index = _restoreIntValueDictionary(data.get("lastTurnStartIndex", {}))
 	state.history.assign(data.get("history", []).duplicate(true))
+	if version >= CURRENT_VERSION:
+		state.gridKind = str(data.get("gridKind", ""))
+		state.coordinateConvention = str(data.get("coordinateConvention", ""))
+		state.rulesetID = str(data.get("rulesetID", ""))
+		state.scenarioID = str(data.get("scenarioID", ""))
+		state.scenarioRevision = int(data.get("scenarioRevision", 0))
+		state.scenarioPath = str(data.get("scenarioPath", ""))
+		state.contentFingerprint = str(data.get("contentFingerprint", ""))
+		state.parties = _restoreParties(data.get("parties", {}))
+		state.monsterPartyIDs = _restoreIntValueDictionary(data.get("monsterPartyIDs", {}))
+		state.teamPartyIDs = _restoreTeamRosters(data.get("teamPartyIDs", {}))
+		state.partyOrder = _intArray(data.get("partyOrder", []))
+		state.pendingPartyIDs = _intArray(data.get("pendingPartyIDs", []))
+		state.activePartyID = int(data.get("activePartyID", -1))
+		state.spentMemberIDs = _restoreBoolDictionary(data.get("spentMemberIDs", {}))
+		state.withdrawnPartyIDs = _restoreBoolDictionary(data.get("withdrawnPartyIDs", {}))
+		state.withdrawnMonsterIDs = _restoreBoolDictionary(data.get("withdrawnMonsterIDs", {}))
+		state.activationCount = int(data.get("activationCount", 0))
+		state.activationPhase = str(data.get("activationPhase", "idle"))
+		state.battleOutcome = int(data.get("battleOutcome", -1))
 
 	state.monsters.clear()
 	for key in data.get("monsters", {}):
@@ -168,6 +237,21 @@ static func _restoreIntValueDictionary(source: Dictionary) -> Dictionary:
 	return result
 
 
+static func _restoreBoolDictionary(source: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key in source:
+		if bool(source[key]):
+			result[int(key)] = true
+	return result
+
+
+static func _intArray(source: Array) -> Array[int]:
+	var result: Array[int] = []
+	for value in source:
+		result.append(int(value))
+	return result
+
+
 static func _matrix(matrix: Matrix, size: Vector2i) -> Array:
 	var rows = []
 	for y in range(size.y):
@@ -189,6 +273,49 @@ static func _monsters(monsters: Dictionary) -> Dictionary:
 	var result = {}
 	for monsterID in monsters:
 		result[str(monsterID)] = monsters[monsterID].serialize()
+	return result
+
+
+static func _parties(parties: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for partyID in parties:
+		var party: BattleParty = parties[partyID]
+		result[str(partyID)] = {
+			"partyID": party.partyID,
+			"teamID": party.teamID,
+			"commanderID": party.commanderID,
+			"controller": party.controller,
+			"memberIDs": party.memberIDs.duplicate(),
+			"monsterNames": _stringKeyedDictionary(party.monsterNames),
+			"memberLevels": _stringKeyedDictionary(party.memberLevels),
+			"startingCells": _stringKeyedDictionary(party.startingCells),
+			"sourceData": _jsonSafe(party.sourceData),
+		}
+	return result
+
+
+static func _restoreParties(source: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key in source:
+		var data: Dictionary = source[key]
+		var party = BattlePartyScript.new()
+		party.partyID = int(data.get("partyID", key))
+		party.teamID = int(data.get("teamID", -1))
+		party.commanderID = int(data.get("commanderID", -1))
+		party.controller = str(data.get("controller", "cpu"))
+		party.memberIDs = _intArray(data.get("memberIDs", []))
+		party.monsterNames = _restoreStringValueDictionary(data.get("monsterNames", {}))
+		party.memberLevels = _restoreIntValueDictionary(data.get("memberLevels", {}))
+		party.startingCells = _restorePositions(data.get("startingCells", {}))
+		party.sourceData = data.get("sourceData", {}).duplicate(true)
+		result[party.partyID] = party
+	return result
+
+
+static func _restoreStringValueDictionary(source: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key in source:
+		result[int(key)] = str(source[key])
 	return result
 
 

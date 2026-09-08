@@ -13,16 +13,32 @@ hooks that invoked them were all removed to be rebuilt fresh. There is
 currently no automated way to verify a change.
 
 `scripts/demo_battle.gd` remains available as a manual, non-automated seeded
-4v4 console battle. Run it from the repository root through a waited process
-and require its explicit `Battle complete!` marker; a zero exit code alone is
-not sufficient evidence on this Windows host.
+console battle. It now runs the same PARTY runtime the playable scene does,
+from an authored CPU-vs-CPU scenario. Run it from the repository root through a
+waited process and require its explicit `Battle complete` marker; a zero exit
+code alone is not sufficient evidence on this Windows host.
+
+The hex battle cycle also ships bounded headless probes under
+`scripts/hex_battle/`, each run through `scripts/hex_battle/run_probe.ps1` and
+each requiring its own exact marker line. They are narrow checks of one item's
+own logic, not a test suite and not visual acceptance.
+
+Generated art must be imported before anything loads it. Use
+`godot --headless --import --path .`; `--headless --editor --quit` does NOT
+work, because `--quit` ends the run after one frame while the filesystem scan
+is asynchronous, so it aborts partway and writes no `.import` file.
 
 ## Validation timing
 
-For a multi-item implementation plan, implementation sessions stop at a focused
-diff review, `git diff --check`, an item commit, and a Resolution marked
-**implemented; pending end-of-plan validation**. Do not relaunch the game and
-repeat acceptance flows after every item.
+AGENTS.md governs, and this section is subordinate to it. Plan files are frozen
+once a cycle opens, so there is no "Resolution" field to update: an item's
+evidence lives in its own commit body, ending with its `Plan-Item:` trailer.
+
+Each item runs its OWN self-contained checks -- the ones its plan entry names --
+before committing. What is deferred to the validation item is only what cannot
+be established without launching the game: appearance, timing, feel, and
+integration across subsystems. Deferring a check the item could have run itself
+is not permitted.
 
 The plan's final validation item launches the game once all implementation
 items are committed. It exercises the combined affected paths, deduplicates
@@ -85,10 +101,12 @@ through nested Windows tooling:
 
 ## Implementation-item checkpoint
 
-1. Inspect `git status` and the focused diff.
-2. Run `git diff --check`.
-3. Update the plan Resolution to implemented, pending end-of-plan validation.
-4. Stage only task-owned files and commit the item.
+1. Run the item's own self-contained checks and record their results.
+2. Inspect `git status` and the focused diff over the item's owned paths.
+3. Run `git diff --check`.
+4. Stage only task-owned files and commit the item, with implementation,
+   assumptions found false, intentional exclusions, commands and results, and
+   any deferred check in the body, ending with `Plan-Item: <id>`.
 
 ## Final validation checklist
 
@@ -97,5 +115,4 @@ through nested Windows tooling:
 3. Exercise the union of affected behavior once, using integrated flows where
    possible.
 4. Fix and rerun only the failed/relevant combined checks.
-5. Run `git diff --check`, update plan Resolutions to done, and commit the
-   validation evidence/fixes.
+5. Run `git diff --check` and commit the validation evidence and fixes.

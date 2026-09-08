@@ -1,0 +1,46 @@
+{
+	"schema_version": 1,
+	"source_commit": "0c101e16f6dd26062cb6c76d0b74b46d6dc73361",
+	"interactive": {
+		"scene": "res://scenes/debug/BattleDebugScene.tscn",
+		"seed": 42,
+		"map": "Meadow",
+		"modes": [
+			"cpu_vs_cpu",
+			"player_vs_cpu"
+		],
+		"team_1": [
+			"Envoy of Lightning",
+			"Gigasaurus",
+			"Healer Mage",
+			"Mage Dragon"
+		],
+		"team_2": [
+			"Smoke Cloud",
+			"Megidos",
+			"Oracle of Ages",
+			"Snowzilla"
+		]
+	},
+	"headless_demo": {
+		"script": "res://scripts/demo_battle.gd",
+		"seed": 42,
+		"map": "Forest",
+		"maximum_rounds": 30
+	},
+	"replay": {
+		"create_from_interactive_setup": true,
+		"restore_current_state": true,
+		"replay_recorded_commands": true,
+		"compare_final_state_and_command_ledger": true
+	},
+	"effect_profiles": [
+		"spell_cast_aura",
+		"ice_area_storm",
+		"fire_area_storm",
+		"magenta_reduction",
+		"ice_target_encasement",
+		"aurora_veil",
+		"solar_storm_v2_4"
+	]
+}
