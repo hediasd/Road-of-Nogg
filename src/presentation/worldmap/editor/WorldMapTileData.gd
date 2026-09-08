@@ -56,6 +56,17 @@ const KIND_HEIGHTS := "heights"
 ## only take two. Detail is ART ONLY -- nothing an entity observes reads this layer, and nothing
 ## here feeds `worldExtent()`, picking, or anchoring the way `heights` does.
 const KIND_DETAIL := "detail"
+
+## Authored water -- WMH-11. One value per CELL, not per vertex: a water surface is flat across
+## the cell it covers rather than interpolated to the lattice the terrain uses, so a lake edge is
+## a cell edge and a stepped river is a step.
+##
+## STORED AS TEXT, and that is the load-bearing choice. A dense float array cannot say "dry"
+## without a sentinel, and the risk WMH-11 names is exactly water becoming a terrain property --
+## a basin at height 0 with no water in it must not read as water at 0. `EMPTY` is already this
+## format's word for "nothing here", used by grid and detail layers, so dryness is spelled the
+## same way absence is spelled everywhere else and cannot be confused with a height.
+const KIND_WATER := "water"
 ## Six triangular slots per hex, fanning from its centre -- the same fan `WorldMapHeightField`
 ## triangulates smooth terrain with, so a detail slot and a terrain triangle are the same region
 ## of the hex by construction rather than by convention.
@@ -173,6 +184,58 @@ func addDetailLayer(layerID: String, tilesetID: String) -> void:
 ## neighbour, so there is nothing just outside the lattice that owns one.
 func detailValueCount() -> int:
 	return size_tiles.x * size_tiles.y * DETAIL_SLOTS_PER_CELL
+
+
+## A water layer, sized for this map's lattice: one value per cell, no padding, every cell dry.
+## `WorldMapWaterLayer` owns what the values MEAN; this file only stores them, the same division
+## `WorldMapObjectLayer` and the list kind already keep.
+func addWaterLayer(layerID: String) -> void:
+	var cells := PackedStringArray()
+	cells.resize(waterValueCount())
+	cells.fill(EMPTY)
+	layers[layerID] = {"KIND": KIND_WATER, "CELLS": cells}
+	if not _layerOrder.has(layerID):
+		_layerOrder.append(layerID)
+
+
+func waterValueCount() -> int:
+	return size_tiles.x * size_tiles.y
+
+
+func waterIndexOf(cell: Vector2i) -> int:
+	if cell.x < 0 or cell.y < 0 or cell.x >= size_tiles.x or cell.y >= size_tiles.y:
+		return -1
+	return cell.y * size_tiles.x + cell.x
+
+
+## The raw stored value: `EMPTY` for a dry cell, otherwise a surface height as text. Callers
+## outside `WorldMapWaterLayer` should be asking that file rather than parsing this.
+func getWater(layerID: String, cell: Vector2i) -> String:
+	if not layers.has(layerID):
+		return EMPTY
+	var block: Dictionary = layers[layerID]
+	if str(block["KIND"]) != KIND_WATER:
+		return EMPTY
+	var index := waterIndexOf(cell)
+	if index < 0:
+		return EMPTY
+	return (block["CELLS"] as PackedStringArray)[index]
+
+
+func setWater(layerID: String, cell: Vector2i, value: String) -> bool:
+	if not layers.has(layerID):
+		return false
+	var block: Dictionary = layers[layerID]
+	if str(block["KIND"]) != KIND_WATER:
+		return false
+	var index := waterIndexOf(cell)
+	if index < 0:
+		return false
+	var cells: PackedStringArray = block["CELLS"]
+	if cells[index] == value:
+		return false
+	cells[index] = value
+	return true
 
 
 ## Index of one triangular slot in a detail layer's dense array, or -1 when the cell or the
@@ -386,6 +449,12 @@ func toDictionary() -> Dictionary:
 				"KIND": KIND_HEIGHTS,
 				"RLE": encodeRLE(_heightsAsStrings(block["VALUES"])),
 			})
+		elif str(block["KIND"]) == KIND_WATER:
+			blocks.append({
+				"ID": layerID,
+				"KIND": KIND_WATER,
+				"RLE": encodeRLE(block["CELLS"]),
+			})
 		elif str(block["KIND"]) == KIND_DETAIL:
 			# Same RLE-of-CELLS shape a grid layer uses -- an unpainted detail layer is one run,
 			# same as an unsculpted height layer or a freshly authored ground layer.
@@ -472,6 +541,16 @@ static func fromDictionary(raw: Dictionary) -> WorldMapTileData:
 			data.layers[layerID]["NEXT_ID"] = maxi(
 				int(block.get("NEXT_ID", 0)), _highestIDPlusOne(items)
 			)
+			continue
+		if kind == KIND_WATER:
+			data.addWaterLayer(layerID)
+			var waterRuns = block.get("RLE", [])
+			if waterRuns is Array and not (waterRuns as Array).is_empty():
+				var waterCells := decodeRLE(waterRuns, data.waterValueCount())
+				if waterCells.is_empty():
+					push_warning("WorldMapTileData: water layer '%s' failed to decode" % layerID)
+					return null
+				data.layers[layerID]["CELLS"] = waterCells
 			continue
 		if kind == KIND_DETAIL:
 			data.addDetailLayer(layerID, str(block.get("TILESET", "")))

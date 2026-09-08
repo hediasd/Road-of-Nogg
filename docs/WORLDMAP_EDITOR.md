@@ -1186,3 +1186,83 @@ An object-kind palette beyond `house`/`tower`, a footprint editor, and hex routi
 Rectangle and Stamp tools (still square-only — §12). The tool table is a list of gestures, not a
 list of commands; a smooth tool and a raise-to-target tool are the obvious next two and neither is
 here.
+
+## 18. Authored water
+
+`WorldMapWaterLayer` over `WorldMapTileData.KIND_WATER` — WMH-11. Lakes and simple river sections:
+which cells are wet, and what height each one's surface sits at. No flow, no simulation, no tide.
+
+### Water is not a terrain type
+
+The risk this item was written against, and the reason for every shape below. A lowered basin is
+**terrain**; whether it holds water is a separate authored fact. Nothing in the water layer writes
+a height, and `WorldMapHeightField` never reads the water layer — so a dry basin and a flooded one
+differ in exactly one place, and an author can express both.
+
+`probe_water_layer.gd` checks both halves separately, because only the pair is convincing: a
+2.0-deep basin nobody flooded reports zero wet cells, **and** a cell flooded to exactly `0.0` over
+flat ground reports wet.
+
+### Dry is not height zero
+
+The store is **text**, not floats. A dense float array cannot say "dry" without inventing a
+sentinel, and a map whose ground sits at 0 would then be indistinguishable from one flooded to 0.
+`EMPTY` (`-`) is already this format's word for "nothing here" — grid and detail layers both use
+it — so dryness is spelled the way absence is spelled everywhere else, and it serialises through
+the same `encodeRLE` an unpainted layer does: a dry map is one run.
+
+### One value per cell, not per vertex
+
+The terrain is a vertex lattice because a hillside is continuous. A water surface is not: it is
+flat across a body and **steps** between bodies. So water is cell-addressed, and there is no
+interpolation anywhere in this file — a surface that sloped between neighbouring cells could not
+be flat by construction.
+
+That gives both shapes the item asked for without tracking connected components: a lake is level
+because every cell in it was given the same height, and a river descends because each cell was
+given a lower one. The mesh does **not** share vertices between cells, so two cells at different
+heights meet at a visible step rather than being smoothed into a ramp — the difference between a
+river that descends and one that leaks uphill.
+
+### The look is the region's own sea
+
+Agreed with the user before implementation, per the item. `void_color` is already what lies beyond
+the map's edge, and `WorldMapGroundUniforms` is explicit that it belongs to the *place* rather than
+the framing — temp's sea is deep blue, temp2's teal. So an **authored lake is the same water as
+the ocean past the edge**, and the shore tint is that colour carried `SHORE_MIX` of the way toward
+the region's own `fog_color`. No colour was imported from anywhere.
+
+The band rides in **vertex colours** — deep at `SHORE_DEPTH` or more, shore tint at the waterline —
+read as albedo by an unshaded material. No shader, no texture, and the map stays unlit art rather
+than gaining one surface that reacts to a sun nothing else knows about.
+
+### The bug that only looking could find
+
+The first build drew an authored lake visibly **paler** than the identical colour past the map's
+edge. `void_color` and `fog_color` are sRGB — they arrive from the region catalog as hex — and a
+vertex colour is taken as **linear** unless the material says otherwise, so the same value came out
+brightened. Every colour assertion in the probe passed throughout: they check the stored value, and
+the fault was in how it was interpreted.
+
+`vertex_color_is_srgb = true` fixes it, and the probe now asserts that flag with the reason — a
+render check cannot live in a headless probe, but the flag it depends on can.
+
+### What the deferred check found, and did not fix
+
+**Water is not fogged.** The ground hazes toward `fog_color` with distance inside
+`worldmap_ground.gdshader`; the water is a plain unshaded material and does not. A distant lake
+therefore stays crisp while the land around it fades. The project already has the answer for this
+shape — `worldmap_prop.gdshader` "transcribes this file's fog" for exactly the same reason — but a
+water shader is not in this item's Touches list and is its own piece of work.
+
+**A steep-walled basin has no visible band.** The band is driven by depth, so it appears where
+water is shallow; flatten a lake floor to −3.0 in one step and the water goes from shore to open
+sea within a single cell. That is the specification behaving correctly, not a defect, but it means
+a band is a property of the *terrain* an author sculpts rather than something water draws for
+itself. A distance-to-shoreline band would behave differently and is the obvious alternative if
+this reads wrong in use.
+
+**No authoring tool.** WMH-11's Touches list covers the layer, the format and the export — not the
+controller or the HUD — so water is authored through the API, exactly as heights, objects and
+detail were before WMH-10B. §17's pattern makes adding one small, and it is the natural companion
+to this item rather than part of it.
