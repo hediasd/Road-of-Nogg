@@ -25,14 +25,15 @@ extends RefCounted
 ## `GodotVisualAdapter.show_movement_options` already excludes the overlap so
 ## movement stays the stronger signal.
 static func forMonster(sim, monsterID: int) -> Dictionary:
-	var empty := {"reachable": [], "attackable": []}
+	var empty := {"reachable": [], "attackable": [], "movement_costs": {}}
 	if sim == null or monsterID == -1:
 		return empty
 	var monster = sim.state.getMonster(monsterID)
 	if monster == null or not monster.is_alive():
 		return empty
 
-	var reachable: Array = sim.movementResolver.getReachablePositions(monsterID)
+	var reachability: Dictionary = sim.movementResolver.getReachability(monsterID)
+	var reachable: Array = reachability["positions"].duplicate()
 	var currentPos: Vector2i = sim.state.getMonsterPosition(monsterID)
 	if not reachable.has(currentPos):
 		reachable.append(currentPos)
@@ -48,4 +49,8 @@ static func forMonster(sim, monsterID: int) -> Dictionary:
 			seen[targetPos] = true
 			attackable.append(targetPos)
 
-	return {"reachable": reachable, "attackable": attackable}
+	return {
+		"reachable": reachable,
+		"attackable": attackable,
+		"movement_costs": reachability["costs"].duplicate(),
+	}

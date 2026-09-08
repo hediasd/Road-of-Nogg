@@ -19,9 +19,9 @@ func _init(_state: BattleState, _events: BattleEvents) -> void:
 
 const LineOfSight = preload("res://src/algorithms/LineOfSight.gd")
 const ShapeCaster = preload("res://src/algorithms/ShapeCaster.gd")
+const HexGridScript = preload("res://src/board/HexGrid.gd")
 const SpellEffectResolverScript = preload("res://src/battle_sim/SpellEffectResolver.gd")
 const DirectDamageRulesScript = preload("res://src/battle_sim/DirectDamageRules.gd")
-const DIRECTIONS = [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
 
 func getBasicAttackTargets(monsterID: int) -> Array:
 	return getBasicAttackTargetsFrom(monsterID, state.getMonsterPosition(monsterID))
@@ -38,8 +38,7 @@ func getBasicAttackTargetPositionsFrom(monsterID: int, fromPos: Vector2i) -> Arr
 	if mon == null or not mon.is_alive():
 		return []
 	var positions: Array = []
-	for direction in DIRECTIONS:
-		var targetPos = fromPos + direction
+	for targetPos: Vector2i in HexGridScript.neighbours(fromPos):
 		if canBasicAttackPositionFrom(monsterID, fromPos, targetPos):
 			positions.append(targetPos)
 	return positions
@@ -184,33 +183,19 @@ func getSpellTargetPositionsFrom(
 	if spell.targetType == "self":
 		return [fromPos]
 
-	## Only tiles within the spell's range can pass, so walk the bounding box of
-	## that range rather than the whole board. Row-major order over a sub-rectangle
-	## is a subsequence of row-major order over the board, so the returned
-	## sequence is identical to a full scan's — which matters, because AI
-	## tie-breaking and the player's target cycling both depend on it.
-	##
-	## The AI asks this once per spell per candidate destination, so a full 16x16
-	## scan with the monster/spell/can_cast lookups repeated per tile was costing
-	## more than everything else in a CPU turn combined.
+	## Enumerate the complete hex range in stable row-major order before target
+	## filters, including cells offset beyond a square-style bounding box.
 	var positions: Array = []
-	var minY: int = maxi(0, fromPos.y - spell.range)
-	var maxY: int = mini(state.boardSize.y - 1, fromPos.y + spell.range)
-	var minX: int = maxi(0, fromPos.x - spell.range)
-	var maxX: int = mini(state.boardSize.x - 1, fromPos.x + spell.range)
-	for y in range(minY, maxY + 1):
-		for x in range(minX, maxX + 1):
-			var targetPos = Vector2i(x, y)
-			var distance: int = absi(fromPos.x - x) + absi(fromPos.y - y)
-			if distance < spell.min_range or distance > spell.range:
-				continue
-			if _canSpellTargetPositionResolved(
-					mon,
-					spell,
-					fromPos,
-					targetPos,
-					includeUncastableEmpty):
-				positions.append(targetPos)
+	for targetPos: Vector2i in HexGridScript.disc(fromPos, spell.range):
+		if HexGridScript.distance(fromPos, targetPos) < spell.min_range:
+			continue
+		if _canSpellTargetPositionResolved(
+				mon,
+				spell,
+				fromPos,
+				targetPos,
+				includeUncastableEmpty):
+			positions.append(targetPos)
 	return positions
 
 
@@ -250,12 +235,12 @@ func _hasLoS(casterID: int, fromPos: Vector2i, toPos: Vector2i, targetID: int) -
 		sourceEye,
 		targetEye,
 		func(p: Vector2i) -> float:
-			if not state.withinBounds(p):
+			if not state.containsCell(p):
 				return INF
 			var blockerTop = float(state.getHeight(p))
 			if state.isLoSBlocked(p):
 				blockerTop += 2.0
-			var occupantID = state.board.at(p)
+			var occupantID = getProjectedOccupantID(casterID, fromPos, p)
 			if occupantID != 0 and occupantID != casterID and occupantID != targetID:
 				blockerTop = maxf(blockerTop, float(state.getHeight(p)) + 2.0)
 			return blockerTop
@@ -274,16 +259,16 @@ func getProjectedOccupantID(
 			return 0
 		if queryPos == fromPos:
 			return monsterID
-	return state.board.at(queryPos) if state.withinBounds(queryPos) else 0
+	return state.board.at(queryPos) if state.containsCell(queryPos) else 0
 
 func canBasicAttackPositionFrom(
 		monsterID: int,
 		fromPos: Vector2i,
 		targetPos: Vector2i) -> bool:
 	var attacker = state.getMonster(monsterID)
-	if attacker == null or not attacker.is_alive() or not state.withinBounds(targetPos):
+	if attacker == null or not attacker.is_alive() or not state.containsCell(targetPos):
 		return false
-	if abs(fromPos.x - targetPos.x) + abs(fromPos.y - targetPos.y) != 1:
+	if HexGridScript.distance(fromPos, targetPos) != 1:
 		return false
 	if state.getHeightDifference(fromPos, targetPos) > 1:
 		return false
@@ -342,11 +327,11 @@ func _canSpellReachPositionResolved(
 		spell: Spell,
 		fromPos: Vector2i,
 		targetPos: Vector2i) -> bool:
-	if not state.withinBounds(targetPos):
+	if not state.containsCell(targetPos):
 		return false
 	if spell.targetType == "self":
 		return targetPos == fromPos
-	var distance = absi(fromPos.x - targetPos.x) + absi(fromPos.y - targetPos.y)
+	var distance := HexGridScript.distance(fromPos, targetPos)
 	if distance < spell.min_range or distance > spell.range:
 		return false
 	if state.getHeightDifference(fromPos, targetPos) > spell.max_height_delta:
@@ -446,10 +431,11 @@ func _spellAffectedPositions(
 	else:
 		var radius := _resolvedSpellRadius(spell)
 		match spell.area_shape:
+			"circle": affectedTiles = ShapeCaster.getCircle(centerPos, radius)
 			"cross": affectedTiles = ShapeCaster.getCross(centerPos, radius)
 			"line": affectedTiles = ShapeCaster.getLine(fromPos, centerPos, radius)
-			"circle", _: affectedTiles = ShapeCaster.getCircle(centerPos, radius)
-	return affectedTiles.filter(func(pos: Vector2i) -> bool: return state.withinBounds(pos))
+			_: affectedTiles = []
+	return affectedTiles.filter(func(pos: Vector2i) -> bool: return state.containsCell(pos))
 
 
 ## Mirrors the targeting branch above and is also the sole value emitted to
