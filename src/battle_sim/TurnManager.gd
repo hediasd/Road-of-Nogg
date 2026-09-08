@@ -82,6 +82,33 @@ static func effectiveSpeed(
 	return speed
 
 
+## Commander level descending, effective commander speed descending, then
+## deterministic party ID ascending. This is a query; BattleSimulator owns the
+## queue and every transition that consumes it.
+static func partySortedIDs(state: BattleState, partyIDs: Array) -> Array[int]:
+	var sorted: Array[int] = []
+	for partyID in partyIDs:
+		sorted.append(int(partyID))
+	sorted.sort_custom(func(a: int, b: int) -> bool:
+		var partyA: BattleParty = state.parties.get(a)
+		var partyB: BattleParty = state.parties.get(b)
+		if partyA == null or partyB == null:
+			return a < b
+		var commanderA: Monster = state.getMonster(partyA.commanderID)
+		var commanderB: Monster = state.getMonster(partyB.commanderID)
+		var levelA := commanderA.level if commanderA != null else 0
+		var levelB := commanderB.level if commanderB != null else 0
+		if levelA != levelB:
+			return levelA > levelB
+		var speedA := effectiveSpeed(state, partyA.commanderID)
+		var speedB := effectiveSpeed(state, partyB.commanderID)
+		if speedA != speedB:
+			return speedA > speedB
+		return a < b
+	)
+	return sorted
+
+
 func hasNextTurn() -> bool:
 	# Remove any dead monsters that died mid-round
 	while not turnOrder.is_empty():

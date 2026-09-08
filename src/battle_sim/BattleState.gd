@@ -26,11 +26,23 @@ var teamRosters: Dictionary = {}         # team -> Array[monsterID]
 var parties: Dictionary = {}             # partyID -> BattleParty
 var monsterPartyIDs: Dictionary = {}     # monsterID -> partyID
 var teamPartyIDs: Dictionary = {}        # teamID -> Array[partyID]
-var partyOrder: Array[int] = []
+var partyOrder: Array[int] = []           # Frozen order for the current round
+var pendingPartyIDs: Array[int] = []      # Parties not yet opened this round
 var activePartyID: int = -1
-var spentMemberIDs: Dictionary = {}
+var spentMemberIDs: Dictionary = {}       # memberID -> true for this activation
 var withdrawnPartyIDs: Dictionary = {}
 var withdrawnMonsterIDs: Dictionary = {}
+var activationCount: int = 0
+var activationPhase: String = "idle"
+var battleOutcome: int = -1
+
+var gridKind: String = ""
+var coordinateConvention: String = ""
+var rulesetID: String = ""
+var scenarioID: String = ""
+var scenarioRevision: int = 0
+var scenarioPath: String = ""
+var contentFingerprint: String = ""
 
 var roundCount: int = 0
 var turnCount: int = 0
@@ -81,6 +93,8 @@ func setBattleMap(definition: BattleMapDefinition) -> void:
 	battleMap = definition
 	mapName = definition.mapID
 	mapRevision = definition.revision
+	gridKind = definition.gridKind
+	coordinateConvention = definition.coordinateConvention
 	for y in range(boardSize.y):
 		for x in range(boardSize.x):
 			movementCostBoard.set_at(0, Vector2i(x, y))
@@ -101,6 +115,58 @@ func registerParty(party: BattleParty) -> void:
 	for memberID: int in party.memberIDs:
 		assert(not monsterPartyIDs.has(memberID), "Monster %d belongs to multiple parties." % memberID)
 		monsterPartyIDs[memberID] = party.partyID
+
+
+func partyForMember(monsterID: int) -> BattleParty:
+	return parties.get(int(monsterPartyIDs.get(monsterID, -1)))
+
+
+func isMonsterWithdrawn(monsterID: int) -> bool:
+	return withdrawnMonsterIDs.has(monsterID)
+
+
+func isPartyWithdrawn(partyID: int) -> bool:
+	return withdrawnPartyIDs.has(partyID)
+
+
+func isPartySurviving(partyID: int) -> bool:
+	var party: BattleParty = parties.get(partyID)
+	if party == null or isPartyWithdrawn(partyID):
+		return false
+	var commander: Monster = getMonster(party.commanderID)
+	return commander != null and commander.is_alive() and not isMonsterWithdrawn(party.commanderID)
+
+
+func eligibleMemberIDs(partyID: int = activePartyID) -> Array[int]:
+	var result: Array[int] = []
+	var party: BattleParty = parties.get(partyID)
+	if party == null or not isPartySurviving(partyID):
+		return result
+	for memberID: int in party.memberIDs:
+		var monster: Monster = getMonster(memberID)
+		if (
+			monster != null
+			and monster.is_alive()
+			and monsterPositions.has(memberID)
+			and not isMonsterWithdrawn(memberID)
+			and not spentMemberIDs.has(memberID)
+		):
+			result.append(memberID)
+	return result
+
+
+func withdrawMonster(monsterID: int) -> void:
+	if withdrawnMonsterIDs.has(monsterID):
+		return
+	withdrawnMonsterIDs[monsterID] = true
+	if monsterPositions.has(monsterID):
+		var position: Vector2i = monsterPositions[monsterID]
+		board.set_at(0, position)
+		monsterPositions.erase(monsterID)
+		var monster: Monster = getMonster(monsterID)
+		if monster != null:
+			monster.position = Vector2i(-1, -1)
+	assertValidOccupancy()
 
 
 
@@ -267,12 +333,24 @@ func getAliveMonsterIDs(team: int = -1) -> Array:
 	var result = []
 	for id in monsters:
 		var mon = monsters[id]
-		if mon.is_alive() and (team == -1 or mon.team == team):
+		if (
+			mon.is_alive()
+			and not isMonsterWithdrawn(int(id))
+			and monsterPositions.has(id)
+			and (team == -1 or mon.team == team)
+		):
 			result.append(id)
 	return result
 
 
 func isTeamDefeated(team: int) -> bool:
+	if not parties.is_empty():
+		if not teamPartyIDs.has(team):
+			return true
+		for partyID: int in teamPartyIDs[team]:
+			if isPartySurviving(partyID):
+				return false
+		return true
 	if not teamRosters.has(team):
 		return true
 	for id in teamRosters[team]:

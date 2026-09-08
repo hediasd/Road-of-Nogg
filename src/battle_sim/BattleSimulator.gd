@@ -8,15 +8,23 @@ class_name BattleSimulator
 const ORDER_MOVE_FIRST := "move_first"
 const ORDER_ACT_FIRST := "act_first"
 
-## Replay version 5 makes target_pos canonical. Versions 2-4 derive it from
-## target_id immediately before each legacy command executes.
-const REPLAY_VERSION := 5
-const REPLAY_MIN_VERSION := 2
+## Version 6 is the first active-project replay contract for the hex party
+## rules. Square versions remain in the frozen reference project and receive a
+## directed rejection here instead of being reinterpreted.
+const REPLAY_VERSION := 6
+const REPLAY_MIN_VERSION := 6
+const SQUARE_REPLAY_MAX_VERSION := 5
+const GRID_KIND := "hex_flat"
+const COORDINATE_CONVENTION := "odd_q_offset"
+const RULESET_ID := "hex_party_activation_v1"
 
 const CombatResolverScript = preload("res://src/battle_sim/CombatResolver.gd")
 const PassiveSkillResolverScript = preload("res://src/battle_sim/PassiveSkillResolver.gd")
 const MapFactoryScript = preload("res://src/factories/MapFactory.gd")
 const BattleStateSerializerScript = preload("res://src/battle_sim/BattleStateSerializer.gd")
+const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
+const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
+const PassiveSkillReferencesScript = preload("res://src/factories/PassiveSkillReferences.gd")
 
 var state: BattleState
 var events: BattleEvents
@@ -66,6 +74,112 @@ func setSetupSnapshot(setupData: Dictionary) -> void:
 	setupSnapshot = setupData.duplicate(true)
 
 
+## Installs the validated HXB setup state into the one canonical simulator.
+## BattleSetupFactory deliberately remains the setup-data boundary; this method
+## owns runtime wiring, scheduling identity, and content fingerprinting.
+func configureHexState(
+		newState: BattleState,
+		scenario: BattleScenario,
+		setupData: Dictionary = {}) -> void:
+	assert(newState != null and scenario != null, "Hex state and scenario are required.")
+	assert(not newState.parties.is_empty(), "Hex state must contain parties.")
+	state = newState
+	state.gridKind = GRID_KIND
+	state.coordinateConvention = COORDINATE_CONVENTION
+	state.rulesetID = RULESET_ID
+	state.scenarioID = scenario.scenarioID
+	state.scenarioRevision = scenario.revision
+	state.scenarioPath = str(setupData.get("scenarioPath", ""))
+	_rebuildRuntimeDependencies()
+	state.contentFingerprint = computeContentFingerprint(state)
+	setupSnapshot = setupData.duplicate(true)
+	initialStateSnapshot = {}
+	_turnAccumulator = {}
+
+
+func _rebuildRuntimeDependencies(brainClasses: Dictionary = {}) -> void:
+	events = BattleEvents.new()
+	turnManager = TurnManager.new(state, events)
+	movementResolver = MovementResolver.new(state, events)
+	combatResolver = CombatResolverScript.new(state, events)
+	passiveSkillResolver = PassiveSkillResolverScript.new(state, events)
+	combatResolver.passiveSkillResolver = passiveSkillResolver
+	brains.clear()
+	for monsterID in state.monsters:
+		var monster: Monster = state.monsters[monsterID]
+		var brainName := str(brainClasses.get(str(monsterID), ""))
+		if brainName.is_empty():
+			brainName = str(MonsterReferencesScript.getReference(monster.name).get(
+				"BRAIN", "TacticalBrain"))
+		var brainClass = _resolveBrainClass(brainName)
+		var brain = brainClass.new(state, movementResolver, combatResolver)
+		monster.brain = brain
+		brains[monsterID] = brain
+
+
+static func computeContentFingerprint(battleState: BattleState) -> String:
+	var monsterIDs: Array = battleState.monsters.keys()
+	monsterIDs.sort()
+	var monsters: Array = []
+	var spellNames: Dictionary = {}
+	var passiveNames: Dictionary = {}
+	for monsterID in monsterIDs:
+		var monster: Monster = battleState.monsters[monsterID]
+		monsters.append({
+			"id": int(monsterID),
+			"reference": MonsterReferencesScript.getReference(monster.name).duplicate(true),
+		})
+		for spellSet in monster.spellSets:
+			for spell in spellSet:
+				spellNames[spell.name] = true
+		for passive in monster.passives:
+			passiveNames[passive.name] = true
+	var sortedSpellNames: Array = spellNames.keys()
+	sortedSpellNames.sort()
+	var spells: Array = []
+	for spellName in sortedSpellNames:
+		spells.append(SpellReferencesScript.getReference(str(spellName)).duplicate(true))
+	var sortedPassiveNames: Array = passiveNames.keys()
+	sortedPassiveNames.sort()
+	var passives: Array = []
+	for passiveName in sortedPassiveNames:
+		passives.append(PassiveSkillReferencesScript.getReference(str(passiveName)).duplicate(true))
+	var partyIDs: Array = battleState.parties.keys()
+	partyIDs.sort()
+	var parties: Array = []
+	for partyID in partyIDs:
+		var party: BattleParty = battleState.parties[partyID]
+		parties.append(party.toDictionary())
+	var content := {
+		"ruleset": RULESET_ID,
+		"map": battleState.battleMap.toDictionary() if battleState.battleMap != null else {},
+		"parties": parties,
+		"monsters": monsters,
+		"spells": spells,
+		"passives": passives,
+	}
+	var context := HashingContext.new()
+	context.start(HashingContext.HASH_SHA256)
+	context.update(_canonicalJSON(BattleStateSerializerScript.jsonSafe(content)).to_utf8_buffer())
+	return "sha256:%s" % context.finish().hex_encode()
+
+
+static func _canonicalJSON(value) -> String:
+	if value is Dictionary:
+		var keys: Array = value.keys()
+		keys.sort_custom(func(a, b): return str(a) < str(b))
+		var fields: Array[String] = []
+		for key in keys:
+			fields.append("%s:%s" % [JSON.stringify(str(key)), _canonicalJSON(value[key])])
+		return "{%s}" % ",".join(fields)
+	if value is Array:
+		var items: Array[String] = []
+		for item in value:
+			items.append(_canonicalJSON(item))
+		return "[%s]" % ",".join(items)
+	return JSON.stringify(value)
+
+
 func loadMap(mapName: String) -> void:
 	var map = MapFactoryScript.createMap(mapName)
 	state.setup_board(map.boardSize)
@@ -108,11 +222,246 @@ func _resolveBrainClass(name: String):
 		_: return load("res://src/entity_ai/TacticalBrain.gd")
 
 
+func hasPartyRuntime() -> bool:
+	return not state.parties.is_empty()
+
+
+func startNextPartyActivation(source: String = "system") -> Dictionary:
+	if not hasPartyRuntime():
+		return {"success": false, "reason": "party_runtime_unavailable", "party_id": -1}
+	if state.battleOutcome != -1:
+		return {"success": false, "reason": "battle_ended", "party_id": -1}
+	if state.currentMonsterID != -1 or not _turnAccumulator.is_empty():
+		return {"success": false, "reason": "member_turn_in_progress", "party_id": -1}
+	if state.activePartyID != -1:
+		return {"success": false, "reason": "party_activation_in_progress", "party_id": state.activePartyID}
+
+	_synchronizeCommanderWithdrawals()
+	_recordBattleOutcomeIfResolved()
+	if state.battleOutcome != -1:
+		return {"success": false, "reason": "battle_ended", "party_id": -1}
+	if state.pendingPartyIDs.is_empty():
+		if state.roundCount > 0 and not state.partyOrder.is_empty():
+			state.add_event("round_end", -1, -1, {"round": state.roundCount})
+			events.round_ended.emit(state.roundCount)
+		state.roundCount += 1
+		var surviving: Array[int] = []
+		for partyID in state.parties:
+			if state.isPartySurviving(int(partyID)):
+				surviving.append(int(partyID))
+		state.partyOrder = TurnManager.partySortedIDs(state, surviving)
+		state.pendingPartyIDs = state.partyOrder.duplicate()
+		state.add_event("round_start", -1, -1, {
+			"round": state.roundCount,
+			"party_order": state.partyOrder.duplicate(),
+		})
+		events.round_started.emit(state.roundCount, state.partyOrder.duplicate())
+
+	while not state.pendingPartyIDs.is_empty():
+		var partyID := int(state.pendingPartyIDs.pop_front())
+		if not state.isPartySurviving(partyID):
+			continue
+		state.activePartyID = partyID
+		state.spentMemberIDs.clear()
+		state.activationCount += 1
+		state.activationPhase = "awaiting_member"
+		var eligible := state.eligibleMemberIDs(partyID)
+		state.add_event("party_activation_start", partyID, -1, {
+			"source": source,
+			"activation": state.activationCount,
+			"eligible": eligible.duplicate(),
+		})
+		events.party_activation_started.emit(
+			partyID, state.roundCount, state.activationCount, eligible.duplicate())
+		if eligible.is_empty():
+			_closePartyActivation("no_eligible_members")
+			continue
+		return {"success": true, "reason": "", "party_id": partyID}
+
+	_recordBattleOutcomeIfResolved()
+	return {"success": false, "reason": "round_complete", "party_id": -1}
+
+
+func eligiblePartyMemberIDs() -> Array[int]:
+	if state.activePartyID == -1 or state.currentMonsterID != -1:
+		return []
+	return state.eligibleMemberIDs(state.activePartyID)
+
+
+func selectPartyMember(monsterID: int, source: String = "player") -> Dictionary:
+	var rejection := _validatePartyMemberSelection(monsterID)
+	if not rejection.is_empty():
+		state.add_event("member_selection_rejected", monsterID, -1, {
+			"source": source,
+			"party_id": state.activePartyID,
+			"reason": rejection,
+		})
+		return {"success": false, "reason": rejection, "monster_id": -1}
+	state.currentMonsterID = monsterID
+	state.turnCount += 1
+	state.activationPhase = "member_turn"
+	state.last_turn_start_index[monsterID] = state.history.size()
+	state.add_event("member_selected", monsterID, -1, {
+		"source": source,
+		"party_id": state.activePartyID,
+		"activation": state.activationCount,
+	})
+	state.add_event("turn_start", monsterID, -1, {
+		"round": state.roundCount,
+		"turn": state.turnCount,
+		"party_id": state.activePartyID,
+	})
+	events.party_member_selected.emit(state.activePartyID, monsterID)
+	events.turn_started.emit(monsterID, state.roundCount, state.turnCount)
+	return {"success": true, "reason": "", "monster_id": monsterID}
+
+
+func _validatePartyMemberSelection(monsterID: int) -> String:
+	if not hasPartyRuntime():
+		return "party_runtime_unavailable"
+	if state.battleOutcome != -1:
+		return "battle_ended"
+	if state.activePartyID == -1:
+		return "no_active_party"
+	if state.currentMonsterID != -1 or not _turnAccumulator.is_empty():
+		return "member_turn_in_progress"
+	if int(state.monsterPartyIDs.get(monsterID, -1)) != state.activePartyID:
+		return "member_not_in_active_party"
+	if state.spentMemberIDs.has(monsterID):
+		return "member_already_spent"
+	var monster: Monster = state.getMonster(monsterID)
+	if monster == null or not monster.is_alive():
+		return "member_defeated"
+	if state.isMonsterWithdrawn(monsterID) or not state.monsterPositions.has(monsterID):
+		return "member_withdrawn"
+	return ""
+
+
+func endPartyActivation(source: String = "player") -> Dictionary:
+	if not hasPartyRuntime() or state.activePartyID == -1:
+		return {"success": false, "reason": "no_active_party", "consumed": []}
+	if state.currentMonsterID != -1 or not _turnAccumulator.is_empty():
+		return {"success": false, "reason": "member_turn_in_progress", "consumed": []}
+	var partyID := state.activePartyID
+	var remaining := state.eligibleMemberIDs(partyID)
+	remaining.sort()
+	state.add_event("end_party_requested", partyID, -1, {
+		"source": source,
+		"remaining": remaining.duplicate(),
+	})
+	for memberID: int in remaining:
+		var selection := selectPartyMember(memberID, "end_party")
+		if not selection["success"]:
+			return {"success": false, "reason": selection["reason"], "consumed": []}
+		var result := executeCommand(memberID, BattleCommand.wait(), "end_party")
+		if not result.success:
+			return {"success": false, "reason": result.reason, "consumed": []}
+	if state.activePartyID == partyID:
+		_closePartyActivation("ended_by_player")
+	return {"success": true, "reason": "", "consumed": remaining}
+
+
+func _completePartyMemberTurn(monsterID: int) -> void:
+	var partyID := state.activePartyID
+	turnManager.endTurn(monsterID)
+	state.spentMemberIDs[monsterID] = true
+	state.activationPhase = "awaiting_member"
+	state.add_event("member_spent", monsterID, -1, {"party_id": partyID})
+	events.party_member_spent.emit(partyID, monsterID)
+	_synchronizeCommanderWithdrawals()
+	_recordBattleOutcomeIfResolved()
+	if state.battleOutcome != -1:
+		if state.activePartyID != -1:
+			_closePartyActivation("battle_ended")
+		return
+	if state.activePartyID != -1 and state.eligibleMemberIDs(state.activePartyID).is_empty():
+		_closePartyActivation("members_exhausted")
+
+
+func _closePartyActivation(reason: String) -> void:
+	if state.activePartyID == -1:
+		return
+	var partyID := state.activePartyID
+	state.add_event("party_activation_end", partyID, -1, {
+		"reason": reason,
+		"spent": _sortedIntKeys(state.spentMemberIDs),
+	})
+	events.party_activation_ended.emit(partyID, reason)
+	state.activePartyID = -1
+	state.currentMonsterID = -1
+	state.activationPhase = "idle"
+	_turnAccumulator = {}
+
+
+func _synchronizeCommanderWithdrawals() -> void:
+	var partyIDs: Array = state.parties.keys()
+	partyIDs.sort()
+	for partyIDValue in partyIDs:
+		var partyID := int(partyIDValue)
+		if state.isPartyWithdrawn(partyID):
+			continue
+		var party: BattleParty = state.parties[partyID]
+		var commander: Monster = state.getMonster(party.commanderID)
+		if commander == null or not commander.is_alive() or state.isMonsterWithdrawn(party.commanderID):
+			_withdrawParty(partyID)
+
+
+func _withdrawParty(partyID: int) -> void:
+	if state.isPartyWithdrawn(partyID):
+		return
+	var party: BattleParty = state.parties.get(partyID)
+	if party == null:
+		return
+	state.withdrawnPartyIDs[partyID] = true
+	var withdrawn: Array[int] = []
+	for memberID: int in party.memberIDs:
+		var monster: Monster = state.getMonster(memberID)
+		if memberID == party.commanderID or monster == null or not monster.is_alive():
+			continue
+		if not state.isMonsterWithdrawn(memberID):
+			state.withdrawMonster(memberID)
+			withdrawn.append(memberID)
+	state.add_event("party_withdrawn", partyID, -1, {
+		"commander_id": party.commanderID,
+		"member_ids": withdrawn.duplicate(),
+	})
+	events.party_withdrawn.emit(partyID, withdrawn.duplicate())
+
+
+func _recordBattleOutcomeIfResolved() -> void:
+	if state.battleOutcome != -1:
+		return
+	var outcome := checkWinCondition()
+	if outcome == -1:
+		return
+	state.battleOutcome = outcome
+	state.pendingPartyIDs.clear()
+	state.add_event("battle_end", -1, -1, {"outcome": outcome})
+	events.battle_ended.emit(outcome)
+
+
+static func _sortedIntKeys(values: Dictionary) -> Array[int]:
+	var result: Array[int] = []
+	for value in values:
+		result.append(int(value))
+	result.sort()
+	return result
+
+
 func validateCommand(monsterID: int, command: BattleCommand) -> BattleCommandResult:
 	if command == null:
 		return BattleCommandResult.rejected("missing_command")
 	if state.currentMonsterID != monsterID:
 		return BattleCommandResult.rejected("not_current_turn")
+	if hasPartyRuntime():
+		if state.activePartyID == -1:
+			return BattleCommandResult.rejected("no_active_party")
+		if int(state.monsterPartyIDs.get(monsterID, -1)) != state.activePartyID:
+			return BattleCommandResult.rejected("member_not_in_active_party")
+		if state.spentMemberIDs.has(monsterID):
+			return BattleCommandResult.rejected("member_already_spent")
+		if state.isMonsterWithdrawn(monsterID):
+			return BattleCommandResult.rejected("member_withdrawn")
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
 		return BattleCommandResult.rejected("invalid_monster")
@@ -195,6 +544,13 @@ func _ensureTurnAccumulator(monsterID: int, source: String) -> Dictionary:
 func _guardPhase(monsterID: int) -> Dictionary:
 	if state.currentMonsterID != monsterID:
 		return {"success": false, "reason": "not_current_turn"}
+	if hasPartyRuntime() and (
+		state.activePartyID == -1
+		or int(state.monsterPartyIDs.get(monsterID, -1)) != state.activePartyID
+		or state.spentMemberIDs.has(monsterID)
+		or state.isMonsterWithdrawn(monsterID)
+	):
+		return {"success": false, "reason": "member_not_eligible"}
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
 		return {"success": false, "reason": "invalid_monster"}
@@ -346,6 +702,8 @@ func executeActionPhase(
 func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResult:
 	## Closes the turn: writes the single aggregate command event and fires the
 	## end-of-turn passives exactly once, however many phases actually ran.
+	if state.currentMonsterID != monsterID:
+		return BattleCommandResult.rejected("not_current_turn")
 	var accumulator = _ensureTurnAccumulator(monsterID, source)
 	var normalized = BattleCommand.new(
 		accumulator["move_path"],
@@ -356,21 +714,23 @@ func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResul
 		accumulator["order"],
 		accumulator["target_pos"]
 	)
-	state.add_event("command", monsterID, normalized.target_id, {
-		"source": accumulator["source"],
-		"command": normalized.to_dictionary()
-	})
-
 	var skipped: bool = accumulator["skipped"]
 	var actionResult: Dictionary = accumulator["action_result"]
 	var acted: bool = accumulator["acted"]
 	_turnAccumulator = {}
-	passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
 	var result = BattleCommandResult.accepted(normalized)
 	result.resolved = false if skipped else actionResult.get("success", true)
 	result.acted = acted
 	result.skipped = skipped
 	result.action_result = actionResult
+	state.add_event("command", monsterID, normalized.target_id, {
+		"source": accumulator["source"],
+		"command": normalized.to_dictionary(),
+		"result": result.to_dictionary(),
+	})
+	passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
+	if hasPartyRuntime():
+		_completePartyMemberTurn(monsterID)
 	return result
 
 func _rejectPhase(monsterID: int, source: String, reason: String) -> Dictionary:
@@ -519,62 +879,109 @@ func applyDeliberatedTurn(monsterID: int, deliberation: CommandDeliberation) -> 
 	return result.acted
 
 func createReplaySnapshot() -> Dictionary:
+	if not hasPartyRuntime():
+		return {
+			"success": false,
+			"reason": "square_reference_required",
+			"detail": "Use the frozen square reference project for square replay files.",
+		}
+	if state.currentMonsterID != -1 or not _turnAccumulator.is_empty():
+		return {"success": false, "reason": "partial_turn_snapshot_unsupported"}
 	var brainClasses = {}
 	for monsterID in brains:
 		var brain = brains[monsterID]
 		brainClasses[str(monsterID)] = brain.get_script().resource_path.get_file().get_basename()
 
+	var operations: Array = []
 	var commands: Array = []
 	for event in state.history:
+		if event.get("type", "") in ["party_activation_start", "member_selected", "command"]:
+			operations.append(BattleStateSerializerScript.jsonSafe(event))
 		if event.get("type", "") == "command":
 			commands.append(BattleStateSerializerScript.jsonSafe(event))
 
 	return {
+		"success": true,
 		"version": REPLAY_VERSION,
+		"gridKind": GRID_KIND,
+		"coordinateConvention": COORDINATE_CONVENTION,
+		"rulesetID": RULESET_ID,
+		"scenarioID": state.scenarioID,
+		"scenarioRevision": state.scenarioRevision,
+		"mapID": state.mapName,
+		"mapRevision": state.mapRevision,
+		"mapSourceFingerprint": state.battleMap.sourceFingerprint,
+		"contentFingerprint": state.contentFingerprint,
 		"seed": state.battleSeed,
 		"setup": setupSnapshot.duplicate(true),
 		"initialState": initialStateSnapshot if not initialStateSnapshot.is_empty() else state.serialize_state(),
 		"currentState": state.serialize_state(),
-		"turnOrder": turnManager.turnOrder.duplicate(),
 		"brainClasses": brainClasses,
+		"operations": operations,
 		"commands": commands
 	}
 
 
 func restoreReplaySnapshot(snapshot: Dictionary) -> Dictionary:
 	var version = int(snapshot.get("version", REPLAY_MIN_VERSION))
-	if version < REPLAY_MIN_VERSION or version > REPLAY_VERSION:
+	if version <= SQUARE_REPLAY_MAX_VERSION:
+		return {
+			"success": false,
+			"reason": "square_reference_required",
+			"detail": "Use the frozen square reference project for square replay files.",
+		}
+	if version != REPLAY_VERSION:
 		return {"success": false, "reason": "unsupported_replay_version", "version": version}
 	if not snapshot.has("currentState"):
 		return {"success": false, "reason": "missing_current_state"}
+	var identityError := _replayIdentityError(snapshot)
+	if not identityError.is_empty():
+		return {"success": false, "reason": identityError}
+	var currentState: Dictionary = snapshot["currentState"]
+	if int(currentState.get("currentMonsterID", -1)) != -1:
+		return {"success": false, "reason": "partial_turn_snapshot_unsupported"}
 
 	if visualAdapter != null:
 		visualAdapter.disconnectFromEvents()
 	visualAdapter = null
 	_turnAccumulator = {}
-	state = BattleStateSerializerScript.deserialize(snapshot["currentState"])
-	events = BattleEvents.new()
-	turnManager = TurnManager.new(state, events)
-	movementResolver = MovementResolver.new(state, events)
-	combatResolver = CombatResolverScript.new(state, events)
-	passiveSkillResolver = PassiveSkillResolverScript.new(state, events)
-	combatResolver.passiveSkillResolver = passiveSkillResolver
-	turnManager.turnOrder.clear()
-	for monsterID in snapshot.get("turnOrder", []):
-		turnManager.turnOrder.append(int(monsterID))
+	state = BattleStateSerializerScript.deserialize(currentState)
+	if computeContentFingerprint(state) != str(snapshot.get("contentFingerprint", "")):
+		return {"success": false, "reason": "content_fingerprint_mismatch"}
 	initialStateSnapshot = snapshot.get("initialState", {}).duplicate(true)
 	setupSnapshot = snapshot.get("setup", {}).duplicate(true)
-	brains.clear()
-
 	var brainClasses: Dictionary = snapshot.get("brainClasses", {})
-	for monsterID in state.monsters:
-		var brainName: String = brainClasses.get(str(monsterID), "TacticalBrain")
-		var brainClass = _resolveBrainClass(brainName)
-		var brain = brainClass.new(state, movementResolver, combatResolver)
-		state.monsters[monsterID].brain = brain
-		brains[monsterID] = brain
+	_rebuildRuntimeDependencies(brainClasses)
 
 	return {"success": true}
+
+
+func _replayIdentityError(snapshot: Dictionary) -> String:
+	if str(snapshot.get("gridKind", "")) != GRID_KIND:
+		return "grid_kind_mismatch"
+	if str(snapshot.get("coordinateConvention", "")) != COORDINATE_CONVENTION:
+		return "coordinate_convention_mismatch"
+	if str(snapshot.get("rulesetID", "")) != RULESET_ID:
+		return "ruleset_mismatch"
+	var currentState = snapshot.get("currentState", {})
+	if not currentState is Dictionary:
+		return "invalid_current_state"
+	for key in ["gridKind", "coordinateConvention", "rulesetID", "contentFingerprint"]:
+		if str(currentState.get(key, "")) != str(snapshot.get(key, "")):
+			return "%s_mismatch" % _snakeCase(key)
+	return ""
+
+
+static func _snakeCase(value: String) -> String:
+	var result := ""
+	for character in value:
+		if character == character.to_upper() and character != character.to_lower():
+			if not result.is_empty():
+				result += "_"
+			result += character.to_lower()
+		else:
+			result += character
+	return result
 
 
 func emitRestoredBattle() -> void:
@@ -612,6 +1019,8 @@ func startBattle() -> void:
 
 
 func runFullBattle(maxRounds: int = 50) -> int:
+	if hasPartyRuntime():
+		return _runFullPartyBattle(maxRounds)
 	startBattle()
 	for _roundIndex in range(maxRounds):
 		turnManager.startNewRound()
@@ -636,6 +1045,30 @@ func runFullBattle(maxRounds: int = 50) -> int:
 	var winner = _determineWinnerByNumbers()
 	events.battle_ended.emit(winner)
 	return winner
+
+
+func _runFullPartyBattle(maxRounds: int) -> int:
+	startBattle()
+	while state.roundCount < maxRounds and state.battleOutcome == -1:
+		var activation := startNextPartyActivation("headless")
+		if not activation["success"]:
+			if activation["reason"] in ["battle_ended", "round_complete"]:
+				continue
+			break
+		while state.activePartyID != -1 and state.battleOutcome == -1:
+			var eligible := eligiblePartyMemberIDs()
+			if eligible.is_empty():
+				_closePartyActivation("no_eligible_members")
+				break
+			var memberID := int(eligible.front())
+			if not selectPartyMember(memberID, "cpu")["success"]:
+				break
+			if not executeTurn(memberID):
+				executeCommand(memberID, BattleCommand.wait(), "cpu_fallback")
+	if state.battleOutcome == -1:
+		state.battleOutcome = _determineWinnerByNumbers()
+		events.battle_ended.emit(state.battleOutcome)
+	return state.battleOutcome
 
 
 func checkWinCondition() -> int:

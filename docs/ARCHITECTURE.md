@@ -39,7 +39,7 @@ dependencies, and a "where to make a change" table — see
 [`MODULE_MAP.md`](./MODULE_MAP.md). This section stays the authority on what
 the layers *mean*; the map is the routing detail.
 
-## Approved hex battle ownership (planned)
+## Hex battle ownership
 
 The active code still implements the square baseline described below. The hex
 migration keeps `BattleSimulator` as the only canonical runtime and
@@ -116,14 +116,46 @@ does not apply to this path.
 
 `BattleSetupFactory.createHexState()` materializes the validated scenario into
 `BattleState`, including dense compatibility matrices, the valid-cell map,
-party indexes, team-roster projection, and explicitly identified monsters. It
-does not create a playable simulator yet. Party activation and authoritative
-hex spatial execution are the next runtime boundaries and will add a new
-state/replay version together.
+party indexes, team-roster projection, and explicitly identified monsters.
+`BattleSimulator.configureHexState()` installs that state in the canonical
+runtime, rebuilds resolvers and brains, and captures the ruleset-scoped content
+fingerprint. Authoritative hex spatial execution remains a separate resolver
+boundary; it does not change activation ownership.
 
 The current square battle is preserved as a frozen, independently runnable
 reference with its own source snapshot, resources, manifest, and launch steps.
 The active project does not load it and exposes no square/hex runtime toggle.
+
+### Party activation and member turns
+
+The simulator opens a round by freezing the surviving party order from
+commander level descending, effective commander speed descending, and party ID
+ascending. `BattleState.partyOrder` records the complete round order while
+`pendingPartyIDs` contains only parties not yet opened. An active party is a
+separate lifecycle from its selected member: `activePartyID` may remain set
+while `currentMonsterID` is `-1` and the simulator waits for an authoritative
+member selection.
+
+`selectPartyMember()` is the only operation that opens a member turn. It checks
+party membership, life, withdrawal, board presence, and the activation's spent
+set before changing `currentMonsterID`. Player input, CPU deliberation, and
+replay all call this operation. A resolved command records its accepted and
+resolved outcome, fires end-turn passives, advances only that member's status
+and cooldown clocks, and marks the member spent. Exhausting eligibility closes
+the party once. `endPartyActivation()` submits ordinary wait commands for all
+remaining eligible members in member-ID order, so it shares the same timing and
+command ledger rather than maintaining a second completion path.
+
+After every member timing step, the simulator reconciles commander defeat.
+Surviving members of that commander's party leave occupancy and become
+withdrawn without losing hit points. Victory uses surviving commanders; loss of
+every team's last commander in one fully resolved step records outcome `0` as a
+draw. The next member cannot be selected after an outcome is recorded.
+
+Party state may be captured between member turns, including a partly consumed
+activation. Capture or restore with a selected member or phase accumulator is
+rejected as `partial_turn_snapshot_unsupported`; it is never treated as a new
+activation.
 Hex battle is the sole maintained product path; fixes and upgrades do not flow
 back into the reference. This archive boundary avoids a second runtime family
 while keeping the old behaviour available for comparison.
@@ -513,17 +545,30 @@ is a real architectural change and should be planned, not slipped in.
 
 - All gameplay randomness flows through `BattleState.rng`.
 - Equal-speed turn ties use deterministic monster ID ordering.
-- Schema version 5 records map revision, height, level, jump, base/growth fields, resolved stats, family, ascension parent, Resonance bars, and Luck; version 2 migrates to height 0, level 1, and jump 1.
+- Legacy square schema version 5 records map revision, height, level, jump,
+  base/growth fields, resolved stats, family, ascension parent, Resonance bars,
+  and Luck; versions 2-5 remain readable only for internal square-state
+  compatibility while that code is retired.
+- Hex state schema version 6 additionally records `hex_flat`, `odd_q_offset`,
+  `hex_party_activation_v1`, exact map/scenario identity, a scoped content
+  fingerprint, parties, frozen and pending party order, selected party/member,
+  spent and withdrawn identities, activation phase/count, and battle outcome.
 - `BattleStateSerializer` produces and restores JSON-safe state, including RNG,
   IDs, board layers, rosters, effects, history, and monsters.
 - `BattleSimulator.createReplaySnapshot()` includes setup, initial/current state,
-  pending turn order, brain classes, and the controller-neutral command ledger.
-- Replay snapshots are version 5, which makes command `target_pos` canonical.
-  Versions 2-4 derive it from the recorded `target_id` immediately before each
-  legacy command executes; version 4 introduced `order`, while versions 2-3
-  still default it to `move_first`.
-- `BattleReplayRunner` reconstructs a battle from setup and replays recorded CPU
-  and player commands through normal validation/execution.
+  brain classes, explicit party/member-selection operations, and the shared
+  controller-neutral command ledger. Each command carries both its acceptance
+  and resolution result.
+- Active-project replay snapshots are hex version 6. They identify topology,
+  coordinate convention, ruleset, scenario/map revisions, map-source
+  fingerprint, and a canonical fingerprint of the relevant map, party, monster,
+  spell, and passive content. Square replay versions 2-5 return
+  `square_reference_required` and point callers to the frozen square project.
+- `BattleReplayRunner` reconstructs current setup/catalog identity before it
+  executes anything, replays party activation, member selection, and commands
+  through their normal operations, compares recorded command outcomes, then
+  compares final state, RNG, ID allocation, lifecycle, and material event
+  outcomes.
 - `restoreReplaySnapshot()` restores current state and rebuilds resolvers,
   brains, events, and the pending turn queue for continuation.
 - Simulation never writes diagnostic files. Tools and presentation decide when
