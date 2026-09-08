@@ -36,11 +36,12 @@ the window rule; execution opens `plan/hex-battle-playable` in a quiet tree.
   `jsonSafe` live one, and drops `lastTurnStartIndex` from its projection. Both
   look like missing comparisons and are deliberate — HXB-V's commit explains
   why, and `probe_replay.gd` fails if either is reverted.
-- A battle map is flat across its playable area. Terrain heights are continuous
-  over the shared hex vertex lattice, so two adjacent playable cells cannot
-  differ in elevation without a slope between them, and the export refuses a
-  sloped cell rather than rounding it. This is a property of the surface model,
-  not an export bug. See "Deliberately excluded".
+- A battle map is flat across its playable area, and that is now a DECISION
+  rather than a limitation -- the user chose flat on 2026-09-08. Terrain heights
+  are continuous over the shared hex vertex lattice, so two adjacent playable
+  cells cannot differ in elevation without a slope between them, and the export
+  refuses a sloped cell rather than rounding it. Do not add a height layer to a
+  battle map and do not soften the refusal. See "Deliberately excluded".
 - Several files under `src/presentation/effects/` describe
   `ShapeCaster.getCircle` as a Manhattan diamond. That was true before HXB-7 and
   is false now. HBP-5 owns correcting it; no other item may.
@@ -297,6 +298,62 @@ Touches list is what was found on 2026-09-08 and may have grown.
   line that is not a comment.
 - Deferred: none.
 
+### HBP-6 — Author a neutral proving map
+
+**Model:** Sonnet 5 / GPT Terra
+
+**Model rationale:** The brief is now fixed and the pipeline is documented end to
+end: a map with named tactical features, exported through a route that already
+works. No creative or lore decision remains, because the map is deliberately
+unplaced.
+
+**Depends on:** none.
+
+**Touches:**
+- `data/worldmap/authored/proving_ground.json`
+- `data/worldmap/regions.json`
+- `data/battle/maps/proving_ground.json`
+- `data/battle/scenarios/proving_ground_player_cpu.json`
+- `data/battle/scenarios/proving_ground_cpu_cpu.json`
+- `assets/worldmap/regions/generated/proving_ground.png`
+- `assets/worldmap/regions/generated/proving_ground.png.import`
+- `scripts/hex_battle/probe_proving_ground.gd`
+
+**End state:** A region `proving_ground` whose tactical layer exercises the whole
+vocabulary the battle supports, exported as `data/battle/maps/proving_ground.json`
+and bound by two scenarios -- one Player vs CPU, one CPU vs CPU -- both
+selectable from the setup screen and both playable to a result.
+
+**Implementation:** The map is a TEST INSTRUMENT, not content. It is deliberately
+unplaced and unlore'd; do not name it after anywhere, and do not invent a
+setting for it.
+
+It must contain, and the probe must assert, all of: cells in both column
+parities; a `rough` band that makes at least one route genuinely cheaper than a
+shorter one; `blocked` cells that break line of sight; a chokepoint no wider
+than one cell; at least one hole inside the board rather than on its edge; and
+two deployment areas far enough apart that the first round is spent closing.
+FLAT THROUGHOUT -- see "Deliberately excluded"; a height layer is a defect here,
+not an enhancement.
+
+Reuse the `temp2_hex32_ground` tileset for art, exactly as `hex_battle_fixture`
+does. Art is not the point and new art is out of scope. Follow
+`docs/WORLDMAP_EDITOR.md` section 20 for the bake, the `--headless --import`
+step and the export; `--headless --editor --quit` does not satisfy the import
+prerequisite. Add only this region to `regions.json` and preserve every other
+entry. Model the scenarios on the committed `technical_hxb_contract_*` files.
+
+**Risk:** A map that exercises the vocabulary on paper and plays as an open
+field; a scenario whose deployment lets one side reach the other before the
+player has made a decision.
+
+**Validation:**
+- Self-contained: run the launcher with `-Script res://scripts/hex_battle/probe_proving_ground.gd -Marker HXB_PROVING_OK`.
+  Assert every feature listed above is present in the exported map by
+  coordinate, that both scenarios load through `BattleScenarioFactory`, and that
+  a CPU vs CPU run of each reaches a result within thirty rounds.
+- Deferred: HBP-V plays it and judges whether it is worth playing.
+
 ### HBP-V — Validate the playable battle, then close the cycle
 
 **Model:** Opus 5 / GPT Sol
@@ -305,7 +362,7 @@ Touches list is what was found on 2026-09-08 and may have grown.
 actually playable — legibility, responsiveness, whether the six directions feel
 reachable — which cannot be folded into the session that built it.
 
-**Depends on:** HBP-1 through HBP-5, all committed.
+**Depends on:** HBP-1 through HBP-6, all committed.
 
 **Touches:**
 - `src/systems/hex_battle/**`
@@ -345,27 +402,25 @@ only exercises the easy case.
 
 | Wave | Items and suggested models | Why disjoint |
 |---|---|---|
-| 1 | HBP-2 — **Sonnet 5 / GPT Terra**; HBP-3 — **Opus 5 / GPT Sol**; HBP-4 — **Opus 5 / GPT Sol**; HBP-5 — **Sonnet 5 / GPT Terra** | A new menu widget, the adapter's preview layers, a diagnosis that writes only docs and a probe, and a comment-only correction in the donor effects. Four disjoint write sets, no shared file. |
+| 1 | HBP-2 — **Sonnet 5 / GPT Terra**; HBP-3 — **Opus 5 / GPT Sol**; HBP-4 — **Opus 5 / GPT Sol**; HBP-5 — **Sonnet 5 / GPT Terra**; HBP-6 — **Sonnet 5 / GPT Terra** | A new menu widget, the adapter's preview layers, a diagnosis that writes only docs and a probe, a comment-only correction in the donor effects, and a new map with its own data files. Five disjoint write sets, no shared file. |
 | 2 | HBP-1 — **Opus 5 / GPT Sol** | Wires the menu and the preview into the controller, member turn, cursor and HUD; needs both committed. |
 | 3 | HBP-V — **Opus 5 / GPT Sol** | **Validation: standalone, alone, quiet tree** — independent judgement of whether the battle plays. |
 
-Wave 1 is four separate sessions. HBP-2 and HBP-5 are specifications and can be
-dispatched without further reading; HBP-3 and HBP-4 are briefs.
+Wave 1 is five separate sessions. HBP-2, HBP-5 and HBP-6 are specifications and
+can be dispatched without further reading; HBP-3 and HBP-4 are briefs.
 
 ## Deliberately excluded
 
-- **Stepped tactical elevation.** A battle map is flat across its playable area
-  because terrain height is continuous over the shared hex vertex lattice, and
-  adjacent playable cells therefore cannot differ in elevation without a slope.
-  Changing that means changing the world-map surface model the editor and the
-  renderer share — a materially larger change than this cycle, and a product
-  decision about what a battlefield is before it is an engineering one. **It
-  needs the user's call before any item touches it**, and no item here may
-  approach it.
-- **A real authored battle map.** `editor_fixture` carries inherited art and
-  exists to prove the pipeline. A battle map someone designed is content work
-  whose brief — where it is, what it is for, what it should read as — is a
-  creative decision this cycle must not make on the user's behalf.
+- **Stepped tactical elevation. DECIDED 2026-09-08: battlefields stay flat.**
+  The user was asked and chose flat over a separate tactical height layer and
+  over quantising the shared surface model. So a battle map is flat across its
+  playable area, terrain variety comes from movement cost and blocking rather
+  than from height, and the export's refusal of a sloped cell is correct
+  behaviour rather than a limitation waiting to be lifted. No item in this cycle
+  may add elevation, and nobody should re-propose it without a new decision.
+- **A lore-placed battle map.** HBP-6 authors a deliberately unlore'd proving
+  map instead. Where a battle map sits in the world, and what it should read as,
+  is a creative decision this cycle must not make on the user's behalf.
 - **Everything the migration deferred**: command radius, enclosure bonuses,
   allied pass-through, flight, terrain defence and evasion, voluntary retreat,
   capture, turn limits, reinforcement, campaign consequences. Deferring one
