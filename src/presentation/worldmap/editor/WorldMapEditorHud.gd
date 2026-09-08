@@ -21,6 +21,10 @@ var column: VBoxContainer
 var badge: Label
 var toolOption: OptionButton
 var tileOption: OptionButton
+## The value row's own label. Renamed per layer kind -- "Tile" over a grid or detail layer,
+## "Sculpt" over heights, "Object" over the object layer -- because the row applies whatever the
+## active layer's tool takes, and a row labelled "Tile" over a height field is a lie.
+var tileLabel: Label
 var seedSpin: SpinBox
 var status: Label
 var saveButton: Button
@@ -178,7 +182,8 @@ func _buildBrushControls() -> void:
 	column.add_child(HSeparator.new())
 	var tileRow := HBoxContainer.new()
 	column.add_child(tileRow)
-	tileRow.add_child(_label("Tile"))
+	tileLabel = _label("Tile")
+	tileRow.add_child(tileLabel)
 	tileOption = OptionButton.new()
 	tileOption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tileOption.focus_mode = Control.FOCUS_NONE
@@ -332,32 +337,66 @@ func promptDiscard() -> void:
 	_confirmDialog.popup_centered()
 
 
-func setTileChoices(ids: Array[String], selectedID := "") -> void:
-	_tileIDs = ids.duplicate()
+## The value row, generalised in WMH-10B. `labels` is what a person reads and `values` is what
+## the controller acts on -- a pair rather than one list, because a sculpt step reads "+0.50" and
+## acts as `0.5`, and an object row reads "House" and acts as `house`. Tile choices are the case
+## where the two are the same string, which is why this was a single list until three more layer
+## kinds became reachable.
+##
+## `values` is the authority on length; a labels list that disagrees is truncated rather than
+## silently mismatched, since a row whose visible text belongs to a different entry than the one
+## it applies is the worst failure this row has available.
+func setValueChoices(labels: Array[String], values: Array[String], selectedValue := "") -> void:
+	_tileIDs = values.duplicate()
 	tileOption.clear()
-	# Erasing is a tile choice rather than a separate tool, so every shape can erase.
-	tileOption.add_item("Erase (-)")
-	for id in _tileIDs:
-		tileOption.add_item(id)
-	var index := _tileIDs.find(selectedID)
-	tileOption.selected = index + 1 if index >= 0 else (1 if not _tileIDs.is_empty() else 0)
+	for i in _tileIDs.size():
+		tileOption.add_item(labels[i] if i < labels.size() else _tileIDs[i])
+	var index := _tileIDs.find(selectedValue)
+	tileOption.selected = index if index >= 0 else (0 if not _tileIDs.is_empty() else -1)
 	tileOption.disabled = _tileIDs.is_empty()
 
 
+## Tile choices: the value row with an erase entry in front of it. Erasing is a tile choice
+## rather than a separate tool, so every shape can erase -- unchanged since WME-9, and now one
+## caller of `setValueChoices` rather than its own implementation.
+func setTileChoices(ids: Array[String], selectedID := "") -> void:
+	var labels: Array[String] = ["Erase (-)"]
+	var values: Array[String] = [WorldMapTileData.EMPTY]
+	for id in ids:
+		labels.append(id)
+		values.append(id)
+	setValueChoices(labels, values, selectedID if not ids.is_empty() else "")
+	if selectedID.is_empty() or not ids.has(selectedID):
+		# Default to the first real tile rather than to Erase: an author who picks a layer wants
+		# to paint on it far more often than to clear it.
+		tileOption.selected = 1 if not ids.is_empty() else 0
+	tileOption.disabled = ids.is_empty()
+
+
+## What the value row currently applies. Named for tiles because that is what it carried first
+## and what most callers still want; `selectedValue()` is the same string under the name the
+## other layer kinds read it by.
 func selectedTileID() -> String:
-	if tileOption == null or tileOption.selected <= 0:
+	return selectedValue()
+
+
+func selectedValue() -> String:
+	if tileOption == null or tileOption.selected < 0:
 		return WorldMapTileData.EMPTY
-	var index := tileOption.selected - 1
+	var index := tileOption.selected
 	return _tileIDs[index] if index >= 0 and index < _tileIDs.size() else WorldMapTileData.EMPTY
 
 
 func selectTileID(id: String) -> void:
-	if id == WorldMapTileData.EMPTY:
-		tileOption.selected = 0
-		return
 	var index := _tileIDs.find(id)
 	if index >= 0:
-		tileOption.selected = index + 1
+		tileOption.selected = index
+
+
+## Renames the value row for the active layer's kind. See `tileLabel`.
+func setValueLabel(text: String) -> void:
+	if tileLabel != null:
+		tileLabel.text = text
 
 
 func scatterSeed() -> int:

@@ -40,6 +40,7 @@ const Baker = preload("res://src/presentation/worldmap/editor/WorldMapBaker.gd")
 const MapData = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
 const ObjectLayer = preload("res://src/presentation/worldmap/editor/WorldMapObjectLayer.gd")
 const HeightField = preload("res://src/presentation/worldmap/editor/WorldMapHeightField.gd")
+const WaterLayer = preload("res://src/presentation/worldmap/editor/WorldMapWaterLayer.gd")
 const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
 
 ## Where an exported scene lands. Separated from hand-authored scenes on purpose, the same way
@@ -105,6 +106,7 @@ static func buildRuntime(
 	mapRoot.add_child(ground)
 	ground.owner = mapRoot
 	configureGround(ground, data, texture, framing)
+	buildWater(mapRoot, data, mapRoot)
 	# The sampler is what makes a building stand ON a hill rather than at zero underneath it, and
 	# it is the same `HeightField.sample` the surface mesh was built from -- so an object cannot
 	# rest on a surface the renderer does not draw.
@@ -119,6 +121,30 @@ static func buildRuntime(
 	mapRoot.set_meta(META_EXTENT, data.worldExtent())
 	mapRoot.set_meta(META_SOURCE, MapData.pathFor(data.region_name))
 	return mapRoot
+
+
+## The authored water surface, or nothing at all when the map has no wet cell -- WMH-11. A dry
+## map exports exactly what it exported before this item, node for node, which is the shape of
+## "water is not a terrain type" at the scene level: a map without water does not carry an empty
+## water plane at height zero.
+##
+## `owner` is set for the same reason every other node here sets it: `PackedScene` captures only
+## what the root owns. Pass `null` as `sceneOwner` for a live preview that is never packed.
+static func buildWater(parent: Node3D, data: WorldMapTileData, sceneOwner: Node) -> MeshInstance3D:
+	var mesh := WaterLayer.buildSurfaceMesh(data)
+	if mesh == null:
+		return null
+	var surface := MeshInstance3D.new()
+	surface.name = "Water"
+	surface.mesh = mesh
+	surface.material_override = WaterLayer.buildMaterial()
+	# Matching Ground: the map is unlit art, so water neither casts shadows nor lights anything.
+	surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	surface.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	parent.add_child(surface)
+	if sceneOwner != null:
+		surface.owner = sceneOwner
+	return surface
 
 
 ## Builds a node per placed object under `parent`, named by the object's own id so a gameplay

@@ -1088,14 +1088,235 @@ then slot 4 (the opposite side of the hex) painted with a different tile, and sl
 well-inside pixels are asserted byte-identical before and after — the check that would fail first
 if masking silently degraded to "the whole frame".
 
-### No undo, and that is named rather than hidden
+### No undo — closed in WMH-10B
 
-Every other brush in `WorldMapBrushes.gd` is `(data, history, layerID, ...)` and coalesces into
-one `WorldMapEditHistory` entry. `paintTriangle` is not: it is `data.setDetail(...)` directly, with
-no stroke, no coalescing, no undo. Wiring a fourth kind into history is real work its own item
-should own, and this item's Touches list does not include `WorldMapEditHistory.gd` — which WMH-9
-already closed for tile, height and object edits. Rather than reach into a file outside this
-item's scope, or silently ship an editor tool nothing can undo without saying so, the deviation
-from every sibling brush's own shape is the marker: `paintTriangle` looking different from
-`paintCell`/`paintHeight`/`placeObject` is deliberate, and is the honest way to leave this gap
-visible until a later item closes it.
+Kept as a heading rather than deleted, because how it was left is the point. WMH-10 shipped
+`paintTriangle` as `data.setDetail(...)` directly — no stroke, no coalescing, no undo — while every
+sibling brush in `WorldMapBrushes.gd` was `(data, history, layerID, ...)`. Wiring a fourth kind
+into the history was real work, and this item's Touches list did not include
+`WorldMapEditHistory.gd`; rather than reach into a file outside its scope or ship an un-undoable
+tool without saying so, **the deviation from every sibling's shape was itself the marker.**
+
+Gate 3 then found nothing could reach these slots with a mouse at all, and WMH-10B gave them a
+tool — which turned a named gap into a defect, since a person can now make edits they cannot take
+back. So detail is the history's fourth delta kind, `paintTriangle` has its siblings' signature,
+and the anomaly is gone. See §17.
+
+## 17. The tools that reach the other three layers
+
+WMH-10B, opened by Gate 3's finding that the editor exposed `ground` and `overlay` and nothing
+else: heights, objects and detail all round-tripped, undid, saved and exported correctly, and
+none of them could be authored with a mouse. Every part of that gate's own authoring exercise
+which touched them ran from a script.
+
+### Reachable and empty are different states
+
+`_layerEditable` used to ask "is this a grid layer with a known tileset", which is why a height,
+list or detail layer could never become the active one no matter what the map stored. It is now
+kind-aware, and it is joined by `_layerPopulated`, because the two questions genuinely differ:
+
+| | `_layerEditable` | `_layerPopulated` |
+|---|---|---|
+| gates | tool input, the grid overlay | the row's `(empty)` label and dimming |
+| a fresh hex map's `heights` | **true** | **false** |
+| the square `temp2_authored`'s `heights` | false — no hex lattice to sculpt | false |
+
+The three authored layers are **created by their own first edit**, not conjured onto every
+document that is opened. A height field or a detail fan on a square map would be storage for a
+lattice that does not exist, and `temp2_authored` is square — so a load-time migration would have
+been wrong for exactly the map the project already ships.
+
+### One value row, per layer kind
+
+The row that offered tile ids now offers whatever the active layer's tool takes: **Tile** over a
+grid or detail layer, **Sculpt** over heights, **Object** over the object layer. `setValueChoices`
+takes labels and values as a pair, because a sculpt step reads `Raise +0.50` and acts as `0.5`.
+
+This is the half that made the kind-aware `_layerEditable` safe. WMH-10B named the failure it was
+avoiding: a sculpt reading a tile id off a row that has none applies `float("")` — which is `0.0`,
+a silent no-op, the same class of defect as Gate 1's picker refusing a click without a word.
+
+Removing is a choice in that row rather than a tool of its own, matching `Erase (-)` on the tile
+row since WME-9.
+
+The same reasoning gives `_toolFitsLayer`: the new rows made a mismatched tool reachable for the
+first time, and `WorldMapTileData.setCell` already refuses a non-grid layer by returning `false`
+— so a paint aimed at the height layer would do nothing and say nothing. **Nothing was ever in
+danger; the silence was.** The guard exists for the message, which names both the tool's kind and
+the layer's.
+
+### Three gestures, chosen for what each edit is
+
+- **Sculpt** is a drag, stepped. Both signs sit in the value row rather than behind a modifier, so
+  lowering is exactly as discoverable as raising. Each vertex moves **at most once per stroke** —
+  three hexes share every vertex on this lattice, so a drag across neighbours would otherwise
+  raise the shared ones twice and leave a ridge along the drag. `Flatten to start` levels every
+  cell a stroke crosses to the height of the cell it began on, sampled before the first step.
+- **Place** is a click, and one click does all three verbs: an empty cell takes the selected kind,
+  an occupied one **turns** by a facing step, `Remove` deletes. No modifier keys, no second
+  control for facing.
+- **Paint triangle** is a drag that follows the **pointer**, not the cell under it — dragging
+  inside one hex crosses fan slots without ever changing cell, so following the cell would paint
+  the first slot and then nothing.
+
+### The fan test still has one definition
+
+`WorldMapHeightField.fanTriangleOf` is now that definition in world space, extracted from inside
+`sample()` so the picker and the sampler cannot disagree about which sixth of a hex a point is in.
+`WorldMapBaker` keeps its deliberate second implementation in pixel space (§16). Two is already
+one more than ideal; a third, added because the loop happened to live inside `sample`, is how the
+terrain a click lands on and the triangle it paints start drifting apart.
+
+### A sculpt that changes nothing on screen would be the real failure
+
+Heights are geometry, not pixels, so a sculpt invalidates no part of the bake — which means the
+ordinary `_afterCellsEdited` path does nothing for it. `_afterHeightsEdited` rebuilds the ground
+**surface** through the same `configureGround` the export uses, then rebuilds the object preview,
+because objects anchored to terrain have just moved with it. `probe_editor_tools.gd` asserts the
+editor's ground is a real `ArrayMesh` after a sculpt rather than the flat `PlaneMesh` — the check
+that fails first if the edit is recorded, undoable and invisible.
+
+Objects are previewed through `WorldMapSceneExport.buildObjects` with a **null scene owner** — the
+case that function already documented for a preview that is never packed — so the editor and the
+export place a building by the same code rather than by two that agree today.
+
+### Still out of scope, and still named
+
+An object-kind palette beyond `house`/`tower`, a footprint editor, and hex routing for the
+Rectangle and Stamp tools (still square-only — §12). The tool table is a list of gestures, not a
+list of commands; a smooth tool and a raise-to-target tool are the obvious next two and neither is
+here.
+
+## 18. Authored water
+
+`WorldMapWaterLayer` over `WorldMapTileData.KIND_WATER` — WMH-11. Lakes and simple river sections:
+which cells are wet, and what height each one's surface sits at. No flow, no simulation, no tide.
+
+### Water is not a terrain type
+
+The risk this item was written against, and the reason for every shape below. A lowered basin is
+**terrain**; whether it holds water is a separate authored fact. Nothing in the water layer writes
+a height, and `WorldMapHeightField` never reads the water layer — so a dry basin and a flooded one
+differ in exactly one place, and an author can express both.
+
+`probe_water_layer.gd` checks both halves separately, because only the pair is convincing: a
+2.0-deep basin nobody flooded reports zero wet cells, **and** a cell flooded to exactly `0.0` over
+flat ground reports wet.
+
+### Dry is not height zero
+
+The store is **text**, not floats. A dense float array cannot say "dry" without inventing a
+sentinel, and a map whose ground sits at 0 would then be indistinguishable from one flooded to 0.
+`EMPTY` (`-`) is already this format's word for "nothing here" — grid and detail layers both use
+it — so dryness is spelled the way absence is spelled everywhere else, and it serialises through
+the same `encodeRLE` an unpainted layer does: a dry map is one run.
+
+### One value per cell, not per vertex
+
+The terrain is a vertex lattice because a hillside is continuous. A water surface is not: it is
+flat across a body and **steps** between bodies. So water is cell-addressed, and there is no
+interpolation anywhere in this file — a surface that sloped between neighbouring cells could not
+be flat by construction.
+
+That gives both shapes the item asked for without tracking connected components: a lake is level
+because every cell in it was given the same height, and a river descends because each cell was
+given a lower one. The mesh does **not** share vertices between cells, so two cells at different
+heights meet at a visible step rather than being smoothed into a ramp — the difference between a
+river that descends and one that leaks uphill.
+
+### The look is the region's own sea
+
+Agreed with the user before implementation, per the item. `void_color` is already what lies beyond
+the map's edge, and `WorldMapGroundUniforms` is explicit that it belongs to the *place* rather than
+the framing — temp's sea is deep blue, temp2's teal. So an **authored lake is the same water as
+the ocean past the edge**, and the shore tint is that colour carried `SHORE_MIX` of the way toward
+the region's own `fog_color`. No colour was imported from anywhere.
+
+The band rides in **vertex colours** — deep at `SHORE_DEPTH` or more, shore tint at the waterline —
+read as albedo by an unshaded material. No shader, no texture, and the map stays unlit art rather
+than gaining one surface that reacts to a sun nothing else knows about.
+
+### The bug that only looking could find
+
+The first build drew an authored lake visibly **paler** than the identical colour past the map's
+edge. `void_color` and `fog_color` are sRGB — they arrive from the region catalog as hex — and a
+vertex colour is taken as **linear** unless the material says otherwise, so the same value came out
+brightened. Every colour assertion in the probe passed throughout: they check the stored value, and
+the fault was in how it was interpreted.
+
+`vertex_color_is_srgb = true` fixes it, and the probe now asserts that flag with the reason — a
+render check cannot live in a headless probe, but the flag it depends on can.
+
+### What the deferred check found, and did not fix
+
+**Water is not fogged.** The ground hazes toward `fog_color` with distance inside
+`worldmap_ground.gdshader`; the water is a plain unshaded material and does not. A distant lake
+therefore stays crisp while the land around it fades. The project already has the answer for this
+shape — `worldmap_prop.gdshader` "transcribes this file's fog" for exactly the same reason — but a
+water shader is not in this item's Touches list and is its own piece of work.
+
+**A steep-walled basin has no visible band.** The band is driven by depth, so it appears where
+water is shallow; flatten a lake floor to −3.0 in one step and the water goes from shore to open
+sea within a single cell. That is the specification behaving correctly, not a defect, but it means
+a band is a property of the *terrain* an author sculpts rather than something water draws for
+itself. A distance-to-shoreline band would behave differently and is the obvious alternative if
+this reads wrong in use.
+
+**No authoring tool.** WMH-11's Touches list covers the layer, the format and the export — not the
+controller or the HUD — so water is authored through the API, exactly as heights, objects and
+detail were before WMH-10B. §17's pattern makes adding one small, and it is the natural companion
+to this item rather than part of it.
+
+
+## 19. Bridges
+
+`WorldMapObjectLayer.placeBridge` and `.clearance` — WMH-12. A bridge is not a new record shape:
+it is an ordinary placed object (§14) whose `HEIGHT` is a **deck height** and whose `ANCHOR` is
+`ANCHOR_FIXED`. Nothing about the format changed; the item's whole content is that one field
+combination getting a name, and a clearance check that had nothing to compare against before
+WMH-11 gave it water to compare against.
+
+### Deck height is authored, not derived — and that was already expressible
+
+`ANCHOR_FIXED` has existed since WMH-7: an object anchored `fixed` ignores whatever sampler it is
+given and returns its own `HEIGHT` unchanged (§14). That is already "authored, not derived" —
+which means a bridge needed no new storage, no new anchor mode and no change to `anchorHeight()`
+or `worldPosition()`. What it needed was **a call site that cannot get this wrong by accident**:
+`placeBridge(data, kind, cell, deckHeight, ...)` bakes in `ANCHOR_FIXED` so a caller placing a
+"bridge" kind object cannot pass `ANCHOR_TERRAIN` and silently get a bridge that drapes onto the
+riverbed the moment the terrain under one corner changes — the exact failure the item's End state
+describes.
+
+### Clearance checks both surfaces, per cell, and reports the worst
+
+The one genuinely new function. `clearance(record, terrainSampler, waterSampler)` walks every cell
+of the bridge's footprint (§14's own `footprintCells`, unchanged) and compares the deck against
+**both** the terrain and any authored water there, returning the smallest (possibly negative)
+gap, which cell produced it, and which surface.
+
+**Both surfaces, not the lower one alone**, is the part worth explaining. A deck that clears a
+riverbed by a wide margin but sits at or below the *water surface* above that riverbed has cleared
+nothing — it is a bridge sitting **in** the river. Reducing "clearance" to a single number per
+cell by keeping only the deeper surface is exactly the shortcut that would hide that. So both are
+checked at every cell, and the answer is the worst across the whole set.
+
+### A dry cell's water sampler answers `null`, not `0.0`
+
+`waterSampler` is a caller-supplied `Callable`, exactly like `terrainSampler` and `anchorHeight`'s
+own sampler before it (§14) — this file still does not preload `WorldMapHeightField` or
+`WorldMapWaterLayer`, keeping the decoupling those two already established. The contract for a dry
+cell is `null`, not a height of `0.0`, which is WMH-11's own "dry is not height zero" carried one
+layer up: a water sampler that answered `0.0` for a dry cell would make every bridge crossing dry
+land on its way to a river report a false near-miss against phantom water at sea level.
+`probe_object_layer.gd` checks this by comparing an always-dry sampler's result against no water
+sampler at all — they must agree exactly, and a version that read `null` as `0.0` was confirmed to
+fail that check before the fix landed.
+
+### What the deferred check found
+
+Rendered as a placeholder box (§14's own object body — bridges get no new art in this item), an
+authored deck sits visibly above the water it spans rather than draped into it, matching the
+clearance the same map's own `clearance()` call reported. The box is a poor stand-in for a span —
+it has no rails, no deck plane wider than the object's footprint, and no visible connection to the
+banks either side — but the **position** is the thing this item is answerable for, and the render
+confirms it holds.

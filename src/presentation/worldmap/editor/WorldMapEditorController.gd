@@ -68,10 +68,30 @@ const Regions = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.g
 ## are not cancelled -- they come back as their own items when there is a reason to build them,
 ## not as one bundled wave. `probe_editor_shell.gd` needed no change for this: it iterates
 ## LAYERS/TOOLS generically, which is the entire point of layers being data rather than code.
+## RE-WIDENED AT GATE 3 (docs/plans/reviews/worldmap-hex-gate-3.md) from two rows to five. The
+## trim above was right when the only data model was tile grades; WMH-7, WMH-8 and WMH-10 then
+## built three more layer kinds that the map could store, export and undo but that this table
+## could not name -- so the editor could paint ground and nothing else. The three added here are
+## exactly those, no more: each one has a data model, a tool and a bake path already.
 const LAYERS := [
 	{"id": "ground", "label": "Ground", "enabled": false},
 	{"id": "overlay", "label": "Overlay (roads)", "enabled": false},
+	{"id": LAYER_HEIGHTS, "label": "Terrain height", "enabled": false},
+	{"id": LAYER_OBJECTS, "label": "Objects", "enabled": false},
+	{"id": LAYER_DETAIL, "label": "Detail (triangles)", "enabled": false},
 ]
+
+## The three layers a hex document does not start with and that their own first edit creates.
+## Keyed by id, valued by the kind each is created as -- which is what lets a row be REACHABLE
+## and EMPTY at the same time, the distinction `_layerEditable` and `_layerPopulated` split
+## between them. A layer is not conjured onto every opened document: `temp2_authored` is square,
+## and a height field or a detail fan on a square map would be storage for a lattice it does not
+## have.
+const AUTHORED_HEX_LAYERS := {
+	LAYER_HEIGHTS: MapDataScript.KIND_HEIGHTS,
+	LAYER_OBJECTS: MapDataScript.KIND_LIST,
+	LAYER_DETAIL: MapDataScript.KIND_DETAIL,
+}
 
 ## Two tools, chosen to prove the router rather than to edit anything -- WME-9 is where a real
 ## brush arrives. NAVIGATE hands every mouse button to camera movement, exactly as if no tool
@@ -87,6 +107,13 @@ const TOOL_EYEDROPPER := "eyedropper"
 const TOOL_STAMP := "stamp"
 const TOOL_SCATTER := "scatter"
 const TOOL_REPLACE := "replace"
+## WMH-10B. One tool per layer kind that had none, rather than one tool per verb: a sculpt is a
+## drag, a placement is a click and a triangle paint is a drag, and each reads the value row for
+## WHICH raise, WHICH object or WHICH tile it applies. Three tools for three kinds keeps the tool
+## list a list of gestures rather than a list of commands.
+const TOOL_SCULPT := "sculpt"
+const TOOL_PLACE := "place"
+const TOOL_DETAIL := "paintTriangle"
 const TOOLS := [
 	{"id": TOOL_NAVIGATE, "label": "Navigate"},
 	{"id": TOOL_INSPECT, "label": "Inspect"},
@@ -98,11 +125,41 @@ const TOOLS := [
 	{"id": TOOL_STAMP, "label": "Stamp"},
 	{"id": TOOL_SCATTER, "label": "Scatter"},
 	{"id": TOOL_REPLACE, "label": "Replace kind"},
+	{"id": TOOL_SCULPT, "label": "Sculpt"},
+	{"id": TOOL_PLACE, "label": "Place object"},
+	{"id": TOOL_DETAIL, "label": "Paint triangle"},
 ]
 
 ## What a brand new hex document is created with. There is exactly one hex tileset in the
 ## catalog right now (WMH-2's 32 px extraction), so "New" has nothing to choose between yet --
 ## when a second one exists this becomes a picker, not a rewrite of `_newDocument`.
+const LAYER_HEIGHTS := WorldMapHeightField.DEFAULT_LAYER
+const LAYER_OBJECTS := WorldMapObjectLayer.DEFAULT_LAYER
+const LAYER_DETAIL := "detail"
+
+## What the value row offers over a height layer. A step per click rather than a target height,
+## because sculpting is done by repetition -- and both signs are here rather than behind a
+## modifier, so lowering is as reachable as raising and neither needs a key to be discovered.
+## `SCULPT_FLATTEN` is the exception that is not a step: it levels every cell a stroke touches to
+## the height of the cell the stroke STARTED on, which is what a flatten tool is for.
+const SCULPT_FLATTEN := "flatten"
+const SCULPT_STEPS := [
+	{"label": "Raise  +1.00", "value": "1.0"},
+	{"label": "Raise  +0.50", "value": "0.5"},
+	{"label": "Raise  +0.25", "value": "0.25"},
+	{"label": "Lower  -0.25", "value": "-0.25"},
+	{"label": "Lower  -0.50", "value": "-0.5"},
+	{"label": "Lower  -1.00", "value": "-1.0"},
+	{"label": "Flatten to start", "value": SCULPT_FLATTEN},
+]
+
+## What the value row offers over the object layer. A fixed list, deliberately: an object-kind
+## palette is named out of scope in WMH-10B, and these are the two kinds `WorldMapSceneExport`
+## already builds bodies for. `OBJECT_REMOVE` rides in the same row for the reason "Erase (-)"
+## does on the tile row -- removing is a choice of what to apply, not a tool of its own.
+const OBJECT_REMOVE := "remove"
+const OBJECT_KINDS := ["house", "tower"]
+
 const DEFAULT_HEX_TILESET := "temp2_hex32_ground"
 ## The region whose palette and place colours a new hex document borrows, matching the tileset
 ## above's own `PALETTE_REGION` -- a new map starts looking like the place its art came from
@@ -141,6 +198,21 @@ var _cursorCell: Variant = null
 var _gestureStart: Variant = null
 var _strokeOpen := false
 var _strokeTouched: Array[Vector2i] = []
+## Which tool opened the stroke that is currently open. A tile stroke, a sculpt and a triangle
+## paint all end differently -- one invalidates cells, one rebuilds the terrain surface -- and
+## `_endToolGesture` has only the open stroke to go on, since the active tool can change under a
+## held button.
+var _strokeKind := ""
+## The vertices a sculpt stroke has already moved, and the height it started at. Each vertex is
+## raised AT MOST ONCE per stroke: three hexes share every vertex, so a drag across neighbouring
+## cells would otherwise raise the shared ones twice and leave a ridge along the drag.
+var _sculptVertices: Dictionary = {}
+var _sculptBase := 0.0
+## The editor-only preview of the object layer, rebuilt whenever objects or terrain move. Built
+## through `WorldMapSceneExport.buildObjects` with a null scene owner -- the case that function
+## already documents for a preview that is never packed -- so what the editor shows and what an
+## export ships are the same construction, not two.
+var _objectsPreview: Node3D
 ## `_history.undoCount()` AT THE LAST SAVE, not a bool any call site sets. See `_isDocumentDirty`
 ## -- WMH-5's own risk section calls out a dirty flag missing a mutation path as the danger, and
 ## the fix is to have nothing set it at all: every mutation already goes through `_history`
@@ -339,8 +411,17 @@ func _unhandled_input(event: InputEvent) -> void:
 			_editorCamera.orbitByScreenDelta(motion.relative)
 		elif _cameraPanning:
 			_editorCamera.panBy(motion.relative)
-		elif _strokeOpen and (motion.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0 and _cursorCell != null:
-			_paintStrokeCell(_cursorCell as Vector2i)
+		elif _strokeOpen and (motion.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+			# A triangle stroke follows the POINTER, not the cell under it: dragging within one
+			# hex crosses fan slots without ever changing cell, and following the cell would
+			# paint the first slot and then nothing.
+			if _strokeKind == TOOL_DETAIL:
+				_paintTriangleAt(motion.position)
+			elif _cursorCell != null:
+				if _strokeKind == TOOL_SCULPT:
+					_sculptCell(_cursorCell as Vector2i)
+				else:
+					_paintStrokeCell(_cursorCell as Vector2i)
 
 
 ## `KEY_F`, `KEY_SPACE` and `KEY_TAB` are claimed here, each marking the event handled so it
@@ -457,6 +538,17 @@ func _beginToolGesture(screenPosition: Vector2) -> void:
 	if not _layerEditable(_activeLayer):
 		_editorHud.setStatus("Choose an authored layer with a tileset before editing.")
 		return
+	if not _toolFitsLayer(_activeTool, _activeLayer):
+		_editorHud.setStatus("%s edits %s layers; '%s' is a %s layer." % [
+			_toolLabel(_activeTool), _kindLabel(_toolLayerKind(_activeTool)),
+			_activeLayer, _kindLabel(_activeLayerKind()),
+		])
+		return
+	# Before `_pickCell`, because a triangle is not a cell: the fan slot comes from WHERE inside
+	# the hex the pointer is, which the cell alone has already thrown away.
+	if _activeTool == TOOL_DETAIL:
+		_beginDetailStroke(screenPosition)
+		return
 	_cursorCell = _pickCell(screenPosition)
 	if _cursorCell == null:
 		_editorHud.setStatus("No map cell under the pointer.")
@@ -490,6 +582,10 @@ func _beginToolGesture(screenPosition: Vector2) -> void:
 				_document, _history, _activeLayer, source, tileID, _terrainByIDForActiveLayer()
 			):
 				_afterRectEdited(_activeLayer, Rect2i(Vector2i.ZERO, _document.layerSize(_activeLayer)))
+		TOOL_SCULPT:
+			_beginSculptStroke(cell)
+		TOOL_PLACE:
+			_placeOrEditObject(cell)
 		TOOL_RECTANGLE, TOOL_LINE, TOOL_SCATTER:
 			_gestureStart = cell
 
@@ -497,8 +593,15 @@ func _beginToolGesture(screenPosition: Vector2) -> void:
 func _endToolGesture(screenPosition: Vector2) -> void:
 	if _strokeOpen:
 		_strokeOpen = false
-		if Brushes.endStroke(_history):
-			_afterCellsEdited(_activeLayer, _strokeTouched)
+		var committed := Brushes.endStroke(_history)
+		var kind := _strokeKind
+		_strokeKind = ""
+		_sculptVertices.clear()
+		if committed:
+			if kind == TOOL_SCULPT:
+				_afterHeightsEdited()
+			else:
+				_afterCellsEdited(_activeLayer, _strokeTouched)
 		_strokeTouched.clear()
 		return
 	if _gestureStart == null or _document == null:
@@ -535,6 +638,109 @@ func _endToolGesture(screenPosition: Vector2) -> void:
 				_afterRectEdited(_activeLayer, rect)
 
 
+## Sculpting. The stroke raises (or lowers) every vertex of every cell it crosses, once each --
+## see `_sculptVertices` for why once matters on a lattice where three hexes share a vertex.
+func _beginSculptStroke(cell: Vector2i) -> void:
+	HeightField.ensureLayer(_document, LAYER_HEIGHTS)
+	_history.beginStroke(LAYER_HEIGHTS)
+	_strokeOpen = true
+	_strokeKind = TOOL_SCULPT
+	_strokeTouched.clear()
+	_sculptVertices.clear()
+	# Sampled BEFORE the first cell is touched, so "flatten to start" levels to the ground the
+	# author put the pointer on rather than to whatever the first step has already made of it.
+	_sculptBase = HeightField.centreHeight(_document, cell, LAYER_HEIGHTS)
+	_sculptCell(cell)
+
+
+func _sculptCell(cell: Vector2i) -> void:
+	if not _strokeOpen or _document == null:
+		return
+	var choice := _editorHud.selectedValue()
+	var flatten := choice == SCULPT_FLATTEN
+	var step := 0.0 if flatten else float(choice)
+	for vertex in HeightField.cellVertices(cell):
+		if _sculptVertices.has(vertex):
+			continue
+		_sculptVertices[vertex] = true
+		var target := (
+			_sculptBase if flatten
+			else HeightField.heightAt(_document, vertex, LAYER_HEIGHTS) + step
+		)
+		_history.paintHeight(_document, vertex, target)
+	if not _strokeTouched.has(cell):
+		_strokeTouched.append(cell)
+
+
+## Placing. One click does all three verbs this tool has, chosen by what is already under it:
+## an empty cell takes the selected kind, an occupied one TURNS by a facing step, and the Remove
+## entry in the value row deletes. No modifier keys -- see `OBJECT_REMOVE`.
+func _placeOrEditObject(cell: Vector2i) -> void:
+	WorldMapObjectLayer.ensureLayer(_document, LAYER_OBJECTS)
+	var existing := _objectAt(cell)
+	var choice := _editorHud.selectedValue()
+	_history.beginStroke(LAYER_OBJECTS)
+	var message := ""
+	if choice == OBJECT_REMOVE:
+		if existing.is_empty():
+			message = "No object at %s to remove." % cell
+		else:
+			var id := str(existing[WorldMapObjectLayer.K_ID])
+			_history.removeObject(_document, id)
+			message = "Removed %s from %s." % [id, cell]
+	elif existing.is_empty():
+		var record := _history.placeObject(_document, choice, cell)
+		message = (
+			"Placed %s at %s." % [str(record[WorldMapObjectLayer.K_ID]), cell]
+			if not record.is_empty() else "Could not place at %s." % cell
+		)
+	else:
+		var id := str(existing[WorldMapObjectLayer.K_ID])
+		var facing := int(existing[WorldMapObjectLayer.K_FACING]) + 1
+		_history.setObjectFacing(_document, id, facing)
+		message = "Turned %s to facing %d." % [id, posmod(facing, WorldMapObjectLayer.FACINGS)]
+	if _history.endStroke():
+		_afterObjectsEdited()
+	_editorHud.setStatus(message)
+
+
+func _objectAt(cell: Vector2i) -> Dictionary:
+	for record in WorldMapObjectLayer.items(_document, LAYER_OBJECTS):
+		if WorldMapObjectLayer.cellOf(record as Dictionary) == cell:
+			return record
+	return {}
+
+
+## Painting a sub-triangle. The layer is created by its first paint, against the ground's own
+## tileset -- see `_groundTilesetID`.
+func _beginDetailStroke(screenPosition: Vector2) -> void:
+	if not _document.layers.has(_activeLayer):
+		_document.addDetailLayer(_activeLayer, _groundTilesetID())
+		_refreshLayerRows()
+		_refreshValueChoices()
+	_history.beginStroke(_activeLayer)
+	_strokeOpen = true
+	_strokeKind = TOOL_DETAIL
+	_strokeTouched.clear()
+	_paintTriangleAt(screenPosition)
+
+
+func _paintTriangleAt(screenPosition: Vector2) -> void:
+	if not _strokeOpen or _document == null:
+		return
+	var target = _pickTriangle(screenPosition)
+	if target == null:
+		return
+	var slot := target as Vector3i
+	var cell := Vector2i(slot.x, slot.y)
+	_cursorCell = cell
+	if Brushes.paintTriangle(
+		_document, _history, _activeLayer, cell, slot.z, _editorHud.selectedValue()
+	):
+		if not _strokeTouched.has(cell):
+			_strokeTouched.append(cell)
+
+
 func _paintStrokeCell(cell: Vector2i) -> void:
 	if not _strokeOpen or _document == null:
 		return
@@ -554,6 +760,50 @@ func _afterCellsEdited(layerID: String, cells: Array[Vector2i]) -> void:
 	])
 
 
+## After a sculpt. Nothing about the BAKE changes -- heights are geometry, not pixels -- so this
+## rebuilds the ground SURFACE instead, through the same `configureGround` the export uses, and
+## then the object preview, because objects anchored to the terrain have just moved with it.
+##
+## Without this the tool would be the failure WMH-10B named as its second risk: an edit that is
+## recorded, undoable and completely invisible.
+func _afterHeightsEdited() -> void:
+	if _document == null:
+		return
+	var texture := _baker.texture()
+	if texture != null:
+		SceneExport.configureGround(_ground, _document, texture, _framing)
+	_rebuildObjectPreview()
+	_refreshLayerRows()
+	_editorHud.setStatus("Sculpted %d cell%s. Ctrl+S saves." % [
+		_strokeTouched.size(), "" if _strokeTouched.size() == 1 else "s",
+	])
+
+
+func _afterObjectsEdited() -> void:
+	_rebuildObjectPreview()
+	_refreshLayerRows()
+
+
+## The editor's view of the object layer. Built with a null scene owner -- the case
+## `WorldMapSceneExport.buildObjects` already documents for a preview that is never packed -- so
+## the editor and the export place a building by the same code, not by two that agree today.
+func _rebuildObjectPreview() -> void:
+	if _map == null:
+		return
+	if _objectsPreview != null and is_instance_valid(_objectsPreview):
+		_objectsPreview.queue_free()
+	_objectsPreview = null
+	if _document == null or not _document.layers.has(LAYER_OBJECTS):
+		return
+	_objectsPreview = Node3D.new()
+	_objectsPreview.name = "EditorObjectPreview"
+	_map.add_child(_objectsPreview)
+	SceneExport.buildObjects(
+		_objectsPreview, _document, null,
+		HeightField.samplerFor(_document) if HeightField.has(_document) else Callable()
+	)
+
+
 func _afterRectEdited(layerID: String, rect: Rect2i) -> void:
 	if _document == null:
 		return
@@ -568,9 +818,10 @@ func _inclusiveRect(from: Vector2i, to: Vector2i) -> Rect2i:
 	return Rect2i(first, last - first + Vector2i.ONE)
 
 
-func _pickCell(screenPosition: Vector2) -> Variant:
-	if _document == null or not _document.layers.has(_activeLayer):
-		return null
+## Where a screen position lands inside the rendered viewport, or null when it lands outside the
+## drawn image. Extracted in WMH-10B so the triangle pick and the cell pick share one definition
+## of that mapping rather than each carrying its own copy of the letterboxing arithmetic.
+func _viewportPoint(screenPosition: Vector2) -> Variant:
 	var displayRect := _display.get_global_rect()
 	var bufferSize := Vector2(_viewport.size)
 	if displayRect.size.x <= 0.0 or displayRect.size.y <= 0.0 or bufferSize.x <= 0.0 or bufferSize.y <= 0.0:
@@ -580,7 +831,65 @@ func _pickCell(screenPosition: Vector2) -> Variant:
 	var drawnOrigin := displayRect.position + (displayRect.size - drawnSize) * 0.5
 	if not Rect2(drawnOrigin, drawnSize).has_point(screenPosition):
 		return null
-	var viewportPoint := (screenPosition - drawnOrigin) / scale
+	return (screenPosition - drawnOrigin) / scale
+
+
+## The region-local point under a screen position, on the terrain the renderer actually draws.
+## `_pickCell` answers WHICH CELL; this answers WHERE, which is what a sub-triangle needs -- a fan
+## triangle is a sixth of a hex, and the cell alone cannot say which sixth.
+func _pickLocalPoint(screenPosition: Vector2) -> Variant:
+	if _document == null:
+		return null
+	var viewportPoint = _viewportPoint(screenPosition)
+	if viewportPoint == null:
+		return null
+	var region := _ground.regionRect()
+	var curvature := float(_framing.get(WorldMapGroundUniforms.K_CURVATURE, 0.0))
+	var sampler := (
+		HeightField.pointSamplerFor(_document) if HeightField.has(_document) else Callable()
+	)
+	var point = (
+		SurfacePick.surfacePointOnTerrain(
+			_editorCamera, viewportPoint as Vector2, curvature, sampler, region.position
+		)
+		if sampler.is_valid()
+		else SurfacePick.surfacePoint(_editorCamera, viewportPoint as Vector2, curvature)
+	)
+	if point == null:
+		return null
+	var world := point as Vector3
+	var local := Vector2(world.x, world.z) - region.position
+	if local.x < 0.0 or local.y < 0.0 or local.x >= region.size.x or local.y >= region.size.y:
+		return null
+	return local
+
+
+## The cell and fan triangle under a screen position, as `(col, row, slot)`, or null. Bounded by
+## the LATTICE for the reason Gate 1's Finding 1 gives: a point in the region's margin resolves to
+## a cell the map does not have, and answering with it is how a click gets silently refused later.
+func _pickTriangle(screenPosition: Vector2) -> Variant:
+	var local = _pickLocalPoint(screenPosition)
+	if local == null:
+		return null
+	var target := HeightField.triangleAt(local as Vector2)
+	if target.z < 0:
+		return null
+	if not WorldMapHexGrid.contains(
+		Vector2i(target.x, target.y), _document.size_tiles.x, _document.size_tiles.y
+	):
+		return null
+	return target
+
+
+func _pickCell(screenPosition: Vector2) -> Variant:
+	if _document == null:
+		return null
+	if not _document.layers.has(_activeLayer) and not _layerEditable(_activeLayer):
+		return null
+	var viewportPointOrNull = _viewportPoint(screenPosition)
+	if viewportPointOrNull == null:
+		return null
+	var viewportPoint := viewportPointOrNull as Vector2
 	var curvature := float(_framing.get(WorldMapGroundUniforms.K_CURVATURE, 0.0))
 	if _document.layout == MapDataScript.LAYOUT_HEX_FLAT:
 		# No cel grade on a hex map -- `pickCel` is square-only (hexagons do not subdivide into
@@ -623,11 +932,109 @@ func _activeLayerIsCelGrade() -> bool:
 	return str((_document.layers[_activeLayer] as Dictionary).get("GRID_KIND", Tilesets.GRID_TILE)) == Tilesets.GRID_CEL
 
 
+## Which layer kind a tool edits, or "" for one that edits nothing (Navigate).
+##
+## WMH-10B needs this because the layer rows it opened made a mismatch REACHABLE for the first
+## time. `WorldMapTileData.setCell` already refuses a non-grid layer -- nothing corrupts -- but it
+## refuses by returning `false`, so painting on a height layer would do exactly nothing and say
+## exactly nothing. That silence is the item's own named risk, and Gate 1 found its twin in the
+## picker. The guard exists for the MESSAGE; the data was never in danger.
+func _toolLayerKind(toolID: String) -> String:
+	match toolID:
+		TOOL_NAVIGATE:
+			return ""
+		TOOL_SCULPT:
+			return MapDataScript.KIND_HEIGHTS
+		TOOL_PLACE:
+			return MapDataScript.KIND_LIST
+		TOOL_DETAIL:
+			return MapDataScript.KIND_DETAIL
+		_:
+			return MapDataScript.KIND_GRID
+
+
+func _toolFitsLayer(toolID: String, layerID: String) -> bool:
+	var wanted := _toolLayerKind(toolID)
+	if wanted.is_empty():
+		return true
+	if _document == null:
+		return false
+	if _document.layers.has(layerID):
+		return str((_document.layers[layerID] as Dictionary).get("KIND", "")) == wanted
+	return str(AUTHORED_HEX_LAYERS.get(layerID, MapDataScript.KIND_GRID)) == wanted
+
+
+func _toolLabel(toolID: String) -> String:
+	for tool in TOOLS:
+		if str((tool as Dictionary)["id"]) == toolID:
+			return str((tool as Dictionary)["label"])
+	return toolID
+
+
+func _kindLabel(kind: String) -> String:
+	match kind:
+		MapDataScript.KIND_HEIGHTS:
+			return "terrain height"
+		MapDataScript.KIND_LIST:
+			return "object"
+		MapDataScript.KIND_DETAIL:
+			return "detail"
+		_:
+			return "tile"
+
+
+## Can a tool act on this layer? Kind-aware since WMH-10B: it used to answer "is it a grid layer
+## with a known tileset", which is why a height, object or detail layer could never become the
+## active one no matter what the map stored.
+##
+## The last clause is the one that needs saying: a layer a hex document does not have YET is
+## still editable, because the three authored layers are created by their own first edit rather
+## than conjured onto every document that is opened. Reachable and empty are different states --
+## `_layerPopulated` is the one that decides how the row READS.
 func _layerEditable(layerID: String) -> bool:
+	if _document == null:
+		return false
+	if _document.layers.has(layerID):
+		var block: Dictionary = _document.layers[layerID]
+		var kind := str(block.get("KIND", ""))
+		if kind == MapDataScript.KIND_GRID or kind == MapDataScript.KIND_DETAIL:
+			return Tilesets.has(str(block.get("TILESET", "")))
+		return kind == MapDataScript.KIND_HEIGHTS or kind == MapDataScript.KIND_LIST
+	return (
+		AUTHORED_HEX_LAYERS.has(layerID)
+		and _document.layout == MapDataScript.LAYOUT_HEX_FLAT
+	)
+
+
+## Does this layer hold anything yet? What the layer row's "(empty)" label and its dimming read,
+## and deliberately NOT the same question as `_layerEditable`: a fresh hex map has a reachable,
+## empty height layer, and a row that claimed otherwise in either direction would be the dishonest
+## one WMH-5 wrote the "(empty)" marker to avoid.
+func _layerPopulated(layerID: String) -> bool:
 	if _document == null or not _document.layers.has(layerID):
 		return false
 	var block: Dictionary = _document.layers[layerID]
-	return str(block.get("KIND", "")) == MapDataScript.KIND_GRID and Tilesets.has(str(block.get("TILESET", "")))
+	var kind := str(block.get("KIND", ""))
+	if kind == MapDataScript.KIND_GRID or kind == MapDataScript.KIND_DETAIL:
+		return Tilesets.has(str(block.get("TILESET", "")))
+	return true
+
+
+## The kind the active layer is, or -- for one of the three that its first edit creates -- the
+## kind it WILL be. The value row has to offer sculpt steps over a height layer that does not
+## exist yet, or the tool that would create it has nothing to apply.
+func _activeLayerKind() -> String:
+	if _document == null:
+		return MapDataScript.KIND_GRID
+	if _document.layers.has(_activeLayer):
+		return str((_document.layers[_activeLayer] as Dictionary).get("KIND", MapDataScript.KIND_GRID))
+	return str(AUTHORED_HEX_LAYERS.get(_activeLayer, MapDataScript.KIND_GRID))
+
+
+func _refreshLayerRows() -> void:
+	for layer in LAYERS:
+		var id := str((layer as Dictionary)["id"])
+		_editorHud.setLayerEnabled(id, _layerPopulated(id))
 
 
 func _openDocumentForRegion(regionID: String) -> void:
@@ -697,9 +1104,7 @@ func _openDocumentByName(name: String) -> void:
 ## editable layer, refresh the tile list and the Open list. `statusMessage` is the one thing
 ## that differs between the three callers, so it is the only parameter.
 func _bakeAndDisplayDocument(statusMessage: String) -> void:
-	for layer in LAYERS:
-		var id := str((layer as Dictionary)["id"])
-		_editorHud.setLayerEnabled(id, _layerEditable(id))
+	_refreshLayerRows()
 	var texture := _baker.bake(_document)
 	if texture == null:
 		_editorHud.setStatus("Could not bake '%s'." % _document.region_name)
@@ -714,6 +1119,7 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 	# cannot preview at one extent and ship at another. See that file's own note.
 	SceneExport.configureGround(_ground, _document, texture, _framing)
 	_ground.configureCloudShadows(_regionMapPx, str(_framing[WorldMapGroundUniforms.K_CLOUDS]))
+	_rebuildObjectPreview()
 	if not _layerEditable(_activeLayer):
 		for layer in LAYERS:
 			var id := str((layer as Dictionary)["id"])
@@ -721,7 +1127,7 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 				_activeLayer = id
 				break
 	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
-	_refreshTileChoices()
+	_refreshValueChoices()
 	_editorHud.setOpenChoices(_availableDocumentNames())
 	_editorHud.setStatus(statusMessage)
 
@@ -850,21 +1256,62 @@ func _requestSaveAsDocument() -> void:
 	_saveDocumentAs(name)
 
 
-func _refreshTileChoices() -> void:
-	var selected := _editorHud.selectedTileID() if _editorHud.tileOption != null else ""
-	var ids: Array[String] = []
-	if _document != null and _document.layers.has(_activeLayer):
-		var tilesetID := str((_document.layers[_activeLayer] as Dictionary).get("TILESET", ""))
-		var reference := Tilesets.tilesetFor(tilesetID)
-		for tile in reference.get("TILES", []):
-			ids.append(str((tile as Dictionary)["ID"]))
-	_editorHud.setTileChoices(ids, selected)
-	_scatterSet.clear()
-	if ids.has(selected):
-		_scatterSet.append(selected)
-	elif not ids.is_empty():
-		_scatterSet.append(ids[0])
-	_stampPattern = []
+## The value row, per layer kind -- WMH-10B. It was `_refreshTileChoices` and offered tile ids
+## unconditionally, which is the specific thing that would have made a kind-aware
+## `_layerEditable` produce a tool that silently paints nothing: a sculpt reading a tile id off a
+## row that had none applies `float("")`, which is 0.0, which is a no-op no one is told about.
+func _refreshValueChoices() -> void:
+	var selected := _editorHud.selectedValue() if _editorHud.tileOption != null else ""
+	match _activeLayerKind():
+		MapDataScript.KIND_HEIGHTS:
+			_editorHud.setValueLabel("Sculpt")
+			var stepLabels: Array[String] = []
+			var stepValues: Array[String] = []
+			for step in SCULPT_STEPS:
+				stepLabels.append(str((step as Dictionary)["label"]))
+				stepValues.append(str((step as Dictionary)["value"]))
+			_editorHud.setValueChoices(stepLabels, stepValues, selected)
+			_scatterSet.clear()
+			_stampPattern = []
+		MapDataScript.KIND_LIST:
+			_editorHud.setValueLabel("Object")
+			var kindLabels: Array[String] = []
+			var kindValues: Array[String] = []
+			for kind in OBJECT_KINDS:
+				kindLabels.append(str(kind).capitalize())
+				kindValues.append(str(kind))
+			kindLabels.append("Remove")
+			kindValues.append(OBJECT_REMOVE)
+			_editorHud.setValueChoices(kindLabels, kindValues, selected)
+			_scatterSet.clear()
+			_stampPattern = []
+		_:
+			_editorHud.setValueLabel("Tile")
+			var ids: Array[String] = []
+			if _document != null and _document.layers.has(_activeLayer):
+				var tilesetID := str((_document.layers[_activeLayer] as Dictionary).get("TILESET", ""))
+				for tile in Tilesets.tilesetFor(tilesetID).get("TILES", []):
+					ids.append(str((tile as Dictionary)["ID"]))
+			elif _activeLayerKind() == MapDataScript.KIND_DETAIL:
+				# The detail layer its first paint will create borrows the ground's tileset, so
+				# the row can offer tiles before the layer exists.
+				for tile in Tilesets.tilesetFor(_groundTilesetID()).get("TILES", []):
+					ids.append(str((tile as Dictionary)["ID"]))
+			_editorHud.setTileChoices(ids, selected)
+			_scatterSet.clear()
+			if ids.has(selected):
+				_scatterSet.append(selected)
+			elif not ids.is_empty():
+				_scatterSet.append(ids[0])
+			_stampPattern = []
+
+
+## The tileset a detail layer is created against: the ground's own, so a triangle painted over a
+## hex is drawn from the same sheet the hex under it came from.
+func _groundTilesetID() -> String:
+	if _document != null and _document.layers.has("ground"):
+		return str((_document.layers["ground"] as Dictionary).get("TILESET", DEFAULT_HEX_TILESET))
+	return DEFAULT_HEX_TILESET
 
 
 func _terrainByIDForActiveLayer() -> Dictionary:
@@ -890,7 +1337,7 @@ func _onLayerSelected(index: int) -> void:
 	_activeLayer = str(LAYERS[index]["id"])
 	_editorHud.setActiveLayer(index)
 	_cursorCell = null
-	_refreshTileChoices()
+	_refreshValueChoices()
 	_editorHud.setStatus(
 		"Editing %s." % _activeLayer if _layerEditable(_activeLayer)
 		else "%s has no tileset yet." % _activeLayer

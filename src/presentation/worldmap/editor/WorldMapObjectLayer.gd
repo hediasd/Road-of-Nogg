@@ -153,6 +153,31 @@ static func setFacing(data: WorldMapTileData, id: String, facing: int, layerID :
 	return true
 
 
+## Restores a record's field types after a round trip through JSON, which has one number type:
+## `CELL`, `FACING` and `FOOTPRINT` all come back as floats, so a document reopened and re-saved
+## with no edit writes `[6.0, 4.0]` where the authored file wrote `[6, 4]`. That breaks
+## `WorldMapTileData.saveTo`'s own documented invariant -- "a re-save with nothing changed
+## produces a byte-identical file" -- for exactly one layer kind: the list, alone among the four,
+## stores dictionaries the format has no schema for and therefore cannot restore on its own.
+##
+## The schema lives HERE, in the file that defines what an item means, and `WorldMapTileData`
+## asks for it by name rather than hardcoding these field types into the format. Unknown fields
+## are carried through untouched -- normalising is not the same as validating, and a record
+## written by a later version must not lose what this one does not recognise.
+static func normaliseItem(raw: Dictionary) -> Dictionary:
+	var record := raw.duplicate(true)
+	var cell := cellOf(record)
+	record[K_ID] = str(record.get(K_ID, ""))
+	record[K_KIND] = str(record.get(K_KIND, ""))
+	record[K_CELL] = [cell.x, cell.y]
+	record[K_FACING] = posmod(int(record.get(K_FACING, 0)), FACINGS)
+	record[K_FOOTPRINT] = maxi(0, int(record.get(K_FOOTPRINT, 0)))
+	record[K_HEIGHT] = float(record.get(K_HEIGHT, 0.0))
+	var anchor := str(record.get(K_ANCHOR, ANCHOR_TERRAIN))
+	record[K_ANCHOR] = anchor if anchor == ANCHOR_FIXED else ANCHOR_TERRAIN
+	return record
+
+
 static func cellOf(record: Dictionary) -> Vector2i:
 	var raw = record.get(K_CELL, [0, 0])
 	if raw is Array and (raw as Array).size() == 2:
@@ -202,3 +227,70 @@ static func worldPosition(
 ## flat-top hex has exactly six edges to face.
 static func facingRadians(record: Dictionary) -> float:
 	return TAU * float(int(record.get(K_FACING, 0))) / float(FACINGS)
+
+
+## Places a bridge -- WMH-12. Not a new record shape: a bridge is an ordinary placed object whose
+## `HEIGHT` is a DECK HEIGHT, `ANCHOR_FIXED` so nothing ever derives it from the terrain beneath.
+## That is the one-line difference between a bridge and a road, stated as code rather than left to
+## a caller to remember: `place(..., ANCHOR_FIXED, deckHeight)` says the same thing, but this name
+## says why.
+##
+## `deckHeight` is an ABSOLUTE height, not an offset -- unlike `ANCHOR_TERRAIN`'s `HEIGHT`, which
+## `anchorHeight()` adds to whatever the sampler returns. A bridge has no terrain to offset from
+## at the cells it spans; it has a height it was authored at, full stop.
+static func placeBridge(
+	data: WorldMapTileData, kind: String, cell: Vector2i, deckHeight: float,
+	layerID := DEFAULT_LAYER, facing := 0, footprint := 0
+) -> Dictionary:
+	return place(data, kind, cell, layerID, facing, footprint, ANCHOR_FIXED, deckHeight)
+
+
+## How much room the deck leaves over whatever is beneath it -- the new idea this item adds, since
+## nothing before it needed to compare one surface against another. Checks EVERY cell of the
+## footprint against BOTH the terrain and any authored water there, and reports the worst (i.e.
+## smallest, possibly negative) clearance found, which cell it came from, and which surface caused
+## it.
+##
+## BOTH SURFACES, PER CELL, NOT JUST THE DEEPEST POINT -- a deck that clears the riverbed by a
+## wide margin but sits at or below the WATER SURFACE above that riverbed is not clearing
+## anything; it is a bridge sitting IN the river rather than over it. Checking only the lower of
+## the two surfaces once per cell (rather than both) is exactly the mistake that would hide that.
+##
+## `terrainSampler` is shaped like `WorldMapHeightField.samplerFor()`'s own return value -- cell
+## in, height out -- and this file takes it as a plain `Callable` rather than preloading that
+## class, the same decoupling `anchorHeight()` already uses for the same reason.
+##
+## `waterSampler`, if given, must return `null` for a dry cell and a `float` for a wet one --
+## NOT a height of 0.0. WMH-11 built `WorldMapWaterLayer` around "dry is not height zero"
+## specifically so a basin nobody flooded could not be confused with one flooded to sea level;
+## a water sampler that answered 0.0 for a dry cell would reintroduce exactly that confusion here,
+## reporting a false clearance failure under every bridge that crosses dry land on its way to a
+## river. An invalid `Callable` (the default) skips the water check entirely, for a bridge that
+## never crosses water at all.
+static func clearance(
+	record: Dictionary, terrainSampler: Callable, waterSampler := Callable()
+) -> Dictionary:
+	var deck := anchorHeight(record)
+	var worst := INF
+	var worstCell := cellOf(record)
+	var worstSurface := ""
+	for cell in footprintCells(record):
+		if terrainSampler.is_valid():
+			var belowGround: float = deck - float(terrainSampler.call(cell))
+			if belowGround < worst:
+				worst = belowGround
+				worstCell = cell
+				worstSurface = "terrain"
+		if waterSampler.is_valid():
+			var waterHeight = waterSampler.call(cell)
+			if waterHeight != null:
+				var belowWater: float = deck - float(waterHeight)
+				if belowWater < worst:
+					worst = belowWater
+					worstCell = cell
+					worstSurface = "water"
+	return {
+		"clearance": worst if worst != INF else 0.0,
+		"cell": worstCell,
+		"surface": worstSurface,
+	}
