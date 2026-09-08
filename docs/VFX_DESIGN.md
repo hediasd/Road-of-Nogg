@@ -12,6 +12,16 @@ Current runtime behavior overrides both this page and the effect pages. When an
 effect changes, update its page under [`effects/`](./effects/README.md); when
 the change is a rule that outlives it, bring the rule here.
 
+> **Where the named adapters live now (HXB-V).** Rules below cite
+> `GodotVisualAdapter` and `BattlePresentationController` functions by name.
+> Both were the square battle's, and the hex migration retired them to the
+> independently runnable reference under `references/square-battle/`. The
+> citations are kept because they record where each rule was derived and
+> measured, which is still true; the hex battle's counterparts are
+> `src/presentation/battle/HexBattleVisualAdapter.gd` and
+> `src/systems/hex_battle/HexBattleController.gd`, and casts reach the screen
+> through `HexBattleVfxBridge` (section 8).
+
 ---
 
 ## 1. How an effect reaches the screen

@@ -14,6 +14,7 @@ func _init() -> void:
 	var simulator := _simulator()
 	if simulator != null:
 		_checkReplayAndContinuation(simulator)
+	_checkFoughtBattleReplays()
 	if not failures.is_empty():
 		for failure: String in failures:
 			printerr("HXB_REPLAY_FAILURE: %s" % failure)
@@ -152,3 +153,48 @@ func _expectReplayFailure(snapshot: Dictionary, reason: String, label: String) -
 
 func _same(a, b) -> bool:
 	return BattleSimulatorScript._canonicalJSON(a) == BattleSimulatorScript._canonicalJSON(b)
+
+
+## A BRAIN-DRIVEN battle, replayed. Added by HXB-V after acceptance found that everything above
+## drives replay with `wait` commands only -- which roll no dice and carry no board position, so
+## two real defects in the comparison survived the whole cycle unseen:
+##
+##   * the recorded result had been through `jsonSafe` and the live one had not, so every command
+##     carrying a `Vector2i` compared unequal and reported `command_outcome_mismatch`; and
+##   * `lastTurnStartIndex`, an index into the UNFILTERED history, was compared even though the
+##     projection filters history precisely because a live run and a replay record different
+##     numbers of events.
+##
+## Both made a replay that had reproduced the battle exactly report that it had not. This runs a
+## battle the AI actually fights, with movement and spells in it, so neither can come back.
+func _checkFoughtBattleReplays() -> void:
+	var simulator := _simulator()
+	if simulator == null:
+		failures.append("could not build a simulator for the fought-battle replay")
+		return
+	var outcome := simulator.runFullBattle(30)
+	_require(outcome != -1, "the fought battle did not resolve")
+
+	var snapshot: Dictionary = simulator.createReplaySnapshot()
+	_require(bool(snapshot.get("success", false)), "the fought battle produced no snapshot")
+	var commands: Array = snapshot.get("commands", [])
+	_require(commands.size() > 0, "the fought battle recorded no commands")
+
+	# At least one command must carry a board position, or this check has not exercised the
+	# serialisation path that the defect lived in.
+	var positional := 0
+	for entry in commands:
+		var data: Dictionary = (entry as Dictionary).get("data", {})
+		var command: Dictionary = data.get("command", {})
+		if str(command.get("action", "wait")) != "wait":
+			positional += 1
+		elif not (command.get("move_path", []) as Array).is_empty():
+			positional += 1
+	_require(positional > 0,
+		"the fought battle recorded %d commands and none moved or acted" % commands.size())
+
+	var result := BattleReplayRunnerScript.replay(snapshot)
+	_require(bool(result.get("success", false)),
+		"a fought battle did not replay: %s %s" % [
+			str(result.get("reason", "")), str(result.get("detail", ""))
+		])

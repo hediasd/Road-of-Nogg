@@ -79,7 +79,18 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 					return {"success": false, "reason": "command_rejected", "detail": result.to_dictionary()}
 				var expectedResult = data.get("result", {})
 				if expectedResult is Dictionary and not expectedResult.is_empty():
-					if not _same(expectedResult, result.to_dictionary()):
+					# BOTH SIDES MUST BE NORMALISED THE SAME WAY. The expected result came out of
+					# the snapshot, where `createReplaySnapshot` had already put every event
+					# through `jsonSafe` -- so its `Vector2i`s are `{x, y}` dictionaries. A live
+					# `to_dictionary()` still holds real `Vector2i` values, which canonicalise as
+					# "(1, 2)" rather than as a dictionary. Comparing the two raw made every
+					# command carrying a position -- every move, attack and targeted spell --
+					# report `command_outcome_mismatch` on a replay that had in fact reproduced
+					# the battle exactly. Only wait commands compared equal, which is why the
+					# HXB-6 probe, whose replay coverage is waits, never saw it.
+					if not _same(
+						expectedResult, BattleStateSerializerScript.jsonSafe(result.to_dictionary())
+					):
 						return {
 							"success": false,
 							"reason": "command_outcome_mismatch",
@@ -102,6 +113,11 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 			"reason": "state_outcome_mismatch",
 			"expectedFingerprint": _fingerprint(_outcomeProjection(currentValue)),
 			"actualFingerprint": _fingerprint(_outcomeProjection(actualState)),
+			# The state it actually produced, so a caller can diff the two rather than compare
+			# two hashes that differ and say nothing about where. Returned on this path for the
+			# same reason the success path returns it.
+			"simulator": simulator,
+			"actualState": actualState,
 		}
 	return {"success": true, "simulator": simulator}
 
@@ -152,8 +168,19 @@ static func _scenarioIdentityError(snapshot: Dictionary, scenario: BattleScenari
 	return ""
 
 
+## The comparable part of a serialized state: what the battle DID, with the bookkeeping that
+## depends on how it was driven removed.
+##
+## `lastTurnStartIndex` is dropped for the same reason `history` is filtered. It is an index into
+## the UNFILTERED history, and a live run records events a replay never re-emits -- so the indices
+## sit at a constant offset from each other while describing the identical battle. Filtering the
+## history and then comparing a pointer into the unfiltered version is self-contradictory, and it
+## made every replay of a brain-driven battle fail `state_outcome_mismatch` with every command,
+## every event and every monster in agreement. What the index is FOR -- which events an actor has
+## seen since its last turn -- is already covered by the filtered history it points into.
 static func _outcomeProjection(serializedState: Dictionary) -> Dictionary:
 	var projection := serializedState.duplicate(true)
+	projection.erase("lastTurnStartIndex")
 	var outcomes: Array = []
 	for eventValue in projection.get("history", []):
 		if not eventValue is Dictionary:

@@ -25,6 +25,33 @@ return code 0 with no ObjectDB, RID, shader, font, or resource leak report. Do
 not treat the battle-complete marker as sufficient: the access violation occurs
 after that marker during engine cleanup.
 
+**HXB-V narrowed this considerably (2026-09-08), and the hex battle itself does
+not reproduce it.** Every shipped path now exits 0: booting
+`scenes/battle/HexBattle.tscn`, a complete CPU-vs-CPU battle in that scene, a
+Player-vs-CPU battle with real parsed input, return-to-setup followed by a
+second battle, the editor round trip, and the archived square project's own
+demo. What does reproduce it is a synthetic sweep that constructs all fourteen
+`SpellVfxCatalog` profiles through `HexBattleVfxBridge` in one process: its
+assertions all pass and its marker prints, then the process dies with
+`-1073741819` during engine cleanup.
+
+The cause is a co-occurrence, not any one class. Measured separately, all clean:
+
+| Built in one process | Result |
+|---|---|
+| All 14 donor profiles, up to 42 effects | clean |
+| All 5 hex effect subclasses | clean |
+| One hex subclass, six times over | clean |
+| All 5 hex subclasses with a real hex footprint and ground wash | clean |
+| All 14 profiles through the bridge (10 hex + 4 body donors) | **crashes** |
+
+So it is neither volume, nor a specific subclass, nor the generated ground-wash
+texture (clearing that static cache before exit does not help). It needs a
+particular mix of effect classes alive in one process, which is consistent with
+the ownership-cycle theory above rather than with anything the hex migration
+introduced. The sweep script is the cheapest reproducer found so far and is
+worth rebuilding when someone takes this on.
+
 ## Finish battle-window restyle validation
 
 The shared XenoText, translucent body, thin pale rim, and exterior halo are
