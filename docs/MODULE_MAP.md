@@ -19,11 +19,11 @@ disagree, ARCHITECTURE wins and this file is the one to correct.
 | `src/algorithms/` | Spatial/tactical math. Five files are pure primitives; `ThreatMap` is the documented exception below | `AStarPathfinder`, `BFSFloodFill`, `LineOfSight`, `ParabolicArc`, `ShapeCaster`, `ThreatMap` | `src/board/`; `ThreatMap` additionally reads `BattleState` and the movement/combat resolvers | presentation, scene tree | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | `src/entity_ai/` | CPU decision-making | `EntityBrain` and its `Tactical`/`Mage`/`Support`/`Berserk` subclasses, `CommandDeliberation`, `BattleCommandEvaluator` | `src/algorithms/`, `src/board/`, `src/entities/`, `src/battle_sim/` command types | presentation, scene tree | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | `src/battle_sim/` | Canonical runtime: state, turn order, resolvers, setup, replay, event bus, adapter port | `BattleSimulator`, `BattleState`, `BattleSetupConfig`, `BattleSetupValidationResult`, `BattleSetupFactory`, `BattleCommand`, `BattleEvents`, `IBattleVisualAdapter`, `BattleStateSerializer`, `BattleReplayRunner` | every headless directory above | `src/presentation/`, `src/systems/`, scene tree | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| `src/presentation/` | Observe simulation and draw it: camera, meshes, cursor, UI, effects, adapters | `IPlayerTurnVisualAdapter`, `GodotVisualAdapter`, `ConsoleVisualAdapter`, `BattleMeshFactory`, `BattleCameraController`, `BattleUIBuilder`, `BattleSetupUI`, `VisualActionQueue` | all simulation directories (read-only) | mutating `BattleState`; being imported by simulation | [`UI_DESIGN.md`](./UI_DESIGN.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| `src/presentation/` | Observe simulation and draw it: camera, meshes, cursor, UI, effects, adapters | `IPlayerTurnVisualAdapter`, `HexBattleVisualAdapter`, `ConsoleVisualAdapter`, `BattleMeshFactory`, `HexBattleCamera`, `HexBattleHud`, `HexBattleSetupUI`, `VisualActionQueue` | all simulation directories (read-only) | mutating `BattleState`; being imported by simulation | [`UI_DESIGN.md`](./UI_DESIGN.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | `src/presentation/theme/` | Reusable HUD widgets and theme tokens | `NoggTheme`, `NoggWindow`, `MenuCursor`, `PagerArrow`, `ResonanceBar` | Godot `Control` API | simulation | [`UI_DESIGN.md`](./UI_DESIGN.md) |
 | `src/presentation/effects/` | Transient visual effects | `VfxPlayback` (the contract), `SpellVfxCatalog`, `SpellCastAura`, `IceStormEffect`/`IceStormProfile`, `FireStormEffect`/`FireStormProfile`, `VfxTextures`, `DamageNumberBillboard` | Godot 3D API | simulation | [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
-| `src/systems/` | Scene lifecycle and player-turn orchestration | `BattlePresentationController` (scene root), `PlayerTurnController` | simulation and presentation | being imported by either | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| `scenes/` | Godot scenes | `debug/BattleDebugScene.tscn` (the entry scene), `Monster.tscn`, `map01.tscn` | `src/systems/`, `src/presentation/` | — | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| `src/systems/` | Scene lifecycle and player-turn orchestration | `hex_battle/HexBattleController` (scene root), `hex_battle/HexBattleMemberTurn` | simulation and presentation | being imported by either | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| `scenes/` | Godot scenes | `battle/HexBattle.tscn` (the entry scene), `Monster.tscn`, `map01.tscn` | `src/systems/`, `src/presentation/` | — | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
 | `scripts/` | Headless tooling, run via `SceneTree` | `demo_battle.gd`, `update_gamerefs.gd` | simulation | being imported by runtime code | [`DEVELOPMENT.md`](./DEVELOPMENT.md) |
 
 `data/` is loaded only through `src/factories/`. Nothing else reads the JSON
@@ -54,7 +54,7 @@ data/  ──►  src/factories/  ──►  src/entities/
                             src/presentation/
                                       ▲
                                       │
-                             src/systems/  ──►  scenes/debug/BattleDebugScene.tscn
+                             src/systems/  ──►  scenes/battle/HexBattle.tscn
 ```
 
 Authored data and setup feed the headless simulation; `src/systems/`
@@ -80,6 +80,6 @@ presentation is a read, not a dependency inversion, and is allowed.
 | Monster/board meshes and materials | `src/presentation/BattleMeshFactory.gd` |
 | Visual effects, animation pacing | `src/presentation/BattleVisualEffects.gd`, `VisualActionQueue.gd`, `src/presentation/effects/` — see [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
 | Camera | `src/presentation/BattleCameraController.gd` |
-| Player-turn phases, cursor ownership, undo | `src/systems/PlayerTurnController.gd` |
-| Scene lifecycle, pacing, adapter wiring | `src/systems/BattlePresentationController.gd` |
+| Member-turn phases, cursor ownership, undo | `src/systems/hex_battle/HexBattleMemberTurn.gd` |
+| Scene lifecycle, party activation, adapter wiring | `src/systems/hex_battle/HexBattleController.gd` |
 | Headless tooling and demos | `scripts/` |

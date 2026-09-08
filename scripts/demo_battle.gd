@@ -1,30 +1,52 @@
-## demo_battle — Headless console demo of a full seeded battle. Run manually
-## via Godot's -s flag; not a test and not part of any check.
+## demo_battle — Headless console demo of a full seeded battle. Run manually via Godot's -s flag;
+## not a test and not part of any check.
+##
+## RUNS THE PARTY RUNTIME, same as the playable scene. It used to compose a battle by hand --
+## `loadMap("Forest")` plus eight `spawnMonster` calls on a square board -- which after the hex
+## migration would have been the one place still exercising a battle model nothing else uses. It
+## now loads an authored scenario and lets `runFullBattle` dispatch to the party loop, so what the
+## console prints is the same runtime the scene plays.
+##
+## CPU vs CPU, necessarily: a headless demo has nobody to choose party members, and the player
+## path is the one thing a console cannot exercise.
 extends SceneTree
+
+const BattleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
+const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
+const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
+const BattleScenarioFactoryScript = preload("res://src/factories/BattleScenarioFactory.gd")
+const ConsoleVisualAdapterScript = preload("res://src/presentation/ConsoleVisualAdapter.gd")
+
+const SCENARIO := "res://data/battle/scenarios/technical_hxb_contract_cpu_cpu.json"
+const SEED := 42
+
 
 func _init() -> void:
 	print("Starting simulation script...")
-	var battleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
-	var consoleVisualAdapterScript = preload("res://src/presentation/ConsoleVisualAdapter.gd")
-	
-	var sim = battleSimulatorScript.new()
-	sim.loadMap("Forest")
-	
-	var console = consoleVisualAdapterScript.new(sim.state)
-	sim.setVisualAdapter(console)
-	sim.setSeed(42)
-	
-	sim.spawnMonster("Envoy of Lightning", 1, Vector2i(2, 6))
-	sim.spawnMonster("Gigasaurus", 1, Vector2i(1, 7))
-	sim.spawnMonster("Healer Mage", 1, Vector2i(1, 6))
-	sim.spawnMonster("Mage Dragon", 1, Vector2i(2, 7))
 
-	sim.spawnMonster("Smoke Cloud", 2, Vector2i(13, 0))
-	sim.spawnMonster("Megidos", 2, Vector2i(14, 1))
-	sim.spawnMonster("Oracle of Ages", 2, Vector2i(14, 0))
-	sim.spawnMonster("Snowzilla", 2, Vector2i(13, 1))
-	
-	print("Running full battle...")
-	sim.runFullBattle(30)
-	print("Battle complete! Check docs/battle_log.txt")
+	var loaded := BattleScenarioFactoryScript.loadFromPath(SCENARIO)
+	if not loaded["success"]:
+		printerr("Could not load %s: %s" % [SCENARIO, str(loaded.get("error", ""))])
+		quit(1)
+		return
+	var scenario: BattleScenario = loaded["scenario"]
+
+	var config: BattleSetupConfig = BattleSetupConfigScript.new()
+	config.scenarioPath = SCENARIO
+	config.seed = SEED
+	var stateResult := BattleSetupFactoryScript.createHexState(config)
+	if not stateResult["success"]:
+		printerr("Could not build hex state: %s" % str(stateResult.get("error", "")))
+		quit(1)
+		return
+
+	var sim = BattleSimulatorScript.new(SEED)
+	sim.configureHexState(stateResult["state"], scenario, {"scenarioPath": SCENARIO})
+
+	var console = ConsoleVisualAdapterScript.new(sim.state)
+	sim.setVisualAdapter(console)
+
+	print("Running full party battle on %s..." % scenario.mapID)
+	var outcome := sim.runFullBattle(30)
+	print("Battle complete (outcome %d). Check docs/battle_log.txt" % outcome)
 	quit()

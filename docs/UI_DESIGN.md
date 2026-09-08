@@ -15,6 +15,19 @@ implemented. Any future build work against this document belongs in
 [`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md) depending on urgency, not in a
 transitory plan file, so nothing here cites a plan item by name.
 
+> **Where the named implementations live now (HXB-14).** Rules below cite
+> `BattlePresentationController` and `PlayerTurnController` functions by name.
+> Those files were the square battle's, and the hex migration retired them; the
+> code they name is preserved in the independently runnable reference under
+> `references/square-battle/`. The citations are kept because they record where
+> each rule was derived and measured, which is still true. The hex battle's own
+> equivalents are `src/systems/hex_battle/HexBattleController.gd` (scene
+> lifecycle, party pacing) and `src/systems/hex_battle/HexBattleMemberTurn.gd`
+> (one member's phases, cursor, undo). Where a rule names a function the hex
+> battle has no counterpart for yet -- the action row's safe rect, the command
+> menu's status and forecast text -- that surface has not been rebuilt on hex,
+> and rebuilding it is open work rather than a rule that changed.
+
 ---
 
 ## 1. Reference and intent

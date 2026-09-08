@@ -27,8 +27,8 @@ commands and reacts to events; it does not edit battle state directly.
 |---|---|---|
 | Simulation and data | `src/battle_sim/`, `src/algorithms/`, `src/board/`, `src/entities/`, `src/entity_ai/`, `src/factories/` | Deterministic rules, state, setup construction, content, AI decisions |
 | Presentation | `src/presentation/` | Cameras, meshes, cursor, setup/battle UI helpers, visual registry and adapters |
-| Scene orchestration | `src/systems/BattlePresentationController.gd` | Godot lifecycle, pacing, input routing, screenshots, adapter wiring |
-| Player turn | `src/systems/PlayerTurnController.gd` | Player-turn phases, command menu model, phase submission |
+| Scene orchestration | `src/systems/hex_battle/HexBattleController.gd` | Godot lifecycle, party-activation pacing, input routing, adapter wiring |
+| Member turn | `src/systems/hex_battle/HexBattleMemberTurn.gd` | One member's phases, cursor, undo, phase submission |
 
 Godot value types such as `Vector2i`, `Dictionary`, and
 `RandomNumberGenerator` are valid in the headless layer. Scene nodes, cameras,
@@ -182,7 +182,7 @@ Base monster, map, spell, race, and passive definitions are read-only inputs.
 
 ## Setup and battle construction
 
-`BattleDebugScene.tscn` creates the animated sky and setup overlay first. It does not
+`HexBattle.tscn` creates the animated sky and setup overlay first. It does not
 create a simulator, map, or monster visual before confirmation.
 
 On Confirm:
@@ -199,7 +199,7 @@ On Confirm:
    supplied `adapterFactory` returns an `IBattleVisualAdapter` before attaching
    it.
 4. `MonsterVisualRegistry` supplies an authored scene when registered;
-   `GodotVisualAdapter` creates a procedural fallback otherwise.
+   `HexBattleVisualAdapter` creates a procedural fallback otherwise.
 5. The controller starts the battle and round, then dispatches CPU turns or
    pauses for a Team 1 player command according to the selected mode.
 
@@ -299,9 +299,9 @@ Brain subclasses provide weights rather than separate legality formulas.
 
 ## Player interaction and cursor
 
-`PlayerTurnController` owns one player-controlled turn — its phase, the command
+`HexBattleMemberTurn` owns one player-controlled member turn — its phase, the command
 menu model, and submission through the incremental turn API.
-`BattlePresentationController` routes input to it and reacts to its
+`HexBattleController` routes input to it and reacts to its
 `menu_changed`, `status_changed`, and `turn_finished` signals; it does not
 track phases itself.
 
@@ -335,7 +335,7 @@ the scene controller routes Escape and right-click through the same transition.
 Status instructions and read-only action forecasts travel on separate signals.
 
 Every rendered tile also owns a pick-only surface collider with authoritative
-tile metadata. `BattlePresentationController` raycasts the combined tile/unit
+tile metadata. `HexBattleController` raycasts the combined tile/unit
 pick layers, so a mouse selection resolves the visible terrain surface rather
 than an artificial `y = 0` plane.
 
@@ -392,12 +392,12 @@ There are two adapter contracts, and the split matters:
   narrow *interactive* additions a player turn needs: busy state, the
   `animation_queue_drained` signal, player/target cursor, target status,
   movement and target overlays, cursor release, and overlay clearing.
-  `GodotVisualAdapter` implements this one, and `PlayerTurnController` holds it
+  `HexBattleVisualAdapter` implements this one, and `HexBattleMemberTurn` holds it
   as its adapter type.
 
 Implementations inherit `animation_queue_drained` and must not redeclare it: a
 redeclared signal is a distinct signal, so a controller connected through the
-port would never be notified. `GodotVisualAdapter` copies position-bearing event data into typed
+port would never be notified. `HexBattleVisualAdapter` copies position-bearing event data into typed
 `VisualAction` snapshots in a FIFO queue, so movement, targeting, attacks,
 spells, heals, defeat, and victory play in event order without blocking the
 simulation. The queue clones each snapshot at enqueue time, preventing later
@@ -407,7 +407,7 @@ radius and area shape resolved from the live `Spell` instance. This is
 intentionally event data, not a presentation catalog lookup: transient radius
 modifiers affect targeting and VFX together even though immutable reference
 data stays unchanged. The event contains no presentation types. At enqueue
-time, `GodotVisualAdapter` converts its board coordinates and IDs into a typed
+time, `HexBattleVisualAdapter` converts its board coordinates and IDs into a typed
 `VfxCastContext`: source and impact world positions, target world positions,
 body-only target bounds, and an optional presentation-surface path sampled
 between source and impact. The adapter snapshots that path from board terrain
@@ -478,7 +478,7 @@ the main thread, and calls `sim.executeTurn()` — which calls
 `brain.decideTurn()` inline. Deliberation therefore happens *inside* a frame,
 and the frame is as long as the decision.
 
-Measured on a real CPU vs CPU battle (`BattleDebugScene`, seed 42, headless, so these
+Measured on a real CPU vs CPU battle (`HexBattle`, seed 42, headless, so these
 numbers exclude render cost and understate a real window):
 
 | | idle frames | frames carrying a turn |
@@ -597,7 +597,7 @@ is a real architectural change and should be planned, not slipped in.
 
 ## Single runtime
 
-`project.godot` launches `scenes/debug/BattleDebugScene.tscn`, which uses the canonical
+`project.godot` launches `scenes/battle/HexBattle.tscn`, which uses the canonical
 presentation controller. This is the only battle runtime: the earlier
 rollback scene and its board/camera/input scripts were removed once the
 current runtime covered their behavior, and `git log` is their archive. A
