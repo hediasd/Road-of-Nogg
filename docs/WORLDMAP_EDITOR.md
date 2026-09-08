@@ -1266,3 +1266,57 @@ this reads wrong in use.
 controller or the HUD — so water is authored through the API, exactly as heights, objects and
 detail were before WMH-10B. §17's pattern makes adding one small, and it is the natural companion
 to this item rather than part of it.
+
+
+## 19. Bridges
+
+`WorldMapObjectLayer.placeBridge` and `.clearance` — WMH-12. A bridge is not a new record shape:
+it is an ordinary placed object (§14) whose `HEIGHT` is a **deck height** and whose `ANCHOR` is
+`ANCHOR_FIXED`. Nothing about the format changed; the item's whole content is that one field
+combination getting a name, and a clearance check that had nothing to compare against before
+WMH-11 gave it water to compare against.
+
+### Deck height is authored, not derived — and that was already expressible
+
+`ANCHOR_FIXED` has existed since WMH-7: an object anchored `fixed` ignores whatever sampler it is
+given and returns its own `HEIGHT` unchanged (§14). That is already "authored, not derived" —
+which means a bridge needed no new storage, no new anchor mode and no change to `anchorHeight()`
+or `worldPosition()`. What it needed was **a call site that cannot get this wrong by accident**:
+`placeBridge(data, kind, cell, deckHeight, ...)` bakes in `ANCHOR_FIXED` so a caller placing a
+"bridge" kind object cannot pass `ANCHOR_TERRAIN` and silently get a bridge that drapes onto the
+riverbed the moment the terrain under one corner changes — the exact failure the item's End state
+describes.
+
+### Clearance checks both surfaces, per cell, and reports the worst
+
+The one genuinely new function. `clearance(record, terrainSampler, waterSampler)` walks every cell
+of the bridge's footprint (§14's own `footprintCells`, unchanged) and compares the deck against
+**both** the terrain and any authored water there, returning the smallest (possibly negative)
+gap, which cell produced it, and which surface.
+
+**Both surfaces, not the lower one alone**, is the part worth explaining. A deck that clears a
+riverbed by a wide margin but sits at or below the *water surface* above that riverbed has cleared
+nothing — it is a bridge sitting **in** the river. Reducing "clearance" to a single number per
+cell by keeping only the deeper surface is exactly the shortcut that would hide that. So both are
+checked at every cell, and the answer is the worst across the whole set.
+
+### A dry cell's water sampler answers `null`, not `0.0`
+
+`waterSampler` is a caller-supplied `Callable`, exactly like `terrainSampler` and `anchorHeight`'s
+own sampler before it (§14) — this file still does not preload `WorldMapHeightField` or
+`WorldMapWaterLayer`, keeping the decoupling those two already established. The contract for a dry
+cell is `null`, not a height of `0.0`, which is WMH-11's own "dry is not height zero" carried one
+layer up: a water sampler that answered `0.0` for a dry cell would make every bridge crossing dry
+land on its way to a river report a false near-miss against phantom water at sea level.
+`probe_object_layer.gd` checks this by comparing an always-dry sampler's result against no water
+sampler at all — they must agree exactly, and a version that read `null` as `0.0` was confirmed to
+fail that check before the fix landed.
+
+### What the deferred check found
+
+Rendered as a placeholder box (§14's own object body — bridges get no new art in this item), an
+authored deck sits visibly above the water it spans rather than draped into it, matching the
+clearance the same map's own `clearance()` call reported. The box is a poor stand-in for a span —
+it has no rails, no deck plane wider than the object's footprint, and no visible connection to the
+banks either side — but the **position** is the thing this item is answerable for, and the render
+confirms it holds.
