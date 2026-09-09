@@ -47,6 +47,10 @@
 extends "res://src/presentation/debug/WorldMapDebugController.gd"
 
 const EditorHudScript = preload("res://src/presentation/worldmap/editor/WorldMapEditorHud.gd")
+const ChromeScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceChrome.gd")
+const WorkspaceActions = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceActions.gd")
+const WorkspaceGeometry = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceGeometry.gd")
+const SavePointScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceSavePoint.gd")
 const Brushes = preload("res://src/presentation/worldmap/editor/WorldMapBrushes.gd")
 const SurfacePick = preload("res://src/presentation/worldmap/editor/WorldMapSurfacePick.gd")
 const MapDataScript = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
@@ -170,7 +174,11 @@ const SCULPT_STEPS := [
 const OBJECT_REMOVE := "remove"
 const OBJECT_KINDS := ["house", "tower"]
 
-const DEFAULT_HEX_TILESET := "temp2_hex32_ground"
+## What "New" starts a document on unless the author chooses otherwise in the dialog. The clean
+## 15-frame starter rather than the 75-tile extraction: a new map should begin on art whose frames
+## an author can actually tell apart. Opening an existing map never consults this -- a stored
+## tileset id is the document's own and is not remapped.
+const DEFAULT_HEX_TILESET := "temp2_hex32_starter"
 ## The region whose palette and place colours a new hex document borrows, matching the tileset
 ## above's own `PALETTE_REGION` -- a new map starts looking like the place its art came from
 ## rather than an arbitrary grey.
@@ -178,6 +186,7 @@ const DEFAULT_HEX_PALETTE_REGION := "temp2"
 
 var _editorCamera: WorldMapEditorCamera
 var _editorHud: WorldMapEditorHud
+var _chrome: ChromeScript
 var _layerLocked: Dictionary = {}
 var _activeLayer := "ground"
 var _activeTool := TOOL_NAVIGATE
@@ -223,18 +232,26 @@ var _sculptBase := 0.0
 ## already documents for a preview that is never packed -- so what the editor shows and what an
 ## export ships are the same construction, not two.
 var _objectsPreview: Node3D
-## `_history.undoCount()` AT THE LAST SAVE, not a bool any call site sets. See `_isDocumentDirty`
-## -- WMH-5's own risk section calls out a dirty flag missing a mutation path as the danger, and
-## the fix is to have nothing set it at all: every mutation already goes through `_history`
-## (that file's own class note), so deriving dirtiness from its depth cannot miss a path a manual
-## flag could.
-var _savedUndoDepth := 0
+## The save checkpoint, as a history REVISION rather than a stack depth -- see
+## `WorldMapWorkspaceSavePoint` for the two ways the depth comparison this replaces reported a
+## changed document as saved. Deriving dirtiness from the history rather than from a flag any call
+## site sets is unchanged and still the point: every mutation already goes through `_history`, so
+## nothing can edit the document without moving its revision.
+var _savePoint := SavePointScript.new()
 ## The action a New/Open/region-switch is waiting on while the open document is dirty, or an
 ## invalid `Callable` when nothing is pending. See `_guardDirty`.
 var _pendingDiscardAction: Callable = Callable()
 var _stampPattern: Array = []
 var _scatterSet: Array[String] = []
 var _pointerPosition := Vector2.ZERO
+## The authoring grid's own toggle, so it is a decision an author makes rather than a side effect
+## of which tool happens to be selected.
+var _gridVisible := true
+## Last values pushed to the header and inspector, so `_process` rewrites a label only when it
+## actually changed rather than every frame.
+var _shownDocumentLabel := ""
+var _shownDirty := false
+var _shownCursorCell := ""
 
 
 func _ready() -> void:
@@ -243,7 +260,6 @@ func _ready() -> void:
 		_routeCount[str(layer["id"])] = 0
 
 	super._ready()
-	_neutralizeDebugHudFocus()
 	_installEditorCamera()
 	_buildEditorUi()
 	_editorCamera.rememberRegion(_ground.regionRect())
@@ -255,7 +271,7 @@ func _process(delta: float) -> void:
 	_editorHud.setOffContract(_editorCamera.offContractReason())
 	_cursorCell = _pickCell(_pointerPosition)
 	_updateGrid()
-	_editorHud.setDirty(_isDocumentDirty())
+	_refreshDocumentReadouts()
 
 
 ## `Display` does not fill the window here -- the fixed left and right panels are laid out
@@ -270,32 +286,15 @@ func _displaySize() -> Vector2:
 
 ## Swaps the shipping camera for the editor's, in place. Ground, Props and Clouds are left
 ## exactly as `super._ready()` built them -- only the Camera and its Sky child move.
-## Strips keyboard focus from every control the REUSED debug HUD builds -- the framing preset and
-## region pickers, the tile-grid toggle, copy-settings, and every slider, colour picker and
-## option button `WorldMapDebugHud.SECTIONS` builds from data.
 ##
-## DONE HERE, NOT IN WorldMapDebugHud. That class also builds the shipping debug scene's own
-## panel, where Tab and Space are not camera shortcuts and must keep their ordinary focus
-## behaviour -- see `WorldMapEditorHud`'s own controls, which set `focus_mode = FOCUS_NONE`
-## themselves for the same reason on chrome that belongs only to the editor. This is the other
-## half of that fix, applied from outside because the HUD it targets is not this editor's own.
-##
-## The playtest that found the original defect reproduced it specifically on the tile-grid
-## checkbox: Space toggled the grid AND reset the camera in one keypress, because the checkbox
-## had focus from having just been interacted with. `WorldMapEditorController._unhandled_key_
-## input` marking Tab/Space/F handled is the OTHER half of this fix -- that stops a focused
-## control from receiving the event at all when the SceneTree already consumed it, but only once
-## nothing upstream (the control's own focus-driven handling) has already acted on it first. A
-## control with focus intercepts before an event ever reaches "unhandled"; only removing its
-## focus closes that path.
-func _neutralizeDebugHudFocus() -> void:
-	for control in [_hud.presetOption, _hud.regionOption, _hud.tileGridToggle, _hud.copyButton]:
-		if control != null:
-			control.focus_mode = Control.FOCUS_NONE
-	for control in _hud._controls.values():
-		(control as Control).focus_mode = Control.FOCUS_NONE
-
-
+## THE FOCUS-STRIPPING PASS THAT USED TO LIVE HERE IS GONE. Every control the editor and the
+## reused debug HUD build used to be set to `FOCUS_NONE`, because Tab and Space were global camera
+## shortcuts and a focused control would eat them -- the playtest defect was Space both toggling
+## the tile grid and resetting the camera. That fix cost the workspace its keyboard: nothing could
+## be Tab-traversed, which this rebuild requires. The replacement is to gate the shortcuts on
+## focus STATE instead (`WorldMapWorkspaceActions.resolve`), and to stop claiming Tab at all --
+## the orthographic toggle is a visible button now. Controls keep ordinary focus behaviour, and a
+## key means one thing at a time because only one of the two readings is ever live.
 func _installEditorCamera() -> void:
 	var oldCamera := _camera
 	var sky := _sky
@@ -320,32 +319,145 @@ func _installEditorCamera() -> void:
 
 
 func _buildEditorUi() -> void:
-	_editorHud = EditorHudScript.new(get_node("Ui") as CanvasLayer)
-	_editorHud.build(
-		LAYERS, TOOLS, _onLayerSelected, _onToolSelected,
-		_onLayerVisibilityToggled, _onLayerLockToggled
-	)
-	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
-	_editorHud.setActiveTool(0)
-	_editorHud.saveButton.pressed.connect(_saveDocument)
-	_editorHud.buildDocumentControls(
-		_newLatticeChoices(), _requestNewDocument, _requestOpenDocument, _requestSaveAsDocument,
-		_confirmDiscard, _cancelDiscard
-	)
-	_editorHud.setOpenChoices(_availableDocumentNames())
+	var ui := get_node("Ui") as CanvasLayer
+	_chrome = ChromeScript.new()
+	_chrome.build(ui, _onWorkspaceAction, _onExtraToolChosen, _extraToolRows())
+	_chrome.setPreviewPanel(get_node("Ui/PanelContainer") as Control)
+	_chrome.connectStageResized(_layoutDisplayToStage)
 
-	# A PanelContainer whose width comes from its content's minimum size (see the .tscn: neither
-	# side panel is given a fixed pixel width) does not settle in one deferred call -- WorldMap-
-	# DebugHud builds many sections, and each can still be growing the panel's reported minimum
-	# size a frame after the last one was added. `resized` is emitted every time that settles
-	# further, so connecting to it -- rather than reading the size once -- is what makes Display
-	# converge on the panels' TRUE final width instead of freezing on however far layout had
-	# gotten when a single deferred call happened to fire.
-	var leftPanel := get_node("Ui/EditorPanel") as Control
-	var rightPanel := get_node("Ui/PanelContainer") as Control
-	leftPanel.resized.connect(_layoutDisplayBetweenPanels)
-	rightPanel.resized.connect(_layoutDisplayBetweenPanels)
-	call_deferred("_layoutDisplayBetweenPanels")
+	_editorHud = EditorHudScript.new(_chrome)
+	_editorHud.build(LAYERS, _onLayerSelected, _onLayerVisibilityToggled, _onLayerLockToggled)
+	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
+	_setActiveTool(TOOL_NAVIGATE)
+	_chrome.setActionPressed(WorkspaceActions.VIEW_GRID, true)
+	call_deferred("_layoutDisplayToStage")
+
+
+## The controller tools that do not get their own toolbar button. Everything not named by the six
+## workspace tool actions stays reachable here rather than being dropped -- see the chrome's own
+## note on button-first, not button-only.
+func _extraToolRows() -> Array:
+	var rows: Array = []
+	for tool in TOOLS:
+		var entry: Dictionary = tool
+		if _workspaceActionForTool(str(entry["id"])).is_empty():
+			rows.append({"id": str(entry["id"]), "label": str(entry["label"])})
+	return rows
+
+
+## The workspace action id a controller tool is reachable by, or "" when it lives in the dropdown.
+## Erase is deliberately absent from this direction: it maps ONTO the paint tool, so asking which
+## button "paint" lights is answered by Paint, not by whichever of the two was pressed last.
+func _workspaceActionForTool(toolID: String) -> String:
+	match toolID:
+		TOOL_NAVIGATE:
+			return WorkspaceActions.TOOL_NAVIGATE
+		TOOL_INSPECT:
+			return WorkspaceActions.TOOL_INSPECT
+		TOOL_PAINT:
+			return WorkspaceActions.TOOL_PAINT
+		TOOL_FILL:
+			return WorkspaceActions.TOOL_FILL
+		TOOL_EYEDROPPER:
+			return WorkspaceActions.TOOL_EYEDROPPER
+		_:
+			return ""
+
+
+## Every action the workspace can raise, from a button or from a shortcut, lands here. One
+## dispatch rather than two paths, so a button and its key cannot come to mean different things.
+func _onWorkspaceAction(actionID: String) -> void:
+	match actionID:
+		WorkspaceActions.NEW_DOCUMENT:
+			_openNewDocumentDialog()
+		WorkspaceActions.OPEN_DOCUMENT:
+			_openOpenDocumentDialog()
+		WorkspaceActions.SAVE_DOCUMENT:
+			_resolveOpenStroke()
+			_saveDocument()
+		WorkspaceActions.SAVE_DOCUMENT_AS:
+			_openSaveAsDialog()
+		WorkspaceActions.EXPORT_SCENE:
+			_resolveOpenStroke()
+			_exportScene()
+		WorkspaceActions.EXPORT_BATTLE:
+			_resolveOpenStroke()
+			_exportBattleMap()
+		WorkspaceActions.UNDO:
+			_resolveOpenStroke()
+			_undo()
+		WorkspaceActions.REDO:
+			_resolveOpenStroke()
+			_redo()
+		WorkspaceActions.TOOL_ERASE:
+			_selectEraseTool()
+		WorkspaceActions.TOOL_NAVIGATE, WorkspaceActions.TOOL_INSPECT, \
+		WorkspaceActions.TOOL_PAINT, WorkspaceActions.TOOL_FILL, \
+		WorkspaceActions.TOOL_EYEDROPPER:
+			_selectWorkspaceTool(actionID)
+		WorkspaceActions.VIEW_EDITING:
+			if _editorCamera.mode != WorldMapEditorCamera.Mode.ORTHO:
+				_editorCamera.toggleOrtho()
+			_chrome.setViewLabel("Top-down · editing view")
+		WorkspaceActions.VIEW_SHIPPING:
+			_editorCamera.snapToContract()
+			_chrome.setViewLabel("Shipping view")
+		WorkspaceActions.VIEW_PROJECTION:
+			_editorCamera.toggleOrtho()
+			_chrome.setViewLabel(
+				"Top-down · editing view"
+				if _editorCamera.mode == WorldMapEditorCamera.Mode.ORTHO
+				else "Free perspective"
+			)
+		WorkspaceActions.VIEW_FRAME:
+			_frameRegion()
+		WorkspaceActions.VIEW_GRID:
+			_gridVisible = not _gridVisible
+			_chrome.setActionPressed(WorkspaceActions.VIEW_GRID, _gridVisible)
+			_updateGrid()
+		WorkspaceActions.VIEW_PREVIEW_SETTINGS:
+			_chrome.togglePreviewPanel()
+
+
+func _selectWorkspaceTool(actionID: String) -> void:
+	for tool in TOOLS:
+		var id := str((tool as Dictionary)["id"])
+		if _workspaceActionForTool(id) == actionID:
+			_setActiveTool(id)
+			return
+
+
+## Erase is the paint tool with the erase value selected -- see `WorldMapEditorHud`'s note on why
+## erasing is a value rather than a brush. The button still reads as its own thing because that is
+## what the author is doing; internally nothing new exists to go wrong.
+func _selectEraseTool() -> void:
+	_setActiveTool(TOOL_PAINT)
+	if _editorHud.selectEraseValue():
+		_chrome.setToolActive(WorkspaceActions.TOOL_ERASE)
+		_chrome.setStatus("Erase: painting clears cells on %s." % _activeLayer)
+	else:
+		_chrome.setStatus("This layer has no erase value.")
+
+
+func _onExtraToolChosen(toolID: String) -> void:
+	_setActiveTool(toolID)
+
+
+func _setActiveTool(toolID: String) -> void:
+	for i in TOOLS.size():
+		if str(TOOLS[i]["id"]) == toolID:
+			_onToolSelected(i)
+			_chrome.setToolActive(_workspaceActionForTool(toolID))
+			return
+
+
+func _frameRegion() -> void:
+	# The aspect that matters is the DISPLAY's, not the window's -- the editor's map column is not
+	# the window, and `_displaySize()` is what already accounts for that. Guarded against a zero-
+	# height display during the frames before layout has settled, where the aspect is nonsensical.
+	var display := _displaySize()
+	if display.y > 0.0:
+		_editorCamera.frameRegion(_ground.regionRect(), display.x / display.y)
 
 
 ## Guarded by `_guardDirty` rather than the auto-save this used to do: silently saving on the
@@ -370,17 +482,52 @@ func _performRegionSwitch(index: int) -> void:
 	_editorCamera.rememberRegion(_ground.regionRect())
 
 
-## Confines `Display` to the column left over once both side panels have taken what their own
-## content actually needs. Connected to both panels' `resized` signal rather than measured once
-## -- see the connection site's own note on why one reading is not enough.
-func _layoutDisplayBetweenPanels() -> void:
-	var leftWidth: float = (get_node("Ui/EditorPanel") as Control).size.x
-	var rightWidth: float = (get_node("Ui/PanelContainer") as Control).size.x
-	if is_equal_approx(_display.offset_left, leftWidth) and is_equal_approx(_display.offset_right, -rightWidth):
+## Puts `Display` exactly where the layout put the map column. Driven by the stage's own measured
+## rect rather than by subtracting panel widths from the window: the workspace has a header, a
+## toolbar, a view bar and a footer as well as two side panels, and any of them can change height
+## when text wraps or a panel collapses. Measuring the hole the layout actually left is the only
+## reading that stays true through all of that.
+func _layoutDisplayToStage() -> void:
+	if _chrome == null or _display == null:
 		return
-	_display.offset_left = leftWidth
-	_display.offset_right = -rightWidth
+	var target := WorkspaceGeometry.stageToDisplay(_chrome.stageRect())
+	if _display.get_global_rect().is_equal_approx(target):
+		return
+	# Anchored to the top left and positioned in the same global coordinates the stage reported;
+	# `Display` is a sibling of the `Ui` CanvasLayer, so it is not laid out by the workspace tree.
+	_display.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_display.offset_left = target.position.x
+	_display.offset_top = target.position.y
+	_display.offset_right = target.position.x + target.size.x
+	_display.offset_bottom = target.position.y + target.size.y
 	_applyRenderScale()
+
+
+## The header's document identity and the inspector's under-cursor rows. Written only on change --
+## see `_shownDocumentLabel`.
+func _refreshDocumentReadouts() -> void:
+	var documentName := _document.region_name if _document != null else ""
+	var neverSaved := _document != null and _savePoint.isNeverSaved()
+	var dirty := _isDocumentDirty()
+	var label := "%s|%s" % [documentName, neverSaved]
+	if label != _shownDocumentLabel or dirty != _shownDirty:
+		_shownDocumentLabel = label
+		_shownDirty = dirty
+		_chrome.setDocumentLabel(documentName, neverSaved, dirty)
+	_chrome.setActionEnabled(WorkspaceActions.UNDO, _history.canUndo())
+	_chrome.setActionEnabled(WorkspaceActions.REDO, _history.canRedo())
+
+	var cellText := "--"
+	var valueText := "--"
+	if _cursorCell != null and _document != null:
+		var cell := _cursorCell as Vector2i
+		cellText = "%d, %d" % [cell.x, cell.y]
+		if _document.layers.has(_activeLayer):
+			valueText = _document.getCell(_activeLayer, cell)
+	var readout := "%s|%s" % [cellText, valueText]
+	if readout != _shownCursorCell:
+		_shownCursorCell = readout
+		_editorHud.setCursorReadout(cellText, valueText)
 
 
 ## Left click routes to the active layer's tool. Middle-drag orbits, right-drag pans, the wheel
@@ -389,10 +536,59 @@ func _layoutDisplayBetweenPanels() -> void:
 ## modifier changing what a release does rather than needing its own gesture. Deliberately does
 ## not call `super`: the base class's left-drag-pans-the-camera would otherwise compete with
 ## left click as a tool input, and only one of them may own that button.
+## A gesture already in flight is routed BEFORE hit-tested controls, which `_unhandled_input`
+## cannot do: the workspace's panels consume the mouse, so a drag that wanders over the toolbar
+## or the tilesheet would stop being delivered and the stroke or the orbit would stall mid-motion
+## with the button still held. `_input` runs ahead of the GUI, so this claims exactly the events
+## an owned gesture needs and marks them handled; every other event falls through untouched and is
+## dealt with by `_unhandled_input` as before. Ownership is acquired on an unhandled press and
+## released only on the matching release.
+func _input(event: InputEvent) -> void:
+	if not (_cameraOrbiting or _cameraPanning or _strokeOpen or _gestureStart != null):
+		return
+	var button := event as InputEventMouseButton
+	if button != null and not button.pressed:
+		match button.button_index:
+			MOUSE_BUTTON_LEFT:
+				_endToolGesture(button.position)
+			MOUSE_BUTTON_MIDDLE:
+				_cameraOrbiting = false
+				if Input.is_key_pressed(KEY_SHIFT):
+					_editorCamera.snapYaw()
+			MOUSE_BUTTON_RIGHT:
+				_cameraPanning = false
+			_:
+				return
+		get_viewport().set_input_as_handled()
+		return
+	var motion := event as InputEventMouseMotion
+	if motion == null:
+		return
+	_applyPointerMotion(motion)
+	get_viewport().set_input_as_handled()
+
+
+## Left click routes to the active layer's tool. Middle-drag orbits, right-drag pans, the wheel
+## dollies -- all applied to the camera through its plain methods, per the class note. Snapping
+## yaw to 45 degrees on a Shift-released middle-drag mirrors the debug-scene convention of a
+## modifier changing what a release does rather than needing its own gesture. Deliberately does
+## not call `super`: the base class's left-drag-pans-the-camera would otherwise compete with
+## left click as a tool input, and only one of them may own that button.
+##
+## Reaching this function AT ALL is the workspace's proof that the press was on the map: every
+## panel is `MOUSE_FILTER_STOP` and consumes its own presses, so a click on chrome never arrives
+## here. Nothing below needs to ask where the pointer was.
 func _unhandled_input(event: InputEvent) -> void:
+	if _chrome != null and _chrome.isModalOpen():
+		return
 	var button := event as InputEventMouseButton
 	if button != null:
 		_pointerPosition = button.position
+		if button.pressed:
+			# The stage ignores the mouse, so a map click cannot move focus by itself. Dropping
+			# focus here is what makes the toolbar's advertised shortcuts work again after the
+			# author has pressed one of its buttons.
+			get_viewport().gui_release_focus()
 		match button.button_index:
 			MOUSE_BUTTON_LEFT:
 				if button.pressed:
@@ -415,85 +611,60 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	var motion := event as InputEventMouseMotion
 	if motion != null:
-		_pointerPosition = motion.position
-		_cursorCell = _pickCell(motion.position)
-		if _cameraOrbiting:
-			_editorCamera.orbitByScreenDelta(motion.relative)
-		elif _cameraPanning:
-			_editorCamera.panBy(motion.relative)
-		elif _strokeOpen and (motion.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
-			# A triangle stroke follows the POINTER, not the cell under it: dragging within one
-			# hex crosses fan slots without ever changing cell, and following the cell would
-			# paint the first slot and then nothing.
-			if _strokeKind == TOOL_DETAIL:
-				_paintTriangleAt(motion.position)
-			elif _cursorCell != null:
-				if _strokeKind == TOOL_SCULPT:
-					_sculptCell(_cursorCell as Vector2i)
-				else:
-					_paintStrokeCell(_cursorCell as Vector2i)
+		_applyPointerMotion(motion)
 
 
-## `KEY_F`, `KEY_SPACE` and `KEY_TAB` are claimed here, each marking the event handled so it
-## cannot also reach a focused HUD control's own key handling (a `Button` treats Space as
-## activate-focused-control, and Godot's default UI focus traversal treats Tab as
-## focus-next -- `WorldMapEditorHud` sets `focus_mode = FOCUS_NONE` on its own controls
-## specifically so neither can grab that focus in the first place, but marking handled here is
-## the second half of that guarantee and costs nothing when the first half already held). Every
-## other key falls through to the base class unchanged.
+func _applyPointerMotion(motion: InputEventMouseMotion) -> void:
+	_pointerPosition = motion.position
+	_cursorCell = _pickCell(motion.position)
+	if _cameraOrbiting:
+		_editorCamera.orbitByScreenDelta(motion.relative)
+	elif _cameraPanning:
+		_editorCamera.panBy(motion.relative)
+	elif _strokeOpen and (motion.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+		# A triangle stroke follows the POINTER, not the cell under it: dragging within one
+		# hex crosses fan slots without ever changing cell, and following the cell would
+		# paint the first slot and then nothing.
+		if _strokeKind == TOOL_DETAIL:
+			_paintTriangleAt(motion.position)
+		elif _cursorCell != null:
+			if _strokeKind == TOOL_SCULPT:
+				_sculptCell(_cursorCell as Vector2i)
+			else:
+				_paintStrokeCell(_cursorCell as Vector2i)
+
+
+## Focus loss ends an owned gesture rather than leaving it held -- see `docs/LEARNINGS.md`'s
+## cursor-event rule. Without this, alt-tabbing mid-drag returns to an editor that is still
+## orbiting or still recording a stroke that the author has stopped making.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		_cameraOrbiting = false
+		_cameraPanning = false
+		_gestureStart = null
+		_resolveOpenStroke()
+
+
+## Every editor shortcut resolves through one table -- see `WorldMapWorkspaceActions`. A key that
+## does not name an action, or that arrives while a text field or a modal owns the keyboard, falls
+## through to the base class unchanged, which is what keeps the debug scene's own keys working and
+## what lets an author type `b` into a map name without selecting the paint brush.
+##
+## KEY_TAB IS DELIBERATELY NOT CLAIMED. It used to toggle the orthographic camera globally, which
+## cost the workspace keyboard traversal entirely; the projection toggle is a visible button now.
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
-	if key == null or not key.pressed or key.echo:
+	if key == null or not key.pressed or key.echo or _chrome == null:
 		super._unhandled_key_input(event)
 		return
-	match key.keycode:
-		KEY_F:
-			# The aspect that matters is the DISPLAY's, not the window's -- the editor's map
-			# column is not the window, and _displaySize() is what already accounts for that
-			# (see its own note). Guarded against a zero-height display during the one frame
-			# before the panels have settled, where the aspect would be nonsensical.
-			var display := _displaySize()
-			if display.y > 0.0:
-				_editorCamera.frameRegion(_ground.regionRect(), display.x / display.y)
-			get_viewport().set_input_as_handled()
-		KEY_SPACE:
-			_editorCamera.snapToContract()
-			get_viewport().set_input_as_handled()
-		KEY_TAB:
-			_editorCamera.toggleOrtho()
-			get_viewport().set_input_as_handled()
-		KEY_Z:
-			if not key.ctrl_pressed:
-				super._unhandled_key_input(event)
-				return
-			if key.shift_pressed:
-				_redo()
-			else:
-				_undo()
-			get_viewport().set_input_as_handled()
-		KEY_Y:
-			if not key.ctrl_pressed:
-				super._unhandled_key_input(event)
-				return
-			_redo()
-			get_viewport().set_input_as_handled()
-		KEY_S:
-			if not key.ctrl_pressed:
-				super._unhandled_key_input(event)
-				return
-			_saveDocument()
-			get_viewport().set_input_as_handled()
-		KEY_E:
-			if not key.ctrl_pressed:
-				super._unhandled_key_input(event)
-				return
-			if key.shift_pressed:
-				_exportBattleMap()
-			else:
-				_exportScene()
-			get_viewport().set_input_as_handled()
-		_:
-			super._unhandled_key_input(event)
+	var actionID := WorkspaceActions.resolve(
+		key.keycode, key.ctrl_pressed, key.shift_pressed, _chrome.focusState()
+	)
+	if actionID.is_empty():
+		super._unhandled_key_input(event)
+		return
+	_onWorkspaceAction(actionID)
+	get_viewport().set_input_as_handled()
 
 
 func _undo() -> void:
@@ -610,17 +781,7 @@ func _beginToolGesture(screenPosition: Vector2) -> void:
 
 func _endToolGesture(screenPosition: Vector2) -> void:
 	if _strokeOpen:
-		_strokeOpen = false
-		var committed := Brushes.endStroke(_history)
-		var kind := _strokeKind
-		_strokeKind = ""
-		_sculptVertices.clear()
-		if committed:
-			if kind == TOOL_SCULPT:
-				_afterHeightsEdited()
-			else:
-				_afterCellsEdited(_activeLayer, _strokeTouched)
-		_strokeTouched.clear()
+		_closeOpenStroke()
 		return
 	if _gestureStart == null or _document == null:
 		return
@@ -840,16 +1001,9 @@ func _inclusiveRect(from: Vector2i, to: Vector2i) -> Rect2i:
 ## drawn image. Extracted in WMH-10B so the triangle pick and the cell pick share one definition
 ## of that mapping rather than each carrying its own copy of the letterboxing arithmetic.
 func _viewportPoint(screenPosition: Vector2) -> Variant:
-	var displayRect := _display.get_global_rect()
-	var bufferSize := Vector2(_viewport.size)
-	if displayRect.size.x <= 0.0 or displayRect.size.y <= 0.0 or bufferSize.x <= 0.0 or bufferSize.y <= 0.0:
-		return null
-	var scale := minf(displayRect.size.x / bufferSize.x, displayRect.size.y / bufferSize.y)
-	var drawnSize := bufferSize * scale
-	var drawnOrigin := displayRect.position + (displayRect.size - drawnSize) * 0.5
-	if not Rect2(drawnOrigin, drawnSize).has_point(screenPosition):
-		return null
-	return (screenPosition - drawnOrigin) / scale
+	return WorkspaceGeometry.bufferPoint(
+		screenPosition, _display.get_global_rect(), Vector2(_viewport.size)
+	)
 
 
 ## The region-local point under a screen position, on the terrain the renderer actually draws.
@@ -934,7 +1088,10 @@ func _updateGrid() -> void:
 	if _ground == null:
 		return
 	var material := _ground.material_override as ShaderMaterial
-	var visible := _document != null and _activeTool != TOOL_NAVIGATE and _layerEditable(_activeLayer)
+	var visible := (
+		_gridVisible and _document != null and _activeTool != TOOL_NAVIGATE
+		and _layerEditable(_activeLayer)
+	)
 	var hex := _document != null and _document.layout == MapDataScript.LAYOUT_HEX_FLAT
 	var lattice := _document.size_tiles if hex else Vector2i.ZERO
 	SurfacePick.applyGrid(
@@ -1065,8 +1222,8 @@ func _refreshLayerRows() -> void:
 
 func _openDocumentForRegion(regionID: String) -> void:
 	_history.clear()
-	_savedUndoDepth = 0
 	_document = Regions.tileDataFor(regionID)
+	_savePoint.beginOpenedDocument(_history.currentRevision())
 	_documentPath = Regions.tileDataPathFor(regionID) if _document != null else ""
 	_baker = Baker.new()
 	_cursorCell = null
@@ -1088,21 +1245,27 @@ func _openDocumentForRegion(regionID: String) -> void:
 ## opens it exactly as `_openDocumentForRegion` would open one from disk. `WorldMapBaker` learned
 ## hex geometry in WMH-5B, so the ground render is a real bake, not the provisional placeholder
 ## an earlier version of this function warned about.
-func _newDocument(lattice: Vector2i, name: String) -> void:
+func _newDocument(lattice: Vector2i, name: String, tilesetID := DEFAULT_HEX_TILESET) -> void:
 	_history.clear()
-	_savedUndoDepth = 0
+	var chosen := tilesetID if Tilesets.has(tilesetID) else DEFAULT_HEX_TILESET
 	var doc := MapDataScript.create(name, lattice, MapDataScript.LAYOUT_HEX_FLAT)
-	doc.layers["ground"]["TILESET"] = DEFAULT_HEX_TILESET
-	doc.palette_region = DEFAULT_HEX_PALETTE_REGION
-	doc.fog_color = Regions.fogColorFor(DEFAULT_HEX_PALETTE_REGION)
-	doc.void_color = Regions.voidColorFor(DEFAULT_HEX_PALETTE_REGION)
+	doc.layers["ground"]["TILESET"] = chosen
+	var paletteRegion := str(
+		Tilesets.tilesetFor(chosen).get("PALETTE_REGION", DEFAULT_HEX_PALETTE_REGION)
+	)
+	doc.palette_region = paletteRegion
+	doc.fog_color = Regions.fogColorFor(paletteRegion)
+	doc.void_color = Regions.voidColorFor(paletteRegion)
 	_document = doc
+	# A new document has never been written, so it reads as unsaved from its first frame -- see
+	# `WorldMapWorkspaceSavePoint`. Nothing here writes anything to disk.
+	_savePoint.beginNewDocument()
 	_documentPath = MapDataScript.pathFor(name)
 	_baker = Baker.new()
 	_cursorCell = null
 	_gestureStart = null
 	_strokeOpen = false
-	_bakeAndDisplayDocument("New hex map '%s' (%s cells)." % [name, lattice])
+	_bakeAndDisplayDocument("New hex map '%s' on %s (%s cells)." % [name, chosen, lattice])
 
 
 ## Opens a document BY NAME rather than by region id -- any file under `WorldMapTileData.
@@ -1112,8 +1275,8 @@ func _newDocument(lattice: Vector2i, name: String) -> void:
 ## `_openDocumentForRegion` already covers for documents the catalog does know about.
 func _openDocumentByName(name: String) -> void:
 	_history.clear()
-	_savedUndoDepth = 0
 	_document = MapDataScript.loadFrom(MapDataScript.pathFor(name))
+	_savePoint.beginOpenedDocument(_history.currentRevision())
 	_documentPath = MapDataScript.pathFor(name)
 	_baker = Baker.new()
 	_cursorCell = null
@@ -1154,7 +1317,6 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 				break
 	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
 	_refreshValueChoices()
-	_editorHud.setOpenChoices(_availableDocumentNames())
 	_editorHud.setStatus(statusMessage)
 
 
@@ -1165,13 +1327,15 @@ func _saveDocument() -> void:
 		return
 	var sourceSaved := _document.saveTo(_documentPath)
 	var bakeSaved := _baker.saveTo(Baker.generatedPathFor(_document.region_name))
+	# Only a write that fully succeeded moves the checkpoint. A partial write leaving the document
+	# honestly dirty is what keeps the author's next Save meaningful; HXW-6 completes the failure
+	# reporting around this.
 	if sourceSaved and bakeSaved:
-		_savedUndoDepth = _history.undoCount()
+		_savePoint.markSaved(_history.currentRevision())
 	_editorHud.setStatus(
-		"Saved source and generated texture." if not _isDocumentDirty()
+		"Saved source and generated texture." if sourceSaved and bakeSaved
 		else "Save failed; source and generated texture were not both written."
 	)
-	_editorHud.setOpenChoices(_availableDocumentNames())
 
 
 ## Exports the open document to a gameplay scene (Ctrl+E). Reports the export's own error text
@@ -1236,11 +1400,11 @@ func _newLatticeChoices() -> Array[Vector2i]:
 	return WorldMapHexGrid.exactSquareLattices()
 
 
-## Whether the open document has any edit since the last successful save, derived from
-## `_history`'s own depth rather than a bool any call site sets -- see `_savedUndoDepth`'s own
-## note on why that is the fix for the risk this item names.
+## Whether the open document has any edit since the last successful save, compared by history
+## REVISION rather than by stack depth -- see `WorldMapWorkspaceSavePoint` for the two states the
+## depth comparison called saved while the content had genuinely moved.
 func _isDocumentDirty() -> bool:
-	return _document != null and _history.undoCount() != _savedUndoDepth
+	return _document != null and _savePoint.isDirty(_history.currentRevision())
 
 
 ## Runs `action` immediately when nothing would be lost; otherwise defers it behind the HUD's
@@ -1249,11 +1413,43 @@ func _isDocumentDirty() -> bool:
 ## picker -- goes through this, so "ask before discarding" cannot be forgotten at a future call
 ## site the way a manually-set dirty bool could be.
 func _guardDirty(action: Callable) -> void:
+	# An open stroke is part of the document's content, so it is resolved into history before the
+	# question "is anything unsaved" is even asked.
+	_resolveOpenStroke()
 	if not _isDocumentDirty():
 		action.call()
 		return
 	_pendingDiscardAction = action
-	_editorHud.promptDiscard()
+	if _chrome == null or not _chrome.promptDiscard(_confirmDiscard, _cancelDiscard):
+		# No display server to put a dialog on. The pending action stays pending rather than
+		# running: a headless caller drives it through `confirmPendingDiscard()`.
+		return
+
+
+## Ends whatever gesture is mid-flight and commits it as one history entry, so a tool change, a
+## layer change, a document action or an export can never land in the middle of a stroke. Safe to
+## call when nothing is open.
+func _resolveOpenStroke() -> void:
+	_gestureStart = null
+	_closeOpenStroke()
+
+
+## The stroke half of the above, without abandoning a two-point gesture -- `_endToolGesture` needs
+## `_gestureStart` intact to finish a rectangle, a line or a scatter.
+func _closeOpenStroke() -> void:
+	if not _strokeOpen:
+		return
+	_strokeOpen = false
+	var committed := Brushes.endStroke(_history)
+	var kind := _strokeKind
+	_strokeKind = ""
+	_sculptVertices.clear()
+	if committed:
+		if kind == TOOL_SCULPT:
+			_afterHeightsEdited()
+		else:
+			_afterCellsEdited(_activeLayer, _strokeTouched)
+	_strokeTouched.clear()
 
 
 func _confirmDiscard() -> void:
@@ -1267,20 +1463,63 @@ func _cancelDiscard() -> void:
 	_pendingDiscardAction = Callable()
 
 
-func _requestNewDocument() -> void:
-	var lattice := _editorHud.selectedNewLattice()
-	var name := _editorHud.documentNameField()
+## The dialogs the header's document buttons open. Each one collects a choice and then calls the
+## SAME request function a headless caller uses, so the dialog is a way to supply arguments and
+## never a place where a decision lives -- which is what lets the probe drive this whole path
+## without a window.
+func _openNewDocumentDialog() -> void:
+	var lattices := _newLatticeChoices()
+	var labels: Array[String] = []
+	for lattice in lattices:
+		var extent: Vector2 = WorldMapHexGrid.latticeExtent(lattice.x, lattice.y)
+		labels.append("%d x %d  (%.0f units)" % [lattice.x, lattice.y, extent.x])
+	var tilesets := _hexTilesetChoices()
+	if not _chrome.promptNewDocument(
+		lattices, labels, tilesets, DEFAULT_HEX_TILESET, "untitled", _requestNewDocument
+	):
+		_editorHud.setStatus("No display server; New needs its dialog.")
+
+
+func _openOpenDocumentDialog() -> void:
+	var names := _availableDocumentNames()
+	if names.is_empty():
+		_editorHud.setStatus("No authored maps on disk yet.")
+		return
+	if not _chrome.promptOpenDocument(names, _requestOpenDocument):
+		_editorHud.setStatus("No display server; Open needs its dialog.")
+
+
+func _openSaveAsDialog() -> void:
+	if _document == null:
+		_editorHud.setStatus("No document is open.")
+		return
+	if not _chrome.promptSaveAs(_document.region_name, _requestSaveAsDocument):
+		_editorHud.setStatus("No display server; Save As needs its dialog.")
+
+
+## Every hex-capable tileset the catalog knows, which is what New may choose between. A tileset is
+## offered for a NEW document only; opening one never remaps a populated layer's stored id.
+func _hexTilesetChoices() -> Array[String]:
+	var result: Array[String] = []
+	for id in Tilesets.ids():
+		if int(Tilesets.tilesetFor(id).get("FRAME_PX", 0)) >= 32:
+			result.append(id)
+	if result.is_empty():
+		result.append(DEFAULT_HEX_TILESET)
+	return result
+
+
+func _requestNewDocument(lattice: Vector2i, name: String, tilesetID: String) -> void:
 	if lattice == Vector2i.ZERO:
 		_editorHud.setStatus("Choose a lattice size first.")
 		return
 	if name.is_empty():
 		_editorHud.setStatus("Name the new map first.")
 		return
-	_guardDirty(_newDocument.bind(lattice, name))
+	_guardDirty(_newDocument.bind(lattice, name, tilesetID))
 
 
-func _requestOpenDocument() -> void:
-	var name := _editorHud.selectedOpenName()
+func _requestOpenDocument(name: String) -> void:
 	if name.is_empty():
 		_editorHud.setStatus("Nothing to open yet.")
 		return
@@ -1289,11 +1528,11 @@ func _requestOpenDocument() -> void:
 
 ## No guard: Save As never discards anything the open document held, it only chooses where the
 ## save goes.
-func _requestSaveAsDocument() -> void:
-	var name := _editorHud.documentNameField()
+func _requestSaveAsDocument(name: String) -> void:
 	if name.is_empty():
 		_editorHud.setStatus("Name the document first.")
 		return
+	_resolveOpenStroke()
 	_saveDocumentAs(name)
 
 
@@ -1302,7 +1541,8 @@ func _requestSaveAsDocument() -> void:
 ## `_layerEditable` produce a tool that silently paints nothing: a sculpt reading a tile id off a
 ## row that had none applies `float("")`, which is 0.0, which is a no-op no one is told about.
 func _refreshValueChoices() -> void:
-	var selected := _editorHud.selectedValue() if _editorHud.tileOption != null else ""
+	var selected := _editorHud.selectedValue() if _editorHud.hasValueRow() else ""
+	_refreshPalette()
 	# Dispatched on layer ID before kind, because the tactical layer shares KIND_GRID with ground
 	# and overlay while taking its values from a ledger rather than a tileset. Erasing back to
 	# "off the battlefield" is offered as a value, the same way the object row offers Remove:
@@ -1364,6 +1604,49 @@ func _refreshValueChoices() -> void:
 			_stampPattern = []
 
 
+## Points the palette at the ACTIVE LAYER's own catalog entry, or hides the sheet entirely for a
+## layer whose values are not sheet frames. The tactical layer is the case that makes this a
+## dispatch rather than a lookup: it is a grid layer, so it would otherwise be offered a tilesheet
+## for values that are battle terrain ids and have no art at all.
+func _refreshPalette() -> void:
+	if _editorHud == null:
+		return
+	if _document == null:
+		_editorHud.showValueOnlyPalette("no document")
+		return
+	if _activeLayer == LAYER_TACTICAL:
+		_editorHud.showValueOnlyPalette("tactical")
+		return
+	match _activeLayerKind():
+		MapDataScript.KIND_HEIGHTS:
+			_editorHud.showValueOnlyPalette("terrain height")
+			return
+		MapDataScript.KIND_LIST:
+			_editorHud.showValueOnlyPalette("object")
+			return
+	var tilesetID := (
+		str((_document.layers[_activeLayer] as Dictionary).get("TILESET", ""))
+		if _document.layers.has(_activeLayer)
+		else (_groundTilesetID() if _activeLayerKind() == MapDataScript.KIND_DETAIL else "")
+	)
+	if tilesetID.is_empty() or not Tilesets.has(tilesetID):
+		_editorHud.showValueOnlyPalette("untextured")
+		return
+	var tileset := Tilesets.tilesetFor(tilesetID)
+	var tiles: Array[Dictionary] = []
+	for tile in tileset.get("TILES", []):
+		tiles.append(tile as Dictionary)
+	# `load()` rather than `preload()`: the sheet is named by data. A tileset Godot has not
+	# imported yet returns null, which the picker renders as an empty sheet rather than failing.
+	var sheetPath := str(tileset.get("SHEET", ""))
+	var sheet: Texture2D = null
+	if not sheetPath.is_empty() and ResourceLoader.exists(sheetPath):
+		sheet = load(sheetPath) as Texture2D
+	_editorHud.configurePalette(
+		tilesetID, sheet, int(tileset.get("FRAME_PX", 32)), tiles
+	)
+
+
 ## The tileset a detail layer is created against: the ground's own, so a triangle painted over a
 ## hex is drawn from the same sheet the hex under it came from.
 func _groundTilesetID() -> String:
@@ -1392,6 +1675,9 @@ func _layerIndex(id: String) -> int:
 func _onLayerSelected(index: int) -> void:
 	if index < 0 or index >= LAYERS.size():
 		return
+	# Mid-gesture ownership must not switch layers: the open stroke belongs to the layer it began
+	# on and is committed there before the active one moves.
+	_resolveOpenStroke()
 	_activeLayer = str(LAYERS[index]["id"])
 	_editorHud.setActiveLayer(index)
 	_cursorCell = null
@@ -1405,23 +1691,26 @@ func _onLayerSelected(index: int) -> void:
 func _onToolSelected(index: int) -> void:
 	if index < 0 or index >= TOOLS.size():
 		return
+	# Committed rather than discarded: the strokes the author already made with the old tool are
+	# their work, and abandoning the open history entry would silently drop the last one.
+	_resolveOpenStroke()
 	_activeTool = str(TOOLS[index]["id"])
-	_gestureStart = null
-	if _strokeOpen:
-		_strokeOpen = false
-		_history.endStroke()
 	_editorHud.setStatus("Tool: %s" % str(TOOLS[index]["label"]))
 
 
+## Unreachable while the row's toggle is disabled -- see `WorldMapEditorHud`'s own note on why it
+## ships disabled and labelled rather than as a control that moves and changes nothing. Editor
+## view filtering is the painting item's work; this stays the single place it will land.
 func _onLayerVisibilityToggled(_id: String, _on: bool) -> void:
-	# Phase A has nothing to hide -- ground, props and clouds are not layers a toggle reaches
-	# into yet. The HUD row already holds its own state; nothing downstream reads it until a
-	# later phase gives a layer something visibility can act on.
 	pass
 
 
 func _onLayerLockToggled(id: String, on: bool) -> void:
 	_layerLocked[id] = on
+	if on and id == _activeLayer:
+		# Locking the layer a stroke is being made on ends that stroke rather than leaving it open
+		# against a layer that now refuses input.
+		_resolveOpenStroke()
 
 
 ## Test and tooling accessors. Reaching into `_activeLayer` etc. directly would work too --
@@ -1452,10 +1741,7 @@ func setActiveLayerID(id: String) -> void:
 
 
 func setActiveToolID(id: String) -> void:
-	for i in TOOLS.size():
-		if str(TOOLS[i]["id"]) == id:
-			_onToolSelected(i)
-			return
+	_setActiveTool(id)
 
 
 func setLayerLocked(id: String, locked: bool) -> void:
@@ -1492,24 +1778,38 @@ func cancelPendingDiscard() -> void:
 	_cancelDiscard()
 
 
-func requestNewDocument(lattice: Vector2i, name: String) -> void:
-	_editorHud.newLatticeOption.selected = _newLatticeChoices().find(lattice)
-	_editorHud.nameEdit.text = name
-	_requestNewDocument()
+## These take their arguments directly rather than writing them into HUD widgets and reading them
+## back out. The old versions poked `newLatticeOption.selected` and `nameEdit.text` -- which meant
+## the document actions could only be driven by whatever controls the panel happened to hold, and
+## that any redesign of the panel had to keep those exact controls alive to satisfy them. The
+## dialogs now call these same functions, so there is one path rather than a real one and a
+## test-shaped one.
+func requestNewDocument(lattice: Vector2i, name: String, tilesetID := DEFAULT_HEX_TILESET) -> void:
+	_requestNewDocument(lattice, name, tilesetID)
 
 
 func requestOpenDocument(name: String) -> void:
-	var names := _availableDocumentNames()
-	var index := names.find(name)
-	if index < 0:
+	if not _availableDocumentNames().has(name):
 		return
-	_editorHud.openOption.selected = index
-	_requestOpenDocument()
+	_requestOpenDocument(name)
 
 
 func requestSaveAsDocument(name: String) -> void:
-	_editorHud.nameEdit.text = name
-	_requestSaveAsDocument()
+	_requestSaveAsDocument(name)
+
+
+## What the workspace's own probe drives instead of clicking. See
+## `scripts/worldmap_editor/checks/workspace/probe_workspace_contract.gd`.
+func performAction(actionID: String) -> void:
+	_onWorkspaceAction(actionID)
+
+
+func savePoint() -> SavePointScript:
+	return _savePoint
+
+
+func historyRevision() -> int:
+	return _history.currentRevision()
 
 
 func availableDocumentNames() -> Array[String]:
