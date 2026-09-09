@@ -187,14 +187,21 @@ already carries `cooldown_remaining` and `ready`, and the missing piece is why.
 
 ## Player command UI
 
-> **Scope note (HXB-14).** The entries below describe the square battle's
-> command surface -- its action row, forecast text and spell menu -- driven by
-> `PlayerTurnController`, which the hex migration retired to the frozen
-> reference. The hex battle rebuilt member selection and the party panel, not
-> that command surface; `HexBattleMemberTurn` exposes the phases and
-> `HexBattleController` owns the schedule, but the menu, forecast and action row
-> are not yet rebuilt on hex. These remain open work, and the citations record
-> where each behaviour was specified.
+> **Scope note (HXB-14, revised by HBP-V 2026-09-09).** The entries below
+> describe the square battle's command surface -- its action row, forecast text
+> and spell menu -- driven by `PlayerTurnController`, which the hex migration
+> retired to the frozen reference.
+>
+> Most of that surface now exists on hex. `HexCommandMenu` is the command menu
+> (HBP-2), `HexBattleVisualAdapter` carries the preview and forecast (HBP-3),
+> and `HexBattleMemberInput` connects both to real keyboard and mouse input
+> (HBP-1), so a member turn can be moved, undone, aimed, attacked, cast and
+> ended from the board. `probe_playthrough` plays a whole battle through that
+> path.
+>
+> What is still not rebuilt on hex: the forecast is computed but nothing
+> displays it to the player, and there is no playback pause. The citations below
+> record where each behaviour was specified.
 
 - **The command UI rework is done** (2026-07-29 through 2026-07-31). Turn
   execution is split into order-aware phases, the player state machine lives in
@@ -228,6 +235,53 @@ already carries `cooldown_remaining` and `ready`, and the missing piece is why.
   resolve inside the start handler and never become the active action, so any
   future animation harness must cover that path indirectly (the battle log
   growing) rather than by polling the queue.
+
+## The CPU closes distance bluntly when it cannot reach anyone
+
+Fixed a battle-ending stall (3fae93a) and took a known cost doing it. Battles
+used to stop resolving once the survivors were all ranged or support units
+standing apart: every one of them held position forever, because the scored
+comparison between holding and stepping forward is decided by the threat term
+and every brain but Berserk weighs threat above distance -- Support weighs
+distance at zero. A proving-ground run sat at an unchanged sixty-eight hit
+points from round 28 to round 60.
+
+Deliberation now checks whether any candidate reaches an enemy at all, and when
+none does it takes the reachable cell nearest an enemy instead of the highest
+scored one. That ends battles. It is also blunt on purpose, and the cost is
+real:
+
+- A unit that could heal or buff an ally, while no enemy is reachable from
+  anywhere it can walk, will now advance instead. It regains the heal only if
+  the ally is still in range from the cell it advanced to.
+- Threat is ignored entirely in that case, so a unit will walk into a
+  threatened cell it would otherwise have avoided, having gained nothing that
+  turn.
+
+Both are strictly better than a battle that never ends, which is why it shipped.
+Neither is good play. The real fix is a deliberation that can look past the
+current turn -- a unit that accepts one exposed turn to reach a position it can
+attack from next turn -- and that is a larger change than an anti-stall rule.
+Until then, expect casters and healers to walk toward the enemy whenever nothing
+is in reach.
+
+## The hex battle renders at native scale only
+
+`RetroRenderController` owns `render_scale` and the retro preset, and the hex
+battle never touches it: `HexBattleController` builds its board root and camera
+straight onto the main viewport, with no `SubViewport` anywhere in
+`src/systems/hex_battle/` or `src/presentation/battle/`.
+
+So the reduced render scale HBP-V was asked to replay a battle under does not
+exist on hex, and could not be exercised. The square battle's preset did not
+come across with the migration. The comment in `HexBattleHud` about the board
+possibly rendering at a reduced scale describes an intent that is not currently
+wired -- its reasoning for keeping HUD text native still holds, but nothing
+currently reduces the board's scale.
+
+Decide whether the hex battle should carry the retro preset at all before
+building it. If it should, the acceptance that was deferred here needs running
+against it.
 
 ## Content inconsistencies
 
