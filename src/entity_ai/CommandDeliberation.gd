@@ -324,6 +324,39 @@ func _finish() -> void:
 			return a["score"] > b["score"]
 		return a["tie_key"] < b["tie_key"]
 	)
-	_result = _candidates[0]["command"]
-	_resultScore = int(_candidates[0]["score"])
-	_resultTieKey = str(_candidates[0]["tie_key"])
+	var chosen: Dictionary = _candidates[0]
+	if not _enemyPositions.is_empty() and not _anyCandidateEngagesEnemy():
+		chosen = _closestApproach()
+	_result = chosen["command"]
+	_resultScore = int(chosen["score"])
+	_resultTieKey = str(chosen["tie_key"])
+
+
+func _anyCandidateEngagesEnemy() -> bool:
+	for candidate in _candidates:
+		if bool(candidate["engages_enemy"]):
+			return true
+	return false
+
+
+## Nothing this unit can do from anywhere it can walk touches an enemy, so the
+## only thing worth doing is getting nearer to one.
+##
+## Left to the scores, it would not. Holding position versus stepping forward is
+## decided by the threat term, and every brain but Berserk weighs threat above
+## distance, so a unit out of reach scores its own cell highest and holds -- then
+## scores the same cell highest next turn, forever. A caster with a self-buff
+## stalls the same way for a different reason: buffing itself outscores waiting,
+## so it stands there topping itself up while the battle never ends.
+##
+## This is deliberately blunt. Contact beats positioning, and a battle that
+## reaches a result beats one that reads well and never finishes.
+##
+## Candidates are already sorted and the comparison is strict, so this takes the
+## best-scoring candidate at the nearest reachable distance and is deterministic.
+func _closestApproach() -> Dictionary:
+	var best: Dictionary = _candidates[0]
+	for candidate in _candidates:
+		if int(candidate["enemy_distance"]) < int(best["enemy_distance"]):
+			best = candidate
+	return best

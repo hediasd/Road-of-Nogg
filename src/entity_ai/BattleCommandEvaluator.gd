@@ -66,12 +66,17 @@ func scoreCandidate(
 	var expectedDamage = 0
 	var utility = 0
 	var hasUsefulOutcome = action == "wait"
+	## Whether this command reaches an enemy at all. Buffing or healing your own
+	## side is a real move, but it is not contact, and a side that only ever does
+	## that never ends a battle -- see CommandDeliberation._closestApproach().
+	var engagesEnemy = false
 	if action == "attack" and targetID >= 0:
 		var target = state.getMonster(targetID)
 		expectedDamage = combatResolver.calculateBasicDamage(
 			actor, target, true, destination
 		)
 		hasUsefulOutcome = expectedDamage > 0
+		engagesEnemy = hasUsefulOutcome and target.team != actor.team
 		if expectedDamage >= target.hitpoints:
 			defeats = 1
 			defeatedValue = target.max_hitpoints
@@ -79,6 +84,8 @@ func scoreCandidate(
 		var spell = actor.spellSets[spellSetIndex][spellIndex]
 		for affectedID in affectedTargets:
 			var target = state.getMonster(affectedID)
+			if target.team != actor.team:
+				engagesEnemy = true
 			utility += _declaredEffectUtility(spell, affectedID)
 			if spell.buffs_atk > 0 or spell.removes_status != "" or spell.reverts_damage:
 				utility += 10
@@ -143,7 +150,13 @@ func scoreCandidate(
 		targetPos.y + 1,
 		targetPos.x + 1
 	]
-	return {"score": score, "tie_key": tieKey, "command": command}
+	return {
+		"score": score,
+		"tie_key": tieKey,
+		"command": command,
+		"enemy_distance": nearestEnemyDistance,
+		"engages_enemy": engagesEnemy,
+	}
 
 func sortPositions(positions: Array) -> void:
 	positions.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
