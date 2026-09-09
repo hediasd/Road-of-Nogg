@@ -1,0 +1,349 @@
+[
+	{
+		"CELL_METRICS": {
+			"HEIGHT": 2.0,
+			"HEIGHT_STEP": 0.5,
+			"WIDTH": 2.0
+		},
+		"CELL_OVERRIDES": [
+			{
+				"CELL": [
+					10,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					1
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					5,
+					1
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					6,
+					1
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					7,
+					1
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					8,
+					1
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					10,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					2
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					5,
+					2
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					6,
+					2
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					7,
+					2
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					8,
+					2
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					10,
+					2
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					3
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					5,
+					3
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					6,
+					3
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					7,
+					3
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					8,
+					3
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					10,
+					3
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					5,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					6,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					7,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					8,
+					4
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					12,
+					4
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					5
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					5,
+					5
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					7,
+					5
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					8,
+					5
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					10,
+					5
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					6
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					5,
+					6
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					6,
+					6
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					7,
+					6
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					8,
+					6
+				],
+				"TERRAIN": "rough"
+			},
+			{
+				"CELL": [
+					10,
+					6
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					10,
+					7
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					10,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					10,
+					9
+				],
+				"TERRAIN": "blocked"
+			}
+		],
+		"COORDINATES": "odd_q_offset",
+		"DEFAULT_SURFACE": {
+			"ELEVATION": 0,
+			"TERRAIN": "clear"
+		},
+		"FORMAT_VERSION": 1,
+		"GRID_KIND": "hex_flat",
+		"NAME": "proving_ground",
+		"REVISION": 1,
+		"SIZE": [
+			20,
+			10
+		],
+		"SOURCE": {
+			"FINGERPRINT": "sha256:49b26549eb0753dcda235c9c578315bf4df42a94639736954705c6117c8800ff",
+			"HEADLESS_ONLY": false,
+			"ID": "proving_ground",
+			"REVISION": 1,
+			"VISUAL_SCENE_PATH": "res://scenes/worldmap/generated/proving_ground.tscn"
+		},
+		"SURFACE_MODEL": "single",
+		"TERRAIN_DEFINITIONS": [
+			{
+				"BLOCKS_LOS": true,
+				"CAN_ENTER": false,
+				"CAN_PASS": false,
+				"CAN_STOP": false,
+				"ENDS_MOVEMENT": false,
+				"ID": "blocked",
+				"MOVE_COST": 0,
+				"STATE_CODE": 1
+			},
+			{
+				"BLOCKS_LOS": false,
+				"CAN_ENTER": true,
+				"CAN_PASS": true,
+				"CAN_STOP": true,
+				"ENDS_MOVEMENT": false,
+				"ID": "clear",
+				"MOVE_COST": 1,
+				"STATE_CODE": 0
+			},
+			{
+				"BLOCKS_LOS": false,
+				"CAN_ENTER": true,
+				"CAN_PASS": true,
+				"CAN_STOP": true,
+				"ENDS_MOVEMENT": false,
+				"ID": "rough",
+				"MOVE_COST": 2,
+				"STATE_CODE": 0
+			}
+		],
+		"VALID_MASK": [
+			"00111111111111111100",
+			"00111111111111111100",
+			"00111111111111111100",
+			"00111111111111111100",
+			"00111111111111111100",
+			"00111101111111111100",
+			"00111111111111111100",
+			"00111111111111111100",
+			"00111111111111111100",
+			"00111111111111111100"
+		]
+	}
+]

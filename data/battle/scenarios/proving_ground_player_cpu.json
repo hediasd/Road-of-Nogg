@@ -1,0 +1,20 @@
+[
+	{
+		"FORMAT_VERSION": 1,
+		"NAME": "proving_ground_player_cpu",
+		"REVISION": 1,
+		"MAP": {
+			"PATH": "res://data/battle/maps/proving_ground.json",
+			"ID": "proving_ground",
+			"REVISION": 1,
+			"SOURCE_FINGERPRINT": "sha256:49b26549eb0753dcda235c9c578315bf4df42a94639736954705c6117c8800ff"
+		},
+		"SEED": 20260908,
+		"PARTIES": [
+			{"PARTY_ID": 10, "TEAM_ID": 1, "CONTROLLER": "player", "COMMANDER_ID": 100, "MEMBERS": [{"MEMBER_ID": 100, "MONSTER": "Healer Mage", "LEVEL": 3, "CELL": [2, 2]}, {"MEMBER_ID": 101, "MONSTER": "Envoy of Lightning", "LEVEL": 1, "CELL": [3, 3]}]},
+			{"PARTY_ID": 11, "TEAM_ID": 1, "CONTROLLER": "player", "COMMANDER_ID": 102, "MEMBERS": [{"MEMBER_ID": 102, "MONSTER": "Mage Dragon", "LEVEL": 4, "CELL": [2, 7]}, {"MEMBER_ID": 103, "MONSTER": "Gigasaurus", "LEVEL": 2, "CELL": [3, 6]}]},
+			{"PARTY_ID": 20, "TEAM_ID": 2, "CONTROLLER": "cpu", "COMMANDER_ID": 200, "MEMBERS": [{"MEMBER_ID": 200, "MONSTER": "Oracle of Ages", "LEVEL": 3, "CELL": [17, 2]}, {"MEMBER_ID": 201, "MONSTER": "Smoke Cloud", "LEVEL": 1, "CELL": [16, 3]}]},
+			{"PARTY_ID": 21, "TEAM_ID": 2, "CONTROLLER": "cpu", "COMMANDER_ID": 202, "MEMBERS": [{"MEMBER_ID": 202, "MONSTER": "Megidos", "LEVEL": 4, "CELL": [17, 7]}, {"MEMBER_ID": 203, "MONSTER": "Snowzilla", "LEVEL": 2, "CELL": [16, 6]}]}
+		]
+	}
+]
