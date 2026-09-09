@@ -74,5 +74,16 @@
 		"GRID": 1,
 		"FOG_COLOR": "bae8e2",
 		"VOID_COLOR": "37aeae"
+	},
+	{
+		"NAME": "proving_ground",
+		"DESCRIPTION": "Deliberately unlore'd flat tactical test instrument. Its generated texture is baked from data/worldmap/authored/proving_ground.json with the existing temp2_hex32_ground tileset; it covers both hex column parities and carries no setting, encounters, or world placement.",
+		"KIND": "authored",
+		"TEXTURE": "res://assets/worldmap/regions/generated/proving_ground.png",
+		"TILES_WIDE": 488,
+		"TILES_TALL": 336,
+		"GRID": 1,
+		"FOG_COLOR": "bae8e2",
+		"VOID_COLOR": "37aeae"
 	}
 ]

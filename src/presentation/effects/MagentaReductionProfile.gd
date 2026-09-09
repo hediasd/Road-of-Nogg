@@ -90,26 +90,27 @@ const REFERENCE_CARRIER_RADIUS_TILES := 3
 ## AUTHORED radius the particle field swirls on, as a fraction of the
 ## footprint's world half-extent.
 ##
-## **This effect swirls on a circle, not on the Manhattan diamond the spell
-## actually hits, and that is a deliberate exception** requested 2026-08-09
-## after seeing the diamond-traced version: the wound-up field reads better as a
-## ring than as a rotating quad shape, and the difference from the true
-## footprint was judged not to matter.
+## **This effect swirls on a circle, not on the hex disc the spell has cast
+## since HXB-7, and that is a deliberate exception.** The proportion below was
+## authored against the former diamond footprint on 2026-08-09 and is retained
+## unchanged: the wound-up field reads better as a ring than as a rotating quad
+## shape, and the difference from the true footprint was judged not to matter.
 ##
 ## What that costs, stated plainly because `docs/VFX_DESIGN.md` §4 calls an
-## over-claiming effect a real defect: at 0.707 the circle is inscribed in the
-## diamond and claims strictly less than the spell hits, which is the safe
-## direction. Above that it starts crossing the diamond's edges near the
+## over-claiming effect a real defect: the former diamond comparison set this
+## value above its inscribed-circle fraction. That authored proportion predates
+## HXB-7 and is intentionally unchanged; it formerly crossed the shape near the
 ## diagonals — at this value the field reaches about a quarter-tile past them
-## while staying well inside the diamond's vertices. The **ground wash still
-## draws the true diamond underneath**, so the authoritative read on the
+## while staying well inside the former diamond's vertices. The **ground wash
+## draws the true hex disc underneath**, so the authoritative read on the
 ## footprint is unchanged and only the particles are stylized. Drop this to
 ## SQRT1_2 (0.7071) to make the field strictly conservative again.
 const FIELD_CIRCLE_RADIUS_FRACTION := 0.88
 ## DERIVED: the inscribed circle, used for `cross` and `line` carriers, whose
-## real footprints are much smaller than a diamond of the same radius. Those
+## real footprints are much smaller than the default hex disc of the same radius.
 ## keep the conservative radius rather than the stylized one — the exception
-## above was granted for the diamond case that the carrier actually uses.
+## above was granted for the former diamond case that the carrier used before
+## HXB-7's shape change.
 const FIELD_CIRCLE_CONSERVATIVE_FRACTION := 0.70710678
 ## AUTHORED. This field is near-planar rather than a column: motes hover just
 ## off the ground and sink as they converge, so the silhouette stays legible
@@ -198,10 +199,11 @@ const CHARGE_COMPRESS_FRACTION := 0.26
 # Mote spawn band
 # ---------------------------------------------------------------------------
 
-## AUTHORED inner edge of the spawn band, as a fraction of the diamond limit at
-## each mote's angle. Motes spawn between this and the boundary itself, so the
-## gather reads as an outline rather than as a filled disc. Lowering it thickens
-## the band; at 1.0 every mote starts exactly on the edge, which reads as a
+## AUTHORED inner edge of the spawn band, as a fraction of the former diamond
+## limit at each mote's angle. This proportion predates HXB-7 and is retained
+## unchanged. Motes spawn between this and the boundary itself, so the gather
+## reads as an outline rather than as a filled disc. Lowering it thickens the
+## band; at 1.0 every mote starts exactly on the edge, which reads as a
 ## drawn ring rather than as motes appearing.
 const MOTE_BAND_INNER_FRACTION := 0.85
 ## AUTHORED per-mote stagger in the fade-in, as a fraction of the timeline. This

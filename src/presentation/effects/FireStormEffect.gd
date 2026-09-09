@@ -39,8 +39,8 @@ var _footprintRadius := FireStormProfile.REFERENCE_CARRIER_RADIUS_TILES
 var _groundSpan := 0.0
 ## Matches `Spell.area_shape` / `data/spells.json`'s `AREA_SHAPE`. Defaults to
 ## "circle", the same default `SpellReferences` normalizes onto every spell
-## reference, which `ShapeCaster.getCircle` actually renders as a Manhattan
-## diamond. See `_isDiamondShape()`.
+## reference, which `ShapeCaster.getCircle` has returned as a hex disc since
+## HXB-7. `_isDiamondShape()` retains its legacy name.
 var _areaShape := "circle"
 
 var _groundWash: MeshInstance3D
@@ -565,9 +565,10 @@ static func _smoothstep(edge0: float, edge1: float, value: float) -> float:
 ## Mirrors `CombatResolver._spellAffectedPositions`'s own shape match: only
 ## `cross` and `line` are special-cased there, and everything else — including
 ## `circle` and any unrecognized value — falls through to `ShapeCaster.getCircle`,
-## which is a Manhattan diamond, not a Euclidean circle. For `cross`/`line` the
-## vortex falls back to the inscribed circle, which under-claims rather than
-## over-claims the footprint; the ground wash carries the true shape.
+## which has returned a hex disc since HXB-7. For `cross`/`line` the vortex
+## falls back to the inscribed circle, which under-claims rather than over-claims
+## the footprint; the ground wash carries the true shape. The legacy predicate
+## name is retained so this donor's behavior does not change.
 static func _isDiamondShape(areaShape: String) -> bool:
 	return areaShape != "cross" and areaShape != "line"
 

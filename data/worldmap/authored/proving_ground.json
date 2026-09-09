@@ -1,0 +1,51 @@
+{
+	"DESCRIPTION": "A deliberately unlore'd flat tactical test instrument. It exists to exercise the battle map vocabulary: both hex column parities, weighted routes, line-of-sight blockers, a one-cell crossing, an internal board hole, and far-apart deployments. The inherited temp2 hex art is only a neutral bake surface; no place or setting is asserted here.",
+	"FOG_COLOR": "bae8e2",
+	"FORMAT_VERSION": 1,
+	"LAYERS": [
+		{
+			"GRID_KIND": "tile",
+			"ID": "ground",
+			"KIND": "grid",
+			"RLE": [
+				"200:t000"
+			],
+			"TILESET": "temp2_hex32_ground"
+		},
+		{
+			"GRID_KIND": "cel",
+			"ID": "overlay",
+			"KIND": "grid",
+			"RLE": [
+				"200:-"
+			],
+			"TILESET": ""
+		},
+		{
+			"GRID_KIND": "tile",
+			"ID": "tactical",
+			"KIND": "grid",
+			"RLE": [
+				"2:-", "8:clear", "1:blocked", "7:clear", "2:-",
+				"2:-", "2:clear", "5:rough", "1:clear", "1:blocked", "7:clear", "2:-",
+				"2:-", "2:clear", "5:rough", "1:clear", "1:blocked", "7:clear", "2:-",
+				"2:-", "2:clear", "5:rough", "1:clear", "1:blocked", "7:clear", "2:-",
+				"2:-", "2:clear", "5:rough", "3:clear", "1:blocked", "5:clear", "2:-",
+				"2:-", "2:clear", "2:rough", "1:-", "2:rough", "1:clear", "1:blocked", "7:clear", "2:-",
+				"2:-", "2:clear", "5:rough", "1:clear", "1:blocked", "7:clear", "2:-",
+				"2:-", "8:clear", "1:blocked", "7:clear", "2:-",
+				"2:-", "8:clear", "1:blocked", "7:clear", "2:-",
+				"2:-", "8:clear", "1:blocked", "7:clear", "2:-"
+			],
+			"TILESET": ""
+		}
+	],
+	"LAYOUT": "hex_flat",
+	"NAME": "proving_ground",
+	"PALETTE_REGION": "temp2",
+	"SIZE_TILES": [
+		20,
+		10
+	],
+	"VOID_COLOR": "37aeae"
+}

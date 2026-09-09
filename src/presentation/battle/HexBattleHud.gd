@@ -14,12 +14,16 @@ class_name HexBattleHud
 extends CanvasLayer
 
 const HexPartyPanelScript = preload("res://src/presentation/battle/ui/HexPartyPanel.gd")
+const HexCommandMenuScript = preload("res://src/presentation/battle/ui/HexCommandMenu.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 signal member_selected(monsterID: int)
 signal end_party_requested()
+signal command_chosen(commandID: String)
+signal command_cancelled()
 
 var partyPanel: HexPartyPanel
+var commandMenu: HexCommandMenu
 var _statusLabel: Label
 var _root: Control
 
@@ -45,6 +49,20 @@ func _init() -> void:
 	_root.add_child(partyPanel)
 	partyPanel.member_selected.connect(func(id: int): member_selected.emit(id))
 	partyPanel.end_party_requested.connect(func(): end_party_requested.emit())
+
+	# Opposite corner from the party panel: the panel says who may act, the menu says what the one
+	# who is acting may do, and the two are read at different moments.
+	commandMenu = HexCommandMenuScript.new()
+	commandMenu.name = "CommandMenu"
+	commandMenu.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	commandMenu.position = Vector2(
+		-NoggThemeScript.SCREEN_MARGIN, NoggThemeScript.SCREEN_MARGIN
+	)
+	commandMenu.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	commandMenu.hide()
+	_root.add_child(commandMenu)
+	commandMenu.command_chosen.connect(func(id: String): command_chosen.emit(id))
+	commandMenu.cancelled.connect(func(): command_cancelled.emit())
 
 	_statusLabel = Label.new()
 	_statusLabel.name = "StatusLine"
@@ -113,3 +131,20 @@ func showParty(
 func clearParty() -> void:
 	if partyPanel != null:
 		partyPanel.updateModel({})
+	hideCommands()
+
+
+## Shows the acting member's commands. The model is built by whoever knows the turn; this places
+## it and nothing more, exactly as the party panel is treated.
+func showCommands(model: Dictionary) -> void:
+	if commandMenu == null:
+		return
+	commandMenu.updateModel(model)
+	commandMenu.visible = not model.is_empty()
+
+
+func hideCommands() -> void:
+	if commandMenu == null:
+		return
+	commandMenu.updateModel({})
+	commandMenu.hide()

@@ -97,6 +97,50 @@ func cursorCell() -> Vector2i:
 	return _cursor.cell() if _cursor != null else Vector2i(-1, -1)
 
 
+## Puts the cursor on a named cell, for a mouse that is pointing rather than stepping. Same
+## refusal rule as a keyboard step: a cell the map does not carry is not a place to point.
+func pointCursorAt(cell: Vector2i) -> bool:
+	if _cursor == null or _finished:
+		return false
+	if not _cursor.moveTo(cell, _map):
+		return false
+	if _adapter != null:
+		_adapter.show_player_cursor(cell)
+	return true
+
+
+## What the turn still has left, and whether an undo would be accepted right now.
+##
+## All three read the simulator's own record of the turn in progress rather than flags kept here.
+## The rules are its: a phase is spent once it has resolved, and an undo is legal only while the
+## move is still the only thing that has happened. A second copy of that bookkeeping in this file
+## is exactly the parallel flag the item forbids, and it would drift the first time the simulator
+## refused something this file thought it had allowed.
+##
+## Read directly from the record because publishing a query for it would mean writing to
+## `BattleSimulator`, which this item does not claim.
+func canMove() -> bool:
+	return not bool(_turnRecord().get("has_moved", false))
+
+
+func canAct() -> bool:
+	return not bool(_turnRecord().get("has_acted", false))
+
+
+func canUndoMove() -> bool:
+	var record := _turnRecord()
+	return bool(record.get("has_moved", false)) and not bool(record.get("has_acted", false))
+
+
+func _turnRecord() -> Dictionary:
+	if _sim == null or _finished:
+		return {}
+	var record: Dictionary = _sim._turnAccumulator
+	if int(record.get("monster_id", -1)) != _monsterID:
+		return {}
+	return record
+
+
 ## Walks the member to the cursor, if the simulator accepts the path. Returns its result rather
 ## than a bare bool so a refusal carries its reason.
 func confirmMove(path: Array) -> Dictionary:

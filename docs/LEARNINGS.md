@@ -533,3 +533,53 @@ parameter appears to have no effect, diff the two frames numerically before
 concluding anything about the effect.** A near-zero peak difference means the
 input never arrived; a real but subtle difference looks completely different in
 the numbers even when it is hard to see by eye.
+
+## Diagnosing a fault that only appears at process exit
+
+### A single run is not a measurement
+
+**Consult when:** bisecting anything whose symptom is a crash, hang or leak at
+shutdown rather than during the work.
+
+HBP-4 spent most of its budget re-deriving a table that had been built from
+single runs. Each configuration turned out to be deterministic — 13 of 13, 0 of
+5, 0 of 3 — but that was only knowable by running each one repeatedly, and the
+original table's "clean" rows had each been observed once. A row that says clean
+after one run is a hypothesis, not a result.
+
+Worse, a configuration can look unstable when it is not: two runs of "the same"
+setup disagreed because three `preload` lines had been added to the probe in
+between. The configuration had changed; the fault had not. Before concluding
+that a shutdown fault is timing-dependent, check that nothing about the loaded
+graph moved.
+
+### The obvious hypothesis was backwards
+
+The natural theory for "a mix of effects crashes at exit" is that more of them,
+or more of ours, is worse. It is not. A probe loading *every* hex effect script
+and building all fourteen catalog profiles exits cleanly; one loading fewer
+scripts and building nine crashes every time. What matters is the composition of
+the loaded script and resource graph at teardown — not its size, and not which
+objects were instantiated.
+
+### The crash eats its own evidence
+
+Godot's `ObjectDB instances leaked at exit` report is printed during the cleanup
+that is faulting, so it does not survive. On this host `--verbose` redirected
+through a shell produced an empty file, and a probe launcher that captures
+stdout through `ProcessStartInfo` ends its capture at the fault too.
+
+Counters read *before* `quit()` — `Performance.OBJECT_COUNT`,
+`OBJECT_RESOURCE_COUNT`, `OBJECT_NODE_COUNT`, `OBJECT_ORPHAN_NODE_COUNT` — are
+the view of the retained graph that does survive, and they are worth printing
+from any probe that touches this area. They are a summary, not a graph: they
+will tell you *that* something is retained, never *what* retains it.
+
+### Write the probe so its polarity is impossible to misread
+
+A reproducer for a live bug passes while the bug is present, which inverts every
+habit a reader has. `probe_shutdown.gd` states the three outcomes in its own
+header — marker plus non-zero exit means the bug is still here, marker plus exit
+zero means it is fixed and the probe should be deleted, no marker means a real
+failure. Without that, the first person to run it reads a red line as a
+regression they caused.

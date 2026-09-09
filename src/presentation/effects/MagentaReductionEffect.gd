@@ -47,8 +47,8 @@ var _footprintRadius := MagentaReductionProfile.REFERENCE_CARRIER_RADIUS_TILES
 var _groundSpan := 0.0
 ## Matches `Spell.area_shape` / `data/spells.json`'s `AREA_SHAPE`. Defaults to
 ## "circle", the same default `SpellReferences` normalizes onto every spell
-## reference, which `ShapeCaster.getCircle` actually renders as a Manhattan
-## diamond. See `_isDiamondShape()`.
+## reference, which `ShapeCaster.getCircle` has returned as a hex disc since
+## HXB-7. `_isDiamondShape()` retains its legacy name.
 var _areaShape := "circle"
 
 var _groundWash: MeshInstance3D
@@ -864,14 +864,14 @@ static func _smoothstep(edge0: float, edge1: float, value: float) -> float:
 ## Mirrors `CombatResolver._spellAffectedPositions`'s own shape match: only
 ## `cross` and `line` are special-cased there, and everything else — including
 ## `circle` and any unrecognized value — falls through to `ShapeCaster.getCircle`,
-## which is a Manhattan diamond, not a Euclidean circle.
+## which has returned a hex disc since HXB-7.
 ##
-## Unlike the two storms, this effect does not trace that diamond: its field is
-## a circle by deliberate choice, and this predicate only selects *which* circle.
-## Diamond carriers get the stylized `FIELD_CIRCLE_RADIUS_FRACTION`;
-## `cross`/`line`, whose real footprints are far smaller than a diamond of the
-## same radius, keep the conservative inscribed one. The ground wash carries the
-## true shape in every case.
+## Unlike the two storms, this effect does not trace that hex disc: its field is
+## a circle by deliberate choice, and this legacy-named predicate only selects
+## *which* circle. The stylized `FIELD_CIRCLE_RADIUS_FRACTION` predates HXB-7's
+## shape change and is deliberately not retuned here; `cross`/`line` keep the
+## conservative inscribed one. The ground wash carries the true shape in every
+## case.
 static func _isDiamondShape(areaShape: String) -> bool:
 	return areaShape != "cross" and areaShape != "line"
 
