@@ -1630,5 +1630,226 @@
 				"WALKABLE": ""
 			}
 		]
+	},
+	{
+		"DESCRIPTION": "A clean 15-frame flat-top hex starter at 32 px. It uses the verified temp2 land, sea and grass colours as manual base and edge examples; it is not a complete autotile or Wang set. Frames are 5 columns by 3 rows with zero margin and spacing, and transparent corners preserve the project’s stretched 32 px flat-top geometry.",
+		"FRAME_PX": 32,
+		"GRID_KIND": "tile",
+		"NAME": "temp2_hex32_starter",
+		"NEXT_ID": 15,
+		"PALETTE_REGION": "temp2",
+		"SHEET": "res://assets/worldmap/tilesets/temp2_hex32_starter.png",
+		"TILES": [
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					0,
+					0
+				],
+				"HASH": "8f5b1646b762e03f",
+				"ID": "t000",
+				"LABEL": "Land",
+				"LIFTABLE": false,
+				"TERRAIN": "land",
+				"VARIANT": "base",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					1,
+					0
+				],
+				"HASH": "d4a7dd2a7f3fa2b8",
+				"ID": "t001",
+				"LABEL": "Sea",
+				"LIFTABLE": false,
+				"TERRAIN": "sea",
+				"VARIANT": "base",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					2,
+					0
+				],
+				"HASH": "061b2b86c845fd89",
+				"ID": "t002",
+				"LABEL": "Grass",
+				"LIFTABLE": false,
+				"TERRAIN": "grass",
+				"VARIANT": "base",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					3,
+					0
+				],
+				"HASH": "4621cd90ddb87e06",
+				"ID": "t003",
+				"LABEL": "Land with sea lower-right edge",
+				"LIFTABLE": false,
+				"TERRAIN": "land",
+				"VARIANT": "sea_edge_0",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					4,
+					0
+				],
+				"HASH": "1d4947ee0bf65b09",
+				"ID": "t004",
+				"LABEL": "Land with sea bottom edge",
+				"LIFTABLE": false,
+				"TERRAIN": "land",
+				"VARIANT": "sea_edge_1",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					0,
+					1
+				],
+				"HASH": "8dc41047db98efca",
+				"ID": "t005",
+				"LABEL": "Land with sea lower-left edge",
+				"LIFTABLE": false,
+				"TERRAIN": "land",
+				"VARIANT": "sea_edge_2",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					1,
+					1
+				],
+				"HASH": "c67d38e49ac072ea",
+				"ID": "t006",
+				"LABEL": "Land with sea upper-left edge",
+				"LIFTABLE": false,
+				"TERRAIN": "land",
+				"VARIANT": "sea_edge_3",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					2,
+					1
+				],
+				"HASH": "3c1a8274317294bf",
+				"ID": "t007",
+				"LABEL": "Land with sea top edge",
+				"LIFTABLE": false,
+				"TERRAIN": "land",
+				"VARIANT": "sea_edge_4",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					3,
+					1
+				],
+				"HASH": "fd6d01b9e97a5326",
+				"ID": "t008",
+				"LABEL": "Land with sea upper-right edge",
+				"LIFTABLE": false,
+				"TERRAIN": "land",
+				"VARIANT": "sea_edge_5",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					4,
+					1
+				],
+				"HASH": "6bd50fd549cf2821",
+				"ID": "t009",
+				"LABEL": "Grass with land lower-right edge",
+				"LIFTABLE": false,
+				"TERRAIN": "grass",
+				"VARIANT": "land_edge_0",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					0,
+					2
+				],
+				"HASH": "1568ec280cb3c812",
+				"ID": "t010",
+				"LABEL": "Grass with land bottom edge",
+				"LIFTABLE": false,
+				"TERRAIN": "grass",
+				"VARIANT": "land_edge_1",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					1,
+					2
+				],
+				"HASH": "47a792d34bafd9ee",
+				"ID": "t011",
+				"LABEL": "Grass with land lower-left edge",
+				"LIFTABLE": false,
+				"TERRAIN": "grass",
+				"VARIANT": "land_edge_2",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					2,
+					2
+				],
+				"HASH": "71f536d7c1b37cdd",
+				"ID": "t012",
+				"LABEL": "Grass with land upper-left edge",
+				"LIFTABLE": false,
+				"TERRAIN": "grass",
+				"VARIANT": "land_edge_3",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					3,
+					2
+				],
+				"HASH": "233cf45a60916500",
+				"ID": "t013",
+				"LABEL": "Grass with land top edge",
+				"LIFTABLE": false,
+				"TERRAIN": "grass",
+				"VARIANT": "land_edge_4",
+				"WALKABLE": ""
+			},
+			{
+				"AUTOTILE": "",
+				"CELL": [
+					4,
+					2
+				],
+				"HASH": "14391cbf471e9277",
+				"ID": "t014",
+				"LABEL": "Grass with land upper-right edge",
+				"LIFTABLE": false,
+				"TERRAIN": "grass",
+				"VARIANT": "land_edge_5",
+				"WALKABLE": ""
+			}
+		]
 	}
 ]
