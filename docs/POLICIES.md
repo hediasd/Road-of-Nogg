@@ -87,21 +87,11 @@ prevents a lost update:
   a `Plan-Item:` trailer. `git revert` on such a commit is a clean undo that
   later items do not fight.
 
-**Releasability is a separate problem, and that is what branching does solve.**
-Under the shared-`main` contract every plan item landed on `main` while still
-"implemented; pending end-of-plan validation", so `main` was never a known-good
-state mid-cycle, and undoing a cycle meant enumerating its commits by hand. A
-cycle branch merged with `--no-ff` fixes both: `main` only ever advances to a
-validated cycle, and the merge commit is a single revertable handle for the
-whole thing. It is a coarse rollback layer on top of the per-item one, not a
-replacement for it.
-
-That branch is scoped to a *cycle*, never to a session, precisely because
-sessions cannot be isolated by one. The cost is the window rule: with one tree,
-work started during a cycle has nowhere else to go, so unrelated commits ride
-along on the branch and one cycle runs at a time. For a solo project that is a
-smaller price than either serializing the work or paying a 320 MB `.godot`
-reimport for a second checkout.
+**Releasability remains a separate problem from concurrency.** This repository
+optimizes for several active plans and models: planned and regular work share
+the current branch unless the user explicitly requests a plan branch as a
+coarse recovery boundary. Item-scoped commits, complete path ownership and
+explicit-path staging remain the practical rollback and coexistence mechanisms.
 
 Beyond that:
 
@@ -148,9 +138,22 @@ Verification is therefore manual, which is what shapes the rules in `AGENTS.md`,
 "Running the checks". See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for the
 executable workflow and Windows safeguards.
 
-Concurrency makes manual verification stricter rather than looser, and the
-reason is that a launch observes the whole working tree rather than one item's
-diff. During a wave it renders other sessions' half-finished work alongside the
+### Concurrent verification policy
+
+The repository now permits several plans and model sessions to run at once.
+Launches and probes therefore record the tested revision, owned paths and any
+unrelated in-flight changes that could affect the observation. This attribution
+is a coexistence practice, not a reason to wait for a quiet tree. Self-contained
+checks stay with the item that creates them, deferred checks remain consolidated
+when they need behavioural or visual observation, and failures outside owned
+paths are reported rather than opportunistically repaired.
+
+### Superseded quiet-tree rationale
+
+The following historical rationale explains the retired quiet-tree approach;
+the concurrent verification policy above is current. A launch observes the
+whole working tree rather than one item's diff. During a wave it renders other
+sessions' half-finished work alongside the
 item under test, so any conclusion is unsound in both directions — a failure
 may not be yours, and a pass may depend on something about to change. Hence the
 quiet tree: no other session editing while behaviour is being judged, and an

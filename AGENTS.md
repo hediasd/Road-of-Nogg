@@ -32,19 +32,14 @@ the overwrite hazard.
   two sessions overwriting each other; only path ownership and explicit-path
   staging do that. What a branch buys is a `main` that never holds a
   half-finished cycle, and a one-command undo for a whole cycle.
-- **Regular work — anything not driven by a plan — commits directly to
-  `main`.** No branch, no ask.
-- **An implementation cycle runs on its own branch**, `plan/<cycle-slug>`,
-  created when the cycle opens and merged back with `--no-ff` when its
-  validation passes. See "Plan lifecycle".
-- **The window rule: while a cycle branch is checked out, everything committed
-  in this tree goes on it** — plan items and unrelated work alike. Do not check
-  out `main` to slip a quick fix in beside a running cycle; the checkout would
-  change files under sessions that are mid-edit. The merge may therefore carry
-  work that was not in the plan, which is accepted.
-- **Never switch branches while another session may be running.** Creating,
-  merging, and deleting a branch happen only at cycle boundaries, in a quiet
-  tree, and the user says when the tree is quiet.
+- **Regular and planned work both commit directly to the currently checked-out
+  branch, normally `main`.** Several plans may execute at once. A plan branch
+  is an opt-in, user-requested recovery boundary; never create, switch, merge,
+  or delete one merely because a plan exists.
+- **Concurrent execution is the default.** Do not wait for a quiet tree, a
+  clean status, another plan, or another model session before starting your
+  owned item. Coordinate through complete, disjoint `Touches` lists and
+  explicit hand-offs for genuine overlapping ownership.
 - **A dirty `git status` is the normal state.** Other sessions have work in
   flight. It is never a reason to pause, ask, clean, or delay your own commit.
   Do not report on it, do not tidy it, do not wait for it.
@@ -69,12 +64,12 @@ the overwrite hazard.
   `git checkout -- .`, and any `git restore`/`git checkout` without a pathspec.
   To undo your own edit, name your own paths:
   `git restore --source=HEAD -- <your path>`.
-- **Only one session may launch the game at a time**, and the tree it launches
-  carries every other session's in-flight edits. See "Running the checks".
-- A separate worktree is for exactly one case: work that may need to be
-  abandoned wholesale and cannot wait for the current cycle. Say so and get the
-  user's go-ahead before creating one — a checkout pays a full `.godot`
-  reimport.
+- **Launching and probes may run while other sessions edit.** Treat their
+  result as evidence for the exact revision and owned paths exercised; record
+  unrelated in-flight changes that can affect the result, but do not wait for
+  them or repair their paths.
+- A separate worktree is optional, never a substitute for path ownership. Ask
+  before creating one because it changes checkout and import state.
 - **Never leave a branch behind.** Any session that creates, merges, or deletes
   a branch runs the audit in "Branch hygiene" afterwards and reports the
   result.
@@ -144,10 +139,11 @@ git worktree list
 
 ## Implementation plans
 
-A plan lives in `docs/plans/<cycle-slug>.md`. **One cycle is active at a
-time**, because the one working tree carries one branch and the window rule
-puts everything committed during that window on it. A second cycle waits for
-the first to merge. `docs/plans/README.md` carries the item and wave template.
+A plan lives in `docs/plans/<cycle-slug>.md`. **Any number of cycles may be
+active at once.** Their items may run in parallel when their `Touches` lists
+are disjoint; overlapping paths require an explicit sequential lane or a
+user-coordinated ownership transfer. `docs/plans/README.md` carries the item
+and wave template.
 
 There is no `implementation_plan.md` at the repository root. It held one cycle
 at a time under the previous contract and was removed when the Second Window
@@ -196,7 +192,8 @@ Each item carries:
     runs these itself and records the result in its own commit body. Never
     defer a self-contained check.
   - **Deferred:** needs the game launched and its behaviour or appearance
-    looked at, so it needs a quiet tree. One consolidated line.
+    looked at. Record the revision and unrelated in-flight changes that could
+    affect the observation. One consolidated line.
 
   An item with no Deferred line is fully verified when it commits.
 
@@ -261,17 +258,17 @@ the plan author's job, and it is the point where conflicts are designed out.
 
 ### Where validation runs
 
-The invariant is a **quiet tree** — no other session editing — because a launch
-observes the whole tree rather than one item's diff. A wave of its own is one
-way to get a quiet tree, not the requirement itself. The plan author picks one
+Validation is scoped to the item revision and its owned paths. A launch can
+observe concurrent edits, so the validating session records that context and
+does not attribute failures outside its ownership. The plan author picks one
 of three forms and names it in the wave table:
 
 - **Inline** — no validation item exists, because no item had a deferred
   check; each item proved its own checks when it committed. Write
   `validation: inline, no deferred checks` where the final wave would be.
 - **Folded** — the validation item is the tail of the final wave's single
-  session, taken as a lane: implement, commit, then validate in the now-quiet
-  tree and commit the validation item separately. Legal only when all three
+  session, taken as a lane: implement, commit, then validate against that
+  revision and commit the validation item separately. Legal only when all three
   hold: the final wave runs **one** session, that session already owns the code
   the deferred checks look at, and acceptance is observable pass/fail rather
   than a fresh-eyes judgement of look, feel or design. This is the form to
@@ -285,9 +282,9 @@ of three forms and names it in the wave table:
   wrongly folded one costs a validation nobody independently made.
 
 A validation wave need not be last. When a boundary item is what every later
-wave builds on, the plan may place an **early validation wave** right after it —
-alone, quiet tree, its own item and commit — so the rest of the cycle stops
-inheriting an unverified foundation. Checks it clears do not repeat later.
+wave builds on, the plan may place an **early validation wave** right after it,
+with its own item and commit, so the rest of the cycle stops inheriting an
+unverified foundation. Checks it clears do not repeat later.
 
 ## Recording what an item found
 
@@ -319,44 +316,32 @@ commit's subject and body must still stand alone without it.
 
 ## Rolling back
 
-Rollback has two levels: the commit and the cycle.
+Rollback is normally item-scoped; an optional user-requested plan branch may
+also provide a cycle-level merge commit.
 
 - Undo one item: `git revert <sha>`. Because items own disjoint paths,
   reverting an earlier item does not conflict with later ones.
 - Undo a wave: revert its commits newest-first.
-- Undo a merged cycle: `git revert -m 1 <merge sha>`. This is what the `--no-ff`
-  merge is for. Read the merge's diff first — under the window rule it may
-  carry work that was never part of the plan.
-- Abandon a cycle before it merges: `main` never saw it, so leave the branch
-  unmerged and tell the user. Delete it only when they say so.
+- Undo a user-requested merged cycle: `git revert -m 1 <merge sha>`. Read the
+  merge's diff first. Plans executed on `main` are reverted item-by-item.
 - A cycle's item footprint is `git log --grep="Plan-Item: <PREFIX>"`.
-- Push the active branch to `origin` at every wave boundary, and push `main`
-  after each merge. The pushed branch is the durable recovery point if the
-  local tree becomes unrecoverable.
+- Push a user-requested active branch at wave boundaries; otherwise push the
+  current shared branch at ordinary integration points.
 - If `git revert` refuses or conflicts because another session holds
   uncommitted edits in the same paths, stop and tell the user. Do not force it.
 
 ## Plan lifecycle
 
-Opening a cycle, in a quiet tree, with the user's go-ahead:
-
-```
-git switch -c plan/<cycle-slug>
-```
-
-Then add the cycle file under `docs/plans/`, beginning with a dated
-one-paragraph preamble stating what the cycle is for. From here the window rule
-applies: everything this tree commits lands on the branch.
+Opening a cycle does not change branches. Add the cycle file under
+`docs/plans/` with a dated one-paragraph preamble, then execute its disjoint
+items alongside other active plans. A cycle file freezes when execution starts.
 
 Closing is not a separate errand. **The turn that finishes the cycle's last
-item also merges it and cleans up** — do not end a turn reporting "branch
-unmerged, pending merge" as though that were a resting state. An open design
-question the cycle surfaced does not hold the merge: record it in the backlog
-and the relevant design note, merge, and raise it with the user afterwards.
-Only a *failing* validation holds a merge.
+item closes its documentation and reports the result.** An open design question
+does not block closure: record it in the backlog and relevant design note.
+Only a *failing* validation holds closure.
 
-Closing a cycle, after the cycle's validation passes and no session is
-editing:
+Closing a cycle after its validation passes:
 
 - Move genuinely open items to the appropriate backlog, name them to the user,
   and delete the cycle file in the same commit.
@@ -365,23 +350,12 @@ editing:
   high on purpose and is stated in `docs/sketches/README.md`: keep the artifact
   that settles a judgement call, not the proof output that a commit body
   already records.
-- Merge and clean up:
+- If the user explicitly requested a plan branch, merge and clean it up under
+  the branch rules; otherwise no merge is needed. Run the branch hygiene audit
+  only after an actual branch action or when asked about branch state.
 
-  ```
-  git switch main
-  git merge --no-ff plan/<cycle-slug> -m "merge: <what the cycle delivered>"
-  git push origin main
-  git branch -d plan/<cycle-slug>
-  git push origin --delete plan/<cycle-slug>
-  ```
-
-- Run the "Branch hygiene" audit and report it.
-
-The cycle file stays recoverable with `git show <ref>:<path>`. Do not append a
-new cycle to a finished file, and do not retain completed items in it.
-
-A cycle that was already in flight when this contract landed stays on `main`;
-do not retroactively move it to a branch.
+The cycle file stays recoverable in Git history. Do not append a new cycle to a
+finished file, and do not retain completed items in it.
 
 ## Running the checks
 
@@ -389,24 +363,23 @@ There is no automated test suite, check runner, or git hooks. Verify changes by
 launching the game manually and exercising the affected behavior; follow the
 Windows safeguards in `docs/DEVELOPMENT.md`.
 
-**The tree you launch contains every concurrent session's in-flight edits.**
-That has consequences:
+**The tree you launch can contain concurrent sessions' in-flight edits.** That
+requires careful attribution, not serialization:
 
-- **Launching is gated on a quiet tree, not on a wave boundary.** Do not
-  launch the game while another session may be editing, and a wave of two or
-  more sessions is never quiet. A narrow compile/load probe is allowed even
-  then when later items cannot safely build on potentially unusable code;
-  record it as an intermediate smoke check, not acceptance evidence.
+- Launching is allowed at any time. Before launch, record the commit/revision
+  and inspect the focused owned diff; treat unrelated changes as environment
+  context. A narrow compile/load probe remains useful when later items depend
+  on a potentially unusable boundary.
 - If a probe fails in a path you do not own, report it in one line and continue
   your own item. Do not fix it — it is another session's work mid-flight.
 - A self-contained check runs inside the item that owns it, and its result
   goes in that item's commit body. Do not push it into the validation item:
   deferring checks that never needed a quiet tree is what used to make
   validation an extra wave.
-- Deferred checks run in the validation item, in the form the wave table names
-  — inline, folded or standalone — after every item feeding it is committed and
-  no other session is editing. Exercise the union of those checks and reuse one
-  integrated flow where it covers several items.
+- Deferred checks run in the validation item, in the form the wave table names,
+  after every item feeding it is committed. Exercise the union of those checks,
+  reuse one integrated flow where it covers several items, and record
+  concurrent-tree context.
 - If validation finds a defect, fix it in that session, rerun the
   relevant consolidated checks, and record both in that item's commit. Do not
   reopen every prior item to repeat the same validation.

@@ -10,17 +10,12 @@ larger Tiled-like programme remains staged rather than silently bundled here.
 
 ## Opening and execution status
 
-**Authored, not executing.** This planning turn does not open a cycle, switch
-branches, launch Godot, or claim implementation completion. Planning files may
-be committed to the current branch under the regular-work rule.
-
-The opener must first establish that no other cycle is executing and obtain
-the user's confirmation that the shared tree is quiet. Then create
-`plan/hex-editor-workspace` from the agreed current state and run the branch
-hygiene audit in `AGENTS.md`. Do not switch branches to work around another
-session. The older `worldmap-editor.md` and `worldmap-hex-authoring.md` files
-are historical context, not additional dispatch queues for these same paths.
-If one of those cycles is actually still executing, this one waits.
+**Authored, not executing.** This planning turn does not claim implementation
+completion. The cycle executes on the current shared branch alongside other
+plans. Use the wave table's disjoint `Touches` lists and explicit-path commits
+for coexistence; do not wait for a quiet tree or switch branches for this plan.
+The older `worldmap-editor.md` and `worldmap-hex-authoring.md` files are
+historical context, not additional dispatch queues for these same paths.
 
 Freeze this file when execution starts. Findings and changed assumptions go
 in one commit per item, ending with `Plan-Item: HXW-<number>`; never edit this
@@ -726,4 +721,4 @@ the accepted flat-colour starter.
 | 1 | HXW-1, HXW-2, HXW-3 — three Sonnet 5 / GPT Terra sessions | History + its probe; starter assets/catalog/guide + its probes; picker + its probe. No shared write path and no full scene launch. A single Terra session may run these sequentially if preferred. |
 | 2 | HXW-4 → HXW-5 → HXW-6 — one Opus 5 / GPT Sol lane, one commit per item | Dependency-consecutive editor integration work with overlapping controller/HUD/workspace ownership. Keep it in one session to reuse context and avoid shared-file collisions. |
 | 3 | HXW-7 — one Sonnet 5 / GPT Terra session | Documentation only, after behaviour and decisions are committed. |
-| 4 | HXW-8 — one fresh Opus 5 / GPT Sol session | **Validation: standalone, alone, quiet tree.** Appearance/usability judgment and cross-component exports make folding inappropriate. The session also closes/merges the cycle. |
+| 4 | HXW-8 — one fresh Opus 5 / GPT Sol session | **Validation: standalone.** Appearance/usability judgment and cross-component exports make folding inappropriate. Record concurrent-tree context; the session closes the cycle without a branch merge. |
