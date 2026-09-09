@@ -34,6 +34,8 @@ const HexBattleHudScript = preload("res://src/presentation/battle/HexBattleHud.g
 const HexBattleSetupUIScript = preload("res://src/presentation/battle/HexBattleSetupUI.gd")
 const HexBattlePlaybackScript = preload("res://src/presentation/battle/HexBattlePlayback.gd")
 const HexBattleMemberTurnScript = preload("res://src/systems/hex_battle/HexBattleMemberTurn.gd")
+const HexBattleMemberInputScript = preload(
+	"res://src/systems/hex_battle/HexBattleMemberInput.gd")
 const BattleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
 const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
@@ -60,6 +62,7 @@ var setupUI: HexBattleSetupUI
 var playback: HexBattlePlayback
 var cursor: HexBattleCursor
 var memberTurn: HexBattleMemberTurn
+var memberInput: HexBattleMemberInput
 
 var lifecycle: Lifecycle = Lifecycle.SETUP
 var map: BattleMapDefinition
@@ -104,6 +107,7 @@ func teardownBattle() -> void:
 	if memberTurn != null:
 		memberTurn.cancel()
 		memberTurn = null
+	memberInput = null
 	if adapter != null:
 		adapter.disconnectFromEvents()
 		adapter.dispose()
@@ -184,6 +188,8 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	add_child(hud)
 	hud.member_selected.connect(_onHudMemberSelected)
 	hud.end_party_requested.connect(_onHudEndParty)
+	hud.command_chosen.connect(_onHudCommandChosen)
+	hud.command_cancelled.connect(_onHudCommandCancelled)
 
 	playback = HexBattlePlaybackScript.new(adapter)
 	cursor = HexBattleCursorScript.new()
@@ -314,13 +320,45 @@ func _onHudMemberSelected(monsterID: int) -> void:
 		return
 	memberTurn = HexBattleMemberTurnScript.new(sim, adapter, cursor, map, monsterID)
 	memberTurn.turn_finished.connect(_onMemberTurnFinished, CONNECT_ONE_SHOT)
+	memberInput = HexBattleMemberInputScript.new(memberTurn, sim, adapter, map)
+	memberInput.menu_changed.connect(_onMenuChanged)
+	memberInput.menu_dismissed.connect(_onMenuDismissed)
+	memberInput.status_changed.connect(_onMemberStatus)
 	if hud != null:
 		hud.showParty(sim, int(sim.state.activePartyID), monsterID, true)
-	memberTurn.begin()
+	memberInput.begin()
+
+
+func _onMenuChanged(model: Dictionary) -> void:
+	if hud != null:
+		hud.showCommands(model)
+
+
+func _onMenuDismissed() -> void:
+	if hud != null:
+		hud.hideCommands()
+
+
+func _onMemberStatus(text: String) -> void:
+	if hud != null:
+		hud.setStatus(text)
+
+
+func _onHudCommandChosen(commandID: String) -> void:
+	if memberInput != null:
+		memberInput.chooseCommand(commandID)
+
+
+func _onHudCommandCancelled() -> void:
+	if memberInput != null:
+		memberInput.cancel()
 
 
 func _onMemberTurnFinished(monsterID: int) -> void:
 	memberTurn = null
+	memberInput = null
+	if hud != null:
+		hud.hideCommands()
 	playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
 	if hud != null and sim != null and sim.state.activePartyID != -1:
 		hud.showParty(sim, int(sim.state.activePartyID), -1, true)
@@ -342,6 +380,8 @@ func _onHudEndParty() -> void:
 	_checkFinished()
 
 
+## Camera first, then the member turn. Both devices reach the same cursor -- see
+## `HexBattleMemberInput` for why neither locks the other out.
 func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE or battleCamera == null:
 		return
@@ -350,17 +390,115 @@ func _unhandled_input(event: InputEvent) -> void:
 			MOUSE_BUTTON_WHEEL_UP:
 				battleCamera.zoom(-1.0)
 				get_viewport().set_input_as_handled()
+				return
 			MOUSE_BUTTON_WHEEL_DOWN:
 				battleCamera.zoom(1.0)
 				get_viewport().set_input_as_handled()
+				return
 	elif event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_Q:
 				battleCamera.orbitDetent(-1)
 				get_viewport().set_input_as_handled()
+				return
 			KEY_E:
 				battleCamera.orbitDetent(1)
 				get_viewport().set_input_as_handled()
+				return
+	_handleMemberInput(event)
+
+
+## Input reaches a member turn only while one is open, which is only ever true for the player's
+## own party -- `_onHudMemberSelected` is the single place a turn is opened and it refuses any
+## other party. There is no second condition to re-check here.
+func _handleMemberInput(event: InputEvent) -> void:
+	if memberInput == null or memberTurn == null or memberTurn.isFinished():
+		return
+
+	if event is InputEventKey and event.pressed and not event.echo:
+		match event.keycode:
+			KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+				memberInput.confirm()
+				get_viewport().set_input_as_handled()
+				return
+			KEY_ESCAPE:
+				if memberInput.cancel():
+					get_viewport().set_input_as_handled()
+				return
+		var direction := _directionFor(event.keycode)
+		if direction != Vector2.ZERO:
+			if memberInput.aimDirection(direction, _projectCell):
+				get_viewport().set_input_as_handled()
+			return
+
+	if not memberInput.isAiming():
+		return
+
+	if event is InputEventMouseMotion:
+		var hovered := _cellAtPoint(event.position)
+		if hovered.x >= 0:
+			memberInput.aimAt(hovered)
+		return
+
+	if event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_LEFT:
+		var clicked := _cellAtPoint(event.position)
+		if clicked.x < 0:
+			return
+		# Aimed and confirmed in one gesture, so a click cannot commit a cell other than the one
+		# under the pointer -- the cursor is moved there first and the confirm reads the cursor.
+		memberInput.aimAt(clicked)
+		memberInput.confirm()
+		get_viewport().set_input_as_handled()
+
+
+## Screen axes, y growing downward, which is what `HexBattleCursor` resolves against. Arrows and
+## the WASD cluster produce the same four vectors; the diagonals reach the remaining two
+## neighbours directly, and four-way input reaches them through the nearer cardinal.
+func _directionFor(keycode: Key) -> Vector2:
+	match keycode:
+		KEY_UP, KEY_W: return Vector2(0.0, -1.0)
+		KEY_DOWN, KEY_S: return Vector2(0.0, 1.0)
+		KEY_LEFT, KEY_A: return Vector2(-1.0, 0.0)
+		KEY_RIGHT, KEY_D: return Vector2(1.0, 0.0)
+	return Vector2.ZERO
+
+
+## The live camera's projection of a cell centre, handed to the cursor so a direction is resolved
+## against the board as it currently sits on screen.
+func _projectCell(cell: Vector2i) -> Vector2:
+	if battleCamera == null or adapter == null:
+		return Vector2.ZERO
+	return battleCamera.projectToScreen(adapter.worldPositionOf(cell))
+
+
+## Which cell a viewport point is over, or (-1, -1).
+##
+## Nearest projected centre, then confirmed against that cell's own projected outline, so a point
+## in the gap outside the board picks nothing rather than the least-wrong cell. Deliberately the
+## same projection the keyboard resolves through: a hover and an arrow key that land on the same
+## cell agree because they are reading the same geometry, not two approximations of it.
+func _cellAtPoint(point: Vector2) -> Vector2i:
+	if adapter == null or battleCamera == null or map == null:
+		return Vector2i(-1, -1)
+	var best := Vector2i(-1, -1)
+	var bestDistance := INF
+	for cell: Vector2i in map.validCells():
+		var projected := _projectCell(cell)
+		if projected == Vector2.ZERO:
+			continue
+		var distance := projected.distance_squared_to(point)
+		if distance < bestDistance:
+			bestDistance = distance
+			best = cell
+	if best.x < 0:
+		return best
+	var outline := PackedVector2Array()
+	for vertex: Vector3 in adapter.layout.cellPolygon(best):
+		outline.append(battleCamera.projectToScreen(vertex))
+	if not Geometry2D.is_point_in_polygon(point, outline):
+		return Vector2i(-1, -1)
+	return best
 
 
 # --- completion -------------------------------------------------------------

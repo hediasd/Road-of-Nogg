@@ -106,6 +106,44 @@ terrain defence/evasion, capture, resurrection, turn limits, reinforcements,
 campaign consequences, or additional victory objectives. They are optional
 follow-on systems rather than implied parts of the first playable.
 
+### Commanding a member
+
+A member's turn opens on its command menu rather than on a bare cursor. Every
+aim is entered from that menu and cancelled back to it, so a key never means two
+different things depending on state the player cannot see.
+
+- **Move** and **Attack** begin an aim. Each spell the member can currently cast
+  is its own row.
+- **Undo move** appears while the move is still the only thing that has
+  happened. It is offered exactly when the simulation would accept it.
+- **End turn** closes the turn. Waiting consumes a member's turn exactly as
+  acting does.
+
+Move and action may happen in either order, and the menu offers whichever is
+still unspent. A turn that has spent both closes on its own.
+
+While aiming:
+
+- Arrow keys or WASD step the cursor one hex. Direction is resolved against the
+  camera as it currently sits, so "up-left" means the neighbour that is up and
+  left on screen, at any rotation.
+- Moving the mouse points the cursor at the cell under it. Clicking aims and
+  confirms in one gesture.
+- Enter or Space confirms the cursor's cell. Escape backs out to the menu.
+- Q and E rotate the camera; the wheel zooms. These stay live during an aim.
+
+**One cursor, and the last device to move it owns it.** Mouse and keyboard drive
+the same cursor rather than each keeping its own, so there is exactly one
+selected cell and a confirm can only mean that cell. Neither device locks the
+other out: reaching for the mouse moves the cursor to what the mouse is over,
+and a following arrow key steps from there instead of jumping back. Making one
+device authoritative would leave the visible cursor and the device in the
+player's hand disagreeing, which is worse than either occasionally moving the
+other's selection.
+
+Input reaches a member turn only while one is open, and a turn opens only for
+the player's own active party.
+
 ## Current square baseline: battle format
 
 - Battles use a square grid and currently support two teams.
