@@ -70,6 +70,10 @@ var maxDepth := DEFAULT_MAX_DEPTH
 
 var _undoStack: Array[Dictionary] = []
 var _redoStack: Array[Dictionary] = []
+## A history position is an identity, not a stack depth. Depth is reused after
+## branching and eviction; revisions are never reused for this object's life.
+var _currentRevision: int = 0
+var _nextRevision: int = 1
 ## The command currently being built, or null when no stroke is open. `paintCell` refuses to
 ## run without one -- see the class note on why nothing here mutates data outside a command.
 var _open: Dictionary = {}
@@ -302,6 +306,10 @@ func endStroke() -> bool:
 	if netChanges.is_empty():
 		return false
 	command["changes"] = netChanges
+	command["beforeRevision"] = _currentRevision
+	command["afterRevision"] = _nextRevision
+	_currentRevision = _nextRevision
+	_nextRevision += 1
 
 	_undoStack.append(command)
 	_redoStack.clear()
@@ -326,6 +334,11 @@ func redoCount() -> int:
 	return _redoStack.size()
 
 
+## Stable identity for the document state currently represented by this history.
+func currentRevision() -> int:
+	return _currentRevision
+
+
 ## Applies the most recent command's `before` values and moves it to the redo stack. Returns
 ## `{layerID, cells}` naming exactly what changed, so a caller can invalidate a renderer's cache
 ## for those cells and nothing more -- the same set a forward edit would have marked dirty,
@@ -340,6 +353,7 @@ func undo(data: WorldMapTileData) -> Dictionary:
 	var command: Dictionary = _undoStack.pop_back()
 	_apply(data, command, "before")
 	_redoStack.append(command)
+	_currentRevision = int(command["beforeRevision"])
 	return {"layerID": command["layerID"], "cells": (command["changes"] as Dictionary).keys()}
 
 
@@ -351,6 +365,7 @@ func redo(data: WorldMapTileData) -> Dictionary:
 	var command: Dictionary = _redoStack.pop_back()
 	_apply(data, command, "after")
 	_undoStack.append(command)
+	_currentRevision = int(command["afterRevision"])
 	return {"layerID": command["layerID"], "cells": (command["changes"] as Dictionary).keys()}
 
 
@@ -404,3 +419,5 @@ func clear() -> void:
 	_undoStack.clear()
 	_redoStack.clear()
 	_open = {}
+	_currentRevision = _nextRevision
+	_nextRevision += 1
