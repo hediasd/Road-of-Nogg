@@ -201,14 +201,16 @@ rather than silently dropping it.
 `WorldMapDebugController` rather than forking it — every framing preset, region picker, sun,
 cloud and shadow control is the debug scene's own, unmodified.
 
-### Layout
+### Workspace layout
 
-Two fixed side panels with the map's viewport in its own column between them. Neither panel is
-given a fixed pixel width: both dock to their edge and size to their content's natural minimum,
-and the controller sets the display's offsets from each panel's **settled** size. It listens to
-both panels' `resized` signal rather than measuring once, because a `PanelContainer` holding many
-sections does not settle in a single deferred call, and a one-shot measurement taken mid-settle
-produced a stale split with a gap on one side and an overlap on the other.
+The workspace has a palette column on the left, the map in the middle, and an inspector column on
+the right. The document, export, history, tool, brush and view actions share the top toolbar; the
+current document, dirty state, brush size and status remain visible while authoring. Either side
+column can collapse, leaving more room for the map without changing the map's coordinate system.
+
+The map column is its own display rect. Camera framing, backdrop and render-buffer sizing use that
+rect rather than the whole window, so a collapsed or resized panel cannot make a framed map overlap
+the chrome.
 
 Everything that sizes the render buffer, the framing readout or the sky backdrop reads
 `_displaySize()` rather than the window, because in this scene the two are different rects.
@@ -234,11 +236,41 @@ shipped once and was caught only by dispatching through `Input.parse_input_event
 | Snap yaw to 45° | Shift on middle-drag release |
 | Pan (unclamped) | right-drag, or WASD |
 | Zoom (dolly, never FOV) | wheel |
-| Top-down orthographic | Tab |
+| Editing view (top-down orthographic) | toolbar control |
 | **Back to the shipping framing** | Space |
 | Frame the region | F -- fits both axes at the display's own aspect, in either projection |
 | Undo | Ctrl+Z |
 | Redo | Ctrl+Y or Ctrl+Shift+Z |
+
+When the map owns focus, the authoring shortcuts are **B** Paint, **E** Erase, **G** Fill and
+**I** Pick; **Ctrl+S** saves, **Ctrl+E** exports the gameplay scene and **Ctrl+Shift+E** exports
+the gameplay scene and tactical map together. Text fields and modal dialogs deliberately own the
+keyboard: their contents receive these keys and no map action runs. Click the map after closing a
+dialog to return shortcut focus to it. **Tab is not an editor shortcut**; use the Editing view
+toolbar action when a top-down orthographic view is wanted.
+
+### Palette, layers and first map
+
+Select an active layer in the inspector before painting. The palette follows that layer: grid and
+detail layers show their tilesheet, while height, object and tactical layers show the values their
+own tools accept. A plain palette click selects one frame. Ctrl-click adds or removes individual
+frames, and Shift-click selects a rectangular range; the ordered multi-frame selection supplies the
+Stamp tool. The palette can zoom 1x, 2x or 4x without changing which frames are selected.
+
+Each layer also has visibility and lock controls. A locked or hidden layer refuses edits, and a
+hidden art layer is removed only from the editor's displayed preview: it remains in the canonical
+document, save and export. Some data layers have no separate visual representation, so their
+visibility control explains that rather than pretending to hide something. Objects are hidden as a
+preview group. With every art layer visible, ordinary edits keep the incremental bake path; hiding
+art trades that for a full filtered preview bake after a committed stroke.
+
+For a first map: choose **New**, select an exact-fit lattice and the starter tileset, then select a
+sheet frame in the palette. Paint with **B**, erase with **E**, or flood-fill with **G**. Change
+brush radius with the toolbar controls or `[` and `]`; a radius is a hex-disc footprint, so the
+preview and the committed stroke cover the same cells. Hide or lock a layer to inspect the result,
+then undo and redo with **Ctrl+Z** and **Ctrl+Y** (or **Ctrl+Shift+Z**). Use **Save As** to name the
+map, reopen it through **Open**, return to the shipping preview with Space, and export with
+**Ctrl+E** or **Ctrl+Shift+E** when its generated texture has been imported.
 
 ### Fitting a region: both axes, not the larger of two world numbers
 
@@ -261,17 +293,14 @@ caught it. The fix solves each corner's own required distance -- `lateral / tan(
 depthOffset` -- and takes the maximum before applying one multiplicative margin, which is safe
 because a larger distance strictly increases every corner's margin at once.
 
-### Layers
+### Hex tools
 
-`ground` and `overlay` only, both currently empty. Trimmed from eight at Gate 1 on request;
-height, props, walkability, graph, lighting and annotations are deferred rather than cancelled
-and return as their own items. Layers are declared as **data**, so adding one back is a table
-entry rather than a code change — `probe_editor_shell.gd` iterates the table and needed no edit
-when it went from eight rows to two.
-
-A layer carries visibility and a lock. **Lock and `enabled` are different gates**: a lock refuses
-the click outright, while `enabled` only governs whether a reached layer goes on to mutate
-anything once there is something to mutate.
+Paint and Erase use the selected radius as a true hex disc. Line interpolates in hex space,
+Rectangle selects actual offset-grid cells, and Stamp places the palette's multi-frame pattern by
+axial offsets so it does not shift when its anchor crosses an odd/even column boundary. Fill,
+Pick, Scatter and Replace operate on the active layer according to its kind. A single click, drag
+or preview always identifies the same footprint; Escape abandons an open stroke and restores its
+pre-stroke cells.
 
 ## 7. The authored region format
 
@@ -460,11 +489,11 @@ reasoning for it.
 ## 10. Undo and redo
 
 `WorldMapEditHistory` undoes and redoes at **stroke** granularity: a drag across forty cells is
-one undo entry, not forty. It is decoupled from any particular document -- it operates on
-whatever `WorldMapTileData` it is handed -- so `WorldMapEditorController` owns one and wires
-Ctrl+Z / Ctrl+Y now, even though nothing feeds it edits yet. Pressing them today correctly does
-nothing, because there is no open document; a later item gives the editor one to edit and calls
-`beginStroke` / `paintCell` / `endStroke` on it.
+one undo entry, not forty. It is decoupled from any particular document and carries a monotonically
+advancing revision. The document save point records that identity, not merely an undo-stack depth,
+so undoing to the saved content is clean while branching from it with a new edit is unsaved.
+The workspace binds Undo to Ctrl+Z and Redo to Ctrl+Y or Ctrl+Shift+Z when the map has keyboard
+focus.
 
 ### Commands store the delta, not a snapshot
 
@@ -663,21 +692,20 @@ have genuinely different hex geometry, and each is why:
   instead lerps the two endpoints' **cube** coordinates and rounds each of
   `WorldMapHexGrid.distance()`'s evenly-spaced samples — reusing `WorldMapHexGrid.roundAxial`
   rather than re-deriving it, so a drawn line and a pick agree on what "nearest hex" means.
-- **Rectangle → disc, what the editor UI calls RANGE.** A rectangle has no natural hex meaning —
-  a parallelogram in axial space reads skewed on screen — so the area tool on a hex map is
-  `disc()`/`discCells()`: every cell within `radius` steps of a centre, via the standard
-  cube-space disc enumeration (`3r² + 3r + 1` cells, each provably within radius by construction,
-  not by a filter pass afterward).
+- **Brush radius → disc.** Paint and erase footprints are `discCells()`: every cell within
+  `radius` steps of the picked centre, via standard cube-space disc enumeration (`3r² + 3r + 1`
+  cells). This is the editor's radius control, not a renamed Rectangle tool.
+- **Rectangle.** Rectangle deliberately selects a rectangle of stored offset cells. It is useful
+  for block edits and previews the exact cells it will change; it does not claim to be a hex disc.
 - **Stamp → `stampHex()`.** Its pattern maps an **axial** offset from the anchor to a tile id,
   not a row/col array. This is the one place parity actually bites: the same `(dx, dy)` offset
   delta lands on a different relative hex depending on whether the anchor sits on an odd or even
   column, while axial addition has no such seam — the exact reason `WorldMapHexGrid` keeps axial
   as its maths space even though it stores offset.
 
-`line`, `floodFill` (its neighbour set, not its bounds check) and `stamp` are otherwise unchanged
-and remain what a square map uses; a caller picks the hex path by reading `data.layout` (`line`,
-`floodFill`) or by calling the dedicated hex function (`disc`, `stampHex`), never by a caller-side
-flag that could disagree with what the map itself declares.
+`line`, `floodFill` (its neighbour set, not its bounds check), brush radius and stamp select their
+hex path from the document layout. The controller keeps that decision at the footprint boundary,
+so preview and committed edits cannot disagree about which lattice they use.
 
 `probe_brushes.gd` exercises all three at **both column parities** — an even- and an odd-column
 origin for each — since column-parity bugs are, by construction, invisible from just one parity.
@@ -690,10 +718,12 @@ fill uses.
 
 ## 12. The document lifecycle
 
-New, Open, Save and Save As, all under a "Document" section of the editor's own panel, plus a
-dirty marker and a guard on discarding unsaved work — WMH-5.
+New, Open, Save and Save As live in the workspace toolbar. New offers only the exact-fit hex
+lattices and starts Ground on `temp2_hex32_starter`, with the matching palette region, fog and
+void colours. Open lists authored JSON documents directly from `data/worldmap/authored`, so a
+newly saved map is immediately available without a catalog change.
 
-### The dirty flag has no setter
+### Dirty state and safe saves
 
 Every earlier version of this tool had call sites set `_documentDirty = true` by hand after an
 edit. The risk that killed that approach: a call site that mutates the document and forgets to
@@ -701,91 +731,40 @@ say so produces a document that silently loses work, and "remembered at every ca
 exactly the kind of invariant that erodes the first time someone adds a new one under time
 pressure.
 
-The fix is that nothing sets the flag at all. `WorldMapEditHistory`'s own class note already
-guarantees every mutation goes through it — "There is no path in this file that writes to a
-`WorldMapTileData` outside of `paintCell`" — so dirtiness is derived, not tracked:
-`_isDocumentDirty()` is `_history.undoCount() != _savedUndoDepth`, where `_savedUndoDepth` is
-set once, to whatever `undoCount()` reads, on a successful save. An edit that never calls
-`_afterCellsEdited` — including one made by poking `WorldMapBrushes` directly, which is exactly
-how `probe_document_loop.gd` proves this — still reports dirty, because there is no code path
-left that could have forgotten to.
+The unsaved marker is derived from the history revision at the last successful save. Undoing to
+that revision clears it; an edit made after undo is a new revision and remains dirty even if the
+undo stack happens to return to an earlier depth. A failed save does not advance the save point or
+change the active source path, and the status names whether source JSON or the generated bake
+failed. A never-saved document uses Save As; once it has a valid name, ordinary Save writes back to
+that same source path.
 
-**The known gap**, named rather than hidden: undoing past the saved point and then making a
-*different* edit can land `undoCount()` back at the saved depth by coincidence, reporting clean
-on a document that is not actually the saved one. Depth alone cannot distinguish "back where I
-started" from "same distance, different place" without `WorldMapEditHistory` also carrying an
-identity per edit, which it does not do today and which this item did not add — see "What was
-not built" below.
+Names accept letters, digits, `_` and `-` only, up to 64 characters. Source JSON stays below the
+authored root and generated PNG stays below its generated root. Both writes use a temporary sibling
+and retain the previous file until replacement succeeds; an interrupted replacement repairs its
+`.previous` sibling on the next read/list. This protects each file's last good version. The JSON
+and PNG are separate products, so a failure between them is reported rather than misrepresented as
+a fully successful save.
 
-### The discard guard is logic first, dialog second
 
-`_guardDirty(action)` runs `action` immediately when the document is clean; when it is not, the
-action is stashed on `_pendingDiscardAction` and `WorldMapEditorHud.promptDiscard()` is asked to
-confirm. Every entry point that would replace or close the open document — New, Open, and the
-*inherited* region picker, which used to auto-save on switch rather than ask — goes through this
-one function, matching the dirty flag's own reasoning: a guard duplicated at each call site is a
-guard that is one new call site away from being forgotten.
+### Replacing or closing an unsaved document
 
-The dialog itself (`ConfirmationDialog`) is a thin trigger over that logic, not the thing that
-decides anything — `_confirmDiscard()` and `_cancelDiscard()` are what actually run or drop the
-pending action, and a probe drives those two directly rather than the dialog. This is not a
-workaround for testability; it is why the dialog is skipped outright under the headless dummy
-display server (`WorldMapEditorHud.promptDiscard()` checks `DisplayServer.get_name() ==
-"headless"` before calling `popup_centered()`, which errors there — a `Window` node never
-actually enters a display-backed tree under the dummy driver, confirmed by `is_inside_tree()`
-reporting `false` even after `add_child`). The state the dialog fronts is unaffected either way.
+New, Open and Close all ask what to do with unsaved work: **Save**, **Discard** or **Cancel**.
+Save continues the requested action only after the document is saved; Discard continues without
+writing; Cancel leaves the current map untouched.
 
-### New offers only WMH-2's exact-fit lattices
+Modal ownership is released when the dialog closes, so authoring shortcuts resume after returning
+focus to the map.
 
-"New" does not take an arbitrary size. It lists `WorldMapHexGrid.exactSquareLattices()` — every
-lattice that fills its declared square with zero margin — so a brand new document never has to
-answer the margin question WMH-R1 already settled (void colour, not a terrain) before a single
-cell is painted. The smallest is 3×2; painting or picking a cell without checking
-`doc.size_tiles` first is the mistake `probe_document_loop.gd` itself made once, silently
-no-opping against `WorldMapTileData.setCell`'s own bounds check rather than erroring — worth
-naming since it is an easy trap for anything else built against this table later.
+### Recovery is an offer, never an overwrite
 
-A new document's ground layer is pre-assigned `temp2_hex32_ground` — the only hex tileset the
-catalog holds — and its fog/void colours are borrowed from `temp2`, that tileset's own
-`PALETTE_REGION`, so a fresh map starts looking like the place its art came from rather than an
-arbitrary grey. The overlay layer is left with no tileset, exactly like a freshly authored square
-document, so "honest layer rows" (Ground populated, Overlay dimmed and marked `(empty)`) hold for
-a brand new document without any change to how that row logic works.
+After 30 seconds of dirty, stroke-free idle time, the editor may write a recovery snapshot under
+`user://worldmap_editor/recovery/`. Snapshots are outside the repository and authored/generated
+roots. They are not saves: startup lists them for an explicit Recover or Discard decision. Recover
+opens a fresh, unsaved document with fresh history; it never writes the snapshot back over source.
+If the saved source changed, disappeared or has an invalid recorded path, the recovery row says so
+before recovery. Discard removes only the selected snapshot. A successful save clears that map's
+recovery snapshot.
 
-### Open reads the disk directly, not the region catalog
-
-`WorldMapRegionCatalog` is a static JSON catalog; a document `_newDocument` creates has no entry
-in it, and none is added by this item (exporting one is WMH-6's job — "Export a gameplay scene").
-So "Open" cannot be the inherited region picker alone: `_availableDocumentNames()` scans
-`WorldMapTileData.AUTHORED_DIR` directly, and the list this builds is what the HUD's Open row
-offers. The region picker keeps working exactly as before for the one region the catalog *does*
-know about (`temp2_authored`) — the two ways of opening a document converge on the same
-`_bakeAndDisplayDocument()` tail, so nothing about baking, layer rows or tile choices needed to
-know which path a document arrived by.
-
-### What was not built, on purpose
-
-**Hex baking was named here — and closed, in WMH-5B, scheduled immediately after.** See §9 "Hex
-baking (WMH-5B)" above: a new hex document's ground now renders as real, continuous hexagonal
-terrain, not the wrong-sized, wrong-placed placeholder this section originally described. Left as
-a heading here rather than deleted outright, as a record that the gap was found by using the
-tool, named rather than hidden, and scheduled as its own item rather than folded into WMH-5 as a
-side effect.
-
-**Hex tool routing.** The controller's Rectangle and Stamp tools still call the square-only
-`WorldMapBrushes.rectangle`/`stamp` regardless of the open document's layout — WMH-4 built the
-hex equivalents (`disc`, `stampHex`) but nothing wires a "disc/RANGE" tool id or a stamp-pattern
-UI into `TOOLS`/`_beginToolGesture`. Paint, Fill, Eyedropper, Replace and Scatter all already work
-correctly on a hex document (each is either coordinate-agnostic or already reads `data.layout`
-itself); Line was fixed in this item (`_endToolGesture`'s cell list now passes the same `hex`
-flag `WorldMapBrushes.line` already used internally, so dirty-rect invalidation names the cells
-that were actually painted). Rectangle and Stamp are the two tools left pointing at a
-layout-blind path — not silently broken (a square-shaped patch of offset cells is still a
-well-formed edit, just not what the RANGE/stamp UI a hex author would expect), but worth wiring
-before this reads as finished hex tool coverage rather than hex data-and-picking coverage.
-
-Both gaps are named here rather than folded into this item's own scope, and rather than left
-undiscovered for someone to trip over later.
 
 ## 13. Exporting a gameplay scene
 
@@ -1102,12 +1081,11 @@ tool — which turned a named gap into a defect, since a person can now make edi
 back. So detail is the history's fourth delta kind, `paintTriangle` has its siblings' signature,
 and the anomaly is gone. See §17.
 
-## 17. The tools that reach the other three layers
+## 17. The tools that reach the other layers
 
-WMH-10B, opened by Gate 3's finding that the editor exposed `ground` and `overlay` and nothing
-else: heights, objects and detail all round-tripped, undid, saved and exported correctly, and
-none of them could be authored with a mouse. Every part of that gate's own authoring exercise
-which touched them ran from a script.
+Height, object and detail layers are selectable and use their own value rows and gestures. They
+round-trip through history, saves and export rather than being data that can only be authored by a
+script.
 
 ### Reachable and empty are different states
 
@@ -1180,12 +1158,11 @@ Objects are previewed through `WorldMapSceneExport.buildObjects` with a **null s
 case that function already documented for a preview that is never packed — so the editor and the
 export place a building by the same code rather than by two that agree today.
 
-### Still out of scope, and still named
+### Still out of scope
 
-An object-kind palette beyond `house`/`tower`, a footprint editor, and hex routing for the
-Rectangle and Stamp tools (still square-only — §12). The tool table is a list of gestures, not a
-list of commands; a smooth tool and a raise-to-target tool are the obvious next two and neither is
-here.
+An object-kind palette beyond `house`/`tower`, a footprint editor, a smooth sculpt tool and a
+raise-to-target sculpt tool are not part of this milestone. They are intentionally separate from
+the working paint, rectangle and stamp routing described above.
 
 ## 18. Authored water
 
