@@ -32,6 +32,7 @@ const GROUP_DOCUMENT := "document"
 const GROUP_EXPORT := "export"
 const GROUP_HISTORY := "history"
 const GROUP_TOOL := "tool"
+const GROUP_BRUSH := "brush"
 const GROUP_VIEW := "view"
 
 const NEW_DOCUMENT := "document.new"
@@ -55,6 +56,10 @@ const TOOL_PAINT := "tool.paint"
 const TOOL_ERASE := "tool.erase"
 const TOOL_FILL := "tool.fill"
 const TOOL_EYEDROPPER := "tool.eyedropper"
+
+const BRUSH_SMALLER := "brush.smaller"
+const BRUSH_LARGER := "brush.larger"
+const CANCEL_STROKE := "edit.cancelStroke"
 
 const VIEW_EDITING := "view.editing"
 const VIEW_SHIPPING := "view.shipping"
@@ -93,6 +98,13 @@ const ACTIONS := [
 		"tooltip": "Select the tile already in the clicked cell."},
 	{"id": TOOL_INSPECT, "label": "Inspect", "group": GROUP_TOOL,
 		"tooltip": "Report what the clicked cell holds without changing it."},
+
+	{"id": BRUSH_SMALLER, "label": "Smaller brush", "short": "-", "group": GROUP_BRUSH,
+		"tooltip": "Shrink the paint and erase footprint by one hex ring."},
+	{"id": BRUSH_LARGER, "label": "Larger brush", "short": "+", "group": GROUP_BRUSH,
+		"tooltip": "Grow the paint and erase footprint by one hex ring."},
+	{"id": CANCEL_STROKE, "label": "Cancel stroke", "short": "Cancel", "group": GROUP_BRUSH,
+		"tooltip": "Abandon the stroke in progress and put back what it changed."},
 
 	{"id": VIEW_EDITING, "label": "Editing view", "short": "Editing", "group": GROUP_VIEW,
 		"tooltip": "Straight down and orthographic -- the authoring view."},
@@ -134,6 +146,9 @@ const SHORTCUTS := [
 	{"id": TOOL_EYEDROPPER, "key": KEY_I, "ctrl": false, "shift": false},
 	{"id": VIEW_FRAME, "key": KEY_F, "ctrl": false, "shift": false},
 	{"id": VIEW_SHIPPING, "key": KEY_SPACE, "ctrl": false, "shift": false},
+	{"id": BRUSH_SMALLER, "key": KEY_BRACKETLEFT, "ctrl": false, "shift": false},
+	{"id": BRUSH_LARGER, "key": KEY_BRACKETRIGHT, "ctrl": false, "shift": false},
+	{"id": CANCEL_STROKE, "key": KEY_ESCAPE, "ctrl": false, "shift": false},
 ]
 
 

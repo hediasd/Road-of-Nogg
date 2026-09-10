@@ -44,6 +44,7 @@ var _extraToolIDs: Array[String] = []
 var _documentLabel: Label
 var _dirtyLabel: Label
 var _viewLabel: Label
+var _brushLabel: Label
 var _status: Label
 var _previewPanel: Control
 var _paletteScroll: ScrollContainer
@@ -138,6 +139,21 @@ func _buildToolbar() -> Control:
 	row.add_child(_separator())
 	for action in Actions.actionsInGroup(Actions.GROUP_HISTORY):
 		row.add_child(_actionButton(str((action as Dictionary)["id"])))
+
+	row.add_child(_separator())
+	var brushLabel := Label.new()
+	brushLabel.text = "Brush"
+	row.add_child(brushLabel)
+	row.add_child(_actionButton(Actions.BRUSH_SMALLER))
+	_brushLabel = Label.new()
+	_brushLabel.name = "BrushSize"
+	_brushLabel.text = "1 hex"
+	_brushLabel.custom_minimum_size = Vector2(72.0, 0.0)
+	_brushLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_brushLabel.tooltip_text = "How many hexes one paint or erase stamp covers."
+	row.add_child(_brushLabel)
+	row.add_child(_actionButton(Actions.BRUSH_LARGER))
+	row.add_child(_actionButton(Actions.CANCEL_STROKE))
 	return panel
 
 
@@ -427,6 +443,16 @@ func setDocumentLabel(documentName: String, neverSaved: bool, dirty: bool) -> vo
 func setViewLabel(text: String) -> void:
 	if _viewLabel != null:
 		_viewLabel.text = text
+
+
+## The brush readout says how many hexes a stamp covers, and greys out for the tools and layers
+## where a radius has no meaning -- rather than showing a size that silently does not apply.
+func setBrushLabel(text: String, applies: bool) -> void:
+	if _brushLabel != null:
+		_brushLabel.text = text
+		_brushLabel.modulate = Color(1.0, 1.0, 1.0, 1.0 if applies else 0.45)
+	setActionEnabled(Actions.BRUSH_SMALLER, applies)
+	setActionEnabled(Actions.BRUSH_LARGER, applies)
 
 
 func setStatus(message: String) -> void:

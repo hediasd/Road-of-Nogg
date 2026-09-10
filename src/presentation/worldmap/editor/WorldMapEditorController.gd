@@ -51,6 +51,9 @@ const ChromeScript = preload("res://src/presentation/worldmap/editor/workspace/W
 const WorkspaceActions = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceActions.gd")
 const WorkspaceGeometry = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceGeometry.gd")
 const SavePointScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceSavePoint.gd")
+const Footprint = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceFootprint.gd")
+const PreviewScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspacePreview.gd")
+const LayerViewScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceLayerView.gd")
 const Brushes = preload("res://src/presentation/worldmap/editor/WorldMapBrushes.gd")
 const SurfacePick = preload("res://src/presentation/worldmap/editor/WorldMapSurfacePick.gd")
 const MapDataScript = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
@@ -131,7 +134,9 @@ const TOOLS := [
 	{"id": TOOL_NAVIGATE, "label": "Navigate"},
 	{"id": TOOL_INSPECT, "label": "Inspect"},
 	{"id": TOOL_PAINT, "label": "Paint / erase"},
-	{"id": TOOL_RECTANGLE, "label": "Rectangle"},
+	# Named for what it is: a rectangle of OFFSET cells, which on a hex lattice reads as a ragged
+	# band rather than a tidy block. The hex-shaped area tool is the paint brush's own disc radius.
+	{"id": TOOL_RECTANGLE, "label": "Rectangle (offset cells)"},
 	{"id": TOOL_LINE, "label": "Line"},
 	{"id": TOOL_FILL, "label": "Flood fill"},
 	{"id": TOOL_EYEDROPPER, "label": "Eyedropper"},
@@ -241,7 +246,6 @@ var _savePoint := SavePointScript.new()
 ## The action a New/Open/region-switch is waiting on while the open document is dirty, or an
 ## invalid `Callable` when nothing is pending. See `_guardDirty`.
 var _pendingDiscardAction: Callable = Callable()
-var _stampPattern: Array = []
 var _scatterSet: Array[String] = []
 var _pointerPosition := Vector2.ZERO
 ## The authoring grid's own toggle, so it is a decision an author makes rather than a side effect
@@ -252,6 +256,20 @@ var _gridVisible := true
 var _shownDocumentLabel := ""
 var _shownDirty := false
 var _shownCursorCell := ""
+
+## How many hex RINGS a paint or erase stamp covers. Zero is one cell; the workspace shows the
+## cell COUNT rather than this number -- see `WorldMapWorkspaceFootprint.radiusLabel`.
+var _brushRadius := 0
+const MAX_BRUSH_RADIUS := 4
+## The last cell a stroke actually painted, so the next pointer sample can be joined to it rather
+## than leaving the cells between them unpainted on a fast drag.
+var _lastPaintedCell: Variant = null
+var _preview: PreviewScript
+var _layerView := LayerViewScript.new()
+## The bake shown while a layer is hidden. The canonical `_baker` always holds the COMPLETE map --
+## it is what save and export write -- and this one never leaves the screen. See
+## `WorldMapWorkspaceLayerView`'s class note.
+var _previewBaker: WorldMapBaker = null
 
 
 func _ready() -> void:
@@ -271,6 +289,7 @@ func _process(delta: float) -> void:
 	_editorHud.setOffContract(_editorCamera.offContractReason())
 	_cursorCell = _pickCell(_pointerPosition)
 	_updateGrid()
+	_refreshPreview()
 	_refreshDocumentReadouts()
 
 
@@ -326,10 +345,19 @@ func _buildEditorUi() -> void:
 	_chrome.connectStageResized(_layoutDisplayToStage)
 
 	_editorHud = EditorHudScript.new(_chrome)
-	_editorHud.build(LAYERS, _onLayerSelected, _onLayerVisibilityToggled, _onLayerLockToggled)
+	var hideableReasons := {}
+	for layer in LAYERS:
+		var id := str((layer as Dictionary)["id"])
+		hideableReasons[id] = LayerViewScript.whyNotHideable(id, LAYER_OBJECTS, LAYER_HEIGHTS)
+	_editorHud.build(
+		LAYERS, _onLayerSelected, _onLayerVisibilityToggled, _onLayerLockToggled, hideableReasons
+	)
 	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
 	_setActiveTool(TOOL_NAVIGATE)
 	_chrome.setActionPressed(WorkspaceActions.VIEW_GRID, true)
+	_refreshBrushLabel()
+	_preview = PreviewScript.new()
+	_map.add_child(_preview)
 	call_deferred("_layoutDisplayToStage")
 
 
@@ -395,6 +423,12 @@ func _onWorkspaceAction(actionID: String) -> void:
 		WorkspaceActions.TOOL_PAINT, WorkspaceActions.TOOL_FILL, \
 		WorkspaceActions.TOOL_EYEDROPPER:
 			_selectWorkspaceTool(actionID)
+		WorkspaceActions.BRUSH_SMALLER:
+			_setBrushRadius(_brushRadius - 1)
+		WorkspaceActions.BRUSH_LARGER:
+			_setBrushRadius(_brushRadius + 1)
+		WorkspaceActions.CANCEL_STROKE:
+			_cancelOpenStroke()
 		WorkspaceActions.VIEW_EDITING:
 			if _editorCamera.mode != WorldMapEditorCamera.Mode.ORTHO:
 				_editorCamera.toggleOrtho()
@@ -449,6 +483,39 @@ func _setActiveTool(toolID: String) -> void:
 			_onToolSelected(i)
 			_chrome.setToolActive(_workspaceActionForTool(toolID))
 			return
+
+
+func _setBrushRadius(radius: int) -> void:
+	_brushRadius = clampi(radius, 0, MAX_BRUSH_RADIUS)
+	_refreshBrushLabel()
+	_editorHud.setStatus("Brush: %s." % Footprint.radiusLabel(_brushRadius))
+
+
+## The radius applies to paint and erase over a GRID layer only. A sculpt step, an object
+## placement and a triangle paint each mean something different by "one action", so widening them
+## by a hex disc would be inventing semantics rather than sizing a brush -- the readout greys out
+## instead of silently not applying.
+func _brushRadiusApplies() -> bool:
+	if _document == null or not _layerEditable(_activeLayer):
+		return false
+	if _activeTool != TOOL_PAINT:
+		return false
+	return _activeLayerKind() == MapDataScript.KIND_GRID
+
+
+func _refreshBrushLabel() -> void:
+	if _chrome == null:
+		return
+	var applies := _brushRadiusApplies()
+	_chrome.setBrushLabel(
+		Footprint.radiusLabel(_brushRadius) if applies else "1 hex", applies
+	)
+
+
+## The radius a gesture will actually use, which is zero for every tool the brush size does not
+## apply to. One function so the preview and the edit cannot read different sizes.
+func _effectiveRadius() -> int:
+	return _brushRadius if _brushRadiusApplies() else 0
 
 
 func _frameRegion() -> void:
@@ -717,7 +784,15 @@ func _beginToolGesture(screenPosition: Vector2) -> void:
 	if _activeTool == TOOL_NAVIGATE:
 		return
 	if bool(_layerLocked.get(_activeLayer, false)):
-		_editorHud.setStatus("%s is locked." % _activeLayer)
+		_editorHud.setStatus("%s is locked. Unlock it in the layer list to edit." % _activeLayer)
+		return
+	# A hidden layer refuses edits for the same reason a locked one does: an author cannot judge
+	# an edit they cannot see, and silently painting into an invisible layer is how a map acquires
+	# changes nobody meant to make.
+	if _layerView.isHidden(_activeLayer):
+		_editorHud.setStatus(
+			"%s is hidden in this view. Show it in the layer list to edit it." % _activeLayer
+		)
 		return
 	if not _layerEditable(_activeLayer):
 		_editorHud.setStatus("Choose an authored layer with a tileset before editing.")
@@ -754,17 +829,25 @@ func _beginToolGesture(screenPosition: Vector2) -> void:
 		TOOL_PAINT:
 			Brushes.beginStroke(_history, _activeLayer)
 			_strokeOpen = true
+			_strokeKind = TOOL_PAINT
 			_strokeTouched.clear()
+			_lastPaintedCell = null
 			_paintStrokeCell(cell)
 		TOOL_FILL:
 			var flooded := Brushes.floodCells(_document, _activeLayer, cell)
 			if Brushes.floodFill(_document, _history, _activeLayer, cell, tileID):
 				_afterCellsEdited(_activeLayer, flooded)
 		TOOL_STAMP:
-			var pattern := _stampPattern if not _stampPattern.is_empty() else [[tileID]]
-			if Brushes.stamp(_document, _history, _activeLayer, cell, pattern):
-				var affected := Rect2i(cell, Vector2i((pattern[0] as Array).size(), pattern.size()))
-				_afterRectEdited(_activeLayer, affected)
+			# Through the AXIAL hex stamp path, built from the sheet's own multi-selection.
+			# Offset deltas are not translation-invariant across a hex parity boundary, so the
+			# rectangular-array stamp silently reshaped itself when its anchor moved one column.
+			var pattern := _sheetStampPattern()
+			if pattern.is_empty():
+				_editorHud.setStatus("Select one or more sheet frames to stamp.")
+			else:
+				var stamped := Footprint.stampCells(cell, pattern, _latticeSize())
+				if Brushes.stampHex(_document, _history, _activeLayer, cell, pattern):
+					_afterCellsEdited(_activeLayer, stamped)
 		TOOL_REPLACE:
 			var source := _document.getCell(_activeLayer, cell)
 			if Brushes.replaceAllOfKind(
@@ -808,7 +891,12 @@ func _endToolGesture(screenPosition: Vector2) -> void:
 				_afterCellsEdited(_activeLayer, cells)
 		TOOL_SCATTER:
 			var rect := _inclusiveRect(start, last)
-			var choices := _scatterSet
+			# The sheet's ordered multi-selection, so scattering several tiles is a matter of
+			# selecting them rather than of a separate set editor. That order plus the visible
+			# seed is what makes the result reproducible: identical inputs commit identical ids.
+			var choices := _editorHud.selectedSheetTileIDs()
+			if choices.is_empty():
+				choices = _scatterSet
 			if choices.is_empty():
 				choices = [tileID]
 			if Brushes.randomFromSet(
@@ -920,12 +1008,104 @@ func _paintTriangleAt(screenPosition: Vector2) -> void:
 			_strokeTouched.append(cell)
 
 
+## Paints the brush footprint at `cell`, joined to wherever the stroke last painted.
+##
+## TWO THINGS THIS FIXES, both of which look like the editor dropping input. Pointer samples
+## arrive as far apart as the frame rate and the author's hand put them, so a fast drag used to
+## paint a dotted line of isolated cells; `Footprint.dragCells` fills the hex path between the
+## samples. And the whole swept set goes through the ALREADY-OPEN stroke, so a drag of any length,
+## at any radius, over any number of repeated cells, is still exactly one history entry.
 func _paintStrokeCell(cell: Vector2i) -> void:
 	if not _strokeOpen or _document == null:
 		return
-	if Brushes.paintPoint(_document, _history, cell, _editorHud.selectedTileID()):
-		if not _strokeTouched.has(cell):
-			_strokeTouched.append(cell)
+	var tileID := _editorHud.selectedTileID()
+	var cells := (
+		Footprint.discCells(cell, _effectiveRadius(), _latticeSize())
+		if _lastPaintedCell == null
+		else Footprint.dragCells(
+			_lastPaintedCell as Vector2i, cell, _effectiveRadius(), _isHexDocument(),
+			_latticeSize()
+		)
+	)
+	for target in cells:
+		if Brushes.paintPoint(_document, _history, target, tileID):
+			if not _strokeTouched.has(target):
+				_strokeTouched.append(target)
+	_lastPaintedCell = cell
+
+
+func _isHexDocument() -> bool:
+	return _document != null and _document.layout == MapDataScript.LAYOUT_HEX_FLAT
+
+
+## The bounds a footprint is clipped to. Zero means unbounded, which is the convention the picker
+## and the grid overlay already use for a square document with no declared lattice.
+func _latticeSize() -> Vector2i:
+	if _document == null:
+		return Vector2i.ZERO
+	return _document.size_tiles if _isHexDocument() else _document.layerSize(_activeLayer)
+
+
+## The cells the CURRENT pointer position would change, for the highlight. Computed from the same
+## `Footprint` functions the edit itself calls -- see that file's own note on why the preview may
+## not be a second opinion.
+func _previewCells() -> Array[Vector2i]:
+	if _document == null or _cursorCell == null or _activeTool == TOOL_NAVIGATE:
+		return []
+	var cell := _cursorCell as Vector2i
+	var lattice := _latticeSize()
+	var hex := _isHexDocument()
+	match _activeTool:
+		TOOL_PAINT:
+			return Footprint.discCells(cell, _effectiveRadius(), lattice)
+		TOOL_INSPECT, TOOL_EYEDROPPER, TOOL_SCULPT, TOOL_PLACE:
+			return Footprint.discCells(cell, 0, lattice)
+		TOOL_FILL:
+			return Footprint.clip(
+				Brushes.floodCells(_document, _activeLayer, cell), lattice
+			)
+		TOOL_STAMP:
+			return Footprint.stampCells(cell, _sheetStampPattern(), lattice)
+		TOOL_LINE:
+			if _gestureStart == null:
+				return Footprint.discCells(cell, 0, lattice)
+			return Footprint.lineCells(_gestureStart as Vector2i, cell, hex, lattice)
+		TOOL_RECTANGLE, TOOL_SCATTER:
+			if _gestureStart == null:
+				return Footprint.discCells(cell, 0, lattice)
+			return Footprint.rectangleCells(_gestureStart as Vector2i, cell, lattice)
+	return Footprint.discCells(cell, 0, lattice)
+
+
+## The stamp the sheet's current multi-selection describes, as axial deltas -- see
+## `WorldMapWorkspaceFootprint.stampPattern` for why axial and not offset. Falls back to the single
+## selected value so the stamp tool still means something with one frame chosen.
+func _sheetStampPattern() -> Dictionary:
+	var ids := _editorHud.selectedSheetTileIDs()
+	var cells := _editorHud.selectedSheetCells()
+	if ids.is_empty() or ids.size() != cells.size():
+		var single := _editorHud.selectedTileID()
+		return {} if single.is_empty() else {Vector2i.ZERO: single}
+	return Footprint.stampPattern(cells, ids)
+
+
+func _refreshPreview() -> void:
+	if _preview == null:
+		return
+	if _document == null or _activeTool == TOOL_NAVIGATE:
+		_clearPreview()
+		return
+	var blocked := (
+		bool(_layerLocked.get(_activeLayer, false))
+		or _layerView.isHidden(_activeLayer)
+		or not _layerEditable(_activeLayer)
+	)
+	_preview.showCells(_previewCells(), _document, _ground.regionRect().position, blocked)
+
+
+func _clearPreview() -> void:
+	if _preview != null:
+		_preview.clear()
 
 
 func _afterCellsEdited(layerID: String, cells: Array[Vector2i]) -> void:
@@ -934,9 +1114,25 @@ func _afterCellsEdited(layerID: String, cells: Array[Vector2i]) -> void:
 	for cell in cells:
 		_baker.markCellsDirty(_document, layerID, Rect2i(cell, Vector2i.ONE))
 	_baker.flush(_document)
+	_refreshFilteredDisplay()
 	_editorHud.setStatus("Changed %d %s cell%s. Ctrl+S saves." % [
 		cells.size(), layerID, "" if cells.size() == 1 else "s",
 	])
+
+
+## The canonical bake above always takes the cheap dirty-cell path. The filtered display copy has
+## no dirty-cell tracking of its own, so it is rebuilt whole -- but only while a layer is actually
+## hidden, and only once per COMMITTED edit rather than per pointer sample. With everything
+## visible, which is the ordinary state, this costs one dictionary lookup.
+func _refreshFilteredDisplay() -> void:
+	if not _layerView.anyArtHidden():
+		return
+	var filtered := _layerView.filteredCopy(_document)
+	if filtered == null:
+		return
+	_previewBaker = Baker.new()
+	_previewBaker.bake(filtered)
+	_applyDisplayedTexture()
 
 
 ## After a sculpt. Nothing about the BAKE changes -- heights are geometry, not pixels -- so this
@@ -988,6 +1184,7 @@ func _afterRectEdited(layerID: String, rect: Rect2i) -> void:
 		return
 	_baker.markCellsDirty(_document, layerID, rect)
 	_baker.flush(_document)
+	_refreshFilteredDisplay()
 	_editorHud.setStatus("Changed %s cells. Ctrl+S saves." % layerID)
 
 
@@ -1317,6 +1514,10 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 				break
 	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
 	_refreshValueChoices()
+	_refreshBrushLabel()
+	# View state survives a document change, so it has to be re-applied to the new one rather than
+	# left describing the previous map.
+	_applyLayerVisibility()
 	_editorHud.setStatus(statusMessage)
 
 
@@ -1434,9 +1635,48 @@ func _resolveOpenStroke() -> void:
 	_closeOpenStroke()
 
 
+## THE STROKE POLICY, in one place because every one of these used to be its own answer:
+##
+##  - Pointer RELEASE, wherever it happens: commits. The gesture is routed ahead of the GUI while
+##    it is owned (see `_input`), so releasing over the toolbar or off the window still ends the
+##    stroke rather than leaving it held.
+##  - FOCUS LOSS: commits. What the author already painted is their work.
+##  - TOOL, LAYER or DOCUMENT change, and LOCKING the active layer: commits, before the change.
+##  - ESCAPE: CANCELS -- the stroke is closed and then immediately undone, so the map returns to
+##    what it held before the gesture began and the history holds no entry for it.
+##
+## The distinction is deliberate: everything that is an ordinary interruption keeps the work, and
+## the single explicit "I did not mean this" gesture is the only one that throws it away. No path
+## leaves a stroke open, and none leaves half of one recorded.
+func _cancelOpenStroke() -> void:
+	_gestureStart = null
+	_lastPaintedCell = null
+	if not _strokeOpen:
+		_clearPreview()
+		_editorHud.setStatus("Nothing in progress to cancel.")
+		return
+	var kind := _strokeKind
+	_strokeOpen = false
+	_strokeKind = ""
+	_sculptVertices.clear()
+	var committed := Brushes.endStroke(_history)
+	if committed:
+		# Undone through the history rather than by replaying inverse edits by hand: the stroke is
+		# exactly one command, so its own undo is the complete and correct reversal.
+		var touched := _history.undo(_document)
+		if not touched.is_empty():
+			_onHistoryApplied(touched)
+		if kind == TOOL_SCULPT:
+			_afterHeightsEdited()
+	_strokeTouched.clear()
+	_clearPreview()
+	_editorHud.setStatus("Stroke cancelled.")
+
+
 ## The stroke half of the above, without abandoning a two-point gesture -- `_endToolGesture` needs
 ## `_gestureStart` intact to finish a rectangle, a line or a scatter.
 func _closeOpenStroke() -> void:
+	_lastPaintedCell = null
 	if not _strokeOpen:
 		return
 	_strokeOpen = false
@@ -1558,7 +1798,6 @@ func _refreshValueChoices() -> void:
 		tacticalValues.append(MapDataScript.EMPTY)
 		_editorHud.setValueChoices(tacticalLabels, tacticalValues, selected)
 		_scatterSet.clear()
-		_stampPattern = []
 		return
 	match _activeLayerKind():
 		MapDataScript.KIND_HEIGHTS:
@@ -1570,7 +1809,6 @@ func _refreshValueChoices() -> void:
 				stepValues.append(str((step as Dictionary)["value"]))
 			_editorHud.setValueChoices(stepLabels, stepValues, selected)
 			_scatterSet.clear()
-			_stampPattern = []
 		MapDataScript.KIND_LIST:
 			_editorHud.setValueLabel("Object")
 			var kindLabels: Array[String] = []
@@ -1582,7 +1820,6 @@ func _refreshValueChoices() -> void:
 			kindValues.append(OBJECT_REMOVE)
 			_editorHud.setValueChoices(kindLabels, kindValues, selected)
 			_scatterSet.clear()
-			_stampPattern = []
 		_:
 			_editorHud.setValueLabel("Tile")
 			var ids: Array[String] = []
@@ -1601,7 +1838,6 @@ func _refreshValueChoices() -> void:
 				_scatterSet.append(selected)
 			elif not ids.is_empty():
 				_scatterSet.append(ids[0])
-			_stampPattern = []
 
 
 ## Points the palette at the ACTIVE LAYER's own catalog entry, or hides the sheet entirely for a
@@ -1695,14 +1931,56 @@ func _onToolSelected(index: int) -> void:
 	# their work, and abandoning the open history entry would silently drop the last one.
 	_resolveOpenStroke()
 	_activeTool = str(TOOLS[index]["id"])
+	_refreshBrushLabel()
+	_clearPreview()
 	_editorHud.setStatus("Tool: %s" % str(TOOLS[index]["label"]))
 
 
-## Unreachable while the row's toggle is disabled -- see `WorldMapEditorHud`'s own note on why it
-## ships disabled and labelled rather than as a control that moves and changes nothing. Editor
-## view filtering is the painting item's work; this stays the single place it will land.
-func _onLayerVisibilityToggled(_id: String, _on: bool) -> void:
-	pass
+## Editor VIEW state only. The authored document is never filtered -- see
+## `WorldMapWorkspaceLayerView`'s class note -- so this can change what is on screen and can never
+## change what a save or an export contains.
+func _onLayerVisibilityToggled(id: String, on: bool) -> void:
+	if not LayerViewScript.canHide(id, LAYER_OBJECTS):
+		return
+	# A stroke in flight belongs to the view it was started in; committing it first means a hidden
+	# layer can never swallow half a recorded gesture.
+	_resolveOpenStroke()
+	_layerView.setHidden(id, not on)
+	_applyLayerVisibility()
+	var description := _layerView.describe()
+	_editorHud.setStatus(
+		description if not description.is_empty()
+		else "Every layer is visible."
+	)
+
+
+## Rebuilds what is DISPLAYED for the current visibility set. The canonical `_baker` is left alone
+## and still holds the complete map; only `_previewBaker` ever holds a filtered one, and only the
+## ground's displayed texture is switched between them.
+func _applyLayerVisibility() -> void:
+	if _document == null:
+		return
+	if _objectsPreview != null and is_instance_valid(_objectsPreview):
+		_objectsPreview.visible = not _layerView.isHidden(LAYER_OBJECTS)
+	var filtered := _layerView.filteredCopy(_document)
+	if filtered == null:
+		_previewBaker = null
+	else:
+		_previewBaker = Baker.new()
+		_previewBaker.bake(filtered)
+	_applyDisplayedTexture()
+	_refreshPreview()
+
+
+## The texture the ground shows: the filtered bake while a layer is hidden, the canonical one
+## otherwise. Save and export never call this -- they read `_baker` directly, which is what keeps
+## a hidden layer out of the view and in the file.
+func _applyDisplayedTexture() -> void:
+	if _document == null:
+		return
+	var texture := _previewBaker.texture() if _previewBaker != null else _baker.texture()
+	if texture != null:
+		SceneExport.configureGround(_ground, _document, texture, _framing)
 
 
 func _onLayerLockToggled(id: String, on: bool) -> void:
@@ -1806,6 +2084,32 @@ func performAction(actionID: String) -> void:
 
 func savePoint() -> SavePointScript:
 	return _savePoint
+
+
+## What the painting probe drives instead of a pointer. `previewCells()` returns the SAME list the
+## next edit will change, which is the property the probe asserts rather than assumes.
+func previewCells() -> Array[Vector2i]:
+	return _previewCells()
+
+
+func brushRadius() -> int:
+	return _brushRadius
+
+
+func setBrushRadius(radius: int) -> void:
+	_setBrushRadius(radius)
+
+
+func layerView() -> LayerViewScript:
+	return _layerView
+
+
+func setLayerHidden(id: String, hidden: bool) -> void:
+	_onLayerVisibilityToggled(id, not hidden)
+
+
+func cancelOpenStroke() -> void:
+	_cancelOpenStroke()
 
 
 func historyRevision() -> int:

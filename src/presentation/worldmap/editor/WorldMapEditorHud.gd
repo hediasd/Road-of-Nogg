@@ -41,6 +41,10 @@ var _layerLockToggles: Array[CheckBox] = []
 var _layerIDs: Array[String] = []
 var _layerLabels: Array[String] = []
 var _tileIDs: Array[String] = []
+## Frame position per tile id, taken from the catalog data the palette was configured with. Kept
+## here rather than read back out of the picker so the stamp needs no addition to the picker's
+## public API -- frame positions are catalog facts, and this class already has them.
+var _cellByTileID: Dictionary = {}
 var _suppressPickerRelay := false
 
 
@@ -52,10 +56,11 @@ func build(
 	layers: Array,
 	onLayerSelected: Callable,
 	onVisibilityToggled: Callable,
-	onLockToggled: Callable
+	onLockToggled: Callable,
+	hideableReasons: Dictionary
 ) -> void:
 	_buildPalette()
-	_buildInspector(layers, onLayerSelected, onVisibilityToggled, onLockToggled)
+	_buildInspector(layers, onLayerSelected, onVisibilityToggled, onLockToggled, hideableReasons)
 
 
 func _buildPalette() -> void:
@@ -110,7 +115,8 @@ func _buildInspector(
 	layers: Array,
 	onLayerSelected: Callable,
 	onVisibilityToggled: Callable,
-	onLockToggled: Callable
+	onLockToggled: Callable,
+	hideableReasons: Dictionary
 ) -> void:
 	var column := chrome.inspectorColumn
 
@@ -145,15 +151,16 @@ func _buildInspector(
 		grid.add_child(select)
 		_layerButtons.append(select)
 
-		# DISABLED ON PURPOSE, not decoration. Hiding a layer's art in the editor view is the
-		# painting item's work; a toggle that moved but changed nothing would be exactly the
-		# working-looking dead control this rebuild set out to remove, so it says so instead.
+		# Live only for the layers that really have a separable view. The rest keep the control in
+		# place, disabled, carrying the reason -- an explanation is honest where a toggle that
+		# moved and changed nothing would not be. See `WorldMapWorkspaceLayerView.canHide`.
 		var visibility := CheckBox.new()
 		visibility.button_pressed = true
-		visibility.disabled = true
+		var reason := str(hideableReasons.get(id, ""))
+		visibility.disabled = not reason.is_empty()
 		visibility.tooltip_text = (
-			"Per-layer view filtering is not implemented yet. Every authored layer is shown, "
-			+ "saved and exported regardless of this control."
+			reason if not reason.is_empty()
+			else "Show this layer in the editor. Hiding it never changes what is saved or exported."
 		)
 		visibility.toggled.connect(func(on: bool) -> void: onVisibilityToggled.call(id, on))
 		grid.add_child(visibility)
@@ -229,6 +236,11 @@ func configurePalette(
 	if picker == null:
 		return
 	_paletteTitle.text = tilesetID if not tilesetID.is_empty() else "No tileset"
+	_cellByTileID.clear()
+	for tile in tiles:
+		var cellValue = tile.get("CELL", null)
+		if cellValue is Vector2i:
+			_cellByTileID[str(tile.get("ID", ""))] = cellValue
 	picker.visible = true
 	_suppressPickerRelay = true
 	picker.configure(tilesetID, sheet, framePx, tiles)
@@ -254,6 +266,32 @@ func showValueOnlyPalette(kindLabel: String) -> void:
 
 func hasValueRow() -> bool:
 	return tileOption != null
+
+
+## The sheet's current multi-selection, in the picker's own (row, column, id) order. What the
+## stamp and scatter tools read: selecting several frames IS how a multi-tile stamp is described,
+## so there is no second selection UI that could disagree with the sheet the author is looking at.
+func selectedSheetTileIDs() -> Array[String]:
+	if picker == null or not picker.visible:
+		return [] as Array[String]
+	var ids := picker.selectedTileIDs()
+	# One frame is a single-tile stamp, which the caller already handles from the value row; only
+	# a real multi-selection is worth reporting as a pattern.
+	return ids if ids.size() > 1 else [] as Array[String]
+
+
+## The sheet FRAME positions matching `selectedSheetTileIDs()`, in the same order. The stamp reads
+## these as cells of a virtual lattice -- see `WorldMapWorkspaceFootprint.stampPattern`.
+func selectedSheetCells() -> Array[Vector2i]:
+	var cells: Array[Vector2i] = []
+	if picker == null or not picker.visible:
+		return cells
+	var ids := picker.selectedTileIDs()
+	if ids.size() <= 1:
+		return cells
+	for id in ids:
+		cells.append(_cellByTileID.get(id, Vector2i.ZERO))
+	return cells
 
 
 func selectedTileID() -> String:

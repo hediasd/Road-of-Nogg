@@ -286,11 +286,15 @@ func _checkChromeBuilds() -> void:
 		[{"id": "rectangle", "label": "Rectangle"}, {"id": "line", "label": "Line"}]
 	)
 	var hud := HudScript.new(chrome)
+	# The last argument is the per-layer reason a visibility toggle is unavailable, keyed by layer
+	# id; empty here so every row builds its live toggle. The painting item's own probe is what
+	# asserts which layers really get one.
 	hud.build(
 		ControllerScript.LAYERS,
 		func(_index: int) -> void: pass,
 		func(_id: String, _on: bool) -> void: pass,
-		func(_id: String, _on: bool) -> void: pass
+		func(_id: String, _on: bool) -> void: pass,
+		{}
 	)
 	await process_frame
 	await process_frame
