@@ -569,15 +569,70 @@ func promptSaveAs(defaultName: String, onAccept: Callable) -> bool:
 	return _popup(dialog)
 
 
-func promptDiscard(onConfirm: Callable, onCancel: Callable) -> bool:
+## THREE answers, not two. "Discard or cancel" makes an author who simply forgot to save choose
+## between losing work and abandoning what they were trying to do; Save is the answer they
+## actually want, so it is offered here rather than being a thing they have to go and do first.
+## Save is the default action.
+func promptDiscard(onSave: Callable, onDiscard: Callable, onCancel: Callable) -> bool:
 	if not _canPopup():
 		return false
 	var dialog := ConfirmationDialog.new()
-	dialog.title = "Discard unsaved changes?"
-	dialog.dialog_text = "This document has unsaved changes. Discarding them cannot be undone."
-	dialog.get_ok_button().text = "Discard changes"
-	dialog.confirmed.connect(func() -> void: onConfirm.call())
+	dialog.title = "Unsaved changes"
+	dialog.dialog_text = "This document has unsaved changes."
+	dialog.get_ok_button().text = "Save and continue"
+	var discardButton := dialog.add_button("Discard changes", true, "discard")
+	dialog.get_cancel_button().text = "Cancel"
+	dialog.confirmed.connect(func() -> void: onSave.call())
 	dialog.canceled.connect(func() -> void: onCancel.call())
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		if action == &"discard":
+			dialog.hide()
+			onDiscard.call()
+	)
+	discardButton.tooltip_text = "Throw away the unsaved edits. This cannot be undone."
+	return _popup(dialog)
+
+
+## Lists the unsaved work found on disk and lets the author recover or discard ONE of them.
+## Nothing is applied by opening this -- see `WorldMapWorkspaceRecovery`'s class note.
+func promptRecovery(labels: Array[String], onRecover: Callable, onDiscard: Callable) -> bool:
+	if not _canPopup() or labels.is_empty():
+		return false
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Recover unsaved work"
+	dialog.get_ok_button().text = "Recover selected"
+	var column := VBoxContainer.new()
+	var explanation := Label.new()
+	explanation.text = (
+		"The editor closed with unsaved edits. Recovering opens them as a NEW unsaved document; "
+		+ "your saved maps are not touched either way."
+	)
+	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	explanation.custom_minimum_size = Vector2(420.0, 0.0)
+	column.add_child(explanation)
+	var list := ItemList.new()
+	list.custom_minimum_size = Vector2(420.0, 200.0)
+	for label in labels:
+		list.add_item(label)
+	list.select(0)
+	column.add_child(list)
+	dialog.add_child(column)
+	var discardButton := dialog.add_button("Discard selected", true, "discardRecovery")
+	discardButton.tooltip_text = "Delete only the selected snapshot. Other recoveries are kept."
+	dialog.get_cancel_button().text = "Keep for next launch"
+	dialog.confirmed.connect(func() -> void:
+		var selected := list.get_selected_items()
+		if not selected.is_empty():
+			onRecover.call(selected[0])
+	)
+	dialog.custom_action.connect(func(action: StringName) -> void:
+		if action != &"discardRecovery":
+			return
+		var selected := list.get_selected_items()
+		if not selected.is_empty():
+			onDiscard.call(selected[0])
+		dialog.hide()
+	)
 	return _popup(dialog)
 
 
@@ -593,11 +648,13 @@ func _canPopup() -> bool:
 
 func _popup(dialog: AcceptDialog) -> bool:
 	_modalDepth += 1
-	dialog.close_requested.connect(func() -> void: _modalDepth = maxi(0, _modalDepth - 1))
-	dialog.confirmed.connect(func() -> void: _modalDepth = maxi(0, _modalDepth - 1))
-	dialog.canceled.connect(func() -> void: _modalDepth = maxi(0, _modalDepth - 1))
+	# Every exit path -- confirm, cancel, window close, or a custom Discard button -- hides the
+	# dialog. Releasing modal ownership from that one fact avoids leaving shortcuts disabled after
+	# custom actions, and avoids double-decrementing when a platform emits more than one close
+	# signal for the same dialog.
 	dialog.visibility_changed.connect(func() -> void:
 		if not dialog.visible:
+			_modalDepth = maxi(0, _modalDepth - 1)
 			dialog.queue_free()
 	)
 	root.add_child(dialog)

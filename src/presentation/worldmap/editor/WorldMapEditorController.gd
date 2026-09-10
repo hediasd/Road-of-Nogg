@@ -54,6 +54,9 @@ const SavePointScript = preload("res://src/presentation/worldmap/editor/workspac
 const Footprint = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceFootprint.gd")
 const PreviewScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspacePreview.gd")
 const LayerViewScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceLayerView.gd")
+const WorkspacePaths = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspacePaths.gd")
+const DocumentIOScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceDocumentIO.gd")
+const RecoveryScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceRecovery.gd")
 const Brushes = preload("res://src/presentation/worldmap/editor/WorldMapBrushes.gd")
 const SurfacePick = preload("res://src/presentation/worldmap/editor/WorldMapSurfacePick.gd")
 const MapDataScript = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
@@ -271,6 +274,18 @@ var _layerView := LayerViewScript.new()
 ## `WorldMapWorkspaceLayerView`'s class note.
 var _previewBaker: WorldMapBaker = null
 
+## Every file the editor reads or writes goes through this, so a probe can make a write fail
+## without a real disk and without touching an authored map. See its own class note.
+var _io := DocumentIOScript.new()
+var _recovery := RecoveryScript.new()
+## The exact listed snapshot that produced the open recovered document. It is retained until a
+## successful save (or an explicit Discard), then only that entry is removed.
+var _activeRecoveryEntry: Dictionary = {}
+## Seconds the document has been dirty with no stroke and no further edit. Reset by every edit;
+## read by the snapshot rule, which is the only thing that decides whether to write.
+var _idleSeconds := 0.0
+var _lastDirtyRevision := -1
+
 
 func _ready() -> void:
 	for layer in LAYERS:
@@ -291,6 +306,52 @@ func _process(delta: float) -> void:
 	_updateGrid()
 	_refreshPreview()
 	_refreshDocumentReadouts()
+	_tickRecovery(delta)
+
+
+## The crash-snapshot timer. Counts only quiet, dirty time: any edit moves the revision and
+## restarts the clock, a saved document never accumulates any, and an open stroke suspends it --
+## so a snapshot is never taken of half a gesture. `WorldMapWorkspaceRecovery.shouldSnapshot` owns
+## the rule itself; this only supplies the clock.
+func _tickRecovery(delta: float) -> void:
+	if _document == null:
+		return
+	var revision := _history.currentRevision()
+	if revision != _lastDirtyRevision:
+		_lastDirtyRevision = revision
+		_idleSeconds = 0.0
+		return
+	if not _isDocumentDirty():
+		_idleSeconds = 0.0
+		return
+	_idleSeconds += delta
+	if _recovery.shouldSnapshot(true, _strokeOpen, _idleSeconds, revision):
+		_writeRecoverySnapshot()
+
+
+func _writeRecoverySnapshot() -> void:
+	if _document == null or not _isDocumentDirty() or _strokeOpen:
+		return
+	# Never-saved documents pass an empty source path on purpose -- there is no file this snapshot
+	# branched from, and inventing one is how a snapshot ends up compared against the wrong map.
+	var recoveryName := _document.region_name
+	# Once a source path exists (or is reserved by New), its file name is the document identity
+	# recovery must use. An old hand-edited file may carry a different NAME internally; trusting it
+	# would put the snapshot under one name while plain Save targets another.
+	if not _documentPath.is_empty():
+		recoveryName = _documentPath.get_file().get_basename()
+	var written := _recovery.snapshot(
+		_io, _document, recoveryName,
+		_documentPath if not _savePoint.isNeverSaved() else "",
+		_history.currentRevision()
+	)
+	# A failed snapshot must not retry every frame after the idle threshold, and it must not leave
+	# the author believing recovery exists. A later quiet interval or focus loss will retry.
+	_idleSeconds = 0.0
+	if not written and _editorHud != null:
+		_editorHud.setStatus(
+			"Could not write the recovery snapshot. Your edits remain open; save them manually."
+		)
 
 
 ## `Display` does not fill the window here -- the fixed left and right panels are laid out
@@ -358,7 +419,70 @@ func _buildEditorUi() -> void:
 	_refreshBrushLabel()
 	_preview = PreviewScript.new()
 	_map.add_child(_preview)
+	# Close is a document action here, so the window may not simply go away -- see `_requestClose`.
+	get_tree().auto_accept_quit = false
 	call_deferred("_layoutDisplayToStage")
+	call_deferred("_offerRecoveryIfAny")
+
+
+## On startup, say what unsaved work was found and let the author choose. Nothing is loaded
+## automatically -- see `WorldMapWorkspaceRecovery`'s class note on why an offer and an
+## application are different things.
+func _offerRecoveryIfAny() -> void:
+	var entries := RecoveryScript.list(_io)
+	if entries.is_empty():
+		return
+	var labels: Array[String] = []
+	for entry in entries:
+		labels.append(RecoveryScript.describe(_io, entry))
+	if not _chrome.promptRecovery(labels, _recoverEntry, _discardRecoveryEntry):
+		_editorHud.setStatus(
+			"%d recovered edit(s) are waiting; open the recovery dialog to review them."
+			% entries.size()
+		)
+
+
+## Recovered content comes back as an UNSAVED document with a fresh history and no save
+## checkpoint, so the only way it reaches disk is the author deciding to save it. It never
+## overwrites the source it branched from.
+func _recoverEntry(index: int) -> void:
+	var entries := RecoveryScript.list(_io)
+	if index < 0 or index >= entries.size():
+		return
+	var entry := entries[index]
+	_guardDirty(func() -> void:
+		var recovered := RecoveryScript.loadDocument(_io, entry)
+		if recovered == null:
+			_editorHud.setStatus("That recovery snapshot could not be read.")
+			return
+		if not WorkspacePaths.isValidName(recovered.region_name):
+			recovered.region_name = str(entry.get(RecoveryScript.K_NAME, "recovered"))
+		_history.clear()
+		_document = recovered
+		_savePoint.beginNewDocument()
+		_recovery.resetForDocument()
+		_activeRecoveryEntry = entry.duplicate(true)
+		# Deliberately NOT the snapshot's source path: a recovered document is unsaved, and
+		# pointing it at the file it diverged from is how a plain Ctrl+S silently overwrites a map
+		# the author has not compared against yet.
+		_documentPath = ""
+		_baker = Baker.new()
+		_bakeAndDisplayDocument(
+			"Recovered unsaved work for '%s'. It is NOT saved -- use Save As to keep it."
+			% str(entry.get(RecoveryScript.K_NAME, ""))
+		)
+	)
+
+
+func _discardRecoveryEntry(index: int) -> void:
+	var entries := RecoveryScript.list(_io)
+	if index < 0 or index >= entries.size():
+		return
+	# Only the selected one. Discarding a recovery may not quietly remove another map's.
+	if RecoveryScript.discard(_io, entries[index]):
+		_editorHud.setStatus(
+			"Discarded the recovery for '%s'." % str(entries[index].get(RecoveryScript.K_NAME, ""))
+		)
 
 
 ## The controller tools that do not get their own toolbar button. Everything not named by the six
@@ -544,8 +668,24 @@ func _onRegionSelected(index: int) -> void:
 
 
 func _performRegionSwitch(index: int) -> void:
+	var ids := RegionCatalog.ids()
+	if index < 0 or index >= ids.size():
+		return
+	var nextRegionID := str(ids[index])
+	var loaded: WorldMapTileData = null
+	var loadAttempted := Regions.isAuthored(nextRegionID)
+	if loadAttempted:
+		loaded = _io.loadSource(Regions.tileDataPathFor(nextRegionID))
+		if loaded == null:
+			var previousIndex := ids.find(_regionID)
+			if previousIndex >= 0:
+				_hud.regionOption.select(previousIndex)
+			_editorHud.setStatus(
+				"Could not open '%s'; the current document is untouched." % nextRegionID
+			)
+			return
 	super._onRegionSelected(index)
-	_openDocumentForRegion(_regionID)
+	_openDocumentForRegion(_regionID, loaded, loadAttempted)
 	_editorCamera.rememberRegion(_ground.regionRect())
 
 
@@ -710,6 +850,23 @@ func _notification(what: int) -> void:
 		_cameraPanning = false
 		_gestureStart = null
 		_resolveOpenStroke()
+		# Losing focus is the cheapest honest moment to protect unsaved work: the stroke is
+		# already resolved, so the snapshot captures a complete edit rather than half a gesture.
+		_writeRecoverySnapshot()
+	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_requestClose()
+
+
+## Closing the window is a document-replacing action like New and Open, and goes through the same
+## protection. Without this the one path that discards EVERYTHING was the only one that never
+## asked.
+func _requestClose() -> void:
+	_resolveOpenStroke()
+	if not _isDocumentDirty():
+		get_tree().quit()
+		return
+	_writeRecoverySnapshot()
+	_guardDirty(func() -> void: get_tree().quit())
 
 
 ## Every editor shortcut resolves through one table -- see `WorldMapWorkspaceActions`. A key that
@@ -1417,10 +1574,24 @@ func _refreshLayerRows() -> void:
 		_editorHud.setLayerEnabled(id, _layerPopulated(id))
 
 
-func _openDocumentForRegion(regionID: String) -> void:
+func _openDocumentForRegion(
+	regionID: String, preloaded: WorldMapTileData = null, loadAttempted := false
+) -> bool:
+	var loaded := preloaded
+	var authored := Regions.isAuthored(regionID)
+	if authored and not loadAttempted:
+		loaded = _io.loadSource(Regions.tileDataPathFor(regionID))
+	if authored and loaded == null:
+		if _editorHud != null:
+			_editorHud.setStatus(
+				"Could not open '%s'; the current document is untouched." % regionID
+			)
+		return false
 	_history.clear()
-	_document = Regions.tileDataFor(regionID)
+	_document = loaded
 	_savePoint.beginOpenedDocument(_history.currentRevision())
+	_recovery.resetForDocument()
+	_activeRecoveryEntry = {}
 	_documentPath = Regions.tileDataPathFor(regionID) if _document != null else ""
 	_baker = Baker.new()
 	_cursorCell = null
@@ -1432,8 +1603,9 @@ func _openDocumentForRegion(regionID: String) -> void:
 		_editorHud.setTileChoices([])
 		_editorHud.setStatus("%s is a painted preview; choose an authored region to edit." % regionID)
 		_updateGrid()
-		return
+		return true
 	_bakeAndDisplayDocument("Editing %s (%s)." % [regionID, _documentPath])
+	return true
 
 
 ## Creates a fresh hex document at `lattice` cells -- an exact-fit size from WMH-2's own table,
@@ -1444,6 +1616,8 @@ func _openDocumentForRegion(regionID: String) -> void:
 ## an earlier version of this function warned about.
 func _newDocument(lattice: Vector2i, name: String, tilesetID := DEFAULT_HEX_TILESET) -> void:
 	_history.clear()
+	_recovery.resetForDocument()
+	_activeRecoveryEntry = {}
 	var chosen := tilesetID if Tilesets.has(tilesetID) else DEFAULT_HEX_TILESET
 	var doc := MapDataScript.create(name, lattice, MapDataScript.LAYOUT_HEX_FLAT)
 	doc.layers["ground"]["TILESET"] = chosen
@@ -1470,18 +1644,34 @@ func _newDocument(lattice: Vector2i, name: String, tilesetID := DEFAULT_HEX_TILE
 ## creates has no catalog entry (exporting one into the catalog is WMH-6's job, not this one's),
 ## so "Open" cannot be the inherited region picker alone; this is the other half of the loop
 ## `_openDocumentForRegion` already covers for documents the catalog does know about.
+## A FAILED OPEN COSTS NOTHING. The document is loaded and checked BEFORE any editor state is
+## touched, so a missing, unreadable or malformed file leaves the current document, its history,
+## its save checkpoint and its path exactly as they were. The previous version cleared the
+## history and reassigned `_document` first, which meant choosing a corrupt file discarded
+## whatever the author had open.
 func _openDocumentByName(name: String) -> void:
+	_resolveOpenStroke()
+	var path := WorkspacePaths.sourcePathFor(name)
+	if path.is_empty():
+		_editorHud.setStatus("Cannot open '%s': %s" % [name, WorkspacePaths.describeInvalidName(name)])
+		return
+	var loaded := _io.loadSource(path)
+	if loaded == null:
+		_editorHud.setStatus(
+			"Could not open '%s' -- it is missing or not a readable map. The open document is "
+			% name + "untouched."
+		)
+		return
 	_history.clear()
-	_document = MapDataScript.loadFrom(MapDataScript.pathFor(name))
+	_document = loaded
 	_savePoint.beginOpenedDocument(_history.currentRevision())
-	_documentPath = MapDataScript.pathFor(name)
+	_recovery.resetForDocument()
+	_activeRecoveryEntry = {}
+	_documentPath = path
 	_baker = Baker.new()
 	_cursorCell = null
 	_gestureStart = null
 	_strokeOpen = false
-	if _document == null:
-		_editorHud.setStatus("Could not open '%s'." % name)
-		return
 	_bakeAndDisplayDocument("Editing %s (%s)." % [name, _documentPath])
 
 
@@ -1522,21 +1712,98 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 
 
 func _saveDocument() -> void:
+	_resolveOpenStroke()
 	if _document == null or _documentPath.is_empty():
 		if _editorHud != null:
 			_editorHud.setStatus("No authored document is open.")
 		return
-	var sourceSaved := _document.saveTo(_documentPath)
-	var bakeSaved := _baker.saveTo(Baker.generatedPathFor(_document.region_name))
-	# Only a write that fully succeeded moves the checkpoint. A partial write leaving the document
-	# honestly dirty is what keeps the author's next Save meaningful; HXW-6 completes the failure
-	# reporting around this.
-	if sourceSaved and bakeSaved:
+	# The active source path, not an embedded NAME from a hand-edited file, decides where plain
+	# Save writes. `_writeDocumentAs` reconciles the serialized name on successful completion.
+	var result := _writeDocumentAs(_documentPath.get_file().get_basename())
+	_reportSaveResult(result)
+
+
+## Writes the open document's TWO files under `name` and reports exactly what happened, without
+## changing any editor state. Whether an outcome advances the checkpoint or moves the active path
+## is the caller's decision -- see `_reportSaveResult` and `_saveDocumentAs`.
+##
+## THE SOURCE AND THE BAKE ARE TWO FILES AND THIS IS NOT ATOMIC. Either can fail on its own, and
+## a half-written save is a real state the author can reach. Rather than pretending otherwise, the
+## result names which half landed so the status line can say so and the checkpoint can stay put --
+## promising atomicity across two files without implementing it would be the worse failure, since
+## the author would trust a save that only half happened.
+func _writeDocumentAs(name: String) -> Dictionary:
+	var invalid := WorkspacePaths.describeInvalidName(name)
+	if not invalid.is_empty():
+		return {"ok": false, "error": invalid, "sourceOk": false, "bakeOk": false}
+	var sourcePath := WorkspacePaths.sourcePathFor(name)
+	var bakePath := WorkspacePaths.generatedPathFor(name)
+	if sourcePath.is_empty() or bakePath.is_empty():
+		return {
+			"ok": false, "sourceOk": false, "bakeOk": false,
+			"error": "'%s' would write outside the authored folder." % name,
+		}
+	# The name is written INTO the file, so saving under a different one requires the document to
+	# carry it. Restored below if the write does not fully land, so a failed Save As leaves the
+	# document exactly as it was rather than renamed to somewhere it was never written.
+	var previousName := _document.region_name
+	_document.region_name = name
+	var sourceOk := _io.saveSource(_document, sourcePath)
+	var bakeOk := _io.saveBake(_baker, bakePath)
+	if not (sourceOk and bakeOk):
+		_document.region_name = previousName
+	return {
+		"ok": sourceOk and bakeOk,
+		"sourceOk": sourceOk,
+		"bakeOk": bakeOk,
+		"sourcePath": sourcePath,
+		"bakePath": bakePath,
+		"name": name,
+	}
+
+
+## Advances the checkpoint only on a complete success, and says which half failed otherwise so the
+## author knows whether their source is safe. A failed save leaves the document dirty on purpose:
+## that is what keeps the next Ctrl+S meaningful and the retry route open.
+func _reportSaveResult(result: Dictionary) -> bool:
+	if bool(result.get("ok", false)):
 		_savePoint.markSaved(_history.currentRevision())
+		# The work is on disk, so its crash snapshot has nothing left to protect.
+		var recoveryCleared := true
+		if not _activeRecoveryEntry.is_empty():
+			recoveryCleared = RecoveryScript.discard(_io, _activeRecoveryEntry)
+			if recoveryCleared:
+				_activeRecoveryEntry = {}
+		recoveryCleared = (
+			_recovery.clearFor(_io, str(result.get("name", ""))) and recoveryCleared
+		)
+		_editorHud.setStatus(
+			"Saved %s and its generated texture." % str(result.get("name", ""))
+			if recoveryCleared
+			else (
+				"Saved %s and its generated texture, but an old recovery snapshot could not "
+				% str(result.get("name", "")) + "be removed; it may be offered next launch."
+			)
+		)
+		return true
+	var error := str(result.get("error", ""))
+	if not error.is_empty():
+		_editorHud.setStatus("Save refused: %s" % error)
+		return false
+	var sourceOk := bool(result.get("sourceOk", false))
+	var bakeOk := bool(result.get("bakeOk", false))
 	_editorHud.setStatus(
-		"Saved source and generated texture." if sourceSaved and bakeSaved
-		else "Save failed; source and generated texture were not both written."
+		"Save incomplete: the source was written but the generated texture was not. "
+		+ "The map is still marked unsaved; try Save again."
+		if sourceOk and not bakeOk
+		else (
+			"Save failed: the generated texture was written but the source was NOT. "
+			+ "Your edits are still only in the editor; try Save again."
+			if bakeOk and not sourceOk
+			else "Save failed: neither the source nor the generated texture was written."
+		)
 	)
+	return false
 
 
 ## Exports the open document to a gameplay scene (Ctrl+E). Reports the export's own error text
@@ -1568,12 +1835,23 @@ func _exportBattleMap() -> void:
 
 ## Writes the open document under a different name and continues editing it under that name --
 ## the ordinary meaning of Save As, not a copy left behind under the old one.
+##
+## THE PATH MOVES ONLY AFTER THE WRITE LANDS. The previous version renamed the document and
+## repointed `_documentPath` BEFORE attempting the save, so a refused name or a failed write left
+## the editor pointing at a file that had never been written -- and the next plain Ctrl+S would
+## then aim at that same phantom path. Now nothing about the editor's idea of where it is editing
+## changes unless both files were actually written.
 func _saveDocumentAs(name: String) -> void:
-	if _document == null or name.is_empty():
+	_resolveOpenStroke()
+	if _document == null:
+		_editorHud.setStatus("No document is open.")
 		return
-	_document.region_name = name
-	_documentPath = MapDataScript.pathFor(name)
-	_saveDocument()
+	var previousPath := _documentPath
+	var result := _writeDocumentAs(name)
+	if not _reportSaveResult(result):
+		_documentPath = previousPath
+		return
+	_documentPath = str(result["sourcePath"])
 
 
 ## Every `.json` under `WorldMapTileData.AUTHORED_DIR`, sorted -- what "Open" offers. Scanned
@@ -1581,16 +1859,8 @@ func _saveDocumentAs(name: String) -> void:
 ## creates has no catalog entry until something exports it into one.
 func _availableDocumentNames() -> Array[String]:
 	var result: Array[String] = []
-	var dir := DirAccess.open(MapDataScript.AUTHORED_DIR)
-	if dir == null:
-		return result
-	dir.list_dir_begin()
-	var entry := dir.get_next()
-	while entry != "":
-		if not dir.current_is_dir() and entry.get_extension() == "json":
-			result.append(entry.get_basename())
-		entry = dir.get_next()
-	dir.list_dir_end()
+	for entry in _io.listFiles(MapDataScript.AUTHORED_DIR, "json"):
+		result.append(entry.get_basename())
 	result.sort()
 	return result
 
@@ -1621,7 +1891,7 @@ func _guardDirty(action: Callable) -> void:
 		action.call()
 		return
 	_pendingDiscardAction = action
-	if _chrome == null or not _chrome.promptDiscard(_confirmDiscard, _cancelDiscard):
+	if _chrome == null or not _chrome.promptDiscard(_saveThenContinue, _confirmDiscard, _cancelDiscard):
 		# No display server to put a dialog on. The pending action stays pending rather than
 		# running: a headless caller drives it through `confirmPendingDiscard()`.
 		return
@@ -1692,11 +1962,49 @@ func _closeOpenStroke() -> void:
 	_strokeTouched.clear()
 
 
+## The third answer the dialog offers, and the one that makes the other two safe to present: save
+## the work and then do the thing. A save that FAILS cancels the pending action rather than
+## carrying on -- continuing after a failed save is the one path that would lose the document.
+func _saveThenContinue() -> void:
+	var action := _pendingDiscardAction
+	_pendingDiscardAction = Callable()
+	if _documentPath.is_empty():
+		_editorHud.setStatus(
+			"This recovered map has no save destination. Use Save As, then try again."
+		)
+		return
+	_saveDocument()
+	if _isDocumentDirty():
+		_editorHud.setStatus(
+			"Save did not complete, so nothing was discarded. The document is still open."
+		)
+		return
+	if action.is_valid():
+		action.call()
+
+
 func _confirmDiscard() -> void:
 	var action := _pendingDiscardAction
 	_pendingDiscardAction = Callable()
+	_discardCurrentRecovery()
 	if action.is_valid():
 		action.call()
+
+
+func _discardCurrentRecovery() -> void:
+	if not _activeRecoveryEntry.is_empty():
+		RecoveryScript.discard(_io, _activeRecoveryEntry)
+		_activeRecoveryEntry = {}
+		return
+	if _document == null:
+		return
+	var recoveryName := (
+		_documentPath.get_file().get_basename()
+		if not _documentPath.is_empty()
+		else _document.region_name
+	)
+	if WorkspacePaths.isValidName(recoveryName):
+		_recovery.clearFor(_io, recoveryName)
 
 
 func _cancelDiscard() -> void:
@@ -1753,8 +2061,11 @@ func _requestNewDocument(lattice: Vector2i, name: String, tilesetID: String) -> 
 	if lattice == Vector2i.ZERO:
 		_editorHud.setStatus("Choose a lattice size first.")
 		return
-	if name.is_empty():
-		_editorHud.setStatus("Name the new map first.")
+	# Checked HERE rather than at save time: a name that cannot become a path should be refused
+	# while the author is still looking at the field they typed it into.
+	var invalid := WorkspacePaths.describeInvalidName(name)
+	if not invalid.is_empty():
+		_editorHud.setStatus("Cannot create '%s': %s" % [name, invalid])
 		return
 	_guardDirty(_newDocument.bind(lattice, name, tilesetID))
 
@@ -1769,10 +2080,10 @@ func _requestOpenDocument(name: String) -> void:
 ## No guard: Save As never discards anything the open document held, it only chooses where the
 ## save goes.
 func _requestSaveAsDocument(name: String) -> void:
-	if name.is_empty():
-		_editorHud.setStatus("Name the document first.")
+	var invalid := WorkspacePaths.describeInvalidName(name)
+	if not invalid.is_empty():
+		_editorHud.setStatus("Cannot save as '%s': %s" % [name, invalid])
 		return
-	_resolveOpenStroke()
 	_saveDocumentAs(name)
 
 
@@ -2056,6 +2367,14 @@ func cancelPendingDiscard() -> void:
 	_cancelDiscard()
 
 
+func savePendingAndContinue() -> void:
+	_saveThenContinue()
+
+
+func recoverEntry(index: int) -> void:
+	_recoverEntry(index)
+
+
 ## These take their arguments directly rather than writing them into HUD widgets and reading them
 ## back out. The old versions poked `newLatticeOption.selected` and `nameEdit.text` -- which meant
 ## the document actions could only be driven by whatever controls the panel happened to hold, and
@@ -2110,6 +2429,33 @@ func setLayerHidden(id: String, hidden: bool) -> void:
 
 func cancelOpenStroke() -> void:
 	_cancelOpenStroke()
+
+
+## What the document-safety probe drives. `setDocumentIO` is the injection point that lets it make
+## a write fail without a real disk and without touching an authored map -- see
+## `WorldMapWorkspaceDocumentIO`'s class note.
+func setDocumentIO(io: DocumentIOScript) -> void:
+	_io = io
+
+
+func documentIO() -> DocumentIOScript:
+	return _io
+
+
+func recovery() -> RecoveryScript:
+	return _recovery
+
+
+func writeRecoverySnapshot() -> void:
+	_writeRecoverySnapshot()
+
+
+func saveDocumentAs(name: String) -> void:
+	_saveDocumentAs(name)
+
+
+func openDocumentByName(name: String) -> void:
+	_openDocumentByName(name)
 
 
 func historyRevision() -> int:
