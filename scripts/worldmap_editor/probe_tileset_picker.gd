@@ -15,6 +15,8 @@ func _run() -> void:
 	var picker = PickerScript.new()
 	root.add_child(picker)
 	await process_frame
+	var preview := picker.get_node("PickerColumn/PrimaryTilePreview/PrimaryTileImage") as Control
+	_require(preview != null and not preview.visible, "empty picker reserved a blank preview and squeezed its guidance")
 	var image := Image.create(96, 64, false, Image.FORMAT_RGBA8)
 	image.fill(Color.WHITE)
 	var texture := ImageTexture.create_from_image(image)
@@ -30,6 +32,7 @@ func _run() -> void:
 	_checkHitMapping(picker)
 	_checkSelectionGestures(picker)
 	_checkDefensiveCopiesAndReconfigure(picker, texture, shuffled)
+	_checkSpatialKeyboardAndEmptySelection(picker, texture, shuffled)
 	if not failures.is_empty():
 		for failure: String in failures:
 			printerr("HXW_TILESET_PICKER_FAILURE: %s" % failure)
@@ -44,6 +47,7 @@ func _checkHitMapping(picker: PickerScript) -> void:
 	_require(picker.tileAtSheetPoint(Vector2(95, 63)) == "tC", "did not map lower-right frame")
 	_require(picker.tileAtSheetPoint(Vector2(33, 1)).is_empty(), "blank sheet slot was treated as a tile")
 	_require(picker.tileAtSheetPoint(Vector2(-1, 0)).is_empty() and picker.tileAtSheetPoint(Vector2(96, 0)).is_empty(), "out-of-bounds hit was accepted")
+	picker._fitMode = false
 	for zoom: int in [1, 2, 4]:
 		picker._paletteZoom = zoom
 		picker._handleSheetInput(_leftClick(Vector2(65.0 * zoom, 1.0 * zoom)))
@@ -77,6 +81,25 @@ func _checkDefensiveCopiesAndReconfigure(picker: PickerScript, texture: Texture2
 	_require(Vector2i(selectionSignals, primarySignals) == signalsBefore, "configure emitted user-change signals")
 	picker.configure("replacement", texture, 32, [{"ID": "new", "CELL": Vector2i(1, 0)}])
 	_require(picker.selectedTileIDs().is_empty() and picker.primaryTileID().is_empty(), "different tileset retained stale selection")
+	var preview := picker.get_node("PickerColumn/PrimaryTilePreview/PrimaryTileImage") as Control
+	_require(preview != null and not preview.visible, "picker showed a blank primary preview with no selection")
+
+
+func _checkSpatialKeyboardAndEmptySelection(picker: PickerScript, texture: Texture2D, tiles: Array[Dictionary]) -> void:
+	picker.configure("synthetic", texture, 32, tiles)
+	picker._selectPlain("tA")
+	picker._handleKeyboardSelection(KEY_RIGHT)
+	_require(picker.primaryTileID() == "tB", "Right did not select the nearest populated cell on the row")
+	picker._handleKeyboardSelection(KEY_DOWN)
+	_require(picker.primaryTileID() == "tC", "Down did not select the nearest populated cell in the column")
+	picker._handleKeyboardSelection(KEY_LEFT)
+	_require(picker.primaryTileID() == "tD", "Left did not select the nearest populated cell on the same row")
+	picker._handleKeyboardSelection(KEY_LEFT)
+	_require(picker.primaryTileID() == "tD", "Left wrapped into a different row through a transparent slot")
+	picker._handleKeyboardSelection(KEY_ESCAPE)
+	_require(picker.selectedTileIDs().is_empty() and picker.primaryTileID().is_empty(), "Escape did not clear art selection")
+	picker._selectPlain("")
+	_require(picker.selectedTileIDs().is_empty(), "blank-sheet plain selection reused stale art")
 
 
 func _require(condition: bool, message: String) -> void:

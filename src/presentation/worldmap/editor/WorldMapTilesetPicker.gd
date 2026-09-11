@@ -10,7 +10,8 @@ signal primaryTileChanged(tilesetID: String, tileID: String)
 signal selectionChanged(tilesetID: String, tileIDs: Array[String])
 
 const PALETTE_ZOOMS: Array[int] = [1, 2, 4]
-const PREVIEW_PX := 96
+const PREVIEW_PX := 48
+const SHEET_VIEWPORT_MIN_HEIGHT := 112.0
 
 
 class SheetCanvas extends Control:
@@ -39,6 +40,7 @@ var _selectedTileIDs: Array[String] = []
 var _primaryTileID := ""
 var _plainClickAnchor := Vector2i(-1, -1)
 var _paletteZoom := 2
+var _fitMode := true
 
 var _uiBuilt := false
 var _zoomLabel: Label
@@ -144,10 +146,14 @@ func _ensureUi() -> void:
 	tooltip_text = "Choose one or more tiles from this tileset."
 	focus_mode = Control.FOCUS_ALL
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	custom_minimum_size = Vector2(220.0, 260.0)
+	custom_minimum_size = Vector2(220.0, 300.0)
+	resized.connect(_refreshUi)
 
 	var column := VBoxContainer.new()
 	column.name = "PickerColumn"
+	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	column.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	column.grow_vertical = Control.GROW_DIRECTION_BOTH
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(column)
 
@@ -159,6 +165,13 @@ func _ensureUi() -> void:
 	title.text = "Tilesheet"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	toolbar.add_child(title)
+	var fit := Button.new()
+	fit.name = "PaletteFit"
+	fit.text = "Fit"
+	fit.tooltip_text = "Fit the complete tilesheet into the palette"
+	fit.focus_mode = Control.FOCUS_ALL
+	fit.pressed.connect(_fitSheet)
+	toolbar.add_child(fit)
 	var zoomOut := Button.new()
 	zoomOut.name = "PaletteZoomOut"
 	zoomOut.text = "−"
@@ -181,6 +194,7 @@ func _ensureUi() -> void:
 	_sheetScroll = ScrollContainer.new()
 	_sheetScroll.name = "TilesheetScroll"
 	_sheetScroll.tooltip_text = "Scroll the tilesheet without moving the map camera"
+	_sheetScroll.custom_minimum_size = Vector2(0.0, SHEET_VIEWPORT_MIN_HEIGHT)
 	_sheetScroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_sheetScroll.mouse_filter = Control.MOUSE_FILTER_STOP
 	column.add_child(_sheetScroll)
@@ -193,6 +207,7 @@ func _ensureUi() -> void:
 	_sheetCanvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_sheetScroll.add_child(_sheetCanvas)
 
+	# The compact preview leaves the atlas dominant while keeping its human-readable identity.
 	var previewRow := HBoxContainer.new()
 	previewRow.name = "PrimaryTilePreview"
 	column.add_child(previewRow)
@@ -212,6 +227,7 @@ func _ensureUi() -> void:
 
 
 func _changeZoom(direction: int) -> void:
+	_fitMode = false
 	var currentIndex := PALETTE_ZOOMS.find(_paletteZoom)
 	currentIndex = clampi(currentIndex + direction, 0, PALETTE_ZOOMS.size() - 1)
 	if _paletteZoom == PALETTE_ZOOMS[currentIndex]:
@@ -220,16 +236,24 @@ func _changeZoom(direction: int) -> void:
 	_refreshUi()
 
 
+func _fitSheet() -> void:
+	_fitMode = true
+	_refreshUi()
+
+
 func _refreshUi() -> void:
 	if not _uiBuilt:
 		return
-	_zoomLabel.text = "%dx" % _paletteZoom
+	_zoomLabel.text = "Fit" if _fitMode else "%dx" % _paletteZoom
 	if _sheet == null or _framePx <= 0:
 		_sheetCanvas.custom_minimum_size = Vector2.ZERO
 		_primaryInfo.text = "No tileset selected"
+		_previewCanvas.visible = false
 	else:
-		_sheetCanvas.custom_minimum_size = _sheet.get_size() * _paletteZoom
-		_primaryInfo.text = _primaryDescription()
+		_sheetCanvas.custom_minimum_size = _sheet.get_size() * _displayZoom()
+		var hasPrimary := not _primaryTileID.is_empty()
+		_previewCanvas.visible = hasPrimary
+		_primaryInfo.text = _primaryDescription() if hasPrimary else "Select a tile"
 	_sheetCanvas.queue_redraw()
 	_previewCanvas.queue_redraw()
 
@@ -238,7 +262,7 @@ func _drawSheet(canvas: Control) -> void:
 	if _sheet == null:
 		return
 	canvas.draw_rect(Rect2(Vector2.ZERO, canvas.size), Color("15222b"), true)
-	canvas.draw_texture_rect(_sheet, Rect2(Vector2.ZERO, _sheet.get_size() * _paletteZoom), false)
+	canvas.draw_texture_rect(_sheet, Rect2(Vector2.ZERO, _sheet.get_size() * _displayZoom()), false)
 	for id: String in _selectedTileIDs:
 		var rect := _zoomedFrameRect(id)
 		canvas.draw_rect(rect, Color("60d8ff"), false, 2.0)
@@ -262,7 +286,7 @@ func _handleSheetInput(event: InputEvent) -> void:
 			_sheetCanvas.accept_event()
 			return
 		if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed:
-			var id := tileAtSheetPoint(mouse.position / _paletteZoom)
+			var id := tileAtSheetPoint(mouse.position / _displayZoom())
 			if mouse.shift_pressed:
 				_selectRange(id)
 			elif mouse.ctrl_pressed:
@@ -282,21 +306,28 @@ func _handleSheetInput(event: InputEvent) -> void:
 func _handleKeyboardSelection(keycode: Key) -> void:
 	if _tilesByID.is_empty():
 		return
-	var ordered := _orderedTileIDs()
-	var index := ordered.find(_primaryTileID)
-	if index < 0:
-		index = 0
-	if keycode == KEY_LEFT or keycode == KEY_UP:
-		index = max(0, index - 1)
-	elif keycode == KEY_RIGHT or keycode == KEY_DOWN:
-		index = min(ordered.size() - 1, index + 1)
-	elif keycode != KEY_ENTER and keycode != KEY_SPACE:
+	if keycode == KEY_ESCAPE:
+		_plainClickAnchor = Vector2i(-1, -1)
+		_applyUserSelection([], "")
 		return
-	_selectPlain(ordered[index])
+	if keycode == KEY_ENTER or keycode == KEY_SPACE:
+		if _primaryTileID.is_empty():
+			_selectPlain(_orderedTileIDs()[0])
+		return
+	if keycode != KEY_LEFT and keycode != KEY_RIGHT and keycode != KEY_UP and keycode != KEY_DOWN:
+		return
+	if _primaryTileID.is_empty():
+		_selectPlain(_orderedTileIDs()[0])
+		return
+	var next := _tileInDirection(_cellForID(_primaryTileID), keycode)
+	if not next.is_empty():
+		_selectPlain(next)
 
 
 func _selectPlain(id: String) -> void:
 	if id.is_empty():
+		_plainClickAnchor = Vector2i(-1, -1)
+		_applyUserSelection([], "")
 		return
 	_plainClickAnchor = _cellForID(id)
 	_applyUserSelection([id], id)
@@ -374,7 +405,44 @@ func _sortIDsByCell(left: String, right: String) -> bool:
 
 
 func _zoomedFrameRect(id: String) -> Rect2:
-	return Rect2(Vector2(_cellForID(id) * _framePx * _paletteZoom), Vector2(_framePx, _framePx) * _paletteZoom)
+	return Rect2(Vector2(_cellForID(id) * _framePx * _displayZoom()), Vector2(_framePx, _framePx) * _displayZoom())
+
+
+func _displayZoom() -> float:
+	if not _fitMode or _sheet == null:
+		return float(_paletteZoom)
+	var viewport := _sheetScroll.size
+	if viewport.x <= 1.0 or viewport.y <= 1.0:
+		return 1.0
+	var sourceSize := _sheet.get_size()
+	return maxf(0.25, minf(viewport.x / sourceSize.x, viewport.y / sourceSize.y))
+
+
+## Arrow navigation stays spatial even when a sheet intentionally has transparent slots. A
+## missing neighbour does nothing rather than wrapping to a different row or column.
+func _tileInDirection(origin: Vector2i, keycode: Key) -> String:
+	var bestID := ""
+	var bestDistance := 2147483647
+	for candidate: String in _orderedTileIDs():
+		var cell := _cellForID(candidate)
+		var valid := false
+		var distance := 0
+		if keycode == KEY_LEFT and cell.y == origin.y and cell.x < origin.x:
+			valid = true
+			distance = origin.x - cell.x
+		elif keycode == KEY_RIGHT and cell.y == origin.y and cell.x > origin.x:
+			valid = true
+			distance = cell.x - origin.x
+		elif keycode == KEY_UP and cell.x == origin.x and cell.y < origin.y:
+			valid = true
+			distance = origin.y - cell.y
+		elif keycode == KEY_DOWN and cell.x == origin.x and cell.y > origin.y:
+			valid = true
+			distance = cell.y - origin.y
+		if valid and distance < bestDistance:
+			bestID = candidate
+			bestDistance = distance
+	return bestID
 
 
 func _cellForID(id: String) -> Vector2i:
