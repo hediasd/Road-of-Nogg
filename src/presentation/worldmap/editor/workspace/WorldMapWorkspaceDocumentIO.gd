@@ -17,6 +17,25 @@ class_name WorldMapWorkspaceDocumentIO
 extends RefCounted
 
 const MapDataScript = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
+const FileDocument = preload("res://src/presentation/worldmap/editor/document/WorldMapFileDocument.gd")
+
+
+func saveFileRecord(record: Dictionary, path: String) -> bool:
+	if path.is_empty() or record.is_empty():
+		return false
+	var decoded := FileDocument.decodeRecord(record)
+	if not bool(decoded.get("ok", false)):
+		return false
+	return writeTextAtomic(path, FileDocument.canonicalText(decoded["record"] as Dictionary))
+
+
+func loadFileRecord(path: String) -> Dictionary:
+	if path.is_empty() or not _repairPrevious(path) or not fileExists(path):
+		return {"ok": false, "record": {}, "data": null, "error": "file is unavailable"}
+	var parser := JSON.new()
+	if parser.parse(readText(path)) != OK or not parser.data is Dictionary:
+		return {"ok": false, "record": {}, "data": null, "error": "file is not JSON"}
+	return FileDocument.decodeRecord(parser.data as Dictionary)
 
 
 func saveSource(document: WorldMapTileData, path: String) -> bool:

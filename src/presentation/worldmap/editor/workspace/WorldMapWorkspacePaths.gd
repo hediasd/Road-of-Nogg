@@ -16,6 +16,7 @@ extends RefCounted
 
 const MapDataScript = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
 const BakerScript = preload("res://src/presentation/worldmap/editor/WorldMapBaker.gd")
+const FileDocument = preload("res://src/presentation/worldmap/editor/document/WorldMapFileDocument.gd")
 
 const MAX_NAME_LENGTH := 64
 
@@ -72,7 +73,7 @@ static func isContained(path: String, root: String) -> bool:
 static func sourcePathFor(name: String) -> String:
 	if not isValidName(name):
 		return ""
-	var path := MapDataScript.pathFor(name)
+	var path := "%s/%s%s" % [sourceRoot(), name, FileDocument.EXTENSION]
 	return path if isContained(path, sourceRoot()) else ""
 
 

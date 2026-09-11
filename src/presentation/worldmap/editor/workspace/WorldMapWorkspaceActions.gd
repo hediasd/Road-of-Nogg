@@ -37,6 +37,7 @@ const GROUP_VIEW := "view"
 
 const NEW_DOCUMENT := "document.new"
 const OPEN_DOCUMENT := "document.open"
+const OPEN_RECENT := "document.openRecent"
 const SAVE_DOCUMENT := "document.save"
 const SAVE_DOCUMENT_AS := "document.saveAs"
 
@@ -72,10 +73,12 @@ const ACTIONS := [
 		"tooltip": "Create a new hex map, choosing its size and tileset."},
 	{"id": OPEN_DOCUMENT, "label": "Open", "group": GROUP_DOCUMENT,
 		"tooltip": "Open an authored map from disk."},
+	{"id": OPEN_RECENT, "label": "Open Recent", "short": "Recent", "group": GROUP_DOCUMENT,
+		"tooltip": "Choose a previously opened map that still exists on disk."},
 	{"id": SAVE_DOCUMENT, "label": "Save", "group": GROUP_DOCUMENT,
-		"tooltip": "Write the open map's source and generated texture."},
+		"tooltip": "Write the open map's versioned source file."},
 	{"id": SAVE_DOCUMENT_AS, "label": "Save As", "group": GROUP_DOCUMENT,
-		"tooltip": "Write the open map under a different name and continue editing it there."},
+		"tooltip": "Write a copy to a chosen file and continue editing that copy."},
 
 	{"id": EXPORT_SCENE, "label": "Export scene", "group": GROUP_EXPORT,
 		"tooltip": "Export the open map as a gameplay scene."},

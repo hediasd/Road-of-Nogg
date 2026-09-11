@@ -52,6 +52,8 @@ const HeightField = preload("res://src/presentation/worldmap/editor/WorldMapHeig
 const BattleExport = preload("res://src/presentation/worldmap/editor/WorldMapBattleExport.gd")
 const Regions = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.gd")
 const FoundationStage = preload("res://src/presentation/worldmap/editor/foundation/WorldMapEditorFoundationStage.gd")
+const FileDocument = preload("res://src/presentation/worldmap/editor/document/WorldMapFileDocument.gd")
+const RecentDocuments = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceRecent.gd")
 
 ## One entry per layer this tool currently means to hold data for. `enabled` is false for both
 ## in Phase A -- see the class note -- and a later item flips its own row to true as its data
@@ -215,6 +217,8 @@ var _history := WorldMapEditHistory.new()
 ## document to edit; nothing here creates one.
 var _document: WorldMapTileData = null
 var _documentPath := ""
+var _fileRecord: Dictionary = {}
+var _diskFingerprint := ""
 var _baker := WorldMapBaker.new()
 var _cursorCell: Variant = null
 var _gestureStart: Variant = null
@@ -450,6 +454,8 @@ func _recoverEntry(index: int) -> void:
 			recovered.region_name = str(entry.get(RecoveryScript.K_NAME, "recovered"))
 		_history.clear()
 		_document = recovered
+		_fileRecord = FileDocument.createRecord(recovered)
+		_diskFingerprint = ""
 		_savePoint.beginNewDocument()
 		_recovery.resetForDocument()
 		_activeRecoveryEntry = entry.duplicate(true)
@@ -515,6 +521,8 @@ func _onWorkspaceAction(actionID: String) -> void:
 			_openNewDocumentDialog()
 		WorkspaceActions.OPEN_DOCUMENT:
 			_openOpenDocumentDialog()
+		WorkspaceActions.OPEN_RECENT:
+			_openRecentDocumentDialog()
 		WorkspaceActions.SAVE_DOCUMENT:
 			_resolveOpenStroke()
 			_saveDocument()
@@ -1596,10 +1604,12 @@ func _newDocument(lattice: Vector2i, name: String, tilesetID := DEFAULT_HEX_TILE
 	doc.fog_color = Regions.fogColorFor(paletteRegion)
 	doc.void_color = Regions.voidColorFor(paletteRegion)
 	_document = doc
+	_fileRecord = FileDocument.createRecord(doc)
 	# A new document has never been written, so it reads as unsaved from its first frame -- see
 	# `WorldMapWorkspaceSavePoint`. Nothing here writes anything to disk.
 	_savePoint.beginNewDocument()
-	_documentPath = MapDataScript.pathFor(name)
+	_documentPath = ""
+	_diskFingerprint = ""
 	_baker = Baker.new()
 	_cursorCell = null
 	_gestureStart = null
@@ -1623,24 +1633,33 @@ func _openDocumentByName(name: String) -> void:
 	if path.is_empty():
 		_editorHud.setStatus("Cannot open '%s': %s" % [name, WorkspacePaths.describeInvalidName(name)])
 		return
-	var loaded := _io.loadSource(path)
-	if loaded == null:
+	_openFileDocument(path)
+
+
+func _openFileDocument(path: String) -> void:
+	var decoded := _io.loadFileRecord(path)
+	var record := decoded.get("record", {}) as Dictionary
+	var loaded := decoded.get("data", null) as WorldMapTileData
+	if not bool(decoded.get("ok", false)) or loaded == null or int(record.get("REVISION", 0)) < 1:
 		_editorHud.setStatus(
-			"Could not open '%s' -- it is missing or not a readable map. The open document is "
-			% name + "untouched."
+			"Could not open '%s' -- it is not a saved .noggmap.json document. The open document is "
+			% path + "untouched."
 		)
 		return
 	_history.clear()
 	_document = loaded
+	_fileRecord = record
 	_savePoint.beginOpenedDocument(_history.currentRevision())
 	_recovery.resetForDocument()
 	_activeRecoveryEntry = {}
 	_documentPath = path
+	_diskFingerprint = _io.fingerprint(path)
 	_baker = Baker.new()
 	_cursorCell = null
 	_gestureStart = null
 	_strokeOpen = false
-	_bakeAndDisplayDocument("Editing %s (%s)." % [name, _documentPath])
+	RecentDocuments.remember(_io, path)
+	_bakeAndDisplayDocument("Editing %s (%s)." % [_document.region_name, _documentPath])
 
 
 ## The tail `_openDocumentForRegion`, `_newDocument` and `_openDocumentByName` all share once
@@ -1680,13 +1699,16 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 
 func _saveDocument() -> void:
 	_resolveOpenStroke()
-	if _document == null or _documentPath.is_empty():
+	if _document == null:
 		if _editorHud != null:
 			_editorHud.setStatus("No authored document is open.")
 		return
+	if _documentPath.is_empty():
+		_openSaveAsDialog()
+		return
 	# The active source path, not an embedded NAME from a hand-edited file, decides where plain
 	# Save writes. `_writeDocumentAs` reconciles the serialized name on successful completion.
-	var result := _writeDocumentAs(_documentPath.get_file().get_basename())
+	var result := _writeDocumentToPath(_documentPath, false)
 	_reportSaveResult(result)
 
 
@@ -1699,33 +1721,26 @@ func _saveDocument() -> void:
 ## result names which half landed so the status line can say so and the checkpoint can stay put --
 ## promising atomicity across two files without implementing it would be the worse failure, since
 ## the author would trust a save that only half happened.
-func _writeDocumentAs(name: String) -> Dictionary:
-	var invalid := WorkspacePaths.describeInvalidName(name)
-	if not invalid.is_empty():
-		return {"ok": false, "error": invalid, "sourceOk": false, "bakeOk": false}
-	var sourcePath := WorkspacePaths.sourcePathFor(name)
-	var bakePath := WorkspacePaths.generatedPathFor(name)
-	if sourcePath.is_empty() or bakePath.is_empty():
-		return {
-			"ok": false, "sourceOk": false, "bakeOk": false,
-			"error": "'%s' would write outside the authored folder." % name,
-		}
-	# The name is written INTO the file, so saving under a different one requires the document to
-	# carry it. Restored below if the write does not fully land, so a failed Save As leaves the
-	# document exactly as it was rather than renamed to somewhere it was never written.
-	var previousName := _document.region_name
-	_document.region_name = name
-	var sourceOk := _io.saveSource(_document, sourcePath)
-	var bakeOk := _io.saveBake(_baker, bakePath)
-	if not (sourceOk and bakeOk):
-		_document.region_name = previousName
+func _writeDocumentToPath(sourcePath: String, asCopy: bool) -> Dictionary:
+	if sourcePath.is_empty():
+		return {"ok": false, "error": "Choose a map file first."}
+	if not asCopy and not _diskFingerprint.is_empty() and _io.fingerprint(sourcePath) != _diskFingerprint:
+		return {"ok": false, "error": "The file changed on disk. Reopen it or Save As to avoid overwriting it."}
+	var record := _fileRecord.duplicate(true)
+	if record.is_empty():
+		record = FileDocument.createRecord(_document)
+	record["CONTENT"] = _document.toDictionary()
+	var savedRecord := FileDocument.nextSaveRecord(record, asCopy)
+	if savedRecord.is_empty():
+		return {"ok": false, "error": "The document could not prepare a valid source record."}
+	if not _io.saveFileRecord(savedRecord, sourcePath):
+		return {"ok": false, "error": "The source file was not replaced."}
 	return {
-		"ok": sourceOk and bakeOk,
-		"sourceOk": sourceOk,
-		"bakeOk": bakeOk,
+		"ok": true,
 		"sourcePath": sourcePath,
-		"bakePath": bakePath,
-		"name": name,
+		"record": savedRecord,
+		"fingerprint": _io.fingerprint(sourcePath),
+		"name": _document.region_name,
 	}
 
 
@@ -1734,6 +1749,8 @@ func _writeDocumentAs(name: String) -> Dictionary:
 ## that is what keeps the next Ctrl+S meaningful and the retry route open.
 func _reportSaveResult(result: Dictionary) -> bool:
 	if bool(result.get("ok", false)):
+		_fileRecord = result["record"] as Dictionary
+		_diskFingerprint = str(result.get("fingerprint", ""))
 		_savePoint.markSaved(_history.currentRevision())
 		# The work is on disk, so its crash snapshot has nothing left to protect.
 		var recoveryCleared := true
@@ -1744,11 +1761,12 @@ func _reportSaveResult(result: Dictionary) -> bool:
 		recoveryCleared = (
 			_recovery.clearFor(_io, str(result.get("name", ""))) and recoveryCleared
 		)
+		RecentDocuments.remember(_io, str(result.get("sourcePath", "")))
 		_editorHud.setStatus(
-			"Saved %s and its generated texture." % str(result.get("name", ""))
+			"Saved %s." % str(result.get("name", ""))
 			if recoveryCleared
 			else (
-				"Saved %s and its generated texture, but an old recovery snapshot could not "
+				"Saved %s, but an old recovery snapshot could not "
 				% str(result.get("name", "")) + "be removed; it may be offered next launch."
 			)
 		)
@@ -1757,19 +1775,7 @@ func _reportSaveResult(result: Dictionary) -> bool:
 	if not error.is_empty():
 		_editorHud.setStatus("Save refused: %s" % error)
 		return false
-	var sourceOk := bool(result.get("sourceOk", false))
-	var bakeOk := bool(result.get("bakeOk", false))
-	_editorHud.setStatus(
-		"Save incomplete: the source was written but the generated texture was not. "
-		+ "The map is still marked unsaved; try Save again."
-		if sourceOk and not bakeOk
-		else (
-			"Save failed: the generated texture was written but the source was NOT. "
-			+ "Your edits are still only in the editor; try Save again."
-			if bakeOk and not sourceOk
-			else "Save failed: neither the source nor the generated texture was written."
-		)
-	)
+	_editorHud.setStatus("Save failed: the source file was not replaced. Your edits remain unsaved.")
 	return false
 
 
@@ -1809,14 +1815,16 @@ func _exportBattleMap() -> void:
 ## then aim at that same phantom path. Now nothing about the editor's idea of where it is editing
 ## changes unless both files were actually written.
 func _saveDocumentAs(name: String) -> void:
+	_saveDocumentToPath(WorkspacePaths.sourcePathFor(name), true)
+
+
+func _saveDocumentToPath(path: String, asCopy: bool) -> void:
 	_resolveOpenStroke()
 	if _document == null:
 		_editorHud.setStatus("No document is open.")
 		return
-	var previousPath := _documentPath
-	var result := _writeDocumentAs(name)
+	var result := _writeDocumentToPath(path, asCopy)
 	if not _reportSaveResult(result):
-		_documentPath = previousPath
 		return
 	_documentPath = str(result["sourcePath"])
 
@@ -1827,7 +1835,8 @@ func _saveDocumentAs(name: String) -> void:
 func _availableDocumentNames() -> Array[String]:
 	var result: Array[String] = []
 	for entry in _io.listFiles(MapDataScript.AUTHORED_DIR, "json"):
-		result.append(entry.get_basename())
+		if entry.ends_with(FileDocument.EXTENSION):
+			result.append(entry.trim_suffix(FileDocument.EXTENSION))
 	result.sort()
 	return result
 
@@ -2000,19 +2009,24 @@ func _openNewDocumentDialog() -> void:
 
 
 func _openOpenDocumentDialog() -> void:
-	var names := _availableDocumentNames()
-	if names.is_empty():
-		_editorHud.setStatus("No authored maps on disk yet.")
-		return
-	if not _chrome.promptOpenDocument(names, _requestOpenDocument):
+	if not _chrome.promptOpenFile(_requestOpenPath):
 		_editorHud.setStatus("No display server; Open needs its dialog.")
+
+
+func _openRecentDocumentDialog() -> void:
+	var paths := RecentDocuments.paths(_io)
+	if paths.is_empty():
+		_editorHud.setStatus("No recent map files are available.")
+		return
+	if not _chrome.promptOpenRecent(paths, _requestOpenPath):
+		_editorHud.setStatus("No display server; Open Recent needs its dialog.")
 
 
 func _openSaveAsDialog() -> void:
 	if _document == null:
 		_editorHud.setStatus("No document is open.")
 		return
-	if not _chrome.promptSaveAs(_document.region_name, _requestSaveAsDocument):
+	if not _chrome.promptSaveFile(_document.region_name, _requestSavePath):
 		_editorHud.setStatus("No display server; Save As needs its dialog.")
 
 
@@ -2048,6 +2062,11 @@ func _requestOpenDocument(name: String) -> void:
 	_guardDirty(_openDocumentByName.bind(name))
 
 
+func _requestOpenPath(path: String) -> void:
+	if not path.is_empty():
+		_guardDirty(_openFileDocument.bind(path))
+
+
 ## No guard: Save As never discards anything the open document held, it only chooses where the
 ## save goes.
 func _requestSaveAsDocument(name: String) -> void:
@@ -2056,6 +2075,14 @@ func _requestSaveAsDocument(name: String) -> void:
 		_editorHud.setStatus("Cannot save as '%s': %s" % [name, invalid])
 		return
 	_saveDocumentAs(name)
+
+
+func _requestSavePath(path: String) -> void:
+	if path.is_empty():
+		return
+	if not path.ends_with(FileDocument.EXTENSION):
+		path += FileDocument.EXTENSION
+	_saveDocumentToPath(path, true)
 
 
 ## The value row, per layer kind -- WMH-10B. It was `_refreshTileChoices` and offered tile ids

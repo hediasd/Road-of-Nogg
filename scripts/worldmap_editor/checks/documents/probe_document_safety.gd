@@ -16,6 +16,7 @@ const HistoryScript = preload("res://src/presentation/worldmap/editor/WorldMapEd
 const MapDataScript = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
 const BakerScript = preload("res://src/presentation/worldmap/editor/WorldMapBaker.gd")
 const EditorScene = preload("res://scenes/debug/WorldMapEditorScene.tscn")
+const FileDocument = preload("res://src/presentation/worldmap/editor/document/WorldMapFileDocument.gd")
 
 var failures: Array[String] = []
 
@@ -37,6 +38,22 @@ class FakeIO extends DocumentIOScript:
 		sourceWrites.append(path)
 		files[path] = JSON.stringify(document.toDictionary())
 		return true
+
+	func saveFileRecord(record: Dictionary, path: String) -> bool:
+		if failSource:
+			return false
+		sourceWrites.append(path)
+		files[path] = FileDocument.canonicalText(record)
+		fingerprints[path] = "fp:%s:%d" % [path, sourceWrites.size()]
+		return true
+
+	func loadFileRecord(path: String) -> Dictionary:
+		if not files.has(path):
+			return {"ok": false, "record": {}, "data": null, "error": "missing"}
+		var parser := JSON.new()
+		if parser.parse(str(files[path])) != OK or not parser.data is Dictionary:
+			return {"ok": false, "record": {}, "data": null, "error": "malformed"}
+		return FileDocument.decodeRecord(parser.data as Dictionary)
 
 	func saveBake(_baker: WorldMapBaker, path: String) -> bool:
 		if failBake:
@@ -563,22 +580,21 @@ func _checkControllerTransactions() -> void:
 	_require(controller.openDocument() != null, "the controller did not create a new document")
 	_require(controller.isDocumentDirty(), "a never-saved controller document reported clean")
 
-	# Asking for another document creates the headless equivalent of the Save/Discard/Cancel
-	# dialog. Save and Continue must be able to save a named New document, then run the action.
+	# A New map is deliberately pathless. Explicit Save As writes its first envelope, then a
+	# replacement can proceed without a discard prompt.
+	controller.saveDocumentAs("first")
 	controller.requestNewDocument(Vector2i(16, 12), "second", "temp2_hex32_starter")
-	_require(controller.hasPendingDiscard(), "a replacing action bypassed the dirty guard")
-	controller.savePendingAndContinue()
 	_require(
 		controller.openDocument() != null and controller.openDocument().region_name == "second",
-		"Save and Continue did not continue from a named new document"
+		"a saved document did not allow replacement"
 	)
-	_require(io.sourceWrites.has(Paths.sourcePathFor("first")), "Save and Continue wrote no source")
-	_require(io.bakeWrites.has(Paths.generatedPathFor("first")), "Save and Continue wrote no bake")
+	_require(io.sourceWrites.has(Paths.sourcePathFor("first")), "first Save As wrote no source")
+	_require(not io.bakeWrites.has(Paths.generatedPathFor("first")), "source Save wrote a bake")
 
 	# Save As is allowed to write one half, but failure may not move the live document identity.
 	var beforeDocument = controller.openDocument()
 	var beforePath: String = controller.documentPath()
-	io.failBake = true
+	io.failSource = true
 	controller.saveDocumentAs("renamed")
 	_require(controller.openDocument() == beforeDocument, "failed Save As replaced the document")
 	_require(controller.openDocument().region_name == "second", "failed Save As renamed the document")
@@ -587,15 +603,24 @@ func _checkControllerTransactions() -> void:
 
 	# Plain Save follows the active source path even when an old hand-edited file carries a
 	# different embedded NAME. Otherwise opening expected.json and pressing Save writes surprise.json.
-	io.failBake = false
-	controller.saveDocument()
+	io.failSource = false
+	controller.saveDocumentAs("second")
 	var expectedPath := Paths.sourcePathFor("expected")
-	io.files[expectedPath] = JSON.stringify(_document("surprise").toDictionary())
+	var expectedRecord := FileDocument.createRecord(_document("surprise"))
+	expectedRecord = FileDocument.nextSaveRecord(expectedRecord, false)
+	io.files[expectedPath] = FileDocument.canonicalText(expectedRecord)
 	controller.openDocumentByName("expected")
 	_require(controller.documentPath() == expectedPath, "the expected source did not open")
 	controller.saveDocument()
 	_require(io.sourceWrites.back() == expectedPath, "plain Save followed the embedded name")
-	_require(controller.openDocument().region_name == "expected", "Save did not reconcile source identity")
+	_require(controller.openDocument().region_name == "surprise", "Open changed the document's human title")
+	var writesBeforeConflict := io.sourceWrites.size()
+	io.fingerprints[expectedPath] = "external-change"
+	controller.saveDocument()
+	_require(
+		io.sourceWrites.size() == writesBeforeConflict,
+		"plain Save overwrote a source changed outside the editor"
+	)
 
 	# A recovered document remains protected until its replacement save succeeds. Saving it under a
 	# different name removes the selected old snapshot, not another recovery and not the new source.

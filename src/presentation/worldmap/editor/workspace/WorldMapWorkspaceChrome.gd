@@ -533,6 +533,38 @@ func promptOpenDocument(names: Array[String], onAccept: Callable) -> bool:
 	return _popup(dialog)
 
 
+func promptOpenFile(onAccept: Callable) -> bool:
+	if not _canPopup():
+		return false
+	var dialog := FileDialog.new()
+	dialog.title = "Open hex map"
+	dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.filters = PackedStringArray(["*.noggmap.json ; Road of Nogg hex maps"])
+	dialog.file_selected.connect(func(path: String) -> void: onAccept.call(path))
+	return _popup(dialog)
+
+
+func promptOpenRecent(paths: Array[String], onAccept: Callable) -> bool:
+	if not _canPopup() or paths.is_empty():
+		return false
+	var dialog := ConfirmationDialog.new()
+	dialog.title = "Open recent map"
+	dialog.get_ok_button().text = "Open"
+	var list := ItemList.new()
+	list.custom_minimum_size = Vector2(420.0, 220.0)
+	for path in paths:
+		list.add_item(path)
+	list.select(0)
+	dialog.add_child(list)
+	dialog.confirmed.connect(func() -> void:
+		var selected := list.get_selected_items()
+		if not selected.is_empty():
+			onAccept.call(paths[selected[0]])
+	)
+	return _popup(dialog)
+
+
 func promptSaveAs(defaultName: String, onAccept: Callable) -> bool:
 	if not _canPopup():
 		return false
@@ -546,6 +578,19 @@ func promptSaveAs(defaultName: String, onAccept: Callable) -> bool:
 	column.add_child(nameEdit)
 	dialog.add_child(column)
 	dialog.confirmed.connect(func() -> void: onAccept.call(nameEdit.text.strip_edges()))
+	return _popup(dialog)
+
+
+func promptSaveFile(defaultName: String, onAccept: Callable) -> bool:
+	if not _canPopup():
+		return false
+	var dialog := FileDialog.new()
+	dialog.title = "Save hex map as"
+	dialog.file_mode = FileDialog.FILE_MODE_SAVE_FILE
+	dialog.access = FileDialog.ACCESS_FILESYSTEM
+	dialog.filters = PackedStringArray(["*.noggmap.json ; Road of Nogg hex maps"])
+	dialog.current_file = "%s.noggmap.json" % defaultName
+	dialog.file_selected.connect(func(path: String) -> void: onAccept.call(path))
 	return _popup(dialog)
 
 
