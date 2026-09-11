@@ -10,6 +10,12 @@ From the repository root, run:
 powershell -NoProfile -File scripts/hex_battle/run_probe.ps1 -Script res://scripts/worldmap_editor/build_hex_starter.gd -Marker "WORLD MAP HEX STARTER BUILT"
 ```
 
+Verify the generated sheet, catalog entry, exact colours, frame hashes and lattice geometry with:
+
+```powershell
+powershell -NoProfile -File scripts/hex_battle/run_probe.ps1 -Script res://scripts/worldmap_editor/probe_hex_starter.gd -Marker "WORLD MAP HEX STARTER OK"
+```
+
 The generator reads `temp2.png` through `WorldMapTilesetCatalog.loadSheetImage()` and refuses to use substitute colours. Its three exact RGB inputs are land `#FFD363`, sea `#37AEAE`, and grass `#BDD106`; their expected source counts are 11,569, 27,200, and 3,654 respectively. It writes `temp2_hex32_starter.png`, upserts only its catalog record, and writes the editable guide. The PNG is an RGBA 160 × 96 sheet with 15 32 × 32 frames in five columns and three rows. It has zero margin and spacing, no gutters, no resampling, and no donor terrain pixels.
 
 The guide file is deliberately not production art. Its named `guides` group contains frame rectangles, the same hex polygons, and centre crosses. Hide that group before exporting art: no guide pixels belong in the PNG.
@@ -25,6 +31,18 @@ The transparent corners are required. Alpha is either 0 outside the hex or 255 i
 Frames are row-major and use stable IDs `t000` through `t014`. Frames 0–2 are solid land, sea, and grass. Frames 3–8 are land with one sea edge; frames 9–14 are grass with one land edge. Edge indices are: 0 lower-right, 1 bottom, 2 lower-left, 3 upper-left, 4 top, and 5 upper-right. Edge `e` joins vertex `e` to vertex `(e + 1) % 6`; its colour band is the inside pixels less than four pixels from that segment.
 
 These are manual edge examples, **not a complete autotile or Wang set**. Junctions, corners, transitions, and gameplay rules must be authored in a later, explicitly scoped increment. Tile labels and `TERRAIN` fields describe the visible example only: no walkability, elevation, combat, or travel meaning is inferred from art.
+
+## Use in the editor
+
+The generated source sheet is
+`assets/worldmap/tilesets/temp2_hex32_starter.png`; its editable geometry guide is
+`assets/worldmap/tilesets/templates/hex32_guides.svg`; and its stable frame IDs live in
+`data/worldmap/tilesets.json`. Keep those three artifacts aligned when deriving a future sheet.
+
+In the [World map editor](./WORLDMAP_EDITOR.md), choose `temp2_hex32_starter` when creating a map,
+then select art directly from the visible tilesheet. The source map stores stable tileset and tile
+IDs rather than embedded pixels; see [Hex map source format](./HEX_MAP_FORMAT.md). Battle meaning
+belongs to explicit authored data and is added only through Export Battle.
 
 ## Technical references
 

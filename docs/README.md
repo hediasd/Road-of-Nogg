@@ -21,6 +21,7 @@ Use this page to find the source of truth instead of searching every document.
 | [Reference catalogs](./REFERENCE_CATALOGS.md) | JSON ownership and runtime conversion rules for authored catalogs |
 | [World map editor](./WORLDMAP_EDITOR.md) | World-map authoring workflow, document safety, and export boundaries |
 | [Hex tileset authoring](./HEX_TILESET_AUTHORING.md) | Starter tilesheet layout and reproducible hex palette recipe |
+| [Hex map format](./HEX_MAP_FORMAT.md) | Versioned `.noggmap.json` source envelope, identity, and compatibility contract |
 | [Game reference index](../gamerefs/tactical_rpg_turn_systems.md) | Comparative research and aspect studies |
 | [Lore](./LORE.md) | World, factions, and narrative canon; see also `lore/` |
 | [Monster catalog schema](./MONSTER_CATALOG_SCHEMA.md) | Authored monster-data shape and validation rules |

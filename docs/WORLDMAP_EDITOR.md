@@ -1,11 +1,16 @@
 # World map editor
 
 The authoring side of the world map. `WORLDMAP_DESIGN.md` covers how a region is **rendered**;
-this note covers how one is **made**. Opened with WME-4 (tileset import) and grown by each
-later item of the `worldmap-editor` cycle.
+this note covers how one is **made**.
 
 The editor is a **source-tree tool**. It never ships, it is not part of an exported build, and
 several things below depend on that — see "Sheets are read as files" in §2.
+
+The neutral startup, visual tilesheet picker, versioned file workflow and saved-snapshot battle
+export described in §§6, 12 and 13 are implemented. A fresh-eyes interactive acceptance pass over
+the complete workflow is still pending. Sections marked legacy describe older raw-region routes
+that remain for existing fixtures; sections that explicitly say future or no authoring tool are
+outside the current foundation.
 
 ## 1. The two grids, restated
 
@@ -188,7 +193,7 @@ clean: a tile may hold half a house, and none of the `TERRAIN` / `AUTOTILE` / `V
 filled in yet. What it *is* is real art in a real palette, which is what the importer and every
 later phase need in order to be exercised against something other than a synthetic fixture.
 
-Cutting from `temp2` specifically buys WME-6 an exact target: **an authored region reassembled
+Cutting from `temp2` specifically supplies an exact target: **an authored region reassembled
 from these tiles should bake back to `temp2` pixel for pixel.**
 
 `temp2` is 15.5 tiles wide (`WORLDMAP_DESIGN.md` §1), so its rightmost 8 px column is a cel-grade
@@ -197,9 +202,10 @@ rather than silently dropping it.
 
 ## 6. The editor scene
 
-`scenes/debug/WorldMapEditorScene.tscn`, driven by `WorldMapEditorController`, which **extends**
-`WorldMapDebugController` rather than forking it — every framing preset, region picker, sun,
-cloud and shadow control is the debug scene's own, unmodified.
+`scenes/debug/WorldMapEditorScene.tscn` is driven by `WorldMapEditorController` on the neutral
+`WorldMapEditorFoundationStage`. Opening it starts an empty workspace: it does not load `temp2`,
+does not run the old debug controller, and does not add clouds, sky, sun, lights or region-preview
+controls. Those presentation features can return after the editor foundation is complete.
 
 ### Workspace layout
 
@@ -208,14 +214,9 @@ the right. The document, export, history, tool, brush and view actions share the
 current document, dirty state, brush size and status remain visible while authoring. Either side
 column can collapse, leaving more room for the map without changing the map's coordinate system.
 
-The map column is its own display rect. Camera framing, backdrop and render-buffer sizing use that
-rect rather than the whole window, so a collapsed or resized panel cannot make a framed map overlap
-the chrome.
-
-Everything that sizes the render buffer, the framing readout or the sky backdrop reads
-`_displaySize()` rather than the window, because in this scene the two are different rects.
-`WorldMapDebugController` supplies that as an overridable accessor defaulting to the window size,
-so its own behaviour is unchanged.
+The map column is its own display rect. Camera framing and render-buffer sizing use that rect rather
+than the whole window, so a collapsed or resized panel cannot make a framed map overlap the chrome.
+The foundation stage creates only the authored ground and editor camera inside that display.
 
 ### Input ownership
 
@@ -243,19 +244,23 @@ shipped once and was caught only by dispatching through `Input.parse_input_event
 | Redo | Ctrl+Y or Ctrl+Shift+Z |
 
 When the map owns focus, the authoring shortcuts are **B** Paint, **E** Erase, **G** Fill and
-**I** Pick; **Ctrl+S** saves, **Ctrl+E** exports the gameplay scene and **Ctrl+Shift+E** exports
-the gameplay scene and tactical map together. Text fields and modal dialogs deliberately own the
+**I** Pick; **Ctrl+S** saves and **Ctrl+Shift+E** runs Export Battle. **Ctrl+E** remains the legacy
+standalone scene export described in §13. Text fields and modal dialogs deliberately own the
 keyboard: their contents receive these keys and no map action runs. Click the map after closing a
 dialog to return shortcut focus to it. **Tab is not an editor shortcut**; use the Editing view
 toolbar action when a top-down orthographic view is wanted.
 
 ### Palette, layers and first map
 
-Select an active layer in the inspector before painting. The palette follows that layer: grid and
-detail layers show their tilesheet, while height, object and tactical layers show the values their
-own tools accept. A plain palette click selects one frame. Ctrl-click adds or removes individual
-frames, and Shift-click selects a rectangular range; the ordered multi-frame selection supplies the
-Stamp tool. The palette can zoom 1x, 2x or 4x without changing which frames are selected.
+Select an active layer in the inspector before painting. The palette follows that layer: art grid
+and detail layers show their complete tilesheet, while height, object and tactical layers show the
+values their own tools accept. The visible sheet is authoritative for art selection; there is no
+second tile-ID dropdown. It opens in **Fit**, with 1x, 2x and 4x available for inspection. A plain
+click selects one frame, Ctrl-click adds or removes individual frames, and Shift-click selects a
+rectangular range. The ordered multi-frame selection supplies the Stamp tool. Escape or clicking
+blank sheet space clears the selection. The current-frame preview and selected frame IDs remain
+visible. Paint, Fill, Stamp and Scatter refuse to alter an art layer while the selection is empty;
+choose **Erase** when clearing cells is intended. Scatter seed controls appear only for Scatter.
 
 Each layer also has visibility and lock controls. A locked or hidden layer refuses edits, and a
 hidden art layer is removed only from the editor's displayed preview: it remains in the canonical
@@ -264,13 +269,14 @@ visibility control explains that rather than pretending to hide something. Objec
 preview group. With every art layer visible, ordinary edits keep the incremental bake path; hiding
 art trades that for a full filtered preview bake after a committed stroke.
 
-For a first map: choose **New**, select an exact-fit lattice and the starter tileset, then select a
-sheet frame in the palette. Paint with **B**, erase with **E**, or flood-fill with **G**. Change
-brush radius with the toolbar controls or `[` and `]`; a radius is a hex-disc footprint, so the
-preview and the committed stroke cover the same cells. Hide or lock a layer to inspect the result,
-then undo and redo with **Ctrl+Z** and **Ctrl+Y** (or **Ctrl+Shift+Z**). Use **Save As** to name the
-map, reopen it through **Open**, return to the shipping preview with Space, and export with
-**Ctrl+E** or **Ctrl+Shift+E** when its generated texture has been imported.
+For a first map: choose **New**. The dialog defaults to a 19 by 14 flat-top hex lattice and the
+`temp2_hex32_starter` tileset; the other exact-fit presets remain available. Give the document a
+human title, then select a frame directly from the sheet. Paint with **B**, erase with **E**, or
+flood-fill with **G**. Change brush radius with the toolbar controls or `[` and `]`; a radius is a
+hex-disc footprint, so the preview and committed stroke cover the same cells. Hide or lock a layer
+to inspect the result, then undo and redo with **Ctrl+Z** and **Ctrl+Y** (or **Ctrl+Shift+Z**).
+Use **Save As** to choose its first `.noggmap.json` path and **Export Battle** when the saved map is
+ready for the runtime boundary.
 
 ### Fitting a region: both axes, not the larger of two world numbers
 
@@ -326,9 +332,9 @@ lattice (run-length encoded, with its own `GRID_KIND` and `TILESET`) or `KIND: "
 sparse placed things (`ITEMS`). `WorldMapTileData` can read a layer it has never heard of.
 
 **Adding elevation, props, walkability or a travel graph later is therefore a data change with
-no migration and no version bump.** This is what reconciles two instructions that pointed
-different ways: the cycle file's WME-5 risk asks to "reserve the height layer's shape now even
-though it stays empty", while Gate 1 trimmed the editor to ground and overlay on the user's
+no migration and no version bump.** This reconciles two requirements that pointed different ways:
+reserve the height layer's shape even though it stays empty, while the initial editor surface is
+trimmed to ground and overlay on the user's
 "can we add more as we go later". Writing an empty height block would satisfy the letter of the
 first and contradict the second, and be speculative structure besides. Being *indifferent* to
 the layer set gives the risk what it actually wanted — that Phase D cannot force a migration —
@@ -388,7 +394,7 @@ ledger: **165 of 165 cells matched**, 15 × 11 tiles.
 is a cel-grade remainder a tile-grade ground layer cannot hold. **The baker's parity target is
 therefore temp2's first 240 px, not all 248.**
 
-It is not yet listed in `regions.json`: it has no bake, and WME-6 adds the entry when it can
+It is not yet listed in `regions.json`: it has no bake, and the bake workflow adds the entry when it can
 actually produce one. The catalog's authored path is exercised against a scratch catalog in
 `probe_tile_format.gd` instead.
 
@@ -448,7 +454,7 @@ The baked artifact is patched to match, and `probe_bake_parity.gd` asserts it �
 against `temp2.png.import` itself rather than a remembered constant, so the check fails loudly
 if region art's own settings ever change.
 
-### Hex baking (WMH-5B)
+### Hex baking
 
 Everything above is the square path, and it is bit-for-bit what it always was — `temp2_authored`
 still bakes byte-exact. Hex needed three separate fixes, because a square lattice's cells tile
@@ -605,7 +611,7 @@ is why the hex switch cost one line there. `hex` defaults false, so the square p
 
 One thing is still deliberately square and marked provisional in the source: **`pickCel` is
 square-only**, because hexagons do not tile into smaller hexagons and hex sub-tile detail is the
-six triangles a hex fans into (WMH-10). The grid overlay is no longer on this list — see below.
+six triangles a hex fans into. The grid overlay is no longer on this list — see below.
 
 ### The grid overlay
 
@@ -634,8 +640,8 @@ The **entire original square-path fragment code moved into an `else` branch, unm
 shipping square maps run the exact bytes they always did, provably rather than by inspection,
 because nothing about them changed at all.
 
-The risk WMH-3's own plan text named — *"a hex SDF that is subtly wrong reads as a plausible
-lattice that does not line up with the cells picking returns"* — is why the cursor is drawn from
+The risk that *a subtly wrong hex SDF reads as a plausible lattice that does not line up with the
+cells picking returns* is why the cursor is drawn from
 `hex_edge_distance` fed the same `WorldMapHexGrid.cellCentre` the picker uses, rather than from an
 independent shape, and why `probe_hex_grid_overlay.gd` asserts the shader's ported functions agree
 with `WorldMapHexGrid`'s own, across a dense sample **and** the boundary points that are the only
@@ -718,10 +724,21 @@ fill uses.
 
 ## 12. The document lifecycle
 
-New, Open, Save and Save As live in the workspace toolbar. New offers only the exact-fit hex
-lattices and starts Ground on `temp2_hex32_starter`, with the matching palette region, fog and
-void colours. Open lists authored JSON documents directly from `data/worldmap/authored`, so a
-newly saved map is immediately available without a catalog change.
+New, Open, Open Recent, Save and Save As are direct workspace buttons. Starting the editor does not
+open a document. **New** creates a pathless, unsaved map; its default is a 19 by 14 flat-top hex
+lattice using `temp2_hex32_starter`, while the exact-fit lattice presets remain available. The
+title entered in New is a human label and remains independent of the eventual filename.
+
+**Open** uses the native filesystem dialog and accepts versioned `.noggmap.json` source files,
+including files outside the project. Tileset references inside a document are still project
+catalog IDs such as `temp2_hex32_starter`; opening a source file does not bundle external art.
+**Open Recent** stores filesystem paths in `user://worldmap_editor/recent_maps.cfg`, omits paths
+that no longer exist, and opens a map only after the author chooses it. It never restores a recent
+map automatically at startup. TMX is not an interchange format for this foundation.
+
+The complete source-envelope and identity contract lives in
+[Hex map source format](./HEX_MAP_FORMAT.md). Keep schema details there rather than copying them
+into this workflow guide.
 
 ### Dirty state and safe saves
 
@@ -734,23 +751,27 @@ pressure.
 The unsaved marker is derived from the history revision at the last successful save. Undoing to
 that revision clears it; an edit made after undo is a new revision and remains dirty even if the
 undo stack happens to return to an earlier depth. A failed save does not advance the save point or
-change the active source path, and the status names whether source JSON or the generated bake
-failed. A never-saved document uses Save As; once it has a valid name, ordinary Save writes back to
-that same source path.
+change the active source path.
 
-Names accept letters, digits, `_` and `-` only, up to 64 characters. Source JSON stays below the
-authored root and generated PNG stays below its generated root. Both writes use a temporary sibling
-and retain the previous file until replacement succeeds; an interrupted replacement repairs its
-`.previous` sibling on the next read/list. This protects each file's last good version. The JSON
-and PNG are separate products, so a failure between them is reported rather than misrepresented as
-a fully successful save.
+**Save writes source only.** It does not bake a PNG, publish a scene or export a battle definition.
+The writer replaces the `.noggmap.json` through sibling `.tmp` and `.previous` files so a failed
+replacement retains the last good source. An unchanged Save does not rewrite or increment the
+document; a changed Save advances its revision. Before overwriting, Save compares the file on disk
+with the fingerprint recorded when it was opened or last saved. If another program or session
+changed it, Save refuses and tells the author to reopen or use Save As.
+
+A new or recovered document has no destination, so Save opens **Save As**. Save As uses the native
+filesystem dialog, writes a new document UUID at revision 1, and moves the active document to that
+path only after the write succeeds. It keeps the human title separate from the filename. A failed
+or cancelled Save As leaves the current document, path, identity and dirty state unchanged.
 
 
 ### Replacing or closing an unsaved document
 
-New, Open and Close all ask what to do with unsaved work: **Save**, **Discard** or **Cancel**.
-Save continues the requested action only after the document is saved; Discard continues without
-writing; Cancel leaves the current map untouched.
+New, Open, Open Recent and Close all ask what to do with unsaved work: **Save**, **Discard** or
+**Cancel**. The window close button follows the same rule. Save continues the requested action only
+after the document is saved; Discard continues without writing; Cancel leaves the current map
+untouched.
 
 Modal ownership is released when the dialog closes, so authoring shortcuts resume after returning
 focus to the map.
@@ -758,18 +779,49 @@ focus to the map.
 ### Recovery is an offer, never an overwrite
 
 After 30 seconds of dirty, stroke-free idle time, the editor may write a recovery snapshot under
-`user://worldmap_editor/recovery/`. Snapshots are outside the repository and authored/generated
-roots. They are not saves: startup lists them for an explicit Recover or Discard decision. Recover
-opens a fresh, unsaved document with fresh history; it never writes the snapshot back over source.
-If the saved source changed, disappeared or has an invalid recorded path, the recovery row says so
-before recovery. Discard removes only the selected snapshot. A successful save clears that map's
-recovery snapshot.
+`user://worldmap_editor/recovery/`. Snapshots are outside the repository and source locations.
+They are not saves: startup lists them for an explicit Recover or Discard decision. Recover opens
+a fresh, pathless, unsaved document with fresh history; it never writes the snapshot back over
+source. If the saved source changed, disappeared or has an invalid recorded path, the recovery row
+says so before recovery. Discard removes only the selected snapshot. A successful save clears that
+map's recovery snapshot.
 
 
 ## 13. Exporting a gameplay scene
 
-`WorldMapSceneExport` turns an authored document into a reusable scene — WMH-6. Ctrl+E in the
-editor, or `exportScene(data, framing)` directly.
+**Export Battle** (`Ctrl+Shift+E`) is the foundation's runtime boundary. It publishes the whole
+saved document, regardless of editor layer visibility. If the open document has unsaved changes at
+an existing source path, the editor saves it first. If it has no path, the editor opens Save As and
+stops the export; invoke Export Battle again after the save succeeds.
+
+Every source document receives a stable artifact stem, `hex_<document UUID without hyphens>`.
+One export writes four derived files:
+
+| Product | Location |
+|---|---|
+| Baked texture resource | `assets/worldmap/regions/generated/<stem>.tres` |
+| Reusable visual scene | `scenes/worldmap/generated/<stem>.tscn` |
+| Battle definition | `data/battle/maps/<stem>.json` |
+| Success receipt, written last | `data/battle/maps/<stem>.receipt.json` |
+
+The scene and battle definition carry the same source UUID, saved revision and canonical source
+fingerprint. The battle definition also names the visual scene and is checked through
+`BattleMapFactory` before publication. The receipt is the completion marker; artifacts without a
+matching receipt are an incomplete export. A `.noggmap.json` file is editor source and is never
+loaded directly as a battle scenario.
+
+The current tactical boundary is deliberately narrow: it exports one flat surface per playable
+hex, requires an explicitly authored tactical layer, accepts integer elevations from 0 through 8
+at 0.5 world-unit steps, and preserves authored terrain flags. It does not infer walkability,
+elevation or combat meaning from tile art. Sloped playable cells and multiple walkable surfaces
+such as bridges still require a later runtime-schema extension.
+
+### Legacy standalone scene export
+
+`WorldMapSceneExport` is the older standalone `Ctrl+E` path. It remains available to existing
+workflows, but it is separate from Export Battle and still expects a previously baked, imported
+PNG. The sections below document that legacy path. New foundation maps should use Export Battle,
+whose saved `.tres` texture does not require a separate Godot import pass.
 
 ### What a shipped map is
 
@@ -851,7 +903,7 @@ cache really is null so the check cannot pass for the wrong reason.
 
 ## 14. Placed objects
 
-`WorldMapObjectLayer` — WMH-7. Buildings, towers and whatever else stands **on** the map rather
+`WorldMapObjectLayer` holds buildings, towers and whatever else stands **on** the map rather
 than being part of it. A `list`-kind layer, which the format already supported: adding objects
 was a data change with no migration and no version bump, which is what §7's layer-agnostic design
 was for.
@@ -892,9 +944,9 @@ Raising ground under one corner of a building must **lift** the building, not pu
 its floor, so the surface it rests on is the highest cell it covers. A building floating over a
 dip on one side reads as a building on uneven ground; one buried to its windows reads as a bug.
 
-Terrain heights arrive in WMH-8, so `anchorHeight()` takes the height **sampler** as an argument
-rather than reaching for a layer that does not exist yet. Flat ground is the default and returns
-zero; WMH-8 passes the real sampler without this file changing. `probe_object_layer.gd` supplies
+`anchorHeight()` takes the height **sampler** as an argument rather than reaching for a concrete
+layer. Flat ground is the default and returns zero; the height layer passes the real sampler
+without this file changing. `probe_object_layer.gd` supplies
 its own sampler to prove an object rises with its footprint, ignores terrain outside it, and
 ignores terrain entirely when its anchor is `fixed`.
 
@@ -930,7 +982,7 @@ anchoring rule already corrected — converted from map pixels to hex cells thro
 **foot** (`x + w/2`, `y + h`), the only point that should decide which cell it stands in. temp2's
 art is 2× in the hex region, so a temp2 world position doubles before being resolved.
 
-Rebuilding the document also cross-validated WMH-5B: the authoring tool reads each cell at
+Rebuilding the document also cross-validated hex baking: the authoring tool reads each cell at
 `cellCentre × 16 − frame/2` and matched **200 of 200** cells against the ledger, which is only
 possible if the baker's placement is the exact inverse of the original cut. The one catch worth
 recording is that the cut must be **hex-masked** before hashing — a plain rectangular cut from
@@ -942,13 +994,13 @@ matches nothing.
 `temp2_hex32_authored`'s canvas hugs its lattice exactly, so the sawtooth gaps between the top
 and bottom rows of hexes are transparent texels **inside** the region rect rather than outside
 it, and they render black instead of taking the void colour. The remedy is the square-with-margin
-shape WMH-R1 settled — this document is 30.5 × 21 units with no margin, because it was built from
+square-with-margin shape — this document is 30.5 × 21 units with no margin, because it was built from
 the source art's own non-square extent — or making the void substitution alpha-aware. Named here
 rather than fixed, since it is about the map's shape and the ground shader, not about objects.
 
 ## 15. Terrain height
 
-`WorldMapHeightField` — WMH-8. Heights live on the hex **vertex** lattice, and one interpolation
+`WorldMapHeightField` stores heights on the hex **vertex** lattice, and one interpolation
 serves rendering, picking, object anchoring and export.
 
 ### Why vertices, and why that makes the triangulation unambiguous
@@ -1025,15 +1077,15 @@ how the surface is lit.
 
 ## 16. Sub-triangle detail
 
-`WorldMapTileData.KIND_DETAIL` — WMH-10. Six independent triangular slots per hex, the direct hex
+`WorldMapTileData.KIND_DETAIL` stores six independent triangular slots per hex, the direct hex
 equivalent of a cel: art only, painted independently, composited over the ground in the bake.
 Nothing an entity observes reads this layer — no walkability, no height, no collision.
 
 ### The same fan, on purpose
 
 A detail slot and a terrain triangle are the same region of the hex **by construction**: both use
-the six triangles WMH-8's height field fans from a hex's own centre to its six corners. That was
-the design decision the cycle file settled before this item ever opened — "a hex fans into six
+the six triangles the height field fans from a hex's own centre to its six corners. The governing
+design decision is that "a hex fans into six
 triangles from its centre with no arbitrary diagonal choice — which is also the triangulation
 smooth terrain wants, so one decision serves both" — and this item is the specified implementation
 of the detail half of that sentence.
@@ -1050,11 +1102,11 @@ nothing just outside the lattice that owns one. It serialises through the exact 
 ### Masked at bake time, not pre-masked in the art
 
 There is no dedicated detail tileset yet — the probe reuses `temp2_hex32_ground`, the only hex
-tileset in the catalog, the same bootstrap pattern WMH-2 and WMH-4 already used for ground and
+tileset in the catalog, the same bootstrap pattern already used for ground and
 brushes. So the six slots cannot come from six pre-cut triangular art pieces; **the baker masks a
 whole tileset frame down to one fan triangle at composite time**, per pixel, before blending it
 in. A pixel's own local position (relative to the hex's own centre, in world units) is tested
-against the same barycentric fan-triangle math WMH-8's `WorldMapHeightField` uses for terrain
+against the same barycentric fan-triangle math `WorldMapHeightField` uses for terrain
 sampling — deliberately **duplicated**, not called, since `WorldMapHeightField.gd` is not touched
 by this item, the same reason `tool_author_hex32.gd` once had to mirror `tool_cut_hex32.gd`'s own
 mask rather than import it.
@@ -1067,17 +1119,17 @@ then slot 4 (the opposite side of the hex) painted with a different tile, and sl
 well-inside pixels are asserted byte-identical before and after — the check that would fail first
 if masking silently degraded to "the whole frame".
 
-### No undo — closed in WMH-10B
+### Detail undo
 
-Kept as a heading rather than deleted, because how it was left is the point. WMH-10 shipped
-`paintTriangle` as `data.setDetail(...)` directly — no stroke, no coalescing, no undo — while every
+The first detail implementation shipped `paintTriangle` as `data.setDetail(...)` directly — no
+stroke, no coalescing, no undo — while every
 sibling brush in `WorldMapBrushes.gd` was `(data, history, layerID, ...)`. Wiring a fourth kind
 into the history was real work, and this item's Touches list did not include
 `WorldMapEditHistory.gd`; rather than reach into a file outside its scope or ship an un-undoable
 tool without saying so, **the deviation from every sibling's shape was itself the marker.**
 
-Gate 3 then found nothing could reach these slots with a mouse at all, and WMH-10B gave them a
-tool — which turned a named gap into a defect, since a person can now make edits they cannot take
+Later work exposed these slots through a mouse tool, which turned the missing undo into a defect:
+a person could now make edits they could not take
 back. So detail is the history's fourth delta kind, `paintTriangle` has its siblings' signature,
 and the anomaly is gone. See §17.
 
@@ -1110,12 +1162,12 @@ The row that offered tile ids now offers whatever the active layer's tool takes:
 grid or detail layer, **Sculpt** over heights, **Object** over the object layer. `setValueChoices`
 takes labels and values as a pair, because a sculpt step reads `Raise +0.50` and acts as `0.5`.
 
-This is the half that made the kind-aware `_layerEditable` safe. WMH-10B named the failure it was
-avoiding: a sculpt reading a tile id off a row that has none applies `float("")` — which is `0.0`,
+This is the half that made the kind-aware `_layerEditable` safe. The failure it avoids is a sculpt
+reading a tile id off a row that has none and applying `float("")` — which is `0.0`,
 a silent no-op, the same class of defect as Gate 1's picker refusing a click without a word.
 
 Removing is a choice in that row rather than a tool of its own, matching `Erase (-)` on the tile
-row since WME-9.
+row.
 
 The same reasoning gives `_toolFitsLayer`: the new rows made a mismatched tool reachable for the
 first time, and `WorldMapTileData.setCell` already refuses a non-grid layer by returning `false`
@@ -1166,7 +1218,7 @@ the working paint, rectangle and stamp routing described above.
 
 ## 18. Authored water
 
-`WorldMapWaterLayer` over `WorldMapTileData.KIND_WATER` — WMH-11. Lakes and simple river sections:
+`WorldMapWaterLayer` over `WorldMapTileData.KIND_WATER` stores lakes and simple river sections:
 which cells are wet, and what height each one's surface sits at. No flow, no simulation, no tide.
 
 ### Water is not a terrain type
@@ -1239,23 +1291,21 @@ a band is a property of the *terrain* an author sculpts rather than something wa
 itself. A distance-to-shoreline band would behave differently and is the obvious alternative if
 this reads wrong in use.
 
-**No authoring tool.** WMH-11's Touches list covers the layer, the format and the export — not the
-controller or the HUD — so water is authored through the API, exactly as heights, objects and
-detail were before WMH-10B. §17's pattern makes adding one small, and it is the natural companion
-to this item rather than part of it.
+**No authoring tool.** Water is currently authored through the API, as heights, objects and detail
+were before their workspace tools existed. §17's pattern makes adding one small; it remains future
+editor work.
 
 
 ## 19. Bridges
 
-`WorldMapObjectLayer.placeBridge` and `.clearance` — WMH-12. A bridge is not a new record shape:
+`WorldMapObjectLayer.placeBridge` and `.clearance` model a bridge without a new record shape:
 it is an ordinary placed object (§14) whose `HEIGHT` is a **deck height** and whose `ANCHOR` is
 `ANCHOR_FIXED`. Nothing about the format changed; the item's whole content is that one field
-combination getting a name, and a clearance check that had nothing to compare against before
-WMH-11 gave it water to compare against.
+combination getting a name, and a clearance check that compares it with authored water.
 
 ### Deck height is authored, not derived — and that was already expressible
 
-`ANCHOR_FIXED` has existed since WMH-7: an object anchored `fixed` ignores whatever sampler it is
+An object anchored `ANCHOR_FIXED` ignores whatever sampler it is
 given and returns its own `HEIGHT` unchanged (§14). That is already "authored, not derived" —
 which means a bridge needed no new storage, no new anchor mode and no change to `anchorHeight()`
 or `worldPosition()`. What it needed was **a call site that cannot get this wrong by accident**:
@@ -1282,7 +1332,7 @@ checked at every cell, and the answer is the worst across the whole set.
 `waterSampler` is a caller-supplied `Callable`, exactly like `terrainSampler` and `anchorHeight`'s
 own sampler before it (§14) — this file still does not preload `WorldMapHeightField` or
 `WorldMapWaterLayer`, keeping the decoupling those two already established. The contract for a dry
-cell is `null`, not a height of `0.0`, which is WMH-11's own "dry is not height zero" carried one
+cell is `null`, not a height of `0.0`, carrying "dry is not height zero" one
 layer up: a water sampler that answered `0.0` for a dry cell would make every bridge crossing dry
 land on its way to a river report a false near-miss against phantom water at sea level.
 `probe_object_layer.gd` checks this by comparing an always-dry sampler's result against no water
@@ -1300,9 +1350,9 @@ confirms it holds.
 
 ## 20. The tactical layer, and exporting a battle map
 
-HXB-10. A region can carry a **battlefield**: which of its cells a battle is fought on, and what
-each of those costs to cross. It exports as a second product beside the gameplay scene of §13 —
-the tactical map `BattleSimulator` reads, in the schema HXB-5 defined.
+A region can carry a **battlefield**: which of its cells a battle is fought on, and what each of
+those costs to cross. It exports beside the gameplay scene of §13 as the tactical map
+`BattleSimulator` reads.
 
 ### It is a plain grid layer, and that is the whole design
 
@@ -1355,66 +1405,15 @@ are off the board — a cliff you cannot stand on. The fixture is flat at elevat
 
 ### Exporting both products at once
 
-`Ctrl+Shift+E` exports the pair; `Ctrl+E` still exports the gameplay scene alone. Both halves come
-from one document in one action on purpose — exporting them separately is exactly how a scene ends
-up describing a document the map no longer matches. Both are stamped with the same `SOURCE`: the
-region name, and a SHA-256 fingerprint of the document's own canonical bytes, so any authored
-change at all produces a different pair and a stale half is detectable rather than merely
-suspected.
+`Ctrl+Shift+E` uses the saved-snapshot publication flow in §13. The visual scene and tactical
+definition come from one versioned document in one action, carry its UUID, revision and fingerprint,
+and use one stable UUID-derived stem. Exporting them separately would allow a scene to describe a
+different source revision from the battle definition.
 
 A refusal reaches the status line with the feature and the cell in it. "Unsupported" alone does
 not tell an author which hill to flatten.
 
-### The generated scene is not committed, so the dependency is declared
-
-Per §13, exported scenes are gitignored — `ResourceSaver.save()` assigns fresh resource ids every
-write, so a committed one shows a spurious diff on every re-export. The baked PNG *is* committed,
-because that one is byte-deterministic.
-
-That leaves a real state the project is in by policy: a fresh checkout has the tactical map and
-the art, but not the scene the map's `VISUAL_SCENE_PATH` points at. `BattleMapAssetManifest` is
-the answer — it reads the map JSON alone and reports which generated products are missing and why,
-so packaging can ask "what must exist before shipping this map" and an author can ask "why will
-this map not load". It imports no editor code and must not: a packaged game ships without one.
-
-### The PNG import prerequisite, resolved
-
-`WorldMapSceneExport` refuses to export until Godot has *imported* the baked PNG, because a
-texture with no `resource_path` embeds megabytes of base64 into the scene (§13). The supported way
-to satisfy that without opening the editor by hand is Godot's own import mode:
-
-```bash
-godot --headless --import --path .
-```
-
-`--headless --editor --quit` does **not** work for this: `--quit` ends the run after one frame and
-the filesystem scan is asynchronous, so it aborts partway ("Scan thread aborted") and writes no
-`.import` file. `--import` is documented to wait for imports to finish and then exit, which is
-what a bake-then-export sequence needs.
-
-### Regenerating the fixture
-
-`hex_battle_fixture` is committed source; its PNG is a committed build artifact, and its gameplay
-scene is not committed at all. The durable path back to both generated halves is the editor
-itself, which is why the in-editor route exists rather than a build script:
-
-1. Open the `hex_battle_fixture` region in the editor and **Ctrl+S**. Saving writes the source
-   document *and* re-bakes the PNG — one action, so the two cannot drift.
-2. `godot --headless --import --path .` once, so Godot imports the freshly baked PNG. Skipping
-   this is what produces "no importable bake at …" from the export.
-3. **Ctrl+Shift+E** — writes the gameplay scene and `data/battle/maps/editor_fixture.json`.
-
-Headlessly, the whole of step 3 is one call, so a throwaway script needs no more than this:
-
-```gdscript
-var data := WorldMapTileData.loadFrom(WorldMapTileData.pathFor("hex_battle_fixture"))
-var framing := WorldMapGroundUniforms.completeForRegion({}, data.fog_color, data.void_color)
-WorldMapBattleExport.exportBoth(data, framing, "editor_fixture")
-```
-
-Such scratch scripts belong under `builds/hex-battle/`, which is not tracked; the instructions
-above are the durable form, and the committed editor is what actually performs the export.
-
-The map id is deliberately separable from the region name: a region is a place someone authored,
-and a map is one battle fought on it. `SOURCE.ID` still carries the region, so the pair stays
-traceable to its document.
+The earlier `hex_battle_fixture` and PNG-import workflow belongs to the legacy raw-region pipeline.
+It remains useful for its existing fixtures, but it is not the creation path for a new foundation
+map. New maps are saved as `.noggmap.json`, then published with Export Battle; Save never regenerates
+derived art, and Export Battle writes a reloadable `.tres` texture directly.
