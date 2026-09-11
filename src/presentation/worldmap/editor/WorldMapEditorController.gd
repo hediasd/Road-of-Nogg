@@ -54,6 +54,7 @@ const Regions = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.g
 const FoundationStage = preload("res://src/presentation/worldmap/editor/foundation/WorldMapEditorFoundationStage.gd")
 const FileDocument = preload("res://src/presentation/worldmap/editor/document/WorldMapFileDocument.gd")
 const RecentDocuments = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceRecent.gd")
+const DocumentExport = preload("res://src/presentation/worldmap/editor/document_export/WorldMapDocumentExport.gd")
 
 ## One entry per layer this tool currently means to hold data for. `enabled` is false for both
 ## in Phase A -- see the class note -- and a later item flips its own row to true as its data
@@ -1799,9 +1800,20 @@ func _exportScene() -> void:
 ## A refusal reaches the status line with the unsupported feature and its cell in it, because
 ## "unsupported" alone tells an author nothing about which hill to flatten.
 func _exportBattleMap() -> void:
-	var result := BattleExport.exportBoth(_document, _framing)
+	if _document == null:
+		_editorHud.setStatus("Battle export failed: no document is open.")
+		return
+	if _documentPath.is_empty():
+		_editorHud.setStatus("Save the source document before exporting it.")
+		_openSaveAsDialog()
+		return
+	if _isDocumentDirty():
+		_saveDocument()
+		if _isDocumentDirty():
+			return
+	var result := DocumentExport.publish(_document, _fileRecord, _framing, _io)
 	if bool(result.get("ok", false)):
-		_editorHud.setStatus("Exported battle map %s" % str(result["map_path"]))
+		_editorHud.setStatus("Exported battle map %s." % str(result["stem"]))
 		return
 	_editorHud.setStatus("Battle export failed: %s" % str(result.get("error", "unknown")))
 
@@ -2486,4 +2498,6 @@ func exportScene() -> Dictionary:
 ## result. Same shape and same reason as `exportScene()` above: `probe_editor_export.gd` asserts
 ## WHICH unsupported feature refused a map, which a status string cannot carry.
 func exportBattleMap() -> Dictionary:
-	return BattleExport.exportBoth(_document, _framing)
+	if _document == null or _documentPath.is_empty() or _isDocumentDirty():
+		return {"ok": false, "error": "a current saved source snapshot is required"}
+	return DocumentExport.publish(_document, _fileRecord, _framing, _io)

@@ -84,6 +84,18 @@ func readText(path: String) -> String:
 	return FileAccess.get_file_as_string(path)
 
 
+func saveResource(resource: Resource, path: String) -> bool:
+	if resource == null or path.is_empty() or not ensureDirectory(path.get_base_dir()):
+		return false
+	return ResourceSaver.save(resource, path) == OK
+
+
+func loadTexture(path: String) -> Texture2D:
+	if path.is_empty() or not ResourceLoader.exists(path):
+		return null
+	return ResourceLoader.load(path) as Texture2D
+
+
 ## Written to a temporary sibling, with the previous file retained until the replacement lands.
 ## The `.previous` file is also repaired on the next directory listing if the process ended in
 ## the short interval between the two renames. That makes an interrupted replacement recoverable
