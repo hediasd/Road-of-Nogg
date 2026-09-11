@@ -1,22 +1,10 @@
-## The world map's LEVEL EDITOR shell: an authoring scene built on the exact rig the game
-## ships, with a second camera for looking around it and a second HUD panel for editor-only
-## chrome -- which layer is active, which tool is selected, and whether the current view is
-## off the shipping contract.
+## The world map level editor: a document-first authoring scene with a neutral world stage,
+## editor-only camera controls, and workspace chrome for layer and tool state.
 ##
-## REUSE, NOT A FORK. This extends `WorldMapDebugController` rather than duplicating it: every
-## framing preset, region picker, sun, cloud and shadow control here is the debug scene's own,
-## unmodified, because two copies of the framing controls would diverge the first time either
-## one changes. What this file adds is layer and tool STATE and where mouse input goes; it does
-## not touch anything `WorldMapDebugController` already owns, and `WorldMapDebugScene.tscn`
-## keeps working exactly as before.
-##
-## THE CAMERA IS SWAPPED, NOT FORKED. `WorldMap.tscn`'s Camera node ships as a plain
-## `WorldMapCameraRig`; once the base scene has built, `_installEditorCamera()` replaces it in
-## place with a `WorldMapEditorCamera` (which subclasses that same rig -- see its own header)
-## and reparents the Sky backdrop onto the new node. Ground, Props and Clouds are untouched:
-## they are the same nodes `super._ready()` built, which is what keeps this an authoring VIEW
-## of the shipping rig rather than a second copy of it. `probe_editor_shell.gd` asserts the
-## Ground and Props instances are literally the ones the base class constructs.
+## A fresh editor deliberately has no region, sky, clouds, props, lights or debug controls. The
+## foundation stage supplies only a blank ground and `WorldMapEditorCamera`; New and Open are the
+## routes that replace it with authored map content. This keeps old preview-world state from
+## becoming accidental map data or obscuring the actual hex authoring workflow.
 ##
 ## PHASE A SHIPS NO DATA MODEL. Every layer in `LAYERS` is real, selectable chrome, and every
 ## one is `enabled = false` -- there is nothing yet for a ground brush, a height edit or a road
@@ -33,18 +21,15 @@
 ## sits inside the "World" `SubViewport`, which the scene displays through a plain `TextureRect`
 ## rather than a `SubViewportContainer` -- so it never receives a real, engine-dispatched mouse
 ## or key event, ever. This controller is a sibling of "World", not a child of it, and DOES
-## receive them, matching the base class's own established pattern for drag-to-pan. So every
+## receive them. Every
 ## mouse gesture and every navigation key this class owns is read here and applied to the
 ## camera through its plain methods (`orbitByScreenDelta`, `panBy`, `dollyBy`, `toggleOrtho`,
 ## `snapToContract`, `snapYaw`, `frameRegion`) -- never by relying on the camera to notice
-## anything on its own. Left click routes to the active layer's tool instead of panning, which
-## is why this class does not call `super._unhandled_input`: the base class's left-drag-pans-
-## the-camera would otherwise compete with left click as a tool input. `KEY_F` is claimed here
-## rather than left to the base's inherited `_recentre()`, and marked handled, so the two do not
-## both fire for one keypress. Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes -- see
+## anything on its own. Left click routes to the active layer's tool instead of panning. `KEY_F`
+## is claimed here and marked handled. Ctrl+Z undoes, Ctrl+Y or Ctrl+Shift+Z redoes -- see
 ## `WorldMapEditHistory` for why they are wired here even though nothing feeds them yet.
 
-extends "res://src/presentation/debug/WorldMapDebugController.gd"
+extends Node
 
 const EditorHudScript = preload("res://src/presentation/worldmap/editor/WorldMapEditorHud.gd")
 const ChromeScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceChrome.gd")
@@ -66,6 +51,7 @@ const SceneExport = preload("res://src/presentation/worldmap/editor/WorldMapScen
 const HeightField = preload("res://src/presentation/worldmap/editor/WorldMapHeightField.gd")
 const BattleExport = preload("res://src/presentation/worldmap/editor/WorldMapBattleExport.gd")
 const Regions = preload("res://src/presentation/worldmap/WorldMapRegionCatalog.gd")
+const FoundationStage = preload("res://src/presentation/worldmap/editor/foundation/WorldMapEditorFoundationStage.gd")
 
 ## One entry per layer this tool currently means to hold data for. `enabled` is false for both
 ## in Phase A -- see the class note -- and a later item flips its own row to true as its data
@@ -195,6 +181,15 @@ const DEFAULT_HEX_PALETTE_REGION := "temp2"
 var _editorCamera: WorldMapEditorCamera
 var _editorHud: WorldMapEditorHud
 var _chrome: ChromeScript
+var _viewport: SubViewport
+var _display: TextureRect
+var _map: Node3D
+var _ground: WorldMapGround
+var _framing: Dictionary = {}
+var _regionTiles := Vector2(2.0, 2.0)
+var _regionMapPx := Vector2i.ONE
+var _regionID := ""
+var _tileGrid: MeshInstance3D = null
 var _layerLocked: Dictionary = {}
 var _activeLayer := "ground"
 var _activeTool := TOOL_NAVIGATE
@@ -292,15 +287,13 @@ func _ready() -> void:
 		_layerLocked[str(layer["id"])] = false
 		_routeCount[str(layer["id"])] = 0
 
-	super._ready()
-	_installEditorCamera()
+	_buildFoundationStage()
 	_buildEditorUi()
 	_editorCamera.rememberRegion(_ground.regionRect())
-	_openDocumentForRegion(_regionID)
+	_editorHud.setStatus("Choose New or Open to begin building a hex map.")
 
 
 func _process(delta: float) -> void:
-	super._process(delta)
 	_editorHud.setOffContract(_editorCamera.offContractReason())
 	_cursorCell = _pickCell(_pointerPosition)
 	_updateGrid()
@@ -364,45 +357,43 @@ func _displaySize() -> Vector2:
 	return _display.get_rect().size
 
 
-## Swaps the shipping camera for the editor's, in place. Ground, Props and Clouds are left
-## exactly as `super._ready()` built them -- only the Camera and its Sky child move.
-##
-## THE FOCUS-STRIPPING PASS THAT USED TO LIVE HERE IS GONE. Every control the editor and the
-## reused debug HUD build used to be set to `FOCUS_NONE`, because Tab and Space were global camera
-## shortcuts and a focused control would eat them -- the playtest defect was Space both toggling
-## the tile grid and resetting the camera. That fix cost the workspace its keyboard: nothing could
-## be Tab-traversed, which this rebuild requires. The replacement is to gate the shortcuts on
-## focus STATE instead (`WorldMapWorkspaceActions.resolve`), and to stop claiming Tab at all --
-## the orthographic toggle is a visible button now. Controls keep ordinary focus behaviour, and a
-## key means one thing at a time because only one of the two readings is ever live.
-func _installEditorCamera() -> void:
-	var oldCamera := _camera
-	var sky := _sky
-	oldCamera.remove_child(sky)
-	var parent := oldCamera.get_parent()
-	var index := oldCamera.get_index()
-	parent.remove_child(oldCamera)
-	oldCamera.queue_free()
+func _applyRenderScale() -> void:
+	if _viewport == null or _editorCamera == null:
+		return
+	var window := _displaySize()
+	if window.x <= 0.0 or window.y <= 0.0:
+		return
+	var readout := _editorCamera.framingReadout(Vector2i(window))
+	var buffer: Vector2 = readout["buffer_size"]
+	var wanted := Vector2i(maxi(int(buffer.x), 2), maxi(int(buffer.y), 2))
+	if _viewport.size != wanted:
+		_viewport.size = wanted
 
-	_editorCamera = WorldMapEditorCamera.new()
-	_editorCamera.name = "Camera"
-	parent.add_child(_editorCamera)
-	parent.move_child(_editorCamera, index)
-	_editorCamera.add_child(sky)
-	_editorCamera.current = true
 
-	# `_camera` is the base class's own reference, and everything it already calls --
-	# `_applyFraming`, `_refreshStatus`, the base `_recentre` -- reads it by that name. Pointing
-	# it at the new node is what lets every one of those keep working completely unmodified.
-	_camera = _editorCamera
-	_applyFraming()
+func _applyFraming() -> void:
+	_ground.applyFraming(_framing)
+	_editorCamera.applyFraming(_framing)
+	_applyRenderScale()
+
+
+## Builds the editor's own minimal stage. The workspace keeps ordinary keyboard focus; shortcuts
+## resolve only while the map owns focus, so Tab remains available for control traversal.
+func _buildFoundationStage() -> void:
+	_viewport = get_node("World") as SubViewport
+	_display = get_node("Display") as TextureRect
+	_display.texture = _viewport.get_texture()
+	var stage := FoundationStage.build(_viewport)
+	_map = stage["map"] as Node3D
+	_ground = stage["ground"] as WorldMapGround
+	_editorCamera = stage["camera"] as WorldMapEditorCamera
+	_framing = stage["framing"] as Dictionary
+	_regionTiles = _ground.regionRect().size
 
 
 func _buildEditorUi() -> void:
 	var ui := get_node("Ui") as CanvasLayer
 	_chrome = ChromeScript.new()
 	_chrome.build(ui, _onWorkspaceAction, _onExtraToolChosen, _extraToolRows())
-	_chrome.setPreviewPanel(get_node("Ui/PanelContainer") as Control)
 	_chrome.connectStageResized(_layoutDisplayToStage)
 
 	_editorHud = EditorHudScript.new(_chrome)
@@ -573,8 +564,6 @@ func _onWorkspaceAction(actionID: String) -> void:
 			_gridVisible = not _gridVisible
 			_chrome.setActionPressed(WorkspaceActions.VIEW_GRID, _gridVisible)
 			_updateGrid()
-		WorkspaceActions.VIEW_PREVIEW_SETTINGS:
-			_chrome.togglePreviewPanel()
 
 
 func _selectWorkspaceTool(actionID: String) -> void:
@@ -657,36 +646,12 @@ func _frameRegion() -> void:
 ## deferred behind a confirmation -- the `OptionButton` has already moved to `index` by the time
 ## this signal fires (Godot updates a control's own state before emitting), and it must not keep
 ## showing a region the document has not actually switched to yet.
-func _onRegionSelected(index: int) -> void:
-	var ids := RegionCatalog.ids()
-	if index < 0 or index >= ids.size():
-		return
-	var previousIndex := ids.find(_regionID)
-	_guardDirty(_performRegionSwitch.bind(index))
-	if _pendingDiscardAction.is_valid() and previousIndex >= 0:
-		_hud.regionOption.selected = previousIndex
+func _onRegionSelected(_index: int) -> void:
+	_editorHud.setStatus("Region previews are not part of the foundation editor. Use Open to choose a map.")
 
 
 func _performRegionSwitch(index: int) -> void:
-	var ids := RegionCatalog.ids()
-	if index < 0 or index >= ids.size():
-		return
-	var nextRegionID := str(ids[index])
-	var loaded: WorldMapTileData = null
-	var loadAttempted := Regions.isAuthored(nextRegionID)
-	if loadAttempted:
-		loaded = _io.loadSource(Regions.tileDataPathFor(nextRegionID))
-		if loaded == null:
-			var previousIndex := ids.find(_regionID)
-			if previousIndex >= 0:
-				_hud.regionOption.select(previousIndex)
-			_editorHud.setStatus(
-				"Could not open '%s'; the current document is untouched." % nextRegionID
-			)
-			return
-	super._onRegionSelected(index)
-	_openDocumentForRegion(_regionID, loaded, loadAttempted)
-	_editorCamera.rememberRegion(_ground.regionRect())
+	_onRegionSelected(index)
 
 
 ## Puts `Display` exactly where the layout put the map column. Driven by the stage's own measured
@@ -879,13 +844,11 @@ func _requestClose() -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	var key := event as InputEventKey
 	if key == null or not key.pressed or key.echo or _chrome == null:
-		super._unhandled_key_input(event)
 		return
 	var actionID := WorkspaceActions.resolve(
 		key.keycode, key.ctrl_pressed, key.shift_pressed, _chrome.focusState()
 	)
 	if actionID.is_empty():
-		super._unhandled_key_input(event)
 		return
 	_onWorkspaceAction(actionID)
 	get_viewport().set_input_as_handled()
@@ -976,6 +939,11 @@ func _beginToolGesture(screenPosition: Vector2) -> void:
 		WorldMapTacticalLayer.ensureLayer(_document, LAYER_TACTICAL)
 		_refreshLayerRows()
 	var tileID := _editorHud.selectedTileID()
+	if _editorHud.requiresTileSelection() and _activeTool in [
+		TOOL_PAINT, TOOL_FILL, TOOL_STAMP, TOOL_REPLACE, TOOL_RECTANGLE, TOOL_LINE, TOOL_SCATTER,
+	]:
+		_editorHud.setStatus("Choose a tile from the tileset, or choose Erase to clear cells.")
+		return
 	match _activeTool:
 		TOOL_INSPECT:
 			_editorHud.setStatus("%s %s = %s" % [_activeLayer, cell, _document.getCell(_activeLayer, cell)])
@@ -1694,7 +1662,6 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 	# directly -- the preview and the exported scene are then the SAME construction, so a map
 	# cannot preview at one extent and ship at another. See that file's own note.
 	SceneExport.configureGround(_ground, _document, texture, _framing)
-	_ground.configureCloudShadows(_regionMapPx, str(_framing[WorldMapGroundUniforms.K_CLOUDS]))
 	_rebuildObjectPreview()
 	if not _layerEditable(_activeLayer):
 		for layer in LAYERS:
@@ -1868,7 +1835,11 @@ func _availableDocumentNames() -> Array[String]:
 ## WMH-2's exact-fit table, unmodified -- see the HUD's own note on why "New" offers only these
 ## and not an arbitrary size.
 func _newLatticeChoices() -> Array[Vector2i]:
-	return WorldMapHexGrid.exactSquareLattices()
+	var choices := WorldMapHexGrid.exactSquareLattices()
+	var defaultLattice := Vector2i(19, 14)
+	choices.erase(defaultLattice)
+	choices.push_front(defaultLattice)
+	return choices
 
 
 ## Whether the open document has any edit since the last successful save, compared by history
@@ -2187,8 +2158,10 @@ func _refreshPalette() -> void:
 	# imported yet returns null, which the picker renders as an empty sheet rather than failing.
 	var sheetPath := str(tileset.get("SHEET", ""))
 	var sheet: Texture2D = null
-	if not sheetPath.is_empty() and ResourceLoader.exists(sheetPath):
-		sheet = load(sheetPath) as Texture2D
+	if not sheetPath.is_empty():
+		var sourceImage := Tilesets.loadSheetImage(sheetPath)
+		if sourceImage != null:
+			sheet = ImageTexture.create_from_image(sourceImage)
 	_editorHud.configurePalette(
 		tilesetID, sheet, int(tileset.get("FRAME_PX", 32)), tiles
 	)
@@ -2243,6 +2216,7 @@ func _onToolSelected(index: int) -> void:
 	_resolveOpenStroke()
 	_activeTool = str(TOOLS[index]["id"])
 	_refreshBrushLabel()
+	_editorHud.setScatterVisible(_activeTool == TOOL_SCATTER)
 	_clearPreview()
 	_editorHud.setStatus("Tool: %s" % str(TOOLS[index]["label"]))
 

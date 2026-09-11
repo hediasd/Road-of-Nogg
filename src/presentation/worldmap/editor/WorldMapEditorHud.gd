@@ -7,11 +7,10 @@
 ## has to know much about the other: the chrome hands over two `VBoxContainer`s and takes back a
 ## status string, and everything about WHICH LAYER and WHICH VALUE lives here.
 ##
-## THE PICKER DRIVES THE VALUE ROW, NOT THE OTHER WAY ROUND. `WorldMapTilesetPicker` reports a
-## primary tile id; this relays that into the same value row the brushes already read through
-## `selectedTileID()`. One source of truth for "what will be painted" is what keeps a visual
-## selection and a painted cell from disagreeing, and it is why the picker needed no controller
-## API of its own.
+## THE PICKER IS THE ART AUTHORITY. `WorldMapTilesetPicker`'s primary tile is what brushes read
+## through `selectedTileID()`; the generic value row is hidden for art layers and remains only
+## for values that have no tile image, such as sculpt steps and object kinds. Clearing the picker
+## therefore clears paint selection unless the author explicitly chooses Erase.
 ##
 ## VALUE ROW, NOT A TILE ROW. A height layer takes a sculpt step, an object layer takes a kind and
 ## the tactical layer takes a battle terrain -- none of those are tiles, and none of them may be
@@ -33,6 +32,8 @@ var seedSpin: SpinBox
 
 var _paletteTitle: Label
 var _pickerHint: Label
+var _valueRow: VBoxContainer
+var _seedRow: HBoxContainer
 var _cursorCellValue: Label
 var _cursorTileValue: Label
 var _layerButtons: Array[Button] = []
@@ -46,6 +47,7 @@ var _tileIDs: Array[String] = []
 ## public API -- frame positions are catalog facts, and this class already has them.
 var _cellByTileID: Dictionary = {}
 var _suppressPickerRelay := false
+var _eraseSelected := false
 
 
 func _init(workspaceChrome: ChromeScript) -> void:
@@ -87,20 +89,20 @@ func _buildPalette() -> void:
 
 	column.add_child(HSeparator.new())
 
-	var valueRow := VBoxContainer.new()
-	column.add_child(valueRow)
+	_valueRow = VBoxContainer.new()
+	column.add_child(_valueRow)
 	tileLabel = _label("Tile")
-	valueRow.add_child(tileLabel)
+	_valueRow.add_child(tileLabel)
 	tileOption = OptionButton.new()
 	tileOption.name = "ValueRow"
 	tileOption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tileOption.tooltip_text = "What the active layer's tool applies."
 	tileOption.item_selected.connect(_onValueRowSelected)
-	valueRow.add_child(tileOption)
+	_valueRow.add_child(tileOption)
 
-	var seedRow := HBoxContainer.new()
-	column.add_child(seedRow)
-	seedRow.add_child(_label("Scatter seed"))
+	_seedRow = HBoxContainer.new()
+	column.add_child(_seedRow)
+	_seedRow.add_child(_label("Scatter seed"))
 	seedSpin = SpinBox.new()
 	seedSpin.min_value = 0
 	seedSpin.max_value = 2147483647
@@ -108,7 +110,8 @@ func _buildPalette() -> void:
 	seedSpin.value = 1
 	seedSpin.allow_greater = false
 	seedSpin.allow_lesser = false
-	seedRow.add_child(seedSpin)
+	_seedRow.add_child(seedSpin)
+	_seedRow.visible = false
 
 
 func _buildInspector(
@@ -262,6 +265,9 @@ func showValueOnlyPalette(kindLabel: String) -> void:
 	_paletteTitle.text = "%s layer" % kindLabel.capitalize()
 	_pickerHint.text = "This layer's values are not tiles, so it has no tilesheet."
 	_pickerHint.visible = true
+	_valueRow.visible = true
+	_seedRow.visible = false
+	_eraseSelected = false
 
 
 func hasValueRow() -> bool:
@@ -299,6 +305,8 @@ func selectedTileID() -> String:
 
 
 func selectedValue() -> String:
+	if picker != null and picker.visible:
+		return WorldMapTileData.EMPTY if _eraseSelected else picker.primaryTileID()
 	if tileOption == null or tileOption.selected < 0:
 		return WorldMapTileData.EMPTY
 	var index := tileOption.selected
@@ -306,6 +314,11 @@ func selectedValue() -> String:
 
 
 func selectTileID(id: String) -> void:
+	if picker != null and picker.visible:
+		_eraseSelected = false
+		var selection: Array[String] = [id]
+		picker.selectTileIDs(selection)
+		return
 	var index := _tileIDs.find(id)
 	if index >= 0:
 		tileOption.selected = index
@@ -316,6 +329,8 @@ func selectTileID(id: String) -> void:
 ## than one list, because a sculpt step reads "+0.50" and acts as `0.5`. `values` is the authority
 ## on length; a labels list that disagrees is truncated rather than silently mismatched.
 func setValueChoices(labels: Array[String], values: Array[String], selectedValueID := "") -> void:
+	_eraseSelected = false
+	_valueRow.visible = true
 	_tileIDs = values.duplicate()
 	tileOption.clear()
 	for i in _tileIDs.size():
@@ -330,27 +345,35 @@ func setValueChoices(labels: Array[String], values: Array[String], selectedValue
 ## a separate brush, so every shape can erase -- the toolbar's Erase button selects this entry
 ## rather than being a tool of its own.
 func setTileChoices(ids: Array[String], selectedID := "") -> void:
-	var labels: Array[String] = ["Erase (-)"]
-	var values: Array[String] = [WorldMapTileData.EMPTY]
-	for id in ids:
-		labels.append(id)
-		values.append(id)
-	setValueChoices(labels, values, selectedID if not ids.is_empty() else "")
-	if selectedID.is_empty() or not ids.has(selectedID):
-		# Default to the first real tile rather than to Erase: an author who picks a layer wants
-		# to paint on it far more often than to clear it.
-		tileOption.selected = 1 if not ids.is_empty() else 0
-		_syncPickerToValue()
-	tileOption.disabled = ids.is_empty()
+	_tileIDs = ids.duplicate()
+	_eraseSelected = false
+	_valueRow.visible = false
+	if picker == null or not picker.visible:
+		return
+	var next := selectedID if ids.has(selectedID) else (ids[0] if not ids.is_empty() else "")
+	var selection: Array[String] = []
+	if not next.is_empty():
+		selection.append(next)
+	_suppressPickerRelay = true
+	picker.selectTileIDs(selection)
+	_suppressPickerRelay = false
 
 
 ## Selects the erase entry without changing tool. What the toolbar's Erase button applies.
 func selectEraseValue() -> bool:
+	if picker != null and picker.visible:
+		_eraseSelected = not _tileIDs.is_empty()
+		picker.selectTileIDs([])
+		return _eraseSelected
 	var index := _tileIDs.find(WorldMapTileData.EMPTY)
 	if index < 0:
 		return false
 	tileOption.selected = index
 	return true
+
+
+func requiresTileSelection() -> bool:
+	return picker != null and picker.visible and not _eraseSelected and picker.primaryTileID().is_empty()
 
 
 func firstPaintableValue() -> String:
@@ -367,6 +390,11 @@ func setValueLabel(text: String) -> void:
 
 func scatterSeed() -> int:
 	return int(seedSpin.value)
+
+
+func setScatterVisible(visible: bool) -> void:
+	if _seedRow != null:
+		_seedRow.visible = visible and picker != null and picker.visible
 
 
 func _onValueRowSelected(_index: int) -> void:
@@ -388,11 +416,9 @@ func _syncPickerToValue() -> void:
 
 
 func _onPickerPrimaryChanged(_tilesetID: String, tileID: String) -> void:
-	if _suppressPickerRelay or tileID.is_empty():
+	if _suppressPickerRelay:
 		return
-	var index := _tileIDs.find(tileID)
-	if index >= 0:
-		tileOption.selected = index
+	_eraseSelected = false
 
 
 func _label(text: String) -> Label:

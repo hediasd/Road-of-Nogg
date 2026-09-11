@@ -46,7 +46,6 @@ var _dirtyLabel: Label
 var _viewLabel: Label
 var _brushLabel: Label
 var _status: Label
-var _previewPanel: Control
 var _paletteScroll: ScrollContainer
 var _inspectorScroll: ScrollContainer
 var _modalDepth := 0
@@ -124,8 +123,6 @@ func _buildHeader() -> Control:
 	row.add_child(_separator())
 	for action in Actions.actionsInGroup(Actions.GROUP_EXPORT):
 		row.add_child(_actionButton(str((action as Dictionary)["id"])))
-	row.add_child(_separator())
-	row.add_child(_actionButton(Actions.VIEW_PREVIEW_SETTINGS, true))
 	return panel
 
 
@@ -322,6 +319,10 @@ func _actionButton(actionID: String, toggle := false) -> Button:
 	var button := Button.new()
 	button.name = actionID
 	button.text = Actions.buttonTextFor(actionID)
+	# `clip_text` removes the label's natural minimum width. Without an explicit floor the
+	# HBoxContainers assign actions zero width, so the 1280x720 toolbar renders as blank slivers
+	# even though the combined-minimum-size probe claims the workspace fits.
+	button.custom_minimum_size.x = maxf(40.0, 20.0 + float(button.text.length()) * 9.0)
 	button.clip_text = true
 	button.toggle_mode = toggle
 	button.focus_mode = Control.FOCUS_ALL
@@ -365,27 +366,6 @@ func _onExtraToolSelected(index: int) -> void:
 	if index <= 0 or index >= _extraToolIDs.size():
 		return
 	_onExtraTool.call(_extraToolIDs[index])
-
-
-## The debug HUD's panel, which the scene builds and `WorldMapDebugHud` fills. Hidden on the first
-## frame: the shipping rig's preview controls are a drawer in this workspace, not its main menu.
-func setPreviewPanel(panel: Control) -> void:
-	_previewPanel = panel
-	if _previewPanel != null:
-		_previewPanel.visible = false
-		# Moved to the end of the CanvasLayer so the drawer draws OVER the workspace when it is
-		# opened. It is a child of the scene and therefore built before this layout, which would
-		# otherwise leave it behind the inspector column it overlaps.
-		root.move_child(_previewPanel, root.get_child_count() - 1)
-	setActionPressed(Actions.VIEW_PREVIEW_SETTINGS, false)
-
-
-func togglePreviewPanel() -> bool:
-	if _previewPanel == null:
-		return false
-	_previewPanel.visible = not _previewPanel.visible
-	setActionPressed(Actions.VIEW_PREVIEW_SETTINGS, _previewPanel.visible)
-	return _previewPanel.visible
 
 
 func connectStageResized(callback: Callable) -> void:

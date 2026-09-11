@@ -339,14 +339,22 @@ func _checkChromeBuilds() -> void:
 		"toolbar buttons cannot take focus, so Tab traversal is broken"
 	)
 
-	# The value row exists and erasing is reachable through it rather than as a brush of its own.
+	# Art selection comes from the visible sheet. The hidden generic value row remains for layers
+	# whose values are not tiles, while Erase explicitly clears the sheet selection.
+	var image := Image.create(32, 16, false, Image.FORMAT_RGBA8)
+	image.fill(Color.WHITE)
+	hud.configurePalette("probe", ImageTexture.create_from_image(image), 16, [
+		{"ID": "t000", "CELL": Vector2i(0, 0)},
+		{"ID": "t001", "CELL": Vector2i(1, 0)},
+	])
 	hud.setTileChoices(["t000", "t001"] as Array[String])
 	_require(hud.hasValueRow(), "the palette has no value row")
-	_require(hud.selectedValue() == "t000", "the value row did not default to the first real tile")
+	_require(hud.selectedValue() == "t000", "the tilesheet did not default to the first real tile")
+	_require(not hud.tileOption.get_parent().visible, "tile art still exposes an id dropdown")
 	_require(hud.selectEraseValue(), "the erase value is not reachable")
 	_require(
 		hud.selectedValue() == MapDataScript.EMPTY,
-		"selecting erase did not put the erase value on the row"
+		"selecting erase did not clear the sheet selection"
 	)
 
 	# A layer whose values are not tiles must not be offered a tilesheet.
@@ -381,6 +389,13 @@ func _checkFitsTargetWindows(chrome) -> void:
 			minimum.y <= float(target.y),
 			"the workspace needs %d px of height at %s" % [int(minimum.y), target]
 		)
+		for action in Actions.actions():
+			var button := frame.find_child(str((action as Dictionary)["id"]), true, false) as Button
+			if button != null:
+				_require(
+					button.custom_minimum_size.x >= 36.0,
+					"action %s can collapse to an unreadable sliver at %s" % [button.name, target]
+				)
 		var stageRect: Rect2 = chrome.stageRect()
 		_require(
 			stageRect.size.x > 320.0 and stageRect.size.y > 240.0,

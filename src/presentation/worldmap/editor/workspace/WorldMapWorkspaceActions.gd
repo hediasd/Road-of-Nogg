@@ -66,7 +66,6 @@ const VIEW_SHIPPING := "view.shipping"
 const VIEW_PROJECTION := "view.projection"
 const VIEW_FRAME := "view.frame"
 const VIEW_GRID := "view.grid"
-const VIEW_PREVIEW_SETTINGS := "view.previewSettings"
 
 const ACTIONS := [
 	{"id": NEW_DOCUMENT, "label": "New", "group": GROUP_DOCUMENT,
@@ -116,8 +115,6 @@ const ACTIONS := [
 		"tooltip": "Frame the whole region in the map column."},
 	{"id": VIEW_GRID, "label": "Hex grid", "short": "Grid", "group": GROUP_VIEW,
 		"tooltip": "Show or hide the authoring grid."},
-	{"id": VIEW_PREVIEW_SETTINGS, "label": "Preview settings", "short": "Preview",
-		"group": GROUP_VIEW, "tooltip": "Show the shipping rig's debug controls."},
 ]
 
 
