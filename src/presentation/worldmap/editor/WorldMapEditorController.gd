@@ -299,7 +299,6 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	_editorHud.setOffContract(_editorCamera.offContractReason())
 	_cursorCell = _pickCell(_pointerPosition)
 	_updateGrid()
 	_refreshPreview()
@@ -553,20 +552,6 @@ func _onWorkspaceAction(actionID: String) -> void:
 			_setBrushRadius(_brushRadius + 1)
 		WorkspaceActions.CANCEL_STROKE:
 			_cancelOpenStroke()
-		WorkspaceActions.VIEW_EDITING:
-			if _editorCamera.mode != WorldMapEditorCamera.Mode.ORTHO:
-				_editorCamera.toggleOrtho()
-			_chrome.setViewLabel("Top-down · editing view")
-		WorkspaceActions.VIEW_SHIPPING:
-			_editorCamera.snapToContract()
-			_chrome.setViewLabel("Shipping view")
-		WorkspaceActions.VIEW_PROJECTION:
-			_editorCamera.toggleOrtho()
-			_chrome.setViewLabel(
-				"Top-down · editing view"
-				if _editorCamera.mode == WorldMapEditorCamera.Mode.ORTHO
-				else "Free perspective"
-			)
 		WorkspaceActions.VIEW_FRAME:
 			_frameRegion()
 		WorkspaceActions.VIEW_GRID:
@@ -1140,6 +1125,8 @@ func _paintTriangleAt(screenPosition: Vector2) -> void:
 	):
 		if not _strokeTouched.has(cell):
 			_strokeTouched.append(cell)
+		var changed: Array[Vector2i] = [cell]
+		_redrawCells(_activeLayer, changed)
 
 
 ## Paints the brush footprint at `cell`, joined to wherever the stroke last painted.
@@ -1161,11 +1148,14 @@ func _paintStrokeCell(cell: Vector2i) -> void:
 			_latticeSize()
 		)
 	)
+	var changed: Array[Vector2i] = []
 	for target in cells:
 		if Brushes.paintPoint(_document, _history, target, tileID):
+			changed.append(target)
 			if not _strokeTouched.has(target):
 				_strokeTouched.append(target)
 	_lastPaintedCell = cell
+	_redrawCells(_activeLayer, changed)
 
 
 func _isHexDocument() -> bool:
@@ -1245,10 +1235,34 @@ func _clearPreview() -> void:
 func _afterCellsEdited(layerID: String, cells: Array[Vector2i]) -> void:
 	if _document == null or cells.is_empty():
 		return
+	_redrawCells(layerID, cells)
+	_reportCellsEdited(layerID, cells)
+
+
+## THE DISPLAY UPDATE, SPLIT OUT SO A HELD DRAG CAN USE IT. Every cell a stroke changes goes
+## through here as it is changed, not once on release: the document, the history and the bake all
+## advanced per pointer sample already, and only this call was waiting for the mouse to come up --
+## which is why a paint drag used to show nothing at all until it ended.
+##
+## Cheap enough to run per sample. `markCellsDirty` accumulates map-pixel rects and `flush`
+## recomposites only those, so the cost tracks the cells the sample actually touched rather than
+## the map's size. `_refreshFilteredDisplay` is the exception and is a no-op unless an art layer
+## is hidden, which is not the ordinary authoring state.
+func _redrawCells(layerID: String, cells: Array[Vector2i]) -> void:
+	if _document == null or cells.is_empty():
+		return
 	for cell in cells:
 		_baker.markCellsDirty(_document, layerID, Rect2i(cell, Vector2i.ONE))
 	_baker.flush(_document)
 	_refreshFilteredDisplay()
+
+
+## The status half, separated because a stroke says its count ONCE, at the end. Announcing every
+## pointer sample would replace the line the author is reading faster than they can read it, and
+## would count the cells of one sample rather than of the gesture they made.
+func _reportCellsEdited(layerID: String, cells: Array[Vector2i]) -> void:
+	if cells.is_empty():
+		return
 	_editorHud.setStatus("Changed %d %s cell%s. Ctrl+S saves." % [
 		cells.size(), layerID, "" if cells.size() == 1 else "s",
 	])
@@ -1420,8 +1434,7 @@ func _updateGrid() -> void:
 		return
 	var material := _ground.material_override as ShaderMaterial
 	var visible := (
-		_gridVisible and _document != null and _activeTool != TOOL_NAVIGATE
-		and _layerEditable(_activeLayer)
+		_gridVisible and _document != null and _layerEditable(_activeLayer)
 	)
 	var hex := _document != null and _document.layout == MapDataScript.LAYOUT_HEX_FLAT
 	var lattice := _document.size_tiles if hex else Vector2i.ZERO
@@ -1682,6 +1695,8 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 	# directly -- the preview and the exported scene are then the SAME construction, so a map
 	# cannot preview at one extent and ship at another. See that file's own note.
 	SceneExport.configureGround(_ground, _document, texture, _framing)
+	_editorCamera.rememberRegion(_ground.regionRect())
+	_frameRegion()
 	_rebuildObjectPreview()
 	if not _layerEditable(_activeLayer):
 		for layer in LAYERS:
@@ -1950,7 +1965,11 @@ func _closeOpenStroke() -> void:
 		if kind == TOOL_SCULPT:
 			_afterHeightsEdited()
 		else:
-			_afterCellsEdited(_activeLayer, _strokeTouched)
+			# Report only. The bake is already current -- every sample of the stroke redrew the
+			# cells it changed -- so re-marking the whole gesture here would recomposite a long
+			# drag's entire path at the moment the button comes up, which is the visible pause
+			# this change exists to remove.
+			_reportCellsEdited(_activeLayer, _strokeTouched)
 	_strokeTouched.clear()
 
 
@@ -2015,7 +2034,7 @@ func _openNewDocumentDialog() -> void:
 		labels.append("%d x %d  (%.0f units)" % [lattice.x, lattice.y, extent.x])
 	var tilesets := _hexTilesetChoices()
 	if not _chrome.promptNewDocument(
-		lattices, labels, tilesets, DEFAULT_HEX_TILESET, "untitled", _requestNewDocument
+		lattices, labels, tilesets, DEFAULT_HEX_TILESET, "Untitled", _requestNewDocument
 	):
 		_editorHud.setStatus("No display server; New needs its dialog.")
 

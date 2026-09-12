@@ -31,6 +31,7 @@ var tileLabel: Label
 var seedSpin: SpinBox
 
 var _paletteTitle: Label
+var _quickChoices: HBoxContainer
 var _pickerHint: Label
 var _valueRow: VBoxContainer
 var _seedRow: HBoxContainer
@@ -73,6 +74,11 @@ func _buildPalette() -> void:
 	_paletteTitle.text = "No tileset"
 	_paletteTitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_paletteTitle)
+
+	_quickChoices = HBoxContainer.new()
+	_quickChoices.name = "PaletteQuickChoices"
+	_quickChoices.visible = false
+	column.add_child(_quickChoices)
 
 	picker = PickerScript.new()
 	picker.name = "TilesetPicker"
@@ -244,6 +250,7 @@ func configurePalette(
 		var cellValue = tile.get("CELL", null)
 		if cellValue is Vector2i:
 			_cellByTileID[str(tile.get("ID", ""))] = cellValue
+	_configureQuickChoices(tilesetID, sheet, framePx, tiles)
 	picker.visible = true
 	_suppressPickerRelay = true
 	picker.configure(tilesetID, sheet, framePx, tiles)
@@ -254,6 +261,44 @@ func configurePalette(
 		+ "still selects its tiles by id."
 	)
 	_pickerHint.visible = missingSheet
+
+
+func _configureQuickChoices(
+	tilesetID: String, sheet: Texture2D, framePx: int, tiles: Array[Dictionary]
+) -> void:
+	for child in _quickChoices.get_children():
+		_quickChoices.remove_child(child)
+		child.queue_free()
+	_quickChoices.visible = false
+	if tilesetID != "temp2_hex32_starter":
+		return
+	var byID := {}
+	for tile in tiles:
+		byID[str(tile.get("ID", ""))] = tile
+	for choice: Dictionary in [
+		{"id": "t000", "label": "Land"},
+		{"id": "t001", "label": "Sea"},
+		{"id": "t002", "label": "Grass"},
+	]:
+		var id := str(choice["id"])
+		if not byID.has(id):
+			continue
+		var button := Button.new()
+		button.name = "Quick_%s" % id
+		button.text = str(choice["label"])
+		button.tooltip_text = "%s (%s)" % [button.text, id]
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size.x = 68.0
+		if sheet != null and framePx > 0:
+			var cell: Vector2i = (byID[id] as Dictionary).get("CELL", Vector2i.ZERO)
+			var icon := AtlasTexture.new()
+			icon.atlas = sheet
+			icon.region = Rect2(Vector2(cell * framePx), Vector2(framePx, framePx))
+			button.icon = icon
+			button.expand_icon = true
+		button.pressed.connect(selectTileID.bind(id))
+		_quickChoices.add_child(button)
+	_quickChoices.visible = _quickChoices.get_child_count() == 3
 
 
 ## Hides the sheet for a layer whose values are not sheet frames, and says which kind it is

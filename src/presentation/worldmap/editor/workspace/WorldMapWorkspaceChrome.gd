@@ -1,5 +1,11 @@
-## The workspace frame: header, toolbar, the three-column body, the view bar and the footer, plus
-## the dialogs the document actions open.
+## The workspace frame: the document bar, the three-column body and the footer, plus the dialogs
+## the document actions open.
+##
+## TWO PLACES, TWO MEANINGS. The top bar holds only what manages the FILE -- new, open, recent,
+## save, save as, and the two exports. Everything that changes the MAP is in the left column's
+## menu under the tilesheet. The workspace used to put both on one toolbar row in whatever order
+## they were added, which left an author reading across a line to find out whether a button would
+## write to disk or change the next stroke.
 ##
 ## WHAT THIS OWNS AND WHAT IT DOES NOT. This builds the SHAPE of the editor and every button on
 ## it, and it reports where the map column actually landed. It owns no document, no camera, no
@@ -27,6 +33,15 @@ extends RefCounted
 
 const Actions = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceActions.gd")
 
+## A menu row is shorter and quieter than a toolbar button. The menu carries roughly four times as
+## many rows as the toolbar did, stacked in one 248 px column above nothing but the window's own
+## bottom edge, and at the default button metrics its last section falls off a 720-tall screen.
+## These sizes are what let the whole menu stay pinned and complete at both target windows; the
+## column is narrow enough that a smaller face still reads at a glance.
+const MENU_ROW_HEIGHT := 26.0
+const MENU_FONT_SIZE := 13
+const MENU_HEADING_FONT_SIZE := 12
+
 const PALETTE_WIDTH := 248.0
 const INSPECTOR_WIDTH := 214.0
 const COLLAPSED_WIDTH := 26.0
@@ -34,6 +49,9 @@ const COLLAPSED_WIDTH := 26.0
 var root: CanvasLayer
 var stage: Control
 var paletteColumn: VBoxContainer
+## The left column's map-action menu, below the tilesheet. Exposed for the same reason the other
+## two columns are: a probe has to be able to find it without walking node names.
+var mapMenuColumn: VBoxContainer
 var inspectorColumn: VBoxContainer
 
 var _onAction: Callable
@@ -43,7 +61,6 @@ var _extraToolOption: OptionButton
 var _extraToolIDs: Array[String] = []
 var _documentLabel: Label
 var _dirtyLabel: Label
-var _viewLabel: Label
 var _brushLabel: Label
 var _status: Label
 var _paletteScroll: ScrollContainer
@@ -74,7 +91,6 @@ func build(
 	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 	frame.add_child(_buildHeader())
-	frame.add_child(_buildToolbar())
 
 	var body := HBoxContainer.new()
 	body.name = "WorkspaceBody"
@@ -83,8 +99,8 @@ func build(
 	body.add_theme_constant_override("separation", 0)
 	frame.add_child(body)
 
-	body.add_child(_buildPalette())
-	body.add_child(_buildMapColumn(extraTools))
+	body.add_child(_buildPalette(extraTools))
+	body.add_child(_buildMapColumn())
 	body.add_child(_buildInspector())
 
 	frame.add_child(_buildFooter())
@@ -118,43 +134,29 @@ func _buildHeader() -> Control:
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(spacer)
 
-	for action in Actions.actionsInGroup(Actions.GROUP_DOCUMENT):
-		row.add_child(_actionButton(str((action as Dictionary)["id"])))
-	row.add_child(_separator())
-	for action in Actions.actionsInGroup(Actions.GROUP_EXPORT):
-		row.add_child(_actionButton(str((action as Dictionary)["id"])))
+	# From `Actions.TOP_BAR` rather than from two named groups, so the one table decides what is a
+	# document command and what is a map command, and the two bars cannot both claim a group.
+	var first := true
+	for group in Actions.TOP_BAR:
+		if not first:
+			row.add_child(_separator())
+		first = false
+		for action in Actions.actionsInGroup(str(group)):
+			row.add_child(_actionButton(str((action as Dictionary)["id"])))
 	return panel
 
 
-func _buildToolbar() -> Control:
-	var panel := _panel("WorkspaceToolbar")
-	var row := HBoxContainer.new()
-	panel.add_child(row)
-
-	for action in Actions.actionsInGroup(Actions.GROUP_TOOL):
-		row.add_child(_actionButton(str((action as Dictionary)["id"]), true))
-	row.add_child(_separator())
-	for action in Actions.actionsInGroup(Actions.GROUP_HISTORY):
-		row.add_child(_actionButton(str((action as Dictionary)["id"])))
-
-	row.add_child(_separator())
-	var brushLabel := Label.new()
-	brushLabel.text = "Brush"
-	row.add_child(brushLabel)
-	row.add_child(_actionButton(Actions.BRUSH_SMALLER))
-	_brushLabel = Label.new()
-	_brushLabel.name = "BrushSize"
-	_brushLabel.text = "1 hex"
-	_brushLabel.custom_minimum_size = Vector2(72.0, 0.0)
-	_brushLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_brushLabel.tooltip_text = "How many hexes one paint or erase stamp covers."
-	row.add_child(_brushLabel)
-	row.add_child(_actionButton(Actions.BRUSH_LARGER))
-	row.add_child(_actionButton(Actions.CANCEL_STROKE))
-	return panel
-
-
-func _buildPalette() -> Control:
+## THE LEFT COLUMN: what to paint WITH, then what to do with it. `WorldMapEditorHud` fills
+## `paletteColumn` with the tilesheet and its selection controls; the map menu is built here and
+## sits directly beneath it, so choosing a tile and choosing what to do with it are one movement
+## down one column instead of a glance back up to a toolbar row.
+##
+## THE MENU IS OUTSIDE THE SCROLL AND THE TILESHEET IS INSIDE IT. Together they want more height
+## than a 720-tall window has, so one of the two has to give, and it must not be the menu: a tool
+## button that is only reachable by scrolling is a tool the author stops using. The menu is a
+## fixed, complete set of controls and is pinned; the tilesheet is content of unknown length and
+## scrolls, which is what content does everywhere else in this editor.
+func _buildPalette(extraTools: Array) -> Control:
 	var panel := _panel("PalettePanel")
 	panel.custom_minimum_size = Vector2(PALETTE_WIDTH, 0.0)
 	var column := VBoxContainer.new()
@@ -166,8 +168,10 @@ func _buildPalette() -> Control:
 	title.text = "Tileset"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
-	header.add_child(_collapseButton("PaletteCollapse", panel, PALETTE_WIDTH, func() -> ScrollContainer:
-		return _paletteScroll
+	header.add_child(_collapseButton("PaletteCollapse", panel, PALETTE_WIDTH, func() -> Array[Control]:
+		# The menu is a sibling of the scroll now, so collapsing has to hide both -- hiding only
+		# the scroll would leave a full-width menu inside a 26 px panel.
+		return [_paletteScroll, mapMenuColumn] as Array[Control]
 	))
 
 	_paletteScroll = ScrollContainer.new()
@@ -180,31 +184,78 @@ func _buildPalette() -> Control:
 	paletteColumn.name = "PaletteColumn"
 	paletteColumn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_paletteScroll.add_child(paletteColumn)
+
+	column.add_child(HSeparator.new())
+	column.add_child(_buildMapMenu(extraTools))
 	return panel
 
 
-func _buildMapColumn(extraTools: Array) -> Control:
-	var column := VBoxContainer.new()
-	column.name = "MapColumn"
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_theme_constant_override("separation", 0)
+## The map menu: every action that changes the map, or the view of it, read down the page in
+## labelled sections. Built from `Actions.MAP_MENU` rather than written out here, so an action
+## reaches the menu by joining a group instead of by somebody remembering to add a button.
+func _buildMapMenu(extraTools: Array) -> Control:
+	mapMenuColumn = VBoxContainer.new()
+	mapMenuColumn.name = "MapMenu"
+	mapMenuColumn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mapMenuColumn.add_theme_constant_override("separation", 2)
 
-	var bar := _panel("ViewBar")
+	for section in Actions.MAP_MENU:
+		var entry: Dictionary = section
+		var group := str(entry["group"])
+		mapMenuColumn.add_child(_menuHeading(str(entry["heading"])))
+
+		# The brush readout belongs BETWEEN its two buttons, which no generic row can know.
+		if group == Actions.GROUP_BRUSH:
+			mapMenuColumn.add_child(_buildBrushRow())
+			mapMenuColumn.add_child(_menuButton(Actions.CANCEL_STROKE))
+			continue
+
+		var columns := maxi(int(entry["columns"]), 1)
+		var row: HBoxContainer = null
+		var placed := 0
+		for action in Actions.actionsInGroup(group):
+			var id := str((action as Dictionary)["id"])
+			# Tools toggle as a single choice; the grid toggle reports whether it is showing.
+			var toggle := group == Actions.GROUP_TOOL or id == Actions.VIEW_GRID
+			if columns == 1:
+				mapMenuColumn.add_child(_menuButton(id, toggle))
+				continue
+			if placed % columns == 0:
+				row = HBoxContainer.new()
+				mapMenuColumn.add_child(row)
+			row.add_child(_menuButton(id, toggle))
+			placed += 1
+
+		# The layer-specific tools keep their dropdown, now directly under the tools it extends
+		# rather than across the workspace above the map.
+		if group == Actions.GROUP_TOOL:
+			mapMenuColumn.add_child(_buildExtraToolOption(extraTools))
+
+	return mapMenuColumn
+
+
+func _buildBrushRow() -> Control:
 	var row := HBoxContainer.new()
-	bar.add_child(row)
-	_viewLabel = Label.new()
-	_viewLabel.name = "ViewMode"
-	_viewLabel.text = "Shipping view"
-	_viewLabel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_viewLabel.clip_text = true
-	_viewLabel.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	row.add_child(_viewLabel)
+	row.name = "BrushRow"
+	row.add_child(_menuButton(Actions.BRUSH_SMALLER))
+	_brushLabel = Label.new()
+	_brushLabel.name = "BrushSize"
+	_brushLabel.text = "1 hex"
+	_brushLabel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_brushLabel.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_brushLabel.clip_text = true
+	_brushLabel.tooltip_text = "How many hexes one paint or erase stamp covers."
+	_brushLabel.add_theme_font_size_override("font_size", MENU_FONT_SIZE)
+	row.add_child(_brushLabel)
+	row.add_child(_menuButton(Actions.BRUSH_LARGER))
+	return row
 
+
+func _buildExtraToolOption(extraTools: Array) -> Control:
 	_extraToolOption = OptionButton.new()
 	_extraToolOption.name = "ExtraTools"
 	_extraToolOption.clip_text = true
+	_extraToolOption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_extraToolOption.tooltip_text = "Layer-specific tools: rectangle, line, stamp, scatter, replace, sculpt, place and triangle paint."
 	_extraToolOption.add_item("More tools")
 	_extraToolIDs.append("")
@@ -212,16 +263,47 @@ func _buildMapColumn(extraTools: Array) -> Control:
 		var entry: Dictionary = tool
 		_extraToolOption.add_item(str(entry["label"]))
 		_extraToolIDs.append(str(entry["id"]))
+	_extraToolOption.custom_minimum_size.y = MENU_ROW_HEIGHT
+	_extraToolOption.add_theme_font_size_override("font_size", MENU_FONT_SIZE)
 	_extraToolOption.item_selected.connect(_onExtraToolSelected)
-	row.add_child(_extraToolOption)
+	return _extraToolOption
 
-	row.add_child(_separator())
-	for action in [Actions.VIEW_EDITING, Actions.VIEW_SHIPPING]:
-		row.add_child(_actionButton(action))
-	row.add_child(_actionButton(Actions.VIEW_PROJECTION))
-	row.add_child(_actionButton(Actions.VIEW_FRAME))
-	row.add_child(_actionButton(Actions.VIEW_GRID, true))
-	column.add_child(bar)
+
+## A section label. Quiet on purpose: it names the group and then gets out of the way, because the
+## buttons under it are what the author is aiming at.
+func _menuHeading(text: String) -> Label:
+	var heading := Label.new()
+	heading.text = text
+	heading.add_theme_color_override("font_color", Color(0.62, 0.70, 0.73))
+	heading.add_theme_font_size_override("font_size", MENU_HEADING_FONT_SIZE)
+	return heading
+
+
+## A menu button. Unlike a toolbar button it is free to take the width the column gives it, so it
+## shares its row evenly with whatever else is on it and needs nothing else said about its size.
+func _menuButton(actionID: String, toggle := false) -> Button:
+	var button := _actionButton(actionID, toggle)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.custom_minimum_size.y = MENU_ROW_HEIGHT
+	# The column, not the label, decides how wide a menu button is -- `_actionButton`'s per-
+	# character floor is a toolbar measure, and here it would stop two buttons sharing a row.
+	button.custom_minimum_size.x = 36.0
+	button.add_theme_font_size_override("font_size", MENU_FONT_SIZE)
+	return button
+
+
+## THE CENTRE COLUMN IS NOW THE MAP AND NOTHING ELSE. It used to carry a bar above the stage
+## holding a view-mode readout, the extra-tool dropdown and the frame and grid toggles; the
+## readout had no writer left once the editor stopped switching preview modes, and the three
+## controls belong with the rest of the map actions in the left column. Removing the bar gives
+## its whole height back to the document, which is what the column is for.
+func _buildMapColumn() -> Control:
+	var column := VBoxContainer.new()
+	column.name = "MapColumn"
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_theme_constant_override("separation", 0)
 
 	stage = Control.new()
 	stage.name = "Stage"
@@ -248,8 +330,8 @@ func _buildInspector() -> Control:
 	title.text = "Layers"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
-	header.add_child(_collapseButton("InspectorCollapse", panel, INSPECTOR_WIDTH, func() -> ScrollContainer:
-		return _inspectorScroll
+	header.add_child(_collapseButton("InspectorCollapse", panel, INSPECTOR_WIDTH, func() -> Array[Control]:
+		return [_inspectorScroll] as Array[Control]
 	))
 
 	_inspectorScroll = ScrollContainer.new()
@@ -338,8 +420,10 @@ func _actionButton(actionID: String, toggle := false) -> Button:
 	return button
 
 
+## `contentsOf` is a callable rather than the controls themselves because the panel's contents do
+## not exist yet when its header is built.
 func _collapseButton(
-	nodeName: String, panel: PanelContainer, width: float, scrollOf: Callable
+	nodeName: String, panel: PanelContainer, width: float, contentsOf: Callable
 ) -> Button:
 	var button := Button.new()
 	button.name = nodeName
@@ -349,9 +433,10 @@ func _collapseButton(
 	button.focus_mode = Control.FOCUS_ALL
 	button.pressed.connect(func() -> void:
 		var collapsed := button.button_pressed
-		var scroll: ScrollContainer = scrollOf.call()
-		if scroll != null:
-			scroll.visible = not collapsed
+		var contents: Array[Control] = contentsOf.call()
+		for content in contents:
+			if content != null:
+				content.visible = not collapsed
 		panel.custom_minimum_size = Vector2(COLLAPSED_WIDTH if collapsed else width, 0.0)
 		panel.size_flags_horizontal = (
 			Control.SIZE_SHRINK_BEGIN if collapsed else Control.SIZE_FILL
@@ -418,11 +503,6 @@ func setDocumentLabel(documentName: String, neverSaved: bool, dirty: bool) -> vo
 		)
 	if _dirtyLabel != null:
 		_dirtyLabel.visible = dirty
-
-
-func setViewLabel(text: String) -> void:
-	if _viewLabel != null:
-		_viewLabel.text = text
 
 
 ## The brush readout says how many hexes a stamp covers, and greys out for the tools and layers

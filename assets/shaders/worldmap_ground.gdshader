@@ -296,26 +296,55 @@ float distance_to_spoke(vec2 p, vec2 endpoint) {
 	return length(p - endpoint * t);
 }
 
+// How much of a pixel a line of `grid_line_px` screen pixels covers, given the distance from that
+// pixel's centre to the line in WORLD units and how many world units a pixel spans.
+//
+// A BOX FILTER, NOT A TENT. The previous form fell from full to nothing across half a line width,
+// which on a STEEP edge means every pixel row samples the line at a different offset and gets a
+// different answer -- between a fifth of a pixel's worth and all of it. At the overlay's 30%
+// alpha the low end is invisible against a dark map, so an edge that is geometrically continuous
+// was drawn as a run of dashes. Measuring the distance in pixels and subtracting it from the half
+// width, with the customary half-pixel of softness, is the ordinary analytic coverage of a line:
+// a pixel the line passes anywhere near keeps most of its ink whatever the edge's angle.
+float line_coverage(float distance_world, float world_px) {
+	float distance_px = distance_world / max(world_px, 1e-6);
+	return clamp(grid_line_px * 0.5 - distance_px + 0.5, 0.0, 1.0);
+}
+
 // Coverage of the hex lattice's boundary lines. Same screen-space-constant-width treatment as
 // `grid_coverage()`, and the same reason: without it, the far half of a pitch-60 frame turns the
 // lattice into a moire.
-float hex_line_coverage(vec2 p) {
+//
+// THE WIDTH COMES FROM `world_px`, NOT FROM `fwidth(d)`, AND THAT IS THE WHOLE POINT. A hex SDF
+// is KINKED exactly where its lines are: `hex_edge_distance` folds by `abs()` and takes a `max()`
+// of two half-planes, and `hex_nearest_axial` switches to the neighbouring hex the moment the
+// boundary is crossed. So `d` turns around at every edge instead of passing through it, and the
+// two halves of a 2x2 derivative quad straddling that edge read almost the same value -- the
+// finite difference CANCELS, `fwidth(d)` collapses towards zero, and `abs(d) / w` explodes. The
+// line then vanishes wherever a quad happened to land on it, which is what drew a lattice of
+// DASHES at the exact spacing of the pixel quads. Every diagonal edge showed it; the flat ones
+// mostly escaped only because they sit along a quad row.
+//
+// `d` is a true distance field in world units -- both `flat_edge` and `slant` have unit-length
+// gradients, checked in `hex_edge_distance`'s own note -- so one screen pixel is `world_px` of
+// it, everywhere, with no derivative of `d` taken at all.
+float hex_line_coverage(vec2 p, float world_px) {
 	vec2 centre = hex_axial_centre(hex_nearest_axial(p));
 	float d = hex_edge_distance(p - centre);
-	float w = max(fwidth(d) * grid_line_px * 0.5, 1e-6);
-	return 1.0 - clamp(abs(d) / w, 0.0, 1.0);
+	return line_coverage(abs(d), world_px);
 }
 
 // Coverage of the sub-triangle fan: six spokes from a hex's own centre to its six vertices --
 // GEOMETRY only, drawn ahead of there being any data or tool to gate it on. Folding by `abs()`
 // the same way `hex_edge_distance` does collapses the six spokes to the two unique ones this
 // tests distance against, (1, 0) and (0.5, 1).
-float hex_subtriangle_coverage(vec2 p) {
+float hex_subtriangle_coverage(vec2 p, float world_px) {
 	vec2 centre = hex_axial_centre(hex_nearest_axial(p));
 	vec2 q = abs(p - centre);
 	float d = min(distance_to_spoke(q, vec2(1.0, 0.0)), distance_to_spoke(q, vec2(0.5, 1.0)));
-	float w = max(fwidth(d) * grid_line_px * 0.5, 1e-6);
-	return 1.0 - clamp(d / w, 0.0, 1.0);
+	// Same reason `hex_line_coverage` takes its width from `world_px`: `abs()`, `min()` and the
+	// nearest-hex switch all put a kink straight down the middle of the line being drawn.
+	return line_coverage(d, world_px);
 }
 
 // Whether a world position falls on a cell the LATTICE actually holds -- which on a map with
@@ -358,6 +387,14 @@ void vertex() {
 void fragment() {
 	vec2 uv = (world_position.xz - region_origin) / region_size;
 	bool off_map = uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0;
+
+	// How much GROUND one screen pixel covers, in world units. Taken here, at the top of the
+	// function, because a derivative is only well defined in uniform control flow -- below this
+	// point there is a `discard` and several branches on `off_map`, and a quad that loses part of
+	// itself to any of them can no longer answer the question. The hex overlay's line widths all
+	// come from this one value; see `hex_line_coverage` for why they must not come from the
+	// distance field's own derivative.
+	float world_px = max(length(dFdx(world_position.xz)), length(dFdy(world_position.xz)));
 
 	vec3 albedo;
 	if (filter_mode == 0) {
@@ -423,7 +460,7 @@ void fragment() {
 			// detail) rather than needing its own.
 			if (hex_cursor.z > 0.5) {
 				float cursorDistance = hex_edge_distance(p - hex_cursor.xy);
-				float cursorWidth = max(fwidth(cursorDistance), 1e-6);
+				float cursorWidth = max(world_px, 1e-6);
 				float fill = clamp(0.5 - cursorDistance / cursorWidth, 0.0, 1.0);
 				composed = mix(composed, to_gamma(cursor_color.rgb), cursor_color.a * fill);
 			}
@@ -436,10 +473,10 @@ void fragment() {
 				// Sub-triangle fan first so the hex lattice draws over it, matching the square
 				// path's own cel-under-tile ordering: the coarser grid wins where they coincide.
 				if (grid_mode == 2) {
-					float fan = hex_subtriangle_coverage(p) * grid_cel_color.a;
+					float fan = hex_subtriangle_coverage(p, world_px) * grid_cel_color.a;
 					composed = mix(composed, to_gamma(grid_cel_color.rgb), fan);
 				}
-				float hexLine = hex_line_coverage(p) * grid_tile_color.a;
+				float hexLine = hex_line_coverage(p, world_px) * grid_tile_color.a;
 				composed = mix(composed, to_gamma(grid_tile_color.rgb), hexLine);
 			}
 		} else {

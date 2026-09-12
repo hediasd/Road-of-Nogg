@@ -146,7 +146,12 @@ func _ensureUi() -> void:
 	tooltip_text = "Choose one or more tiles from this tileset."
 	focus_mode = Control.FOCUS_ALL
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	custom_minimum_size = Vector2(220.0, 300.0)
+	# The HEIGHT floor is 220, not the 300 this shipped with. The guarantee that actually matters
+	# is `SHEET_VIEWPORT_MIN_HEIGHT` on the sheet's own scroll, applied separately below; 300 was a
+	# second, larger floor on top of it, and the difference was dead space between the sheet and
+	# the selected-tile preview. The left column now carries the map menu underneath, so that
+	# slack came straight out of the buttons. Given more room the sheet still expands into it.
+	custom_minimum_size = Vector2(220.0, 220.0)
 	resized.connect(_refreshUi)
 
 	var column := VBoxContainer.new()

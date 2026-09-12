@@ -35,6 +35,17 @@ var region_void_color := Color.BLACK
 var region_origin := Vector2.ZERO
 var region_size := Vector2(48.0, 64.0)
 
+## Declares this ground an EDITOR AUTHORING SURFACE rather than a view of a world. An authoring
+## surface is exactly the map and nothing else: no skirt past the art, and no void colour beyond
+## it -- off-map fragments are discarded so the frame around the document is the editor's own
+## backdrop. The skirt and the void exist to make a region read as part of a larger world, which
+## is precisely the reading an author does not want while placing cells.
+##
+## SET ON AN INSTANCE, NEVER ON A DOCUMENT OR A FRAMING, which is what keeps it out of an export.
+## `WorldMapSceneExport.buildRuntime()` constructs its own `WorldMapGround`, so a shipped scene
+## carries the default `false` and the usual fogged skirt no matter what the editor was showing.
+var authoring_surface := false
+
 var _material: ShaderMaterial
 var _cloudShadows: WorldMapCloudShadows
 
@@ -62,7 +73,7 @@ func configure(tiles: Vector2, texture: Texture2D, framing: Dictionary,
 	region_size = tiles
 	region_origin = Vector2.ZERO
 
-	var margin: float = float(complete[Uniforms.K_FOG_END]) * FOG_MARGIN_FACTOR
+	var margin := planeMargin(framing, region_fog_color, region_void_color)
 	if surface != null:
 		# A prebuilt surface is already in region-local coordinates starting at the origin, so it
 		# is placed rather than centred -- unlike `PlaneMesh`, which is centred on its own origin
@@ -76,6 +87,7 @@ func configure(tiles: Vector2, texture: Texture2D, framing: Dictionary,
 	for sampler in Uniforms.REGION_SAMPLERS:
 		_material.set_shader_parameter(sampler, texture)
 	Uniforms.applyToMaterial(_material, complete, region_origin, region_size)
+	_applyAuthoringSurface()
 
 
 ## Receives the cast-shadow mask from `WorldMapProps`. The mask is in MAP-PIXEL space and is
@@ -150,6 +162,29 @@ func applyFraming(framing: Dictionary) -> void:
 		region_origin,
 		region_size
 	)
+	_applyAuthoringSurface()
+
+
+## How far the plane extends past the region art, in world units. THE single definition, so the
+## mesh and any prebuilt surface handed to `configure()` cannot disagree about where the plane
+## ends -- `WorldMapSceneExport.configureGround()` sizes the height-field surface from this same
+## call. A fog length on each side for a view of a world; nothing at all for an authoring surface,
+## where the skirt has no fog to hide behind and nothing to be part of.
+func planeMargin(framing: Dictionary, fogColor: Color, voidColor: Color) -> float:
+	if authoring_surface:
+		return 0.0
+	var complete := Uniforms.completeForRegion(framing, fogColor, voidColor)
+	return float(complete[Uniforms.K_FOG_END]) * FOG_MARGIN_FACTOR
+
+
+## Applied AFTER every `Uniforms.applyToMaterial()`, because that call writes the whole framing
+## and would otherwise put the void back. `show_sky_beyond` is named for the case it was written
+## for; what it means to the shader is "discard off-map", which is what an authoring surface wants
+## for its own reason -- there is no sky here either, only the editor's backdrop.
+func _applyAuthoringSurface() -> void:
+	if not authoring_surface:
+		return
+	_material.set_shader_parameter(Uniforms.U_SHOW_SKY_BEYOND, true)
 
 
 ## World-space rectangle the region art occupies, for the camera rig's pan clamp.

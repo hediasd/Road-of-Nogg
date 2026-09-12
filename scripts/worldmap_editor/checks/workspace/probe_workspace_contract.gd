@@ -60,6 +60,8 @@ func _checkActionsAvailable() -> void:
 		Actions.EXPORT_SCENE, Actions.EXPORT_BATTLE,
 	]:
 		_require(Actions.has(required), "%s is not reachable as a named action" % required)
+	for retired: String in ["view.editing", "view.shipping", "view.projection"]:
+		_require(not Actions.has(retired), "%s still exposes retired preview chrome" % retired)
 
 	for shortcut in Actions.SHORTCUTS:
 		_require(
@@ -67,12 +69,21 @@ func _checkActionsAvailable() -> void:
 			"shortcut names unknown action %s" % str((shortcut as Dictionary)["id"])
 		)
 
-	# The two pairs that only differ by a modifier, and the pair that only differs by shift.
+	# Document commands use the standard shortcuts, and modifier pairs stay distinct.
+	_require(Actions.hintFor(Actions.NEW_DOCUMENT) == "Ctrl+N", "New lost its Ctrl+N hint")
+	_require(Actions.hintFor(Actions.OPEN_DOCUMENT) == "Ctrl+O", "Open lost its Ctrl+O hint")
 	_require(Actions.hintFor(Actions.SAVE_DOCUMENT) == "Ctrl+S", "Save lost its Ctrl+S hint")
+	_require(
+		Actions.hintFor(Actions.SAVE_DOCUMENT_AS) == "Ctrl+Shift+S",
+		"Save As lost its Ctrl+Shift+S hint"
+	)
 	_require(Actions.hintFor(Actions.EXPORT_BATTLE) == "Ctrl+Shift+E", "battle export hint wrong")
 	_require(Actions.hintFor(Actions.TOOL_ERASE) == "E", "Erase lost its plain-E hint")
 	_require(Actions.hintFor(Actions.VIEW_FRAME) == "F", "Frame is no longer F")
-	_require(Actions.hintFor(Actions.NEW_DOCUMENT).is_empty(), "New claimed a shortcut")
+	_require(
+		Actions.resolve(KEY_SPACE, false, false, Actions.FOCUS_MAP).is_empty(),
+		"Space still switches to the retired shipping preview"
+	)
 
 
 ## The map's shortcuts are live only while the map has the keyboard. Typing into a name field or
@@ -244,8 +255,8 @@ func _checkSaveCheckpoint() -> void:
 
 
 ## Every tool the controller offers reaches the workspace one way or the other: as one of the six
-## named toolbar buttons, or in the dropdown that carries the layer-specific ones. A tool in
-## neither would be a capability the rebuild silently dropped.
+## named buttons in the left column's Tools section, or in the dropdown beneath them that carries
+## the layer-specific ones. A tool in neither would be a capability the rebuild silently dropped.
 func _checkToolsReachable() -> void:
 	var buttonActions: Array[String] = []
 	for action in Actions.actionsInGroup(Actions.GROUP_TOOL):
@@ -255,7 +266,7 @@ func _checkToolsReachable() -> void:
 		Actions.TOOL_NAVIGATE, Actions.TOOL_INSPECT, Actions.TOOL_PAINT,
 		Actions.TOOL_ERASE, Actions.TOOL_FILL, Actions.TOOL_EYEDROPPER,
 	]:
-		_require(buttonActions.has(required), "%s has no toolbar button" % required)
+		_require(buttonActions.has(required), "%s has no button in the map menu" % required)
 
 	# Erase is the paint tool plus the erase value, so it is the one workspace tool with no
 	# controller tool of its own -- every OTHER controller tool must still be listed somewhere.
@@ -301,18 +312,78 @@ func _checkChromeBuilds() -> void:
 
 	_require(chrome.stage != null, "the chrome built no stage")
 	_require(chrome.paletteColumn != null, "the chrome built no palette column")
+	# The menu is BELOW the tilesheet, in the same panel, which is the whole point of moving it --
+	# and it is OUTSIDE the tilesheet's scroll, so no map action can be hidden by scrolling.
+	var palettePanel := layer.get_node_or_null("Workspace/WorkspaceBody/PalettePanel") as Control
+	_require(palettePanel != null, "the palette panel was not built")
+	var scroll := layer.find_child("PaletteScroll", true, false) as ScrollContainer
+	_require(scroll != null, "the palette scroll was not built")
+	if palettePanel != null and scroll != null and chrome.mapMenuColumn != null:
+		_require(
+			palettePanel.is_ancestor_of(chrome.mapMenuColumn),
+			"the map menu is not in the palette panel"
+		)
+		# Against the SCROLL's rect, not the palette column's: a scrolled child is routinely
+		# taller than the viewport that clips it, so its own rect says nothing about what is
+		# on screen underneath it.
+		_require(
+			chrome.mapMenuColumn.get_global_rect().position.y >= scroll.get_global_rect().end.y,
+			"the map menu is not below the tilesheet"
+		)
+		_require(
+			not scroll.is_ancestor_of(chrome.mapMenuColumn),
+			"the map menu scrolls with the tilesheet, so an action can be scrolled out of reach"
+		)
 	_require(chrome.inspectorColumn != null, "the chrome built no inspector column")
 	_require(
 		chrome.stage != null and chrome.stage.mouse_filter == Control.MOUSE_FILTER_IGNORE,
 		"the stage does not ignore the mouse, so map clicks would never reach the controller"
 	)
-	var toolbar := layer.get_node_or_null("Workspace/WorkspaceToolbar") as Control
-	_require(toolbar != null, "the toolbar was not built")
-	if toolbar != null:
+	var header := layer.get_node_or_null("Workspace/WorkspaceHeader") as Control
+	_require(header != null, "the top bar was not built")
+	if header != null:
 		_require(
-			toolbar.mouse_filter == Control.MOUSE_FILTER_STOP,
-			"the toolbar does not consume the mouse, so a button press would also paint"
+			header.mouse_filter == Control.MOUSE_FILTER_STOP,
+			"the top bar does not consume the mouse, so a button press would also paint"
 		)
+	_require(chrome.mapMenuColumn != null, "the chrome built no map menu")
+	_require(
+		layer.get_node_or_null("Workspace/WorkspaceToolbar") == null,
+		"the retired toolbar row is still built above the body"
+	)
+	_require(
+		layer.find_child("ViewBar", true, false) == null,
+		"the retired view bar is still built above the map"
+	)
+
+	# THE SPLIT, ASSERTED BOTH WAYS. A management action has to be on the top bar and a map action
+	# has to be in the left column's menu; checking only one direction would pass a build that put
+	# every button in both places.
+	for action in Actions.actions():
+		var actionID := str((action as Dictionary)["id"])
+		var button := chrome.buttonFor(actionID)
+		if button == null:
+			continue
+		var inMenu := chrome.mapMenuColumn != null and chrome.mapMenuColumn.is_ancestor_of(button)
+		var inHeader := header != null and header.is_ancestor_of(button)
+		if Actions.isTopBarAction(actionID):
+			_require(inHeader and not inMenu, "%s is a document action but is not on the top bar" % actionID)
+		else:
+			_require(inMenu and not inHeader, "%s is a map action but is not in the left menu" % actionID)
+
+	# The extra-tool dropdown moved with the tools it extends.
+	var extras := chrome.mapMenuColumn.find_child("ExtraTools", true, false)
+	_require(extras != null, "the layer-specific tool dropdown is not in the map menu")
+	# Every section of the menu really produced its heading.
+	for section in Actions.MAP_MENU:
+		var heading := str((section as Dictionary)["heading"])
+		var found := false
+		for child in chrome.mapMenuColumn.get_children():
+			var label := child as Label
+			if label != null and label.text == heading:
+				found = true
+				break
+		_require(found, "the map menu has no %s section" % heading)
 
 	# Every action in the table really produced a button, and pressing one raises exactly its id.
 	for action in Actions.actions():
@@ -329,14 +400,14 @@ func _checkChromeBuilds() -> void:
 	var fill := chrome.buttonFor(Actions.TOOL_FILL)
 	_require(
 		paint != null and paint.button_pressed and fill != null and not fill.button_pressed,
-		"the toolbar's selected state does not follow the active tool"
+		"the menu's selected state does not follow the active tool"
 	)
 
 	# Buttons keep ordinary focus so Tab can traverse them -- the old shell set FOCUS_NONE on
 	# everything to protect its global shortcuts, and that is exactly what this rebuild undid.
 	_require(
 		paint != null and paint.focus_mode == Control.FOCUS_ALL,
-		"toolbar buttons cannot take focus, so Tab traversal is broken"
+		"menu buttons cannot take focus, so Tab traversal is broken"
 	)
 
 	# Art selection comes from the visible sheet. The hidden generic value row remains for layers
@@ -351,6 +422,21 @@ func _checkChromeBuilds() -> void:
 	_require(hud.hasValueRow(), "the palette has no value row")
 	_require(hud.selectedValue() == "t000", "the tilesheet did not default to the first real tile")
 	_require(not hud.tileOption.get_parent().visible, "tile art still exposes an id dropdown")
+	var quickChoices := hud.chrome.paletteColumn.find_child("PaletteQuickChoices", true, false)
+	_require(quickChoices != null and not quickChoices.visible,
+		"a non-starter tileset received starter quick-choice labels")
+	var starterImage := Image.create(160, 96, false, Image.FORMAT_RGBA8)
+	starterImage.fill(Color.WHITE)
+	hud.configurePalette("temp2_hex32_starter", ImageTexture.create_from_image(starterImage), 32, [
+		{"ID": "t000", "CELL": Vector2i(0, 0)},
+		{"ID": "t001", "CELL": Vector2i(1, 0)},
+		{"ID": "t002", "CELL": Vector2i(2, 0)},
+	])
+	quickChoices = hud.chrome.paletteColumn.find_child("PaletteQuickChoices", true, false)
+	_require(quickChoices.visible and quickChoices.get_child_count() == 3,
+		"the starter palette did not build Land/Sea/Grass quick choices")
+	for button in quickChoices.get_children():
+		_require((button as Button).icon != null, "a starter quick choice has no thumbnail")
 	_require(hud.selectEraseValue(), "the erase value is not reachable")
 	_require(
 		hud.selectedValue() == MapDataScript.EMPTY,
@@ -367,7 +453,7 @@ func _checkChromeBuilds() -> void:
 
 ## The workspace has to be usable at both target window sizes with BOTH side panels open. This is
 ## a minimum-width regression guard: a long button label, an unclipped readout or one more control
-## in the view bar can push the layout wider than the window, and the first thing to be pushed off
+## on the top bar can push the layout wider than the window, and the first thing to be pushed off
 ## the edge is the inspector -- which looks like a missing panel rather than like a layout fault.
 ##
 ## Two failures found this way while the workspace was being built: an autowrapping status label

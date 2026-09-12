@@ -41,7 +41,6 @@ const MapData = preload("res://src/presentation/worldmap/editor/WorldMapTileData
 const ObjectLayer = preload("res://src/presentation/worldmap/editor/WorldMapObjectLayer.gd")
 const HeightField = preload("res://src/presentation/worldmap/editor/WorldMapHeightField.gd")
 const WaterLayer = preload("res://src/presentation/worldmap/editor/WorldMapWaterLayer.gd")
-const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
 
 ## Where an exported scene lands. Separated from hand-authored scenes on purpose, the same way
 ## `WorldMapBaker.GENERATED_DIR` separates baked art from painted art: everything under here is
@@ -81,9 +80,11 @@ static func configureGround(
 	var extent := data.worldExtent()
 	var surface: Mesh = null
 	if HeightField.has(data):
-		var margin: float = float(
-			Uniforms.completeForRegion(framing, data.fog_color, data.void_color)[Uniforms.K_FOG_END]
-		)
+		# Through the ground's own `planeMargin()` rather than reading `fog_end` again here: the
+		# surface handed to `configure()` REPLACES the mesh that call would have built, so a second
+		# derivation of the same number is a second chance for the terrain and the flat plane to
+		# span different rectangles. It also carries the authoring-surface case for free.
+		var margin := ground.planeMargin(framing, data.fog_color, data.void_color)
 		surface = HeightField.buildSurfaceMesh(data, extent + Vector2(margin, margin) * 2.0)
 	ground.configure(extent, texture, framing, data.fog_color, data.void_color, surface)
 

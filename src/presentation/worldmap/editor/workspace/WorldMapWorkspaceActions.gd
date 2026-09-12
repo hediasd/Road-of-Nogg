@@ -62,11 +62,30 @@ const BRUSH_SMALLER := "brush.smaller"
 const BRUSH_LARGER := "brush.larger"
 const CANCEL_STROKE := "edit.cancelStroke"
 
-const VIEW_EDITING := "view.editing"
-const VIEW_SHIPPING := "view.shipping"
-const VIEW_PROJECTION := "view.projection"
 const VIEW_FRAME := "view.frame"
 const VIEW_GRID := "view.grid"
+
+## THE LEFT COLUMN'S MAP MENU, top to bottom. Everything that acts on the MAP lives here, under
+## the tilesheet the author is choosing from; the top bar keeps only the actions that manage the
+## DOCUMENT. Splitting it that way is what the single toolbar row could never express -- it had
+## document commands, tools, history, brush size and view toggles all on one line in the order
+## they happened to be added, and nothing on it said which of those changed the file and which
+## changed the next stroke.
+##
+## `columns` is how many buttons share a row WITHIN a section; the sections themselves always
+## stack. Two throughout, which is what makes the whole menu fit under the tilesheet at 1280x720
+## without scrolling -- one per row needs about 150 px more than the column has. The pairs it
+## produces are the ones already thought of in pairs anyway: smaller/larger, undo/redo,
+## frame/grid, and the tools in the order an author reaches for them.
+const MAP_MENU := [
+	{"group": GROUP_TOOL, "heading": "Tools", "columns": 2},
+	{"group": GROUP_BRUSH, "heading": "Brush", "columns": 2},
+	{"group": GROUP_HISTORY, "heading": "History", "columns": 2},
+	{"group": GROUP_VIEW, "heading": "View", "columns": 2},
+]
+
+## The top bar's groups, in order. Document management only -- see `MAP_MENU`.
+const TOP_BAR := [GROUP_DOCUMENT, GROUP_EXPORT]
 
 const ACTIONS := [
 	{"id": NEW_DOCUMENT, "label": "New", "group": GROUP_DOCUMENT,
@@ -108,12 +127,6 @@ const ACTIONS := [
 	{"id": CANCEL_STROKE, "label": "Cancel stroke", "short": "Cancel", "group": GROUP_BRUSH,
 		"tooltip": "Abandon the stroke in progress and put back what it changed."},
 
-	{"id": VIEW_EDITING, "label": "Editing view", "short": "Editing", "group": GROUP_VIEW,
-		"tooltip": "Straight down and orthographic -- the authoring view."},
-	{"id": VIEW_SHIPPING, "label": "Shipping view", "short": "Shipping", "group": GROUP_VIEW,
-		"tooltip": "Return the camera to what the game ships."},
-	{"id": VIEW_PROJECTION, "label": "Projection", "short": "Proj.", "group": GROUP_VIEW,
-		"tooltip": "Switch between orthographic and perspective."},
 	{"id": VIEW_FRAME, "label": "Frame", "short": "Frame", "group": GROUP_VIEW,
 		"tooltip": "Frame the whole region in the map column."},
 	{"id": VIEW_GRID, "label": "Hex grid", "short": "Grid", "group": GROUP_VIEW,
@@ -134,7 +147,10 @@ static func buttonTextFor(actionID: String) -> String:
 ## One row per binding rather than per action, because Redo legitimately has two and a table keyed
 ## by action could not hold both. `shift` is matched exactly -- see the class note.
 const SHORTCUTS := [
+	{"id": NEW_DOCUMENT, "key": KEY_N, "ctrl": true, "shift": false},
+	{"id": OPEN_DOCUMENT, "key": KEY_O, "ctrl": true, "shift": false},
 	{"id": SAVE_DOCUMENT, "key": KEY_S, "ctrl": true, "shift": false},
+	{"id": SAVE_DOCUMENT_AS, "key": KEY_S, "ctrl": true, "shift": true},
 	{"id": EXPORT_SCENE, "key": KEY_E, "ctrl": true, "shift": false},
 	{"id": EXPORT_BATTLE, "key": KEY_E, "ctrl": true, "shift": true},
 	{"id": UNDO, "key": KEY_Z, "ctrl": true, "shift": false},
@@ -145,7 +161,6 @@ const SHORTCUTS := [
 	{"id": TOOL_FILL, "key": KEY_G, "ctrl": false, "shift": false},
 	{"id": TOOL_EYEDROPPER, "key": KEY_I, "ctrl": false, "shift": false},
 	{"id": VIEW_FRAME, "key": KEY_F, "ctrl": false, "shift": false},
-	{"id": VIEW_SHIPPING, "key": KEY_SPACE, "ctrl": false, "shift": false},
 	{"id": BRUSH_SMALLER, "key": KEY_BRACKETLEFT, "ctrl": false, "shift": false},
 	{"id": BRUSH_LARGER, "key": KEY_BRACKETRIGHT, "ctrl": false, "shift": false},
 	{"id": CANCEL_STROKE, "key": KEY_ESCAPE, "ctrl": false, "shift": false},
@@ -154,6 +169,16 @@ const SHORTCUTS := [
 
 static func actions() -> Array:
 	return ACTIONS
+
+
+## Whether an action belongs on the top bar rather than in the left column's map menu. Asked
+## rather than assumed, so a new group added to one table cannot quietly appear in both.
+static func isTopBarAction(actionID: String) -> bool:
+	for action in ACTIONS:
+		var row: Dictionary = action
+		if str(row["id"]) == actionID:
+			return TOP_BAR.has(str(row["group"]))
+	return false
 
 
 static func actionsInGroup(group: String) -> Array:
@@ -210,8 +235,8 @@ static func resolve(keycode: int, ctrl: bool, shift: bool, focus: int) -> String
 ## The footer's one-line reminder, built from the table so it cannot drift from the bindings.
 static func hintLine() -> String:
 	var parts := PackedStringArray()
-	for actionID in [TOOL_PAINT, TOOL_ERASE, TOOL_FILL, TOOL_EYEDROPPER, VIEW_FRAME,
-			VIEW_SHIPPING, SAVE_DOCUMENT, UNDO]:
+	for actionID in [NEW_DOCUMENT, OPEN_DOCUMENT, SAVE_DOCUMENT, SAVE_DOCUMENT_AS,
+			TOOL_PAINT, TOOL_ERASE, TOOL_FILL, TOOL_EYEDROPPER, VIEW_FRAME, UNDO]:
 		var hint := hintFor(actionID)
 		if not hint.is_empty():
 			parts.append("%s %s" % [hint, labelFor(actionID)])
