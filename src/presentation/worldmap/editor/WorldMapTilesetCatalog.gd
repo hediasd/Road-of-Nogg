@@ -189,6 +189,26 @@ static func tilesetFor(tilesetID: String) -> Dictionary:
 	return _index.get(tilesetID, {})
 
 
+## The authored `WALKABLE` fact for one tile, as the tri-state string `_normaliseTiles` stores:
+## `"true"`, `"false"`, or `""` for a sheet that has never had the field authored. Callers that
+## want a plain yes/no want `isWalkable()` below; this exists so a caller can tell "explicitly not
+## walkable" apart from "nobody has said yet" when that distinction matters.
+static func walkableFor(tilesetID: String, tileID: String) -> String:
+	for tile in tilesetFor(tilesetID).get("TILES", []):
+		if str((tile as Dictionary).get("ID", "")) == tileID:
+			return str((tile as Dictionary).get("WALKABLE", ""))
+	return ""
+
+
+## Whether a tile can be walked on, defaulting to true. FHB-2: `WALKABLE` was authored into every
+## tile's record from the first import and read by nothing until now -- see `_normaliseTiles`'s
+## own note. Only an explicit `"false"` refuses; an unset field, an unknown tile and an unknown
+## tileset all read as walkable, which is the safer direction to be wrong in -- a sheet nobody has
+## annotated yet should not silently wall off every cell painted from it.
+static func isWalkable(tilesetID: String, tileID: String) -> bool:
+	return walkableFor(tilesetID, tileID) != "false"
+
+
 ## Map pixels per cell for a grid kind. Both come from the tile law's constants rather than
 ## being declared per sheet, which is the whole point of the ratio being fixed.
 static func gridPixels(gridKind: String) -> int:

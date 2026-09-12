@@ -50,10 +50,15 @@ TILES           the ledger -- see §3
 Per tile, the ledger carries `ID`, `HASH`, `CELL`, `LABEL`, `TERRAIN`, `AUTOTILE`, `VARIANT`,
 `WALKABLE` and `LIFTABLE`.
 
-`WALKABLE` and `LIFTABLE` are **authored now and read by nothing yet**. Both describe the art —
+`WALKABLE` and `LIFTABLE` are authored per tile because both describe the art itself —
 `LIFTABLE` gates whether Phase D may raise a tile at all, since only flat top-down art may be
-lifted (`WORLDMAP_DESIGN.md` §8) — so retrofitting them later means revisiting every sheet ever
-drawn. Authoring them from the first import costs a default field and saves that.
+lifted (`WORLDMAP_DESIGN.md` §8) — so retrofitting them later would mean revisiting every sheet
+ever drawn. Authoring them from the first import costs a default field and saves that.
+
+`WALKABLE` seeds the battlefield layer's own derivation (§20): `WorldMapTilesetCatalog.
+isWalkable(tilesetID, tileID)` reads it, defaulting an unset field to walkable rather than
+blocked, so a sheet nobody has annotated does not silently wall off everything painted from it.
+`LIFTABLE` remains read by nothing yet.
 
 ### Blank cells are padding, not tiles
 
@@ -1457,6 +1462,32 @@ tower was detected.
 
 An id outside the ledger is an **authoring error**, and refuses the export naming the cell. A typo
 that silently became walkable ground is a balance change nobody made and nobody can see.
+
+### Deriving a first draft from the ground layer
+
+`WorldMapTacticalLayer.applyDerived()` fills the whole battlefield layer from the ground layer's
+own art in one action, so an author does not have to decide walkable versus not, cell by cell, by
+hand. This does not loosen the rule above: `derivedFrom()` computes an answer and `applyDerived()`
+**writes** it through the same `setCell` any other paint goes through, so every cell it touches
+becomes ordinary authored data the moment it lands — indistinguishable from a cell chosen by
+clicking the palette. `isPlayable()`, `terrainAt()` and the export still read only what is in the
+tactical layer; nothing about *reading* the battlefield changed.
+
+The signal is each tile's own `WALKABLE` field (§2), not its `TERRAIN` kind — the field exists
+specifically to seed this, and an unset field reads as walkable rather than blocked, so a sheet
+nobody has annotated does not silently wall off everything painted from it. Today's vocabulary
+distinguishes only walkable from not: a walkable tile derives to `clear`, everything else
+(an unwalkable tile, or an empty cell with no ground tile at all) derives to `blocked`. No
+movement-point difference is made between them — `rough` is never produced by this derivation.
+
+An empty ground cell still derives to `blocked`, not to an empty tactical cell. That distinction
+matters for exactly the house case above: a groundless cell under an object becomes an impassable
+cell **on** the board, present in the mask and blocking line of sight, rather than a hole removed
+from the board entirely — the harm that section warns inferring *playability* from art would do.
+
+Applying is a **whole-layer replacement**: every cell is overwritten, with no memory of which
+cells a person had set by hand before the derivation ran. Authoring an override that survives a
+later re-derive is a further capability, not part of what this does.
 
 ### What cannot be exported, and why refusing is the feature
 

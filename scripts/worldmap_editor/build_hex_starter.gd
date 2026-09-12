@@ -138,6 +138,13 @@ func _upsertCatalog(sheet: Image) -> bool:
 		var variant := "base" if edgeIndex < 0 else "%s_edge_%d" % [border, edgeIndex]
 		var label := terrain.capitalize() if edgeIndex < 0 else "%s with %s %s edge" % [terrain.capitalize(), border, EDGE_NAMES[edgeIndex]]
 		var cell := Vector2i(index % COLUMNS, index / COLUMNS)
+		# FHB-2: authored here rather than left blank, per this field's own reservation note in
+		# `WorldMapTilesetCatalog._normaliseTiles()` -- "authoring them from the first import costs
+		# a default and saves that". The only unwalkable frame is the one whose whole 32 px is sea
+		# (index 1); every land and grass frame is walkable, including the sea-bordered edge
+		# variants (index 3-8 border land, 9-14 border grass), because their standable area is the
+		# land or grass half, not the border.
+		var walkable := "false" if terrain == "sea" else "true"
 		tiles.append({
 			"AUTOTILE": "",
 			"CELL": [cell.x, cell.y],
@@ -147,7 +154,7 @@ func _upsertCatalog(sheet: Image) -> bool:
 			"LIFTABLE": false,
 			"TERRAIN": terrain,
 			"VARIANT": variant,
-			"WALKABLE": "",
+			"WALKABLE": walkable,
 		})
 	var starter := {
 		"DESCRIPTION": "A clean 15-frame flat-top hex starter at 32 px. It uses the verified temp2 land, sea and grass colours as manual base and edge examples; it is not a complete autotile or Wang set. Frames are 5 columns by 3 rows with zero margin and spacing, and transparent corners preserve the project’s stretched 32 px flat-top geometry.",

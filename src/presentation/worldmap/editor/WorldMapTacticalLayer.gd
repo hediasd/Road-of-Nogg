@@ -23,6 +23,7 @@ class_name WorldMapTacticalLayer
 extends RefCounted
 
 const MapData = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
+const Tilesets = preload("res://src/presentation/worldmap/editor/WorldMapTilesetCatalog.gd")
 
 ## The layer tactical terrain lives in unless told otherwise.
 const DEFAULT_LAYER := "tactical"
@@ -125,3 +126,57 @@ static func usedTerrainIDs(data: WorldMapTileData, layerID := DEFAULT_LAYER) -> 
 		result.append(str(key))
 	result.sort()
 	return result
+
+
+## FHB-2: what a cell's tactical terrain should be, read from the GROUND layer's own art rather
+## than decided by hand. Today's answer distinguishes only walkable from not -- a walkable tile
+## derives to `clear`, everything else to `blocked` -- with no movement-point difference between
+## them; `rough` is never produced here, and this cycle does not ask it to be.
+##
+## THIS DOES NOT CONTRADICT THE CLASS NOTE ABOVE. "Authored, never inferred from art" is a
+## contract about what `isPlayable()`, `terrainAt()` and the export read: they see only what is
+## actually painted into the tactical layer, never the ground layer, at read time. This function
+## does not change that -- it is a WRITE-time convenience, the tactical equivalent of Fill or
+## Scatter, that happens to compute its fill from another layer instead of from a single chosen
+## id. Once `applyDerived()` below writes its answer, those cells are ordinary authored data,
+## indistinguishable from ones a person painted by hand, and a person can repaint any of them --
+## individual override is FHB-8's addition, not this function's.
+##
+## THE SIGNAL IS THE TILE'S OWN `WALKABLE` FIELD, NOT ITS `TERRAIN` KIND. `WorldMapTilesetCatalog.
+## _normaliseTiles()` reserved `WALKABLE` on every tile from the sheet's first import specifically
+## to seed this layer, and reading it now is the delayed cost that reservation was for.
+## `isWalkable()` defaults an unset field to true, which is why a sheet nobody has annotated
+## derives to an entirely walkable map rather than an entirely blocked one -- the safer direction
+## to be wrong in.
+##
+## An empty ground cell -- no tile painted at all -- derives to `blocked`. It is still part of the
+## battlefield (this writes a real terrain id, not `EMPTY`), just not enterable; nothing here
+## removes a cell from the lattice the way inferring PLAYABILITY from ground art would. See the
+## class note's own house example: a groundless cell under an object becomes an impassable cell on
+## the board, not a hole in it.
+static func derivedFrom(data: WorldMapTileData, groundLayerID := "ground") -> Dictionary:
+	var result: Dictionary = {}
+	if not data.layers.has(groundLayerID):
+		return result
+	var tilesetID := str((data.layers[groundLayerID] as Dictionary).get("TILESET", ""))
+	for row in range(data.size_tiles.y):
+		for col in range(data.size_tiles.x):
+			var cell := Vector2i(col, row)
+			var tileID := data.getCell(groundLayerID, cell)
+			var walkable := tileID != MapData.EMPTY and Tilesets.isWalkable(tilesetID, tileID)
+			result[cell] = "clear" if walkable else "blocked"
+	return result
+
+
+## Applies `derivedFrom()` to the document's battlefield layer, creating it first if absent.
+## WHOLE-LAYER REPLACEMENT: every cell is overwritten with the derived answer, with no record of
+## which cells were already there or who set them. A merge that keeps a person's prior overrides
+## is FHB-8's format and its own item, not a smaller version of this one -- building half of that
+## here would hand FHB-8 a shape to migrate away from instead of one to design.
+static func applyDerived(
+	data: WorldMapTileData, groundLayerID := "ground", layerID := DEFAULT_LAYER
+) -> void:
+	ensureLayer(data, layerID)
+	var derived := derivedFrom(data, groundLayerID)
+	for cell in derived:
+		data.setCell(layerID, cell, str(derived[cell]))
