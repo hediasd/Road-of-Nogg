@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dpd7apdrt1xyd"
-path="res://.godot/imported/temp2_hex32_starter.png-11d7dbf0327e4c1db459f68af81cc0f9.ctex"
+path="res://.godot/imported/temp2_hex32_starter.png-f8b4668e204d540d3d44307e837f582c.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://assets/worldmap/tilesets/temp2_hex32_starter.png"
-dest_files=["res://.godot/imported/temp2_hex32_starter.png-11d7dbf0327e4c1db459f68af81cc0f9.ctex"]
+dest_files=["res://.godot/imported/temp2_hex32_starter.png-f8b4668e204d540d3d44307e837f582c.ctex"]
 
 [params]
 
