@@ -37,6 +37,22 @@ duplicate IDs, malformed RLE, invalid dimensions and extra structural fields.
 It never opens an unsupported map as a lossy approximation. Opaque dictionaries
 inside `list` `ITEMS` are retained unchanged by the layer model.
 
+Two `grid` layer IDs carry battle meaning rather than art, and both have an
+empty `TILESET`. `tactical` holds each cell's battle terrain id (`clear`,
+`rough`, `blocked`) or `-` for a cell off the board; it is what battle export
+reads. `tactical_basis` holds, per cell, the terrain the tile art implied the
+last time the editor filled the battlefield from the art, or `-` where no fill
+has recorded the cell. A cell whose `tactical` value differs from a non-empty
+basis was set by hand. Only a fill writes the basis. `WORLDMAP_EDITOR.md` §20
+has the rule.
+
+The basis did not change either version number. It is an ordinary grid layer,
+so a version-1 reader validates it, keeps it and writes it back unchanged. A
+reader that ignores it still exports exactly the right battlefield, because
+`tactical` is always the complete answer and the basis only records where that
+answer came from. A version bump is for a change an older reader would
+misread; this is not one.
+
 `DOCUMENT_ID` is a lowercase UUIDv4 generated when a new map or Save As copy is
 created. It is stable across rename and move, and is unrelated to gameplay
 entity IDs. `NAME` is the human label; it is independent of both ID and

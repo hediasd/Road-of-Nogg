@@ -741,6 +741,26 @@ func promptRecovery(labels: Array[String], onRecover: Callable, onDiscard: Calla
 	return _popup(dialog)
 
 
+## A plain yes-or-no question before an action that rewrites work the author cannot see being
+## rewritten. `onCancel` runs on every exit that is not the confirm button, so a pending action
+## never outlives its dialog.
+func promptConfirm(
+	title: String, text: String, confirmLabel: String, onConfirm: Callable, onCancel: Callable
+) -> bool:
+	if not _canPopup():
+		return false
+	var dialog := ConfirmationDialog.new()
+	dialog.title = title
+	dialog.dialog_text = text
+	dialog.dialog_autowrap = true
+	dialog.min_size = Vector2i(420, 0)
+	dialog.get_ok_button().text = confirmLabel
+	dialog.get_cancel_button().text = "Cancel"
+	dialog.confirmed.connect(func() -> void: onConfirm.call())
+	dialog.canceled.connect(func() -> void: onCancel.call())
+	return _popup(dialog)
+
+
 func _dialogLabel(text: String) -> Label:
 	var label := Label.new()
 	label.text = text

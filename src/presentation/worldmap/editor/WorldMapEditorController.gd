@@ -147,6 +147,10 @@ const LAYER_HEIGHTS := WorldMapHeightField.DEFAULT_LAYER
 const LAYER_OBJECTS := WorldMapObjectLayer.DEFAULT_LAYER
 const LAYER_DETAIL := "detail"
 const LAYER_TACTICAL := WorldMapTacticalLayer.DEFAULT_LAYER
+## FHB-8. The record of what the art said when a fill last wrote each battle cell. Not a row in
+## `LAYERS`: nothing paints it but a fill, so it is never the active layer and never on screen.
+## See `WorldMapTacticalLayer.fillPlan`.
+const LAYER_TACTICAL_BASIS := LAYER_TACTICAL + WorldMapTacticalLayer.BASIS_SUFFIX
 
 ## What the value row offers over a height layer. A step per click rather than a target height,
 ## because sculpting is done by repetition -- and both signs are here rather than behind a
@@ -274,6 +278,25 @@ var _layerView := LayerViewScript.new()
 ## `WorldMapWorkspaceLayerView`'s class note.
 var _previewBaker: WorldMapBaker = null
 
+## FHB-8. The battlefield drawn over the map while the tactical layer is active: a tint per terrain,
+## a gold ring on every cell set by hand and a blue ring on every cell whose art has changed since
+## the last fill. Editor-only geometry, like `_preview`; it never reaches the bake or an export.
+var _terrainOverlay: MeshInstance3D = null
+var _terrainOverlayDirty := true
+var _terrainOverlayOrigin := Vector2.INF
+## What the overlay last drew, counted per kind. Read by the authoring probe, so the claim that an
+## override LOOKS different is checked against the geometry rather than against the data.
+var _terrainOverlayCounts: Dictionary = {}
+## A fill writes two layers, and the history records one layer per entry, so a fill is two entries.
+## These link them by history revision -- revisions are never reused -- so one Undo or one Redo
+## always moves both. Without the link, undoing half a fill would leave the basis disagreeing with
+## the battlefield, and every cell the fill changed would read as set by hand.
+var _fillFirstHalves: Dictionary = {}
+var _fillSecondHalves: Dictionary = {}
+## The fill waiting on the author's answer, or an invalid `Callable`. Headless callers resolve it
+## through `confirmPendingTerrainFill()`, the same way `_pendingDiscardAction` is resolved.
+var _pendingTerrainFill: Callable = Callable()
+
 ## Every file the editor reads or writes goes through this, so a probe can make a write fail
 ## without a real disk and without touching an authored map. See its own class note.
 var _io := DocumentIOScript.new()
@@ -302,6 +325,7 @@ func _process(delta: float) -> void:
 	_cursorCell = _pickCell(_pointerPosition)
 	_updateGrid()
 	_refreshPreview()
+	_refreshTerrainOverlay()
 	_refreshDocumentReadouts()
 	_tickRecovery(delta)
 
@@ -414,6 +438,7 @@ func _buildEditorUi() -> void:
 	_refreshBrushLabel()
 	_preview = PreviewScript.new()
 	_map.add_child(_preview)
+	_buildTerrainOverlay()
 	# Close is a document action here, so the window may not simply go away -- see `_requestClose`.
 	get_tree().auto_accept_quit = false
 	call_deferred("_layoutDisplayToStage")
@@ -558,6 +583,12 @@ func _onWorkspaceAction(actionID: String) -> void:
 			_gridVisible = not _gridVisible
 			_chrome.setActionPressed(WorkspaceActions.VIEW_GRID, _gridVisible)
 			_updateGrid()
+		WorkspaceActions.TERRAIN_FILL:
+			_resolveOpenStroke()
+			_requestTerrainFill(true)
+		WorkspaceActions.TERRAIN_RESET:
+			_resolveOpenStroke()
+			_requestTerrainFill(false)
 
 
 func _selectWorkspaceTool(actionID: String) -> void:
@@ -688,7 +719,9 @@ func _refreshDocumentReadouts() -> void:
 	if _cursorCell != null and _document != null:
 		var cell := _cursorCell as Vector2i
 		cellText = "%d, %d" % [cell.x, cell.y]
-		if _document.layers.has(_activeLayer):
+		if _activeLayer == LAYER_TACTICAL and _document.layers.has(LAYER_TACTICAL):
+			valueText = _terrainReadout(cell, true)
+		elif _document.layers.has(_activeLayer):
 			valueText = _document.getCell(_activeLayer, cell)
 	var readout := "%s|%s" % [cellText, valueText]
 	if readout != _shownCursorCell:
@@ -851,9 +884,16 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _undo() -> void:
 	if _document == null:
 		return
+	# Read before undoing: the revision being left is the one that names the entry. A fill's
+	# second half takes its first half with it -- see `_fillSecondHalves`.
+	var leaving := _history.currentRevision()
 	var touched := _history.undo(_document)
 	if not touched.is_empty():
 		_onHistoryApplied(touched)
+	if _fillSecondHalves.has(leaving):
+		touched = _history.undo(_document)
+		if not touched.is_empty():
+			_onHistoryApplied(touched)
 
 
 func _redo() -> void:
@@ -862,6 +902,10 @@ func _redo() -> void:
 	var touched := _history.redo(_document)
 	if not touched.is_empty():
 		_onHistoryApplied(touched)
+	if not touched.is_empty() and _fillFirstHalves.has(_history.currentRevision()):
+		touched = _history.redo(_document)
+		if not touched.is_empty():
+			_onHistoryApplied(touched)
 
 
 ## What a live document's renderer needs invalidated after undo or redo touches a set of cells --
@@ -940,7 +984,10 @@ func _beginToolGesture(screenPosition: Vector2) -> void:
 		return
 	match _activeTool:
 		TOOL_INSPECT:
-			_editorHud.setStatus("%s %s = %s" % [_activeLayer, cell, _document.getCell(_activeLayer, cell)])
+			if _activeLayer == LAYER_TACTICAL:
+				_editorHud.setStatus("Battle cell %s: %s" % [cell, _terrainReadout(cell, false)])
+			else:
+				_editorHud.setStatus("%s %s = %s" % [_activeLayer, cell, _document.getCell(_activeLayer, cell)])
 		TOOL_EYEDROPPER:
 			var sampled := Brushes.eyedropper(_document, _activeLayer, cell)
 			_editorHud.selectTileID(sampled)
@@ -1251,6 +1298,9 @@ func _afterCellsEdited(layerID: String, cells: Array[Vector2i]) -> void:
 func _redrawCells(layerID: String, cells: Array[Vector2i]) -> void:
 	if _document == null or cells.is_empty():
 		return
+	# Any layer: the battlefield tint reads the tactical layer, its rings read the ground art and
+	# its geometry sits on the heights. Only a flag; the overlay rebuilds when it is next shown.
+	_terrainOverlayDirty = true
 	for cell in cells:
 		_baker.markCellsDirty(_document, layerID, Rect2i(cell, Vector2i.ONE))
 	_baker.flush(_document)
@@ -1311,6 +1361,9 @@ func _afterObjectsEdited() -> void:
 ## `WorldMapSceneExport.buildObjects` already documents for a preview that is never packed -- so
 ## the editor and the export place a building by the same code, not by two that agree today.
 func _rebuildObjectPreview() -> void:
+	# Called on every document open and every terrain-height change, both of which move the ground
+	# the battlefield overlay sits on.
+	_terrainOverlayDirty = true
 	if _map == null:
 		return
 	if _objectsPreview != null and is_instance_valid(_objectsPreview):
@@ -1330,6 +1383,7 @@ func _rebuildObjectPreview() -> void:
 func _afterRectEdited(layerID: String, rect: Rect2i) -> void:
 	if _document == null:
 		return
+	_terrainOverlayDirty = true
 	_baker.markCellsDirty(_document, layerID, rect)
 	_baker.flush(_document)
 	_refreshFilteredDisplay()
@@ -1681,6 +1735,8 @@ func _openFileDocument(path: String) -> void:
 ## editable layer, refresh the tile list and the Open list. `statusMessage` is the one thing
 ## that differs between the three callers, so it is the only parameter.
 func _bakeAndDisplayDocument(statusMessage: String) -> void:
+	# A fill asked about on the previous document must not land on this one.
+	_pendingTerrainFill = Callable()
 	_refreshLayerRows()
 	var texture := _baker.bake(_document)
 	if texture == null:
@@ -2334,6 +2390,255 @@ func _onLayerLockToggled(id: String, on: bool) -> void:
 		_resolveOpenStroke()
 
 
+# ------------------------------------------------------------ the battlefield from the art (FHB-8)
+
+## How the overlay tints each battle terrain. Quiet for clear ground, which is most of a map, and
+## strongest for blocked, which is what an author is usually checking.
+const TERRAIN_TINTS := {
+	"clear": Color(0.45, 0.90, 0.55, 0.14),
+	"rough": Color(0.95, 0.75, 0.30, 0.30),
+	"blocked": Color(0.95, 0.25, 0.20, 0.36),
+}
+## An id outside the ledger. Loud on purpose: the export refuses it, so the author should see it.
+const TERRAIN_TINT_UNKNOWN := Color(1.0, 0.2, 1.0, 0.5)
+const TERRAIN_RING_HAND := Color(1.0, 0.86, 0.25, 1.0)
+const TERRAIN_RING_STALE := Color(0.45, 0.85, 1.0, 0.95)
+## Below `WorldMapWorkspacePreview.LIFT`, and drawn before it, so the footprint stays on top.
+const TERRAIN_OVERLAY_LIFT := 0.04
+const HEX_CORNERS := [
+	Vector2(1.0, 0.0), Vector2(0.5, 1.0), Vector2(-0.5, 1.0),
+	Vector2(-1.0, 0.0), Vector2(-0.5, -1.0), Vector2(0.5, -1.0),
+]
+
+
+## Fill from art (`keepOverrides`) and Reset to art (not). Asks first only when the fill would
+## overwrite something that is not known to come from the art: hand-set cells on a reset, or a
+## battlefield no fill ever recorded -- a map painted before the basis existed, where hand work and
+## art cannot be told apart. An ordinary fill over a recorded map changes only what the art changed,
+## keeps every override and undoes in one step, so it just runs.
+func _requestTerrainFill(keepOverrides: bool) -> void:
+	if _document == null:
+		_editorHud.setStatus("Open a hex map before filling its battlefield.")
+		return
+	var plan := WorldMapTacticalLayer.fillPlan(_document, keepOverrides, "ground", LAYER_TACTICAL)
+	if not bool(plan["ok"]):
+		_editorHud.setStatus("Cannot fill the battlefield: %s." % str(plan["error"]))
+		return
+	var untracked := int(plan["replacesUntracked"])
+	var discarded := int(plan["discardsOverrides"])
+	if untracked == 0 and discarded == 0:
+		_applyTerrainFill(keepOverrides)
+		return
+	var parts := PackedStringArray()
+	if discarded > 0:
+		parts.append("%d cell%s you set by hand will take the art's terrain." % [
+			discarded, "" if discarded == 1 else "s"])
+	if untracked > 0:
+		parts.append(
+			("%d cell%s differ from the art, and this battlefield was painted before the editor "
+			+ "recorded the art, so hand work cannot be told apart from it. They will take the "
+			+ "art's terrain. After this fill, cells you set by hand are kept.")
+			% [untracked, "" if untracked == 1 else "s"]
+		)
+	var question := " ".join(parts)
+	_pendingTerrainFill = func() -> void: _applyTerrainFill(keepOverrides)
+	var title := "Fill battlefield from art" if keepOverrides else "Reset battlefield to art"
+	var confirmLabel := "Fill" if keepOverrides else "Reset"
+	if not _chrome.promptConfirm(title, question, confirmLabel, _confirmTerrainFill, _cancelTerrainFill):
+		# No display to ask on. The fill stays pending for `confirmPendingTerrainFill()`.
+		_editorHud.setStatus("%s Waiting for confirmation." % question)
+
+
+func _confirmTerrainFill() -> void:
+	var action := _pendingTerrainFill
+	_pendingTerrainFill = Callable()
+	if action.is_valid():
+		action.call()
+
+
+func _cancelTerrainFill() -> void:
+	if not _pendingTerrainFill.is_valid():
+		return
+	_pendingTerrainFill = Callable()
+	_editorHud.setStatus("The battlefield was not changed.")
+
+
+## Writes a fill as two linked history entries, battlefield first. Planned again here rather than
+## reusing the plan the question was asked about: a plan is cheap, and a stale one is exactly the
+## kind of bug a confirm step would hide.
+func _applyTerrainFill(keepOverrides: bool) -> void:
+	if _document == null:
+		return
+	_resolveOpenStroke()
+	var plan := WorldMapTacticalLayer.fillPlan(_document, keepOverrides, "ground", LAYER_TACTICAL)
+	if not bool(plan["ok"]):
+		_editorHud.setStatus("Cannot fill the battlefield: %s." % str(plan["error"]))
+		return
+	# Created outside the history, the same way a first paint creates the tactical layer. An empty
+	# basis reads as untracked, so undoing the fill that created it leaves nothing misread.
+	var layersAdded := (
+		not _document.layers.has(LAYER_TACTICAL) or not _document.layers.has(LAYER_TACTICAL_BASIS)
+	)
+	WorldMapTacticalLayer.ensureBasisLayers(_document, LAYER_TACTICAL)
+	var terrain: Dictionary = plan["terrain"]
+	var terrainPushed := _writeFillHalf(LAYER_TACTICAL, terrain)
+	var firstRevision := _history.currentRevision()
+	var basisPushed := _writeFillHalf(LAYER_TACTICAL_BASIS, plan["basis"] as Dictionary)
+	if terrainPushed and basisPushed:
+		_fillFirstHalves[firstRevision] = true
+		_fillSecondHalves[_history.currentRevision()] = true
+	if layersAdded:
+		_refreshLayerRows()
+	# Show the result: the overlay only draws while the battlefield is the active layer.
+	if _activeLayer != LAYER_TACTICAL:
+		_onLayerSelected(_layerIndex(LAYER_TACTICAL))
+	var kept := int(plan["kept"])
+	var changed := terrain.size()
+	if keepOverrides:
+		_editorHud.setStatus("Filled the battlefield from the art: %d cell%s changed, %d set by hand kept." % [
+			changed, "" if changed == 1 else "s", kept])
+	else:
+		_editorHud.setStatus("Reset the battlefield to the art: %d cell%s changed." % [
+			changed, "" if changed == 1 else "s"])
+
+
+## One half of a fill as one history entry. Returns whether the history recorded it.
+func _writeFillHalf(layerID: String, values: Dictionary) -> bool:
+	if values.is_empty():
+		return false
+	_history.beginStroke(layerID)
+	var cells: Array[Vector2i] = []
+	for cell: Vector2i in values:
+		if _history.paintCell(_document, cell, str(values[cell])):
+			cells.append(cell)
+	var pushed := _history.endStroke()
+	_redrawCells(layerID, cells)
+	return pushed
+
+
+## What the under-cursor readout (`compact`) and the Inspect tool say about a battle cell: its
+## terrain and where that terrain came from.
+func _terrainReadout(cell: Vector2i, compact: bool) -> String:
+	var terrain := WorldMapTacticalLayer.terrainAt(_document, cell, LAYER_TACTICAL)
+	var shown := "off board" if terrain == MapDataScript.EMPTY else terrain
+	var art := WorldMapTacticalLayer.derivedAt(_document, cell, "ground")
+	var derived := {} if art == MapDataScript.EMPTY else {cell: art}
+	match WorldMapTacticalLayer.sourceAt(_document, cell, derived, LAYER_TACTICAL):
+		WorldMapTacticalLayer.SOURCE_HAND:
+			return "%s · hand" % shown if compact else (
+				"%s, set by hand. The art says %s." % [shown, art])
+		WorldMapTacticalLayer.SOURCE_STALE:
+			return "%s · stale" % shown if compact else (
+				"%s from the art, but the art now says %s. Fill from art to update it." % [shown, art])
+		WorldMapTacticalLayer.SOURCE_ART:
+			return "%s · art" % shown if compact else "%s, from the art." % shown
+	return "%s · untracked" % shown if compact else (
+		"%s, not recorded against the art. Fill from art to track it." % shown)
+
+
+func _buildTerrainOverlay() -> void:
+	_terrainOverlay = MeshInstance3D.new()
+	_terrainOverlay.name = "EditorBattlefieldOverlay"
+	_terrainOverlay.mesh = ImmediateMesh.new()
+	_terrainOverlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.no_depth_test = true
+	material.disable_receive_shadows = true
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.render_priority = -1
+	_terrainOverlay.material_override = material
+	_terrainOverlay.visible = false
+	_map.add_child(_terrainOverlay)
+
+
+## Shown while the battlefield is the layer being edited, and only then: over ground art it would
+## hide exactly what the author is painting.
+func _terrainOverlayWanted() -> bool:
+	return (
+		_document != null and _isHexDocument() and _activeLayer == LAYER_TACTICAL
+		and _document.layers.has(LAYER_TACTICAL)
+	)
+
+
+func _refreshTerrainOverlay() -> void:
+	if _terrainOverlay == null:
+		return
+	if not _terrainOverlayWanted():
+		_terrainOverlay.visible = false
+		return
+	var origin := _ground.regionRect().position
+	if _terrainOverlayDirty or origin != _terrainOverlayOrigin:
+		_rebuildTerrainOverlay(origin)
+	_terrainOverlay.visible = true
+
+
+func _rebuildTerrainOverlay(origin: Vector2) -> void:
+	_terrainOverlayDirty = false
+	_terrainOverlayOrigin = origin
+	var immediate := _terrainOverlay.mesh as ImmediateMesh
+	immediate.clear_surfaces()
+	var derived := WorldMapTacticalLayer.derivedFrom(_document, "ground")
+	var hasHeights := HeightField.has(_document)
+	var tints: Array = []
+	var rings: Array = []
+	var counts := {"tinted": 0, "hand": 0, "stale": 0}
+	for row in range(_document.size_tiles.y):
+		for col in range(_document.size_tiles.x):
+			var cell := Vector2i(col, row)
+			var terrain := WorldMapTacticalLayer.terrainAt(_document, cell, LAYER_TACTICAL)
+			if terrain != MapDataScript.EMPTY:
+				tints.append([cell, TERRAIN_TINTS.get(terrain, TERRAIN_TINT_UNKNOWN)])
+			match WorldMapTacticalLayer.sourceAt(_document, cell, derived, LAYER_TACTICAL):
+				WorldMapTacticalLayer.SOURCE_HAND:
+					rings.append([cell, TERRAIN_RING_HAND])
+					counts["hand"] = int(counts["hand"]) + 1
+				WorldMapTacticalLayer.SOURCE_STALE:
+					rings.append([cell, TERRAIN_RING_STALE])
+					counts["stale"] = int(counts["stale"]) + 1
+	counts["tinted"] = tints.size()
+	_terrainOverlayCounts = counts
+	if tints.is_empty() and rings.is_empty():
+		return
+	immediate.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	for entry in tints:
+		var centre := WorldMapHexGrid.cellCentre(entry[0] as Vector2i)
+		var middle := _overlayPoint(origin, centre, hasHeights)
+		for corner in 6:
+			_overlayTriangle(immediate, entry[1] as Color, [
+				middle,
+				_overlayPoint(origin, centre + (HEX_CORNERS[corner] as Vector2) * 0.97, hasHeights),
+				_overlayPoint(origin, centre + (HEX_CORNERS[(corner + 1) % 6] as Vector2) * 0.97, hasHeights),
+			])
+	# A solid band rather than a line: a one-pixel outline disappears into busy art at the zoom an
+	# author works at, and the ring is the whole of "this one is different".
+	for entry in rings:
+		var centre := WorldMapHexGrid.cellCentre(entry[0] as Vector2i)
+		for corner in 6:
+			var a := HEX_CORNERS[corner] as Vector2
+			var b := HEX_CORNERS[(corner + 1) % 6] as Vector2
+			var outerA := _overlayPoint(origin, centre + a * 0.92, hasHeights)
+			var outerB := _overlayPoint(origin, centre + b * 0.92, hasHeights)
+			var innerA := _overlayPoint(origin, centre + a * 0.72, hasHeights)
+			var innerB := _overlayPoint(origin, centre + b * 0.72, hasHeights)
+			_overlayTriangle(immediate, entry[1] as Color, [outerA, outerB, innerB])
+			_overlayTriangle(immediate, entry[1] as Color, [outerA, innerB, innerA])
+	immediate.surface_end()
+
+
+func _overlayPoint(origin: Vector2, local: Vector2, hasHeights: bool) -> Vector3:
+	var height := HeightField.sample(_document, local) if hasHeights else 0.0
+	return Vector3(origin.x + local.x, height + TERRAIN_OVERLAY_LIFT, origin.y + local.y)
+
+
+func _overlayTriangle(immediate: ImmediateMesh, colour: Color, points: Array) -> void:
+	for point in points:
+		immediate.surface_set_color(colour)
+		immediate.surface_add_vertex(point as Vector3)
+
+
 ## Test and tooling accessors. Reaching into `_activeLayer` etc. directly would work too --
 ## GDScript does not enforce the underscore as real privacy -- but a named accessor is what
 ## keeps `probe_editor_shell.gd` readable as intent rather than as field-poking.
@@ -2520,3 +2825,35 @@ func exportBattleMap() -> Dictionary:
 	if _document == null or _documentPath.is_empty() or _isDocumentDirty():
 		return {"ok": false, "error": "a current saved source snapshot is required"}
 	return DocumentExport.publish(_document, _fileRecord, _framing, _io)
+
+
+## FHB-8's accessors, for `probe_terrain_authoring.gd`. The dialog calls the same functions.
+func requestTerrainFill(keepOverrides: bool) -> void:
+	_resolveOpenStroke()
+	_requestTerrainFill(keepOverrides)
+
+
+func hasPendingTerrainFill() -> bool:
+	return _pendingTerrainFill.is_valid()
+
+
+func confirmPendingTerrainFill() -> void:
+	_confirmTerrainFill()
+
+
+func cancelPendingTerrainFill() -> void:
+	_cancelTerrainFill()
+
+
+## What the battlefield overlay draws right now: `{visible, tinted, hand, stale}`. Refreshed first,
+## so a probe reads the geometry the next frame would show rather than last frame's.
+func terrainOverlayState() -> Dictionary:
+	_refreshTerrainOverlay()
+	var state := _terrainOverlayCounts.duplicate()
+	state["visible"] = _terrainOverlay != null and _terrainOverlay.visible
+	return state
+
+
+## The Inspect tool's sentence for a battle cell.
+func terrainReadout(cell: Vector2i) -> String:
+	return _terrainReadout(cell, false) if _document != null else ""

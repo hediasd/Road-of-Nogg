@@ -34,6 +34,7 @@ const GROUP_HISTORY := "history"
 const GROUP_TOOL := "tool"
 const GROUP_BRUSH := "brush"
 const GROUP_VIEW := "view"
+const GROUP_BATTLEFIELD := "battlefield"
 
 const NEW_DOCUMENT := "document.new"
 const OPEN_DOCUMENT := "document.open"
@@ -65,6 +66,12 @@ const CANCEL_STROKE := "edit.cancelStroke"
 const VIEW_FRAME := "view.frame"
 const VIEW_GRID := "view.grid"
 
+## FHB-8. The battlefield is filled from the art and overridden by painting; these are the two
+## whole-map verbs. Neither has a shortcut: both rewrite many cells at once, and a stray key should
+## not be able to do that.
+const TERRAIN_FILL := "battlefield.fillFromArt"
+const TERRAIN_RESET := "battlefield.resetToArt"
+
 ## THE LEFT COLUMN'S MAP MENU, top to bottom. Everything that acts on the MAP lives here, under
 ## the tilesheet the author is choosing from; the top bar keeps only the actions that manage the
 ## DOCUMENT. Splitting it that way is what the single toolbar row could never express -- it had
@@ -82,6 +89,7 @@ const MAP_MENU := [
 	{"group": GROUP_BRUSH, "heading": "Brush", "columns": 2},
 	{"group": GROUP_HISTORY, "heading": "History", "columns": 2},
 	{"group": GROUP_VIEW, "heading": "View", "columns": 2},
+	{"group": GROUP_BATTLEFIELD, "heading": "Battlefield", "columns": 2},
 ]
 
 ## The top bar's groups, in order. Document management only -- see `MAP_MENU`.
@@ -131,6 +139,11 @@ const ACTIONS := [
 		"tooltip": "Frame the whole region in the map column."},
 	{"id": VIEW_GRID, "label": "Hex grid", "short": "Grid", "group": GROUP_VIEW,
 		"tooltip": "Show or hide the authoring grid."},
+
+	{"id": TERRAIN_FILL, "label": "Fill from art", "short": "From art", "group": GROUP_BATTLEFIELD,
+		"tooltip": "Give every battle cell the terrain its tile says. Cells you set by hand are kept."},
+	{"id": TERRAIN_RESET, "label": "Reset to art", "short": "Reset", "group": GROUP_BATTLEFIELD,
+		"tooltip": "Give every battle cell the terrain its tile says, including cells you set by hand."},
 ]
 
 

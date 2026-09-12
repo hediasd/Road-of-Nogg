@@ -1485,9 +1485,66 @@ matters for exactly the house case above: a groundless cell under an object beco
 cell **on** the board, present in the mask and blocking line of sight, rather than a hole removed
 from the board entirely — the harm that section warns inferring *playability* from art would do.
 
-Applying is a **whole-layer replacement**: every cell is overwritten, with no memory of which
-cells a person had set by hand before the derivation ran. Authoring an override that survives a
-later re-derive is a further capability, not part of what this does.
+`applyDerived()` itself is a **whole-layer replacement** with no memory of who set what. The
+editor does not call it; it fills through the override-aware path below.
+
+### Filling from the art, and overriding it
+
+The left column's menu has a **Battlefield** section with two buttons:
+
+- **Fill from art** gives every battle cell the terrain its tile says, and keeps every cell a
+  person set by hand.
+- **Reset to art** does the same but also overwrites the hand-set cells. It asks first.
+
+Overriding is not a separate tool. Select the Tactical layer and paint, fill, line or replace as
+usual. Any battle cell whose terrain differs from what the art said is an override. Painting it
+back to the art's answer makes it an ordinary cell again. Undo works as it always did, and one
+Undo takes back a whole fill.
+
+While the Tactical layer is active the map shows the battlefield: a light green tint for clear, a
+stronger amber for rough and red for blocked, no tint for cells off the board. A **gold ring**
+marks a cell set by hand. A **blue ring** marks a cell whose art has changed since the last fill;
+Fill from art updates it. The under-cursor readout says the same thing in words
+(`blocked · hand`, `clear · art`, `clear · stale`), and Inspect gives the full sentence,
+including what the art says under an override.
+
+**How the editor knows.** Next to `tactical` the document carries a second grid layer,
+`tactical_basis`. A fill writes each cell's art answer into both layers. Nothing else ever writes
+the basis. So for each cell:
+
+| Basis | Battlefield | Reads as |
+|---|---|---|
+| empty | anything | untracked — no fill has recorded this cell |
+| `X` | differs from `X` | set by hand |
+| `X` | `X`, and the art still says `X` | from the art |
+| `X` | `X`, but the art now says something else | stale |
+
+A fill keeps a cell only if it is set by hand **and** the art does not already say the same thing.
+Every other cell takes the art's answer in both layers.
+
+Two consequences worth knowing:
+
+- **An override the art comes to agree with stops being an override.** Paint a cell blocked on
+  land, then repaint that tile as sea and fill: the cell is blocked either way, and it now follows
+  the art. Repaint it as land later and it becomes clear. The battlefield is never wrong at the
+  moment of the fill; only the person's earlier intent is forgotten, and only once the art matched it.
+- **A battlefield painted before the basis existed cannot be told apart from its art.** The first
+  Fill from art on such a map asks before replacing any cell that differs from the art. After that
+  fill every cell is tracked and later fills do not ask. A map with no battlefield, or one that
+  already matches its art (like `hexmap`), fills without asking.
+
+**Why record the art rather than the overrides.** The history records one layer per undo entry.
+If overrides were their own layer, every paint tool would have to write two layers in one entry.
+Recording the art instead means a hand edit needs no bookkeeping at all — only a fill writes two
+layers, and the controller links those two entries by history revision so Undo and Redo move both.
+
+The battle export still reads only `tactical`. The basis changes the document's fingerprint, as
+any edit does, and nothing a battle reads. See `HEX_MAP_FORMAT.md` for the format note.
+
+**Per-cell elevation is not authored here.** A battle cell's elevation comes from the shared
+vertex heights of §15, and neighbouring cells share those vertices, so it is not an independent
+per-tile value. Sculpting already edits it, and the export already refuses a slope it cannot
+represent. Giving elevation a battle meaning is combat design, which this cycle excludes.
 
 ### What cannot be exported, and why refusing is the feature
 
