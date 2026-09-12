@@ -60,6 +60,18 @@ member, every decision, and the outcome. The outcome's `end_reason` is
 `elimination` or `round_limit_survivor_count`; the second is a tally at the
 round cap, not a result, and a scorer should treat it that way.
 
+**The round cap counts whole rounds** (30 in both runners). The last round
+plays to its end, so every party still standing has activated the same number
+of times. At the cap the team with more monsters on the board wins; **a tie is
+a draw**, recorded as `winner_team` 0 with `draw: true`. Team ids start at 1,
+so 0 never names a team; it is also what an elimination with nobody left
+returns. Records before version 3 were scored differently: the cap stopped
+after the first party of the last round, and a tie went to the first-listed
+team. The CPU brains also changed with version 3: a heal counts only when its
+target could fall before acting again, and a harmful effect a spell puts on its
+caster's own side counts as a cost. Do not pool version 2 records with
+version 3 ones.
+
 A decision answers four questions: what the actor saw (`observation`, including
 each monster's effects in full, its resonance, and whether it is `withdrawn` —
 alive but off the board at (-1, -1) because its commander fell), what it could

@@ -86,16 +86,13 @@ func scoreCandidate(
 			var target = state.getMonster(affectedID)
 			if target.team != actor.team:
 				engagesEnemy = true
-			utility += _declaredEffectUtility(spell, affectedID)
+			utility += _declaredEffectUtility(actor, spell, affectedID)
 			if spell.buffs_atk > 0 or spell.removes_status != "" or spell.reverts_damage:
 				utility += 10
 			if spell.inflicts_status != "":
 				utility += _statusSeverity(spell.inflicts_status)
 			if spell.heals:
-				utility += mini(
-					target.max_hitpoints - target.hitpoints,
-					combatResolver.calculateHeal(actor, spell)
-				)
+				utility += healWorth(actor, spell, target, destination, threat)
 				continue
 			var targetDamage = 0
 			for line in spell.damage_lines:
@@ -158,6 +155,44 @@ func scoreCandidate(
 		"engages_enemy": engagesEnemy,
 	}
 
+## What a heal on `target` is worth: the HP it restores, but ONLY WHEN THE TARGET COULD FALL
+## BEFORE IT ACTS AGAIN without it (FHB-10). Otherwise nothing.
+##
+## "Could fall" is the threat map's value at the cell the target will stand on -- the most the
+## enemies who can reach it this round could deal there -- plus one tick of every damage-over-time
+## effect it carries. The threat map is a generous upper bound, so the gate opens early rather
+## than late.
+##
+## Why the gate exists. Every brain adds utility times its utility weight, and SupportBrain weighs
+## utility four times damage, so one healed HP outscored four points of damage on an enemy. A
+## support unit under chip damage therefore healed back what it lost, every turn, and never struck.
+## That is the seed-14 stall on hexmap: from round 7 to 30 the Healer Mage sat at 40-49 of 50 HP,
+## healed itself for 7 against 6-7 incoming, and never hit a Smoke Cloud on 6 HP or, once the
+## Oracle of Ages came up, the enemy commander beside it. Those heals restored real HP, but none of
+## it was HP the Healer was about to die for. A heal that changes nothing about who is standing
+## next round is a heal worth nothing, and it must not beat an attack.
+##
+## Public so a probe can ask the question directly rather than reverse it out of a score.
+func healWorth(
+		actor: Monster,
+		spell: Spell,
+		target: Monster,
+		destination: Vector2i,
+		threat: Dictionary) -> int:
+	var restored := mini(
+		target.max_hitpoints - target.hitpoints,
+		combatResolver.calculateHeal(actor, spell)
+	)
+	if restored <= 0:
+		return 0
+	var cell: Vector2i = destination if target.uniqueID == actor.uniqueID \
+		else state.getMonsterPosition(target.uniqueID)
+	var danger := int(threat.get(cell, 0))
+	for effect in state.getActiveEffects(target.uniqueID):
+		danger += maxi(0, int(effect.get("damagePerTurn", 0)))
+	return restored if danger >= target.hitpoints else 0
+
+
 func sortPositions(positions: Array) -> void:
 	positions.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		return a.y < b.y or (a.y == b.y and a.x < b.x)
@@ -172,15 +207,40 @@ func affectedOutcomeKey(affectedTargets: Array) -> String:
 		parts.append(str(targetID))
 	return "none" if parts.is_empty() else ",".join(parts)
 
-func _declaredEffectUtility(spell: Spell, affectedID: int) -> int:
+func _declaredEffectUtility(actor: Monster, spell: Spell, affectedID: int) -> int:
 	## Scores spell.effects (guard/focus/atk_buff/def_buff/spd_buff/move_buff/
 	## chill/cleanse/cooldown_reduction), previously invisible to the CPU. All
 	## 25 Level 1 self-spells rely on this field exclusively, so without this
 	## the CPU could not distinguish any of them from a no-op wait.
+	##
+	## SIGNED BY WHO BEARS IT (FHB-10). The size of an effect says how much it
+	## matters; whether that is good for the caster depends on whose side the
+	## bearer is on. A harmful effect on an enemy and a helpful one on an ally
+	## are worth their size; the other two cost it. Before this, the size was
+	## always added, so Timeoff's permanent -2 speed on the caster's own side
+	## scored as ten points of benefit. That is how a heal that restored nothing
+	## beat waiting, every turn, in the seed-14 stall on hexmap.
+	var target = state.getMonster(affectedID)
+	var onOwnSide: bool = target != null and actor != null and target.team == actor.team
 	var total := 0
 	for definition in spell.effects:
-		total += _singleEffectUtility(definition, affectedID)
+		var size := _singleEffectUtility(definition, affectedID)
+		var helpsBearer := not _isHarmfulEffect(definition)
+		total += size if helpsBearer == onOwnSide else -size
 	return total
+
+
+## Whether an effect works against the monster that carries it. Read from the
+## definition itself -- its NEGATIVE flag, or stat bonuses that sum below zero --
+## so an effect the status catalogue does not list is still judged by what it
+## declares.
+func _isHarmfulEffect(definition: Dictionary) -> bool:
+	if bool(definition.get("NEGATIVE", false)):
+		return true
+	var bonus := 0
+	for key in ["ATK_BONUS", "DEF_BONUS", "SPD_BONUS", "MOVE_BONUS"]:
+		bonus += int(definition.get(key, 0))
+	return bonus < 0
 
 
 func _singleEffectUtility(definition: Dictionary, affectedID: int) -> int:

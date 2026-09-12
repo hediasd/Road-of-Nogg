@@ -45,7 +45,13 @@ const ReachQueryScript = preload("res://src/battle_sim/ReachQuery.gd")
 ## 2 (FHB-6): the record carries the board and a per-monster catalogue, the outcome says why the
 ## battle ended, and the observation flags withdrawn members and their resonance. See the notes on
 ## `_board`, `_roster` and `_endReason` for the reading that found each gap.
-const RECORD_VERSION := 2
+##
+## 3 (FHB-10): the scoring under the record changed, not only its shape. A round-limit battle now
+## plays its last round to the end, a tied tally is a draw (`winner_team` 0) instead of a win for
+## the first-listed team, and the outcome says `draw` outright. The brains changed in the same
+## item (see `BattleCommandEvaluator.healWorth`), so v2 decisions came from a different policy too.
+## A consumer must not pool the two versions.
+const RECORD_VERSION := 3
 
 ## `outcome.end_reason` values. A round-limit win is decided by counting survivors, which is a
 ## different kind of result from a side being wiped out, and a scorer must be able to tell them
@@ -174,6 +180,8 @@ func _outcomeBlock(winningTeam: int) -> Dictionary:
 		byTeam[team] = int(byTeam.get(team, 0)) + 1
 	return {
 		"winner_team": winningTeam,
+		# Said outright so a reader need not know that team ids start at 1 and 0 means nobody won.
+		"draw": winningTeam == BattleSimulator.DRAW_TEAM,
 		"end_reason": _endReason(),
 		"rounds": int(_sim.state.roundCount),
 		"decisions": _decisions.size(),

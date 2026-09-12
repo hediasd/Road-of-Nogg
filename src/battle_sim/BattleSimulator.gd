@@ -1072,9 +1072,27 @@ func runFullBattle(maxRounds: int = 50) -> int:
 	return winner
 
 
+## THE CAP COUNTS WHOLE ROUNDS (FHB-10). A round is the unit in which every surviving party
+## activates once, in `partyOrder`, so finishing the round is what gives both sides the same number
+## of activations. The loop used to test `roundCount < maxRounds` between activations, which ended
+## the battle straight after the first party of the last round: in hexmap seed 14, team 2 acted in
+## round 30 and team 1 never did. A turn cap would not be fairer -- parties differ in size and in
+## how many members are still standing, so equal turns would mean unequal rounds.
+##
+## So the last round runs to its end, and only then is the cap checked: nothing active, nobody
+## pending, `roundCount` at the cap. Its `round_end` is announced like every earlier one, because
+## the round did finish; an elimination mid-round still ends without one.
 func _runFullPartyBattle(maxRounds: int) -> int:
 	startBattle()
-	while state.roundCount < maxRounds and state.battleOutcome == -1:
+	while state.battleOutcome == -1:
+		if (
+			state.roundCount >= maxRounds
+			and state.activePartyID == -1
+			and state.pendingPartyIDs.is_empty()
+		):
+			state.add_event("round_end", -1, -1, {"round": state.roundCount})
+			events.round_ended.emit(state.roundCount)
+			break
 		var activation := startNextPartyActivation("headless")
 		if not activation["success"]:
 			if activation["reason"] in ["battle_ended", "round_complete"]:
@@ -1108,12 +1126,25 @@ func checkWinCondition() -> int:
 	return -1
 
 
+## The outcome a battle has when no side is left standing alone. Team ids start at 1 (a
+## scenario's TEAM_ID must be positive), so 0 is free, and `checkWinCondition()` already answers 0
+## when every side falls at once.
+const DRAW_TEAM := 0
+
+
+## The round-cap tally: most monsters still on the board wins, and A TIE IS A DRAW (FHB-10). It
+## used to go to whichever team `teamRosters` happened to list first, because only a strictly
+## larger count replaced the leader -- a result decided by dictionary order, not by the battle.
 func _determineWinnerByNumbers() -> int:
-	var bestTeam = -1
+	var bestTeam = DRAW_TEAM
 	var bestCount = -1
+	var tied := false
 	for team in state.teamRosters:
-		var alive = state.getAliveMonsterIDs(team)
-		if alive.size() > bestCount:
-			bestCount = alive.size()
+		var count: int = state.getAliveMonsterIDs(team).size()
+		if count > bestCount:
+			bestCount = count
 			bestTeam = team
-	return bestTeam
+			tied = false
+		elif count == bestCount:
+			tied = true
+	return DRAW_TEAM if tied else bestTeam
