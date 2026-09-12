@@ -28,6 +28,35 @@ Generated art must be imported before anything loads it. Use
 work, because `--quit` ends the run after one frame while the filesystem scan
 is asynchronous, so it aborts partway and writes no `.import` file.
 
+## Exporting a map's battle products without the editor
+
+`scripts/worldmap_editor/export_battle_products.gd` publishes an authored hex
+map's battle products the same way the editor's own Export Battle action does,
+without opening the editor:
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/worldmap_editor/export_battle_products.gd -- hexmap
+```
+
+The argument is a map id under `data/worldmap/authored/<id>.noggmap.json` — the
+versioned envelope format the editor's own Save/Save As write. It reads that
+one format only; a pre-migration bare `.json` region such as `proving_ground`
+predates the envelope and is out of scope for this script, the same as it is
+for the editor's own Open dialog.
+
+It runs `godot --headless --import --path .` itself between baking and
+exporting, so the command above really is the whole thing — no separate import
+step to remember. That nested pass logs its own `ERROR: Do not use progress
+dialog...` lines to stderr; this is the same headless-import noise named above,
+not a sign the export failed. Trust the exit code and the final
+`HEX_EXPORT_OK <mapID>` line.
+
+**Re-exporting an already-scenario'd map makes those scenarios stale.**
+`BattleScenarioFactory` refuses to load a scenario whose recorded map
+fingerprint no longer matches — correct behaviour, not a bug — and the command
+prints a reminder naming every scenario under `data/battle/scenarios` that
+needs its `MAP` block updated to match.
+
 ## Validation timing
 
 AGENTS.md governs, and this section is subordinate to it. Plan files are frozen
