@@ -30,8 +30,12 @@ test_out.txt
 Godot_v*.exe
 Godot_v*.x86_64
 
+# Battle outputs: logs, records, championship corpora. Every writer goes through
+# src/presentation/BattleOutputPaths.gd. Only the .gdignore marker is tracked.
+/battle_output/*
+!/battle_output/.gdignore
+
 # Generated runtime logs
-docs/battle_log.txt
 godot_out.txt
 godot_test*.txt
 

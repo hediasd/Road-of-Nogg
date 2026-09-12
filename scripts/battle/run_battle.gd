@@ -6,8 +6,8 @@ extends SceneTree
 ##     Godot_v4.4-stable_win64.exe --headless --path . --script scripts/battle/run_battle.gd \
 ##         -- <scenarioPath> [seed] [recordPath] [logPath]
 ##
-## Everything after the scenario is optional; the defaults land under `user://battles/`, outside
-## the repository, because a corpus is generated output and does not belong in version control.
+## Everything after the scenario is optional; the defaults land under `battle_output/battles/` at
+## the project root, the one gitignored folder every battle output goes to. See `BattleOutputPaths`.
 ##
 ## THE CORPUS IS JSONL: ONE BATTLE PER LINE. Three reasons, and the third is the one that settled
 ## it. A training pipeline streams, shuffles and shards line-delimited JSON natively, where a
@@ -31,10 +31,10 @@ const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactor
 const BattleScenarioFactoryScript = preload("res://src/factories/BattleScenarioFactory.gd")
 const ConsoleVisualAdapterScript = preload("res://src/presentation/ConsoleVisualAdapter.gd")
 const RecordAdapterScript = preload("res://src/presentation/BattleRecordAdapter.gd")
+const BattleOutputPathsScript = preload("res://src/presentation/BattleOutputPaths.gd")
 const BattlePartyScript = preload("res://src/entities/BattleParty.gd")
 
 const DEFAULT_SEED := 42
-const DEFAULT_ROOT := "user://battles"
 const MAX_ROUNDS := 30
 
 
@@ -48,8 +48,8 @@ func _init() -> void:
 	var scenarioPath: String = args[0]
 	var seedValue := int(args[1]) if args.size() > 1 else DEFAULT_SEED
 	var stem := "%s_seed%d" % [scenarioPath.get_file().get_basename(), seedValue]
-	var recordPath: String = args[2] if args.size() > 2 else "%s/%s.jsonl" % [DEFAULT_ROOT, stem]
-	var logPath: String = args[3] if args.size() > 3 else "%s/%s.log.txt" % [DEFAULT_ROOT, stem]
+	var recordPath: String = args[2] if args.size() > 2 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.BATTLES, "%s.jsonl" % stem)
+	var logPath: String = args[3] if args.size() > 3 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.BATTLES, "%s.log.txt" % stem)
 
 	var result := run(scenarioPath, seedValue, recordPath, logPath)
 	if not bool(result.get("ok", false)):
@@ -108,7 +108,7 @@ static func run(
 	# event bus directly beside it. Neither knows about the other, and the slot is only consulted
 	# by the replay-restore path, which this run never takes.
 	if not logPath.is_empty():
-		_ensureDirectory(logPath)
+		BattleOutputPathsScript.ensureParent(logPath)
 		var console = ConsoleVisualAdapterScript.new(sim.state)
 		console.logFile = logPath
 		sim.setVisualAdapter(console)
@@ -123,7 +123,7 @@ static func run(
 
 	var line: String = recorder.recordLine(scenario)
 	if not recordPath.is_empty():
-		_ensureDirectory(recordPath)
+		BattleOutputPathsScript.ensureParent(recordPath)
 		var file := FileAccess.open(recordPath, FileAccess.WRITE)
 		if file == null:
 			return {"ok": false, "error": "could not write %s" % recordPath}
@@ -141,7 +141,3 @@ static func run(
 		"scenario_id": str(scenario.scenarioID),
 		"seed": seedValue,
 	}
-
-
-static func _ensureDirectory(path: String) -> void:
-	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(path.get_base_dir()))

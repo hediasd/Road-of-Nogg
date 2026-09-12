@@ -100,6 +100,9 @@ Beyond that:
   they touch several files.
 - Keep generated diagnostics out of tracked source. Put reusable utilities in
   `scripts/`.
+- Battle output (logs, records, corpora, summaries, from any kind of run) goes
+  under `battle_output/` through `src/presentation/BattleOutputPaths.gd`, never
+  into `docs/`, scratch folders or a writer's own choice of path.
 - For complex UI, create a mockup when visual direction is genuinely undecided
   or the user asks for one. A mockup is not required for every `Control` tree.
 

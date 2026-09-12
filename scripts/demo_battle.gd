@@ -24,9 +24,11 @@ const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
 const BattleScenarioFactoryScript = preload("res://src/factories/BattleScenarioFactory.gd")
 const ConsoleVisualAdapterScript = preload("res://src/presentation/ConsoleVisualAdapter.gd")
+const BattleOutputPathsScript = preload("res://src/presentation/BattleOutputPaths.gd")
 
 const SCENARIO := "res://data/battle/scenarios/technical_hxb_contract_cpu_cpu.json"
 const SEED := 42
+const LOG_NAME := "demo_battle.log.txt"
 
 
 func _init() -> void:
@@ -51,10 +53,13 @@ func _init() -> void:
 	var sim = BattleSimulatorScript.new(SEED)
 	sim.configureHexState(stateResult["state"], scenario, {"scenarioPath": SCENARIO})
 
+	var logPath := BattleOutputPathsScript.pathFor(BattleOutputPathsScript.DEMO, LOG_NAME)
+	BattleOutputPathsScript.ensureParent(logPath)
 	var console = ConsoleVisualAdapterScript.new(sim.state)
+	console.logFile = logPath
 	sim.setVisualAdapter(console)
 
 	print("Running full party battle on %s..." % scenario.mapID)
 	var outcome := sim.runFullBattle(30)
-	print("Battle complete (outcome %d). Check docs/battle_log.txt" % outcome)
+	print("Battle complete (outcome %d). Check %s" % [outcome, logPath])
 	quit()

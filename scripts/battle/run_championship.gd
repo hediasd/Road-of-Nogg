@@ -23,8 +23,7 @@ extends SceneTree
 ## battles of prose is not a log. Run one seed through `run_battle.gd` when a battle needs reading.
 
 const RunBattleScript = preload("res://scripts/battle/run_battle.gd")
-
-const DEFAULT_ROOT := "user://battles"
+const BattleOutputPathsScript = preload("res://src/presentation/BattleOutputPaths.gd")
 
 
 func _init() -> void:
@@ -43,12 +42,10 @@ func _init() -> void:
 		return
 
 	var stem := "%s_%d_x%d" % [scenarioPath.get_file().get_basename(), firstSeed, count]
-	var recordPath: String = args[3] if args.size() > 3 else "%s/%s.jsonl" % [DEFAULT_ROOT, stem]
-	var summaryPath: String = args[4] if args.size() > 4 else "%s/%s.summary.json" % [DEFAULT_ROOT, stem]
+	var recordPath: String = args[3] if args.size() > 3 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.CHAMPIONSHIPS, "%s.jsonl" % stem)
+	var summaryPath: String = args[4] if args.size() > 4 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.CHAMPIONSHIPS, "%s.summary.json" % stem)
 
-	DirAccess.make_dir_recursive_absolute(
-		ProjectSettings.globalize_path(recordPath.get_base_dir())
-	)
+	BattleOutputPathsScript.ensureParent(recordPath)
 	var corpus := FileAccess.open(recordPath, FileAccess.WRITE)
 	if corpus == null:
 		printerr("HEX_CHAMPIONSHIP_FAILED: could not write %s" % recordPath)
@@ -109,9 +106,7 @@ func _init() -> void:
 		"elapsed_ms": elapsed,
 		"battles": battles,
 	}
-	DirAccess.make_dir_recursive_absolute(
-		ProjectSettings.globalize_path(summaryPath.get_base_dir())
-	)
+	BattleOutputPathsScript.ensureParent(summaryPath)
 	var summaryFile := FileAccess.open(summaryPath, FileAccess.WRITE)
 	if summaryFile == null:
 		printerr("HEX_CHAMPIONSHIP_FAILED: could not write %s" % summaryPath)

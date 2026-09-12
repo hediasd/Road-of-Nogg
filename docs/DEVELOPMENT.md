@@ -32,8 +32,9 @@ is asynchronous, so it aborts partway and writes no `.import` file.
 
 ## Simulating battles headlessly, and recording them
 
-Two runners under `scripts/battle/`. Both write outside the repository, under
-`user://battles/` by default, because a corpus is generated output.
+Two runners under `scripts/battle/`. Both write to `battle_output/` at the
+project root by default: single battles under `battle_output/battles/`,
+championships under `battle_output/championships/`. See the next section.
 
 One battle, both outputs — the readable log and the machine record:
 
@@ -106,6 +107,26 @@ per-destination, per-spell enumeration of target cells and affected units in
 `CommandDeliberation._emitSpell`, about 26 ms per slice and 45 slices per
 decision. A thousand battles is about a day of wall clock and about 15 MB of
 gzipped corpus.
+
+## Where battle output goes
+
+**Every file a battle writes goes under `battle_output/` at the project root**,
+and nowhere else. That covers the human log, the machine record, championship
+corpora and summaries, the console demo's log, and anything the playable scene
+writes about a battle in future. The folder is gitignored and carries a tracked
+`.gdignore`, so Godot does not scan or import what lands there.
+
+| Folder | Written by |
+|---|---|
+| `battle_output/battles/` | `run_battle.gd`: one record and one log per run |
+| `battle_output/championships/` | `run_championship.gd`: one corpus and one summary per run |
+| `battle_output/demo/` | `demo_battle.gd` |
+| `battle_output/played/` | reserved for the playable scene |
+
+A new writer asks `src/presentation/BattleOutputPaths.gd` for its path instead
+of choosing one. An exported build cannot write to `res://`, so there the same
+layout lives under `user://battle_output/`. Probe fixtures are not battle
+output: they stay in memory or under `user://`.
 
 ## Exporting a map's battle products without the editor
 
