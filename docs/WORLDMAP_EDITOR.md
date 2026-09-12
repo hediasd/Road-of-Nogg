@@ -205,14 +205,40 @@ rather than silently dropping it.
 `scenes/debug/WorldMapEditorScene.tscn` is driven by `WorldMapEditorController` on the neutral
 `WorldMapEditorFoundationStage`. Opening it starts an empty workspace: it does not load `temp2`,
 does not run the old debug controller, and does not add clouds, sky, sun, lights or region-preview
-controls. Those presentation features can return after the editor foundation is complete.
+controls. Those presentation features return later as an explicit editor-preview feature; their
+game assets stay where they are in the meantime.
+
+### The stage is an authoring surface, not a view of a world
+
+The ground the editor draws stops at the document's own rectangle. A shipping ground extends one
+fog length past its region so the haze can close before the art runs out, and paints the region's
+void colour beyond that; on an authoring surface both would put a sea-coloured plane around the
+map and invite the author to read it as somewhere. `WorldMapGround.authoring_surface` turns that
+off: the plane is the document, off-map fragments are discarded, and what surrounds it is the
+stage's own declared backdrop. The flag is set on the editor's ground instance and nowhere else,
+so it cannot reach an exported scene -- `WorldMapSceneExport.buildRuntime()` makes its own ground,
+which keeps the skirt and the void.
+
+The stage also renders at **native** resolution rather than a shipping framing's reduced buffer.
+The overlay is chrome measured in screen pixels, and drawing it into a smaller buffer and scaling
+up is what turns a lattice into a dotted approximation of one.
 
 ### Workspace layout
 
 The workspace has a palette column on the left, the map in the middle, and an inspector column on
-the right. The document, export, history, tool, brush and view actions share the top toolbar; the
-current document, dirty state, brush size and status remain visible while authoring. Either side
-column can collapse, leaving more room for the map without changing the map's coordinate system.
+the right. Either side column can collapse, leaving more room for the map without changing the
+map's coordinate system.
+
+**The top bar manages the document and nothing else**: New, Open, Open Recent, Save, Save As and
+the two exports, beside the current document's title and dirty state. **Everything that changes
+the map is in the left column**, under the tilesheet, as a menu in labelled sections -- Tools,
+Brush, History, View -- plus the dropdown carrying the layer-specific tools. Which bar an action
+appears on is decided by its group in `WorldMapWorkspaceActions`, not by where the chrome happens
+to add it, so an action cannot end up on both or neither.
+
+The menu is pinned and the tilesheet scrolls, not the other way round: together they want more
+height than a 1280x720 window has, and a tool button reachable only by scrolling is a tool that
+stops being used. The status line stays at the foot of the window.
 
 The map column is its own display rect. Camera framing and render-buffer sizing use that rect rather
 than the whole window, so a collapsed or resized panel cannot make a framed map overlap the chrome.
@@ -237,18 +263,22 @@ shipped once and was caught only by dispatching through `Input.parse_input_event
 | Snap yaw to 45° | Shift on middle-drag release |
 | Pan (unclamped) | right-drag, or WASD |
 | Zoom (dolly, never FOV) | wheel |
-| Editing view (top-down orthographic) | toolbar control |
-| **Back to the shipping framing** | Space |
-| Frame the region | F -- fits both axes at the display's own aspect, in either projection |
+| Frame the region | F, or **Frame** in the View section -- fits both axes at the display's own aspect |
+| Show or hide the grid | **Grid** in the View section |
 | Undo | Ctrl+Z |
 | Redo | Ctrl+Y or Ctrl+Shift+Z |
+
+The editor opens top-down and stays there. The shipping-preview framing, the projection toggle and
+the off-contract badge that went with them are gone: they belonged to the explorer this stage
+replaced, and an authoring view that can silently become a shipping view is a view an author
+cannot trust for aiming.
 
 When the map owns focus, the authoring shortcuts are **B** Paint, **E** Erase, **G** Fill and
 **I** Pick; **Ctrl+S** saves and **Ctrl+Shift+E** runs Export Battle. **Ctrl+E** remains the legacy
 standalone scene export described in §13. Text fields and modal dialogs deliberately own the
 keyboard: their contents receive these keys and no map action runs. Click the map after closing a
-dialog to return shortcut focus to it. **Tab is not an editor shortcut**; use the Editing view
-toolbar action when a top-down orthographic view is wanted.
+dialog to return shortcut focus to it. **Tab is not an editor shortcut**: it stays available for
+moving keyboard focus through the workspace's own controls.
 
 ### Palette, layers and first map
 
@@ -272,8 +302,9 @@ art trades that for a full filtered preview bake after a committed stroke.
 For a first map: choose **New**. The dialog defaults to a 19 by 14 flat-top hex lattice and the
 `temp2_hex32_starter` tileset; the other exact-fit presets remain available. Give the document a
 human title, then select a frame directly from the sheet. Paint with **B**, erase with **E**, or
-flood-fill with **G**. Change brush radius with the toolbar controls or `[` and `]`; a radius is a
-hex-disc footprint, so the preview and committed stroke cover the same cells. Hide or lock a layer
+flood-fill with **G**. A held drag paints as it moves rather than at the moment the button comes
+up. Change brush radius with the Brush section's controls or `[` and `]`; a radius is a hex-disc
+footprint, so the preview and committed stroke cover the same cells. Hide or lock a layer
 to inspect the result, then undo and redo with **Ctrl+Z** and **Ctrl+Y** (or **Ctrl+Shift+Z**).
 Use **Save As** to choose its first `.noggmap.json` path and **Export Battle** when the saved map is
 ready for the runtime boundary.
@@ -298,6 +329,50 @@ fit check, which asserts all four corners land inside the frame rather than mere
 caught it. The fix solves each corner's own required distance -- `lateral / tan(halfFov) -
 depthOffset` -- and takes the maximum before applying one multiplicative margin, which is safe
 because a larger distance strictly increases every corner's margin at once.
+
+### What this editor deliberately does not do yet
+
+The foundation covers authoring a hex document, saving it as a versioned source file, recovering
+unsaved work, and publishing a saved snapshot across the battle boundary. The following are later
+increments rather than missing pieces, and nothing here should be read as claiming them:
+
+- **Autotiling and transitions.** Edge and corner variants are chosen from the sheet by hand.
+- **Selection and clipboard**, and a reusable multi-layer stamp library beyond the sheet's own
+  ordered multi-frame selection.
+- **Resizing a map**, and maps without a fixed lattice.
+- **New sculpting, water, bridge and object tools.** The existing ones are preserved and reachable;
+  they are not being extended here.
+- **A tactical visualisation of its own.** The battlefield layer is authored and exported; what it
+  looks like in battle belongs to the battle.
+- **Importing TMX** and bundled asset interchange.
+- **Deploying a battle scenario from the editor.** Export produces the map, not the encounter.
+- **Crash recovery for a map saved outside the project.** A snapshot refuses a source path outside
+  the source root and says so on the status line, so nothing is lost silently -- but such a map is
+  not covered once it has a path.
+
+Clouds, animated lighting and world atmosphere return as an explicit editor-preview feature later.
+Their game assets are unaffected.
+
+The reasoning behind the workspace's shape, and the two places the shipped editor deliberately
+went further than the sketch it was designed from, is kept in
+[the authoring workspace sketch](./sketches/2026-09-12-hex-editor-authoring-workspace.html).
+
+### Checking the editor still works
+
+The editor's probes live under `scripts/worldmap_editor/checks/`. Most run headless; the two that
+judge layout, rendering and a live bake need a real window and take a client size. Each prints an
+exact marker line, and a zero exit code alone is not evidence -- require the marker.
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/worldmap_editor/checks/workspace/probe_workspace_contract.gd
+./Godot_v4.4-stable_win64.exe --path . --script scripts/worldmap_editor/checks/acceptance/probe_foundation_acceptance.gd ++ 1280 720
+```
+
+The acceptance probe is the broad one: a fresh launch, New, the tilesheet, a painted drag, the
+layer gates, the document lifecycle including recovery, and the battle export, all against the real
+scene. Run it at both 1280x720 and 1920x1080; the first is the tight layout. It writes its fixtures
+under `user://hxf_acceptance` and removes them, and never touches an authored map or a shipped
+battle definition.
 
 ### Hex tools
 

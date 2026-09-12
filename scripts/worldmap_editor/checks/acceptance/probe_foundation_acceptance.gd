@@ -1,6 +1,7 @@
 extends SceneTree
 
-## HXF-7's integrated acceptance, driven through the REAL editor scene in a REAL window.
+## The hex editor foundation's integrated acceptance, driven through the REAL editor scene in a
+## REAL window.
 ##
 ## WHAT THIS IS FOR, AND WHAT IT IS NOT. The narrow probes beside it each prove one item's own
 ## logic with the rig absent -- the codec round-trips, the picker's geometry fits, the save

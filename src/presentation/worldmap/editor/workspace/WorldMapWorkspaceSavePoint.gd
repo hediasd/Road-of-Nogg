@@ -1,5 +1,5 @@
-## Whether the open document has anything unsaved, expressed as a comparison of HXW-1 history
-## REVISIONS rather than of stack depths.
+## Whether the open document has anything unsaved, expressed as a comparison of history REVISIONS
+## rather than of stack depths.
 ##
 ## WHAT THE DEPTH COMPARISON GOT WRONG. The shell used to hold `_savedUndoDepth` and call the
 ## document dirty when `undoCount()` differed from it. Depth is not identity: undo one stroke and
@@ -15,8 +15,9 @@
 ## a bare revision comparison would call the new one saved and offer to close it without a word.
 ## The flag is what separates "matches what is on disk" from "has never been on disk".
 ##
-## HXW-6 extends this; it does not replace it. Recovery snapshots, failed writes that must not
-## advance the checkpoint, and Save As all need exactly this pair of questions answered first.
+## DOCUMENT SAFETY EXTENDS THIS; IT DOES NOT REPLACE IT. Recovery snapshots, failed writes that
+## must not advance the checkpoint, and Save As all need exactly this pair of questions answered
+## first.
 
 class_name WorldMapWorkspaceSavePoint
 extends RefCounted

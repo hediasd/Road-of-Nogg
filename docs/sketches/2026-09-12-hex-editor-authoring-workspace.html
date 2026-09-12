@@ -2,6 +2,12 @@
   <style>
     #nogg-hex-workspace{--panel:#232b31;--bg:#171e23;--line:#39444c;--ink:#eef3ef;--muted:#a7b7bd;--accent:#f1d889;font:14px/1.45 'Segoe UI',sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;overflow:hidden;min-width:0}
     #nogg-hex-workspace *{box-sizing:border-box}
+    #nogg-hex-workspace .nh-note{padding:14px 16px;border-bottom:1px solid var(--line);background:#1c2528}
+    #nogg-hex-workspace .nh-note p{margin:0 0 9px}
+    #nogg-hex-workspace .nh-note p:last-child{margin-bottom:0}
+    #nogg-hex-workspace .nh-note strong{color:var(--accent)}
+    #nogg-hex-workspace .nh-note code{background:#232b31;padding:1px 4px;border-radius:3px}
+    #nogg-hex-workspace .nh-note-foot{color:var(--muted);font-size:13px}
     #nogg-hex-workspace button{font:inherit;color:inherit;background:#303b42;border:1px solid #48565e;border-radius:5px;min-height:34px;padding:5px 10px;cursor:pointer;white-space:nowrap}
     #nogg-hex-workspace button:hover{background:#435058}
     #nogg-hex-workspace button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -44,6 +50,28 @@
     @media(max-width:760px){#nogg-hex-workspace .nh-body{grid-template-columns:190px minmax(0,1fr)}#nogg-hex-workspace .nh-inspector{grid-column:1/-1;display:flex;gap:14px;align-items:center;border-top:1px solid var(--line);border-left:0}#nogg-hex-workspace .nh-inspector h3,#nogg-hex-workspace .nh-inspector dl{display:none}#nogg-hex-workspace .nh-layer,#nogg-hex-workspace .nh-layer-actions{margin:0}#nogg-hex-workspace .nh-stage{min-height:300px}}
     @media(max-width:480px){#nogg-hex-workspace .nh-body{grid-template-columns:1fr}#nogg-hex-workspace .nh-palette{display:grid;grid-template-columns:1fr 1fr;gap:8px;border-right:0;border-bottom:1px solid var(--line);padding:10px}#nogg-hex-workspace .nh-palette h3,#nogg-hex-workspace .nh-palette>p,#nogg-hex-workspace .nh-selected{display:none}#nogg-hex-workspace .nh-swatches{margin:0;align-self:center}#nogg-hex-workspace .nh-stage{min-height:230px;padding:8px}#nogg-hex-workspace .nh-document{margin:0}#nogg-hex-workspace .nh-toolbar{gap:4px}#nogg-hex-workspace .nh-toolbar button{padding:4px 8px;font-size:12px}}
   </style>
+  <div class="nh-note">
+    <p><strong>What this settled.</strong> That the hex editor is a workspace rather than a debug
+    scene: a tilesheet you choose art from on the left, the map in the middle with nothing drawn
+    over it, the layers on the right, and a first-map flow that starts from <em>New</em> instead of
+    from whichever region the explorer happened to be showing. Every argument for the shipped
+    editor's shape is here, and the interactive sheet below is the one the picker's own selection
+    rules were written against &mdash; plain click, Ctrl-click, Shift-range, Escape to clear.</p>
+    <p><strong>Where the shipped editor went further, on purpose.</strong> This page puts the tools,
+    brush and history on a toolbar row beside the document commands. The editor does not: the top
+    bar manages the <em>file</em> only, and everything that changes the <em>map</em> lives in a
+    pinned, sectioned menu in the left column underneath the tilesheet. The reason is the one this
+    sketch cannot show, because a sketch has no window: at 1280&times;720 a single row cannot hold
+    both without shortening labels past reading, and an author scanning one line could not tell
+    which buttons write to disk. The sketch's own left column is what suggested the answer.</p>
+    <p><strong>Also not shown here.</strong> The stage stops at the document's edge with the
+    editor's backdrop around it rather than a sea-coloured plane, and it renders at native
+    resolution so the lattice is a line rather than a dotted approximation of one. Both are
+    properties of a real 3D viewport that a flat canvas mock has no way to get wrong.</p>
+    <p class="nh-note-foot">Accepted 2026-09-12, closing the hex editor foundation. The shipped
+    behaviour is documented in <code>docs/WORLDMAP_EDITOR.md</code> &sect;6; this page is kept for
+    the reasoning, not as a specification.</p>
+  </div>
   <div class="nh-header"><strong>World map editor</strong><span class="nh-muted">WORKSPACE PROPOSAL</span><span class="nh-document">Untitled hex map · <span data-dirty>Saved sketch</span></span><button data-save>Save sketch</button></div>
   <div class="nh-toolbar" role="toolbar" aria-label="Editing tools">
     <button data-tool="paint" aria-pressed="true" title="Paint (B)">✎ Paint</button>
