@@ -178,6 +178,10 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	sim.setVisualAdapter(adapter)
 	adapter.connectToEvents(sim.events)
 	adapter.animation_queue_drained.connect(_onPlaybackDrained)
+	# FHB-1: the adapter is listening now, so this is the earliest point the board can be
+	# announced -- and it must happen before sim.startBattle() opens the turn loop, or the first
+	# move would be the first thing a connected adapter ever hears about.
+	sim.emitInitialBoard()
 
 	battleCamera = HexBattleCameraScript.new()
 	add_child(battleCamera)

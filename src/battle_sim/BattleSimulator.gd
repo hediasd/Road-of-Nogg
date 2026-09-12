@@ -38,6 +38,12 @@ var brains: Dictionary = {}
 var initialStateSnapshot: Dictionary = {}
 var setupSnapshot: Dictionary = {}
 
+## Set by `emitInitialBoard()`, reset on every `configureHexState()`. Lets `startBattle()` skip
+## its own `battle_started` emission when the board has already been announced -- see that
+## function's own note for why both exist and why emitting twice would otherwise be harmless but
+## redundant.
+var _initialBoardEmitted := false
+
 ## Accumulates the phases of the turn currently in progress so that a turn
 ## resolved incrementally still records exactly one `command` history event, at
 ## finishTurn(). The interactive player path resolves movement and the action as
@@ -95,6 +101,7 @@ func configureHexState(
 	setupSnapshot = setupData.duplicate(true)
 	initialStateSnapshot = {}
 	_turnAccumulator = {}
+	_initialBoardEmitted = false
 
 
 func _rebuildRuntimeDependencies(brainClasses: Dictionary = {}) -> void:
@@ -984,7 +991,17 @@ static func _snakeCase(value: String) -> String:
 	return result
 
 
-func emitRestoredBattle() -> void:
+## Announces every living monster on the board to whatever is listening, then announces the
+## battle itself. FHB-1: this used to have no caller at all -- a hex battle built its state
+## directly through `BattleSetupFactory.createHexState()`, which is correct (setup builds a
+## state, it does not narrate one), but nothing then told a connected visual adapter what was on
+## the board. `HexBattleController.startBattle()` calls this once, right after the adapter
+## connects and before the turn loop opens, which is what gives a hex battle its starting models.
+##
+## Kept under its original name as a thin delegate below for any caller still resolving it by
+## that name -- a battle restored from a snapshot re-announces its board the same way a fresh one
+## does, so the rename is cosmetic and the behaviour is identical either way.
+func emitInitialBoard() -> void:
 	for monsterID in state.monsters:
 		var monster = state.monsters[monsterID]
 		if not monster.is_alive():
@@ -1008,10 +1025,18 @@ func emitRestoredBattle() -> void:
 		)
 	var monsterList = state.getAliveMonsterIDs()
 	events.battle_started.emit(state.boardSize, monsterList)
+	_initialBoardEmitted = true
+
+
+func emitRestoredBattle() -> void:
+	emitInitialBoard()
+
 
 func startBattle() -> void:
 	if initialStateSnapshot.is_empty():
 		initialStateSnapshot = state.serialize_state()
+	if _initialBoardEmitted:
+		return
 	var monsterList = []
 	for id in state.monsters:
 		monsterList.append(id)
