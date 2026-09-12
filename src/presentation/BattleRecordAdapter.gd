@@ -41,7 +41,17 @@ const ReachQueryScript = preload("res://src/battle_sim/ReachQuery.gd")
 
 ## Bumped when the shape below changes in a way a reader must notice. A consumer that finds a
 ## version it does not know should stop rather than guess which fields moved.
-const RECORD_VERSION := 1
+##
+## 2 (FHB-6): the record carries the board and a per-monster catalogue, the outcome says why the
+## battle ended, and the observation flags withdrawn members and their resonance. See the notes on
+## `_board`, `_roster` and `_endReason` for the reading that found each gap.
+const RECORD_VERSION := 2
+
+## `outcome.end_reason` values. A round-limit win is decided by counting survivors, which is a
+## different kind of result from a side being wiped out, and a scorer must be able to tell them
+## apart without replaying the battle.
+const END_ELIMINATION := "elimination"
+const END_ROUND_LIMIT := "round_limit_survivor_count"
 
 var _sim
 var _decisions: Array = []
@@ -70,6 +80,13 @@ func _on_turn_started(monsterID: int, roundNumber: int, turnNumber: int) -> void
 		"round": roundNumber,
 		"turn": turnNumber,
 		"party_id": int(_sim.state.activePartyID),
+		# Who else in the party could have been activated instead, and the round's party order.
+		# FHB-6: without these, member selection -- a real decision the player makes -- was
+		# invisible, and the headless loop's "first eligible member" rule looked like a policy.
+		"eligible_members": SerializerScript.jsonSafe(
+			_sim.state.eligibleMemberIDs(int(_sim.state.activePartyID))
+		),
+		"party_order": SerializerScript.jsonSafe(_sim.state.partyOrder),
 		"actor_id": monsterID,
 		"observation": _observation(monsterID),
 		"legal": _legalActions(monsterID),
@@ -110,8 +127,22 @@ func _on_turn_ended(monsterID: int) -> void:
 	decision["rejected"] = rejected
 	decision["skipped"] = _takeSkipReason(monsterID)
 	decision["changed"] = _changesSince(before)
+	decision["withdrawals"] = []
 	_decisions.append(decision)
 	_open = {}
+
+
+## A commander's death withdraws its party, but the simulator does that AFTER `turn_ended`, so the
+## decision that killed the commander would otherwise close without saying its surviving members
+## left the board. Found by FHB-6. Attached to the decision that caused it.
+func _on_party_withdrawn(partyID: int, memberIDs: Array) -> void:
+	if _decisions.is_empty():
+		return
+	var ids: Array = []
+	for memberID in memberIDs:
+		ids.append(int(memberID))
+	ids.sort()
+	(_decisions.back()["withdrawals"] as Array).append({"party_id": partyID, "member_ids": ids})
 
 
 ## A petrified member never reaches `finishTurn`, so its turn would otherwise close with an empty
@@ -124,11 +155,30 @@ func _on_monster_skipped_turn(monsterID: int, reason: String) -> void:
 func _on_battle_ended(winningTeam: int) -> void:
 	if _sim == null:
 		return
-	_outcome = {
+	_outcome = _outcomeBlock(winningTeam)
+
+
+## Why the battle ended. `checkWinCondition()` answers -1 exactly when more than one side still
+## stands, which at `battle_ended` can only mean the headless loop ran out of rounds and fell back to
+## counting survivors. Found by FHB-6: seed 14 of the first hexmap championship ended at round 30
+## with a winner, and nothing in its record said that winner was a tally rather than a result.
+func _endReason() -> String:
+	return END_ROUND_LIMIT if int(_sim.checkWinCondition()) == -1 else END_ELIMINATION
+
+
+func _outcomeBlock(winningTeam: int) -> Dictionary:
+	var survivors := _survivors()
+	var byTeam: Dictionary = {}
+	for monsterID in survivors:
+		var team := str(int(_sim.state.getMonster(monsterID).team))
+		byTeam[team] = int(byTeam.get(team, 0)) + 1
+	return {
 		"winner_team": winningTeam,
+		"end_reason": _endReason(),
 		"rounds": int(_sim.state.roundCount),
 		"decisions": _decisions.size(),
-		"survivors": _survivors(),
+		"survivors": survivors,
+		"survivors_by_team": byTeam,
 	}
 
 
@@ -161,15 +211,12 @@ func buildRecord(scenario) -> Dictionary:
 		},
 		"content_fingerprint": str(state.contentFingerprint),
 		"seed": int(state.battleSeed),
+		"board": _board(),
 		"parties": _parties(scenario),
+		"roster": _roster(),
 		"brains": _brains(),
 		"decisions": _decisions,
-		"outcome": _outcome if not _outcome.is_empty() else {
-			"winner_team": int(state.battleOutcome),
-			"rounds": int(state.roundCount),
-			"decisions": _decisions.size(),
-			"survivors": _survivors(),
-		},
+		"outcome": _outcome if not _outcome.is_empty() else _outcomeBlock(int(state.battleOutcome)),
 	}
 
 
@@ -205,22 +252,26 @@ func _observation(actorID: int) -> Dictionary:
 			"def": int(monster.def),
 			"move": int(monster.move),
 			"alive": bool(monster.is_alive()),
+			# A member whose commander fell is withdrawn: still alive, off the board at (-1, -1),
+			# and no longer counted for anything. Without this flag it reads as a living unit
+			# standing on an impossible cell.
+			"withdrawn": bool(_sim.state.isMonsterWithdrawn(int(monsterID))),
 			"is_actor": int(monsterID) == actorID,
+			"resonance": SerializerScript.jsonSafe(monster.resonance_bars),
 			"effects": _effects(int(monsterID)),
 		})
 	return {"actor_id": actorID, "monsters": monsters}
 
 
+## Every field the effect carries, not a chosen three. Effects are open dictionaries -- a buff
+## holds `atk_bonus`, a mark holds `damage_multiplier` -- and the damage rules read those keys
+## directly, so a reader given only name and duration cannot tell why a hit landed harder.
 func _effects(monsterID: int) -> Array:
 	var result: Array = []
 	for effect in _sim.state.getActiveEffects(monsterID):
 		if not effect is Dictionary:
 			continue
-		result.append({
-			"name": str((effect as Dictionary).get("name", "")),
-			"remaining": int((effect as Dictionary).get("remainingTurns", 0)),
-			"damage_per_turn": int((effect as Dictionary).get("damagePerTurn", 0)),
-		})
+		result.append(SerializerScript.jsonSafe(effect))
 	return result
 
 
@@ -365,6 +416,119 @@ func _parties(scenario) -> Array:
 			"members": members,
 		})
 	return result
+
+
+## The battlefield, once per record. Found by FHB-6 reading a hexmap record as the model: the
+## record named the map by fingerprint and nothing else, so which cells were water, and why a
+## reachable set stopped where it did, could only be answered by opening a second file. Every valid
+## cell is listed with its terrain and height, plus the terrain table those names resolve through,
+## so movement, line of sight and elevation damage are all derivable from this line alone. About
+## 8 KB against a record of roughly 250 KB.
+func _board() -> Dictionary:
+	var state = _sim.state
+	var definition = state.battleMap
+	var cells: Array = []
+	var terrainTable: Dictionary = {}
+	if definition != null:
+		var valid: Array = definition.validCells()
+		valid.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			return a.y < b.y or (a.y == b.y and a.x < b.x))
+		for cell: Vector2i in valid:
+			cells.append({
+				"cell": SerializerScript.jsonSafe(cell),
+				"terrain": definition.terrainAt(cell),
+				"height": definition.heightAt(cell),
+			})
+		terrainTable = SerializerScript.jsonSafe(definition.terrainDefinitions)
+	return {
+		"size": SerializerScript.jsonSafe(state.boardSize),
+		"cells": cells,
+		"terrain_definitions": terrainTable,
+	}
+
+
+## What each monster IS, once per record: the stats and spell parameters that do not change turn by
+## turn. Found by FHB-6: the per-decision spell menu gave a name, an element and a radius, so a
+## reader could see a spell was ready but not how far it reached, what it did or how long its
+## cooldown was; and the observation omitted level, speed, luck and race, which decide party order,
+## critical chance and elemental damage. Kept out of the decisions so a static fact is written once
+## rather than eighty times.
+func _roster() -> Dictionary:
+	var result: Dictionary = {}
+	var ids: Array = _sim.state.monsters.keys()
+	ids.sort()
+	for monsterID in ids:
+		var monster = _sim.state.monsters[monsterID]
+		if monster == null:
+			continue
+		var passives: Array = []
+		for passive in monster.passives:
+			# Parameters, not only names: in seed 14 a dying Snowzilla's `Snowfall` took 15 HP off
+			# four monsters inside one decision, and nothing else in the record could say why.
+			if passive != null:
+				passives.append({
+					"name": str(passive.name),
+					"trigger": str(passive.trigger),
+					"effect_type": str(passive.effect_type),
+					"value": passive.value,
+					"element": str(passive.element),
+					"radius": int(passive.radius),
+				})
+		var sets: Array = []
+		for setIndex in monster.spellSets.size():
+			var spells: Array = []
+			for spellIndex in monster.spellSets[setIndex].size():
+				var spell = monster.spellSets[setIndex][spellIndex]
+				if spell == null:
+					continue
+				spells.append(_spellParameters(spell, spellIndex))
+			sets.append({"spell_set_index": setIndex, "spells": spells})
+		result[str(int(monsterID))] = {
+			"name": str(monster.name),
+			"team": int(monster.team),
+			"level": int(monster.level),
+			"speed": int(monster.speed),
+			"luck": int(monster.luck),
+			"critical_chance": monster.get_critical_chance(),
+			"jump": int(monster.jump),
+			"race": str(monster.race),
+			"family": str(monster.family),
+			"elements": SerializerScript.jsonSafe(monster.elements),
+			"passives": passives,
+			"spell_sets": sets,
+		}
+	return result
+
+
+func _spellParameters(spell, spellIndex: int) -> Dictionary:
+	return {
+		"spell_index": spellIndex,
+		"name": str(spell.name),
+		"element": str(spell.element),
+		"target_type": str(spell.targetType),
+		"area_shape": str(spell.area_shape),
+		"radius": int(spell.radius),
+		"self_radius": int(spell.self_radius),
+		"min_range": int(spell.min_range),
+		"range": int(spell.range),
+		"max_height_delta": int(spell.max_height_delta),
+		"damage": int(spell.damage),
+		"damage_lines": SerializerScript.jsonSafe(spell.damage_lines),
+		"heals": bool(spell.heals),
+		"heal_amount": int(spell.heal_amount),
+		"inflicts_status": str(spell.inflicts_status),
+		"removes_status": str(spell.removes_status),
+		"buffs_atk": int(spell.buffs_atk),
+		"buff_duration": int(spell.buff_duration),
+		"reverts_damage": bool(spell.reverts_damage),
+		"bypass_los": bool(spell.bypass_los),
+		"can_target_empty": bool(spell.can_target_empty),
+		"cooldown": int(spell.cooldown),
+		"resonance_element": str(spell.resonance_element),
+		"sequence_level": int(spell.sequence_level),
+		"aoe_targets": str(spell.aoe_targets),
+		"effects": SerializerScript.jsonSafe(spell.effects),
+	}
 
 
 ## Which brain drove each member. Not the candidates it considered -- see the class note -- but

@@ -73,6 +73,10 @@ func _init() -> void:
 			quit(1)
 			return
 		corpus.store_line(str(result["line"]))
+		# Flushed per battle so a run that dies partway really does leave every completed line
+		# on disk, as the corpus format promises. FHB-6 found it did not: twenty minutes into a
+		# twenty-seed run the file held seven whole lines and half of an eighth.
+		corpus.flush()
 		var winnerTeam := int(result["winner_team"])
 		winners[winnerTeam] = int(winners.get(winnerTeam, 0)) + 1
 		totalRounds += int(result["rounds"])

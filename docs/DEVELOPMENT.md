@@ -51,15 +51,30 @@ The corpus is **JSONL, one battle per line**, written by `BattleRecordAdapter`.
 A single battle is simply a one-line file, so there is one schema rather than
 two. Each line carries the identity needed to tie it back to what produced it
 (scenario, map id and revision, map source fingerprint, content fingerprint,
-seed, engine), the parties as deployed, which brain drove each member, every
-decision, and the outcome.
+seed, engine), the board (every valid cell's terrain and height, plus the
+terrain table), the parties as deployed, a `roster` of what each monster is
+(level, speed, luck, race, elements, passives with their parameters, and every
+spell's range, area, damage, cooldown and effects), which brain drove each
+member, every decision, and the outcome. The outcome's `end_reason` is
+`elimination` or `round_limit_survivor_count`; the second is a tally at the
+round cap, not a result, and a scorer should treat it that way.
 
-A decision answers four questions: what the actor saw (`observation`), what it
-could legally have done (`legal` — reachable cells with costs, attackable
-positions, and the actor's spell menu with cooldowns, indexed the way a command
-addresses it), what it did (`chosen`, `result`), and what changed (`changed`).
-Legal movement and attacks come from `ReachQuery`, the same query the player's
-own overlay reads, so the corpus says exactly what the game offered.
+A decision answers four questions: what the actor saw (`observation`, including
+each monster's effects in full, its resonance, and whether it is `withdrawn` —
+alive but off the board at (-1, -1) because its commander fell), what it could
+legally have done (`legal` — reachable cells with costs, attackable positions,
+and the actor's spell menu with cooldowns, indexed the way a command addresses
+it; plus `eligible_members` and the round's `party_order`), what it did
+(`chosen`, `result`), and what changed (`changed`, and `withdrawals` when the
+decision killed a commander). Legal movement and attacks come from
+`ReachQuery`, the same query the player's own overlay reads, so the corpus says
+exactly what the game offered.
+
+What a record does not carry: the legal *spell target cells* per destination
+(derive them from the roster's spell ranges and the board), and the rule tables
+the ruleset names, such as race-versus-element damage multipliers. The headless
+loop always activates the first eligible member, so member choice in a corpus
+is that rule, not a policy's decision.
 
 **A scenario with a player-controlled party is refused**, because a console has
 nobody to choose. Use the `_cpu_cpu` scenario of a pair.
@@ -68,18 +83,29 @@ nobody to choose. Use the `_cpu_cpu` scenario of a pair.
 lines, asserted by `scripts/battle/checks/probe_battle_runner.gd`. The
 championship *summary* deliberately is not — it carries wall-clock timings.
 
-Two measured numbers worth knowing before planning a large run, both from
-`proving_ground_cpu_cpu` on this host:
+The championship flushes the corpus after every battle, so a run that dies
+partway keeps every finished line.
 
-| Measure | Value |
-|---|---|
-| Time per battle | ~90 s |
-| Record size per battle | ~180 KB raw, ~10 KB gzipped |
+**Seeds barely change a battle today.** The only random draw in the simulation
+is the critical-hit roll, and the CPU brains are deterministic, so on a fixed
+scenario most seeds replay the same fight. Twenty seeds on `hexmap_cpu_cpu`
+gave one winner twenty times and five distinct decision sequences. A corpus
+that needs varied outcomes needs variety from somewhere else first.
 
-The time is the simulation itself, not the recording: attaching the recorder
-costs 25 ms of those 90 seconds, measured by running one battle with and
-without it. A thousand battles is therefore about a day of wall clock and about
-10 MB of gzipped corpus.
+Measured numbers worth knowing before planning a large run, on this host:
+
+| Measure | `proving_ground_cpu_cpu` | `hexmap_cpu_cpu` |
+|---|---|---|
+| Time per battle | ~90 s | ~90 s (79–135 s over 20 seeds) |
+| Record size per battle (record version 2) | — | ~330 KB raw, ~15 KB gzipped |
+
+The time is CPU deliberation, not the recording or the rules. Profiling one
+`hexmap` battle: 92.9 s of 93.2 s went to the brains choosing, 0.2 s to the
+recorder, 0.1 s to resolving commands. Inside deliberation the cost is the
+per-destination, per-spell enumeration of target cells and affected units in
+`CommandDeliberation._emitSpell`, about 26 ms per slice and 45 slices per
+decision. A thousand battles is about a day of wall clock and about 15 MB of
+gzipped corpus.
 
 ## Exporting a map's battle products without the editor
 
