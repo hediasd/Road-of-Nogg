@@ -1,4 +1,4 @@
-## ConsoleVisualAdapter — Writes an ASCII/Emoji battle log to ai/battle_log.txt
+## ConsoleVisualAdapter — Writes an ASCII/Emoji battle log under battle_output/ (see BattleOutputPaths)
 ## Replaces standard console print with a detailed, stylized textual output.
 
 class_name ConsoleVisualAdapter
@@ -6,9 +6,11 @@ extends IBattleVisualAdapter
 
 const ConsoleRoundSummaryScript = preload("res://src/presentation/ConsoleRoundSummary.gd")
 const ConsoleMapRendererScript = preload("res://src/presentation/ConsoleMapRenderer.gd")
+const BattleOutputPathsScript = preload("res://src/presentation/BattleOutputPaths.gd")
 
 var state: BattleState
-var logFile: String = "res://docs/battle_log.txt"
+## Callers normally set their own path from `BattleOutputPaths`; this default is the fallback.
+var logFile: String = BattleOutputPathsScript.pathFor(BattleOutputPathsScript.BATTLES, "console.log.txt")
 var _roundEvents: Array = []
 var _roundPaths: Array = []
 var roundSummary
@@ -17,6 +19,7 @@ var mapRenderer
 
 func _init(_state: BattleState) -> void:
 	state = _state
+	BattleOutputPathsScript.ensureParent(logFile)
 	var logger = Callable(self, "_log")
 	roundSummary = ConsoleRoundSummaryScript.new(logger)
 	mapRenderer = ConsoleMapRendererScript.new(state, logger)
