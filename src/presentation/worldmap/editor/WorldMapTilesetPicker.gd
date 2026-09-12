@@ -138,6 +138,23 @@ func tileAtSheetPoint(point: Vector2) -> String:
 	return str(_tileIDsByCell.get(cell, ""))
 
 
+## THE PICKER IS AS TALL AS ITS CONTENTS, and this is the only thing that says so. `PickerColumn`
+## is ANCHORED to this control rather than parented to a container, so nothing propagates its
+## minimum size up here on its own -- and because it grows in both directions, a picker laid out
+## shorter than its column does not clip: the column spills UPWARDS and draws over whatever sits
+## above it in the palette. That is what happened when the height floor came down; the starter
+## sheet's quick-choice row lost its bottom edge to the tilesheet toolbar.
+##
+## Reporting the real minimum makes the floor a floor again. Too little room now scrolls the
+## palette, which is what a scroll is for, instead of stacking two rows on the same pixels.
+func _get_minimum_size() -> Vector2:
+	var column := get_node_or_null("PickerColumn") as Control
+	if column == null:
+		return custom_minimum_size
+	var wanted := column.get_combined_minimum_size()
+	return Vector2(maxf(custom_minimum_size.x, wanted.x), maxf(custom_minimum_size.y, wanted.y))
+
+
 func _ensureUi() -> void:
 	if _uiBuilt:
 		return
@@ -151,6 +168,9 @@ func _ensureUi() -> void:
 	# second, larger floor on top of it, and the difference was dead space between the sheet and
 	# the selected-tile preview. The left column now carries the map menu underneath, so that
 	# slack came straight out of the buttons. Given more room the sheet still expands into it.
+	#
+	# A FLOOR ONLY. The real minimum comes from `_get_minimum_size()` below, which is what stops a
+	# short floor from becoming an overlap.
 	custom_minimum_size = Vector2(220.0, 220.0)
 	resized.connect(_refreshUi)
 

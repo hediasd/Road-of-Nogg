@@ -322,13 +322,19 @@ func hasValueRow() -> bool:
 ## The sheet's current multi-selection, in the picker's own (row, column, id) order. What the
 ## stamp and scatter tools read: selecting several frames IS how a multi-tile stamp is described,
 ## so there is no second selection UI that could disagree with the sheet the author is looking at.
+##
+## THE EMPTY ANSWER IS A DECLARED LOCAL, NOT `[] as Array[String]`. On a builtin type `as` is a
+## runtime no-op, so that expression yields an UNTYPED array and returning it from a function
+## declared `Array[String]` throws -- which meant this errored and returned null on the ordinary
+## path, with nothing selected or exactly one frame selected, taking Stamp and Scatter with it.
 func selectedSheetTileIDs() -> Array[String]:
+	var none: Array[String] = []
 	if picker == null or not picker.visible:
-		return [] as Array[String]
+		return none
 	var ids := picker.selectedTileIDs()
 	# One frame is a single-tile stamp, which the caller already handles from the value row; only
 	# a real multi-selection is worth reporting as a pattern.
-	return ids if ids.size() > 1 else [] as Array[String]
+	return ids if ids.size() > 1 else none
 
 
 ## The sheet FRAME positions matching `selectedSheetTileIDs()`, in the same order. The stamp reads

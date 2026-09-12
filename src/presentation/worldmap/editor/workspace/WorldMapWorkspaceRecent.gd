@@ -9,10 +9,13 @@ const LIMIT := 12
 
 
 static func paths(io) -> Array[String]:
-	var config := ConfigFile.new()
-	if config.load(CONFIG_PATH) != OK:
-		return [] as Array[String]
 	var result: Array[String] = []
+	var config := ConfigFile.new()
+	# Declared, then returned. `[] as Array[String]` is an untyped array at runtime -- `as` does
+	# nothing to a builtin -- so returning it from here threw instead of answering "none", and it
+	# threw on the one path that matters: a machine with no recent list yet.
+	if config.load(CONFIG_PATH) != OK:
+		return result
 	var raw = config.get_value(SECTION, KEY_PATHS, [])
 	if raw is Array:
 		for value in raw:
