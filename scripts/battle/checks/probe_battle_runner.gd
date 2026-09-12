@@ -90,8 +90,17 @@ func _checkRecordShape() -> void:
 		"the record carries no map source fingerprint, so it cannot be tied to a map revision")
 
 	var outcome: Dictionary = record.get("outcome", {})
-	for key: String in ["winner_team", "rounds", "decisions", "survivors"]:
+	for key: String in ["winner_team", "rounds", "decisions", "survivors", "draw", "end_reason"]:
 		_require(outcome.has(key), "the outcome has no '%s'" % key)
+
+	# The championship tallies a draw from run()'s own result, not from the record, so the two
+	# must agree. Winner 0 read as a team was the FHB-6 second-pass defect.
+	_require(result.has("draw") and bool(result["draw"]) == bool(outcome.get("draw", false)),
+		"run() does not pass the record's draw flag through")
+	_require(bool(result.get("draw", false)) == (int(result.get("winner_team", -1)) == 0),
+		"run() calls a battle a draw that winner_team does not")
+	_require(str(result.get("end_reason", "")) == str(outcome.get("end_reason", "?")),
+		"run() does not pass the record's end_reason through")
 
 	var decisions: Array = record.get("decisions", [])
 	_require(not decisions.is_empty(), "the record carries no decisions")

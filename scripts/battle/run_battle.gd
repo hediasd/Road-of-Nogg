@@ -59,8 +59,9 @@ func _init() -> void:
 
 	print("wrote %s" % recordPath)
 	print("wrote %s" % logPath)
-	print("winner team %d after %d round(s), %d decision(s)" % [
-		int(result["winner_team"]), int(result["rounds"]), int(result["decisions"]),
+	print("%s by %s after %d round(s), %d decision(s)" % [
+		"draw" if bool(result["draw"]) else "winner team %d" % int(result["winner_team"]),
+		str(result["end_reason"]), int(result["rounds"]), int(result["decisions"]),
 	])
 	print("HEX_BATTLE_RUN_OK %s" % stem)
 	quit(0)
@@ -136,6 +137,9 @@ static func run(
 		"ok": true,
 		"line": line,
 		"winner_team": winner,
+		# Passed through from the record so a caller never reads winner_team 0 as a team.
+		"draw": bool(outcome.get("draw", false)),
+		"end_reason": str(outcome.get("end_reason", "")),
 		"rounds": int(outcome.get("rounds", 0)),
 		"decisions": int(outcome.get("decisions", 0)),
 		"scenario_id": str(scenario.scenarioID),

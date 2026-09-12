@@ -95,6 +95,9 @@ nobody to choose. Use the `_cpu_cpu` scenario of a pair.
 **Records are deterministic**: two runs at one seed produce byte-identical
 lines, asserted by `scripts/battle/checks/probe_battle_runner.gd`. The
 championship *summary* deliberately is not — it carries wall-clock timings.
+The summary tallies `winners` by team id, with draws under `"draw"` rather than
+as a team `"0"`, and counts `end_reasons` beside it; each battle entry carries
+its own `draw` and `end_reason`.
 
 The championship flushes the corpus after every battle, so a run that dies
 partway keeps every finished line.
@@ -102,15 +105,17 @@ partway keeps every finished line.
 **Seeds barely change a battle today.** The only random draw in the simulation
 is the critical-hit roll, and the CPU brains are deterministic, so on a fixed
 scenario most seeds replay the same fight. Twenty seeds on `hexmap_cpu_cpu`
-gave one winner twenty times and five distinct decision sequences. A corpus
+gave one winner twenty times and five distinct decision sequences (record
+version 2). Five seeds under version 3 gave one winner, one end reason and one
+decision sequence; only a critical roll's damage differed. A corpus
 that needs varied outcomes needs variety from somewhere else first.
 
 Measured numbers worth knowing before planning a large run, on this host:
 
 | Measure | `proving_ground_cpu_cpu` | `hexmap_cpu_cpu` |
 |---|---|---|
-| Time per battle | ~90 s | ~90 s (79–135 s over 20 seeds) |
-| Record size per battle (record version 2) | — | ~330 KB raw, ~15 KB gzipped |
+| Time per battle | ~90 s | ~78 s (76–79 s over 5 seeds, v3; was 79–135 s over 20 seeds, v2) |
+| Record size per battle | — | ~200 KB raw, ~12 KB gzipped (v3, 8 rounds); ~330 KB raw, ~15 KB gzipped (v2) |
 
 The time is CPU deliberation, not the recording or the rules. Profiling one
 `hexmap` battle: 92.9 s of 93.2 s went to the brains choosing, 0.2 s to the

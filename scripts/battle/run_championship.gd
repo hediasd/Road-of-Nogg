@@ -54,6 +54,7 @@ func _init() -> void:
 
 	var battles: Array = []
 	var winners: Dictionary = {}
+	var endReasons: Dictionary = {}
 	var totalRounds := 0
 	var totalDecisions := 0
 	var startedAt := Time.get_ticks_msec()
@@ -75,31 +76,38 @@ func _init() -> void:
 		# twenty-seed run the file held seven whole lines and half of an eighth.
 		corpus.flush()
 		var winnerTeam := int(result["winner_team"])
-		winners[winnerTeam] = int(winners.get(winnerTeam, 0)) + 1
+		var isDraw := bool(result["draw"])
+		var endReason := str(result["end_reason"])
+		# A draw is winner_team 0, which is no team. Tallied under "draw" so the summary never
+		# reads it as a win for a team "0" (FHB-6 second pass).
+		var outcomeKey := "draw" if isDraw else str(winnerTeam)
+		winners[outcomeKey] = int(winners.get(outcomeKey, 0)) + 1
+		endReasons[endReason] = int(endReasons.get(endReason, 0)) + 1
 		totalRounds += int(result["rounds"])
 		totalDecisions += int(result["decisions"])
 		battles.append({
 			"seed": seedValue,
 			"winner_team": winnerTeam,
+			"draw": isDraw,
+			"end_reason": endReason,
 			"rounds": int(result["rounds"]),
 			"decisions": int(result["decisions"]),
 			"elapsed_ms": Time.get_ticks_msec() - battleStarted,
 		})
-		print("seed %d -> team %d in %d round(s)" % [seedValue, winnerTeam, int(result["rounds"])])
+		print("seed %d -> %s by %s in %d round(s)" % [
+			seedValue, "draw" if isDraw else "team %d" % winnerTeam, endReason, int(result["rounds"]),
+		])
 
 	corpus.close()
 	var elapsed := Time.get_ticks_msec() - startedAt
-
-	var winnerSummary: Dictionary = {}
-	for team in winners:
-		winnerSummary[str(team)] = winners[team]
 
 	var summary := {
 		"scenario": scenarioPath,
 		"first_seed": firstSeed,
 		"count": count,
 		"corpus": recordPath,
-		"winners": winnerSummary,
+		"winners": winners,
+		"end_reasons": endReasons,
 		"distinct_outcomes": winners.size(),
 		"mean_rounds": float(totalRounds) / float(count),
 		"mean_decisions": float(totalDecisions) / float(count),
@@ -117,6 +125,6 @@ func _init() -> void:
 
 	print("wrote %s" % recordPath)
 	print("wrote %s" % summaryPath)
-	print("%d battle(s) in %d ms; winners %s" % [count, elapsed, str(winnerSummary)])
+	print("%d battle(s) in %d ms; winners %s; end reasons %s" % [count, elapsed, str(winners), str(endReasons)])
 	print("HEX_CHAMPIONSHIP_OK %s" % stem)
 	quit(0)
