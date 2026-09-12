@@ -145,8 +145,13 @@ func modelFor(monsterID: int) -> Node3D:
 func _on_monster_spawned(
 	monsterID: int, monsterName: String, team: int, pos: Vector2i, _stats: Dictionary
 ) -> void:
+	var elements: Array = []
+	if _state != null:
+		var monster := _state.getMonster(monsterID)
+		if monster != null:
+			elements = monster.elements
 	var model := MonsterModelFactoryScript.build(
-		monsterName, NoggThemeScript.team_color(team), []
+		monsterName, NoggThemeScript.team_color(team), elements
 	)
 	model.name = "Unit_%d" % monsterID
 	model.position = worldPositionOf(pos)
