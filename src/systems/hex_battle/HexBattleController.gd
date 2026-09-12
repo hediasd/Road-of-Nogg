@@ -29,6 +29,7 @@ extends Node3D
 const HexBattleVisualAdapterScript = preload(
 	"res://src/presentation/battle/HexBattleVisualAdapter.gd")
 const HexBattleCameraScript = preload("res://src/presentation/battle/HexBattleCamera.gd")
+const HexBattleStageScript = preload("res://src/presentation/battle/HexBattleStage.gd")
 const HexBattleCursorScript = preload("res://src/presentation/battle/HexBattleCursor.gd")
 const HexBattleHudScript = preload("res://src/presentation/battle/HexBattleHud.gd")
 const HexBattleSetupUIScript = preload("res://src/presentation/battle/HexBattleSetupUI.gd")
@@ -40,8 +41,6 @@ const BattleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
 const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
 const BattleScenarioFactoryScript = preload("res://src/factories/BattleScenarioFactory.gd")
-const BattleEnvironmentFactoryScript = preload(
-	"res://src/presentation/BattleEnvironmentFactory.gd")
 
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
 
@@ -57,6 +56,7 @@ const DELIBERATION_BUDGET_MSEC := 4.0
 var sim: BattleSimulator
 var adapter: HexBattleVisualAdapter
 var battleCamera: HexBattleCamera
+var stage: HexBattleStage
 var hud: HexBattleHud
 var setupUI: HexBattleSetupUI
 var playback: HexBattlePlayback
@@ -115,12 +115,13 @@ func teardownBattle() -> void:
 	if hud != null:
 		hud.queue_free()
 		hud = null
-	if battleCamera != null:
-		battleCamera.queue_free()
-		battleCamera = null
 	if _boardRoot != null:
 		_boardRoot.queue_free()
 		_boardRoot = null
+	if stage != null:
+		stage.dispose()
+		stage = null
+	battleCamera = null
 	playback = null
 	cursor = null
 	sim = null
@@ -164,15 +165,11 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	sim = BattleSimulatorScript.new(seedValue)
 	sim.configureHexState(stateResult["state"], scenario, {"scenarioPath": scenarioPath})
 
+	stage = HexBattleStageScript.new()
+	add_child(stage)
 	_boardRoot = Node3D.new()
 	_boardRoot.name = "HexBoard"
-	add_child(_boardRoot)
-	# The shared battle environment, reused rather than retuned: it is lighting, not board
-	# geometry, and nothing about it assumed a square lattice.
-	var worldEnvironment := WorldEnvironment.new()
-	worldEnvironment.name = "BattleEnvironment"
-	worldEnvironment.environment = BattleEnvironmentFactoryScript.createBattleEnvironment()
-	_boardRoot.add_child(worldEnvironment)
+	stage.worldRoot().add_child(_boardRoot)
 
 	adapter = HexBattleVisualAdapterScript.new(_boardRoot, map, sim.state)
 	sim.setVisualAdapter(adapter)
@@ -184,7 +181,8 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	sim.emitInitialBoard()
 
 	battleCamera = HexBattleCameraScript.new()
-	add_child(battleCamera)
+	stage.worldRoot().add_child(battleCamera)
+	stage.attachCamera(battleCamera)
 	battleCamera.frameMap(map, adapter.layout)
 	battleCamera.camera.current = true
 
@@ -471,9 +469,9 @@ func _directionFor(keycode: Key) -> Vector2:
 ## The live camera's projection of a cell centre, handed to the cursor so a direction is resolved
 ## against the board as it currently sits on screen.
 func _projectCell(cell: Vector2i) -> Vector2:
-	if battleCamera == null or adapter == null:
+	if stage == null or adapter == null:
 		return Vector2.ZERO
-	return battleCamera.projectToScreen(adapter.worldPositionOf(cell))
+	return stage.projectWorldToScreen(adapter.worldPositionOf(cell))
 
 
 ## Which cell a viewport point is over, or (-1, -1).
@@ -483,13 +481,13 @@ func _projectCell(cell: Vector2i) -> Vector2:
 ## same projection the keyboard resolves through: a hover and an arrow key that land on the same
 ## cell agree because they are reading the same geometry, not two approximations of it.
 func _cellAtPoint(point: Vector2) -> Vector2i:
-	if adapter == null or battleCamera == null or map == null:
+	if adapter == null or stage == null or map == null:
 		return Vector2i(-1, -1)
 	var best := Vector2i(-1, -1)
 	var bestDistance := INF
 	for cell: Vector2i in map.validCells():
 		var projected := _projectCell(cell)
-		if projected == Vector2.ZERO:
+		if projected.x < 0.0:
 			continue
 		var distance := projected.distance_squared_to(point)
 		if distance < bestDistance:
@@ -499,7 +497,7 @@ func _cellAtPoint(point: Vector2) -> Vector2i:
 		return best
 	var outline := PackedVector2Array()
 	for vertex: Vector3 in adapter.layout.cellPolygon(best):
-		outline.append(battleCamera.projectToScreen(vertex))
+		outline.append(stage.projectWorldToScreen(vertex))
 	if not Geometry2D.is_point_in_polygon(point, outline):
 		return Vector2i(-1, -1)
 	return best
