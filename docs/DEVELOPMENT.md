@@ -16,7 +16,9 @@ currently no automated way to verify a change.
 console battle. It now runs the same PARTY runtime the playable scene does,
 from an authored CPU-vs-CPU scenario. Run it from the repository root through a
 waited process and require its explicit `Battle complete` marker; a zero exit
-code alone is not sufficient evidence on this Windows host.
+code alone is not sufficient evidence on this Windows host. For anything where
+you want to choose the scenario, the seed or the output, use the runners in the
+next section instead — they supersede it.
 
 The hex battle cycle also ships bounded headless probes under
 `scripts/hex_battle/`, each run through `scripts/hex_battle/run_probe.ps1` and
@@ -27,6 +29,57 @@ Generated art must be imported before anything loads it. Use
 `godot --headless --import --path .`; `--headless --editor --quit` does NOT
 work, because `--quit` ends the run after one frame while the filesystem scan
 is asynchronous, so it aborts partway and writes no `.import` file.
+
+## Simulating battles headlessly, and recording them
+
+Two runners under `scripts/battle/`. Both write outside the repository, under
+`user://battles/` by default, because a corpus is generated output.
+
+One battle, both outputs — the readable log and the machine record:
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/battle/run_battle.gd -- res://data/battle/scenarios/proving_ground_cpu_cpu.json 7
+```
+
+Many seeds into one corpus plus a run summary:
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/battle/run_championship.gd -- res://data/battle/scenarios/proving_ground_cpu_cpu.json 1000 8
+```
+
+The corpus is **JSONL, one battle per line**, written by `BattleRecordAdapter`.
+A single battle is simply a one-line file, so there is one schema rather than
+two. Each line carries the identity needed to tie it back to what produced it
+(scenario, map id and revision, map source fingerprint, content fingerprint,
+seed, engine), the parties as deployed, which brain drove each member, every
+decision, and the outcome.
+
+A decision answers four questions: what the actor saw (`observation`), what it
+could legally have done (`legal` — reachable cells with costs, attackable
+positions, and the actor's spell menu with cooldowns, indexed the way a command
+addresses it), what it did (`chosen`, `result`), and what changed (`changed`).
+Legal movement and attacks come from `ReachQuery`, the same query the player's
+own overlay reads, so the corpus says exactly what the game offered.
+
+**A scenario with a player-controlled party is refused**, because a console has
+nobody to choose. Use the `_cpu_cpu` scenario of a pair.
+
+**Records are deterministic**: two runs at one seed produce byte-identical
+lines, asserted by `scripts/battle/checks/probe_battle_runner.gd`. The
+championship *summary* deliberately is not — it carries wall-clock timings.
+
+Two measured numbers worth knowing before planning a large run, both from
+`proving_ground_cpu_cpu` on this host:
+
+| Measure | Value |
+|---|---|
+| Time per battle | ~90 s |
+| Record size per battle | ~180 KB raw, ~10 KB gzipped |
+
+The time is the simulation itself, not the recording: attaching the recorder
+costs 25 ms of those 90 seconds, measured by running one battle with and
+without it. A thousand battles is therefore about a day of wall clock and about
+10 MB of gzipped corpus.
 
 ## Exporting a map's battle products without the editor
 
