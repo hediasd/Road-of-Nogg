@@ -81,6 +81,41 @@
 					"165:-"
 				],
 				"TILESET": ""
+			},
+			{
+				"GRID_KIND": "tile",
+				"ID": "tactical",
+				"KIND": "grid",
+				"RLE": [
+					"1:clear",
+					"11:blocked",
+					"4:clear",
+					"2:blocked",
+					"1:clear",
+					"1:blocked",
+					"1:clear",
+					"7:blocked",
+					"10:clear",
+					"5:blocked",
+					"50:clear",
+					"1:blocked",
+					"1:clear",
+					"1:blocked",
+					"10:clear",
+					"7:blocked",
+					"8:clear",
+					"9:blocked",
+					"1:clear",
+					"1:blocked",
+					"1:clear",
+					"1:blocked",
+					"2:clear",
+					"13:blocked",
+					"2:clear",
+					"12:blocked",
+					"2:clear"
+				],
+				"TILESET": ""
 			}
 		],
 		"LAYOUT": "hex_flat",
@@ -94,6 +129,6 @@
 	},
 	"DOCUMENT_ID": "6ab4ea87-4169-46eb-a8c1-24cccd4982b3",
 	"FORMAT": "nogg.hexmap",
-	"REVISION": 1,
-	"VERSION": 1
+	"REVISION": 2,
+	"VERSION": 1.0
 }

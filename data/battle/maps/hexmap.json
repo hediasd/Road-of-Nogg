@@ -1,0 +1,564 @@
+[
+	{
+		"CELL_METRICS": {
+			"HEIGHT": 2.0,
+			"HEIGHT_STEP": 0.5,
+			"WIDTH": 2.0
+		},
+		"CELL_OVERRIDES": [
+			{
+				"CELL": [
+					1,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					2,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					3,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					5,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					6,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					7,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					8,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					9,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					10,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					11,
+					0
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					1,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					2,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					6,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					7,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					8,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					9,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					10,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					11,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					12,
+					1
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					8,
+					2
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					9,
+					2
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					10,
+					2
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					11,
+					2
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					12,
+					2
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					3,
+					6
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					5,
+					6
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					1,
+					7
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					2,
+					7
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					3,
+					7
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					7
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					5,
+					7
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					6,
+					7
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					7,
+					7
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					1,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					2,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					3,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					5,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					6,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					7,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					8,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					9,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					11,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					13,
+					8
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					1,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					2,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					3,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					5,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					6,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					7,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					8,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					9,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					10,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					11,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					12,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					13,
+					9
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					1,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					2,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					3,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					4,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					5,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					6,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					7,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					8,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					9,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					10,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					11,
+					10
+				],
+				"TERRAIN": "blocked"
+			},
+			{
+				"CELL": [
+					12,
+					10
+				],
+				"TERRAIN": "blocked"
+			}
+		],
+		"COORDINATES": "odd_q_offset",
+		"DEFAULT_SURFACE": {
+			"ELEVATION": 0,
+			"TERRAIN": "clear"
+		},
+		"FORMAT_VERSION": 1,
+		"GRID_KIND": "hex_flat",
+		"NAME": "hexmap",
+		"REVISION": 1,
+		"SIZE": [
+			15,
+			11
+		],
+		"SOURCE": {
+			"FINGERPRINT": "sha256:a4ac86a33b97877fea1c48d91c9da26db7bc2edc55c9b6b0235080ca80b342d8",
+			"HEADLESS_ONLY": false,
+			"ID": "hexmap",
+			"REVISION": 1,
+			"VISUAL_SCENE_PATH": "res://scenes/worldmap/generated/hexmap.tscn"
+		},
+		"SURFACE_MODEL": "single",
+		"TERRAIN_DEFINITIONS": [
+			{
+				"BLOCKS_LOS": true,
+				"CAN_ENTER": false,
+				"CAN_PASS": false,
+				"CAN_STOP": false,
+				"ENDS_MOVEMENT": false,
+				"ID": "blocked",
+				"MOVE_COST": 0,
+				"STATE_CODE": 1
+			},
+			{
+				"BLOCKS_LOS": false,
+				"CAN_ENTER": true,
+				"CAN_PASS": true,
+				"CAN_STOP": true,
+				"ENDS_MOVEMENT": false,
+				"ID": "clear",
+				"MOVE_COST": 1,
+				"STATE_CODE": 0
+			}
+		],
+		"VALID_MASK": [
+			"111111111111111",
+			"111111111111111",
+			"111111111111111",
+			"111111111111111",
+			"111111111111111",
+			"111111111111111",
+			"111111111111111",
+			"111111111111111",
+			"111111111111111",
+			"111111111111111",
+			"111111111111111"
+		]
+	}
+]
