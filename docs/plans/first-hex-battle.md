@@ -112,9 +112,15 @@ visual adapter and the controller. Three consequences for this plan:
 - **HPR-8 and FHB-9 run back to back in one fresh session, HPR-8 first.** Both
   play a player-versus-CPU battle at both window sizes, and HPR-8 cannot judge
   terrain lighting until FHB-7 has put terrain there.
-- **FHB-10 and FHB-11 wait for HPR-4's commit.** HPR-4's in-flight work edits
-  `BattleEvents.gd`, `CombatResolver.gd`, `IBattleVisualAdapter.gd` and
-  `ConsoleVisualAdapter.gd`, which its declared Touches list does not cover.
+- **Nothing here edits the four files HPR-4 has open until it commits.** Its
+  in-flight work edits `BattleEvents.gd`, `CombatResolver.gd`,
+  `IBattleVisualAdapter.gd` and `ConsoleVisualAdapter.gd`, which its declared
+  Touches list does not cover. FHB-11 and FHB-12 need two of them and wait.
+  FHB-10 is kept clear of all four and can run now.
+
+**Championships are expensive until FHB-12 lands** (about 90 s a battle). Items
+check against single battles and short scenarios, and only FHB-6's second pass
+runs a championship, a small one.
 
 Battle output of every kind goes under `battle_output/` through
 `src/presentation/BattleOutputPaths.gd`; see `docs/DEVELOPMENT.md`. An item that
@@ -614,8 +620,8 @@ commit than a format you are unsure of.
 watching, spanning rendering, interaction and authoring work from three different
 waves. A fresh session, separate from every implementing lane.
 
-**Depends on:** FHB-1 through FHB-8, FHB-10, FHB-11, FHB-6's second pass, and
-HPR-8's commit. Run in the same fresh session as HPR-8, straight after it.
+**Depends on:** FHB-1 through FHB-8, FHB-10 through FHB-12, FHB-6's second
+pass, and HPR-8's commit. Run in the same fresh session as HPR-8, straight after it.
 
 **Touches:**
 - Union of FHB-1 through FHB-8 Touches, for observed integration defects only.
@@ -666,62 +672,65 @@ cycle is written from it.
 - Deferred: the six observations above are the acceptance, recorded in this
   item's commit rather than in another status file.
 
-### FHB-10 — Give a seed something to change, and end a battle honestly
+### FHB-10 — End a battle honestly at the round cap
 
 **Model:** Opus 5 / GPT Sol.
 
-**Model rationale:** FHB-6 found the failure and its cause, but not the fix.
-Where variety should come from, what the round cap means, and why the support
-brains stall are connected judgements about the simulation, and each one
-changes what a corpus says.
+**Model rationale:** What the round cap means, how a tie is scored, and why a
+support brain prefers a heal worth nothing are connected judgements about the
+simulation, and each one changes what a corpus says.
 
-**Needs Henri's decision before dispatch:** where the variety comes from.
-Candidates FHB-6 named: randomised deployment inside each side's zone, varied
-rosters, swapping sides, or CPU brains that choose among near-equal commands by
-the seed. Write the choice into the dispatch prompt.
+**Decided by Henri, 2026-09-12: no new variety source for now.** The seed stays
+the integer a battle is started with. FHB-6 showed that on a fixed scenario it
+mostly drives the critical roll; that is accepted for this cycle. Do not add
+randomised deployment, rosters, side swaps or brain randomness.
 
-**Depends on:** FHB-6, and HPR-4's commit (see Coordination).
+**Depends on:** FHB-6.
 
 **Touches:**
 - `src/battle_sim/BattleSimulator.gd`
-- `src/battle_sim/BattleSetupFactory.gd`
 - `src/entity_ai/SupportBrain.gd`
-- `src/entity_ai/CommandDeliberation.gd`
-- `src/entity_ai/PartyCommandDeliberation.gd`
+- `src/entity_ai/BattleCommandEvaluator.gd`
 - `src/presentation/BattleRecordAdapter.gd`
-- `scripts/battle/checks/probe_battle_variety.gd` (new) and its `.uid`
+- `scripts/battle/checks/probe_round_cap.gd` (new) and its `.uid`
 - `docs/DEVELOPMENT.md`
 
-**End state:** Twenty seeds on `hexmap_cpu_cpu.json` produce more than one
-winner and no two identical decision sequences. A battle at the round cap gives
-both parties the same number of turns, and a tie is a draw rather than a win for
-whichever team is listed first. No brain casts a heal that restores nothing.
-Same seed, same bytes, still.
+Never `BattleEvents.gd`, `CombatResolver.gd`, `IBattleVisualAdapter.gd` or
+`ConsoleVisualAdapter.gd`: HPR-4 has them open. If the fix needs one, stop and
+report instead.
+
+**End state:** A battle at the round cap gives both parties the same number of
+turns, and a tie there is a draw rather than a win for whichever team is listed
+first. No brain chooses a heal that restores nothing when anything else is
+available. Same seed, same bytes, still. `hexmap_cpu_cpu.json` at seed 14 no
+longer stalls from round 7 to 30.
 
 **Implementation:** FHB-6's commit body (`e3e37a7`) is the evidence; read it
-first. The only random draw today is the critical roll, the brains always pick
-the same command, and deployment is fixed. Put the variety where Henri chose and
-nowhere else, draw it from the battle's own seeded RNG, and put in the record
-whatever a reader needs to know it happened.
+first, and read `battle_output/battles/fhb6_hexmap_cpu_cpu_seed14.log.txt` for
+the stall.
 
 `BattleSimulator._runFullPartyBattle` stops after one party's turn in the last
-round. Decide whether the cap counts rounds or turns, and make both sides equal
-under it.
+round, and the survivor tally breaks ties by `teamRosters` order. Decide whether
+the cap counts rounds or turns, make both sides equal under it, and make a tie a
+draw using whatever draw value the battle result already has (HPR-7 expects
+team 0).
 
-Seed 14 is the stall: `SupportBrain` keeps casting Timeoff for +0 HP, and the
-Healer Mage never attacks a 6 HP enemy. Fix the scoring that lets a heal worth
-nothing win. This is not a balance pass: do not change spell numbers.
+Seed 14's stall: `SupportBrain` keeps casting Timeoff for +0 HP, which also
+slows itself for good, and the Healer Mage never attacks a 6 HP enemy. Find the
+scoring that lets a heal worth nothing win and fix it there. This is not a
+balance pass: do not change spell numbers.
 
-**Risk:** Variety that is only noise, where the seed changes results but no
-decision a model could learn from. Say in the commit body why the variety you
-added changes decisions, not only dice.
+**Risk:** A fix to the stall that changes every other decision too. Say in the
+commit body how many decisions in the seed-14 record changed before the stall
+round, and why.
 
 **Validation:**
-- Self-contained: the new probe runs a few seeds of a short scenario and
-  asserts at least two distinct decision sequences, equal turns at the cap, and
-  byte-identical records at one seed; marker `HEX_BATTLE_VARIETY_OK`.
+- Self-contained: the new probe builds or loads a short battle that reaches the
+  cap and asserts equal turns and a draw on a tie, plus a support brain that
+  does not pick a zero-value heal; marker `HEX_ROUND_CAP_OK`.
   `probe_battle_runner.gd` still prints `HEX_BATTLE_RUNNER_OK`.
-- Deferred: FHB-6's second pass judges the variety on a full championship.
+- One `run_battle.gd` run of `hexmap_cpu_cpu.json` at seed 14. No championship.
+- Deferred: FHB-6's second pass.
 
 ### FHB-11 — Fix the three errors in the human battle log
 
@@ -730,7 +739,7 @@ added changes decisions, not only dice.
 **Model rationale:** Three located defects with known causes and checkable
 output. No judgement left.
 
-**Depends on:** HPR-4's commit (see Coordination).
+**Depends on:** HPR-4's commit, and FHB-10 (see Coordination).
 
 **Touches:**
 - `src/presentation/ConsoleVisualAdapter.gd`
@@ -760,9 +769,61 @@ fell gets a line saying so.
 
 ### FHB-6, second pass
 
-After FHB-10 commits, run FHB-6 again, unchanged, in a fresh Opus 5 session.
-Its commit carries the same `Plan-Item: FHB-6` trailer. Championship output goes
-to `battle_output/championships/`.
+After FHB-10 commits, run FHB-6 again in a fresh Opus 5 session, with two
+changes Henri made on 2026-09-12:
+
+- **Five seeds, not twenty,** because a championship still costs about 90 s a
+  battle. Outputs go to `battle_output/championships/`.
+- **Outcome variety is no longer a pass condition.** The seed stays a plain
+  integer this cycle. Report the spread; do not fail on it.
+
+The gate is now: every battle ends by elimination or by a fair cap, no stall,
+records byte-identical on a re-run of one seed, and the model's-eye reading
+still holds. Its commit carries the same `Plan-Item: FHB-6` trailer.
+
+### FHB-12 — Make CPU deliberation cheaper
+
+**Model:** Opus 5 / GPT Sol.
+
+**Model rationale:** The cost is located but its cause inside it is not, and the
+fix must leave every decision exactly as it was. Choosing what is safe to cache
+in a resolver that projects moves is judgement, even when the change is small.
+
+**Depends on:** FHB-10, and HPR-4's commit (`CombatResolver.gd`).
+
+**Touches:**
+- `src/entity_ai/CommandDeliberation.gd`
+- `src/entity_ai/BattleCommandEvaluator.gd`
+- `src/battle_sim/CombatResolver.gd`
+- `docs/DEVELOPMENT.md` (the timing table)
+
+**End state:** One `hexmap_cpu_cpu.json` battle at seed 14 takes well under the
+~90 s FHB-6 measured, ideally under 30 s, and its record is byte-identical to one
+taken just before the change.
+
+**Implementation:** A light item. One profiling pass, then the smallest change
+that moves the number. FHB-6 put 92.9 s of 93.2 s in deliberation, and inside it
+`CommandDeliberation._emitSpell`: every spell's target cells and affected units
+from every reachable destination, about 26 ms per slice and 45 slices per
+decision. Find which call inside that dominates before changing anything.
+
+Likely shapes, not instructions: the same target-cell or affected-unit query
+repeated for destinations that give the same answer, or work that depends only on
+the board being redone per destination. Whatever you cache lives for one
+deliberation, because state must not change while one is in flight (see the
+class header).
+
+Do not add threads, change slice budgeting, or change how candidates are scored
+or sorted.
+
+**Risk:** A faster brain that picks differently. The byte-identical record is
+the check; if it differs, the change is wrong, however small the diff.
+
+**Validation:**
+- Self-contained: record seed 14 before and after and compare bytes;
+  `probe_battle_runner.gd` still prints `HEX_BATTLE_RUNNER_OK`. Time both runs
+  and put the numbers in the commit body.
+- No championship.
 
 ## Waves
 
@@ -771,11 +832,10 @@ to `battle_output/championships/`.
 | 1 | FHB-1, FHB-2, FHB-3 | battle simulator and controller, versus the tactical layer and tileset catalog, versus a new headless runner. `WORLDMAP_EDITOR.md` belongs to FHB-2; `DEVELOPMENT.md` to FHB-3. |
 | 2 | FHB-4, FHB-5 | authored data and scenarios, versus runner scripts and a new record adapter. No shared file. |
 | 3 | FHB-6 | **Validation: standalone, early.** The backend gate. Nothing later should be built on an unproven simulation pipeline. |
-| 4 | FHB-8 | editor authoring and `WORLDMAP_EDITOR.md`. Shares nothing with HPR, so it can run now beside the HPR lane. |
-| 5 | FHB-10, FHB-11 | after HPR-4 commits. Simulation and brains, versus the console log. No shared file, and nothing HPR-5 to HPR-7 claims. FHB-10 needs Henri's variety decision first. |
-| 6 | FHB-6, second pass | **Validation: early.** The backend gate again, after FHB-10. |
-| 7 | FHB-7 | after HPR-7 commits. Terrain inside the HPR-3 stage. |
-| 8 | HPR-8, then FHB-9 | **Validation: standalone.** One fresh session, HPR-8 first. |
+| 4 | FHB-8, FHB-10 | run now, beside the HPR lane. Editor authoring and the map format, versus simulation and brains. No shared file, and FHB-10 stays clear of every file HPR-4 has open. |
+| 5 | FHB-11, FHB-6 second pass | after FHB-10; FHB-11 also after HPR-4 commits. Console log, versus a gate that only fixes inside its owned set. |
+| 6 | FHB-7, FHB-12 | FHB-7 after HPR-7 commits; FHB-12 after HPR-4. Terrain in the stage and controller, versus brains and resolver. No shared file. FHB-12 is light. |
+| 7 | HPR-8, then FHB-9 | **Validation: standalone.** One fresh session, HPR-8 first. FHB-9 closes the plan. |
 
 ## Deliberately excluded
 
