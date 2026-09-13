@@ -57,19 +57,26 @@ func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
 func _on_battle_ended(winningTeam: int) -> void:
 	_log("")
 	_log("╔══════════════════════════════════════════════════════════════╗")
-	_log("║             🏆 BATTLE OVER — TEAM %s WINS! 🏆               ║" % winningTeam)
+	if winningTeam == 0:
+		_log("║                  🤝 BATTLE OVER — DRAW! 🤝                  ║")
+	else:
+		_log("║             🏆 BATTLE OVER — TEAM %s WINS! 🏆               ║" % winningTeam)
 	_log("╚══════════════════════════════════════════════════════════════╝")
 	_log("")
 
 
-func _on_round_started(roundNumber: int, turnOrderIDs: Array) -> void:
+func _on_round_started(roundNumber: int, _turnOrderIDs: Array) -> void:
 	_log("")
 	_log("══════════════════════ 🔄 ROUND %s ══════════════════════" % roundNumber)
 	var orderNames = []
-	for id in turnOrderIDs:
-		var mon = state.getMonster(id)
-		if mon != null:
-			orderNames.append("%s#%s" % [mon.name, id])
+	for value in state.partyOrder:
+		var partyID = int(value)
+		var party = state.parties.get(partyID)
+		if party == null:
+			continue
+		var commander = state.getMonster(int(party.commanderID))
+		var commanderName = commander.name if commander != null else "???"
+		orderNames.append("%s#%s" % [commanderName, partyID])
 	_log("  Turn order: %s" % ", ".join(orderNames))
 	_log("")
 
@@ -240,6 +247,19 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 		_log("  ☠️ [DEFEATED] %s #%s was struck down by %s #%s!" % [monName, monsterID, killerName, killerID])
 		if _roundEvents.size() > 0:
 			_roundEvents[_roundEvents.size() - 1].score += 100
+
+
+func _on_party_withdrawn(partyID: int, memberIDs: Array) -> void:
+	var party = state.parties.get(partyID)
+	var commander = state.getMonster(int(party.commanderID)) if party != null else null
+	var commanderName = commander.name if commander != null else "???"
+	for value in memberIDs:
+		var memberID = int(value)
+		var mon = state.getMonster(memberID)
+		var monName = mon.name if mon != null else "???"
+		_log("  🏳️ [WITHDRAW] %s #%s left the board — their commander %s fell" % [
+			monName, memberID, commanderName
+		])
 
 
 func _on_effect_applied(monsterID: int, effectName: String, duration: int, _sourceMonsterID: int, _sourceSpellName: String) -> void:
