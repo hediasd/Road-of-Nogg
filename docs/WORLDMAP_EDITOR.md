@@ -34,14 +34,15 @@ caught this collision when the field was first written.
 ## 2. Tilesets
 
 A tileset is **a PNG plus a descriptor**. The PNG lives under `assets/worldmap/tilesets/`; the
-descriptor is an entry in `data/worldmap/tilesets.json`, following the same named-catalog shape
-as `regions.json`.
+descriptor is its own file, `data/worldmap/tilesets/<ID>.json`, one file per tileset rather than
+one shared catalog.
 
 ```
-NAME            catalog id
+NAME            catalog id -- always the config file's own filename stem
 DESCRIPTION     what this sheet is and where it came from
 SHEET           res:// path to the PNG
 GRID_KIND       "tile" (16 px) or "cel" (8 px) -- see below on the name
+FRAME_PX        pixels per frame in the SHEET
 PALETTE_REGION  the region whose palette this sheet must stay inside
 NEXT_ID         the id allocator; only ever rises
 TILES           the ledger -- see §3
@@ -50,10 +51,20 @@ TILES           the ledger -- see §3
 Per tile, the ledger carries `ID`, `HASH`, `CELL`, `LABEL`, `TERRAIN`, `AUTOTILE`, `VARIANT`,
 `WALKABLE` and `LIFTABLE`.
 
-`WALKABLE` and `LIFTABLE` are **authored now and read by nothing yet**. Both describe the art —
-`LIFTABLE` gates whether Phase D may raise a tile at all, since only flat top-down art may be
-lifted (`WORLDMAP_DESIGN.md` §8) — so retrofitting them later means revisiting every sheet ever
-drawn. Authoring them from the first import costs a default field and saves that.
+**Every PNG directly under `assets/worldmap/tilesets/` is discoverable**, whether or not it has a
+config file yet. A sheet with no config gets defaults in memory — 32 × 32 frames, the `temp2`
+palette region — and is offered by the New dialog like any other. The config becomes durable only
+the first time the sheet is actually selected: for a new map, or for an existing one that names it.
+Folder discovery alone never writes a file. Once a config exists, its stored `SHEET`, `GRID_KIND`,
+`FRAME_PX` and `TILES` always win over the defaults, and reloading the catalog never reconciles
+them against the sheet's current pixels — that stays the explicit, human-reviewed re-import path
+described in §4 below.
+
+`LIFTABLE` is **authored now and read by nothing yet** — it gates whether Phase D may raise a tile
+at all, since only flat top-down art may be lifted (`WORLDMAP_DESIGN.md` §8), so retrofitting it
+later means revisiting every sheet ever drawn. `WALKABLE` is authored the same way and is read by
+the picker's Walkable checkbox (§6) and by `isWalkable()`: an unset `WALKABLE` reads as walkable,
+and only an explicit `"false"` refuses.
 
 ### Blank cells are padding, not tiles
 
@@ -299,6 +310,17 @@ rectangular range. The ordered multi-frame selection supplies the Stamp tool. Es
 blank sheet space clears the selection. The current-frame preview and selected frame IDs remain
 visible. Paint, Fill, Stamp and Scatter refuse to alter an art layer while the selection is empty;
 choose **Erase** when clearing cells is intended. Scatter seed controls appear only for Scatter.
+
+Below the sheet, the **tileset properties** block shows the sheet's pixel size, its frame size, a
+warning when that frame size is not 32 × 32 (hex maps are built for 32 px frames; other sizes are
+allowed and saved, but a hex map drawn from them will not line up), the tile count, and a
+**Walkable** checkbox for whichever tile the picker's outline marks as primary. Unchecking it marks
+that tile with a red X in the sheet and writes the change to the tileset's own config file straight
+away — there is no undo, because it is not part of the map. An already-painted map does not pick
+the change up on its own; run **Fill from art** or **Reset to art** afterward. Changing the frame
+size re-cuts the sheet and retires every existing tile id, so it asks for confirmation first and
+refuses outright while the open map still has cells painted from that tileset — erase them, or
+start a new map, first.
 
 Each layer also has visibility and lock controls. A locked or hidden layer refuses edits, and a
 hidden art layer is removed only from the editor's displayed preview: it remains in the canonical

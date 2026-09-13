@@ -36,6 +36,10 @@ var _sheet: Texture2D
 var _framePx := 0
 var _tilesByID: Dictionary = {}
 var _tileIDsByCell: Dictionary = {}
+## Whether each tile id is walkable, from the same `WALKABLE` field `configure()` reads off the
+## raw tile dict. Kept out of `_tilesByID`'s normalised shape because it changes independently of
+## everything else there -- `setTileWalkable()` updates one entry without touching the rest.
+var _walkableByID: Dictionary = {}
 var _selectedTileIDs: Array[String] = []
 var _primaryTileID := ""
 var _plainClickAnchor := Vector2i(-1, -1)
@@ -67,6 +71,7 @@ func configure(tilesetID: String, sheet: Texture2D, framePx: int, tiles: Array[D
 	_framePx = max(framePx, 0)
 	_tilesByID.clear()
 	_tileIDsByCell.clear()
+	_walkableByID.clear()
 	for tile: Dictionary in tiles:
 		var id := str(tile.get("ID", ""))
 		var cellValue = tile.get("CELL", Vector2i(-1, -1))
@@ -88,6 +93,7 @@ func configure(tilesetID: String, sheet: Texture2D, framePx: int, tiles: Array[D
 		}
 		_tilesByID[id] = normalized
 		_tileIDsByCell[cell] = id
+		_walkableByID[id] = str(tile.get("WALKABLE", "")) != "false"
 
 	_selectedTileIDs.clear()
 	if previousTilesetID == _tilesetID:
@@ -119,6 +125,16 @@ func selectTileIDs(tileIDs: Array[String]) -> void:
 
 func selectedTileIDs() -> Array[String]:
 	return _selectedTileIDs.duplicate()
+
+
+## Updates one tile's marker without a full `configure()`. Unknown ids are ignored rather than
+## added -- this reflects a fact the caller already has from the catalog, not a new tile.
+func setTileWalkable(tileID: String, walkable: bool) -> void:
+	if not _tilesByID.has(tileID):
+		return
+	_walkableByID[tileID] = walkable
+	if _uiBuilt:
+		_sheetCanvas.queue_redraw()
 
 
 func primaryTileID() -> String:
@@ -293,6 +309,13 @@ func _drawSheet(canvas: Control) -> void:
 		canvas.draw_rect(rect, Color("60d8ff"), false, 2.0)
 	if not _primaryTileID.is_empty():
 		canvas.draw_rect(_zoomedFrameRect(_primaryTileID).grow(-3.0), Color("fff2a3"), false, 2.0)
+	# Drawn last so the mark is never hidden under a selection or primary outline.
+	for id: String in _tilesByID:
+		if _walkableByID.get(id, true):
+			continue
+		var mark := _zoomedFrameRect(id).grow(-6.0)
+		canvas.draw_line(mark.position, mark.end, Color("ff5a5a"), 2.0)
+		canvas.draw_line(Vector2(mark.position.x, mark.end.y), Vector2(mark.end.x, mark.position.y), Color("ff5a5a"), 2.0)
 
 
 func _drawPreview(canvas: Control) -> void:

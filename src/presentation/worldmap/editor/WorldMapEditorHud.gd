@@ -22,6 +22,7 @@ extends RefCounted
 
 const ChromeScript = preload("res://src/presentation/worldmap/editor/workspace/WorldMapWorkspaceChrome.gd")
 const PickerScript = preload("res://src/presentation/worldmap/editor/WorldMapTilesetPicker.gd")
+const Tilesets = preload("res://src/presentation/worldmap/editor/WorldMapTilesetCatalog.gd")
 
 var chrome: ChromeScript
 var badge: Label
@@ -50,6 +51,23 @@ var _cellByTileID: Dictionary = {}
 var _suppressPickerRelay := false
 var _eraseSelected := false
 
+var _tilesetProperties: VBoxContainer
+var _tilesetSheetSize: Label
+var _tilesetFrameSize: SpinBox
+var _tilesetFrameApply: Button
+var _tilesetFrameWarning: Label
+var _tilesetTileCount: Label
+var _tileWalkable: CheckBox
+var _onWalkableToggled: Callable
+var _onFrameSizeRequested: Callable
+var _propertiesTilesetID := ""
+var _propertiesFramePx := 0
+var _propertiesTileCount := 0
+## The authored `WALKABLE` fact per tile id, from the same catalog data `configurePalette()` was
+## last called with -- kept here rather than re-read from the picker so `setTileWalkable()` can
+## answer "is this the primary tile" without adding that question to the picker's own API.
+var _walkableByTileID: Dictionary = {}
+
 
 func _init(workspaceChrome: ChromeScript) -> void:
 	chrome = workspaceChrome
@@ -60,8 +78,12 @@ func build(
 	onLayerSelected: Callable,
 	onVisibilityToggled: Callable,
 	onLockToggled: Callable,
-	hideableReasons: Dictionary
+	hideableReasons: Dictionary,
+	onWalkableToggled: Callable = Callable(),
+	onFrameSizeRequested: Callable = Callable()
 ) -> void:
+	_onWalkableToggled = onWalkableToggled
+	_onFrameSizeRequested = onFrameSizeRequested
 	_buildPalette()
 	_buildInspector(layers, onLayerSelected, onVisibilityToggled, onLockToggled, hideableReasons)
 
@@ -93,6 +115,8 @@ func _buildPalette() -> void:
 	_pickerHint.visible = false
 	column.add_child(_pickerHint)
 
+	_buildTilesetProperties(column)
+
 	column.add_child(HSeparator.new())
 
 	_valueRow = VBoxContainer.new()
@@ -118,6 +142,112 @@ func _buildPalette() -> void:
 	seedSpin.allow_lesser = false
 	_seedRow.add_child(seedSpin)
 	_seedRow.visible = false
+
+
+## The tileset's own facts, shown right under the picker: sheet size, the editable frame size, a
+## warning when that frame size is not the 32 px hex maps expect, the tile count, and a Walkable
+## checkbox for the selected tile. Everything in this block is written straight to the tileset's
+## config file as soon as it changes -- there is no undo, because none of it is part of the map.
+func _buildTilesetProperties(column: VBoxContainer) -> void:
+	_tilesetProperties = VBoxContainer.new()
+	_tilesetProperties.name = "TilesetProperties"
+	column.add_child(_tilesetProperties)
+
+	_tilesetSheetSize = Label.new()
+	_tilesetSheetSize.name = "TilesetSheetSize"
+	_tilesetProperties.add_child(_tilesetSheetSize)
+
+	var frameRow := HBoxContainer.new()
+	_tilesetProperties.add_child(frameRow)
+	frameRow.add_child(_label("Frame size"))
+	_tilesetFrameSize = SpinBox.new()
+	_tilesetFrameSize.name = "TilesetFrameSize"
+	_tilesetFrameSize.min_value = Tilesets.MIN_FRAME_PX
+	_tilesetFrameSize.max_value = Tilesets.MAX_FRAME_PX
+	_tilesetFrameSize.step = 1
+	_tilesetFrameSize.suffix = "px"
+	_tilesetFrameSize.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tilesetFrameSize.value_changed.connect(_onFrameSpinChanged)
+	frameRow.add_child(_tilesetFrameSize)
+	_tilesetFrameApply = Button.new()
+	_tilesetFrameApply.name = "TilesetFrameApply"
+	_tilesetFrameApply.text = "Apply"
+	_tilesetFrameApply.pressed.connect(_onFrameApplyPressed)
+	frameRow.add_child(_tilesetFrameApply)
+
+	_tilesetFrameWarning = Label.new()
+	_tilesetFrameWarning.name = "TilesetFrameWarning"
+	_tilesetFrameWarning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tilesetFrameWarning.add_theme_color_override("font_color", Color(1.0, 0.55, 0.2))
+	_tilesetFrameWarning.visible = false
+	_tilesetProperties.add_child(_tilesetFrameWarning)
+
+	_tilesetTileCount = Label.new()
+	_tilesetTileCount.name = "TilesetTileCount"
+	_tilesetProperties.add_child(_tilesetTileCount)
+
+	_tileWalkable = CheckBox.new()
+	_tileWalkable.name = "TileWalkable"
+	_tileWalkable.text = "Walkable"
+	_tileWalkable.tooltip_text = (
+		"Whether the selected tile can be walked on. Applies to the primary tile only. "
+		+ "Maps pick this up through Fill from art."
+	)
+	_tileWalkable.disabled = true
+	_tileWalkable.toggled.connect(_onTileWalkableToggledByUser)
+	_tilesetProperties.add_child(_tileWalkable)
+
+	_tilesetProperties.visible = false
+
+
+func _onFrameSpinChanged(_value: float) -> void:
+	_tilesetFrameApply.disabled = int(_tilesetFrameSize.value) == _propertiesFramePx
+
+
+## Refusing outright when there is nothing to lose: a sheet with zero tiles has nothing a re-cut
+## could retire, so the confirmation this function otherwise opens would only be asking the author
+## to confirm a no-op.
+func _onFrameApplyPressed() -> void:
+	var framePx := int(_tilesetFrameSize.value)
+	if _propertiesTileCount <= 0:
+		_onFrameSizeRequested.call(_propertiesTilesetID, framePx)
+		return
+	var dialog := ConfirmationDialog.new()
+	dialog.dialog_text = (
+		"Changing the frame size re-cuts the sheet and retires all %d tile IDs. Other saved maps "
+		+ "that use %s will lose their art. Continue?"
+	) % [_propertiesTileCount, _propertiesTilesetID]
+	dialog.confirmed.connect(func() -> void: _onFrameSizeRequested.call(_propertiesTilesetID, framePx))
+	dialog.canceled.connect(func() -> void:
+		_tilesetFrameSize.set_value_no_signal(_propertiesFramePx)
+		_onFrameSpinChanged(_propertiesFramePx)
+	)
+	dialog.visibility_changed.connect(func() -> void:
+		if not dialog.visible:
+			dialog.queue_free()
+	)
+	chrome.root.add_child(dialog)
+	dialog.popup_centered()
+
+
+func _onTileWalkableToggledByUser(pressed: bool) -> void:
+	var tileID := picker.primaryTileID() if picker != null else ""
+	if tileID.is_empty():
+		return
+	_onWalkableToggled.call(_propertiesTilesetID, tileID, pressed)
+
+
+## Reflects the picker's current primary tile in the Walkable checkbox, without writing anything --
+## the checkbox is disabled rather than hidden when there is no primary tile, so its own state stays
+## visibly meaningless instead of silently applying to whatever was selected before.
+func _syncWalkableCheckbox() -> void:
+	if _tileWalkable == null:
+		return
+	var tileID := picker.primaryTileID() if picker != null else ""
+	_tileWalkable.disabled = tileID.is_empty()
+	_tileWalkable.set_pressed_no_signal(
+		not tileID.is_empty() and str(_walkableByTileID.get(tileID, "")) != "false"
+	)
 
 
 func _buildInspector(
@@ -261,6 +391,33 @@ func configurePalette(
 		+ "still selects its tiles by id."
 	)
 	_pickerHint.visible = missingSheet
+	_configureTilesetProperties(tilesetID, sheet, framePx, tiles)
+
+
+func _configureTilesetProperties(
+	tilesetID: String, sheet: Texture2D, framePx: int, tiles: Array[Dictionary]
+) -> void:
+	if _tilesetProperties == null:
+		return
+	_propertiesTilesetID = tilesetID
+	_propertiesFramePx = framePx
+	_propertiesTileCount = tiles.size()
+	_walkableByTileID.clear()
+	for tile in tiles:
+		_walkableByTileID[str(tile.get("ID", ""))] = str(tile.get("WALKABLE", ""))
+	_tilesetProperties.visible = true
+	_tilesetSheetSize.text = (
+		"Sheet: %d × %d px" % [int(sheet.get_size().x), int(sheet.get_size().y)]
+		if sheet != null else "Sheet: not readable"
+	)
+	_tilesetFrameSize.set_value_no_signal(framePx)
+	_tilesetFrameApply.disabled = true
+	_tilesetFrameWarning.text = (
+		"Hex maps expect 32 × 32 frames. This sheet uses %d × %d." % [framePx, framePx]
+	)
+	_tilesetFrameWarning.visible = framePx != 32
+	_tilesetTileCount.text = "%d tiles" % tiles.size()
+	_syncWalkableCheckbox()
 
 
 func _configureQuickChoices(
@@ -313,6 +470,8 @@ func showValueOnlyPalette(kindLabel: String) -> void:
 	_valueRow.visible = true
 	_seedRow.visible = false
 	_eraseSelected = false
+	if _tilesetProperties != null:
+		_tilesetProperties.visible = false
 
 
 func hasValueRow() -> bool:
@@ -369,6 +528,7 @@ func selectTileID(id: String) -> void:
 		_eraseSelected = false
 		var selection: Array[String] = [id]
 		picker.selectTileIDs(selection)
+		_syncWalkableCheckbox()
 		return
 	var index := _tileIDs.find(id)
 	if index >= 0:
@@ -408,6 +568,7 @@ func setTileChoices(ids: Array[String], selectedID := "") -> void:
 	_suppressPickerRelay = true
 	picker.selectTileIDs(selection)
 	_suppressPickerRelay = false
+	_syncWalkableCheckbox()
 
 
 ## Selects the erase entry without changing tool. What the toolbar's Erase button applies.
@@ -448,6 +609,17 @@ func setScatterVisible(visible: bool) -> void:
 		_seedRow.visible = visible and picker != null and picker.visible
 
 
+## Updates the cached value, the checkbox (only when `tileID` is the primary tile, so a background
+## write from elsewhere never overwrites what the checkbox is showing for a tile the author has
+## since moved on from), and the picker's own red-X marker.
+func setTileWalkable(tileID: String, walkable: bool) -> void:
+	_walkableByTileID[tileID] = "true" if walkable else "false"
+	if picker != null:
+		picker.setTileWalkable(tileID, walkable)
+	if picker != null and picker.primaryTileID() == tileID:
+		_syncWalkableCheckbox()
+
+
 func _onValueRowSelected(_index: int) -> void:
 	_syncPickerToValue()
 
@@ -470,6 +642,7 @@ func _onPickerPrimaryChanged(_tilesetID: String, tileID: String) -> void:
 	if _suppressPickerRelay:
 		return
 	_eraseSelected = false
+	_syncWalkableCheckbox()
 
 
 func _label(text: String) -> Label:

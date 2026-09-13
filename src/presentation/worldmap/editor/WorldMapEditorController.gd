@@ -406,7 +406,8 @@ func _buildEditorUi() -> void:
 		var id := str((layer as Dictionary)["id"])
 		hideableReasons[id] = LayerViewScript.whyNotHideable(id, LAYER_OBJECTS, LAYER_HEIGHTS)
 	_editorHud.build(
-		LAYERS, _onLayerSelected, _onLayerVisibilityToggled, _onLayerLockToggled, hideableReasons
+		LAYERS, _onLayerSelected, _onLayerVisibilityToggled, _onLayerLockToggled, hideableReasons,
+		_onTileWalkableToggled, _onTilesetFrameSizeRequested
 	)
 	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
 	_setActiveTool(TOOL_NAVIGATE)
@@ -1609,6 +1610,7 @@ func _newDocument(lattice: Vector2i, name: String, tilesetID := DEFAULT_HEX_TILE
 	_recovery.resetForDocument()
 	_activeRecoveryEntry = {}
 	var chosen := tilesetID if Tilesets.has(tilesetID) else DEFAULT_HEX_TILESET
+	_ensureTilesetConfig(chosen)
 	var doc := MapDataScript.create(name, lattice, MapDataScript.LAYOUT_HEX_FLAT)
 	doc.layers["ground"]["TILESET"] = chosen
 	var paletteRegion := str(
@@ -2061,13 +2063,12 @@ func _openSaveAsDialog() -> void:
 		_editorHud.setStatus("No display server; Save As needs its dialog.")
 
 
-## Every hex-capable tileset the catalog knows, which is what New may choose between. A tileset is
-## offered for a NEW document only; opening one never remaps a populated layer's stored id.
+## Every sheet folder discovery knows about, which is what New may choose between. A tileset is
+## offered for a NEW document only; opening one never remaps a populated layer's stored id. Not
+## filtered by frame size any more: the config that FRAME_PX is not 32 is a warning shown once the
+## author has picked it, not a reason to hide it -- see the properties block's frame-size warning.
 func _hexTilesetChoices() -> Array[String]:
-	var result: Array[String] = []
-	for id in Tilesets.ids():
-		if int(Tilesets.tilesetFor(id).get("FRAME_PX", 0)) >= 32:
-			result.append(id)
+	var result := Tilesets.sheetIDs()
 	if result.is_empty():
 		result.append(DEFAULT_HEX_TILESET)
 	return result
@@ -2184,6 +2185,23 @@ func _refreshValueChoices() -> void:
 ## layer whose values are not sheet frames. The tactical layer is the case that makes this a
 ## dispatch rather than a lookup: it is a grid layer, so it would otherwise be offered a tilesheet
 ## for values that are battle terrain ids and have no art at all.
+## Makes a tileset's config file durable the moment it is actually used, and reports it the one
+## time that matters -- when the file did not already exist. `ensureConfig()` itself stays quiet
+## either way, so the "created" wording belongs here, next to the only caller that knows whether
+## this was the first time.
+func _ensureTilesetConfig(tilesetID: String) -> void:
+	if Tilesets.hasConfigFile(tilesetID):
+		return
+	var path := Tilesets.configPathFor(tilesetID)
+	var created := Tilesets.ensureConfig(tilesetID)
+	if _editorHud == null:
+		return
+	_editorHud.setStatus(
+		"Created tileset config %s." % path if created
+		else "Could not create %s; tileset changes will not be saved." % path
+	)
+
+
 func _refreshPalette() -> void:
 	if _editorHud == null:
 		return
@@ -2208,6 +2226,7 @@ func _refreshPalette() -> void:
 	if tilesetID.is_empty() or not Tilesets.has(tilesetID):
 		_editorHud.showValueOnlyPalette("untextured")
 		return
+	_ensureTilesetConfig(tilesetID)
 	var tileset := Tilesets.tilesetFor(tilesetID)
 	var tiles: Array[Dictionary] = []
 	for tile in tileset.get("TILES", []):
@@ -2241,6 +2260,83 @@ func _terrainByIDForActiveLayer() -> Dictionary:
 	for tile in Tilesets.tilesetFor(tilesetID).get("TILES", []):
 		result[str((tile as Dictionary)["ID"])] = str((tile as Dictionary).get("TERRAIN", ""))
 	return result
+
+
+## True when the open document has at least one cell actually painted from `id` -- the fact that
+## refuses a frame-size change, since re-cutting the sheet retires every tile id a painted cell
+## might be naming. A tileset merely NAMED by an empty layer's `TILESET` field does not count.
+func _documentUsesTileset(id: String) -> bool:
+	if _document == null:
+		return false
+	for layerID in _document.layerIDs():
+		var block: Dictionary = _document.layers[layerID]
+		var kind := str(block.get("KIND", ""))
+		if kind != MapDataScript.KIND_GRID and kind != MapDataScript.KIND_DETAIL:
+			continue
+		if str(block.get("TILESET", "")) != id:
+			continue
+		var cells: PackedStringArray = block.get("CELLS", PackedStringArray())
+		for cell in cells:
+			if cell != MapDataScript.EMPTY:
+				return true
+	return false
+
+
+## Applies a Walkable toggle immediately: the catalog's in-memory tile first, then a save, with the
+## HUD and the file both rolled back together on a write failure so neither disagrees with the
+## other about what actually happened.
+func _onTileWalkableToggled(tilesetID: String, tileID: String, walkable: bool) -> void:
+	if not Tilesets.setWalkable(tilesetID, tileID, walkable):
+		_editorHud.setStatus("Unknown tile %s." % tileID)
+		_editorHud.setTileWalkable(tileID, Tilesets.isWalkable(tilesetID, tileID))
+		return
+	if Tilesets.saveTileset(tilesetID):
+		_editorHud.setTileWalkable(tileID, walkable)
+		_editorHud.setStatus(
+			(
+				"%s is now walkable." % tileID if walkable
+				else "%s is now not walkable." % tileID
+			) + " Maps pick this up through Fill from art."
+		)
+		return
+	# Rolled back in memory to match the file that failed to accept the change, so a later save
+	# elsewhere does not silently carry this toggle with it.
+	Tilesets.setWalkable(tilesetID, tileID, not walkable)
+	_editorHud.setTileWalkable(tileID, not walkable)
+	_editorHud.setStatus("Could not write %s." % Tilesets.configPathFor(tilesetID))
+
+
+## Re-cuts a tileset's sheet at a new frame size, refusing while the open document still paints
+## from it -- see `_documentUsesTileset`'s own note on why that specific fact is the gate.
+func _onTilesetFrameSizeRequested(tilesetID: String, framePx: int) -> void:
+	if _documentUsesTileset(tilesetID):
+		_editorHud.setStatus(
+			(
+				"Frame size can't change while this map has tiles painted from %s. "
+				+ "Erase them or start a new map first."
+			) % tilesetID
+		)
+		_refreshPalette()
+		return
+	var result := Tilesets.setFrameSize(tilesetID, framePx)
+	if not bool(result.get("success", false)):
+		_editorHud.setStatus(str(result.get("error", "")))
+		return
+	if not bool(result.get("changed", false)):
+		return
+	if not Tilesets.saveTileset(tilesetID):
+		# The in-memory cut already happened; going back to the file on disk is what makes the
+		# catalog agree with what actually got written (nothing) rather than carrying a re-cut
+		# that a later reload would silently discard.
+		Tilesets.reloadCatalog()
+		_editorHud.setStatus("Could not write %s." % Tilesets.configPathFor(tilesetID))
+		return
+	_refreshPalette()
+	_editorHud.setStatus(
+		"Frame size is now %d × %d. %d old tile IDs retired, %d tiles cut." % [
+			framePx, framePx, int(result.get("retired", 0)), int(result.get("added", 0))
+		]
+	)
 
 
 func _layerIndex(id: String) -> int:
