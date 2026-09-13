@@ -45,10 +45,22 @@ const MENU_HEADING_FONT_SIZE := 12
 const PALETTE_WIDTH := 248.0
 const INSPECTOR_WIDTH := 214.0
 const COLLAPSED_WIDTH := 26.0
+## The map column's own floor, so dragging both dividers toward the centre cannot squeeze the
+## stage to nothing -- see `probe_workspace_contract.gd`'s `_checkFitsTargetWindows`, which already
+## requires at least 320 x 240 of it.
+const MAP_MIN_WIDTH := 360.0
+## The tilesheet's floor inside `PaletteMenuSplit`, so dragging that divider all the way toward the
+## menu still leaves something to scroll rather than collapsing the scroll to zero height.
+const PALETTE_SCROLL_MIN_HEIGHT := 96.0
 
 var root: CanvasLayer
 var stage: Control
 var paletteColumn: VBoxContainer
+var _paletteMenuSplit: VSplitContainer
+var _palettePanel: PanelContainer
+var _inspectorPanel: PanelContainer
+var _paletteSplit: HSplitContainer
+var _inspectorSplit: HSplitContainer
 ## The left column's map-action menu, below the tilesheet. Exposed for the same reason the other
 ## two columns are: a probe has to be able to find it without walking node names.
 var mapMenuColumn: VBoxContainer
@@ -67,6 +79,17 @@ var _paletteScroll: ScrollContainer
 var _inspectorScroll: ScrollContainer
 var _modalDepth := 0
 var _stageCallback: Callable
+## A collapsed split's own `split_offset` reads back as whatever the collapse left it at, not the
+## width the panel had -- so the width to restore on expand is saved here instead, keyed by the
+## collapse button's node name.
+var _savedSplitOffsets: Dictionary = {}
+## A generation counter per split, keyed by the `SplitContainer` instance. `_resyncSplitFixedSide`
+## bumps this every time it starts, and checks it is still the newest before it ever writes an
+## offset -- so a fresh call SUPERSEDES an older one still polling rather than being skipped by it,
+## which matters because `resyncPanelWidths()` is safe to call again for exactly that reason (a
+## test re-establishing a clean baseline after several resizes, say) and the earlier call must not
+## get to apply a correction computed from a size that call no longer cares about.
+var _resyncGeneration: Dictionary = {}
 
 
 ## `extraTools` is every controller tool that does not get its own toolbar button -- the
@@ -99,11 +122,96 @@ func build(
 	body.add_theme_constant_override("separation", 0)
 	frame.add_child(body)
 
-	body.add_child(_buildPalette(extraTools))
-	body.add_child(_buildMapColumn())
-	body.add_child(_buildInspector())
+	# TWO NESTED SPLITS, NOT THREE PANES OF ONE. A `SplitContainer` only ever divides two things,
+	# so three draggable regions -- palette / map / inspector -- need the map+inspector treated as
+	# one region from the palette's side. `_resyncSplitFixedSide`, called once below, is what makes
+	# the starting layout match the old fixed `PALETTE_WIDTH` / `INSPECTOR_WIDTH` sidebars.
+	_paletteSplit = HSplitContainer.new()
+	_paletteSplit.name = "PaletteSplit"
+	_paletteSplit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_paletteSplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_paletteSplit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	body.add_child(_paletteSplit)
+
+	_inspectorSplit = HSplitContainer.new()
+	_inspectorSplit.name = "InspectorSplit"
+	_inspectorSplit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_inspectorSplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_inspectorSplit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	_paletteSplit.add_child(_buildPalette(extraTools, _paletteSplit))
+	_paletteSplit.add_child(_inspectorSplit)
+	_inspectorSplit.add_child(_buildMapColumn())
+	_inspectorSplit.add_child(_buildInspector(_inspectorSplit))
 
 	frame.add_child(_buildFooter())
+
+	# ONE-TIME, NOT LIVE-TRACKED. Changing `split_offset` itself perturbs this nested layout
+	# enough to also fire `resized` (measured against the engine directly), so a handler that
+	# re-corrected on every `resized` would immediately undo the author's own drag the instant they
+	# made it. Fixing the starting width once, before the author has touched anything, is what
+	# `resyncPanelWidths` does instead; a later window resize shifts the sidebar proportionally
+	# like any ordinary split from then on, rather than re-locking to a stale pixel width. Exposed
+	# as a public method (rather than only run here) so a test can re-establish a clean baseline
+	# after deliberately resizing the window several times in a row, which nothing in the real
+	# running editor ever does mid-session.
+	resyncPanelWidths()
+
+
+## Puts the palette and inspector back at their fixed default widths. Safe to call more than
+## once -- each call polls for the CURRENT width and corrects from there, so calling it again after
+## nothing has changed is a no-op, and calling it after a resize re-establishes the old widths.
+##
+## Runs the palette's correction fully before starting the inspector's. `InspectorSplit` sits
+## INSIDE `PaletteSplit`'s second child, so the total width it has to divide keeps changing while
+## the palette's own correction is still under way -- running both at once let the inspector's poll
+## see a width that had not finished moving yet (measured against the engine directly: the palette
+## converged correctly on its own, but the inspector settled far from `INSPECTOR_WIDTH` when both
+## ran together).
+func resyncPanelWidths() -> void:
+	await _resyncSplitFixedSide(_paletteSplit, _palettePanel, PALETTE_WIDTH, true)
+	await _resyncSplitFixedSide(_inspectorSplit, _inspectorPanel, INSPECTOR_WIDTH, false)
+
+
+## Both splits' children default to an EQUAL 1:1 stretch ratio, which at `split_offset` 0 gives
+## roughly half the window to `panel` -- fine for draggability, wrong for the sidebar-sized panel
+## this editor has always had. Nudges `split_offset` by exactly the gap between `panel`'s current
+## width and `targetWidth`; increasing the offset grows the FIRST child and shrinks the second
+## (verified against the engine directly), which is the sign `isFirstChild` picks.
+##
+## WAITS FOR `panel` TO STOP MOVING FIRST. A resize cascades through several containers over
+## several frames in this nested layout, and `resized` can fire mid-cascade -- correcting from
+## that transient size either undershoots or overshoots, and nothing fires again afterward to fix
+## it (verified against the engine directly, not assumed: a single deferred correction reliably
+## landed on the wrong width). Polling `panel.size` until two consecutive frames agree is what
+## finds the size this is actually meant to correct.
+func _resyncSplitFixedSide(
+	split: SplitContainer, panel: Control, targetWidth: float, isFirstChild: bool
+) -> void:
+	if not is_instance_valid(split) or not is_instance_valid(panel):
+		return
+	var generation: int = int(_resyncGeneration.get(split, 0)) + 1
+	_resyncGeneration[split] = generation
+	var tree := split.get_tree()
+	if tree == null:
+		return
+	var previous := Vector2(-1.0, -1.0)
+	for _i in 8:
+		await tree.process_frame
+		if not is_instance_valid(panel) or int(_resyncGeneration.get(split, 0)) != generation:
+			return
+		if panel.size.is_equal_approx(previous):
+			break
+		previous = panel.size
+	if (
+		not is_instance_valid(split) or not is_instance_valid(panel)
+		or int(_resyncGeneration.get(split, 0)) != generation
+	):
+		return
+	var delta := targetWidth - panel.size.x
+	if absf(delta) < 0.5:
+		return
+	split.split_offset += int(delta) if isFirstChild else int(-delta)
 
 
 func _buildHeader() -> Control:
@@ -151,14 +259,22 @@ func _buildHeader() -> Control:
 ## sits directly beneath it, so choosing a tile and choosing what to do with it are one movement
 ## down one column instead of a glance back up to a toolbar row.
 ##
-## THE MENU IS OUTSIDE THE SCROLL AND THE TILESHEET IS INSIDE IT. Together they want more height
-## than a 720-tall window has, so one of the two has to give, and it must not be the menu: a tool
-## button that is only reachable by scrolling is a tool the author stops using. The menu is a
-## fixed, complete set of controls and is pinned; the tilesheet is content of unknown length and
-## scrolls, which is what content does everywhere else in this editor.
-func _buildPalette(extraTools: Array) -> Control:
+## THE MENU IS OUTSIDE THE SCROLL AND THE TILESHEET IS INSIDE IT, ON A DRAGGABLE DIVIDER BETWEEN
+## THEM. Together they want more height than a 720-tall window has by default, so one of the two
+## has to give -- and the menu must never disappear entirely: it keeps its own minimum height no
+## matter where the divider sits (`PALETTE_SCROLL_MIN_HEIGHT` gives the scroll the matching floor
+## on its own side), so a tool button is never made unreachable by a drag. Within those two floors,
+## the author decides how the height splits.
+func _buildPalette(extraTools: Array, split: HSplitContainer) -> Control:
 	var panel := _panel("PalettePanel")
 	panel.custom_minimum_size = Vector2(PALETTE_WIDTH, 0.0)
+	# EXPAND, NOT JUST A FLOOR. A `SplitContainer` only lets its dragger move a child past its own
+	# minimum size when that child is `SIZE_EXPAND_FILL` -- verified against the engine directly,
+	# not assumed: a non-expand child stayed pinned to its minimum through every offset this file's
+	# author tried, in both directions. `_resyncSplitFixedSide` is what starts this panel at
+	# exactly `PALETTE_WIDTH` on the very first layout despite now being free to grow.
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_palettePanel = panel
 	var column := VBoxContainer.new()
 	panel.add_child(column)
 
@@ -168,25 +284,34 @@ func _buildPalette(extraTools: Array) -> Control:
 	title.text = "Tileset"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
-	header.add_child(_collapseButton("PaletteCollapse", panel, PALETTE_WIDTH, func() -> Array[Control]:
-		# The menu is a sibling of the scroll now, so collapsing has to hide both -- hiding only
-		# the scroll would leave a full-width menu inside a 26 px panel.
-		return [_paletteScroll, mapMenuColumn] as Array[Control]
+	header.add_child(_collapseButton(
+		"PaletteCollapse", panel, PALETTE_WIDTH,
+		func() -> Array[Control]: return [_paletteMenuSplit] as Array[Control],
+		split, true
 	))
+
+	_paletteMenuSplit = VSplitContainer.new()
+	_paletteMenuSplit.name = "PaletteMenuSplit"
+	_paletteMenuSplit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_paletteMenuSplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_paletteMenuSplit.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(_paletteMenuSplit)
 
 	_paletteScroll = ScrollContainer.new()
 	_paletteScroll.name = "PaletteScroll"
 	_paletteScroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_paletteScroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(_paletteScroll)
+	_paletteScroll.custom_minimum_size.y = PALETTE_SCROLL_MIN_HEIGHT
+	_paletteMenuSplit.add_child(_paletteScroll)
 
 	paletteColumn = VBoxContainer.new()
 	paletteColumn.name = "PaletteColumn"
 	paletteColumn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_paletteScroll.add_child(paletteColumn)
 
-	column.add_child(HSeparator.new())
-	column.add_child(_buildMapMenu(extraTools))
+	# No expand flag: the menu keeps its own combined minimum height and the scroll above takes
+	# whatever the divider leaves it, which is what makes a menu row impossible to drag out of view.
+	_paletteMenuSplit.add_child(_buildMapMenu(extraTools))
 	return panel
 
 
@@ -302,6 +427,7 @@ func _buildMapColumn() -> Control:
 	column.name = "MapColumn"
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.custom_minimum_size.x = MAP_MIN_WIDTH
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_theme_constant_override("separation", 0)
 
@@ -318,9 +444,12 @@ func _buildMapColumn() -> Control:
 	return column
 
 
-func _buildInspector() -> Control:
+func _buildInspector(split: HSplitContainer) -> Control:
 	var panel := _panel("InspectorPanel")
 	panel.custom_minimum_size = Vector2(INSPECTOR_WIDTH, 0.0)
+	# See `_buildPalette`'s note: expand is what makes this side draggable at all.
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_inspectorPanel = panel
 	var column := VBoxContainer.new()
 	panel.add_child(column)
 
@@ -330,8 +459,10 @@ func _buildInspector() -> Control:
 	title.text = "Layers"
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(title)
-	header.add_child(_collapseButton("InspectorCollapse", panel, INSPECTOR_WIDTH, func() -> Array[Control]:
-		return [_inspectorScroll] as Array[Control]
+	header.add_child(_collapseButton(
+		"InspectorCollapse", panel, INSPECTOR_WIDTH,
+		func() -> Array[Control]: return [_inspectorScroll] as Array[Control],
+		split, false
 	))
 
 	_inspectorScroll = ScrollContainer.new()
@@ -422,8 +553,30 @@ func _actionButton(actionID: String, toggle := false) -> Button:
 
 ## `contentsOf` is a callable rather than the controls themselves because the panel's contents do
 ## not exist yet when its header is built.
+##
+## `split` IS THE THING THAT ACTUALLY SETS THE WIDTH NOW. A `SplitContainer`'s `split_offset` is
+## what places its dragger, not either child's `size_flags` -- shrinking `panel`'s own minimum size
+## no longer shrinks it if the offset still commands the old width, and growing `split_offset`
+## grows whichever child is FIRST while shrinking whichever is SECOND (verified against the engine
+## directly: `+= 100` on a plain two-child split grows the first child by 100 px and shrinks the
+## second by 100 px, symmetrically for `-=`). `isFirstChild` says which side `panel` is on, so the
+## sign of the collapsing delta comes out right either way. `panel.custom_minimum_size` is kept as
+## the floor underneath that offset, exactly as before, so an imprecise delta can never squeeze the
+## panel past `COLLAPSED_WIDTH`.
+##
+## The pre-collapse offset is saved and restored VERBATIM on expand, rather than reversing the
+## delta arithmetic -- simpler, and correct as long as the split's own total width has not changed
+## meanwhile, which collapsing a panel does not do.
+##
+## `SplitContainer.collapsed` IS NEVER SET HERE, and that is deliberate, not an oversight: setting
+## it makes the split ignore `split_offset` entirely and fall back to natural (roughly 50/50)
+## sizing regardless of what the offset says -- verified against the engine directly, where the
+## very offset this function had just computed to reach `COLLAPSED_WIDTH` was silently discarded
+## the moment `collapsed` became `true`. `dragger_visibility` alone hides the handle without that
+## side effect, which is all "collapsed" needs to mean here.
 func _collapseButton(
-	nodeName: String, panel: PanelContainer, width: float, contentsOf: Callable
+	nodeName: String, panel: PanelContainer, width: float, contentsOf: Callable,
+	split: SplitContainer, isFirstChild: bool
 ) -> Button:
 	var button := Button.new()
 	button.name = nodeName
@@ -437,10 +590,15 @@ func _collapseButton(
 		for content in contents:
 			if content != null:
 				content.visible = not collapsed
+		if collapsed:
+			_savedSplitOffsets[nodeName] = split.split_offset
+			var delta := panel.size.x - COLLAPSED_WIDTH
+			split.split_offset += -delta if isFirstChild else delta
+			split.dragger_visibility = SplitContainer.DRAGGER_HIDDEN_COLLAPSED
+		else:
+			split.dragger_visibility = SplitContainer.DRAGGER_VISIBLE
+			split.split_offset = _savedSplitOffsets.get(nodeName, 0)
 		panel.custom_minimum_size = Vector2(COLLAPSED_WIDTH if collapsed else width, 0.0)
-		panel.size_flags_horizontal = (
-			Control.SIZE_SHRINK_BEGIN if collapsed else Control.SIZE_FILL
-		)
 		button.text = "»" if collapsed else "«"
 		button.tooltip_text = "Expand this panel" if collapsed else "Collapse this panel"
 	)

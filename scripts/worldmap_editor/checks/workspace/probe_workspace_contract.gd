@@ -314,7 +314,9 @@ func _checkChromeBuilds() -> void:
 	_require(chrome.paletteColumn != null, "the chrome built no palette column")
 	# The menu is BELOW the tilesheet, in the same panel, which is the whole point of moving it --
 	# and it is OUTSIDE the tilesheet's scroll, so no map action can be hidden by scrolling.
-	var palettePanel := layer.get_node_or_null("Workspace/WorkspaceBody/PalettePanel") as Control
+	var palettePanel := layer.get_node_or_null(
+		"Workspace/WorkspaceBody/PaletteSplit/PalettePanel"
+	) as Control
 	_require(palettePanel != null, "the palette panel was not built")
 	var scroll := layer.find_child("PaletteScroll", true, false) as ScrollContainer
 	_require(scroll != null, "the palette scroll was not built")
@@ -448,6 +450,7 @@ func _checkChromeBuilds() -> void:
 	_require(not hud.picker.visible, "a height layer was still offered a tilesheet")
 
 	await _checkFitsTargetWindows(chrome)
+	await _checkDividers(chrome)
 	layer.queue_free()
 
 
@@ -465,7 +468,7 @@ func _checkFitsTargetWindows(chrome) -> void:
 		root.size = target
 		await process_frame
 		await process_frame
-		var frame := chrome.stage.get_parent().get_parent().get_parent() as Control
+		var frame := chrome.root.get_node("Workspace") as Control
 		var minimum := frame.get_combined_minimum_size()
 		_require(
 			minimum.x <= float(target.x),
@@ -492,6 +495,158 @@ func _checkFitsTargetWindows(chrome) -> void:
 			Geometry.stageToDisplay(stageRect) == stageRect,
 			"a healthy stage at %s did not map to itself" % target
 		)
+
+
+## The three lines between panels have to be BOTH transparent to a map click (the split itself
+## ignores the mouse, same as every structural container) AND draggable (its internal handle does
+## not). Verified against the running engine rather than assumed: a `SplitContainer` parents an
+## internal `SplitContainerDragger` control alongside its two children, and that handle is what
+## takes the mouse -- this asserts that control exists, is visible, and has real size, rather than
+## asserting its exact class name, so the check survives an engine version that renames it.
+func _checkDividers(chrome) -> void:
+	root.size = Vector2i(1280, 720)
+	await process_frame
+	await process_frame
+	# `_checkFitsTargetWindows` just resized the window twice; `resyncPanelWidths` re-establishes
+	# the panels' fixed default widths at THIS size before anything below measures a "before".
+	await chrome.resyncPanelWidths()
+	await process_frame
+	await process_frame
+
+	var paletteSplit := chrome.root.get_node("Workspace/WorkspaceBody/PaletteSplit") as SplitContainer
+	var inspectorSplit := chrome.root.get_node(
+		"Workspace/WorkspaceBody/PaletteSplit/InspectorSplit"
+	) as SplitContainer
+	var menuSplit := chrome.root.find_child("PaletteMenuSplit", true, false) as SplitContainer
+	_require(paletteSplit != null, "PaletteSplit was not built")
+	_require(inspectorSplit != null, "InspectorSplit was not built")
+	_require(menuSplit != null, "PaletteMenuSplit was not built")
+	if paletteSplit == null or inspectorSplit == null or menuSplit == null:
+		return
+
+	for split in [paletteSplit, inspectorSplit, menuSplit]:
+		var container := split as SplitContainer
+		_require(
+			container.mouse_filter == Control.MOUSE_FILTER_IGNORE,
+			"%s does not ignore the mouse, so a map click would be consumed by the divider" % container.name
+		)
+		var hasDragger := false
+		for child in container.get_children(true):
+			var control := child as Control
+			if control == null or control.get_parent() != container:
+				continue
+			if child in [container.get_child(0), container.get_child(1)]:
+				continue
+			if (
+				control.visible and control.mouse_filter != Control.MOUSE_FILTER_IGNORE
+				and control.size.x > 0.0 and control.size.y > 0.0
+			):
+				hasDragger = true
+				break
+		_require(hasDragger, "%s has no draggable handle a click could take hold of" % container.name)
+
+	var palettePanel := chrome.root.get_node(
+		"Workspace/WorkspaceBody/PaletteSplit/PalettePanel"
+	) as Control
+	var inspectorPanel := chrome.root.get_node(
+		"Workspace/WorkspaceBody/PaletteSplit/InspectorSplit/InspectorPanel"
+	) as Control
+
+	var paletteWidthBefore := palettePanel.size.x
+	var stageWidthBefore: float = chrome.stageRect().size.x
+	paletteSplit.split_offset += 120
+	await process_frame
+	await process_frame
+	_require(
+		absf(palettePanel.size.x - (paletteWidthBefore + 120.0)) <= 2.0,
+		"dragging PaletteSplit did not grow the palette by ~120 px (was %s, now %s)" % [
+			paletteWidthBefore, palettePanel.size.x
+		]
+	)
+	_require(
+		absf(chrome.stageRect().size.x - (stageWidthBefore - 120.0)) <= 2.0,
+		"dragging PaletteSplit did not shrink the map by ~120 px"
+	)
+	# Undone before the next check: `InspectorSplit` sits inside `PaletteSplit`'s second child, so
+	# leaving the palette widened would test the inspector's divider against a total width the
+	# palette test already shrank, rather than the two dividers independently.
+	paletteSplit.split_offset -= 120
+	await process_frame
+	await process_frame
+
+	var inspectorWidthBefore := inspectorPanel.size.x
+	inspectorSplit.split_offset -= 80
+	await process_frame
+	await process_frame
+	_require(
+		absf(inspectorPanel.size.x - (inspectorWidthBefore + 80.0)) <= 2.0,
+		"dragging InspectorSplit did not grow the inspector by ~80 px (was %s, now %s)" % [
+			inspectorWidthBefore, inspectorPanel.size.x
+		]
+	)
+
+	var scrollForMenuCheck := chrome.root.find_child("PaletteScroll", true, false) as ScrollContainer
+	menuSplit.split_offset = -10000
+	await process_frame
+	await process_frame
+	_require(
+		chrome.mapMenuColumn.size.y + 0.5 >= chrome.mapMenuColumn.get_combined_minimum_size().y,
+		"dragging PaletteMenuSplit to its extreme shrank the map menu below its own minimum height"
+	)
+	_require(
+		chrome.mapMenuColumn.get_global_rect().position.y >= scrollForMenuCheck.get_global_rect().end.y,
+		"dragging PaletteMenuSplit to its extreme moved the map menu above the tilesheet"
+	)
+
+	# A toggle button's `pressed` signal does not flip `button_pressed` on its own -- that happens
+	# inside the real click path -- so a script-driven press has to set the state first and then
+	# emit the signal the handler actually reads.
+	var paletteButton := chrome.root.find_child("PaletteCollapse", true, false) as Button
+	var preCollapseWidth := palettePanel.size.x
+	paletteButton.button_pressed = true
+	paletteButton.emit_signal("pressed")
+	await process_frame
+	await process_frame
+	# Against the panel's OWN combined minimum, not the bare `COLLAPSED_WIDTH` constant: that
+	# constant is a floor fed to `custom_minimum_size`, but the header row above the tilesheet (the
+	# "Tileset" title and the collapse button itself) stays visible throughout and has a real
+	# minimum width of its own -- measured against the engine directly at ~84 px, not the ~26 px
+	# `COLLAPSED_WIDTH` names. The panel collapsing to as small as it is EVER able to get is the
+	# actual, checkable claim; a hardcoded number ignorant of the header would not be.
+	_require(
+		absf(palettePanel.size.x - palettePanel.get_combined_minimum_size().x) <= 2.0,
+		"collapsing the palette left it wider than its own true minimum (is %s, minimum %s)" % [
+			palettePanel.size.x, palettePanel.get_combined_minimum_size().x
+		]
+	)
+	_require(
+		palettePanel.size.x < preCollapseWidth - 100.0,
+		"collapsing the palette did not meaningfully shrink it (was %s, now %s)" % [
+			preCollapseWidth, palettePanel.size.x
+		]
+	)
+	# NOT `paletteSplit.collapsed` -- setting that property makes a `SplitContainer` ignore
+	# `split_offset` entirely and fall back to natural ~50/50 sizing (verified against the engine
+	# directly), which is exactly what the width assertion just above would catch if the
+	# implementation ever set it. `dragger_visibility` is the real, offset-preserving signal.
+	_require(
+		paletteSplit.dragger_visibility == SplitContainer.DRAGGER_HIDDEN_COLLAPSED,
+		"PaletteSplit's dragger was not hidden on collapse"
+	)
+	paletteButton.button_pressed = false
+	paletteButton.emit_signal("pressed")
+	await process_frame
+	await process_frame
+	_require(
+		absf(palettePanel.size.x - preCollapseWidth) <= 2.0,
+		"expanding the palette did not restore its pre-collapse width (was %s, now %s)" % [
+			preCollapseWidth, palettePanel.size.x
+		]
+	)
+	_require(
+		paletteSplit.dragger_visibility == SplitContainer.DRAGGER_VISIBLE,
+		"PaletteSplit's dragger was not restored on expand"
+	)
 
 
 func _require(condition: bool, message: String) -> void:

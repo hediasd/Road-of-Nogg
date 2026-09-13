@@ -229,6 +229,14 @@ The workspace has a palette column on the left, the map in the middle, and an in
 the right. Either side column can collapse, leaving more room for the map without changing the
 map's coordinate system.
 
+Three lines are draggable: between the palette and the map, between the map and the inspector, and
+between the tilesheet and the map-action menu below it. Dragging any of them trades space between
+the two sides it separates; the map column keeps a minimum width so both dividers together cannot
+squeeze it away, and the menu keeps its own full height so the tilesheet divider cannot drag a tool
+button out of view. Collapsing a panel remembers its width and restores it on expand. Drag
+positions are not saved between sessions, and resizing the window afterward can shift a dragged
+width, the same as any ordinary resizable panel.
+
 **The top bar manages the document and nothing else**: New, Open, Open Recent, Save, Save As and
 the two exports, beside the current document's title and dirty state. **Everything that changes
 the map is in the left column**, under the tilesheet, as a menu in labelled sections -- Tools,
