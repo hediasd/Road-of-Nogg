@@ -480,6 +480,9 @@ func executeCastSpell(
 	var actualTargets = getSpellAffectedTargetsFrom(
 		casterID, spellSetIndex, spellIndex, casterPos, centerPos
 	)
+	var resolvedAffectedCells := getSpellAffectedPositionsFrom(
+		casterID, spellSetIndex, spellIndex, casterPos, centerPos, false
+	)
 	var resolvedTargetIDs: Array[int] = []
 	for affectedID in actualTargets:
 		resolvedTargetIDs.append(int(affectedID))
@@ -491,6 +494,7 @@ func executeCastSpell(
 		actualTargets.size(),
 		_resolvedSpellRadius(spell),
 		spell.area_shape,
+		resolvedAffectedCells.duplicate(),
 		resolvedTargetIDs
 	)
 

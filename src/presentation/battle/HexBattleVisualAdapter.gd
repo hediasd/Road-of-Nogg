@@ -23,8 +23,15 @@ const HexBattleVfxBridgeScript = preload(
 	"res://src/presentation/battle/effects/HexBattleVfxBridge.gd")
 const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
 const VisualActionScript = preload("res://src/presentation/VisualAction.gd")
+const HexBattleCombatFeedbackScript = preload(
+	"res://src/presentation/battle/HexBattleCombatFeedback.gd")
+const HexBattleDisplayStateScript = preload(
+	"res://src/presentation/battle/HexBattleDisplayState.gd")
 const MonsterModelFactoryScript = preload("res://src/presentation/MonsterModelFactory.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
+const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
+const VfxCastContextScript = preload("res://src/presentation/effects/VfxCastContext.gd")
+const HexGridScript = preload("res://src/board/HexGrid.gd")
 
 ## Overlay colours, kept here rather than in the shared theme: these are board markers this item
 ## owns, and adding rows to `NoggTheme` would be retuning a shared resource the item may not.
@@ -68,6 +75,8 @@ var _layers: Dictionary = {}
 var _combat
 var _cursorMarker: MeshInstance3D
 var _disposed := false
+var _displayState: HexBattleDisplayState
+var _feedback: HexBattleCombatFeedback
 
 
 func _init(root: Node3D, map: BattleMapDefinition, state: BattleState = null) -> void:
@@ -91,6 +100,8 @@ func _init(root: Node3D, map: BattleMapDefinition, state: BattleState = null) ->
 		_synchroniseOccupancy,
 		func(): return _root.get_tree() if is_instance_valid(_root) else null
 	)
+	_displayState = HexBattleDisplayStateScript.new()
+	_feedback = HexBattleCombatFeedbackScript.new(self, _root, _map, _displayState)
 	# The inherited signal, emitted from the queue's own. One hop, so the controller has exactly
 	# one thing to wait on and the queue stays the only thing that knows when playback is done.
 	_queue.drained.connect(func(): animation_queue_drained.emit())
@@ -119,6 +130,9 @@ func dispose() -> void:
 	if _queue != null:
 		_queue.dispose()
 		_queue = null
+	if _feedback != null:
+		_feedback.dispose()
+		_feedback = null
 	for id in _models.keys():
 		var model: Node3D = _models[id]
 		if is_instance_valid(model):
@@ -140,16 +154,30 @@ func modelFor(monsterID: int) -> Node3D:
 	return _models.get(monsterID) as Node3D
 
 
+func removeDisplayedModel(monsterID: int) -> void:
+	var model := modelFor(monsterID)
+	if model != null and is_instance_valid(model):
+		model.queue_free()
+	_models.erase(monsterID)
+
+
 # --- board events -----------------------------------------------------------
 
 func _on_monster_spawned(
-	monsterID: int, monsterName: String, team: int, pos: Vector2i, _stats: Dictionary
+	monsterID: int, monsterName: String, team: int, pos: Vector2i, stats: Dictionary
 ) -> void:
 	var elements: Array = []
 	if _state != null:
 		var monster := _state.getMonster(monsterID)
 		if monster != null:
 			elements = monster.elements
+	_buildMonsterModel(monsterID, monsterName, team, elements, pos)
+	_displayState.registerMonster(monsterID, pos, int(stats.get("hp", 0)))
+
+
+func _buildMonsterModel(
+		monsterID: int, monsterName: String, team: int, elements: Array, pos: Vector2i
+) -> Node3D:
 	var model := MonsterModelFactoryScript.build(
 		monsterName, NoggThemeScript.team_color(team), elements
 	)
@@ -157,6 +185,7 @@ func _on_monster_spawned(
 	model.position = worldPositionOf(pos)
 	_root.add_child(model)
 	_models[monsterID] = model
+	return model
 
 
 func _on_monster_moved(monsterID: int, path: Array) -> void:
@@ -171,22 +200,18 @@ func _on_monster_moved(monsterID: int, path: Array) -> void:
 	_queue.enqueue(action)
 
 
-func _on_monster_defeated(monsterID: int, _killerID: int) -> void:
-	var model := modelFor(monsterID)
-	if model != null and is_instance_valid(model):
-		model.queue_free()
-	_models.erase(monsterID)
+## Queued, never applied here. The simulation removes a unit the instant it dies, but the hits
+## that killed it are still waiting in the queue; freeing the model now would make those hits land
+## on nothing.
+func _on_monster_defeated(monsterID: int, killerID: int) -> void:
+	_queueRemoval(monsterID, killerID, HexBattleDisplayStateScript.REASON_DEFEATED)
 
 
 ## A withdrawn party leaves the board without dying -- commander loss forces retreat, it does not
-## kill. Disposal is the same as defeat; the distinction is the simulation's, not the screen's.
+## kill. It is queued like a defeat but plays and records as its own removal.
 func _on_party_withdrawn(_partyID: int, memberIDs: Array) -> void:
 	for value in memberIDs:
-		var monsterID := int(value)
-		var model := modelFor(monsterID)
-		if model != null and is_instance_valid(model):
-			model.queue_free()
-		_models.erase(monsterID)
+		_queueRemoval(int(value), -1, HexBattleDisplayStateScript.REASON_WITHDRAWN)
 
 
 # --- cursor and overlays ----------------------------------------------------
@@ -341,7 +366,292 @@ func _buildMarker(color: Color) -> MeshInstance3D:
 	return marker
 
 
-# --- spells -----------------------------------------------------------------
+# --- combat events ----------------------------------------------------------
+#
+# Event map (IBattleVisualAdapter -> what this adapter does):
+#   monster_attacked      strike: attacker lunges, number over the target, HP at impact. A miss
+#                         (targetID -1) lunges at the cell with no number and no HP change.
+#   spell_cast_started    one cast carrier over the resolved cells; never one per victim.
+#   monster_cast_spell    strike per damaged target, summed damage lines, HP at impact.
+#   monster_healed        heal number, HP at impact.
+#   status_damage_dealt   number over the ticking unit, HP at impact, no lunge.
+#   passive_aoe_damage    number over the damaged unit, HP at impact, no lunge.
+#   effect_applied/ticked/removed   displayed status rows, in queue order.
+#   monster_defeated      queued collapse and removal (see board events).
+#   party_withdrawn       queued lift-away and removal, recorded as withdrawn.
+#   monster_spawned / monster_moved   model build / queued walk (board events).
+# Intentional no-ops, inherited from the base class:
+#   passive_triggered     carries no amount or target; its consequence arrives as its own
+#                         passive_aoe_damage event, so feedback here would double it.
+#   resonance_changed     no visible board consequence; the resonance readout belongs to HPR-6.
+#   action_targeted / movement_targeted / turn and activation events   cursor, HUD and
+#                         lifecycle presentation owned by the controller and HPR-6/HPR-7.
+#   battle_started / battle_ended / round events   lifecycle, HPR-7.
+
+func _on_monster_attacked(
+		attackerID: int, targetPos: Vector2i, targetID: int, damage: int, targetNewHP: int
+) -> void:
+	var payload := _impactPayload(
+		HexBattleCombatFeedbackScript.TYPE_STRIKE, attackerID, targetID, targetPos, damage, false)
+	if targetID >= 0:
+		payload["new_hp"] = targetNewHP
+	_queueFeedback(VisualAction.Kind.BUMP, payload)
+
+
+func _on_spell_cast_started(
+		casterID: int,
+		centerPos: Vector2i,
+		spellName: String,
+		element: String,
+		targetsHit: int,
+		_resolvedRadius: int,
+		areaShape: String,
+		resolvedAffectedCells: Array,
+		resolvedTargetIDs: Array) -> void:
+	# Missing or inconsistent event fields are defects to surface, not gaps to fill by guessing.
+	var reference := SpellReferencesScript.getReference(spellName)
+	if reference.is_empty():
+		push_error("Hex cast event names a spell with no catalog reference: %s" % spellName)
+	if not _map.containsCell(centerPos):
+		push_error("Hex cast event centre %s is off the map (%s)." % [centerPos, spellName])
+	if targetsHit != resolvedTargetIDs.size():
+		push_error("Hex cast event target count %d does not match its %d target ids (%s)." % [
+			targetsHit, resolvedTargetIDs.size(), spellName])
+	if resolvedAffectedCells.is_empty() and not resolvedTargetIDs.is_empty():
+		push_error("Hex cast event hit targets but carried no affected cells (%s)." % spellName)
+	var impactWorld := worldPositionOf(centerPos)
+	var casterCell := _eventCellOf(casterID, centerPos)
+	var targetWorldPositions: Array[Vector3] = []
+	var targetBodyBounds: Array[AABB] = []
+	for value in resolvedTargetIDs:
+		var targetID := int(value)
+		var targetModel := modelFor(targetID)
+		if targetModel == null or not is_instance_valid(targetModel):
+			targetWorldPositions.append(impactWorld)
+			targetBodyBounds.append(VfxCastContextScript.DEFAULT_TARGET_BODY_BOUNDS)
+			continue
+		targetWorldPositions.append(worldPositionOf(_eventCellOf(targetID, centerPos)))
+		targetBodyBounds.append(_bodyBoundsOf(targetModel))
+	var payload := {
+		"type": HexBattleCombatFeedbackScript.TYPE_CAST,
+		"caster_id": casterID,
+		"spell": spellName,
+		"source_world": worldPositionOf(casterCell),
+		"impact_world": impactWorld,
+		"profile": str(reference.get("VFX_PROFILE", "")),
+		"element": element,
+		"area_shape": areaShape,
+		"affected_cells": resolvedAffectedCells.duplicate(true),
+		"ground_span": _groundSpanOf(resolvedAffectedCells),
+		"surface_path": _surfacePath(casterCell, centerPos),
+		"target_ids": resolvedTargetIDs.duplicate(),
+		"target_world_positions": targetWorldPositions,
+		"target_body_bounds": targetBodyBounds,
+		# The donor's deterministic seed: the same cast looks the same on replay.
+		"effect_seed": int(hash(spellName)) ^ (casterID * 73856093) \
+			^ (centerPos.x * 19349663) ^ (centerPos.y * 83492791),
+	}
+	_queueFeedback(VisualAction.Kind.CAST_AREA, payload)
+
+
+func _on_monster_cast_spell(
+		casterID: int,
+		centerPos: Vector2i,
+		targetID: int,
+		_spellName: String,
+		damageLines: Array,
+		targetNewHP: int) -> void:
+	var amount := 0
+	for line in damageLines:
+		amount += int(line.get("damage", 0))
+	var payload := _impactPayload(
+		HexBattleCombatFeedbackScript.TYPE_STRIKE, casterID, targetID,
+		_eventCellOf(targetID, centerPos), amount, false)
+	payload["new_hp"] = targetNewHP
+	_queueFeedback(VisualAction.Kind.BUMP, payload)
+
+
+func _on_monster_healed(
+		healerID: int,
+		centerPos: Vector2i,
+		targetID: int,
+		_spellName: String,
+		healAmount: int,
+		targetNewHP: int) -> void:
+	var payload := _impactPayload(
+		HexBattleCombatFeedbackScript.TYPE_NUMBER, healerID, targetID,
+		_eventCellOf(targetID, centerPos), healAmount, true)
+	payload["new_hp"] = targetNewHP
+	_queueFeedback(VisualAction.Kind.MESSAGE, payload)
+
+
+func _on_status_damage_dealt(
+		monsterID: int, _effectName: String, damage: int, newHP: int) -> void:
+	var payload := _impactPayload(
+		HexBattleCombatFeedbackScript.TYPE_NUMBER, monsterID, monsterID,
+		_eventCellOf(monsterID, Vector2i(-1, -1)), damage, false)
+	payload["new_hp"] = newHP
+	_queueFeedback(VisualAction.Kind.MESSAGE, payload)
+
+
+func _on_passive_aoe_damage(
+		sourceID: int,
+		_passiveName: String,
+		targetID: int,
+		_element: String,
+		damage: int,
+		targetNewHP: int) -> void:
+	var payload := _impactPayload(
+		HexBattleCombatFeedbackScript.TYPE_NUMBER, sourceID, targetID,
+		_eventCellOf(targetID, Vector2i(-1, -1)), damage, false)
+	payload["new_hp"] = targetNewHP
+	_queueFeedback(VisualAction.Kind.MESSAGE, payload)
+
+
+## The row is copied from the simulation at event time, so the displayed status carries the same
+## fields a badge reads, without ever reading a later state.
+func _on_effect_applied(
+		monsterID: int, effectName: String, duration: int,
+		_sourceMonsterID: int, _sourceSpellName: String) -> void:
+	var row := {"name": effectName, "remainingTurns": duration}
+	if _state != null:
+		for existing in _state.getActiveEffects(monsterID):
+			if str(existing.get("name", "")) == effectName:
+				row = (existing as Dictionary).duplicate(true)
+				break
+	_queueDisplayUpdate(monsterID, "effect_apply", effectName, duration, row)
+
+
+func _on_effect_ticked(monsterID: int, effectName: String, remainingTurns: int) -> void:
+	_queueDisplayUpdate(monsterID, "effect_tick", effectName, remainingTurns)
+
+
+func _on_effect_removed(monsterID: int, effectName: String) -> void:
+	_queueDisplayUpdate(monsterID, "effect_remove", effectName, 0)
+
+
+func _impactPayload(
+		payloadType: String, sourceID: int, targetID: int, targetCell: Vector2i, amount: int,
+		heal: bool
+) -> Dictionary:
+	return {
+		"type": payloadType,
+		"source_id": sourceID,
+		"target_id": targetID,
+		"source_world": worldPositionOf(_eventCellOf(sourceID, targetCell)),
+		"target_world": worldPositionOf(targetCell),
+		"amount": amount,
+		"heal": heal,
+	}
+
+
+## Where a unit stands AT THIS EVENT. Only valid inside an event callback: the simulation emits
+## synchronously, so this is the event's own moment, never a later one.
+func _eventCellOf(monsterID: int, fallback: Vector2i) -> Vector2i:
+	if _state != null and monsterID >= 0:
+		var cell := _state.getMonsterPosition(monsterID)
+		if _map.containsCell(cell):
+			return cell
+	return fallback
+
+
+## Body-only bounds in the model's local space, as the donor measured them: child 1 is the body.
+func _bodyBoundsOf(model: Node3D) -> AABB:
+	if model.get_child_count() < 2:
+		return VfxCastContextScript.DEFAULT_TARGET_BODY_BOUNDS
+	var body := model.get_child(1) as Node3D
+	if body == null:
+		return VfxCastContextScript.DEFAULT_TARGET_BODY_BOUNDS
+	var accumulated := {"has_bounds": false, "bounds": AABB()}
+	var bodyMesh := body as MeshInstance3D
+	if bodyMesh != null and bodyMesh.mesh != null:
+		accumulated["bounds"] = body.transform * bodyMesh.get_aabb()
+		accumulated["has_bounds"] = true
+	MonsterModelFactoryScript.accumulateVisualBounds(body, body.transform, accumulated)
+	if not accumulated["has_bounds"]:
+		return VfxCastContextScript.DEFAULT_TARGET_BODY_BOUNDS
+	return accumulated["bounds"]
+
+
+## Surface height range across the resolved cells. The donor measured the same range over its
+## square diamond; here it is the cells the cast actually covered.
+func _groundSpanOf(cells: Array) -> float:
+	var lowest := INF
+	var highest := -INF
+	for value in cells:
+		var cell: Vector2i = value
+		if not _map.containsCell(cell):
+			continue
+		var surfaceY := worldPositionOf(cell).y
+		lowest = minf(lowest, surfaceY)
+		highest = maxf(highest, surfaceY)
+	return 0.0 if lowest == INF else highest - lowest
+
+
+## Event-time surface samples along the hex line from caster to impact, for ground-bound effects
+## (the ice trail). Axial interpolation with cube rounding, so it walks the cells a line crosses.
+func _surfacePath(fromCell: Vector2i, toCell: Vector2i) -> Array[Vector3]:
+	var result: Array[Vector3] = []
+	if not _map.containsCell(fromCell) or not _map.containsCell(toCell):
+		return result
+	var steps := HexGridScript.distance(fromCell, toCell)
+	var fromAxial := HexGridScript.offsetToAxial(fromCell)
+	var toAxial := HexGridScript.offsetToAxial(toCell)
+	for step in range(steps + 1):
+		var t := float(step) / float(maxi(steps, 1))
+		# Nudged off exact ties so rounding never flips between two neighbours.
+		var q := lerpf(float(fromAxial.x) + 1e-6, float(toAxial.x) + 1e-6, t)
+		var r := lerpf(float(fromAxial.y) + 2e-6, float(toAxial.y) + 2e-6, t)
+		var cell := HexGridScript.axialToOffset(_roundAxial(q, r))
+		if not _map.containsCell(cell):
+			continue
+		var world := worldPositionOf(cell)
+		if result.is_empty() or not result.back().is_equal_approx(world):
+			result.append(world)
+	return result
+
+
+static func _roundAxial(q: float, r: float) -> Vector2i:
+	var s := -q - r
+	var rq := roundf(q)
+	var rr := roundf(r)
+	var rs := roundf(s)
+	var dq := absf(rq - q)
+	var dr := absf(rr - r)
+	var ds := absf(rs - s)
+	if dq > dr and dq > ds:
+		rq = -rr - rs
+	elif dr > ds:
+		rr = -rq - rs
+	return Vector2i(int(rq), int(rr))
+
+
+func _queueDisplayUpdate(
+		monsterID: int, operation: String, effectName: String, duration: int,
+		row: Dictionary = {}
+) -> void:
+	_queueFeedback(VisualAction.Kind.MESSAGE, {
+		"type": HexBattleCombatFeedbackScript.TYPE_DISPLAY, "monster_id": monsterID,
+		"display_op": operation, "effect": effectName, "duration": duration, "row": row,
+	})
+
+
+func _queueRemoval(monsterID: int, killerID: int, reason: String) -> void:
+	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.DEFEAT)
+	action.monster_id = monsterID
+	action.killer_id = killerID
+	_feedback.attach(action, {"type": HexBattleCombatFeedbackScript.TYPE_REMOVAL,
+		"monster_id": monsterID, "reason": reason})
+	_queue.enqueue(action)
+
+
+func _queueFeedback(kind: VisualAction.Kind, payload: Dictionary) -> void:
+	var action: VisualAction = VisualActionScript.new(kind)
+	action.monster_id = int(payload.get("source_id", payload.get("caster_id",
+		payload.get("monster_id", -1))))
+	action.target_id = int(payload.get("target_id", -1))
+	_feedback.attach(action, payload)
+	_queue.enqueue(action)
 
 # --- queue callbacks --------------------------------------------------------
 
@@ -352,9 +662,7 @@ func _startQueuedAction(action: VisualAction) -> bool:
 		VisualAction.Kind.MOVE:
 			return _startMove(action)
 		_:
-			# Every other kind is presentation this item does not own yet; it passes through
-			# rather than stalling the queue, which would hang the controller waiting to drain.
-			return false
+			return _feedback.start(action, _queue) if _feedback != null else false
 
 
 ## Walks a unit along the cell centres of its path. Tweened per step rather than straight to the
@@ -376,13 +684,14 @@ func _startMove(action: VisualAction) -> bool:
 
 
 func _finalizeQueuedAction(action: VisualAction) -> void:
-	if action.kind != VisualAction.Kind.MOVE:
+	if action.kind == VisualAction.Kind.MOVE:
+		var model := modelFor(action.monster_id)
+		if model != null and is_instance_valid(model) and not action.path.is_empty():
+			model.position = worldPositionOf(action.path[action.path.size() - 1])
+			_displayState.setPosition(action.monster_id, action.path[action.path.size() - 1])
 		return
-	var model := modelFor(action.monster_id)
-	if model != null and is_instance_valid(model) and not action.path.is_empty():
-		# Snapped to the last cell so a tween interrupted mid-step cannot leave a unit standing
-		# between two hexes.
-		model.position = worldPositionOf(action.path[action.path.size() - 1])
+	if _feedback != null:
+		_feedback.finalize(action)
 
 
 ## Puts every model back where the simulation says it is. The queue calls this when it recovers
@@ -391,6 +700,17 @@ func _finalizeQueuedAction(action: VisualAction) -> void:
 func _synchroniseOccupancy(exceptMonsterID: int = -1) -> void:
 	if _state == null:
 		return
+	if _feedback != null:
+		_feedback.recover(_state)
+	for value in _state.monsterPositions.keys():
+		var authoritativeID := int(value)
+		if modelFor(authoritativeID) != null:
+			continue
+		var monster = _state.getMonster(authoritativeID)
+		if monster != null and monster.is_alive():
+			_buildMonsterModel(
+				authoritativeID, monster.name, monster.team, monster.elements,
+				_state.getMonsterPosition(authoritativeID))
 	for monsterID in _models.keys():
 		if int(monsterID) == exceptMonsterID:
 			continue
@@ -399,10 +719,66 @@ func _synchroniseOccupancy(exceptMonsterID: int = -1) -> void:
 			continue
 		var cell: Vector2i = _state.getMonsterPosition(int(monsterID))
 		if not _map.containsCell(cell):
-			model.visible = false
+			removeDisplayedModel(int(monsterID))
 			continue
 		model.visible = true
 		model.position = worldPositionOf(cell)
+
+
+# --- displayed state and playback control ------------------------------------
+
+## What the screen has shown so far. HUD and badge readers use these, never `BattleState`, so a
+## number and the HP it changes appear together.
+func displayedHitpoints(monsterID: int) -> int:
+	return _displayState.hitpointsOf(monsterID)
+
+
+func displayedPosition(monsterID: int) -> Vector2i:
+	return _displayState.positionOf(monsterID)
+
+
+func displayedEffects(monsterID: int) -> Array:
+	return _displayState.effectsOf(monsterID)
+
+
+## "defeated", "withdrawn", or "" while the unit is still on the board.
+func displayedRemovalReason(monsterID: int) -> String:
+	return _displayState.removalReason(monsterID)
+
+
+## Player fast-forward of the active action only. A playing cast jumps to its settle tail first so
+## the skip does not cut it mid-burst, then the queue finalizes and moves on.
+func skipCurrentAnimation() -> void:
+	if _feedback != null:
+		_feedback.skipActive()
+	if _queue != null:
+		_queue.skipActive()
+
+
+## Abandons queued playback and converges models and displayed state on authoritative state.
+func recoverPlayback() -> void:
+	if _queue != null:
+		_queue.recover()
+
+
+func pendingFeedbackPayloadCount() -> int:
+	return _feedback.pendingPayloadCount() if _feedback != null else 0
+
+
+func feedbackAttachedCount(payloadType: String) -> int:
+	return _feedback.attachedCount(payloadType) if _feedback != null else 0
+
+
+func feedbackTimeline() -> Array[Dictionary]:
+	return _feedback.timeline() if _feedback != null else []
+
+
+func liveCastEffectCount() -> int:
+	return _feedback.liveEffectCount() if _feedback != null else 0
+
+
+func damageNumberRoot() -> Control:
+	return _feedback.numberRoot() if _feedback != null else null
 
 
 # --- forecast ---------------------------------------------------------------

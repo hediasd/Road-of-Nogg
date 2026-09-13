@@ -150,6 +150,7 @@ func _on_spell_cast_started(
 		targetsHit: int,
 		_resolvedRadius: int,
 		_areaShape: String,
+		_resolvedAffectedCells: Array,
 		_resolvedTargetIDs: Array) -> void:
 	if targetsHit == 0:
 		var caster = state.getMonster(casterID)

@@ -109,6 +109,7 @@ func _on_spell_cast_started(
 		_targetsHit: int,
 		_resolvedRadius: int,
 		_areaShape: String,
+		_resolvedAffectedCells: Array,
 		_resolvedTargetIDs: Array) -> void: pass
 func _on_monster_cast_spell(_casterID: int, _centerPos: Vector2i, _targetID: int, _spellName: String, _damageLines: Array, _targetNewHP: int) -> void: pass
 func _on_monster_healed(_healerID: int, _centerPos: Vector2i, _targetID: int, _spellName: String, _healAmount: int, _targetNewHP: int) -> void: pass
