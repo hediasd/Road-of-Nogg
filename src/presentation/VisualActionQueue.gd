@@ -52,6 +52,10 @@ var _activeAction: VisualAction
 var _serial: int = 0
 var _disposed: bool = false
 
+## Bumped on every _armWatchdog call so a watchdog armed before a pause, and still pending when
+## a fresh one is armed on resume, is ignored instead of firing against the same serial.
+var _watchdogToken: int = 0
+
 var _paused: bool = false
 var _watchdogDuration: float = 0.0
 
@@ -97,11 +101,14 @@ func setPaused(paused: bool) -> void:
 			_tween.pause()
 		else:
 			_tween.play()
-			# The watchdog armed at activation has very likely already come and
-			# gone during the pause, refused by the guard in _complete(). Arm a
-			# fresh one under the same serial so a tween that cannot finish —
-			# one killed from outside, which still reports is_valid() — is still
-			# recovered rather than wedging the queue.
+			# The watchdog armed at activation is a SceneTree timer that keeps
+			# running through the pause and may still be pending here. Arming a
+			# fresh one below does not cancel it; it is now ignored by token
+			# instead — _onWatchdogTimeout compares its token against
+			# _watchdogToken and no-ops once an intervening arm has moved it on.
+			# Arm a fresh one under the same serial so a tween that cannot finish
+			# — one killed from outside, which still reports is_valid() — is
+			# still recovered rather than wedging the queue.
 			_armWatchdog(_serial)
 	if not _paused and not _isAnimating:
 		startNext()
@@ -110,10 +117,22 @@ func setPaused(paused: bool) -> void:
 func _armWatchdog(serial: int) -> void:
 	var tree: SceneTree = _treeProvider.call()
 	if tree and not _paused:
+		_watchdogToken += 1
+		var token := _watchdogToken
 		tree.create_timer(_watchdogDuration).timeout.connect(
-			_complete.bind(serial, true),
+			_onWatchdogTimeout.bind(serial, token),
 			CONNECT_ONE_SHOT
 		)
+
+
+func _onWatchdogTimeout(serial: int, token: int) -> void:
+	## A watchdog armed before a pause keeps running through it (it is a SceneTree timer, not
+	## tied to the tween) and is still connected when a fresh one is armed on resume. The token
+	## makes the superseded one a no-op instead of finalizing the resumed action early.
+	if token != _watchdogToken:
+		return
+	_complete(serial, true)
+
 
 func enqueue(action: VisualAction) -> void:
 	if _disposed:
