@@ -36,6 +36,8 @@ const HexPartyPanelScript = preload("res://src/presentation/battle/ui/HexPartyPa
 const HexCommandMenuScript = preload("res://src/presentation/battle/ui/HexCommandMenu.gd")
 const HexInspectionPanelScript = preload("res://src/presentation/battle/ui/HexInspectionPanel.gd")
 const HexPartyOrderPanelScript = preload("res://src/presentation/battle/ui/HexPartyOrderPanel.gd")
+const HexBattleSessionPanelScript = preload(
+	"res://src/presentation/battle/ui/HexBattleSessionPanel.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const ElementReferencesScript = preload("res://src/factories/ElementReferences.gd")
 
@@ -52,6 +54,8 @@ signal member_selected(monsterID: int)
 signal end_party_requested()
 signal command_chosen(commandID: String)
 signal command_cancelled()
+## A session row was clicked: one of HexBattleSessionPanel's command ids.
+signal session_command(commandID: String)
 
 var partyPanel: HexPartyPanel
 var commandMenu: HexCommandMenu
@@ -59,6 +63,7 @@ var commandMenu: HexCommandMenu
 ## (LEARNINGS, GDScript loading). The preloaded scripts construct them.
 var orderPanel
 var inspection
+var sessionPanel
 var _statusLabel: Label
 var _root: Control
 
@@ -77,6 +82,10 @@ var _aim: Dictionary = {}
 ## The party model last handed to the panel. The panel rebuilds its rows on every update, so the
 ## per-frame refresh only hands it a model that differs.
 var _partyModel: Dictionary = {}
+## The command model last supplied, kept so a pause can redraw it without input.
+var _commandModel: Dictionary = {}
+## True while playback is paused: every row that would issue a command draws disabled.
+var _inputLocked := false
 
 
 func _init() -> void:
@@ -84,7 +93,12 @@ func _init() -> void:
 	# Native resolution, above the battle viewport: the board may render at a retro preset's
 	# reduced scale, and HUD text downsampled with it would be unreadable. Same reason damage
 	# numbers live outside the 3D viewport.
-	layer = 1
+	#
+	# GAME_LAYER, the square battle's UI layer, so the square battle's whole stack holds again:
+	# status badges (layer 0) under damage numbers (WORLD_EFFECT_LAYER, 9) under the HUD (10), and
+	# the CRT overlay's "UI through CRT" layer (GAME_LAYER + 1) is again just above the HUD. At
+	# layer 1 the HUD sat under the numbers, so a hit number drew over the panels.
+	layer = NoggThemeScript.GAME_LAYER
 
 	_root = Control.new()
 	_root.name = "HudRoot"
@@ -116,6 +130,10 @@ func _init() -> void:
 
 	inspection = HexInspectionPanelScript.new()
 	_root.add_child(inspection)
+
+	sessionPanel = HexBattleSessionPanelScript.new()
+	_root.add_child(sessionPanel)
+	sessionPanel.command_chosen.connect(func(id: String): session_command.emit(id))
 
 	_statusLabel = Label.new()
 	_statusLabel.name = "StatusLine"
@@ -160,7 +178,8 @@ func showParty(
 	_activeMemberID = activeMemberID
 	_inputEnabled = inputEnabled
 	_partyModel = partyModel(
-		sim.state, sim.eligiblePartyMemberIDs(), partyID, activeMemberID, inputEnabled, _display)
+		sim.state, sim.eligiblePartyMemberIDs(), partyID, activeMemberID,
+		inputEnabled and not _inputLocked, _display)
 	partyPanel.updateModel(_partyModel)
 	_layout()
 
@@ -284,7 +303,8 @@ static func partyOrderModel(state: BattleState, display = null) -> Dictionary:
 func showCommands(model: Dictionary) -> void:
 	if commandMenu == null:
 		return
-	commandMenu.updateModel(model)
+	_commandModel = model.duplicate(true)
+	commandMenu.updateModel(_lockedCommands(model))
 	commandMenu.visible = not model.is_empty()
 	_layout()
 
@@ -292,8 +312,92 @@ func showCommands(model: Dictionary) -> void:
 func hideCommands() -> void:
 	if commandMenu == null:
 		return
+	_commandModel = {}
 	commandMenu.updateModel({})
 	commandMenu.hide()
+
+
+func _lockedCommands(model: Dictionary) -> Dictionary:
+	if not _inputLocked or model.is_empty():
+		return model
+	var locked := model.duplicate(true)
+	locked["input_enabled"] = false
+	return locked
+
+
+## Locks or unlocks every command row, and redraws the party panel and command menu at once so
+## the rows say so. Called by the controller when playback pauses or resumes. The lock is only
+## what the rows show; the controller refuses the commands themselves.
+func setInputLocked(locked: bool) -> void:
+	if _inputLocked == locked:
+		return
+	_inputLocked = locked
+	if _sim != null and _partyID != -1:
+		showParty(_sim, _partyID, _activeMemberID, _inputEnabled)
+	if commandMenu != null and not _commandModel.is_empty():
+		commandMenu.updateModel(_lockedCommands(_commandModel))
+
+
+func isInputLocked() -> bool:
+	return _inputLocked
+
+
+# --- session -----------------------------------------------------------------
+
+## `session` keys: phase ("battle", "ending" or "complete"), paused (bool), speed (float),
+## can_skip (bool), aiming (bool), result (String), rounds (int). Built by the controller, which
+## owns them.
+func setSession(session: Dictionary) -> void:
+	if sessionPanel != null:
+		sessionPanel.updateModel(sessionModel(session))
+
+
+## The session rows. While the battle plays: its state, then Pause or Resume, the speed, Skip, and
+## Setup, then the camera keys as a help row. Once it is complete: the result, Restart and Setup.
+## Each value column is the key for that row.
+static func sessionModel(session: Dictionary) -> Dictionary:
+	if session.is_empty():
+		return {}
+	# Steps aside while the player aims, as the command menu does. The window takes the pointer, and
+	# at the bottom centre it sits over the near edge of the board, exactly where a cell may need
+	# pointing at. P, F and Enter still work; the rows return when the aim ends.
+	if bool(session.get("aiming", false)):
+		return {}
+	var phase := str(session.get("phase", ""))
+	if phase == "complete":
+		return {
+			"title": str(session.get("result", "")),
+			"rows": [
+				{"id": "", "label": "After %d rounds" % int(session.get("rounds", 0)),
+					"value": "", "enabled": false},
+				{"id": HexBattleSessionPanelScript.RESTART, "label": "Restart", "value": "R",
+					"enabled": true},
+				{"id": HexBattleSessionPanelScript.SETUP, "label": "Setup", "value": "", "enabled": true},
+				{"id": "", "label": "Q/E turn, wheel zoom", "value": "", "enabled": false},
+			],
+		}
+	var paused := bool(session.get("paused", false))
+	var title := "Paused" if paused else ("Finishing" if phase == "ending" else "Playing")
+	return {
+		"title": title,
+		"rows": [
+			{"id": HexBattleSessionPanelScript.PAUSE, "label": "Resume" if paused else "Pause",
+				"value": "P", "enabled": true},
+			{"id": HexBattleSessionPanelScript.SPEED,
+				"label": "Speed %s" % speedText(float(session.get("speed", 1.0))),
+				"value": "F", "enabled": true},
+			{"id": HexBattleSessionPanelScript.SKIP, "label": "Skip", "value": "Enter",
+				"enabled": bool(session.get("can_skip", false))},
+			{"id": HexBattleSessionPanelScript.SETUP, "label": "Setup", "value": "", "enabled": true},
+			{"id": "", "label": "Q/E turn, wheel zoom", "value": "", "enabled": false},
+		],
+	}
+
+
+static func speedText(speed: float) -> String:
+	if is_equal_approx(speed, roundf(speed)):
+		return "%dx" % roundi(speed)
+	return "%.1fx" % speed
 
 
 # --- inspection -------------------------------------------------------------
@@ -528,7 +632,8 @@ func refresh() -> void:
 	var state := _sim.state
 	if _partyID != -1 and partyPanel != null:
 		var model := partyModel(
-			state, _sim.eligiblePartyMemberIDs(), _partyID, _activeMemberID, _inputEnabled, _display)
+			state, _sim.eligiblePartyMemberIDs(), _partyID, _activeMemberID,
+			_inputEnabled and not _inputLocked, _display)
 		if model != _partyModel:
 			_partyModel = model
 			partyPanel.updateModel(model)
@@ -562,6 +667,11 @@ func _layout() -> void:
 	commandMenu.position = Vector2(
 		viewportSize.x - NoggThemeScript.SPELL_WIDTH - margin, margin)
 	inspection.layoutFor(viewportSize)
+	if sessionPanel != null:
+		var sessionSize: Vector2 = sessionPanel.windowSize()
+		sessionPanel.position = Vector2(
+			round((viewportSize.x - NoggThemeScript.STATUS_WINDOW_WIDTH) * 0.5),
+			viewportSize.y - sessionSize.y - margin)
 	var statusWidth := _statusLabel.get_minimum_size().x
 	_statusLabel.size = _statusLabel.get_minimum_size()
 	_statusLabel.position = Vector2(round((viewportSize.x - statusWidth) * 0.5), margin)

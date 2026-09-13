@@ -57,6 +57,11 @@ var _activeCast: WeakRef
 var _numberLayer: CanvasLayer
 var _numberRoot: Control
 var _attachedCounts: Dictionary = {}
+## Presentation speed and pause, set through the adapter by `HexBattlePlayback`. Every tween this
+## class hands the queue runs at `_playbackScale`, and every live effect carrier follows it, or
+## freezes at zero while paused. Never read by the simulation.
+var _playbackScale := 1.0
+var _paused := false
 ## Probe-facing record of what reached the screen, in order. Bounded so a long battle cannot grow
 ## it without limit.
 var _timeline: Array[Dictionary] = []
@@ -124,6 +129,42 @@ func finalize(action: VisualAction) -> void:
 		TYPE_DISPLAY:
 			_applyDisplay(payload)
 	_record(payload)
+
+
+## Speed for everything started from now on, and at once for every live effect carrier. A tween
+## the queue is already running keeps the speed it was activated with: its watchdog was sized for
+## that speed, and slowing it mid-flight would let the watchdog cut it short.
+func setPlaybackScale(scale: float) -> void:
+	_playbackScale = maxf(scale, 0.01)
+	_applyEffectScale()
+
+
+## Freezes or releases the live effect carriers. The queue's own tween is paused by the queue.
+func setPaused(paused: bool) -> void:
+	_paused = paused
+	_applyEffectScale()
+
+
+func playbackScale() -> float:
+	return _playbackScale
+
+
+func _applyEffectScale() -> void:
+	_pruneEffects()
+	for ref in _liveEffects:
+		var effect := _effectFrom(ref)
+		if effect != null:
+			effect.set_playback_scale(0.0 if _paused else _playbackScale)
+
+
+## The one path this class activates a queued tween through, as the donor's `_activateScaled`: the
+## tween runs at the playback speed, and the queue is told the real elapsed time so its watchdog
+## neither fires early in slow motion nor waits needlessly when fast.
+func _activate(
+		queue: VisualActionQueue, tween: Tween, action: VisualAction, duration: float
+) -> void:
+	tween.set_speed_scale(_playbackScale)
+	queue.activate(tween, action, duration / _playbackScale)
 
 
 func skipActive() -> void:
@@ -197,7 +238,7 @@ func _startStrike(action: VisualAction, payload: Dictionary, queue: VisualAction
 		if hold > visible:
 			tween.chain().tween_interval(hold - visible)
 			visible = hold
-	queue.activate(tween, action, visible)
+	_activate(queue, tween, action, visible)
 	return true
 
 
@@ -211,7 +252,7 @@ func _startNumber(action: VisualAction, payload: Dictionary, queue: VisualAction
 		* ACTION_HOLD_FRACTION
 	var tween := _root.create_tween()
 	tween.tween_interval(hold)
-	queue.activate(tween, action, hold)
+	_activate(queue, tween, action, hold)
 	return true
 
 
@@ -232,8 +273,13 @@ func _spawnNumber(payload: Dictionary) -> bool:
 		return false
 	if not _ensureNumberLayer():
 		return false
-	return DamageNumberBillboardScript.spawn(
-		_numberRoot, screenPosition, amount, bool(payload.get("heal", false))) != null
+	var animation := DamageNumberBillboardScript.spawn(
+		_numberRoot, screenPosition, amount, bool(payload.get("heal", false)))
+	if animation == null:
+		return false
+	# The donor scaled the number's own tween too, so a hit's number keeps pace with its hold.
+	animation.set_speed_scale(_playbackScale)
+	return true
 
 
 ## Numbers are native-resolution UI. Under a battle stage the world renders in an isolated
@@ -319,12 +365,14 @@ func _startCast(action: VisualAction, payload: Dictionary, queue: VisualActionQu
 			profile, str(payload.get("spell", ""))])
 		return false
 	effect.set("_autoDispose", true)
+	# Before play, as the donor did, so a cast started at 4x never plays a first frame at 1x.
+	effect.set_playback_scale(0.0 if _paused else _playbackScale)
 	_activeCast = _trackEffect(effect, resolvedProfile)
 	effect.play(int(payload.get("effect_seed", 0)), VfxPlayback.MODE_BATTLE)
 	var hold := effect.get_total_duration() * SpellVfxCatalogScript.actionHoldFraction(profile)
 	var tween := _root.create_tween()
 	tween.tween_interval(hold)
-	queue.activate(tween, action, hold)
+	_activate(queue, tween, action, hold)
 	return true
 
 
@@ -417,7 +465,7 @@ func _startRemoval(action: VisualAction, payload: Dictionary, queue: VisualActio
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 		lift.tween_property(model, "scale", Vector3.ZERO, WITHDRAW_SECONDS) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-		queue.activate(lift, action, WITHDRAW_SECONDS)
+		_activate(queue, lift, action, WITHDRAW_SECONDS)
 		return true
 	# Child 0 is the ModelBase container, child 1 the body (`MonsterModelFactory.build`).
 	var modelBase := model.get_child(0) as Node3D if model.get_child_count() > 0 else null
@@ -436,7 +484,7 @@ func _startRemoval(action: VisualAction, payload: Dictionary, queue: VisualActio
 	if hold > visible:
 		collapse.chain().tween_interval(hold - visible)
 		visible = hold
-	queue.activate(collapse, action, visible)
+	_activate(queue, collapse, action, visible)
 	return true
 
 
@@ -449,6 +497,7 @@ func _spawnCapsuleShatter(model: Node3D, modelBase: Node3D) -> void:
 	particles.lifetime = CAPSULE_SHATTER_LIFETIME
 	particles.one_shot = true
 	particles.explosiveness = 1.0
+	particles.speed_scale = _playbackScale
 	particles.position = modelBase.position
 	var processMaterial := ParticleProcessMaterial.new()
 	processMaterial.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE

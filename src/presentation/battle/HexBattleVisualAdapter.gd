@@ -58,6 +58,11 @@ const LAYER_PREVIEW := "preview"
 ## reads four times as long as a one-cell one instead of every move taking the same time.
 const MOVE_STEP_SECONDS := 0.16
 
+## Presentation speed bounds, the square adapter's clamp. Floored well above zero so no tween is
+## ever given a zero duration, which would be an instant, watchdog-defeating jump.
+const PLAYBACK_SPEED_MIN := 0.1
+const PLAYBACK_SPEED_MAX := 8.0
+
 var boardView: HexBattleBoardView
 var layout: HexBattleLayout
 
@@ -81,6 +86,8 @@ var _feedback: HexBattleCombatFeedback
 ## Projected status rows (`HexBattleUnitBadges`). They draw displayed state and never own any.
 ## Untyped because a brand-new `class_name` is not a usable bare type until a project rescan.
 var _badges
+## Presentation speed for movement tweens. Combat feedback holds its own copy, set alongside.
+var _playbackSpeed := 1.0
 
 
 func _init(root: Node3D, map: BattleMapDefinition, state: BattleState = null) -> void:
@@ -704,7 +711,8 @@ func _startMove(action: VisualAction) -> bool:
 	for value in action.path:
 		var cell: Vector2i = value
 		tween.tween_property(model, "position", worldPositionOf(cell), MOVE_STEP_SECONDS)
-	_queue.activate(tween, action, MOVE_STEP_SECONDS * float(action.path.size()))
+	tween.set_speed_scale(_playbackSpeed)
+	_queue.activate(tween, action, MOVE_STEP_SECONDS * float(action.path.size()) / _playbackSpeed)
 	return true
 
 
@@ -782,6 +790,30 @@ func displayedEffects(monsterID: int) -> Array:
 ## "defeated", "withdrawn", or "" while the unit is still on the board.
 func displayedRemovalReason(monsterID: int) -> String:
 	return _displayState.removalReason(monsterID)
+
+
+## Freezes playback: the queue's active tween and every live effect carrier. Presentation only; the
+## gate that also stops the battle from advancing is `HexBattlePlayback.setPaused`, which calls this.
+func setPlaybackPaused(paused: bool) -> void:
+	if _queue != null:
+		_queue.setPaused(paused)
+	if _feedback != null:
+		_feedback.setPaused(paused)
+
+
+func isPlaybackPaused() -> bool:
+	return _queue != null and _queue.isPaused()
+
+
+## Presentation speed for every tween started from now on and for live effect carriers at once.
+func setPlaybackSpeed(scale: float) -> void:
+	_playbackSpeed = clampf(scale, PLAYBACK_SPEED_MIN, PLAYBACK_SPEED_MAX)
+	if _feedback != null:
+		_feedback.setPlaybackScale(_playbackSpeed)
+
+
+func playbackSpeed() -> float:
+	return _playbackSpeed
 
 
 ## Player fast-forward of the active action only. A playing cast jumps to its settle tail first so

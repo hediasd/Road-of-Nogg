@@ -42,8 +42,12 @@ const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
 const BattleScenarioFactoryScript = preload("res://src/factories/BattleScenarioFactory.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
+const HexBattleSessionPanelScript = preload(
+	"res://src/presentation/battle/ui/HexBattleSessionPanel.gd")
 
-enum Lifecycle { SETUP, BATTLE, COMPLETE }
+## ENDING is the stretch between the simulator deciding the battle and the screen showing the blow
+## that decided it. Nothing may start in it, and the result waits for playback to drain.
+enum Lifecycle { SETUP, BATTLE, ENDING, COMPLETE }
 
 ## How often the loop re-checks whether it may advance. A timer rather than `_process` so a
 ## battle that is waiting on playback is not re-evaluated sixty times a second for no reason.
@@ -73,6 +77,10 @@ var _boardRoot: Node3D
 var _deliberation: CommandDeliberation = null
 var _deliberatingMemberID := -1
 var _scenarioPath := ""
+var _seedValue := 0
+## The presentation speed the player last chose. Carried into a restart, which is the same battle
+## watched again; pause is not carried, because a restarted battle that opens frozen reads as hung.
+var _speedPreference := HexBattlePlaybackScript.DEFAULT_SPEED
 
 
 func _ready() -> void:
@@ -111,6 +119,8 @@ func teardownBattle() -> void:
 	memberInput = null
 	if adapter != null:
 		adapter.disconnectFromEvents()
+		if adapter.animation_queue_drained.is_connected(_onPlaybackDrained):
+			adapter.animation_queue_drained.disconnect(_onPlaybackDrained)
 		adapter.dispose()
 		adapter = null
 	if hud != null:
@@ -137,7 +147,25 @@ func returnToSetup() -> void:
 func _onBattleRequested(scenarioPath: String, seedValue: int) -> void:
 	var started := startBattle(scenarioPath, seedValue)
 	if not started.get("ok", false):
-		setupUI.setVisibleUI(true)
+		_enterSetup()
+		setupUI.showError(startErrorText(started))
+
+
+## A refusal the player can act on. The code says which step refused; the detail, when the step
+## gave one, says why.
+static func startErrorText(result: Dictionary) -> String:
+	var code := str(result.get("error", ""))
+	var detail := str(result.get("detail", ""))
+	var step := "The battle could not start"
+	match str(result.get("step", "")):
+		"scenario":
+			step = "The scenario could not be loaded"
+		"validation":
+			step = "The scenario is not a valid battle"
+		"state":
+			step = "The battle could not be set up"
+	var cause := detail if not detail.is_empty() else code.replace("_", " ")
+	return "%s: %s." % [step, cause] if not cause.is_empty() else "%s." % step
 
 
 ## Builds a battle from a scenario. Returns a result rather than reporting through a status line,
@@ -147,7 +175,9 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 
 	var loaded := BattleScenarioFactoryScript.loadFromPath(scenarioPath)
 	if not loaded["success"]:
-		return {"ok": false, "error": str(loaded.get("error", "scenario_unreadable"))}
+		return {"ok": false, "step": "scenario",
+			"error": str(loaded.get("error", "scenario_unreadable")),
+			"detail": str(loaded.get("detail", ""))}
 	var scenario: BattleScenario = loaded["scenario"]
 
 	var config: BattleSetupConfig = BattleSetupConfigScript.new()
@@ -155,13 +185,17 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	config.seed = seedValue
 	var validation := config.validate()
 	if not validation.success:
-		return {"ok": false, "error": "invalid_setup"}
+		return {"ok": false, "step": "validation", "error": "invalid_setup",
+			"detail": validation.errorText()}
 
 	var stateResult := BattleSetupFactoryScript.createHexState(config)
 	if not stateResult["success"]:
-		return {"ok": false, "error": str(stateResult.get("error", "state_failed"))}
+		return {"ok": false, "step": "state",
+			"error": str(stateResult.get("error", "state_failed")),
+			"detail": str(stateResult.get("detail", ""))}
 
 	_scenarioPath = scenarioPath
+	_seedValue = seedValue
 	map = scenario.battleMap
 	sim = BattleSimulatorScript.new(seedValue)
 	sim.configureHexState(stateResult["state"], scenario, {"scenarioPath": scenarioPath})
@@ -199,9 +233,11 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	hud.end_party_requested.connect(_onHudEndParty)
 	hud.command_chosen.connect(_onHudCommandChosen)
 	hud.command_cancelled.connect(_onHudCommandCancelled)
+	hud.session_command.connect(_onSessionCommand)
 	hud.bind(sim, adapter)
 
 	playback = HexBattlePlaybackScript.new(adapter)
+	playback.setSpeed(_speedPreference)
 	cursor = HexBattleCursorScript.new()
 
 	setupUI.setVisibleUI(false)
@@ -215,12 +251,19 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 
 ## The only place a party activation or a member turn is started.
 func _advance() -> void:
-	if lifecycle != Lifecycle.BATTLE or sim == null or playback == null:
+	if sim == null or playback == null:
 		return
-	if not playback.canAdvance():
+	if lifecycle == Lifecycle.ENDING:
+		# The result waits for the last consequence to finish playing. Paused counts as not yet.
+		if playback.isDrained() and not playback.isPaused():
+			_completeBattle()
+		return
+	if lifecycle != Lifecycle.BATTLE:
 		return
 	if sim.state.battleOutcome != -1:
-		_finishBattle()
+		_beginEnding()
+		return
+	if not playback.canAdvance():
 		return
 
 	# An activation is open: serve whichever kind of party it belongs to.
@@ -236,7 +279,7 @@ func _advance() -> void:
 	var opened := sim.startNextPartyActivation()
 	if not bool(opened.get("success", false)):
 		if str(opened.get("reason", "")) == "battle_ended":
-			_finishBattle()
+			_beginEnding()
 		return
 	_onActivationOpened(int(opened.get("party_id", -1)))
 
@@ -295,9 +338,14 @@ func _beginCpuMember(monsterID: int) -> void:
 
 ## Deliberation is stepped under a frame budget rather than run to completion, which is what
 ## HXB-8 made it resumable for.
+##
+## Not stepped at all while paused: a paused battle submits nothing. Deliberation is resumable, so
+## the next step after a resume continues exactly where the last one stopped.
 func _process(_delta: float) -> void:
 	_refreshHud()
 	if _deliberation == null or sim == null:
+		return
+	if playback == null or playback.isPaused():
 		return
 	if not _deliberation.step(DELIBERATION_BUDGET_MSEC):
 		return
@@ -316,6 +364,8 @@ func _process(_delta: float) -> void:
 ## The player picked a member. This is where a player member turn is opened, and the only place.
 func _onHudMemberSelected(monsterID: int) -> void:
 	if lifecycle != Lifecycle.BATTLE or sim == null or playback == null:
+		return
+	if _commandsLocked():
 		return
 	if sim.state.activePartyID == -1:
 		return
@@ -364,12 +414,12 @@ func _onAimChanged(model: Dictionary) -> void:
 
 
 func _onHudCommandChosen(commandID: String) -> void:
-	if memberInput != null:
+	if memberInput != null and not _commandsLocked():
 		memberInput.chooseCommand(commandID)
 
 
 func _onHudCommandCancelled() -> void:
-	if memberInput != null:
+	if memberInput != null and not _commandsLocked():
 		memberInput.cancel()
 
 
@@ -389,6 +439,8 @@ func _onMemberTurnFinished(monsterID: int) -> void:
 ## deterministic order. The controller does not iterate members itself -- that order is HXB-6's.
 func _onHudEndParty() -> void:
 	if lifecycle != Lifecycle.BATTLE or sim == null or playback == null:
+		return
+	if _commandsLocked():
 		return
 	if not playback.isIdle():
 		return
@@ -411,6 +463,8 @@ func _refreshHud() -> void:
 		return
 	if get_viewport().gui_get_hovered_control() != null:
 		hud.setHover(-1)
+	hud.setInputLocked(_commandsLocked())
+	hud.setSession(_sessionState())
 	hud.refresh()
 
 
@@ -423,7 +477,10 @@ func _refreshHud() -> void:
 ## meaning before. GUI controls consume their own clicks before this runs, so a click on a panel
 ## row never inspects the unit behind it.
 func _unhandled_input(event: InputEvent) -> void:
-	if lifecycle != Lifecycle.BATTLE or battleCamera == null:
+	if lifecycle == Lifecycle.SETUP or battleCamera == null:
+		return
+	if event is InputEventKey and event.pressed and not event.echo and _handleSessionKey(event):
+		get_viewport().set_input_as_handled()
 		return
 	if hud != null:
 		if event is InputEventMouseMotion:
@@ -452,7 +509,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				battleCamera.orbitDetent(1)
 				get_viewport().set_input_as_handled()
 				return
-	_handleMemberInput(event)
+	if lifecycle == Lifecycle.BATTLE:
+		_handleMemberInput(event)
 
 
 ## Input reaches a member turn only while one is open, which is only ever true for the player's
@@ -460,6 +518,8 @@ func _unhandled_input(event: InputEvent) -> void:
 ## other party. There is no second condition to re-check here.
 func _handleMemberInput(event: InputEvent) -> void:
 	if memberInput == null or memberTurn == null or memberTurn.isFinished():
+		return
+	if _commandsLocked():
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -566,6 +626,113 @@ func _cellAtPoint(point: Vector2) -> Vector2i:
 	return best
 
 
+# --- session controls ---------------------------------------------------------
+
+## Pause, speed, skip, restart and setup, whether they came from a key or a session row. One
+## place, so a key and its row cannot disagree about what they do.
+func _onSessionCommand(commandID: String) -> void:
+	match commandID:
+		HexBattleSessionPanelScript.PAUSE:
+			togglePause()
+		HexBattleSessionPanelScript.SPEED:
+			cycleSpeed()
+		HexBattleSessionPanelScript.SKIP:
+			skipAnimation()
+		HexBattleSessionPanelScript.RESTART:
+			restartBattle()
+		HexBattleSessionPanelScript.SETUP:
+			returnToSetup()
+
+
+## P pauses, F changes speed, Enter or Space skips when no member turn is open (inside a member
+## turn they confirm, as they always have), R restarts a finished battle.
+func _handleSessionKey(event: InputEventKey) -> bool:
+	match event.keycode:
+		KEY_P:
+			return togglePause()
+		KEY_F:
+			if lifecycle == Lifecycle.BATTLE or lifecycle == Lifecycle.ENDING:
+				cycleSpeed()
+				return true
+		KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+			if memberInput == null and _canSkip():
+				skipAnimation()
+				return true
+		KEY_R:
+			if lifecycle == Lifecycle.COMPLETE:
+				restartBattle()
+				return true
+	return false
+
+
+## Returns whether a pause or resume happened. Only while the battle or its final playback runs.
+func togglePause() -> bool:
+	if playback == null or not (lifecycle == Lifecycle.BATTLE or lifecycle == Lifecycle.ENDING):
+		return false
+	playback.setPaused(not playback.isPaused())
+	if hud != null:
+		hud.setInputLocked(_commandsLocked())
+	return true
+
+
+func cycleSpeed() -> float:
+	if playback == null:
+		return _speedPreference
+	_speedPreference = playback.cycleSpeed()
+	return _speedPreference
+
+
+## Skips the action playing now: a cast jumps to its settle tail, then the queue finalizes it.
+## Allowed while paused; the queue does not start the next action until resumed.
+func skipAnimation() -> void:
+	if adapter != null:
+		adapter.skipCurrentAnimation()
+
+
+func _canSkip() -> bool:
+	return adapter != null and adapter.isAnimationBusy() and \
+		(lifecycle == Lifecycle.BATTLE or lifecycle == Lifecycle.ENDING)
+
+
+## Whether commands are refused right now. Paused playback admits no command from any source: no
+## member selection, no menu choice, no aim, no End Party. The camera and inspection still work.
+func _commandsLocked() -> bool:
+	return playback != null and playback.isPaused()
+
+
+func _sessionState() -> Dictionary:
+	if sim == null or playback == null:
+		return {}
+	var phase := "battle"
+	if lifecycle == Lifecycle.ENDING:
+		phase = "ending"
+	elif lifecycle == Lifecycle.COMPLETE:
+		phase = "complete"
+	return {
+		"phase": phase,
+		"paused": playback.isPaused(),
+		"speed": playback.speed(),
+		"can_skip": _canSkip(),
+		"aiming": memberInput != null and memberInput.isAiming(),
+		"result": resultText(sim.state) if phase == "complete" else "",
+		"rounds": int(sim.state.roundCount),
+	}
+
+
+## The same scenario and seed again, from the start. Scenario and seed are what make a battle
+## reproducible, so they are the whole of what a restart carries (with the chosen speed).
+func restartBattle() -> Dictionary:
+	var path := _scenarioPath
+	var seedValue := _seedValue
+	if path.is_empty():
+		return {"ok": false, "error": "no_battle"}
+	var started := startBattle(path, seedValue)
+	if not bool(started.get("ok", false)):
+		_enterSetup()
+		setupUI.showError(startErrorText(started))
+	return started
+
+
 # --- completion -------------------------------------------------------------
 
 func _onPlaybackDrained() -> void:
@@ -577,19 +744,57 @@ func _onPlaybackDrained() -> void:
 
 func _checkFinished() -> void:
 	if sim != null and sim.state.battleOutcome != -1:
-		_finishBattle()
+		_beginEnding()
 
 
-func _finishBattle() -> void:
-	if lifecycle == Lifecycle.COMPLETE:
+## The simulator has decided the battle. Nothing may start from here on, but the screen has not
+## necessarily shown the blow that decided it, so the result is not announced yet: `_advance`
+## completes the battle once playback has drained.
+##
+## A player member turn can still be open (the finishing attack left its move unspent). It is
+## abandoned, not finished: finishing would write a turn into a battle that is over.
+func _beginEnding() -> void:
+	if lifecycle != Lifecycle.BATTLE:
 		return
-	lifecycle = Lifecycle.COMPLETE
-	_advanceTimer.stop()
+	lifecycle = Lifecycle.ENDING
+	_deliberation = null
+	_deliberatingMemberID = -1
+	if memberTurn != null:
+		memberTurn.cancel()
+		memberTurn = null
+	memberInput = null
 	if playback != null:
 		playback.finish()
 	if hud != null:
 		hud.clearParty()
-		hud.setStatus("Battle complete. Team %d wins." % int(sim.state.battleOutcome))
+		hud.showAim({})
+		hud.setStatus("The battle is decided.")
+
+
+func _completeBattle() -> void:
+	if lifecycle != Lifecycle.ENDING:
+		return
+	lifecycle = Lifecycle.COMPLETE
+	_advanceTimer.stop()
+	if hud != null:
+		hud.setStatus("%s." % resultText(sim.state))
+
+
+## "Draw" for the draw team, otherwise the winning team, and whose side that is. A draw is team 0
+## (`BattleSimulator.DRAW_TEAM`); printing "Team 0 wins" for it was a false result.
+static func resultText(state: BattleState) -> String:
+	if state == null or state.battleOutcome == -1:
+		return ""
+	var outcome := int(state.battleOutcome)
+	if outcome == BattleSimulatorScript.DRAW_TEAM:
+		return "Draw"
+	var side := ""
+	for value in state.parties:
+		var party = state.parties[value]
+		if int(party.teamID) == outcome:
+			side = "you" if str(party.controller) == "player" else "CPU"
+			break
+	return "Team %d wins (%s)" % [outcome, side] if not side.is_empty() else "Team %d wins" % outcome
 
 
 func _exit_tree() -> void:

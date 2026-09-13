@@ -28,9 +28,17 @@ const OWNER_FINISHED := "finished"
 ## animations someone paused to watch.
 const RUN_AHEAD_LIMIT := 180
 
+## The presentation speeds a player cycles through. Inside the square battle's animation slider range
+## (0.25 to 4.0); stepped, because a cycling control needs discrete values. Presentation only: the
+## simulation never reads it.
+const SPEED_STEPS := [0.5, 1.0, 2.0, 4.0]
+const DEFAULT_SPEED := 1.0
+
 var _owner := OWNER_NONE
 var _ownerMemberID := -1
 var _adapter: IPlayerTurnVisualAdapter
+var _paused := false
+var _speed := DEFAULT_SPEED
 
 
 func _init(adapter: IPlayerTurnVisualAdapter) -> void:
@@ -86,11 +94,13 @@ func finish() -> void:
 
 ## Whether the controller may start the next member or activation right now.
 ##
-## Three independent reasons not to, and all three have to be false: someone holds the schedule,
-## the battle is over, or playback is too far behind. The backpressure check is a count rather
+## Four independent reasons not to, and all four have to be false: playback is paused, someone
+## holds the schedule, the battle is over, or playback is too far behind. The backpressure check is a count rather
 ## than "is busy", because waiting for a fully drained queue between every member would make the
 ## battle play at the speed of its animations rather than merely be watchable.
 func canAdvance() -> bool:
+	if _paused:
+		return false
 	if _owner != OWNER_NONE:
 		return false
 	if _adapter == null:
@@ -104,3 +114,47 @@ func isDrained() -> bool:
 	if _adapter == null:
 		return true
 	return not _adapter.isAnimationBusy() and _adapter.queuedAnimationCount() == 0
+
+
+# --- pause and speed ----------------------------------------------------------
+
+## PAUSE FREEZES THE BATTLE, NOT ONLY THE PICTURE. The square battle paused playback and let the
+## simulation run on to its run-ahead bound. Here a pause answers "no" to `canAdvance`, so no
+## party or member turn opens, and the controller stops stepping CPU deliberation and refuses
+## player commands while `isPaused()`. The queue and every live effect carrier freeze through the
+## adapter. The camera, hover and inspection keep working, because none of them is a command.
+##
+## Deliberately a flag on this gate rather than a second clock: there is still exactly one thing
+## the controller asks before acting.
+func setPaused(paused: bool) -> void:
+	if _paused == paused:
+		return
+	_paused = paused
+	if _adapter != null and _adapter.has_method("setPlaybackPaused"):
+		_adapter.setPlaybackPaused(paused)
+
+
+func isPaused() -> bool:
+	return _paused
+
+
+func speed() -> float:
+	return _speed
+
+
+## Sets the presentation speed. Reaches queued tweens and live effect carriers through the adapter.
+func setSpeed(value: float) -> void:
+	_speed = clampf(value, float(SPEED_STEPS[0]), float(SPEED_STEPS[SPEED_STEPS.size() - 1]))
+	if _adapter != null and _adapter.has_method("setPlaybackSpeed"):
+		_adapter.setPlaybackSpeed(_speed)
+
+
+## The next step up, wrapping to the slowest. Returns the new speed.
+func cycleSpeed() -> float:
+	var next := float(SPEED_STEPS[0])
+	for step in SPEED_STEPS:
+		if float(step) > _speed + 0.001:
+			next = float(step)
+			break
+	setSpeed(next)
+	return _speed
