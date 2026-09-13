@@ -9,6 +9,7 @@ signal command_chosen(commandID: String)
 signal cancelled()
 
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
+const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 const CANCEL_LABEL := "Cancel"
 
@@ -25,9 +26,20 @@ var _rowMeta: Array[Dictionary] = []
 
 
 func _init() -> void:
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_window = NoggWindowScript.new()
+	# Spell names with a range or cooldown value are what SPELL_WIDTH was
+	# measured for (UI_DESIGN §8). A zero-width window clipped every label.
+	_window.size.x = NoggThemeScript.SPELL_WIDTH
 	add_child(_window)
 	_window.row_built.connect(_on_row_built)
+
+
+## The window's current footprint. See HexPartyPanel.windowSize().
+func windowSize() -> Vector2:
+	if _window == null or _rowMeta.is_empty():
+		return Vector2.ZERO
+	return Vector2(_window.size.x, NoggThemeScript.window_height(_rowMeta.size()))
 
 
 ## `model` keys: input_enabled (bool), title (String), commands (Array of

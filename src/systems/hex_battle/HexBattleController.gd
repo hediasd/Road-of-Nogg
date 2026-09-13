@@ -41,6 +41,7 @@ const BattleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
 const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
 const BattleScenarioFactoryScript = preload("res://src/factories/BattleScenarioFactory.gd")
+const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 enum Lifecycle { SETUP, BATTLE, COMPLETE }
 
@@ -173,6 +174,9 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 
 	adapter = HexBattleVisualAdapterScript.new(_boardRoot, map, sim.state)
 	sim.setVisualAdapter(adapter)
+	# Without the resolver the adapter previews no spell cells and forecasts nothing. Only the preview
+	# probe ever set it, so the live battle aimed blind.
+	adapter.setCombatResolver(sim.combatResolver)
 	adapter.connectToEvents(sim.events)
 	adapter.animation_queue_drained.connect(_onPlaybackDrained)
 	# FHB-1: the adapter is listening now, so this is the earliest point the board can be
@@ -186,12 +190,16 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	battleCamera.frameMap(map, adapter.layout)
 	battleCamera.camera.current = true
 
+	# The HUD's windows are measured in design units; the scale must match this window before they
+	# are built, as the square battle did, or a 720p HUD is laid out for the default x3.
+	NoggThemeScript.configure_for_window_height(get_window().size.y)
 	hud = HexBattleHudScript.new()
 	add_child(hud)
 	hud.member_selected.connect(_onHudMemberSelected)
 	hud.end_party_requested.connect(_onHudEndParty)
 	hud.command_chosen.connect(_onHudCommandChosen)
 	hud.command_cancelled.connect(_onHudCommandCancelled)
+	hud.bind(sim, adapter)
 
 	playback = HexBattlePlaybackScript.new(adapter)
 	cursor = HexBattleCursorScript.new()
@@ -273,6 +281,7 @@ func _beginCpuMember(monsterID: int) -> void:
 		return
 	if hud != null:
 		hud.showParty(sim, int(sim.state.activePartyID), monsterID, false)
+		hud.setActor(monsterID)
 	var deliberation := sim.beginTurnDeliberation(monsterID)
 	if deliberation == null:
 		# Nothing this member can do. Close its turn exactly as the simulator's contract requires
@@ -287,6 +296,7 @@ func _beginCpuMember(monsterID: int) -> void:
 ## Deliberation is stepped under a frame budget rather than run to completion, which is what
 ## HXB-8 made it resumable for.
 func _process(_delta: float) -> void:
+	_refreshHud()
 	if _deliberation == null or sim == null:
 		return
 	if not _deliberation.step(DELIBERATION_BUDGET_MSEC):
@@ -326,8 +336,10 @@ func _onHudMemberSelected(monsterID: int) -> void:
 	memberInput.menu_changed.connect(_onMenuChanged)
 	memberInput.menu_dismissed.connect(_onMenuDismissed)
 	memberInput.status_changed.connect(_onMemberStatus)
+	memberInput.aim_changed.connect(_onAimChanged)
 	if hud != null:
 		hud.showParty(sim, int(sim.state.activePartyID), monsterID, true)
+		hud.setActor(monsterID)
 	memberInput.begin()
 
 
@@ -346,6 +358,11 @@ func _onMemberStatus(text: String) -> void:
 		hud.setStatus(text)
 
 
+func _onAimChanged(model: Dictionary) -> void:
+	if hud != null:
+		hud.showAim(model)
+
+
 func _onHudCommandChosen(commandID: String) -> void:
 	if memberInput != null:
 		memberInput.chooseCommand(commandID)
@@ -361,6 +378,7 @@ func _onMemberTurnFinished(monsterID: int) -> void:
 	memberInput = null
 	if hud != null:
 		hud.hideCommands()
+		hud.showAim({})
 	playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
 	if hud != null and sim != null and sim.state.activePartyID != -1:
 		hud.showParty(sim, int(sim.state.activePartyID), -1, true)
@@ -382,11 +400,38 @@ func _onHudEndParty() -> void:
 	_checkFinished()
 
 
-## Camera first, then the member turn. Both devices reach the same cursor -- see
+## Keeps the HUD on what the screen has shown. Every frame, because displayed HP and removals
+## change when queued playback reaches them, and that has no signal the controller hears. The
+## HUD redraws a panel only when its model changed.
+##
+## A pointer resting on a HUD window reaches no `_unhandled_input`, so a hover set over the board
+## would otherwise stay stuck on the last unit crossed on the way to the panel.
+func _refreshHud() -> void:
+	if hud == null or sim == null:
+		return
+	if get_viewport().gui_get_hovered_control() != null:
+		hud.setHover(-1)
+	hud.refresh()
+
+
+## Inspection first, then camera, then the member turn. Both devices reach the same cursor -- see
 ## `HexBattleMemberInput` for why neither locks the other out.
+##
+## INSPECTION NEVER CONSUMES AN EVENT. Hover and click only tell the HUD which unit to read out, and
+## the same event then continues to the aim, so pointing at a unit while aiming both aims at it and
+## shows it. A click reaches inspection only when nobody is aiming, where a board click had no
+## meaning before. GUI controls consume their own clicks before this runs, so a click on a panel
+## row never inspects the unit behind it.
 func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE or battleCamera == null:
 		return
+	if hud != null:
+		if event is InputEventMouseMotion:
+			hud.setHover(_unitAtPoint(event.position))
+		elif event is InputEventMouseButton and event.pressed \
+				and event.button_index == MOUSE_BUTTON_LEFT \
+				and (memberInput == null or not memberInput.isAiming()):
+			hud.commitInspection(_unitAtPoint(event.position))
 	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:
 			MOUSE_BUTTON_WHEEL_UP:
@@ -472,6 +517,24 @@ func _projectCell(cell: Vector2i) -> Vector2:
 	if stage == null or adapter == null:
 		return Vector2.ZERO
 	return stage.projectWorldToScreen(adapter.worldPositionOf(cell))
+
+
+## The unit drawn on the cell under a viewport point, or -1.
+##
+## Displayed positions, not authoritative ones: the pointer is over what the screen shows, and a
+## unit the simulation has already moved or removed is still standing where it is drawn.
+func _unitAtPoint(point: Vector2) -> int:
+	if adapter == null:
+		return -1
+	var cell := _cellAtPoint(point)
+	if cell.x < 0:
+		return -1
+	for value in adapter.shownModelIDs():
+		var monsterID := int(value)
+		if adapter.displayedPosition(monsterID) == cell \
+				and adapter.displayedRemovalReason(monsterID).is_empty():
+			return monsterID
+	return -1
 
 
 ## Which cell a viewport point is over, or (-1, -1).

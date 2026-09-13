@@ -37,6 +37,9 @@ signal menu_changed(model: Dictionary)
 ## The menu should not be on screen at all -- the player is aiming, or the turn is over.
 signal menu_dismissed()
 signal status_changed(text: String)
+## What the current aim would do: see `aimModel()`. An empty model means the player is not
+## aiming. Emitted on every cursor change and on every return to the menu.
+signal aim_changed(model: Dictionary)
 
 var _turn: HexBattleMemberTurn
 var _sim: BattleSimulator
@@ -232,6 +235,7 @@ func _toMenu() -> void:
 		_turn.begin()
 	if _adapter != null:
 		_adapter.clearCommandPreview()
+	aim_changed.emit({})
 	menu_changed.emit(commandModel())
 	status_changed.emit("Choose a command.")
 
@@ -259,6 +263,119 @@ func _refreshAimFeedback() -> void:
 			_adapter.showCommandPreview(cells, [cell])
 		_:
 			_adapter.clearCommandPreview()
+	aim_changed.emit(aimModel())
+
+
+## What confirming at the cursor would do, before it is confirmed.
+##
+## LEGALITY IS THE SIMULATOR'S. The attack and spell checks are the exact resolver queries
+## `executeActionPhase` runs on confirm, from the same position, and the phase guard is the
+## simulator's own. A move is legal on the member's own cell or a cell of the simulator's reach
+## query, which is the set `refreshReach` already paints. Nothing here decides a rule.
+##
+## THE FORECAST IS THE ADAPTER'S, withheld where it would say something false. `forecastSpell`
+## prices only a spell's first damage line and prices a heal as damage. For those spells the
+## model says why there is no number instead of showing a wrong one.
+##
+## Authoritative state, not displayed state: this is the input gate, and what gets resolved on
+## confirm is the authoritative board.
+func aimModel() -> Dictionary:
+	if not isAiming() or _turn == null or _sim == null:
+		return {}
+	var monsterID := _turn.monsterID()
+	var cell := _turn.cursorCell()
+	var fromPos: Vector2i = _sim.state.getMonsterPosition(monsterID)
+	var targetID := -1
+	if _map != null and _map.containsCell(cell):
+		var occupant := int(_sim.state.board.at(cell))
+		targetID = occupant if occupant != 0 else -1
+	var model := {
+		"kind": "", "cell": cell, "legal": false, "reason": "",
+		"target_id": targetID, "forecast": {}, "withheld": "",
+	}
+	match _phase:
+		Phase.AIM_MOVE:
+			model["kind"] = MOVE_COMMAND
+			model["target_id"] = -1
+			model["legal"] = cell == fromPos or _turn.reachableCells().has(cell)
+			if not model["legal"]:
+				model["reason"] = "unreachable"
+		Phase.AIM_ATTACK:
+			model["kind"] = ATTACK_COMMAND
+			model["legal"] = _sim.combatResolver.canBasicAttackPositionFrom(
+				monsterID, fromPos, cell)
+			if not model["legal"]:
+				model["reason"] = "invalid_attack_target"
+			if _adapter != null:
+				model["forecast"] = _adapter.forecastAttack(monsterID, cell)
+		Phase.AIM_SPELL:
+			model["kind"] = SPELL_PREFIX
+			model["legal"] = _sim.combatResolver.canSpellTargetPositionFrom(
+				monsterID, _spellSetIndex, _spellIndex, fromPos, cell)
+			if not model["legal"]:
+				model["reason"] = "invalid_spell_target"
+			var spell = _spellAt(monsterID, _spellSetIndex, _spellIndex)
+			if spell != null:
+				model["spell"] = str(spell.name)
+				model["withheld"] = forecastWithheldReason(spell)
+			if _adapter != null and str(model["withheld"]).is_empty():
+				model["forecast"] = _adapter.forecastSpell(
+					monsterID, _spellSetIndex, _spellIndex, cell)
+	var guard := _turn.phaseGuard()
+	if not bool(guard.get("success", false)):
+		model["legal"] = false
+		model["reason"] = str(guard.get("reason", ""))
+	return model
+
+
+## Why the adapter's spell forecast must not be shown for this spell, or "" when it is sound.
+static func forecastWithheldReason(spell) -> String:
+	if spell == null:
+		return "no_spell"
+	if bool(spell.heals) or int(spell.heal_amount) > 0:
+		return "heal"
+	var lines: Array = spell.damage_lines
+	var total := 0
+	for line in lines:
+		total += int((line as Dictionary).get("damage", 0))
+	if lines.is_empty() or total <= 0:
+		return "no_damage"
+	if lines.size() > 1:
+		return "multi_line"
+	return ""
+
+
+func _spellAt(monsterID: int, setIndex: int, spellIndex: int):
+	var monster = _sim.state.getMonster(monsterID) if _sim != null else null
+	if monster == null or setIndex < 0 or setIndex >= monster.spellSets.size():
+		return null
+	if spellIndex < 0 or spellIndex >= monster.spellSets[setIndex].size():
+		return null
+	return monster.spellSets[setIndex][spellIndex]
+
+
+## The value column of a spell row: why it cannot be cast, or what it reaches when it can.
+##
+## Castability is never decided here -- `Monster.can_cast` decides, and this only labels its
+## answer. `can_cast` refuses for three reasons: a cooldown, the sequence-4 Resonance requirement,
+## or an element the caster lacks. The first two are read off the monster; whatever refusal is
+## left is the element one, so the element rule is not copied here. Ready rows keep the square
+## battle's `Rng N` / `Self`, and a cooling spell its `CD n` (UI_DESIGN §8).
+static func spellDetail(monster, spell) -> String:
+	if monster == null or spell == null:
+		return ""
+	if monster.can_cast(spell):
+		if str(spell.targetType) == "self":
+			return "Self"
+		return "Rng %d" % int(spell.range)
+	var remaining := int(monster.spell_cooldowns.get(spell.name, 0))
+	if remaining > 0:
+		return "CD %d" % remaining
+	if int(spell.sequence_level) == 4:
+		var charge := int(monster.get_resonance(str(spell.resonance_element)))
+		if charge < 3:
+			return "Res %d/3" % charge
+	return "No element"
 
 
 ## The model HBP-2's menu renders. Every row's `enabled` is an answer from the simulator or the
@@ -271,24 +388,32 @@ func commandModel() -> Dictionary:
 	if monster == null:
 		return {}
 
+	# The phase guard refuses every phase at once (a petrified member), so its reason replaces
+	# each phase row's detail rather than leaving an enabled row the simulator will refuse.
+	var guard := _turn.phaseGuard()
+	var admitted := bool(guard.get("success", false))
+	var guardDetail := "" if admitted else _reasonWord(str(guard.get("reason", "")))
+	var canMove := admitted and _turn.canMove()
+	var canAct := admitted and _turn.canAct()
+
 	var commands: Array = []
 	commands.append({
-		"id": MOVE_COMMAND, "label": "Move", "enabled": _turn.canMove(),
-		"detail": "", "spent": not _turn.canMove(),
+		"id": MOVE_COMMAND, "label": "Move", "enabled": canMove,
+		"detail": guardDetail, "spent": not _turn.canMove(),
 	})
 	commands.append({
-		"id": ATTACK_COMMAND, "label": "Attack", "enabled": _turn.canAct(),
-		"detail": "", "spent": not _turn.canAct(),
+		"id": ATTACK_COMMAND, "label": "Attack", "enabled": canAct,
+		"detail": guardDetail, "spent": not _turn.canAct(),
 	})
 	for setIndex in range(monster.spellSets.size()):
 		for spellIndex in range(monster.spellSets[setIndex].size()):
 			var spell = monster.spellSets[setIndex][spellIndex]
-			var castable: bool = _turn.canAct() and monster.can_cast(spell)
+			var castable: bool = canAct and monster.can_cast(spell)
 			commands.append({
 				"id": "%s:%d:%d" % [SPELL_PREFIX, setIndex, spellIndex],
 				"label": str(spell.name),
 				"enabled": castable,
-				"detail": "Rng %d" % int(spell.range),
+				"detail": guardDetail if not admitted else spellDetail(monster, spell),
 				"spent": not _turn.canAct(),
 			})
 	commands.append({
@@ -304,3 +429,14 @@ func commandModel() -> Dictionary:
 		"title": str(monster.name),
 		"commands": commands,
 	}
+
+
+## A simulator refusal reason as a short row word. Unknown reasons are shown as themselves rather
+## than hidden, so a new refusal is visible before anyone writes a word for it.
+static func _reasonWord(reason: String) -> String:
+	match reason:
+		"petrify":
+			return "Petrified"
+		"":
+			return ""
+	return reason.replace("_", " ").capitalize()
