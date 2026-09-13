@@ -294,8 +294,7 @@ func _checkUndrawableSceneStillStarts() -> void:
 
 
 ## A map naming a scene that is not on disk: the fresh-checkout case. The stage handles it as a
-## normal state. Whether a battle can reach the stage with it depends on BattleMapFactory, which
-## refuses such a map at load today; this records which, and runs the full start when it can.
+## normal state, and BattleMapFactory accepts such a map, so this runs the full start.
 func _checkAbsentScene() -> void:
 	_require(not ResourceLoader.exists(ABSENT_SCENE), "the absent probe scene exists")
 	var loaded := BattleMapFactoryScript.loadFromPath(HEXMAP_MAP)
@@ -321,11 +320,10 @@ func _checkAbsentScene() -> void:
 	if paths.is_empty():
 		return
 	var factory := BattleMapFactoryScript.loadFromPath(paths["map"])
+	_require(bool(factory.get("success", false)),
+		"the factory refused a map with an absent scene: %s" % str(factory.get("error", "")))
 	if not bool(factory.get("success", false)):
-		# Outside the board and stage. Evidence, not a failure, so the probe starts asserting the full
-		# start on its own once the factory accepts a declared scene that has not been exported.
 		_evidence["absent_factory"] = "refused: %s" % str(factory.get("error", ""))
-		print("HXB_BOARD_TERRAIN_FACTORY_REFUSES_ABSENT_SCENE %s" % str(factory.get("error", "")))
 		return
 	_evidence["absent_factory"] = "accepted"
 	var started := _controller.startBattle(paths["scenario"], SEED)

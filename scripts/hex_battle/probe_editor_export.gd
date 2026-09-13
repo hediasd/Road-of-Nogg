@@ -52,38 +52,24 @@ func _checkFixtureLoadsThroughRuntimeFactory() -> void:
 	var loaded := BattleMapFactoryScript.loadFromPath(
 		"res://data/battle/maps/%s.json" % FIXTURE_MAP
 	)
-	# A FRESH CHECKOUT LEGITIMATELY CANNOT LOAD THIS MAP, and the first version of this check
-	# failed for it. Generated scenes are not committed (see .gitignore and WORLDMAP_EDITOR.md
-	# section 13), so the map's VISUAL_SCENE_PATH points at a file that only exists after someone
-	# re-exports. That is a declared state, not a fault -- BattleMapAssetManifest exists to report
-	# it -- so the missing product is asserted THROUGH the manifest, and the map's own content is
-	# then checked with the visual requirement removed. Where the product IS present, the full
-	# load must still succeed.
-	if not loaded["success"] and str(loaded.get("error", "")) == "missing_visual_resource":
-		_require(not ManifestScript.isReady(FIXTURE_MAP),
-			"the fixture map will not load but the manifest calls it ready")
+	_require(loaded["success"],
+		"the exported fixture map did not load: %s %s" % [
+			loaded.get("error", ""), loaded.get("detail", "")
+		])
+	if not loaded["success"]:
+		return
+	# A FRESH CHECKOUT LEGITIMATELY CAN LACK THE GENERATED SCENE. Generated scenes are not
+	# committed (see .gitignore and WORLDMAP_EDITOR.md section 13), so the map's
+	# VISUAL_SCENE_PATH can point at a file that only exists after someone re-exports. That is a
+	# declared state, not a fault, so BattleMapFactory loads the map either way and
+	# BattleMapAssetManifest is the thing that reports the gap. Where the product IS present, the
+	# manifest must call the map ready; where it is absent, the manifest must still name it.
+	if ManifestScript.isReady(FIXTURE_MAP):
+		_require(ManifestScript.missingProducts(FIXTURE_MAP).is_empty(),
+			"the manifest calls the fixture map ready but still names missing products")
+	else:
 		_require(ManifestScript.missingProducts(FIXTURE_MAP).size() == 1,
 			"the manifest does not name the missing generated scene")
-		var raw := _fixtureMapDictionary()
-		if raw.is_empty():
-			failures.append("could not read the fixture map to check it headlessly")
-			return
-		var source: Dictionary = raw["SOURCE"]
-		source["VISUAL_SCENE_PATH"] = ""
-		source["HEADLESS_ONLY"] = true
-		raw["NAME"] = "technical_%s" % FIXTURE_MAP
-		loaded = BattleMapFactoryScript.fromDictionary(raw)
-		_require(loaded["success"],
-			"the fixture map is invalid beyond its pending re-export: %s" % str(loaded.get("error", "")))
-		if not loaded["success"]:
-			return
-	else:
-		_require(loaded["success"],
-			"the exported fixture map did not load: %s %s" % [
-				loaded.get("error", ""), loaded.get("detail", "")
-			])
-		if not loaded["success"]:
-			return
 	var map = loaded["definition"]
 	var document := _fixture()
 	_require(document != null, "the fixture document is missing")
