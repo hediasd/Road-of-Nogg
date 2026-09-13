@@ -37,7 +37,8 @@ These are manual edge examples, **not a complete autotile or Wang set**. Junctio
 The generated source sheet is
 `assets/worldmap/tilesets/temp2_hex32_starter.png`; its editable geometry guide is
 `assets/worldmap/tilesets/templates/hex32_guides.svg`; and its stable frame IDs live in
-`data/worldmap/tilesets.json`. Keep those three artifacts aligned when deriving a future sheet.
+`data/worldmap/tilesets/temp2_hex32_starter.json`. Keep those three artifacts aligned when
+deriving a future sheet.
 
 In the [World map editor](./WORLDMAP_EDITOR.md), choose `temp2_hex32_starter` when creating a map,
 then select art directly from the visible tilesheet. The source map stores stable tileset and tile

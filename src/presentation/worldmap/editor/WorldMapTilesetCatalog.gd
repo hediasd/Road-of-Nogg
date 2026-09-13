@@ -42,7 +42,17 @@
 class_name WorldMapTilesetCatalog
 extends RefCounted
 
-const JSON_PATH := "res://data/worldmap/tilesets.json"
+## One config file per tileset, named `<ID>.json`, replaces the old single-file catalog. A sheet
+## that has no config file yet is still usable -- it gets an in-memory default entry -- so an
+## artist can drop a PNG in `SHEET_DIR` and immediately pick it for a new map. The config becomes
+## durable only when `ensureConfig()` or `saveTileset()` actually writes it, which the editor does
+## the first time that sheet is selected -- never merely by scanning the folder.
+const CONFIG_DIR := "res://data/worldmap/tilesets"
+const SHEET_DIR := "res://assets/worldmap/tilesets"
+const DEFAULT_FRAME_PX := 32
+const DEFAULT_PALETTE_REGION := "temp2"
+const MIN_FRAME_PX := 8
+const MAX_FRAME_PX := 256
 const JsonCatalogLoaderScript = preload("res://src/factories/JsonCatalogLoader.gd")
 const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms.gd")
 
@@ -78,60 +88,174 @@ const ALPHA_FLOOR := 0.5
 
 static var list: Array = []
 static var _index: Dictionary = {}
+static var _configDir := CONFIG_DIR
+static var _sheetDir := SHEET_DIR
+## Tileset IDs discovered as a readable PNG in `_sheetDir` during the last reload, sorted. A
+## config-only entry (its PNG missing or unreadable) is not in this set: `sheetIDs()` is "what may
+## be offered for a new document", not "what the catalog remembers".
+static var _sheetStems: Array[String] = []
+## Tileset IDs whose entry came from folder discovery rather than a stored config, and so have
+## never been cut into tiles. Cutting is deferred to the first `tilesetFor()` call that actually
+## needs the tiles, so reloading the catalog never decodes a PNG -- see the class note on why
+## reading pixels is expensive enough to matter.
+static var _uncut: Dictionary = {}
+## Tileset IDs with a config file on disk, whether loaded this session or written by
+## `saveTileset()`/`ensureConfig()` since. Kept separately from `_index` because a discovered
+## sheet with no config still gets an `_index` entry.
+static var _hasConfig: Dictionary = {}
 
 
 static func _static_init() -> void:
 	reloadCatalog()
 
 
-static func reloadCatalog(path: String = JSON_PATH) -> bool:
-	# A missing file is not an error: the catalog is legitimately empty until the first sheet is
-	# imported, and failing loudly here would make every scene that touches the editor warn on
-	# a clean checkout.
-	if not FileAccess.file_exists(path):
-		list = []
-		_index = {}
-		return true
-
-	var loaded := JsonCatalogLoaderScript.loadNamedCatalog(path)
-	if not loaded["success"]:
-		push_warning("WorldMapTilesetCatalog: %s" % loaded["error"])
-		return false
+## Loads every tileset config in `configDir`, then discovers every PNG in `sheetDir` that has no
+## config yet. A stored config's `SHEET`, `GRID_KIND` and `FRAME_PX` always win -- folder discovery
+## never overrides an authored value, only fills the gap when there is none. Neither pass reads a
+## PNG's pixels: cutting happens lazily in `tilesetFor()`, and a stored config's `TILES` are used
+## exactly as written, never reconciled against the sheet's current art (see `importSheet` for the
+## explicit, human-reviewed path that does that).
+static func reloadCatalog(configDir: String = CONFIG_DIR, sheetDir: String = SHEET_DIR) -> bool:
+	_configDir = configDir
+	_sheetDir = sheetDir
 
 	var newList: Array = []
 	var newIndex: Dictionary = {}
-	for reference in loaded["list"]:
-		var nameKey := str(reference["NAME"])
-		var sheetPath := str(reference.get("SHEET", ""))
-		var grid := str(reference.get("GRID_KIND", GRID_TILE))
-		if sheetPath.is_empty() or not (grid == GRID_TILE or grid == GRID_CEL):
-			push_warning("WorldMapTilesetCatalog: invalid entry '%s'" % nameKey)
-			return false
-		reference["GRID_KIND"] = grid
-		# FRAME SIZE IS NOT THE GRID KIND, and conflating them was a real bug. `GRID_KIND` says
-		# which of the tile law's two grids a sheet's contents belong to; `FRAME_PX` says how big
-		# each cell in the SHEET is. For square art those coincide -- a tile-grade sheet has 16 px
-		# frames -- so the distinction stayed invisible until a 32 px hex sheet arrived, was cut
-		# on the 16 px grid its kind implied, and imported 300 quarter-hexes instead of 75 hexes.
-		# Defaulted from the grid kind, so every existing square tileset is unaffected.
-		var frame := int(reference.get("FRAME_PX", gridPixels(grid)))
-		if frame <= 0:
-			push_warning("WorldMapTilesetCatalog: entry '%s' has FRAME_PX %d" % [nameKey, frame])
-			return false
-		reference["FRAME_PX"] = frame
-		reference["TILES"] = _normaliseTiles(reference.get("TILES", []))
-		# Held rather than recomputed so a removed tile's id can never be reissued: the counter
-		# only rises, and it rises past whatever the ledger already holds even if the file was
-		# hand-edited down.
-		reference["NEXT_ID"] = maxi(
-			int(reference.get("NEXT_ID", 0)), _highestID(reference["TILES"]) + 1
-		)
-		newList.append(reference)
-		newIndex[nameKey] = reference
+	var newHasConfig: Dictionary = {}
+	var newUncut: Dictionary = {}
+	var newSheetStems: Array[String] = []
+
+	var configDirHandle := DirAccess.open(configDir)
+	if configDirHandle != null:
+		var configNames := configDirHandle.get_files_at(configDir)
+		var stemsToLoad: Array[String] = []
+		for fileName in configNames:
+			if fileName.get_extension().to_lower() == "json":
+				stemsToLoad.append(fileName.get_basename())
+		stemsToLoad.sort()
+		for stem in stemsToLoad:
+			var reference := _loadConfig(configDir.path_join(stem + ".json"), stem)
+			if reference.is_empty():
+				continue
+			newList.append(reference)
+			newIndex[stem] = reference
+			newHasConfig[stem] = true
+
+	var sheetDirHandle := DirAccess.open(sheetDir)
+	if sheetDirHandle != null:
+		var sheetNames := sheetDirHandle.get_files_at(sheetDir)
+		var stems: Array[String] = []
+		for fileName in sheetNames:
+			if fileName.get_extension().to_lower() == "png":
+				stems.append(fileName.get_basename())
+		stems.sort()
+		for stem in stems:
+			newSheetStems.append(stem)
+			if newIndex.has(stem):
+				continue
+			var reference := {
+				"NAME": stem,
+				"DESCRIPTION": "",
+				"SHEET": sheetDir.path_join(stem + ".png"),
+				"GRID_KIND": GRID_TILE,
+				"FRAME_PX": DEFAULT_FRAME_PX,
+				"PALETTE_REGION": DEFAULT_PALETTE_REGION,
+				"NEXT_ID": 0,
+				"TILES": [],
+			}
+			newList.append(reference)
+			newIndex[stem] = reference
+			newUncut[stem] = true
+
+	newList.sort_custom(func(a, b) -> bool: return str(a["NAME"]) < str(b["NAME"]))
 
 	list = newList
 	_index = newIndex
+	_hasConfig = newHasConfig
+	_uncut = newUncut
+	_sheetStems = newSheetStems
 	return true
+
+
+## Reads and validates one config file. Returns `{}` (with a warning) for anything that does not
+## belong in the catalog; a bad file is skipped, not fatal to the whole reload -- see
+## `reloadCatalog`'s own note on why folder discovery must survive one hand-edited-broken file.
+static func _loadConfig(path: String, expectedName: String) -> Dictionary:
+	var parsed := JsonCatalogLoaderScript._loadJson(path)
+	if not parsed["success"]:
+		push_warning("WorldMapTilesetCatalog: %s (%s)" % [parsed["error"], path])
+		return {}
+	var value = parsed["value"]
+	if not value is Dictionary:
+		push_warning("WorldMapTilesetCatalog: %s is not a JSON object" % path)
+		return {}
+	var reference: Dictionary = (value as Dictionary).duplicate(true)
+	var nameKey := str(reference.get("NAME", ""))
+	if nameKey != expectedName:
+		push_warning(
+			"WorldMapTilesetCatalog: %s has NAME '%s', expected '%s'" % [path, nameKey, expectedName]
+		)
+		return {}
+	var sheetPath := str(reference.get("SHEET", ""))
+	var grid := str(reference.get("GRID_KIND", GRID_TILE))
+	if sheetPath.is_empty() or not (grid == GRID_TILE or grid == GRID_CEL):
+		push_warning("WorldMapTilesetCatalog: invalid entry '%s'" % nameKey)
+		return {}
+	reference["GRID_KIND"] = grid
+	# FRAME SIZE IS NOT THE GRID KIND, and conflating them was a real bug. `GRID_KIND` says
+	# which of the tile law's two grids a sheet's contents belong to; `FRAME_PX` says how big
+	# each cell in the SHEET is. For square art those coincide -- a tile-grade sheet has 16 px
+	# frames -- so the distinction stayed invisible until a 32 px hex sheet arrived, was cut
+	# on the 16 px grid its kind implied, and imported 300 quarter-hexes instead of 75 hexes.
+	# Defaulted from the grid kind, so every existing square tileset is unaffected.
+	var frame := int(reference.get("FRAME_PX", gridPixels(grid)))
+	if frame <= 0:
+		push_warning("WorldMapTilesetCatalog: entry '%s' has FRAME_PX %d" % [nameKey, frame])
+		return {}
+	reference["FRAME_PX"] = frame
+	reference["TILES"] = _normaliseTiles(reference.get("TILES", []))
+	# Held rather than recomputed so a removed tile's id can never be reissued: the counter
+	# only rises, and it rises past whatever the ledger already holds even if the file was
+	# hand-edited down.
+	reference["NEXT_ID"] = maxi(
+		int(reference.get("NEXT_ID", 0)), _highestID(reference["TILES"]) + 1
+	)
+	return reference
+
+
+## Every tileset ID with a readable PNG directly under `sheetDir`, sorted -- what the New Map
+## dialog offers. A config-only entry whose PNG is gone is not included, so a stale config never
+## re-appears as a choice; it stays readable for maps that already reference it (see `has()`).
+static func sheetIDs() -> Array[String]:
+	return _sheetStems.duplicate()
+
+
+## Whether `<ID>.json` exists under the configured `configDir`, either because it was loaded this
+## session or because `saveTileset()`/`ensureConfig()` has since written it.
+static func hasConfigFile(tilesetID: String) -> bool:
+	return _hasConfig.get(tilesetID, false)
+
+
+static func configPathFor(tilesetID: String) -> String:
+	return _configDir.path_join(tilesetID + ".json")
+
+
+## Cuts a discovered-but-never-saved sheet the first time something actually asks for its tiles.
+## Deferred out of `reloadCatalog()` so scanning the folder never decodes a PNG -- see `_uncut`'s
+## own note.
+static func _cutInPlace(tilesetID: String, reference: Dictionary) -> void:
+	var image := loadSheetImage(str(reference["SHEET"]))
+	if image == null:
+		push_warning(
+			"WorldMapTilesetCatalog: could not read sheet at %s" % str(reference["SHEET"])
+		)
+		_uncut.erase(tilesetID)
+		return
+	var cut := cutSheet(image, int(reference["FRAME_PX"]))
+	var reconciled := reconcile([], cut["cells"], 0)
+	reference["TILES"] = reconciled["tiles"]
+	reference["NEXT_ID"] = reconciled["next_id"]
+	_uncut.erase(tilesetID)
 
 
 ## Fills in every per-tile field so callers never probe for absence. Two of these are authored
@@ -186,7 +310,83 @@ static func has(tilesetID: String) -> bool:
 
 
 static func tilesetFor(tilesetID: String) -> Dictionary:
-	return _index.get(tilesetID, {})
+	var reference: Dictionary = _index.get(tilesetID, {})
+	if not reference.is_empty() and _uncut.get(tilesetID, false):
+		_cutInPlace(tilesetID, reference)
+	return reference
+
+
+## The authored `WALKABLE` fact for one tile, as the tri-state string `_normaliseTiles` stores:
+## `"true"`, `"false"`, or `""` for a sheet that has never had the field authored. Callers that
+## want a plain yes/no want `isWalkable()` below; this exists so a caller can tell "explicitly not
+## walkable" apart from "nobody has said yet" when that distinction matters.
+static func walkableFor(tilesetID: String, tileID: String) -> String:
+	for tile in tilesetFor(tilesetID).get("TILES", []):
+		if str((tile as Dictionary).get("ID", "")) == tileID:
+			return str((tile as Dictionary).get("WALKABLE", ""))
+	return ""
+
+
+## Whether a tile can be walked on, defaulting to true. Only an explicit `"false"` refuses; an
+## unset field, an unknown tile and an unknown tileset all read as walkable, which is the safer
+## direction to be wrong in -- a sheet nobody has annotated yet should not silently wall off every
+## cell painted from it.
+static func isWalkable(tilesetID: String, tileID: String) -> bool:
+	return walkableFor(tilesetID, tileID) != "false"
+
+
+## Sets one tile's `WALKABLE` fact in memory only -- nothing is written until `saveTileset()` is
+## called. Returns `false` for an unknown tileset or tile, and never touches `TERRAIN`, map
+## document history, or tactical cells.
+static func setWalkable(tilesetID: String, tileID: String, walkable: bool) -> bool:
+	var reference := tilesetFor(tilesetID)
+	if reference.is_empty():
+		return false
+	for tile in reference.get("TILES", []):
+		if str((tile as Dictionary).get("ID", "")) == tileID:
+			(tile as Dictionary)["WALKABLE"] = "true" if walkable else "false"
+			return true
+	return false
+
+
+## Re-cuts a tileset at a new frame size, in memory only. Reconciled against an EMPTY ledger --
+## never the tileset's own current tiles -- because every existing `CELL` means something
+## different once the sheet is sliced differently; keeping the old ledger would leave `t000`
+## pinned to whatever art now happens to occupy cell (0,0). Every old id is retired and never
+## reissued: `NEXT_ID` carries forward from the tileset's current value.
+##
+## Returns `{success, changed, retired, added, error}`. `changed` is false (with `success` true)
+## when `framePx` already matches -- a no-op the caller can skip saving for.
+static func setFrameSize(tilesetID: String, framePx: int) -> Dictionary:
+	if not _index.has(tilesetID):
+		return {
+			"success": false, "changed": false, "retired": 0, "added": 0,
+			"error": "unknown tileset '%s'" % tilesetID,
+		}
+	if framePx < MIN_FRAME_PX or framePx > MAX_FRAME_PX:
+		return {
+			"success": false, "changed": false, "retired": 0, "added": 0,
+			"error": "frame size %d is outside %d..%d" % [framePx, MIN_FRAME_PX, MAX_FRAME_PX],
+		}
+	var reference := tilesetFor(tilesetID)
+	if int(reference["FRAME_PX"]) == framePx:
+		return {"success": true, "changed": false, "retired": 0, "added": 0, "error": ""}
+	var image := loadSheetImage(str(reference["SHEET"]))
+	if image == null:
+		return {
+			"success": false, "changed": false, "retired": 0, "added": 0,
+			"error": "could not read sheet at %s" % str(reference["SHEET"]),
+		}
+	var cut := cutSheet(image, framePx)
+	var reconciled := reconcile([], cut["cells"], int(reference["NEXT_ID"]))
+	var retiredCount: int = (reference.get("TILES", []) as Array).size()
+	reference["TILES"] = reconciled["tiles"]
+	reference["FRAME_PX"] = framePx
+	reference["NEXT_ID"] = reconciled["next_id"]
+	return {
+		"success": true, "changed": true, "retired": retiredCount,
+		"added": (reconciled["tiles"] as Array).size(), "error": "",
+	}
 
 
 ## Map pixels per cell for a grid kind. Both come from the tile law's constants rather than
@@ -533,10 +733,10 @@ static func applyImport(tilesetID: String, result: Dictionary) -> bool:
 	return true
 
 
-## Writes the catalog back as JSON. A re-save with nothing changed produces a BYTE-IDENTICAL
-## file, which is the property that matters: several agent sessions share one working tree here,
-## and a catalog that reshuffled itself on every write would turn every save into a conflict
-## that is not a real disagreement. Verified by saving twice and diffing, not assumed.
+## Renders one tileset entry as the JSON text its config file holds. A re-save with nothing
+## changed produces a BYTE-IDENTICAL file, which is the property that matters: several agent
+## sessions share one working tree here, and a config that reshuffled itself on every write would
+## turn every save into a conflict that is not a real disagreement.
 ##
 ## Two things supply that determinism, and only one of them is this function's doing. Tiles are
 ## written in sheet order -- so a diff shows what moved rather than the order ids happened to be
@@ -544,40 +744,63 @@ static func applyImport(tilesetID: String, result: Dictionary) -> bool:
 ## alphabetically regardless of the order they were built in. That is why the emitted files read
 ## `AUTOTILE, CELL, HASH, ID, ...` rather than the order below. Deterministic either way, so the
 ## construction order here is for reading, not for the output.
-static func save(path: String = JSON_PATH) -> bool:
-	var out: Array = []
-	for reference in list:
-		var tiles: Array = []
-		for tile in reference["TILES"]:
-			var cell: Vector2i = tile["CELL"]
-			tiles.append({
-				"ID": tile["ID"],
-				"HASH": tile["HASH"],
-				"CELL": [cell.x, cell.y],
-				"LABEL": tile["LABEL"],
-				"TERRAIN": tile["TERRAIN"],
-				"AUTOTILE": tile["AUTOTILE"],
-				"VARIANT": tile["VARIANT"],
-				"WALKABLE": tile["WALKABLE"],
-				"LIFTABLE": tile["LIFTABLE"],
-			})
-		out.append({
-			"NAME": reference["NAME"],
-			"DESCRIPTION": reference.get("DESCRIPTION", ""),
-			"SHEET": reference["SHEET"],
-			"GRID_KIND": reference["GRID_KIND"],
-			"FRAME_PX": reference["FRAME_PX"],
-			"PALETTE_REGION": reference.get("PALETTE_REGION", ""),
-			"NEXT_ID": reference["NEXT_ID"],
-			"TILES": tiles,
+static func serialise(reference: Dictionary) -> String:
+	var tiles: Array = []
+	for tile in reference.get("TILES", []):
+		var cellValue = (tile as Dictionary).get("CELL", Vector2i.ZERO)
+		var cell: Vector2i = cellValue if cellValue is Vector2i else Vector2i(cellValue[0], cellValue[1])
+		tiles.append({
+			"ID": tile["ID"],
+			"HASH": tile["HASH"],
+			"CELL": [cell.x, cell.y],
+			"LABEL": tile["LABEL"],
+			"TERRAIN": tile["TERRAIN"],
+			"AUTOTILE": tile["AUTOTILE"],
+			"VARIANT": tile["VARIANT"],
+			"WALKABLE": tile["WALKABLE"],
+			"LIFTABLE": tile["LIFTABLE"],
 		})
+	var out := {
+		"NAME": reference["NAME"],
+		"DESCRIPTION": reference.get("DESCRIPTION", ""),
+		"SHEET": reference["SHEET"],
+		"GRID_KIND": reference["GRID_KIND"],
+		"FRAME_PX": reference["FRAME_PX"],
+		"PALETTE_REGION": reference.get("PALETTE_REGION", ""),
+		"NEXT_ID": reference["NEXT_ID"],
+		"TILES": tiles,
+	}
+	return JSON.stringify(out, "\t") + "\n"
+
+
+## Writes one tileset's config file to `configPathFor(tilesetID)`, creating `_configDir` if it
+## does not exist yet. This writes only that one file -- a sibling tileset's config, loaded or
+## discovered, is never touched by a save that was not asked for.
+static func saveTileset(tilesetID: String) -> bool:
+	if not _index.has(tilesetID):
+		push_warning("WorldMapTilesetCatalog: unknown tileset '%s'" % tilesetID)
+		return false
+	var path := configPathFor(tilesetID)
+	DirAccess.make_dir_recursive_absolute(path.get_base_dir())
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		push_warning("WorldMapTilesetCatalog: could not write %s" % path)
 		return false
-	file.store_string(JSON.stringify(out, "\t") + "\n")
+	file.store_string(serialise(_index[tilesetID]))
 	file.close()
+	_hasConfig[tilesetID] = true
 	return true
+
+
+## Makes a tileset's config file durable the first time it is used, and does nothing (successfully)
+## if it already exists -- see the class note on why folder discovery alone must never write a
+## file. Returns `false` only for an unknown tileset ID or a failed write.
+static func ensureConfig(tilesetID: String) -> bool:
+	if not _index.has(tilesetID):
+		return false
+	if hasConfigFile(tilesetID):
+		return true
+	return saveTileset(tilesetID)
 
 
 ## One line per verdict that has entries, for a console or a HUD panel. An import with nothing

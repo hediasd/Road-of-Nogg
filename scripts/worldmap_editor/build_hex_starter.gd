@@ -7,7 +7,7 @@ const Catalog = preload("res://src/presentation/worldmap/editor/WorldMapTilesetC
 
 const SHEET_PATH := "res://assets/worldmap/tilesets/temp2_hex32_starter.png"
 const GUIDE_PATH := "res://assets/worldmap/tilesets/templates/hex32_guides.svg"
-const CATALOG_PATH := "res://data/worldmap/tilesets.json"
+const CATALOG_PATH := "res://data/worldmap/tilesets/temp2_hex32_starter.json"
 const REGION_PATH := "res://assets/worldmap/regions/temp2.png"
 const FRAME_PX := 32
 const COLUMNS := 5
@@ -36,7 +36,7 @@ func _init() -> void:
 	if not _writeText(GUIDE_PATH, _guideText()):
 		quit(1)
 		return
-	if not _upsertCatalog(sheet):
+	if not _writeCatalog(sheet):
 		quit(1)
 		return
 	print("WORLD MAP HEX STARTER BUILT")
@@ -112,24 +112,11 @@ func _distanceToEdge(point: Vector2, edgeIndex: int) -> float:
 	return point.distance_to(start + line * progress)
 
 
-## Only this rebuild's own entry may be replaced. `JSON.parse_string()` always
-## returns floats for every JSON number (there is no int/float distinction in
-## the JSON spec), so round-tripping donor entries through parse+stringify
-## would silently rewrite their ints (e.g. `"FRAME_PX": 16`) as floats
-## (`16.0`). Parsing is therefore read-only here, used only to locate the
-## existing entry (if any) and to validate structure; writing splices this
-## rebuild's freshly-typed dictionary into the raw source text so every other
-## byte of every other entry is left untouched.
-func _upsertCatalog(sheet: Image) -> bool:
-	var source := FileAccess.get_file_as_string(CATALOG_PATH)
-	var raw = JSON.parse_string(source)
-	if not raw is Array:
-		_fail("could not parse tileset catalog")
-		return false
-	var spans := _topLevelObjectSpans(source)
-	if spans.size() != (raw as Array).size():
-		_fail("tileset catalog text did not match its parsed structure")
-		return false
+## Writes this rebuild's own tileset config file in full. Unlike the old shared catalog, this
+## file holds exactly one tileset entry, so there is no donor content to protect from
+## `JSON.parse_string()`'s float coercion by splicing text -- `Catalog.serialise()` is used
+## directly.
+func _writeCatalog(sheet: Image) -> bool:
 	var tiles: Array = []
 	for index in COLUMNS * ROWS:
 		var edgeIndex := index - 3 if index >= 3 and index <= 8 else index - 9 if index >= 9 else -1
@@ -159,65 +146,7 @@ func _upsertCatalog(sheet: Image) -> bool:
 		"SHEET": SHEET_PATH,
 		"TILES": tiles,
 	}
-	var catalog: Array = raw
-	var existingIndex := -1
-	for index in catalog.size():
-		var reference = catalog[index]
-		if reference is Dictionary and str((reference as Dictionary).get("NAME", "")) == "temp2_hex32_starter":
-			existingIndex = index
-			break
-	var entryText := _indentEntryLines(JSON.stringify(starter, "\t"))
-	var newSource: String
-	if existingIndex >= 0:
-		var span: Vector2i = spans[existingIndex]
-		newSource = source.substr(0, span.x) + entryText + source.substr(span.y)
-	else:
-		var insertPos: int = spans[spans.size() - 1].y
-		newSource = source.substr(0, insertPos) + ",\n\t" + entryText + source.substr(insertPos)
-	return _writeText(CATALOG_PATH, newSource)
-
-
-## Prefixes every line but the first with one tab, so a standalone
-## `JSON.stringify(dict, "\t")` (which starts at column 0) matches the one
-## extra indent level every entry has as an element of the top-level array.
-func _indentEntryLines(text: String) -> String:
-	var lines := text.split("\n")
-	for index in range(1, lines.size()):
-		lines[index] = "\t" + lines[index]
-	return "\n".join(lines)
-
-
-## Returns the (start, end) byte spans of each brace-balanced object that is a
-## direct element of the outer array, ignoring braces inside quoted strings.
-## Depth returning to zero marks the end of a top-level object regardless of
-## how deeply its own fields (e.g. TILES) nest further braces.
-func _topLevelObjectSpans(text: String) -> Array:
-	var spans: Array = []
-	var depth := 0
-	var inString := false
-	var escaped := false
-	var objectStart := -1
-	for i in text.length():
-		var ch := text[i]
-		if inString:
-			if escaped:
-				escaped = false
-			elif ch == "\\":
-				escaped = true
-			elif ch == "\"":
-				inString = false
-			continue
-		if ch == "\"":
-			inString = true
-		elif ch == "{":
-			if depth == 0:
-				objectStart = i
-			depth += 1
-		elif ch == "}":
-			depth -= 1
-			if depth == 0:
-				spans.append(Vector2i(objectStart, i + 1))
-	return spans
+	return _writeText(CATALOG_PATH, Catalog.serialise(starter))
 
 
 func _writeText(path: String, text: String) -> bool:

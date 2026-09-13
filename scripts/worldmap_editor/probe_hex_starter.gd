@@ -8,7 +8,7 @@ extends SceneTree
 const Catalog = preload("res://src/presentation/worldmap/editor/WorldMapTilesetCatalog.gd")
 
 const SHEET_PATH := "res://assets/worldmap/tilesets/temp2_hex32_starter.png"
-const CATALOG_PATH := "res://data/worldmap/tilesets.json"
+const CATALOG_PATH := "res://data/worldmap/tilesets/temp2_hex32_starter.json"
 const FRAME_PX := 32
 const COLUMNS := 5
 const ROWS := 3
@@ -39,7 +39,6 @@ func _init() -> void:
 	else:
 		_checkCatalogEntry(starterEntry)
 		_checkTileHashesAndPixels(sheet, starterEntry)
-	_checkDonorEntriesUnchanged()
 	_checkTessellation()
 	if not failures.is_empty():
 		for failure: String in failures:
@@ -55,14 +54,15 @@ func _checkDimensions(sheet: Image) -> void:
 	_require(sheet.get_format() == Image.FORMAT_RGBA8, "sheet format is not RGBA8")
 
 
+## Each tileset now has its own config file, so the starter's entry is the file's whole
+## top-level object rather than one element found by searching an array.
 func _loadStarterEntry() -> Dictionary:
 	var raw = JSON.parse_string(FileAccess.get_file_as_string(CATALOG_PATH))
-	if not raw is Array:
+	if not raw is Dictionary:
 		return {}
-	for reference in raw as Array:
-		if reference is Dictionary and str((reference as Dictionary).get("NAME", "")) == "temp2_hex32_starter":
-			return reference as Dictionary
-	return {}
+	if str((raw as Dictionary).get("NAME", "")) != "temp2_hex32_starter":
+		return {}
+	return raw as Dictionary
 
 
 func _checkCatalogEntry(entry: Dictionary) -> void:
@@ -132,35 +132,6 @@ func _distanceToEdge(point: Vector2, edgeIndex: int) -> float:
 	var lengthSquared := line.length_squared()
 	var progress := clampf((point - start).dot(line) / lengthSquared, 0.0, 1.0)
 	return point.distance_to(start + line * progress)
-
-
-## The builder must upsert only its own entry. This asserts the two pre-
-## existing donor tilesets kept their identity and full tile counts; the
-## companion `git diff` (recorded in the commit body) additionally proves
-## every other byte of the file, including numeric types, is untouched.
-func _checkDonorEntriesUnchanged() -> void:
-	var raw = JSON.parse_string(FileAccess.get_file_as_string(CATALOG_PATH))
-	if not raw is Array:
-		failures.append("could not parse tileset catalog for donor check")
-		return
-	var expected := {
-		"temp2_ground": {"FRAME_PX": 16, "NEXT_ID": 40, "TILES": 40},
-		"temp2_hex32_ground": {"FRAME_PX": 32, "NEXT_ID": 75, "TILES": 75},
-	}
-	var seen: Dictionary = {}
-	for reference in raw as Array:
-		if not reference is Dictionary:
-			continue
-		var name := str((reference as Dictionary).get("NAME", ""))
-		if expected.has(name):
-			seen[name] = true
-			var want: Dictionary = expected[name]
-			_require(int((reference as Dictionary).get("FRAME_PX", -1)) == int(want["FRAME_PX"]), "%s FRAME_PX changed" % name)
-			_require(int((reference as Dictionary).get("NEXT_ID", -1)) == int(want["NEXT_ID"]), "%s NEXT_ID changed" % name)
-			var tiles: Array = (reference as Dictionary).get("TILES", [])
-			_require(tiles.size() == int(want["TILES"]), "%s TILES count changed" % name)
-	for name: String in expected:
-		_require(seen.has(name), "donor entry %s is missing" % name)
 
 
 ## Flat-top hexes at this frame size and lattice step must tessellate the
