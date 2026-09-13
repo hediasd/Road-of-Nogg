@@ -8,10 +8,26 @@ const RetroRenderControllerScript = preload("res://src/presentation/RetroRenderC
 const BattleEnvironmentFactoryScript = preload("res://src/presentation/BattleEnvironmentFactory.gd")
 const HexGraphicsPanelScript = preload("res://src/presentation/battle/ui/HexGraphicsPanel.gd")
 const SKY_SHADER = preload("res://assets/textures/sky/retro_sky_2d.gdshader")
+const BattleMapAssetManifestScript = preload(
+	"res://src/presentation/battle/BattleMapAssetManifest.gd")
 
 const LIGHT_ROTATION := Vector3(-45.0, 45.0, 0.0)
 const LIGHT_COLOR := Color.WHITE
 const LIGHT_ENERGY := 1.0
+
+const TERRAIN_NODE_NAME := "BattleTerrain"
+## What `loadTerrain` found. Only LOADED puts anything in the world. HEADLESS_ONLY is a map that
+## declares no scene on purpose and needs no notice; the other three are a map that should have
+## terrain and does not, and each carries a notice saying to re-export.
+const TERRAIN_LOADED := "loaded"
+const TERRAIN_HEADLESS_ONLY := "headless_only"
+const TERRAIN_MISSING := "missing"
+const TERRAIN_UNREADABLE := "unreadable"
+const TERRAIN_MISMATCHED := "mismatched"
+## Stamped on every exported scene root by the world-map export. The lattice size is the alignment
+## contract: a scene exported for a different lattice cannot line up cell for cell, however it is
+## placed, so it is refused rather than drawn wrong.
+const SCENE_CELLS_META := "worldmap_cells"
 
 var renderer: RetroRenderController
 var graphicsPanel: HexGraphicsPanel
@@ -20,6 +36,8 @@ var light: DirectionalLight3D
 
 var _camera: HexBattleCamera
 var _disposed := false
+var _terrain: Node3D
+var _terrainReport: Dictionary = {}
 
 
 func _ready() -> void:
@@ -58,6 +76,75 @@ func _buildSky() -> void:
 
 func worldRoot() -> Node3D:
 	return renderer.world_root if renderer != null else null
+
+
+## Puts the map's exported scene into this world, at the origin, and reports what happened.
+##
+## AT THE ORIGIN, WITH NO CORRECTION. `HexBattleLayout` and the editor's `WorldMapHexGrid` place a
+## cell at the same region-local X/Z, and the export places its art from the region origin. If the
+## two ever disagree the fault is in one of them, and an offset here would hide it.
+##
+## A MISSING SCENE IS NORMAL. Generated scenes are gitignored, so a fresh checkout has none. The
+## battle goes on with the grey board, and the report's `notice` says what to re-export. Returns
+## `{status, path, notice}`; `notice` is empty when the terrain loaded or the map has none by design.
+func loadTerrain(map: BattleMapDefinition) -> Dictionary:
+	_clearTerrain()
+	var path := map.visualScenePath if map != null else ""
+	var mapID := map.mapID if map != null else ""
+	if path.is_empty():
+		return _reportTerrain(TERRAIN_HEADLESS_ONLY, path, "")
+	if not ResourceLoader.exists(path):
+		return _reportTerrain(TERRAIN_MISSING, path,
+			"No terrain: %s has not been exported here. Re-export map '%s'." % [path, mapID])
+	var packed := load(path) as PackedScene
+	var instance: Node = packed.instantiate() if packed != null else null
+	if not instance is Node3D or not instance.has_meta(SCENE_CELLS_META):
+		if instance != null:
+			instance.free()
+		return _reportTerrain(TERRAIN_UNREADABLE, path,
+			"No terrain: %s is not an exported map scene. Re-export map '%s'." % [path, mapID])
+	var sourceMeta := BattleMapAssetManifestScript.SCENE_SOURCE_META
+	var expectedSource := BattleMapAssetManifestScript.authoredPathFor(map.sourceID)
+	var cellsDisagree: bool = instance.get_meta(SCENE_CELLS_META) != map.boardSize
+	var sourceDisagrees := instance.has_meta(sourceMeta) \
+		and str(instance.get_meta(sourceMeta)) != expectedSource
+	if cellsDisagree or sourceDisagrees:
+		instance.free()
+		return _reportTerrain(TERRAIN_MISMATCHED, path,
+			"No terrain: %s was exported from a different map. Re-export map '%s'." % [path, mapID])
+	_terrain = instance as Node3D
+	_terrain.name = TERRAIN_NODE_NAME
+	_terrain.transform = Transform3D.IDENTITY
+	renderer.world_root.add_child(_terrain)
+	return _reportTerrain(TERRAIN_LOADED, path, "")
+
+
+func terrainRoot() -> Node3D:
+	return _terrain if is_instance_valid(_terrain) else null
+
+
+func hasTerrain() -> bool:
+	return terrainRoot() != null
+
+
+func terrainReport() -> Dictionary:
+	return _terrainReport.duplicate()
+
+
+func _reportTerrain(status: String, path: String, notice: String) -> Dictionary:
+	_terrainReport = {"status": status, "path": path, "notice": notice}
+	if not notice.is_empty():
+		push_warning(notice)
+	return _terrainReport.duplicate()
+
+
+func _clearTerrain() -> void:
+	if is_instance_valid(_terrain):
+		if _terrain.get_parent() != null:
+			_terrain.get_parent().remove_child(_terrain)
+		_terrain.queue_free()
+	_terrain = null
+	_terrainReport = {}
 
 
 func attachCamera(value: HexBattleCamera) -> void:

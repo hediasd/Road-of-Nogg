@@ -19,6 +19,7 @@ extends IPlayerTurnVisualAdapter
 
 const HexBattleLayoutScript = preload("res://src/presentation/battle/HexBattleLayout.gd")
 const HexBattleBoardViewScript = preload("res://src/presentation/battle/HexBattleBoardView.gd")
+const HexBattleMeshFactoryScript = preload("res://src/presentation/battle/HexBattleMeshFactory.gd")
 const HexBattleVfxBridgeScript = preload(
 	"res://src/presentation/battle/effects/HexBattleVfxBridge.gd")
 const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueue.gd")
@@ -45,6 +46,15 @@ const COLOR_THREAT := Color(0.85, 0.35, 0.55, 0.30)
 ## can sit on top of any of the layers below without being mistaken for one of them.
 const COLOR_PREVIEW := Color(1.0, 0.94, 0.78, 0.34)
 const COLOR_PREVIEW_FOCUS := Color(1.0, 0.72, 0.30, 0.62)
+
+## Marker geometry. The rim widths are fractions from the hex edge toward its centre (see
+## `HexBattleMeshFactory.appendRingBand`); the edge is dark so the coloured band has contrast
+## on light art as well as dark.
+const MARKER_THICKNESS := 0.02
+const MARKER_RIM_EDGE := 0.05
+const MARKER_RIM_BAND := 0.12
+const MARKER_RIM_ALPHA := 0.95
+const MARKER_RIM_EDGE_COLOR := Color(0.03, 0.03, 0.05, 0.7)
 
 ## Independent overlay layers. Painting one never clears another, which is what lets a pending
 ## command be previewed over the reach the player is aiming from.
@@ -80,6 +90,8 @@ var _layers: Dictionary = {}
 ## board perfectly well without one, and a caller that never previews never needs to set it.
 var _combat
 var _cursorMarker: MeshInstance3D
+var _markerRimMaterial: StandardMaterial3D
+var _markerRimMeshes: Dictionary = {}  ## Color -> ArrayMesh
 var _disposed := false
 var _displayState: HexBattleDisplayState
 var _feedback: HexBattleCombatFeedback
@@ -377,7 +389,7 @@ func _buildMarker(color: Color) -> MeshInstance3D:
 	mesh.radial_segments = 6
 	mesh.top_radius = _map.cellWidth * 0.5
 	mesh.bottom_radius = _map.cellWidth * 0.5
-	mesh.height = 0.02
+	mesh.height = MARKER_THICKNESS
 	marker.mesh = mesh
 	marker.rotation_degrees = Vector3(0.0, 30.0, 0.0)
 	var material := StandardMaterial3D.new()
@@ -385,7 +397,48 @@ func _buildMarker(color: Color) -> MeshInstance3D:
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.albedo_color = color
 	marker.material_override = material
+	marker.add_child(_buildMarkerRim(color))
 	return marker
+
+
+## The fills were tuned against flat grey, and a translucent fill over painted art mixes
+## with whatever colour is under it. The rim does not: it is the marker's own colour at nearly full
+## opacity, edged in dark, so the hue and the cell edge both survive any palette. It is a child of
+## the fill, so a layer still holds one node per cell and clearing a layer clears its rims.
+func _buildMarkerRim(color: Color) -> MeshInstance3D:
+	var rim := MeshInstance3D.new()
+	rim.name = "Rim"
+	rim.mesh = _markerRimMesh(color)
+	if _markerRimMaterial == null:
+		_markerRimMaterial = HexBattleMeshFactoryScript.createOverlayMaterial()
+	rim.material_override = _markerRimMaterial
+	rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Cancel the fill's thirty-degree turn: the rim is built from the layout's own polygon, which
+	# is already in board orientation. Lifted to sit on the fill's top face.
+	rim.rotation_degrees = Vector3(0.0, -30.0, 0.0)
+	rim.position = Vector3(0.0, MARKER_THICKNESS * 0.5 + 0.0005, 0.0)
+	return rim
+
+
+## One mesh per marker colour, shared by every marker of that colour. Hover and aim repaint their
+## layers on every cursor move, so building a fresh ring each time would be steady garbage.
+func _markerRimMesh(color: Color) -> ArrayMesh:
+	if _markerRimMeshes.has(color):
+		return _markerRimMeshes[color]
+	var origin := layout.cellCenter(Vector2i.ZERO)
+	var polygon := PackedVector3Array()
+	for corner: Vector3 in layout.cellPolygon(Vector2i.ZERO):
+		polygon.append(corner - origin)
+	var vertices := PackedVector3Array()
+	var colors := PackedColorArray()
+	HexBattleMeshFactoryScript.appendRingBand(
+		vertices, colors, Vector3.ZERO, polygon, 0.0, MARKER_RIM_EDGE, MARKER_RIM_EDGE_COLOR)
+	HexBattleMeshFactoryScript.appendRingBand(
+		vertices, colors, Vector3.ZERO, polygon, MARKER_RIM_EDGE, MARKER_RIM_EDGE + MARKER_RIM_BAND,
+		Color(color.r, color.g, color.b, MARKER_RIM_ALPHA))
+	var mesh := HexBattleMeshFactoryScript.createColoredMesh(vertices, colors)
+	_markerRimMeshes[color] = mesh
+	return mesh
 
 
 # --- combat events ----------------------------------------------------------

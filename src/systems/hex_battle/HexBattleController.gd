@@ -81,6 +81,9 @@ var _seedValue := 0
 ## The presentation speed the player last chose. Carried into a restart, which is the same battle
 ## watched again; pause is not carried, because a restarted battle that opens frozen reads as hung.
 var _speedPreference := HexBattlePlaybackScript.DEFAULT_SPEED
+## Why the authored terrain is not drawn, for the status line. Empty when it is, or when the map
+## declares no scene at all.
+var _terrainNotice := ""
 
 
 func _ready() -> void:
@@ -137,6 +140,7 @@ func teardownBattle() -> void:
 	cursor = null
 	sim = null
 	map = null
+	_terrainNotice = ""
 
 
 func returnToSetup() -> void:
@@ -218,6 +222,13 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	# move would be the first thing a connected adapter ever hears about.
 	sim.emitInitialBoard()
 
+	# The authored terrain goes into the stage's own world, under the board. A map without
+	# its generated scene still starts, on the grey board, with a notice saying to re-export.
+	_terrainNotice = str(stage.loadTerrain(map).get("notice", ""))
+	adapter.boardView.showOverTerrain(stage.hasTerrain())
+
+	# Frames the battlefield, not the art. The valid cells are what a player acts on; exported
+	# ground extends past them by a fog-length skirt, and framing that would shrink the board.
 	battleCamera = HexBattleCameraScript.new()
 	stage.worldRoot().add_child(battleCamera)
 	stage.attachCamera(battleCamera)
@@ -235,6 +246,8 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	hud.command_cancelled.connect(_onHudCommandCancelled)
 	hud.session_command.connect(_onSessionCommand)
 	hud.bind(sim, adapter)
+	# Puts a terrain notice, if there is one, on the status line before the battle says anything.
+	_setStatus("")
 
 	playback = HexBattlePlaybackScript.new(adapter)
 	playback.setSpeed(_speedPreference)
@@ -244,7 +257,7 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	lifecycle = Lifecycle.BATTLE
 	sim.startBattle()
 	_advanceTimer.start()
-	return {"ok": true, "scenario": scenarioPath}
+	return {"ok": true, "scenario": scenarioPath, "terrain": stage.terrainReport()}
 
 
 # --- the loop ---------------------------------------------------------------
@@ -290,7 +303,7 @@ func _onActivationOpened(partyID: int) -> void:
 		return
 	if hud != null:
 		hud.showParty(sim, partyID, -1, party.controller == "player")
-		hud.setStatus(
+		_setStatus(
 			"Your party is up." if party.controller == "player" else "The enemy is moving."
 		)
 
@@ -404,8 +417,7 @@ func _onMenuDismissed() -> void:
 
 
 func _onMemberStatus(text: String) -> void:
-	if hud != null:
-		hud.setStatus(text)
+	_setStatus(text)
 
 
 func _onAimChanged(model: Dictionary) -> void:
@@ -626,6 +638,24 @@ func _cellAtPoint(point: Vector2) -> Vector2i:
 	return best
 
 
+## Every status line goes through here, so a missing-terrain notice stays on screen under whatever
+## the battle is saying rather than being replaced by the first "Your party is up."
+func _setStatus(text: String) -> void:
+	if hud == null:
+		return
+	if _terrainNotice.is_empty():
+		hud.setStatus(text)
+	elif text.is_empty():
+		hud.setStatus(_terrainNotice)
+	else:
+		hud.setStatus("%s\n%s" % [text, _terrainNotice])
+
+
+## The notice shown while the map's terrain could not be drawn, or empty.
+func terrainNotice() -> String:
+	return _terrainNotice
+
+
 # --- session controls ---------------------------------------------------------
 
 ## Pause, speed, skip, restart and setup, whether they came from a key or a session row. One
@@ -768,7 +798,7 @@ func _beginEnding() -> void:
 	if hud != null:
 		hud.clearParty()
 		hud.showAim({})
-		hud.setStatus("The battle is decided.")
+		_setStatus("The battle is decided.")
 
 
 func _completeBattle() -> void:
@@ -777,7 +807,7 @@ func _completeBattle() -> void:
 	lifecycle = Lifecycle.COMPLETE
 	_advanceTimer.stop()
 	if hud != null:
-		hud.setStatus("%s." % resultText(sim.state))
+		_setStatus("%s." % resultText(sim.state))
 
 
 ## "Draw" for the draw team, otherwise the winning team, and whose side that is. A draw is team 0
