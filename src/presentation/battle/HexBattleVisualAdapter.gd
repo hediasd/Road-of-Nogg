@@ -27,6 +27,7 @@ const HexBattleCombatFeedbackScript = preload(
 	"res://src/presentation/battle/HexBattleCombatFeedback.gd")
 const HexBattleDisplayStateScript = preload(
 	"res://src/presentation/battle/HexBattleDisplayState.gd")
+const HexBattleUnitBadgesScript = preload("res://src/presentation/battle/HexBattleUnitBadges.gd")
 const MonsterModelFactoryScript = preload("res://src/presentation/MonsterModelFactory.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
@@ -77,6 +78,9 @@ var _cursorMarker: MeshInstance3D
 var _disposed := false
 var _displayState: HexBattleDisplayState
 var _feedback: HexBattleCombatFeedback
+## Projected status rows (`HexBattleUnitBadges`). They draw displayed state and never own any.
+## Untyped because a brand-new `class_name` is not a usable bare type until a project rescan.
+var _badges
 
 
 func _init(root: Node3D, map: BattleMapDefinition, state: BattleState = null) -> void:
@@ -102,6 +106,8 @@ func _init(root: Node3D, map: BattleMapDefinition, state: BattleState = null) ->
 	)
 	_displayState = HexBattleDisplayStateScript.new()
 	_feedback = HexBattleCombatFeedbackScript.new(self, _root, _map, _displayState)
+	_badges = HexBattleUnitBadgesScript.new(self, _root)
+	_badges.start()
 	# The inherited signal, emitted from the queue's own. One hop, so the controller has exactly
 	# one thing to wait on and the queue stays the only thing that knows when playback is done.
 	_queue.drained.connect(func(): animation_queue_drained.emit())
@@ -133,6 +139,9 @@ func dispose() -> void:
 	if _feedback != null:
 		_feedback.dispose()
 		_feedback = null
+	if _badges != null:
+		_badges.dispose()
+		_badges = null
 	for id in _models.keys():
 		var model: Node3D = _models[id]
 		if is_instance_valid(model):
@@ -159,6 +168,12 @@ func removeDisplayedModel(monsterID: int) -> void:
 	if model != null and is_instance_valid(model):
 		model.queue_free()
 	_models.erase(monsterID)
+	_refreshBadges(monsterID)
+
+
+## Ids of the units that currently have a rendered model, in no particular order.
+func shownModelIDs() -> Array:
+	return _models.keys()
 
 
 # --- board events -----------------------------------------------------------
@@ -376,7 +391,8 @@ func _buildMarker(color: Color) -> MeshInstance3D:
 #   monster_healed        heal number, HP at impact.
 #   status_damage_dealt   number over the ticking unit, HP at impact, no lunge.
 #   passive_aoe_damage    number over the damaged unit, HP at impact, no lunge.
-#   effect_applied/ticked/removed   displayed status rows, in queue order.
+#   effect_applied/ticked/removed   displayed status rows, in queue order; the projected badge
+#                         row for that unit refreshes when the row plays (HexBattleUnitBadges).
 #   monster_defeated      queued collapse and removal (see board events).
 #   party_withdrawn       queued lift-away and removal, recorded as withdrawn.
 #   monster_spawned / monster_moved   model build / queued walk (board events).
@@ -662,7 +678,16 @@ func _startQueuedAction(action: VisualAction) -> bool:
 		VisualAction.Kind.MOVE:
 			return _startMove(action)
 		_:
-			return _feedback.start(action, _queue) if _feedback != null else false
+			if _feedback == null:
+				return false
+			# The row leaves when the unit starts to leave, not after its collapse has played.
+			if action.kind == VisualAction.Kind.DEFEAT and _badges != null:
+				_badges.beginRemoval(action.monster_id)
+			var started := _feedback.start(action, _queue)
+			# Status rows change when their display action plays (an instant action finalizes
+			# inside `start`), so this is the event-time refresh, never the event itself.
+			_refreshBadgesForAction(action)
+			return started
 
 
 ## Walks a unit along the cell centres of its path. Tweened per step rather than straight to the
@@ -694,6 +719,17 @@ func _finalizeQueuedAction(action: VisualAction) -> void:
 		_feedback.finalize(action)
 
 
+func _refreshBadgesForAction(action: VisualAction) -> void:
+	_refreshBadges(action.monster_id)
+	if action.target_id != action.monster_id:
+		_refreshBadges(action.target_id)
+
+
+func _refreshBadges(monsterID: int) -> void:
+	if _badges != null and monsterID >= 0:
+		_badges.refresh(monsterID)
+
+
 ## Puts every model back where the simulation says it is. The queue calls this when it recovers
 ## from an overflow or a watchdog timeout, which are exactly the moments the screen and the state
 ## may have diverged.
@@ -723,6 +759,8 @@ func _synchroniseOccupancy(exceptMonsterID: int = -1) -> void:
 			continue
 		model.visible = true
 		model.position = worldPositionOf(cell)
+	if _badges != null:
+		_badges.refreshAll()
 
 
 # --- displayed state and playback control ------------------------------------
@@ -779,6 +817,11 @@ func liveCastEffectCount() -> int:
 
 func damageNumberRoot() -> Control:
 	return _feedback.numberRoot() if _feedback != null else null
+
+
+## The projected status row manager, for probes. Null after disposal.
+func statusBadges():
+	return _badges
 
 
 # --- forecast ---------------------------------------------------------------
