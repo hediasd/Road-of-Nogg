@@ -1534,3 +1534,17 @@ emits `passive_triggered` when it is false, and a forecast that fired battle
 events every time the cursor moved would change the battle it describes.
 `probe_preview.gd` asserts the whole serialized state is byte-identical across a
 sweep of forecasts.
+
+## Action playback pacing
+
+The visual queue owns the breath between consequential actions. At normal speed,
+movement plays at 75% of its former rate and holds on the destination for 0.18
+seconds before another visual action begins. A strike holds for 0.16 seconds after
+its existing feedback, and defeat holds for 0.20 seconds after its animation.
+
+These intervals are part of their action tweens. Pause freezes them, presentation
+speed scales them, skip removes the remaining interval, and watchdog timing includes
+them. There is no automatic interval on `MESSAGE`, `FOCUS`, or `CAST_AREA`: a spell
+may produce several instant display updates and per-target consequences, and adding
+the same delay to each would make area actions accumulate dead time. Broader cast
+grouping belongs to a later battle-director contract.

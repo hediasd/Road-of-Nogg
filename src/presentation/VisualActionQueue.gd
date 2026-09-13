@@ -30,6 +30,22 @@ signal drained
 const MAX_QUEUED_ACTIONS := 4096
 const WATCHDOG_MARGIN := 0.75
 
+## Presentation cadence at the one boundary every animated action crosses. Movement keeps the
+## adapter's authored per-cell duration but plays it more deliberately, then remains on its final
+## tile before the next action starts. Strike and defeat recovery are tails on their own tweens,
+## so pause, playback speed, skip and watchdog recovery treat the breath as part of the action.
+## MESSAGE is deliberately absent: one cast may enqueue many instant status/display updates and a
+## pause on each would turn a readable beat into accumulated dead air.
+const MOVE_PLAYBACK_SCALE := 0.75
+## Temporary reconstruction input while the live adapter is owned by another executing item. Its
+## movement tween contains exactly one interval of this length per path entry and reports the
+## already-speed-scaled real duration to activate(), so their ratio recovers the caller's scale.
+const MOVE_SOURCE_STEP_SECONDS := 0.16
+const MIN_PRESENTATION_SPEED := 0.1
+const MOVE_SETTLE_SECONDS := 0.18
+const STRIKE_RECOVERY_SECONDS := 0.16
+const DEFEAT_RECOVERY_SECONDS := 0.20
+
 ## (action: VisualAction) -> bool — begin the action; return true if it activated
 ## a tween (via activate()) and false if it resolved instantly, in which case
 ## the queue moves straight on to the next action.
@@ -156,8 +172,26 @@ func startNext() -> void:
 
 func activate(tween: Tween, action: VisualAction, duration: float) -> void:
 	## Called by the owner's start handler once it has built a tween for the
-	## action. Arms both completion paths: the tween's own `finished` signal and
-	## a watchdog timer sized to the expected duration plus a margin.
+	## action. Pacing is appended before completion is connected, making the
+	## action's visual tail part of the same pauseable/skippable tween. Arms both
+	## completion paths: the tween's own `finished` signal and a watchdog timer
+	## sized to the paced duration plus a margin.
+	var tweenSpeed := MIN_PRESENTATION_SPEED
+	if action.kind == VisualAction.Kind.MOVE:
+		var sourceDuration := MOVE_SOURCE_STEP_SECONDS * float(action.path.size())
+		if sourceDuration > 0.0 and duration > 0.0:
+			tweenSpeed = maxf(sourceDuration / duration, MIN_PRESENTATION_SPEED)
+		tweenSpeed *= MOVE_PLAYBACK_SCALE
+		tween.set_speed_scale(tweenSpeed)
+		duration /= MOVE_PLAYBACK_SCALE
+
+	var tailSeconds := _tailSecondsFor(action.kind)
+	if tailSeconds > 0.0:
+		tween.chain().tween_interval(tailSeconds)
+		# Tween intervals use the same speed scale as their preceding animation.
+		# Callers report `duration` in real elapsed seconds, so convert the authored
+		# tween-time tail before sizing the watchdog.
+		duration += tailSeconds / tweenSpeed
 	_isAnimating = true
 	_tween = tween
 	_activeAction = action
@@ -166,6 +200,18 @@ func activate(tween: Tween, action: VisualAction, duration: float) -> void:
 	tween.finished.connect(_complete.bind(serial, false), CONNECT_ONE_SHOT)
 	_watchdogDuration = duration + WATCHDOG_MARGIN
 	_armWatchdog(serial)
+
+
+func _tailSecondsFor(kind: VisualAction.Kind) -> float:
+	match kind:
+		VisualAction.Kind.MOVE:
+			return MOVE_SETTLE_SECONDS
+		VisualAction.Kind.BUMP:
+			return STRIKE_RECOVERY_SECONDS
+		VisualAction.Kind.DEFEAT:
+			return DEFEAT_RECOVERY_SECONDS
+		_:
+			return 0.0
 
 
 func skipActive() -> void:
