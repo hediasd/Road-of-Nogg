@@ -114,16 +114,18 @@ Measured numbers worth knowing before planning a large run, on this host:
 
 | Measure | `proving_ground_cpu_cpu` | `hexmap_cpu_cpu` |
 |---|---|---|
-| Time per battle | ~90 s | ~78 s (76–79 s over 5 seeds, v3; was 79–135 s over 20 seeds, v2) |
+| Time per battle | ~90 s (before FHB-12) | ~48 s at seed 14 after FHB-12 (was ~82 s just before it; 76–79 s over 5 seeds, v3; 79–135 s over 20 seeds, v2) |
 | Record size per battle | — | ~200 KB raw, ~12 KB gzipped (v3, 8 rounds); ~330 KB raw, ~15 KB gzipped (v2) |
 
 The time is CPU deliberation, not the recording or the rules. Profiling one
 `hexmap` battle: 92.9 s of 93.2 s went to the brains choosing, 0.2 s to the
-recorder, 0.1 s to resolving commands. Inside deliberation the cost is the
-per-destination, per-spell enumeration of target cells and affected units in
-`CommandDeliberation._emitSpell`, about 26 ms per slice and 45 slices per
-decision. A thousand battles is about a day of wall clock and about 15 MB of
-gzipped corpus.
+recorder, 0.1 s to resolving commands. Inside deliberation the cost is line of
+sight, and most of it is the threat map, not `_emitSpell`: in the first 12
+decisions at seed 14, 28.1 s of 33.0 s was the threat phase and 4.9 s the
+actor's own spells. FHB-12 memoizes LoS for one deliberation, which took those
+12 decisions to 19.1 s. What is left is mostly each distinct LoS check's hex
+line geometry. A thousand battles is now about half a day of wall clock and
+about 15 MB of gzipped corpus.
 
 ## Where battle output goes
 

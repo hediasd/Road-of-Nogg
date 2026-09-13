@@ -9,10 +9,39 @@ var passiveSkillResolver  # PassiveSkillResolver — injected by BattleSimulator
 var spellEffectResolver
 
 
+## Line-of-sight answers already computed, for a view made by forDeliberation().
+## Off on the shared resolver, which lives across state changes.
+var _memoizesLoS := false
+var _losMemo: Dictionary = {}
+
+
 func _init(_state: BattleState, _events: BattleEvents) -> void:
 	state = _state
 	events = _events
 	spellEffectResolver = SpellEffectResolverScript.new(state, events)
+
+
+## A resolver for one CPU deliberation (FHB-12): the same state and
+## collaborators, plus a memo of line-of-sight answers.
+##
+## Why: LoS was nearly all of a CPU decision's cost. A center is checked once
+## when the target scan lists it, then again inside the affected-cells query and
+## again inside the affected-units query, and the threat map runs all three for
+## every spell of every enemy. Same caster, cells and target on an unchanged
+## board give the same answer, so the repeats are pure waste.
+##
+## Why only for one deliberation: the memo is right only while the board, the
+## occupants and the heights stay as they were. CommandDeliberation guarantees
+## exactly that window and drops the view when it finishes. Never keep one
+## longer, and never resolve a command through one.
+##
+## Copy every field here if this class gains one.
+func forDeliberation() -> CombatResolver:
+	var view := CombatResolver.new(state, events)
+	view.passiveSkillResolver = passiveSkillResolver
+	view.spellEffectResolver = spellEffectResolver
+	view._memoizesLoS = true
+	return view
 
 
 # --- Basic melee attack ---
@@ -227,6 +256,19 @@ func getSpellTargetsFrom(
 	return targets
 
 func _hasLoS(casterID: int, fromPos: Vector2i, toPos: Vector2i, targetID: int) -> bool:
+	if not _memoizesLoS:
+		return _computeLoS(casterID, fromPos, toPos, targetID)
+	## Every input the answer reads: the caster (whose projected move sets the
+	## occupancy), both cells, and the target the blocker test excludes.
+	var key := [casterID, targetID, fromPos, toPos]
+	if _losMemo.has(key):
+		return bool(_losMemo[key])
+	var visible := _computeLoS(casterID, fromPos, toPos, targetID)
+	_losMemo[key] = visible
+	return visible
+
+
+func _computeLoS(casterID: int, fromPos: Vector2i, toPos: Vector2i, targetID: int) -> bool:
 	var sourceEye = float(state.getHeight(fromPos)) + 1.0
 	var targetEye = float(state.getHeight(toPos)) + 1.0
 	return LineOfSight.hasHeightAwareLoS(
