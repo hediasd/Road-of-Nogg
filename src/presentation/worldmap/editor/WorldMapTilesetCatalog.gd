@@ -68,6 +68,16 @@ const Uniforms = preload("res://src/presentation/worldmap/WorldMapGroundUniforms
 const GRID_TILE := "tile"
 const GRID_CEL := "cel"
 
+## How frames are packed in the SHEET, which is not how they are placed on a map. `grid` is
+## rectangular packing: frame (c, r) is the square at (c, r) * FRAME_PX. `honeycomb` packs
+## flat-top hexes the way the map places them -- columns step 3/4 of a frame and odd columns
+## drop half a frame -- so neighbours share edges and an artist can paint across a seam.
+## A honeycomb sheet is unpacked into a grid atlas on load (`loadTilesetImage`), so `CELL`
+## keeps meaning (column, row) and nothing downstream of the load knows the difference.
+## Omitted from a config means `grid`, which keeps every existing file byte-identical.
+const LAYOUT_GRID := "grid"
+const LAYOUT_HONEYCOMB := "honeycomb"
+
 ## Reconciliation verdicts, in falling order of confidence. `UNCHANGED` is the silent one; the
 ## other four are what a re-import reports for a human to read.
 const UNCHANGED := "unchanged"
@@ -159,6 +169,7 @@ static func reloadCatalog(configDir: String = CONFIG_DIR, sheetDir: String = SHE
 				"SHEET": sheetDir.path_join(stem + ".png"),
 				"GRID_KIND": GRID_TILE,
 				"FRAME_PX": DEFAULT_FRAME_PX,
+				"LAYOUT": LAYOUT_GRID,
 				"PALETTE_REGION": DEFAULT_PALETTE_REGION,
 				"NEXT_ID": 0,
 				"TILES": [],
@@ -213,6 +224,11 @@ static func _loadConfig(path: String, expectedName: String) -> Dictionary:
 		push_warning("WorldMapTilesetCatalog: entry '%s' has FRAME_PX %d" % [nameKey, frame])
 		return {}
 	reference["FRAME_PX"] = frame
+	var layout := str(reference.get("LAYOUT", LAYOUT_GRID))
+	if not (layout == LAYOUT_GRID or layout == LAYOUT_HONEYCOMB):
+		push_warning("WorldMapTilesetCatalog: entry '%s' has LAYOUT '%s'" % [nameKey, layout])
+		return {}
+	reference["LAYOUT"] = layout
 	reference["TILES"] = _normaliseTiles(reference.get("TILES", []))
 	# Held rather than recomputed so a removed tile's id can never be reissued: the counter
 	# only rises, and it rises past whatever the ledger already holds even if the file was
@@ -244,7 +260,7 @@ static func configPathFor(tilesetID: String) -> String:
 ## Deferred out of `reloadCatalog()` so scanning the folder never decodes a PNG -- see `_uncut`'s
 ## own note.
 static func _cutInPlace(tilesetID: String, reference: Dictionary) -> void:
-	var image := loadSheetImage(str(reference["SHEET"]))
+	var image := loadTilesetImage(reference)
 	if image == null:
 		push_warning(
 			"WorldMapTilesetCatalog: could not read sheet at %s" % str(reference["SHEET"])
@@ -371,7 +387,7 @@ static func setFrameSize(tilesetID: String, framePx: int) -> Dictionary:
 	var reference := tilesetFor(tilesetID)
 	if int(reference["FRAME_PX"]) == framePx:
 		return {"success": true, "changed": false, "retired": 0, "added": 0, "error": ""}
-	var image := loadSheetImage(str(reference["SHEET"]))
+	var image := loadTilesetImage(reference, framePx)
 	if image == null:
 		return {
 			"success": false, "changed": false, "retired": 0, "added": 0,
@@ -681,6 +697,49 @@ static func loadSheetImage(sheetPath: String) -> Image:
 	return normalise(image)
 
 
+## A tileset's sheet as a grid atlas: the PNG itself for a `grid` layout, or the honeycomb
+## unpacked into one square frame per hex. Every reader that turns `CELL` into pixels -- the
+## cutter, the baker, the picker -- goes through here so they all see the same atlas.
+## `framePx` overrides the stored frame size, for re-cutting at a size not yet applied.
+static func loadTilesetImage(reference: Dictionary, framePx := 0) -> Image:
+	var image := loadSheetImage(str(reference.get("SHEET", "")))
+	if image == null or str(reference.get("LAYOUT", LAYOUT_GRID)) != LAYOUT_HONEYCOMB:
+		return image
+	return unpackHoneycomb(image, framePx if framePx > 0 else int(reference["FRAME_PX"]))
+
+
+## Whether local pixel (x, y) lies inside the flat-top hex of a `framePx` frame. Its vertices are
+## (F, F/2), (3F/4, F), (F/4, F), (0, F/2), (F/4, 0), (3F/4, 0); each row two pixels further from
+## the middle row insets one more pixel. At 32 px this is exactly the starter sheet's mask, and
+## it tiles with no gap or overlap at the honeycomb's 3F/4 column step.
+static func hexContains(framePx: int, x: int, y: int) -> bool:
+	var half := framePx / 2
+	var inset := (half - y) / 2 if y < half else (y - half + 1) / 2
+	return x >= inset and x < framePx - inset and y >= 0 and y < framePx
+
+
+## Lifts every hex out of a honeycomb sheet into a grid atlas. Hex (c, r) sits at
+## (c * 3F/4, r * F + (c odd ? F/2 : 0)); only pixels inside its hex mask are copied, so a
+## neighbour's edge never leaks into a frame's transparent corners. A slot the sheet is too
+## small to hold completely is left blank, which `cutSheet` already reads as "no tile".
+static func unpackHoneycomb(image: Image, framePx: int) -> Image:
+	var step := framePx * 3 / 4
+	var drop := framePx / 2
+	var columns := 0 if image.get_width() < framePx else (image.get_width() - framePx) / step + 1
+	var rows := image.get_height() / framePx
+	var atlas := Image.create(maxi(columns, 1) * framePx, maxi(rows, 1) * framePx, false, Image.FORMAT_RGBA8)
+	for column in columns:
+		for row in rows:
+			var origin := Vector2i(column * step, row * framePx + (drop if column % 2 == 1 else 0))
+			if origin.y + framePx > image.get_height():
+				continue
+			for y in framePx:
+				for x in framePx:
+					if hexContains(framePx, x, y):
+						atlas.set_pixel(column * framePx + x, row * framePx + y, image.get_pixel(origin.x + x, origin.y + y))
+	return atlas
+
+
 ## Imports a tileset's sheet and reconciles it against the ledger the catalog already holds.
 ## Returns `{success, report, collisions, off_palette, tiles, next_id, error}`; the caller
 ## decides whether to accept the result -- see `applyImport`. Nothing is written here, because
@@ -691,7 +750,7 @@ static func importSheet(tilesetID: String, palette := PackedColorArray()) -> Dic
 		return _importFailure("unknown tileset '%s'" % tilesetID)
 	var reference: Dictionary = _index[tilesetID]
 	var sheetPath := str(reference["SHEET"])
-	var image := loadSheetImage(sheetPath)
+	var image := loadTilesetImage(reference)
 	if image == null:
 		return _importFailure("could not read sheet at %s" % sheetPath)
 
@@ -770,6 +829,8 @@ static func serialise(reference: Dictionary) -> String:
 		"NEXT_ID": reference["NEXT_ID"],
 		"TILES": tiles,
 	}
+	if str(reference.get("LAYOUT", LAYOUT_GRID)) != LAYOUT_GRID:
+		out["LAYOUT"] = reference["LAYOUT"]
 	return JSON.stringify(out, "\t") + "\n"
 
 

@@ -24,6 +24,8 @@ The guide file is deliberately not production art. Its named `guides` group cont
 
 Each frame has vertices `(32,16)`, `(24,32)`, `(8,32)`, `(0,16)`, `(8,0)`, `(24,0)`. The full 32 × 32 frame is intentionally a stretched flat-top hex used by this project’s shipping camera; it is not a claim about regular hex proportions or an industry certification. Sheet packing is rectangular. Map placement is separate: adjacent world columns step 24 px, rows step 32 px, and odd columns are dropped 16 px.
 
+A sheet can instead be packed as a honeycomb by adding `"LAYOUT": "honeycomb"` to its config. Hexes then sit exactly as they do on the map (column step 24 px, odd columns dropped 16 px), so neighbours share edges and transitions can be painted across a seam. A sheet with C columns and R rows is `24·(C−1)+32` × `32·R+16` px. The catalog unpacks it into one masked 32 × 32 frame per hex on load, so `CELL` is still (column, row) and hashes match a grid sheet holding the same pixels. `temp2_hex32_starter_v2-Recovered-export` is the first honeycomb sheet; its grey `placeholder` hexes fill slots with no art yet.
+
 The transparent corners are required. Alpha is either 0 outside the hex or 255 inside it; there are no outlines, shadows, extrusions, or antialiasing. Use nearest filtering. `GRID_KIND: "tile"` describes the game grid, while `FRAME_PX: 32` describes the art frame; neither changes the other.
 
 ## Frames and edges

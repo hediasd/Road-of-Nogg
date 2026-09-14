@@ -2236,7 +2236,7 @@ func _refreshPalette() -> void:
 	var sheetPath := str(tileset.get("SHEET", ""))
 	var sheet: Texture2D = null
 	if not sheetPath.is_empty():
-		var sourceImage := Tilesets.loadSheetImage(sheetPath)
+		var sourceImage := Tilesets.loadTilesetImage(tileset)
 		if sourceImage != null:
 			sheet = ImageTexture.create_from_image(sourceImage)
 	_editorHud.configurePalette(

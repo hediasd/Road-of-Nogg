@@ -421,7 +421,7 @@ func _loadSheets(data: WorldMapTileData) -> void:
 				layerID, tilesetID
 			])
 			continue
-		var sheetImage := WorldMapTilesetCatalog.loadSheetImage(str(reference["SHEET"]))
+		var sheetImage := WorldMapTilesetCatalog.loadTilesetImage(reference)
 		if sheetImage == null:
 			push_warning("WorldMapBaker: could not read sheet for '%s'" % tilesetID)
 			continue
