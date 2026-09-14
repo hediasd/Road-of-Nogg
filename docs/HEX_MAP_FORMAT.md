@@ -53,7 +53,16 @@ recovery metadata belong to the editor session, not to this JSON.
 
 Map cells use the existing flat-top `odd_q_offset` coordinates: size is columns
 by rows, layer storage is row-major, each cell is 2 by 2 world units, columns
-step 1.5 units, rows step 2 units, and odd columns drop 1 unit. Tile art is a
+step 1.5 units, rows step 2 units, and odd columns drop 1 unit.
+
+Every border of a map is **outward**: the long odd columns stick out past their
+even neighbours at both the top and the bottom. So row 0 of every even column is
+not a cell. Layer storage stays the full `columns × rows` rectangle, but those
+slots are always `-`: they read as empty, refuse paint, get no ground surface
+and are `0` in an exported `VALID_MASK`. A file that still carries paint there
+opens with it cleared, and the editor says how many values it cleared. New maps
+use an odd column count, so both side columns are the short kind; every size
+the New Map dialog offers already is. Tile art is a
 project catalog dependency, represented by stable catalog tile and tileset IDs;
 source maps do not embed or copy texture files. A missing project asset is an
 actionable editing dependency, not a reason to replace or erase its IDs.

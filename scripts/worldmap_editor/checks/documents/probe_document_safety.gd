@@ -348,7 +348,7 @@ func _checkFailedOpenKeepsDocument() -> void:
 	var history := HistoryScript.new()
 	var document := _document("open")
 	history.beginStroke("ground")
-	history.paintCell(document, Vector2i(0, 0), "t001")
+	history.paintCell(document, Vector2i(1, 0), "t001")
 	history.endStroke()
 	var revisionBefore := history.currentRevision()
 	if io.loadSource(malformedPath) != null:

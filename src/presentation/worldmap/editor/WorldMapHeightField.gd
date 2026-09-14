@@ -370,6 +370,10 @@ static func buildSurfaceMesh(
 	for col in cols:
 		for row in rows:
 			var cell := Vector2i(col, row)
+			# A trimmed cell is not part of the map, so it gets no surface -- the same as the notches
+			# along the other edges, which were never in the rectangle to begin with.
+			if WorldMapHexGrid.isTrimmedCell(cell):
+				continue
 			var centre: Vector2 = WorldMapHexGrid.cellCentre(cell)
 			var vertices := cellVertices(cell)
 			# `z = 2` marks a hex CENTRE, which no real vertex uses -- vertices are index 0 or 1.

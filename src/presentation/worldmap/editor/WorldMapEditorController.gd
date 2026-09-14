@@ -1712,6 +1712,12 @@ func _bakeAndDisplayDocument(statusMessage: String) -> void:
 	# View state survives a document change, so it has to be re-applied to the new one rather than
 	# left describing the previous map.
 	_applyLayerVisibility()
+	if _document.trimmedOnLoad > 0:
+		statusMessage += (
+			" Cleared %d painted values from the top hex of even columns, which hex maps no longer have."
+			% _document.trimmedOnLoad
+		)
+		_document.trimmedOnLoad = 0
 	_editorHud.setStatus(statusMessage)
 
 

@@ -156,9 +156,9 @@ func _run() -> void:
 ## re-imports it, paints the new id and checks it lands in the baked image after `forgetSheets()`
 ## -- the step the controller now takes after every refresh.
 func _checkRefreshedTileBakes(sheetPath: String) -> void:
-	var doc := MapDataScript.create("refresh", Vector2i(1, 1), MapDataScript.LAYOUT_HEX_FLAT)
+	var doc := MapDataScript.create("refresh", Vector2i(3, 1), MapDataScript.LAYOUT_HEX_FLAT)
 	doc.layers["ground"]["TILESET"] = "alpha"
-	doc.setCell("ground", Vector2i(0, 0), "t000")
+	doc.setCell("ground", Vector2i(1, 0), "t000")
 	var baker := BakerScript.new()
 	baker.bake(doc)
 
@@ -173,7 +173,7 @@ func _checkRefreshedTileBakes(sheetPath: String) -> void:
 		ids.append(str((tile as Dictionary)["ID"]))
 	_require(ids.has("t002"), "the refresh did not add t002 to the ledger (has %s)" % [ids])
 
-	doc.setCell("ground", Vector2i(0, 0), "t002")
+	doc.setCell("ground", Vector2i(1, 0), "t002")
 	baker.forgetSheets()
 	baker.bake(doc)
 	# The baker's own image, not `texture().get_image()`: under the headless dummy renderer a
@@ -195,14 +195,14 @@ func _checkRefreshedTileBakes(sheetPath: String) -> void:
 ## a grid or detail layer actually holds is not empty.
 func _checkDocumentUsesTileset() -> void:
 	var controller := ControllerScript.new()
-	var doc := MapDataScript.create("probe", Vector2i(2, 2), MapDataScript.LAYOUT_HEX_FLAT)
+	var doc := MapDataScript.create("probe", Vector2i(3, 2), MapDataScript.LAYOUT_HEX_FLAT)
 	doc.layers["ground"]["TILESET"] = "alpha"
 	controller._document = doc
 	_require(
 		not controller._documentUsesTileset("alpha"),
 		"an unpainted document reported using its tileset"
 	)
-	doc.setCell("ground", Vector2i(0, 0), "t000")
+	doc.setCell("ground", Vector2i(1, 0), "t000")
 	_require(
 		controller._documentUsesTileset("alpha"),
 		"a painted ground cell was not detected"

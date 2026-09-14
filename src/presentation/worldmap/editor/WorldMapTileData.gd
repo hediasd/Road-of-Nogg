@@ -100,6 +100,10 @@ var void_color := Color.BLACK
 ## Layer id -> block. A grid block carries `KIND`, `GRID_KIND`, `TILESET` and `CELLS`
 ## (a PackedStringArray of tile ids, row-major). A list block carries `KIND` and `ITEMS`.
 var layers: Dictionary = {}
+## How many painted values `fromDictionary` cleared from trimmed cells -- cells a file carried that
+## the hex lattice's outward-border rule leaves out (`WorldMapHexGrid.contains`). Zero for any file
+## written since the rule; the editor reports a non-zero count once when the map opens.
+var trimmedOnLoad := 0
 ## Load order, so a save writes layers back in the order the file declared them rather than in
 ## whatever order a Dictionary happens to iterate.
 var _layerOrder: Array[String] = []
@@ -203,7 +207,7 @@ func waterValueCount() -> int:
 
 
 func waterIndexOf(cell: Vector2i) -> int:
-	if cell.x < 0 or cell.y < 0 or cell.x >= size_tiles.x or cell.y >= size_tiles.y:
+	if cell.x < 0 or cell.y < 0 or cell.x >= size_tiles.x or cell.y >= size_tiles.y or _isTrimmed(cell):
 		return -1
 	return cell.y * size_tiles.x + cell.x
 
@@ -241,7 +245,7 @@ func setWater(layerID: String, cell: Vector2i, value: String) -> bool:
 ## Index of one triangular slot in a detail layer's dense array, or -1 when the cell or the
 ## slot index is out of range.
 func detailIndexOf(cell: Vector2i, triangleIndex: int) -> int:
-	if cell.x < 0 or cell.y < 0 or cell.x >= size_tiles.x or cell.y >= size_tiles.y:
+	if cell.x < 0 or cell.y < 0 or cell.x >= size_tiles.x or cell.y >= size_tiles.y or _isTrimmed(cell):
 		return -1
 	if triangleIndex < 0 or triangleIndex >= DETAIL_SLOTS_PER_CELL:
 		return -1
@@ -319,6 +323,36 @@ func worldExtent() -> Vector2:
 	return Vector2(size_tiles)
 
 
+## Whether a cell is in the stored rectangle but not in a hex map's lattice. Grid, detail and water
+## reads of one return `EMPTY` and writes refuse, so no edit path can ever put data there.
+func _isTrimmed(cell: Vector2i) -> bool:
+	return layout == LAYOUT_HEX_FLAT and WorldMapHexGrid.isTrimmedCell(cell)
+
+
+## Blanks every stored value that sits in a trimmed cell and returns how many were not already
+## empty. Run once on load, so a map authored before the outward-border rule opens clean.
+func _clearTrimmedCells() -> int:
+	if layout != LAYOUT_HEX_FLAT:
+		return 0
+	var cleared := 0
+	for layerID in _layerOrder:
+		var block: Dictionary = layers[layerID]
+		var kind := str(block["KIND"])
+		var perCell := 1
+		if kind == KIND_DETAIL:
+			perCell = DETAIL_SLOTS_PER_CELL
+		elif kind != KIND_GRID and kind != KIND_WATER:
+			continue
+		var cells: PackedStringArray = block["CELLS"]
+		for col in range(0, size_tiles.x, 2):
+			for slot in perCell:
+				var index := col * perCell + slot
+				if cells[index] != EMPTY:
+					cells[index] = EMPTY
+					cleared += 1
+	return cleared
+
+
 func _cellCount(gridKind: String) -> int:
 	var size := _gridSize(gridKind)
 	return size.x * size.y
@@ -333,7 +367,7 @@ func getCell(layerID: String, cell: Vector2i) -> String:
 	if str(block["KIND"]) != KIND_GRID:
 		return EMPTY
 	var size := _gridSize(str(block["GRID_KIND"]))
-	if cell.x < 0 or cell.y < 0 or cell.x >= size.x or cell.y >= size.y:
+	if cell.x < 0 or cell.y < 0 or cell.x >= size.x or cell.y >= size.y or _isTrimmed(cell):
 		return EMPTY
 	return (block["CELLS"] as PackedStringArray)[cell.y * size.x + cell.x]
 
@@ -347,7 +381,7 @@ func setCell(layerID: String, cell: Vector2i, tileID: String) -> bool:
 	if str(block["KIND"]) != KIND_GRID:
 		return false
 	var size := _gridSize(str(block["GRID_KIND"]))
-	if cell.x < 0 or cell.y < 0 or cell.x >= size.x or cell.y >= size.y:
+	if cell.x < 0 or cell.y < 0 or cell.x >= size.x or cell.y >= size.y or _isTrimmed(cell):
 		return false
 	var cells: PackedStringArray = block["CELLS"]
 	var index := cell.y * size.x + cell.x
@@ -583,6 +617,7 @@ static func fromDictionary(raw: Dictionary) -> WorldMapTileData:
 				push_warning("WorldMapTileData: layer '%s' failed to decode" % layerID)
 				return null
 			data.layers[layerID]["CELLS"] = cells
+	data.trimmedOnLoad = data._clearTrimmedCells()
 	return data
 
 

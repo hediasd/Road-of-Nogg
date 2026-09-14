@@ -127,8 +127,21 @@ static func distance(a: Vector2i, b: Vector2i) -> int:
 
 
 ## Whether a cell is inside a `cols x rows` lattice.
+##
+## A LATTICE IS NOT ITS WHOLE RECTANGLE. Every border of a map must be OUTWARD: the long odd
+## columns stick out past their even neighbours at both the top and the bottom, so no border hex
+## is ever set back between two that stick out. The bottom edge is already like that because odd
+## columns drop half a row; the top only becomes like it by leaving out row 0 of every even column
+## (`isTrimmedCell`). Storage stays the plain rectangle -- a trimmed cell is simply never a cell.
+## Hex maps also use an odd column count, so both side columns are the short kind.
 static func contains(cell: Vector2i, cols: int, rows: int) -> bool:
-	return cell.x >= 0 and cell.y >= 0 and cell.x < cols and cell.y < rows
+	return cell.x >= 0 and cell.y >= 0 and cell.x < cols and cell.y < rows and not isTrimmedCell(cell)
+
+
+## Whether a cell sits in the rectangle but outside the lattice: row 0 of an even column. See
+## `contains` for the outward-border rule this spells.
+static func isTrimmedCell(cell: Vector2i) -> bool:
+	return cell.y == 0 and cell.x % 2 == 0
 
 
 ## The world-unit bounding box a `cols x rows` lattice spans.

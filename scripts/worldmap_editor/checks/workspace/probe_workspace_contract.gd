@@ -196,7 +196,7 @@ func _checkLayoutTransforms() -> void:
 func _checkSaveCheckpoint() -> void:
 	var savePoint := SavePointScript.new()
 	var history := HistoryScript.new()
-	var document := MapDataScript.create("probe", Vector2i(4, 4), MapDataScript.LAYOUT_HEX_FLAT)
+	var document := MapDataScript.create("probe", Vector2i(5, 4), MapDataScript.LAYOUT_HEX_FLAT)
 	document.layers["ground"]["TILESET"] = "temp2_hex32_starter"
 
 	savePoint.beginNewDocument()
@@ -211,7 +211,7 @@ func _checkSaveCheckpoint() -> void:
 	_require(not savePoint.isNeverSaved(), "a saved document still reported as never saved")
 
 	history.beginStroke("ground")
-	history.paintCell(document, Vector2i(0, 0), "t001")
+	history.paintCell(document, Vector2i(1, 0), "t001")
 	history.endStroke()
 	_require(savePoint.isDirty(history.currentRevision()), "an edit after a save read as saved")
 
