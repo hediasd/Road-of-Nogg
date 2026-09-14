@@ -57,10 +57,6 @@ func _run() -> void:
 		func(tilesetID: String) -> void:
 			refreshCalls.append(tilesetID)
 	)
-	# Lets the chrome's own panel-width correction (started fire-and-forget from `build()`) run to
-	# completion before this probe quits -- otherwise its still-suspended coroutine outlives the
-	# SceneTree and shows up as a leaked GDScriptFunctionState.
-	await chrome.resyncPanelWidths()
 	await process_frame
 	await process_frame
 

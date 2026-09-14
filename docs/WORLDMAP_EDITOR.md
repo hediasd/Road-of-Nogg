@@ -241,12 +241,13 @@ the right. Either side column can collapse, leaving more room for the map withou
 map's coordinate system.
 
 Three lines are draggable: between the palette and the map, between the map and the inspector, and
-between the tilesheet and the map-action menu below it. Dragging any of them trades space between
-the two sides it separates; the map column keeps a minimum width so both dividers together cannot
-squeeze it away, and the menu keeps its own full height so the tilesheet divider cannot drag a tool
-button out of view. Collapsing a panel remembers its width and restores it on expand. Drag
-positions are not saved between sessions, and resizing the window afterward can shift a dragged
-width, the same as any ordinary resizable panel.
+between the tilesheet and the map-action menu below it. The palette starts 248 px wide and the
+inspector 214 px, but either can be dragged down to 120 px or out until the map is 360 px wide;
+content wider than a narrowed panel scrolls sideways inside it. The tilesheet divider moves between
+a 40 px sliver of tilesheet and a 40 px sliver of menu, and whichever side is squeezed scrolls. A
+drag or a window resize only ever changes the map's width, never the other side panel's.
+Collapsing a panel remembers its width and restores it on expand. Drag positions are not saved
+between sessions.
 
 **The top bar manages the document and nothing else**: New, Open, Open Recent, Save, Save As and
 the two exports, beside the current document's title and dirty state. **Everything that changes
@@ -255,9 +256,10 @@ Brush, History, View -- plus the dropdown carrying the layer-specific tools. Whi
 appears on is decided by its group in `WorldMapWorkspaceActions`, not by where the chrome happens
 to add it, so an action cannot end up on both or neither.
 
-The menu is pinned and the tilesheet scrolls, not the other way round: together they want more
+The menu starts at its full height with the tilesheet scrolling above it: together they want more
 height than a 1280x720 window has, and a tool button reachable only by scrolling is a tool that
-stops being used. The status line stays at the foot of the window.
+stops being used. Only dragging the tilesheet divider down makes the menu scroll. The status line
+stays at the foot of the window.
 
 The map column is its own display rect. Camera framing and render-buffer sizing use that rect rather
 than the whole window, so a collapsed or resized panel cannot make a framed map overlap the chrome.

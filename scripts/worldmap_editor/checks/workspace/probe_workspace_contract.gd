@@ -507,8 +507,21 @@ func _checkDividers(chrome) -> void:
 	root.size = Vector2i(1280, 720)
 	await process_frame
 	await process_frame
-	# `_checkFitsTargetWindows` just resized the window twice; `resyncPanelWidths` re-establishes
-	# the panels' fixed default widths at THIS size before anything below measures a "before".
+	# A window resize goes to the map, not the side panels: `_checkFitsTargetWindows` just went
+	# 1280 -> 1920 and back, and both panels must still be at their starting widths.
+	var restingPalette := chrome.root.get_node("Workspace/WorkspaceBody/PaletteSplit/PalettePanel") as Control
+	var restingInspector := chrome.root.get_node(
+		"Workspace/WorkspaceBody/PaletteSplit/InspectorSplit/InspectorPanel"
+	) as Control
+	_require(
+		absf(restingPalette.size.x - ChromeScript.PALETTE_WIDTH) <= 2.0
+		and absf(restingInspector.size.x - ChromeScript.INSPECTOR_WIDTH) <= 2.0,
+		"window resizes changed the side panels (palette %s, inspector %s)" % [
+			restingPalette.size.x, restingInspector.size.x
+		]
+	)
+	# `resyncPanelWidths` re-establishes the panels' fixed default widths at THIS size before
+	# anything below measures a "before".
 	await chrome.resyncPanelWidths()
 	await process_frame
 	await process_frame
@@ -567,10 +580,23 @@ func _checkDividers(chrome) -> void:
 		absf(chrome.stageRect().size.x - (stageWidthBefore - 120.0)) <= 2.0,
 		"dragging PaletteSplit did not shrink the map by ~120 px"
 	)
+	# A finished drag is the author's new width, and a later window resize must keep it rather than
+	# snap back to the default. `drag_ended` is what the chrome listens for to remember it.
+	paletteSplit.emit_signal("drag_ended")
+	root.size = Vector2i(1400, 720)
+	await process_frame
+	await process_frame
+	_require(
+		absf(palettePanel.size.x - (paletteWidthBefore + 120.0)) <= 2.0,
+		"a window resize forgot the palette width a drag had just set (now %s)" % palettePanel.size.x
+	)
+	root.size = Vector2i(1280, 720)
+	await process_frame
+	await process_frame
 	# Undone before the next check: `InspectorSplit` sits inside `PaletteSplit`'s second child, so
 	# leaving the palette widened would test the inspector's divider against a total width the
 	# palette test already shrank, rather than the two dividers independently.
-	paletteSplit.split_offset -= 120
+	await chrome.resyncPanelWidths()
 	await process_frame
 	await process_frame
 
@@ -585,18 +611,77 @@ func _checkDividers(chrome) -> void:
 		]
 	)
 
-	var scrollForMenuCheck := chrome.root.find_child("PaletteScroll", true, false) as ScrollContainer
+	# RANGE. Each divider travels to its floor on both sides, not just a little way: the floors were
+	# once the starting widths and the full menu height, which left the dividers unable to move
+	# inward or down at all. Measured from a fresh resync so earlier drags do not leak in.
+	await chrome.resyncPanelWidths()
+	await process_frame
+	await process_frame
+	var tilesheetScroll := chrome.root.find_child("PaletteScroll", true, false) as ScrollContainer
+	var menuScroll := chrome.root.find_child("MapMenuScroll", true, false) as ScrollContainer
+	_require(menuScroll != null, "the map menu has no scroll of its own to be squeezed into")
+	if menuScroll != null:
+		_require(
+			menuScroll.is_ancestor_of(chrome.mapMenuColumn),
+			"the map menu is not inside its own scroll, so squeezing it would hide tools outright"
+		)
+		_require(
+			menuScroll.size.y + 2.0 >= chrome.mapMenuColumn.get_combined_minimum_size().y,
+			"the map menu does not start at its full height (%s of %s)" % [
+				menuScroll.size.y, chrome.mapMenuColumn.get_combined_minimum_size().y
+			]
+		)
+
+	paletteSplit.split_offset = -10000
+	await process_frame
+	await process_frame
+	_require(
+		palettePanel.size.x <= ChromeScript.PALETTE_MIN_WIDTH + 2.0,
+		"the palette divider stopped at %s instead of reaching %s" % [
+			palettePanel.size.x, ChromeScript.PALETTE_MIN_WIDTH
+		]
+	)
+	paletteSplit.split_offset = 10000
+	await process_frame
+	await process_frame
+	_require(
+		chrome.stageRect().size.x <= ChromeScript.MAP_MIN_WIDTH + 2.0,
+		"the palette divider stopped before the map reached its floor (map %s)" % chrome.stageRect().size.x
+	)
+	await chrome.resyncPanelWidths()
+	await process_frame
+	inspectorSplit.split_offset = 10000
+	await process_frame
+	await process_frame
+	_require(
+		inspectorPanel.size.x <= ChromeScript.INSPECTOR_MIN_WIDTH + 2.0,
+		"the inspector divider stopped at %s instead of reaching %s" % [
+			inspectorPanel.size.x, ChromeScript.INSPECTOR_MIN_WIDTH
+		]
+	)
+
 	menuSplit.split_offset = -10000
 	await process_frame
 	await process_frame
 	_require(
-		chrome.mapMenuColumn.size.y + 0.5 >= chrome.mapMenuColumn.get_combined_minimum_size().y,
-		"dragging PaletteMenuSplit to its extreme shrank the map menu below its own minimum height"
+		tilesheetScroll.size.y <= ChromeScript.PALETTE_SCROLL_MIN_HEIGHT + 2.0,
+		"the tilesheet divider stopped at %s going up" % tilesheetScroll.size.y
 	)
 	_require(
-		chrome.mapMenuColumn.get_global_rect().position.y >= scrollForMenuCheck.get_global_rect().end.y,
-		"dragging PaletteMenuSplit to its extreme moved the map menu above the tilesheet"
+		chrome.mapMenuColumn.get_global_rect().position.y >= tilesheetScroll.get_global_rect().end.y,
+		"dragging PaletteMenuSplit up moved the map menu above the tilesheet"
 	)
+	menuSplit.split_offset = 10000
+	await process_frame
+	await process_frame
+	if menuScroll != null:
+		_require(
+			menuScroll.size.y <= ChromeScript.MAP_MENU_MIN_HEIGHT + 2.0,
+			"the tilesheet divider stopped at %s going down" % menuScroll.size.y
+		)
+	await chrome.resyncPanelWidths()
+	await process_frame
+	await process_frame
 
 	# A toggle button's `pressed` signal does not flip `button_pressed` on its own -- that happens
 	# inside the real click path -- so a script-driven press has to set the state first and then
