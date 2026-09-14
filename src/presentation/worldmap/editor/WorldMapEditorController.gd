@@ -407,7 +407,7 @@ func _buildEditorUi() -> void:
 		hideableReasons[id] = LayerViewScript.whyNotHideable(id, LAYER_OBJECTS, LAYER_HEIGHTS)
 	_editorHud.build(
 		LAYERS, _onLayerSelected, _onLayerVisibilityToggled, _onLayerLockToggled, hideableReasons,
-		_onTileWalkableToggled, _onTilesetFrameSizeRequested
+		_onTileWalkableToggled, _onTilesetFrameSizeRequested, _onTilesetRefreshRequested
 	)
 	_editorHud.setActiveLayer(_layerIndex(_activeLayer))
 	_setActiveTool(TOOL_NAVIGATE)
@@ -2337,6 +2337,29 @@ func _onTilesetFrameSizeRequested(tilesetID: String, framePx: int) -> void:
 			framePx, framePx, int(result.get("retired", 0)), int(result.get("added", 0))
 		]
 	)
+
+
+## Re-cuts a tileset's sheet against its OWN ledger (never an empty one, unlike `setFrameSize`), so
+## an unchanged, moved or repainted frame keeps its id and only a frame genuinely gone from the art
+## is retired -- see `WorldMapTilesetCatalog.reconcile()`'s own note on that ordering. No document
+## guard: the open map's CELLS are never touched, and a cell naming a since-removed id is exactly
+## what Fill from art / Reset to art exist to resolve, the same as any other tileset edit here.
+func _onTilesetRefreshRequested(tilesetID: String) -> void:
+	var result := Tilesets.importSheet(tilesetID)
+	if not bool(result.get("success", false)):
+		_editorHud.setStatus(str(result.get("error", "")))
+		return
+	Tilesets.applyImport(tilesetID, result)
+	if not Tilesets.saveTileset(tilesetID):
+		Tilesets.reloadCatalog()
+		_editorHud.setStatus("Could not write %s." % Tilesets.configPathFor(tilesetID))
+		return
+	_refreshPalette()
+	var summary := Tilesets.describeReport(result.get("report", {}))
+	var message := "Refreshed %s from art: %s" % [tilesetID, summary]
+	if not summary.begins_with("unchanged"):
+		message += " Maps pick this up through Fill from art."
+	_editorHud.setStatus(message)
 
 
 func _layerIndex(id: String) -> int:

@@ -37,6 +37,7 @@ func _run() -> void:
 	root.add_child(layer)
 	var walkableCalls: Array = []
 	var frameSizeCalls: Array = []
+	var refreshCalls: Array = []
 	var chrome := ChromeScript.new()
 	chrome.build(
 		layer, func(_a: String) -> void: pass, func(_a: String) -> void: pass, []
@@ -51,7 +52,9 @@ func _run() -> void:
 		func(tilesetID: String, tileID: String, walkable: bool) -> void:
 			walkableCalls.append([tilesetID, tileID, walkable]),
 		func(tilesetID: String, framePx: int) -> void:
-			frameSizeCalls.append([tilesetID, framePx])
+			frameSizeCalls.append([tilesetID, framePx]),
+		func(tilesetID: String) -> void:
+			refreshCalls.append(tilesetID)
 	)
 	# Lets the chrome's own panel-width correction (started fire-and-forget from `build()`) run to
 	# completion before this probe quits -- otherwise its still-suspended coroutine outlives the
@@ -74,6 +77,17 @@ func _run() -> void:
 		_finish()
 		return
 	_require(properties.visible, "the properties block is not visible after configurePalette")
+
+	var heading := properties.find_child("TilesetPropertiesHeading", true, false) as Label
+	_require(
+		heading != null and heading.text.contains("shared"),
+		"the properties block does not say it is shared across maps"
+	)
+
+	var refreshButton := properties.find_child("TilesetRefresh", true, false) as Button
+	_require(refreshButton != null, "the Refresh from art button was not built")
+	refreshButton.emit_signal("pressed")
+	_require(refreshCalls == ["alpha"], "pressing Refresh from art recorded %s" % [refreshCalls])
 
 	var sheetSize := properties.find_child("TilesetSheetSize", true, false) as Label
 	_require(sheetSize.text == "Sheet: 64 × 32 px", "sheet size label reads '%s'" % sheetSize.text)

@@ -55,11 +55,13 @@ var _tilesetProperties: VBoxContainer
 var _tilesetSheetSize: Label
 var _tilesetFrameSize: SpinBox
 var _tilesetFrameApply: Button
+var _tilesetRefresh: Button
 var _tilesetFrameWarning: Label
 var _tilesetTileCount: Label
 var _tileWalkable: CheckBox
 var _onWalkableToggled: Callable
 var _onFrameSizeRequested: Callable
+var _onRefreshRequested: Callable
 var _propertiesTilesetID := ""
 var _propertiesFramePx := 0
 var _propertiesTileCount := 0
@@ -80,10 +82,12 @@ func build(
 	onLockToggled: Callable,
 	hideableReasons: Dictionary,
 	onWalkableToggled: Callable = Callable(),
-	onFrameSizeRequested: Callable = Callable()
+	onFrameSizeRequested: Callable = Callable(),
+	onRefreshRequested: Callable = Callable()
 ) -> void:
 	_onWalkableToggled = onWalkableToggled
 	_onFrameSizeRequested = onFrameSizeRequested
+	_onRefreshRequested = onRefreshRequested
 	_buildPalette()
 	_buildInspector(layers, onLayerSelected, onVisibilityToggled, onLockToggled, hideableReasons)
 
@@ -153,9 +157,31 @@ func _buildTilesetProperties(column: VBoxContainer) -> void:
 	_tilesetProperties.name = "TilesetProperties"
 	column.add_child(_tilesetProperties)
 
+	# Named explicitly as tileset-wide: every field below writes to the tileset's own config file,
+	# not to this map, and every OTHER map built from the same sheet sees the change too. This
+	# block sits under the picker only because the picker is what names which tileset is active --
+	# it is not a per-map setting shown here for convenience.
+	var heading := Label.new()
+	heading.name = "TilesetPropertiesHeading"
+	heading.text = "Tileset (shared by every map using this sheet)"
+	heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	heading.add_theme_color_override("font_color", Color(0.62, 0.70, 0.73))
+	_tilesetProperties.add_child(heading)
+
 	_tilesetSheetSize = Label.new()
 	_tilesetSheetSize.name = "TilesetSheetSize"
 	_tilesetProperties.add_child(_tilesetSheetSize)
+
+	_tilesetRefresh = Button.new()
+	_tilesetRefresh.name = "TilesetRefresh"
+	_tilesetRefresh.text = "Refresh from art"
+	_tilesetRefresh.tooltip_text = (
+		"Re-reads the sheet and updates the tileset's tile ledger: new frames are added, moved or "
+		+ "repainted frames keep their id, and frames no longer in the sheet are retired. This map's "
+		+ "painted cells are not touched -- run Fill from art or Reset to art to pick up the change."
+	)
+	_tilesetRefresh.pressed.connect(_onRefreshPressed)
+	_tilesetProperties.add_child(_tilesetRefresh)
 
 	var frameRow := HBoxContainer.new()
 	_tilesetProperties.add_child(frameRow)
@@ -207,6 +233,15 @@ func _onFrameSpinChanged(_value: float) -> void:
 ## Refusing outright when there is nothing to lose: a sheet with zero tiles has nothing a re-cut
 ## could retire, so the confirmation this function otherwise opens would only be asking the author
 ## to confirm a no-op.
+## No confirmation dialog: unlike a frame-size change, a re-import only ever retires a tile id that
+## the sheet genuinely no longer has -- everything unchanged, moved or repainted keeps its id (see
+## `WorldMapTilesetCatalog.reconcile()`'s own note on that ordering). The report the controller
+## puts in the status line afterward is the "a human looks at this" step, not a confirmation before
+## it happens.
+func _onRefreshPressed() -> void:
+	_onRefreshRequested.call(_propertiesTilesetID)
+
+
 func _onFrameApplyPressed() -> void:
 	var framePx := int(_tilesetFrameSize.value)
 	if _propertiesTileCount <= 0:

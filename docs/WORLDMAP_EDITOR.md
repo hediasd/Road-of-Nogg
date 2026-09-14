@@ -311,16 +311,24 @@ blank sheet space clears the selection. The current-frame preview and selected f
 visible. Paint, Fill, Stamp and Scatter refuse to alter an art layer while the selection is empty;
 choose **Erase** when clearing cells is intended. Scatter seed controls appear only for Scatter.
 
-Below the sheet, the **tileset properties** block shows the sheet's pixel size, its frame size, a
-warning when that frame size is not 32 × 32 (hex maps are built for 32 px frames; other sizes are
-allowed and saved, but a hex map drawn from them will not line up), the tile count, and a
-**Walkable** checkbox for whichever tile the picker's outline marks as primary. Unchecking it marks
-that tile with a red X in the sheet and writes the change to the tileset's own config file straight
-away — there is no undo, because it is not part of the map. An already-painted map does not pick
-the change up on its own; run **Fill from art** or **Reset to art** afterward. Changing the frame
-size re-cuts the sheet and retires every existing tile id, so it asks for confirmation first and
-refuses outright while the open map still has cells painted from that tileset — erase them, or
-start a new map, first.
+Below the sheet, a **tileset properties** block is labelled as what it is — settings shared by
+every map built from this sheet, written to the tileset's own config file, not to the open map.
+It shows the sheet's pixel size, a **Refresh from art** button, the frame size, a warning when that
+frame size is not 32 × 32 (hex maps are built for 32 px frames; other sizes are allowed and saved,
+but a hex map drawn from them will not line up), the tile count, and a **Walkable** checkbox for
+whichever tile the picker's outline marks as primary.
+
+**Refresh from art** re-cuts the sheet against the tileset's own ledger — an unchanged, moved or
+repainted frame keeps its id, and only a frame genuinely gone from the sheet is retired — and
+reports what changed in the status line. It needs no confirmation, because it cannot lose more than
+that report already names. Changing the **frame size**, by contrast, discards the ledger entirely
+and retires every existing id, so it asks for confirmation first and refuses outright while the
+open map still has cells painted from that tileset — erase them, or start a new map, first.
+
+Unchecking **Walkable** marks that tile with a red X in the sheet and writes the change immediately
+— there is no undo, because it is not part of the map. None of these three actions touch an
+already-painted map's cells on their own; run **Fill from art** or **Reset to art** afterward to
+pick up whatever changed.
 
 Each layer also has visibility and lock controls. A locked or hidden layer refuses edits, and a
 hidden art layer is removed only from the editor's displayed preview: it remains in the canonical
