@@ -19,7 +19,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -33,7 +33,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -47,7 +47,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -61,7 +61,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -75,7 +75,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -89,7 +89,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -103,7 +103,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -117,7 +117,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -131,7 +131,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -145,7 +145,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -159,7 +159,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -173,7 +173,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -187,7 +187,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -201,7 +201,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -215,7 +215,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -229,7 +229,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -243,7 +243,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -257,7 +257,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -271,7 +271,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -285,7 +285,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -299,7 +299,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -313,7 +313,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -327,7 +327,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -341,7 +341,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -355,7 +355,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -369,7 +369,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -383,7 +383,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -397,7 +397,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -411,7 +411,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -425,7 +425,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -439,7 +439,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -453,7 +453,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -467,7 +467,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -481,7 +481,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -495,7 +495,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -509,7 +509,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -523,7 +523,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -537,7 +537,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -551,7 +551,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -565,7 +565,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "",
 			"VARIANT": "",
-			"WALKABLE": ""
+			"WALKABLE": true
 		}
 	]
 }

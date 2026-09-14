@@ -62,9 +62,9 @@ described in §4 below.
 
 `LIFTABLE` is **authored now and read by nothing yet** — it gates whether Phase D may raise a tile
 at all, since only flat top-down art may be lifted (`WORLDMAP_DESIGN.md` §8), so retrofitting it
-later means revisiting every sheet ever drawn. `WALKABLE` is authored the same way and is read by
-the picker's Walkable checkbox (§6) and by `isWalkable()`: an unset `WALKABLE` reads as walkable,
-and only an explicit `"false"` refuses.
+later means revisiting every sheet ever drawn. `WALKABLE` is a boolean saved per tileset, set
+from the picker (§6) and read by `isWalkable()`. Every tile starts walkable; older configs that
+wrote `""` read as walkable too. Nothing in map export or battle reads it yet.
 
 ### Blank cells are padding, not tiles
 
@@ -327,10 +327,12 @@ that report already names. Changing the **frame size**, by contrast, discards th
 and retires every existing id, so it asks for confirmation first and refuses outright while the
 open map still has cells painted from that tileset — erase them, or start a new map, first.
 
-Unchecking **Walkable** marks that tile with a red X in the sheet and writes the change immediately
-— there is no undo, because it is not part of the map. None of these three actions touch an
-already-painted map's cells on their own; run **Fill from art** or **Reset to art** afterward to
-pick up whatever changed.
+**Edit walkability**, the toggle right above the sheet, is the quick way to categorise a tileset:
+while it is on, clicking a tile flips it between walkable and not walkable instead of selecting it
+for paint. Not-walkable tiles are shaded red with an X. The **Walkable** checkbox in the properties
+block does the same for the selected tile. Either way the change is written to the tileset's config
+immediately, with no undo, because it is not part of the map. None of these actions touch an
+already-painted map's cells.
 
 Each layer also has visibility and lock controls. A locked or hidden layer refuses edits, and a
 hidden art layer is removed only from the editor's displayed preview: it remains in the canonical

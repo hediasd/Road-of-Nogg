@@ -275,11 +275,10 @@ static func _cutInPlace(tilesetID: String, reference: Dictionary) -> void:
 	_uncut.erase(tilesetID)
 
 
-## Fills in every per-tile field so callers never probe for absence. Two of these are authored
-## now and read by nothing yet, which is deliberate: `LIFTABLE` gates Phase D's elevation (only
-## flat top-down art may be raised -- `WORLDMAP_DESIGN.md` section 8) and `WALKABLE` seeds the
-## walkability layer. Both describe the ART, so retrofitting them later means revisiting every
-## sheet ever drawn; authoring them from the first import costs a default and saves that.
+## Fills in every per-tile field so callers never probe for absence. `LIFTABLE` gates Phase D's
+## elevation (only flat top-down art may be raised -- `WORLDMAP_DESIGN.md` section 8) and is read
+## by nothing yet. `WALKABLE` is a plain boolean saved per tileset: every tile starts walkable, and
+## only an explicit `false` (or the `"false"` older configs wrote) marks one as not.
 static func _normaliseTiles(raw: Variant) -> Array:
 	var out: Array = []
 	if not raw is Array:
@@ -297,8 +296,7 @@ static func _normaliseTiles(raw: Variant) -> Array:
 		tile["TERRAIN"] = str(tile.get("TERRAIN", ""))
 		tile["AUTOTILE"] = str(tile.get("AUTOTILE", ""))
 		tile["VARIANT"] = str(tile.get("VARIANT", ""))
-		# Reserved; see this function's own note.
-		tile["WALKABLE"] = str(tile.get("WALKABLE", ""))
+		tile["WALKABLE"] = _walkableValue(tile.get("WALKABLE", true))
 		tile["LIFTABLE"] = bool(tile.get("LIFTABLE", false))
 		out.append(tile)
 	return out
@@ -333,23 +331,19 @@ static func tilesetFor(tilesetID: String) -> Dictionary:
 	return reference
 
 
-## The authored `WALKABLE` fact for one tile, as the tri-state string `_normaliseTiles` stores:
-## `"true"`, `"false"`, or `""` for a sheet that has never had the field authored. Callers that
-## want a plain yes/no want `isWalkable()` below; this exists so a caller can tell "explicitly not
-## walkable" apart from "nobody has said yet" when that distinction matters.
-static func walkableFor(tilesetID: String, tileID: String) -> String:
+## Reads a stored `WALKABLE` value. Anything but an explicit false is walkable -- including the
+## empty string configs wrote before the field was a boolean.
+static func _walkableValue(raw: Variant) -> bool:
+	return not ((raw is bool and not raw) or str(raw) == "false")
+
+
+## Whether a tile can be walked on. An unknown tile and an unknown tileset read as walkable too, so
+## a sheet nobody has annotated never silently walls off every cell painted from it.
+static func isWalkable(tilesetID: String, tileID: String) -> bool:
 	for tile in tilesetFor(tilesetID).get("TILES", []):
 		if str((tile as Dictionary).get("ID", "")) == tileID:
-			return str((tile as Dictionary).get("WALKABLE", ""))
-	return ""
-
-
-## Whether a tile can be walked on, defaulting to true. Only an explicit `"false"` refuses; an
-## unset field, an unknown tile and an unknown tileset all read as walkable, which is the safer
-## direction to be wrong in -- a sheet nobody has annotated yet should not silently wall off every
-## cell painted from it.
-static func isWalkable(tilesetID: String, tileID: String) -> bool:
-	return walkableFor(tilesetID, tileID) != "false"
+			return bool((tile as Dictionary).get("WALKABLE", true))
+	return true
 
 
 ## Sets one tile's `WALKABLE` fact in memory only -- nothing is written until `saveTileset()` is
@@ -361,7 +355,7 @@ static func setWalkable(tilesetID: String, tileID: String, walkable: bool) -> bo
 		return false
 	for tile in reference.get("TILES", []):
 		if str((tile as Dictionary).get("ID", "")) == tileID:
-			(tile as Dictionary)["WALKABLE"] = "true" if walkable else "false"
+			(tile as Dictionary)["WALKABLE"] = walkable
 			return true
 	return false
 

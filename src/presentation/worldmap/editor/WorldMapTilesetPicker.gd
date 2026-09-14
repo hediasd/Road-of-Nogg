@@ -8,6 +8,9 @@ extends Control
 
 signal primaryTileChanged(tilesetID: String, tileID: String)
 signal selectionChanged(tilesetID: String, tileIDs: Array[String])
+## Emitted in walkability mode when a tile is clicked, with the value it should flip to. The picker
+## does not change its own marker: the caller saves first and then calls `setTileWalkable()`.
+signal walkableToggleRequested(tilesetID: String, tileID: String, walkable: bool)
 
 const PALETTE_ZOOMS: Array[int] = [1, 2, 4]
 const SHEET_VIEWPORT_MIN_HEIGHT := 112.0
@@ -39,12 +42,15 @@ var _selectedTileIDs: Array[String] = []
 var _primaryTileID := ""
 var _plainClickAnchor := Vector2i(-1, -1)
 var _paletteZoom := 2
+## While on, a click on the sheet flips that tile's walkability instead of selecting it for paint.
+var _walkabilityMode := false
 var _fitMode := true
 
 var _uiBuilt := false
 var _zoomLabel: Label
 var _sheetScroll: ScrollContainer
 var _sheetCanvas: SheetCanvas
+var _walkabilityButton: Button
 
 
 func _ready() -> void:
@@ -93,7 +99,7 @@ func configure(
 		}
 		_tilesByID[id] = normalized
 		_tileIDsByCell[cell] = id
-		_walkableByID[id] = str(tile.get("WALKABLE", "")) != "false"
+		_walkableByID[id] = str(tile.get("WALKABLE", true)) != "false"
 
 	_selectedTileIDs.clear()
 	if previousTilesetID == _tilesetID:
@@ -135,6 +141,18 @@ func setTileWalkable(tileID: String, walkable: bool) -> void:
 	_walkableByID[tileID] = walkable
 	if _uiBuilt:
 		_sheetCanvas.queue_redraw()
+
+
+func isWalkabilityMode() -> bool:
+	return _walkabilityMode
+
+
+func setWalkabilityMode(enabled: bool) -> void:
+	_ensureUi()
+	_walkabilityMode = enabled
+	_walkabilityButton.set_pressed_no_signal(enabled)
+	_walkabilityButton.text = "Walkability: click tiles to flip" if enabled else "Edit walkability"
+	_sheetCanvas.queue_redraw()
 
 
 func primaryTileID() -> String:
@@ -238,6 +256,18 @@ func _ensureUi() -> void:
 	zoomIn.pressed.connect(func() -> void: _changeZoom(1))
 	toolbar.add_child(zoomIn)
 
+	_walkabilityButton = Button.new()
+	_walkabilityButton.name = "PaletteWalkabilityMode"
+	_walkabilityButton.toggle_mode = true
+	_walkabilityButton.text = "Edit walkability"
+	_walkabilityButton.tooltip_text = (
+		"While on, clicking a tile flips it between walkable and not walkable. Not-walkable tiles "
+		+ "are shaded red with an X. Saved to this tileset's config, so every map using it sees it."
+	)
+	_walkabilityButton.focus_mode = Control.FOCUS_ALL
+	_walkabilityButton.toggled.connect(setWalkabilityMode)
+	column.add_child(_walkabilityButton)
+
 	_sheetScroll = ScrollContainer.new()
 	_sheetScroll.name = "TilesheetScroll"
 	_sheetScroll.tooltip_text = "Scroll the tilesheet without moving the map camera"
@@ -294,6 +324,8 @@ func _drawSheet(canvas: Control) -> void:
 	for id: String in _tilesByID:
 		if _walkableByID.get(id, true):
 			continue
+		if _walkabilityMode:
+			_fillFrame(canvas, _zoomedFrameRect(id), Color(1.0, 0.2, 0.2, 0.35))
 		var mark := _zoomedFrameRect(id).grow(-10.0 if _honeycomb else -6.0)
 		canvas.draw_line(mark.position, mark.end, Color("ff5a5a"), 2.0)
 		canvas.draw_line(Vector2(mark.position.x, mark.end.y), Vector2(mark.end.x, mark.position.y), Color("ff5a5a"), 2.0)
@@ -304,13 +336,25 @@ func _drawFrameOutline(canvas: Control, rect: Rect2, colour: Color) -> void:
 	if not _honeycomb:
 		canvas.draw_rect(rect, colour, false, 2.0)
 		return
+	var points := _hexPoints(rect)
+	points.append(points[0])
+	canvas.draw_polyline(points, colour, 2.0)
+
+
+func _fillFrame(canvas: Control, rect: Rect2, colour: Color) -> void:
+	if _honeycomb:
+		canvas.draw_colored_polygon(_hexPoints(rect), colour)
+	else:
+		canvas.draw_rect(rect, colour, true)
+
+
+func _hexPoints(rect: Rect2) -> PackedVector2Array:
 	var p := rect.position
 	var s := rect.size
-	canvas.draw_polyline(PackedVector2Array([
+	return PackedVector2Array([
 		p + Vector2(s.x * 0.25, 0.0), p + Vector2(s.x * 0.75, 0.0), p + Vector2(s.x, s.y * 0.5),
 		p + Vector2(s.x * 0.75, s.y), p + Vector2(s.x * 0.25, s.y), p + Vector2(0.0, s.y * 0.5),
-		p + Vector2(s.x * 0.25, 0.0),
-	]), colour, 2.0)
+	])
 
 
 func _handleSheetInput(event: InputEvent) -> void:
@@ -322,6 +366,11 @@ func _handleSheetInput(event: InputEvent) -> void:
 			return
 		if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed:
 			var id := tileAtSheetPoint(mouse.position / _displayZoom())
+			if _walkabilityMode:
+				if not id.is_empty():
+					walkableToggleRequested.emit(_tilesetID, id, not bool(_walkableByID.get(id, true)))
+				_sheetCanvas.accept_event()
+				return
 			if mouse.shift_pressed:
 				_selectRange(id)
 			elif mouse.ctrl_pressed:

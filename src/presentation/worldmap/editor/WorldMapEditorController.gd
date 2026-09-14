@@ -2305,7 +2305,7 @@ func _onTileWalkableToggled(tilesetID: String, tileID: String, walkable: bool) -
 			(
 				"%s is now walkable." % tileID if walkable
 				else "%s is now not walkable." % tileID
-			) + " Maps pick this up through Fill from art."
+			) + " Saved to %s." % Tilesets.configPathFor(tilesetID).get_file()
 		)
 		return
 	# Rolled back in memory to match the file that failed to accept the change, so a later save
@@ -2351,8 +2351,8 @@ func _onTilesetFrameSizeRequested(tilesetID: String, framePx: int) -> void:
 ## Re-cuts a tileset's sheet against its OWN ledger (never an empty one, unlike `setFrameSize`), so
 ## an unchanged, moved or repainted frame keeps its id and only a frame genuinely gone from the art
 ## is retired -- see `WorldMapTilesetCatalog.reconcile()`'s own note on that ordering. No document
-## guard: the open map's CELLS are never touched, and a cell naming a since-removed id is exactly
-## what Fill from art / Reset to art exist to resolve, the same as any other tileset edit here.
+## guard: the open map's CELLS are never touched, so a cell naming a since-removed id stays as it
+## is until someone repaints it, the same as any other tileset edit here.
 func _onTilesetRefreshRequested(tilesetID: String) -> void:
 	var result := Tilesets.importSheet(tilesetID)
 	if not bool(result.get("success", false)):

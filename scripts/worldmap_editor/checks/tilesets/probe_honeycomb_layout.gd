@@ -94,6 +94,23 @@ func _checkPicker() -> void:
 	_require(picker.tileAtSheetPoint(Vector2(64, 32)) == idByCell[Vector2i(2, 1)], "centre of hex (2, 1) did not pick it")
 	_require(picker.tileAtSheetPoint(Vector2(54, 30)) == idByCell[Vector2i(2, 1)], "corner of (1, 0)'s rect did not pick neighbour (2, 1)")
 	_require(picker.tileAtSheetPoint(Vector2(4, 4)) == "", "the recessed top-left corner picked a tile")
+
+	# Walkability mode: a click asks to flip that tile and does not change the paint selection.
+	var requests: Array = []
+	picker.walkableToggleRequested.connect(
+		func(tilesetID: String, tileID: String, walkable: bool) -> void: requests.append([tilesetID, tileID, walkable])
+	)
+	picker.selectTileIDs([idByCell[Vector2i(1, 0)]] as Array[String])
+	picker.setWalkabilityMode(true)
+	var click := InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = Vector2(64, 32) * picker._displayZoom()
+	picker._handleSheetInput(click)
+	_require(requests == [[SHEET_ID, idByCell[Vector2i(2, 1)], false]], "walkability click requested %s" % [requests])
+	_require(picker.primaryTileID() == idByCell[Vector2i(1, 0)], "a walkability click changed the paint selection")
+	_require(Catalog.isWalkable(SHEET_ID, idByCell[Vector2i(2, 1)]), "a fresh tile did not start walkable")
+	_require(Catalog.serialise(reference).contains("\"WALKABLE\": true"), "WALKABLE is not saved as a boolean")
 	picker.free()
 
 

@@ -19,7 +19,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "land",
 			"VARIANT": "base",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -33,7 +33,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "sea",
 			"VARIANT": "base",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -47,7 +47,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "grass",
 			"VARIANT": "base",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -61,7 +61,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "land",
 			"VARIANT": "sea_edge_0",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -75,7 +75,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "land",
 			"VARIANT": "sea_edge_1",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -89,7 +89,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "land",
 			"VARIANT": "sea_edge_2",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -103,7 +103,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "land",
 			"VARIANT": "sea_edge_3",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -117,7 +117,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "land",
 			"VARIANT": "sea_edge_4",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -131,7 +131,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "land",
 			"VARIANT": "sea_edge_5",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -145,7 +145,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "grass",
 			"VARIANT": "land_edge_0",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -159,7 +159,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "grass",
 			"VARIANT": "land_edge_1",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -173,7 +173,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "grass",
 			"VARIANT": "land_edge_2",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -187,7 +187,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "grass",
 			"VARIANT": "land_edge_3",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -201,7 +201,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "grass",
 			"VARIANT": "land_edge_4",
-			"WALKABLE": ""
+			"WALKABLE": true
 		},
 		{
 			"AUTOTILE": "",
@@ -215,7 +215,7 @@
 			"LIFTABLE": false,
 			"TERRAIN": "grass",
 			"VARIANT": "land_edge_5",
-			"WALKABLE": ""
+			"WALKABLE": true
 		}
 	]
 }

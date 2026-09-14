@@ -110,6 +110,7 @@ func _buildPalette() -> void:
 	picker.name = "TilesetPicker"
 	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	picker.primaryTileChanged.connect(_onPickerPrimaryChanged)
+	picker.walkableToggleRequested.connect(_onPickerWalkableToggleRequested)
 	column.add_child(picker)
 
 	_pickerHint = Label.new()
@@ -178,7 +179,7 @@ func _buildTilesetProperties(column: VBoxContainer) -> void:
 	_tilesetRefresh.tooltip_text = (
 		"Re-reads the sheet and updates the tileset's tile ledger: new frames are added, moved or "
 		+ "repainted frames keep their id, and frames no longer in the sheet are retired. This map's "
-		+ "painted cells are not touched -- run Fill from art or Reset to art to pick up the change."
+		+ "painted cells are not touched."
 	)
 	_tilesetRefresh.pressed.connect(_onRefreshPressed)
 	_tilesetProperties.add_child(_tilesetRefresh)
@@ -216,8 +217,8 @@ func _buildTilesetProperties(column: VBoxContainer) -> void:
 	_tileWalkable.name = "TileWalkable"
 	_tileWalkable.text = "Walkable"
 	_tileWalkable.tooltip_text = (
-		"Whether the selected tile can be walked on. Applies to the primary tile only. "
-		+ "Maps pick this up through Fill from art."
+		"Whether the selected tile can be walked on. Saved to this tileset's config. To set many "
+		+ "tiles quickly, turn on Edit walkability above the sheet and click them."
 	)
 	_tileWalkable.disabled = true
 	_tileWalkable.toggled.connect(_onTileWalkableToggledByUser)
@@ -281,7 +282,7 @@ func _syncWalkableCheckbox() -> void:
 	var tileID := picker.primaryTileID() if picker != null else ""
 	_tileWalkable.disabled = tileID.is_empty()
 	_tileWalkable.set_pressed_no_signal(
-		not tileID.is_empty() and str(_walkableByTileID.get(tileID, "")) != "false"
+		not tileID.is_empty() and bool(_walkableByTileID.get(tileID, true))
 	)
 
 
@@ -440,7 +441,7 @@ func _configureTilesetProperties(
 	_propertiesTileCount = tiles.size()
 	_walkableByTileID.clear()
 	for tile in tiles:
-		_walkableByTileID[str(tile.get("ID", ""))] = str(tile.get("WALKABLE", ""))
+		_walkableByTileID[str(tile.get("ID", ""))] = str(tile.get("WALKABLE", true)) != "false"
 	_tilesetProperties.visible = true
 	_tilesetSheetSize.text = (
 		"Sheet: %d × %d px" % [int(sheet.get_size().x), int(sheet.get_size().y)]
@@ -649,7 +650,7 @@ func setScatterVisible(visible: bool) -> void:
 ## write from elsewhere never overwrites what the checkbox is showing for a tile the author has
 ## since moved on from), and the picker's own red-X marker.
 func setTileWalkable(tileID: String, walkable: bool) -> void:
-	_walkableByTileID[tileID] = "true" if walkable else "false"
+	_walkableByTileID[tileID] = walkable
 	if picker != null:
 		picker.setTileWalkable(tileID, walkable)
 	if picker != null and picker.primaryTileID() == tileID:
@@ -672,6 +673,11 @@ func _syncPickerToValue() -> void:
 	_suppressPickerRelay = true
 	picker.selectTileIDs(selection)
 	_suppressPickerRelay = false
+
+
+func _onPickerWalkableToggleRequested(tilesetID: String, tileID: String, walkable: bool) -> void:
+	if _onWalkableToggled.is_valid():
+		_onWalkableToggled.call(tilesetID, tileID, walkable)
 
 
 func _onPickerPrimaryChanged(_tilesetID: String, tileID: String) -> void:

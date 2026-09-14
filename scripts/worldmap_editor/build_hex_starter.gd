@@ -134,7 +134,7 @@ func _writeCatalog(sheet: Image) -> bool:
 			"LIFTABLE": false,
 			"TERRAIN": terrain,
 			"VARIANT": variant,
-			"WALKABLE": "",
+			"WALKABLE": true,
 		})
 	var starter := {
 		"DESCRIPTION": "A clean 15-frame flat-top hex starter at 32 px. It uses the verified temp2 land, sea and grass colours as manual base and edge examples; it is not a complete autotile or Wang set. Frames are 5 columns by 3 rows with zero margin and spacing, and transparent corners preserve the project’s stretched 32 px flat-top geometry.",
