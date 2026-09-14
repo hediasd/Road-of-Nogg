@@ -405,7 +405,8 @@ func setLayerLocked(id: String, locked: bool) -> void:
 ## has not imported yet still configures: the picker draws nothing and the value row still works,
 ## which is a readable state rather than a crash.
 func configurePalette(
-	tilesetID: String, sheet: Texture2D, framePx: int, tiles: Array[Dictionary]
+	tilesetID: String, sheet: Texture2D, framePx: int, tiles: Array[Dictionary],
+	layout := WorldMapTilesetCatalog.LAYOUT_GRID
 ) -> void:
 	if picker == null:
 		return
@@ -418,7 +419,7 @@ func configurePalette(
 	_configureQuickChoices(tilesetID, sheet, framePx, tiles)
 	picker.visible = true
 	_suppressPickerRelay = true
-	picker.configure(tilesetID, sheet, framePx, tiles)
+	picker.configure(tilesetID, sheet, framePx, tiles, layout)
 	_suppressPickerRelay = false
 	var missingSheet := sheet == null and not tilesetID.is_empty()
 	_pickerHint.text = (

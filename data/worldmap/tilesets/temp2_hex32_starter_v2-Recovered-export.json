@@ -4,14 +4,14 @@
 	"GRID_KIND": "tile",
 	"LAYOUT": "honeycomb",
 	"NAME": "temp2_hex32_starter_v2-Recovered-export",
-	"NEXT_ID": 20,
+	"NEXT_ID": 22,
 	"PALETTE_REGION": "temp2",
 	"SHEET": "res://assets/worldmap/tilesets/temp2_hex32_starter_v2-Recovered-export.png",
 	"TILES": [
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				0,
+				1,
 				0
 			],
 			"HASH": "8f5b1646b762e03f",
@@ -25,7 +25,7 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				1,
+				3,
 				0
 			],
 			"HASH": "d4a7dd2a7f3fa2b8",
@@ -39,8 +39,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				2,
-				0
+				0,
+				1
 			],
 			"HASH": "061b2b86c845fd89",
 			"ID": "t002",
@@ -53,8 +53,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				3,
-				0
+				1,
+				1
 			],
 			"HASH": "f4ad65f5c4a77342",
 			"ID": "t003",
@@ -67,8 +67,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				4,
-				0
+				2,
+				1
 			],
 			"HASH": "c36242dca6f7352e",
 			"ID": "t004",
@@ -81,7 +81,7 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				0,
+				3,
 				1
 			],
 			"HASH": "22865de7541f42c6",
@@ -95,7 +95,7 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				1,
+				4,
 				1
 			],
 			"HASH": "a853cdb171ee406f",
@@ -109,8 +109,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				2,
-				1
+				0,
+				2
 			],
 			"HASH": "3c1a8274317294bf",
 			"ID": "t007",
@@ -123,8 +123,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				3,
-				1
+				1,
+				2
 			],
 			"HASH": "c1824d3d1c814a33",
 			"ID": "t008",
@@ -137,8 +137,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				4,
-				1
+				2,
+				2
 			],
 			"HASH": "edc3a6542c639fe0",
 			"ID": "t009",
@@ -151,7 +151,7 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				0,
+				3,
 				2
 			],
 			"HASH": "1568ec280cb3c812",
@@ -165,7 +165,7 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				1,
+				4,
 				2
 			],
 			"HASH": "8d4e73f0b544476e",
@@ -179,8 +179,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				2,
-				2
+				0,
+				3
 			],
 			"HASH": "c3dc45b57efe0238",
 			"ID": "t012",
@@ -193,8 +193,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				3,
-				2
+				1,
+				3
 			],
 			"HASH": "233cf45a60916500",
 			"ID": "t013",
@@ -207,8 +207,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				4,
-				2
+				2,
+				3
 			],
 			"HASH": "647414034ab1a4c1",
 			"ID": "t014",
@@ -221,7 +221,7 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				0,
+				3,
 				3
 			],
 			"HASH": "22865de7541f42c6",
@@ -235,7 +235,7 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				1,
+				4,
 				3
 			],
 			"HASH": "a853cdb171ee406f",
@@ -249,8 +249,8 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
-				2,
-				3
+				0,
+				4
 			],
 			"HASH": "3c1a8274317294bf",
 			"ID": "t017",
@@ -263,11 +263,39 @@
 		{
 			"AUTOTILE": "",
 			"CELL": [
+				1,
+				4
+			],
+			"HASH": "7ef546a4362d341b",
+			"ID": "t018",
+			"LABEL": "",
+			"LIFTABLE": false,
+			"TERRAIN": "",
+			"VARIANT": "",
+			"WALKABLE": ""
+		},
+		{
+			"AUTOTILE": "",
+			"CELL": [
+				2,
+				4
+			],
+			"HASH": "c36242dca6f7352e",
+			"ID": "t019",
+			"LABEL": "",
+			"LIFTABLE": false,
+			"TERRAIN": "",
+			"VARIANT": "",
+			"WALKABLE": ""
+		},
+		{
+			"AUTOTILE": "",
+			"CELL": [
 				3,
-				3
+				4
 			],
 			"HASH": "ab49961f8b91d9af",
-			"ID": "t018",
+			"ID": "t020",
 			"LABEL": "placeholder",
 			"LIFTABLE": false,
 			"TERRAIN": "",
@@ -278,10 +306,10 @@
 			"AUTOTILE": "",
 			"CELL": [
 				4,
-				3
+				4
 			],
 			"HASH": "ab49961f8b91d9af",
-			"ID": "t019",
+			"ID": "t021",
 			"LABEL": "placeholder",
 			"LIFTABLE": false,
 			"TERRAIN": "",

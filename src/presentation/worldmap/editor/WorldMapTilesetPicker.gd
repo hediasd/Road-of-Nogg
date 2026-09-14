@@ -26,6 +26,9 @@ class SheetCanvas extends Control:
 var _tilesetID := ""
 var _sheet: Texture2D
 var _framePx := 0
+## Whether the sheet is a honeycomb (`WorldMapTilesetCatalog.LAYOUT_HONEYCOMB`): frames are then
+## hexes placed by the catalog's honeycomb geometry, hit-tested and outlined as hexes.
+var _honeycomb := false
 var _tilesByID: Dictionary = {}
 var _tileIDsByCell: Dictionary = {}
 ## Whether each tile id is walkable, from the same `WALKABLE` field `configure()` reads off the
@@ -52,13 +55,17 @@ func _ready() -> void:
 ## `tiles` is catalog-normalized data: each record needs ID and CELL, while
 ## LABEL/TERRAIN/VARIANT are display metadata.  Positions always come from CELL;
 ## shuffled ledger arrays and transparent sheet slots cannot alter hit mapping.
-func configure(tilesetID: String, sheet: Texture2D, framePx: int, tiles: Array[Dictionary]) -> void:
+func configure(
+	tilesetID: String, sheet: Texture2D, framePx: int, tiles: Array[Dictionary],
+	layout := WorldMapTilesetCatalog.LAYOUT_GRID
+) -> void:
 	var previousTilesetID := _tilesetID
 	var previousSelection := _selectedTileIDs.duplicate()
 	var previousPrimary := _primaryTileID
 	_tilesetID = tilesetID
 	_sheet = sheet
 	_framePx = max(framePx, 0)
+	_honeycomb = layout == WorldMapTilesetCatalog.LAYOUT_HONEYCOMB
 	_tilesByID.clear()
 	_tileIDsByCell.clear()
 	_walkableByID.clear()
@@ -70,9 +77,12 @@ func configure(tilesetID: String, sheet: Texture2D, framePx: int, tiles: Array[D
 		var cell: Vector2i = cellValue
 		if cell.x < 0 or cell.y < 0 or _tileIDsByCell.has(cell):
 			continue
+		if _honeycomb and not WorldMapTilesetCatalog.honeycombHasSlot(cell):
+			continue
 		if _sheet != null and _framePx > 0:
 			var sheetSize := _sheet.get_size()
-			if (cell.x + 1) * _framePx > sheetSize.x or (cell.y + 1) * _framePx > sheetSize.y:
+			var end := _frameOrigin(cell) + Vector2(_framePx, _framePx)
+			if end.x > sheetSize.x or end.y > sheetSize.y:
 				continue
 		var normalized := {
 			"ID": id,
@@ -137,6 +147,12 @@ func tileAtSheetPoint(point: Vector2) -> String:
 		return ""
 	var size := _sheet.get_size()
 	if point.x >= size.x or point.y >= size.y:
+		return ""
+	if _honeycomb:
+		for id: String in _tilesByID:
+			var local := Vector2i((point - _frameOrigin(_cellForID(id))).floor())
+			if WorldMapTilesetCatalog.hexContains(_framePx, local.x, local.y):
+				return id
 		return ""
 	var cell := Vector2i(floori(point.x / _framePx), floori(point.y / _framePx))
 	if (cell.x + 1) * _framePx > size.x or (cell.y + 1) * _framePx > size.y:
@@ -271,17 +287,30 @@ func _drawSheet(canvas: Control) -> void:
 	canvas.draw_rect(Rect2(Vector2.ZERO, canvas.size), Color("15222b"), true)
 	canvas.draw_texture_rect(_sheet, Rect2(Vector2.ZERO, _sheet.get_size() * _displayZoom()), false)
 	for id: String in _selectedTileIDs:
-		var rect := _zoomedFrameRect(id)
-		canvas.draw_rect(rect, Color("60d8ff"), false, 2.0)
+		_drawFrameOutline(canvas, _zoomedFrameRect(id), Color("60d8ff"))
 	if not _primaryTileID.is_empty():
-		canvas.draw_rect(_zoomedFrameRect(_primaryTileID).grow(-3.0), Color("fff2a3"), false, 2.0)
+		_drawFrameOutline(canvas, _zoomedFrameRect(_primaryTileID).grow(-3.0), Color("fff2a3"))
 	# Drawn last so the mark is never hidden under a selection or primary outline.
 	for id: String in _tilesByID:
 		if _walkableByID.get(id, true):
 			continue
-		var mark := _zoomedFrameRect(id).grow(-6.0)
+		var mark := _zoomedFrameRect(id).grow(-10.0 if _honeycomb else -6.0)
 		canvas.draw_line(mark.position, mark.end, Color("ff5a5a"), 2.0)
 		canvas.draw_line(Vector2(mark.position.x, mark.end.y), Vector2(mark.end.x, mark.position.y), Color("ff5a5a"), 2.0)
+
+
+## A rectangle for a grid frame; for a honeycomb, the flat-top hex inscribed in the frame's rect.
+func _drawFrameOutline(canvas: Control, rect: Rect2, colour: Color) -> void:
+	if not _honeycomb:
+		canvas.draw_rect(rect, colour, false, 2.0)
+		return
+	var p := rect.position
+	var s := rect.size
+	canvas.draw_polyline(PackedVector2Array([
+		p + Vector2(s.x * 0.25, 0.0), p + Vector2(s.x * 0.75, 0.0), p + Vector2(s.x, s.y * 0.5),
+		p + Vector2(s.x * 0.75, s.y), p + Vector2(s.x * 0.25, s.y), p + Vector2(0.0, s.y * 0.5),
+		p + Vector2(s.x * 0.25, 0.0),
+	]), colour, 2.0)
 
 
 func _handleSheetInput(event: InputEvent) -> void:
@@ -411,7 +440,14 @@ func _sortIDsByCell(left: String, right: String) -> bool:
 
 
 func _zoomedFrameRect(id: String) -> Rect2:
-	return Rect2(Vector2(_cellForID(id) * _framePx * _displayZoom()), Vector2(_framePx, _framePx) * _displayZoom())
+	return Rect2(_frameOrigin(_cellForID(id)) * _displayZoom(), Vector2(_framePx, _framePx) * _displayZoom())
+
+
+## Unzoomed sheet pixel of a frame's top-left corner, by the sheet's layout.
+func _frameOrigin(cell: Vector2i) -> Vector2:
+	if _honeycomb:
+		return Vector2(WorldMapTilesetCatalog.honeycombOrigin(_framePx, cell))
+	return Vector2(cell * _framePx)
 
 
 func _displayZoom() -> float:

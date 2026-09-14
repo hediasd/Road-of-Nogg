@@ -70,8 +70,9 @@ const GRID_CEL := "cel"
 
 ## How frames are packed in the SHEET, which is not how they are placed on a map. `grid` is
 ## rectangular packing: frame (c, r) is the square at (c, r) * FRAME_PX. `honeycomb` packs
-## flat-top hexes the way the map places them -- columns step 3/4 of a frame and odd columns
-## drop half a frame -- so neighbours share edges and an artist can paint across a seam.
+## flat-top hexes the way the map places them -- columns step 3/4 of a frame and alternate
+## columns sit half a frame apart, with outward borders (`honeycombHasSlot`) -- so neighbours
+## share edges and an artist can paint across a seam.
 ## A honeycomb sheet is unpacked into a grid atlas on load (`loadTilesetImage`), so `CELL`
 ## keeps meaning (column, row) and nothing downstream of the load knows the difference.
 ## Omitted from a config means `grid`, which keeps every existing file byte-identical.
@@ -718,20 +719,35 @@ static func hexContains(framePx: int, x: int, y: int) -> bool:
 	return x >= inset and x < framePx - inset and y >= 0 and y < framePx
 
 
-## Lifts every hex out of a honeycomb sheet into a grid atlas. Hex (c, r) sits at
-## (c * 3F/4, r * F + (c odd ? F/2 : 0)); only pixels inside its hex mask are copied, so a
-## neighbour's edge never leaks into a frame's transparent corners. A slot the sheet is too
-## small to hold completely is left blank, which `cutSheet` already reads as "no tile".
+## Whether a honeycomb sheet has a hex at `cell`. Every border of a honeycomb must be OUTWARD:
+## odd columns are the long ones and stick out past their even neighbours at both the top and the
+## bottom. So an even column has no row 0 -- the same shape a map's cell lattice takes.
+static func honeycombHasSlot(cell: Vector2i) -> bool:
+	return cell.x >= 0 and cell.y >= 0 and not (cell.x % 2 == 0 and cell.y == 0)
+
+
+## Top-left pixel of hex `cell` in a honeycomb sheet: columns step 3F/4, odd rows start at the top
+## and even columns sit half a frame lower. This is the map's odd-column drop shifted up by half a
+## frame, so the missing even row 0 costs no sheet space.
+static func honeycombOrigin(framePx: int, cell: Vector2i) -> Vector2i:
+	return Vector2i(cell.x * framePx * 3 / 4, cell.y * framePx - (framePx / 2 if cell.x % 2 == 0 else 0))
+
+
+## Lifts every hex out of a honeycomb sheet into a grid atlas, one square frame per `CELL`. Only
+## pixels inside a hex's mask are copied, so a neighbour's edge never leaks into a frame's
+## transparent corners. A slot the sheet is too small to hold completely is left blank, which
+## `cutSheet` already reads as "no tile". A C-column, R-row sheet is `3F/4 * (C - 1) + F` by
+## `R * F` px.
 static func unpackHoneycomb(image: Image, framePx: int) -> Image:
 	var step := framePx * 3 / 4
-	var drop := framePx / 2
 	var columns := 0 if image.get_width() < framePx else (image.get_width() - framePx) / step + 1
 	var rows := image.get_height() / framePx
 	var atlas := Image.create(maxi(columns, 1) * framePx, maxi(rows, 1) * framePx, false, Image.FORMAT_RGBA8)
 	for column in columns:
 		for row in rows:
-			var origin := Vector2i(column * step, row * framePx + (drop if column % 2 == 1 else 0))
-			if origin.y + framePx > image.get_height():
+			var cell := Vector2i(column, row)
+			var origin := honeycombOrigin(framePx, cell)
+			if not honeycombHasSlot(cell) or origin.y + framePx > image.get_height():
 				continue
 			for y in framePx:
 				for x in framePx:

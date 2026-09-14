@@ -2235,12 +2235,15 @@ func _refreshPalette() -> void:
 	# imported yet returns null, which the picker renders as an empty sheet rather than failing.
 	var sheetPath := str(tileset.get("SHEET", ""))
 	var sheet: Texture2D = null
+	# The picker shows the sheet as authored -- a honeycomb stays a honeycomb -- and places each
+	# `CELL` by the layout it is given.
 	if not sheetPath.is_empty():
-		var sourceImage := Tilesets.loadTilesetImage(tileset)
+		var sourceImage := Tilesets.loadSheetImage(sheetPath)
 		if sourceImage != null:
 			sheet = ImageTexture.create_from_image(sourceImage)
 	_editorHud.configurePalette(
-		tilesetID, sheet, int(tileset.get("FRAME_PX", 32)), tiles
+		tilesetID, sheet, int(tileset.get("FRAME_PX", 32)), tiles,
+		str(tileset.get("LAYOUT", Tilesets.LAYOUT_GRID))
 	)
 
 
