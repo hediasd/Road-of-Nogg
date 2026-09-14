@@ -40,6 +40,7 @@ const HexBattleSessionPanelScript = preload(
 	"res://src/presentation/battle/ui/HexBattleSessionPanel.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const ElementReferencesScript = preload("res://src/factories/ElementReferences.gd")
+const HexGraphicsPanelScript = preload("res://src/presentation/battle/ui/HexGraphicsPanel.gd")
 
 const REASON_DEFEATED := "defeated"
 const REASON_WITHDRAWN := "withdrawn"
@@ -573,8 +574,6 @@ static func aimLines(state: BattleState, aim: Dictionary) -> Array[String]:
 				lines.append("Heals; no damage forecast")
 			"no_damage":
 				lines.append("Deals no damage")
-			"multi_line":
-				lines.append("Several damage lines; not forecast")
 			_:
 				lines.append("No forecast")
 	elif bool(forecast.get("available", false)):
@@ -637,6 +636,8 @@ func refresh() -> void:
 		if model != _partyModel:
 			_partyModel = model
 			partyPanel.updateModel(model)
+	if commandMenu != null and not _commandModel.is_empty():
+		commandMenu.visible = not _combatFeedbackPlaying()
 	if orderPanel != null:
 		orderPanel.updateModel(partyOrderModel(state, _display))
 	if inspection != null:
@@ -645,6 +646,18 @@ func refresh() -> void:
 		inspection.showTarget(inspectionModel(state, _display, int(shown["target"])))
 		inspection.showForecast(aimLines(state, _aim))
 	_layout()
+
+
+## Whether a hit, cast, heal or removal is queued or playing on the screen.
+##
+## The command menu steps aside while one is. It is docked top-right, over the far side of the
+## board where the enemy usually stands, and it returns the moment an attack or spell resolves
+## because the member still has a move. Left up, it covered the impact, the number and the unit
+## taking it. Movement has no feedback payload, so a move keeps the menu, as it always has.
+func _combatFeedbackPlaying() -> bool:
+	if _display == null or not _display.has_method("pendingFeedbackPayloadCount"):
+		return false
+	return int(_display.pendingFeedbackPayloadCount()) > 0
 
 
 ## Docks every panel from the viewport size alone.
@@ -664,8 +677,14 @@ func _layout() -> void:
 	if partySize.y > 0.0:
 		orderTop = margin + partySize.y + NoggThemeScript.WINDOW_STACK_GAP
 	orderPanel.position = Vector2(margin, orderTop)
+	# Below the status line and the graphics toggle. At the top margin the menu's first rows ran
+	# under both: the centred prompt read "Choose a command" through the menu's title row, and the
+	# toggle, on a higher layer, covered the right end of the title.
+	var statusBottom := margin + _statusLabel.get_minimum_size().y
+	var toggleBottom: float = HexGraphicsPanelScript.TOGGLE_TOP + HexGraphicsPanelScript.TOGGLE_HEIGHT
+	var commandTop := maxf(statusBottom, toggleBottom) + NoggThemeScript.WINDOW_STACK_GAP
 	commandMenu.position = Vector2(
-		viewportSize.x - NoggThemeScript.SPELL_WIDTH - margin, margin)
+		viewportSize.x - NoggThemeScript.SPELL_WIDTH - margin, commandTop)
 	inspection.layoutFor(viewportSize)
 	if sessionPanel != null:
 		var sessionSize: Vector2 = sessionPanel.windowSize()

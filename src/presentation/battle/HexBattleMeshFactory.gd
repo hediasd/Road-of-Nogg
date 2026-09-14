@@ -111,6 +111,123 @@ static func createOverlayMaterial(renderPriority: int = 0) -> StandardMaterial3D
 	return material
 
 
+## A raised, vertex-coloured game board around the painted battlefield. The five matching loops
+## describe its recessed playfield, inner rise, broad top rim, outer bevel and bottom wall. The mesh
+## owns no collision: tactical picking stays on the per-cell bodies above it.
+static func createRaisedBoard(
+		playfieldTop: PackedVector3Array,
+		innerRimTop: PackedVector3Array,
+		outerRimTop: PackedVector3Array,
+		outerEdge: PackedVector3Array,
+		bottomY: float,
+		fieldColor: Color,
+		innerBevelColor: Color,
+		rimColor: Color,
+		outerBevelColor: Color,
+		sideColor: Color
+) -> ArrayMesh:
+	assert(playfieldTop.size() == innerRimTop.size() \
+			and playfieldTop.size() == outerRimTop.size() \
+			and playfieldTop.size() == outerEdge.size() \
+			and playfieldTop.size() >= 3,
+		"Raised board loops must have the same polygon size.")
+	var vertices := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var colors := PackedColorArray()
+	var center := Vector3.ZERO
+	for point: Vector3 in playfieldTop:
+		center += point
+	center /= float(playfieldTop.size())
+
+	# Recessed bed: visible through transparent/unset terrain texels, never over painted art.
+	for index in range(playfieldTop.size()):
+		_appendColoredTriangle(vertices, normals, colors,
+			center, playfieldTop[index], playfieldTop[(index + 1) % playfieldTop.size()],
+			Vector3.UP, fieldColor)
+
+	# A short rise makes the terrain read as seated inside the frame.
+	for index in range(playfieldTop.size()):
+		var next := (index + 1) % playfieldTop.size()
+		_appendColoredQuad(vertices, normals, colors,
+			playfieldTop[index], innerRimTop[index], innerRimTop[next], playfieldTop[next],
+			Vector3.UP, innerBevelColor)
+
+	# Broad horizontal rim, the defining shape from the reference boards.
+	for index in range(innerRimTop.size()):
+		var next := (index + 1) % innerRimTop.size()
+		_appendColoredQuad(vertices, normals, colors,
+			innerRimTop[index], outerRimTop[index], outerRimTop[next], innerRimTop[next],
+			Vector3.UP, rimColor)
+
+	# Sloped outer shoulder catches a second tone before the deep wall.
+	for index in range(outerRimTop.size()):
+		var next := (index + 1) % outerRimTop.size()
+		_appendColoredQuad(vertices, normals, colors,
+			outerRimTop[index], outerEdge[index], outerEdge[next], outerRimTop[next],
+			Vector3.UP, outerBevelColor)
+
+	# Vertical wall. The board is never seen from below, so no bottom face is needed.
+	for index in range(outerEdge.size()):
+		var next := (index + 1) % outerEdge.size()
+		var topA: Vector3 = outerEdge[index]
+		var topB: Vector3 = outerEdge[next]
+		var bottomA := Vector3(topA.x, bottomY, topA.z)
+		var bottomB := Vector3(topB.x, bottomY, topB.z)
+		var normal := (topB - topA).cross(bottomA - topA).normalized()
+		_appendColoredQuad(vertices, normals, colors,
+			topA, bottomA, bottomB, topB, normal, sideColor)
+
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_COLOR] = colors
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	return mesh
+
+
+## Unshaded because the board is furniture around the art, not another terrain colour. Its authored
+## face colours remain stable under every battle light and camera angle.
+static func createBoardMaterial() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.vertex_color_use_as_albedo = true
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	return material
+
+
+static func _appendColoredTriangle(
+		vertices: PackedVector3Array,
+		normals: PackedVector3Array,
+		colors: PackedColorArray,
+		a: Vector3,
+		b: Vector3,
+		c: Vector3,
+		normal: Vector3,
+		color: Color
+) -> void:
+	for point: Vector3 in [a, b, c]:
+		vertices.append(point)
+		normals.append(normal)
+		colors.append(color)
+
+
+static func _appendColoredQuad(
+		vertices: PackedVector3Array,
+		normals: PackedVector3Array,
+		colors: PackedColorArray,
+		a: Vector3,
+		b: Vector3,
+		c: Vector3,
+		d: Vector3,
+		normal: Vector3,
+		color: Color
+) -> void:
+	_appendColoredTriangle(vertices, normals, colors, a, b, c, normal, color)
+	_appendColoredTriangle(vertices, normals, colors, a, c, d, normal, color)
+
+
 ## A convex hex prism covering exactly `polygon` at `center`'s height, so a
 ## raycast near a slanted edge resolves to the true hex rather than a
 ## neighbour a bounding box would have picked up. `ConvexPolygonShape3D`

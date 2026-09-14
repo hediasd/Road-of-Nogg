@@ -101,6 +101,7 @@ func _on_row_built(row: Control, full_index: int) -> void:
 	var entry: Dictionary = _rowMeta[full_index]
 	if str(entry.get("kind", "")) == KIND_HEADER:
 		return
+	HexPartyPanel.spaceValueColumn(row)
 	row.mouse_filter = Control.MOUSE_FILTER_STOP
 	if not bool(entry.get("enabled", false)):
 		return

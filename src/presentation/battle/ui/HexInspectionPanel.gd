@@ -113,8 +113,10 @@ func _renderStatus(window: NoggWindow, model: Dictionary) -> void:
 	if model.is_empty():
 		return
 
-	window.add_row(str(model.get("name", "")), "Lv %d" % int(model.get("level", 0)))
-	window.add_row(str(model.get("side", "")), str(model.get("state", "")))
+	HexPartyPanel.spaceValueColumn(
+		window.add_row(str(model.get("name", "")), "Lv %d" % int(model.get("level", 0))))
+	HexPartyPanel.spaceValueColumn(
+		window.add_row(str(model.get("side", "")), str(model.get("state", ""))))
 
 	var elements: Array = model.get("elements", [])
 	var hpCells: Array[Dictionary] = [{

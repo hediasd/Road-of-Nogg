@@ -17,6 +17,7 @@ func _run() -> void:
 	_check(stage != null, "stage did not build")
 	if stage != null:
 		_checkLightAndWorld(stage)
+		_checkProjectionControl(stage)
 		await _checkConversions(stage)
 		stage.dispose()
 		await _frames(3)
@@ -65,11 +66,61 @@ func _checkLightAndWorld(stage) -> void:
 	_check(stage.light.light_color.is_equal_approx(stage.LIGHT_COLOR), "key-light color changed")
 	_check(is_equal_approx(stage.light.light_energy, stage.LIGHT_ENERGY), "key-light energy changed")
 	_check(not stage.light.shadow_enabled, "key-light shadows must remain disabled")
+	_check(stage.graphicsPanel.battleCamera == stage._camera,
+		"graphics panel did not receive the stage camera")
+
+
+func _checkProjectionControl(stage) -> void:
+	var option: OptionButton = stage.graphicsPanel.projectionOption
+	_check(option != null, "graphics panel projection control is missing")
+	if option == null:
+		return
+	var orthographicIndex := -1
+	var perspectiveIndex := -1
+	for index in range(option.item_count):
+		var value := str(option.get_item_metadata(index))
+		if value == stage._camera.PROJECTION_ORTHOGRAPHIC:
+			orthographicIndex = index
+		elif value == stage._camera.PROJECTION_PERSPECTIVE:
+			perspectiveIndex = index
+	_check(orthographicIndex >= 0 and perspectiveIndex >= 0,
+		"graphics panel projection choices are incomplete")
+	if orthographicIndex < 0 or perspectiveIndex < 0:
+		return
+	_check(stage._camera.projectionMode() == stage._camera.PROJECTION_ORTHOGRAPHIC,
+		"orthographic is not the default projection")
+	_check(str(option.get_item_metadata(option.selected)) \
+		== stage._camera.PROJECTION_ORTHOGRAPHIC,
+		"graphics panel did not show the orthographic default")
+	var left := Vector3(-2.0, 0.0, 0.0)
+	var right := Vector3(2.0, 0.0, 0.0)
+	option.select(perspectiveIndex)
+	option.item_selected.emit(perspectiveIndex)
+	var perspectiveLeft: Vector2 = stage._camera.projectToRenderViewport(left)
+	var perspectiveRight: Vector2 = stage._camera.projectToRenderViewport(right)
+	var perspectiveSpan: float = perspectiveLeft.distance_to(perspectiveRight)
+	option.select(orthographicIndex)
+	option.item_selected.emit(orthographicIndex)
+	_check(stage._camera.projectionMode() == stage._camera.PROJECTION_ORTHOGRAPHIC,
+		"projection control did not select orthographic")
+	_check(stage._camera.camera.projection == Camera3D.PROJECTION_ORTHOGONAL,
+		"camera did not enter orthographic projection")
+	_check(stage._camera.camera.position.length() >= stage._camera.ORTHOGRAPHIC_CAMERA_DISTANCE - 0.01,
+		"orthographic camera remained close enough for the rotating board to cross its near plane")
+	var orthographicLeft: Vector2 = stage._camera.projectToRenderViewport(left)
+	var orthographicRight: Vector2 = stage._camera.projectToRenderViewport(right)
+	var orthographicSpan: float = orthographicLeft.distance_to(orthographicRight)
+	_check(absf(perspectiveSpan - orthographicSpan) < 0.5,
+		"projection switch visibly changed the board scale")
 
 
 func _checkConversions(stage) -> void:
 	var sizes := [Vector2i(1280, 720), Vector2i(1920, 1080)]
 	var presets := [stage.renderer.PRESET_NONE, stage.renderer.PRESET_DITHERED_HORIZON]
+	var projections := [
+		stage._camera.PROJECTION_PERSPECTIVE,
+		stage._camera.PROJECTION_ORTHOGRAPHIC,
+	]
 	var points := [Vector3.ZERO, Vector3(-2.0, 0.0, 0.0), Vector3(2.0, 0.0, 0.0)]
 	for size in sizes:
 		root.size = size
@@ -77,21 +128,27 @@ func _checkConversions(stage) -> void:
 		for preset in presets:
 			stage.renderer.set_preset(preset, false)
 			await _frames(2)
-			var rect: Rect2 = stage.displayRect()
-			_check(rect.size.x > 0.0 and rect.size.y > 0.0,
-				"empty display rect at %s / %s" % [size, preset])
-			for worldPoint in points:
-				var renderPoint: Vector2 = stage._camera.projectToRenderViewport(worldPoint)
-				var screenPoint: Vector2 = stage.projectWorldToScreen(worldPoint)
-				_check(renderPoint.x >= 0.0 and rect.has_point(screenPoint),
-					"projected point escaped display at %s / %s" % [size, preset])
-				var roundTrip: Vector2 = stage.screenToRenderViewport(screenPoint)
-				_check(roundTrip.distance_to(renderPoint) < 0.05,
-					"projection round trip drifted at %s / %s" % [size, preset])
-			var margin := rect.position - Vector2.ONE
-			if margin.x >= 0.0 and margin.y >= 0.0:
-				_check(stage.screenToRenderViewport(margin).x < 0.0,
-					"letterbox margin became pickable")
+			for projection in projections:
+				stage._camera.setProjectionMode(projection)
+				await _frames(2)
+				var rect: Rect2 = stage.displayRect()
+				_check(rect.size.x > 0.0 and rect.size.y > 0.0,
+					"empty display rect at %s / %s / %s" % [size, preset, projection])
+				for worldPoint in points:
+					var renderPoint: Vector2 = stage._camera.projectToRenderViewport(worldPoint)
+					var screenPoint: Vector2 = stage.projectWorldToScreen(worldPoint)
+					_check(renderPoint.x >= 0.0 and rect.has_point(screenPoint),
+						"projected point escaped display at %s / %s / %s" % [
+							size, preset, projection])
+					var roundTrip: Vector2 = stage.screenToRenderViewport(screenPoint)
+					_check(roundTrip.distance_to(renderPoint) < 0.05,
+						"projection round trip drifted at %s / %s / %s" % [
+							size, preset, projection])
+				var margin := rect.position - Vector2.ONE
+				if margin.x >= 0.0 and margin.y >= 0.0:
+					_check(stage.screenToRenderViewport(margin).x < 0.0,
+						"letterbox margin became pickable")
+	stage._camera.setProjectionMode(stage._camera.PROJECTION_ORTHOGRAPHIC)
 
 
 func _stageNodeCount() -> int:

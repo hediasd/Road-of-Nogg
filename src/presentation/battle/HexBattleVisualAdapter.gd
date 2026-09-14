@@ -68,6 +68,29 @@ const LAYER_PREVIEW := "preview"
 ## reads four times as long as a one-cell one instead of every move taking the same time.
 const MOVE_STEP_SECONDS := 0.16
 
+## Unit grounding and command identity are hex-battle decorators, not shared model traits. The
+## portrait renderer and every other MonsterModelFactory caller therefore keep their old look.
+## At native battle resolution the shared model is a little too slight against a two-unit-wide
+## hex. A modest battle-only enlargement makes the base almost exactly half a cell wide while
+## leaving the authored lattice, movement positions and portrait proportions untouched.
+const UNIT_PRESENTATION_SCALE := 1.12
+## A small X/Z-only increase gives the piece a steadier board-game footprint
+## without making its body taller or crowding the two-unit-wide hex.
+const UNIT_BASE_WIDTH_SCALE := 1.06
+const GROUND_SHADOW_NAME := "GroundShadow"
+const GROUND_SHADOW_RADIUS := 0.48
+const GROUND_SHADOW_HEIGHT := 0.004
+const GROUND_SHADOW_SCALE_Z := 0.68
+const GROUND_SHADOW_COLOR := Color(0.015, 0.02, 0.025, 0.27)
+const TEAM_CAPTAIN_META := "hex_team_captain"
+## No extra ring: only the top layer of the existing team base receives a restrained warm-metal
+## shift. Geometry and footprint remain exactly the default model base.
+const CAPTAIN_BASE_TINT := Color("b6a374")
+const CAPTAIN_BASE_TINT_WEIGHT := 0.16
+const CAPTAIN_BASE_LIGHTEN := 0.035
+const CAPTAIN_METALLIC_BONUS := 0.08
+const CAPTAIN_ROUGHNESS_REDUCTION := 0.06
+
 ## Presentation speed bounds, the square adapter's clamp. Floored well above zero so no tween is
 ## ever given a zero duration, which would be an instant, watchdog-defeating jump.
 const PLAYBACK_SPEED_MIN := 0.1
@@ -216,10 +239,95 @@ func _buildMonsterModel(
 		monsterName, NoggThemeScript.team_color(team), elements
 	)
 	model.name = "Unit_%d" % monsterID
+	model.scale = Vector3.ONE * UNIT_PRESENTATION_SCALE
+	_widenModelBase(model)
 	model.position = worldPositionOf(pos)
+	_addGroundShadow(model)
+	if isTeamCaptain(monsterID):
+		if _shadeTeamCaptainBase(model):
+			model.set_meta(TEAM_CAPTAIN_META, true)
 	_root.add_child(model)
 	_models[monsterID] = model
 	return model
+
+
+func _widenModelBase(model: Node3D) -> void:
+	var modelBase := model.get_node_or_null("ModelBase") as Node3D
+	if modelBase != null:
+		modelBase.scale = Vector3(UNIT_BASE_WIDTH_SCALE, 1.0, UNIT_BASE_WIDTH_SCALE)
+
+
+## A cheap world-space contact shadow. The slightly flattened disc is stable under orbit, follows
+## movement with its model, and does not ask the stage's disabled real-time shadow path to render.
+func _addGroundShadow(model: Node3D) -> void:
+	var shadow := MeshInstance3D.new()
+	shadow.name = GROUND_SHADOW_NAME
+	var mesh := CylinderMesh.new()
+	mesh.height = GROUND_SHADOW_HEIGHT
+	mesh.top_radius = GROUND_SHADOW_RADIUS
+	mesh.bottom_radius = GROUND_SHADOW_RADIUS
+	mesh.radial_segments = 32
+	shadow.mesh = mesh
+	shadow.scale.z = GROUND_SHADOW_SCALE_Z
+	shadow.position.y = GROUND_SHADOW_HEIGHT * 0.75
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.albedo_color = GROUND_SHADOW_COLOR
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.disable_receive_shadows = true
+	material.render_priority = -2
+	shadow.material_override = material
+	shadow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	model.add_child(shadow)
+
+
+## One presentation captain per TEAM, even though the simulator keeps one commander per party for
+## activation ownership. The lowest deterministic commander ID is the temporary team-level rule;
+## it is stable across replay and independent of node creation order.
+func isTeamCaptain(monsterID: int) -> bool:
+	if _state == null:
+		return false
+	var party: BattleParty = _state.partyForMember(monsterID)
+	if party == null or party.commanderID != monsterID:
+		return false
+	var captainID := -1
+	for partyIDValue in _state.teamPartyIDs.get(party.teamID, []):
+		var teamParty: BattleParty = _state.parties.get(int(partyIDValue))
+		if teamParty == null or teamParty.commanderID < 0:
+			continue
+		if captainID < 0 or teamParty.commanderID < captainID:
+			captainID = teamParty.commanderID
+	return monsterID == captainID
+
+
+## Refinish only the top layer of the model's existing base. This is deliberately more humble than
+## adding a torus: the captain keeps the same silhouette, target footprint and ascension stack as
+## every other battle unit.
+func _shadeTeamCaptainBase(model: Node3D) -> bool:
+	var modelBase := model.get_node_or_null("ModelBase") as Node3D
+	if modelBase == null or modelBase.get_child_count() == 0:
+		return false
+	var topLayer := modelBase.get_child(modelBase.get_child_count() - 1) as MeshInstance3D
+	if topLayer == null:
+		return false
+	var material := topLayer.material_override as ShaderMaterial
+	if material == null:
+		return false
+	var shaded := material.duplicate() as ShaderMaterial
+	var baseColor: Color = shaded.get_shader_parameter("color_a")
+	var captainColor := baseColor.lerp(CAPTAIN_BASE_TINT, CAPTAIN_BASE_TINT_WEIGHT).lightened(
+		CAPTAIN_BASE_LIGHTEN)
+	shaded.set_shader_parameter("color_a", captainColor)
+	shaded.set_shader_parameter("color_b", captainColor)
+	shaded.set_shader_parameter("surface_metallic", clampf(
+		float(shaded.get_shader_parameter("surface_metallic")) + CAPTAIN_METALLIC_BONUS,
+		0.0, 1.0))
+	shaded.set_shader_parameter("surface_roughness", clampf(
+		float(shaded.get_shader_parameter("surface_roughness")) - CAPTAIN_ROUGHNESS_REDUCTION,
+		0.05, 1.0))
+	topLayer.material_override = shaded
+	return true
 
 
 func _on_monster_moved(monsterID: int, path: Array) -> void:
@@ -996,17 +1104,28 @@ func forecastSpell(
 	var spell = _combat._resolveSpell(caster, spellSetIndex, spellIndex)
 	if spell == null:
 		return {"available": false}
+	# A heal or a damage revert deals no damage, so a damage number for it would be false. The
+	# resolver takes its heal branch before any damage line is read.
+	if bool(spell.heals) or bool(spell.reverts_damage):
+		return {"available": false, "reason": "heal"}
 
-	var base: int = 0
-	if spell.damage_lines.size() > 0:
-		base = int((spell.damage_lines[0] as Dictionary).get("damage", 0))
-	var element: String = str(spell.element) if "element" in spell else "none"
-	var normal: int = _combat.calculateSpellDamage(
-		caster, target, base, element, true, Vector2i(-1, -1), false
-	)
-	var critical: int = _combat.calculateSpellDamage(
-		caster, target, base, element, true, Vector2i(-1, -1), true
-	)
+	# Every positive line, each with its own element, under one critical roll: the resolver's own
+	# loop. Pricing only the first line under the spell's headline element undercounted every
+	# two-line spell.
+	var normal := 0
+	var critical := 0
+	for entry in spell.damage_lines:
+		var line: Dictionary = entry
+		var base := int(line.get("damage", 0))
+		if base <= 0:
+			continue
+		var element := str(line.get("element", "none"))
+		normal += int(_combat.calculateSpellDamage(
+			caster, target, base, element, true, Vector2i(-1, -1), false))
+		critical += int(_combat.calculateSpellDamage(
+			caster, target, base, element, true, Vector2i(-1, -1), true))
+	if normal <= 0:
+		return {"available": false, "reason": "no_damage"}
 	var chance: float = caster.get_critical_chance()
 	return _forecast(mini(normal, critical), maxi(normal, critical), chance, target, targetID)
 

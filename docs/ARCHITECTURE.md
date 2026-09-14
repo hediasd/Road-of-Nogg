@@ -473,10 +473,10 @@ appears to think for a moment before acting is fine, and arguably good. A
 renderer, camera, or animation that stutters while it thinks is not, and no
 amount of AI quality buys it back.
 
-The two are currently coupled. `_advance_battle()` runs on the turn timer, on
-the main thread, and calls `sim.executeTurn()` — which calls
-`brain.decideTurn()` inline. Deliberation therefore happens *inside* a frame,
-and the frame is as long as the decision.
+The original implementation coupled the two. `_advance_battle()` ran on the
+turn timer, on the main thread, and called `sim.executeTurn()` — which called
+`brain.decideTurn()` inline. Deliberation therefore happened *inside* a frame,
+and the frame was as long as the decision.
 
 Measured on a real CPU vs CPU battle (`HexBattle`, seed 42, headless, so these
 numbers exclude render cost and understate a real window):
@@ -531,15 +531,22 @@ either way.
    still be applied through `executeCommand()` on the main thread, in turn
    order, so history and replay are unchanged.
 
-### Intended direction, not yet built
+### Current worker boundary
 
-Compute the decision for the next actor off the frame — a `WorkerThreadPool`
-task or a time-sliced evaluator — and apply the returned `BattleCommand` on the
-main thread when it is ready. The window between turns is safe for a reader,
-because `_advance_battle()` is the only thing that mutates simulation state and
-it is not running during that window; the visual queue in the meantime only
-animates already-recorded events. This is recorded in `BACKLOG_CRITICAL.md`; it
-is a real architectural change and should be planned, not slipped in.
+Interactive hex battles run each pure `CommandDeliberation` as a low-priority
+`WorkerThreadPool` task. `HexBattlePlayback.OWNER_CPU` holds the simulation
+schedule for that whole window, so canonical state cannot mutate while the
+worker reads it. `_process()` only polls task completion; once complete, it
+applies the command on the main thread through `applyDeliberatedTurn()`. Event
+order, replay history, RNG ownership and scene-tree mutation therefore remain
+on the main thread.
+
+A pause may let the read-only task finish, but its result remains unapplied
+until resume. Teardown retires the task ID without waiting and never observes
+its result; the task retains its old read-only state until completion, so a
+restart cannot receive a stale command. Headless runners stay synchronous
+through `CommandDeliberation.run()` because they have no render frame to
+protect.
 
 ## Determinism, replay, and restoration
 

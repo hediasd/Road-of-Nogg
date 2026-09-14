@@ -2,9 +2,12 @@
 ##
 ## What this proves: a battle on hexmap puts the exported scene inside the stage's own world at the
 ## origin; three known cells sit where the editor's grid and the art's region put them; the board
-## switches to its outline look while its pick bodies still answer; a cell and a unit under the
-## pointer still resolve through the stage at both window sizes and under the harshest preset; a map
-## that cannot show its terrain still starts and says why; and teardown leaves no terrain behind.
+## switches to its alpha-clean battle material and compact slab while its pick bodies still answer;
+## every unit receives one contact shadow and one captain per team receives a quiet base finish;
+## mouse orbit,
+## pan, zoom and reset keep the same projection contract; a cell and a unit under the pointer still
+## resolve through the stage at both window sizes and under the harshest preset; a map that cannot
+## show its terrain still starts and says why; and teardown leaves no terrain behind.
 ##
 ## What it cannot prove: that the board reads well over the art, or that markers stay legible.
 ## Those are the cycle's rendered checks, and so is how the terrain is lit.
@@ -168,16 +171,57 @@ func _checkAuthoredTerrain() -> void:
 	_require(groundTop <= lowestCell + EPSILON,
 		"the ground top %.4f is above the lowest cell %.4f" % [groundTop, lowestCell])
 
-	# The board over terrain: fill hidden, outlines drawn, bodies still live.
+	# The board over terrain: fallback fill hidden, passive grid moved to the terrain shader, compact
+	# slab beneath it, and pick bodies still live.
 	_require(boardView.isOverTerrain(), "the board did not switch to its over-terrain look")
-	var outlines := boardView.outlineMesh()
-	_require(outlines != null and outlines.is_inside_tree() and outlines.visible,
-		"the over-terrain outline mesh is missing")
-	if outlines != null:
-		_require(outlines.global_position.y + boardView.OUTLINE_LIFT > groundTop,
-			"the outlines are not above the ground")
+	_require(boardView.outlineMesh() == null, "the legacy world-space outline mesh still exists")
+	var slab := boardView.boardSlab()
+	_require(slab != null and slab.is_inside_tree() and slab.visible,
+		"the compact board slab is missing")
+	if slab != null:
+		var slabBounds := slab.global_transform * slab.get_aabb()
+		_require(slabBounds.end.y > groundTop + 0.05,
+			"the raised rim does not rise above the terrain: %.4f / %.4f" % [
+				slabBounds.end.y, groundTop])
+		_require(slabBounds.position.y < groundTop - 0.5,
+			"the floating board wall is too shallow: %s" % str(slabBounds.size))
+		var maximumBoardSize := regionSize + Vector2.ONE * (
+			boardView.BOARD_TOTAL_MARGIN * 2.0 + 0.1)
+		_require(slabBounds.size.x <= maximumBoardSize.x \
+				and slabBounds.size.z <= maximumBoardSize.y,
+			"the raised board extends beyond its authored rim: %s" % str(slabBounds.size))
+		_require(slabBounds.size.x > regionSize.x + boardView.BOARD_RIM_WIDTH \
+				and slabBounds.size.z > regionSize.y + boardView.BOARD_RIM_WIDTH,
+			"the raised board rim is not broad enough: %s" % str(slabBounds.size))
 	var surface := boardView.getSurface(PICK_CELLS[0])
 	_require(surface != null and not surface.visible, "the grey fill is still drawn over terrain")
+	_require(stage.battleTerrainMaterial() == material,
+		"the ground does not use the battle-only terrain material")
+	_require(material.get_shader_parameter("terrain_texture") != null,
+		"the battle material has no painted texture")
+	_require((material.get_shader_parameter("hex_lattice") as Vector2).is_equal_approx(
+			Vector2(map.boardSize)), "the battle material has the wrong hex lattice")
+	_require(is_equal_approx(float(material.get_shader_parameter("grid_line_px")),
+			StageScript.TERRAIN_GRID_LINE_PX), "the passive grid is not one screen pixel")
+	var gridColor: Color = material.get_shader_parameter("grid_color")
+	_require(gridColor.a <= 0.15, "the passive grid is too opaque: %.3f" % gridColor.a)
+	_require(is_equal_approx(float(material.get_shader_parameter("alpha_cutoff")),
+			StageScript.TERRAIN_ALPHA_CUTOFF), "transparent texture gaps are not clipped")
+	var plane := ground.mesh as PlaneMesh
+	if plane != null:
+		_require(plane.size.is_equal_approx(regionSize),
+			"the flat exported ground still has its giant fog plane: %s" % str(plane.size))
+
+	# Quiet hover is one reused marker, not a permanent second grid.
+	boardView.showHover(PICK_CELLS[0])
+	_require(boardView.hoveredCell() == PICK_CELLS[0] \
+			and boardView.get_node_or_null(boardView.HOVER_NODE_NAME) != null,
+		"the quiet cell hover did not appear")
+	boardView.clearHover()
+	_require(boardView.hoveredCell() == Vector2i(-1, -1), "the quiet cell hover did not clear")
+
+	_checkUnitDecorators()
+	await _checkCameraControls()
 
 	# Anything in the terrain that collides would sit in front of the pick bodies. It must not.
 	var unmasked := _castDown(stage, layout.cellCenter(PICK_CELLS[1]), 0xFFFFFFFF)
@@ -232,6 +276,114 @@ func _checkScreenPicking(stage: HexBattleStage, layout: HexBattleLayout) -> void
 	_evidence["screen_picks"] = picks
 
 
+func _checkUnitDecorators() -> void:
+	var shadows := 0
+	var captainBases := 0
+	var teamIDs: Dictionary = {}
+	for value in _controller.adapter.shownModelIDs():
+		var monsterID := int(value)
+		var model := _controller.adapter.modelFor(monsterID)
+		_require(model != null, "shown unit %d has no model" % monsterID)
+		if model == null:
+			continue
+		_require(model.scale.is_equal_approx(
+			Vector3.ONE * _controller.adapter.UNIT_PRESENTATION_SCALE),
+			"unit %d does not retain the battle presentation scale" % monsterID)
+		var modelBase := model.get_node_or_null("ModelBase") as Node3D
+		_require(modelBase != null, "unit %d has no model base" % monsterID)
+		if modelBase != null:
+			_require(modelBase.scale.is_equal_approx(Vector3(
+				_controller.adapter.UNIT_BASE_WIDTH_SCALE, 1.0,
+				_controller.adapter.UNIT_BASE_WIDTH_SCALE)),
+				"unit %d does not retain the slightly wider battle base" % monsterID)
+		var shadow := model.get_node_or_null(_controller.adapter.GROUND_SHADOW_NAME)
+		_require(shadow != null, "unit %d has no contact shadow" % monsterID)
+		if shadow != null:
+			shadows += 1
+		var party: BattleParty = _controller.sim.state.partyForMember(monsterID)
+		if party != null:
+			teamIDs[party.teamID] = true
+		var isCaptain := _controller.adapter.isTeamCaptain(monsterID)
+		var markedCaptain := bool(model.get_meta(_controller.adapter.TEAM_CAPTAIN_META, false))
+		_require(isCaptain == markedCaptain,
+			"unit %d's team-captain marker disagrees with selection" % monsterID)
+		_require(model.get_node_or_null("CommanderAccent") == null,
+			"unit %d still has the retired extra commander ring" % monsterID)
+		if markedCaptain:
+			captainBases += 1
+	_evidence["unit_decorators"] = {
+		"models": _controller.adapter.shownModelIDs().size(),
+		"shadows": shadows,
+		"captain_bases": captainBases,
+		"teams": teamIDs.size(),
+	}
+	_require(captainBases == teamIDs.size(),
+		"expected one shaded captain base per team, found %d for %d teams" % [
+			captainBases, teamIDs.size()])
+
+
+func _checkCameraControls() -> void:
+	var battleCamera: HexBattleCamera = _controller.battleCamera
+	_require(battleCamera.projectionMode() == battleCamera.PROJECTION_ORTHOGRAPHIC,
+		"the battle camera did not open in orthographic projection")
+	_require(battleCamera.camera.position.length() \
+		>= battleCamera.ORTHOGRAPHIC_CAMERA_DISTANCE - 0.01,
+		"the orthographic camera is not safely behind the rotating board")
+	var originalYaw := battleCamera.yaw()
+	var originalPitch := battleCamera.pitchDegrees()
+	var originalDistance := battleCamera.distance()
+	var originalFocus := battleCamera.focus()
+
+	var middlePress := InputEventMouseButton.new()
+	middlePress.button_index = MOUSE_BUTTON_MIDDLE
+	middlePress.pressed = true
+	_require(battleCamera.handleInput(middlePress, float(SCREENS[0].y)),
+		"middle press was not owned by the camera")
+	var orbitMotion := InputEventMouseMotion.new()
+	orbitMotion.relative = Vector2(24.0, 12.0)
+	_require(battleCamera.handleInput(orbitMotion, float(SCREENS[0].y)),
+		"middle drag was not owned by the camera")
+	await _frames(2)
+	_require(not is_equal_approx(battleCamera.yaw(), originalYaw) \
+			and not is_equal_approx(battleCamera.pitchDegrees(), originalPitch),
+		"middle drag did not orbit and pitch")
+	var middleRelease := InputEventMouseButton.new()
+	middleRelease.button_index = MOUSE_BUTTON_MIDDLE
+	middleRelease.pressed = false
+	battleCamera.handleInput(middleRelease, float(SCREENS[0].y))
+
+	var rightPress := InputEventMouseButton.new()
+	rightPress.button_index = MOUSE_BUTTON_RIGHT
+	rightPress.pressed = true
+	battleCamera.handleInput(rightPress, float(SCREENS[0].y))
+	var panMotion := InputEventMouseMotion.new()
+	panMotion.relative = Vector2(18.0, -10.0)
+	battleCamera.handleInput(panMotion, float(SCREENS[0].y))
+	await _frames(2)
+	_require(not battleCamera.focus().is_equal_approx(originalFocus), "right drag did not pan")
+	var rightRelease := InputEventMouseButton.new()
+	rightRelease.button_index = MOUSE_BUTTON_RIGHT
+	rightRelease.pressed = false
+	battleCamera.handleInput(rightRelease, float(SCREENS[0].y))
+
+	var wheel := InputEventMouseButton.new()
+	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
+	wheel.pressed = true
+	battleCamera.handleInput(wheel, float(SCREENS[0].y))
+	_require(battleCamera.distance() < originalDistance, "wheel up did not zoom in")
+
+	battleCamera.resetView()
+	await create_timer(battleCamera.CAMERA_EASE_SECONDS + 0.05).timeout
+	_require(is_equal_approx(battleCamera.yaw(), originalYaw), "camera reset did not restore yaw")
+	_require(is_equal_approx(battleCamera.pitchDegrees(), originalPitch),
+		"camera reset did not restore pitch")
+	_require(is_equal_approx(battleCamera.distance(), originalDistance),
+		"camera reset did not restore zoom")
+	_require(battleCamera.focus().is_equal_approx(originalFocus),
+		"camera reset did not restore focus")
+	_evidence["camera_mouse"] = "orbit/pitch, pan, wheel zoom, eased reset"
+
+
 # --- maps without drawable terrain ----------------------------------------------
 
 ## A technical map declares no scene. It starts on the grey board and says nothing about terrain.
@@ -249,6 +401,8 @@ func _checkHeadlessOnlyMap() -> void:
 	_require(_controller.stage.terrainRoot() == null, "a headless-only map drew terrain")
 	_require(not _controller.adapter.boardView.isOverTerrain(),
 		"a headless-only board switched to the over-terrain look")
+	_require(_controller.adapter.boardView.boardSlab() != null,
+		"a headless-only board has no compact slab")
 	var cell: Vector2i = _controller.map.validCells()[0]
 	var surface := _controller.adapter.boardView.getSurface(cell)
 	_require(surface != null and surface.visible, "the grey board is not drawn without terrain")

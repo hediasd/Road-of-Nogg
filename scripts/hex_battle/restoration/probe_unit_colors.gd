@@ -32,6 +32,7 @@ func _init() -> void:
 func _run() -> void:
 	_checkAuthoritativeElements()
 	_checkNullStateFallback()
+	_checkWholeModelDiagonal()
 	_root.queue_free()
 	await process_frame
 	if not failures.is_empty():
@@ -99,6 +100,52 @@ func _checkNullStateFallback() -> void:
 			"null-state fallback did not use neutral factory input")
 	expected.free()
 	adapter.dispose()
+
+
+func _checkWholeModelDiagonal() -> void:
+	var model := MonsterModelFactoryScript.build(
+		"Smoke Cloud", NoggThemeScript.team_color(1), ["fire", "water"])
+	var body := model.get_child(1) as Node3D
+	_require(body != null, "dual-element model has no body")
+	if body == null:
+		model.free()
+		return
+	var materials: Array[ShaderMaterial] = []
+	_checkSplitTransforms(body, Transform3D.IDENTITY, materials)
+	_require(materials.size() > 1,
+		"dual-element fixture did not exercise a multi-part body")
+	model.free()
+
+
+func _checkSplitTransforms(
+		node: Node, fromBody: Transform3D, materials: Array[ShaderMaterial]) -> void:
+	for child: Node in node.get_children():
+		var childNode := child as Node3D
+		if childNode == null:
+			continue
+		var bodyTransform := fromBody * childNode.transform
+		var mesh := childNode as MeshInstance3D
+		if mesh != null:
+			var material := mesh.material_override as ShaderMaterial
+			_require(material != null and material.get_shader_parameter("split_color") == true,
+				"dual-element body part is not using its split material")
+			if material != null:
+				_require(not materials.has(material),
+					"two body parts still share one mutable split transform")
+				materials.append(material)
+				_require((material.get_shader_parameter("split_model_origin") as Vector3)
+					.is_equal_approx(bodyTransform.origin),
+					"body part split origin is not in whole-model space")
+				_require((material.get_shader_parameter("split_model_basis_x") as Vector3)
+					.is_equal_approx(bodyTransform.basis.x),
+					"body part split X basis is not in whole-model space")
+				_require((material.get_shader_parameter("split_model_basis_y") as Vector3)
+					.is_equal_approx(bodyTransform.basis.y),
+					"body part split Y basis is not in whole-model space")
+				_require((material.get_shader_parameter("split_model_basis_z") as Vector3)
+					.is_equal_approx(bodyTransform.basis.z),
+					"body part split Z basis is not in whole-model space")
+		_checkSplitTransforms(childNode, bodyTransform, materials)
 
 
 func _buildMap() -> BattleMapDefinition:

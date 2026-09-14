@@ -23,9 +23,9 @@ const StatusBadgeRowScript = preload("res://src/presentation/StatusBadgeRow.gd")
 const MonsterModelFactoryScript = preload("res://src/presentation/MonsterModelFactory.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
-## Above the isolated world image (`CRT_LAYER`) and the default CRT overlay, below `HexBattleHud`
-## (layer 1). The donor sat one under the damage numbers and under the game UI; the hex HUD lives
-## at layer 1, so a panel covers a row instead of a row drawing over the panel.
+## Above the isolated world image (`CRT_LAYER`) and the default CRT overlay, below the damage
+## numbers (`NoggTheme.WORLD_EFFECT_LAYER`, 9) and `HexBattleHud` (`NoggTheme.GAME_LAYER`, 10), so
+## a number draws over a row and a panel covers a row instead of a row drawing over the panel.
 const BADGE_LAYER := 0
 
 ## Donor anchor, unchanged: the top of the model's own bounds plus a clearance, never lower than

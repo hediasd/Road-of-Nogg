@@ -301,7 +301,7 @@ func _checkSpellDetails() -> void:
 		"a heal was forecast as damage")
 	_require(MemberInputScript.forecastWithheldReason(Spell.new({"NAME": "Probe Duo",
 		"DAMAGE_LINES": [{"damage": 3, "element": "fire"}, {"damage": 3, "element": "wind"}]}))
-		== "multi_line", "a multi-line spell was forecast from its first line only")
+		== "", "a multi-line spell forecast was withheld")
 
 
 ## The forecast says what it knows, and no more.
@@ -385,6 +385,7 @@ func _checkLiveBattle() -> void:
 	_checkLayout()
 	await _checkHoverChangesNothing(memberID)
 	await _checkAimForecast(memberID)
+	_checkSpellForecastLines(memberID)
 	await _checkGuiConsumesClicks()
 	await _checkReadoutsFollowPlayback()
 
@@ -524,6 +525,50 @@ func _checkHoverChangesNothing(memberID: int) -> void:
 
 
 ## Aiming shows the simulator's legality and the adapter's forecast; a hover mid-aim keeps the aim.
+## A spell forecast prices every damage line with its own element under one critical roll, and
+## refuses a heal. Probe spells are put on the member for the check and taken off again.
+func _checkSpellForecastLines(memberID: int) -> void:
+	var sim := _controller.sim
+	var caster = sim.state.getMonster(memberID)
+	var enemy := -1
+	for value in sim.state.monsters:
+		var candidate = sim.state.getMonster(int(value))
+		if candidate != null and candidate.is_alive() and int(candidate.team) != int(caster.team):
+			enemy = int(value)
+			break
+	if enemy < 0:
+		_require(false, "no enemy to forecast a spell against")
+		return
+	var target = sim.state.getMonster(enemy)
+	var targetPos: Vector2i = sim.state.getMonsterPosition(enemy)
+	# The caster's own element on one line and none on the other, so `can_cast` admits it and the
+	# two lines still price differently.
+	var ownElement := str(caster.elements[0]) if not caster.elements.is_empty() else "none"
+	var duo := Spell.new({"NAME": "Probe Duo",
+		"DAMAGE_LINES": [{"damage": 3, "element": ownElement}, {"damage": 4, "element": "none"}]})
+	var mend := Spell.new({"NAME": "Probe Mend", "HEALS": true, "DAMAGE": 5})
+	caster.spellSets.append([duo, mend])
+	var setIndex: int = caster.spellSets.size() - 1
+	var expected := 0
+	var expectedCritical := 0
+	for line in duo.damage_lines:
+		expected += sim.combatResolver.calculateSpellDamage(
+			caster, target, int(line["damage"]), str(line["element"]), true, Vector2i(-1, -1), false)
+		expectedCritical += sim.combatResolver.calculateSpellDamage(
+			caster, target, int(line["damage"]), str(line["element"]), true, Vector2i(-1, -1), true)
+	var forecast := _controller.adapter.forecastSpell(memberID, setIndex, 0, targetPos)
+	var healForecast := _controller.adapter.forecastSpell(memberID, setIndex, 1, targetPos)
+	caster.spellSets.pop_back()
+	_require(bool(forecast.get("available", false))
+		and int(forecast.get("minimum", -1)) == mini(expected, expectedCritical)
+		and int(forecast.get("maximum", -1)) == maxi(expected, expectedCritical),
+		"a two-line spell forecast %s is not the sum of its lines (%d, critical %d)" % [
+			str(forecast), expected, expectedCritical])
+	_require(not bool(healForecast.get("available", true)),
+		"a heal was given a damage forecast: %s" % str(healForecast))
+	_evidence["two_line_forecast"] = "%d-%d" % [int(forecast.get("minimum", -1)), int(forecast.get("maximum", -1))]
+
+
 func _checkAimForecast(memberID: int) -> void:
 	var input := _controller.memberInput
 	_require(_chooseCommand("Attack"), "Attack was not offered to aim")

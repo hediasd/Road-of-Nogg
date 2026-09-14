@@ -225,24 +225,48 @@ static func _prepareNodeMaterialsRecursive(
 		modelTransform = parentTransform * node.transform
 	if node is MeshInstance3D:
 		_prepareMeshMaterials(node)
-		_setSplitInstanceTransform(node, modelTransform)
+		_setSplitModelTransform(node, modelTransform)
 	for child in node.get_children():
 		_prepareNodeMaterialsRecursive(child, modelTransform)
 
 
-static func _setSplitInstanceTransform(
+static func _setSplitModelTransform(
 		meshInstance: MeshInstance3D,
 		modelTransform: Transform3D) -> void:
-	# Instance shader parameters consume a finite renderer-wide buffer. Most
-	# retro materials are single-colour terrain and never read this transform,
-	# so allocating four vectors for every one can exhaust the Compatibility
-	# renderer before the battle finishes building its board.
+	# The four coordinates deliberately remain ordinary material uniforms. Making
+	# them instance uniforms reserves renderer slots for every retro-surface mesh,
+	# which exhausts the Compatibility renderer on a full board. A dual-colour
+	# model has only a handful of parts, so give each part its own copy instead:
+	# every copy receives that part's transform into the body's shared coordinate
+	# space, and the split becomes one continuous diagonal across the whole model.
 	if not _meshUsesSplitRetroMaterial(meshInstance):
 		return
+	_makeSplitMaterialsUnique(meshInstance)
 	_setShaderParameterForMesh(meshInstance, "split_model_origin", modelTransform.origin)
 	_setShaderParameterForMesh(meshInstance, "split_model_basis_x", modelTransform.basis.x)
 	_setShaderParameterForMesh(meshInstance, "split_model_basis_y", modelTransform.basis.y)
 	_setShaderParameterForMesh(meshInstance, "split_model_basis_z", modelTransform.basis.z)
+
+
+static func _makeSplitMaterialsUnique(meshInstance: MeshInstance3D) -> void:
+	if _materialUsesSplitColor(meshInstance.material_override):
+		meshInstance.material_override = _duplicateRetroMaterial(meshInstance.material_override)
+		return
+	if meshInstance.mesh == null:
+		return
+	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
+		var material = meshInstance.get_active_material(surfaceIndex)
+		if _materialUsesSplitColor(material):
+			meshInstance.set_surface_override_material(
+				surfaceIndex, _duplicateRetroMaterial(material))
+
+
+static func _duplicateRetroMaterial(material: ShaderMaterial) -> ShaderMaterial:
+	var duplicate := material.duplicate() as ShaderMaterial
+	# Resource duplication normally retains metadata, but the tag is a factory
+	# contract and cheap to state explicitly. Later bounds/dim updates depend on it.
+	duplicate.set_meta(RETRO_MATERIAL_META, true)
+	return duplicate
 
 
 static func _meshUsesSplitRetroMaterial(meshInstance: MeshInstance3D) -> bool:
@@ -251,7 +275,7 @@ static func _meshUsesSplitRetroMaterial(meshInstance: MeshInstance3D) -> bool:
 	if meshInstance.mesh == null:
 		return false
 	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
-		var material = meshInstance.get_surface_override_material(surfaceIndex)
+		var material = meshInstance.get_active_material(surfaceIndex)
 		if _materialUsesSplitColor(material):
 			return true
 	return false

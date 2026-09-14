@@ -77,8 +77,11 @@ func _run() -> void:
 
 	# Every `Unit_*` child under the adapter's own root is one of the models just checked --
 	# nothing extra got added, and nothing bypassed `modelFor`'s bookkeeping.
-	var boardRoot: Node = battle.get_node_or_null("HexBoard")
-	_require(boardRoot != null, "no HexBoard root under the battle scene")
+	# The controller now seats the board in HexBattleStage's isolated World3D rather than as a scene
+	# child. Read the controller's presentation root so this assertion follows that ownership move.
+	var boardRoot: Node = battle.get("_boardRoot")
+	_require(boardRoot != null and boardRoot.name == "HexBoard",
+		"no HexBoard root in the battle stage world")
 	if boardRoot != null:
 		var unitChildren := 0
 		for child in boardRoot.get_children():
