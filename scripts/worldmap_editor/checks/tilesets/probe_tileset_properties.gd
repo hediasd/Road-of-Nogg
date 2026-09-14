@@ -13,6 +13,7 @@ const HudScript = preload("res://src/presentation/worldmap/editor/WorldMapEditor
 const ControllerScript = preload("res://src/presentation/worldmap/editor/WorldMapEditorController.gd")
 const Catalog = preload("res://src/presentation/worldmap/editor/WorldMapTilesetCatalog.gd")
 const MapDataScript = preload("res://src/presentation/worldmap/editor/WorldMapTileData.gd")
+const BakerScript = preload("res://src/presentation/worldmap/editor/WorldMapBaker.gd")
 
 var failures: Array[String] = []
 var _root: String
@@ -146,11 +147,51 @@ func _run() -> void:
 	_require(not properties.visible, "showValueOnlyPalette left the properties block visible")
 
 	_checkDocumentUsesTileset()
+	_checkRefreshedTileBakes("%s/alpha.png" % sheetDir)
 
 	layer.queue_free()
 	Catalog.reloadCatalog()
 	_removeRecursive(_root)
 	_finish()
+
+
+## A tile added by Refresh from art must actually draw once painted. The baker keeps each sheet's
+## image and id-to-cell map from its first bake, so this repaints the sheet with a third frame,
+## re-imports it, paints the new id and checks it lands in the baked image after `forgetSheets()`
+## -- the step the controller now takes after every refresh.
+func _checkRefreshedTileBakes(sheetPath: String) -> void:
+	var doc := MapDataScript.create("refresh", Vector2i(1, 1), MapDataScript.LAYOUT_HEX_FLAT)
+	doc.layers["ground"]["TILESET"] = "alpha"
+	doc.setCell("ground", Vector2i(0, 0), "t000")
+	var baker := BakerScript.new()
+	baker.bake(doc)
+
+	var wider := Image.create(96, 32, false, Image.FORMAT_RGBA8)
+	wider.fill(Color(0.6, 0.2, 0.8, 1.0))
+	wider.save_png(sheetPath)
+	var imported := Catalog.importSheet("alpha")
+	_require(bool(imported.get("success", false)), "re-importing the widened sheet failed")
+	Catalog.applyImport("alpha", imported)
+	var ids: Array[String] = []
+	for tile in Catalog.tilesetFor("alpha").get("TILES", []):
+		ids.append(str((tile as Dictionary)["ID"]))
+	_require(ids.has("t002"), "the refresh did not add t002 to the ledger (has %s)" % [ids])
+
+	doc.setCell("ground", Vector2i(0, 0), "t002")
+	baker.forgetSheets()
+	baker.bake(doc)
+	# The baker's own image, not `texture().get_image()`: under the headless dummy renderer a
+	# texture's readback stays at its first upload and would report the old tile as drawn.
+	var image := baker.image()
+	var drawn := false
+	for y in image.get_height():
+		for x in image.get_width():
+			if image.get_pixel(x, y).a > 0.5:
+				drawn = true
+				break
+		if drawn:
+			break
+	_require(drawn, "a tile added by Refresh from art baked as nothing")
 
 
 ## `_documentUsesTileset` is exercised directly on a bare controller instance -- nothing here opens

@@ -2331,7 +2331,7 @@ func _onTilesetFrameSizeRequested(tilesetID: String, framePx: int) -> void:
 		Tilesets.reloadCatalog()
 		_editorHud.setStatus("Could not write %s." % Tilesets.configPathFor(tilesetID))
 		return
-	_refreshPalette()
+	_reloadTilesetArt()
 	_editorHud.setStatus(
 		"Frame size is now %d × %d. %d old tile IDs retired, %d tiles cut." % [
 			framePx, framePx, int(result.get("retired", 0)), int(result.get("added", 0))
@@ -2354,12 +2354,24 @@ func _onTilesetRefreshRequested(tilesetID: String) -> void:
 		Tilesets.reloadCatalog()
 		_editorHud.setStatus("Could not write %s." % Tilesets.configPathFor(tilesetID))
 		return
-	_refreshPalette()
-	var summary := Tilesets.describeReport(result.get("report", {}))
-	var message := "Refreshed %s from art: %s" % [tilesetID, summary]
-	if not summary.begins_with("unchanged"):
-		message += " Maps pick this up through Fill from art."
-	_editorHud.setStatus(message)
+	_reloadTilesetArt()
+	_editorHud.setStatus(
+		"Refreshed %s from art: %s" % [tilesetID, Tilesets.describeReport(result.get("report", {}))]
+	)
+
+
+## After a tileset's art or ledger changes, everything that cached the old one has to let go of it.
+## The baker loads each sheet once and keeps its image and id-to-cell map for the whole session, so
+## without `forgetSheets()` a tile added by Refresh from art has no cell to draw from and paints as
+## nothing, and a repainted frame keeps showing its old pixels. `bake()` updates the ground's
+## existing texture in place, so the camera and framing stay where the author left them. The value
+## choices are rebuilt too, not just the palette, so the tile list the tools read matches the sheet.
+func _reloadTilesetArt() -> void:
+	if _document != null:
+		_baker.forgetSheets()
+		_baker.bake(_document)
+		_applyLayerVisibility()
+	_refreshValueChoices()
 
 
 func _layerIndex(id: String) -> int:
