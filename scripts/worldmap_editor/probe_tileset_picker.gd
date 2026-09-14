@@ -15,8 +15,10 @@ func _run() -> void:
 	var picker = PickerScript.new()
 	root.add_child(picker)
 	await process_frame
-	var preview := picker.get_node("PickerColumn/PrimaryTilePreview/PrimaryTileImage") as Control
-	_require(preview != null and not preview.visible, "empty picker reserved a blank preview and squeezed its guidance")
+	_require(
+		picker.get_node_or_null("PickerColumn/PrimaryTilePreview") == null,
+		"the picker still builds a tile preview under the sheet"
+	)
 	var image := Image.create(96, 64, false, Image.FORMAT_RGBA8)
 	image.fill(Color.WHITE)
 	var texture := ImageTexture.create_from_image(image)
@@ -81,8 +83,6 @@ func _checkDefensiveCopiesAndReconfigure(picker: PickerScript, texture: Texture2
 	_require(Vector2i(selectionSignals, primarySignals) == signalsBefore, "configure emitted user-change signals")
 	picker.configure("replacement", texture, 32, [{"ID": "new", "CELL": Vector2i(1, 0)}])
 	_require(picker.selectedTileIDs().is_empty() and picker.primaryTileID().is_empty(), "different tileset retained stale selection")
-	var preview := picker.get_node("PickerColumn/PrimaryTilePreview/PrimaryTileImage") as Control
-	_require(preview != null and not preview.visible, "picker showed a blank primary preview with no selection")
 
 
 func _checkSpatialKeyboardAndEmptySelection(picker: PickerScript, texture: Texture2D, tiles: Array[Dictionary]) -> void:

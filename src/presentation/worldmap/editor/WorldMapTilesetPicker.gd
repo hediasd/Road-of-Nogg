@@ -10,7 +10,6 @@ signal primaryTileChanged(tilesetID: String, tileID: String)
 signal selectionChanged(tilesetID: String, tileIDs: Array[String])
 
 const PALETTE_ZOOMS: Array[int] = [1, 2, 4]
-const PREVIEW_PX := 48
 const SHEET_VIEWPORT_MIN_HEIGHT := 112.0
 
 
@@ -22,13 +21,6 @@ class SheetCanvas extends Control:
 
 	func _gui_input(event: InputEvent) -> void:
 		picker._handleSheetInput(event)
-
-
-class PreviewCanvas extends Control:
-	var picker: WorldMapTilesetPicker
-
-	func _draw() -> void:
-		picker._drawPreview(self)
 
 
 var _tilesetID := ""
@@ -50,8 +42,6 @@ var _uiBuilt := false
 var _zoomLabel: Label
 var _sheetScroll: ScrollContainer
 var _sheetCanvas: SheetCanvas
-var _previewCanvas: PreviewCanvas
-var _primaryInfo: Label
 
 
 func _ready() -> void:
@@ -181,9 +171,9 @@ func _ensureUi() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	# The HEIGHT floor is 220, not the 300 this shipped with. The guarantee that actually matters
 	# is `SHEET_VIEWPORT_MIN_HEIGHT` on the sheet's own scroll, applied separately below; 300 was a
-	# second, larger floor on top of it, and the difference was dead space between the sheet and
-	# the selected-tile preview. The left column now carries the map menu underneath, so that
-	# slack came straight out of the buttons. Given more room the sheet still expands into it.
+	# second, larger floor on top of it, and the difference was dead space under the sheet. The
+	# left column now carries the map menu underneath, so that slack came straight out of the
+	# buttons. Given more room the sheet still expands into it.
 	#
 	# A FLOOR ONLY. The real minimum comes from `_get_minimum_size()` below, which is what stops a
 	# short floor from becoming an overlap.
@@ -248,24 +238,6 @@ func _ensureUi() -> void:
 	_sheetCanvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	_sheetScroll.add_child(_sheetCanvas)
 
-	# The compact preview leaves the atlas dominant while keeping its human-readable identity.
-	var previewRow := HBoxContainer.new()
-	previewRow.name = "PrimaryTilePreview"
-	column.add_child(previewRow)
-	_previewCanvas = PreviewCanvas.new()
-	_previewCanvas.name = "PrimaryTileImage"
-	_previewCanvas.picker = self
-	_previewCanvas.custom_minimum_size = Vector2(PREVIEW_PX, PREVIEW_PX)
-	_previewCanvas.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_previewCanvas.tooltip_text = "Enlarged primary tile preview"
-	previewRow.add_child(_previewCanvas)
-	_primaryInfo = Label.new()
-	_primaryInfo.name = "PrimaryTileInfo"
-	_primaryInfo.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_primaryInfo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_primaryInfo.tooltip_text = "Primary tile id, label, and sheet frame coordinates"
-	previewRow.add_child(_primaryInfo)
-
 
 func _changeZoom(direction: int) -> void:
 	_fitMode = false
@@ -288,15 +260,9 @@ func _refreshUi() -> void:
 	_zoomLabel.text = "Fit" if _fitMode else "%dx" % _paletteZoom
 	if _sheet == null or _framePx <= 0:
 		_sheetCanvas.custom_minimum_size = Vector2.ZERO
-		_primaryInfo.text = "No tileset selected"
-		_previewCanvas.visible = false
 	else:
 		_sheetCanvas.custom_minimum_size = _sheet.get_size() * _displayZoom()
-		var hasPrimary := not _primaryTileID.is_empty()
-		_previewCanvas.visible = hasPrimary
-		_primaryInfo.text = _primaryDescription() if hasPrimary else "Select a tile"
 	_sheetCanvas.queue_redraw()
-	_previewCanvas.queue_redraw()
 
 
 func _drawSheet(canvas: Control) -> void:
@@ -316,14 +282,6 @@ func _drawSheet(canvas: Control) -> void:
 		var mark := _zoomedFrameRect(id).grow(-6.0)
 		canvas.draw_line(mark.position, mark.end, Color("ff5a5a"), 2.0)
 		canvas.draw_line(Vector2(mark.position.x, mark.end.y), Vector2(mark.end.x, mark.position.y), Color("ff5a5a"), 2.0)
-
-
-func _drawPreview(canvas: Control) -> void:
-	if _sheet == null or _primaryTileID.is_empty() or _framePx <= 0:
-		return
-	var cell := _cellForID(_primaryTileID)
-	var source := Rect2(Vector2(cell * _framePx), Vector2(_framePx, _framePx))
-	canvas.draw_texture_rect_region(_sheet, Rect2(Vector2.ZERO, Vector2(PREVIEW_PX, PREVIEW_PX)), source)
 
 
 func _handleSheetInput(event: InputEvent) -> void:
@@ -504,12 +462,3 @@ func _firstSelectedID() -> String:
 
 func _firstID(ids: Array[String]) -> String:
 	return "" if ids.is_empty() else ids[0]
-
-
-func _primaryDescription() -> String:
-	if _primaryTileID.is_empty():
-		return "No tile selected"
-	var tile: Dictionary = _tilesByID[_primaryTileID]
-	var cell := tile["CELL"] as Vector2i
-	var label := str(tile["LABEL"])
-	return "%s\n%s\nFrame (%d, %d)" % [_primaryTileID, label if not label.is_empty() else "(unnamed)", cell.x, cell.y]

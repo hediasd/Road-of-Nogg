@@ -307,8 +307,8 @@ values their own tools accept. The visible sheet is authoritative for art select
 second tile-ID dropdown. It opens in **Fit**, with 1x, 2x and 4x available for inspection. A plain
 click selects one frame, Ctrl-click adds or removes individual frames, and Shift-click selects a
 rectangular range. The ordered multi-frame selection supplies the Stamp tool. Escape or clicking
-blank sheet space clears the selection. The current-frame preview and selected frame IDs remain
-visible. Paint, Fill, Stamp and Scatter refuse to alter an art layer while the selection is empty;
+blank sheet space clears the selection. The outline on the sheet is the only selection readout;
+there is no separate enlarged preview. Paint, Fill, Stamp and Scatter refuse to alter an art layer while the selection is empty;
 choose **Erase** when clearing cells is intended. Scatter seed controls appear only for Scatter.
 
 Below the sheet, a **tileset properties** block is labelled as what it is — settings shared by
