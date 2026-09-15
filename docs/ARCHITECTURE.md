@@ -77,6 +77,30 @@ The planned ownership split is:
   tied by source identity and geometry metadata. Runtime simulation loads only
   the headless product through its factory boundary; it never reads the editor.
 
+### Hex battle HUD contract
+
+The HUD reads battle state and never writes it. Four owners keep that true:
+
+- `HexBattleMemberInput` owns what a member may do and why not. Its command
+  model gives every command `enabled`, a `hint`, and a `reason` that is empty
+  exactly when the command is enabled. Spells arrive nested under a `magic`
+  entry, which is a grouping for the rail, not a command; `chooseCommand` only
+  ever sees the `spell:<set>:<index>` ids.
+- `HexBattleController` owns input routing. The STATUS sheet takes input first
+  while it is open, then the camera, then inspection (hover and click on units,
+  in every phase), then the member turn. While a command is being aimed a left
+  click stays that aim's confirm and never inspects.
+- `HexBattleVisualAdapter` owns the unit cues drawn on the board -- the hover
+  outline and the selection ring -- and picks units against where their models
+  are drawn, since playback runs behind the simulation. It also builds models
+  for units already deployed when the battle opens, because a hex state arrives
+  populated and emits no spawn events for them.
+- `HexBattleHud` owns which unit is selected (presentation state, by
+  `uniqueID`) and composes the windows. Everything the inspection surfaces show
+  comes through `HexUnitFacts`, the one presentation file that reads a unit out
+  of `BattleState`. STATUS and the placeholder Item plate are HUD-local; neither
+  is a battle command.
+
 ### Shared hex lattice
 
 `src/board/HexGrid.gd` is the headless authority for odd-column offset/axial

@@ -20,6 +20,7 @@ signal member_selected(monsterID: int)
 signal end_party_requested()
 
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
+const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 const END_PARTY_LABEL := "End Party"
 
@@ -40,6 +41,9 @@ func _init() -> void:
 	_window = NoggWindowScript.new()
 	add_child(_window)
 	_window.row_built.connect(_on_row_built)
+	# Sized here because a NoggWindow never sizes itself: left at zero width the frame drew
+	# nothing, and the rows floated over the board with no box around them.
+	_window.size.x = NoggThemeScript.HEX_PARTY_WIDTH
 
 
 ## `model` keys: party_id (int, unused here -- this panel always shows

@@ -1,41 +1,42 @@
+## The command rail on its own, driven from a supplied model: plates in order, disabled plates that
+## explain themselves, the spell window opening inward and handing back focus, the STATUS plate
+## staying presentation-only, and a rebuilt rail never double-wiring a click.
 extends SceneTree
 
 const HexCommandMenuScript = preload("res://src/presentation/battle/ui/HexCommandMenu.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
-const HEADER_INDEX := 0
-const MOVE_INDEX := 1
-const ATTACK_INDEX := 2
-const WAIT_INDEX := 3
-const CANCEL_INDEX := 4
+const REJECTED_LABELS := ["Details", "MOVE ready", "ACTION ready"]
 
 var failures: Array[String] = []
-var _capturedRows: Dictionary = {}
+var _rows: Dictionary = {}
 var _chosen: Array[String] = []
-var _cancelCount := 0
+var _local: Array[String] = []
 var _menu: HexCommandMenu
 
 
 func _init() -> void:
+	var host := Control.new()
+	host.theme = NoggThemeScript.build_game_theme()
+	root.add_child(host)
 	_menu = HexCommandMenuScript.new()
-	root.add_child(_menu)
-	# NoggWindow creates its content in _ready(), which only runs once this
-	# script SceneTree reaches a process frame.
+	host.add_child(_menu)
 	process_frame.connect(_run, CONNECT_ONE_SHOT)
 
 
 func _run() -> void:
-	var menu := _menu
-	var window: NoggWindow = menu._window
-	window.row_built.connect(_on_row_built)
-	menu.command_chosen.connect(func(commandID: String): _chosen.append(commandID))
-	menu.cancelled.connect(func(): _cancelCount += 1)
+	_menu.row_built.connect(func(row: Control, index: int): _rows[index] = row)
+	_menu.command_chosen.connect(func(commandID: String): _chosen.append(commandID))
+	_menu.local_requested.connect(func(commandID: String): _local.append(commandID))
+	_menu.visible = true
 
-	_checkEmptyModelClearsMenu(menu, window)
-	_checkEnabledAndOrderedModel(menu, window)
-	_checkInputGate(menu, window)
-	_checkSpentModel(menu, window)
-	_checkClicksAndNoDuplication(menu, window)
+	_checkEmptyModelClearsRail()
+	_checkPlatesFollowTheModel()
+	_checkInputGate()
+	_checkDisabledPlatesExplainAndRefuse()
+	_checkKeyboardAndSpellWindow()
+	_checkLocalPlate()
+	_checkRebuildDoesNotDoubleWire()
 
 	if not failures.is_empty():
 		for failure: String in failures:
@@ -51,88 +52,145 @@ func _require(condition: bool, message: String) -> void:
 		failures.append(message)
 
 
-func _on_row_built(row: Control, full_index: int) -> void:
-	_capturedRows[full_index] = row
-
-
-func _commandModel() -> Dictionary:
+func _model(inputEnabled := true) -> Dictionary:
 	return {
-		"input_enabled": true,
-		"title": "Knight commands",
+		"input_enabled": inputEnabled,
 		"commands": [
-			{"id": "move", "label": "Move", "enabled": true, "detail": "3", "spent": false},
-			{"id": "attack", "label": "Attack", "enabled": false, "detail": "1", "spent": false},
-			{"id": "wait", "label": "Wait", "enabled": true, "detail": "", "spent": false},
+			{"id": "move", "label": "Move", "icon": "move", "enabled": true,
+				"hint": "Walk up to 3 cells.", "reason": ""},
+			{"id": "attack", "label": "Attack", "icon": "attack", "enabled": false,
+				"hint": "Strike a unit within reach.", "reason": "Already acted this turn."},
+			{"id": "magic", "label": "Magic", "icon": "magic", "enabled": true,
+				"hint": "Cast one of 2 spells.", "reason": "", "children": [
+					{"id": "spell:0:0", "label": "Ember", "detail": "Rng 2", "enabled": false,
+						"reason": "Ready in 2 turns."},
+					{"id": "spell:0:1", "label": "Frost", "detail": "Rng 3", "enabled": true,
+						"hint": "Ice. Range 3."},
+				]},
+			{"id": "status", "label": "Status", "icon": "status", "enabled": true, "local": true,
+				"hint": "Open the selected unit's full status.", "reason": ""},
+			{"id": "end", "label": "End turn", "icon": "pass", "enabled": true,
+				"hint": "Finish the turn.", "reason": ""},
 		],
 	}
 
 
-func _checkEmptyModelClearsMenu(menu: HexCommandMenu, window: NoggWindow) -> void:
-	_capturedRows.clear()
-	window.set_full_rows([{"label": "stale", "value": "", "disabled": false}])
-	menu.updateModel({})
-	_require(window.row_count() == 0, "empty model left %d rows behind" % window.row_count())
+func _checkEmptyModelClearsRail() -> void:
+	_menu.updateModel(_model())
+	_menu.updateModel({})
+	_require(_menu.plateCount() == 0, "empty model left %d plates behind" % _menu.plateCount())
 
 
-func _checkEnabledAndOrderedModel(menu: HexCommandMenu, window: NoggWindow) -> void:
-	_capturedRows.clear()
-	menu.updateModel(_commandModel())
-	_require(window.row_count() == 5, "command model built %d rows, expected 5" % window.row_count())
-	_require(_labelText(_capturedRows.get(HEADER_INDEX)) == "Knight commands", "header did not show title")
-	_require(_labelText(_capturedRows.get(MOVE_INDEX)) == "Move", "first supplied command was not rendered first")
-	_require(_valueText(_capturedRows.get(MOVE_INDEX)) == "3", "Move detail was not rendered")
-	_require(_isRowEnabledLooking(_capturedRows.get(MOVE_INDEX)), "enabled Move rendered disabled")
-	_require(_labelText(_capturedRows.get(ATTACK_INDEX)) == "Attack", "second supplied command was not rendered second")
-	_require(not _isRowEnabledLooking(_capturedRows.get(ATTACK_INDEX)), "disabled Attack rendered enabled")
-	_require(_labelText(_capturedRows.get(WAIT_INDEX)) == "Wait", "third supplied command was not rendered third")
-	_require(_labelText(_capturedRows.get(CANCEL_INDEX)) == "Cancel", "Cancel row missing or out of position")
-	_require(_isRowEnabledLooking(_capturedRows.get(CANCEL_INDEX)), "Cancel rendered disabled while input was enabled")
+func _checkPlatesFollowTheModel() -> void:
+	_rows.clear()
+	_menu.updateModel(_model())
+	_require(_menu.plateCount() == 5, "model built %d plates, expected 5" % _menu.plateCount())
+	var expected := ["Move", "Attack", "Magic", "Status", "End turn"]
+	for index in range(expected.size()):
+		_require(_labelText(_rows.get(index)) == expected[index],
+			"plate %d read '%s', expected '%s'" % [index, _labelText(_rows.get(index)), expected[index]])
+	_require(_looksEnabled(_rows.get(0)), "enabled Move rendered disabled")
+	_require(not _looksEnabled(_rows.get(1)), "disabled Attack rendered enabled")
+	_require(_menu.focusedID() == "move", "rail opened focused on '%s', not Move" % _menu.focusedID())
+	_require(_menu.hintText() == "Walk up to 3 cells.", "focused Move did not show its hint")
+	# The rail is anchored at its right edge and every plate extends left of it.
+	var previousX := INF
+	for index in range(_menu.plateCount()):
+		var plate: HexCommandPlate = _menu.plateWithLabel(expected[index])
+		_require(plate.position.x + plate.plateSize().x <= 0.5,
+			"plate '%s' crosses the rail's right edge" % expected[index])
+		_require(plate.position.x <= previousX, "plate '%s' does not lean with the rail" % expected[index])
+		previousX = plate.position.x
+	for label in REJECTED_LABELS:
+		_require(_menu.plateWithLabel(label) == null, "rail shows the rejected label '%s'" % label)
 
 
-func _checkInputGate(menu: HexCommandMenu, _window: NoggWindow) -> void:
-	_capturedRows.clear()
-	var model := _commandModel()
-	model["input_enabled"] = false
-	menu.updateModel(model)
-	_require(not _isRowEnabledLooking(_capturedRows.get(MOVE_INDEX)), "input gate left Move enabled")
-	_require(not _isRowEnabledLooking(_capturedRows.get(WAIT_INDEX)), "input gate left Wait enabled")
-	_require(not _isRowEnabledLooking(_capturedRows.get(CANCEL_INDEX)), "input gate left Cancel enabled")
-
-
-func _checkSpentModel(menu: HexCommandMenu, _window: NoggWindow) -> void:
-	_capturedRows.clear()
-	var model := _commandModel()
-	var commands: Array = model["commands"]
-	var spent: Dictionary = commands[0]
-	spent["spent"] = true
-	spent["enabled"] = false
-	commands[0] = spent
-	menu.updateModel(model)
-	_require(not _isRowEnabledLooking(_capturedRows.get(MOVE_INDEX)), "spent command's supplied disabled state was ignored")
-	_require(_labelText(_capturedRows.get(MOVE_INDEX)) == "Move", "spent command was dropped or reordered")
-
-
-func _checkClicksAndNoDuplication(menu: HexCommandMenu, _window: NoggWindow) -> void:
-	_capturedRows.clear()
+func _checkInputGate() -> void:
+	_rows.clear()
+	_menu.updateModel(_model(false))
+	for index in range(5):
+		_require(not _looksEnabled(_rows.get(index)), "input gate left plate %d enabled" % index)
 	_chosen.clear()
-	_cancelCount = 0
-	menu.updateModel(_commandModel())
-	_clickRow(_capturedRows.get(ATTACK_INDEX))
-	_require(_chosen.is_empty(), "clicking disabled Attack emitted command_chosen")
-	_clickRow(_capturedRows.get(MOVE_INDEX))
+	_click(_rows.get(0))
+	_require(_chosen.is_empty(), "a gated rail still emitted %s" % [_chosen])
+
+
+func _checkDisabledPlatesExplainAndRefuse() -> void:
+	_rows.clear()
+	_chosen.clear()
+	_menu.updateModel(_model())
+	_click(_rows.get(1))
+	_require(_chosen.is_empty(), "clicking disabled Attack emitted %s" % [_chosen])
+	_require(_menu.focusedID() == "attack", "clicking disabled Attack did not focus it")
+	_require(_menu.hintText() == "Already acted this turn.",
+		"focused disabled Attack explained '%s' instead of its reason" % _menu.hintText())
+	_click(_rows.get(0))
 	_require(_chosen == ["move"], "clicking Move emitted %s, expected [move]" % [_chosen])
-	_clickRow(_capturedRows.get(CANCEL_INDEX))
-	_require(_cancelCount == 1, "clicking Cancel emitted cancelled %d times" % _cancelCount)
+
+
+func _checkKeyboardAndSpellWindow() -> void:
+	_rows.clear()
+	_chosen.clear()
+	_menu.updateModel(_model())
+	_key(KEY_DOWN)
+	_require(_menu.focusedID() == "attack", "Down from Move focused '%s'" % _menu.focusedID())
+	_key(KEY_DOWN)
+	_require(_menu.focusedID() == "magic", "Down from Attack focused '%s'" % _menu.focusedID())
+	_key(KEY_UP)
+	_key(KEY_DOWN)
+	_key(KEY_ENTER)
+	_require(_menu.isSpellWindowOpen(), "Enter on Magic did not open the spell window")
+	_require(_chosen.is_empty(), "opening Magic reached the controller as %s" % [_chosen])
+	_require(_labelText(_rows.get(HexCommandMenu.SPELL_ROW_INDEX_BASE)) == "Ember",
+		"spell window's first row was not Ember")
+	_require(not _looksEnabled(_rows.get(HexCommandMenu.SPELL_ROW_INDEX_BASE)),
+		"cooling-down Ember rendered castable")
+	_key(KEY_ESCAPE)
+	_require(not _menu.isSpellWindowOpen(), "Escape did not close the spell window")
+	_require(_menu.focusedID() == "magic", "closing the spell window lost Magic's focus")
+
+	# The window opens on the first castable spell, not on a row that would refuse the confirm.
+	_key(KEY_ENTER)
+	_key(KEY_ENTER)
+	_require(_chosen == ["spell:0:1"], "Enter on Frost emitted %s, expected [spell:0:1]" % [_chosen])
+	_require(not _menu.isSpellWindowOpen(), "casting left the spell window open")
 
 	_chosen.clear()
-	menu.updateModel(_commandModel())
-	menu.updateModel(_commandModel())
-	_clickRow(_capturedRows.get(MOVE_INDEX))
-	_require(_chosen == ["move"], "rebuilt Move row emitted %s after one click" % [_chosen])
+	_key(KEY_ENTER)
+	_click(_rows.get(HexCommandMenu.SPELL_ROW_INDEX_BASE))
+	_require(_chosen.is_empty(), "clicking cooling-down Ember emitted %s" % [_chosen])
+	_menu.cancel()
 
 
-func _clickRow(row: Control) -> void:
-	if row == null:
+func _checkLocalPlate() -> void:
+	_rows.clear()
+	_chosen.clear()
+	_local.clear()
+	_menu.updateModel(_model())
+	_click(_rows.get(3))
+	_require(_local == ["status"], "clicking Status requested %s, expected [status]" % [_local])
+	_require(_chosen.is_empty(), "Status reached the controller as a command: %s" % [_chosen])
+
+
+func _checkRebuildDoesNotDoubleWire() -> void:
+	_chosen.clear()
+	_menu.updateModel(_model())
+	_menu.updateModel(_model())
+	_rows.clear()
+	_menu.updateModel(_model())
+	_click(_rows.get(0))
+	_require(_chosen == ["move"], "rebuilt Move emitted %s after one click" % [_chosen])
+
+
+func _key(keycode: Key) -> void:
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.pressed = true
+	_menu.handleKey(event)
+
+
+func _click(row: Control) -> void:
+	if row == null or not is_instance_valid(row):
 		failures.append("attempted to click a row that was never captured")
 		return
 	var event := InputEventMouseButton.new()
@@ -142,7 +200,7 @@ func _clickRow(row: Control) -> void:
 
 
 func _labelText(row: Control) -> String:
-	if row == null:
+	if row == null or not is_instance_valid(row):
 		return ""
 	var clip := row.get_child(0)
 	if clip == null or clip.get_child_count() == 0:
@@ -150,17 +208,10 @@ func _labelText(row: Control) -> String:
 	return str((clip.get_child(0) as Label).text)
 
 
-func _valueText(row: Control) -> String:
-	if row == null or row.get_child_count() < 2:
-		return ""
-	return str((row.get_child(1) as Label).text)
-
-
-func _isRowEnabledLooking(row: Control) -> bool:
-	if row == null:
+func _looksEnabled(row: Control) -> bool:
+	if row == null or not is_instance_valid(row):
 		return false
-	var clip := row.get_child(0)
-	var label := clip.get_child(0) as Label
+	var label := row.get_child(0).get_child(0) as Label
 	if not label.has_theme_color_override("font_color"):
 		return true
 	return label.get_theme_color("font_color") != NoggThemeScript.TEXT_DIM

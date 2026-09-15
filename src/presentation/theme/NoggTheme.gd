@@ -649,6 +649,55 @@ static var PROMPT_TOP_UNITS: float = 34.0
 ## it sits.
 const FORECAST_GAP_UNITS := 4.0
 
+## Hex battle HUD geometry. Layout-varying; see `HudLayoutCatalog` and
+## docs/UI_DESIGN.md "Hex battle HUD".
+static var HEX_PARTY_WIDTH_UNITS: float
+static var HEX_PLATE_WIDTH_UNITS: float
+static var HEX_PLATE_GAP_UNITS: float
+static var HEX_HINT_WIDTH_UNITS: float
+static var HEX_SPELL_WIDTH_UNITS: float
+static var HEX_READOUT_WIDTH_UNITS: float
+static var HEX_PROMPT_WIDTH_UNITS: float
+static var HEX_SHEET_WIDTH_UNITS: float
+static var HEX_SHEET_CAPACITY: int
+## Square icon cell on a command plate, and the gap between it and the label.
+## Eight units is 16 px at x2 and 32 px at x4, exact divisors of the 32 px icon source.
+const HEX_PLATE_ICON_UNITS := 8.0
+const HEX_PLATE_ICON_GAP_UNITS := 4.0
+## How far each plate steps left of the one above it. The reference's plates
+## are slanted; the shared frame is not, so the rail leans instead.
+const HEX_PLATE_LEAN_UNITS := 3.0
+## HP bar in the unit readout and the status sheet.
+const HEX_HP_BAR_WIDTH_UNITS := 60.0
+const HEX_HP_BAR_HEIGHT_UNITS := 4.0
+## Element square: a flat colour cell carrying the element's two-letter code.
+const HEX_ELEMENT_CELL_UNITS := 12.0
+## Placeholder portrait on the status sheet, until portrait art exists.
+const HEX_PORTRAIT_UNITS := 46.0
+const HEX_HP_FILL := Color(0.44, 0.86, 0.47)
+const HEX_HP_FILL_LOW := Color(0.95, 0.36, 0.30)
+const HEX_HP_BACK := Color(0.0, 0.0, 0.0, 0.55)
+const HEX_PORTRAIT_FILL := Color(1.0, 1.0, 1.0, 0.06)
+## Dims everything under the modal STATUS sheet. The window fill is translucent by design, so
+## without this the board and the rail read straight through the sheet's text.
+const HEX_MODAL_SHADE := Color(0.0, 0.0, 0.0, 0.6)
+
+static var HEX_PARTY_WIDTH: float
+static var HEX_PLATE_WIDTH: float
+static var HEX_PLATE_GAP: float
+static var HEX_HINT_WIDTH: float
+static var HEX_SPELL_WIDTH: float
+static var HEX_READOUT_WIDTH: float
+static var HEX_PROMPT_WIDTH: float
+static var HEX_SHEET_WIDTH: float
+static var HEX_PLATE_ICON: float
+static var HEX_PLATE_ICON_GAP: float
+static var HEX_PLATE_LEAN: float
+static var HEX_HP_BAR_WIDTH: float
+static var HEX_HP_BAR_HEIGHT: float
+static var HEX_ELEMENT_CELL: float
+static var HEX_PORTRAIT: float
+
 static var COMMAND_WIDTH: float
 static var SPELL_WIDTH: float
 static var PROMPT_WIDTH: float
@@ -855,6 +904,15 @@ static func _apply_layout_tokens() -> void:
 	# fixed cell, so it multiplies across the row: widening it pushes column 2
 	# right and the whole window with it.
 	STATUS_CELL_TEXT_GAP_UNITS = float(layout["status_cell_text_gap_units"])
+	HEX_PARTY_WIDTH_UNITS = float(layout["hex_party_width_units"])
+	HEX_PLATE_WIDTH_UNITS = float(layout["hex_plate_width_units"])
+	HEX_PLATE_GAP_UNITS = float(layout["hex_plate_gap_units"])
+	HEX_HINT_WIDTH_UNITS = float(layout["hex_hint_width_units"])
+	HEX_SPELL_WIDTH_UNITS = float(layout["hex_spell_width_units"])
+	HEX_READOUT_WIDTH_UNITS = float(layout["hex_readout_width_units"])
+	HEX_PROMPT_WIDTH_UNITS = float(layout["hex_prompt_width_units"])
+	HEX_SHEET_WIDTH_UNITS = float(layout["hex_sheet_width_units"])
+	HEX_SHEET_CAPACITY = int(layout["hex_sheet_capacity"])
 	# The prompt's bottom edge plus a stack gap. Derived last, because both
 	# terms are layout-varying and have only just settled.
 	DEEP_CARD_TOP_UNITS = (
@@ -949,6 +1007,22 @@ static func _recompute() -> void:
 	TURN_RAIL_DIVIDER_GAP = _scaled(TURN_RAIL_DIVIDER_GAP_UNITS)
 	TURN_RAIL_DIVIDER_WIDTH = _scaled(TURN_RAIL_DIVIDER_WIDTH_UNITS)
 	TURN_RAIL_HEALTH = _scaled(TURN_RAIL_HEALTH_UNITS)
+
+	HEX_PARTY_WIDTH = _scaled(HEX_PARTY_WIDTH_UNITS)
+	HEX_PLATE_WIDTH = _scaled(HEX_PLATE_WIDTH_UNITS)
+	HEX_PLATE_GAP = _scaled(HEX_PLATE_GAP_UNITS)
+	HEX_HINT_WIDTH = _scaled(HEX_HINT_WIDTH_UNITS)
+	HEX_SPELL_WIDTH = _scaled(HEX_SPELL_WIDTH_UNITS)
+	HEX_READOUT_WIDTH = _scaled(HEX_READOUT_WIDTH_UNITS)
+	HEX_PROMPT_WIDTH = _scaled(HEX_PROMPT_WIDTH_UNITS)
+	HEX_SHEET_WIDTH = _scaled(HEX_SHEET_WIDTH_UNITS)
+	HEX_PLATE_ICON = _scaled(HEX_PLATE_ICON_UNITS)
+	HEX_PLATE_ICON_GAP = _scaled(HEX_PLATE_ICON_GAP_UNITS)
+	HEX_PLATE_LEAN = _scaled(HEX_PLATE_LEAN_UNITS)
+	HEX_HP_BAR_WIDTH = _scaled(HEX_HP_BAR_WIDTH_UNITS)
+	HEX_HP_BAR_HEIGHT = _scaled(HEX_HP_BAR_HEIGHT_UNITS)
+	HEX_ELEMENT_CELL = _scaled(HEX_ELEMENT_CELL_UNITS)
+	HEX_PORTRAIT = _scaled(HEX_PORTRAIT_UNITS)
 
 	SCREEN_MARGIN = _scaled(SCREEN_MARGIN_UNITS)
 	PROMPT_TOP = _scaled(PROMPT_TOP_UNITS)

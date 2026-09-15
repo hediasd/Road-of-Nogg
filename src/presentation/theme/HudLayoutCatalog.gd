@@ -68,7 +68,17 @@ const VALUES := {
 		"pager_width_units": 100.0,
 		"deep_card_width_units": 320.0,
 		"deep_card_capacity": 11,
-		"row_capacity_default": 8
+		"row_capacity_default": 8,
+		# Hex battle HUD. See docs/UI_DESIGN.md "Hex battle HUD".
+		"hex_party_width_units": 230.0,
+		"hex_plate_width_units": 110.0,
+		"hex_plate_gap_units": 3.0,
+		"hex_hint_width_units": 240.0,
+		"hex_spell_width_units": 280.0,
+		"hex_readout_width_units": 240.0,
+		"hex_prompt_width_units": 260.0,
+		"hex_sheet_width_units": 340.0,
+		"hex_sheet_capacity": 12
 	},
 	COMPACT: {
 		# 4 rather than 10: two status windows at 180 plus two 10-unit margins
@@ -114,7 +124,22 @@ const VALUES := {
 		# 148..212 -- which clears. A seven-row spell window ends at 149 and
 		# collides with the status windows by a unit, so six is the ceiling.
 		"deep_card_capacity": 9,
-		"row_capacity_default": 6
+		"row_capacity_default": 6,
+		# Hex battle HUD. See docs/UI_DESIGN.md "Hex battle HUD". The rail, its
+		# hint and the readout share a 384x216 screen at ui_scale 3, so these
+		# are sized against that screen rather than against x2's roomier one.
+		"hex_party_width_units": 200.0,
+		"hex_plate_width_units": 100.0,
+		"hex_plate_gap_units": 2.0,
+		"hex_hint_width_units": 190.0,
+		"hex_spell_width_units": 230.0,
+		"hex_readout_width_units": 200.0,
+		"hex_prompt_width_units": 200.0,
+		"hex_sheet_width_units": 300.0,
+		# Eight, not the deep card's nine: tabs, body, and a three-row explanation
+		# under it have to stack inside 216 units at ui_scale 3 -- 25 + 116 + 51
+		# plus gaps is 200. Profile is exactly eight rows, so it never pages.
+		"hex_sheet_capacity": 8
 	}
 }
 

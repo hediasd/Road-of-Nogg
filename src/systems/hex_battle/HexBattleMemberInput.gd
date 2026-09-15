@@ -26,6 +26,8 @@ const MOVE_COMMAND := "move"
 const ATTACK_COMMAND := "attack"
 const UNDO_COMMAND := "undo"
 const END_COMMAND := "end"
+## Not a command: the rail's grouping for spell rows. Never passed to `chooseCommand`.
+const MAGIC_GROUP := "magic"
 ## Spell rows carry their own coordinates: "spell:<setIndex>:<spellIndex>".
 const SPELL_PREFIX := "spell"
 
@@ -261,9 +263,15 @@ func _refreshAimFeedback() -> void:
 			_adapter.clearCommandPreview()
 
 
-## The model HBP-2's menu renders. Every row's `enabled` is an answer from the simulator or the
+## The model the command rail renders. Every row's `enabled` is an answer from the simulator or the
 ## monster itself -- what is still unspent, and what the caster can currently afford -- rather
 ## than a rule restated here.
+##
+## `reason` is the same answer in words, and is empty exactly when the row is enabled: a disabled
+## plate the player can focus has to say why, and the one place that knows why is the one that
+## decided. `hint` says what an enabled row does. Spells arrive nested under one `magic` entry,
+## which is a grouping for the rail rather than a command -- `chooseCommand` never sees it, only the
+## `spell:<set>:<index>` ids of its children.
 func commandModel() -> Dictionary:
 	if _turn == null or _sim == null:
 		return {}
@@ -271,36 +279,94 @@ func commandModel() -> Dictionary:
 	if monster == null:
 		return {}
 
+	var canMove := _turn.canMove()
+	var canAct := _turn.canAct()
 	var commands: Array = []
 	commands.append({
-		"id": MOVE_COMMAND, "label": "Move", "enabled": _turn.canMove(),
-		"detail": "", "spent": not _turn.canMove(),
+		"id": MOVE_COMMAND, "label": "Move", "icon": "move", "enabled": canMove,
+		"detail": "", "spent": not canMove,
+		"hint": "Walk up to %d cells." % int(monster.move),
+		"reason": "" if canMove else "Already moved this turn.",
 	})
 	commands.append({
-		"id": ATTACK_COMMAND, "label": "Attack", "enabled": _turn.canAct(),
-		"detail": "", "spent": not _turn.canAct(),
+		"id": ATTACK_COMMAND, "label": "Attack", "icon": "attack", "enabled": canAct,
+		"detail": "", "spent": not canAct,
+		"hint": "Strike a unit within reach.",
+		"reason": "" if canAct else "Already acted this turn.",
 	})
+
+	var spells: Array = []
+	var anyCastable := false
 	for setIndex in range(monster.spellSets.size()):
 		for spellIndex in range(monster.spellSets[setIndex].size()):
 			var spell = monster.spellSets[setIndex][spellIndex]
-			var castable: bool = _turn.canAct() and monster.can_cast(spell)
-			commands.append({
+			var castable: bool = canAct and monster.can_cast(spell)
+			anyCastable = anyCastable or castable
+			spells.append({
 				"id": "%s:%d:%d" % [SPELL_PREFIX, setIndex, spellIndex],
 				"label": str(spell.name),
 				"enabled": castable,
 				"detail": "Rng %d" % int(spell.range),
-				"spent": not _turn.canAct(),
+				"spent": not canAct,
+				"set_index": setIndex,
+				"spell_index": spellIndex,
+				"reason": "" if castable else _spellRefusal(monster, spell, canAct),
 			})
+	var magicReason := ""
+	if spells.is_empty():
+		magicReason = "Knows no spells."
+	elif not canAct:
+		magicReason = "Already acted this turn."
+	elif not anyCastable:
+		magicReason = "No spell is ready."
 	commands.append({
-		"id": UNDO_COMMAND, "label": "Undo move", "enabled": _turn.canUndoMove(),
+		"id": MAGIC_GROUP, "label": "Magic", "icon": "magic", "enabled": anyCastable,
+		"detail": "", "spent": not canAct,
+		"hint": "Cast one of %d spells." % spells.size() if spells.size() != 1 else "Cast a spell.",
+		"reason": magicReason,
+		"children": spells,
+	})
+
+	var canUndo := _turn.canUndoMove()
+	commands.append({
+		"id": UNDO_COMMAND, "label": "Undo move", "icon": "undo_move", "enabled": canUndo,
 		"detail": "", "spent": false,
+		"hint": "Step back to where this turn began.",
+		"reason": "" if canUndo else "Nothing to undo.",
 	})
 	commands.append({
-		"id": END_COMMAND, "label": "End turn", "enabled": true, "detail": "", "spent": false,
+		"id": END_COMMAND, "label": "End turn", "icon": "pass", "enabled": true,
+		"detail": "", "spent": false,
+		"hint": "Finish %s's turn." % str(monster.name),
+		"reason": "",
 	})
 
 	return {
 		"input_enabled": true,
 		"title": str(monster.name),
+		"monster_id": int(_turn.monsterID()),
 		"commands": commands,
 	}
+
+
+## Why a spell cannot be cast, in the order `Monster.can_cast` checks it -- so the reason shown is
+## the first rule that actually refused, not merely one of several that might.
+func _spellRefusal(monster, spell, canAct: bool) -> String:
+	if not canAct:
+		return "Already acted this turn."
+	var cooldown := int(monster.spell_cooldowns.get(spell.name, 0))
+	if cooldown > 0:
+		return "Ready in %d turn%s." % [cooldown, "" if cooldown == 1 else "s"]
+	var required: Array = []
+	if str(spell.element) != "none":
+		required.append(str(spell.element))
+	for line in spell.damage_lines:
+		var element := str(line.get("element", "none"))
+		if element != "none" and not required.has(element):
+			required.append(element)
+	for element in required:
+		if not monster.elements.has(element):
+			return "Needs the %s element." % element
+	if int(spell.sequence_level) == 4:
+		return "Needs full %s resonance." % str(spell.resonance_element)
+	return "Cannot be cast right now."

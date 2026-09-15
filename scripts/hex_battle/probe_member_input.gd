@@ -38,7 +38,7 @@ func _run() -> void:
 
 	_controller.hud.partyPanel._window.row_built.connect(
 		func(row: Control, index: int): _panelRows[index] = row)
-	_controller.hud.commandMenu._window.row_built.connect(
+	_controller.hud.commandMenu.row_built.connect(
 		func(row: Control, index: int): _menuRows[index] = row)
 
 	if not await _awaitPlayerParty():
@@ -105,15 +105,22 @@ func _checkOpeningATurn() -> void:
 		"the command menu is missing rows the turn needs")
 
 
-## Enter at the menu is not a confirm of anything: nothing is being aimed, so nothing may resolve.
+## Enter at the rail carries out the focused plate -- it opens that command's aim -- and is never
+## itself a confirm: nothing is being aimed yet, so nothing may resolve.
 func _checkConfirmNeedsAnAim() -> void:
 	var before: Vector2i = _controller.sim.state.getMonsterPosition(_memberID)
+	_require(_controller.hud.commandMenu.focusedID() == HexBattleMemberInput.MOVE_COMMAND,
+		"the rail did not open focused on Move")
 	_pushKey(KEY_ENTER)
 	await _frames(1)
 	_require(_controller.sim.state.getMonsterPosition(_memberID) == before,
-		"confirming from the menu moved the member without an aim")
+		"Enter at the rail moved the member without an aim")
+	_require(_controller.memberInput.phase() == HexBattleMemberInput.Phase.AIM_MOVE,
+		"Enter at the rail did not carry out the focused Move plate")
+	_pushKey(KEY_ESCAPE)
+	await _frames(1)
 	_require(_controller.memberInput.phase() == HexBattleMemberInput.Phase.MENU,
-		"confirming from the menu left the menu")
+		"escape did not return from the aim Enter opened")
 
 
 ## The item's own wording: a synthetic direction must resolve to the same cell the confirmed

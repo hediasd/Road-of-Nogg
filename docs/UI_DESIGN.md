@@ -25,8 +25,9 @@ transitory plan file, so nothing here cites a plan item by name.
 > lifecycle, party pacing) and `src/systems/hex_battle/HexBattleMemberTurn.gd`
 > (one member's phases, cursor, undo). Where a rule names a function the hex
 > battle has no counterpart for yet -- the action row's safe rect, the command
-> menu's status and forecast text -- that surface has not been rebuilt on hex,
-> and rebuilding it is open work rather than a rule that changed.
+> menu's forecast text -- that surface has not been rebuilt on hex, and
+> rebuilding it is open work rather than a rule that changed. The hex battle's
+> own HUD is described in "Hex battle HUD" at the end of this document.
 
 ---
 
@@ -1534,3 +1535,79 @@ emits `passive_triggered` when it is false, and a forecast that fired battle
 events every time the cursor moved would change the battle it describes.
 `probe_preview.gd` asserts the whole serialized state is byte-identical across a
 sweep of forecasts.
+
+---
+
+## Hex battle HUD
+
+The hex battle's chrome follows the Brigandine direction: a stable command rail
+of separate plates, restrained unit inspection, and framed text only where there
+is a sentence to say. Every box is a `NoggWindow` under the active skin -- by
+default the Brigandine plate frame from `assets/ui/briganborders.png` -- and the
+game theme is applied once at the HUD root. Nothing draws a frame of its own.
+
+### Where things live
+
+| Place | Surface | Shown when |
+|---|---|---|
+| Top left | Party panel | A party is active |
+| Top right | Command rail, with its hint box to the left | A player member is choosing a command |
+| Top right | Prompt | Otherwise, when there is something to say ("Choose a target.") |
+| Bottom left | Unit readout, with effect explanations above it | A unit is selected |
+| Over units | Status icon rows (`StatusBadgeRow`, unchanged) | The unit has effects |
+| Centre | STATUS sheet, over a dimming shade | Opened from the rail |
+
+The rail and the prompt share a corner because they never coexist, so the right
+edge always answers "what do I do now". Nothing moves to follow the acting unit
+or the pointer; only content changes.
+
+### The rail
+
+- One `NoggWindow` per plate, stacked down the right edge: Move, Attack, Magic,
+  Item, Status, Undo move, End turn. Each plate carries its `ActionIcons` icon
+  and label. The reference's plates are slanted; the frame art is square, so the
+  column leans instead, each plate `HEX_PLATE_LEAN` left of the one above.
+- A `MenuCursor` outside the plates marks focus, and a focused enabled plate's
+  label turns `TEXT_ACCENT`. Hover focuses, click is focus-then-activate, arrows
+  step, Enter activates, Escape and right click close the spell window.
+- **Disabled plates are focusable.** This departs from §6's skip rule on
+  purpose: a focused disabled plate's hint box gives its reason ("Already acted
+  this turn.", "Items are not in battle yet."), and a plate the cursor can never
+  reach could not explain itself. Activation still refuses.
+- Magic opens a spell window inward from the rail, paged at six rows, opening on
+  the first castable spell. The focused spell's description sits under it.
+- The words "Details", "MOVE ready" and "ACTION ready" were rejected and are
+  never used; `probe_command_menu.gd` and `probe_inspection.gd` check for them.
+
+### Inspection
+
+- **Hover** is a white rim a constant 2.5 px wide around the unit's silhouette
+  (`HexUnitOutline.gdshader`, drawn through `material_overlay`, so the unit's
+  own materials are untouched). There is no name label over units.
+- **Click** selects a unit and opens the readout: name and level, an HP bar with
+  its numbers, element squares (placeholder colour plus the two-letter `CODE`
+  from `data/elements.json`), the unit's kind, and its effects with turns left.
+  The selected unit gets a breathing ring on its cell, distinct from the hover
+  rim. Clicking empty ground returns selection to the acting member. Hover and
+  click work in every phase, except that a left click while aiming stays the
+  aim's confirm.
+- The readout has a fixed four rows. Effects that do not fit collapse into a
+  `+N` cell; pointing at an effect or at `+N` explains it in a text box above
+  the readout. The full list is on the STATUS sheet.
+- Effect and spell descriptions are built from the fields the simulator reads
+  (`damagePerTurn`, `damage_multiplier`, stat bonuses), so a description never
+  claims a rule the battle does not apply.
+
+### STATUS sheet
+
+Modal. Tabs for profile, effects, skills and gear beside a portrait
+placeholder; left and right change tab, up and down move the cursor, Escape,
+right click or a click outside closes it. The rail and prompt step aside while
+it is open, because every window fill is translucent and a box left under the
+sheet reads through its text. The three gear slots read `Empty` and say that
+equipment is not in battle yet.
+
+### Text boxes are for sentences
+
+Framed text is reserved for hints, refusals, explanations and prompts. Routine
+hover, selection, damage and status ticks stay compact and never open a box.

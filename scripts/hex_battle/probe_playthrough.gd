@@ -60,7 +60,7 @@ func _run() -> void:
 
 	_controller.hud.partyPanel._window.row_built.connect(
 		func(row: Control, index: int): _panelRows[index] = row)
-	_controller.hud.commandMenu._window.row_built.connect(_onMenuRowBuilt)
+	_controller.hud.commandMenu.row_built.connect(_onMenuRowBuilt)
 
 	# Rotated before the first turn and never straightened, so every direction resolved in this
 	# run is resolved against a camera the identity case does not cover.
@@ -325,20 +325,32 @@ func _tryAction(label: String) -> bool:
 	return false
 
 
+## Spells live in the rail's spell window, which only exists while Magic is open, so each attempt
+## opens it again: a refused aim returns to a rebuilt rail with the window closed.
 func _trySomeSpell() -> bool:
-	for index in _menuRows.keys():
-		var value = _menuRows.get(index)
-		if not is_instance_valid(value):
-			continue
-		var row: Control = value
-		var label := _labelText(row)
-		if label in ["Move", "Attack", "Undo move", "End turn", "Cancel", ""]:
-			continue
-		if not _rowLooksEnabled(row):
-			continue
+	for label in await _castableSpellLabels():
+		if not _chooseCommand("Magic"):
+			return false
+		await _frames(1)
 		if await _tryAction(label):
 			return true
 	return false
+
+
+func _castableSpellLabels() -> Array:
+	var labels: Array = []
+	if not _chooseCommand("Magic"):
+		return labels
+	await _frames(1)
+	for index in _menuRows.keys():
+		if int(index) < HexCommandMenu.SPELL_ROW_INDEX_BASE:
+			continue
+		var value = _menuRows.get(index)
+		if is_instance_valid(value) and _rowLooksEnabled(value):
+			labels.append(_labelText(value))
+	_controller.hud.commandMenu.cancel()
+	await _frames(1)
+	return labels
 
 
 # --- driving ----------------------------------------------------------------

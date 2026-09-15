@@ -178,6 +178,8 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	sim.setVisualAdapter(adapter)
 	adapter.connectToEvents(sim.events)
 	adapter.animation_queue_drained.connect(_onPlaybackDrained)
+	# The state arrives deployed, so its units never announce themselves with spawn events.
+	adapter.buildUnitsFromState()
 
 	battleCamera = HexBattleCameraScript.new()
 	add_child(battleCamera)
@@ -186,10 +188,12 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 
 	hud = HexBattleHudScript.new()
 	add_child(hud)
+	hud.bindBattle(sim, _unitAnchor)
 	hud.member_selected.connect(_onHudMemberSelected)
 	hud.end_party_requested.connect(_onHudEndParty)
 	hud.command_chosen.connect(_onHudCommandChosen)
 	hud.command_cancelled.connect(_onHudCommandCancelled)
+	hud.selection_lost.connect(func(_id: int): _selectUnit(_actingMemberID()))
 
 	playback = HexBattlePlaybackScript.new(adapter)
 	cursor = HexBattleCursorScript.new()
@@ -326,6 +330,9 @@ func _onHudMemberSelected(monsterID: int) -> void:
 	memberInput.status_changed.connect(_onMemberStatus)
 	if hud != null:
 		hud.showParty(sim, int(sim.state.activePartyID), monsterID, true)
+	# The member whose turn it is becomes the inspected unit, so the readout and STATUS answer for
+	# them until the player points at someone else.
+	_selectUnit(monsterID)
 	memberInput.begin()
 
 
@@ -359,6 +366,9 @@ func _onMemberTurnFinished(monsterID: int) -> void:
 	memberInput = null
 	if hud != null:
 		hud.hideCommands()
+		# The last thing the member's input said was about its own menu; with the turn over it
+		# would sit in the prompt corner describing a rail that is gone.
+		hud.setStatus("Your party is up.")
 	playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
 	if hud != null and sim != null and sim.state.activePartyID != -1:
 		hud.showParty(sim, int(sim.state.activePartyID), -1, true)
@@ -380,10 +390,20 @@ func _onHudEndParty() -> void:
 	_checkFinished()
 
 
-## Camera first, then the member turn. Both devices reach the same cursor -- see
-## `HexBattleMemberInput` for why neither locks the other out.
+## The STATUS sheet first -- it is modal -- then the camera, then inspection, then the member turn.
+## Both devices reach the same cursor -- see `HexBattleMemberInput` for why neither locks the other
+## out.
 func _unhandled_input(event: InputEvent) -> void:
 	if lifecycle != Lifecycle.BATTLE or battleCamera == null:
+		return
+	if hud != null and hud.isModalOpen():
+		var claimed := false
+		if event is InputEventKey:
+			claimed = hud.handleKey(event)
+		elif event is InputEventMouseButton:
+			claimed = hud.handleBoardMouse(event)
+		if claimed or event is InputEventMouseButton:
+			get_viewport().set_input_as_handled()
 		return
 	if event is InputEventMouseButton and event.pressed:
 		match event.button_index:
@@ -405,7 +425,70 @@ func _unhandled_input(event: InputEvent) -> void:
 				battleCamera.orbitDetent(1)
 				get_viewport().set_input_as_handled()
 				return
+	if _handleInspection(event):
+		return
 	_handleMemberInput(event)
+
+
+## Hover and click on units, in every phase -- during the player's menu, while picking a member,
+## and on the enemy's turn -- because looking at a unit changes nothing and should never wait.
+##
+## ONE EXCEPTION, AND IT IS DELIBERATE: while a command is being aimed, a left click is the aim's
+## confirm and stays that. A click that sometimes targeted and sometimes inspected, depending on
+## whether a unit happened to be under it, would give one gesture two meanings the player cannot
+## tell apart before committing.
+func _handleInspection(event: InputEvent) -> bool:
+	if adapter == null or hud == null:
+		return false
+	if event is InputEventMouseMotion:
+		adapter.setHoveredUnit(adapter.unitAtScreenPoint(event.position, _projectWorld))
+		return false
+	if not (event is InputEventMouseButton) or not event.pressed:
+		return false
+	var aiming := memberInput != null and memberInput.isAiming()
+	match event.button_index:
+		MOUSE_BUTTON_LEFT:
+			if aiming:
+				return false
+			var picked := adapter.unitAtScreenPoint(event.position, _projectWorld)
+			# Empty ground hands inspection back to whoever is acting, so a stray click never leaves
+			# the player's own unit unexplained mid-turn.
+			_selectUnit(picked if picked != -1 else _actingMemberID())
+			get_viewport().set_input_as_handled()
+			return true
+		MOUSE_BUTTON_RIGHT:
+			if aiming:
+				memberInput.cancel()
+			elif hud.commandMenu.visible:
+				hud.commandMenu.cancel()
+			get_viewport().set_input_as_handled()
+			return true
+	return false
+
+
+func _selectUnit(monsterID: int) -> void:
+	if hud == null or adapter == null:
+		return
+	adapter.setSelectedUnit(hud.selectUnit(monsterID))
+
+
+func _actingMemberID() -> int:
+	return memberTurn.monsterID() if memberTurn != null and not memberTurn.isFinished() else -1
+
+
+## Where the HUD hangs a unit's status icons: just over its head, on screen, or null.
+func _unitAnchor(monsterID: int) -> Variant:
+	if adapter == null or battleCamera == null:
+		return null
+	var head = adapter.unitHeadWorld(monsterID)
+	if head == null:
+		return null
+	var point := battleCamera.projectToScreen(head)
+	return null if point == Vector2.ZERO else point
+
+
+func _projectWorld(worldPosition: Vector3) -> Vector2:
+	return battleCamera.projectToScreen(worldPosition) if battleCamera != null else Vector2.ZERO
 
 
 ## Input reaches a member turn only while one is open, which is only ever true for the player's
@@ -413,6 +496,13 @@ func _unhandled_input(event: InputEvent) -> void:
 ## other party. There is no second condition to re-check here.
 func _handleMemberInput(event: InputEvent) -> void:
 	if memberInput == null or memberTurn == null or memberTurn.isFinished():
+		return
+
+	# At the menu the keyboard drives the rail: arrows move its focus and Enter carries out the
+	# focused plate. Only while aiming do the same keys step the board cursor and confirm.
+	if event is InputEventKey and event.pressed and not memberInput.isAiming():
+		if hud != null and hud.handleKey(event):
+			get_viewport().set_input_as_handled()
 		return
 
 	if event is InputEventKey and event.pressed and not event.echo:

@@ -25,6 +25,7 @@ const VisualActionQueueScript = preload("res://src/presentation/VisualActionQueu
 const VisualActionScript = preload("res://src/presentation/VisualAction.gd")
 const MonsterModelFactoryScript = preload("res://src/presentation/MonsterModelFactory.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
+const UnitOutlineShader = preload("res://src/presentation/battle/shaders/HexUnitOutline.gdshader")
 
 ## Overlay colours, kept here rather than in the shared theme: these are board markers this item
 ## owns, and adding rows to `NoggTheme` would be retuning a shared resource the item may not.
@@ -45,6 +46,26 @@ const LAYER_HOVER := "hover"
 const LAYER_THREAT := "threat"
 const LAYER_TARGET := "target"
 const LAYER_PREVIEW := "preview"
+
+## Hover and selection cues on units. Board markers this file owns, like the overlay colours above.
+## Hover is a thin white rim around the unit itself; selection is a ring on the ground under it, so
+## the two can be on the same unit at once and still be told apart.
+const OUTLINE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
+const OUTLINE_WIDTH_PX := 2.5
+const COLOR_SELECTED_RING := Color(1.0, 0.97, 0.88, 0.95)
+## Inner edge of the ring as a share of the cell's own outline: a band, not a filled hex, so it never
+## hides the reach or cursor marker painted on the same cell.
+const SELECTED_RING_INNER := 0.78
+## Selection ring motion: an entrance that settles once, over a breath that never does
+## (docs/VFX_DESIGN.md). Separate constants so either can be retuned alone.
+const SELECTED_RING_ENTRANCE_SCALE := 1.3
+const SELECTED_RING_ENTRANCE_SECONDS := 0.18
+const SELECTED_RING_BREATH_SECONDS := 1.8
+const SELECTED_RING_BREATH_ALPHA := 0.45
+## Head room above a model's highest mesh point, where the HUD anchors its status icons.
+const UNIT_HEAD_CLEARANCE := 0.15
+## Height used for a unit whose model reports no mesh bounds.
+const UNIT_FALLBACK_HEIGHT := 1.5
 
 ## Seconds a unit takes to cross one hex. One step rather than a whole path, so a four-cell walk
 ## reads four times as long as a one-cell one instead of every move taking the same time.
@@ -68,6 +89,12 @@ var _layers: Dictionary = {}
 var _combat
 var _cursorMarker: MeshInstance3D
 var _disposed := false
+var _unitHeights: Dictionary = {}     ## monsterID -> model height, measured once at spawn
+var _outlineMaterial: ShaderMaterial
+var _hoveredID := -1
+var _selectedID := -1
+var _selectionRing: MeshInstance3D
+var _selectionTween: Tween
 
 
 func _init(root: Node3D, map: BattleMapDefinition, state: BattleState = null) -> void:
@@ -145,6 +172,8 @@ func modelFor(monsterID: int) -> Node3D:
 func _on_monster_spawned(
 	monsterID: int, monsterName: String, team: int, pos: Vector2i, _stats: Dictionary
 ) -> void:
+	if _models.has(monsterID):
+		return
 	var model := MonsterModelFactoryScript.build(
 		monsterName, NoggThemeScript.team_color(team), []
 	)
@@ -152,6 +181,209 @@ func _on_monster_spawned(
 	model.position = worldPositionOf(pos)
 	_root.add_child(model)
 	_models[monsterID] = model
+	_unitHeights[monsterID] = _measureHeight(model)
+
+
+## Models for every unit already standing on the board when the battle opens.
+##
+## A hex battle's state is built fully deployed by `BattleSetupFactory`, so no `monster_spawned`
+## event ever fires for its units -- `BattleSimulator.startBattle()` only announces the battle. Left
+## to events alone the board opened empty. This reads the state once, at open, and builds through
+## the same path a spawn event takes, so there is still one way a model comes to exist.
+func buildUnitsFromState() -> void:
+	if _state == null:
+		return
+	for id in _state.monsters:
+		var monster = _state.monsters[id]
+		if monster == null or not monster.is_alive():
+			continue
+		_on_monster_spawned(
+			int(id), str(monster.name), int(monster.team), _state.getMonsterPosition(int(id)), {}
+		)
+
+
+# --- unit picking and cues ------------------------------------------------------
+
+## The unit whose model is under `point`, or -1. Picks against where models are drawn now rather
+## than against state positions, because playback runs behind the simulation: a unit mid-walk is
+## where the player sees it, not where the state already put it. `project` maps a world point to the
+## viewport, and is the live camera's own projection.
+func unitAtScreenPoint(point: Vector2, project: Callable) -> int:
+	var best := -1
+	var bestDepth := -INF
+	var halfWidth := _map.cellWidth * 0.5
+	for id in _models:
+		var model := modelFor(int(id))
+		if model == null or not is_instance_valid(model):
+			continue
+		var base := model.global_position
+		var top := base + Vector3(0.0, float(_unitHeights.get(id, UNIT_FALLBACK_HEIGHT)), 0.0)
+		var baseScreen: Vector2 = project.call(base)
+		var topScreen: Vector2 = project.call(top)
+		if baseScreen == Vector2.ZERO or topScreen == Vector2.ZERO:
+			continue
+		# Half a cell either side of the unit's axis, measured on screen at its base, so the pick
+		# box narrows with zoom exactly as the model does.
+		var right: Vector2 = project.call(base + Vector3(halfWidth, 0.0, 0.0))
+		var ahead: Vector2 = project.call(base + Vector3(0.0, 0.0, halfWidth))
+		var halfScreen := maxf(maxf(baseScreen.distance_to(right), baseScreen.distance_to(ahead)), 1.0)
+		var rect := Rect2(
+			Vector2(baseScreen.x - halfScreen, minf(topScreen.y, baseScreen.y)),
+			Vector2(halfScreen * 2.0, absf(baseScreen.y - topScreen.y))
+		)
+		if not rect.has_point(point):
+			continue
+		# Where two units overlap on screen, the one lower on screen is nearer the camera and is
+		# the one drawn in front.
+		if baseScreen.y > bestDepth:
+			bestDepth = baseScreen.y
+			best = int(id)
+	return best
+
+
+## World point just above a unit's head, or null when it has no model.
+func unitHeadWorld(monsterID: int) -> Variant:
+	var model := modelFor(monsterID)
+	if model == null or not is_instance_valid(model):
+		return null
+	var height := float(_unitHeights.get(monsterID, UNIT_FALLBACK_HEIGHT))
+	return model.global_position + Vector3(0.0, height + UNIT_HEAD_CLEARANCE, 0.0)
+
+
+func hoveredUnit() -> int:
+	return _hoveredID
+
+
+func selectedUnit() -> int:
+	return _selectedID
+
+
+func setHoveredUnit(monsterID: int) -> void:
+	if monsterID == _hoveredID:
+		return
+	_applyOutline(_hoveredID, false)
+	_hoveredID = monsterID if _models.has(monsterID) else -1
+	_applyOutline(_hoveredID, true)
+
+
+func setSelectedUnit(monsterID: int) -> void:
+	if monsterID == _selectedID and _selectionRing != null and is_instance_valid(_selectionRing):
+		return
+	_clearSelectionRing()
+	_selectedID = monsterID if _models.has(monsterID) else -1
+	if _selectedID == -1:
+		return
+	_selectionRing = _buildSelectionRing()
+	# A child of the model, so it walks with the unit through playback instead of waiting at the
+	# cell the state already moved it to.
+	modelFor(_selectedID).add_child(_selectionRing)
+	_selectionRing.position = Vector3(0.0, 0.03, 0.0)
+	_animateSelectionRing()
+
+
+func _applyOutline(monsterID: int, on: bool) -> void:
+	var model := modelFor(monsterID)
+	if model == null or not is_instance_valid(model):
+		return
+	if on and _outlineMaterial == null:
+		_outlineMaterial = ShaderMaterial.new()
+		_outlineMaterial.shader = UnitOutlineShader
+		_outlineMaterial.set_shader_parameter("outline_color", OUTLINE_COLOR)
+		_outlineMaterial.set_shader_parameter("width_px", OUTLINE_WIDTH_PX)
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		# The team plinth and the selection ring are not the unit. Outlining the plinth drew a
+		# second ring round the base that read as a selection marker.
+		if _isUnitChrome(mesh, model):
+			continue
+		mesh.material_overlay = _outlineMaterial if on else null
+
+
+func _isUnitChrome(node: Node, model: Node) -> bool:
+	var current := node
+	while current != null and current != model:
+		if current.name == "ModelBase" or current.name == "SelectionRing":
+			return true
+		current = current.get_parent()
+	return false
+
+
+func _measureHeight(model: Node3D) -> float:
+	var top := -INF
+	var inverse := model.global_transform.affine_inverse()
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		if mesh.mesh == null:
+			continue
+		var bounds := (inverse * mesh.global_transform) * mesh.get_aabb()
+		top = maxf(top, bounds.end.y)
+	return top if top > 0.0 else UNIT_FALLBACK_HEIGHT
+
+
+func _buildSelectionRing() -> MeshInstance3D:
+	var outline: PackedVector3Array = layout.cellPolygon(Vector2i.ZERO)
+	var centre: Vector3 = layout.cellCenter(Vector2i.ZERO)
+	var vertices := PackedVector3Array()
+	var count := outline.size()
+	for index in range(count + 1):
+		var outer: Vector3 = outline[index % count] - centre
+		outer.y = 0.0
+		vertices.append(outer)
+		vertices.append(outer * SELECTED_RING_INNER)
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLE_STRIP, arrays)
+	var ring := MeshInstance3D.new()
+	ring.name = "SelectionRing"
+	ring.mesh = mesh
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	material.albedo_color = COLOR_SELECTED_RING
+	ring.material_override = material
+	return ring
+
+
+func _animateSelectionRing() -> void:
+	var ring := _selectionRing
+	var material := ring.material_override as StandardMaterial3D
+	ring.scale = Vector3.ONE * SELECTED_RING_ENTRANCE_SCALE
+	var entrance := ring.create_tween()
+	entrance.tween_property(ring, "scale", Vector3.ONE, SELECTED_RING_ENTRANCE_SECONDS) \
+		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	var bright := COLOR_SELECTED_RING
+	var dim := COLOR_SELECTED_RING
+	dim.a = COLOR_SELECTED_RING.a * (1.0 - SELECTED_RING_BREATH_ALPHA)
+	_selectionTween = ring.create_tween().set_loops()
+	_selectionTween.tween_property(
+		material, "albedo_color", dim, SELECTED_RING_BREATH_SECONDS * 0.5
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_selectionTween.tween_property(
+		material, "albedo_color", bright, SELECTED_RING_BREATH_SECONDS * 0.5
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _clearSelectionRing() -> void:
+	if _selectionTween != null and _selectionTween.is_valid():
+		_selectionTween.kill()
+	_selectionTween = null
+	if _selectionRing != null and is_instance_valid(_selectionRing):
+		_selectionRing.queue_free()
+	_selectionRing = null
+
+
+## A unit leaving the board takes its cues with it.
+func _forgetUnit(monsterID: int) -> void:
+	if monsterID == _hoveredID:
+		_hoveredID = -1
+	if monsterID == _selectedID:
+		_clearSelectionRing()
+		_selectedID = -1
+	_unitHeights.erase(monsterID)
 
 
 func _on_monster_moved(monsterID: int, path: Array) -> void:
@@ -171,6 +403,7 @@ func _on_monster_defeated(monsterID: int, _killerID: int) -> void:
 	if model != null and is_instance_valid(model):
 		model.queue_free()
 	_models.erase(monsterID)
+	_forgetUnit(monsterID)
 
 
 ## A withdrawn party leaves the board without dying -- commander loss forces retreat, it does not
@@ -182,6 +415,7 @@ func _on_party_withdrawn(_partyID: int, memberIDs: Array) -> void:
 		if model != null and is_instance_valid(model):
 			model.queue_free()
 		_models.erase(monsterID)
+		_forgetUnit(monsterID)
 
 
 # --- cursor and overlays ----------------------------------------------------
