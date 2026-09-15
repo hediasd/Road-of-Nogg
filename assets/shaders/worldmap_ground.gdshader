@@ -368,7 +368,9 @@ bool hex_in_lattice(vec2 p) {
 	vec2 axial = hex_nearest_axial(p);
 	float col = axial.x;
 	float row = axial.y + floor(axial.x * 0.5);
-	return col >= 0.0 && row >= 0.0 && col < hex_lattice.x && row < hex_lattice.y;
+	// Row 0 of an even column is trimmed so every border is outward -- see `isTrimmedCell`.
+	bool trimmed = row < 0.5 && mod(col, 2.0) < 0.5;
+	return col >= 0.0 && row >= 0.0 && col < hex_lattice.x && row < hex_lattice.y && !trimmed;
 }
 
 
