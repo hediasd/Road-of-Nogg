@@ -72,6 +72,9 @@ tier, the rationale says so, so the cost is visible.
     box.
   - Spent units are darkened.
   - A turn banner and an End turn button with a ready count frame each turn.
+  - The camera is always orthographic, with no perspective mode anywhere. A
+    battle opens close to the field at a diagonal, three-quarter angle, not the
+    distant straight-on framing it opens with today.
 - The design docs describe the new rules and screen, not the old ones.
 
 ## Present-state facts an executing agent must not "fix"
@@ -99,6 +102,16 @@ tier, the rationale says so, so the cost is visible.
   (seen in the 2026-09-16 play session) are a known separate bug. Fix them
   only if a Touches-owned change causes or cures them, and never widen scope
   for them.
+- **The camera already defaults to orthographic, but perspective still exists.**
+  `HexBattleCamera` supports both, and the Debug drawer's graphics panel
+  offers a Projection switch (its Reset returns to orthographic). Henri wants
+  orthographic always, so removing the perspective path is the change. The
+  opening framing also changes: at 1280×720 the board filled about a third of
+  the screen width, seen square-on from the default yaw. Probes that read
+  projected screen positions (`probe_board_terrain`, `restoration/probe_stage`,
+  `restoration/probe_badges`, `restoration/probe_feedback`,
+  `probe_playthrough`) will report different coordinates. Update the
+  expectations; do not restore the old framing.
 - **Interactive playtesting belongs to Henri** (AGENTS.md, Running the checks).
   Sessions may run headless probes and scripted non-interactive capture
   renders. They do not drive an interactive Godot window.
@@ -423,8 +436,8 @@ result through the new flow, by mouse-equivalent events and by keyboard.
   - Whether `HexCommandMenu` survives as the spell list or is replaced.
 
 Record each decision and its reasoning in the commit body.
-- **Out of bounds:** the orange-square marker bug, camera default zoom, and
-  CPU playback speed. Note them if seen; don't fix them here.
+- **Out of bounds:** the orange-square marker bug, the camera (STB-5 owns
+  it), and CPU playback speed. Note them if seen; don't fix them here.
 
 **Risk:**
 - Click ambiguity that attacks when the player meant to inspect.
@@ -442,6 +455,93 @@ Record each decision and its reasoning in the commit body.
   one other UI scale, default render and harshest retro preset. Judged in
   STB-V.
 
+### STB-5 — Lock the battle camera to orthographic and open on a close diagonal
+
+**Model:** Opus 5 / GPT Sol
+
+**Model rationale:** Removing the perspective path alone would be Terra-sized
+mechanical work. The opening framing is not: "close" and "an interesting
+diagonal angle" are taste calls. They pull against the 60° yaw detents,
+whose whole point is that a detent lands on an orientation where hex rows
+read cleanly. They also pull against keeping every unit and the far edge of
+the board on screen at the first frame, and against the HUD boxes that sit
+over the board's corners. That's framing judgement.
+
+**Depends on:** —
+
+**Touches:**
+- `src/presentation/battle/HexBattleCamera.gd`
+- `src/presentation/battle/HexBattleStage.gd` (only if the stage owns a
+  projection or framing assumption)
+- `src/presentation/battle/ui/HexGraphicsPanel.gd` (remove the Projection
+  option)
+- `scripts/hex_battle/probe_board_terrain.gd`
+- `scripts/hex_battle/restoration/probe_stage.gd`
+- `scripts/hex_battle/restoration/probe_badges.gd`
+- `scripts/hex_battle/restoration/probe_feedback.gd`
+- `scripts/hex_battle/side_turn/probe_camera_opening.gd` (new, plus `.uid`)
+- `docs/HEX_BATTLE.md` (camera section only)
+
+**End state:**
+- `HexBattleCamera` has one projection, orthographic. The perspective mode,
+  its distance/size conversion and the Debug drawer's Projection option are
+  gone, and nothing else in the project refers to them.
+- Every battle opens at a framing chosen by `frameMap` alone:
+  - a yaw that shows the board on a diagonal, not square-on;
+  - a pitch that reads as three-quarter;
+  - an orthographic size close enough that the playable area, not the sky,
+    fills the space between the HUD's left column and the right edge.
+- Reset (double middle click) returns to that framing.
+- `probe_camera_opening` asserts, at 1280×720 on `hexmap_player_cpu.json`,
+  that the opening is orthographic, that every unit's projected position is
+  on screen and outside the HUD's reserved boxes, and that the board's
+  projected bounds cover a stated minimum share of the viewport. Choose and
+  record that share.
+
+**Implementation (brief):**
+- **Context:**
+  - The camera orbits a focus with yaw on 60° detents (Q/E), pitch clamped to
+    −70°…−12°, and zoom by orthographic size.
+  - `frameMap` sets the defaults from the board's span using
+    `FRAME_SPAN_FACTOR` and `FRAME_MARGIN`, starting at yaw 0 and pitch −38°.
+  - On the 2026-09-16 capture that left the board at about a third of the
+    screen width, square-on, with a lot of sky.
+- **The tension.** A diagonal opening yaw (e.g. 30° off a detent) conflicts
+  with detents that assume rows line up.
+  - One option is to shift the detent lattice so every detent is diagonal.
+  - Another is to open between detents and snap on the first Q/E.
+  - Or pick a detent that already reads diagonally for this hex orientation.
+- **The other tension.** A closer opening crops wide maps. Decide whether
+  "close" means fitting the living units plus a margin rather than the whole
+  board, and what happens on the largest authored map.
+- **Invariants:**
+  - Picking (`_cellAtPoint`, projected cell outlines) stays exact at every
+    yaw, pitch and zoom.
+  - Right-drag pan, middle-drag orbit, wheel zoom and reset keep working.
+  - Projected UI (badges, damage numbers) stays anchored.
+  - The camera never shows under the board or past the horizon at any
+    allowed pitch.
+- **Yours to decide:** the yaw/detent scheme, the pitch, and the framing rule
+  for "close". Put before/after 1280×720 captures in scratch, and record the
+  numbers and why in the commit body.
+- **Out of bounds:** `HexBattleController` (STB-4 owns it). If the controller
+  must call something new for the opening, add it to the camera, keep the
+  controller's existing `frameMap` call working, and name the needed
+  controller change in the commit body for STB-4.
+
+**Risk:** A diagonal default that makes keyboard cursor directions feel
+rotated, a close framing that hides one side's units on a big map, and
+picking drift at the new angle. The camera-opening probe and the existing
+picking probes are the tripwires.
+
+**Validation:**
+- Self-contained: `probe_camera_opening` and every owned probe pass. A grep
+  audit finds no remaining `PROJECTION_PERSPECTIVE`, `setProjectionMode` or
+  Projection option. The headless load check is clean.
+- Deferred: the opening framing at 1280×720 on `hexmap_player_cpu.json` and
+  `proving_ground_player_cpu.json`, default render and harshest retro preset.
+  Judged in STB-V.
+
 ### STB-V — Validate the side-turn battle and close the cycle
 
 **Model:** Opus 5 / GPT Sol
@@ -451,7 +551,7 @@ against a storyboard, across work built in three waves by different sessions.
 That rules out folding it into STB-4's session. It also carries closing the
 cycle and choosing what to promote into `docs/sketches/`.
 
-**Depends on:** STB-1, STB-2, STB-3, STB-4
+**Depends on:** STB-1, STB-2, STB-3, STB-4, STB-5
 
 **Touches:**
 - `docs/plans/side-turn-battle.md` (deleted at close)
@@ -466,6 +566,9 @@ cycle and choosing what to promote into `docs/sketches/`.
 - Scripted non-interactive captures cover each storyboard frame at 1280×720,
   default render and harshest retro preset, and are compared frame by frame
   with the storyboard. Mismatches are listed as pass/fail.
+- The opening camera framing on `hexmap_player_cpu.json` and
+  `proving_ground_player_cpu.json` is captured and judged: orthographic,
+  close, diagonal, with every unit visible and clear of the HUD.
 - A short playtest checklist is handed to Henri, who owns interactive play.
   It covers: moving, undoing, attacking, casting before moving, being refused
   a cast after moving, End turn with ready units, and a full battle.
@@ -492,7 +595,7 @@ which is why Henri's playtest gates the close.
 
 | Wave | Items | Why disjoint |
 |------|-------|--------------|
-| 1 | STB-1 | Boundary item; everything builds on the side-turn runtime |
+| 1 | STB-1, STB-5 | Simulator, records and simulator probes vs. camera, graphics panel, stage and camera-reading probes; no shared path |
 | 2 | STB-2, STB-3 | `src/entity_ai/**` + headless runners + `probe_ai` + ARCHITECTURE AI section vs. board/view/adapter + `ui/side_turn/**` + board probes + UI_DESIGN §10a–b; no shared path |
 | 3 | STB-4 | Controller, member input, HUD and interactive probes; needs both wave-2 items |
 | 4 | STB-V | Standalone validation: look-and-feel judgement across three waves, gated on Henri's playtest |
@@ -501,7 +604,9 @@ STB-1 and STB-3 both list `HexBattleVisualAdapter.gd`, but in different waves:
 STB-1 only keeps it compiling, and STB-3 owns its visuals. `docs/UI_DESIGN.md`
 is written by STB-3 (§10a–b) and STB-4 (§6, §8) in different waves.
 `docs/ARCHITECTURE.md` is written by STB-1 (simulation) and STB-2 (AI) in
-different waves.
+different waves. `HexGraphicsPanel.gd` is written by STB-5 (wave 1) and STB-4
+(wave 3), and `docs/HEX_BATTLE.md` by STB-5 (camera section) and STB-4, also
+in different waves.
 
 ## Deliberately excluded
 
@@ -514,8 +619,10 @@ different waves.
   drag-onto-enemy). Out-of-reach enemies get a preview but no sword.
 - **A second click to confirm an attack.** The hover preview is the
   confirmation.
-- **Camera default zoom, CPU playback speed and the orange-square marker
-  bug.** These were real findings from the 2026-09-16 play session, but they
-  belong to separate work.
+- **CPU playback speed and the orange-square marker bug.** These were real
+  findings from the 2026-09-16 play session, but they belong to separate work.
+  The camera's default zoom was a third finding, and STB-5 now covers it.
+- **A perspective camera option**, even as a debug setting. Henri wants
+  orthographic always.
 - **Balance changes** to damage, HP or spells, even though battles now run
   differently.
