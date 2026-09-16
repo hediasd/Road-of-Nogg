@@ -15,6 +15,8 @@
 class_name HexBattleCamera
 extends Node3D
 
+enum DragMode { NONE, ORBIT, PAN }
+
 ## Oblique rather than top-down: the retro 2.5D direction this cycle keeps means reading height
 ## off the board, and a plan view flattens every plateau to nothing.
 const DEFAULT_PITCH_DEGREES := -38.0
@@ -28,14 +30,47 @@ const YAW_DETENT_DEGREES := 60.0
 const MIN_DISTANCE := 6.0
 const MAX_DISTANCE := 60.0
 const ZOOM_STEP := 2.0
+const PROJECTION_PERSPECTIVE := "perspective"
+const PROJECTION_ORTHOGRAPHIC := "orthographic"
+## Orthographic zoom is controlled by `Camera3D.size`, not physical distance. Keeping that camera
+## well behind the entire rotating board prevents a zoomed-in corner from crossing its near plane
+## without changing how large the board looks. Perspective must still use the logical distance.
+const ORTHOGRAPHIC_CAMERA_DISTANCE := 100.0
+## Opening distance is `span * FRAME_SPAN_FACTOR + FRAME_MARGIN`, clamped to the zoom limits. The
+## margin reserves the board from the left and lower-right HUD stacks instead of fitting it to the
+## unobstructed full viewport and then letting those windows cover its edge cells.
+const FRAME_SPAN_FACTOR := 0.82
+const FRAME_MARGIN := 7.0
+## The raised rim extends roughly one world unit beyond each side of the valid-cell span.
+const FRAME_BOARD_PADDING := 2.0
+
+const ORBIT_SENSITIVITY := 0.22
+const PITCH_SENSITIVITY := 0.18
+const PAN_SENSITIVITY := 1.6
+const CAMERA_EASE_SECONDS := 0.22
 
 var camera: Camera3D
 var _pivot: Node3D
 var _yaw := 0.0
 var _pitch := DEFAULT_PITCH_DEGREES
 var _distance := 18.0
+var _orthographicSize := 18.0
 var _focus := Vector3.ZERO
 var _screenConverter := Callable()
+var _dragMode: DragMode = DragMode.NONE
+var _cameraTween: Tween
+var _defaultYaw := 0.0
+var _defaultPitch := DEFAULT_PITCH_DEGREES
+var _defaultDistance := 18.0
+var _defaultOrthographicSize := 18.0
+var _defaultFocus := Vector3.ZERO
+var _projectionMode := PROJECTION_ORTHOGRAPHIC
+## High-polling mice can deliver many motion events between rendered frames. Accumulate them and
+## mutate the SubViewport camera once per frame; rebuilding its visibility state for every raw
+## event made an otherwise simple drag feel dramatically slower than the square battle camera.
+var _pendingOrbitMotion := Vector2.ZERO
+var _pendingPanMotion := Vector2.ZERO
+var _pendingPanViewportHeight := 1.0
 
 
 func _init() -> void:
@@ -46,6 +81,20 @@ func _init() -> void:
 	camera = Camera3D.new()
 	camera.name = "Camera3D"
 	_pivot.add_child(camera)
+
+
+func _process(_delta: float) -> void:
+	if not _pendingOrbitMotion.is_zero_approx():
+		_yaw = fmod(_yaw - _pendingOrbitMotion.x * ORBIT_SENSITIVITY, 360.0)
+		_pitch = clampf(
+			_pitch + _pendingOrbitMotion.y * PITCH_SENSITIVITY,
+			MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)
+		_pendingOrbitMotion = Vector2.ZERO
+		_apply()
+	elif not _pendingPanMotion.is_zero_approx():
+		var motion := _pendingPanMotion
+		_pendingPanMotion = Vector2.ZERO
+		_panByScreenDelta(motion, _pendingPanViewportHeight)
 
 
 ## Frames the whole board, from the map's own extent rather than a constant -- a 20x10 lattice and
@@ -60,36 +109,59 @@ func frameMap(map: BattleMapDefinition, layout: HexBattleLayout) -> void:
 	for cell: Vector2i in cells:
 		bounds = bounds.expand(layout.cellCenter(cell))
 	_focus = bounds.position + bounds.size * 0.5
-	# Distance from the larger horizontal span, with room around the edge so the outermost cells
-	# are not flush against the viewport border.
-	var span := maxf(bounds.size.x, bounds.size.z)
-	_distance = clampf(span * 1.15 + 6.0, MIN_DISTANCE, MAX_DISTANCE)
+	# Distance from the larger horizontal span. Close enough that the board fills the space between
+	# the HUD columns and a unit reads at a glance; at 1.15x span the board sat in the middle third
+	# of the window with units about 16 px tall at 1280x720, too small to follow a fight. The near
+	# rows may pass under the bottom windows, which the wheel undoes.
+	var span := maxf(bounds.size.x, bounds.size.z) + FRAME_BOARD_PADDING
+	_distance = clampf(span * FRAME_SPAN_FACTOR + FRAME_MARGIN, MIN_DISTANCE, MAX_DISTANCE)
+	_orthographicSize = _perspectiveSpan(_distance)
+	_defaultYaw = _yaw
+	_defaultPitch = _pitch
+	_defaultDistance = _distance
+	_defaultOrthographicSize = _orthographicSize
+	_defaultFocus = _focus
 	_apply()
 
 
 func focusOn(worldPosition: Vector3) -> void:
+	_cancelCameraTween()
 	_focus = worldPosition
 	_apply()
 
 
 func orbit(degrees: float) -> void:
+	_cancelCameraTween()
 	_yaw = fmod(_yaw + degrees, 360.0)
 	_apply()
 
 
-## Snaps to the nearest sixty-degree detent -- see the constant's note on why sixty.
+## Eases by one sixty-degree detent. The final angle is still exact, so cursor projection and the
+## lattice agree when the motion stops, but the board no longer snaps like a debug view.
 func orbitDetent(steps: int) -> void:
-	_yaw = fmod(_yaw + YAW_DETENT_DEGREES * float(steps), 360.0)
-	_apply()
+	_cancelCameraTween()
+	var target := _yaw + YAW_DETENT_DEGREES * float(steps)
+	_cameraTween = create_tween()
+	_cameraTween.tween_method(_setYaw, _yaw, target, CAMERA_EASE_SECONDS) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 
 
 func pitch(degrees: float) -> void:
+	_cancelCameraTween()
 	_pitch = clampf(_pitch + degrees, MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)
 	_apply()
 
 
 func zoom(steps: float) -> void:
-	_distance = clampf(_distance + ZOOM_STEP * steps, MIN_DISTANCE, MAX_DISTANCE)
+	_cancelCameraTween()
+	if _projectionMode == PROJECTION_ORTHOGRAPHIC:
+		_orthographicSize = clampf(
+			_orthographicSize + _perspectiveSpan(ZOOM_STEP) * steps,
+			_perspectiveSpan(MIN_DISTANCE), _perspectiveSpan(MAX_DISTANCE))
+		_distance = _distanceForPerspectiveSpan(_orthographicSize)
+	else:
+		_distance = clampf(_distance + ZOOM_STEP * steps, MIN_DISTANCE, MAX_DISTANCE)
+		_orthographicSize = _perspectiveSpan(_distance)
 	_apply()
 
 
@@ -99,6 +171,185 @@ func yaw() -> float:
 
 func distance() -> float:
 	return _distance
+
+
+func pitchDegrees() -> float:
+	return _pitch
+
+
+func focus() -> Vector3:
+	return _focus
+
+
+func projectionMode() -> String:
+	return _projectionMode
+
+
+## Swapping projection preserves the focus and approximate on-screen board scale. The camera's
+## distance and orthographic size remain paired, so wheel zoom and a later swap do not jump.
+func setProjectionMode(value: String) -> void:
+	if value != PROJECTION_PERSPECTIVE and value != PROJECTION_ORTHOGRAPHIC:
+		push_warning("Unknown hex battle camera projection: %s" % value)
+		return
+	_cancelCameraTween()
+	if value == _projectionMode:
+		_apply()
+		return
+	if value == PROJECTION_ORTHOGRAPHIC:
+		_orthographicSize = _perspectiveSpan(_distance)
+	else:
+		_distance = _distanceForPerspectiveSpan(_orthographicSize)
+	_projectionMode = value
+	_apply()
+
+
+## The square battle's mouse contract, implemented with this camera's perspective/orbit state:
+## middle drag orbits and pitches, right drag pans, wheel zooms, and double middle resets. Returns
+## true for every owned press, release and drag motion so tactical hover/aim never fires beneath it.
+func handleInput(event: InputEvent, viewportHeight: float) -> bool:
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP and event.pressed:
+			zoom(-1.0)
+			return true
+		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
+			zoom(1.0)
+			return true
+		if event.button_index == MOUSE_BUTTON_MIDDLE and event.pressed and event.double_click:
+			cancelDrag()
+			resetView()
+			return true
+		if event.button_index == MOUSE_BUTTON_MIDDLE:
+			if event.pressed:
+				_cancelCameraTween()
+				_discardPendingMotion()
+				_dragMode = DragMode.ORBIT
+			elif _dragMode == DragMode.ORBIT:
+				_dragMode = DragMode.NONE
+			return true
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			if event.pressed:
+				_cancelCameraTween()
+				_discardPendingMotion()
+				_dragMode = DragMode.PAN
+			elif _dragMode == DragMode.PAN:
+				_dragMode = DragMode.NONE
+			return true
+	elif event is InputEventMouseMotion:
+		if _dragMode == DragMode.ORBIT:
+			_pendingOrbitMotion += event.relative
+			return true
+		if _dragMode == DragMode.PAN:
+			_pendingPanMotion += event.relative
+			_pendingPanViewportHeight = viewportHeight
+			return true
+	return false
+
+
+func isDragging() -> bool:
+	return _dragMode != DragMode.NONE
+
+
+func cancelDrag() -> void:
+	_dragMode = DragMode.NONE
+
+
+## Returns to the map framing captured by `frameMap`, preserving the same brief ease used by key
+## detents. A reset is authored camera motion, so any drag or older settle is cancelled first.
+func resetView() -> void:
+	cancelDrag()
+	_discardPendingMotion()
+	_cancelCameraTween()
+	var targetYaw := _nearestEquivalentYaw(_defaultYaw)
+	_cameraTween = create_tween().set_parallel(true)
+	_cameraTween.tween_method(_setYaw, _yaw, targetYaw, CAMERA_EASE_SECONDS) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_cameraTween.tween_method(_setPitch, _pitch, _defaultPitch, CAMERA_EASE_SECONDS) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_cameraTween.tween_method(_setDistance, _distance, _defaultDistance, CAMERA_EASE_SECONDS) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_cameraTween.tween_method(
+		_setOrthographicSize, _orthographicSize, _defaultOrthographicSize,
+		CAMERA_EASE_SECONDS
+	).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	_cameraTween.tween_method(_setFocus, _focus, _defaultFocus, CAMERA_EASE_SECONDS) \
+		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+
+
+func _panByScreenDelta(relative: Vector2, viewportHeight: float) -> void:
+	if camera == null or viewportHeight <= 0.0:
+		return
+	var factor := _distance / viewportHeight * PAN_SENSITIVITY
+	var right := camera.global_transform.basis.x
+	right.y = 0.0
+	var up := camera.global_transform.basis.y
+	up.y = 0.0
+	if not right.is_zero_approx():
+		right = right.normalized()
+	if not up.is_zero_approx():
+		up = up.normalized()
+	_focus -= right * relative.x * factor
+	_focus += up * relative.y * factor
+	_apply()
+
+
+func _setYaw(value: float) -> void:
+	_yaw = value
+	_apply()
+
+
+func _setPitch(value: float) -> void:
+	_pitch = value
+	_apply()
+
+
+func _setDistance(value: float) -> void:
+	_distance = value
+	_apply()
+
+
+func _setOrthographicSize(value: float) -> void:
+	_orthographicSize = value
+	_apply()
+
+
+func _setFocus(value: Vector3) -> void:
+	_focus = value
+	_apply()
+
+
+func _nearestEquivalentYaw(target: float) -> float:
+	var result := target
+	while result - _yaw > 180.0:
+		result -= 360.0
+	while result - _yaw < -180.0:
+		result += 360.0
+	return result
+
+
+func _perspectiveSpan(distanceValue: float) -> float:
+	return 2.0 * distanceValue * tan(deg_to_rad(camera.fov * 0.5))
+
+
+func _distanceForPerspectiveSpan(span: float) -> float:
+	var divisor := 2.0 * tan(deg_to_rad(camera.fov * 0.5))
+	return clampf(span / divisor, MIN_DISTANCE, MAX_DISTANCE)
+
+
+func _cancelCameraTween() -> void:
+	if _cameraTween != null and _cameraTween.is_valid():
+		_cameraTween.kill()
+	_cameraTween = null
+
+
+func _discardPendingMotion() -> void:
+	_pendingOrbitMotion = Vector2.ZERO
+	_pendingPanMotion = Vector2.ZERO
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		cancelDrag()
+		_discardPendingMotion()
 
 
 ## Projects a world point to host-screen coordinates, or reports that it is behind the camera.
@@ -129,14 +380,21 @@ func projectToScreen(worldPosition: Vector3) -> Vector2:
 func _apply() -> void:
 	if _pivot == null or camera == null:
 		return
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL \
+		if _projectionMode == PROJECTION_ORTHOGRAPHIC \
+		else Camera3D.PROJECTION_PERSPECTIVE
+	if _projectionMode == PROJECTION_ORTHOGRAPHIC:
+		camera.size = _orthographicSize
+	var placementDistance := ORTHOGRAPHIC_CAMERA_DISTANCE \
+		if _projectionMode == PROJECTION_ORTHOGRAPHIC else _distance
 	_pivot.position = _focus
 	_pivot.rotation_degrees = Vector3(0.0, _yaw, 0.0)
-	camera.position = Vector3(0.0, 0.0, _distance)
-	camera.rotation_degrees = Vector3(_pitch, 0.0, 0.0)
 	# Orbit is around the focus, so the camera sits back along its own local Z and is then tilted;
 	# the pivot's yaw carries it around. Composing it this way keeps pitch independent of yaw,
 	# which a single look_at would not.
 	camera.position = Vector3(
-		0.0, -sin(deg_to_rad(_pitch)) * _distance, cos(deg_to_rad(_pitch)) * _distance
+		0.0,
+		-sin(deg_to_rad(_pitch)) * placementDistance,
+		cos(deg_to_rad(_pitch)) * placementDistance
 	)
 	camera.rotation_degrees = Vector3(_pitch, 0.0, 0.0)

@@ -35,9 +35,11 @@ static func toggleClearance() -> float:
 
 
 var renderer: RetroRenderController
+var battleCamera: HexBattleCamera
 var toggleButton: Button
 var panel: PanelContainer
 var presetOption: OptionButton
+var projectionOption: OptionButton
 var geometryOption: OptionButton
 var upscaleOption: OptionButton
 var sessionTitle: Label
@@ -63,7 +65,7 @@ func _onViewportSizeChanged() -> void:
 	# Below this diagnostic-sized floor there is no usable panel layout; hiding the toggle also
 	# ensures it cannot consume every world-input point in the headless 64x64 viewport.
 	visible = get_viewport().get_visible_rect().size.x >= 320.0 \
-		and get_viewport().get_visible_rect().size.y >= 240.0
+		and get_viewport().get_visible_rect().size.y >= 280.0
 
 
 func _build() -> void:
@@ -110,6 +112,8 @@ func _build() -> void:
 	column.add_child(title)
 	presetOption = _option(column, "Look", RenderPresetCatalogScript.labels(),
 		RenderPresetCatalogScript.values())
+	projectionOption = _option(column, "Projection", ["Perspective", "Orthographic"],
+		[HexBattleCamera.PROJECTION_PERSPECTIVE, HexBattleCamera.PROJECTION_ORTHOGRAPHIC])
 	geometryOption = _option(column, "Geometry", ["Stable", "Vertex jitter"],
 		["stable", "jitter"])
 	upscaleOption = _option(column, "Upscale", ["Smooth", "Sharp pixels"],
@@ -119,6 +123,7 @@ func _build() -> void:
 	reset.text = "Reset"
 	column.add_child(reset)
 	presetOption.item_selected.connect(_onPresetSelected)
+	projectionOption.item_selected.connect(_onProjectionSelected)
 	geometryOption.item_selected.connect(_onFeaturesSelected)
 	upscaleOption.item_selected.connect(_onFeaturesSelected)
 	reset.pressed.connect(_onReset)
@@ -200,6 +205,17 @@ func _onPresetSelected(index: int) -> void:
 	_sync()
 
 
+func attachCamera(value: HexBattleCamera) -> void:
+	battleCamera = value
+	_sync()
+
+
+func _onProjectionSelected(index: int) -> void:
+	if battleCamera != null:
+		battleCamera.setProjectionMode(str(projectionOption.get_item_metadata(index)))
+	_sync()
+
+
 func _onFeaturesSelected(_index: int) -> void:
 	renderer.set_features(
 		str(geometryOption.get_item_metadata(geometryOption.selected)) == "jitter",
@@ -210,6 +226,8 @@ func _onFeaturesSelected(_index: int) -> void:
 
 func _onReset() -> void:
 	renderer.reset_defaults()
+	if battleCamera != null:
+		battleCamera.setProjectionMode(HexBattleCamera.PROJECTION_ORTHOGRAPHIC)
 	_sync()
 
 
@@ -219,6 +237,9 @@ func _sync() -> void:
 	if renderer == null:
 		return
 	_select(presetOption, renderer.render_preset)
+	projectionOption.disabled = battleCamera == null
+	if battleCamera != null:
+		_select(projectionOption, battleCamera.projectionMode())
 	_select(geometryOption, "jitter" if renderer.vertex_snap_enabled else "stable")
 	_select(upscaleOption, "nearest" if renderer.nearest_filter_enabled else "linear")
 

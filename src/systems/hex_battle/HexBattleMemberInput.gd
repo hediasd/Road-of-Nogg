@@ -275,9 +275,9 @@ func _refreshAimFeedback() -> void:
 ## simulator's own. A move is legal on the member's own cell or a cell of the simulator's reach
 ## query, which is the set `refreshReach` already paints. Nothing here decides a rule.
 ##
-## THE FORECAST IS THE ADAPTER'S, withheld where it would say something false. `forecastSpell`
-## prices only a spell's first damage line and prices a heal as damage. For those spells the
-## model says why there is no number instead of showing a wrong one.
+## THE FORECAST IS THE ADAPTER'S, withheld where there is no damage to forecast. A heal and a
+## spell with no damage line say why there is no number. `forecastSpell` sums every damage line
+## with its own element, as the resolver does, so a multi-line spell gets its number.
 ##
 ## Authoritative state, not displayed state: this is the input gate, and what gets resolved on
 ## confirm is the authoritative board.
@@ -342,8 +342,6 @@ static func forecastWithheldReason(spell) -> String:
 		total += int((line as Dictionary).get("damage", 0))
 	if lines.is_empty() or total <= 0:
 		return "no_damage"
-	if lines.size() > 1:
-		return "multi_line"
 	return ""
 
 

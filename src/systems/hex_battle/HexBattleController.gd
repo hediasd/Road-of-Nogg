@@ -52,10 +52,12 @@ enum Lifecycle { SETUP, BATTLE, ENDING, COMPLETE }
 ## battle that is waiting on playback is not re-evaluated sixty times a second for no reason.
 const ADVANCE_INTERVAL_SECONDS := 0.05
 
-## Frame budget for CPU deliberation, in milliseconds. Deliberation is resumable by design
-## (HXB-8), so it is stepped rather than run to completion, and the battle stays responsive while
-## a CPU party thinks.
+## Fallback frame budget when the worker pool refuses a task. Normal interactive deliberation runs
+## away from the presentation thread; keeping the old resumable path as a refusal fallback avoids
+## stranding an already-selected member without making it the ordinary scheduler again.
 const DELIBERATION_BUDGET_MSEC := 4.0
+## How far, in viewport pixels, a right press may travel and still count as a click.
+const RIGHT_TAP_SLOP := 4.0
 
 var sim: BattleSimulator
 var adapter: HexBattleVisualAdapter
@@ -73,8 +75,15 @@ var map: BattleMapDefinition
 
 var _advanceTimer: Timer
 var _boardRoot: Node3D
+## Where the current right press started, or (-1, -1). A release within RIGHT_TAP_SLOP of it is a
+## click, which cancels the command menu; anything further was a camera pan.
+var _rightPressPosition := Vector2(-1.0, -1.0)
 var _deliberation: CommandDeliberation = null
 var _deliberatingMemberID := -1
+## CPU planning is pure and owns no scene nodes, so it may run on the low-priority worker pool while
+## the main thread renders. Only `_process` consumes the completed result and mutates simulation.
+var _deliberationTaskID := -1
+var _retiredDeliberationTaskIDs: Array[int] = []
 var _scenarioPath := ""
 var _seedValue := 0
 ## The presentation speed the player last chose. Carried into a restart, which is the same battle
@@ -113,6 +122,7 @@ func _enterSetup() -> void:
 ## disconnected and freed here -- the failure named for return-to-setup is old callbacks surviving
 ## into the next battle, and the only reliable defence is that nothing survives at all.
 func teardownBattle() -> void:
+	_retireDeliberationTask()
 	_deliberation = null
 	_deliberatingMemberID = -1
 	if memberTurn != null:
@@ -347,20 +357,35 @@ func _beginCpuMember(monsterID: int) -> void:
 		return
 	_deliberation = deliberation
 	_deliberatingMemberID = monsterID
+	# Low priority is deliberate: rendering is the foreground workload. The task only reads the
+	# headless battle model and writes its private deliberation cursor/result.
+	_deliberationTaskID = WorkerThreadPool.add_task(
+		Callable(deliberation, "run"), false, "Hex battle CPU deliberation")
 
 
-## Deliberation is stepped under a frame budget rather than run to completion, which is what
-## HXB-8 made it resumable for.
-##
-## Not stepped at all while paused: a paused battle submits nothing. Deliberation is resumable, so
-## the next step after a resume continues exactly where the last one stopped.
+## Polling a worker is constant-time. The finished proposal is applied here, on the main thread,
+## which keeps event order, replay history and every scene-tree mutation exactly where they were.
+## A paused battle may finish thinking in the background, but never applies that result until
+## resumed. Retired tasks belong to torn-down battles and are only reaped, never observed.
 func _process(_delta: float) -> void:
+	_collectRetiredDeliberationTasks()
 	_refreshHud()
 	if _deliberation == null or sim == null:
 		return
 	if playback == null or playback.isPaused():
 		return
-	if not _deliberation.step(DELIBERATION_BUDGET_MSEC):
+	if _deliberationTaskID >= 0:
+		if not WorkerThreadPool.is_task_completed(_deliberationTaskID):
+			return
+		var taskError := WorkerThreadPool.wait_for_task_completion(_deliberationTaskID)
+		_deliberationTaskID = -1
+		if taskError != OK or not _deliberation.isFinished():
+			push_error("CPU deliberation worker failed; completing this turn with frame slices.")
+			if not _deliberation.step(DELIBERATION_BUDGET_MSEC):
+				return
+	elif not _deliberation.step(DELIBERATION_BUDGET_MSEC):
+		# Worker-pool submission can return an invalid id. The old deterministic scheduler is a
+		# safe fallback for that exceptional path, not the normal rendering path.
 		return
 	var monsterID := _deliberatingMemberID
 	var finished := _deliberation
@@ -370,6 +395,25 @@ func _process(_delta: float) -> void:
 	sim.finishTurn(monsterID, "cpu")
 	playback.release(HexBattlePlayback.OWNER_CPU, monsterID)
 	_checkFinished()
+
+
+## A task from a battle being torn down retains its read-only state until it naturally completes.
+## Dropping the current IDs prevents its result from ever reaching a replacement battle. Waiting
+## here would reintroduce the exact UI freeze this worker boundary exists to remove.
+func _retireDeliberationTask() -> void:
+	if _deliberationTaskID < 0:
+		return
+	_retiredDeliberationTaskIDs.append(_deliberationTaskID)
+	_deliberationTaskID = -1
+
+
+func _collectRetiredDeliberationTasks() -> void:
+	for index in range(_retiredDeliberationTaskIDs.size() - 1, -1, -1):
+		var taskID := _retiredDeliberationTaskIDs[index]
+		if not WorkerThreadPool.is_task_completed(taskID):
+			continue
+		WorkerThreadPool.wait_for_task_completion(taskID)
+		_retiredDeliberationTaskIDs.remove_at(index)
 
 
 # --- player input -----------------------------------------------------------
@@ -477,14 +521,17 @@ func _refreshHud() -> void:
 		return
 	if get_viewport().gui_get_hovered_control() != null:
 		_hoverUnit(-1)
+		if adapter != null and adapter.boardView != null:
+			adapter.boardView.clearHover()
 	hud.setInputLocked(_commandsLocked())
 	if stage != null and stage.graphicsPanel != null:
 		stage.graphicsPanel.setSession(_sessionState())
 	hud.refresh()
 
 
-## Inspection first, then camera, then the member turn. Both devices reach the same cursor -- see
-## `HexBattleMemberInput` for why neither locks the other out.
+## Camera first, then inspection and the member turn. A camera drag owns its motion event, so it
+## cannot also move an aim cursor or leave a stale unit inspection under the pointer. Ordinary
+## hover and left clicks still fall through exactly as before.
 ##
 ## INSPECTION NEVER CONSUMES AN EVENT. Hover and click only tell the HUD which unit to read out, and
 ## the same event then continues to the aim, so pointing at a unit while aiming both aims at it and
@@ -508,6 +555,25 @@ func _unhandled_input(event: InputEvent) -> void:
 		if claimed or event is InputEventMouseButton:
 			get_viewport().set_input_as_handled()
 		return
+	# A right click that never became a pan still cancels the command menu; a right drag pans.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		if event.pressed:
+			_rightPressPosition = event.position
+		elif _rightPressPosition.x >= 0.0:
+			var tapped: bool = event.position.distance_to(_rightPressPosition) <= RIGHT_TAP_SLOP
+			_rightPressPosition = Vector2(-1.0, -1.0)
+			if tapped and hud != null and hud.commandMenu.visible \
+					and (memberInput == null or not memberInput.isAiming()):
+				battleCamera.cancelDrag()
+				hud.commandMenu.cancel()
+				get_viewport().set_input_as_handled()
+				return
+	if battleCamera.handleInput(event, get_viewport().get_visible_rect().size.y):
+		_hoverUnit(-1)
+		if adapter != null and adapter.boardView != null:
+			adapter.boardView.clearHover()
+		get_viewport().set_input_as_handled()
+		return
 	if hud != null:
 		if event is InputEventMouseMotion:
 			_hoverUnit(_unitUnderPointer(event.position))
@@ -518,24 +584,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			# leaves the player's own unit unexplained mid-turn.
 			var picked := _unitUnderPointer(event.position)
 			_selectUnit(picked if picked != -1 else _actingMemberID())
-		elif event is InputEventMouseButton and event.pressed \
-				and event.button_index == MOUSE_BUTTON_RIGHT \
-				and (memberInput == null or not memberInput.isAiming()) \
-				and hud.commandMenu.visible:
-			hud.commandMenu.cancel()
-			get_viewport().set_input_as_handled()
-			return
-	if event is InputEventMouseButton and event.pressed:
-		match event.button_index:
-			MOUSE_BUTTON_WHEEL_UP:
-				battleCamera.zoom(-1.0)
-				get_viewport().set_input_as_handled()
-				return
-			MOUSE_BUTTON_WHEEL_DOWN:
-				battleCamera.zoom(1.0)
-				get_viewport().set_input_as_handled()
-				return
-	elif event is InputEventKey and event.pressed and not event.echo:
+	if event is InputEventMouseMotion and adapter != null and adapter.boardView != null:
+		if memberInput != null and memberInput.isAiming():
+			adapter.boardView.clearHover()
+		else:
+			var hoveredCell := _cellAtPoint(event.position)
+			if hoveredCell.x >= 0:
+				adapter.boardView.showHover(hoveredCell)
+			else:
+				adapter.boardView.clearHover()
+	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_Q:
 				battleCamera.orbitDetent(-1)

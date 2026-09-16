@@ -60,10 +60,10 @@ func updateModel(model: Dictionary) -> void:
 		var party: Dictionary = entry
 		var status := str(party.get("status", ""))
 		# Finished and out parties dim, the same language a spent command row uses.
-		_window.add_row(
+		HexPartyPanel.spaceValueColumn(_window.add_row(
 			str(party.get("label", "")),
 			"T%d %s" % [int(party.get("team", 0)), status],
-			status == STATUS_DONE or status == STATUS_OUT)
+			status == STATUS_DONE or status == STATUS_OUT))
 
 
 func windowSize() -> Vector2:

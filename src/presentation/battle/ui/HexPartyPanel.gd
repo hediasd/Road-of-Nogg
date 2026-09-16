@@ -144,6 +144,7 @@ func _on_row_built(row: Control, full_index: int) -> void:
 	var entry: Dictionary = _rowMeta[full_index]
 	if str(entry.get("kind", "")) == KIND_HEADER:
 		return
+	spaceValueColumn(row)
 	row.mouse_filter = Control.MOUSE_FILTER_STOP
 	if not bool(entry.get("enabled", false)):
 		# Disabled rows stay visible and dim, but are inert to click -- and
@@ -151,6 +152,28 @@ func _on_row_built(row: Control, full_index: int) -> void:
 		# behind this panel.
 		return
 	row.gui_input.connect(_on_row_gui_input.bind(full_index))
+
+
+## Keeps one space clear between a hard-truncated label and its value.
+##
+## `NoggWindow.add_row` gives the value its natural width and the label's clip the rest, with no
+## separation, so a long name ran straight into its value: "Oracle of AgesT2 NEXT", "Mage
+## DragonCMD ACTIVE". Widening the value's own box by a space, right-aligned, takes that space
+## from the label's clip without changing either string. Shared by every hex HUD list window;
+## call once per built row.
+static func spaceValueColumn(row: Control) -> void:
+	if row == null or row.get_child_count() < 2:
+		return
+	var value := row.get_child(1) as Label
+	if value == null or value.text.is_empty():
+		return
+	var font := value.get_theme_font("font")
+	if font == null:
+		return
+	var gap := font.get_string_size(
+		" ", HORIZONTAL_ALIGNMENT_LEFT, -1, value.get_theme_font_size("font_size")).x
+	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value.custom_minimum_size.x = value.get_minimum_size().x + gap
 
 
 func _on_row_gui_input(event: InputEvent, full_index: int) -> void:

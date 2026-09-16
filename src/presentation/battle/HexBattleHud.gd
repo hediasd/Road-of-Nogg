@@ -636,6 +636,9 @@ func refresh() -> void:
 		if model != _partyModel:
 			_partyModel = model
 			partyPanel.updateModel(model)
+	if commandMenu != null and not _commandModel.is_empty():
+		commandMenu.visible = commandMenu.plateCount() > 0 and not statusSheet.isOpen() \
+			and not _combatFeedbackPlaying()
 	if orderPanel != null:
 		orderPanel.updateModel(partyOrderModel(state, _display))
 	_refreshReadout()
@@ -646,6 +649,16 @@ func refresh() -> void:
 		else:
 			statusSheet.refresh(sheetFacts)
 	_syncEffectInfo()
+
+
+## Whether a hit, cast, heal or removal is queued or playing on the screen.
+##
+## The command menu steps aside while one is, so it never covers the impact, the number and the
+## unit taking it. Movement has no feedback payload, so a move keeps the menu.
+func _combatFeedbackPlaying() -> bool:
+	if _display == null or not _display.has_method("pendingFeedbackPayloadCount"):
+		return false
+	return int(_display.pendingFeedbackPayloadCount()) > 0
 
 
 ## Pointing at an effect on the readout explains it above the readout; pointing at `+N` lists what

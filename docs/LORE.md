@@ -96,3 +96,11 @@ Because Ascension is fueled by external belief, any creature—no matter how hum
 - **Turn Flow**: Skirmishes are tactical 4v4 grid battles. Combatants act in a "Round Queue" dictated by their Speed (highest acts first). Ties in speed are resolved deterministically.
 - **Actions**: During a turn, an entity may move orthogonally and then choose to perform a Basic Attack (melee), cast a Spell (utilizing elements, range, and area of effect), or Wait.
 - **Damage**: Physical clashes follow a deterministic baseline: `max(1, attacker.ATK + action_power - target.DEF)`. This raw force is then modified by elemental affinities, passive abilities, and statuses.
+
+---
+
+## Open Questions
+
+Threads deliberately left unresolved, rejected ideas worth remembering, and notes to revisit.
+
+- **Refrain (ICE spell):** Three readings were proposed — (A) a Round-Queue deferral where the target is made to hold, not stunned; (B) a deterministic replay of a prior action; (C) a party-wide anti-status chorus. The Lorekeeper favours A, housed in the Safeguard style beside Measure, possibly originating from the Still Emptiness. The creator deferred the ruling — the spell's real effect will be decided in a future session. *(Raised 2026-09-13)*

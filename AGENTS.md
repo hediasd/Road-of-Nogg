@@ -363,6 +363,11 @@ There is no automated test suite, check runner, or git hooks. Verify changes by
 launching the game manually and exercising the affected behavior; follow the
 Windows safeguards in `docs/DEVELOPMENT.md`.
 
+- For a non-interactive Godot code check on this Windows host, run
+  `./Godot_v4.4-stable_win64.exe --headless --disable-crash-handler --path . --quit-after 5 --rendering-method gl_compatibility --audio-driver Dummy`.
+  Do not start, close, or automate an interactive Godot window for that check;
+  the user owns interactive playtesting.
+
 **The tree you launch can contain concurrent sessions' in-flight edits.** That
 requires careful attribution, not serialization:
 

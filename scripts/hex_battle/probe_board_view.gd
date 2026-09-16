@@ -188,9 +188,9 @@ func _checkSurfaceMeshNormals(layout: HexBattleLayout) -> void:
 			"a top-fan normal is not straight up: %s" % normal)
 
 
-## HexBattleBoardView builds one pick-able surface per valid cell, none for a
-## masked hole, carries the picking contract on each surface's pick body, and
-## rebuilding/clearing never leaks or duplicates nodes.
+## HexBattleBoardView builds one compact slab plus one pick-able surface per valid cell, none for a
+## masked hole, carries the picking contract on each surface's pick body, and rebuilding/clearing
+## never leaks or duplicates nodes.
 ##
 ## Production clear() detaches and queue_free()s its children, which is the
 ## right call inside a running game but leaves orphaned nodes pending
@@ -202,10 +202,11 @@ func _checkBoardViewLifecycleAndMetadata(map: BattleMapDefinition) -> void:
 	var view: HexBattleBoardView = HexBattleBoardViewScript.new()
 	view.build(map)
 
-	var expectedCount: int = map.validCells().size()
+	var expectedCount: int = map.validCells().size() + 1
 	_require(view.get_child_count() == expectedCount,
-		"board view built %d children for %d valid cells" %
+		"board view built %d children, expected %d surfaces plus one slab" %
 		[view.get_child_count(), expectedCount])
+	_require(view.boardSlab() != null, "board view did not build its compact slab")
 
 	var hole := Vector2i(1, 1)
 	_require(not map.containsCell(hole), "fixture map hole is unexpectedly valid")
