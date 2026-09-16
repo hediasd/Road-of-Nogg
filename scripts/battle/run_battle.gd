@@ -33,6 +33,7 @@ const ConsoleVisualAdapterScript = preload("res://src/presentation/ConsoleVisual
 const RecordAdapterScript = preload("res://src/presentation/BattleRecordAdapter.gd")
 const BattleOutputPathsScript = preload("res://src/presentation/BattleOutputPaths.gd")
 const BattlePartyScript = preload("res://src/entities/BattleParty.gd")
+const SideDeliberationScript = preload("res://src/entity_ai/PartyCommandDeliberation.gd")
 
 const DEFAULT_SEED := 42
 const MAX_ROUNDS := 30
@@ -120,7 +121,10 @@ static func run(
 	# Announces the starting board to both adapters before the loop opens -- the same call
 	# `HexBattleController` makes, so a recorded battle and a played one begin identically.
 	sim.emitInitialBoard()
-	var winner: int = sim.runFullBattle(MAX_ROUNDS)
+	var sideRun := _runCpuSides(sim, MAX_ROUNDS)
+	if not sideRun.get("ok", false):
+		return sideRun
+	var winner := int(sideRun["winner"])
 
 	var line: String = recorder.recordLine(scenario)
 	if not recordPath.is_empty():
@@ -144,4 +148,58 @@ static func run(
 		"decisions": int(outcome.get("decisions", 0)),
 		"scenario_id": str(scenario.scenarioID),
 		"seed": seedValue,
+		"side_turns": int(sideRun["side_turns"]),
+		"mean_side_deliberation_ms": float(sideRun["mean_side_deliberation_ms"]),
+		"max_side_deliberation_ms": float(sideRun["max_side_deliberation_ms"]),
+	}
+
+
+static func _runCpuSides(sim: BattleSimulator, maxRounds: int) -> Dictionary:
+	sim.startBattle()
+	var sideTimes: Array[float] = []
+	while sim.state.battleOutcome == -1:
+		if (
+			sim.state.roundCount >= maxRounds
+			and sim.state.activeSideID == -1
+			and sim.state.pendingSideIDs.is_empty()
+		):
+			sim.state.add_event("round_end", -1, -1, {"round": sim.state.roundCount})
+			sim.events.round_ended.emit(sim.state.roundCount)
+			break
+		var opened := sim.startNextSideTurn("headless_cpu")
+		if not opened["success"]:
+			if opened["reason"] in ["battle_ended", "round_complete"]:
+				continue
+			return {"ok": false, "error": "could not open CPU side: %s" % opened["reason"]}
+		var deliberationUsec := 0
+		while sim.state.activeSideID != -1 and sim.state.battleOutcome == -1:
+			var started := Time.get_ticks_usec()
+			var proposal = SideDeliberationScript.new(sim).run(32)
+			deliberationUsec += Time.get_ticks_usec() - started
+			if proposal == null:
+				var ended := sim.endSideTurn("cpu_no_proposal")
+				if not ended["success"]:
+					return {"ok": false, "error": "CPU side stalled: %s" % ended["reason"]}
+				break
+			var selection := sim.selectUnit(proposal.actor_id, "headless_cpu")
+			if not selection["success"]:
+				return {"ok": false, "error": "CPU selected invalid unit: %s" % selection["reason"]}
+			var result := sim.executeCommand(proposal.actor_id, proposal.command, "headless_cpu")
+			if not result.success:
+				return {"ok": false, "error": "CPU command rejected: %s" % result.reason}
+		sideTimes.append(float(deliberationUsec) / 1000.0)
+	if sim.state.battleOutcome == -1:
+		sim.state.battleOutcome = sim._determineWinnerByNumbers()
+		sim.events.battle_ended.emit(sim.state.battleOutcome)
+	var total := 0.0
+	var maximum := 0.0
+	for elapsed: float in sideTimes:
+		total += elapsed
+		maximum = maxf(maximum, elapsed)
+	return {
+		"ok": true,
+		"winner": sim.state.battleOutcome,
+		"side_turns": sideTimes.size(),
+		"mean_side_deliberation_ms": total / float(maxi(1, sideTimes.size())),
+		"max_side_deliberation_ms": maximum,
 	}

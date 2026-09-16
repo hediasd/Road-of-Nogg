@@ -57,6 +57,9 @@ func _init() -> void:
 	var endReasons: Dictionary = {}
 	var totalRounds := 0
 	var totalDecisions := 0
+	var totalSideTurns := 0
+	var totalSideDeliberationMsec := 0.0
+	var maxSideDeliberationMsec := 0.0
 	var startedAt := Time.get_ticks_msec()
 
 	for offset in range(count):
@@ -85,6 +88,11 @@ func _init() -> void:
 		endReasons[endReason] = int(endReasons.get(endReason, 0)) + 1
 		totalRounds += int(result["rounds"])
 		totalDecisions += int(result["decisions"])
+		totalSideTurns += int(result["side_turns"])
+		totalSideDeliberationMsec += float(result["mean_side_deliberation_ms"]) \
+			* float(result["side_turns"])
+		maxSideDeliberationMsec = maxf(
+			maxSideDeliberationMsec, float(result["max_side_deliberation_ms"]))
 		battles.append({
 			"seed": seedValue,
 			"winner_team": winnerTeam,
@@ -92,6 +100,9 @@ func _init() -> void:
 			"end_reason": endReason,
 			"rounds": int(result["rounds"]),
 			"decisions": int(result["decisions"]),
+			"side_turns": int(result["side_turns"]),
+			"mean_side_deliberation_ms": float(result["mean_side_deliberation_ms"]),
+			"max_side_deliberation_ms": float(result["max_side_deliberation_ms"]),
 			"elapsed_ms": Time.get_ticks_msec() - battleStarted,
 		})
 		print("seed %d -> %s by %s in %d round(s)" % [
@@ -111,6 +122,8 @@ func _init() -> void:
 		"distinct_outcomes": winners.size(),
 		"mean_rounds": float(totalRounds) / float(count),
 		"mean_decisions": float(totalDecisions) / float(count),
+		"mean_side_deliberation_ms": totalSideDeliberationMsec / float(maxi(1, totalSideTurns)),
+		"max_side_deliberation_ms": maxSideDeliberationMsec,
 		"elapsed_ms": elapsed,
 		"battles": battles,
 	}

@@ -303,8 +303,10 @@ surface, obstacle, and intervening-unit tops. `DirectDamageRules` owns the
 110/100/90-percent elevation arithmetic used by real attacks, spells, and pure
 CPU estimates; healing, ticks, and reflected damage do not call it.
 
-`BattleCommandEvaluator` builds one context per CPU decision and enumerates
-legal target positions from every reachable destination. Area spells score all
+`BattleCommandEvaluator` builds one context per CPU decision. Side-turn
+deliberation considers the origin plus the nine reachable cells closest to an
+enemy, rather than rescanning a whole influence map for every unit choice.
+Area spells score all
 units affected around each center; centers with the same affected-unit outcome
 are deduplicated. Empty attacks and casts with no useful affected-unit outcome
 remain legal candidates but score one point below Wait at the same destination.
@@ -313,6 +315,20 @@ destination, action/spell identity, and center coordinate. Projected-occupancy
 queries treat the actor as having vacated its origin and reached the candidate
 destination, so validation, scoring, and later execution see the same board.
 Brain subclasses provide weights rather than separate legality formulas.
+
+`PartyCommandDeliberation` now plans one action for the active side despite its
+legacy filename. Each time the side needs an actor it cheaply ranks ready units:
+an injured side raises Support above Mage, Tactical, and Berserk; otherwise
+Mage leads, followed by Tactical, Berserk, and Support, with missing-HP urgency
+and deterministic monster ID breaking ties. It deliberates only that unit's
+command, and callers construct a fresh planner after resolution, so the next
+choice sees the new board. The command search never scans spells from moved
+destinations because side-turn magic is pre-move only. Headless runners repeat
+this cycle synchronously; the interactive controller advances the same planner
+in bounded slices before applying the result on the main thread. This policy
+trades exhaustive safety scoring for bounded side time: action damage, utility,
+contact distance, and deterministic ties remain, while the full `ThreatMap`
+continues to exist for focused tactical queries rather than every command scan.
 
 ## Player interaction and cursor
 

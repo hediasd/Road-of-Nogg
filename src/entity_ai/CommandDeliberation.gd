@@ -32,6 +32,9 @@ extends RefCounted
 
 const ThreatMapScript = preload("res://src/algorithms/ThreatMap.gd")
 const StateRevisionScript = preload("res://src/entity_ai/StateRevision.gd")
+const HexGridScript = preload("res://src/board/HexGrid.gd")
+
+const MAX_SIDE_DESTINATIONS := 10
 
 enum Phase { SETUP, THREAT, CANDIDATES, FINISHED }
 
@@ -205,15 +208,19 @@ func _stepSetup() -> void:
 	for candidateID in _state.getAliveMonsterIDs():
 		if _state.getMonster(candidateID).team != _actor.team:
 			_enemyPositions.append(_state.getMonsterPosition(candidateID))
+	_limitSideDestinations()
 
 	for spellSetIndex in range(_actor.spellSets.size()):
 		for spellIndex in range(_actor.spellSets[spellSetIndex].size()):
 			_spellSlots.append([spellSetIndex, spellIndex])
 
-	_threat = ThreatMapScript.beginMap(_state)
-	_threatEnemies = ThreatMapScript.threateningEnemies(_state, _actor.team)
+	# Side turns re-plan after every unit resolves. Building a complete influence
+	# map for every one of those choices dominated total side time; the compact
+	# side policy uses contact distance and action outcomes instead.
+	_threat = {}
+	_threatEnemies = []
 	_threatCursor = 0
-	_phase = Phase.THREAT
+	_phase = Phase.CANDIDATES
 
 
 func _stepThreat() -> void:
@@ -247,6 +254,12 @@ func _stepCandidates() -> void:
 			return
 		_emitWaitAndAttacks(destination)
 	else:
+		# Side-turn magic is pre-move only. Scanning every spell from every
+		# destination used most of the deliberation budget to build commands the
+		# simulator must reject or reduce to Wait.
+		if destination != _origin:
+			_advanceDestination()
+			return
 		var slot: Array = _spellSlots[_subTask - 1]
 		_emitSpell(destination, int(slot[0]), int(slot[1]))
 
@@ -273,6 +286,32 @@ func _pathTo(destination: Vector2i) -> Array:
 		cursor = _predecessors[cursor]
 	reversed.reverse()
 	return reversed
+
+
+func _limitSideDestinations() -> void:
+	if _destinations.size() <= MAX_SIDE_DESTINATIONS:
+		return
+	_destinations.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		if a == _origin and b == _origin:
+			return false
+		if a == _origin:
+			return true
+		if b == _origin:
+			return false
+		var distanceA := _nearestEnemyDistance(a)
+		var distanceB := _nearestEnemyDistance(b)
+		if distanceA != distanceB:
+			return distanceA < distanceB
+		return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+	_destinations = _destinations.slice(0, MAX_SIDE_DESTINATIONS)
+
+
+func _nearestEnemyDistance(position: Vector2i) -> int:
+	var result := 999
+	for enemyPosition: Vector2i in _enemyPositions:
+		result = mini(result, HexGridScript.distance(position, enemyPosition))
+	return result
 
 
 func _emitWaitAndAttacks(destination: Vector2i) -> void:

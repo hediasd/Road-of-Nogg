@@ -1,7 +1,7 @@
-## Resumable, deterministic choice of an eligible party member and command.
+## Resumable, deterministic choice of a ready side unit and command.
 ##
 ## This object only reads the canonical simulator. The owner submits the final
-## actor through selectPartyMember() and the command through executeCommand().
+## actor through selectUnit() and the command through executeCommand().
 ## A changed canonical state revision makes the whole proposal stale; callers
 ## discard it and construct a fresh deliberation from the simulator.
 
@@ -13,7 +13,7 @@ const StateRevisionScript = preload("res://src/entity_ai/StateRevision.gd")
 
 var _simulator
 var _stateRevision: String
-var _eligibleMemberIDs: Array[int] = []
+var _eligibleUnitIDs: Array[int] = []
 var _memberCursor: int = 0
 var _memberDeliberation: CommandDeliberation
 var _bestActorID: int = -1
@@ -29,10 +29,14 @@ var _proposal
 func _init(simulator) -> void:
 	_simulator = simulator
 	_stateRevision = StateRevisionScript.capture(simulator.state)
-	for memberID in simulator.eligiblePartyMemberIDs():
-		_eligibleMemberIDs.append(int(memberID))
-	_eligibleMemberIDs.sort()
-	if _eligibleMemberIDs.is_empty():
+	for monsterID in simulator.eligibleSideUnitIDs():
+		_eligibleUnitIDs.append(int(monsterID))
+	_eligibleUnitIDs.sort_custom(func(a: int, b: int) -> bool:
+		var priorityA := _unitPriority(a)
+		var priorityB := _unitPriority(b)
+		return a < b if priorityA == priorityB else priorityA > priorityB
+	)
+	if _eligibleUnitIDs.is_empty():
 		_finished = true
 
 
@@ -45,7 +49,11 @@ func isStale() -> bool:
 
 
 func eligibleMemberIDs() -> Array[int]:
-	return _eligibleMemberIDs.duplicate()
+	return _eligibleUnitIDs.duplicate()
+
+
+func eligibleUnitIDs() -> Array[int]:
+	return _eligibleUnitIDs.duplicate()
 
 
 ## Advances a deterministic count of CommandDeliberation cursor slices.
@@ -86,10 +94,10 @@ func workSliceCount() -> int:
 
 func _advanceOne() -> void:
 	if _memberDeliberation == null:
-		if _memberCursor >= _eligibleMemberIDs.size():
+		if _memberCursor >= _eligibleUnitIDs.size():
 			_finish()
 			return
-		var memberID := _eligibleMemberIDs[_memberCursor]
+		var memberID := _eligibleUnitIDs[_memberCursor]
 		var brain = _simulator.brains.get(memberID)
 		if brain == null:
 			_memberCursor += 1
@@ -101,7 +109,7 @@ func _advanceOne() -> void:
 	## can interleave with the synchronous inner slice.
 	if not _memberDeliberation.stepSlices(1, false):
 		return
-	var actorID := _eligibleMemberIDs[_memberCursor]
+	var actorID := _eligibleUnitIDs[_memberCursor]
 	_candidateCount += _memberDeliberation.candidateCount()
 	if not _memberDeliberation.isStale():
 		var score := _memberDeliberation.resultScore()
@@ -111,14 +119,14 @@ func _advanceOne() -> void:
 			_bestCommand = _memberDeliberation.result().duplicate_command()
 	_memberDeliberation = null
 	_memberCursor += 1
-	if _memberCursor >= _eligibleMemberIDs.size():
-		_finish()
+	_finish()
 
 
 func _finish() -> void:
 	_finished = true
 	if _bestActorID == -1 or _bestCommand == null:
 		return
+	_bestCommand = _simulator._sideLegalCommand(_bestCommand)
 	_proposal = ProposalScript.new(
 		_bestActorID,
 		_bestCommand,
@@ -127,3 +135,32 @@ func _finish() -> void:
 		_candidateCount,
 		_workSliceCount
 	)
+
+
+func _unitPriority(monsterID: int) -> int:
+	var monster: Monster = _simulator.state.getMonster(monsterID)
+	if monster == null:
+		return -2147483648
+	var brain = _simulator.brains.get(monsterID)
+	var role := str(brain.get_script().resource_path.get_file().get_basename()) \
+		if brain != null else ""
+	var priority: int = {
+		"SupportBrain": 120,
+		"MageBrain": 220,
+		"TacticalBrain": 180,
+		"BerserkBrain": 160,
+	}.get(role, 100)
+	if role == "SupportBrain" and _sideHasInjuredAlly(monster.team):
+		priority += 180
+	if monster.max_hitpoints > 0:
+		priority += int(round(50.0 * float(monster.max_hitpoints - monster.hitpoints) \
+			/ float(monster.max_hitpoints)))
+	return priority
+
+
+func _sideHasInjuredAlly(sideID: int) -> bool:
+	for allyIDValue in _simulator.state.teamRosters.get(sideID, []):
+		var ally: Monster = _simulator.state.getMonster(int(allyIDValue))
+		if ally != null and ally.is_alive() and ally.hitpoints < ally.max_hitpoints:
+			return true
+	return false

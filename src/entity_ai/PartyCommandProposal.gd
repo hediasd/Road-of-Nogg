@@ -1,4 +1,4 @@
-## Read-only result of one complete party-member deliberation.
+## Read-only result of choosing one ready unit and its complete command.
 
 class_name PartyCommandProposal
 extends RefCounted

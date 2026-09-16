@@ -23,9 +23,9 @@ var workload: Dictionary = {}
 func _init() -> void:
 	workload = _loadWorkload()
 	_checkRoleWeights()
-	_checkPartyProposals(false)
-	_checkPartyProposals(true)
-	_checkPartyExhaustion()
+	_checkSideProposals(false)
+	_checkSideProposals(true)
+	_checkSideExhaustion()
 	_checkStaleProposal()
 	_checkThreatGeometry()
 	_checkAreaThreats()
@@ -82,9 +82,15 @@ func _simulator(stress: bool = false) -> BattleSimulator:
 			for _copy in range(copies - 1):
 				actor.spellSets.append_array(originalSets.duplicate(true))
 	simulator.startBattle()
-	var opened := simulator.startNextPartyActivation("probe")
-	_require(opened["success"] and opened["party_id"] == 20,
-		"CPU party 20 was not first in the probe")
+	var opened := simulator.startNextSideTurn("probe")
+	_require(opened["success"] and opened["side_id"] == 1,
+		"player side was not first in the probe")
+	if opened["success"]:
+		_require(simulator.endSideTurn("probe_setup")["success"],
+			"probe could not consume the player side")
+	opened = simulator.startNextSideTurn("probe")
+	_require(opened["success"] and opened["side_id"] == 2,
+		"CPU side 2 did not open")
 	return simulator
 
 
@@ -108,7 +114,7 @@ func _checkRoleWeights() -> void:
 			"role weights changed for %s" % role)
 
 
-func _checkPartyProposals(stress: bool) -> void:
+func _checkSideProposals(stress: bool) -> void:
 	var simulator := _simulator(stress)
 	if simulator == null:
 		return
@@ -122,7 +128,7 @@ func _checkPartyProposals(stress: bool) -> void:
 		var deliberation = PartyDeliberationScript.new(simulator)
 		var proposal = deliberation.run(int(sliceValue))
 		elapsedUsec = Time.get_ticks_usec() - started
-		_require(proposal != null, "party deliberation returned no proposal")
+		_require(proposal != null, "side deliberation returned no proposal")
 		if proposal == null:
 			continue
 		var key := "%d:%s" % [proposal.actor_id,
@@ -140,27 +146,27 @@ func _checkPartyProposals(stress: bool) -> void:
 				"slice size changed deterministic work count")
 		_require(proposal.isCurrent(simulator.state), "fresh proposal was marked stale")
 	var after := BattleSimulatorScript._canonicalJSON(simulator.state.serialize_state())
-	_require(before == after, "party planning mutated authoritative state or RNG")
+	_require(before == after, "side planning mutated authoritative state or RNG")
 	_require(referenceCandidates >= int(workload.get("minimum_small_candidates", 2)),
-		"party planning produced too few candidates")
+		"side planning produced too few candidates")
 	print("AI_WORKLOAD %s candidates=%d slices=%d usec=%d" % [
 		"stress" if stress else "small", referenceCandidates, referenceWork, elapsedUsec])
 
 
-func _checkPartyExhaustion() -> void:
+func _checkSideExhaustion() -> void:
 	var simulator := _simulator()
 	if simulator == null:
 		return
-	var expected := simulator.eligiblePartyMemberIDs()
+	var expected := simulator.eligibleSideUnitIDs()
 	var resolved: Array[int] = []
-	while simulator.state.activePartyID == 20:
+	while simulator.state.activeSideID == 2:
 		var proposal = PartyDeliberationScript.new(simulator).run(7)
-		_require(proposal != null, "active CPU party produced no proposal")
+		_require(proposal != null, "active CPU side produced no proposal")
 		if proposal == null:
 			break
 		_require(expected.has(proposal.actor_id) and not resolved.has(proposal.actor_id),
-			"party planner selected an ineligible or spent member")
-		var selection := simulator.selectPartyMember(proposal.actor_id, "cpu_probe")
+			"side planner selected an ineligible or spent unit")
+		var selection := simulator.selectUnit(proposal.actor_id, "cpu_probe")
 		_require(selection["success"], "canonical member selection rejected CPU proposal")
 		if not selection["success"]:
 			break
@@ -176,7 +182,7 @@ func _checkPartyExhaustion() -> void:
 	resolved.sort()
 	expected.sort()
 	_require(resolved == expected,
-		"eligible CPU members did not all act/pass: %s vs %s" % [resolved, expected])
+		"eligible CPU units did not all act/pass: %s vs %s" % [resolved, expected])
 
 
 func _checkStaleProposal() -> void:
