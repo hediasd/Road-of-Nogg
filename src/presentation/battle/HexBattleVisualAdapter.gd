@@ -145,6 +145,7 @@ var _hoveredID := -1
 var _selectedID := -1
 var _selectionRing: MeshInstance3D
 var _selectionTween: Tween
+var _selectionEntrance: Tween
 
 
 func _init(root: Node3D, map: BattleMapDefinition, state: BattleState = null) -> void:
@@ -289,7 +290,9 @@ func setHoveredUnit(monsterID: int) -> void:
 ## The selection cue: a breathing ring on the selected unit's own cell, distinct from the hover rim
 ## so one unit can carry both at once.
 func setSelectedUnit(monsterID: int) -> void:
+	# Selecting the same unit again replays the entrance, so every click gets the same answer.
 	if monsterID == _selectedID and _selectionRing != null and is_instance_valid(_selectionRing):
+		_playSelectionEntrance()
 		return
 	_clearSelectionRing()
 	_selectedID = monsterID if _models.has(monsterID) else -1
@@ -363,10 +366,7 @@ func _buildSelectionRing() -> MeshInstance3D:
 func _animateSelectionRing() -> void:
 	var ring := _selectionRing
 	var material := ring.material_override as StandardMaterial3D
-	ring.scale = Vector3.ONE * SELECTED_RING_ENTRANCE_SCALE
-	var entrance := ring.create_tween()
-	entrance.tween_property(ring, "scale", Vector3.ONE, SELECTED_RING_ENTRANCE_SECONDS) \
-		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_playSelectionEntrance()
 	var bright := COLOR_SELECTED_RING
 	var dim := COLOR_SELECTED_RING
 	dim.a = COLOR_SELECTED_RING.a * (1.0 - SELECTED_RING_BREATH_ALPHA)
@@ -377,6 +377,16 @@ func _animateSelectionRing() -> void:
 	_selectionTween.tween_property(
 		material, "albedo_color", bright, SELECTED_RING_BREATH_SECONDS * 0.5
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func _playSelectionEntrance() -> void:
+	if _selectionEntrance != null and _selectionEntrance.is_valid():
+		_selectionEntrance.kill()
+	_selectionRing.scale = Vector3.ONE * SELECTED_RING_ENTRANCE_SCALE
+	_selectionEntrance = _selectionRing.create_tween()
+	_selectionEntrance.tween_property(
+		_selectionRing, "scale", Vector3.ONE, SELECTED_RING_ENTRANCE_SECONDS
+	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
 
 func _clearSelectionRing() -> void:

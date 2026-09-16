@@ -73,7 +73,8 @@ func refreshReach() -> void:
 	var reach := ReachQueryScript.forMonster(_sim, _monsterID)
 	_reachable = reach.get("reachable", [])
 	_attackable = reach.get("attackable", [])
-	_adapter.show_movement_options(_reachable, [], _attackable)
+	# Walkable cells only. Painting the attack ring beyond them read as one extra step of movement.
+	_adapter.show_movement_options(_reachable)
 
 
 func reachableCells() -> Array:
