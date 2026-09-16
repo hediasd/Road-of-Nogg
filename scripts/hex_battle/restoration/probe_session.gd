@@ -26,6 +26,7 @@ const BAD_VERSION_PATH := "user://hpr_session_bad_version.json"
 const PAUSE_FRAMES := 90
 const LEDGER_COMMANDS := 10
 const FRAME_LIMIT := 20000
+const SIDE_CUE_SAFE_INSET := 8.0
 
 var failures: Array[String] = []
 var _controller: HexBattleController
@@ -282,7 +283,7 @@ func _scaleOf(effect) -> float:
 	return float(value) if value != null else 0.0
 
 
-## At 1280x720 the session window sits inside the screen and clear of every other HUD window.
+## At 1280x720 the surviving fixed HUD and side-turn cues sit on screen without overlap.
 func _checkSessionLayout() -> void:
 	var hud := _controller.hud
 	var screen := Rect2(Vector2.ZERO, Vector2(SCREEN))
@@ -290,22 +291,22 @@ func _checkSessionLayout() -> void:
 	var drawer := Rect2(
 		Vector2(SCREEN.x + toggle.position.x, toggle.position.y), toggle.size)
 	var boxes := {
-		"party": Rect2(hud.partyPanel.position, hud.partyPanel.windowSize()),
-		"order": Rect2(hud.orderPanel.position, hud.orderPanel.windowSize()),
-		"commands": Rect2(hud.commandMenu.position, hud.commandMenu.windowSize()),
 		"readout": Rect2(hud.readout.position, hud.readout.boxSize()),
+		"banner": Rect2(_controller.sideCues._banner.position, _controller.sideCues._banner.size),
+		"end_turn": Rect2(
+			_controller.sideCues._endButton.position, _controller.sideCues._endButton.size),
 	}
 	for name in boxes:
 		var box: Rect2 = boxes[name]
 		_require(box.size.y > 0.0, "the %s window was not shown on a player's menu" % name)
 		_require(screen.encloses(box), "%s at %s leaves the 1280x720 screen" % [name, box])
-		# Every box keeps clear of the screen edges: docked hard into a corner they read as
-		# falling off it.
-		_require(box.position.x >= NoggTheme.HEX_SCREEN_MARGIN - 0.5
-				and box.position.y >= NoggTheme.HEX_SCREEN_MARGIN - 0.5
-				and box.end.x <= SCREEN.x - NoggTheme.HEX_SCREEN_MARGIN + 0.5
-				and box.end.y <= SCREEN.y - NoggTheme.HEX_SCREEN_MARGIN + 0.5,
-			"%s at %s sits inside the HUD's own screen margin" % [name, box])
+		# Side-turn cues deliberately use a tighter screen-edge inset than the retired
+		# edge-docked party and order windows. They still need enough air not to read clipped.
+		_require(box.position.x >= SIDE_CUE_SAFE_INSET - 0.5
+				and box.position.y >= SIDE_CUE_SAFE_INSET - 0.5
+				and box.end.x <= SCREEN.x - SIDE_CUE_SAFE_INSET + 0.5
+				and box.end.y <= SCREEN.y - SIDE_CUE_SAFE_INSET + 0.5,
+			"%s at %s leaves the side-turn safe inset" % [name, box])
 		_require(not drawer.intersects(box),
 			"the debug drawer's toggle overlaps %s at 1280x720" % name)
 	for name in boxes:
@@ -331,13 +332,11 @@ func _liveEffects(feedback) -> Array:
 func _checkPlayerPause() -> void:
 	if not _start(PLAYER_SCENARIO):
 		return
-	_controller.hud.partyPanel._window.row_built.connect(
-		func(row: Control, index: int): _panelRows[index] = row)
 	if not await _awaitPlayerParty():
 		_require(false, "no player activation opened")
 		return
 	await _frames(1)
-	_clickRow(_panelRows.get(1))
+	_pushKey(KEY_TAB)
 	await _frames(2)
 	if _controller.memberInput == null:
 		_require(false, "no member turn opened")
@@ -349,19 +348,19 @@ func _checkPlayerPause() -> void:
 	_controller.stage.graphicsPanel.session_command.emit(SessionPanelScript.PAUSE)
 	await _frames(2)
 	var before := _fingerprint()
-	_controller.hud.command_chosen.emit("move")
+	_controller.sideCues.action_requested.emit("wait")
 	_pushKey(KEY_ENTER)
 	_pushKey(KEY_RIGHT)
-	_controller.hud.end_party_requested.emit()
-	_controller.hud.member_selected.emit(int(_controller.sim.state.parties[
-		int(_controller.sim.state.activePartyID)].memberIDs[1]))
+	_controller.sideCues._endButton._onPressed()
+	_controller.sideCues._endButton._onPressed()
+	var ready := _controller.sim.eligibleSideUnitIDs()
+	if ready.size() > 1:
+		_controller._onHudMemberSelected(int(ready[1]))
 	await _frames(2)
 	_require(_fingerprint() == before, "a paused player battle accepted a command")
 	_require(input.phase() == HexBattleMemberInput.Phase.MENU, "a paused menu entered an aim")
-	_require(not bool(_controller.hud._partyModel.get("input_enabled", true)),
-		"the party panel offered selection while paused")
-	_require(not bool(_controller.hud._lockedCommands(_controller.hud._commandModel)
-		.get("input_enabled", true)), "the command menu offered commands while paused")
+	_require(_controller.memberTurn != null,
+		"paused side-turn input replaced or closed the selected unit")
 
 	# The camera and inspection still work.
 	var yawBefore: Transform3D = _controller.battleCamera.camera.global_transform
@@ -375,7 +374,7 @@ func _checkPlayerPause() -> void:
 
 	_pushKey(KEY_P)
 	await _frames(2)
-	_controller.hud.command_chosen.emit("move")
+	_pushKey(KEY_RIGHT)
 	await _frames(1)
 	_require(input.phase() == HexBattleMemberInput.Phase.AIM_MOVE, "commands did not return on resume")
 	await _frames(2)
@@ -483,7 +482,7 @@ func _ledgerRun(speed: float, pauseMidway: bool) -> Dictionary:
 			_controller.togglePause()
 	var ledger := []
 	for entry in _controller.sim.state.history:
-		if str(entry.get("type", "")) == "command" and ledger.size() < LEDGER_COMMANDS:
+		if str(entry.get("type", "")) == "unit_action" and ledger.size() < LEDGER_COMMANDS:
 			ledger.append(entry)
 	return {"ledger": ledger, "frames": frames}
 
@@ -499,7 +498,7 @@ func _checkRepeatedTransitions() -> void:
 		if cycle == 1:
 			# Start over a battle whose playback is mid-flight.
 			_require(_controller.adapter.isAnimationBusy() or _controller._deliberation != null
-				or _controller.sim.state.activePartyID != -1, "cycle 2 had nothing in flight to replace")
+				or _controller.sim.state.activeSideID != -1, "cycle 2 had nothing in flight to replace")
 			_start(CPU_SCENARIO)
 			await _frames(40)
 		var live := _battleNodeCounts()
@@ -554,7 +553,7 @@ func _commandCount() -> int:
 		return 0
 	var count := 0
 	for entry in _controller.sim.state.history:
-		if str(entry.get("type", "")) == "command":
+		if str(entry.get("type", "")) == "unit_action":
 			count += 1
 	return count
 
@@ -563,10 +562,9 @@ func _awaitPlayerParty() -> bool:
 	for _frame in range(FRAME_LIMIT):
 		await process_frame
 		var sim := _controller.sim
-		if sim == null or sim.state.activePartyID == -1 or not _controller.playback.isIdle():
+		if sim == null or sim.state.activeSideID == -1 or not _controller.playback.isIdle():
 			continue
-		var party = sim.state.parties.get(int(sim.state.activePartyID))
-		if party != null and party.controller == "player":
+		if _controller._sideController(int(sim.state.activeSideID)) == "player":
 			return true
 	return false
 
@@ -580,7 +578,7 @@ func _fingerprint() -> String:
 		"cursor": str(input.cursorCell()) if input != null else "",
 		"owner": _controller.playback.owner(),
 		"member": _controller.memberTurn.monsterID() if _controller.memberTurn != null else -1,
-		"party": _controller.sim.state.activePartyID,
+		"side": _controller.sim.state.activeSideID,
 	})
 
 

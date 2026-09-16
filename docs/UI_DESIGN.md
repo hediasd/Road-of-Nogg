@@ -858,6 +858,41 @@ animated across a rebuild.
 
 ## 6. Input model
 
+### Hex battle side-turn input
+
+The hex battle is board-first. A side turn does not open a party panel or a
+command rail: the player clicks any ready friendly unit, and the board shows
+that unit's movement contour plus a four-icon action arc. Selecting another
+ready friendly switches units without discarding a pending move. A spent
+friendly or any enemy is inspection-only unless the selected unit can legally
+attack that enemy.
+
+A left click resolves once, in this order:
+
+1. GUI controls consume their own click.
+2. A ready friendly is selected or switched to.
+3. With a unit selected, a reachable empty cell moves there immediately.
+4. A legally attackable enemy is attacked immediately.
+5. Every other unit click inspects; unreachable empty ground has no gameplay
+   effect.
+
+Right drag remains camera pan. A right tap cancels the current aim, or clears
+the current unit selection when no aim is open. This distance distinction is
+why a pan can never also cancel, move, or attack. The STATUS sheet remains
+modal, and inspection never mutates battle state.
+
+Keyboard parity follows the same state rather than recreating the removed
+rail: `Tab` / `Shift+Tab` cycle ready units; an arrow key starts movement aim
+when necessary and steps the board cursor; `1` Magic, `2` Item, `3` Status,
+and `4` Wait activate the icon-arc actions; `Enter` or `Space` confirms an
+aim; `Escape` cancels it. Magic opens the one retained list surface: a short
+spell list in `HexCommandMenu`. Mouse hover and arrows still drive one cursor,
+so confirmation cannot disagree with the visible cell.
+
+The remainder of this section describes the list-driven battle surfaces that
+still use `ActionRow` and `PlayerCommandMenu`; those are not the hex side-turn
+root surface.
+
 Keyboard and mouse are both first-class, and they resolve to the same state:
 **the selection is the only selection truth.** Mouse hover does not "preview"
 a different selection than the keyboard's — it *moves the selection*. This is
@@ -1011,6 +1046,25 @@ the two columns slide across each other.
 ## 8. Window taxonomy
 
 Every game window, its dock, and its size.
+
+### Hex battle side-turn windows
+
+The hex battle intentionally has no party panel, round-order panel, persistent
+command rail, or prompt box. Parties remain simulation/data groupings; they
+are not a player-facing turn boundary. The permanent player-facing chrome is
+the inspected-unit readout, the top-centre `Your turn` / `Enemy turn` banner,
+and the bottom-right End turn control. The End turn label includes the ready
+unit count and changes to a confirmation question when units remain, so a
+separate "whose units are left" panel would repeat the same fact. The round
+number is omitted from the game HUD because it does not change a side-turn
+decision; it remains available in the developer session drawer.
+
+The unit-anchored icon arc and target forecasts are projected cues rather than
+docked windows. The spell list is conditional and is the reduced surviving
+use of `HexCommandMenu`; it closes as soon as a spell enters aim. The STATUS
+sheet and developer Graphics drawer keep their existing responsibilities.
+Legacy party/order/prompt nodes remain hidden compatibility objects for their
+narrow component probes and are not part of the visible side-turn layout.
 
 **Widths are measured, not chosen, and live in `WindowSkinCatalog` as
 per-skin design units**: `COMMAND_WIDTH`, `SPELL_WIDTH`, `PROMPT_WIDTH`,

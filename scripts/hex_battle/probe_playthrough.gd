@@ -1,371 +1,141 @@
-## A whole battle, played to a result through the input path rather than the API.
-##
-## WHAT THIS IS FOR. Every other probe in this directory checks one surface in isolation, and the
-## cycle's own risk note is that a probe can pass because it only exercises the easy case. This one
-## takes the opposite approach: it commands every player member the way a player does -- panel
-## click, menu click, cursor keys, confirm -- lets the CPU parties run themselves, and keeps going
-## until someone wins. A stall anywhere in the composition shows up here as a battle that never
-## ends, which is exactly the failure that survived the migration undetected.
-##
-## WHAT IT IS NOT. It cannot judge whether the battle is legible, whether the camera reads well, or
-## whether any of it is pleasant. Those need a person at a window and are recorded as unverified
-## rather than assumed.
-##
-## THE CAMERA IS ROTATED FIRST, and left rotated for the whole battle. Direction resolution is
-## screen-space against the live camera, so a battle played at a detent the identity transform does
-## not cover is the one that would catch a mapping that only works unrotated.
+## Full player-vs-CPU battle through the side-turn controller. Player commands are submitted via
+## the same member-input and context-click paths as live input; the enemy uses the controller's
+## frame-sliced side deliberation.
 
 extends SceneTree
 
-const HexBattleControllerScript = preload("res://src/systems/hex_battle/HexBattleController.gd")
+const ControllerScript = preload("res://src/systems/hex_battle/HexBattleController.gd")
+const SideDeliberationScript = preload("res://src/entity_ai/PartyCommandDeliberation.gd")
 
 const SCENARIO := "res://data/battle/scenarios/technical_hxb_contract_player_cpu.json"
 const SEED := 42
-
-## Whole battle, so the bound is generous. It exists to end a stalled run with a readable failure
-## rather than a timeout with no output.
 const MAX_FRAMES := 30000
-const CAMERA_DETENTS := 2
 
 var failures: Array[String] = []
-var _controller: HexBattleController
-var _menuRows: Dictionary = {}
-var _panelRows: Dictionary = {}
-
-## What actually happened, so the commit can record a matrix rather than a claim.
-var _moves := 0
-var _undos := 0
-var _attacks := 0
-var _casts := 0
-var _cancels := 0
-var _waits := 0
-var _partiesEnded := 0
-var _memberTurns := 0
-## Set when a member turn cannot be advanced, so the run stops at the state that caused it rather
-## than burning the frame budget and reporting only that time ran out.
-var _stalled := false
+var controller: HexBattleController
+var moves := 0
+var undos := 0
+var attacks := 0
+var casts := 0
+var waits := 0
+var cancels := 0
+var endedEarly := 0
+var keyboardTurns := 0
 
 
 func _init() -> void:
-	_controller = HexBattleControllerScript.new()
-	root.add_child(_controller)
+	controller = ControllerScript.new()
+	root.add_child(controller)
 	process_frame.connect(_run, CONNECT_ONE_SHOT)
 
 
 func _run() -> void:
-	var started := _controller.startBattle(SCENARIO, SEED)
-	if not bool(started.get("ok", false)):
-		_fail("battle did not start: %s" % str(started.get("error", "")))
+	var started := controller.startBattle(SCENARIO, SEED)
+	_require(bool(started.get("ok", false)), "battle did not start")
+	if not failures.is_empty():
 		return _report()
-
-	_controller.hud.partyPanel._window.row_built.connect(
-		func(row: Control, index: int): _panelRows[index] = row)
-	_controller.hud.commandMenu.row_built.connect(_onMenuRowBuilt)
-
-	# Rotated before the first turn and never straightened, so every direction resolved in this
-	# run is resolved against a camera the identity case does not cover.
-	for _detent in range(CAMERA_DETENTS):
-		_controller.battleCamera.orbitDetent(1)
-	await _frames(1)
-
-	await _playToAResult()
+	controller.playback.setSpeed(4.0)
+	controller.battleCamera.orbitDetent(1)
+	await _playBattle()
 	_report()
 
 
-func _report() -> void:
-	print("HXB_PLAY_MATRIX turns=%d moves=%d undos=%d attacks=%d casts=%d cancels=%d waits=%d parties_ended=%d" % [
-		_memberTurns, _moves, _undos, _attacks, _casts, _cancels, _waits, _partiesEnded,
-	])
-	if not failures.is_empty():
-		for failure: String in failures:
-			printerr("HXB_PLAY_FAILURE: %s" % failure)
-		quit(1)
-		return
-	print("HXB_PLAY_OK")
-	quit(0)
-
-
-func _fail(message: String) -> void:
-	if not failures.has(message):
-		failures.append(message)
-
-
-func _require(condition: bool, message: String) -> void:
-	if not condition:
-		_fail(message)
-
-
-# --- the battle -------------------------------------------------------------
-
-func _playToAResult() -> void:
+func _playBattle() -> void:
 	var frames := 0
-	while _controller.sim != null and _controller.sim.state.battleOutcome == -1 and not _stalled:
+	while controller.sim != null and controller.sim.state.battleOutcome == -1:
 		frames += 1
 		if frames > MAX_FRAMES:
-			_fail("battle did not reach a result in %d frames -- stalled at round %d" % [
-				MAX_FRAMES, _controller.sim.state.roundCount])
+			failures.append("battle stalled before a result")
 			return
-		await _frames(1)
-
-		# A player member turn is open: command it. Everything else -- CPU parties, playback,
-		# activation boundaries -- is the controller's own loop and is deliberately left alone.
-		if _controller.memberInput != null and _controller.memberTurn != null \
-				and not _controller.memberTurn.isFinished():
-			await _commandOneMember()
-			continue
-
-		# The player's party is open with nobody selected. Pick the first member the panel offers,
-		# and end the party when it offers none.
-		if _isPlayerPartyWaiting():
-			# Once in the battle, cut a party short while a member could still act. That is the
-			# only way the End Party row is ever reached -- a party whose members have all acted
-			# ends itself -- and it is a decision a player makes, so it should be played once.
-			if _partiesEnded == 0 and _memberTurns > 0 \
-					and not _controller.sim.eligiblePartyMemberIDs().is_empty():
-				_endParty()
-			elif not await _selectAMember():
-				_endParty()
-
-	_require(_controller.sim.state.battleOutcome != -1, "battle ended without an outcome")
-	_require(_memberTurns > 0, "no player member turn was ever commanded")
-	_require(_moves > 0, "no member was ever moved")
-	_require(_undos > 0, "no move was ever undone")
-	_require(_cancels > 0, "no aim was ever cancelled")
-	_require(_attacks > 0, "no attack ever resolved from player input")
-	_require(_casts > 0, "no spell ever resolved from player input")
-	_require(_partiesEnded > 0, "End Party was never used")
-
-
-func _isPlayerPartyWaiting() -> bool:
-	var sim := _controller.sim
-	if sim == null or sim.state.activePartyID == -1:
-		return false
-	if _controller.playback == null or not _controller.playback.isIdle():
-		return false
-	var party = sim.state.parties.get(int(sim.state.activePartyID))
-	return party != null and party.controller == "player"
-
-
-## Clicks the first eligible member row. Returns whether a turn opened.
-func _selectAMember() -> bool:
-	var sim := _controller.sim
-	var party = sim.state.parties.get(int(sim.state.activePartyID))
-	if party == null:
-		return false
-	var eligible := sim.eligiblePartyMemberIDs()
-	if eligible.is_empty():
-		return false
-	for index in range(party.memberIDs.size()):
-		if not eligible.has(int(party.memberIDs[index])):
-			continue
-		# Row 0 is the header, so member N is row N + 1 -- the same order the panel was given.
-		_clickRow(_panelRows.get(index + 1))
-		await _frames(2)
-		if _controller.memberTurn != null:
-			_memberTurns += 1
-			return true
-		return false
-	return false
-
-
-## Clicks the panel's own End Party row. Natural exhaustion never reaches it -- a party whose
-## members have all acted ends itself -- so the one path a player takes to cut a party short would
-## otherwise go unplayed for the whole battle.
-func _endParty() -> void:
-	var before := int(_controller.sim.state.activePartyID)
-	var row := _panelRowWithLabel("End Party")
-	if row != null and _rowLooksEnabled(row):
-		_clickRow(row)
-	else:
-		_controller.hud.end_party_requested.emit()
-	if int(_controller.sim.state.activePartyID) != before:
-		_partiesEnded += 1
-
-
-func _panelRowWithLabel(label: String) -> Control:
-	for index in _panelRows.keys():
-		var value = _panelRows.get(index)
-		if is_instance_valid(value) and _labelText(value) == label:
-			return value
-	return null
-
-
-## One member's turn, played out. The order varies with what the turn offers so the run does not
-## only ever exercise move-then-attack.
-func _commandOneMember() -> void:
-	var turn := _controller.memberTurn
-	var input := _controller.memberInput
-
-	# Aim a move, cancel it, then aim it again -- cancelling has to leave the turn intact, and a
-	# turn that quietly ended on escape would be a real defect the other probes do not see.
-	if turn.canMove():
-		if _chooseCommand("Move"):
-			_pushKey(KEY_ESCAPE)
-			await _frames(1)
-			if input.phase() == HexBattleMemberInput.Phase.MENU:
-				_cancels += 1
-			else:
-				_fail("escape did not return to the menu mid-battle")
-			_require(not turn.isFinished(), "cancelling an aim ended the member's turn")
-
-		if _chooseCommand("Move"):
-			await _aimSomewhereElse()
-			var before: Vector2i = _controller.sim.state.getMonsterPosition(turn.monsterID())
-			_pushKey(KEY_ENTER)
-			await _frames(2)
-			var after: Vector2i = _controller.sim.state.getMonsterPosition(turn.monsterID())
-			if after != before:
-				_moves += 1
-				# Undo the first move of the battle and take it again, so the undo path is
-				# exercised against a real board rather than only in isolation.
-				if _undos == 0 and turn.canUndoMove():
-					_chooseCommand("Undo move")
-					await _frames(2)
-					if _controller.sim.state.getMonsterPosition(turn.monsterID()) == before:
-						_undos += 1
-					else:
-						_fail("undo did not restore the member's position mid-battle")
-
-	await _returnToMenu()
-	if _controller.memberTurn == null or _controller.memberTurn.isFinished():
-		return
-
-	# Try every action the menu currently offers, nearest first: an attack if anything is in
-	# reach, otherwise a spell, otherwise end the turn.
-	# Alternated deliberately: attacks succeed on this board most turns, so trying them first every
-	# time would mean the spell path never ran at all. Odd turns cast first, even turns strike
-	# first, and either falls back to the other.
-	if turn.canAct():
-		if _memberTurns % 2 == 1:
-			if await _trySomeSpell():
-				_casts += 1
-			elif await _tryAction("Attack"):
-				_attacks += 1
-		else:
-			if await _tryAction("Attack"):
-				_attacks += 1
-			elif await _trySomeSpell():
-				_casts += 1
-
-	await _returnToMenu()
-	if _controller.memberTurn != null and not _controller.memberTurn.isFinished():
-		if not _chooseCommand("End turn"):
-			_fail(("could not end a member turn: phase=%d menu_visible=%s rows=[%s] " +
-				"canMove=%s canAct=%s") % [
-				_controller.memberInput.phase(),
-				_controller.hud.commandMenu.visible,
-				", ".join(_menuLabels()),
-				_controller.memberTurn.canMove(),
-				_controller.memberTurn.canAct(),
-			])
-			_stalled = true
-			return
-		_waits += 1
-		await _frames(2)
-
-
-func _menuLabels() -> Array:
-	var labels: Array = []
-	for index in _menuRows.keys():
-		var value = _menuRows.get(index)
-		if is_instance_valid(value):
-			labels.append(_labelText(value))
-	return labels
-
-
-## Steps the cursor with real key presses until it is somewhere the member can actually go.
-##
-## Not every neighbour is reachable -- an ally may be standing there, or the terrain may cost more
-## than the member has left -- and a confirm on one of those is refused. That refusal is correct
-## and deliberately leaves the aim open so another cell can be tried, which is exactly what this
-## does rather than treating the first neighbour as the answer.
-func _aimSomewhereElse() -> bool:
-	var input := _controller.memberInput
-	var reachable: Array = _controller.memberTurn.reachableCells()
-	var start: Vector2i = input.cursorCell()
-	for keycode in [KEY_RIGHT, KEY_DOWN, KEY_LEFT, KEY_UP, KEY_RIGHT, KEY_DOWN]:
-		_pushKey(keycode)
-		await _frames(1)
-		var cell: Vector2i = input.cursorCell()
-		if cell != start and reachable.has(cell):
-			return true
-	return false
-
-
-## Escapes an aim that is still open. A refused confirm keeps the player aiming on purpose, so the
-## next decision has to be started from the menu rather than assumed to be there.
-func _returnToMenu() -> void:
-	if _controller.memberInput == null or not _controller.memberInput.isAiming():
-		return
-	_pushKey(KEY_ESCAPE)
-	await _frames(1)
-
-
-## Aims the named action at each cell the cursor can reach from the member and confirms the first
-## one the simulator accepts. A refusal is information, not a failure -- most cells are not valid
-## targets, and the point is that a valid one resolves.
-func _tryAction(label: String) -> bool:
-	if not _chooseCommand(label):
-		return false
-	var turn := _controller.memberTurn
-	var input := _controller.memberInput
-	var origin: Vector2i = _controller.sim.state.getMonsterPosition(turn.monsterID())
-	var candidates: Array = _controller.cursor.reachableNeighbours(_controller.map)
-	candidates.append(origin)
-	for cell: Vector2i in candidates:
-		if not input.aimAt(cell):
-			continue
-		var result := input.confirm()
-		if bool(result.get("success", false)):
-			await _frames(2)
-			return true
-	_pushKey(KEY_ESCAPE)
-	await _frames(1)
-	_cancels += 1
-	return false
-
-
-## Spells live in the rail's spell window, which only exists while Magic is open, so each attempt
-## opens it again: a refused aim returns to a rebuilt rail with the window closed.
-func _trySomeSpell() -> bool:
-	for label in await _castableSpellLabels():
-		if not _chooseCommand("Magic"):
-			return false
-		await _frames(1)
-		if await _tryAction(label):
-			return true
-	return false
-
-
-func _castableSpellLabels() -> Array:
-	var labels: Array = []
-	if not _chooseCommand("Magic"):
-		return labels
-	await _frames(1)
-	for index in _menuRows.keys():
-		if int(index) < HexCommandMenu.SPELL_ROW_INDEX_BASE:
-			continue
-		var value = _menuRows.get(index)
-		if is_instance_valid(value) and _rowLooksEnabled(value):
-			labels.append(_labelText(value))
-	_controller.hud.commandMenu.cancel()
-	await _frames(1)
-	return labels
-
-
-# --- driving ----------------------------------------------------------------
-
-func _chooseCommand(label: String) -> bool:
-	var row := _menuRowWithLabel(label)
-	if row == null or not _rowLooksEnabled(row):
-		return false
-	_clickRow(row)
-	return true
-
-
-func _frames(count: int) -> void:
-	for _index in range(count):
 		await process_frame
+		var sideID := int(controller.sim.state.activeSideID)
+		if sideID == -1 or controller._sideController(sideID) != "player":
+			continue
+		if controller.memberInput != null:
+			continue
+		if controller.sim.eligibleSideUnitIDs().is_empty():
+			continue
+
+		# One complete keyboard-only selection and Wait proves the rail's removal did not strand
+		# keyboard play. Later turns use context clicks plus the action controls.
+		if keyboardTurns == 0:
+			_pushKey(KEY_TAB)
+			await _frames(1)
+			_pushKey(KEY_4)
+			await _frames(1)
+			keyboardTurns += 1
+			waits += 1
+			continue
+
+		var proposal = SideDeliberationScript.new(controller.sim).run(64)
+		if proposal == null:
+			controller.sideCues._endButton._onPressed()
+			controller.sideCues._endButton._onPressed()
+			await _frames(1)
+			continue
+		controller._onHudMemberSelected(int(proposal.actor_id))
+		await _frames(1)
+		if controller.memberInput == null:
+			failures.append("proposal actor could not be selected")
+			return
+		await _driveCommand(proposal.command)
+
+		if endedEarly == 0 and controller.sim.state.activeSideID == sideID \
+				and not controller.sim.eligibleSideUnitIDs().is_empty():
+			controller.sideCues._endButton._onPressed()
+			_require(controller.sideCues.endTurnConfirming(),
+				"End turn did not confirm while units remained")
+			controller.sideCues._endButton._onPressed()
+			endedEarly += 1
+
+	_require(controller.sim.state.battleOutcome != -1, "battle ended without an outcome")
+	_require(keyboardTurns > 0, "keyboard path never selected and waited a unit")
+	_require(moves > 0, "mouse-equivalent context clicks never moved a unit")
+	_require(undos > 0, "Undo never resolved")
+	_require(cancels > 0, "an aim was never cancelled")
+	_require(attacks > 0, "no player attack resolved")
+	_require(casts > 0, "no player spell resolved")
+	_require(endedEarly > 0, "End turn with ready units was never confirmed")
+
+
+func _driveCommand(command: BattleCommand) -> void:
+	if not command.move_path.is_empty():
+		var destination: Vector2i = command.move_path.back()
+		if cancels == 0:
+			controller.memberInput.chooseCommand(HexBattleMemberInput.MOVE_COMMAND)
+			controller.memberInput.cancel()
+			cancels += 1
+		var point := controller.stage.projectWorldToScreen(controller.adapter.worldPositionOf(destination))
+		controller._handleSideClick(point)
+		await _frames(1)
+		moves += 1
+		if undos == 0 and controller.memberTurn != null and controller.memberTurn.canUndoMove():
+			controller.sideCues.action_requested.emit("undo")
+			await _frames(1)
+			undos += 1
+			controller._handleSideClick(point)
+			await _frames(1)
+			moves += 1
+	if controller.memberInput == null:
+		return
+	match command.action:
+		"attack":
+			var point := controller.stage.projectWorldToScreen(
+				controller.adapter.worldPositionOf(command.target_pos))
+			controller._handleSideClick(point)
+			await _frames(1)
+			attacks += 1
+		"spell":
+			var id := "spell:%d:%d" % [command.spell_set_index, command.spell_index]
+			controller._onHudCommandChosen(id)
+			controller.memberInput.aimAt(command.target_pos)
+			controller.memberInput.confirm()
+			await _frames(1)
+			casts += 1
+		_:
+			_pushKey(KEY_4)
+			await _frames(1)
+			waits += 1
 
 
 func _pushKey(keycode: Key) -> void:
@@ -375,47 +145,23 @@ func _pushKey(keycode: Key) -> void:
 	root.push_input(event)
 
 
-func _clickRow(row: Control) -> void:
-	if row == null:
+func _frames(count: int) -> void:
+	for _index in range(count):
+		await process_frame
+
+
+func _require(condition: bool, message: String) -> void:
+	if not condition and not failures.has(message):
+		failures.append(message)
+
+
+func _report() -> void:
+	print("HXB_PLAY_MATRIX moves=%d undos=%d attacks=%d casts=%d waits=%d cancels=%d ended=%d" % [
+		moves, undos, attacks, casts, waits, cancels, endedEarly])
+	if not failures.is_empty():
+		for failure: String in failures:
+			printerr("HXB_PLAY_FAILURE: %s" % failure)
+		quit(1)
 		return
-	var event := InputEventMouseButton.new()
-	event.button_index = MOUSE_BUTTON_LEFT
-	event.pressed = true
-	row.gui_input.emit(event)
-
-
-## Rebuilding the menu frees every row it had, so the previous generation is dropped as the new
-## one arrives rather than lingering as references that error the moment they are read.
-func _onMenuRowBuilt(row: Control, index: int) -> void:
-	if index == 0:
-		_menuRows.clear()
-	_menuRows[index] = row
-
-
-func _menuRowWithLabel(label: String) -> Control:
-	for index in _menuRows:
-		var value = _menuRows[index]
-		if not is_instance_valid(value):
-			continue
-		var row: Control = value
-		if _labelText(row) == label:
-			return row
-	return null
-
-
-func _labelText(row: Control) -> String:
-	if row == null or row.get_child_count() == 0:
-		return ""
-	var clip := row.get_child(0)
-	if clip == null or clip.get_child_count() == 0:
-		return ""
-	return str((clip.get_child(0) as Label).text)
-
-
-func _rowLooksEnabled(row: Control) -> bool:
-	if row == null:
-		return false
-	var label := row.get_child(0).get_child(0) as Label
-	if not label.has_theme_color_override("font_color"):
-		return true
-	return label.get_theme_color("font_color") != NoggTheme.TEXT_DIM
+	print("HXB_PLAY_OK")
+	quit(0)

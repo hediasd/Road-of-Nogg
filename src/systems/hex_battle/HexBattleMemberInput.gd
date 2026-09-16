@@ -1,10 +1,9 @@
 ## What the player is doing inside one member's turn, and how a key or a click becomes a phase
 ## call on the simulator.
 ##
-## THE MENU IS THE HUB. A member turn opens on HBP-2's command menu rather than on a bare cursor,
-## and every aim is entered from it and cancelled back to it. The alternative -- a cursor that is
-## always live and a menu that appears only sometimes -- gives the same input two meanings
-## depending on state the player cannot see, which is the disagreement this item's risk names.
+## THE BOARD IS THE HUB. A ready unit opens with its projected icon arc, direct board clicks resolve
+## obvious move and attack intents, and explicit actions enter one visible aim phase. Cancelling an
+## aim returns to the arc; cancelling at the arc is controller-level deselection.
 ##
 ## ONE CURSOR, AND THE LAST DEVICE TO MOVE IT OWNS IT. Mouse hover and the arrow keys both drive
 ## the same `HexBattleCursor`, so there is exactly one selected cell at any moment and a confirm
@@ -14,9 +13,9 @@
 ## visible cursor and the device in the player's hand disagreeing, which is worse than either
 ## device occasionally moving the other's selection.
 ##
-## PHASE ORDER IS THE SIMULATOR'S. Move and action can happen in either order and this file does
-## not impose one; it asks what is still unspent and offers exactly that. Undo eligibility is read
-## from the simulator's own turn record rather than tracked here.
+## PHASE ORDER IS THE SIMULATOR'S. Acting spends the unit immediately; moving keeps only non-magic
+## actions available, and Undo remains legal until the action is committed. Eligibility comes from
+## the simulator's turn record rather than duplicate input state.
 
 class_name HexBattleMemberInput
 extends RefCounted
@@ -26,7 +25,7 @@ const MOVE_COMMAND := "move"
 const ATTACK_COMMAND := "attack"
 const UNDO_COMMAND := "undo"
 const END_COMMAND := "end"
-## Not a command: the rail's grouping for spell rows. Never passed to `chooseCommand`.
+## Not a command: the icon arc's grouping for the short spell list. Never passed to `chooseCommand`.
 const MAGIC_GROUP := "magic"
 ## Spell rows carry their own coordinates: "spell:<setIndex>:<spellIndex>".
 const SPELL_PREFIX := "spell"
@@ -72,7 +71,7 @@ func isAiming() -> bool:
 	return _phase != Phase.MENU
 
 
-## Opens the turn on the menu.
+## Opens the unit on its action surface.
 func begin() -> void:
 	_toMenu()
 
@@ -106,7 +105,7 @@ func cursorCell() -> Vector2i:
 	return _turn.cursorCell() if _turn != null else Vector2i(-1, -1)
 
 
-# --- menu -------------------------------------------------------------------
+# --- action surface ---------------------------------------------------------
 
 ## The player picked a row. Returns whether the choice was accepted, so a refusal is visible
 ## rather than silent.
@@ -138,9 +137,13 @@ func chooseCommand(commandID: String) -> bool:
 			_toMenu()
 			return true
 		END_COMMAND:
+			var waited := _turn.confirmAction("wait")
+			if not bool(waited.get("success", false)):
+				status_changed.emit("Wait refused: %s" % str(waited.get("reason", "")))
+				return false
 			_turn.finish()
 			menu_dismissed.emit()
-			return true
+			return _turn.isFinished()
 	return false
 
 
@@ -205,9 +208,8 @@ func _confirmAction(kind: String) -> Dictionary:
 	return result
 
 
-## After any accepted phase: close the turn when nothing is left to choose, and otherwise return
-## to the menu offering only what remains. The simulator allows move and action in either order,
-## so this asks what is unspent rather than assuming acting was last.
+## After an accepted move, return to the action surface with Magic crossed out. Any accepted action
+## spends the unit, so the turn closes when the simulator reports no phase remains.
 func _afterPhase() -> void:
 	if _turn.canMove() or _turn.canAct():
 		_toMenu()
@@ -220,6 +222,9 @@ func _afterPhase() -> void:
 
 func _beginSpellAim(commandID: String) -> bool:
 	if not _turn.canAct():
+		return false
+	if bool(_sim.turnPhaseState(_turn.monsterID()).get("has_moved", false)):
+		status_changed.emit("Moved: no magic this turn.")
 		return false
 	var parts := commandID.split(":")
 	if parts.size() != 3:
@@ -312,6 +317,8 @@ func aimModel() -> Dictionary:
 				model["forecast"] = _adapter.forecastAttack(monsterID, cell)
 		Phase.AIM_SPELL:
 			model["kind"] = SPELL_PREFIX
+			model["spell_set_index"] = _spellSetIndex
+			model["spell_index"] = _spellIndex
 			model["legal"] = _sim.combatResolver.canSpellTargetPositionFrom(
 				monsterID, _spellSetIndex, _spellIndex, fromPos, cell)
 			if not model["legal"]:
@@ -323,6 +330,8 @@ func aimModel() -> Dictionary:
 			if _adapter != null and str(model["withheld"]).is_empty():
 				model["forecast"] = _adapter.forecastSpell(
 					monsterID, _spellSetIndex, _spellIndex, cell)
+				model["affected_cells"] = _adapter.previewSpellCells(
+					monsterID, _spellSetIndex, _spellIndex, fromPos, cell)
 	var guard := _turn.phaseGuard()
 	if not bool(guard.get("success", false)):
 		model["legal"] = false
@@ -378,14 +387,14 @@ static func spellDetail(monster, spell) -> String:
 	return "No element"
 
 
-## The model the command rail renders. Every row's `enabled` is an answer from the simulator or the
+## The model the icon arc and short spell list render. Every row's `enabled` is an answer from the simulator or the
 ## monster itself -- what is still unspent, and what the caster can currently afford -- rather
 ## than a rule restated here.
 ##
 ## `reason` is the same answer in words, and is empty exactly when the row is enabled: a disabled
 ## plate the player can focus has to say why, and the one place that knows why is the one that
 ## decided. `hint` says what an enabled row does. Spells arrive nested under one `magic` entry,
-## which is a grouping for the rail rather than a command -- `chooseCommand` never sees it, only the
+## which is a grouping for the spell list rather than a command -- `chooseCommand` never sees it, only the
 ## `spell:<set>:<index>` ids of its children.
 func commandModel() -> Dictionary:
 	if _turn == null or _sim == null:
@@ -395,7 +404,7 @@ func commandModel() -> Dictionary:
 		return {}
 
 	# The phase guard refuses every phase at once (a petrified member), so its reason is what the
-	# rail explains, rather than leaving a plate the simulator would refuse.
+	# action surface explains, rather than leaving an icon the simulator would refuse.
 	var guard := _turn.phaseGuard()
 	var admitted := bool(guard.get("success", false))
 	var guardReason := "" if admitted else "%s: cannot act this turn." % _reasonWord(
@@ -403,6 +412,8 @@ func commandModel() -> Dictionary:
 	var guardDetail := "" if admitted else _reasonWord(str(guard.get("reason", "")))
 	var canMove := admitted and _turn.canMove()
 	var canAct := admitted and _turn.canAct()
+	var moved := bool(_sim.turnPhaseState(_turn.monsterID()).get("has_moved", false))
+	var canCast := canAct and not moved
 
 	var commands: Array = []
 	commands.append({
@@ -427,7 +438,7 @@ func commandModel() -> Dictionary:
 	for setIndex in range(monster.spellSets.size()):
 		for spellIndex in range(monster.spellSets[setIndex].size()):
 			var spell = monster.spellSets[setIndex][spellIndex]
-			var castable: bool = canAct and monster.can_cast(spell)
+			var castable: bool = canCast and monster.can_cast(spell)
 			anyCastable = anyCastable or castable
 			spells.append({
 				"id": "%s:%d:%d" % [SPELL_PREFIX, setIndex, spellIndex],
@@ -444,6 +455,8 @@ func commandModel() -> Dictionary:
 	var magicReason := ""
 	if spells.is_empty():
 		magicReason = "Knows no spells."
+	elif moved:
+		magicReason = "Moved: no magic this turn."
 	elif not canAct:
 		magicReason = "Already acted this turn."
 	elif not anyCastable:
@@ -464,10 +477,10 @@ func commandModel() -> Dictionary:
 		"reason": "" if canUndo else "Nothing to undo.",
 	})
 	commands.append({
-		"id": END_COMMAND, "label": "End turn", "icon": "pass", "enabled": true,
+		"id": END_COMMAND, "label": "Wait", "icon": "pass", "enabled": canAct,
 		"detail": "", "spent": false,
-		"hint": "Finish %s's turn." % str(monster.name),
-		"reason": "",
+		"hint": "Spend %s without attacking." % str(monster.name),
+		"reason": "" if canAct else "Already acted this turn.",
 	})
 
 	return {

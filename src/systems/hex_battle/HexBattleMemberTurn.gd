@@ -1,7 +1,7 @@
 ## One player-controlled member's turn: aim, move, act, and finish.
 ##
 ## REUSES `PlayerTurnController`'S SHAPE, NOT ITS GEOMETRY. The phase structure is the same one
-## that already works -- a movement phase and an action phase, either order, with move undo
+## that already works -- an optional movement phase followed by an action, with move undo
 ## available until something irreversible happens -- because that is the simulator's contract and
 ## not a square-board idea. What is deliberately NOT carried over is the two things in that file
 ## that are square: clamping the cursor to a rectangle, and rotating a direction into one of four
@@ -121,7 +121,8 @@ func pointCursorAt(cell: Vector2i) -> bool:
 ## Read directly from the record because publishing a query for it would mean writing to
 ## `BattleSimulator`, which this item does not claim.
 func canMove() -> bool:
-	return not bool(_turnRecord().get("has_moved", false))
+	var record := _turnRecord()
+	return not bool(record.get("has_moved", false)) and not bool(record.get("has_acted", false))
 
 
 func canAct() -> bool:
@@ -149,10 +150,7 @@ func phaseGuard() -> Dictionary:
 func _turnRecord() -> Dictionary:
 	if _sim == null or _finished:
 		return {}
-	var record: Dictionary = _sim._turnAccumulator
-	if int(record.get("monster_id", -1)) != _monsterID:
-		return {}
-	return record
+	return _sim.turnPhaseState(_monsterID)
 
 
 ## Walks the member to the cursor, if the simulator accepts the path. Returns its result rather
@@ -200,8 +198,10 @@ func confirmAction(
 func finish() -> void:
 	if _finished or _sim == null:
 		return
+	var result = _sim.finishTurn(_monsterID, "player")
+	if not result.success:
+		return
 	_finished = true
-	_sim.finishTurn(_monsterID, "player")
 	_clearOverlays()
 	turn_finished.emit(_monsterID)
 

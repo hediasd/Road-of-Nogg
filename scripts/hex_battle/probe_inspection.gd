@@ -122,13 +122,12 @@ func _checkEveryUnitHasAModel() -> void:
 func _openPlayerTurn() -> bool:
 	for _attempt in range(300):
 		await _frames(1)
-		var partyID := int(_controller.sim.state.activePartyID)
-		if partyID == -1:
+		var sideID := int(_controller.sim.state.activeSideID)
+		if sideID == -1:
 			continue
-		var party = _controller.sim.state.parties.get(partyID)
-		if party == null or party.controller != "player" or not _controller.playback.isIdle():
+		if _controller._sideController(sideID) != "player" or not _controller.playback.isIdle():
 			continue
-		var eligible := _controller.sim.eligiblePartyMemberIDs()
+		var eligible := _controller.sim.eligibleSideUnitIDs()
 		if eligible.is_empty():
 			continue
 		_controller._onHudMemberSelected(int(eligible[0]))
@@ -230,7 +229,8 @@ func _checkSheetIsModal() -> void:
 	_pushKey(KEY_ESCAPE)
 	await _frames(1)
 	_require(not _controller.hud.isModalOpen(), "Escape did not close the sheet")
-	_require(_controller.hud.commandMenu.visible, "the rail did not come back after the sheet closed")
+	_require(not _controller.hud.commandMenu.visible and _controller.sideCues._arc.visible,
+		"closing STATUS did not return to the side-turn action arc")
 
 
 func _otherUnit(except: int) -> int:

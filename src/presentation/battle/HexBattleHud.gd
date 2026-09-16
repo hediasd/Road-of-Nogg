@@ -1,7 +1,8 @@
-## The hex battle's on-screen chrome, composed: the party panel and the round's party order, the
-## command rail, the prompt, the readout of the inspected unit, and the STATUS sheet. The session
-## controls -- pause, speed, skip, restart -- are not here: they live in the battle's debug drawer,
-## because driving playback is not part of playing a battle.
+## The hex battle's retained window chrome: the inspected-unit readout, STATUS sheet and conditional
+## short spell list. Side-turn banner, action arc, forecasts and End turn live in
+## `SideTurnScreenCues`; party/order/prompt/full-rail nodes below are hidden compatibility objects.
+## Session controls -- pause, speed, skip, restart -- live in the battle's debug drawer, because
+## driving playback is not part of playing a battle.
 ##
 ## ONE FRAME. Every box here is a `NoggWindow` under the active skin -- by default the Brigandine
 ## plate frame cut from `assets/ui/briganborders.png` -- and the game theme is applied once, at the
@@ -18,11 +19,9 @@
 ##   Authoritative state (`BattleState`): who may be selected, the round's party order, levels,
 ##   stats, elements and Resonance. Eligibility is the input gate's question and has one owner.
 ##
-## WHERE THINGS LIVE, AND WHY THEY NEVER MOVE:
-##   top-left      party panel, with the round's party order under it
-##   top-right     command rail while a member is choosing; the prompt in the same corner otherwise
-##                 (the two never coexist, so the right edge is always "what to do now")
+## WHERE THE VISIBLE SIDE-TURN WINDOWS LIVE:
 ##   bottom-left   readout of the inspected unit, with effect explanations opening above it
+##   right edge    short spell list, only while choosing Magic
 ##   centre        the STATUS sheet, modal, over a dimming shade
 ##   over units    status icon rows, projected by the adapter at playback time
 ##
@@ -31,9 +30,8 @@
 ## pointer leaves. Nothing here selects a member, moves the cursor, cancels an aim or paints an
 ## overlay.
 ##
-## THERE IS NO TURN ORDER RAIL. Ordinary member speed no longer schedules anything, so the square
-## battle's speed rail would forecast an order that does not exist. `HexPartyOrderPanel` shows the
-## order that does: parties, from `partyOrder` and `pendingPartyIDs`.
+## THERE IS NO VISIBLE TURN-ORDER OR PARTY PANEL. A whole side is active and its ready units may be
+## chosen in any order. The legacy panel builders remain available only to their component probes.
 
 class_name HexBattleHud
 extends CanvasLayer
@@ -103,6 +101,7 @@ var _partyModel: Dictionary = {}
 var _commandModel: Dictionary = {}
 ## True while playback is paused: every row that would issue a command draws disabled.
 var _inputLocked := false
+var _sideTurnMode := false
 
 
 func _init() -> void:
@@ -186,6 +185,36 @@ func bind(sim: BattleSimulator, display) -> void:
 	_display = display
 
 
+## The side-turn layout keeps only inspection, STATUS and the graphics drawer from this HUD.
+## Legacy party/order/prompt/rail nodes remain as compatibility objects for probes and for the
+## short spell picker, but they are not part of the normal screen composition.
+func setSideTurnMode(enabled: bool) -> void:
+	_sideTurnMode = enabled
+	partyPanel.visible = not enabled
+	orderPanel.visible = not enabled
+	prompt.visible = not enabled
+	if enabled:
+		hideCommands()
+	_layout()
+
+
+func showSpellCommands(model: Dictionary) -> void:
+	if model.is_empty():
+		hideCommands()
+		return
+	var spells: Array = []
+	for entry in model.get("commands", []):
+		if str(entry.get("id", "")) == HexCommandMenuScript.MAGIC_GROUP:
+			spells = entry.get("children", [])
+			break
+	showCommands({
+		"input_enabled": bool(model.get("input_enabled", true)),
+		"title": "Magic",
+		"monster_id": int(model.get("monster_id", -1)),
+		"commands": spells,
+	})
+
+
 # --- prompt -------------------------------------------------------------------
 
 ## Sentence-level instruction or refusal. Shown in the rail's corner whenever the rail is not up;
@@ -200,6 +229,9 @@ func statusText() -> String:
 
 
 func _refreshPrompt() -> void:
+	if _sideTurnMode:
+		prompt.hideBox()
+		return
 	if commandMenu.visible or statusSheet.isOpen():
 		prompt.hideBox()
 		return
@@ -218,6 +250,8 @@ func _refreshPrompt() -> void:
 func showParty(
 	sim: BattleSimulator, partyID: int, activeMemberID: int, inputEnabled: bool
 ) -> void:
+	if _sideTurnMode:
+		return
 	if sim == null or partyPanel == null:
 		return
 	if _sim == null:
@@ -639,7 +673,7 @@ func refresh() -> void:
 	if commandMenu != null and not _commandModel.is_empty():
 		commandMenu.visible = commandMenu.plateCount() > 0 and not statusSheet.isOpen() \
 			and not _combatFeedbackPlaying()
-	if orderPanel != null:
+	if orderPanel != null and not _sideTurnMode:
 		orderPanel.updateModel(partyOrderModel(state, _display))
 	_refreshReadout()
 	if statusSheet.isOpen():

@@ -3,6 +3,40 @@
 How the hex battle screen is put together. This file grows as the battle
 presentation settles; sections not written yet belong to later work.
 
+## Side turns and board-first control
+
+The battle simulator opens one whole team side at a time. Any living,
+unspent unit on the active side may be selected; selecting another ready unit
+switches control without erasing the first unit's pending move. A unit may move
+and then use a non-magic action, or act without moving. Acting spends it and
+ends its unit turn. Casting after moving is refused. Undo is available after a
+move and before an action. When the last unit is spent the side ends
+automatically; End turn spends every remaining ready unit as Wait, asking for
+confirmation first when any remain.
+
+The screen mirrors that model instead of exposing parties. `Your turn` and
+`Enemy turn` banners name the active side. Ready friendly units are selected
+directly on the board and receive a movement contour plus a projected action
+arc. Reachable empty ground moves; a legal enemy click attacks; other unit
+clicks inspect. A moved unit keeps Undo, Attack, Item, Status and Wait, with
+Magic crossed out. Magic is the only action that opens a list, using a reduced
+`HexCommandMenu` as a short spell picker; aim then shows a forecast beside
+each affected unit. Spent units darken, and the End turn control reports how
+many units remain ready.
+
+The party panel, party-order panel, full command rail and prompt box are hidden
+in side-turn mode. Parties still group authored content and controllers in
+`BattleState`; they no longer schedule or label the visible turn. The game HUD
+also omits the round number because it does not alter a side-turn choice. The
+developer session drawer retains it for diagnostics.
+
+Mouse and keyboard share the same cursor and phase state. `Tab` and
+`Shift+Tab` cycle ready units; arrow keys enter/step movement aim; `1` Magic,
+`2` Item, `3` Status and `4` Wait activate the action arc; `Enter` or `Space`
+confirms; `Escape` cancels. A right tap cancels aim or selection, while a right
+drag pans the camera and cannot also issue a tactical command. The STATUS
+sheet remains modal, and inspection is read-only.
+
 ## The board over authored terrain
 
 A hex battle draws the map its author painted. The tactical hexes sit on top as
@@ -87,11 +121,13 @@ inspect. Raw mouse deltas are coalesced and applied once per rendered frame;
 high-polling mice must not force the SubViewport camera to rebuild for every
 input packet.
 
-**CPU playback.** CPU deliberation runs as a low-priority worker task, separate
-from the main thread that renders the sky, board, UI and combat effects. The
-worker reads a fixed battle state and returns a command; only the main thread
-may apply it. Pausing prevents application, and returning to setup retires the
-old task so its result cannot enter a restarted battle.
+**CPU playback.** CPU deliberation chooses both the next ready unit and its
+command for the whole active side. It is sliced across presentation frames on
+the main thread, so it never reads mutable canonical state concurrently with
+playback or input. Each accepted command updates the state before a fresh
+deliberation begins for the next unit. Pausing stops those slices, and returning
+to setup retires the deliberation so its result cannot enter a restarted
+battle.
 
 **Backdrop.** The battle retains the animated sky shader's original blue
 gradient, bright clouds, density and speed. The compact slab supplies the

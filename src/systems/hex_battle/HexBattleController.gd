@@ -1,4 +1,4 @@
-## The hex battle's composition root: setup, the party-activation loop, and return to setup.
+## The hex battle's composition root: setup, whole-side turns, and return to setup.
 ##
 ## NOT A SUBCLASS OF `BattlePresentationController`, deliberately and by instruction. That
 ## controller's loop is `turnManager.startNextTurn()` -- a speed-ordered queue of individual
@@ -9,15 +9,15 @@
 ##
 ## THE LOOP, WHOLE:
 ##
-##     startNextPartyActivation()      -- the simulation orders parties and opens one
-##       -> player party:  wait for the player to pick a member, act, repeat
-##       -> CPU party:     deliberate a member, apply, repeat
-##     endPartyActivation()            -- when no member is eligible, or the player says so
+##     startNextSideTurn()             -- deterministic side order
+##       -> player side: click any ready unit, move/act, switch freely, repeat
+##       -> CPU side: re-deliberate one ready unit after every resolution
+##     endSideTurn()                   -- when no unit is ready, or the player confirms
 ##
 ## ONE SCHEDULING OWNER, and it is `HexBattlePlayback`. Every path that could start something --
 ## the frame loop, the playback-drained signal, a HUD click, CPU deliberation finishing -- asks
 ## the gate first and claims it before acting. That is what stops the two failures this item
-## names: a second turn opening on top of an open one, and input reaching a party that has already
+## names: a second turn opening on top of an open one, and input reaching a side that has already
 ## ended.
 ##
 ## EVERY POSITION COMES FROM `HexBattleLayout`, through the adapter. This file computes no
@@ -37,6 +37,9 @@ const HexBattlePlaybackScript = preload("res://src/presentation/battle/HexBattle
 const HexBattleMemberTurnScript = preload("res://src/systems/hex_battle/HexBattleMemberTurn.gd")
 const HexBattleMemberInputScript = preload(
 	"res://src/systems/hex_battle/HexBattleMemberInput.gd")
+const SideTurnScreenCuesScript = preload(
+	"res://src/presentation/battle/ui/side_turn/SideTurnScreenCues.gd")
+const SideDeliberationScript = preload("res://src/entity_ai/PartyCommandDeliberation.gd")
 const BattleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
 const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
@@ -52,10 +55,10 @@ enum Lifecycle { SETUP, BATTLE, ENDING, COMPLETE }
 ## battle that is waiting on playback is not re-evaluated sixty times a second for no reason.
 const ADVANCE_INTERVAL_SECONDS := 0.05
 
-## Fallback frame budget when the worker pool refuses a task. Normal interactive deliberation runs
-## away from the presentation thread; keeping the old resumable path as a refusal fallback avoids
-## stranding an already-selected member without making it the ordinary scheduler again.
-const DELIBERATION_BUDGET_MSEC := 4.0
+## PartyCommandDeliberation already exposes deterministic slices. Four inner slices per rendered
+## frame kept the measured proving-ground maximum comfortably responsive without cross-thread
+## access to mutable battle state.
+const DELIBERATION_SLICES_PER_FRAME := 4
 ## How far, in viewport pixels, a right press may travel and still count as a click.
 const RIGHT_TAP_SLOP := 4.0
 
@@ -69,6 +72,7 @@ var playback: HexBattlePlayback
 var cursor: HexBattleCursor
 var memberTurn: HexBattleMemberTurn
 var memberInput: HexBattleMemberInput
+var sideCues
 
 var lifecycle: Lifecycle = Lifecycle.SETUP
 var map: BattleMapDefinition
@@ -76,14 +80,10 @@ var map: BattleMapDefinition
 var _advanceTimer: Timer
 var _boardRoot: Node3D
 ## Where the current right press started, or (-1, -1). A release within RIGHT_TAP_SLOP of it is a
-## click, which cancels the command menu; anything further was a camera pan.
+## tap, which cancels the current aim or selection; anything further was a camera pan.
 var _rightPressPosition := Vector2(-1.0, -1.0)
-var _deliberation: CommandDeliberation = null
+var _deliberation = null
 var _deliberatingMemberID := -1
-## CPU planning is pure and owns no scene nodes, so it may run on the low-priority worker pool while
-## the main thread renders. Only `_process` consumes the completed result and mutates simulation.
-var _deliberationTaskID := -1
-var _retiredDeliberationTaskIDs: Array[int] = []
 var _scenarioPath := ""
 var _seedValue := 0
 ## The presentation speed the player last chose. Carried into a restart, which is the same battle
@@ -92,6 +92,7 @@ var _speedPreference := HexBattlePlaybackScript.DEFAULT_SPEED
 ## Why the authored terrain is not drawn, for the status line. Empty when it is, or when the map
 ## declares no scene at all.
 var _terrainNotice := ""
+var _lastReadyCount := -1
 
 
 func _ready() -> void:
@@ -122,7 +123,6 @@ func _enterSetup() -> void:
 ## disconnected and freed here -- the failure named for return-to-setup is old callbacks surviving
 ## into the next battle, and the only reliable defence is that nothing survives at all.
 func teardownBattle() -> void:
-	_retireDeliberationTask()
 	_deliberation = null
 	_deliberatingMemberID = -1
 	if memberTurn != null:
@@ -138,6 +138,9 @@ func teardownBattle() -> void:
 	if hud != null:
 		hud.queue_free()
 		hud = null
+	if sideCues != null:
+		sideCues.queue_free()
+		sideCues = null
 	if _boardRoot != null:
 		_boardRoot.queue_free()
 		_boardRoot = null
@@ -150,6 +153,7 @@ func teardownBattle() -> void:
 	sim = null
 	map = null
 	_terrainNotice = ""
+	_lastReadyCount = -1
 
 
 func returnToSetup() -> void:
@@ -256,6 +260,13 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	stage.graphicsPanel.session_command.connect(_onSessionCommand)
 	hud.selection_lost.connect(func(_id: int): _selectUnit(_actingMemberID()))
 	hud.bind(sim, adapter)
+	hud.setSideTurnMode(true)
+
+	sideCues = SideTurnScreenCuesScript.new()
+	add_child(sideCues)
+	sideCues.setProjector(stage.projectWorldToScreen)
+	sideCues.action_requested.connect(_onSideActionRequested)
+	sideCues.end_turn_requested.connect(_onHudEndParty)
 	# Puts a terrain notice, if there is one, on the status line before the battle says anything.
 	_setStatus("")
 
@@ -272,7 +283,7 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 
 # --- the loop ---------------------------------------------------------------
 
-## The only place a party activation or a member turn is started.
+## The only place a side turn or CPU choice is started.
 func _advance() -> void:
 	if sim == null or playback == null:
 		return
@@ -289,151 +300,119 @@ func _advance() -> void:
 	if not playback.canAdvance():
 		return
 
-	# An activation is open: serve whichever kind of party it belongs to.
-	if sim.state.activePartyID != -1:
+	# A side turn is open: serve whichever controller owns that team.
+	if sim.state.activeSideID != -1:
 		_serveOpenActivation()
 		return
 
-	# Nothing open, and the screen has caught up: open the next party. Waiting for a full drain
-	# at the PARTY boundary specifically, so an activation does not begin over the tail of the
-	# previous one's animations.
+	# Nothing open, and the screen has caught up: open the next side.
 	if not playback.isDrained():
 		return
-	var opened := sim.startNextPartyActivation()
+	var opened := sim.startNextSideTurn()
 	if not bool(opened.get("success", false)):
 		if str(opened.get("reason", "")) == "battle_ended":
 			_beginEnding()
 		return
-	_onActivationOpened(int(opened.get("party_id", -1)))
+	_onActivationOpened(int(opened.get("side_id", -1)))
 
 
-func _onActivationOpened(partyID: int) -> void:
-	var party = sim.state.parties.get(partyID)
-	if party == null:
+func _onActivationOpened(sideID: int) -> void:
+	var controller := _sideController(sideID)
+	if controller.is_empty():
 		return
-	if hud != null:
-		hud.showParty(sim, partyID, -1, party.controller == "player")
-		_setStatus(
-			"Your party is up." if party.controller == "player" else "The enemy is moving."
-		)
+	adapter.setSelectedUnit(-1)
+	adapter.setTargetedUnit(-1)
+	if sideCues != null:
+		sideCues.hideActionArc()
+		sideCues.clearForecasts()
+	if sideCues != null:
+		sideCues.showTurnBanner(controller == "player")
+		_lastReadyCount = sim.eligibleSideUnitIDs().size()
+		sideCues.setReadyCount(_lastReadyCount)
+	_syncSpentCues()
+	_setStatus("Your turn." if controller == "player" else "Enemy turn.")
 
 
 func _serveOpenActivation() -> void:
-	var partyID := int(sim.state.activePartyID)
-	var party = sim.state.parties.get(partyID)
-	if party == null:
+	var sideID := int(sim.state.activeSideID)
+	var controller := _sideController(sideID)
+	if controller.is_empty():
 		return
-	var eligible := sim.eligiblePartyMemberIDs()
+	var eligible := sim.eligibleSideUnitIDs()
 	if eligible.is_empty():
-		sim.endPartyActivation("system")
-		if hud != null:
-			hud.clearParty()
+		sim.endSideTurn("system")
 		return
-	if party.controller == "player":
-		# The player's own turn is opened by their click on the panel, not by this loop -- the
-		# gate is claimed there. Nothing to do until they pick.
+	if controller == "player":
 		return
 	_beginCpuMember(int(eligible[0]))
 
 
-## Opens a CPU member's turn and starts its deliberation. The gate is claimed for the whole of it,
-## so nothing else can begin a turn while this one thinks.
-func _beginCpuMember(monsterID: int) -> void:
-	if not playback.claim(HexBattlePlayback.OWNER_CPU, monsterID):
+## Opens one sliced whole-side deliberation. It chooses the actor as well as the command, then a
+## fresh instance is built after resolution so later units see the changed board.
+func _beginCpuMember(_monsterID: int) -> void:
+	if _deliberation != null:
 		return
-	var selected := sim.selectPartyMember(monsterID, "cpu")
-	if not bool(selected.get("success", false)):
-		playback.release(HexBattlePlayback.OWNER_CPU, monsterID)
+	if not playback.claim(HexBattlePlayback.OWNER_CPU):
 		return
-	if hud != null:
-		hud.showParty(sim, int(sim.state.activePartyID), monsterID, false)
-		_selectUnit(monsterID)
-	var deliberation := sim.beginTurnDeliberation(monsterID)
-	if deliberation == null:
-		# Nothing this member can do. Close its turn exactly as the simulator's contract requires
-		# of a caller that gets nothing back.
-		sim.finishTurn(monsterID, "cpu")
-		playback.release(HexBattlePlayback.OWNER_CPU, monsterID)
-		return
-	_deliberation = deliberation
-	_deliberatingMemberID = monsterID
-	# Low priority is deliberate: rendering is the foreground workload. The task only reads the
-	# headless battle model and writes its private deliberation cursor/result.
-	_deliberationTaskID = WorkerThreadPool.add_task(
-		Callable(deliberation, "run"), false, "Hex battle CPU deliberation")
+	_deliberation = SideDeliberationScript.new(sim)
 
 
-## Polling a worker is constant-time. The finished proposal is applied here, on the main thread,
-## which keeps event order, replay history and every scene-tree mutation exactly where they were.
-## A paused battle may finish thinking in the background, but never applies that result until
-## resumed. Retired tasks belong to torn-down battles and are only reaped, never observed.
+## CPU work is sliced on the presentation thread so mutable canonical state is never read from a
+## worker while playback or input can change it. The completed proposal is applied atomically.
 func _process(_delta: float) -> void:
-	_collectRetiredDeliberationTasks()
 	_refreshHud()
 	if _deliberation == null or sim == null:
 		return
 	if playback == null or playback.isPaused():
 		return
-	if _deliberationTaskID >= 0:
-		if not WorkerThreadPool.is_task_completed(_deliberationTaskID):
-			return
-		var taskError := WorkerThreadPool.wait_for_task_completion(_deliberationTaskID)
-		_deliberationTaskID = -1
-		if taskError != OK or not _deliberation.isFinished():
-			push_error("CPU deliberation worker failed; completing this turn with frame slices.")
-			if not _deliberation.step(DELIBERATION_BUDGET_MSEC):
-				return
-	elif not _deliberation.step(DELIBERATION_BUDGET_MSEC):
-		# Worker-pool submission can return an invalid id. The old deterministic scheduler is a
-		# safe fallback for that exceptional path, not the normal rendering path.
+	if not _deliberation.stepSlices(DELIBERATION_SLICES_PER_FRAME):
 		return
-	var monsterID := _deliberatingMemberID
-	var finished := _deliberation
+	var proposal = _deliberation.result()
 	_deliberation = null
-	_deliberatingMemberID = -1
-	sim.applyDeliberatedTurn(monsterID, finished)
-	sim.finishTurn(monsterID, "cpu")
-	playback.release(HexBattlePlayback.OWNER_CPU, monsterID)
-	_checkFinished()
-
-
-## A task from a battle being torn down retains its read-only state until it naturally completes.
-## Dropping the current IDs prevents its result from ever reaching a replacement battle. Waiting
-## here would reintroduce the exact UI freeze this worker boundary exists to remove.
-func _retireDeliberationTask() -> void:
-	if _deliberationTaskID < 0:
+	if proposal == null:
+		sim.endSideTurn("cpu_no_proposal")
+		playback.release(HexBattlePlayback.OWNER_CPU)
 		return
-	_retiredDeliberationTaskIDs.append(_deliberationTaskID)
-	_deliberationTaskID = -1
-
-
-func _collectRetiredDeliberationTasks() -> void:
-	for index in range(_retiredDeliberationTaskIDs.size() - 1, -1, -1):
-		var taskID := _retiredDeliberationTaskIDs[index]
-		if not WorkerThreadPool.is_task_completed(taskID):
-			continue
-		WorkerThreadPool.wait_for_task_completion(taskID)
-		_retiredDeliberationTaskIDs.remove_at(index)
+	_deliberatingMemberID = int(proposal.actor_id)
+	var selected := sim.selectUnit(_deliberatingMemberID, "cpu")
+	if bool(selected.get("success", false)):
+		_selectUnit(_deliberatingMemberID)
+		var executed: BattleCommandResult = sim.executeCommand(
+			_deliberatingMemberID, proposal.command, "cpu")
+		if not executed.success:
+			push_error("CPU side-turn command was refused: %s" % executed.reason)
+			sim.endSideTurn("cpu_command_refused")
+	else:
+		push_error("CPU side-turn actor was refused: %s" % str(selected.get("reason", "unknown")))
+		sim.endSideTurn("cpu_actor_refused")
+	_syncSpentCues()
+	playback.release(HexBattlePlayback.OWNER_CPU)
+	_deliberatingMemberID = -1
+	_checkFinished()
 
 
 # --- player input -----------------------------------------------------------
 
-## The player picked a member. This is where a player member turn is opened, and the only place.
+## Selects or switches to any ready unit on the player's active side. A moved unit can be left and
+## revisited because its pending turn lives in BattleState, not in this input object.
 func _onHudMemberSelected(monsterID: int) -> void:
 	if lifecycle != Lifecycle.BATTLE or sim == null or playback == null:
 		return
 	if _commandsLocked():
 		return
-	if sim.state.activePartyID == -1:
+	if sim.state.activeSideID == -1:
 		return
-	var party = sim.state.parties.get(int(sim.state.activePartyID))
-	if party == null or party.controller != "player":
+	if _sideController(int(sim.state.activeSideID)) != "player":
 		return
-	# Refused rather than queued: a click arriving while CPU deliberation holds the schedule is
-	# input into a party that is not currently the player's to command.
+	if memberTurn != null and not memberTurn.isFinished():
+		var previous := memberTurn.monsterID()
+		memberTurn.cancel()
+		memberTurn = null
+		memberInput = null
+		playback.release(HexBattlePlayback.OWNER_PLAYER, previous)
 	if not playback.claim(HexBattlePlayback.OWNER_PLAYER, monsterID):
 		return
-	var selected := sim.selectPartyMember(monsterID, "player")
+	var selected := sim.selectUnit(monsterID, "player")
 	if not bool(selected.get("success", false)):
 		playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
 		return
@@ -444,22 +423,32 @@ func _onHudMemberSelected(monsterID: int) -> void:
 	memberInput.menu_dismissed.connect(_onMenuDismissed)
 	memberInput.status_changed.connect(_onMemberStatus)
 	memberInput.aim_changed.connect(_onAimChanged)
-	if hud != null:
-		hud.showParty(sim, int(sim.state.activePartyID), monsterID, true)
-		# The member whose turn it is becomes the inspected unit, so the readout and STATUS answer
-		# for them until the player points at someone else.
-		_selectUnit(monsterID)
+	_selectUnit(monsterID)
 	memberInput.begin()
 
 
 func _onMenuChanged(model: Dictionary) -> void:
 	if hud != null:
-		hud.showCommands(model)
+		hud.hideCommands()
+	if sideCues == null or memberTurn == null:
+		return
+	var enabled := {"magic": false, "item": false, "status": true, "wait": true}
+	for entry in model.get("commands", []):
+		var id := str(entry.get("id", ""))
+		if enabled.has(id):
+			enabled[id] = bool(entry.get("enabled", false))
+	var moved := bool(sim.turnPhaseState(memberTurn.monsterID()).get("has_moved", false))
+	var anchor := adapter.worldPositionOf(sim.state.getMonsterPosition(memberTurn.monsterID())) \
+		+ Vector3.UP * 1.35
+	sideCues.showActionArc(anchor, enabled, ["magic"] if moved else [], memberTurn.canUndoMove())
 
 
 func _onMenuDismissed() -> void:
 	if hud != null:
 		hud.hideCommands()
+	if sideCues != null:
+		sideCues.hideActionArc()
+		sideCues.clearForecasts()
 
 
 func _onMemberStatus(text: String) -> void:
@@ -469,6 +458,48 @@ func _onMemberStatus(text: String) -> void:
 func _onAimChanged(model: Dictionary) -> void:
 	if hud != null:
 		hud.showAim(model)
+	if sideCues == null:
+		return
+	sideCues.setAiming(not model.is_empty())
+	adapter.setTargetedUnit(-1)
+	sideCues.clearForecasts()
+	if model.is_empty():
+		return
+	var targetID := int(model.get("target_id", -1))
+	if targetID != -1 and bool(model.get("legal", false)):
+		adapter.setTargetedUnit(targetID)
+	var forecasts: Array = []
+	if str(model.get("kind", "")) == HexBattleMemberInputScript.SPELL_PREFIX:
+		for cellValue in model.get("affected_cells", []):
+			var cell: Vector2i = cellValue
+			var affectedID := int(sim.state.board.at(cell)) if map.containsCell(cell) else 0
+			if affectedID == 0:
+				continue
+			var forecast := adapter.forecastSpell(
+				memberTurn.monsterID(), int(model.get("spell_set_index", 0)),
+				int(model.get("spell_index", 0)), cell)
+			if forecast.is_empty() or not bool(forecast.get("available", false)):
+				continue
+			var affected = sim.state.getMonster(affectedID)
+			forecasts.append({
+				"monster_id": affectedID,
+				"name": str(affected.name) if affected != null else "Target",
+				"world_anchor": adapter.worldPositionOf(cell) + Vector3.UP * 1.2,
+				"forecast": forecast,
+			})
+	else:
+		var forecast: Dictionary = model.get("forecast", {})
+		if targetID != -1 and not forecast.is_empty():
+			var target = sim.state.getMonster(targetID)
+			forecasts.append({
+				"monster_id": targetID,
+				"name": str(target.name) if target != null else "Target",
+				"world_anchor": adapter.worldPositionOf(sim.state.getMonsterPosition(targetID)) \
+					+ Vector3.UP * 1.2,
+				"forecast": forecast,
+			})
+	if not forecasts.is_empty():
+		sideCues.showForecasts(forecasts)
 
 
 func _onHudCommandChosen(commandID: String) -> void:
@@ -481,20 +512,41 @@ func _onHudCommandCancelled() -> void:
 		memberInput.cancel()
 
 
+func _onSideActionRequested(actionID: String) -> void:
+	if memberInput == null or memberTurn == null or _commandsLocked():
+		return
+	match actionID:
+		"magic":
+			if hud != null:
+				hud.showSpellCommands(memberInput.commandModel())
+		"item":
+			_setStatus("Items are not in battle yet.")
+		"status":
+			if hud != null:
+				hud.openStatus(memberTurn.monsterID())
+		"wait":
+			memberInput.chooseCommand(HexBattleMemberInputScript.END_COMMAND)
+		"undo":
+			memberInput.chooseCommand(HexBattleMemberInputScript.UNDO_COMMAND)
+
+
 func _onMemberTurnFinished(monsterID: int) -> void:
 	memberTurn = null
 	memberInput = null
 	if hud != null:
 		hud.hideCommands()
 		hud.showAim({})
+	if sideCues != null:
+		sideCues.hideActionArc()
+		sideCues.clearForecasts()
+	adapter.setTargetedUnit(-1)
 	playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
-	if hud != null and sim != null and sim.state.activePartyID != -1:
-		hud.showParty(sim, int(sim.state.activePartyID), -1, true)
+	_syncSpentCues()
 	_checkFinished()
 
 
-## End Party converts every remaining eligible member's turn into a wait, in the simulator's own
-## deterministic order. The controller does not iterate members itself -- that order is HXB-6's.
+## End turn converts every remaining ready unit into Wait in deterministic ID order. The button
+## owns the first-click confirmation when that list is non-empty.
 func _onHudEndParty() -> void:
 	if lifecycle != Lifecycle.BATTLE or sim == null or playback == null:
 		return
@@ -502,11 +554,21 @@ func _onHudEndParty() -> void:
 		return
 	if not playback.isIdle():
 		return
-	if sim.state.activePartyID == -1:
+	if sim.state.activeSideID == -1:
 		return
-	sim.endPartyActivation("player")
+	if memberTurn != null and not memberTurn.isFinished():
+		var previous := memberTurn.monsterID()
+		memberTurn.cancel()
+		memberTurn = null
+		memberInput = null
+		playback.release(HexBattlePlayback.OWNER_PLAYER, previous)
+	sim.endSideTurn("player")
 	if hud != null:
 		hud.clearParty()
+	if sideCues != null:
+		sideCues.hideActionArc()
+		sideCues.setReadyCount(0)
+	_syncSpentCues()
 	_checkFinished()
 
 
@@ -524,6 +586,11 @@ func _refreshHud() -> void:
 		if adapter != null and adapter.boardView != null:
 			adapter.boardView.clearHover()
 	hud.setInputLocked(_commandsLocked())
+	if sideCues != null and sim.state.activeSideID != -1:
+		var readyCount := sim.eligibleSideUnitIDs().size()
+		if readyCount != _lastReadyCount:
+			_lastReadyCount = readyCount
+			sideCues.setReadyCount(readyCount)
 	if stage != null and stage.graphicsPanel != null:
 		stage.graphicsPanel.setSession(_sessionState())
 	hud.refresh()
@@ -555,23 +622,31 @@ func _unhandled_input(event: InputEvent) -> void:
 		if claimed or event is InputEventMouseButton:
 			get_viewport().set_input_as_handled()
 		return
-	# A right click that never became a pan still cancels the command menu; a right drag pans.
+	# A right click that never became a pan cancels the current aim or selection; a right drag pans.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		if event.pressed:
 			_rightPressPosition = event.position
 		elif _rightPressPosition.x >= 0.0:
 			var tapped: bool = event.position.distance_to(_rightPressPosition) <= RIGHT_TAP_SLOP
 			_rightPressPosition = Vector2(-1.0, -1.0)
-			if tapped and hud != null and hud.commandMenu.visible \
-					and (memberInput == null or not memberInput.isAiming()):
+			if tapped:
 				battleCamera.cancelDrag()
-				hud.commandMenu.cancel()
-				get_viewport().set_input_as_handled()
-				return
+				if memberInput != null and memberInput.isAiming():
+					memberInput.cancel()
+					get_viewport().set_input_as_handled()
+					return
+				if memberTurn != null:
+					_cancelPlayerSelection()
+					get_viewport().set_input_as_handled()
+					return
 	if battleCamera.handleInput(event, get_viewport().get_visible_rect().size.y):
 		_hoverUnit(-1)
 		if adapter != null and adapter.boardView != null:
 			adapter.boardView.clearHover()
+		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_LEFT and _handleSideClick(event.position):
 		get_viewport().set_input_as_handled()
 		return
 	if hud != null:
@@ -603,39 +678,54 @@ func _unhandled_input(event: InputEvent) -> void:
 				battleCamera.orbitDetent(1)
 				get_viewport().set_input_as_handled()
 				return
+			KEY_TAB:
+				if _cycleReadyUnit(-1 if event.shift_pressed else 1):
+					get_viewport().set_input_as_handled()
+					return
 	if lifecycle == Lifecycle.BATTLE:
 		_handleMemberInput(event)
 
 
 ## Input reaches a member turn only while one is open, which is only ever true for the player's
-## own party -- `_onHudMemberSelected` is the single place a turn is opened and it refuses any
-## other party. There is no second condition to re-check here.
+## active side -- `_onHudMemberSelected` is the single place a turn is opened and it refuses every
+## other side. There is no second condition to re-check here.
 func _handleMemberInput(event: InputEvent) -> void:
 	if memberInput == null or memberTurn == null or memberTurn.isFinished():
 		return
 	if _commandsLocked():
 		return
 
-	# At the menu the keyboard drives the command rail: arrows move its focus, Enter carries out
-	# the focused plate, Escape closes an open spell window. Only while aiming do the same keys
-	# step the board cursor and confirm.
-	if event is InputEventKey and event.pressed and not memberInput.isAiming():
-		if hud != null and hud.handleKey(event):
-			get_viewport().set_input_as_handled()
-		return
-
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
-			KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
-				memberInput.confirm()
+			KEY_1:
+				_onSideActionRequested("magic")
 				get_viewport().set_input_as_handled()
 				return
+			KEY_2:
+				_onSideActionRequested("item")
+				get_viewport().set_input_as_handled()
+				return
+			KEY_3:
+				_onSideActionRequested("status")
+				get_viewport().set_input_as_handled()
+				return
+			KEY_4:
+				_onSideActionRequested("wait")
+				get_viewport().set_input_as_handled()
+				return
+			KEY_ENTER, KEY_KP_ENTER, KEY_SPACE:
+				if memberInput.isAiming():
+					memberInput.confirm()
+					get_viewport().set_input_as_handled()
+					return
 			KEY_ESCAPE:
 				if memberInput.cancel():
 					get_viewport().set_input_as_handled()
 				return
 		var direction := _directionFor(event.keycode)
 		if direction != Vector2.ZERO:
+			if not memberInput.isAiming() and memberTurn.canMove():
+				memberInput.chooseCommand(HexBattleMemberInputScript.MOVE_COMMAND)
 			if memberInput.aimDirection(direction, _projectCell):
 				get_viewport().set_input_as_handled()
 			return
@@ -659,6 +749,101 @@ func _handleMemberInput(event: InputEvent) -> void:
 		memberInput.aimAt(clicked)
 		memberInput.confirm()
 		get_viewport().set_input_as_handled()
+
+
+## Context resolves a left click once: ready friendly selects/switches, legal empty ground moves,
+## a legal enemy is attacked, and every other unit click is inspection only.
+func _handleSideClick(point: Vector2) -> bool:
+	if sim == null or playback == null or _commandsLocked() or sim.state.activeSideID == -1:
+		return false
+	if _sideController(int(sim.state.activeSideID)) != "player":
+		return false
+	if memberInput != null and memberInput.isAiming():
+		return false
+	var picked := _unitUnderPointer(point)
+	if picked != -1:
+		var pickedMonster = sim.state.getMonster(picked)
+		if pickedMonster != null and pickedMonster.team == sim.state.activeSideID:
+			if sim.eligibleSideUnitIDs().has(picked):
+				_onHudMemberSelected(picked)
+			else:
+				_selectUnit(picked)
+			return true
+	if memberTurn == null or memberInput == null:
+		if picked != -1:
+			_selectUnit(picked)
+			return true
+		return false
+	var cell := _cellAtPoint(point)
+	if cell.x < 0:
+		return false
+	if picked != -1:
+		if sim.combatResolver.canBasicAttackPositionFrom(
+				memberTurn.monsterID(), sim.state.getMonsterPosition(memberTurn.monsterID()), cell):
+			memberInput.chooseCommand(HexBattleMemberInputScript.ATTACK_COMMAND)
+			memberInput.aimAt(cell)
+			memberInput.confirm()
+		else:
+			_selectUnit(picked)
+		return true
+	if memberTurn.canMove() and memberTurn.reachableCells().has(cell):
+		memberInput.chooseCommand(HexBattleMemberInputScript.MOVE_COMMAND)
+		memberInput.aimAt(cell)
+		memberInput.confirm()
+		return true
+	return true
+
+
+func _cancelPlayerSelection() -> void:
+	if memberTurn == null:
+		return
+	var monsterID := memberTurn.monsterID()
+	memberTurn.cancel()
+	memberTurn = null
+	memberInput = null
+	playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
+	adapter.setSelectedUnit(-1)
+	adapter.setTargetedUnit(-1)
+	if hud != null:
+		hud.hideCommands()
+		hud.showAim({})
+	if sideCues != null:
+		sideCues.hideActionArc()
+		sideCues.clearForecasts()
+
+
+func _cycleReadyUnit(direction: int) -> bool:
+	if sim == null or sim.state.activeSideID == -1 \
+			or _sideController(int(sim.state.activeSideID)) != "player":
+		return false
+	var ready: Array[int] = sim.eligibleSideUnitIDs()
+	if ready.is_empty():
+		return false
+	ready.sort()
+	var current := _actingMemberID()
+	var index := ready.find(current)
+	index = 0 if index < 0 else posmod(index + direction, ready.size())
+	_onHudMemberSelected(ready[index])
+	return memberTurn != null and memberTurn.monsterID() == ready[index]
+
+
+func _sideController(sideID: int) -> String:
+	var controllers: Array[String] = []
+	for partyIDValue in sim.state.teamPartyIDs.get(sideID, []):
+		var party: BattleParty = sim.state.parties.get(int(partyIDValue))
+		if party != null and not controllers.has(str(party.controller)):
+			controllers.append(str(party.controller))
+	if controllers.has("player"):
+		return "player"
+	return controllers[0] if not controllers.is_empty() else ""
+
+
+func _syncSpentCues() -> void:
+	if adapter == null or sim == null:
+		return
+	for idValue in adapter.shownModelIDs():
+		var monsterID := int(idValue)
+		adapter.setUnitSpent(monsterID, sim.state.spentUnitIDs.has(monsterID))
 
 
 ## Screen axes, y growing downward, which is what `HexBattleCursor` resolves against. Arrows and
@@ -765,7 +950,7 @@ func _cellAtPoint(point: Vector2) -> Vector2i:
 
 
 ## Every status line goes through here, so a missing-terrain notice stays on screen under whatever
-## the battle is saying rather than being replaced by the first "Your party is up."
+## the battle is saying rather than being replaced by the first "Your turn."
 func _setStatus(text: String) -> void:
 	if hud == null:
 		return
@@ -851,7 +1036,7 @@ func _canSkip() -> bool:
 
 
 ## Whether commands are refused right now. Paused playback admits no command from any source: no
-## member selection, no menu choice, no aim, no End Party. The camera and inspection still work.
+## member selection, no action choice, no aim, no End turn. The camera and inspection still work.
 func _commandsLocked() -> bool:
 	return playback != null and playback.isPaused()
 
@@ -924,7 +1109,13 @@ func _beginEnding() -> void:
 	if hud != null:
 		hud.clearParty()
 		hud.showAim({})
-		_setStatus("The battle is decided.")
+	if sideCues != null:
+		sideCues.hideActionArc()
+		sideCues.clearForecasts()
+		sideCues.hideTurnBanner()
+	if adapter != null:
+		adapter.setTargetedUnit(-1)
+	_setStatus("The battle is decided.")
 
 
 func _completeBattle() -> void:
