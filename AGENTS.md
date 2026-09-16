@@ -64,6 +64,14 @@ the overwrite hazard.
   `git checkout -- .`, and any `git restore`/`git checkout` without a pathspec.
   To undo your own edit, name your own paths:
   `git restore --source=HEAD -- <your path>`.
+- **Commit working code the moment an item works, and never end a session with
+  uncommitted edits in your owned paths.** If the item is not finished, commit
+  what exists anyway as `wip: <item>` and say what is missing in the body. The
+  working tree is not storage: on 2026-09-16 the hex battle's camera panning,
+  stage and board work turned up in a forgotten stash. It had never been
+  committed, the branch had been merged without it, and `main` looked like it
+  had regressed. The user gave standing authorization on 2026-09-16 for sessions
+  to commit whenever an item's code is developed.
 - **Launching and probes may run while other sessions edit.** Treat their
   result as evidence for the exact revision and owned paths exercised; record
   unrelated in-flight changes that can affect the result, but do not wait for
@@ -84,7 +92,13 @@ the user asks about branch state:
 git branch --no-merged main
 git branch -r --no-merged main
 git worktree list
+git stash list
 ```
+
+- A stash is unmerged work too, and the easiest kind to lose. Report every
+  entry with the branch it names. Never merge or delete a branch while a stash
+  names it: restore that stash onto the branch and commit it first, or ask the
+  user.
 
 - Name every branch the first two commands print, with its unmerged commit
   count, and say what it is. Silence is not a report: when both are empty, say
