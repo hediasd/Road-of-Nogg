@@ -111,6 +111,54 @@ static func createOverlayMaterial(renderPriority: int = 0) -> StandardMaterial3D
 	return material
 
 
+## One wash for every reachable hex and one contour only on the outside edge of their union.
+## Edges are paired from the authored polygons rather than inferred from axial direction, so the
+## contour cannot gap when an odd-column offset or a raised cell changes the local geometry.
+static func createRegionMesh(
+		centers: Dictionary, polygons: Dictionary, washColor: Color,
+		contourColor: Color, contourInset: float
+) -> ArrayMesh:
+	var vertices := PackedVector3Array()
+	var colors := PackedColorArray()
+	var edges: Dictionary = {}
+	for cell in polygons:
+		var center: Vector3 = centers[cell]
+		var polygon: PackedVector3Array = polygons[cell]
+		for index in range(polygon.size()):
+			vertices.append(center)
+			vertices.append(polygon[index])
+			vertices.append(polygon[(index + 1) % polygon.size()])
+			colors.append(washColor)
+			colors.append(washColor)
+			colors.append(washColor)
+			var a := polygon[index]
+			var b := polygon[(index + 1) % polygon.size()]
+			var key := _regionEdgeKey(a, b)
+			if edges.has(key):
+				edges[key]["count"] = int(edges[key]["count"]) + 1
+			else:
+				edges[key] = {"count": 1, "a": a, "b": b, "center": center}
+	for key in edges:
+		var edge: Dictionary = edges[key]
+		if int(edge["count"]) != 1:
+			continue
+		var center: Vector3 = edge["center"]
+		var a: Vector3 = edge["a"]
+		var b: Vector3 = edge["b"]
+		var innerA := a.lerp(center, contourInset)
+		var innerB := b.lerp(center, contourInset)
+		for point: Vector3 in [innerA, a, b, innerA, b, innerB]:
+			vertices.append(point)
+			colors.append(contourColor)
+	return createColoredMesh(vertices, colors)
+
+
+static func _regionEdgeKey(a: Vector3, b: Vector3) -> String:
+	var aKey := "%0.5f,%0.5f,%0.5f" % [a.x, a.y, a.z]
+	var bKey := "%0.5f,%0.5f,%0.5f" % [b.x, b.y, b.z]
+	return "%s|%s" % [aKey, bKey] if aKey < bKey else "%s|%s" % [bKey, aKey]
+
+
 ## A raised, vertex-coloured game board around the painted battlefield. The five matching loops
 ## describe its recessed playfield, inner rise, broad top rim, outer bevel and bottom wall. The mesh
 ## owns no collision: tactical picking stays on the per-cell bodies above it.

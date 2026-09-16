@@ -1413,55 +1413,55 @@ silently does nothing.
 
 ## 10a. Board-space model treatments
 
-Two treatments read *on the models themselves* rather than in a window, both
-as uniforms on `retro_surface.gdshader` that default to inert so nothing
-changes until something opts in.
+The side-turn flow puts availability on the pieces rather than in a party or
+initiative panel:
 
-| Treatment | Uniform | Applied to | Means |
-|---|---|---|---|
-| **Spent** | `dim_amount` | the active unit, once it has spent Move or Act | the same thing a dimmed command row means: still there, no longer available |
-| **Not being chosen between** | `dither_amount` | every model except the active unit and the one under the pointer, during move and target select only | the board reads *through* the units while a tile is being picked |
+- A selected ready unit keeps the pale breathing ground ring.
+- A unit becomes **spent** only after it acts or waits, not after movement. A
+  dark translucent `material_overlay` is applied to its body meshes and is
+  removed at the next side turn. The model's authored materials are never
+  edited. Hover temporarily owns the same overlay slot for the white inverted
+  hull, then restores the spent overlay when the pointer leaves.
+- A valid attack target carries a small floating sword. It is parented to the
+  rendered model, so it follows queued playback rather than lagging at the
+  simulation's newer position. Its scale-in resolves in 0.16 s; a separate
+  1.7 s vertical breath remains quiet but alive.
 
-**Dither, not alpha fade.** The treatment is screen-door transparency — a 4×4
-Bayer threshold on `FRAGCOORD` with `discard` — not blended alpha. It holds
-depth writes, needs no transparency sorting, and is what the hardware this
-scene imitates actually did. Two details are load-bearing: the pattern is
-anchored to `FRAGCOORD` rather than UV, because a UV-space pattern swims
-across a model as it turns and reads as a texture bug; and the cell is 4×4
-rather than 2×2 so the weave survives the render downsample and the CRT
-upscale instead of flattening into a haze.
-
-**Dither strength is deliberately partial** (`DITHER_STRENGTH`, 0.55). A fully
-discarded model is an invisible one, and the point is that the player can see
-past the units, not that units vanish.
-
-Gaining hover waits out a short dwell before a model is restored to solid;
-losing it takes effect immediately. Without the dwell, a pointer swept across
-a crowded board restores each model it crosses for a frame or two, which reads
-as flicker.
+Selection, spent state and target are independent truths. Clearing one must
+not clear either of the others.
 
 ---
 
-Move select draws reachable tiles in blue. It also draws the union of tiles
-that can be attacked from any reachable destination in purple, excluding
-tiles already reachable so movement remains the stronger signal. The hovered
-path is drawn in yellow over both sets. These are presentation-only previews
-and use the same movement and combat resolver queries as command validation.
+Move select draws the reachable set as one white outside contour around a very
+faint cool wash. Shared hex edges are paired from the layout's actual polygons
+and omitted, so staggered columns do not leave seams. Attackable cells and the
+hovered path remain red and gold layers above it. These are presentation-only
+previews and use the same movement and combat resolver queries as command
+validation.
 
 ---
 
-## 10b. Threat overlay
+## 10b. Projected side-turn controls
 
-The held T key shows the **danger zone**: the union of every tile that a
-living enemy can reach with movement and then threaten with a damaging spell or
-basic attack this round. It is computed once when the key is pressed, not every
-frame. The overlay uses a magenta-red tint (0.95, 0.16, 0.48, 0.40),
-distinct from movement blue, target yellow, and affected-area red/green.
+The selected unit's controls are native-resolution UI: Magic, Item, Status and
+Wait form a shallow arc around its projected screen position. The arc flips
+below a unit in the top 150 pixels, preventing it from covering the cells most
+likely to be aimed at, and fades to 34% while an aim is active. Moving crosses
+out Magic and adds an Undo chip; disabled actions remain present and dim so
+their stable keyboard positions do not change.
 
-The threat layer is additive to the current tactical layer. Releasing T
-removes only the danger zone, so a player holding it during movement or target
-selection gets the exact overlay they were already using back. The key is inert
-outside an active player turn and is cleared at turn end and battle end.
+Forecast boxes are one `NoggWindow`-family frame per affected unit. They only
+format the resolver-provided forecast dictionary; several may coexist for a
+spell area, and none calculates damage. The turn banner and End turn control
+share the same frame family above the native 3D viewport. End turn shows the
+number of ready units and changes to an explicit confirm state whenever that
+number is non-zero.
+
+All projected controls update from the live camera projection every frame, so
+pan and orbit cannot detach them from their units. Their entrances resolve
+independently of the icon arc's subtle two-rate idle; fading the arc during aim
+keeps the target cell and forecast readable without making command locations
+jump.
 
 ---
 

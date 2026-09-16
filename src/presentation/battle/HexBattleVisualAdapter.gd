@@ -38,7 +38,8 @@ const HexGridScript = preload("res://src/board/HexGrid.gd")
 
 ## Overlay colours, kept here rather than in the shared theme: these are board markers this item
 ## owns, and adding rows to `NoggTheme` would be retuning a shared resource the item may not.
-const COLOR_REACHABLE := Color(0.35, 0.62, 1.0, 0.42)
+const COLOR_REACHABLE := Color(0.76, 0.90, 1.0, 0.12)
+const COLOR_REACHABLE_CONTOUR := Color(0.94, 0.98, 1.0, 0.96)
 const COLOR_ATTACKABLE := Color(1.0, 0.42, 0.35, 0.45)
 const COLOR_CURSOR := Color(1.0, 0.88, 0.42, 0.65)
 const COLOR_TARGET := Color(1.0, 0.45, 0.45, 0.7)
@@ -56,6 +57,7 @@ const MARKER_RIM_EDGE := 0.05
 const MARKER_RIM_BAND := 0.12
 const MARKER_RIM_ALPHA := 0.95
 const MARKER_RIM_EDGE_COLOR := Color(0.03, 0.03, 0.05, 0.7)
+const REGION_CONTOUR_INSET := 0.075
 
 ## Hover and selection cues on units. Board markers this file owns, like the overlay colours above.
 ## Hover is a thin white rim around the unit itself; selection is a ring on the ground under it, so
@@ -72,6 +74,12 @@ const SELECTED_RING_ENTRANCE_SCALE := 1.3
 const SELECTED_RING_ENTRANCE_SECONDS := 0.18
 const SELECTED_RING_BREATH_SECONDS := 1.8
 const SELECTED_RING_BREATH_ALPHA := 0.45
+const SPENT_COLOR := Color(0.025, 0.035, 0.05, 0.58)
+const SWORD_MARKER_NAME := "TargetSword"
+const SWORD_HEIGHT := 1.75
+const SWORD_ENTRANCE_SCALE := 1.35
+const SWORD_ENTRANCE_SECONDS := 0.16
+const SWORD_IDLE_SECONDS := 1.7
 
 ## Independent overlay layers. Painting one never clears another, which is what lets a pending
 ## command be previewed over the reach the player is aiming from.
@@ -141,11 +149,16 @@ var _badges
 ## Presentation speed for movement tweens. Combat feedback holds its own copy, set alongside.
 var _playbackSpeed := 1.0
 var _outlineMaterial: ShaderMaterial
+var _spentMaterial: StandardMaterial3D
+var _spentUnitIDs: Dictionary = {}
 var _hoveredID := -1
 var _selectedID := -1
 var _selectionRing: MeshInstance3D
 var _selectionTween: Tween
 var _selectionEntrance: Tween
+var _targetedID := -1
+var _swordMarker: Node3D
+var _swordTween: Tween
 
 
 func _init(root: Node3D, map: BattleMapDefinition, state: BattleState = null) -> void:
@@ -198,6 +211,7 @@ func dispose() -> void:
 	_disposed = true
 	disconnectFromEvents()
 	clear_tactical_overlays()
+	setTargetedUnit(-1)
 	if _queue != null:
 		_queue.dispose()
 		_queue = null
@@ -282,9 +296,25 @@ func selectedUnit() -> int:
 func setHoveredUnit(monsterID: int) -> void:
 	if monsterID == _hoveredID:
 		return
-	_applyOutline(_hoveredID, false)
+	var previous := _hoveredID
 	_hoveredID = monsterID if _models.has(monsterID) else -1
+	_applyUnitOverlay(previous)
 	_applyOutline(_hoveredID, true)
+
+
+## Reversible presentation-only dimming. Unit-authored materials stay untouched; removing the
+## overlay restores the exact original surface. Hover temporarily owns the same overlay slot and
+## hands it back to the spent treatment when the pointer leaves.
+func setUnitSpent(monsterID: int, spent: bool) -> void:
+	if spent:
+		_spentUnitIDs[monsterID] = true
+	else:
+		_spentUnitIDs.erase(monsterID)
+	_applyUnitOverlay(monsterID)
+
+
+func isUnitSpent(monsterID: int) -> bool:
+	return _spentUnitIDs.has(monsterID)
 
 
 ## The selection cue: a breathing ring on the selected unit's own cell, distinct from the hover rim
@@ -317,13 +347,103 @@ func _applyOutline(monsterID: int, on: bool) -> void:
 		_outlineMaterial.shader = UnitOutlineShader
 		_outlineMaterial.set_shader_parameter("outline_color", OUTLINE_COLOR)
 		_outlineMaterial.set_shader_parameter("width_px", OUTLINE_WIDTH_PX)
+	_applyUnitOverlay(monsterID)
+
+
+func _applyUnitOverlay(monsterID: int) -> void:
+	var model := modelFor(monsterID)
+	if model == null or not is_instance_valid(model):
+		return
+	if _spentMaterial == null:
+		_spentMaterial = StandardMaterial3D.new()
+		_spentMaterial.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_spentMaterial.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_spentMaterial.albedo_color = SPENT_COLOR
+		_spentMaterial.cull_mode = BaseMaterial3D.CULL_DISABLED
+	var overlay: Material = _outlineMaterial if monsterID == _hoveredID else (
+		_spentMaterial if _spentUnitIDs.has(monsterID) else null)
 	for node in model.find_children("*", "MeshInstance3D", true, false):
 		var mesh := node as MeshInstance3D
 		# The team plinth and the selection ring are not the unit. Outlining the plinth drew a
 		# second ring round the base that read as a selection marker.
 		if _isUnitChrome(mesh, model):
 			continue
-		mesh.material_overlay = _outlineMaterial if on else null
+		mesh.material_overlay = overlay
+
+
+## A lightweight sword is parented to the rendered model, so queued movement cannot leave the
+## marker behind. Its entrance resolves once; a separate slow breath continues while targeted.
+func setTargetedUnit(monsterID: int) -> void:
+	if monsterID == _targetedID and _swordMarker != null:
+		return
+	_clearSwordMarker()
+	_targetedID = monsterID if _models.has(monsterID) else -1
+	if _targetedID == -1:
+		return
+	_swordMarker = _buildSwordMarker()
+	modelFor(_targetedID).add_child(_swordMarker)
+	_swordMarker.position = Vector3(0.0, SWORD_HEIGHT, 0.0)
+	_swordMarker.scale = Vector3.ONE * SWORD_ENTRANCE_SCALE
+	var entrance := _swordMarker.create_tween()
+	entrance.tween_property(
+		_swordMarker, "scale", Vector3.ONE, SWORD_ENTRANCE_SECONDS
+	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_swordTween = _swordMarker.create_tween().set_loops()
+	_swordTween.tween_property(
+		_swordMarker, "position:y", SWORD_HEIGHT + 0.10, SWORD_IDLE_SECONDS * 0.5
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_swordTween.tween_property(
+		_swordMarker, "position:y", SWORD_HEIGHT, SWORD_IDLE_SECONDS * 0.5
+	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+
+func targetedUnit() -> int:
+	return _targetedID
+
+
+func _buildSwordMarker() -> Node3D:
+	var root := Node3D.new()
+	root.name = SWORD_MARKER_NAME
+	root.rotation_degrees.z = -42.0
+	var blade := MeshInstance3D.new()
+	var bladeMesh := BoxMesh.new()
+	bladeMesh.size = Vector3(0.09, 0.58, 0.045)
+	blade.mesh = bladeMesh
+	blade.position.y = 0.12
+	blade.material_override = _flatMaterial(Color("eef4f6"))
+	root.add_child(blade)
+	var guard := MeshInstance3D.new()
+	var guardMesh := BoxMesh.new()
+	guardMesh.size = Vector3(0.34, 0.08, 0.07)
+	guard.mesh = guardMesh
+	guard.position.y = -0.18
+	guard.material_override = _flatMaterial(Color("f2c14e"))
+	root.add_child(guard)
+	var grip := MeshInstance3D.new()
+	var gripMesh := BoxMesh.new()
+	gripMesh.size = Vector3(0.07, 0.22, 0.06)
+	grip.mesh = gripMesh
+	grip.position.y = -0.32
+	grip.material_override = _flatMaterial(Color("75401f"))
+	root.add_child(grip)
+	return root
+
+
+func _flatMaterial(color: Color) -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = color
+	return material
+
+
+func _clearSwordMarker() -> void:
+	if _swordTween != null and _swordTween.is_valid():
+		_swordTween.kill()
+	_swordTween = null
+	if _swordMarker != null and is_instance_valid(_swordMarker):
+		_swordMarker.queue_free()
+	_swordMarker = null
+	_targetedID = -1
 
 
 func _isUnitChrome(node: Node, model: Node) -> bool:
@@ -405,6 +525,9 @@ func _forgetUnitCues(monsterID: int) -> void:
 	if monsterID == _selectedID:
 		_clearSelectionRing()
 		_selectedID = -1
+	if monsterID == _targetedID:
+		_clearSwordMarker()
+	_spentUnitIDs.erase(monsterID)
 
 
 func removeDisplayedModel(monsterID: int) -> void:
@@ -585,7 +708,7 @@ func show_movement_options(
 	reachable: Array, path: Array = [], attackable: Array = []
 ) -> void:
 	clearLayer(LAYER_REACH)
-	_paint(LAYER_REACH, reachable, COLOR_REACHABLE)
+	_paintReachRegion(reachable)
 	_paint(LAYER_REACH, attackable, COLOR_ATTACKABLE)
 	_paint(LAYER_REACH, path, COLOR_CURSOR)
 
@@ -649,11 +772,14 @@ func clearCommandPreview() -> void:
 
 
 func previewCellCount() -> int:
-	return (_layers.get(LAYER_PREVIEW, []) as Array).size()
+	return layerCellCount(LAYER_PREVIEW)
 
 
 func layerCellCount(layer: String) -> int:
-	return (_layers.get(layer, []) as Array).size()
+	var count := 0
+	for marker in (_layers.get(layer, []) as Array):
+		count += int(marker.get_meta("cell_count", 1)) if is_instance_valid(marker) else 0
+	return count
 
 
 func clearLayer(layer: String) -> void:
@@ -679,6 +805,31 @@ func _paint(layer: String, cells: Array, color: Color) -> void:
 		marker.position = worldPositionOf(cell) + Vector3(0.0, _layerHeight(layer), 0.0)
 		_overlayRoot.add_child(marker)
 		nodes.append(marker)
+
+
+func _paintReachRegion(cells: Array) -> void:
+	if cells.is_empty():
+		return
+	if not _layers.has(LAYER_REACH):
+		_layers[LAYER_REACH] = []
+	var centers: Dictionary = {}
+	var polygons: Dictionary = {}
+	for value in cells:
+		var cell: Vector2i = value
+		if not _map.containsCell(cell):
+			continue
+		centers[cell] = layout.cellCenter(cell)
+		polygons[cell] = layout.cellPolygon(cell)
+	var marker := MeshInstance3D.new()
+	marker.name = "ReachableRegion"
+	marker.mesh = HexBattleMeshFactoryScript.createRegionMesh(
+		centers, polygons, COLOR_REACHABLE, COLOR_REACHABLE_CONTOUR, REGION_CONTOUR_INSET)
+	marker.position.y = _layerHeight(LAYER_REACH)
+	marker.material_override = HexBattleMeshFactoryScript.createOverlayMaterial(1)
+	marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	marker.set_meta("cell_count", polygons.size())
+	_overlayRoot.add_child(marker)
+	(_layers[LAYER_REACH] as Array).append(marker)
 
 
 ## Layers are stacked by a hair so two overlapping markers do not z-fight -- the preview sits
