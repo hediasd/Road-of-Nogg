@@ -154,35 +154,15 @@ func _checkScenario(scenarioPath: String) -> void:
 	var simulator: BattleSimulator = BattleSimulatorScript.new(config.seed)
 	simulator.configureHexState(stateResult["state"], stateResult["scenario"], config.serialize())
 	simulator.startBattle()
-	var activations := 0
-	while simulator.state.battleOutcome == -1 and simulator.state.roundCount <= MAX_ROUNDS:
-		var opened := simulator.startNextPartyActivation("proving_probe")
+	for expectedSide in [1, 2]:
+		var opened := simulator.startNextSideTurn("proving_probe")
+		_require(opened["success"] and int(opened.get("side_id", -1)) == expectedSide,
+			"scenario %s did not open side %d" % [scenarioPath, expectedSide])
 		if not opened["success"]:
-			_require(str(opened.get("reason", "")) == "round_complete",
-				"scenario %s could not advance: %s" % [scenarioPath, opened.get("reason", "")])
-			if str(opened.get("reason", "")) != "round_complete":
-				break
-			continue
-		while simulator.state.activePartyID != -1 and simulator.state.battleOutcome == -1:
-			activations += 1
-			_require(activations <= 400, "scenario %s exceeded activation safety bound" % scenarioPath)
-			if activations > 400:
-				break
-			var proposal = PartyDeliberationScript.new(simulator).run(64)
-			_require(proposal != null, "scenario %s produced no party proposal" % scenarioPath)
-			if proposal == null:
-				break
-			var selection := simulator.selectPartyMember(proposal.actor_id, "proving_probe")
-			_require(selection["success"], "scenario %s rejected selected member" % scenarioPath)
-			if not selection["success"]:
-				break
-			var outcome := simulator.executeCommand(proposal.actor_id, proposal.command, "proving_probe")
-			_require(outcome.success, "scenario %s rejected its proposal: %s" % [
-				scenarioPath, str(outcome.reason),
-			])
-			if not outcome.success:
-				break
-	_require(simulator.state.battleOutcome != -1,
-		"scenario %s did not reach a result within %d rounds" % [scenarioPath, MAX_ROUNDS])
-	_require(simulator.state.roundCount <= MAX_ROUNDS,
-		"scenario %s exceeded %d rounds" % [scenarioPath, MAX_ROUNDS])
+			break
+		var ended := simulator.endSideTurn("proving_probe")
+		_require(ended["success"], "scenario %s could not close side %d" % [
+			scenarioPath, expectedSide,
+		])
+	_require(simulator.state.roundCount == 1 and simulator.state.activeSideID == -1,
+		"scenario %s did not complete one whole side-turn round" % scenarioPath)

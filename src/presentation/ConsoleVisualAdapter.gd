@@ -68,17 +68,21 @@ func _on_battle_ended(winningTeam: int) -> void:
 func _on_round_started(roundNumber: int, _turnOrderIDs: Array) -> void:
 	_log("")
 	_log("══════════════════════ 🔄 ROUND %s ══════════════════════" % roundNumber)
-	var orderNames = []
-	for value in state.partyOrder:
-		var partyID = int(value)
-		var party = state.parties.get(partyID)
-		if party == null:
-			continue
-		var commander = state.getMonster(int(party.commanderID))
-		var commanderName = commander.name if commander != null else "???"
-		orderNames.append("%s#%s" % [commanderName, partyID])
-	_log("  Turn order: %s" % ", ".join(orderNames))
+	var orderNames: Array[String] = []
+	for value in state.sideOrder:
+		orderNames.append("Team %s" % int(value))
+	_log("  Side order: %s" % ", ".join(orderNames))
 	_log("")
+
+
+func _on_side_turn_started(sideID: int, _roundNumber: int, turnNumber: int, _eligibleUnitIDs: Array) -> void:
+	_log("Side turn %s: Team %s" % [turnNumber, sideID])
+
+
+func _on_unit_selected(_sideID: int, monsterID: int) -> void:
+	var mon = state.getMonster(monsterID)
+	if mon != null:
+		_log("  Selected %s #%s at %s" % [mon.name, monsterID, state.getMonsterPosition(monsterID)])
 
 
 func _on_turn_started(monsterID: int, _roundNumber: int, turnNumber: int) -> void:

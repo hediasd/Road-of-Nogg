@@ -71,7 +71,7 @@ presentation is a read, not a dependency inversion, and is allowed.
 | Catalog content — a new monster, spell, passive, element | `data/*.json`, then the matching `src/factories/*References.gd` if the schema changes |
 | Combat rules, damage, status application | `src/battle_sim/CombatResolver.gd`, `DirectDamageRules.gd`, `SpellEffectResolver.gd`, `PassiveSkillResolver.gd` |
 | Movement, reachability, line of sight | `src/battle_sim/MovementResolver.gd`, `src/algorithms/` |
-| Turn order and round structure | `src/battle_sim/TurnManager.gd` |
+| Side order and round structure | `src/battle_sim/TurnManager.gd` |
 | CPU behavior | `src/entity_ai/` — pick the brain, or `CommandDeliberation` for the search itself |
 | Replay and serialization | `src/battle_sim/BattleStateSerializer.gd`, `BattleReplayRunner.gd` |
 | Battle setup, modes, seeds, team construction | `src/battle_sim/BattleSetupConfig.gd`, `BattleSetupFactory.gd`, `src/factories/BattleSetupPresets.gd` |
@@ -80,6 +80,6 @@ presentation is a read, not a dependency inversion, and is allowed.
 | Monster/board meshes and materials | `src/presentation/BattleMeshFactory.gd` |
 | Visual effects, animation pacing | `src/presentation/BattleVisualEffects.gd`, `VisualActionQueue.gd`, `src/presentation/effects/` — see [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
 | Camera | `src/presentation/BattleCameraController.gd` |
-| Member-turn phases, cursor ownership, undo | `src/systems/hex_battle/HexBattleMemberTurn.gd` |
-| Scene lifecycle, party activation, adapter wiring | `src/systems/hex_battle/HexBattleController.gd` |
+| Selected-unit phases, cursor ownership, undo | `src/systems/hex_battle/HexBattleMemberTurn.gd` |
+| Scene lifecycle, side-turn pacing, adapter wiring | `src/systems/hex_battle/HexBattleController.gd` |
 | Headless tooling and demos | `scripts/` |

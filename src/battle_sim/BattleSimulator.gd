@@ -3,20 +3,17 @@
 
 class_name BattleSimulator
 
-## Which of the two turn phases resolved first. Recorded on every command so a
-## replay resolves them in the order they actually happened.
 const ORDER_MOVE_FIRST := "move_first"
-const ORDER_ACT_FIRST := "act_first"
 
-## Version 6 is the first active-project replay contract for the hex party
-## rules. Square versions remain in the frozen reference project and receive a
-## directed rejection here instead of being reinterpreted.
-const REPLAY_VERSION := 6
-const REPLAY_MIN_VERSION := 6
+## Version 7 records side-turn operations in their real interleaving order.
+## Version 6 was the retired party-activation contract and is never reinterpreted.
+const REPLAY_VERSION := 7
+const REPLAY_MIN_VERSION := 7
 const SQUARE_REPLAY_MAX_VERSION := 5
+const PARTY_ACTIVATION_REPLAY_VERSION := 6
 const GRID_KIND := "hex_flat"
 const COORDINATE_CONVENTION := "odd_q_offset"
-const RULESET_ID := "hex_party_activation_v1"
+const RULESET_ID := "hex_side_turn_v1"
 
 const CombatResolverScript = preload("res://src/battle_sim/CombatResolver.gd")
 const PassiveSkillResolverScript = preload("res://src/battle_sim/PassiveSkillResolver.gd")
@@ -43,17 +40,6 @@ var setupSnapshot: Dictionary = {}
 ## function's own note for why both exist and why emitting twice would otherwise be harmless but
 ## redundant.
 var _initialBoardEmitted := false
-
-## Accumulates the phases of the turn currently in progress so that a turn
-## resolved incrementally still records exactly one `command` history event, at
-## finishTurn(). The interactive player path resolves movement and the action as
-## separate steps; CPU brains and replay submit both at once through
-## executeCommand(). Both routes land here.
-##
-## Empty when no turn is being accumulated. `origin` is the position the actor
-## occupied when the turn opened, which is what undoMovePhase() restores.
-var _turnAccumulator: Dictionary = {}
-
 
 func _init(seedValue: int = 0) -> void:
 	events = BattleEvents.new()
@@ -100,7 +86,6 @@ func configureHexState(
 	state.contentFingerprint = computeContentFingerprint(state)
 	setupSnapshot = setupData.duplicate(true)
 	initialStateSnapshot = {}
-	_turnAccumulator = {}
 	_initialBoardEmitted = false
 
 
@@ -229,175 +214,190 @@ func _resolveBrainClass(name: String):
 		_: return load("res://src/entity_ai/TacticalBrain.gd")
 
 
-func hasPartyRuntime() -> bool:
+func hasSideRuntime() -> bool:
 	return not state.parties.is_empty()
 
 
-func startNextPartyActivation(source: String = "system") -> Dictionary:
-	if not hasPartyRuntime():
-		return {"success": false, "reason": "party_runtime_unavailable", "party_id": -1}
+func startNextSideTurn(source: String = "system") -> Dictionary:
+	if not hasSideRuntime():
+		return {"success": false, "reason": "side_runtime_unavailable", "side_id": -1}
 	if state.battleOutcome != -1:
-		return {"success": false, "reason": "battle_ended", "party_id": -1}
-	if state.currentMonsterID != -1 or not _turnAccumulator.is_empty():
-		return {"success": false, "reason": "member_turn_in_progress", "party_id": -1}
-	if state.activePartyID != -1:
-		return {"success": false, "reason": "party_activation_in_progress", "party_id": state.activePartyID}
+		return {"success": false, "reason": "battle_ended", "side_id": -1}
+	if state.activeSideID != -1:
+		return {"success": false, "reason": "side_turn_in_progress", "side_id": state.activeSideID}
 
 	_synchronizeCommanderWithdrawals()
 	_recordBattleOutcomeIfResolved()
 	if state.battleOutcome != -1:
-		return {"success": false, "reason": "battle_ended", "party_id": -1}
-	if state.pendingPartyIDs.is_empty():
-		if state.roundCount > 0 and not state.partyOrder.is_empty():
+		return {"success": false, "reason": "battle_ended", "side_id": -1}
+	if state.pendingSideIDs.is_empty():
+		if state.roundCount > 0 and not state.sideOrder.is_empty():
 			state.add_event("round_end", -1, -1, {"round": state.roundCount})
 			events.round_ended.emit(state.roundCount)
 		state.roundCount += 1
-		var surviving: Array[int] = []
-		for partyID in state.parties:
-			if state.isPartySurviving(int(partyID)):
-				surviving.append(int(partyID))
-		state.partyOrder = TurnManager.partySortedIDs(state, surviving)
-		state.pendingPartyIDs = state.partyOrder.duplicate()
+		state.sideOrder = TurnManager.sideSortedIDs(state)
+		state.pendingSideIDs = state.sideOrder.duplicate()
 		state.add_event("round_start", -1, -1, {
 			"round": state.roundCount,
-			"party_order": state.partyOrder.duplicate(),
+			"side_order": state.sideOrder.duplicate(),
 		})
-		events.round_started.emit(state.roundCount, state.partyOrder.duplicate())
+		events.round_started.emit(state.roundCount, state.sideOrder.duplicate())
 
-	while not state.pendingPartyIDs.is_empty():
-		var partyID := int(state.pendingPartyIDs.pop_front())
-		if not state.isPartySurviving(partyID):
+	while not state.pendingSideIDs.is_empty():
+		var sideID := int(state.pendingSideIDs.pop_front())
+		if state.isTeamDefeated(sideID):
 			continue
-		state.activePartyID = partyID
-		state.spentMemberIDs.clear()
-		state.activationCount += 1
-		state.activationPhase = "awaiting_member"
-		var eligible := state.eligibleMemberIDs(partyID)
-		state.add_event("party_activation_start", partyID, -1, {
+		state.activeSideID = sideID
+		state.spentUnitIDs.clear()
+		state.pendingUnitTurns.clear()
+		state.currentMonsterID = -1
+		state.sideTurnCount += 1
+		state.turnCount += 1
+		state.sideTurnPhase = "awaiting_unit"
+		var eligible := state.eligibleUnitIDs(sideID)
+		state.add_event("side_turn_start", sideID, -1, {
 			"source": source,
-			"activation": state.activationCount,
+			"side_turn": state.sideTurnCount,
 			"eligible": eligible.duplicate(),
 		})
-		events.party_activation_started.emit(
-			partyID, state.roundCount, state.activationCount, eligible.duplicate())
+		events.side_turn_started.emit(
+			sideID, state.roundCount, state.turnCount, eligible.duplicate())
 		if eligible.is_empty():
-			_closePartyActivation("no_eligible_members")
+			_closeSideTurn("no_eligible_units")
 			continue
-		return {"success": true, "reason": "", "party_id": partyID}
+		return {"success": true, "reason": "", "side_id": sideID}
 
 	_recordBattleOutcomeIfResolved()
-	return {"success": false, "reason": "round_complete", "party_id": -1}
+	return {"success": false, "reason": "round_complete", "side_id": -1}
 
 
-func eligiblePartyMemberIDs() -> Array[int]:
-	if state.activePartyID == -1 or state.currentMonsterID != -1:
+func eligibleSideUnitIDs() -> Array[int]:
+	if state.activeSideID == -1:
 		return []
-	return state.eligibleMemberIDs(state.activePartyID)
+	return state.eligibleUnitIDs(state.activeSideID)
 
 
-func selectPartyMember(monsterID: int, source: String = "player") -> Dictionary:
-	var rejection := _validatePartyMemberSelection(monsterID)
+func selectUnit(monsterID: int, source: String = "player") -> Dictionary:
+	var rejection := _validateUnitSelection(monsterID)
 	if not rejection.is_empty():
-		state.add_event("member_selection_rejected", monsterID, -1, {
+		state.add_event("unit_selection_rejected", monsterID, -1, {
 			"source": source,
-			"party_id": state.activePartyID,
+			"side_id": state.activeSideID,
 			"reason": rejection,
 		})
 		return {"success": false, "reason": rejection, "monster_id": -1}
 	state.currentMonsterID = monsterID
-	state.turnCount += 1
-	state.activationPhase = "member_turn"
+	state.sideTurnPhase = "unit_selected"
 	state.last_turn_start_index[monsterID] = state.history.size()
-	state.add_event("member_selected", monsterID, -1, {
+	state.add_event("unit_selected", monsterID, -1, {
 		"source": source,
-		"party_id": state.activePartyID,
-		"activation": state.activationCount,
+		"side_id": state.activeSideID,
+		"side_turn": state.sideTurnCount,
 	})
-	state.add_event("turn_start", monsterID, -1, {
-		"round": state.roundCount,
-		"turn": state.turnCount,
-		"party_id": state.activePartyID,
-	})
-	events.party_member_selected.emit(state.activePartyID, monsterID)
-	events.turn_started.emit(monsterID, state.roundCount, state.turnCount)
+	events.unit_selected.emit(state.activeSideID, monsterID)
 	return {"success": true, "reason": "", "monster_id": monsterID}
 
 
-func _validatePartyMemberSelection(monsterID: int) -> String:
-	if not hasPartyRuntime():
-		return "party_runtime_unavailable"
+func _validateUnitSelection(monsterID: int) -> String:
+	if not hasSideRuntime():
+		return "side_runtime_unavailable"
 	if state.battleOutcome != -1:
 		return "battle_ended"
-	if state.activePartyID == -1:
-		return "no_active_party"
-	if state.currentMonsterID != -1 or not _turnAccumulator.is_empty():
-		return "member_turn_in_progress"
-	if int(state.monsterPartyIDs.get(monsterID, -1)) != state.activePartyID:
-		return "member_not_in_active_party"
-	if state.spentMemberIDs.has(monsterID):
-		return "member_already_spent"
+	if state.activeSideID == -1:
+		return "no_active_side"
 	var monster: Monster = state.getMonster(monsterID)
 	if monster == null or not monster.is_alive():
-		return "member_defeated"
+		return "unit_defeated"
+	if monster.team != state.activeSideID:
+		return "unit_not_on_active_side"
+	if state.spentUnitIDs.has(monsterID):
+		return "unit_already_spent"
 	if state.isMonsterWithdrawn(monsterID) or not state.monsterPositions.has(monsterID):
-		return "member_withdrawn"
+		return "unit_withdrawn"
 	return ""
 
 
-func endPartyActivation(source: String = "player") -> Dictionary:
-	if not hasPartyRuntime() or state.activePartyID == -1:
-		return {"success": false, "reason": "no_active_party", "consumed": []}
-	if state.currentMonsterID != -1 or not _turnAccumulator.is_empty():
-		return {"success": false, "reason": "member_turn_in_progress", "consumed": []}
-	var partyID := state.activePartyID
-	var remaining := state.eligibleMemberIDs(partyID)
-	remaining.sort()
-	state.add_event("end_party_requested", partyID, -1, {
+func endSideTurn(source: String = "player") -> Dictionary:
+	if not hasSideRuntime() or state.activeSideID == -1:
+		return {"success": false, "reason": "no_active_side", "consumed": []}
+	var sideID := state.activeSideID
+	var remaining := state.eligibleUnitIDs(sideID)
+	state.add_event("end_side_requested", sideID, -1, {
 		"source": source,
 		"remaining": remaining.duplicate(),
 	})
-	for memberID: int in remaining:
-		var selection := selectPartyMember(memberID, "end_party")
+	for monsterID: int in remaining:
+		var selection := selectUnit(monsterID, "end_side")
 		if not selection["success"]:
 			return {"success": false, "reason": selection["reason"], "consumed": []}
-		var result := executeCommand(memberID, BattleCommand.wait(), "end_party")
+		var result := executeCommand(monsterID, BattleCommand.wait(), "end_side")
 		if not result.success:
 			return {"success": false, "reason": result.reason, "consumed": []}
-	if state.activePartyID == partyID:
-		_closePartyActivation("ended_by_player")
+	if state.activeSideID == sideID:
+		_closeSideTurn("ended_by_player")
 	return {"success": true, "reason": "", "consumed": remaining}
 
 
-func _completePartyMemberTurn(monsterID: int) -> void:
-	var partyID := state.activePartyID
-	turnManager.endTurn(monsterID)
-	state.spentMemberIDs[monsterID] = true
-	state.activationPhase = "awaiting_member"
-	state.add_event("member_spent", monsterID, -1, {"party_id": partyID})
-	events.party_member_spent.emit(partyID, monsterID)
+func _completeUnitAction(monsterID: int) -> void:
+	var sideID := state.activeSideID
+	turnManager.endUnitAction(monsterID)
+	state.spentUnitIDs[monsterID] = true
+	state.pendingUnitTurns.erase(monsterID)
+	state.currentMonsterID = -1
+	state.sideTurnPhase = "awaiting_unit"
+	state.add_event("unit_spent", monsterID, -1, {"side_id": sideID})
+	events.unit_spent.emit(sideID, monsterID)
 	_synchronizeCommanderWithdrawals()
 	_recordBattleOutcomeIfResolved()
 	if state.battleOutcome != -1:
-		if state.activePartyID != -1:
-			_closePartyActivation("battle_ended")
+		if state.activeSideID != -1:
+			_closeSideTurn("battle_ended")
 		return
-	if state.activePartyID != -1 and state.eligibleMemberIDs(state.activePartyID).is_empty():
-		_closePartyActivation("members_exhausted")
+	if state.activeSideID != -1 and state.eligibleUnitIDs(state.activeSideID).is_empty():
+		_closeSideTurn("units_exhausted")
 
 
-func _closePartyActivation(reason: String) -> void:
-	if state.activePartyID == -1:
+func _closeSideTurn(reason: String) -> void:
+	if state.activeSideID == -1:
 		return
-	var partyID := state.activePartyID
-	state.add_event("party_activation_end", partyID, -1, {
+	var sideID := state.activeSideID
+	state.add_event("side_turn_end", sideID, -1, {
 		"reason": reason,
-		"spent": _sortedIntKeys(state.spentMemberIDs),
+		"spent": _sortedIntKeys(state.spentUnitIDs),
 	})
-	events.party_activation_ended.emit(partyID, reason)
-	state.activePartyID = -1
+	events.side_turn_ended.emit(sideID, reason)
+	state.activeSideID = -1
 	state.currentMonsterID = -1
-	state.activationPhase = "idle"
-	_turnAccumulator = {}
+	state.sideTurnPhase = "idle"
+	state.pendingUnitTurns.clear()
+
+
+## Compatibility names kept only until the interactive controller item lands.
+## They delegate to side turns and no longer expose party scheduling semantics.
+func hasPartyRuntime() -> bool:
+	return hasSideRuntime()
+
+
+func startNextPartyActivation(source: String = "system") -> Dictionary:
+	var result := startNextSideTurn(source)
+	return {
+		"success": result["success"],
+		"reason": result["reason"],
+		"party_id": result.get("side_id", -1),
+		"side_id": result.get("side_id", -1),
+	}
+
+
+func eligiblePartyMemberIDs() -> Array[int]:
+	return eligibleSideUnitIDs()
+
+
+func selectPartyMember(monsterID: int, source: String = "player") -> Dictionary:
+	return selectUnit(monsterID, source)
+
+
+func endPartyActivation(source: String = "player") -> Dictionary:
+	return endSideTurn(source)
 
 
 func _synchronizeCommanderWithdrawals() -> void:
@@ -442,7 +442,7 @@ func _recordBattleOutcomeIfResolved() -> void:
 	if outcome == -1:
 		return
 	state.battleOutcome = outcome
-	state.pendingPartyIDs.clear()
+	state.pendingSideIDs.clear()
 	state.add_event("battle_end", -1, -1, {"outcome": outcome})
 	events.battle_ended.emit(outcome)
 
@@ -460,15 +460,16 @@ func validateCommand(monsterID: int, command: BattleCommand) -> BattleCommandRes
 		return BattleCommandResult.rejected("missing_command")
 	if state.currentMonsterID != monsterID:
 		return BattleCommandResult.rejected("not_current_turn")
-	if hasPartyRuntime():
-		if state.activePartyID == -1:
-			return BattleCommandResult.rejected("no_active_party")
-		if int(state.monsterPartyIDs.get(monsterID, -1)) != state.activePartyID:
-			return BattleCommandResult.rejected("member_not_in_active_party")
-		if state.spentMemberIDs.has(monsterID):
-			return BattleCommandResult.rejected("member_already_spent")
+	if hasSideRuntime():
+		if state.activeSideID == -1:
+			return BattleCommandResult.rejected("no_active_side")
+		var activeMonster: Monster = state.getMonster(monsterID)
+		if activeMonster == null or activeMonster.team != state.activeSideID:
+			return BattleCommandResult.rejected("unit_not_on_active_side")
+		if state.spentUnitIDs.has(monsterID):
+			return BattleCommandResult.rejected("unit_already_spent")
 		if state.isMonsterWithdrawn(monsterID):
-			return BattleCommandResult.rejected("member_withdrawn")
+			return BattleCommandResult.rejected("unit_withdrawn")
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
 		return BattleCommandResult.rejected("invalid_monster")
@@ -476,6 +477,9 @@ func validateCommand(monsterID: int, command: BattleCommand) -> BattleCommandRes
 	var normalizedPath = _normalizePath(command.move_path)
 	if normalizedPath == null:
 		return BattleCommandResult.rejected("invalid_path_coordinate")
+	var pending: Dictionary = state.pendingUnitTurns.get(monsterID, {})
+	if bool(pending.get("has_moved", false)) and not normalizedPath.is_empty():
+		return BattleCommandResult.rejected("move_already_spent")
 	var moveValidation = movementResolver.validateMovePath(monsterID, normalizedPath)
 	if not moveValidation["success"]:
 		return BattleCommandResult.rejected(moveValidation.get("reason", "invalid_move"))
@@ -488,11 +492,11 @@ func validateCommand(monsterID: int, command: BattleCommand) -> BattleCommandRes
 	var spellSetIndex: int = command.spell_set_index
 	var spellIndex: int = command.spell_index
 	var order: String = command.order
-	if order not in [ORDER_MOVE_FIRST, ORDER_ACT_FIRST]:
+	if order != ORDER_MOVE_FIRST:
 		return BattleCommandResult.rejected("invalid_order")
-	var actionPos: Vector2i = (
-		state.getMonsterPosition(monsterID) if order == ORDER_ACT_FIRST else futurePos
-	)
+	if action == "spell" and (bool(pending.get("has_moved", false)) or not normalizedPath.is_empty()):
+		return BattleCommandResult.rejected("spell_after_move")
+	var actionPos: Vector2i = futurePos
 
 	if action == "attack":
 		if not combatResolver.canBasicAttackPositionFrom(monsterID, actionPos, targetPos):
@@ -519,16 +523,13 @@ func validateCommand(monsterID: int, command: BattleCommand) -> BattleCommandRes
 
 ## --- Incremental turn execution -------------------------------------------
 ##
-## A turn is made of at most one movement phase and at most one action phase,
-## in either order. The interactive player path resolves them one at a time so
-## each can animate before the next is chosen; CPU brains and replay submit
-## both together through executeCommand(). Either way the turn produces exactly
-## one `command` history event, written by finishTurn().
+## A unit may hold one pending move while another unit is selected. The state
+## lives in BattleState so snapshots preserve the exact side-turn interleaving.
 
 
-func _ensureTurnAccumulator(monsterID: int, source: String) -> Dictionary:
-	if _turnAccumulator.get("monster_id", -1) != monsterID:
-		_turnAccumulator = {
+func _ensureUnitTurnState(monsterID: int, source: String) -> Dictionary:
+	if not state.pendingUnitTurns.has(monsterID):
+		state.pendingUnitTurns[monsterID] = {
 			"monster_id": monsterID,
 			"origin": state.getMonsterPosition(monsterID),
 			"move_path": [],
@@ -539,25 +540,25 @@ func _ensureTurnAccumulator(monsterID: int, source: String) -> Dictionary:
 			"target_pos": Vector2i(-1, -1),
 			"spell_set_index": 0,
 			"spell_index": 0,
-			"order": ORDER_MOVE_FIRST,
 			"source": source,
 			"acted": false,
 			"skipped": false,
 			"action_result": {"success": true}
 		}
-	return _turnAccumulator
+	return state.pendingUnitTurns[monsterID]
 
 
 func _guardPhase(monsterID: int) -> Dictionary:
 	if state.currentMonsterID != monsterID:
 		return {"success": false, "reason": "not_current_turn"}
-	if hasPartyRuntime() and (
-		state.activePartyID == -1
-		or int(state.monsterPartyIDs.get(monsterID, -1)) != state.activePartyID
-		or state.spentMemberIDs.has(monsterID)
+	if hasSideRuntime() and (
+		state.activeSideID == -1
+		or state.getMonster(monsterID) == null
+		or state.getMonster(monsterID).team != state.activeSideID
+		or state.spentUnitIDs.has(monsterID)
 		or state.isMonsterWithdrawn(monsterID)
 	):
-		return {"success": false, "reason": "member_not_eligible"}
+		return {"success": false, "reason": "unit_not_eligible"}
 	var mon = state.getMonster(monsterID)
 	if mon == null or not mon.is_alive():
 		return {"success": false, "reason": "invalid_monster"}
@@ -569,8 +570,8 @@ func _guardPhase(monsterID: int) -> Dictionary:
 func turnPhaseState(monsterID: int) -> Dictionary:
 	## What the interactive controller needs to build its menu: which phases are
 	## still available, and whether the move can still be taken back.
-	var accumulator = _turnAccumulator
-	if accumulator.get("monster_id", -1) != monsterID:
+	var accumulator: Dictionary = state.pendingUnitTurns.get(monsterID, {})
+	if accumulator.is_empty():
 		return {"has_moved": false, "has_acted": false, "can_undo_move": false}
 	var hasMoved: bool = accumulator["has_moved"]
 	var hasActed: bool = accumulator["has_acted"]
@@ -586,7 +587,7 @@ func executeMovePhase(monsterID: int, path: Array, source: String = "player") ->
 	if not guard["success"]:
 		return _rejectPhase(monsterID, source, guard["reason"])
 
-	var accumulator = _ensureTurnAccumulator(monsterID, source)
+	var accumulator = _ensureUnitTurnState(monsterID, source)
 	if accumulator["has_moved"]:
 		return _rejectPhase(monsterID, source, "move_already_spent")
 
@@ -602,11 +603,14 @@ func executeMovePhase(monsterID: int, path: Array, source: String = "player") ->
 		events.movement_targeted.emit(monsterID, normalizedPath.back())
 		moved = movementResolver.executeMove(monsterID, normalizedPath)
 
-	if not accumulator["has_acted"]:
-		accumulator["order"] = ORDER_MOVE_FIRST
-	accumulator["has_moved"] = true
+	accumulator["has_moved"] = not normalizedPath.is_empty()
 	accumulator["move_path"] = normalizedPath
 	accumulator["acted"] = accumulator["acted"] or moved
+	if moved:
+		state.add_event("move_phase", monsterID, -1, {
+			"source": source,
+			"path": normalizedPath.duplicate(),
+		})
 	return {
 		"success": true,
 		"moved": moved,
@@ -628,8 +632,8 @@ func undoMovePhase(monsterID: int) -> Dictionary:
 	if not guard["success"]:
 		return {"success": false, "reason": guard["reason"]}
 
-	var accumulator = _turnAccumulator
-	if accumulator.get("monster_id", -1) != monsterID or not accumulator["has_moved"]:
+	var accumulator: Dictionary = state.pendingUnitTurns.get(monsterID, {})
+	if accumulator.is_empty() or not accumulator["has_moved"]:
 		return {"success": false, "reason": "no_move_to_undo"}
 	if accumulator["has_acted"]:
 		return {"success": false, "reason": "action_already_resolved"}
@@ -637,6 +641,8 @@ func undoMovePhase(monsterID: int) -> Dictionary:
 	var origin: Vector2i = accumulator["origin"]
 	var currentPos = state.getMonsterPosition(monsterID)
 	if currentPos != origin:
+		if state.isOccupied(origin):
+			return {"success": false, "reason": "move_origin_occupied"}
 		state.moveMonsterTo(monsterID, origin)
 		state.add_event("undo_move", monsterID, -1, {"from": currentPos, "to": origin})
 		# Replayed through the ordinary movement event so presentation walks the
@@ -650,7 +656,6 @@ func undoMovePhase(monsterID: int) -> Dictionary:
 
 	accumulator["has_moved"] = false
 	accumulator["move_path"] = []
-	accumulator["order"] = ORDER_MOVE_FIRST
 	return {"success": true, "destination": origin}
 
 
@@ -667,9 +672,11 @@ func executeActionPhase(
 	if action not in ["wait", "attack", "spell"]:
 		return _rejectPhase(monsterID, source, "invalid_action")
 
-	var accumulator = _ensureTurnAccumulator(monsterID, source)
+	var accumulator = _ensureUnitTurnState(monsterID, source)
 	if accumulator["has_acted"]:
 		return _rejectPhase(monsterID, source, "action_already_spent")
+	if action == "spell" and accumulator["has_moved"]:
+		return _rejectPhase(monsterID, source, "spell_after_move")
 	var fromPos = state.getMonsterPosition(monsterID)
 	if action == "attack":
 		if not combatResolver.canBasicAttackPositionFrom(monsterID, fromPos, targetPos):
@@ -694,8 +701,6 @@ func executeActionPhase(
 			monsterID, targetPos, spellSetIndex, spellIndex
 		)
 
-	if not accumulator["has_moved"]:
-		accumulator["order"] = ORDER_ACT_FIRST
 	accumulator["has_acted"] = true
 	accumulator["action"] = action
 	accumulator["target_id"] = targetID
@@ -707,37 +712,41 @@ func executeActionPhase(
 	return {"success": true, "actionResult": actionResult}
 
 func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResult:
-	## Closes the turn: writes the single aggregate command event and fires the
-	## end-of-turn passives exactly once, however many phases actually ran.
+	## Spending a unit is its end-of-turn boundary: effects, cooldowns and
+	## passives advance here, not when the whole side closes.
 	if state.currentMonsterID != monsterID:
 		return BattleCommandResult.rejected("not_current_turn")
-	var accumulator = _ensureTurnAccumulator(monsterID, source)
+	var accumulator = _ensureUnitTurnState(monsterID, source)
+	if not bool(accumulator.get("has_acted", false)):
+		return BattleCommandResult.rejected("action_not_resolved")
 	var normalized = BattleCommand.new(
 		accumulator["move_path"],
 		accumulator["action"],
 		accumulator["target_id"],
 		accumulator["spell_set_index"],
 		accumulator["spell_index"],
-		accumulator["order"],
+		ORDER_MOVE_FIRST,
 		accumulator["target_pos"]
 	)
 	var skipped: bool = accumulator["skipped"]
 	var actionResult: Dictionary = accumulator["action_result"]
 	var acted: bool = accumulator["acted"]
-	_turnAccumulator = {}
 	var result = BattleCommandResult.accepted(normalized)
 	result.resolved = false if skipped else actionResult.get("success", true)
 	result.acted = acted
 	result.skipped = skipped
 	result.action_result = actionResult
-	state.add_event("command", monsterID, normalized.target_id, {
+	state.add_event("unit_action", monsterID, normalized.target_id, {
 		"source": accumulator["source"],
-		"command": normalized.to_dictionary(),
+		"action": normalized.action,
+		"target_pos": normalized.target_pos,
+		"spell_set_index": normalized.spell_set_index,
+		"spell_index": normalized.spell_index,
 		"result": result.to_dictionary(),
 	})
 	passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
-	if hasPartyRuntime():
-		_completePartyMemberTurn(monsterID)
+	if hasSideRuntime():
+		_completeUnitAction(monsterID)
 	return result
 
 func _rejectPhase(monsterID: int, source: String, reason: String) -> Dictionary:
@@ -800,38 +809,30 @@ func executeCommand(
 		return validation
 
 	var normalized: BattleCommand = validation.command
-	var accumulator = _ensureTurnAccumulator(monsterID, source)
+	var accumulator = _ensureUnitTurnState(monsterID, source)
 	accumulator["source"] = source
 
 	if state.hasEffect(monsterID, "petrify"):
 		events.monster_skipped_turn.emit(monsterID, "petrify")
 		accumulator["skipped"] = true
+		accumulator["has_acted"] = true
+		accumulator["action"] = "wait"
 		accumulator["action_result"] = {"success": false, "reason": "petrify"}
 		var skippedResult = finishTurn(monsterID, source)
 		skippedResult.command = normalized
 		return skippedResult
 
 	var action: String = normalized.action
-	if normalized.order == ORDER_ACT_FIRST:
-		executeActionPhase(
-			monsterID,
-			action,
-			normalized.target_pos,
-			normalized.spell_set_index,
-			normalized.spell_index,
-			source
-		)
+	if not normalized.move_path.is_empty():
 		executeMovePhase(monsterID, normalized.move_path, source)
-	else:
-		executeMovePhase(monsterID, normalized.move_path, source)
-		executeActionPhase(
-			monsterID,
-			action,
-			normalized.target_pos,
-			normalized.spell_set_index,
-			normalized.spell_index,
-			source
-		)
+	executeActionPhase(
+		monsterID,
+		action,
+		normalized.target_pos,
+		normalized.spell_set_index,
+		normalized.spell_index,
+		source
+	)
 
 	return finishTurn(monsterID, source)
 
@@ -877,13 +878,28 @@ func beginTurnDeliberation(monsterID: int) -> CommandDeliberation:
 ## Records and resolves a finished decision. This is the only half that mutates,
 ## and it must run wherever turn order is owned.
 func applyDeliberatedTurn(monsterID: int, deliberation: CommandDeliberation) -> bool:
-	var decision: BattleCommand = deliberation.result()
+	var decision: BattleCommand = _sideLegalCommand(deliberation.result())
 	state.add_event("decision", monsterID, decision.target_id, decision.to_dictionary())
 	var result = executeCommand(monsterID, decision, "cpu")
 	if not result.success:
 		push_error("AI command rejected for monster %d: %s" % [monsterID, result.reason])
 		result = executeCommand(monsterID, BattleCommand.wait(), "cpu_fallback")
 	return result.acted
+
+
+func _sideLegalCommand(decision: BattleCommand) -> BattleCommand:
+	## The side-turn boundary cannot execute the retired act-then-move order.
+	## Preserve the already-chosen action when it came first; a move-then-cast
+	## proposal instead becomes move-and-Wait because magic is pre-move only.
+	if decision == null:
+		return BattleCommand.wait()
+	if decision.order != ORDER_MOVE_FIRST:
+		return BattleCommand.new(
+			[], decision.action, decision.target_id, decision.spell_set_index,
+			decision.spell_index, ORDER_MOVE_FIRST, decision.target_pos)
+	if decision.action == "spell" and not decision.move_path.is_empty():
+		return BattleCommand.new(decision.move_path, "wait", -1, 0, 0, ORDER_MOVE_FIRST)
+	return decision
 
 func createReplaySnapshot() -> Dictionary:
 	if not hasPartyRuntime():
@@ -892,8 +908,6 @@ func createReplaySnapshot() -> Dictionary:
 			"reason": "square_reference_required",
 			"detail": "Use the frozen square reference project for square replay files.",
 		}
-	if state.currentMonsterID != -1 or not _turnAccumulator.is_empty():
-		return {"success": false, "reason": "partial_turn_snapshot_unsupported"}
 	var brainClasses = {}
 	for monsterID in brains:
 		var brain = brains[monsterID]
@@ -902,9 +916,11 @@ func createReplaySnapshot() -> Dictionary:
 	var operations: Array = []
 	var commands: Array = []
 	for event in state.history:
-		if event.get("type", "") in ["party_activation_start", "member_selected", "command"]:
+		if event.get("type", "") in [
+			"side_turn_start", "unit_selected", "move_phase", "undo_move", "unit_action"
+		]:
 			operations.append(BattleStateSerializerScript.jsonSafe(event))
-		if event.get("type", "") == "command":
+		if event.get("type", "") == "unit_action":
 			commands.append(BattleStateSerializerScript.jsonSafe(event))
 
 	return {
@@ -937,6 +953,8 @@ func restoreReplaySnapshot(snapshot: Dictionary) -> Dictionary:
 			"reason": "square_reference_required",
 			"detail": "Use the frozen square reference project for square replay files.",
 		}
+	if version == PARTY_ACTIVATION_REPLAY_VERSION:
+		return {"success": false, "reason": "party_activation_replay_unsupported"}
 	if version != REPLAY_VERSION:
 		return {"success": false, "reason": "unsupported_replay_version", "version": version}
 	if not snapshot.has("currentState"):
@@ -945,13 +963,10 @@ func restoreReplaySnapshot(snapshot: Dictionary) -> Dictionary:
 	if not identityError.is_empty():
 		return {"success": false, "reason": identityError}
 	var currentState: Dictionary = snapshot["currentState"]
-	if int(currentState.get("currentMonsterID", -1)) != -1:
-		return {"success": false, "reason": "partial_turn_snapshot_unsupported"}
 
 	if visualAdapter != null:
 		visualAdapter.disconnectFromEvents()
 	visualAdapter = null
-	_turnAccumulator = {}
 	state = BattleStateSerializerScript.deserialize(currentState)
 	if computeContentFingerprint(state) != str(snapshot.get("contentFingerprint", "")):
 		return {"success": false, "reason": "content_fingerprint_mismatch"}
@@ -1044,8 +1059,8 @@ func startBattle() -> void:
 
 
 func runFullBattle(maxRounds: int = 50) -> int:
-	if hasPartyRuntime():
-		return _runFullPartyBattle(maxRounds)
+	if hasSideRuntime():
+		return _runFullSideBattle(maxRounds)
 	startBattle()
 	for _roundIndex in range(maxRounds):
 		turnManager.startNewRound()
@@ -1082,29 +1097,29 @@ func runFullBattle(maxRounds: int = 50) -> int:
 ## So the last round runs to its end, and only then is the cap checked: nothing active, nobody
 ## pending, `roundCount` at the cap. Its `round_end` is announced like every earlier one, because
 ## the round did finish; an elimination mid-round still ends without one.
-func _runFullPartyBattle(maxRounds: int) -> int:
+func _runFullSideBattle(maxRounds: int) -> int:
 	startBattle()
 	while state.battleOutcome == -1:
 		if (
 			state.roundCount >= maxRounds
-			and state.activePartyID == -1
-			and state.pendingPartyIDs.is_empty()
+			and state.activeSideID == -1
+			and state.pendingSideIDs.is_empty()
 		):
 			state.add_event("round_end", -1, -1, {"round": state.roundCount})
 			events.round_ended.emit(state.roundCount)
 			break
-		var activation := startNextPartyActivation("headless")
-		if not activation["success"]:
-			if activation["reason"] in ["battle_ended", "round_complete"]:
+		var sideTurn := startNextSideTurn("headless")
+		if not sideTurn["success"]:
+			if sideTurn["reason"] in ["battle_ended", "round_complete"]:
 				continue
 			break
-		while state.activePartyID != -1 and state.battleOutcome == -1:
-			var eligible := eligiblePartyMemberIDs()
+		while state.activeSideID != -1 and state.battleOutcome == -1:
+			var eligible := eligibleSideUnitIDs()
 			if eligible.is_empty():
-				_closePartyActivation("no_eligible_members")
+				_closeSideTurn("no_eligible_units")
 				break
 			var memberID := int(eligible.front())
-			if not selectPartyMember(memberID, "cpu")["success"]:
+			if not selectUnit(memberID, "cpu")["success"]:
 				break
 			if not executeTurn(memberID):
 				executeCommand(memberID, BattleCommand.wait(), "cpu_fallback")

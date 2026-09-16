@@ -27,8 +27,8 @@ commands and reacts to events; it does not edit battle state directly.
 |---|---|---|
 | Simulation and data | `src/battle_sim/`, `src/algorithms/`, `src/board/`, `src/entities/`, `src/entity_ai/`, `src/factories/` | Deterministic rules, state, setup construction, content, AI decisions |
 | Presentation | `src/presentation/` | Cameras, meshes, cursor, setup/battle UI helpers, visual registry and adapters |
-| Scene orchestration | `src/systems/hex_battle/HexBattleController.gd` | Godot lifecycle, party-activation pacing, input routing, adapter wiring |
-| Member turn | `src/systems/hex_battle/HexBattleMemberTurn.gd` | One member's phases, cursor, undo, phase submission |
+| Scene orchestration | `src/systems/hex_battle/HexBattleController.gd` | Godot lifecycle, side-turn pacing, input routing, adapter wiring |
+| Unit action | `src/systems/hex_battle/HexBattleMemberTurn.gd` | One selected unit's pending move, action, cursor, and undo submission |
 
 Godot value types such as `Vector2i`, `Dictionary`, and
 `RandomNumberGenerator` are valid in the headless layer. Scene nodes, cameras,
@@ -59,18 +59,18 @@ The planned ownership split is:
   valid cells, terrain, height, and source identity. Presentation scenes are not
   gameplay map definitions.
 - `BattleState` owns party membership and withdrawal state, the round's ordered
-  party queue, the active party, member eligibility/spent state, board layers,
-  occupancy, and every value needed for deterministic save and replay.
-- `BattleSimulator` owns activation transitions and is the only writer of that
-  state. It builds the round queue from commander level, effective commander
-  SPD, and deterministic party ID; opens member turns; consumes Wait and End
-  Party; advances member-owned timing once; resolves forced party withdrawal;
-  and checks victory between fully resolved member commands.
-- Player controllers and CPU brains select only from simulator-reported eligible
-  members and submit the same typed commands. They never maintain a competing
-  party queue or advance status, cooldown, passive, withdrawal, or victory state.
+  side queue, the active side, unit eligibility/spent state, pending unit moves,
+  board layers, occupancy, and every value needed for deterministic save and replay.
+- `BattleSimulator` owns side-turn transitions and is the only writer of that
+  state. It orders surviving teams by deterministic team ID; accepts free unit
+  selection; consumes Wait and End turn; advances unit-owned timing once when
+  that unit is spent; resolves forced party withdrawal; and checks victory
+  between fully resolved unit actions.
+- Player controllers and CPU brains select only from simulator-reported ready
+  units and submit the same typed commands. They never maintain a competing
+  side queue or advance status, cooldown, passive, withdrawal, or victory state.
 - Presentation observes `BattleEvents` or `IBattleVisualAdapter`, submits intent,
-  and renders authoritative eligibility, paths, footprints, party progress, and
+  and renders authoritative eligibility, paths, footprints, side progress, and
   outcomes. Picking, overlays, cameras, animation callbacks, and UI controls do
   not mutate `BattleState`.
 - Tactical authoring may produce both a visual scene and a headless map resource,
@@ -150,36 +150,34 @@ The current square battle is preserved as a frozen, independently runnable
 reference with its own source snapshot, resources, manifest, and launch steps.
 The active project does not load it and exposes no square/hex runtime toggle.
 
-### Party activation and member turns
+### Side turns and unit actions
 
-The simulator opens a round by freezing the surviving party order from
-commander level descending, effective commander speed descending, and party ID
-ascending. `BattleState.partyOrder` records the complete round order while
-`pendingPartyIDs` contains only parties not yet opened. An active party is a
-separate lifecycle from its selected member: `activePartyID` may remain set
-while `currentMonsterID` is `-1` and the simulator waits for an authoritative
-member selection.
+The simulator opens a round by freezing surviving teams in ascending team-ID
+order. `BattleState.sideOrder` records that complete round order while
+`pendingSideIDs` contains sides not yet opened. `activeSideID` remains set while
+`currentMonsterID` changes freely among ready units.
 
-`selectPartyMember()` is the only operation that opens a member turn. It checks
-party membership, life, withdrawal, board presence, and the activation's spent
-set before changing `currentMonsterID`. Player input, CPU deliberation, and
-replay all call this operation. A resolved command records its accepted and
-resolved outcome, fires end-turn passives, advances only that member's status
-and cooldown clocks, and marks the member spent. Exhausting eligibility closes
-the party once. `endPartyActivation()` submits ordinary wait commands for all
-remaining eligible members in member-ID order, so it shares the same timing and
-command ledger rather than maintaining a second completion path.
+`selectUnit()` checks team membership, life, withdrawal, board presence, and
+the side turn's spent set before changing `currentMonsterID`. A move-only phase
+is stored under `pendingUnitTurns`; selecting another unit neither spends nor
+locks it. The pending unit may be selected again and its move undone while its
+origin remains free. Casting after moving and moving after acting are rejected.
+A resolved attack, spell, item action, or Wait records its accepted and resolved
+outcome, fires end-turn passives, advances only that unit's status and cooldown
+clocks, and marks it spent. Exhausting readiness closes the side once.
+`endSideTurn()` submits ordinary Wait commands for all remaining ready units in
+unit-ID order, sharing the same timing and history path.
 
-After every member timing step, the simulator reconciles commander defeat.
+After every unit timing step, the simulator reconciles commander defeat.
 Surviving members of that commander's party leave occupancy and become
 withdrawn without losing hit points. Victory uses surviving commanders; loss of
 every team's last commander in one fully resolved step records outcome `0` as a
-draw. The next member cannot be selected after an outcome is recorded.
+draw. The next unit cannot be selected after an outcome is recorded.
 
-Party state may be captured between member turns, including a partly consumed
-activation. Capture or restore with a selected member or phase accumulator is
-rejected as `partial_turn_snapshot_unsupported`; it is never treated as a new
-activation.
+Side-turn state may be captured at any operation boundary, including with a
+selected unit or several moved-but-unspent units. Pending origins and paths are
+serialized, and replay reproduces selection, movement, undo, and action events
+in their original interleaving order.
 Hex battle is the sole maintained product path; fixes and upgrades do not flow
 back into the reference. This archive boundary avoids a second runtime family
 while keeping the old behaviour available for comparison.
@@ -251,12 +249,9 @@ inside the typed result because their shape legitimately varies by action.
 path, the destination, action type, spell availability, range, line of sight,
 team rules, and target validity against authoritative state.
 
-`order` is `move_first` or `act_first` and says which phase resolved first. It
-decides which position the action is validated from: a `move_first` action is
-checked against the move destination, an `act_first` action against the tile
-the actor started the turn on. Without it an act-then-move turn would replay
-as move-then-act and re-validate against a tile the actor was never in
-position to act from.
+`order` is now always `move_first`. Acting spends a unit, so act-then-move is
+not a legal command. A spell command with a non-empty move path is rejected as
+`spell_after_move`; attacks may validate from the move destination.
 
 Command outcome has two distinct stages:
 
@@ -274,22 +269,20 @@ shared executor.
 
 ## Incremental turn execution
 
-A turn holds at most one movement phase and at most one action phase, in
-either order. `executeMovePhase()`, `executeActionPhase()`, and `finishTurn()`
-resolve them one at a time, which is what lets the interactive path animate a
-move to completion before the player chooses an action. `executeCommand()` is
-the atomic entry point CPU brains and replay use; it validates the whole turn
-up front and then drives the same phase calls in the order the command
-records.
+A unit holds at most one pending movement phase before its spending action.
+`executeMovePhase()`, `executeActionPhase()`, and `finishTurn()` resolve those
+steps incrementally, while `executeCommand()` remains the atomic entry point
+for CPU brains. Pending state is per unit, so several move-only units may be
+interleaved during one side turn.
 
-Both routes accumulate into one turn and produce exactly one `command` history
-event, written by `finishTurn()`. `finishTurn()` is also the sole caller of
-`PassiveSkillResolver.ON_TURN_END`, which must fire once per turn however many
-phases ran. An action phase validates from authoritative state rather than a
-projected destination, because by then the actor is already standing where it
-will act from.
+History records `unit_selected`, `move_phase`, `undo_move`, and `unit_action`
+separately in event order. The `unit_action` result retains the aggregate
+command for records, while replay drives the same operations in their original
+interleaving. `finishTurn()` is the sole caller of
+`PassiveSkillResolver.ON_TURN_END`, which fires exactly once when the action
+spends that unit.
 
-`undoMovePhase()` rewinds movement to the tile the turn began on. It is legal
+`undoMovePhase()` rewinds movement to the tile that unit's pending action began on. It is legal
 only while the action phase is unspent: an action is validated from the tile
 it was made from, so rewinding that tile afterwards would retroactively
 falsify a resolution that has already dealt damage. Movement itself has no
@@ -575,28 +568,30 @@ protect.
 ## Determinism, replay, and restoration
 
 - All gameplay randomness flows through `BattleState.rng`.
-- Equal-speed turn ties use deterministic monster ID ordering.
+- Side order uses ascending deterministic team ID; unit selection order belongs
+  to the player or CPU policy rather than SPD initiative.
 - Legacy square schema version 5 records map revision, height, level, jump,
   base/growth fields, resolved stats, family, ascension parent, Resonance bars,
   and Luck; versions 2-5 remain readable only for internal square-state
   compatibility while that code is retired.
-- Hex state schema version 6 additionally records `hex_flat`, `odd_q_offset`,
-  `hex_party_activation_v1`, exact map/scenario identity, a scoped content
-  fingerprint, parties, frozen and pending party order, selected party/member,
-  spent and withdrawn identities, activation phase/count, and battle outcome.
+- Hex state schema version 7 records `hex_flat`, `odd_q_offset`,
+  `hex_side_turn_v1`, exact map/scenario identity, a scoped content fingerprint,
+  parties, frozen and pending side order, active side, selected unit, spent and
+  withdrawn identities, pending per-unit moves, side-turn phase/count, and
+  battle outcome. Retired version 6 party-activation state fails loudly.
 - `BattleStateSerializer` produces and restores JSON-safe state, including RNG,
   IDs, board layers, rosters, effects, history, and monsters.
 - `BattleSimulator.createReplaySnapshot()` includes setup, initial/current state,
-  brain classes, explicit party/member-selection operations, and the shared
-  controller-neutral command ledger. Each command carries both its acceptance
-  and resolution result.
-- Active-project replay snapshots are hex version 6. They identify topology,
+  brain classes, and explicit side-start, unit-selection, movement, undo, and
+  unit-action operations. Each action carries both acceptance and resolution.
+- Active-project replay snapshots are hex version 7. They identify topology,
   coordinate convention, ruleset, scenario/map revisions, map-source
   fingerprint, and a canonical fingerprint of the relevant map, party, monster,
   spell, and passive content. Square replay versions 2-5 return
-  `square_reference_required` and point callers to the frozen square project.
+  `square_reference_required`; retired party-activation version 6 returns
+  `party_activation_replay_unsupported`.
 - `BattleReplayRunner` reconstructs current setup/catalog identity before it
-  executes anything, replays party activation, member selection, and commands
+  executes anything, replays side starts, selection, moves, undo, and actions
   through their normal operations, compares recorded command outcomes, then
   compares final state, RNG, ID allocation, lifecycle, and material event
   outcomes.

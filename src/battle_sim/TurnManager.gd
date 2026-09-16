@@ -109,6 +109,18 @@ static func partySortedIDs(state: BattleState, partyIDs: Array) -> Array[int]:
 	return sorted
 
 
+## Side turns deliberately have no speed initiative. Stable ascending team ID
+## order is deterministic, easy to explain, and independent of roster makeup.
+static func sideSortedIDs(state: BattleState) -> Array[int]:
+	var sorted: Array[int] = []
+	for teamIDValue in state.teamRosters:
+		var teamID := int(teamIDValue)
+		if not state.isTeamDefeated(teamID):
+			sorted.append(teamID)
+	sorted.sort()
+	return sorted
+
+
 func hasNextTurn() -> bool:
 	# Remove any dead monsters that died mid-round
 	while not turnOrder.is_empty():
@@ -157,3 +169,7 @@ func endTurn(monsterID: int) -> void:
 
 	events.turn_ended.emit(monsterID)
 	state.currentMonsterID = -1
+
+
+func endUnitAction(monsterID: int) -> void:
+	endTurn(monsterID)

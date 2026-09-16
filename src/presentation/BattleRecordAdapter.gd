@@ -51,7 +51,7 @@ const ReachQueryScript = preload("res://src/battle_sim/ReachQuery.gd")
 ## the first-listed team, and the outcome says `draw` outright. The brains changed in the same
 ## item (see `BattleCommandEvaluator.healWorth`), so v2 decisions came from a different policy too.
 ## A consumer must not pool the two versions.
-const RECORD_VERSION := 3
+const RECORD_VERSION := 4
 
 ## `outcome.end_reason` values. A round-limit win is decided by counting survivors, which is a
 ## different kind of result from a side being wiped out, and a scorer must be able to tell them
@@ -77,22 +77,22 @@ func _init(simulator) -> void:
 ## Opens a decision. Everything the actor could see and do is captured HERE, before any of it
 ## resolves -- after the fact the board has already moved and the question "what did it decide
 ## against" no longer has an answer.
-func _on_turn_started(monsterID: int, roundNumber: int, turnNumber: int) -> void:
+func _on_unit_selected(sideID: int, monsterID: int) -> void:
 	if _sim == null:
 		return
 	_historyMark = _sim.state.history.size()
 	_open = {
 		"index": _decisions.size(),
-		"round": roundNumber,
-		"turn": turnNumber,
-		"party_id": int(_sim.state.activePartyID),
+		"round": int(_sim.state.roundCount),
+		"turn": int(_sim.state.turnCount),
+		"side_id": sideID,
 		# Who else in the party could have been activated instead, and the round's party order.
 		# FHB-6: without these, member selection -- a real decision the player makes -- was
 		# invisible, and the headless loop's "first eligible member" rule looked like a policy.
-		"eligible_members": SerializerScript.jsonSafe(
-			_sim.state.eligibleMemberIDs(int(_sim.state.activePartyID))
+		"eligible_units": SerializerScript.jsonSafe(
+			_sim.state.eligibleUnitIDs(sideID)
 		),
-		"party_order": SerializerScript.jsonSafe(_sim.state.partyOrder),
+		"side_order": SerializerScript.jsonSafe(_sim.state.sideOrder),
 		"actor_id": monsterID,
 		"observation": _observation(monsterID),
 		"legal": _legalActions(monsterID),
@@ -104,7 +104,7 @@ func _on_turn_started(monsterID: int, roundNumber: int, turnNumber: int) -> void
 ## back together from the events in between: `finishTurn()` writes exactly one `command` event per
 ## turn and the replay system already trusts it, so reading it here means the record and a replay
 ## of the same battle agree by construction instead of by coincidence.
-func _on_turn_ended(monsterID: int) -> void:
+func _on_unit_spent(_sideID: int, monsterID: int) -> void:
 	if _open.is_empty() or int(_open.get("actor_id", -1)) != monsterID:
 		return
 	var chosen := {}
@@ -113,10 +113,10 @@ func _on_turn_ended(monsterID: int) -> void:
 	for index in range(_historyMark, _sim.state.history.size()):
 		var event: Dictionary = _sim.state.history[index]
 		var type := str(event.get("type", ""))
-		if type == "command" and int(event.get("actor_id", -1)) == monsterID:
+		if type == "unit_action" and int(event.get("actor_id", -1)) == monsterID:
 			var data: Dictionary = event.get("data", {})
-			chosen = SerializerScript.jsonSafe(data.get("command", {}))
 			result = SerializerScript.jsonSafe(data.get("result", {}))
+			chosen = (result.get("command", {}) as Dictionary).duplicate(true)
 			# `BattleCommandResult.to_dictionary()` nests the command it resolved, which is
 			# byte-for-byte what `chosen` already holds. Dropped rather than stored twice: it
 			# was four percent of the file, and two copies of one fact is a chance for a reader

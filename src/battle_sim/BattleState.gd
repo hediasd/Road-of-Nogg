@@ -26,15 +26,25 @@ var teamRosters: Dictionary = {}         # team -> Array[monsterID]
 var parties: Dictionary = {}             # partyID -> BattleParty
 var monsterPartyIDs: Dictionary = {}     # monsterID -> partyID
 var teamPartyIDs: Dictionary = {}        # teamID -> Array[partyID]
-var partyOrder: Array[int] = []           # Frozen order for the current round
-var pendingPartyIDs: Array[int] = []      # Parties not yet opened this round
-var activePartyID: int = -1
-var spentMemberIDs: Dictionary = {}       # memberID -> true for this activation
+var partyOrder: Array[int] = []           # Stable authored party order; parties do not schedule turns.
+var sideOrder: Array[int] = []            # Frozen team order for the current round
+var pendingSideIDs: Array[int] = []       # Sides not yet opened this round
+var activeSideID: int = -1
+var spentUnitIDs: Dictionary = {}         # monsterID -> true for this side turn
+var pendingUnitTurns: Dictionary = {}     # monsterID -> moved-but-unspent turn state
 var withdrawnPartyIDs: Dictionary = {}
 var withdrawnMonsterIDs: Dictionary = {}
+var sideTurnCount: int = 0
+var sideTurnPhase: String = "idle"
+var battleOutcome: int = -1
+
+# Transitional read surface for the pre-side-turn controller. These values no
+# longer schedule play and remain idle until that controller is replaced.
+var activePartyID: int = -1
+var spentMemberIDs: Dictionary = {}
+var pendingPartyIDs: Array[int] = []
 var activationCount: int = 0
 var activationPhase: String = "idle"
-var battleOutcome: int = -1
 
 var gridKind: String = ""
 var coordinateConvention: String = ""
@@ -152,6 +162,25 @@ func eligibleMemberIDs(partyID: int = activePartyID) -> Array[int]:
 			and not spentMemberIDs.has(memberID)
 		):
 			result.append(memberID)
+	return result
+
+
+func eligibleUnitIDs(sideID: int = activeSideID) -> Array[int]:
+	var result: Array[int] = []
+	if sideID < 0 or not teamRosters.has(sideID):
+		return result
+	for monsterIDValue in teamRosters[sideID]:
+		var monsterID := int(monsterIDValue)
+		var monster: Monster = getMonster(monsterID)
+		if (
+			monster != null
+			and monster.is_alive()
+			and monsterPositions.has(monsterID)
+			and not isMonsterWithdrawn(monsterID)
+			and not spentUnitIDs.has(monsterID)
+		):
+			result.append(monsterID)
+	result.sort()
 	return result
 
 

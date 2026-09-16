@@ -2,12 +2,12 @@
 
 class_name BattleStateSerializer
 
-const CURRENT_VERSION := 6
+const CURRENT_VERSION := 7
 const LEGACY_CURRENT_VERSION := 5
 const MIN_SUPPORTED_VERSION := 2
 const HEX_GRID_KIND := "hex_flat"
 const HEX_COORDINATE_CONVENTION := "odd_q_offset"
-const HEX_RULESET_ID := "hex_party_activation_v1"
+const HEX_RULESET_ID := "hex_side_turn_v1"
 
 const MonsterFactoryScript = preload("res://src/factories/MonsterFactory.gd")
 const BattleMapFactoryScript = preload("res://src/factories/BattleMapFactory.gd")
@@ -15,9 +15,9 @@ const BattlePartyScript = preload("res://src/entities/BattleParty.gd")
 
 
 static func serialize(state: BattleState) -> Dictionary:
-	var isHexPartyState := not state.parties.is_empty()
+	var isHexSideState := not state.parties.is_empty()
 	var data := {
-		"version": CURRENT_VERSION if isHexPartyState else LEGACY_CURRENT_VERSION,
+		"version": CURRENT_VERSION if isHexSideState else LEGACY_CURRENT_VERSION,
 		"seed": state.battleSeed,
 		"rngState": state.rng.state,
 		"nextMonsterID": state.nextMonsterID,
@@ -37,7 +37,7 @@ static func serialize(state: BattleState) -> Dictionary:
 		"lastTurnStartIndex": _stringKeyedDictionary(state.last_turn_start_index),
 		"monsters": _monsters(state.monsters)
 	}
-	if not isHexPartyState:
+	if not isHexSideState:
 		return data
 	assert(state.battleMap != null, "Hex party state requires a battle map definition.")
 	assert(state.gridKind == HEX_GRID_KIND, "Hex party state has the wrong grid kind.")
@@ -57,13 +57,15 @@ static func serialize(state: BattleState) -> Dictionary:
 		"monsterPartyIDs": _stringKeyedDictionary(state.monsterPartyIDs),
 		"teamPartyIDs": _stringKeyedDictionary(state.teamPartyIDs),
 		"partyOrder": state.partyOrder.duplicate(),
-		"pendingPartyIDs": state.pendingPartyIDs.duplicate(),
-		"activePartyID": state.activePartyID,
-		"spentMemberIDs": _stringKeyedDictionary(state.spentMemberIDs),
+		"sideOrder": state.sideOrder.duplicate(),
+		"pendingSideIDs": state.pendingSideIDs.duplicate(),
+		"activeSideID": state.activeSideID,
+		"spentUnitIDs": _stringKeyedDictionary(state.spentUnitIDs),
+		"pendingUnitTurns": _stringKeyedDictionary(state.pendingUnitTurns),
 		"withdrawnPartyIDs": _stringKeyedDictionary(state.withdrawnPartyIDs),
 		"withdrawnMonsterIDs": _stringKeyedDictionary(state.withdrawnMonsterIDs),
-		"activationCount": state.activationCount,
-		"activationPhase": state.activationPhase,
+		"sideTurnCount": state.sideTurnCount,
+		"sideTurnPhase": state.sideTurnPhase,
 		"battleOutcome": state.battleOutcome,
 	})
 	return data
@@ -81,6 +83,8 @@ static func deserialize(data: Dictionary) -> BattleState:
 			version, MIN_SUPPORTED_VERSION, CURRENT_VERSION
 		]
 	)
+	assert(version != 6,
+		"Hex party-activation state version 6 is retired and cannot be loaded as side-turn state.")
 	var state = BattleState.new(int(data.get("seed", 0)))
 	var sizeData: Dictionary = data.get("boardSize", {"x": 0, "y": 0})
 	var serializedSize := Vector2i(int(sizeData.get("x", 0)), int(sizeData.get("y", 0)))
@@ -130,13 +134,15 @@ static func deserialize(data: Dictionary) -> BattleState:
 		state.monsterPartyIDs = _restoreIntValueDictionary(data.get("monsterPartyIDs", {}))
 		state.teamPartyIDs = _restoreTeamRosters(data.get("teamPartyIDs", {}))
 		state.partyOrder = _intArray(data.get("partyOrder", []))
-		state.pendingPartyIDs = _intArray(data.get("pendingPartyIDs", []))
-		state.activePartyID = int(data.get("activePartyID", -1))
-		state.spentMemberIDs = _restoreBoolDictionary(data.get("spentMemberIDs", {}))
+		state.sideOrder = _intArray(data.get("sideOrder", []))
+		state.pendingSideIDs = _intArray(data.get("pendingSideIDs", []))
+		state.activeSideID = int(data.get("activeSideID", -1))
+		state.spentUnitIDs = _restoreBoolDictionary(data.get("spentUnitIDs", {}))
+		state.pendingUnitTurns = _restorePendingUnitTurns(data.get("pendingUnitTurns", {}))
 		state.withdrawnPartyIDs = _restoreBoolDictionary(data.get("withdrawnPartyIDs", {}))
 		state.withdrawnMonsterIDs = _restoreBoolDictionary(data.get("withdrawnMonsterIDs", {}))
-		state.activationCount = int(data.get("activationCount", 0))
-		state.activationPhase = str(data.get("activationPhase", "idle"))
+		state.sideTurnCount = int(data.get("sideTurnCount", 0))
+		state.sideTurnPhase = str(data.get("sideTurnPhase", "idle"))
 		state.battleOutcome = int(data.get("battleOutcome", -1))
 
 	state.monsters.clear()
@@ -243,6 +249,30 @@ static func _restoreBoolDictionary(source: Dictionary) -> Dictionary:
 		if bool(source[key]):
 			result[int(key)] = true
 	return result
+
+
+static func _restorePendingUnitTurns(source: Dictionary) -> Dictionary:
+	var result: Dictionary = {}
+	for key in source:
+		var turn: Dictionary = source[key].duplicate(true)
+		turn["origin"] = _vectorFrom(turn.get("origin", {}))
+		var path: Array = []
+		for step in turn.get("move_path", []):
+			path.append(_vectorFrom(step))
+		turn["move_path"] = path
+		turn["target_pos"] = _vectorFrom(turn.get("target_pos", {}))
+		result[int(key)] = turn
+	return result
+
+
+static func _vectorFrom(value) -> Vector2i:
+	if value is Vector2i:
+		return value
+	if value is Dictionary:
+		return Vector2i(int(value.get("x", -1)), int(value.get("y", -1)))
+	if value is Array and value.size() >= 2:
+		return Vector2i(int(value[0]), int(value[1]))
+	return Vector2i(-1, -1)
 
 
 static func _intArray(source: Array) -> Array[int]:

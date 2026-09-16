@@ -44,12 +44,12 @@ func _simulator() -> BattleSimulator:
 
 func _checkReplayAndContinuation(simulator: BattleSimulator) -> void:
 	simulator.startBattle()
-	var opening := simulator.startNextPartyActivation("probe")
-	_require(opening["success"], "first party activation failed")
+	var opening := simulator.startNextSideTurn("probe")
+	_require(opening["success"], "first side turn failed")
 	if not opening["success"]:
 		return
-	var selectedID := int(simulator.eligiblePartyMemberIDs().back())
-	_require(simulator.selectPartyMember(selectedID, "probe")["success"],
+	var selectedID := int(simulator.eligibleSideUnitIDs().back())
+	_require(simulator.selectUnit(selectedID, "probe")["success"],
 		"explicit out-of-order member selection failed")
 	var commandResult := simulator.executeCommand(selectedID, BattleCommand.wait(), "probe")
 	_require(commandResult.success, "selected member wait failed")
@@ -57,16 +57,16 @@ func _checkReplayAndContinuation(simulator: BattleSimulator) -> void:
 	_require(snapshot.get("success", false), "activation-boundary snapshot failed")
 	if not snapshot.get("success", false):
 		return
-	_require(snapshot["version"] == 6, "hex replay did not use version 6")
+	_require(snapshot["version"] == 7, "hex replay did not use version 7")
 	_require(snapshot["gridKind"] == "hex_flat" and snapshot["coordinateConvention"] == "odd_q_offset",
 		"hex topology identity was not recorded")
-	_require(snapshot["rulesetID"] == "hex_party_activation_v1",
+	_require(snapshot["rulesetID"] == "hex_side_turn_v1",
 		"ruleset identity was not recorded")
 	_require(str(snapshot["contentFingerprint"]).begins_with("sha256:"),
 		"content fingerprint was not recorded")
 	_require(snapshot["operations"].filter(func(entry):
-		return entry.get("type", "") == "member_selected").size() == 1,
-		"member selection was not explicit in replay operations")
+		return entry.get("type", "") == "unit_selected").size() == 1,
+		"unit selection was not explicit in replay operations")
 
 	var replayed := BattleReplayRunnerScript.replay(snapshot)
 	_require(replayed["success"], "replay failed: %s" % replayed.get("reason", ""))
@@ -92,13 +92,14 @@ func _checkReplayAndContinuation(simulator: BattleSimulator) -> void:
 	var partial := _simulator()
 	if partial != null:
 		partial.startBattle()
-		partial.startNextPartyActivation("probe")
-		var partialID := int(partial.eligiblePartyMemberIDs().front())
-		partial.selectPartyMember(partialID, "probe")
+		partial.startNextSideTurn("probe")
+		var partialID := int(partial.eligibleSideUnitIDs().front())
+		partial.selectUnit(partialID, "probe")
 		var partialSnapshot := partial.createReplaySnapshot()
-		_require(not partialSnapshot.get("success", true) and
-			partialSnapshot.get("reason", "") == "partial_turn_snapshot_unsupported",
-			"mid-turn capture was not rejected explicitly")
+		_require(partialSnapshot.get("success", false),
+			"mid-side-turn capture was not supported")
+		var partialReplay := BattleReplayRunnerScript.replay(partialSnapshot)
+		_require(partialReplay.get("success", false), "mid-side-turn replay failed")
 
 	_expectReplayFailure({"version": 5}, "square_reference_required", "square replay")
 	var wrongGrid: Dictionary = snapshot.duplicate(true)
@@ -120,26 +121,23 @@ func _checkReplayAndContinuation(simulator: BattleSimulator) -> void:
 	wrongOutcome["currentState"]["turnCount"] = int(snapshot["currentState"]["turnCount"]) + 1
 	_expectReplayFailure(wrongOutcome, "state_outcome_mismatch", "wrong final outcome")
 
-	var partialRestore: Dictionary = snapshot.duplicate(true)
-	partialRestore["currentState"]["currentMonsterID"] = selectedID
-	var partialRestoreResult := BattleSimulatorScript.new().restoreReplaySnapshot(partialRestore)
-	_require(not partialRestoreResult["success"] and
-		partialRestoreResult["reason"] == "partial_turn_snapshot_unsupported",
-		"unsupported partial restore was accepted")
+	var oldPartyReplay: Dictionary = snapshot.duplicate(true)
+	oldPartyReplay["version"] = 6
+	_expectReplayFailure(oldPartyReplay, "party_activation_replay_unsupported", "party activation replay")
 
 
 func _continueOnce(simulator: BattleSimulator) -> void:
-	if simulator.state.activePartyID == -1:
-		var opened := simulator.startNextPartyActivation("continuation")
-		_require(opened["success"], "continuation could not open a party")
+	if simulator.state.activeSideID == -1:
+		var opened := simulator.startNextSideTurn("continuation")
+		_require(opened["success"], "continuation could not open a side")
 		if not opened["success"]:
 			return
-	var eligible := simulator.eligiblePartyMemberIDs()
+	var eligible := simulator.eligibleSideUnitIDs()
 	_require(not eligible.is_empty(), "continuation had no eligible member")
 	if eligible.is_empty():
 		return
 	var memberID := int(eligible.front())
-	_require(simulator.selectPartyMember(memberID, "continuation")["success"],
+	_require(simulator.selectUnit(memberID, "continuation")["success"],
 		"continuation member selection failed")
 	_require(simulator.executeCommand(memberID, BattleCommand.wait(), "continuation").success,
 		"continuation command failed")
@@ -185,7 +183,8 @@ func _checkFoughtBattleReplays() -> void:
 	var positional := 0
 	for entry in commands:
 		var data: Dictionary = (entry as Dictionary).get("data", {})
-		var command: Dictionary = data.get("command", {})
+		var resultData: Dictionary = data.get("result", {})
+		var command: Dictionary = resultData.get("command", {})
 		if str(command.get("action", "wait")) != "wait":
 			positional += 1
 		elif not (command.get("move_path", []) as Array).is_empty():

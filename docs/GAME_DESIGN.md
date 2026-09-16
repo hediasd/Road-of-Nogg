@@ -16,47 +16,41 @@ These sources guide the structure; the exact Road of Nogg rules below are the
 approved project contract. See the [Forsena manual](https://www.videogamemanual.com/ps1/Brigandine%20-%20The%20Legend%20of%20Forsena%20%28USA%29.pdf)
 and [Runersia game-system reference](https://brigandine.happinet-games.com/gamesystem/?lang=en).
 
-### Parties, rounds, and member turns
+### Sides, rounds, and unit actions
 
 - A party has exactly one commander, a deterministic party ID, and zero or more
   other members. Initial test scenarios may designate existing monsters as
   commanders; the migration does not require new characters, names, classes,
   or artwork.
-- Each surviving party receives one activation per round. At round start,
-  parties are ordered by commander level descending, effective commander SPD
-  descending, then deterministic party ID ascending. The queue is rebuilt only
-  at the next round unless battle termination makes its remainder irrelevant.
-- During a player party activation, the player may choose any living, eligible,
-  unspent member in any order. CPU parties choose dynamically through the same
-  eligibility and command rules. Each eligible member receives at most one turn
-  during that activation.
-- **Wait** consumes the selected member's turn. **End Party** converts every
-  remaining eligible member turn into a wait in deterministic member-ID order.
-  Dead or withdrawn members receive no turn and no timing tick.
-- A member may move then act or act then move where the command permits it.
-  Casting after movement is allowed unless the spell says otherwise. Movement
-  may be undone only before an action and before any irreversible reaction or
-  effect has occurred.
+- Every surviving side receives one turn per round, in ascending deterministic
+  team-ID order. Party commander level and SPD do not schedule turns.
+- During its side turn, the player may select any living, non-withdrawn,
+  unspent unit from any party on that team, in any order. Switching selection
+  is free, including returning to a unit that moved but has not acted.
+- Moving alone does not spend a unit. Its move may be undone until it acts,
+  unless another unit now occupies the saved origin. Attack is legal after a
+  move; magic is legal only before moving. Acting or **Wait** spends the unit,
+  and a spent unit cannot move.
+- **End turn** converts every remaining ready unit into Wait in deterministic
+  unit-ID order. Dead or withdrawn units receive no action and no timing tick.
 - Status durations, cooldowns, and end-turn passives advance once when their
-  member acts, waits, is skipped, or is consumed by End Party. An effect created
-  during an activation follows the same rule; one member's turn never advances
-  another party member's clocks. Victory is checked after each fully resolved
-  command and timing step, before another member is selected.
+  unit acts, waits, is skipped, or is consumed by End turn. An effect created
+  during a side turn follows the same rule; one unit's action never advances
+  another unit's clocks. Victory is checked after each fully resolved action
+  and timing step, before another unit is selected.
 
-Free member choice removes ordinary-member SPD from turn scheduling. Commander
-SPD remains a party-order tiebreaker. A later balance decision may give ordinary
-member SPD another use, such as accuracy or evasion; no replacement benefit is
-part of this migration.
+Side turns remove SPD from scheduling entirely. A later balance decision may
+give SPD another use, such as accuracy or evasion; no replacement benefit is
+part of this change.
 
 Examples make the scheduling edge cases explicit:
 
-- If two commanders share level and effective SPD, the lower deterministic
-  party ID activates first.
-- If member 12 waits, member 12 is spent while another eligible member remains
-  selectable. If End Party is then chosen with members 9 and 20 eligible, their
+- Team 1 acts before Team 2 each round, regardless of commander or unit SPD.
+- If unit 12 waits, unit 12 is spent while another ready unit remains
+  selectable. If End turn is then chosen with units 9 and 20 ready, their
   waits resolve in ID order: 9, then 20.
-- If only one eligible member remains, that member may act or wait normally;
-  resolving it ends the party activation exactly once.
+- If only one ready unit remains, that unit may act or wait normally; resolving
+  it ends the side turn exactly once.
 
 ### Defeat, withdrawal, and battle outcome
 
@@ -141,8 +135,7 @@ device authoritative would leave the visible cursor and the device in the
 player's hand disagreeing, which is worse than either occasionally moving the
 other's selection.
 
-Input reaches a member turn only while one is open, and a turn opens only for
-the player's own active party.
+Input reaches a unit only while the player's side turn is open.
 
 ## Current square baseline: battle format
 

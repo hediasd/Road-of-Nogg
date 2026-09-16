@@ -8,6 +8,12 @@ signal battle_ended(winningTeam: int)
 
 signal round_started(roundNumber: int, turnOrderIDs: Array)
 signal round_ended(roundNumber: int)
+signal side_turn_started(sideID: int, roundNumber: int, turnNumber: int, eligibleUnitIDs: Array)
+signal unit_selected(sideID: int, monsterID: int)
+signal unit_spent(sideID: int, monsterID: int)
+signal side_turn_ended(sideID: int, reason: String)
+# Retained only while the old interactive controller is replaced in a later
+# cycle item. The side-turn simulator never emits these party schedule events.
 signal party_activation_started(partyID: int, roundNumber: int, activationNumber: int, eligibleMemberIDs: Array)
 signal party_member_selected(partyID: int, monsterID: int)
 signal party_member_spent(partyID: int, monsterID: int)

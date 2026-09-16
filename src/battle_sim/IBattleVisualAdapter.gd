@@ -17,6 +17,10 @@ func connectToEvents(battleEvents: BattleEvents) -> void:
 	battleEvents.battle_ended.connect(_on_battle_ended)
 	battleEvents.round_started.connect(_on_round_started)
 	battleEvents.round_ended.connect(_on_round_ended)
+	battleEvents.side_turn_started.connect(_on_side_turn_started)
+	battleEvents.unit_selected.connect(_on_unit_selected)
+	battleEvents.unit_spent.connect(_on_unit_spent)
+	battleEvents.side_turn_ended.connect(_on_side_turn_ended)
 	battleEvents.party_activation_started.connect(_on_party_activation_started)
 	battleEvents.party_member_selected.connect(_on_party_member_selected)
 	battleEvents.party_member_spent.connect(_on_party_member_spent)
@@ -50,6 +54,10 @@ func disconnectFromEvents() -> void:
 	_disconnect(_connectedEvents.battle_ended, _on_battle_ended)
 	_disconnect(_connectedEvents.round_started, _on_round_started)
 	_disconnect(_connectedEvents.round_ended, _on_round_ended)
+	_disconnect(_connectedEvents.side_turn_started, _on_side_turn_started)
+	_disconnect(_connectedEvents.unit_selected, _on_unit_selected)
+	_disconnect(_connectedEvents.unit_spent, _on_unit_spent)
+	_disconnect(_connectedEvents.side_turn_ended, _on_side_turn_ended)
 	_disconnect(_connectedEvents.party_activation_started, _on_party_activation_started)
 	_disconnect(_connectedEvents.party_member_selected, _on_party_member_selected)
 	_disconnect(_connectedEvents.party_member_spent, _on_party_member_spent)
@@ -88,6 +96,10 @@ func _on_battle_started(_boardSize: Vector2i, _monsterList: Array) -> void: pass
 func _on_battle_ended(_winningTeam: int) -> void: pass
 func _on_round_started(_roundNumber: int, _turnOrderIDs: Array) -> void: pass
 func _on_round_ended(_roundNumber: int) -> void: pass
+func _on_side_turn_started(_sideID: int, _roundNumber: int, _turnNumber: int, _eligibleUnitIDs: Array) -> void: pass
+func _on_unit_selected(_sideID: int, _monsterID: int) -> void: pass
+func _on_unit_spent(_sideID: int, _monsterID: int) -> void: pass
+func _on_side_turn_ended(_sideID: int, _reason: String) -> void: pass
 func _on_party_activation_started(_partyID: int, _roundNumber: int, _activationNumber: int, _eligibleMemberIDs: Array) -> void: pass
 func _on_party_member_selected(_partyID: int, _monsterID: int) -> void: pass
 func _on_party_member_spent(_partyID: int, _monsterID: int) -> void: pass

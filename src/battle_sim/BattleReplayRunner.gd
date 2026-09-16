@@ -36,8 +36,6 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 	var initialValue = snapshot.get("initialState", {})
 	if not initialValue is Dictionary or initialValue.is_empty():
 		return {"success": false, "reason": "missing_initial_state"}
-	if int(initialValue.get("currentMonsterID", -1)) != -1:
-		return {"success": false, "reason": "partial_turn_snapshot_unsupported"}
 	var initialIdentityError := _embeddedIdentityError(initialValue, snapshot)
 	if not initialIdentityError.is_empty():
 		return {"success": false, "reason": initialIdentityError}
@@ -57,23 +55,37 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 		var type := str(operation.get("type", ""))
 		var data: Dictionary = operation.get("data", {})
 		match type:
-			"party_activation_start":
-				var activation := simulator.startNextPartyActivation(str(data.get("source", "replay")))
-				if not activation["success"] or int(activation["party_id"]) != int(operation.get("actor_id", -1)):
+			"side_turn_start":
+				var sideTurn := simulator.startNextSideTurn(str(data.get("source", "replay")))
+				if not sideTurn["success"] or int(sideTurn["side_id"]) != int(operation.get("actor_id", -1)):
 					return {
 						"success": false,
-						"reason": "party_order_mismatch",
+						"reason": "side_order_mismatch",
 						"expected": operation.get("actor_id", -1),
-						"actual": activation,
+						"actual": sideTurn,
 					}
-			"member_selected":
-				var selection := simulator.selectPartyMember(
+			"unit_selected":
+				var selection := simulator.selectUnit(
 					int(operation.get("actor_id", -1)), str(data.get("source", "replay")))
 				if not selection["success"]:
-					return {"success": false, "reason": "member_selection_rejected", "detail": selection}
-			"command":
+					return {"success": false, "reason": "unit_selection_rejected", "detail": selection}
+			"move_phase":
+				var moveResult := simulator.executeMovePhase(
+					int(operation.get("actor_id", -1)), data.get("path", []),
+					str(data.get("source", "replay")))
+				if not moveResult["success"]:
+					return {"success": false, "reason": "move_phase_rejected", "detail": moveResult}
+			"undo_move":
+				var undoResult := simulator.undoMovePhase(int(operation.get("actor_id", -1)))
+				if not undoResult["success"]:
+					return {"success": false, "reason": "undo_move_rejected", "detail": undoResult}
+			"unit_action":
 				var actorID := int(operation.get("actor_id", -1))
-				var command := BattleCommand.from_dictionary(data.get("command", {}))
+				var command := BattleCommand.new(
+					[], str(data.get("action", "wait")), -1,
+					int(data.get("spell_set_index", 0)), int(data.get("spell_index", 0)),
+					BattleSimulatorScript.ORDER_MOVE_FIRST,
+					BattleCommand._vector_from(data.get("target_pos", {})))
 				var result := simulator.executeCommand(actorID, command, str(data.get("source", "replay")))
 				if not result.success:
 					return {"success": false, "reason": "command_rejected", "detail": result.to_dictionary()}
@@ -104,8 +116,6 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 	var currentValue = snapshot.get("currentState", {})
 	if not currentValue is Dictionary:
 		return {"success": false, "reason": "missing_current_state"}
-	if int(currentValue.get("currentMonsterID", -1)) != -1:
-		return {"success": false, "reason": "partial_turn_snapshot_unsupported"}
 	var actualState := simulator.state.serialize_state()
 	if not _same(_outcomeProjection(currentValue), _outcomeProjection(actualState)):
 		return {
@@ -126,6 +136,8 @@ static func _identityError(snapshot: Dictionary) -> String:
 	var version := int(snapshot.get("version", 0))
 	if version > 0 and version <= BattleSimulatorScript.SQUARE_REPLAY_MAX_VERSION:
 		return "square_reference_required"
+	if version == BattleSimulatorScript.PARTY_ACTIVATION_REPLAY_VERSION:
+		return "party_activation_replay_unsupported"
 	if version != BattleSimulatorScript.REPLAY_VERSION:
 		return "unsupported_replay_version"
 	if str(snapshot.get("gridKind", "")) != BattleSimulatorScript.GRID_KIND:
@@ -187,9 +199,9 @@ static func _outcomeProjection(serializedState: Dictionary) -> Dictionary:
 			continue
 		var type := str(eventValue.get("type", ""))
 		if type in [
-			"round_start", "round_end", "party_activation_start",
-			"party_activation_end", "member_selected", "turn_start", "command",
-			"member_spent", "damage", "attack_miss", "spell_cast",
+			"round_start", "round_end", "side_turn_start", "side_turn_end",
+			"unit_selected", "move_phase", "undo_move", "unit_action", "unit_spent",
+			"damage", "attack_miss", "spell_cast",
 			"resonance_changed", "party_withdrawn", "battle_end",
 		]:
 			outcomes.append(eventValue)
