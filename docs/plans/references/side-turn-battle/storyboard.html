@@ -1,0 +1,191 @@
+<title>Nogg Battle Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#EDF0F3; --surface:#FFFFFF; --ink:#18212B; --muted:#56616E; --line:#D3D9E0;
+  --accent:#9A6B12; --accent-soft:#F4E6C6; --code:#E3E8EE; --q:#2F5E9E; --q-soft:#DDE8F6;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F151C; --surface:#17202A; --ink:#E4E9EF; --muted:#9AA6B3; --line:#2A3542;
+    --accent:#E2B24C; --accent-soft:#3A2E17; --code:#222D39; --q:#8DB6EE; --q-soft:#1C2B3E;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F151C; --surface:#17202A; --ink:#E4E9EF; --muted:#9AA6B3; --line:#2A3542;
+  --accent:#E2B24C; --accent-soft:#3A2E17; --code:#222D39; --q:#8DB6EE; --q-soft:#1C2B3E;
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font:16px/1.6 "IBM Plex Sans",system-ui,sans-serif;padding-inline:20px;padding-block:32px 64px}
+.wrap{max-width:1080px;margin:0 auto;display:grid;gap:44px}
+h1,h2,h3{text-wrap:balance;line-height:1.2;margin:0}
+h1{font-family:"Pixelify Sans","IBM Plex Mono",monospace;font-weight:700;font-size:clamp(30px,5vw,44px)}
+h2{font-size:23px;font-weight:600}
+h3{font-size:16px;font-weight:600}
+p{margin:0;max-width:68ch}
+.kicker{font:500 13px/1 "IBM Plex Mono",monospace;color:var(--accent);letter-spacing:.06em;text-transform:uppercase}
+.lede{display:grid;gap:14px}
+.lede p{color:var(--muted);font-size:17px}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+.rule{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;display:grid;gap:6px;align-content:start}
+.rule p{font-size:15px;color:var(--muted)}
+.gone{font-size:15px;color:var(--muted)}
+.gone s{color:var(--ink)}
+.board{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px 24px}
+figure{margin:0;display:grid;gap:10px;align-content:start}
+.shot{background:#0B1822;border-radius:8px;overflow:hidden;line-height:0}
+.shot svg{width:100%;height:auto;display:block}
+figcaption{display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start}
+.n{font:600 13px/30px "IBM Plex Mono",monospace;text-align:center;border-radius:50%;background:var(--accent);color:var(--surface);height:30px}
+figcaption p{font-size:15px}
+figcaption b{font-weight:600}
+.qs{display:grid;gap:12px}
+.q{background:var(--q-soft);border-left:3px solid var(--q);border-radius:0 8px 8px 0;padding:12px 16px;display:grid;gap:4px}
+.q p{font-size:15px}
+.q .mine{color:var(--muted)}
+.legend{font:13px/1.5 "IBM Plex Mono",monospace;color:var(--muted)}
+@media (max-width:760px){.board{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+
+<header class="lede">
+  <span class="kicker">Road of Nogg · hex battle · interpretation check</span>
+  <h1>New battle flow, as I understand it</h1>
+  <p>A storyboard of your brief before I touch any code: moving by clicking the board, attacking by clicking the enemy, and icons on the unit, all inside a whole-team turn with no speed order. Anything marked as a question is a call I made that you should confirm or correct.</p>
+</header>
+
+<section class="rules">
+  <div class="rule"><h3>Whole-team turns</h3><p>No speed order. On your turn you command every one of your units in any order. Then the enemy side takes its whole turn.</p></div>
+  <div class="rule"><h3>Spent units go dark</h3><p>Once a unit has acted it's darkened for the rest of the turn. When every unit is dark the turn ends by itself, or you can press End turn at any time.</p></div>
+  <div class="rule"><h3>Move, then act</h3><p>Click a cell to move and click an enemy to attack. Magic works only if the unit hasn't moved this turn.</p></div>
+  <div class="rule"><h3>Always a preview</h3><p>Pointing at a target shows a sword over it and a box with its name and the expected damage, before anything happens.</p></div>
+</section>
+
+<p class="gone">Leaves the screen: <s>party panel</s>, <s>round order panel</s>, <s>seven-plate command column</s>, <s>prompt box</s>. The unit readout (bottom left) stays for now.</p>
+
+<section class="board" aria-label="Storyboard">
+  <figure>
+    <div class="shot"><svg id="f1" viewBox="0 0 480 270" role="img" aria-label="Your turn banner at top, three player units bright, End turn button bottom right showing 3 ready"></svg></div>
+    <figcaption><span class="n">1</span><p><b>Your turn starts.</b> A short "Your turn" banner. All your units are bright. The End turn button counts how many can still act.</p></figcaption>
+  </figure>
+  <figure>
+    <div class="shot"><svg id="f2" viewBox="0 0 480 270" role="img" aria-label="Unit selected with reach outline and four round icons above it: Magic, Item, Status, Wait"></svg></div>
+    <figcaption><span class="n">2</span><p><b>Click a unit.</b> Its walkable area is outlined and a small arc of icons appears above it: Magic, Item, Status and Wait. No menu column.</p></figcaption>
+  </figure>
+  <figure>
+    <div class="shot"><svg id="f3" viewBox="0 0 480 270" role="img" aria-label="Pointer on a walkable cell with that cell and the path highlighted"></svg></div>
+    <figcaption><span class="n">3</span><p><b>Point at a walkable cell.</b> The cell and the path light up. One click moves the unit there.</p></figcaption>
+  </figure>
+  <figure>
+    <div class="shot"><svg id="f4" viewBox="0 0 480 270" role="img" aria-label="Unit has moved next to an enemy; Magic icon crossed out; Undo chip under the unit"></svg></div>
+    <figcaption><span class="n">4</span><p><b>After the move.</b> Magic is crossed out ("Moved: no magic"). An Undo chip sits under the unit until it acts. The unit is still bright: it hasn't acted yet.</p></figcaption>
+  </figure>
+  <figure>
+    <div class="shot"><svg id="f5" viewBox="0 0 480 270" role="img" aria-label="Pointer on an enemy in reach: sword icon over the enemy and a preview box with name, damage and HP change"></svg></div>
+    <figcaption><span class="n">5</span><p><b>Point at an enemy in reach.</b> A sword appears over it, and a box shows the expected result: "Snowzilla · 3 dmg · HP 28 → 25". Click to attack.</p></figcaption>
+  </figure>
+  <figure>
+    <div class="shot"><svg id="f6" viewBox="0 0 480 270" role="img" aria-label="After the attack: the unit is darkened, damage number over the enemy, End turn shows 2 ready"></svg></div>
+    <figcaption><span class="n">6</span><p><b>The attack lands and the unit goes dark.</b> Its icons and Undo are gone. End turn now says 2 ready.</p></figcaption>
+  </figure>
+  <figure>
+    <div class="shot"><svg id="f7" viewBox="0 0 480 270" role="img" aria-label="A different unmoved unit opened Magic; a spell list beside the icon; spell area over two enemies, each with a preview box"></svg></div>
+    <figcaption><span class="n">7</span><p><b>Magic, on a unit that hasn't moved.</b> Clicking the Magic icon opens a short spell list beside it. While aiming, every unit the spell would hit gets its own preview box: "12 dmg, 18 crit (10%)", with "KO" when it would finish them.</p></figcaption>
+  </figure>
+  <figure>
+    <div class="shot"><svg id="f8" viewBox="0 0 480 270" role="img" aria-label="All three player units darkened, Enemy turn banner at top"></svg></div>
+    <figcaption><span class="n">8</span><p><b>Every unit is dark, so the turn ends.</b> "Enemy turn" plays through all enemy units. Then your units light up again for the next turn.</p></figcaption>
+  </figure>
+</section>
+
+<p class="legend">White outline = walkable · red cell = in attack reach · gold = preview · dark unit = used this turn</p>
+
+<section class="qs">
+  <h2>Calls I made that you should check</h2>
+  <div class="q"><h3>Does moving alone use the unit up?</h3><p class="mine">My read: no. A unit goes dark only when it attacks, casts, uses an item or waits. A unit that has only moved stays bright, so you can come back to it, and you can undo the move until it acts.</p></div>
+  <div class="q"><h3>Can a unit move after it attacks?</h3><p class="mine">My read: no. Acting ends the unit, as in Fire Emblem and Advance Wars. The game allows act-then-move today, so this is a rule change.</p></div>
+  <div class="q"><h3>Does one click attack, or does it need a confirm?</h3><p class="mine">My read: the hover preview is the confirmation, so one click attacks. Spells are the same: aim, see the boxes, click.</p></div>
+  <div class="q"><h3>Which enemies get the sword?</h3><p class="mine">My read: only enemies the unit can hit from where it stands. An enemy you'd have to walk to first shows the preview box but no sword, and clicking it just inspects it.</p></div>
+  <div class="q"><h3>What happens to parties?</h3><p class="mine">My read: parties stay as a way to group units, but a turn belongs to a whole side. Every party on team 1 acts together, then team 2. In a four-party battle that's two turns per round, not four.</p></div>
+  <div class="q"><h3>Does the Wait icon stay?</h3><p class="mine">My read: yes. It darkens a unit without acting, for when you want to keep a unit still but still let the turn end by itself.</p></div>
+  <div class="q"><h3>Should End turn ask first while units are still bright?</h3><p class="mine">My read: yes, a small "2 units can still act, end turn?" prompt, since misclicked End turn is a known complaint in Into the Breach.</p></div>
+</section>
+
+</div>
+
+<script>
+(function(){
+  const NS="http://www.w3.org/2000/svg";
+  const T={water:"#35ADA8",sand:"#F6C766",grass:"#B9CF1B",edge:"rgba(0,0,0,.18)"};
+  const R=17, H=R*Math.sqrt(3), OX=52, OY=40;
+  const GOLD="#F2C14E", CREAM="#F3F0E6";
+  function terr(c,r){ if(r>=6||r<=0) return T.water; if((c+r*2)%9===0) return T.sand; return (r===3||r===4)&&c>3&&c<12?T.grass:(r===2&&c>6?T.grass:T.sand); }
+  function centre(c,r){ return [OX+c*R*1.5, OY+r*H+(c%2?H/2:0)]; }
+  function hexPts(x,y,s){ s=s||R; const p=[]; for(let i=0;i<6;i++){const a=Math.PI/3*i; p.push((x+s*Math.cos(a)).toFixed(1)+","+(y+s*Math.sin(a)).toFixed(1));} return p.join(" "); }
+  function el(tag,attrs,parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+  function text(p,x,y,str,o){ o=o||{}; const t=el("text",{x,y,fill:o.fill||CREAM,"font-family":"Pixelify Sans, monospace","font-size":o.size||11,"text-anchor":o.anchor||"start","font-weight":o.weight||500},p); t.textContent=str; return t; }
+  function win(p,x,y,w,h,stroke){ return el("rect",{x,y,width:w,height:h,rx:5,fill:"rgba(12,30,44,.94)",stroke:stroke||"#E9E4D6","stroke-width":1.4},p); }
+  function setup(id){ const s=document.getElementById(id);
+    const g=el("linearGradient",{id:id+"sky",x1:0,y1:0,x2:0,y2:1},el("defs",{},s)); el("stop",{offset:0,"stop-color":"#1C4F8F"},g); el("stop",{offset:1,"stop-color":"#3A8BD6"},g);
+    el("rect",{x:0,y:0,width:480,height:270,fill:`url(#${id}sky)`},s);
+    el("rect",{x:OX-26,y:OY-24,width:13*R*1.5+30,height:7*H+40,rx:4,fill:"#9EA396"},s);
+    for(let c=0;c<13;c++) for(let r=0;r<7;r++){ const [x,y]=centre(c,r); el("polygon",{points:hexPts(x,y),fill:terr(c,r),stroke:T.edge,"stroke-width":1},s); }
+    return s; }
+  function unit(s,cell,body,base,spent){ const [x,y]=centre(...cell); const b=spent?"#5E6670":body, bb=spent?"#2B3038":base;
+    el("ellipse",{cx:x,cy:y+3,rx:9,ry:4.5,fill:bb},s); el("path",{d:`M${x-5} ${y+2} L${x-2.5} ${y-10} L${x+2.5} ${y-10} L${x+5} ${y+2} Z`,fill:b},s); el("circle",{cx:x,cy:y-13,r:4,fill:b},s); return [x,y]; }
+  function select(s,cell){ const [x,y]=centre(...cell); el("polygon",{points:hexPts(x,y,R-3),fill:"none",stroke:"#FFF3B0","stroke-width":2.2},s); }
+  function contour(s,cells){ const key=new Set(cells.map(a=>a.join(",")));
+    cells.forEach(c=>{const [x,y]=centre(...c); el("polygon",{points:hexPts(x,y),fill:"rgba(235,248,255,.22)"},s);});
+    cells.forEach(c=>{const [x,y]=centre(...c); for(let i=0;i<6;i++){ const a1=Math.PI/3*i,a2=Math.PI/3*(i+1),am=(a1+a2)/2, nx=x+H*Math.cos(am), ny=y+H*Math.sin(am);
+      let inside=false; key.forEach(k=>{const [cc,rr]=k.split(",").map(Number); const [px,py]=centre(cc,rr); if(Math.hypot(px-nx,py-ny)<4) inside=true;});
+      if(!inside) el("line",{x1:x+R*Math.cos(a1),y1:y+R*Math.sin(a1),x2:x+R*Math.cos(a2),y2:y+R*Math.sin(a2),stroke:"#FFFFFF","stroke-width":2.2,"stroke-linecap":"round"},s); }}); }
+  function redCell(s,cell){ const [x,y]=centre(...cell); el("polygon",{points:hexPts(x,y,R-2),fill:"rgba(255,90,70,.38)",stroke:"#FF6A4D","stroke-width":2},s); }
+  function pointer(s,x,y){ el("path",{d:`M${x} ${y} l0 14 l4 -3.5 l3 6 l2.4 -1.2 l-3 -6 l5 0 z`,fill:"#fff",stroke:"#111","stroke-width":1},s); }
+  function sword(s,x,y){ const g=el("g",{transform:`translate(${x},${y}) rotate(45)`},s);
+    el("rect",{x:-2,y:-16,width:4,height:18,fill:"#E8EEF2",stroke:"#1A1A1A","stroke-width":1},g); el("rect",{x:-7,y:2,width:14,height:3.5,fill:GOLD,stroke:"#1A1A1A","stroke-width":1},g); el("rect",{x:-1.8,y:5.5,width:3.6,height:7,fill:"#7A4A1E",stroke:"#1A1A1A","stroke-width":1},g); }
+  function preview(s,x,y,name,line1,line2,ko){ const w=112,h=ko?54:44; win(s,x,y,w,h,GOLD); text(s,x+8,y+15,name,{size:10});
+    text(s,x+8,y+29,line1,{fill:GOLD,size:10}); text(s,x+8,y+41,line2,{size:9,fill:"#C9D2DA"}); if(ko){ el("rect",{x:x+w-30,y:y+4,width:24,height:13,rx:3,fill:"#D8412F"},s); text(s,x+w-18,y+14,"KO",{anchor:"middle",size:9,fill:"#fff"}); } }
+  function ring(s,cell,movedAlready){ const [x,y]=centre(...cell);
+    const icons=[["✦","#4C7FE0","Magic"],["▣","#8B6BD6","Item"],["ⓘ","#6FA7B8","Status"],["⧗","#C9A13A","Wait"]];
+    icons.forEach((ic,i)=>{ const a=Math.PI*(1.16+i*0.227); const ix=x+46*Math.cos(a), iy=y-20+34*Math.sin(a);
+      const off=movedAlready&&i===0; el("circle",{cx:ix,cy:iy,r:12,fill:"rgba(12,30,44,.95)",stroke:off?"#6D737A":ic[1],"stroke-width":2.2},s);
+      text(s,ix,iy+4.5,ic[0],{anchor:"middle",size:13,fill:off?"#6D737A":CREAM});
+      if(off) el("line",{x1:ix-8,y1:iy+8,x2:ix+8,y2:iy-8,stroke:"#D8412F","stroke-width":2.2},s); });
+    return [x,y]; }
+  function endBtn(s,ready,hot){ win(s,378,224,92,34,hot?GOLD:null); text(s,424,238,"End turn",{anchor:"middle",size:11}); text(s,424,251,ready+" ready",{anchor:"middle",size:9,fill:GOLD}); }
+  function banner(s,label,color){ el("rect",{x:150,y:6,width:180,height:26,rx:4,fill:"rgba(12,30,44,.94)",stroke:color,"stroke-width":1.6},s); text(s,240,24,label,{anchor:"middle",size:14,fill:color,weight:700}); }
+  function readout(s,name,hp){ win(s,8,224,132,36); text(s,16,239,name,{size:10}); text(s,16,253,"HP "+hp,{size:9,fill:"#9BE28F"}); }
+
+  const A=[3,3], B=[2,2], C=[2,4];            // player units
+  const E1=[6,3], E2=[7,2], E3=[8,4];         // enemies
+  const reach=[[2,3],[3,2],[4,2],[4,3],[4,4],[3,4],[5,3],[1,3],[5,2]];
+  const PL=["#9BE8F2","#1B3C7A"], PL2=["#F3F3EE","#1B3C7A"], PL3=["#FFD83D","#1B3C7A"], EN=["#E33B3B","#6B1414"], EN2=["#4AA84A","#6B1414"], EN3=["#B06AE0","#6B1414"];
+  function enemies(s){ unit(s,E1,...EN); unit(s,E2,...EN2); unit(s,E3,...EN3); }
+
+  (function(){ const s=setup("f1"); enemies(s); unit(s,A,...PL); unit(s,B,...PL2); unit(s,C,...PL3); banner(s,"Your turn",GOLD); endBtn(s,3); })();
+  (function(){ const s=setup("f2"); contour(s,reach); enemies(s); unit(s,B,...PL2); unit(s,C,...PL3); unit(s,A,...PL); select(s,A); ring(s,A,false); readout(s,"Mage Dragon","50/50"); endBtn(s,3); })();
+  (function(){ const s=setup("f3"); contour(s,reach); const path=[[4,3],[5,3]]; path.forEach(c=>{const [x,y]=centre(...c); el("polygon",{points:hexPts(x,y,R-2),fill:"rgba(255,236,150,.45)"},s);});
+    const [tx,ty]=centre(5,3); el("polygon",{points:hexPts(tx,ty,R-2),fill:"rgba(255,236,150,.6)",stroke:"#FFE27A","stroke-width":2.2},s);
+    enemies(s); unit(s,B,...PL2); unit(s,C,...PL3); unit(s,A,...PL); select(s,A); pointer(s,tx+2,ty-2); readout(s,"Mage Dragon","50/50"); endBtn(s,3); })();
+  (function(){ const s=setup("f4"); const at=[5,3]; redCell(s,E1); enemies(s); unit(s,B,...PL2); unit(s,C,...PL3); unit(s,at,...PL); select(s,at); const [x,y]=ring(s,at,true);
+    el("rect",{x:x-18,y:y+12,width:36,height:15,rx:7,fill:GOLD},s); text(s,x,y+23,"Undo",{anchor:"middle",fill:"#1A1A1A",size:9});
+    win(s,150,8,180,24); text(s,240,24,"Moved: no magic this turn",{anchor:"middle",size:10}); readout(s,"Mage Dragon","50/50"); endBtn(s,3); })();
+  (function(){ const s=setup("f5"); const at=[5,3]; redCell(s,E1); enemies(s); unit(s,B,...PL2); unit(s,C,...PL3); unit(s,at,...PL); select(s,at);
+    const [ex,ey]=centre(...E1); sword(s,ex,ey-30); pointer(s,ex+5,ey-2); preview(s,ex+18,ey-78,"Snowzilla","3 dmg","HP 28 → 25",false);
+    const [x,y]=centre(...at); el("rect",{x:x-18,y:y+12,width:36,height:15,rx:7,fill:GOLD},s); text(s,x,y+23,"Undo",{anchor:"middle",fill:"#1A1A1A",size:9});
+    readout(s,"Snowzilla","28/28"); endBtn(s,3); })();
+  (function(){ const s=setup("f6"); const at=[5,3]; enemies(s); unit(s,B,...PL2); unit(s,C,...PL3); unit(s,at,...PL,true);
+    const [ex,ey]=centre(...E1); text(s,ex,ey-26,"3",{anchor:"middle",size:18,fill:"#FFFFFF",weight:700}); endBtn(s,2); readout(s,"Snowzilla","25/28"); })();
+  (function(){ const s=setup("f7"); const at=[5,3];
+    [E1,E2].forEach(c=>redCell(s,c)); const [ax,ay]=centre(6,2); el("circle",{cx:ax,cy:ay+4,r:34,fill:"rgba(90,140,255,.18)",stroke:"#7FA6FF","stroke-width":2,"stroke-dasharray":"5 4"},s);
+    enemies(s); unit(s,at,...PL,true); unit(s,C,...PL3); unit(s,B,...PL2); select(s,B); const [bx,by]=ring(s,B,false);
+    win(s,bx-40,by-106,92,50,"#4C7FE0"); text(s,bx-32,by-88,"✦ Fireball",{size:10,fill:GOLD}); text(s,bx-32,by-73,"✦ Heal",{size:10}); text(s,bx-32,by-61,"",{size:8});
+    const [e1x,e1y]=centre(...E1), [e2x,e2y]=centre(...E2);
+    preview(s,e2x+22,e2y-64,"Megidos","12 dmg, 18 crit (10%)","HP 40 → 28",false);
+    preview(s,e1x+30,e1y+14,"Snowzilla","12 dmg, 18 crit (10%)","HP 25 → 13",false);
+    readout(s,"Gigasaurus","50/50"); endBtn(s,2); })();
+  (function(){ const s=setup("f8"); enemies(s); unit(s,[5,3],...PL,true); unit(s,[4,2],...PL2,true); unit(s,[3,4],...PL3,true); banner(s,"Enemy turn","#FF7A5C"); })();
+})();
+</script>
