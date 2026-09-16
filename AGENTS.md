@@ -110,11 +110,47 @@ git stash list
   refuses anything unmerged. It also refuses a branch that is merged to `HEAD`
   but ahead of its own `origin/` tracking ref; that one needs `-D`, and only
   after `git rev-list --count main..<branch>` confirms zero.
-- Deleting a branch on `origin` is a push, so it stays outward-facing: offer it,
-  do not do it unasked. Local deletion is recoverable from the reflog.
 - A worktree other than the primary one is a session running elsewhere or
   abandoned debris. Report it, check whether its `HEAD` is contained in `main`,
   and never remove it unprompted.
+
+### Housekeeping strategy
+
+The goal is one long-lived branch, `main`, with `origin/main` matching it. The
+user gave standing authorization on 2026-09-16 for everything below: merging,
+deleting merged branches locally and on `origin`, and pushing. It does not cover
+force pushes, rewriting history, or anything the checks have not cleared.
+
+1. **Merge when possible.** When a branch's work is finished, merge it into
+   `main` in the same session. Don't leave it for later. Before merging,
+   dry-run it with `git merge-tree --write-tree main <branch>`:
+   - **No conflicts:** merge it, run the checks for the paths it touched, and
+     sweep the branch.
+   - **Conflicts in paths you understand:** resolve them. Say in the merge
+     commit body which side won and why.
+   - **Conflicts you can't settle from the code and the plans:** stop and ask.
+     Don't guess.
+2. **Check that a branch is really stale before calling it stale.** A branch
+   that is well behind `main` with no commits in over a week is a candidate.
+   Before touching it, check whether its changes already exist on `main`:
+   compare the files it changed against `main`, not only the commit count.
+   - **Already on `main`:** it is debris. Delete it.
+   - **Not on `main`:** it is lost work, not debris. If it still fits the
+     current code, restore it and commit it. If it is truly obsolete (built on
+     files `main` has since deleted, say), tag it `archive/<name>`, push the
+     tag, then delete the branch. Name what it held in the report either way.
+3. **Never leave work where only a branch or a stash holds it.** Anything worth
+   keeping ends up as a commit on `main` or as an `archive/` tag on `origin`.
+4. **Push when confident.** Push `main` after a commit or merge whose checks
+   passed and whose scenes load. Also push branch deletions and archive tags
+   as soon as they happen. Do not push when:
+   - a check failed or was skipped,
+   - the commit might contain another session's half-finished work,
+   - you resolved a conflict you are unsure of.
+   In those cases, say why you held back. Never `--force`.
+5. **Finish every housekeeping pass with the audit above.** Report what was
+   merged, deleted, archived and pushed. End with one line: either "only
+   `main`, in sync with `origin`" or what is still left and why.
 
 ## Working safely
 
