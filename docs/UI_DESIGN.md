@@ -1536,6 +1536,19 @@ events every time the cursor moved would change the battle it describes.
 `probe_preview.gd` asserts the whole serialized state is byte-identical across a
 sweep of forecasts.
 
+## Action playback pacing
+
+The visual queue owns the breath between consequential actions. At normal speed,
+movement plays at 75% of its former rate and holds on the destination for 0.18
+seconds before another visual action begins. A strike holds for 0.16 seconds after
+its existing feedback, and defeat holds for 0.20 seconds after its animation.
+
+These intervals are part of their action tweens. Pause freezes them, presentation
+speed scales them, skip removes the remaining interval, and watchdog timing includes
+them. There is no automatic interval on `MESSAGE`, `FOCUS`, or `CAST_AREA`: a spell
+may produce several instant display updates and per-target consequences, and adding
+the same delay to each would make area actions accumulate dead time. Broader cast
+grouping belongs to a later battle-director contract.
 ---
 
 ## Hex battle HUD
@@ -1550,16 +1563,29 @@ game theme is applied once at the HUD root. Nothing draws a frame of its own.
 
 | Place | Surface | Shown when |
 |---|---|---|
-| Top left | Party panel | A party is active |
+| Top left | Party panel, with the round's party order under it | A party is active |
 | Top right | Command rail, with its hint box to the left | A player member is choosing a command |
-| Top right | Prompt | Otherwise, when there is something to say ("Choose a target.") |
-| Bottom left | Unit readout, with effect explanations above it | A unit is selected |
+| Top right | Prompt, carrying the aim forecast | Otherwise, when there is something to say |
+| Bottom left | Unit readout, with effect explanations above it | A unit is selected or hovered |
 | Over units | Status icon rows (`StatusBadgeRow`, unchanged) | The unit has effects |
 | Centre | STATUS sheet, over a dimming shade | Opened from the rail |
+| Top-right corner | `Debug` toggle, and the drawer it opens | Always |
 
 The rail and the prompt share a corner because they never coexist, so the right
 edge always answers "what do I do now". Nothing moves to follow the acting unit
 or the pointer; only content changes.
+
+**The session controls are not on the board.** Pause, speed, skip, restart and
+setup live in the debug drawer behind the `Debug` toggle, with the renderer's
+own options. Driving playback is not part of playing a battle, and docked over
+the board those rows took a corner of the screen permanently. Their keys (P, F,
+Enter, R) work whether or not the drawer is open.
+
+**Spacing follows the reference.** The gap between a box's frame and its text is
+about one glyph height (`content_inset_units`), and every box keeps
+`hex_screen_margin_units` clear of the screen edges. Both were tightened once to
+make a 384x216 design-unit screen fit and read as boxes falling off the corners;
+the fit is bought back with narrower widths and fewer sheet rows instead.
 
 ### The rail
 
@@ -1584,6 +1610,8 @@ or the pointer; only content changes.
 - **Hover** is a white rim a constant 2.5 px wide around the unit's silhouette
   (`HexUnitOutline.gdshader`, drawn through `material_overlay`, so the unit's
   own materials are untouched). There is no name label over units.
+- **Hover** also fills the readout, drawn over the committed selection and
+  returning to it when the pointer leaves.
 - **Click** selects a unit and opens the readout: name and level, an HP bar with
   its numbers, element squares (placeholder colour plus the two-letter `CODE`
   from `data/elements.json`), the unit's kind, and its effects with turns left.
@@ -1593,7 +1621,9 @@ or the pointer; only content changes.
   aim's confirm.
 - The readout has a fixed four rows. Effects that do not fit collapse into a
   `+N` cell; pointing at an effect or at `+N` explains it in a text box above
-  the readout. The full list is on the STATUS sheet.
+  the readout. The full list is on the STATUS sheet. HP, effects and removals are
+  read from DISPLAYED state -- what playback has shown -- never from
+  `BattleState`, or a readout drops HP before the hit lands.
 - Effect and spell descriptions are built from the fields the simulator reads
   (`damagePerTurn`, `damage_multiplier`, stat bonuses), so a description never
   claims a rule the battle does not apply.

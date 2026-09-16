@@ -38,7 +38,14 @@ var _rowMeta: Array[Dictionary] = []
 
 
 func _init() -> void:
+	# The wrapper only places the window. Its own rect must never take a click;
+	# the window and its rows are the input surface.
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_window = NoggWindowScript.new()
+	# A NoggWindow never sizes its own width (UI_DESIGN §8), and row label
+	# widths are measured against it when a row is added. Left at zero, every
+	# member name was clipped away to nothing. Set before any row exists.
+	_window.size.x = NoggThemeScript.STATUS_WINDOW_WIDTH
 	add_child(_window)
 	_window.row_built.connect(_on_row_built)
 	# Sized here because a NoggWindow never sizes itself: left at zero width the frame drew
@@ -46,10 +53,19 @@ func _init() -> void:
 	_window.size.x = NoggThemeScript.HEX_PARTY_WIDTH
 
 
+## The window's current footprint, so the HUD can stack the next panel below
+## it without reading a Container size that has not been sorted yet.
+func windowSize() -> Vector2:
+	if _window == null or _rowMeta.is_empty():
+		return Vector2.ZERO
+	return Vector2(_window.size.x, NoggThemeScript.window_height(_rowMeta.size()))
+
+
 ## `model` keys: party_id (int, unused here -- this panel always shows
 ## whichever single party it is given), label (String), input_enabled
 ## (bool), can_end_party (bool), members (Array of Dictionaries with id,
-## label, commander, eligible, active, spent). Rendered in supplied order;
+## label, commander, eligible, active, spent, and optionally defeated and
+## withdrawn). Rendered in supplied order;
 ## eligibility is read, never derived. A model with no members clears the
 ## panel to nothing rather than showing a header and an inert End Party row
 ## for a party that no longer exists -- that is what "clears stale
@@ -95,17 +111,25 @@ func updateModel(model: Dictionary) -> void:
 	_window.set_full_rows(descriptors)
 
 
-## Commander, then whichever of active/spent applies -- a member can be both
-## the commander and mid-activation, or both the commander and already
+## Commander, then whichever of active/down/out/spent applies -- a member can
+## be both the commander and mid-activation, or both the commander and already
 ## spent, and both facts matter at once. Plain fixed words, not an icon: this
-## item makes no art decision, and a disabled row's own dimming already
-## carries "not selectable right now" for a spent, dead, or off-turn member.
+## item makes no art decision.
+##
+## Dimming alone cannot tell the player WHY a row is disabled. A member who
+## has acted, one who fell and one whose commander's withdrawal took them off
+## the board are three different facts, so each gets its own word. Down and
+## out outrank spent: a member who acted and then died is no longer "done".
 func _memberStatus(member: Dictionary) -> String:
 	var parts: Array[String] = []
 	if bool(member.get("commander", false)):
 		parts.append("CMD")
 	if bool(member.get("active", false)):
 		parts.append("ACTIVE")
+	elif bool(member.get("defeated", false)):
+		parts.append("DOWN")
+	elif bool(member.get("withdrawn", false)):
+		parts.append("OUT")
 	elif bool(member.get("spent", false)):
 		parts.append("DONE")
 	return " ".join(parts)

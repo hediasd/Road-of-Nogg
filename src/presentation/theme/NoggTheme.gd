@@ -651,6 +651,7 @@ const FORECAST_GAP_UNITS := 4.0
 
 ## Hex battle HUD geometry. Layout-varying; see `HudLayoutCatalog` and
 ## docs/UI_DESIGN.md "Hex battle HUD".
+static var HEX_SCREEN_MARGIN_UNITS: float
 static var HEX_PARTY_WIDTH_UNITS: float
 static var HEX_PLATE_WIDTH_UNITS: float
 static var HEX_PLATE_GAP_UNITS: float
@@ -682,6 +683,7 @@ const HEX_PORTRAIT_FILL := Color(1.0, 1.0, 1.0, 0.06)
 ## without this the board and the rail read straight through the sheet's text.
 const HEX_MODAL_SHADE := Color(0.0, 0.0, 0.0, 0.6)
 
+static var HEX_SCREEN_MARGIN: float
 static var HEX_PARTY_WIDTH: float
 static var HEX_PLATE_WIDTH: float
 static var HEX_PLATE_GAP: float
@@ -904,6 +906,7 @@ static func _apply_layout_tokens() -> void:
 	# fixed cell, so it multiplies across the row: widening it pushes column 2
 	# right and the whole window with it.
 	STATUS_CELL_TEXT_GAP_UNITS = float(layout["status_cell_text_gap_units"])
+	HEX_SCREEN_MARGIN_UNITS = float(layout["hex_screen_margin_units"])
 	HEX_PARTY_WIDTH_UNITS = float(layout["hex_party_width_units"])
 	HEX_PLATE_WIDTH_UNITS = float(layout["hex_plate_width_units"])
 	HEX_PLATE_GAP_UNITS = float(layout["hex_plate_gap_units"])
@@ -1008,6 +1011,7 @@ static func _recompute() -> void:
 	TURN_RAIL_DIVIDER_WIDTH = _scaled(TURN_RAIL_DIVIDER_WIDTH_UNITS)
 	TURN_RAIL_HEALTH = _scaled(TURN_RAIL_HEALTH_UNITS)
 
+	HEX_SCREEN_MARGIN = _scaled(HEX_SCREEN_MARGIN_UNITS)
 	HEX_PARTY_WIDTH = _scaled(HEX_PARTY_WIDTH_UNITS)
 	HEX_PLATE_WIDTH = _scaled(HEX_PLATE_WIDTH_UNITS)
 	HEX_PLATE_GAP = _scaled(HEX_PLATE_GAP_UNITS)

@@ -269,9 +269,14 @@ func _profileRows(rows: Array) -> void:
 	_add(rows, str(_facts.get("name", "")), level, {})
 	_add(rows, "HP", "%d/%d" % [int(_facts.get("hp", 0)), int(_facts.get("max_hp", 1))], {})
 	_add(rows, "Elements", "", {})
-	_add(rows, "Race", _word(str(_facts.get("race", "none"))), {})
-	_add(rows, "Family", _word(str(_facts.get("family", "none"))), {})
-	_add(rows, "Species", _word(str(_facts.get("species", "none"))), {})
+	# One taxonomy row, not three: the sheet pages at six rows, and a profile that paged would
+	# leave the HP bar and element squares drawn over the wrong page.
+	var kinds: Array[String] = []
+	for key in ["race", "family", "species"]:
+		var value := _word(str(_facts.get(key, "none")))
+		if value != "-" and not kinds.has(value):
+			kinds.append(value)
+	_add(rows, "Kind", " ".join(kinds) if not kinds.is_empty() else "-", {})
 	var stats: Dictionary = _facts.get("stats", {})
 	_add(rows, "ATK %d   DEF %d" % [int(stats.get("ATK", 0)), int(stats.get("DEF", 0))],
 		"SPD %d" % int(stats.get("SPD", 0)), {})

@@ -35,6 +35,7 @@ var _yaw := 0.0
 var _pitch := DEFAULT_PITCH_DEGREES
 var _distance := 18.0
 var _focus := Vector3.ZERO
+var _screenConverter := Callable()
 
 
 func _init() -> void:
@@ -100,17 +101,29 @@ func distance() -> float:
 	return _distance
 
 
-## Projects a world point to viewport coordinates, or reports that it is behind the camera.
+## Projects a world point to host-screen coordinates, or reports that it is behind the camera.
 ##
-## What `HexBattleCursor` is handed. Returning the origin for a point behind the camera rather
-## than a wrapped coordinate keeps a neighbour that is off-screen from reading as a valid
-## direction.
-func projectToScreen(worldPosition: Vector3) -> Vector2:
+## What `HexBattleCursor` is handed. The stage-supplied conversion is the sole letterbox/render
+## scaling boundary. A negative point keeps an off-camera neighbour from becoming valid input.
+func setScreenConverter(converter: Callable) -> void:
+	_screenConverter = converter
+
+
+func projectToRenderViewport(worldPosition: Vector3) -> Vector2:
 	if camera == null or not camera.is_inside_tree():
-		return Vector2.ZERO
+		return Vector2(-1.0, -1.0)
 	if camera.is_position_behind(worldPosition):
-		return Vector2.ZERO
+		return Vector2(-1.0, -1.0)
 	return camera.unproject_position(worldPosition)
+
+
+func projectToScreen(worldPosition: Vector3) -> Vector2:
+	var renderPoint := projectToRenderViewport(worldPosition)
+	if renderPoint.x < 0.0:
+		return renderPoint
+	if _screenConverter.is_valid():
+		return _screenConverter.call(renderPoint)
+	return renderPoint
 
 
 func _apply() -> void:

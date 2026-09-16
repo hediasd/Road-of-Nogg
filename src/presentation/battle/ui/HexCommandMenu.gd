@@ -110,16 +110,17 @@ func updateModel(model: Dictionary) -> void:
 		plate.configure(entry, _inputEnabled)
 		plate.row_built.connect(_onPlateRowBuilt.bind(index))
 		add_child(plate)
-		# Each plate steps left of the one above: the column leans the way the reference's plates
-		# are cut, without the frame art itself being skewed.
+		# Each plate steps left of the one above, so the column leans the way the reference's plates
+		# are cut without the frame art itself being skewed. Offsets are measured from this node's
+		# own top-left, like every other window, so `windowSize()` and the rail's rect agree.
 		plate.position = Vector2(
-			-plate.plateSize().x - NoggThemeScript.HEX_PLATE_LEAN * float(index), y
+			NoggThemeScript.HEX_PLATE_LEAN * float(_commands.size() - 1 - index), y
 		)
 		y += plate.plateSize().y + NoggThemeScript.HEX_PLATE_GAP
 		_plates.append(plate)
 	move_child(_cursor, get_child_count() - 1)
 	move_child(_hint, get_child_count() - 1)
-	size = Vector2(NoggThemeScript.HEX_PLATE_WIDTH, y)
+	size = Vector2(railWidth(_commands.size()), maxf(y - NoggThemeScript.HEX_PLATE_GAP, 0.0))
 
 	if _indexOf(_focusID) == -1:
 		_focusID = _firstEnabledID()
@@ -130,6 +131,21 @@ func updateModel(model: Dictionary) -> void:
 
 func plateCount() -> int:
 	return _plates.size()
+
+
+## The rail's footprint, as `HexPartyPanel.windowSize()` reports one: the plates plus the lean the
+## column picks up on the way down. Zero while no rail is up.
+func windowSize() -> Vector2:
+	if _plates.is_empty():
+		return Vector2.ZERO
+	var last := _plates[_plates.size() - 1]
+	return Vector2(railWidth(_plates.size()), last.position.y + last.plateSize().y)
+
+
+## How wide a rail of `count` plates is, before it is built.
+static func railWidth(count: int) -> float:
+	return NoggThemeScript.HEX_PLATE_WIDTH \
+		+ NoggThemeScript.HEX_PLATE_LEAN * float(maxi(count - 1, 0))
 
 
 func focusedID() -> String:

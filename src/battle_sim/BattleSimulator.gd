@@ -38,6 +38,12 @@ var brains: Dictionary = {}
 var initialStateSnapshot: Dictionary = {}
 var setupSnapshot: Dictionary = {}
 
+## Set by `emitInitialBoard()`, reset on every `configureHexState()`. Lets `startBattle()` skip
+## its own `battle_started` emission when the board has already been announced -- see that
+## function's own note for why both exist and why emitting twice would otherwise be harmless but
+## redundant.
+var _initialBoardEmitted := false
+
 ## Accumulates the phases of the turn currently in progress so that a turn
 ## resolved incrementally still records exactly one `command` history event, at
 ## finishTurn(). The interactive player path resolves movement and the action as
@@ -95,6 +101,7 @@ func configureHexState(
 	setupSnapshot = setupData.duplicate(true)
 	initialStateSnapshot = {}
 	_turnAccumulator = {}
+	_initialBoardEmitted = false
 
 
 func _rebuildRuntimeDependencies(brainClasses: Dictionary = {}) -> void:
@@ -984,7 +991,17 @@ static func _snakeCase(value: String) -> String:
 	return result
 
 
-func emitRestoredBattle() -> void:
+## Announces every living monster on the board to whatever is listening, then announces the
+## battle itself. FHB-1: this used to have no caller at all -- a hex battle built its state
+## directly through `BattleSetupFactory.createHexState()`, which is correct (setup builds a
+## state, it does not narrate one), but nothing then told a connected visual adapter what was on
+## the board. `HexBattleController.startBattle()` calls this once, right after the adapter
+## connects and before the turn loop opens, which is what gives a hex battle its starting models.
+##
+## Kept under its original name as a thin delegate below for any caller still resolving it by
+## that name -- a battle restored from a snapshot re-announces its board the same way a fresh one
+## does, so the rename is cosmetic and the behaviour is identical either way.
+func emitInitialBoard() -> void:
 	for monsterID in state.monsters:
 		var monster = state.monsters[monsterID]
 		if not monster.is_alive():
@@ -1008,10 +1025,18 @@ func emitRestoredBattle() -> void:
 		)
 	var monsterList = state.getAliveMonsterIDs()
 	events.battle_started.emit(state.boardSize, monsterList)
+	_initialBoardEmitted = true
+
+
+func emitRestoredBattle() -> void:
+	emitInitialBoard()
+
 
 func startBattle() -> void:
 	if initialStateSnapshot.is_empty():
 		initialStateSnapshot = state.serialize_state()
+	if _initialBoardEmitted:
+		return
 	var monsterList = []
 	for id in state.monsters:
 		monsterList.append(id)
@@ -1047,9 +1072,27 @@ func runFullBattle(maxRounds: int = 50) -> int:
 	return winner
 
 
+## THE CAP COUNTS WHOLE ROUNDS (FHB-10). A round is the unit in which every surviving party
+## activates once, in `partyOrder`, so finishing the round is what gives both sides the same number
+## of activations. The loop used to test `roundCount < maxRounds` between activations, which ended
+## the battle straight after the first party of the last round: in hexmap seed 14, team 2 acted in
+## round 30 and team 1 never did. A turn cap would not be fairer -- parties differ in size and in
+## how many members are still standing, so equal turns would mean unequal rounds.
+##
+## So the last round runs to its end, and only then is the cap checked: nothing active, nobody
+## pending, `roundCount` at the cap. Its `round_end` is announced like every earlier one, because
+## the round did finish; an elimination mid-round still ends without one.
 func _runFullPartyBattle(maxRounds: int) -> int:
 	startBattle()
-	while state.roundCount < maxRounds and state.battleOutcome == -1:
+	while state.battleOutcome == -1:
+		if (
+			state.roundCount >= maxRounds
+			and state.activePartyID == -1
+			and state.pendingPartyIDs.is_empty()
+		):
+			state.add_event("round_end", -1, -1, {"round": state.roundCount})
+			events.round_ended.emit(state.roundCount)
+			break
 		var activation := startNextPartyActivation("headless")
 		if not activation["success"]:
 			if activation["reason"] in ["battle_ended", "round_complete"]:
@@ -1083,12 +1126,25 @@ func checkWinCondition() -> int:
 	return -1
 
 
+## The outcome a battle has when no side is left standing alone. Team ids start at 1 (a
+## scenario's TEAM_ID must be positive), so 0 is free, and `checkWinCondition()` already answers 0
+## when every side falls at once.
+const DRAW_TEAM := 0
+
+
+## The round-cap tally: most monsters still on the board wins, and A TIE IS A DRAW (FHB-10). It
+## used to go to whichever team `teamRosters` happened to list first, because only a strictly
+## larger count replaced the leader -- a result decided by dictionary order, not by the battle.
 func _determineWinnerByNumbers() -> int:
-	var bestTeam = -1
+	var bestTeam = DRAW_TEAM
 	var bestCount = -1
+	var tied := false
 	for team in state.teamRosters:
-		var alive = state.getAliveMonsterIDs(team)
-		if alive.size() > bestCount:
-			bestCount = alive.size()
+		var count: int = state.getAliveMonsterIDs(team).size()
+		if count > bestCount:
+			bestCount = count
 			bestTeam = team
-	return bestTeam
+			tied = false
+		elif count == bestCount:
+			tied = true
+	return DRAW_TEAM if tied else bestTeam

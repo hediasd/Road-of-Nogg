@@ -93,13 +93,16 @@ func _checkPlatesFollowTheModel() -> void:
 	_require(not _looksEnabled(_rows.get(1)), "disabled Attack rendered enabled")
 	_require(_menu.focusedID() == "move", "rail opened focused on '%s', not Move" % _menu.focusedID())
 	_require(_menu.hintText() == "Walk up to 3 cells.", "focused Move did not show its hint")
-	# The rail is anchored at its right edge and every plate extends left of it.
+	# Every plate sits inside the rail's own rect, and the column leans left on the way down.
+	var railSize := _menu.windowSize()
 	var previousX := INF
 	for index in range(_menu.plateCount()):
 		var plate: HexCommandPlate = _menu.plateWithLabel(expected[index])
-		_require(plate.position.x + plate.plateSize().x <= 0.5,
-			"plate '%s' crosses the rail's right edge" % expected[index])
-		_require(plate.position.x <= previousX, "plate '%s' does not lean with the rail" % expected[index])
+		_require(
+			plate.position.x >= 0.0 and plate.position.x + plate.plateSize().x <= railSize.x + 0.5,
+			"plate '%s' falls outside the rail's own %s rect" % [expected[index], railSize])
+		_require(plate.position.x <= previousX,
+			"plate '%s' does not lean with the rail" % expected[index])
 		previousX = plate.position.x
 	for label in REJECTED_LABELS:
 		_require(_menu.plateWithLabel(label) == null, "rail shows the rejected label '%s'" % label)

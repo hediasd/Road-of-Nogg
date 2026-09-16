@@ -1,6 +1,14 @@
 ## demo_battle — Headless console demo of a full seeded battle. Run manually via Godot's -s flag;
 ## not a test and not part of any check.
 ##
+## SUPERSEDED FOR NEW WORK BY `scripts/battle/run_battle.gd`, which does everything this does and
+## takes its scenario, seed and output paths as arguments instead of constants, and writes a
+## machine-readable record beside the human log. This file stays because it is a fixed, quotable
+## one-command demo that `README.md` and `docs/MODULE_MAP.md` both point at, and because
+## `scripts/hex_battle/probe_entrypoints.gd` asserts on its contents -- all three are outside the
+## write set of the item that added the new runner. Reach for `run_battle.gd` when you want to
+## choose a scenario or keep the output.
+##
 ## RUNS THE PARTY RUNTIME, same as the playable scene. It used to compose a battle by hand --
 ## `loadMap("Forest")` plus eight `spawnMonster` calls on a square board -- which after the hex
 ## migration would have been the one place still exercising a battle model nothing else uses. It
@@ -16,9 +24,11 @@ const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
 const BattleScenarioFactoryScript = preload("res://src/factories/BattleScenarioFactory.gd")
 const ConsoleVisualAdapterScript = preload("res://src/presentation/ConsoleVisualAdapter.gd")
+const BattleOutputPathsScript = preload("res://src/presentation/BattleOutputPaths.gd")
 
 const SCENARIO := "res://data/battle/scenarios/technical_hxb_contract_cpu_cpu.json"
 const SEED := 42
+const LOG_NAME := "demo_battle.log.txt"
 
 
 func _init() -> void:
@@ -43,10 +53,13 @@ func _init() -> void:
 	var sim = BattleSimulatorScript.new(SEED)
 	sim.configureHexState(stateResult["state"], scenario, {"scenarioPath": SCENARIO})
 
+	var logPath := BattleOutputPathsScript.pathFor(BattleOutputPathsScript.DEMO, LOG_NAME)
+	BattleOutputPathsScript.ensureParent(logPath)
 	var console = ConsoleVisualAdapterScript.new(sim.state)
+	console.logFile = logPath
 	sim.setVisualAdapter(console)
 
 	print("Running full party battle on %s..." % scenario.mapID)
 	var outcome := sim.runFullBattle(30)
-	print("Battle complete (outcome %d). Check docs/battle_log.txt" % outcome)
+	print("Battle complete (outcome %d). Check %s" % [outcome, logPath])
 	quit()

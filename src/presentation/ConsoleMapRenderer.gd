@@ -37,7 +37,7 @@ func _build_legend() -> Dictionary:
 		var p2 = (t2_list[i] + " (T2)") if i < t2_list.size() else ""
 		lines.append("      " + p1 + p2)
 
-	lines.append("      #=Tree   ~=Abyss   >=Path")
+	lines.append("      #=Obstacle   ~=Abyss   >=Path")
 
 	return { "chars": mon_chars, "lines": lines }
 

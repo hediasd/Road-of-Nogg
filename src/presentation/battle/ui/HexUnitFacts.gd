@@ -28,19 +28,36 @@ const EFFECT_BONUS_LABELS := {
 
 ## Everything the readout and the sheet show, or an empty dictionary when the unit is gone -- which
 ## is how a stale selection is noticed.
-static func build(sim: BattleSimulator, monsterID: int) -> Dictionary:
+##
+## `display` is the adapter's displayed-state reader. HP, effects and removal are read from what the
+## SCREEN has shown, because the simulation runs ahead of playback: without it a readout drops HP
+## before the blow that took it has landed. Everything else has no displayed counterpart and is read
+## live from state.
+static func build(sim: BattleSimulator, monsterID: int, display = null) -> Dictionary:
 	if sim == null or sim.state == null:
 		return {}
 	var monster = sim.state.getMonster(monsterID)
-	if monster == null or not monster.is_alive():
+	if monster == null:
+		return {}
+	if display != null:
+		if not str(display.displayedRemovalReason(monsterID)).is_empty():
+			return {}
+	elif not monster.is_alive():
 		return {}
 
 	var elements: Array = []
 	for value in monster.elements:
 		elements.append(elementFacts(str(value)))
 
+	var hitpoints := int(monster.hitpoints)
+	var effectRows: Array = sim.state.getActiveEffects(monsterID)
+	if display != null:
+		var shownHP := int(display.displayedHitpoints(monsterID))
+		if shownHP >= 0:
+			hitpoints = shownHP
+		effectRows = display.displayedEffects(monsterID)
 	var effects: Array = []
-	for effect in sim.state.getActiveEffects(monsterID):
+	for effect in effectRows:
 		if effect is Dictionary:
 			effects.append(effectFacts(effect))
 
@@ -71,7 +88,7 @@ static func build(sim: BattleSimulator, monsterID: int) -> Dictionary:
 		"id": monsterID,
 		"name": str(monster.name),
 		"level": int(monster.level),
-		"hp": int(monster.hitpoints),
+		"hp": hitpoints,
 		"max_hp": maxi(1, int(monster.max_hitpoints)),
 		"team": int(monster.team),
 		"elements": elements,

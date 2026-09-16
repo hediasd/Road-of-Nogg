@@ -132,6 +132,19 @@ func canUndoMove() -> bool:
 	return bool(record.get("has_moved", false)) and not bool(record.get("has_acted", false))
 
 
+## Whether the simulator would admit ANY phase from this member right now, and its reason if not.
+##
+## The simulator's own guard, called rather than restated. A petrified member still has an unspent
+## move and action in the turn record, so `canMove`/`canAct` alone would offer rows the simulator
+## refuses on confirm. The guard is read-only: it compares ids and reads effects, and writes
+## nothing. Private for the same reason `_turnRecord` is: publishing it would mean editing
+## `BattleSimulator`, which this item does not own.
+func phaseGuard() -> Dictionary:
+	if _sim == null or _finished:
+		return {"success": false, "reason": "turn_closed"}
+	return _sim._guardPhase(_monsterID)
+
+
 func _turnRecord() -> Dictionary:
 	if _sim == null or _finished:
 		return {}

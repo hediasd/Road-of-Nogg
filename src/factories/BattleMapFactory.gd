@@ -78,8 +78,9 @@ static func fromDictionary(rawValue) -> Dictionary:
 	if visualPath.is_empty():
 		if not headlessOnly or not mapID.begins_with("technical_"):
 			return _failure("missing_visual_resource")
-	elif not ResourceLoader.exists(visualPath):
-		return _failure("missing_visual_resource", visualPath)
+	# A declared scene that is absent on disk is a normal state on a fresh checkout:
+	# scenes/worldmap/generated/ is gitignored. BattleMapAssetManifest reports the gap,
+	# and HexBattleStage falls back to the tactical board with a re-export notice.
 
 	var terrainResult := _terrainDefinitions(raw.get("TERRAIN_DEFINITIONS"))
 	if not terrainResult["success"]:

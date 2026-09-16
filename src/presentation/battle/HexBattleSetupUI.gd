@@ -23,6 +23,7 @@ var _root: Control
 var _scenarioOption: OptionButton
 var _seedField: LineEdit
 var _summary: Label
+var _error: Label
 var _scenarioPaths: Array[String] = []
 
 
@@ -49,7 +50,7 @@ func _init() -> void:
 	_scenarioOption = OptionButton.new()
 	_scenarioOption.name = "ScenarioOption"
 	column.add_child(_scenarioOption)
-	_scenarioOption.item_selected.connect(func(_index: int): _refreshSummary())
+	_scenarioOption.item_selected.connect(_onScenarioSelected)
 
 	var seedRow := HBoxContainer.new()
 	var seedLabel := Label.new()
@@ -66,6 +67,10 @@ func _init() -> void:
 	_summary.name = "ScenarioSummary"
 	_summary.add_theme_color_override("font_color", NoggThemeScript.TEXT_DIM)
 	column.add_child(_summary)
+
+	_error = Label.new()
+	_error.name = "SetupError"
+	column.add_child(_error)
 
 	var startButton := Button.new()
 	startButton.name = "StartButton"
@@ -124,6 +129,11 @@ func _refreshSummary() -> void:
 	]
 
 
+func _onScenarioSelected(_index: int) -> void:
+	_clearError()
+	_refreshSummary()
+
+
 func selectedScenarioPath() -> String:
 	var index := _scenarioOption.selected if _scenarioOption != null else -1
 	if index < 0 or index >= _scenarioPaths.size():
@@ -136,13 +146,31 @@ func selectedSeed() -> int:
 	return int(text) if text.is_valid_int() else 0
 
 
+func showError(message: String) -> void:
+	if _error != null:
+		_error.text = message
+
+
+func _clearError() -> void:
+	showError("")
+
+
 func setVisibleUI(shown: bool) -> void:
 	_root.visible = shown
 
 
 func _onStartPressed() -> void:
+	var seedText := _seedField.text.strip_edges() if _seedField != null else ""
+	if not seedText.is_valid_int():
+		showError("Enter a whole-number seed.")
+		return
 	var path := selectedScenarioPath()
 	if path.is_empty():
-		_summary.text = "Choose a scenario first."
+		showError("Choose a scenario first.")
 		return
+	var loaded := BattleScenarioFactoryScript.loadFromPath(path)
+	if not loaded["success"]:
+		showError(str(loaded.get("error", "")))
+		return
+	_clearError()
 	battle_requested.emit(path, selectedSeed())

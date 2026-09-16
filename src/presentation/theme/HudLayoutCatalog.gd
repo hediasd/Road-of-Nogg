@@ -70,8 +70,9 @@ const VALUES := {
 		"deep_card_capacity": 11,
 		"row_capacity_default": 8,
 		# Hex battle HUD. See docs/UI_DESIGN.md "Hex battle HUD".
+		"hex_screen_margin_units": 28.0,
 		"hex_party_width_units": 230.0,
-		"hex_plate_width_units": 110.0,
+		"hex_plate_width_units": 132.0,
 		"hex_plate_gap_units": 3.0,
 		"hex_hint_width_units": 240.0,
 		"hex_spell_width_units": 280.0,
@@ -88,8 +89,8 @@ const VALUES := {
 		# The prompt docks under the turn rail, and at 216 units of height the
 		# rail's own band is most of what 34 was reserving.
 		"prompt_top_units": 4.0,
-		"content_inset_units": 6.0,
-		"row_height_units": 13.0,
+		"content_inset_units": 11.0,
+		"row_height_units": 15.0,
 		# Derived by §8's pairing rule against the rows the status window
 		# ACTUALLY builds, which is the correction: every stat row carries an
 		# element cell pinned to column 2 by `_append_resonance_cell()`, not
@@ -128,8 +129,12 @@ const VALUES := {
 		# Hex battle HUD. See docs/UI_DESIGN.md "Hex battle HUD". The rail, its
 		# hint and the readout share a 384x216 screen at ui_scale 3, so these
 		# are sized against that screen rather than against x2's roomier one.
+		# The hex HUD's own screen margin. `screen_margin_units` is 4 so two status windows fit
+		# side by side at ui_scale 3; boxes docked that close to the corners read as falling off
+		# the screen, and this HUD docks four of them.
+		"hex_screen_margin_units": 24.0,
 		"hex_party_width_units": 200.0,
-		"hex_plate_width_units": 100.0,
+		"hex_plate_width_units": 122.0,
 		"hex_plate_gap_units": 2.0,
 		"hex_hint_width_units": 190.0,
 		"hex_spell_width_units": 230.0,
@@ -139,7 +144,7 @@ const VALUES := {
 		# Eight, not the deep card's nine: tabs, body, and a three-row explanation
 		# under it have to stack inside 216 units at ui_scale 3 -- 25 + 116 + 51
 		# plus gaps is 200. Profile is exactly eight rows, so it never pages.
-		"hex_sheet_capacity": 8
+		"hex_sheet_capacity": 6
 	}
 }
 

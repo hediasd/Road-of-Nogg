@@ -212,7 +212,9 @@ func _checkNoSquareScenarioIsSelectable() -> void:
 			"scenario %s names no map" % fileName)
 	_require(scenarioCount > 0, "no scenario is selectable at all")
 
-	# And every map a scenario can reach is a hex map through the strict factory.
+	# And every map a scenario can reach is a hex map through the strict factory. A declared scene
+	# that has not been regenerated yet is a known, normal state -- BattleMapFactory loads the map
+	# regardless and BattleMapAssetManifest reports the gap -- so every map here must load.
 	var maps := DirAccess.open("res://data/battle/maps")
 	if maps == null:
 		return
@@ -220,13 +222,9 @@ func _checkNoSquareScenarioIsSelectable() -> void:
 		if not fileName.ends_with(".json"):
 			continue
 		var loaded := BattleMapFactoryScript.loadFromPath("res://data/battle/maps/%s" % fileName)
+		_require(loaded["success"],
+			"map %s did not load: %s" % [fileName, str(loaded.get("error", ""))])
 		if not loaded["success"]:
-			# A map needing a regenerated visual product is a known, declared state -- the
-			# manifest reports it -- not a square map leaking into the selectable set.
-			_require(str(loaded.get("error", "")) == "missing_visual_resource",
-				"map %s is unusable for a reason other than a pending re-export: %s" % [
-					fileName, str(loaded.get("error", ""))
-				])
 			continue
 		_require(loaded["definition"].gridKind == "hex_flat",
 			"map %s is selectable and is not hex" % fileName)

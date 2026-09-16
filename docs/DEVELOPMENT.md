@@ -16,7 +16,9 @@ currently no automated way to verify a change.
 console battle. It now runs the same PARTY runtime the playable scene does,
 from an authored CPU-vs-CPU scenario. Run it from the repository root through a
 waited process and require its explicit `Battle complete` marker; a zero exit
-code alone is not sufficient evidence on this Windows host.
+code alone is not sufficient evidence on this Windows host. For anything where
+you want to choose the scenario, the seed or the output, use the runners in the
+next section instead — they supersede it.
 
 The hex battle cycle also ships bounded headless probes under
 `scripts/hex_battle/`, each run through `scripts/hex_battle/run_probe.ps1` and
@@ -27,6 +29,152 @@ Generated art must be imported before anything loads it. Use
 `godot --headless --import --path .`; `--headless --editor --quit` does NOT
 work, because `--quit` ends the run after one frame while the filesystem scan
 is asynchronous, so it aborts partway and writes no `.import` file.
+
+## Simulating battles headlessly, and recording them
+
+Two runners under `scripts/battle/`. Both write to `battle_output/` at the
+project root by default: single battles under `battle_output/battles/`,
+championships under `battle_output/championships/`. See the next section.
+
+One battle, both outputs — the readable log and the machine record:
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/battle/run_battle.gd -- res://data/battle/scenarios/proving_ground_cpu_cpu.json 7
+```
+
+Many seeds into one corpus plus a run summary:
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/battle/run_championship.gd -- res://data/battle/scenarios/proving_ground_cpu_cpu.json 1000 8
+```
+
+The corpus is **JSONL, one battle per line**, written by `BattleRecordAdapter`.
+A single battle is simply a one-line file, so there is one schema rather than
+two. Each line carries the identity needed to tie it back to what produced it
+(scenario, map id and revision, map source fingerprint, content fingerprint,
+seed, engine), the board (every valid cell's terrain and height, plus the
+terrain table), the parties as deployed, a `roster` of what each monster is
+(level, speed, luck, race, elements, passives with their parameters, and every
+spell's range, area, damage, cooldown and effects), which brain drove each
+member, every decision, and the outcome. The outcome's `end_reason` is
+`elimination` or `round_limit_survivor_count`; the second is a tally at the
+round cap, not a result, and a scorer should treat it that way.
+
+**The round cap counts whole rounds** (30 in both runners). The last round
+plays to its end, so every party still standing has activated the same number
+of times. At the cap the team with more monsters on the board wins; **a tie is
+a draw**, recorded as `winner_team` 0 with `draw: true`. Team ids start at 1,
+so 0 never names a team; it is also what an elimination with nobody left
+returns. Records before version 3 were scored differently: the cap stopped
+after the first party of the last round, and a tie went to the first-listed
+team. The CPU brains also changed with version 3: a heal counts only when its
+target could fall before acting again, and a harmful effect a spell puts on its
+caster's own side counts as a cost. Do not pool version 2 records with
+version 3 ones.
+
+A decision answers four questions: what the actor saw (`observation`, including
+each monster's effects in full, its resonance, and whether it is `withdrawn` —
+alive but off the board at (-1, -1) because its commander fell), what it could
+legally have done (`legal` — reachable cells with costs, attackable positions,
+and the actor's spell menu with cooldowns, indexed the way a command addresses
+it; plus `eligible_members` and the round's `party_order`), what it did
+(`chosen`, `result`), and what changed (`changed`, and `withdrawals` when the
+decision killed a commander). Legal movement and attacks come from
+`ReachQuery`, the same query the player's own overlay reads, so the corpus says
+exactly what the game offered.
+
+What a record does not carry: the legal *spell target cells* per destination
+(derive them from the roster's spell ranges and the board), and the rule tables
+the ruleset names, such as race-versus-element damage multipliers. The headless
+loop always activates the first eligible member, so member choice in a corpus
+is that rule, not a policy's decision.
+
+**A scenario with a player-controlled party is refused**, because a console has
+nobody to choose. Use the `_cpu_cpu` scenario of a pair.
+
+**Records are deterministic**: two runs at one seed produce byte-identical
+lines, asserted by `scripts/battle/checks/probe_battle_runner.gd`. The
+championship *summary* deliberately is not — it carries wall-clock timings.
+The summary tallies `winners` by team id, with draws under `"draw"` rather than
+as a team `"0"`, and counts `end_reasons` beside it; each battle entry carries
+its own `draw` and `end_reason`.
+
+The championship flushes the corpus after every battle, so a run that dies
+partway keeps every finished line.
+
+**Seeds barely change a battle today.** The only random draw in the simulation
+is the critical-hit roll, and the CPU brains are deterministic, so on a fixed
+scenario most seeds replay the same fight. Twenty seeds on `hexmap_cpu_cpu`
+gave one winner twenty times and five distinct decision sequences (record
+version 2). Five seeds under version 3 gave one winner, one end reason and one
+decision sequence; only a critical roll's damage differed. A corpus
+that needs varied outcomes needs variety from somewhere else first.
+
+Measured numbers worth knowing before planning a large run, on this host:
+
+| Measure | `proving_ground_cpu_cpu` | `hexmap_cpu_cpu` |
+|---|---|---|
+| Time per battle | ~90 s (before FHB-12) | ~48 s at seed 14 after FHB-12 (was ~82 s just before it; 76–79 s over 5 seeds, v3; 79–135 s over 20 seeds, v2) |
+| Record size per battle | — | ~200 KB raw, ~12 KB gzipped (v3, 8 rounds); ~330 KB raw, ~15 KB gzipped (v2) |
+
+The time is CPU deliberation, not the recording or the rules. Profiling one
+`hexmap` battle: 92.9 s of 93.2 s went to the brains choosing, 0.2 s to the
+recorder, 0.1 s to resolving commands. Inside deliberation the cost is line of
+sight, and most of it is the threat map, not `_emitSpell`: in the first 12
+decisions at seed 14, 28.1 s of 33.0 s was the threat phase and 4.9 s the
+actor's own spells. FHB-12 memoizes LoS for one deliberation, which took those
+12 decisions to 19.1 s. What is left is mostly each distinct LoS check's hex
+line geometry. A thousand battles is now about half a day of wall clock and
+about 15 MB of gzipped corpus.
+
+## Where battle output goes
+
+**Every file a battle writes goes under `battle_output/` at the project root**,
+and nowhere else. That covers the human log, the machine record, championship
+corpora and summaries, the console demo's log, and anything the playable scene
+writes about a battle in future. The folder is gitignored and carries a tracked
+`.gdignore`, so Godot does not scan or import what lands there.
+
+| Folder | Written by |
+|---|---|
+| `battle_output/battles/` | `run_battle.gd`: one record and one log per run |
+| `battle_output/championships/` | `run_championship.gd`: one corpus and one summary per run |
+| `battle_output/demo/` | `demo_battle.gd` |
+| `battle_output/played/` | reserved for the playable scene |
+
+A new writer asks `src/presentation/BattleOutputPaths.gd` for its path instead
+of choosing one. An exported build cannot write to `res://`, so there the same
+layout lives under `user://battle_output/`. Probe fixtures are not battle
+output: they stay in memory or under `user://`.
+
+## Exporting a map's battle products without the editor
+
+`scripts/worldmap_editor/export_battle_products.gd` publishes an authored hex
+map's battle products the same way the editor's own Export Battle action does,
+without opening the editor:
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/worldmap_editor/export_battle_products.gd -- hexmap
+```
+
+The argument is a map id under `data/worldmap/authored/<id>.noggmap.json` — the
+versioned envelope format the editor's own Save/Save As write. It reads that
+one format only; a pre-migration bare `.json` region such as `proving_ground`
+predates the envelope and is out of scope for this script, the same as it is
+for the editor's own Open dialog.
+
+It runs `godot --headless --import --path .` itself between baking and
+exporting, so the command above really is the whole thing — no separate import
+step to remember. That nested pass logs its own `ERROR: Do not use progress
+dialog...` lines to stderr; this is the same headless-import noise named above,
+not a sign the export failed. Trust the exit code and the final
+`HEX_EXPORT_OK <mapID>` line.
+
+**Re-exporting an already-scenario'd map makes those scenarios stale.**
+`BattleScenarioFactory` refuses to load a scenario whose recorded map
+fingerprint no longer matches — correct behaviour, not a bug — and the command
+prints a reminder naming every scenario under `data/battle/scenarios` that
+needs its `MAP` block updated to match.
 
 ## Validation timing
 

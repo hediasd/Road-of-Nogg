@@ -21,6 +21,11 @@
 ##   started; a mutation landing mid-scan would leave the back half of the
 ##   candidate list disagreeing with the front half. The owner of the
 ##   deliberation is responsible for that window.
+##
+## That second rule is also what lets `_resolver` memoize line of sight
+## (FHB-12). It is made at setup and dropped at finish, so its memo never
+## outlives the window in which the board is fixed. Any cache added here must
+## follow the same lifetime.
 
 class_name CommandDeliberation
 extends RefCounted
@@ -41,6 +46,9 @@ var _origin: Vector2i
 var _destinations: Array = []
 var _predecessors: Dictionary = {}
 var _enemyPositions: Array[Vector2i] = []
+## The evaluator's resolver with a line-of-sight memo, for this deliberation
+## only. See CombatResolver.forDeliberation().
+var _resolver: CombatResolver
 
 var _threat: Dictionary = {}
 var _threatEnemies: Array = []
@@ -186,6 +194,7 @@ func _stepSetup() -> void:
 		_finish()
 		return
 	_origin = _state.getMonsterPosition(_monsterID)
+	_resolver = _evaluator.combatResolver.forDeliberation()
 	var reachability: Dictionary = _evaluator.movementResolver.getReachability(_monsterID)
 	_destinations = reachability["positions"].duplicate()
 	_predecessors = reachability["predecessors"].duplicate()
@@ -218,7 +227,7 @@ func _stepThreat() -> void:
 		_threat,
 		int(_threatEnemies[_threatCursor]),
 		_evaluator.movementResolver,
-		_evaluator.combatResolver
+		_resolver
 	)
 	_threatCursor += 1
 
@@ -272,13 +281,13 @@ func _emitWaitAndAttacks(destination: Vector2i) -> void:
 		0, 0, [], _threat, _weights, _enemyPositions
 	))
 
-	var attackPositions = _evaluator.combatResolver.getBasicAttackTargetPositionsFrom(
+	var attackPositions = _resolver.getBasicAttackTargetPositionsFrom(
 		_monsterID, destination
 	)
 	_evaluator.sortPositions(attackPositions)
 	var seenAttackOutcomes: Dictionary = {}
 	for targetPos in attackPositions:
-		var targetID = _evaluator.combatResolver.getProjectedOccupantID(
+		var targetID = _resolver.getProjectedOccupantID(
 			_monsterID, destination, targetPos
 		)
 		var outcomeKey = "unit:%d" % targetID if targetID != 0 else "empty"
@@ -292,7 +301,7 @@ func _emitWaitAndAttacks(destination: Vector2i) -> void:
 
 
 func _emitSpell(destination: Vector2i, spellSetIndex: int, spellIndex: int) -> void:
-	var targetPositions = _evaluator.combatResolver.getSpellTargetPositionsFrom(
+	var targetPositions = _resolver.getSpellTargetPositionsFrom(
 		_monsterID, spellSetIndex, spellIndex, destination
 	)
 	_evaluator.sortPositions(targetPositions)
@@ -301,7 +310,7 @@ func _emitSpell(destination: Vector2i, spellSetIndex: int, spellIndex: int) -> v
 	# against a different spell's.
 	var seenSpellOutcomes: Dictionary = {}
 	for centerPos in targetPositions:
-		var affected = _evaluator.combatResolver.getSpellAffectedTargetsFrom(
+		var affected = _resolver.getSpellAffectedTargetsFrom(
 			_monsterID, spellSetIndex, spellIndex, destination, centerPos
 		)
 		var outcomeKey = _evaluator.affectedOutcomeKey(affected)
@@ -316,6 +325,7 @@ func _emitSpell(destination: Vector2i, spellSetIndex: int, spellIndex: int) -> v
 
 func _finish() -> void:
 	_phase = Phase.FINISHED
+	_resolver = null
 	if _stale or _candidates.is_empty():
 		_result = BattleCommand.wait()
 		return

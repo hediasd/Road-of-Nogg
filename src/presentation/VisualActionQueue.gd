@@ -30,6 +30,22 @@ signal drained
 const MAX_QUEUED_ACTIONS := 4096
 const WATCHDOG_MARGIN := 0.75
 
+## Presentation cadence at the one boundary every animated action crosses. Movement keeps the
+## adapter's authored per-cell duration but plays it more deliberately, then remains on its final
+## tile before the next action starts. Strike and defeat recovery are tails on their own tweens,
+## so pause, playback speed, skip and watchdog recovery treat the breath as part of the action.
+## MESSAGE is deliberately absent: one cast may enqueue many instant status/display updates and a
+## pause on each would turn a readable beat into accumulated dead air.
+const MOVE_PLAYBACK_SCALE := 0.75
+## Temporary reconstruction input while the live adapter is owned by another executing item. Its
+## movement tween contains exactly one interval of this length per path entry and reports the
+## already-speed-scaled real duration to activate(), so their ratio recovers the caller's scale.
+const MOVE_SOURCE_STEP_SECONDS := 0.16
+const MIN_PRESENTATION_SPEED := 0.1
+const MOVE_SETTLE_SECONDS := 0.18
+const STRIKE_RECOVERY_SECONDS := 0.16
+const DEFEAT_RECOVERY_SECONDS := 0.20
+
 ## (action: VisualAction) -> bool — begin the action; return true if it activated
 ## a tween (via activate()) and false if it resolved instantly, in which case
 ## the queue moves straight on to the next action.
@@ -51,6 +67,10 @@ var _activeAction: VisualAction
 ## signal or watchdog timeout from a superseded tween is ignored.
 var _serial: int = 0
 var _disposed: bool = false
+
+## Bumped on every _armWatchdog call so a watchdog armed before a pause, and still pending when
+## a fresh one is armed on resume, is ignored instead of firing against the same serial.
+var _watchdogToken: int = 0
 
 var _paused: bool = false
 var _watchdogDuration: float = 0.0
@@ -97,11 +117,14 @@ func setPaused(paused: bool) -> void:
 			_tween.pause()
 		else:
 			_tween.play()
-			# The watchdog armed at activation has very likely already come and
-			# gone during the pause, refused by the guard in _complete(). Arm a
-			# fresh one under the same serial so a tween that cannot finish —
-			# one killed from outside, which still reports is_valid() — is still
-			# recovered rather than wedging the queue.
+			# The watchdog armed at activation is a SceneTree timer that keeps
+			# running through the pause and may still be pending here. Arming a
+			# fresh one below does not cancel it; it is now ignored by token
+			# instead — _onWatchdogTimeout compares its token against
+			# _watchdogToken and no-ops once an intervening arm has moved it on.
+			# Arm a fresh one under the same serial so a tween that cannot finish
+			# — one killed from outside, which still reports is_valid() — is
+			# still recovered rather than wedging the queue.
 			_armWatchdog(_serial)
 	if not _paused and not _isAnimating:
 		startNext()
@@ -110,10 +133,22 @@ func setPaused(paused: bool) -> void:
 func _armWatchdog(serial: int) -> void:
 	var tree: SceneTree = _treeProvider.call()
 	if tree and not _paused:
+		_watchdogToken += 1
+		var token := _watchdogToken
 		tree.create_timer(_watchdogDuration).timeout.connect(
-			_complete.bind(serial, true),
+			_onWatchdogTimeout.bind(serial, token),
 			CONNECT_ONE_SHOT
 		)
+
+
+func _onWatchdogTimeout(serial: int, token: int) -> void:
+	## A watchdog armed before a pause keeps running through it (it is a SceneTree timer, not
+	## tied to the tween) and is still connected when a fresh one is armed on resume. The token
+	## makes the superseded one a no-op instead of finalizing the resumed action early.
+	if token != _watchdogToken:
+		return
+	_complete(serial, true)
+
 
 func enqueue(action: VisualAction) -> void:
 	if _disposed:
@@ -137,8 +172,26 @@ func startNext() -> void:
 
 func activate(tween: Tween, action: VisualAction, duration: float) -> void:
 	## Called by the owner's start handler once it has built a tween for the
-	## action. Arms both completion paths: the tween's own `finished` signal and
-	## a watchdog timer sized to the expected duration plus a margin.
+	## action. Pacing is appended before completion is connected, making the
+	## action's visual tail part of the same pauseable/skippable tween. Arms both
+	## completion paths: the tween's own `finished` signal and a watchdog timer
+	## sized to the paced duration plus a margin.
+	var tweenSpeed := MIN_PRESENTATION_SPEED
+	if action.kind == VisualAction.Kind.MOVE:
+		var sourceDuration := MOVE_SOURCE_STEP_SECONDS * float(action.path.size())
+		if sourceDuration > 0.0 and duration > 0.0:
+			tweenSpeed = maxf(sourceDuration / duration, MIN_PRESENTATION_SPEED)
+		tweenSpeed *= MOVE_PLAYBACK_SCALE
+		tween.set_speed_scale(tweenSpeed)
+		duration /= MOVE_PLAYBACK_SCALE
+
+	var tailSeconds := _tailSecondsFor(action.kind)
+	if tailSeconds > 0.0:
+		tween.chain().tween_interval(tailSeconds)
+		# Tween intervals use the same speed scale as their preceding animation.
+		# Callers report `duration` in real elapsed seconds, so convert the authored
+		# tween-time tail before sizing the watchdog.
+		duration += tailSeconds / tweenSpeed
 	_isAnimating = true
 	_tween = tween
 	_activeAction = action
@@ -147,6 +200,18 @@ func activate(tween: Tween, action: VisualAction, duration: float) -> void:
 	tween.finished.connect(_complete.bind(serial, false), CONNECT_ONE_SHOT)
 	_watchdogDuration = duration + WATCHDOG_MARGIN
 	_armWatchdog(serial)
+
+
+func _tailSecondsFor(kind: VisualAction.Kind) -> float:
+	match kind:
+		VisualAction.Kind.MOVE:
+			return MOVE_SETTLE_SECONDS
+		VisualAction.Kind.BUMP:
+			return STRIKE_RECOVERY_SECONDS
+		VisualAction.Kind.DEFEAT:
+			return DEFEAT_RECOVERY_SECONDS
+		_:
+			return 0.0
 
 
 func skipActive() -> void:

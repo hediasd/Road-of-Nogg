@@ -98,6 +98,39 @@ gitignored.** Its emoji prose is for a person reading a run, not for a machine.
 through the real player input path.** The interaction layer is not broken; the
 board is simply empty while it happens.
 
+## Coordination with the playability restoration cycle
+
+`hex-battle-playability-restoration.md` (HPR) runs on this branch at the same
+time and now owns most of the battle presentation. Its render stage (HPR-3)
+already moved terrain, units, sky, light and camera into one isolated
+`SubViewport` world in `HexBattleStage`, and its later items keep claiming the
+visual adapter and the controller. Three consequences for this plan:
+
+- **FHB-7 waits for HPR-7's commit.** It shares the controller, adapter and
+  camera with HPR-4 through HPR-7, and it must put terrain inside the stage's
+  world and pick through the stage's projection contract, not beside them.
+- **HPR-8 and FHB-9 run back to back in one fresh session, HPR-8 first.** Both
+  play a player-versus-CPU battle at both window sizes, and HPR-8 cannot judge
+  terrain lighting until FHB-7 has put terrain there.
+- **Nothing here edits the four files HPR-4 has open until it commits.** Its
+  in-flight work edits `BattleEvents.gd`, `CombatResolver.gd`,
+  `IBattleVisualAdapter.gd` and `ConsoleVisualAdapter.gd`, which its declared
+  Touches list does not cover. FHB-11 and FHB-12 need two of them and wait.
+  FHB-10 is kept clear of all four and can run now.
+
+**Henri decided on 2026-09-13 that the final check is fully agent-run.** The
+HPR-8 and FHB-9 session may launch, drive and screenshot real (non-headless)
+Godot windows for the whole checklist and give the pass or fail itself. That
+permission is for that session only; every other item stays headless.
+
+**Championships are expensive until FHB-12 lands** (about 90 s a battle). Items
+check against single battles and short scenarios, and only FHB-6's second pass
+runs a championship, a small one.
+
+Battle output of every kind goes under `battle_output/` through
+`src/presentation/BattleOutputPaths.gd`; see `docs/DEVELOPMENT.md`. An item that
+writes a log, record or corpus uses it rather than choosing a path.
+
 ## Items
 
 ### FHB-1 — Announce the starting board so a battle has units on it
@@ -457,10 +490,11 @@ selectable and legible over it. How much of the tactical layer survives, and wha
 happens on a checkout where the generated scene is absent, are judgement calls
 with no obviously correct answer.
 
-**Depends on:** FHB-1.
+**Depends on:** FHB-1, and HPR-7's commit (see Coordination).
 
 **Touches:**
 - `src/systems/hex_battle/HexBattleController.gd`
+- `src/presentation/battle/HexBattleStage.gd`
 - `src/presentation/battle/HexBattleVisualAdapter.gd`
 - `src/presentation/battle/HexBattleBoardView.gd`
 - `src/presentation/battle/HexBattleMeshFactory.gd`
@@ -477,6 +511,11 @@ the terrain needs re-exporting.
 **Implementation:** `BattleMapDefinition.visualScenePath` is already populated and
 `BattleMapAssetManifest` already reports whether the file is there. Nothing
 instantiates it. That is the gap.
+
+Since this item was written, HPR-3 gave the battle an isolated render stage.
+The terrain belongs inside `HexBattleStage`'s world, lit by its light and seen
+by its camera, and cell picking goes through the stage's projection, which
+already handles letterboxing. Read HPR-3's commit body (`7fdaa47`) first.
 
 `HexBattleLayout`'s X/Z already match the editor's own cell centres, so the
 exported ground should drop in at the origin with no correction. If it does not,
@@ -586,7 +625,8 @@ commit than a format you are unsure of.
 watching, spanning rendering, interaction and authoring work from three different
 waves. A fresh session, separate from every implementing lane.
 
-**Depends on:** FHB-1 through FHB-8.
+**Depends on:** FHB-1 through FHB-8, FHB-10 through FHB-14, FHB-6's second
+pass, and HPR-8's commit. Run in the same fresh session as HPR-8, straight after it.
 
 **Touches:**
 - Union of FHB-1 through FHB-8 Touches, for observed integration defects only.
@@ -637,6 +677,255 @@ cycle is written from it.
 - Deferred: the six observations above are the acceptance, recorded in this
   item's commit rather than in another status file.
 
+### FHB-10 — End a battle honestly at the round cap
+
+**Model:** Opus 5 / GPT Sol.
+
+**Model rationale:** What the round cap means, how a tie is scored, and why a
+support brain prefers a heal worth nothing are connected judgements about the
+simulation, and each one changes what a corpus says.
+
+**Decided by Henri, 2026-09-12: no new variety source for now.** The seed stays
+the integer a battle is started with. FHB-6 showed that on a fixed scenario it
+mostly drives the critical roll; that is accepted for this cycle. Do not add
+randomised deployment, rosters, side swaps or brain randomness.
+
+**Depends on:** FHB-6.
+
+**Touches:**
+- `src/battle_sim/BattleSimulator.gd`
+- `src/entity_ai/SupportBrain.gd`
+- `src/entity_ai/BattleCommandEvaluator.gd`
+- `src/presentation/BattleRecordAdapter.gd`
+- `scripts/battle/checks/probe_round_cap.gd` (new) and its `.uid`
+- `docs/DEVELOPMENT.md`
+
+Never `BattleEvents.gd`, `CombatResolver.gd`, `IBattleVisualAdapter.gd` or
+`ConsoleVisualAdapter.gd`: HPR-4 has them open. If the fix needs one, stop and
+report instead.
+
+**End state:** A battle at the round cap gives both parties the same number of
+turns, and a tie there is a draw rather than a win for whichever team is listed
+first. No brain chooses a heal that restores nothing when anything else is
+available. Same seed, same bytes, still. `hexmap_cpu_cpu.json` at seed 14 no
+longer stalls from round 7 to 30.
+
+**Implementation:** FHB-6's commit body (`e3e37a7`) is the evidence; read it
+first, and read `battle_output/battles/fhb6_hexmap_cpu_cpu_seed14.log.txt` for
+the stall.
+
+`BattleSimulator._runFullPartyBattle` stops after one party's turn in the last
+round, and the survivor tally breaks ties by `teamRosters` order. Decide whether
+the cap counts rounds or turns, make both sides equal under it, and make a tie a
+draw using whatever draw value the battle result already has (HPR-7 expects
+team 0).
+
+Seed 14's stall: `SupportBrain` keeps casting Timeoff for +0 HP, which also
+slows itself for good, and the Healer Mage never attacks a 6 HP enemy. Find the
+scoring that lets a heal worth nothing win and fix it there. This is not a
+balance pass: do not change spell numbers.
+
+**Risk:** A fix to the stall that changes every other decision too. Say in the
+commit body how many decisions in the seed-14 record changed before the stall
+round, and why.
+
+**Validation:**
+- Self-contained: the new probe builds or loads a short battle that reaches the
+  cap and asserts equal turns and a draw on a tie, plus a support brain that
+  does not pick a zero-value heal; marker `HEX_ROUND_CAP_OK`.
+  `probe_battle_runner.gd` still prints `HEX_BATTLE_RUNNER_OK`.
+- One `run_battle.gd` run of `hexmap_cpu_cpu.json` at seed 14. No championship.
+- Deferred: FHB-6's second pass.
+
+### FHB-11 — Fix the four errors in the human battle log
+
+**Model:** Sonnet 5 / GPT Terra.
+
+**Model rationale:** Four located defects with known causes and checkable
+output. No judgement left.
+
+**Depends on:** HPR-4's commit, and FHB-10 (see Coordination).
+
+**Touches:**
+- `src/presentation/ConsoleVisualAdapter.gd`
+- `src/presentation/ConsoleMapRenderer.gd`
+
+**End state:** A `run_battle.gd` log of `hexmap_cpu_cpu.json` at seed 14 prints
+the party order on its "Turn order:" line every round, its map legend names the
+symbols the map actually draws, and a monster withdrawn because its commander
+fell gets a line saying so. A drawn battle's banner says it is a draw.
+
+**Implementation:**
+1. `ConsoleVisualAdapter._on_round_started` names monsters from the event's
+   `turnOrderIDs`, which the party runtime sends empty. Print the round's
+   `state.partyOrder` instead (party IDs, each with its commander's name), the
+   same array `BattleRecordAdapter` records as `party_order`.
+2. `ConsoleMapRenderer.gd` draws `#` for terrain value 1, `~` for 2 and `.`
+   otherwise, but its legend says `#=Tree   ~=Abyss   >=Path`. Find what 1 and
+   2 mean on the hex terrain board and write the legend from that. Keep the
+   path arrows in the legend, since the renderer does draw them for moves.
+3. Override `_on_party_withdrawn(partyID, memberIDs)` in `ConsoleVisualAdapter`
+   and log one line per member: its name and ID, and that it left the board
+   because its commander fell.
+4. `ConsoleVisualAdapter._on_battle_ended(winningTeam)` prints
+   "TEAM %s WINS!" even when `winningTeam` is 0, which FHB-10 made the draw
+   value. When it is 0, print a banner saying the battle is a draw instead,
+   in the same box style.
+
+**Validation:**
+- Self-contained: run the seed-14 battle and read the log for all three; the
+  record line must be byte-identical to one produced before the change.
+
+### FHB-6, second pass
+
+After FHB-10 commits, run FHB-6 again in a fresh Opus 5 session, with two
+changes Henri made on 2026-09-12:
+
+- **Five seeds, not twenty,** because a championship still costs about 90 s a
+  battle. Outputs go to `battle_output/championships/`.
+- **Outcome variety is no longer a pass condition.** The seed stays a plain
+  integer this cycle. Report the spread; do not fail on it.
+
+The gate is now: every battle ends by elimination or by a fair cap, no stall,
+records byte-identical on a re-run of one seed, and the model's-eye reading
+still holds. Its commit carries the same `Plan-Item: FHB-6` trailer.
+
+### FHB-12 — Make CPU deliberation cheaper
+
+**Model:** Opus 5 / GPT Sol.
+
+**Model rationale:** The cost is located but its cause inside it is not, and the
+fix must leave every decision exactly as it was. Choosing what is safe to cache
+in a resolver that projects moves is judgement, even when the change is small.
+
+**Depends on:** FHB-10, and HPR-4's commit (`CombatResolver.gd`).
+
+**Touches:**
+- `src/entity_ai/CommandDeliberation.gd`
+- `src/entity_ai/BattleCommandEvaluator.gd`
+- `src/battle_sim/CombatResolver.gd`
+- `docs/DEVELOPMENT.md` (the timing table)
+
+**End state:** One `hexmap_cpu_cpu.json` battle at seed 14 takes well under the
+~90 s FHB-6 measured, ideally under 30 s, and its record is byte-identical to one
+taken just before the change.
+
+**Implementation:** A light item. One profiling pass, then the smallest change
+that moves the number. FHB-6 put 92.9 s of 93.2 s in deliberation, and inside it
+`CommandDeliberation._emitSpell`: every spell's target cells and affected units
+from every reachable destination, about 26 ms per slice and 45 slices per
+decision. Find which call inside that dominates before changing anything.
+
+Likely shapes, not instructions: the same target-cell or affected-unit query
+repeated for destinations that give the same answer, or work that depends only on
+the board being redone per destination. Whatever you cache lives for one
+deliberation, because state must not change while one is in flight (see the
+class header).
+
+Do not add threads, change slice budgeting, or change how candidates are scored
+or sorted.
+
+**Risk:** A faster brain that picks differently. The byte-identical record is
+the check; if it differs, the change is wrong, however small the diff.
+
+**Validation:**
+- Self-contained: record seed 14 before and after and compare bytes;
+  `probe_battle_runner.gd` still prints `HEX_BATTLE_RUNNER_OK`. Time both runs
+  and put the numbers in the commit body.
+- No championship.
+
+### FHB-13 — Start a battle whose terrain scene is missing
+
+**Model:** Sonnet 5 / GPT Terra.
+
+**Model rationale:** One located refusal, a decided answer (FHB-7's end state
+says a missing scene is a normal state, not an error), and probes that already
+describe both branches.
+
+**Depends on:** FHB-7.
+
+**Touches:**
+- `src/factories/BattleMapFactory.gd`
+- `scripts/hex_battle/probe_editor_export.gd`
+- `scripts/hex_battle/probe_entrypoints.gd`
+- `scripts/hex_battle/probe_board_terrain.gd`
+
+**End state:** A map whose `SOURCE.VISUAL_SCENE_PATH` names a file that is not
+on disk loads through `BattleMapFactory`, and a battle on it starts on the grey
+board with the "re-export" status FHB-7 added. A map with an empty
+`VISUAL_SCENE_PATH` that is not a `technical_` headless map is still refused.
+
+**Implementation:**
+1. In `BattleMapFactory.gd`, delete the `elif not ResourceLoader.exists(visualPath)`
+   branch that returns `missing_visual_resource` with the path. Keep the
+   empty-path rule above it unchanged. Replace the deleted branch with a
+   comment: a declared scene that is absent on disk is a normal state on a
+   fresh checkout, `BattleMapAssetManifest` reports it, and `HexBattleStage`
+   falls back to the tactical board.
+2. `probe_board_terrain.gd` prints `HXB_BOARD_TERRAIN_FACTORY_REFUSES_ABSENT_SCENE`
+   when the factory refuses and otherwise tests a full battle start. Run it and
+   confirm it now takes the full-start path. Remove that refusal branch and its
+   note, so a refusal becomes a failure.
+3. `probe_editor_export.gd` has a branch for a fixture map that fails with
+   `missing_visual_resource`. Read it and the branch after it. The load now
+   succeeds when the scene is absent, so make the probe assert that: the load
+   succeeds, and the manifest still names the missing scene. Keep the
+   present-scene assertions.
+4. `probe_entrypoints.gd` tolerates `missing_visual_resource` for maps under
+   `res://data/battle/maps`. Leave the tolerance only if some map can still
+   fail that way (an empty path). Otherwise require every map to load, and
+   update its comment.
+5. `probe_map_contract.gd` expects `missing_visual_resource` for an empty path
+   with `HEADLESS_ONLY` false. That rule is kept, so it must still pass
+   unchanged.
+
+**Validation:**
+- Self-contained: `HXB_BOARD_TERRAIN_OK`, `HXB_EXPORT_OK`,
+  `HXB_ENTRYPOINTS_OK` and `HXB_MAP_OK` pass. Run the terrain probe once with `scenes/worldmap/generated/` present and
+  once with the hexmap scene temporarily renamed away, restoring it after.
+
+### FHB-14 — Stop a resumed animation being cut short after a pause
+
+**Model:** Sonnet 5 / GPT Terra.
+
+**Model rationale:** HPR-7 found and reproduced the defect and its cause. The
+fix is a token check at one seam in one file.
+
+**Depends on:** HPR-7.
+
+**Touches:**
+- `src/presentation/VisualActionQueue.gd`
+- `scripts/hex_battle/restoration/probe_queue_pause.gd` (new) and its `.uid`
+
+**End state:** Pausing an action for any length of time and resuming it lets
+the action finish when its tween finishes, with no "watchdog recovered a stalled
+action" warning. A tween that genuinely never finishes is still recovered by a
+watchdog.
+
+**Implementation:** Every watchdog timer ever armed for an action stays
+connected under the action's serial. `setPaused(false)` arms a fresh one, but the
+one armed at activation is still pending if the pause was short enough, and it
+fires while the resumed tween still has time left. HPR-7 reproduced it: a 2 s
+tween paused for 1.2 s finalized at 2.73 s instead of about 3.2 s.
+
+1. Add `var _watchdogToken: int = 0`.
+2. In `_armWatchdog(serial)`, increment `_watchdogToken`, capture it as
+   `token`, and connect the timer to a new `_onWatchdogTimeout.bind(serial, token)`
+   instead of `_complete.bind(serial, true)`.
+3. Add `func _onWatchdogTimeout(serial: int, token: int) -> void`: return if
+   `token != _watchdogToken`, otherwise call `_complete(serial, true)`.
+4. Change nothing else: not `_serial`, not the paused guard in `_complete`, and
+   not `WATCHDOG_MARGIN`. Update the comment in `setPaused` to say earlier
+   watchdogs are now ignored by token.
+
+**Validation:**
+- Self-contained: the new probe runs a real SceneTree. It enqueues a 2 s tween
+  action, pauses at 0.5 s for 1.2 s, resumes, and asserts the action finalizes
+  no earlier than 3.1 s with no watchdog warning. It then checks that a tween
+  killed from outside is still finalized by the watchdog. Marker
+  `HPR_QUEUE_PAUSE_OK`. With the old code, the first check must fail.
+  `HPR_SESSION_OK` and `HPR_FEEDBACK_OK` still pass.
+
 ## Waves
 
 | Wave | Items | Why disjoint / validation form |
@@ -644,8 +933,11 @@ cycle is written from it.
 | 1 | FHB-1, FHB-2, FHB-3 | battle simulator and controller, versus the tactical layer and tileset catalog, versus a new headless runner. `WORLDMAP_EDITOR.md` belongs to FHB-2; `DEVELOPMENT.md` to FHB-3. |
 | 2 | FHB-4, FHB-5 | authored data and scenarios, versus runner scripts and a new record adapter. No shared file. |
 | 3 | FHB-6 | **Validation: standalone, early.** The backend gate. Nothing later should be built on an unproven simulation pipeline. |
-| 4 | FHB-7, FHB-8 | battle presentation and `HEX_BATTLE.md`, versus editor authoring and `WORLDMAP_EDITOR.md`. No shared file. |
-| 5 | FHB-9 | **Validation: standalone, quiet tree.** Judgement spanning three waves. |
+| 4 | FHB-8, FHB-10 | run now, beside the HPR lane. Editor authoring and the map format, versus simulation and brains. No shared file, and FHB-10 stays clear of every file HPR-4 has open. |
+| 5 | FHB-6 second pass | after FHB-10. |
+| 6 | FHB-7, FHB-12 | FHB-7 after HPR-7 commits; FHB-12 after HPR-4. Terrain in the stage and controller, versus brains and resolver. No shared file. FHB-12 is light. |
+| 7 | FHB-11, FHB-13, FHB-14 | console log, versus map factory and its probes, versus the visual queue. No shared file. All Sonnet. |
+| 8 | HPR-8, then FHB-9 | **Validation: standalone.** One fresh session, HPR-8 first, driving real windows. FHB-9 closes the plan. |
 
 ## Deliberately excluded
 

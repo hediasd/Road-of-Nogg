@@ -19,7 +19,6 @@ const READ_ONLY_FILES := [
 	"res://src/presentation/battle/ui/HexCharacterStatus.gd",
 	"res://src/presentation/battle/ui/HexCommandMenu.gd",
 	"res://src/presentation/battle/ui/HexCommandPlate.gd",
-	"res://src/presentation/battle/ui/HexStatusBadgeOverlay.gd",
 	"res://src/presentation/battle/ui/HexTextBox.gd",
 ]
 const FORBIDDEN := [
@@ -73,10 +72,10 @@ func _require(condition: bool, message: String) -> void:
 		failures.append(message)
 
 
-## The HUD re-reads facts on a clock, and headless frames are far shorter than it.
+## The controller refreshes the HUD once a frame; a couple of frames is enough for a change in
+## state to reach the readout.
 func _afterRefresh() -> void:
-	await create_timer(HexBattleHud.FACTS_REFRESH_SECONDS * 3.0).timeout
-	await _frames(2)
+	await _frames(4)
 
 
 func _frames(count: int) -> void:
@@ -147,10 +146,12 @@ func _checkPickingSelectsByID() -> void:
 	if other == -1:
 		failures.append("no second unit to pick")
 		return
-	var head: Vector3 = _controller.adapter.unitHeadWorld(other)
-	var base: Vector3 = _controller.adapter.modelFor(other).global_position
-	var point := _controller.battleCamera.projectToScreen(base.lerp(head, 0.4))
-	var picked := _controller.adapter.unitAtScreenPoint(point, _controller._projectWorld)
+	var model: Node3D = _controller.adapter.modelFor(other)
+	var base: Vector3 = model.global_position
+	var head: Vector3 = base + Vector3.UP * HexBattleUnitBadges.anchorHeight(model)
+	var point := _controller.stage.projectWorldToScreen(base.lerp(head, 0.4))
+	var picked := _controller.adapter.unitAtScreenPoint(
+		point, _controller.stage.projectWorldToScreen)
 	_require(picked == other, "picking unit %d's body answered %d" % [other, picked])
 
 	_controller._selectUnit(other)
@@ -169,6 +170,10 @@ func _checkEffectsAndOverflow() -> void:
 	var names := ["burn", "poison", "chill", "petrify", "guard", "focus", "atk_buff", "def_buff"]
 	for index in range(names.size()):
 		_controller.sim.state.addEffect(target, names[index], index + 1)
+	# The readout reads DISPLAYED effects, which only change when playback shows them; this probe
+	# writes straight to state, so the adapter is told to re-read what is there.
+	_controller.adapter._displayState.recover(_controller.sim.state)
+	_controller.adapter.statusBadges().refreshAll()
 	await _afterRefresh()
 	var facts := _controller.hud.readout.facts()
 	var effects: Array = facts.get("effects", [])
@@ -187,7 +192,8 @@ func _checkEffectsAndOverflow() -> void:
 			hidden += (cell["overflow"] as Array).size()
 	_require(shown + hidden == names.size(), "readout shows %d and hides %d of %d effects" % [shown, hidden, names.size()])
 	_require(hidden > 0, "eight effects did not overflow the readout's one row")
-	_require(_controller.hud.badges.rowCount() >= 1, "no status icon row over the affected unit")
+	_require(_controller.adapter.statusBadges().rowCount() >= 1,
+		"no status icon row over the affected unit")
 
 
 func _checkLostSelectionFallsBack() -> void:
@@ -196,9 +202,12 @@ func _checkLostSelectionFallsBack() -> void:
 	if gone == memberID:
 		failures.append("expected a non-acting unit to be selected")
 		return
-	# Probe-only: the unit leaves the way a defeat removes it, straight in state and on the board.
+	# Probe-only: the unit leaves the way PLAYBACK removes it. A defeat event only queues the
+	# removal -- the readout follows displayed state, so a unit the screen has not yet shown falling
+	# is still a unit worth reading out.
 	_controller.sim.state.getMonster(gone).hitpoints = 0
-	_controller.adapter._on_monster_defeated(gone, -1)
+	_controller.adapter._displayState.markRemoved(gone, "defeated")
+	_controller.adapter.removeDisplayedModel(gone)
 	await _afterRefresh()
 	_require(_controller.hud.selectedUnit() == memberID,
 		"a lost selection went to %d, not back to the acting member %d" % [_controller.hud.selectedUnit(), memberID])

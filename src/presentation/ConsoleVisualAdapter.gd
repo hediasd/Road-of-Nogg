@@ -1,4 +1,4 @@
-## ConsoleVisualAdapter — Writes an ASCII/Emoji battle log to ai/battle_log.txt
+## ConsoleVisualAdapter — Writes an ASCII/Emoji battle log under battle_output/ (see BattleOutputPaths)
 ## Replaces standard console print with a detailed, stylized textual output.
 
 class_name ConsoleVisualAdapter
@@ -6,9 +6,11 @@ extends IBattleVisualAdapter
 
 const ConsoleRoundSummaryScript = preload("res://src/presentation/ConsoleRoundSummary.gd")
 const ConsoleMapRendererScript = preload("res://src/presentation/ConsoleMapRenderer.gd")
+const BattleOutputPathsScript = preload("res://src/presentation/BattleOutputPaths.gd")
 
 var state: BattleState
-var logFile: String = "res://docs/battle_log.txt"
+## Callers normally set their own path from `BattleOutputPaths`; this default is the fallback.
+var logFile: String = BattleOutputPathsScript.pathFor(BattleOutputPathsScript.BATTLES, "console.log.txt")
 var _roundEvents: Array = []
 var _roundPaths: Array = []
 var roundSummary
@@ -17,6 +19,7 @@ var mapRenderer
 
 func _init(_state: BattleState) -> void:
 	state = _state
+	BattleOutputPathsScript.ensureParent(logFile)
 	var logger = Callable(self, "_log")
 	roundSummary = ConsoleRoundSummaryScript.new(logger)
 	mapRenderer = ConsoleMapRendererScript.new(state, logger)
@@ -54,19 +57,26 @@ func _on_battle_started(boardSize: Vector2i, _monsterList: Array) -> void:
 func _on_battle_ended(winningTeam: int) -> void:
 	_log("")
 	_log("╔══════════════════════════════════════════════════════════════╗")
-	_log("║             🏆 BATTLE OVER — TEAM %s WINS! 🏆               ║" % winningTeam)
+	if winningTeam == 0:
+		_log("║                  🤝 BATTLE OVER — DRAW! 🤝                  ║")
+	else:
+		_log("║             🏆 BATTLE OVER — TEAM %s WINS! 🏆               ║" % winningTeam)
 	_log("╚══════════════════════════════════════════════════════════════╝")
 	_log("")
 
 
-func _on_round_started(roundNumber: int, turnOrderIDs: Array) -> void:
+func _on_round_started(roundNumber: int, _turnOrderIDs: Array) -> void:
 	_log("")
 	_log("══════════════════════ 🔄 ROUND %s ══════════════════════" % roundNumber)
 	var orderNames = []
-	for id in turnOrderIDs:
-		var mon = state.getMonster(id)
-		if mon != null:
-			orderNames.append("%s#%s" % [mon.name, id])
+	for value in state.partyOrder:
+		var partyID = int(value)
+		var party = state.parties.get(partyID)
+		if party == null:
+			continue
+		var commander = state.getMonster(int(party.commanderID))
+		var commanderName = commander.name if commander != null else "???"
+		orderNames.append("%s#%s" % [commanderName, partyID])
 	_log("  Turn order: %s" % ", ".join(orderNames))
 	_log("")
 
@@ -147,6 +157,7 @@ func _on_spell_cast_started(
 		targetsHit: int,
 		_resolvedRadius: int,
 		_areaShape: String,
+		_resolvedAffectedCells: Array,
 		_resolvedTargetIDs: Array) -> void:
 	if targetsHit == 0:
 		var caster = state.getMonster(casterID)
@@ -236,6 +247,19 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 		_log("  ☠️ [DEFEATED] %s #%s was struck down by %s #%s!" % [monName, monsterID, killerName, killerID])
 		if _roundEvents.size() > 0:
 			_roundEvents[_roundEvents.size() - 1].score += 100
+
+
+func _on_party_withdrawn(partyID: int, memberIDs: Array) -> void:
+	var party = state.parties.get(partyID)
+	var commander = state.getMonster(int(party.commanderID)) if party != null else null
+	var commanderName = commander.name if commander != null else "???"
+	for value in memberIDs:
+		var memberID = int(value)
+		var mon = state.getMonster(memberID)
+		var monName = mon.name if mon != null else "???"
+		_log("  🏳️ [WITHDRAW] %s #%s left the board — their commander %s fell" % [
+			monName, memberID, commanderName
+		])
 
 
 func _on_effect_applied(monsterID: int, effectName: String, duration: int, _sourceMonsterID: int, _sourceSpellName: String) -> void:
