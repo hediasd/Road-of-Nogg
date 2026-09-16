@@ -324,14 +324,14 @@ func _checkUnitDecorators() -> void:
 
 func _checkCameraControls() -> void:
 	var battleCamera: HexBattleCamera = _controller.battleCamera
-	_require(battleCamera.projectionMode() == battleCamera.PROJECTION_ORTHOGRAPHIC,
+	_require(battleCamera.camera.projection == Camera3D.PROJECTION_ORTHOGONAL,
 		"the battle camera did not open in orthographic projection")
 	_require(battleCamera.camera.position.length() \
 		>= battleCamera.ORTHOGRAPHIC_CAMERA_DISTANCE - 0.01,
 		"the orthographic camera is not safely behind the rotating board")
 	var originalYaw := battleCamera.yaw()
 	var originalPitch := battleCamera.pitchDegrees()
-	var originalDistance := battleCamera.distance()
+	var originalSize := battleCamera.orthographicSize()
 	var originalFocus := battleCamera.focus()
 
 	var middlePress := InputEventMouseButton.new()
@@ -370,14 +370,14 @@ func _checkCameraControls() -> void:
 	wheel.button_index = MOUSE_BUTTON_WHEEL_UP
 	wheel.pressed = true
 	battleCamera.handleInput(wheel, float(SCREENS[0].y))
-	_require(battleCamera.distance() < originalDistance, "wheel up did not zoom in")
+	_require(battleCamera.orthographicSize() < originalSize, "wheel up did not zoom in")
 
 	battleCamera.resetView()
 	await create_timer(battleCamera.CAMERA_EASE_SECONDS + 0.05).timeout
 	_require(is_equal_approx(battleCamera.yaw(), originalYaw), "camera reset did not restore yaw")
 	_require(is_equal_approx(battleCamera.pitchDegrees(), originalPitch),
 		"camera reset did not restore pitch")
-	_require(is_equal_approx(battleCamera.distance(), originalDistance),
+	_require(is_equal_approx(battleCamera.orthographicSize(), originalSize),
 		"camera reset did not restore zoom")
 	_require(battleCamera.focus().is_equal_approx(originalFocus),
 		"camera reset did not restore focus")

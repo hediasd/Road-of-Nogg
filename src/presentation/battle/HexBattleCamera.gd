@@ -19,7 +19,8 @@ enum DragMode { NONE, ORBIT, PAN }
 
 ## Oblique rather than top-down: the retro 2.5D direction this cycle keeps means reading height
 ## off the board, and a plan view flattens every plateau to nothing.
-const DEFAULT_PITCH_DEGREES := -38.0
+const DEFAULT_YAW_DEGREES := 30.0
+const DEFAULT_PITCH_DEGREES := -42.0
 const MIN_PITCH_DEGREES := -70.0
 const MAX_PITCH_DEGREES := -12.0
 
@@ -27,20 +28,17 @@ const MAX_PITCH_DEGREES := -12.0
 ## the six directions sit exactly where they did one detent ago.
 const YAW_DETENT_DEGREES := 60.0
 
-const MIN_DISTANCE := 6.0
-const MAX_DISTANCE := 60.0
-const ZOOM_STEP := 2.0
-const PROJECTION_PERSPECTIVE := "perspective"
-const PROJECTION_ORTHOGRAPHIC := "orthographic"
+const MIN_ORTHOGRAPHIC_SIZE := 8.0
+const MAX_ORTHOGRAPHIC_SIZE := 48.0
+const ZOOM_STEP := 1.5
 ## Orthographic zoom is controlled by `Camera3D.size`, not physical distance. Keeping that camera
 ## well behind the entire rotating board prevents a zoomed-in corner from crossing its near plane
-## without changing how large the board looks. Perspective must still use the logical distance.
+## without changing how large the board looks.
 const ORTHOGRAPHIC_CAMERA_DISTANCE := 100.0
-## Opening distance is `span * FRAME_SPAN_FACTOR + FRAME_MARGIN`, clamped to the zoom limits. The
-## margin reserves the board from the left and lower-right HUD stacks instead of fitting it to the
-## unobstructed full viewport and then letting those windows cover its edge cells.
-const FRAME_SPAN_FACTOR := 0.82
-const FRAME_MARGIN := 7.0
+## Opening size is derived directly in orthographic world units. At 1280x720 this
+## puts the standard 20x10 field across roughly two-thirds of the usable width.
+const FRAME_SPAN_FACTOR := 0.76
+const FRAME_MARGIN := 2.5
 ## The raised rim extends roughly one world unit beyond each side of the valid-cell span.
 const FRAME_BOARD_PADDING := 2.0
 
@@ -51,20 +49,17 @@ const CAMERA_EASE_SECONDS := 0.22
 
 var camera: Camera3D
 var _pivot: Node3D
-var _yaw := 0.0
+var _yaw := DEFAULT_YAW_DEGREES
 var _pitch := DEFAULT_PITCH_DEGREES
-var _distance := 18.0
 var _orthographicSize := 18.0
 var _focus := Vector3.ZERO
 var _screenConverter := Callable()
 var _dragMode: DragMode = DragMode.NONE
 var _cameraTween: Tween
-var _defaultYaw := 0.0
+var _defaultYaw := DEFAULT_YAW_DEGREES
 var _defaultPitch := DEFAULT_PITCH_DEGREES
-var _defaultDistance := 18.0
 var _defaultOrthographicSize := 18.0
 var _defaultFocus := Vector3.ZERO
-var _projectionMode := PROJECTION_ORTHOGRAPHIC
 ## High-polling mice can deliver many motion events between rendered frames. Accumulate them and
 ## mutate the SubViewport camera once per frame; rebuilding its visibility state for every raw
 ## event made an otherwise simple drag feel dramatically slower than the square battle camera.
@@ -114,11 +109,13 @@ func frameMap(map: BattleMapDefinition, layout: HexBattleLayout) -> void:
 	# of the window with units about 16 px tall at 1280x720, too small to follow a fight. The near
 	# rows may pass under the bottom windows, which the wheel undoes.
 	var span := maxf(bounds.size.x, bounds.size.z) + FRAME_BOARD_PADDING
-	_distance = clampf(span * FRAME_SPAN_FACTOR + FRAME_MARGIN, MIN_DISTANCE, MAX_DISTANCE)
-	_orthographicSize = _perspectiveSpan(_distance)
+	_yaw = DEFAULT_YAW_DEGREES
+	_pitch = DEFAULT_PITCH_DEGREES
+	_orthographicSize = clampf(
+		span * FRAME_SPAN_FACTOR + FRAME_MARGIN,
+		MIN_ORTHOGRAPHIC_SIZE, MAX_ORTHOGRAPHIC_SIZE)
 	_defaultYaw = _yaw
 	_defaultPitch = _pitch
-	_defaultDistance = _distance
 	_defaultOrthographicSize = _orthographicSize
 	_defaultFocus = _focus
 	_apply()
@@ -154,14 +151,9 @@ func pitch(degrees: float) -> void:
 
 func zoom(steps: float) -> void:
 	_cancelCameraTween()
-	if _projectionMode == PROJECTION_ORTHOGRAPHIC:
-		_orthographicSize = clampf(
-			_orthographicSize + _perspectiveSpan(ZOOM_STEP) * steps,
-			_perspectiveSpan(MIN_DISTANCE), _perspectiveSpan(MAX_DISTANCE))
-		_distance = _distanceForPerspectiveSpan(_orthographicSize)
-	else:
-		_distance = clampf(_distance + ZOOM_STEP * steps, MIN_DISTANCE, MAX_DISTANCE)
-		_orthographicSize = _perspectiveSpan(_distance)
+	_orthographicSize = clampf(
+		_orthographicSize + ZOOM_STEP * steps,
+		MIN_ORTHOGRAPHIC_SIZE, MAX_ORTHOGRAPHIC_SIZE)
 	_apply()
 
 
@@ -169,8 +161,8 @@ func yaw() -> float:
 	return _yaw
 
 
-func distance() -> float:
-	return _distance
+func orthographicSize() -> float:
+	return _orthographicSize
 
 
 func pitchDegrees() -> float:
@@ -181,29 +173,7 @@ func focus() -> Vector3:
 	return _focus
 
 
-func projectionMode() -> String:
-	return _projectionMode
-
-
-## Swapping projection preserves the focus and approximate on-screen board scale. The camera's
-## distance and orthographic size remain paired, so wheel zoom and a later swap do not jump.
-func setProjectionMode(value: String) -> void:
-	if value != PROJECTION_PERSPECTIVE and value != PROJECTION_ORTHOGRAPHIC:
-		push_warning("Unknown hex battle camera projection: %s" % value)
-		return
-	_cancelCameraTween()
-	if value == _projectionMode:
-		_apply()
-		return
-	if value == PROJECTION_ORTHOGRAPHIC:
-		_orthographicSize = _perspectiveSpan(_distance)
-	else:
-		_distance = _distanceForPerspectiveSpan(_orthographicSize)
-	_projectionMode = value
-	_apply()
-
-
-## The square battle's mouse contract, implemented with this camera's perspective/orbit state:
+## The square battle's mouse contract, implemented with this camera's orbit state:
 ## middle drag orbits and pitches, right drag pans, wheel zooms, and double middle resets. Returns
 ## true for every owned press, release and drag motion so tactical hover/aim never fires beneath it.
 func handleInput(event: InputEvent, viewportHeight: float) -> bool:
@@ -265,8 +235,6 @@ func resetView() -> void:
 		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	_cameraTween.tween_method(_setPitch, _pitch, _defaultPitch, CAMERA_EASE_SECONDS) \
 		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	_cameraTween.tween_method(_setDistance, _distance, _defaultDistance, CAMERA_EASE_SECONDS) \
-		.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
 	_cameraTween.tween_method(
 		_setOrthographicSize, _orthographicSize, _defaultOrthographicSize,
 		CAMERA_EASE_SECONDS
@@ -278,7 +246,7 @@ func resetView() -> void:
 func _panByScreenDelta(relative: Vector2, viewportHeight: float) -> void:
 	if camera == null or viewportHeight <= 0.0:
 		return
-	var factor := _distance / viewportHeight * PAN_SENSITIVITY
+	var factor := _orthographicSize / viewportHeight * PAN_SENSITIVITY
 	var right := camera.global_transform.basis.x
 	right.y = 0.0
 	var up := camera.global_transform.basis.y
@@ -302,11 +270,6 @@ func _setPitch(value: float) -> void:
 	_apply()
 
 
-func _setDistance(value: float) -> void:
-	_distance = value
-	_apply()
-
-
 func _setOrthographicSize(value: float) -> void:
 	_orthographicSize = value
 	_apply()
@@ -324,15 +287,6 @@ func _nearestEquivalentYaw(target: float) -> float:
 	while result - _yaw < -180.0:
 		result += 360.0
 	return result
-
-
-func _perspectiveSpan(distanceValue: float) -> float:
-	return 2.0 * distanceValue * tan(deg_to_rad(camera.fov * 0.5))
-
-
-func _distanceForPerspectiveSpan(span: float) -> float:
-	var divisor := 2.0 * tan(deg_to_rad(camera.fov * 0.5))
-	return clampf(span / divisor, MIN_DISTANCE, MAX_DISTANCE)
 
 
 func _cancelCameraTween() -> void:
@@ -380,13 +334,9 @@ func projectToScreen(worldPosition: Vector3) -> Vector2:
 func _apply() -> void:
 	if _pivot == null or camera == null:
 		return
-	camera.projection = Camera3D.PROJECTION_ORTHOGONAL \
-		if _projectionMode == PROJECTION_ORTHOGRAPHIC \
-		else Camera3D.PROJECTION_PERSPECTIVE
-	if _projectionMode == PROJECTION_ORTHOGRAPHIC:
-		camera.size = _orthographicSize
-	var placementDistance := ORTHOGRAPHIC_CAMERA_DISTANCE \
-		if _projectionMode == PROJECTION_ORTHOGRAPHIC else _distance
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.size = _orthographicSize
+	var placementDistance := ORTHOGRAPHIC_CAMERA_DISTANCE
 	_pivot.position = _focus
 	_pivot.rotation_degrees = Vector3(0.0, _yaw, 0.0)
 	# Orbit is around the focus, so the camera sits back along its own local Z and is then tilted;

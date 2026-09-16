@@ -71,15 +71,17 @@ letterboxing. The pick bodies stay on their own collision layer
 (`HexBattleBoardView.PICK_COLLISION_LAYER`) and keep answering rays when the
 fill is hidden. The exported scene carries no collision.
 
-**Camera.** The camera frames the valid cells, not the art, and reserves extra
-space for the left and lower-right HUD stacks. Mouse wheel zooms; middle drag
-orbits and pitches; right drag pans; double middle-click eases back to the
-opening frame. Q and E still move by exact sixty-degree detents, but ease into
-the final angle. Orthographic is the default. The Graphics panel can switch to
-perspective without moving the board focus or visibly jumping its scale;
-Graphics Reset returns to orthographic. Orthographic zoom changes the visible
-size while its physical camera remains well behind the rotating board, so a
-near corner cannot cross the near clipping plane. Mouse camera events are
+**Camera.** The camera is always orthographic and frames the valid cells, not
+the art. Battles open at 30° yaw and -42° pitch: a close diagonal three-quarter
+view. Q and E move by exact sixty-degree detents from that diagonal lattice and
+ease into the final angle. At 1280x720 the hexmap board covers at least 58% of
+the viewport width (the authored opening measures about 79%) while every
+starting unit remains on screen and clear of the reserved HUD corners. Mouse
+wheel zooms; middle drag orbits and pitches; right drag pans; double
+middle-click eases back to the opening frame. Zoom changes the visible size
+while the physical camera remains well behind the rotating board, so a near
+corner cannot cross the near clipping plane. There is no perspective mode or
+Graphics-panel projection option. Mouse camera events are
 consumed before hover and tactical input so a drag cannot accidentally aim or
 inspect. Raw mouse deltas are coalesced and applied once per rendered frame;
 high-polling mice must not force the SubViewport camera to rebuild for every
