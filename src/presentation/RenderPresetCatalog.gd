@@ -1,18 +1,14 @@
 ## Shared rendering preset metadata for setup and live graphics controls.
+##
+## Two looks and a custom state. Every finer choice -- low-res size, geometry, upscale, the look
+## and CRT sliders -- lives in the battle's Debug drawer, so the list stays a starting point
+## rather than a catalogue of finished styles.
 
 class_name RenderPresetCatalog
 extends RefCounted
 
 const NONE := "none"
-const DITHERED_HORIZON := "dithered_horizon"
-const TACTICAL_SOFT := "tactical_soft"
 const SATURATED_CRT := "saturated_crt"
-const HALFTONE_PRESS := "halftone_press"
-const TACTICS_CLASSIC := "tactics_classic"
-const WEATHERED_STONE := "weathered_stone"
-const FOGGY_SURVIVAL := "foggy_survival"
-const TROPICAL_COLOR := "tropical_color"
-const STEALTH_GREEN := "stealth_green"
 const CUSTOM := "custom"
 
 const PRESETS := [
@@ -22,49 +18,9 @@ const PRESETS := [
 		"description": "Native, neutral rendering with no retro treatment."
 	},
 	{
-		"id": DITHERED_HORIZON,
-		"label": "Dithered Horizon",
-		"description": "Hard pixels, restrained color and coarse dithering like the first reference."
-	},
-	{
-		"id": TACTICAL_SOFT,
-		"label": "Tactical Soft",
-		"description": "Soft low-resolution tactics presentation like the second reference."
-	},
-	{
 		"id": SATURATED_CRT,
-		"label": "Saturated CRT",
-		"description": "Vivid color, scanlines and RGB bleed like the third reference."
-	},
-	{
-		"id": HALFTONE_PRESS,
-		"label": "Halftone Press",
-		"description": "Duotone ink on a hard dot grid, like a printed panel photographed off a screen."
-	},
-	{
-		"id": TACTICS_CLASSIC,
-		"label": "Final Fantasy Tactics-Inspired",
-		"description": "A crisp, gently dithered late-1990s tactical RPG treatment."
-	},
-	{
-		"id": WEATHERED_STONE,
-		"label": "Vagrant Story-Inspired",
-		"description": "Muted, high-contrast low-poly drama inspired by darker PS1 RPGs."
-	},
-	{
-		"id": FOGGY_SURVIVAL,
-		"label": "Silent Hill-Inspired",
-		"description": "Dim, desaturated screen treatment inspired by survival horror."
-	},
-	{
-		"id": TROPICAL_COLOR,
-		"label": "Chrono Cross-Inspired",
-		"description": "Smooth, bright and richly saturated late-era PS1 color."
-	},
-	{
-		"id": STEALTH_GREEN,
-		"label": "Metal Gear Solid-Inspired",
-		"description": "Sharp, subdued low-color presentation inspired by stealth games."
+		"label": "CRT",
+		"description": "Vivid color, scanlines and RGB bleed."
 	},
 	{
 		"id": CUSTOM,
@@ -95,16 +51,14 @@ static func description(presetID: String) -> String:
 	return description(NONE)
 
 
+## Ids a settings file may still name. The retired styles fall back to None rather than to CRT:
+## most were low-res palette looks, and a quiet native render is the safer surprise.
 static func normalize_legacy(presetID: String) -> String:
 	match presetID:
-		"clean":
-			return NONE
-		"retro_light", "ps1_soft":
-			return TACTICAL_SOFT
-		"ps1_classic":
-			return DITHERED_HORIZON
 		"crt":
 			return SATURATED_CRT
+		"clean", "retro_light", "ps1_soft", "ps1_classic", "dithered_horizon", "tactical_soft", 				"halftone_press", "tactics_classic", "weathered_stone", "foggy_survival", 				"tropical_color", "stealth_green":
+			return NONE
 	return presetID
 
 

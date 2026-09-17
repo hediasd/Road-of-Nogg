@@ -14,15 +14,7 @@ const CRT_DISPLAY_SHADER = preload("res://assets/shaders/crt_display.gdshader")
 const SETTINGS_PATH := "user://rendering.cfg"
 const MIN_VIEWPORT_SIZE := Vector2i(2, 2)
 const PRESET_NONE := RenderPresetCatalogScript.NONE
-const PRESET_DITHERED_HORIZON := RenderPresetCatalogScript.DITHERED_HORIZON
-const PRESET_TACTICAL_SOFT := RenderPresetCatalogScript.TACTICAL_SOFT
 const PRESET_SATURATED_CRT := RenderPresetCatalogScript.SATURATED_CRT
-const PRESET_HALFTONE_PRESS := RenderPresetCatalogScript.HALFTONE_PRESS
-const PRESET_TACTICS_CLASSIC := RenderPresetCatalogScript.TACTICS_CLASSIC
-const PRESET_WEATHERED_STONE := RenderPresetCatalogScript.WEATHERED_STONE
-const PRESET_FOGGY_SURVIVAL := RenderPresetCatalogScript.FOGGY_SURVIVAL
-const PRESET_TROPICAL_COLOR := RenderPresetCatalogScript.TROPICAL_COLOR
-const PRESET_STEALTH_GREEN := RenderPresetCatalogScript.STEALTH_GREEN
 const PRESET_CUSTOM := RenderPresetCatalogScript.CUSTOM
 const LOOK_RENDER_SCALE := "render_scale"
 const LOOK_SNAP_STRENGTH := "snap_strength"
@@ -257,6 +249,35 @@ func set_preset(preset: String, persist: bool = true) -> void:
 	if not _apply_preset_values(preset):
 		push_warning("Unknown rendering preset '%s'; using None." % preset)
 		_apply_preset_values(PRESET_NONE)
+	_apply_settings(persist)
+
+
+## Low-res rendering at `size`, or native when disabled. The world viewport is resized, so this
+## goes through the full apply rather than the display-parameter fast path.
+func set_low_res(enabled: bool, size: Vector2i = Vector2i(640, 480), persist: bool = true) -> void:
+	var wanted := Vector2i(maxi(size.x, MIN_VIEWPORT_SIZE.x), maxi(size.y, MIN_VIEWPORT_SIZE.y))
+	if retro_enabled == enabled and (not enabled or render_size == wanted):
+		return
+	retro_enabled = enabled
+	if enabled:
+		render_size = wanted
+	_mark_custom()
+	_apply_settings(persist)
+
+
+func set_crt_enabled(enabled: bool, persist: bool = true) -> void:
+	if crt_enabled == enabled:
+		return
+	crt_enabled = enabled
+	_mark_custom()
+	_apply_settings(persist)
+
+
+func set_affine_mapping(enabled: bool, persist: bool = true) -> void:
+	if affine_mapping_enabled == enabled:
+		return
+	affine_mapping_enabled = enabled
+	_mark_custom()
 	_apply_settings(persist)
 
 
@@ -516,25 +537,6 @@ func _apply_preset_values(preset: String) -> bool:
 	match render_preset:
 		PRESET_NONE:
 			pass
-		PRESET_DITHERED_HORIZON:
-			retro_enabled = true
-			render_size = Vector2i(320, 240)
-			nearest_filter_enabled = true
-			vertex_snap_enabled = true
-			vertex_snap_strength = 0.7
-			affine_mapping_enabled = true
-			brightness = 0.78
-			contrast = 1.25
-			saturation = 0.75
-			color_levels = 16.0
-			dither_strength = 0.065
-		PRESET_TACTICAL_SOFT:
-			retro_enabled = true
-			render_size = Vector2i(480, 360)
-			contrast = 0.95
-			saturation = 1.1
-			color_levels = 32.0
-			dither_strength = 0.01
 		PRESET_SATURATED_CRT:
 			retro_enabled = true
 			render_size = Vector2i(640, 480)
@@ -550,81 +552,6 @@ func _apply_preset_values(preset: String) -> bool:
 			crt_color_bleed = 1.5
 			crt_noise_strength = 0.035
 			crt_glow_strength = 0.25
-		PRESET_HALFTONE_PRESS:
-			# The reference this chases is a printed panel, not a monitor. Two
-			# values carry that: `duotone_strength` replaces the palette with
-			# the ink ramp outright, and `crt_mask_dot_strength` turns the
-			# phosphor stripe into a dot lattice. Saturation is pulled right
-			# down first because the ramp is driven by luminance -- leaving
-			# colour up only muddies which stop a pixel lands on.
-			retro_enabled = true
-			render_size = Vector2i(640, 480)
-			nearest_filter_enabled = true
-			crt_enabled = true
-			brightness = 1.25
-			contrast = 1.3
-			saturation = 0.3
-			color_levels = 6.0
-			dither_strength = 0.05
-			duotone_strength = 0.92
-			duotone_shadow = Color("0d0705")
-			duotone_mid = Color("d8321c")
-			duotone_paper = Color("ffeede")
-			crt_scanline_strength = 0.18
-			crt_mask_strength = 0.5
-			crt_mask_dot_strength = 0.45
-			crt_vignette_strength = 0.22
-			crt_flicker_strength = 0.006
-			crt_color_bleed = 2.2
-			crt_noise_strength = 0.02
-			crt_glow_strength = 0.35
-		PRESET_TACTICS_CLASSIC:
-			retro_enabled = true
-			render_size = Vector2i(320, 240)
-			nearest_filter_enabled = true
-			contrast = 1.05
-			saturation = 0.95
-			color_levels = 32.0
-			dither_strength = 0.025
-		PRESET_WEATHERED_STONE:
-			retro_enabled = true
-			render_size = Vector2i(320, 240)
-			nearest_filter_enabled = true
-			vertex_snap_enabled = true
-			vertex_snap_strength = 0.65
-			affine_mapping_enabled = true
-			brightness = 0.82
-			contrast = 1.28
-			saturation = 0.65
-			color_levels = 18.0
-			dither_strength = 0.08
-		PRESET_FOGGY_SURVIVAL:
-			retro_enabled = true
-			render_size = Vector2i(480, 360)
-			brightness = 0.72
-			contrast = 0.9
-			saturation = 0.35
-			color_levels = 24.0
-			dither_strength = 0.06
-		PRESET_TROPICAL_COLOR:
-			retro_enabled = true
-			render_size = Vector2i(480, 360)
-			brightness = 1.05
-			contrast = 1.05
-			saturation = 1.35
-			dither_strength = 0.01
-		PRESET_STEALTH_GREEN:
-			retro_enabled = true
-			render_size = Vector2i(320, 240)
-			nearest_filter_enabled = true
-			vertex_snap_enabled = true
-			vertex_snap_strength = 0.45
-			affine_mapping_enabled = true
-			brightness = 0.9
-			contrast = 1.18
-			saturation = 0.75
-			color_levels = 24.0
-			dither_strength = 0.05
 	return true
 
 

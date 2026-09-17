@@ -237,7 +237,7 @@ func _checkAuthoredTerrain() -> void:
 ## Through the stage's projection at both sizes and both presets: the controller's own cell pick,
 ## a physics ray from the stage's picking ray, and the unit a hover would inspect.
 func _checkScreenPicking(stage: HexBattleStage, layout: HexBattleLayout) -> void:
-	var presets := [stage.renderer.PRESET_NONE, stage.renderer.PRESET_DITHERED_HORIZON]
+	var presets := [stage.renderer.PRESET_NONE, "harsh"]
 	var unitID := -1
 	for value in _controller.adapter.shownModelIDs():
 		unitID = int(value)
@@ -248,7 +248,7 @@ func _checkScreenPicking(stage: HexBattleStage, layout: HexBattleLayout) -> void
 		root.size = size
 		await _frames(2)
 		for preset in presets:
-			stage.renderer.set_preset(preset, false)
+			_applyLook(stage.renderer, preset)
 			await _frames(2)
 			await _physicsFrames(1)
 			for cell: Vector2i in PICK_CELLS:
@@ -561,3 +561,14 @@ func _writeJson(path: String, value) -> bool:
 		return false
 	file.store_string(JSON.stringify(value, "\t"))
 	return true
+
+
+## The harshest look the drawer can reach: CRT at the smallest low-res target. The named retro
+## presets it replaces are gone; this is what a projection has to survive now.
+func _applyLook(renderer, look: String) -> void:
+	if look == "harsh":
+		renderer.set_preset(renderer.PRESET_SATURATED_CRT, false)
+		renderer.set_low_res(true, Vector2i(320, 240), false)
+		renderer.set_features(true, true, false)
+	else:
+		renderer.set_preset(look, false)

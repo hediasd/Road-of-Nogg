@@ -85,13 +85,13 @@ func _checkOrthographicOnly(stage) -> void:
 
 func _checkConversions(stage) -> void:
 	var sizes := [Vector2i(1280, 720), Vector2i(1920, 1080)]
-	var presets := [stage.renderer.PRESET_NONE, stage.renderer.PRESET_DITHERED_HORIZON]
+	var presets := [stage.renderer.PRESET_NONE, "harsh"]
 	var points := [Vector3.ZERO, Vector3(-2.0, 0.0, 0.0), Vector3(2.0, 0.0, 0.0)]
 	for size in sizes:
 		root.size = size
 		await _frames(2)
 		for preset in presets:
-			stage.renderer.set_preset(preset, false)
+			_applyLook(stage.renderer, preset)
 			await _frames(2)
 			var rect: Rect2 = stage.displayRect()
 			_check(rect.size.x > 0.0 and rect.size.y > 0.0,
@@ -138,3 +138,14 @@ func _frames(count: int) -> void:
 func _check(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+## The harshest look the drawer can reach: CRT at the smallest low-res target. The named retro
+## presets it replaces are gone; this is what a projection has to survive now.
+func _applyLook(renderer, look: String) -> void:
+	if look == "harsh":
+		renderer.set_preset(renderer.PRESET_SATURATED_CRT, false)
+		renderer.set_low_res(true, Vector2i(320, 240), false)
+		renderer.set_features(true, true, false)
+	else:
+		renderer.set_preset(look, false)
