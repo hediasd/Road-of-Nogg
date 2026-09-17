@@ -106,6 +106,12 @@ func setReadyCount(count: int) -> void:
 	_endButton.setReadyCount(count)
 
 
+## End turn belongs to the player's side. During a CPU turn it would count the enemy's ready units
+## on the player's own button.
+func setEndTurnVisible(shown: bool) -> void:
+	_endButton.visible = shown
+
+
 func setEndTurnConfirming(confirming: bool) -> void:
 	_endButton.setConfirming(confirming)
 

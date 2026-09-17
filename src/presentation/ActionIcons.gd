@@ -84,7 +84,9 @@ static func _render(action_id: String) -> ImageTexture:
 		"undo_move": _draw_rewind(image, ink)
 		"attack": _draw_sword(image, ink)
 		"magic": _draw_sparkle(image, ink)
-		"pass": _draw_hourglass(image, ink)
+		"pass", "wait": _draw_hourglass(image, ink)
+		"item": _draw_flask(image, ink)
+		"status": _draw_bust(image, ink)
 		_: _draw_plus(image, ink)
 	# Nearest, not bilinear: hard-edged pixel shapes, and any smoothing turns a
 	# one-pixel stroke into grey mush at this size.
@@ -210,6 +212,29 @@ static func _draw_hourglass(image: Image, color: Color) -> void:
 	# Caps, overhanging the sand so the glyph reads as a framed vessel.
 	_fill_rect(image, 2, 2, 12, 1, color)
 	_fill_rect(image, 2, 13, 12, 1, color)
+
+
+## A round-bellied flask with a narrow neck and a stopper: the side-turn arc's
+## Item slot. The neck is what keeps it from reading as a second magic orb.
+static func _draw_flask(image: Image, color: Color) -> void:
+	_fill_rect(image, 6, 2, 4, 1, color)
+	_fill_rect(image, 7, 3, 2, 3, color)
+	var widths := [4, 8, 10, 10, 10, 8, 6]
+	for index in range(widths.size()):
+		var width: int = widths[index]
+		_fill_rect(image, 8 - width / 2, 6 + index, width, 1, color)
+
+
+## A head over shoulders: the side-turn arc's Status slot, which opens the unit's
+## sheet. A figure rather than an "i", so it cannot be read as the item flask.
+static func _draw_bust(image: Image, color: Color) -> void:
+	_fill_rect(image, 6, 2, 4, 4, color)
+	_fill_rect(image, 5, 3, 6, 2, color)
+	var widths := [6, 8, 10, 10, 10]
+	for index in range(widths.size()):
+		var width: int = widths[index]
+		_fill_rect(image, 8 - width / 2, 8 + index, width, 1, color)
+	_fill_rect(image, 7, 8, 2, 2, BACKGROUND)
 
 
 static func _draw_plus(image: Image, color: Color) -> void:

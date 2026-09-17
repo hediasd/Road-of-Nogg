@@ -93,6 +93,9 @@ var _speedPreference := HexBattlePlaybackScript.DEFAULT_SPEED
 ## declares no scene at all.
 var _terrainNotice := ""
 var _lastReadyCount := -1
+## The enemy the pointer currently previews outside an aim, or -1. Rebuilding the preview box on
+## every motion event would replay its entrance, so the cues change only when this does.
+var _pointerTargetID := -1
 
 
 func _ready() -> void:
@@ -461,6 +464,12 @@ func _onAimChanged(model: Dictionary) -> void:
 	if sideCues == null:
 		return
 	sideCues.setAiming(not model.is_empty())
+	_pointerTargetID = -1
+	_showTargetCues(model)
+
+
+## Sword and preview boxes for an aim model, or for the pointer's attack model outside an aim.
+func _showTargetCues(model: Dictionary) -> void:
 	adapter.setTargetedUnit(-1)
 	sideCues.clearForecasts()
 	if model.is_empty():
@@ -540,6 +549,7 @@ func _onMemberTurnFinished(monsterID: int) -> void:
 		sideCues.hideActionArc()
 		sideCues.clearForecasts()
 	adapter.setTargetedUnit(-1)
+	_pointerTargetID = -1
 	playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
 	_syncSpentCues()
 	_checkFinished()
@@ -552,16 +562,15 @@ func _onHudEndParty() -> void:
 		return
 	if _commandsLocked():
 		return
-	if not playback.isIdle():
-		return
 	if sim.state.activeSideID == -1:
 		return
-	if memberTurn != null and not memberTurn.isFinished():
-		var previous := memberTurn.monsterID()
-		memberTurn.cancel()
-		memberTurn = null
-		memberInput = null
-		playback.release(HexBattlePlayback.OWNER_PLAYER, previous)
+	# A selected unit holds the player's playback claim, so the idle check must come after the
+	# selection is let go. Checked first, End turn did nothing whenever a unit was selected -- which
+	# is most of the time -- and left the button stuck asking.
+	if memberTurn != null and not memberTurn.isFinished() 			and playback.owner() == HexBattlePlayback.OWNER_PLAYER:
+		_cancelPlayerSelection()
+	if not playback.isIdle():
+		return
 	sim.endSideTurn("player")
 	if hud != null:
 		hud.clearParty()
@@ -587,6 +596,7 @@ func _refreshHud() -> void:
 			adapter.boardView.clearHover()
 	hud.setInputLocked(_commandsLocked())
 	if sideCues != null and sim.state.activeSideID != -1:
+		sideCues.setEndTurnVisible(_sideController(int(sim.state.activeSideID)) == "player")
 		var readyCount := sim.eligibleSideUnitIDs().size()
 		if readyCount != _lastReadyCount:
 			_lastReadyCount = readyCount
@@ -663,6 +673,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if memberInput != null and memberInput.isAiming():
 			adapter.boardView.clearHover()
 		else:
+			_refreshPointerTarget(event.position)
 			var hoveredCell := _cellAtPoint(event.position)
 			if hoveredCell.x >= 0:
 				adapter.boardView.showHover(hoveredCell)
@@ -760,7 +771,7 @@ func _handleSideClick(point: Vector2) -> bool:
 		return false
 	if memberInput != null and memberInput.isAiming():
 		return false
-	var picked := _unitUnderPointer(point)
+	var picked := _pointerUnit(point)
 	if picked != -1:
 		var pickedMonster = sim.state.getMonster(picked)
 		if pickedMonster != null and pickedMonster.team == sim.state.activeSideID:
@@ -794,6 +805,72 @@ func _handleSideClick(point: Vector2) -> bool:
 	return true
 
 
+## The unit a left click or pointer means. A model stands taller than its tile, so its body covers
+## the cell behind it -- usually the very cell a unit walks to before attacking it. When the cell
+## under the pointer is a legal move, that cell wins over a body the pointer merely overlaps,
+## unless that body is an enemy the selected unit can hit from where it stands (rule 7's sword).
+func _pointerUnit(point: Vector2) -> int:
+	var picked := _unitUnderPointer(point)
+	if picked == -1 or memberTurn == null or not memberTurn.canMove():
+		return picked
+	var cell := _cellAtPoint(point)
+	if cell.x < 0 or adapter.displayedPosition(picked) == cell:
+		return picked
+	if not memberTurn.reachableCells().has(cell):
+		return picked
+	if _canAttackFromHere(picked):
+		return picked
+	return -1
+
+
+func _canAttackFromHere(targetID: int) -> bool:
+	if memberTurn == null or sim == null:
+		return false
+	var target = sim.state.getMonster(targetID)
+	if target == null or target.team == sim.state.activeSideID:
+		return false
+	return sim.combatResolver.canBasicAttackPositionFrom(memberTurn.monsterID(),
+		sim.state.getMonsterPosition(memberTurn.monsterID()), sim.state.getMonsterPosition(targetID))
+
+
+## Rules 7-8 outside an aim: pointing at an enemy shows its preview box, and the sword only when
+## the selected unit can hit it from where it stands. The same resolution a click uses, so the cue
+## never promises an attack the click would not make.
+func _refreshPointerTarget(point: Vector2) -> void:
+	if sideCues == null or memberTurn == null or memberInput == null or _commandsLocked():
+		_clearPointerTarget()
+		return
+	var picked := _pointerUnit(point)
+	var monster = sim.state.getMonster(picked) if picked != -1 else null
+	if monster == null or monster.team == sim.state.activeSideID or not memberTurn.canAct():
+		_clearPointerTarget()
+		return
+	if picked == _pointerTargetID:
+		return
+	_pointerTargetID = picked
+	# The arc floats over the selected unit, which after a move usually stands beside its target;
+	# it steps aside exactly as it does for an aim, or it covers the sword it is promising.
+	sideCues.setAiming(true)
+	var cell: Vector2i = sim.state.getMonsterPosition(picked)
+	_showTargetCues({
+		"kind": HexBattleMemberInputScript.ATTACK_COMMAND,
+		"target_id": picked,
+		"legal": _canAttackFromHere(picked),
+		"forecast": adapter.forecastAttack(memberTurn.monsterID(), cell),
+	})
+
+
+func _clearPointerTarget() -> void:
+	if _pointerTargetID == -1:
+		return
+	_pointerTargetID = -1
+	if adapter != null:
+		adapter.setTargetedUnit(-1)
+	if sideCues != null:
+		sideCues.clearForecasts()
+		sideCues.setAiming(false)
+
+
 func _cancelPlayerSelection() -> void:
 	if memberTurn == null:
 		return
@@ -804,6 +881,7 @@ func _cancelPlayerSelection() -> void:
 	playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
 	adapter.setSelectedUnit(-1)
 	adapter.setTargetedUnit(-1)
+	_pointerTargetID = -1
 	if hud != null:
 		hud.hideCommands()
 		hud.showAim({})

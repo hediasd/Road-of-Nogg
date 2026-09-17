@@ -76,7 +76,12 @@ const SELECTED_RING_BREATH_SECONDS := 1.8
 const SELECTED_RING_BREATH_ALPHA := 0.45
 const SPENT_COLOR := Color(0.025, 0.035, 0.05, 0.58)
 const SWORD_MARKER_NAME := "TargetSword"
+## Floor for the sword's height, and its clearance over the model's own top. A fixed height put
+## it inside tall models, where the model hid the very cue promising the attack.
 const SWORD_HEIGHT := 1.75
+const SWORD_CLEARANCE := 0.45
+## At the close opening the unscaled blade projected about 20 px and read as a scratch.
+const SWORD_SCALE := 1.8
 const SWORD_ENTRANCE_SCALE := 1.35
 const SWORD_ENTRANCE_SECONDS := 0.16
 const SWORD_IDLE_SECONDS := 1.7
@@ -381,19 +386,22 @@ func setTargetedUnit(monsterID: int) -> void:
 	if _targetedID == -1:
 		return
 	_swordMarker = _buildSwordMarker()
-	modelFor(_targetedID).add_child(_swordMarker)
-	_swordMarker.position = Vector3(0.0, SWORD_HEIGHT, 0.0)
-	_swordMarker.scale = Vector3.ONE * SWORD_ENTRANCE_SCALE
+	var model := modelFor(_targetedID)
+	model.add_child(_swordMarker)
+	var height := maxf(SWORD_HEIGHT,
+		HexBattleUnitBadgesScript.anchorHeight(model) + SWORD_CLEARANCE)
+	_swordMarker.position = Vector3(0.0, height, 0.0)
+	_swordMarker.scale = Vector3.ONE * SWORD_SCALE * SWORD_ENTRANCE_SCALE
 	var entrance := _swordMarker.create_tween()
 	entrance.tween_property(
-		_swordMarker, "scale", Vector3.ONE, SWORD_ENTRANCE_SECONDS
+		_swordMarker, "scale", Vector3.ONE * SWORD_SCALE, SWORD_ENTRANCE_SECONDS
 	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_swordTween = _swordMarker.create_tween().set_loops()
 	_swordTween.tween_property(
-		_swordMarker, "position:y", SWORD_HEIGHT + 0.10, SWORD_IDLE_SECONDS * 0.5
+		_swordMarker, "position:y", height + 0.10, SWORD_IDLE_SECONDS * 0.5
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	_swordTween.tween_property(
-		_swordMarker, "position:y", SWORD_HEIGHT, SWORD_IDLE_SECONDS * 0.5
+		_swordMarker, "position:y", height, SWORD_IDLE_SECONDS * 0.5
 	).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 

@@ -62,8 +62,10 @@ func _onPressed() -> void:
 func _render() -> void:
 	if _window == null:
 		return
+	# The answer shares the question's row. On the count's row, "Confirm" ran into "3 ready" at
+	# this width and read as "3 rea Confirm".
 	_window.set_full_rows([
-		{"label": "End turn?" if _confirming else "End turn", "value": ""},
-		{"label": "%d ready" % _readyCount, "value": "Confirm" if _confirming else ""},
+		{"label": "End turn?" if _confirming else "End turn", "value": "Yes" if _confirming else ""},
+		{"label": "%d ready" % _readyCount, "value": ""},
 	])
 	_window.set_active(_confirming)
