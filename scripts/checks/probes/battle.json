@@ -1,0 +1,6 @@
+{
+	"probes": [
+		{"script": "res://scripts/battle/checks/probe_battle_runner.gd", "marker": "HEX_BATTLE_RUNNER_OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "HEX_BATTLE_RUNNER_FAILURE: a decision has no 'party_id'"},
+		{"script": "res://scripts/battle/checks/probe_round_cap.gd", "marker": "HEX_ROUND_CAP_OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "HEX_ROUND_CAP_FAILURE: party 10 is standing at the cap but activated 0 time(s) in 2 rounds"}
+	]
+}

@@ -1,0 +1,22 @@
+{
+	"probes": [
+		{"script": "res://scripts/worldmap_editor/checks/documents/probe_document_safety.gd", "marker": "WORLD MAP DOCUMENT SAFETY OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/export/probe_document_export.gd", "marker": "HEX DOCUMENT EXPORT PASS", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/export/probe_headless_export.gd", "marker": "HEX_HEADLESS_EXPORT_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/format/probe_file_document.gd", "marker": "HEX FILE DOCUMENT PASS", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/foundation/probe_editor_foundation.gd", "marker": "HEX EDITOR FOUNDATION OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/painting/probe_outward_borders.gd", "marker": "WORLD MAP OUTWARD BORDERS OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/painting/probe_painting_contract.gd", "marker": "WORLD MAP PAINTING CONTRACT OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/picker/probe_visible_picker.gd", "marker": "HEX PICKER GEOMETRY PASS", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/surface/probe_authoring_surface.gd", "marker": "HEX EDITOR SURFACE OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "HXF_SURFACE_FAILURE: the press itself did not reach the bake"},
+		{"script": "res://scripts/worldmap_editor/checks/terrain/probe_terrain_authoring.gd", "marker": "HEX_TERRAIN_AUTHORING_OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "HEX_TERRAIN_AUTHORING_FAILURE: fill left - at (0, 0), the art says blocked"},
+		{"script": "res://scripts/worldmap_editor/checks/terrain/probe_terrain_derivation.gd", "marker": "HEX_TERRAIN_DERIVATION_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/tilesets/probe_honeycomb_layout.gd", "marker": "WORLD MAP HONEYCOMB LAYOUT OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "ERROR: t022 hash differs after unpacking; in-flight: assets/worldmap/tilesets/temp2_hex32_starter_v2-Recovered-export.png, data/worldmap/tilesets/temp2_hex32_starter_v2-Recovered-export.json"},
+		{"script": "res://scripts/worldmap_editor/checks/tilesets/probe_tileset_configs.gd", "marker": "WORLD MAP TILESET CONFIGS OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/tilesets/probe_tileset_properties.gd", "marker": "WORLD MAP TILESET PROPERTIES OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/workspace/probe_workspace_contract.gd", "marker": "WORLD MAP WORKSPACE CONTRACT OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/probe_hex_starter.gd", "marker": "WORLD MAP HEX STARTER OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/probe_history_revision.gd", "marker": "WORLD MAP HISTORY REVISION OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/probe_tileset_picker.gd", "marker": "WORLD MAP TILESET PICKER OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}

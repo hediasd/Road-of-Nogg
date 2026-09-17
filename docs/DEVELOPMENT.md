@@ -5,12 +5,40 @@ Status: current for Godot 4.4 on Windows. Last verified: 2026-07-31.
 This is the executable workflow reference. Start with a clean understanding of
 the working tree, but preserve unrelated user changes.
 
-## No automated test suite right now
+## No test suite, but one command runs every probe
 
 The previous test suite (unit/integration/scene tiers), the GUT addon, the
 `scripts/run_godot_check.ps1` / `scripts/check_docs.ps1` runners, and the git
-hooks that invoked them were all removed to be rebuilt fresh. There is
-currently no automated way to verify a change.
+hooks that invoked them were all removed to be rebuilt fresh. What replaced
+none of that is a suite: it is a sweep over the probes the cycles already
+wrote.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter worldmap
+```
+
+`scripts/checks/run_probe_sweep.ps1` reads every manifest in
+`scripts/checks/probes/`, runs each registered probe through
+`scripts/hex_battle/run_probe.ps1` one at a time, prints a verdict line per
+probe and ends with `PROBE_SWEEP_OK <passed>/<gated>` or
+`PROBE_SWEEP_FAILED <n>`. A manifest entry names the probe, the exact marker it
+prints on success, its timeout, whether a pass or a failure is expected, and
+two flags:
+
+- `"gate": false` — **quarantined**. It still runs and is still reported as
+  `QUARANTINED-PASS` or `QUARANTINED-FAIL`, but it cannot fail the sweep. The
+  `"note"` says why it was quarantined.
+- `"renderer": true` — needs a real window, so the sweep lists it as `SKIP`.
+  Run it yourself with a windowed Godot when you touch what it checks.
+
+The sweep refuses to start if a registered script is missing or registered
+twice. Run it with `-Filter` on your area when your item changes code a
+registered probe loads, and in full in a cycle's last item. An item that adds a
+probe registers it in a manifest in the same commit.
+
+Registered probes are the only automated check that exists. Behaviour, feel and
+appearance are still verified by launching the game.
 
 `scripts/demo_battle.gd` remains available as a manual, non-automated seeded
 console battle. It now runs the same PARTY runtime the playable scene does,

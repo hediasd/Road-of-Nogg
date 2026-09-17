@@ -392,3 +392,30 @@ Two pieces remain open:
   primitive with every returned effect rendered; and a real cast in the battle scene
   through the adapter and event path. The battle-scene shutdown access violation
   above is a prerequisite for that last one.
+
+## Quarantined probes (ATG-1)
+
+The first full run of `scripts/checks/run_probe_sweep.ps1` on 2026-09-17 passed
+49 of 55 registered probes. These six are quarantined in their manifests under
+`scripts/checks/probes/`, with the failure line as their note. Quarantine only
+records the failure; none of them was investigated or repaired.
+
+- `scripts/battle/checks/probe_battle_runner.gd` — `a decision has no
+  'party_id'`. The corpus schema check has not been reconciled with the
+  side-turn rework, so the determinism guarantee it asserts is currently
+  unproven.
+- `scripts/battle/checks/probe_round_cap.gd` — `party 10 is standing at the cap
+  but activated 0 time(s) in 2 rounds`. Party activation counting against a
+  simulator that now opens whole sides.
+- `scripts/hex_battle/probe_shutdown.gd` — prints `HXB_SHUTDOWN_OK`, then Godot
+  exits with `-1073741819`. Same access violation as "The battle scene crashes
+  while releasing script resources at application exit" above.
+- `scripts/worldmap_editor/checks/surface/probe_authoring_surface.gd` — `the
+  press itself did not reach the bake`.
+- `scripts/worldmap_editor/checks/terrain/probe_terrain_authoring.gd` — `fill
+  left - at (0, 0), the art says blocked`.
+- `scripts/worldmap_editor/checks/tilesets/probe_honeycomb_layout.gd` — `t022
+  hash differs after unpacking`. It reads
+  `temp2_hex32_starter_v2-Recovered-export.png/.json`, both uncommitted in the
+  working tree at the time of the sweep, so this one may be in-flight authoring
+  rather than a regression.

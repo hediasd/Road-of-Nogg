@@ -135,9 +135,12 @@ owns the reference roster and links to aspect studies. Aspect files should:
 
 ## Risk-based verification
 
-There is no automated test suite or check runner in this repository right now;
-the previous suite, GUT, and their runners were removed to be rebuilt fresh.
-Verification is therefore manual, which is what shapes the rules in `AGENTS.md`,
+There is no test suite in this repository; the previous suite, GUT, and their
+runners were removed to be rebuilt fresh. What exists is a sweep over the
+probes the cycles wrote: `scripts/checks/run_probe_sweep.ps1` runs everything
+registered under `scripts/checks/probes/` and reports quarantined failures
+rather than hiding them. Everything about behaviour, feel and appearance is
+still verified by hand, which is what shapes the rules in `AGENTS.md`,
 "Running the checks". See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for the
 executable workflow and Windows safeguards.
 

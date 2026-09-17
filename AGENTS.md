@@ -409,9 +409,21 @@ finished file, and do not retain completed items in it.
 
 ## Running the checks
 
-There is no automated test suite, check runner, or git hooks. Verify changes by
-launching the game manually and exercising the affected behavior; follow the
-Windows safeguards in `docs/DEVELOPMENT.md`.
+There is no test suite or git hooks. `scripts/checks/run_probe_sweep.ps1` runs
+every probe registered under `scripts/checks/probes/`. Run it with `-Filter` on
+your area when your item changes code a registered probe loads, and in full in
+a cycle's last item. An item that adds a probe registers it in a manifest in
+the same commit. Behaviour and appearance still need the game launched
+manually; follow the Windows safeguards in `docs/DEVELOPMENT.md`.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter side_turn
+```
+
+A probe that fails today is **quarantined** in its manifest (`"gate": false`
+with the reason in `"note"`), so it still runs and is still reported but cannot
+fail the sweep. Quarantine is a record of a known failure, not a repair: do not
+un-quarantine a probe without making it pass.
 
 - For a non-interactive Godot code check on this Windows host, run
   `./Godot_v4.4-stable_win64.exe --headless --disable-crash-handler --path . --quit-after 5 --rendering-method gl_compatibility --audio-driver Dummy`.
