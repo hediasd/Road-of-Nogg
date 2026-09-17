@@ -2,7 +2,7 @@
 ##
 ## Pure derivation, no nodes and no state. Everything here was settled by measurement in
 ## `debug/worldmap/standing-structures.html` and is recorded in `docs/WORLDMAP_DESIGN.md` §10;
-## `debug/worldmap/probe_sun.gd` reproduces the tables.
+## `scripts/worldmap/checks/probe_sun.gd` reproduces the tables.
 ##
 ## THE SUN KEEPS TWO ELEVATIONS, and they are not interchangeable.
 ##
