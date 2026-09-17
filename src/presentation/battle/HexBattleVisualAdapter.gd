@@ -80,10 +80,6 @@ const SWORD_MARKER_NAME := "TargetSword"
 ## it inside tall models, where the model hid the very cue promising the attack.
 const SWORD_HEIGHT := 1.75
 const SWORD_CLEARANCE := 0.45
-## At the close opening the unscaled blade projected about 20 px and read as a scratch.
-const SWORD_SCALE := 1.8
-const SWORD_ENTRANCE_SCALE := 1.35
-const SWORD_ENTRANCE_SECONDS := 0.16
 const SWORD_IDLE_SECONDS := 1.7
 
 ## Independent overlay layers. Painting one never clears another, which is what lets a pending
@@ -376,8 +372,10 @@ func _applyUnitOverlay(monsterID: int) -> void:
 		mesh.material_overlay = overlay
 
 
-## A lightweight sword is parented to the rendered model, so queued movement cannot leave the
-## marker behind. Its entrance resolves once; a separate slow breath continues while targeted.
+## An empty anchor is parented to the rendered model, so queued movement cannot leave the marker
+## behind, and breathes slowly while targeted. The sword itself is the arc's attack icon, drawn at
+## native resolution by the side-turn screen cues over this anchor (`targetMarker`), so it matches
+## the icons over the selected unit and no model or retro viewport can hide or blur it.
 func setTargetedUnit(monsterID: int) -> void:
 	if monsterID == _targetedID and _swordMarker != null:
 		return
@@ -391,11 +389,6 @@ func setTargetedUnit(monsterID: int) -> void:
 	var height := maxf(SWORD_HEIGHT,
 		HexBattleUnitBadgesScript.anchorHeight(model) + SWORD_CLEARANCE)
 	_swordMarker.position = Vector3(0.0, height, 0.0)
-	_swordMarker.scale = Vector3.ONE * SWORD_SCALE * SWORD_ENTRANCE_SCALE
-	var entrance := _swordMarker.create_tween()
-	entrance.tween_property(
-		_swordMarker, "scale", Vector3.ONE * SWORD_SCALE, SWORD_ENTRANCE_SECONDS
-	).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_swordTween = _swordMarker.create_tween().set_loops()
 	_swordTween.tween_property(
 		_swordMarker, "position:y", height + 0.10, SWORD_IDLE_SECONDS * 0.5
@@ -409,39 +402,15 @@ func targetedUnit() -> int:
 	return _targetedID
 
 
+## The sword's world anchor, or null when nothing is targeted.
+func targetMarker() -> Node3D:
+	return _swordMarker if _swordMarker != null and is_instance_valid(_swordMarker) else null
+
+
 func _buildSwordMarker() -> Node3D:
 	var root := Node3D.new()
 	root.name = SWORD_MARKER_NAME
-	root.rotation_degrees.z = -42.0
-	var blade := MeshInstance3D.new()
-	var bladeMesh := BoxMesh.new()
-	bladeMesh.size = Vector3(0.09, 0.58, 0.045)
-	blade.mesh = bladeMesh
-	blade.position.y = 0.12
-	blade.material_override = _flatMaterial(Color("eef4f6"))
-	root.add_child(blade)
-	var guard := MeshInstance3D.new()
-	var guardMesh := BoxMesh.new()
-	guardMesh.size = Vector3(0.34, 0.08, 0.07)
-	guard.mesh = guardMesh
-	guard.position.y = -0.18
-	guard.material_override = _flatMaterial(Color("f2c14e"))
-	root.add_child(guard)
-	var grip := MeshInstance3D.new()
-	var gripMesh := BoxMesh.new()
-	gripMesh.size = Vector3(0.07, 0.22, 0.06)
-	grip.mesh = gripMesh
-	grip.position.y = -0.32
-	grip.material_override = _flatMaterial(Color("75401f"))
-	root.add_child(grip)
 	return root
-
-
-func _flatMaterial(color: Color) -> StandardMaterial3D:
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = color
-	return material
 
 
 func _clearSwordMarker() -> void:

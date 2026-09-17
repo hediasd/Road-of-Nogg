@@ -268,6 +268,7 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	sideCues = SideTurnScreenCuesScript.new()
 	add_child(sideCues)
 	sideCues.setProjector(stage.projectWorldToScreen)
+	sideCues.setSwordSource(adapter.targetMarker)
 	sideCues.action_requested.connect(_onSideActionRequested)
 	sideCues.end_turn_requested.connect(_onHudEndParty)
 	# Puts a terrain notice, if there is one, on the status line before the battle says anything.

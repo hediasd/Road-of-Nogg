@@ -9,7 +9,14 @@ const IconArcScript = preload("res://src/presentation/battle/ui/side_turn/SideTu
 const PreviewBoxScript = preload("res://src/presentation/battle/ui/side_turn/SideTurnPreviewBox.gd")
 const EndButtonScript = preload("res://src/presentation/battle/ui/side_turn/SideTurnEndButton.gd")
 
+const ActionIconsScript = preload("res://src/presentation/ActionIcons.gd")
+
 const PREVIEW_OFFSET := Vector2(24.0, -96.0)
+## The target sword is the arc's own attack icon at the arc's own size, so the cue that promises an
+## attack reads as one of the icons already floating over the board.
+const SWORD_SIZE := 42.0
+const SWORD_ENTRANCE_SCALE := 1.35
+const SWORD_ENTRANCE_SECONDS := 0.16
 
 var _root: Control
 var _banner
@@ -18,6 +25,9 @@ var _endButton
 var _previews: Array = []
 var _projectWorld: Callable
 var _arcWorldAnchor := Vector3.ZERO
+var _sword: TextureRect
+var _swordSource: Callable
+var _swordAnchor: Node3D
 var _arcVisible := false
 
 
@@ -31,6 +41,17 @@ func _init() -> void:
 	_arc = IconArcScript.new()
 	_arc.action_requested.connect(func(id: String): action_requested.emit(id))
 	_root.add_child(_arc)
+	_sword = TextureRect.new()
+	_sword.name = "TargetSword"
+	_sword.texture = ActionIconsScript.texture_for("attack")
+	_sword.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_sword.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_sword.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_sword.size = Vector2.ONE * SWORD_SIZE
+	_sword.pivot_offset = _sword.size * 0.5
+	_sword.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sword.visible = false
+	_root.add_child(_sword)
 	_endButton = EndButtonScript.new()
 	_endButton.end_requested.connect(func(): end_turn_requested.emit())
 	_root.add_child(_endButton)
@@ -46,6 +67,7 @@ func _process(_delta: float) -> void:
 		return
 	if _arcVisible:
 		_arc.position = _projectWorld.call(_arcWorldAnchor)
+	_updateSword()
 	for preview in _previews:
 		if is_instance_valid(preview):
 			preview.position = _projectWorld.call(preview.worldAnchor) + PREVIEW_OFFSET
@@ -53,6 +75,25 @@ func _process(_delta: float) -> void:
 
 func setProjector(projectWorld: Callable) -> void:
 	_projectWorld = projectWorld
+
+
+## `source` returns the targeted unit's world anchor Node3D, or null.
+func setSwordSource(source: Callable) -> void:
+	_swordSource = source
+
+
+func _updateSword() -> void:
+	var anchor: Node3D = _swordSource.call() if _swordSource.is_valid() else null
+	if anchor == null or not anchor.is_inside_tree():
+		_swordAnchor = null
+		_sword.visible = false
+		return
+	if anchor != _swordAnchor:
+		_swordAnchor = anchor
+		_sword.scale = Vector2.ONE * SWORD_ENTRANCE_SCALE
+		_sword.create_tween().tween_property(_sword, "scale", Vector2.ONE, SWORD_ENTRANCE_SECONDS) 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_sword.position = (_projectWorld.call(anchor.global_position) as Vector2) - _sword.size * 0.5
+	_sword.visible = true
 
 
 func showTurnBanner(friendly: bool) -> void:
