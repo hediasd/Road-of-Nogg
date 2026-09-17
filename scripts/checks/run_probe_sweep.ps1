@@ -106,13 +106,20 @@ New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 $gated = 0
 $passed = 0
 $failed = 0
+$skipped = 0
+$quarantined = 0
 foreach ($entry in $entries) {
-	if ($entry.Gate) {
-		$gated += 1
-	}
 	if ($entry.Renderer) {
+		# Counted as skipped rather than gated: a gated probe the sweep never ran must not read as
+		# a failure in the final ratio.
+		$skipped += 1
 		Write-Output ("SKIP {0} -" -f $entry.Script)
 		continue
+	}
+	if ($entry.Gate) {
+		$gated += 1
+	} else {
+		$quarantined += 1
 	}
 
 	$logStem = Join-Path $logDirectory ([System.IO.Path]::GetFileNameWithoutExtension($entry.Script))
@@ -163,10 +170,11 @@ foreach ($entry in $entries) {
 	}
 }
 
+$tail = "{0} quarantined, {1} skipped" -f $quarantined, $skipped
 if ($failed -eq 0) {
-	Write-Output ("PROBE_SWEEP_OK {0}/{1}" -f $passed, $gated)
+	Write-Output ("PROBE_SWEEP_OK {0}/{1} ({2})" -f $passed, $gated, $tail)
 	exit 0
 }
 
-Write-Output ("PROBE_SWEEP_FAILED {0}" -f $failed)
+Write-Output ("PROBE_SWEEP_FAILED {0} of {1} gated ({2})" -f $failed, $gated, $tail)
 exit 1

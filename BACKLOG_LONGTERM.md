@@ -517,3 +517,26 @@ with `git show 5f4249e:docs/BACKLOG.md`.
 - Deepen the stats reference only when a concrete design question requires it.
 - Add missing games to relevant aspect studies rather than duplicating the full
   game roster across every module.
+
+## Probe sweep follow-ups
+
+From the agent test gates cycle (2026-09-17). The sweep itself works; these are the edges it
+does not cover yet.
+
+- **The sweep cannot run renderer-bound probes.** `run_probe.ps1` always passes `--headless`, so
+  the six probes that read a viewport are listed as `SKIP` and someone has to run them by hand.
+  A `-Windowed` switch on the runner, and a `renderer` entry the sweep can opt into, would close
+  it. Note that a windowed probe must be non-interactive and take one capture per process
+  (`LEARNINGS.md`).
+- **`probe_foundation_acceptance.gd` is the one unregistered probe.** It signals only through its
+  exit code, which is not evidence on this host, and needs a window. It needs a marker.
+- **Godot writes `.uid` files during a sweep** for scripts and shaders committed without one.
+  They show up as untracked files afterwards and belong to whoever owns those paths.
+- **A quarantined renderer probe is reported as `SKIP`**, so the final line's quarantine count is
+  lower than the number of failing probes. `BACKLOG_CRITICAL.md` carries the real list.
+- **An epsilon-greedy brain** between `RandomLegalBrain` and the authored policies would explore
+  positions a real fight reaches, which uniform random play mostly does not: a random side rarely
+  eliminates anyone, so every random battle ends at the round cap.
+- **Brain-versus-brain balance reporting.** The championship can now put any brain on either side
+  (`--brain`, `--brain-team`), but the summary tallies only teams. Win rates per brain pairing
+  would need a scoring decision first, and random play must not be one of the baselines.
