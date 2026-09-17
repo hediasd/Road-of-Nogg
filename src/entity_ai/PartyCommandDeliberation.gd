@@ -38,6 +38,19 @@ func _init(simulator) -> void:
 	)
 	if _eligibleUnitIDs.is_empty():
 		_finished = true
+		return
+	# A side playing at random picks WHICH unit acts at random too, and the ordinary best-score
+	# walk then runs over that one unit. Scoring random picks against each other would not choose
+	# a random unit: a wait scores 0 and a random real move often scores below it, so the side
+	# would wait with almost every unit, every round. A 100-battle corpus of nothing but waits is
+	# what found this.
+	var uniformChoiceRNG = null
+	if _simulator.has_method("uniformChoiceRNGForActiveSide"):
+		uniformChoiceRNG = _simulator.uniformChoiceRNGForActiveSide()
+	if uniformChoiceRNG != null:
+		var pickedID := _eligibleUnitIDs[uniformChoiceRNG.randi_range(
+			0, _eligibleUnitIDs.size() - 1)]
+		_eligibleUnitIDs = [pickedID] as Array[int]
 
 
 func isFinished() -> bool:

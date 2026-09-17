@@ -156,8 +156,14 @@ static func _checkPendingTurns(state: BattleState, found: Array[String]) -> void
 		var monster: Monster = state.monsters[monsterID]
 		if monster == null:
 			continue
-		if not monster.is_alive():
-			found.append("defeated unit %d still holds an unfinished turn" % monsterID)
+		# A unit that is mid-resolution is exempt, because a unit can die inside its own action:
+		# it casts, a passive or the spell itself finishes it, and `executeActionPhase` checks the
+		# board before `finishTurn` clears the accumulator. That state is legal and transient, and
+		# random play found it on the first run. What stays a violation is an accumulator that
+		# outlives the turn it belongs to.
+		if not monster.is_alive() and monsterID != state.currentMonsterID:
+			found.append(
+				"defeated unit %d still holds an unfinished turn after its turn closed" % monsterID)
 		if state.activeSideID != -1 and monster.team != state.activeSideID:
 			found.append("unit %d of side %d holds an unfinished turn while side %d is open" % [
 				monsterID, monster.team, state.activeSideID])

@@ -40,19 +40,29 @@ const MAX_ROUNDS := 30
 
 
 func _init() -> void:
-	var args := OS.get_cmdline_user_args()
-	if args.is_empty():
-		printerr("usage: run_battle.gd -- <scenarioPath> [seed] [recordPath] [logPath]")
+	var args := parseFlags(OS.get_cmdline_user_args())
+	var positional: Array = args["positional"]
+	if positional.is_empty():
+		printerr("usage: run_battle.gd -- <scenarioPath> [seed] [recordPath] [logPath] "
+			+ "[--brain=<BrainName>] [--brain-team=<teamID>]")
 		quit(1)
 		return
 
-	var scenarioPath: String = args[0]
-	var seedValue := int(args[1]) if args.size() > 1 else DEFAULT_SEED
-	var stem := "%s_seed%d" % [scenarioPath.get_file().get_basename(), seedValue]
-	var recordPath: String = args[2] if args.size() > 2 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.BATTLES, "%s.jsonl" % stem)
-	var logPath: String = args[3] if args.size() > 3 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.BATTLES, "%s.log.txt" % stem)
+	if not str(args["error"]).is_empty():
+		printerr("HEX_BATTLE_RUN_FAILED: %s" % str(args["error"]))
+		quit(1)
+		return
 
-	var result := run(scenarioPath, seedValue, recordPath, logPath)
+	var scenarioPath: String = positional[0]
+	var seedValue := int(positional[1]) if positional.size() > 1 else DEFAULT_SEED
+	var stem := "%s_seed%d" % [scenarioPath.get_file().get_basename(), seedValue]
+	var recordPath: String = positional[2] if positional.size() > 2 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.BATTLES, "%s.jsonl" % stem)
+	var logPath: String = positional[3] if positional.size() > 3 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.BATTLES, "%s.log.txt" % stem)
+
+	var result := run(
+		scenarioPath, seedValue, recordPath, logPath, true,
+		str(args["brain"]), int(args["brain_team"])
+	)
 	if not bool(result.get("ok", false)):
 		printerr("HEX_BATTLE_RUN_FAILED: %s" % str(result.get("error", "")))
 		quit(1)
@@ -87,9 +97,29 @@ func _init() -> void:
 ## `logPath` empty means no human log at all -- which is what a championship wants, since
 ## `ConsoleVisualAdapter` also prints every line it writes to stdout and a thousand battles of that
 ## is not a log, it is a wall.
+## Splits `--flag=value` arguments out of the positional ones, so a brain override can be passed
+## without pushing the optional output paths around. Unknown flags are refused rather than
+## ignored: a mistyped flag that silently does nothing is how a fuzz run gets mistaken for a
+## policy run.
+static func parseFlags(args: Array) -> Dictionary:
+	var parsed := {"positional": [], "brain": "", "brain_team": -1, "error": ""}
+	for argument in args:
+		var text := str(argument)
+		if not text.begins_with("--"):
+			parsed["positional"].append(text)
+			continue
+		if text.begins_with("--brain="):
+			parsed["brain"] = text.substr("--brain=".length())
+		elif text.begins_with("--brain-team="):
+			parsed["brain_team"] = int(text.substr("--brain-team=".length()))
+		else:
+			parsed["error"] = "unknown flag %s" % text
+	return parsed
+
+
 static func run(
 	scenarioPath: String, seedValue: int, recordPath: String, logPath: String,
-	checkInvariants: bool = true
+	checkInvariants: bool = true, brainName: String = "", brainTeam: int = -1
 ) -> Dictionary:
 	var loaded := BattleScenarioFactoryScript.loadFromPath(scenarioPath)
 	if not loaded["success"]:
@@ -121,6 +151,9 @@ static func run(
 	# On by default here and in the championship: a console has nobody to notice that a unit
 	# stood on two cells, so the check is the only reader of the board a headless run has.
 	sim.setInvariantChecks(checkInvariants)
+	# Before any adapter connects: rebuilding the runtime replaces the event bus they subscribe to.
+	if not brainName.is_empty():
+		sim.overrideBrains(brainName, brainTeam)
 
 	# The console adapter takes the one `visualAdapter` slot; the recorder attaches to the same
 	# event bus directly beside it. Neither knows about the other, and the slot is only consulted

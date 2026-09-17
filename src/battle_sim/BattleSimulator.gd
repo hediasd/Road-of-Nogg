@@ -250,9 +250,50 @@ func spawnMonster(referenceName: String, team: int, pos: Vector2i, level: int = 
 func _resolveBrainClass(name: String):
 	match name:
 		"BerserkBrain": return load("res://src/entity_ai/BerserkBrain.gd")
+		"RandomLegalBrain": return load("res://src/entity_ai/RandomLegalBrain.gd")
 		"MageBrain": return load("res://src/entity_ai/MageBrain.gd")
 		"SupportBrain": return load("res://src/entity_ai/SupportBrain.gd")
 		_: return load("res://src/entity_ai/TacticalBrain.gd")
+
+
+## Replaces the brain of every unit, or of one team's units, with `brainName`.
+##
+## For headless fuzzing and experiments: a scenario authors a brain per monster, and that is the
+## configuration the game ships, so this never edits the scenario. Call it right after
+## configureHexState() and before any adapter connects, because rebuilding the runtime replaces the
+## event bus the adapters subscribe to.
+##
+## The corpus records each member's brain from the live object, so an overridden run identifies
+## itself without any extra bookkeeping.
+func overrideBrains(brainName: String, teamID: int = -1) -> void:
+	var overrides: Dictionary = {}
+	for monsterID in state.monsters:
+		var monster: Monster = state.monsters[monsterID]
+		if teamID != -1 and monster.team != teamID:
+			continue
+		overrides[str(monsterID)] = brainName
+	_rebuildRuntimeDependencies(overrides)
+
+
+## The RNG a side deliberation should draw its actor from, or null when the open side plays a
+## policy. Non-null only when every ready unit of the open side is on a fuzzing brain, so a mixed
+## run (--brain-team) keeps scoring the side that is still playing properly.
+func uniformChoiceRNGForActiveSide() -> RandomNumberGenerator:
+	if state.activeSideID == -1:
+		return null
+	var readyIDs := state.eligibleUnitIDs(state.activeSideID)
+	if readyIDs.is_empty():
+		return null
+	for unitID: int in readyIDs:
+		var brain = brains.get(unitID)
+		if brain == null or not brain.has_method("playsAtRandom"):
+			return null
+	# Seeded out of the position rather than taken from state.rng: a deliberation that drew from
+	# the battle's own generator would change the state revision and be discarded as stale. See
+	# RandomLegalBrain.rngFor().
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash([state.battleSeed, state.sideTurnCount, state.history.size(), state.activeSideID])
+	return rng
 
 
 func hasSideRuntime() -> bool:

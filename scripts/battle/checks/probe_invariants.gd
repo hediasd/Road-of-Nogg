@@ -27,6 +27,8 @@ func _init() -> void:
 	_checkUnplacedLivingUnitIsCaught()
 	_checkSpentUnitWithAnUnfinishedTurnIsCaught()
 	_checkMagicAfterMovingIsCaught()
+	_checkDeadUnitHoldingATurnIsCaught()
+	_checkDyingInsideYourOwnTurnIsAllowed()
 	_checkNegativeEffectDurationIsCaught()
 	_checkImpossibleWinnerIsCaught()
 
@@ -140,6 +142,42 @@ func _checkMagicAfterMovingIsCaught() -> void:
 		"has_moved": true, "has_acted": true, "action": "spell",
 	}
 	_requireCaught(state, "magic after moving", "a spell resolved after a move")
+
+
+## The accumulator must not outlive the turn it belongs to.
+func _checkDeadUnitHoldingATurnIsCaught() -> void:
+	var state := _freshState()
+	if state == null:
+		return
+	var ids := _placedIDs(state)
+	if ids.is_empty():
+		return
+	var monster: Monster = state.monsters[ids[0]]
+	monster.hitpoints = 0
+	state.currentMonsterID = -1
+	state.pendingUnitTurns[ids[0]] = {"has_moved": false, "has_acted": false, "action": ""}
+	_requireCaught(state, "after its turn closed", "a dead unit holding a turn that had closed")
+
+
+## The other side of that rule, and the reason it is phrased the way it is. A unit can die inside
+## its own action -- it casts and a passive finishes it -- and the action phase checks the board
+## before finishTurn() clears the accumulator. Random play hit this on its first run, and reporting
+## it would make every fuzz battle a false failure.
+func _checkDyingInsideYourOwnTurnIsAllowed() -> void:
+	var state := _freshState()
+	if state == null:
+		return
+	var ids := _placedIDs(state)
+	if ids.is_empty():
+		return
+	var monster: Monster = state.monsters[ids[0]]
+	monster.hitpoints = 0
+	state.activeSideID = monster.team
+	state.currentMonsterID = ids[0]
+	state.pendingUnitTurns[ids[0]] = {"has_moved": false, "has_acted": true, "action": "spell"}
+	for violation: String in BattleInvariantsScript.violations(state):
+		if violation.findn("unfinished turn") != -1:
+			failures.append("a unit dying inside its own action was reported: %s" % violation)
 
 
 func _checkNegativeEffectDurationIsCaught() -> void:

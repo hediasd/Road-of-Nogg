@@ -138,6 +138,43 @@ version 2). Five seeds under version 3 gave one winner, one end reason and one
 decision sequence; only a critical roll's damage differed. A corpus
 that needs varied outcomes needs variety from somewhere else first.
 
+**The variety comes from the brain, not the seed.** `--brain=<BrainName>`
+replaces every unit's authored brain for that run, and `--brain-team=<teamID>`
+limits the replacement to one side. Both runners take them, and the
+championship puts the brain in the output file name so a random corpus and a
+policy corpus can never be confused on disk.
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/battle/run_championship.gd -- res://data/battle/scenarios/proving_ground_cpu_cpu.json 1 100 --brain=RandomLegalBrain
+```
+
+`RandomLegalBrain` picks uniformly among the legal commands the evaluator
+enumerates, with waiting added to the pool, and the side picks which unit acts
+at random too. It is a **fuzzer, not an opponent**: it walks the branches a
+scored policy never reaches — waiting with an enemy in reach, walking away,
+casting from an odd tile — which is where a rules bug hides. A random battle at
+one seed still replays byte for byte.
+
+**Its draws come from a generator seeded out of the position** (battle seed,
+unit, history length), never from `state.rng`. Deliberation is a pure query and
+`StateRevision` counts `rng.state` as state, so drawing from the battle's own
+generator made every deliberation stale, the side discarded the proposal, and
+the unit waited instead. The first version of this brain played 24,000
+consecutive waits and passed a fuzz probe that only checked that battles ended.
+Assert the operation mix, not just termination.
+
+Two more things to keep straight. A random run and a policy run diverge from
+the first decision, so **their records must never be pooled**; the corpus names
+each member's brain, so it always says which it is. And win rates against
+random play measure nothing about balance, because a random policy loses to
+every real one.
+
+`scripts/battle/checks/probe_fuzz.gd` is the smoke-sized version: random play
+across every CPU-vs-CPU scenario, asserting each battle ends by elimination or
+at the cap, violates no invariant, replays identically at one seed, and differs
+from the policy run. It also drives `undoMovePhase()` directly, which no CPU
+path can reach.
+
 Measured numbers worth knowing before planning a large run, on this host:
 
 | Measure | `proving_ground_cpu_cpu` | `hexmap_cpu_cpu` |

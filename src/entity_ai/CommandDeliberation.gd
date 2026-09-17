@@ -67,6 +67,8 @@ var _subTask: int = 0
 var _currentPath: Array = []
 
 var _candidates: Array[Dictionary] = []
+## Set only by useUniformRandomChoice(); null means the ordinary scored decision.
+var _uniformChoiceRNG: RandomNumberGenerator = null
 var _result: BattleCommand = null
 var _resultScore: int = -2147483648
 var _resultTieKey: String = ""
@@ -85,6 +87,19 @@ func _init(
 	_monsterID = monsterID
 	_weights = weights
 	_stateRevision = StateRevisionScript.capture(_state)
+
+
+## Picks uniformly at random among everything this unit could legally do, instead of by score.
+##
+## This exists for fuzzing, not for play: scores rank candidates, and a candidate no positive
+## weighting ever ranks first -- waiting with an enemy in reach, walking away from a fight -- is
+## exactly the branch a rules bug hides behind. `RandomLegalBrain` turns it on for headless runs.
+##
+## The draw comes from the battle's own seeded RNG, so a random run is as reproducible as any
+## other: same seed, same fight. Candidates are ordered by their tie key before the draw for the
+## same reason, so the sample never depends on accumulation order.
+func useUniformRandomChoice(rng: RandomNumberGenerator) -> void:
+	_uniformChoiceRNG = rng
 
 
 func isFinished() -> bool:
@@ -368,6 +383,9 @@ func _finish() -> void:
 	if _stale or _candidates.is_empty():
 		_result = BattleCommand.wait()
 		return
+	if _uniformChoiceRNG != null:
+		_finishByUniformChoice()
+		return
 	_candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if a["score"] != b["score"]:
 			return a["score"] > b["score"]
@@ -376,6 +394,28 @@ func _finish() -> void:
 	var chosen: Dictionary = _candidates[0]
 	if not _enemyPositions.is_empty() and not _anyCandidateEngagesEnemy():
 		chosen = _closestApproach()
+	_result = chosen["command"]
+	_resultScore = int(chosen["score"])
+	_resultTieKey = str(chosen["tie_key"])
+
+
+## One legal command, drawn uniformly, with waiting in the pool. Waiting is added explicitly
+## because the evaluator only builds candidates for things a unit does; a fuzzer that can never
+## choose to do nothing never reaches the code that spends a unit without an action.
+##
+## The closest-approach fallback is deliberately skipped here: it is a policy that fixes a
+## scoring artefact, and there are no scores in this mode.
+func _finishByUniformChoice() -> void:
+	_candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a["tie_key"] < b["tie_key"]
+	)
+	var index := _uniformChoiceRNG.randi_range(0, _candidates.size())
+	if index == _candidates.size():
+		_result = BattleCommand.wait()
+		_resultScore = 0
+		_resultTieKey = "uniform:wait"
+		return
+	var chosen: Dictionary = _candidates[index]
 	_result = chosen["command"]
 	_resultScore = int(chosen["score"])
 	_resultTieKey = str(chosen["tie_key"])

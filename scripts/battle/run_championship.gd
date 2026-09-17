@@ -27,21 +27,34 @@ const BattleOutputPathsScript = preload("res://src/presentation/BattleOutputPath
 
 
 func _init() -> void:
-	var args := OS.get_cmdline_user_args()
+	var flags := RunBattleScript.parseFlags(OS.get_cmdline_user_args())
+	var args: Array = flags["positional"]
 	if args.size() < 3:
-		printerr("usage: run_championship.gd -- <scenarioPath> <firstSeed> <count> [recordPath] [summaryPath]")
+		printerr("usage: run_championship.gd -- <scenarioPath> <firstSeed> <count> [recordPath] "
+			+ "[summaryPath] [--brain=<BrainName>] [--brain-team=<teamID>]")
+		quit(1)
+		return
+	if not str(flags["error"]).is_empty():
+		printerr("HEX_CHAMPIONSHIP_FAILED: %s" % str(flags["error"]))
 		quit(1)
 		return
 
 	var scenarioPath: String = args[0]
 	var firstSeed := int(args[1])
 	var count := int(args[2])
+	var brainName := str(flags["brain"])
+	var brainTeam := int(flags["brain_team"])
 	if count < 1:
 		printerr("HEX_CHAMPIONSHIP_FAILED: count must be at least 1")
 		quit(1)
 		return
 
-	var stem := "%s_%d_x%d" % [scenarioPath.get_file().get_basename(), firstSeed, count]
+	# The brain goes in the file name: a random corpus and a policy corpus must never be mistaken
+	# for each other, least of all by whoever finds them on disk a month later.
+	var stem := "%s_%d_x%d%s" % [
+		scenarioPath.get_file().get_basename(), firstSeed, count,
+		"" if brainName.is_empty() else "_%s" % brainName.to_snake_case(),
+	]
 	var recordPath: String = args[3] if args.size() > 3 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.CHAMPIONSHIPS, "%s.jsonl" % stem)
 	var summaryPath: String = args[4] if args.size() > 4 else BattleOutputPathsScript.pathFor(BattleOutputPathsScript.CHAMPIONSHIPS, "%s.summary.json" % stem)
 
@@ -67,7 +80,9 @@ func _init() -> void:
 		var battleStarted := Time.get_ticks_msec()
 		# Record path empty: this loop owns the corpus file and appends the line itself, rather
 		# than having each battle open, write and close a file of its own.
-		var result := RunBattleScript.run(scenarioPath, seedValue, "", "")
+		var result := RunBattleScript.run(
+			scenarioPath, seedValue, "", "", true, brainName, brainTeam
+		)
 		if not bool(result.get("ok", false)):
 			corpus.close()
 			printerr("HEX_CHAMPIONSHIP_FAILED: seed %d: %s" % [seedValue, str(result.get("error", ""))])

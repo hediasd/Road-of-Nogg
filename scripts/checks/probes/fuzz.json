@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://scripts/battle/checks/probe_fuzz.gd", "marker": "BATTLE_FUZZ_OK", "timeout": 300, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}
