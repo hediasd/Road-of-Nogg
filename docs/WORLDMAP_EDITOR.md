@@ -406,6 +406,18 @@ The editor's probes live under `scripts/worldmap_editor/checks/`. Most run headl
 judge layout, rendering and a live bake need a real window and take a client size. Each prints an
 exact marker line, and a zero exit code alone is not evidence -- require the marker.
 
+The probes this document cites by name -- `probe_bake_parity.gd`, `probe_brushes.gd`,
+`probe_edit_history.gd`, `probe_editor_input_dispatch.gd`, `probe_editor_tools.gd`,
+`probe_height_field.gd`, `probe_hex_grid_overlay.gd`, `probe_object_layer.gd`,
+`probe_scene_export.gd`, `probe_subtriangles.gd`, `probe_tile_format.gd`,
+`probe_tileset_ids.gd` and `probe_water_layer.gd` -- are in
+`scripts/worldmap_editor/checks/editor/`. They were written in the gitignored `debug/worldmap/`
+folder, where nothing kept them, and were moved into the tree with the markers they had been
+missing. `probe_tile_law.gd`, cited here and by `WORLDMAP_DESIGN.md`, is in
+`scripts/worldmap/checks/`. All of them are registered in `scripts/checks/probes/worldmap.json`,
+so `scripts/checks/run_probe_sweep.ps1` runs them; the scratch documents they write go to
+`user://probe_scratch/worldmap/`.
+
 ```powershell
 ./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/worldmap_editor/checks/workspace/probe_workspace_contract.gd
 ./Godot_v4.4-stable_win64.exe --path . --script scripts/worldmap_editor/checks/acceptance/probe_foundation_acceptance.gd ++ 1280 720

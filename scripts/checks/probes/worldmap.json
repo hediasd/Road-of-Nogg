@@ -1,0 +1,24 @@
+{
+	"probes": [
+		{"script": "res://scripts/worldmap/checks/probe_cloud_art.gd", "marker": "WORLD MAP CLOUD ART OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap/checks/probe_cloud_field.gd", "marker": "WORLD MAP CLOUD FIELD OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap/checks/probe_cloud_on_props.gd", "marker": "WORLD MAP CLOUD ON PROPS OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": true, "note": "needs a renderer headless: SCRIPT ERROR: Cannot call method 'get_height' on a null value; then ran to the 120s timeout"},
+		{"script": "res://scripts/worldmap/checks/probe_clouds.gd", "marker": "WORLD MAP CLOUDS OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": true, "note": "needs a renderer headless: SCRIPT ERROR: Cannot call method 'get_height' on a null value"},
+		{"script": "res://scripts/worldmap/checks/probe_editor_camera.gd", "marker": "WORLD MAP EDITOR CAMERA OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap/checks/probe_tile_law.gd", "marker": "WORLD MAP TILE LAW OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap/checks/probe_validation.gd", "marker": "WORLD MAP VALIDATION OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "Parse Error: Cannot find member 'K_CLOUD_STRENGTH' in base 'WorldMapGroundUniforms'"},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_bake_parity.gd", "marker": "WORLD MAP BAKE PARITY OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_brushes.gd", "marker": "WORLD MAP BRUSHES OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_edit_history.gd", "marker": "WORLD MAP EDIT HISTORY OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_editor_input_dispatch.gd", "marker": "WORLD MAP EDITOR INPUT DISPATCH OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "SCRIPT ERROR: Invalid access to property or key 'yaw' on a base object of type 'Nil'"},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_editor_tools.gd", "marker": "WORLD MAP EDITOR TOOLS OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "Parse Error: Cannot infer the type of 'said' variable because the value doesn't have a set type"},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_height_field.gd", "marker": "WORLD MAP HEIGHT FIELD OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "the mesh has 1044 indices, six triangles per cell is 1134"},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_hex_grid_overlay.gd", "marker": "WORLD MAP HEX GRID OVERLAY OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "at (0.37, 0.37): shader says in-lattice=true, WorldMapHexGrid says false"},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_object_layer.gd", "marker": "WORLD MAP OBJECT LAYER OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_scene_export.gd", "marker": "WORLD MAP SCENE EXPORT OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_subtriangles.gd", "marker": "WORLD MAP SUBTRIANGLES OK", "timeout": 120, "expect": "pass", "gate": false, "renderer": false, "note": "slot (0, 0, 1) came back as '-', expected 't001'"},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_tile_format.gd", "marker": "WORLD MAP TILE FORMAT OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_tileset_ids.gd", "marker": "WORLD MAP TILESET IDS OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/worldmap_editor/checks/editor/probe_water_layer.gd", "marker": "WORLD MAP WATER LAYER OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}
