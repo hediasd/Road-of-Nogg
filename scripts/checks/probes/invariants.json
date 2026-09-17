@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://scripts/battle/checks/probe_invariants.gd", "marker": "BATTLE_INVARIANTS_OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}

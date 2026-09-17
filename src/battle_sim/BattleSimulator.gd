@@ -15,6 +15,7 @@ const GRID_KIND := "hex_flat"
 const COORDINATE_CONVENTION := "odd_q_offset"
 const RULESET_ID := "hex_side_turn_v1"
 
+const BattleInvariantsScript = preload("res://src/battle_sim/BattleInvariants.gd")
 const CombatResolverScript = preload("res://src/battle_sim/CombatResolver.gd")
 const PassiveSkillResolverScript = preload("res://src/battle_sim/PassiveSkillResolver.gd")
 const MapFactoryScript = preload("res://src/factories/MapFactory.gd")
@@ -41,6 +42,12 @@ var setupSnapshot: Dictionary = {}
 ## redundant.
 var _initialBoardEmitted := false
 
+## Off by default, because the interactive game pays for it on every step and gains nothing it
+## cannot see. The headless runners turn it on: there, a violation is the only way a broken state
+## announces itself at all. See `setInvariantChecks()`.
+var _invariantChecksEnabled := false
+var _invariantViolations: Array[String] = []
+
 func _init(seedValue: int = 0) -> void:
 	events = BattleEvents.new()
 	state = BattleState.new(seedValue)
@@ -49,6 +56,40 @@ func _init(seedValue: int = 0) -> void:
 	combatResolver = CombatResolverScript.new(state, events)
 	passiveSkillResolver = PassiveSkillResolverScript.new(state, events)
 	combatResolver.passiveSkillResolver = passiveSkillResolver
+
+
+## Checks the battle's invariants after every resolved step (see `BattleInvariants`). A headless
+## runner turns this on so a broken state cannot pass for a finished battle; presentation leaves it
+## off, since the check costs a full board and roster walk per step.
+##
+## Enabling it changes nothing a record can see: the check reads, it never emits, mutates or draws
+## from the RNG, so corpora stay byte-identical either way.
+func setInvariantChecks(enabled: bool) -> void:
+	_invariantChecksEnabled = enabled
+
+
+func invariantChecksEnabled() -> bool:
+	return _invariantChecksEnabled
+
+
+## Every invariant violation seen so far, oldest first, each naming the step that produced it.
+## Empty after a battle means every step of it was legal.
+func invariantViolations() -> Array[String]:
+	return _invariantViolations.duplicate()
+
+
+## Reports violations without deciding what to do about them: a single battle and a thousand-battle
+## championship want different answers, and both live in their runners. The simulator's part is to
+## make sure a violation can never pass silently -- it is recorded and it goes to stderr, once per
+## step that produced it.
+func _checkInvariants(step: String) -> void:
+	if not _invariantChecksEnabled:
+		return
+	var found: Array[String] = BattleInvariantsScript.violations(state)
+	for violation: String in found:
+		var line := "%s: %s" % [step, violation]
+		_invariantViolations.append(line)
+		printerr("BATTLE_INVARIANT_VIOLATION: %s" % line)
 
 
 func setVisualAdapter(adapter: IBattleVisualAdapter) -> void:
@@ -265,6 +306,7 @@ func startNextSideTurn(source: String = "system") -> Dictionary:
 		if eligible.is_empty():
 			_closeSideTurn("no_eligible_units")
 			continue
+		_checkInvariants("side_open:%d" % sideID)
 		return {"success": true, "reason": "", "side_id": sideID}
 
 	_recordBattleOutcomeIfResolved()
@@ -335,6 +377,7 @@ func endSideTurn(source: String = "player") -> Dictionary:
 			return {"success": false, "reason": result.reason, "consumed": []}
 	if state.activeSideID == sideID:
 		_closeSideTurn("ended_by_player")
+	_checkInvariants("side_end:%d" % sideID)
 	return {"success": true, "reason": "", "consumed": remaining}
 
 
@@ -611,6 +654,7 @@ func executeMovePhase(monsterID: int, path: Array, source: String = "player") ->
 			"source": source,
 			"path": normalizedPath.duplicate(),
 		})
+	_checkInvariants("move")
 	return {
 		"success": true,
 		"moved": moved,
@@ -656,6 +700,7 @@ func undoMovePhase(monsterID: int) -> Dictionary:
 
 	accumulator["has_moved"] = false
 	accumulator["move_path"] = []
+	_checkInvariants("undo")
 	return {"success": true, "destination": origin}
 
 
@@ -709,6 +754,7 @@ func executeActionPhase(
 	accumulator["spell_index"] = spellIndex
 	accumulator["action_result"] = actionResult
 	accumulator["acted"] = accumulator["acted"] or actionResult.get("success", false)
+	_checkInvariants("action:%s" % action)
 	return {"success": true, "actionResult": actionResult}
 
 func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResult:
@@ -747,6 +793,7 @@ func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResul
 	passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
 	if hasSideRuntime():
 		_completeUnitAction(monsterID)
+	_checkInvariants("unit_finished:%d" % monsterID)
 	return result
 
 func _rejectPhase(monsterID: int, source: String, reason: String) -> Dictionary:

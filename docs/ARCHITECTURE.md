@@ -202,6 +202,45 @@ already available state or command field.
 monster's mirrored position. Callers must not update one representation alone.
 Base monster, map, spell, race, and passive definitions are read-only inputs.
 
+### Invariants between steps
+
+`BattleInvariants.violations(state)` answers what must be true of a battle
+between two resolved steps: one unit per cell with the board layer and the
+position lookup agreeing in both directions, nobody standing on unwalkable
+ground, hitpoints inside their own range, the living and present holding a cell
+while the dead and the withdrawn hold none, one side open at a time in
+ascending team order, a spent unit holding no unfinished turn, magic never
+resolved after a move, a withdrawn party taking its whole membership with it,
+effects belonging to registered units with a non-negative duration, and an
+outcome that names a team that fought.
+
+The rules come from `GAME_DESIGN.md`, so a violation is a bug in the simulator
+or in that document — never a reason to relax the check. It returns every
+violation it finds rather than stopping at the first, and it is a pure read:
+no events, no RNG draw, no mutation. That is what lets a run with checks on
+record exactly what a run with them off records.
+
+`BattleSimulator.setInvariantChecks(true)` makes the simulator call it after
+every step that can change state — a move, an undo, an action, a unit
+finishing, a side opening or closing. It is **off by default**: the interactive
+game would pay a board and roster walk per step for a report only a log would
+read. The headless runners turn it on, because there a violation is the only
+reader a battle has. Where each kind of run draws the line:
+
+- `run_battle.gd` writes both its outputs, then fails the run and names every
+  violation. The record stays on disk as the evidence.
+- `run_championship.gd` stores the offending battle's line, flushes, and stops
+  the run. Every finished battle before it keeps its place in the corpus; what
+  it refuses to do is produce a thousand more records from a state the rules
+  call impossible.
+
+`BattleState.assertValidOccupancy()` predates this and stays: it guards the
+occupancy family inside `moveMonsterTo()` itself with `assert()`, which the
+release build strips and which stops at the first failure.
+`scripts/battle/checks/probe_invariants.gd` proves the checker both ways — a
+whole battle violating nothing, and each invariant family reported on a state
+broken on purpose.
+
 ## Setup and battle construction
 
 `HexBattle.tscn` creates the animated sky and setup overlay first. It does not

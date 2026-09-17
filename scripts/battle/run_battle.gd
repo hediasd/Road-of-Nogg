@@ -58,6 +58,18 @@ func _init() -> void:
 		quit(1)
 		return
 
+	# A battle that broke its own rules is not a battle this script reports as run, however
+	# complete the record looks. The outputs stay on disk: they are the evidence.
+	var violations: Array = result.get("invariant_violations", [])
+	if not violations.is_empty():
+		for violation in violations:
+			printerr("BATTLE_INVARIANT_VIOLATION: %s" % str(violation))
+		printerr("HEX_BATTLE_RUN_FAILED: %d invariant violation(s); see %s" % [
+			violations.size(), recordPath,
+		])
+		quit(1)
+		return
+
 	print("wrote %s" % recordPath)
 	print("wrote %s" % logPath)
 	print("%s by %s after %d round(s), %d decision(s)" % [
@@ -76,7 +88,8 @@ func _init() -> void:
 ## `ConsoleVisualAdapter` also prints every line it writes to stdout and a thousand battles of that
 ## is not a log, it is a wall.
 static func run(
-	scenarioPath: String, seedValue: int, recordPath: String, logPath: String
+	scenarioPath: String, seedValue: int, recordPath: String, logPath: String,
+	checkInvariants: bool = true
 ) -> Dictionary:
 	var loaded := BattleScenarioFactoryScript.loadFromPath(scenarioPath)
 	if not loaded["success"]:
@@ -105,6 +118,9 @@ static func run(
 
 	var sim = BattleSimulatorScript.new(seedValue)
 	sim.configureHexState(stateResult["state"], scenario, {"scenarioPath": scenarioPath})
+	# On by default here and in the championship: a console has nobody to notice that a unit
+	# stood on two cells, so the check is the only reader of the board a headless run has.
+	sim.setInvariantChecks(checkInvariants)
 
 	# The console adapter takes the one `visualAdapter` slot; the recorder attaches to the same
 	# event bus directly beside it. Neither knows about the other, and the slot is only consulted
@@ -141,6 +157,7 @@ static func run(
 		"ok": true,
 		"line": line,
 		"winner_team": winner,
+		"invariant_violations": sim.invariantViolations(),
 		# Passed through from the record so a caller never reads winner_team 0 as a team.
 		"draw": bool(outcome.get("draw", false)),
 		"end_reason": str(outcome.get("end_reason", "")),

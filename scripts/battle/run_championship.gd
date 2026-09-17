@@ -73,6 +73,21 @@ func _init() -> void:
 			printerr("HEX_CHAMPIONSHIP_FAILED: seed %d: %s" % [seedValue, str(result.get("error", ""))])
 			quit(1)
 			return
+		# A violated invariant stops the run rather than adding another line. Every finished
+		# battle before it is already flushed and keeps its place in the corpus; what must not
+		# happen is a thousand more records produced from a state the rules say is impossible.
+		var violations: Array = result.get("invariant_violations", [])
+		if not violations.is_empty():
+			corpus.store_line(str(result["line"]))
+			corpus.flush()
+			corpus.close()
+			for violation in violations:
+				printerr("BATTLE_INVARIANT_VIOLATION: %s" % str(violation))
+			printerr("HEX_CHAMPIONSHIP_FAILED: seed %d violated %d invariant(s) after %d battle(s); corpus kept at %s" % [
+				seedValue, violations.size(), offset, recordPath,
+			])
+			quit(1)
+			return
 		corpus.store_line(str(result["line"]))
 		# Flushed per battle so a run that dies partway really does leave every completed line
 		# on disk, as the corpus format promises. FHB-6 found it did not: twenty minutes into a
