@@ -61,10 +61,11 @@ const MARKER_RIM_EDGE_COLOR := Color(0.03, 0.03, 0.05, 0.7)
 const REGION_CONTOUR_INSET := 0.075
 
 ## Hover and selection cues on units. Board markers this file owns, like the overlay colours above.
-## Hover is a thin white rim around the unit itself; selection is a ring on the ground under it, so
-## the two can be on the same unit at once and still be told apart.
+## Hover is a thick pixel-cut white rim around the unit's combined projected silhouette; selection
+## is a ring on the ground under it, so the two can be on the same unit at once and still be told
+## apart.
 const OUTLINE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
-const OUTLINE_WIDTH_PX := 2.5
+const OUTLINE_WIDTH_PX := 4.0
 const COLOR_SELECTED_RING := Color(1.0, 0.97, 0.88, 0.95)
 ## Inner edge of the ring as a share of the cell's own outline: a band, not a filled hex, so it
 ## never hides the reach or cursor marker painted on the same cell.
@@ -338,7 +339,9 @@ func setSelectedUnit(monsterID: int) -> void:
 
 
 ## An inverted hull through `material_overlay`: the unit's own materials are never touched, so a
-## hover can never leave a unit looking different once the pointer moves on.
+## hover can never leave a unit looking different once the pointer moves on. The shader moves the
+## hull to the transparent pass, after every opaque body component has written depth; that makes
+## those components occlude one another's expanded hulls and leaves one combined outer silhouette.
 func _applyOutline(monsterID: int, on: bool) -> void:
 	var model := modelFor(monsterID)
 	if model == null or not is_instance_valid(model):

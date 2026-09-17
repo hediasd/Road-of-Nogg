@@ -1052,9 +1052,11 @@ Every game window, its dock, and its size.
 The hex battle intentionally has no party panel, round-order panel, persistent
 command rail, or prompt box. Parties remain simulation/data groupings; they
 are not a player-facing turn boundary. The permanent player-facing chrome is
-the inspected-unit readout, the top-centre `Your turn` / `Enemy turn` banner,
-and the bottom-right End turn control. The End turn label includes the ready
-unit count and changes to a confirmation question when units remain, so a
+the inspected-unit readout and the bottom-right End turn control. A top-centre
+`Your turn` / `Enemy turn` notice sweeps in at the side boundary, holds long
+enough to read, then rises and fades away. It uses the standard Nogg Terminal
+face rather than the Herald display face. The End turn label includes the
+ready unit count and changes to a confirmation question when units remain, so a
 separate "whose units are left" panel would repeat the same fact. The round
 number is omitted from the game HUD because it does not change a side-turn
 decision; it remains available in the developer session drawer.
@@ -1690,9 +1692,13 @@ the fit is bought back with narrower widths and fewer sheet rows instead.
 
 ### Inspection
 
-- **Hover** is a white rim a constant 2.5 px wide around the unit's silhouette
-  (`HexUnitOutline.gdshader`, drawn through `material_overlay`, so the unit's
-  own materials are untouched). There is no name label over units.
+- **Hover** is a thick white rim a constant 4 px wide around the unit's combined
+  projected silhouette (`HexUnitOutline.gdshader`, drawn through
+  `material_overlay`, so the unit's own materials are untouched). Its clip-space
+  expansion is cut to eight pixel-like directions, and its transparent-pass
+  depth test lets the model's opaque components occlude one another's hulls;
+  separate head, body, weapon, and ornament halos therefore collapse into one
+  chiseled outer aura. There is no name label over units.
 - **Hover** also fills the readout, drawn over the committed selection and
   returning to it when the pointer leaves.
 - **Click** selects a unit and opens the readout: name and level, an HP bar with

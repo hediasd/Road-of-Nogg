@@ -33,7 +33,7 @@ func _run() -> void:
 		_require(bool(built.get("success", false)), "state did not build")
 		if bool(built.get("success", false)):
 			_checkWorldCues(loaded["scenario"], built["state"])
-			_checkScreenCues()
+			await _checkScreenCues()
 	_finish()
 
 
@@ -61,6 +61,12 @@ func _checkWorldCues(scenario, state) -> void:
 	_require(mesh != null and mesh.material_overlay is ShaderMaterial
 			and (mesh.material_overlay as ShaderMaterial).shader == _adapter.UnitOutlineShader,
 		"hover did not temporarily replace the spent overlay with its outline")
+	_require(is_equal_approx(
+			float((mesh.material_overlay as ShaderMaterial).get_shader_parameter("width_px")),
+			AdapterScript.OUTLINE_WIDTH_PX),
+		"hover outline did not use the authored thick screen-pixel width")
+	_require(AdapterScript.UnitOutlineShader.code.contains("ALPHA = outline_color.a"),
+		"hover outline did not render after opaque components had populated depth")
 	_adapter.setHoveredUnit(-1)
 	_require(mesh != null and mesh.material_overlay is ShaderMaterial
 			and (mesh.material_overlay as ShaderMaterial).shader == _adapter.UnitSpentShader,
@@ -90,6 +96,9 @@ func _checkScreenCues() -> void:
 	root.add_child(_cues)
 	_cues.setProjector(func(world: Vector3): return Vector2(400.0 + world.x, 100.0 + world.z))
 	_cues.showTurnBanner(true)
+	_require(_cues._banner._label.theme_type_variation == &"",
+		"turn notice did not inherit the standard Terminal label style")
+	_require(_cues._banner.visible, "turn notice did not appear at side start")
 	_cues.showActionArc(Vector3.ZERO, {
 		"magic": false, "item": true, "status": true, "wait": true,
 	}, ["magic"], true)
@@ -111,6 +120,10 @@ func _checkScreenCues() -> void:
 	_cues.setReadyCount(2)
 	_cues._endButton._onPressed()
 	_require(_cues.endTurnConfirming(), "End turn did not ask before skipping ready units")
+	await create_timer(
+		_cues._banner.ENTER_SECONDS + _cues._banner.HOLD_SECONDS
+			+ _cues._banner.EXIT_SECONDS + 0.05).timeout
+	_require(not _cues._banner.visible, "turn notice did not dismiss itself after its entrance")
 
 
 func _firstUnitMesh(model: Node3D) -> MeshInstance3D:

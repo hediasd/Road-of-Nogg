@@ -4,11 +4,14 @@ extends Control
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
-## The longest text the banner shows. Its frame is measured from this in the banner face, so
-## the text keeps the window's content inset at every UI scale.
+## The longest text the notice shows. Its frame is measured from this in the standard game face,
+## so the text keeps the window's content inset at every UI scale.
 const WIDEST_TEXT := "Enemy turn"
 const ENTER_OFFSET := 18.0
-const ENTER_SECONDS := 0.22
+const EXIT_OFFSET := 28.0
+const ENTER_SECONDS := 0.18
+const HOLD_SECONDS := 0.90
+const EXIT_SECONDS := 0.24
 
 var _window: NoggWindow
 var _label: Label
@@ -21,7 +24,10 @@ func _init() -> void:
 	_window = NoggWindowScript.new()
 	_window.set_input_transparent(true)
 	add_child(_window)
-	_label = NoggThemeScript.make_banner_label()
+	# A turn notice belongs to the HUD's standard information hierarchy, not the Herald display
+	# face used for authored titles. Leaving this as an ordinary Label makes it inherit Terminal,
+	# its body size, and its one-pixel drop shadow from the battle theme.
+	_label = Label.new()
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_label.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -62,3 +68,21 @@ func showTurn(text: String, friendly: bool) -> void:
 	tween.tween_property(self, "position:y", _restPosition.y, ENTER_SECONDS) \
 		.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 	tween.tween_property(self, "modulate:a", 1.0, ENTER_SECONDS)
+	var exitDelay := ENTER_SECONDS + HOLD_SECONDS
+	tween.tween_property(self, "position:y", _restPosition.y - EXIT_OFFSET, EXIT_SECONDS) \
+		.set_delay(exitDelay).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(self, "modulate:a", 0.0, EXIT_SECONDS).set_delay(exitDelay)
+	tween.tween_callback(_finishHide).set_delay(exitDelay + EXIT_SECONDS)
+
+
+func hideTurn() -> void:
+	if _tween != null and _tween.is_valid():
+		_tween.kill()
+	_tween = null
+	_finishHide()
+
+
+func _finishHide() -> void:
+	visible = false
+	position = _restPosition
+	modulate.a = 1.0

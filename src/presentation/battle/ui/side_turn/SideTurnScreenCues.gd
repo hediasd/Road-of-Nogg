@@ -113,7 +113,7 @@ func showTurnBanner(friendly: bool) -> void:
 
 
 func hideTurnBanner() -> void:
-	_banner.visible = false
+	_banner.hideTurn()
 
 
 func showActionArc(

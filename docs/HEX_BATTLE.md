@@ -15,8 +15,9 @@ move and before an action. When the last unit is spent the side ends
 automatically; End turn spends every remaining ready unit as Wait, asking for
 confirmation first when any remain.
 
-The screen mirrors that model instead of exposing parties. `Your turn` and
-`Enemy turn` banners name the active side. Ready friendly units are selected
+The screen mirrors that model instead of exposing parties. A brief `Your turn`
+or `Enemy turn` notice names the active side, then sweeps back out so it does
+not become permanent chrome. Ready friendly units are selected
 directly on the board and receive a movement contour plus a projected action
 arc. The contour shows only where the unit can still walk, so it disappears
 once the unit has moved and is never drawn outside the player's own turn.
