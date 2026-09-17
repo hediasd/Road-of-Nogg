@@ -1500,9 +1500,17 @@ validation.
 The selected unit's controls are native-resolution UI: Magic, Item, Status and
 Wait form a shallow arc around its projected screen position. The arc flips
 below a unit in the top 150 pixels, preventing it from covering the cells most
-likely to be aimed at, and fades to 34% while an aim is active. Moving crosses
-out Magic and adds an Undo chip; disabled actions remain present and dim so
-their stable keyboard positions do not change.
+likely to be aimed at, and fades to 34% while an aim is active or the pointer
+previews an enemy. Moving crosses out Magic and adds Undo, a left-facing U-turn
+icon in the same tile style, as the arc's leftmost slot; the radius widens so
+five icons never overlap. Disabled actions remain present and dim so their
+stable keyboard positions do not change.
+
+The target sword is the arc's own attack icon, drawn over an anchor parented
+to the target model. Spent units take `HexUnitSpent.gdshader` through
+`material_overlay`: the unit drained to its luminance under a slate tint, on a
+thin hull so vertex-snapped faces cannot speckle through. The team plinth is
+left untouched.
 
 Forecast boxes are one `NoggWindow`-family frame per affected unit. They only
 format the resolver-provided forecast dictionary; several may coexist for a

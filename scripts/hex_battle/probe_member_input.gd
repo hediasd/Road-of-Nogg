@@ -70,22 +70,23 @@ func _checkKeyboardFlow() -> void:
 			break
 	_pushKey(KEY_ENTER)
 	await _frames(2)
+	_require(controller.memberTurn.reachableCells().is_empty(),
+		"a moved unit still offered cells to walk to")
+	# Leaving a moved unit ends its turn: switching away spends it as a Wait.
 	_pushKey(KEY_TAB)
 	await _frames(2)
 	_require(controller.memberTurn != null and controller.memberTurn.monsterID() != firstID,
 		"Tab did not switch to another ready unit")
+	_require(controller.sim.state.spentUnitIDs.has(firstID),
+		"switching away from a moved unit did not end its turn")
 	var secondID := controller.memberTurn.monsterID() if controller.memberTurn != null else -1
-	_pushShiftTab()
-	await _frames(2)
-	_require(controller.memberTurn != null and controller.memberTurn.monsterID() == firstID,
-		"Shift-Tab did not return to the moved unit")
-	_require(controller.memberTurn.canUndoMove(), "switching discarded the pending move")
 
+	# A unit that has not moved is only let go.
 	_pushRightTap(Vector2(20.0, 20.0))
 	await _frames(2)
 	_require(controller.memberTurn == null, "right tap did not cancel selection")
-	_require(controller.sim.eligibleSideUnitIDs().has(firstID),
-		"cancelling selection spent the moved unit")
+	_require(controller.sim.eligibleSideUnitIDs().has(secondID),
+		"cancelling an unmoved selection spent the unit")
 
 	_pushKey(KEY_TAB)
 	await _frames(2)

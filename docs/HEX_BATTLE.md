@@ -6,8 +6,9 @@ presentation settles; sections not written yet belong to later work.
 ## Side turns and board-first control
 
 The battle simulator opens one whole team side at a time. Any living,
-unspent unit on the active side may be selected; selecting another ready unit
-switches control without erasing the first unit's pending move. A unit may move
+unspent unit on the active side may be selected. Leaving a unit that has not
+moved is free; leaving one that has moved (selecting another unit, clicking an
+enemy it cannot hit, or ground it cannot reach) ends its turn as a Wait. A unit may move
 and then use a non-magic action, or act without moving. Acting spends it and
 ends its unit turn. Casting after moving is refused. Undo is available after a
 move and before an action. When the last unit is spent the side ends
@@ -17,11 +18,13 @@ confirmation first when any remain.
 The screen mirrors that model instead of exposing parties. `Your turn` and
 `Enemy turn` banners name the active side. Ready friendly units are selected
 directly on the board and receive a movement contour plus a projected action
-arc. Reachable empty ground moves; a legal enemy click attacks; other unit
+arc. The contour shows only where the unit can still walk, so it disappears
+once the unit has moved and is never drawn outside the player's own turn.
+Reachable empty ground moves; a legal enemy click attacks; other unit
 clicks inspect. A moved unit keeps Undo, Attack, Item, Status and Wait, with
 Magic crossed out. Magic is the only action that opens a list, using a reduced
 `HexCommandMenu` as a short spell picker; aim then shows a forecast beside
-each affected unit. Spent units darken, and the End turn control reports how
+each affected unit. Spent units drain to slate grey, keeping their team plinth, and the End turn control reports how
 many units remain ready.
 
 The party panel, party-order panel, full command rail and prompt box are hidden

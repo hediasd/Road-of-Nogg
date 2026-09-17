@@ -71,7 +71,9 @@ func refreshReach() -> void:
 	if _sim == null or _adapter == null:
 		return
 	var reach := ReachQueryScript.forMonster(_sim, _monsterID)
-	_reachable = reach.get("reachable", [])
+	# The query answers from where the unit stands, not whether it may still walk. Once it has
+	# moved or acted there is nowhere it can go, so nothing is painted and no cell accepts a move.
+	_reachable = reach.get("reachable", []) if canMove() else []
 	_attackable = reach.get("attackable", [])
 	# Walkable cells only. Painting the attack ring beyond them read as one extra step of movement.
 	_adapter.show_movement_options(_reachable)

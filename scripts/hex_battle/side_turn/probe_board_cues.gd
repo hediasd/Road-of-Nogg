@@ -58,10 +58,12 @@ func _checkWorldCues(scenario, state) -> void:
 	_require(mesh == null or mesh.material_override == authoredMaterial,
 		"spent treatment replaced the unit's authored material")
 	_adapter.setHoveredUnit(spentID)
-	_require(mesh != null and mesh.material_overlay is ShaderMaterial,
+	_require(mesh != null and mesh.material_overlay is ShaderMaterial
+			and (mesh.material_overlay as ShaderMaterial).shader == _adapter.UnitOutlineShader,
 		"hover did not temporarily replace the spent overlay with its outline")
 	_adapter.setHoveredUnit(-1)
-	_require(mesh != null and mesh.material_overlay is StandardMaterial3D,
+	_require(mesh != null and mesh.material_overlay is ShaderMaterial
+			and (mesh.material_overlay as ShaderMaterial).shader == _adapter.UnitSpentShader,
 		"leaving hover did not restore the spent overlay")
 	_adapter.setUnitSpent(spentID, false)
 	_require(mesh == null or mesh.material_overlay == null,

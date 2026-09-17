@@ -10,12 +10,13 @@ const ACTIONS := ["magic", "item", "status", "wait"]
 const LABELS := {"magic": "Magic", "item": "Item", "status": "Status", "wait": "Wait"}
 const BUTTON_SIZE := 42.0
 const ARC_RADIUS := 60.0
+const ICON_SPACING := 47.0
 const ENTER_SECONDS := 0.16
 const IDLE_SECONDS := 2.4
 
 var _buttons: Dictionary = {}
 var _crosses: Dictionary = {}
-var _undo: Button
+var _undo: TextureButton
 var _idleTween: Tween
 var _flipped := false
 
@@ -44,13 +45,14 @@ func _init() -> void:
 		cross.visible = false
 		button.add_child(cross)
 		_crosses[actionID] = cross
-	_undo = Button.new()
+	_undo = TextureButton.new()
 	_undo.name = "Undo"
-	_undo.text = "Undo"
-	_undo.custom_minimum_size = Vector2(58.0, 24.0)
-	_undo.size = Vector2(58.0, 24.0)
-	_undo.add_theme_color_override("font_color", Color("18212b"))
-	_undo.add_theme_color_override("font_hover_color", Color("18212b"))
+	_undo.texture_normal = ActionIconsScript.texture_for("undo")
+	_undo.ignore_texture_size = true
+	_undo.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	_undo.custom_minimum_size = Vector2.ONE * BUTTON_SIZE
+	_undo.size = Vector2.ONE * BUTTON_SIZE
+	_undo.tooltip_text = "Undo move"
 	_undo.pressed.connect(func(): action_requested.emit("undo"))
 	add_child(_undo)
 	visible = false
@@ -59,18 +61,24 @@ func _init() -> void:
 func showArc(screenAnchor: Vector2, enabled: Dictionary, crossed: Array = [], undo: bool = false) -> void:
 	_flipped = screenAnchor.y < 150.0
 	position = screenAnchor
-	for index in range(ACTIONS.size()):
-		var actionID: String = ACTIONS[index]
-		var angle := lerpf(-2.72, -0.42, float(index) / 3.0)
+	# Undo, when offered, takes the leftmost slot and the other four shift right along the arc.
+	var slots: Array = (["undo"] if undo else []) + ACTIONS
+	# The arc's span is fixed, so a fifth icon widens the radius rather than overlapping its
+	# neighbours: adjacent centres stay at least ICON_SPACING apart along the arc.
+	var radius := maxf(ARC_RADIUS, ICON_SPACING / ((2.72 - 0.42) / float(slots.size() - 1)))
+	for index in range(slots.size()):
+		var actionID: String = slots[index]
+		var angle := lerpf(-2.72, -0.42, float(index) / float(slots.size() - 1))
 		if _flipped:
 			angle = -angle
-		var button := _buttons[actionID] as TextureButton
-		button.position = Vector2(cos(angle), sin(angle)) * ARC_RADIUS - Vector2.ONE * BUTTON_SIZE * 0.5
+		var button := (_undo if actionID == "undo" else _buttons[actionID]) as TextureButton
+		button.position = Vector2(cos(angle), sin(angle)) * radius - Vector2.ONE * BUTTON_SIZE * 0.5
+		if actionID == "undo":
+			continue
 		button.disabled = not bool(enabled.get(actionID, false))
 		button.modulate = Color.WHITE if not button.disabled else Color(0.45, 0.47, 0.5, 0.7)
 		(_crosses[actionID] as ColorRect).visible = crossed.has(actionID)
 	_undo.visible = undo
-	_undo.position = Vector2(-_undo.size.x * 0.5, 30.0 if not _flipped else -54.0)
 	visible = true
 	scale = Vector2.ONE * 0.72
 	modulate.a = 0.0

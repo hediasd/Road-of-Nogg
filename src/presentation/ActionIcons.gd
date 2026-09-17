@@ -82,6 +82,7 @@ static func _render(action_id: String) -> ImageTexture:
 	match action_id:
 		"move": _draw_boot(image, ink)
 		"undo_move": _draw_rewind(image, ink)
+		"undo": _draw_turnaround(image, ink)
 		"attack": _draw_sword(image, ink)
 		"magic": _draw_sparkle(image, ink)
 		"pass", "wait": _draw_hourglass(image, ink)
@@ -235,6 +236,27 @@ static func _draw_bust(image: Image, color: Color) -> void:
 		var width: int = widths[index]
 		_fill_rect(image, 8 - width / 2, 8 + index, width, 1, color)
 	_fill_rect(image, 7, 8, 2, 2, BACKGROUND)
+
+
+## A U-turn arrow facing left: the side-turn arc's Undo slot. Drawn in the shared gold, since on
+## the arc it is one more icon in the row rather than a slot that changes meaning in place.
+static func _draw_turnaround(image: Image, color: Color) -> void:
+	# Head, pointing left, centred on the upper shaft's two rows.
+	var heights := [2, 4, 6]
+	for index in range(heights.size()):
+		_fill_rect(image, 3 + index, 6 - heights[index] / 2, 1, heights[index], color)
+	# Upper shaft, from the head to the bend.
+	_fill_rect(image, 6, 5, 5, 2, color)
+	# The bend: the right half of an annulus, two pixels thick, turning back underneath.
+	var center := Vector2(10.0, 8.5)
+	for y in range(1, ICON_SIZE - 1):
+		for x in range(10, ICON_SIZE - 1):
+			var distance := (Vector2(float(x) + 0.5, float(y) + 0.5) - center).length()
+			if distance >= 2.0 and distance <= 4.0:
+				image.set_pixel(x, y, color)
+	# A short tail. Run back as far as the head, it closed the shape into a loop that read as a
+	# swap arrow rather than a turn.
+	_fill_rect(image, 8, 11, 3, 2, color)
 
 
 static func _draw_plus(image: Image, color: Color) -> void:

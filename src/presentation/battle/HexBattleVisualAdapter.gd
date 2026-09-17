@@ -32,6 +32,7 @@ const HexBattleUnitBadgesScript = preload("res://src/presentation/battle/HexBatt
 const MonsterModelFactoryScript = preload("res://src/presentation/MonsterModelFactory.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const UnitOutlineShader = preload("res://src/presentation/battle/shaders/HexUnitOutline.gdshader")
+const UnitSpentShader = preload("res://src/presentation/battle/shaders/HexUnitSpent.gdshader")
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
 const VfxCastContextScript = preload("res://src/presentation/effects/VfxCastContext.gd")
 const HexGridScript = preload("res://src/board/HexGrid.gd")
@@ -74,7 +75,6 @@ const SELECTED_RING_ENTRANCE_SCALE := 1.3
 const SELECTED_RING_ENTRANCE_SECONDS := 0.18
 const SELECTED_RING_BREATH_SECONDS := 1.8
 const SELECTED_RING_BREATH_ALPHA := 0.45
-const SPENT_COLOR := Color(0.025, 0.035, 0.05, 0.58)
 const SWORD_MARKER_NAME := "TargetSword"
 ## Floor for the sword's height, and its clearance over the model's own top. A fixed height put
 ## it inside tall models, where the model hid the very cue promising the attack.
@@ -150,7 +150,7 @@ var _badges
 ## Presentation speed for movement tweens. Combat feedback holds its own copy, set alongside.
 var _playbackSpeed := 1.0
 var _outlineMaterial: ShaderMaterial
-var _spentMaterial: StandardMaterial3D
+var _spentMaterial: ShaderMaterial
 var _spentUnitIDs: Dictionary = {}
 var _hoveredID := -1
 var _selectedID := -1
@@ -356,11 +356,8 @@ func _applyUnitOverlay(monsterID: int) -> void:
 	if model == null or not is_instance_valid(model):
 		return
 	if _spentMaterial == null:
-		_spentMaterial = StandardMaterial3D.new()
-		_spentMaterial.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_spentMaterial.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_spentMaterial.albedo_color = SPENT_COLOR
-		_spentMaterial.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_spentMaterial = ShaderMaterial.new()
+		_spentMaterial.shader = UnitSpentShader
 	var overlay: Material = _outlineMaterial if monsterID == _hoveredID else (
 		_spentMaterial if _spentUnitIDs.has(monsterID) else null)
 	for node in model.find_children("*", "MeshInstance3D", true, false):

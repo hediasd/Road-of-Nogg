@@ -409,11 +409,16 @@ func _onHudMemberSelected(monsterID: int) -> void:
 	if _sideController(int(sim.state.activeSideID)) != "player":
 		return
 	if memberTurn != null and not memberTurn.isFinished():
-		var previous := memberTurn.monsterID()
-		memberTurn.cancel()
-		memberTurn = null
-		memberInput = null
-		playback.release(HexBattlePlayback.OWNER_PLAYER, previous)
+		if memberTurn.monsterID() != monsterID and _endIfCommitted():
+			pass
+		elif memberTurn != null:
+			var previous := memberTurn.monsterID()
+			memberTurn.cancel()
+			memberTurn = null
+			memberInput = null
+			playback.release(HexBattlePlayback.OWNER_PLAYER, previous)
+	if memberTurn != null or not playback.isIdle():
+		return
 	if not playback.claim(HexBattlePlayback.OWNER_PLAYER, monsterID):
 		return
 	var selected := sim.selectUnit(monsterID, "player")
@@ -779,6 +784,8 @@ func _handleSideClick(point: Vector2) -> bool:
 			if sim.eligibleSideUnitIDs().has(picked):
 				_onHudMemberSelected(picked)
 			else:
+				if picked != _actingMemberID():
+					_endIfCommitted()
 				_selectUnit(picked)
 			return true
 	if memberTurn == null or memberInput == null:
@@ -796,6 +803,7 @@ func _handleSideClick(point: Vector2) -> bool:
 			memberInput.aimAt(cell)
 			memberInput.confirm()
 		else:
+			_endIfCommitted()
 			_selectUnit(picked)
 		return true
 	if memberTurn.canMove() and memberTurn.reachableCells().has(cell):
@@ -803,6 +811,21 @@ func _handleSideClick(point: Vector2) -> bool:
 		memberInput.aimAt(cell)
 		memberInput.confirm()
 		return true
+	# Outside everything the unit can still do: a unit that has moved is done.
+	_endIfCommitted()
+	return true
+
+
+## A unit that has already moved stays open only while the player keeps working with it. Clicking
+## outside what it can still do -- another unit, an enemy it cannot hit, ground it cannot reach --
+## ends its turn as a Wait, so a moved unit is never silently left half-finished. A unit that has
+## not moved is simply let go, as before. Returns whether a turn was ended.
+func _endIfCommitted() -> bool:
+	if memberTurn == null or memberInput == null or memberTurn.isFinished():
+		return false
+	if not memberTurn.canUndoMove():
+		return false
+	memberInput.chooseCommand(HexBattleMemberInputScript.END_COMMAND)
 	return true
 
 

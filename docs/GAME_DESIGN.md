@@ -25,8 +25,11 @@ and [Runersia game-system reference](https://brigandine.happinet-games.com/games
 - Every surviving side receives one turn per round, in ascending deterministic
   team-ID order. Party commander level and SPD do not schedule turns.
 - During its side turn, the player may select any living, non-withdrawn,
-  unspent unit from any party on that team, in any order. Switching selection
-  is free, including returning to a unit that moved but has not acted.
+  unspent unit from any party on that team, in any order. Switching away from
+  a unit that has not moved is free. Once a unit has moved, the player's next
+  selection or click outside what it can still do ends its turn as a Wait.
+  The simulator itself still accepts resuming a moved unit; the rule is the
+  interactive controller's.
 - Moving alone does not spend a unit. Its move may be undone until it acts,
   unless another unit now occupies the saved origin. Attack is legal after a
   move; magic is legal only before moving. Acting or **Wait** spends the unit,
