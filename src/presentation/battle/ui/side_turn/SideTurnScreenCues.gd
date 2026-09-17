@@ -10,6 +10,7 @@ const PreviewBoxScript = preload("res://src/presentation/battle/ui/side_turn/Sid
 const EndButtonScript = preload("res://src/presentation/battle/ui/side_turn/SideTurnEndButton.gd")
 
 const ActionIconsScript = preload("res://src/presentation/ActionIcons.gd")
+const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 const PREVIEW_OFFSET := Vector2(24.0, -96.0)
 ## The target sword is the arc's own attack icon at the arc's own size, so the cue that promises an
@@ -32,9 +33,13 @@ var _arcVisible := false
 
 
 func _init() -> void:
-	layer = 12
+	# Board annotations: under every HUD window, so a sheet or menu the HUD opens is never drawn
+	# beneath the arc, the sword or a forecast.
+	layer = NoggThemeScript.WORLD_EFFECT_LAYER
 	_root = Control.new()
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# The game theme, or every window, banner and button here falls back to Godot's default sans.
+	_root.theme = NoggThemeScript.build_game_theme()
 	add_child(_root)
 	_banner = BannerScript.new()
 	_root.add_child(_banner)
@@ -73,6 +78,12 @@ func _process(_delta: float) -> void:
 			preview.position = _projectWorld.call(preview.worldAnchor) + PREVIEW_OFFSET
 
 
+## Hidden whole while a HUD modal is open: under the sheet the arc would still take clicks, and a
+## forecast or End turn has nothing to say about a unit being read.
+func setModalOpen(open: bool) -> void:
+	_root.visible = not open
+
+
 func setProjector(projectWorld: Callable) -> void:
 	_projectWorld = projectWorld
 
@@ -91,7 +102,8 @@ func _updateSword() -> void:
 	if anchor != _swordAnchor:
 		_swordAnchor = anchor
 		_sword.scale = Vector2.ONE * SWORD_ENTRANCE_SCALE
-		_sword.create_tween().tween_property(_sword, "scale", Vector2.ONE, SWORD_ENTRANCE_SECONDS) 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_sword.create_tween().tween_property(_sword, "scale", Vector2.ONE, SWORD_ENTRANCE_SECONDS) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_sword.position = (_projectWorld.call(anchor.global_position) as Vector2) - _sword.size * 0.5
 	_sword.visible = true
 
@@ -172,7 +184,9 @@ func endTurnConfirming() -> bool:
 func _layoutFixedCues() -> void:
 	var viewportSize := get_viewport().get_visible_rect().size
 	_root.size = viewportSize
-	_banner.position = Vector2((viewportSize.x - _banner.size.x) * 0.5, 14.0)
+	# Screen-docked cues keep the HUD's own screen margin, like every other HUD window.
+	var margin := NoggThemeScript.HEX_SCREEN_MARGIN
+	_banner.setRestPosition(Vector2(roundf((viewportSize.x - _banner.size.x) * 0.5), margin))
 	_endButton.position = Vector2(
-		viewportSize.x - _endButton.size.x - 22.0,
-		viewportSize.y - _endButton.size.y - 20.0)
+		viewportSize.x - _endButton.size.x - margin,
+		viewportSize.y - _endButton.size.y - margin)

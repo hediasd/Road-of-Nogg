@@ -269,6 +269,7 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	add_child(sideCues)
 	sideCues.setProjector(stage.projectWorldToScreen)
 	sideCues.setSwordSource(adapter.targetMarker)
+	hud.modal_changed.connect(sideCues.setModalOpen)
 	sideCues.action_requested.connect(_onSideActionRequested)
 	sideCues.end_turn_requested.connect(_onHudEndParty)
 	# Puts a terrain notice, if there is one, on the status line before the battle says anything.
@@ -573,7 +574,8 @@ func _onHudEndParty() -> void:
 	# A selected unit holds the player's playback claim, so the idle check must come after the
 	# selection is let go. Checked first, End turn did nothing whenever a unit was selected -- which
 	# is most of the time -- and left the button stuck asking.
-	if memberTurn != null and not memberTurn.isFinished() 			and playback.owner() == HexBattlePlayback.OWNER_PLAYER:
+	if memberTurn != null and not memberTurn.isFinished() \
+			and playback.owner() == HexBattlePlayback.OWNER_PLAYER:
 		_cancelPlayerSelection()
 	if not playback.isIdle():
 		return

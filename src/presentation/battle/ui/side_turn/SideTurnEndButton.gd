@@ -6,7 +6,11 @@ signal end_requested()
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
-const WIDTH := 152.0
+## The widest text the button ever shows, measured in the game font. A fixed pixel width clipped
+## "End turn?" once the button wore the real face instead of the default sans.
+const WIDEST_LABEL := "End turn?"
+const WIDEST_VALUE := "Yes"
+const WIDEST_COUNT := "00 ready"
 
 var _window: NoggWindow
 var _button: Button
@@ -16,7 +20,6 @@ var _confirming := false
 
 func _init() -> void:
 	_window = NoggWindowScript.new()
-	_window.size.x = WIDTH
 	_window.set_row_capacity(2)
 	add_child(_window)
 	_button = Button.new()
@@ -27,9 +30,20 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	_window.size.x = _contentWidth()
 	size = _window.size
 	_button.size = size
 	_render()
+
+
+func _contentWidth() -> float:
+	var font := get_theme_default_font()
+	var fontSize := NoggThemeScript.FONT_SIZE_BODY
+	var space := font.get_string_size(" ", HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize).x
+	var question := font.get_string_size(WIDEST_LABEL, HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize).x \
+		+ space * 2.0 + font.get_string_size(WIDEST_VALUE, HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize).x
+	var count := font.get_string_size(WIDEST_COUNT, HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize).x
+	return ceilf(maxf(question, count)) + float(NoggThemeScript.CONTENT_INSET) * 2.0
 
 
 func setReadyCount(count: int) -> void:

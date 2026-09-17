@@ -126,10 +126,12 @@ func _ready() -> void:
 		var label := Label.new()
 		label.text = TABS[index]
 		label.mouse_filter = Control.MOUSE_FILTER_STOP
+		label.gui_input.connect(_onTabInput.bind(index))
+		# In the tree before it is measured: outside it the label has no theme and measures in
+		# Godot's fallback font, which put the tabs 7 px low and mis-spaced at x3.
+		_tabsWindow.add_child(label)
 		label.size = label.get_minimum_size()
 		label.position = Vector2(x, tabRect.position.y + floorf((tabRect.size.y - label.size.y) / 2.0))
-		label.gui_input.connect(_onTabInput.bind(index))
-		_tabsWindow.add_child(label)
 		_tabLabels.append(label)
 		x += label.size.x + _spaceWidth() * 2.0
 
@@ -218,9 +220,20 @@ func handleKey(event: InputEventKey) -> bool:
 func handleUnhandledMouse(event: InputEventMouseButton) -> bool:
 	if not _open or not event.pressed:
 		return false
-	if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
+	# Only a click outside every window of the sheet closes it. A click on a window's padding or
+	# between rows is still a click on the sheet, and closing on it read as a misfire.
+	if event.button_index in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT] \
+			and not containsPoint(event.position):
 		close()
 	return true
+
+
+## Whether a viewport point lands on one of the sheet's own windows.
+func containsPoint(point: Vector2) -> bool:
+	for window: Control in [_portraitWindow, _tabsWindow, _body, _info]:
+		if window.is_visible_in_tree() and window.get_global_rect().has_point(point):
+			return true
+	return false
 
 
 func _render() -> void:
@@ -357,7 +370,8 @@ func _onRowBuilt(row: Control, fullIndex: int) -> void:
 	# The rows take the mouse, so a right click on one never reaches the board handler that closes
 	# the sheet; answer it here too.
 	row.gui_input.connect(func(event: InputEvent):
-		if event is InputEventMouseButton and event.pressed 				and event.button_index == MOUSE_BUTTON_RIGHT:
+		if event is InputEventMouseButton and event.pressed \
+				and event.button_index == MOUSE_BUTTON_RIGHT:
 			close()
 			accept_event())
 	if fullIndex >= _rowMeta.size() or not bool(_rowMeta[fullIndex].get("selectable", false)):

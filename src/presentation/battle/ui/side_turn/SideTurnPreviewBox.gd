@@ -4,7 +4,6 @@ extends Control
 const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
-const WIDTH := 210.0
 const ENTER_OFFSET := 10.0
 const ENTER_SECONDS := 0.14
 
@@ -17,12 +16,28 @@ func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_window = NoggWindowScript.new()
 	_window.set_input_transparent(true)
-	_window.size.x = WIDTH
 	_window.set_row_capacity(3)
 	add_child(_window)
 
 
 func _ready() -> void:
+	size = _window.size
+
+
+## As wide as its widest row plus the content inset on both sides. A fixed width clipped longer
+## unit names once the box wore the game font.
+func _fitWidth(rows: Array[Dictionary]) -> void:
+	var font := get_theme_default_font()
+	var fontSize := NoggThemeScript.FONT_SIZE_BODY
+	var gap := font.get_string_size("  ", HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize).x
+	var widest := 0.0
+	for row in rows:
+		var width := font.get_string_size(str(row["label"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize).x
+		if not str(row["value"]).is_empty():
+			width += gap + font.get_string_size(
+				str(row["value"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize).x
+		widest = maxf(widest, width)
+	_window.size.x = ceilf(widest) + float(NoggThemeScript.CONTENT_INSET) * 2.0
 	size = _window.size
 
 
@@ -40,6 +55,7 @@ func configure(monsterID: int, name: String, anchor: Vector3, forecast: Dictiona
 		{"label": damage, "value": ""},
 		{"label": "HP", "value": "%d -> %d" % [hp, maxi(0, hp - minimum)]},
 	]
+	_fitWidth(rows)
 	_window.set_full_rows(rows)
 	visible = true
 	modulate.a = 0.0

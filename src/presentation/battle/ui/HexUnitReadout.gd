@@ -37,10 +37,12 @@ func _init() -> void:
 	_window = NoggWindowScript.new()
 	_window.set_input_transparent(true)
 	add_child(_window)
+	# Inside the window, not beside it: the HP bar, element squares and effect swatches have to
+	# scale and fade with the window's open animation, or they sit on screen before the text pops in.
 	_overlay = Control.new()
 	_overlay.name = "Overlay"
 	_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_overlay)
+	_window.add_child(_overlay)
 	visible = false
 
 
@@ -48,6 +50,8 @@ func _ready() -> void:
 	_window.size.x = NoggThemeScript.HEX_READOUT_WIDTH
 	_window.set_row_capacity(ROWS)
 	size = _window.size
+	# Added before the window built its chrome; keep it drawn over the rows, as the status sheet does.
+	_window.move_child(_overlay, _window.get_child_count() - 1)
 	if not _facts.is_empty():
 		_rebuild()
 

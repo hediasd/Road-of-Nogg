@@ -57,7 +57,9 @@ static func normalize_legacy(presetID: String) -> String:
 	match presetID:
 		"crt":
 			return SATURATED_CRT
-		"clean", "retro_light", "ps1_soft", "ps1_classic", "dithered_horizon", "tactical_soft", 				"halftone_press", "tactics_classic", "weathered_stone", "foggy_survival", 				"tropical_color", "stealth_green":
+		"clean", "retro_light", "ps1_soft", "ps1_classic", "dithered_horizon", "tactical_soft", \
+				"halftone_press", "tactics_classic", "weathered_stone", "foggy_survival", \
+				"tropical_color", "stealth_green":
 			return NONE
 	return presetID
 

@@ -417,6 +417,10 @@ Windows safeguards in `docs/DEVELOPMENT.md`.
   `./Godot_v4.4-stable_win64.exe --headless --disable-crash-handler --path . --quit-after 5 --rendering-method gl_compatibility --audio-driver Dummy`.
   Do not start, close, or automate an interactive Godot window for that check;
   the user owns interactive playtesting.
+- Any change to battle HUD or side-turn UI must pass
+  `scripts/hex_battle/side_turn/probe_ui_guardrails.gd` (screen margin, content
+  inset, unclipped text, game fonts; see `docs/UI_DESIGN.md` §10c). Extend its
+  states when adding a new window rather than exempting the window.
 
 **The tree you launch can contain concurrent sessions' in-flight edits.** That
 requires careful attribution, not serialization:

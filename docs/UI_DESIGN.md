@@ -1527,6 +1527,27 @@ jump.
 
 ---
 
+## 10c. Spacing and font guardrails
+
+Every player-facing HUD element follows three rules, and
+`scripts/hex_battle/side_turn/probe_ui_guardrails.gd` enforces them in each
+side-turn HUD state at 1280x720 (x2) and 1920x1080 (x3):
+
+1. **Screen margin.** A screen-docked window keeps at least
+   `NoggTheme.HEX_SCREEN_MARGIN` from every viewport edge. World-anchored cues
+   (the icon arc, forecast boxes) follow their unit and are exempt.
+2. **Content inset.** Text keeps at least `NoggTheme.CONTENT_INSET` from its
+   window's edges, and a row's text is never clipped.
+3. **Game fonts.** Labels and buttons resolve to Nogg Terminal or Nogg Herald.
+   A CanvasLayer that is not under the HUD root needs
+   `NoggTheme.build_game_theme()` on its own root, or everything in it falls
+   back to Godot's default sans. Only the Debug drawer uses the dev face.
+
+Both lengths are layout tokens that scale with the UI. Size a window from its
+text measured in its own font plus the inset, never from a fixed pixel width,
+and measure a Label only after it has entered the tree: outside it the label
+has no theme and measures in the fallback font.
+
 ## 11. Open knobs
 
 Deliberately unresolved; revisit after the first playable pass.
