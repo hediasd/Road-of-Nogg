@@ -87,10 +87,10 @@ const CROWN_RELEASE_END := 0.99
 const CROWN_DISSOLVE_START := 0.76
 const CROWN_DISSOLVE_END := 0.95
 
-## AUTHORED Spiral Invocation train. A 0.04 progress gap makes each cube use
-## almost exactly the path vacated by the one ahead without visually grouping.
-const SPIRAL_LINE_GAP := 0.04
-const SPIRAL_EXIT_WINDOW := 0.18
+## AUTHORED Spiral Invocation train. A 0.055 progress gap keeps each cube on
+## the path vacated by the one ahead while giving the procession more air.
+const SPIRAL_LINE_GAP := 0.055
+const SPIRAL_EXIT_WINDOW := 0.28
 const SPIRAL_MANIFEST_WINDOW := 0.07
 const SPIRAL_INNER_RADIUS_U := 0.34
 const SPIRAL_RADIUS_U := 0.86

@@ -228,7 +228,11 @@ func _buildLayers() -> void:
 		cube.pixel_size = Profile.SPRITE_PIXEL_SIZE_U
 		cube.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		cube.shaded = false
-		cube.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		cube.alpha_cut = (
+			SpriteBase3D.ALPHA_CUT_DISABLED
+			if _style == STYLE_SPIRAL
+			else SpriteBase3D.ALPHA_CUT_DISCARD
+		)
 		cube.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
 		cube.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		cube.extra_cull_margin = 3.0
@@ -331,16 +335,25 @@ func _applySpiral(orbit: float) -> void:
 			Profile.SPIRAL_BASE_HEIGHT_U + rise * Profile.SPIRAL_HEIGHT_U,
 			sin(angle) * radius
 		)
-		_setCubeTransform(index, position, spin, manifest * (1.0 - exit))
+		_setCubeTransform(index, position, spin, manifest, 1.0 - exit)
 
 
-func _setCubeTransform(index: int, position: Vector3, spin: float, scaleAmount: float) -> void:
+func _setCubeTransform(
+		index: int,
+		position: Vector3,
+		spin: float,
+		scaleAmount: float,
+		opacity: float = 1.0) -> void:
 	var cube: Sprite3D = _cubeInstances[index]
-	var timelineVisible := scaleAmount > 0.002
+	var safeOpacity := clampf(opacity, 0.0, 1.0)
+	var timelineVisible := scaleAmount > 0.002 and safeOpacity > 0.002
 	cube.set_meta("timeline_visible", timelineVisible)
 	cube.visible = timelineVisible and bool(cube.get_meta("layer_enabled", true))
 	cube.position = position
 	cube.frame = _frameForSpin(spin)
+	var tint := cube.modulate
+	tint.a = safeOpacity
+	cube.modulate = tint
 	var safeScale := maxf(scaleAmount, 0.001)
 	cube.scale = Vector3.ONE * safeScale
 

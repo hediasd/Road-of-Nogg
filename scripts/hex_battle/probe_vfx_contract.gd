@@ -195,6 +195,18 @@ func _checkCubePlaceholderProfiles() -> void:
 				cube.frame == synchronizedFrame,
 				"cube profile '%s' desynchronized its sprite rotation frames" % profileID
 			)
+		if profileID == CubeRitualProfileScript.SPIRAL_PROFILE_ID:
+			effect.seek_normalized(0.82)
+			var foundPartialOpacity := false
+			for child: Node in effect.get_children():
+				if child is Sprite3D:
+					var alpha := (child as Sprite3D).modulate.a
+					if alpha > 0.05 and alpha < 0.95:
+						foundPartialOpacity = true
+			_require(
+				foundPartialOpacity,
+				"Spiral Invocation has no gradual alpha dissolve during its exit"
+			)
 		effect.dispose()
 
 

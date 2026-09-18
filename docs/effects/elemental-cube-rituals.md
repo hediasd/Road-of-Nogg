@@ -70,12 +70,13 @@ tunables in the VFX debug scene.
 ## Spiral Invocation
 
 The trailing cube starts at ground height only after the cube ahead has begun
-the same path. A `0.04` normalized path gap keeps the eight cubes close to the
-vacated trail without stacking them; at the start only the first cube is
+the same path. A `0.055` normalized path gap keeps the eight cubes on the
+vacated trail with a little more air between them; at the start only the first cube is
 visible. The path grows from `0.34u` to `0.86u` radius while rising `1.55u`, and
 uses the same accelerating orbit and synchronized self-spin as Crownburst.
-Each cube dissolves only after reaching the top, preserving the ordered train
-through the exit.
+Each cube retains its full silhouette and alpha-dissolves over a `0.28`
+normalized path window only after reaching the top, preserving the ordered
+train through a softer exit.
 
 ## Routing and ownership
 
