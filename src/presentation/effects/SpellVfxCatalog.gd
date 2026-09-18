@@ -18,6 +18,10 @@ const TechniqueChargeAuraV1EffectScript = preload(
 		"res://src/presentation/effects/TechniqueChargeAuraV1Effect.gd")
 const TechniqueChargeAuraV2EffectScript = preload(
 		"res://src/presentation/effects/TechniqueChargeAuraV2Effect.gd")
+const ElementalCubeRitualEffectScript = preload(
+		"res://src/presentation/effects/ElementalCubeRitualEffect.gd")
+const ElementalCubeRitualProfileScript = preload(
+		"res://src/presentation/effects/ElementalCubeRitualProfile.gd")
 const GENERIC_AURA_PROFILE_ID := SpellCastAuraProfile.PROFILE_ID
 
 
@@ -43,6 +47,20 @@ static func entries() -> Array[Dictionary]:
 			"factory": Callable(TechniqueChargeAuraV2EffectScript, "createPlayback"),
 			"action_hold_fraction": TechniqueChargeAuraV2Profile.ACTION_HOLD_FRACTION,
 			"max_live": TechniqueChargeAuraV2Profile.MAX_LIVE_AURAS,
+		},
+		{
+			"profile_id": ElementalCubeRitualProfileScript.CROWNBURST_PROFILE_ID,
+			"display_name": "Elemental Cube Crownburst",
+			"factory": Callable(ElementalCubeRitualEffectScript, "createCrownburst"),
+			"action_hold_fraction": ElementalCubeRitualProfileScript.ACTION_HOLD_FRACTION,
+			"max_live": ElementalCubeRitualProfileScript.MAX_LIVE_RITUALS,
+		},
+		{
+			"profile_id": ElementalCubeRitualProfileScript.SPIRAL_PROFILE_ID,
+			"display_name": "Elemental Cube Spiral Invocation",
+			"factory": Callable(ElementalCubeRitualEffectScript, "createSpiral"),
+			"action_hold_fraction": ElementalCubeRitualProfileScript.ACTION_HOLD_FRACTION,
+			"max_live": ElementalCubeRitualProfileScript.MAX_LIVE_RITUALS,
 		},
 		{
 			"profile_id": IceStormProfile.PROFILE_ID,
@@ -122,6 +140,36 @@ static func entries() -> Array[Dictionary]:
 			"max_live": SolarStormProfile.MAX_LIVE_STORMS,
 		},
 	]
+
+
+## Resolves the presentation fallback for a normalized spell reference.
+## Explicit authored profiles are never replaced. Blank profiles use the cube
+## rituals so the placeholder choice remains presentation-only and does not add
+## a spell-name branch to simulation or the cast adapter.
+static func profileForSpell(reference: Dictionary) -> String:
+	var explicitProfile := str(reference.get("VFX_PROFILE", "")).strip_edges()
+	if not explicitProfile.is_empty():
+		return explicitProfile
+	return (
+		ElementalCubeRitualProfileScript.CROWNBURST_PROFILE_ID
+		if isOffensiveSpell(reference)
+		else ElementalCubeRitualProfileScript.SPIRAL_PROFILE_ID
+	)
+
+
+static func isOffensiveSpell(reference: Dictionary) -> bool:
+	if int(reference.get("DAMAGE", 0)) > 0:
+		return true
+	for rawLine in reference.get("DAMAGE_LINES", []):
+		if rawLine is Dictionary and int(rawLine.get("damage", 0)) > 0:
+			return true
+	if not str(reference.get("INFLICTS_STATUS", "")).strip_edges().is_empty():
+		return true
+	for rawEffect in reference.get("EFFECTS", []):
+		if rawEffect is Dictionary and bool(rawEffect.get("NEGATIVE", false)):
+			return true
+	var targetType := str(reference.get("TARGET_TYPE", "single")).to_lower()
+	return targetType != "self" and not bool(reference.get("HEALS", false))
 
 
 static func resolve(profile_id: String) -> Dictionary:

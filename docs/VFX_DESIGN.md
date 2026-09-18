@@ -35,7 +35,8 @@ CombatResolver    resolves ordered target IDs and the live spell footprint,
         │         then emits spell_cast_started for every cast
         │
 GodotVisualAdapter._on_spell_cast_started
-        │         reads only VFX_PROFILE from the catalog; copies the event's
+        │         preserves an explicit VFX_PROFILE, otherwise resolves the
+        │         spell role to an elemental-cube placeholder; copies the event's
         │         resolved radius, shape, and event-time source/target snapshot
         │         onto a CAST_AREA VisualAction; derives a deterministic seed
         │
@@ -53,8 +54,11 @@ VfxPlayback       the effect itself
 it, to `VisualAction`, or to the event layer. If a new effect seems to need one,
 that is a signal the contract is being worked around.
 
-`VFX_PROFILE` is presentation metadata with no gameplay effect. An empty or
-unrecognized value falls back to the generic aura. See
+`VFX_PROFILE` is presentation metadata with no gameplay effect. An explicit
+value always wins. In hex battle, an empty value resolves through
+`SpellVfxCatalog.profileForSpell()`: offensive spells use elemental-cube
+Crownburst and all others use Spiral Invocation. An unrecognized explicit
+value still falls back to the generic aura. See
 [`SPELL_CATALOG_SCHEMA.md`](./SPELL_CATALOG_SCHEMA.md).
 
 **The cast event owns the resolved footprint.** Gameplay uses the mutable

@@ -7,6 +7,8 @@ const AdapterScript = preload("res://src/presentation/battle/effects/HexVfxFootp
 const BattleMapDefinitionScript = preload("res://src/entities/BattleMapDefinition.gd")
 const HexGridScript = preload("res://src/board/HexGrid.gd")
 const VfxTexturesScript = preload("res://src/presentation/effects/VfxTextures.gd")
+const CubeRitualProfileScript = preload(
+	"res://src/presentation/effects/ElementalCubeRitualProfile.gd")
 
 const HEX_EFFECT_DIR := "res://src/presentation/battle/effects"
 const DONOR_DIR := "res://src/presentation/effects"
@@ -31,6 +33,7 @@ func _init() -> void:
 func _run() -> void:
 	_checkCatalogCoverage()
 	_checkClassificationMatchesTheDonors()
+	_checkCubePlaceholderProfiles()
 	_checkFootprintOrderingAndBounds()
 	_checkEmptyCellsAreInTheBounds()
 	_checkGroundWashSilhouette()
@@ -123,6 +126,63 @@ func _checkClassificationMatchesTheDonors() -> void:
 			"profile '%s' is classified %s but its donor %s setFootprint" % [
 				profileID, str(row["binding"]), "declares" if declaresFootprint else "does not declare"
 			])
+
+
+## Blank spell profiles route by role without replacing authored spell-specific
+## effects. Both cube rituals stay body-bound and anchor on the caster snapshot.
+func _checkCubePlaceholderProfiles() -> void:
+	var offensive := {
+		"DAMAGE": 3, "HEALS": false, "TARGET_TYPE": "single", "VFX_PROFILE": "",
+	}
+	var support := {
+		"DAMAGE": 0, "HEALS": false, "TARGET_TYPE": "self", "VFX_PROFILE": "",
+	}
+	var authored := offensive.duplicate()
+	authored["VFX_PROFILE"] = "ice_area_storm"
+	_require(
+		SpellVfxCatalog.profileForSpell(offensive)
+			== CubeRitualProfileScript.CROWNBURST_PROFILE_ID,
+		"blank offensive spells do not resolve to Crownburst"
+	)
+	_require(
+		SpellVfxCatalog.profileForSpell(support)
+			== CubeRitualProfileScript.SPIRAL_PROFILE_ID,
+		"blank support spells do not resolve to Spiral Invocation"
+	)
+	_require(
+		SpellVfxCatalog.profileForSpell(authored) == "ice_area_storm",
+		"an authored spell profile was replaced by a cube placeholder"
+	)
+
+	var context := VfxCastContext.new()
+	context.source_world_position = Vector3(3.0, 0.5, -2.0)
+	context.impact_world_position = Vector3(-4.0, 0.0, 6.0)
+	for profileID: String in [
+		CubeRitualProfileScript.CROWNBURST_PROFILE_ID,
+		CubeRitualProfileScript.SPIRAL_PROFILE_ID,
+	]:
+		var effect := BridgeScript.createPlayback(
+			profileID, _root, context.impact_world_position, Color.WHITE, null, context)
+		_require(effect != null, "cube profile '%s' did not build" % profileID)
+		if effect == null:
+			continue
+		_require(
+			effect.global_position.is_equal_approx(context.source_world_position),
+			"cube profile '%s' stayed at impact instead of anchoring on the caster" % profileID
+		)
+		effect.play(7, VfxPlayback.MODE_REFERENCE)
+		if profileID == CubeRitualProfileScript.SPIRAL_PROFILE_ID:
+			effect.seek_normalized(0.03)
+			_require(
+				effect.get_live_instance_count() <= 1,
+				"Spiral Invocation starts with more than its first ground cube"
+			)
+		effect.seek_normalized(0.50)
+		_require(
+			effect.get_live_instance_count() == CubeRitualProfileScript.CUBE_COUNT,
+			"cube profile '%s' does not hold all eight cubes mid-ritual" % profileID
+		)
+		effect.dispose()
 
 
 ## The resolver's order is the footprint's order, and the bounds cover the cells' corners rather

@@ -34,6 +34,7 @@ const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const UnitOutlineShader = preload("res://src/presentation/battle/shaders/HexUnitOutline.gdshader")
 const UnitSpentShader = preload("res://src/presentation/battle/shaders/HexUnitSpent.gdshader")
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
+const SpellVfxCatalogScript = preload("res://src/presentation/effects/SpellVfxCatalog.gd")
 const VfxCastContextScript = preload("res://src/presentation/effects/VfxCastContext.gd")
 const HexGridScript = preload("res://src/board/HexGrid.gd")
 
@@ -953,7 +954,7 @@ func _on_spell_cast_started(
 		"spell": spellName,
 		"source_world": worldPositionOf(casterCell),
 		"impact_world": impactWorld,
-		"profile": str(reference.get("VFX_PROFILE", "")),
+		"profile": SpellVfxCatalogScript.profileForSpell(reference),
 		"element": element,
 		"area_shape": areaShape,
 		"affected_cells": resolvedAffectedCells.duplicate(true),

@@ -24,7 +24,8 @@ to 35% of a document that calls itself conventions and authoring workflow.
 
 | Page | Profiles | Status |
 | --- | --- | --- |
-| [Generic spell-cast aura](./spell-cast-aura.md) | `spell_cast_aura` | The default carrier a spell falls back to when it names no other profile |
+| [Generic spell-cast aura](./spell-cast-aura.md) | `spell_cast_aura` | Catalog safety fallback for an unrecognized profile id |
+| [Elemental cube rituals](./elemental-cube-rituals.md) | `elemental_cube_crownburst`, `elemental_cube_spiral` | Default cast language: Crownburst for offensive spells, Spiral Invocation for support and utility |
 | [Aurora Veil](./aurora-veil.md) | `aurora_veil` | Carried by the Aurora Veil spell. One iridescent curtain panel; the author-fresh half of the fork rule |
 | [Solar Storm](./solar-storm.md) | `solar_storm` (+ five ladder rungs) | Carried by the Solar Storm spell. A coronagraph panel: occulter, streams, ejection front, melt |
 | [Technique charge aura](./technique-charge-aura.md) | `technique_charge_aura_v1`, `technique_charge_aura_v2` | Debug-only, both versions live. v1 rises and settles; v2 spins, churns and disperses |
