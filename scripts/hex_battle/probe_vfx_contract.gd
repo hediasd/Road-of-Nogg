@@ -197,15 +197,24 @@ func _checkCubePlaceholderProfiles() -> void:
 			)
 		if profileID == CubeRitualProfileScript.SPIRAL_PROFILE_ID:
 			effect.seek_normalized(0.82)
-			var foundPartialOpacity := false
+			var foundShrinkingRelease := false
 			for child: Node in effect.get_children():
 				if child is Sprite3D:
-					var alpha := (child as Sprite3D).modulate.a
-					if alpha > 0.05 and alpha < 0.95:
-						foundPartialOpacity = true
+					var cube := child as Sprite3D
+					_require(
+						is_equal_approx(cube.modulate.a, 1.0),
+						"Spiral Invocation exit faded alpha instead of using Crownburst's release"
+					)
+					var horizontalRadius := Vector2(cube.position.x, cube.position.z).length()
+					if (
+						cube.scale.x > 0.05
+						and cube.scale.x < 0.95
+						and horizontalRadius > CubeRitualProfileScript.SPIRAL_RADIUS_U + 0.05
+					):
+						foundShrinkingRelease = true
 			_require(
-				foundPartialOpacity,
-				"Spiral Invocation has no gradual alpha dissolve during its exit"
+				foundShrinkingRelease,
+				"Spiral Invocation has no outward shrinking release during its exit"
 			)
 		effect.dispose()
 

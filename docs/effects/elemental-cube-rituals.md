@@ -73,10 +73,11 @@ The trailing cube starts at ground height only after the cube ahead has begun
 the same path. A `0.055` normalized path gap keeps the eight cubes on the
 vacated trail with a little more air between them; at the start only the first cube is
 visible. The path grows from `0.34u` to `0.86u` radius while rising `1.55u`, and
-uses the same accelerating orbit and synchronized self-spin as Crownburst.
-Each cube retains its full silhouette and alpha-dissolves over a `0.28`
-normalized path window only after reaching the top, preserving the ordered
-train through a softer exit.
+uses the same acceleration as Crownburst. Spiral coils counter-clockwise while
+all eight cubes self-spin clockwise in lockstep, creating a woven motion
+without introducing independent rotations. After reaching the top, each cube
+uses Crownburst's release language over a `0.28` normalized path window: it
+peels radially outward, falls `0.50u`, and shrinks away at full opacity.
 
 ## Routing and ownership
 
