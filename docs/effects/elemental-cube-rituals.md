@@ -16,7 +16,7 @@ The shared VFX contract and authoring conventions live in
 
 ## Shared visual language
 
-Each ritual builds eight `Sprite3D` cubes at `0.24u` apparent width. Rotation
+Each ritual builds eight `Sprite3D` cubes at `0.30u` apparent width. Rotation
 frame zero is the exact 32x32 Wind cube from `element cubes.png`, stored as a
 pixel-role map so all ten accepted palettes retain the same source silhouette,
 one-pixel seams, corner accents, and face proportions. Eleven generated frames

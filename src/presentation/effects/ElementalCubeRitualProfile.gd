@@ -22,7 +22,7 @@ const ACTION_HOLD_FRACTION := 0.76
 ## AUTHORED shared carrier and motion values. The four motion values are the
 ## accepted maximum slider settings from the sketch.
 const CUBE_COUNT := 8
-const CUBE_SIZE_U := 0.24
+const CUBE_SIZE_U := 0.30
 const SPRITE_FRAME_SIZE_PX := 32
 const SPRITE_ROTATION_FRAMES := 12
 const SPRITE_PIXEL_SIZE_U := CUBE_SIZE_U / float(SPRITE_FRAME_SIZE_PX)
