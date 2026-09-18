@@ -314,25 +314,24 @@ func _applySpiral(orbit: float) -> void:
 	var exitWindow := Profile.SPIRAL_EXIT_WINDOW / _dissipation
 	var lineSpan := lineGap * float(Profile.CUBE_COUNT - 1)
 	var travel := orbit * (1.0 + lineSpan + exitWindow)
-	var spin := orbit * TAU * _spinTurns
 	for index in range(_cubeInstances.size()):
 		var pathProgress := travel - float(Profile.CUBE_COUNT - 1 - index) * lineGap
 		var rise := clampf(pathProgress, 0.0, 1.0)
 		var manifest := _range(0.0, Profile.SPIRAL_MANIFEST_WINDOW, pathProgress)
 		var exit := _range(1.0, 1.0 + exitWindow, pathProgress)
-		# Spiral coils opposite to its synchronized self-spin. This distinguishes
-		# the invocation from Crownburst without desynchronizing cube orientation.
-		var angle := -pathProgress * TAU * _orbitTurns
+		var angle := pathProgress * TAU * _orbitTurns
+		# Each cube manifests in frame zero's corner-forward diamond pose, then
+		# begins the same vertical-axis turn after its own emergence completes.
+		var spinProgress := maxf(pathProgress - Profile.SPIRAL_MANIFEST_WINDOW, 0.0)
+		var spin := spinProgress * TAU * _spinTurns
 		var radius := lerpf(
 			Profile.SPIRAL_INNER_RADIUS_U,
 			Profile.SPIRAL_RADIUS_U,
 			_range(0.0, Profile.SPIRAL_RADIUS_SETTLE_PROGRESS, pathProgress)
-		) + exit * Profile.CROWN_RELEASE_DISTANCE_U
+		)
 		var position := Vector3(
 			cos(angle) * radius,
-			Profile.SPIRAL_BASE_HEIGHT_U
-				+ rise * Profile.SPIRAL_HEIGHT_U
-				- exit * Profile.CROWN_FALL_DISTANCE_U,
+			Profile.SPIRAL_BASE_HEIGHT_U + rise * Profile.SPIRAL_HEIGHT_U,
 			sin(angle) * radius
 		)
 		_setCubeTransform(

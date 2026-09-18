@@ -179,25 +179,41 @@ func _checkCubePlaceholderProfiles() -> void:
 				effect.get_live_instance_count() <= 1,
 				"Spiral Invocation starts with more than its first ground cube"
 			)
+			for child: Node in effect.get_children():
+				if child is Sprite3D and child.visible:
+					_require(
+						(child as Sprite3D).frame == 0,
+						"Spiral Invocation did not manifest in the corner-forward source pose"
+					)
 		effect.seek_normalized(0.50)
 		_require(
 			effect.get_live_instance_count() == CubeRitualProfileScript.CUBE_COUNT,
 			"cube profile '%s' does not hold all eight cubes mid-ritual" % profileID
 		)
-		var synchronizedFrame := -1
-		for child: Node in effect.get_children():
-			if child is not Sprite3D:
-				continue
-			var cube := child as Sprite3D
-			if synchronizedFrame < 0:
-				synchronizedFrame = cube.frame
+		if profileID == CubeRitualProfileScript.CROWNBURST_PROFILE_ID:
+			var synchronizedFrame := -1
+			for child: Node in effect.get_children():
+				if child is not Sprite3D:
+					continue
+				var cube := child as Sprite3D
+				if synchronizedFrame < 0:
+					synchronizedFrame = cube.frame
+				_require(
+					cube.frame == synchronizedFrame,
+					"cube profile '%s' desynchronized its sprite rotation frames" % profileID
+				)
+		else:
+			var spiralFrames := {}
+			for child: Node in effect.get_children():
+				if child is Sprite3D:
+					spiralFrames[(child as Sprite3D).frame] = true
 			_require(
-				cube.frame == synchronizedFrame,
-				"cube profile '%s' desynchronized its sprite rotation frames" % profileID
+				spiralFrames.size() > 1,
+				"Spiral Invocation did not phase vertical spins along its ordered train"
 			)
 		if profileID == CubeRitualProfileScript.SPIRAL_PROFILE_ID:
 			effect.seek_normalized(0.82)
-			var foundShrinkingRelease := false
+			var foundShrinkingInSpiral := false
 			for child: Node in effect.get_children():
 				if child is Sprite3D:
 					var cube := child as Sprite3D
@@ -206,15 +222,18 @@ func _checkCubePlaceholderProfiles() -> void:
 						"Spiral Invocation exit faded alpha instead of using Crownburst's release"
 					)
 					var horizontalRadius := Vector2(cube.position.x, cube.position.z).length()
+					_require(
+						horizontalRadius <= CubeRitualProfileScript.SPIRAL_RADIUS_U + 0.01,
+						"Spiral Invocation jumped outward during its disappearance"
+					)
 					if (
 						cube.scale.x > 0.05
 						and cube.scale.x < 0.95
-						and horizontalRadius > CubeRitualProfileScript.SPIRAL_RADIUS_U + 0.05
 					):
-						foundShrinkingRelease = true
+						foundShrinkingInSpiral = true
 			_require(
-				foundShrinkingRelease,
-				"Spiral Invocation has no outward shrinking release during its exit"
+				foundShrinkingInSpiral,
+				"Spiral Invocation has no Crownburst-style shrinking disappearance"
 			)
 		effect.dispose()
 

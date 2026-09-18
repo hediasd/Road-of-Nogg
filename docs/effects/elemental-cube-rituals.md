@@ -73,11 +73,13 @@ The trailing cube starts at ground height only after the cube ahead has begun
 the same path. A `0.055` normalized path gap keeps the eight cubes on the
 vacated trail with a little more air between them; at the start only the first cube is
 visible. The path grows from `0.34u` to `0.86u` radius while rising `1.55u`, and
-uses the same acceleration as Crownburst. Spiral coils counter-clockwise while
-all eight cubes self-spin clockwise in lockstep, creating a woven motion
-without introducing independent rotations. After reaching the top, each cube
-uses Crownburst's release language over a `0.28` normalized path window: it
-peels radially outward, falls `0.50u`, and shrinks away at full opacity.
+uses the same acceleration as Crownburst. Every cube manifests in the exact
+corner-forward source pose, with its top and bottom points on the vertical
+axis. Once its emergence completes, it begins the same vertical-axis spin as
+the cube ahead, separated by the train's fixed phase gap. After reaching the
+top, each cube remains on the helix and uses Crownburst's opaque shrinking
+disappearance over a `0.28` normalized path window; it neither launches
+outward nor falls.
 
 ## Routing and ownership
 
