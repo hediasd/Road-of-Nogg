@@ -253,14 +253,21 @@ func _checkCubePixelCarrier(effect: VfxPlayback, profileID: String) -> void:
 	)
 	for frameIndex in range(1, CubeRitualProfileScript.SPRITE_ROTATION_FRAMES):
 		var opaquePixels := 0
+		var lowestOpaqueRow := -1
 		var offsetX := frameIndex * CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX
 		for y in range(CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX):
 			for x in range(CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX):
 				if atlas.get_pixel(offsetX + x, y).a > 0.0:
 					opaquePixels += 1
+					lowestOpaqueRow = maxi(lowestOpaqueRow, y)
 		_require(
 			opaquePixels > 300,
 			"cube profile '%s' rotation frame %d is empty or malformed"
+				% [profileID, frameIndex]
+		)
+		_require(
+			lowestOpaqueRow >= 28,
+			"cube profile '%s' rotation frame %d lost its lower faces"
 				% [profileID, frameIndex]
 		)
 

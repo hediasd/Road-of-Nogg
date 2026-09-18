@@ -469,7 +469,7 @@ static func _rotatePixelVertex(vertex: Vector3, angle: float) -> Vector3:
 static func _projectPixelVertex(vertex: Vector3) -> Vector2:
 	return Vector2(
 		15.5 + (vertex.x - vertex.z) * 15.5,
-		15.5 + (vertex.x + vertex.z) * 7.0 - vertex.y * 14.0
+		15.5 - (vertex.x + vertex.z) * 7.0 - vertex.y * 14.0
 	)
 
 
