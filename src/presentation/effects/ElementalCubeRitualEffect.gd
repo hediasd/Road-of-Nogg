@@ -1,7 +1,7 @@
 ## Source-bound elemental-cube channeling used as the generic spell fallback.
 ##
 ## The two catalog profiles share one carrier because they have the same layer,
-## mesh, material, palette and lifecycle; only their analytic choreography
+## pixel atlas, sprite treatment, palette and lifecycle; only their analytic choreography
 ## differs. Motion is evaluated directly from normalized playback time, so
 ## pause, scrub, replay and reverse seeking all reproduce the same frame.
 
@@ -9,7 +9,6 @@ class_name ElementalCubeRitualEffect
 extends "res://src/presentation/effects/VfxPlayback.gd"
 
 const Profile = preload("res://src/presentation/effects/ElementalCubeRitualProfile.gd")
-const _CUBE_SHADER = preload("res://assets/shaders/effects/elemental_cube_ritual.gdshader")
 
 const STYLE_CROWNBURST := "crownburst"
 const STYLE_SPIRAL := "spiral"
@@ -17,9 +16,8 @@ const LAYER_CUBES := "elemental_cubes"
 
 var _style := STYLE_CROWNBURST
 var _elementColor := Color.WHITE
-var _cubeInstances: Array[MeshInstance3D] = []
-var _cubeMesh: ArrayMesh
-var _cubeMaterial: ShaderMaterial
+var _cubeInstances: Array[Sprite3D] = []
+var _cubeTexture: ImageTexture
 var _elapsedTime := 0.0
 var _totalDuration := Profile.BATTLE_DURATION_SECONDS
 var _playbackScale := 1.0
@@ -159,7 +157,7 @@ func set_layer_visible(layerName: String, visible: bool) -> void:
 	if layerName != LAYER_CUBES:
 		push_warning("Unknown elemental cube ritual layer: %s" % layerName)
 		return
-	for cube: MeshInstance3D in _cubeInstances:
+	for cube: Sprite3D in _cubeInstances:
 		cube.set_meta("layer_enabled", visible)
 		cube.visible = visible and bool(cube.get_meta("timeline_visible", false))
 
@@ -170,7 +168,7 @@ func get_live_particle_count() -> int:
 
 func get_live_instance_count() -> int:
 	var total := 0
-	for cube: MeshInstance3D in _cubeInstances:
+	for cube: Sprite3D in _cubeInstances:
 		if cube.visible:
 			total += 1
 	return total
@@ -219,24 +217,20 @@ func _resolveTuning() -> void:
 
 
 func _buildLayers() -> void:
-	_cubeMesh = _buildBeveledCubeMesh()
-	_cubeMaterial = ShaderMaterial.new()
-	_cubeMaterial.shader = _CUBE_SHADER
 	var palette: Array[Color] = Profile.paletteFor(_elementColor)
-	_cubeMaterial.set_shader_parameter("direct_color", palette[0])
-	_cubeMaterial.set_shader_parameter("mid_color", palette[1])
-	_cubeMaterial.set_shader_parameter("shadow_color", palette[2])
-	_cubeMaterial.set_shader_parameter("light_direction_world", Profile.LIGHT_DIRECTION_WORLD)
-	_cubeMaterial.set_shader_parameter("shadow_stop", Profile.SHADOW_STOP)
-	_cubeMaterial.set_shader_parameter("mid_stop", Profile.MID_STOP)
-	_cubeMaterial.set_shader_parameter("direct_stop", Profile.DIRECT_STOP)
-	_cubeMaterial.set_shader_parameter("edge_polish", Profile.EDGE_POLISH)
+	_cubeTexture = _buildPixelAtlas(palette)
 
 	for index in range(Profile.CUBE_COUNT):
-		var cube := MeshInstance3D.new()
+		var cube := Sprite3D.new()
 		cube.name = "Cube%02d" % index
-		cube.mesh = _cubeMesh
-		cube.material_override = _cubeMaterial
+		cube.texture = _cubeTexture
+		cube.hframes = Profile.SPRITE_ROTATION_FRAMES
+		cube.pixel_size = Profile.SPRITE_PIXEL_SIZE_U
+		cube.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		cube.shaded = false
+		cube.alpha_cut = SpriteBase3D.ALPHA_CUT_DISCARD
+		cube.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+		cube.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		cube.extra_cull_margin = 3.0
 		cube.set_meta("layer_enabled", true)
 		cube.set_meta("timeline_visible", false)
@@ -341,12 +335,12 @@ func _applySpiral(orbit: float) -> void:
 
 
 func _setCubeTransform(index: int, position: Vector3, spin: float, scaleAmount: float) -> void:
-	var cube := _cubeInstances[index]
+	var cube: Sprite3D = _cubeInstances[index]
 	var timelineVisible := scaleAmount > 0.002
 	cube.set_meta("timeline_visible", timelineVisible)
 	cube.visible = timelineVisible and bool(cube.get_meta("layer_enabled", true))
 	cube.position = position
-	cube.rotation = Vector3(0.0, spin, 0.0)
+	cube.frame = _frameForSpin(spin)
 	var safeScale := maxf(scaleAmount, 0.001)
 	cube.scale = Vector3.ONE * safeScale
 
@@ -370,55 +364,154 @@ static func _range(start: float, finish: float, value: float) -> float:
 	return normalized * normalized * (3.0 - 2.0 * normalized)
 
 
-static func _buildBeveledCubeMesh() -> ArrayMesh:
-	var surface := SurfaceTool.new()
-	surface.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var half := Profile.CUBE_SIZE_U * 0.5
-	var inner := half - Profile.BEVEL_RADIUS_U
-	var coordinates: Array[float] = [-half, -inner, 0.0, inner, half]
-	var faces := [
-		[Vector3.RIGHT, Vector3.FORWARD, Vector3.UP],
-		[Vector3.LEFT, Vector3.BACK, Vector3.UP],
-		[Vector3.UP, Vector3.RIGHT, Vector3.BACK],
-		[Vector3.DOWN, Vector3.RIGHT, Vector3.FORWARD],
-		[Vector3.FORWARD, Vector3.LEFT, Vector3.UP],
-		[Vector3.BACK, Vector3.RIGHT, Vector3.UP],
-	]
-	for face: Array in faces:
-		var normal: Vector3 = face[0]
-		var axisU: Vector3 = face[1]
-		var axisV: Vector3 = face[2]
-		for row in range(coordinates.size() - 1):
-			for column in range(coordinates.size() - 1):
-				var raw00: Vector3 = normal * half + axisU * coordinates[column] \
-					+ axisV * coordinates[row]
-				var raw10: Vector3 = normal * half + axisU * coordinates[column + 1] \
-					+ axisV * coordinates[row]
-				var raw11: Vector3 = normal * half + axisU * coordinates[column + 1] \
-					+ axisV * coordinates[row + 1]
-				var raw01: Vector3 = normal * half + axisU * coordinates[column] \
-					+ axisV * coordinates[row + 1]
-				_addRoundedTriangle(surface, raw00, raw10, raw11, inner)
-				_addRoundedTriangle(surface, raw00, raw11, raw01, inner)
-	return surface.commit()
+static func _frameForSpin(spin: float) -> int:
+	var quarterTurn := PI * 0.5
+	var quarterProgress := fposmod(spin, quarterTurn) / quarterTurn
+	return mini(
+		int(floor(quarterProgress * float(Profile.SPRITE_ROTATION_FRAMES))),
+		Profile.SPRITE_ROTATION_FRAMES - 1
+	)
 
 
-static func _addRoundedTriangle(
-		surface: SurfaceTool,
-		rawA: Vector3,
-		rawB: Vector3,
-		rawC: Vector3,
-		inner: float) -> void:
-	for raw: Vector3 in [rawA, rawB, rawC]:
-		var core := Vector3(
-			clampf(raw.x, -inner, inner),
-			clampf(raw.y, -inner, inner),
-			clampf(raw.z, -inner, inner)
+static func _buildPixelAtlas(palette: Array[Color]) -> ImageTexture:
+	var frameSize := Profile.SPRITE_FRAME_SIZE_PX
+	var frameCount := Profile.SPRITE_ROTATION_FRAMES
+	var atlas := Image.create(frameSize * frameCount, frameSize, false, Image.FORMAT_RGBA8)
+	atlas.fill(Color.TRANSPARENT)
+	_paintSourceFrame(atlas, palette)
+	for frameIndex in range(1, frameCount):
+		_paintRotationFrame(atlas, frameIndex, palette)
+	return ImageTexture.create_from_image(atlas)
+
+
+static func _paintSourceFrame(atlas: Image, palette: Array[Color]) -> void:
+	assert(
+		Profile.SOURCE_FRAME_ROWS.size() == Profile.SPRITE_FRAME_SIZE_PX,
+		"Elemental cube source frame must contain exactly 32 rows."
+	)
+	for y in range(Profile.SOURCE_FRAME_ROWS.size()):
+		var row: String = Profile.SOURCE_FRAME_ROWS[y]
+		assert(
+			row.length() == Profile.SPRITE_FRAME_SIZE_PX,
+			"Elemental cube source frame rows must be exactly 32 pixels wide."
 		)
-		var offset := raw - core
-		var normal := offset.normalized()
-		surface.set_normal(normal)
-		surface.add_vertex(core + normal * Profile.BEVEL_RADIUS_U)
+		for x in range(row.length()):
+			var role := row.substr(x, 1)
+			match role:
+				"D": atlas.set_pixel(x, y, palette[0])
+				"M": atlas.set_pixel(x, y, palette[1])
+				"S": atlas.set_pixel(x, y, palette[2])
+
+
+static func _paintRotationFrame(
+		atlas: Image,
+		frameIndex: int,
+		palette: Array[Color]) -> void:
+	var angle := (
+		float(frameIndex) / float(Profile.SPRITE_ROTATION_FRAMES) * PI * 0.5
+	)
+	var vertices: Array[Vector3] = [
+		Vector3(-0.5, -0.5, -0.5), Vector3(0.5, -0.5, -0.5),
+		Vector3(0.5, 0.5, -0.5), Vector3(-0.5, 0.5, -0.5),
+		Vector3(-0.5, -0.5, 0.5), Vector3(0.5, -0.5, 0.5),
+		Vector3(0.5, 0.5, 0.5), Vector3(-0.5, 0.5, 0.5),
+	]
+	for vertexIndex in range(vertices.size()):
+		vertices[vertexIndex] = _rotatePixelVertex(vertices[vertexIndex], angle)
+	var projected: Array[Vector2] = []
+	for vertex: Vector3 in vertices:
+		projected.append(_projectPixelVertex(vertex))
+
+	var faceSpecs: Array[Dictionary] = [
+		{"indices": PackedInt32Array([3, 2, 6, 7]), "normal": Vector3.UP},
+		{"indices": PackedInt32Array([1, 5, 6, 2]), "normal": Vector3.RIGHT},
+		{"indices": PackedInt32Array([0, 3, 7, 4]), "normal": Vector3.LEFT},
+		{"indices": PackedInt32Array([4, 7, 6, 5]), "normal": Vector3.BACK},
+		{"indices": PackedInt32Array([0, 1, 2, 3]), "normal": Vector3.FORWARD},
+	]
+	var cameraDirection := Vector3(-1.0, 1.0, -1.0).normalized()
+	var topFace: Array[Vector2] = []
+	var atlasOffsetX := frameIndex * Profile.SPRITE_FRAME_SIZE_PX
+	for faceSpec: Dictionary in faceSpecs:
+		var normal: Vector3 = _rotatePixelVertex(faceSpec["normal"], angle)
+		if normal.dot(cameraDirection) <= 0.001:
+			continue
+		var points: Array[Vector2] = []
+		for vertexIndex: int in faceSpec["indices"]:
+			points.append(projected[vertexIndex])
+		if normal.y > 0.5:
+			topFace = points
+			continue
+		var centroidX := 0.0
+		for point: Vector2 in points:
+			centroidX += point.x
+		centroidX /= float(points.size())
+		_fillPixelPolygon(
+			atlas,
+			atlasOffsetX,
+			points,
+			palette[2] if centroidX < 15.5 else palette[1]
+		)
+	if not topFace.is_empty():
+		_fillPixelPolygon(atlas, atlasOffsetX, topFace, palette[0])
+
+
+static func _rotatePixelVertex(vertex: Vector3, angle: float) -> Vector3:
+	var cosine := cos(angle)
+	var sine := sin(angle)
+	return Vector3(
+		vertex.x * cosine + vertex.z * sine,
+		vertex.y,
+		-vertex.x * sine + vertex.z * cosine
+	)
+
+
+static func _projectPixelVertex(vertex: Vector3) -> Vector2:
+	return Vector2(
+		15.5 + (vertex.x - vertex.z) * 15.5,
+		15.5 + (vertex.x + vertex.z) * 7.0 - vertex.y * 14.0
+	)
+
+
+static func _fillPixelPolygon(
+		atlas: Image,
+		atlasOffsetX: int,
+		points: Array[Vector2],
+		color: Color) -> void:
+	var minimumX := Profile.SPRITE_FRAME_SIZE_PX - 1
+	var maximumX := 0
+	var minimumY := Profile.SPRITE_FRAME_SIZE_PX - 1
+	var maximumY := 0
+	for point: Vector2 in points:
+		minimumX = mini(minimumX, floori(point.x))
+		maximumX = maxi(maximumX, ceili(point.x))
+		minimumY = mini(minimumY, floori(point.y))
+		maximumY = maxi(maximumY, ceili(point.y))
+	minimumX = clampi(minimumX, 0, Profile.SPRITE_FRAME_SIZE_PX - 1)
+	maximumX = clampi(maximumX, 0, Profile.SPRITE_FRAME_SIZE_PX - 1)
+	minimumY = clampi(minimumY, 0, Profile.SPRITE_FRAME_SIZE_PX - 1)
+	maximumY = clampi(maximumY, 0, Profile.SPRITE_FRAME_SIZE_PX - 1)
+	for y in range(minimumY, maximumY + 1):
+		for x in range(minimumX, maximumX + 1):
+			if _pointInsidePolygon(Vector2(float(x) + 0.5, float(y) + 0.5), points):
+				atlas.set_pixel(atlasOffsetX + x, y, color)
+
+
+static func _pointInsidePolygon(point: Vector2, polygon: Array[Vector2]) -> bool:
+	var inside := false
+	var previous := polygon.size() - 1
+	for current in range(polygon.size()):
+		var a: Vector2 = polygon[current]
+		var b: Vector2 = polygon[previous]
+		var crosses := (a.y > point.y) != (b.y > point.y)
+		if crosses:
+			var boundaryX := (
+				(b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x
+			)
+			if point.x < boundaryX:
+				inside = not inside
+		previous = current
+	return inside
 
 
 static func _countNodes(node: Node) -> int:

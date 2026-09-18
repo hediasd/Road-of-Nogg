@@ -1,8 +1,8 @@
 # Elemental cube rituals
 
 Two source-bound spell placeholders express power channeled from the elemental
-realms. They use the same small, softly beveled cubes, palette system, shader,
-and lifecycle; choreography distinguishes the cast role. Crownburst is the
+realms. They use the same exact-source pixel cube, palette system, generated
+rotation atlas, and lifecycle; choreography distinguishes the cast role. Crownburst is the
 offensive placeholder. Spiral Invocation is the support and utility
 placeholder. A spell with an explicit `VFX_PROFILE` keeps its authored effect.
 
@@ -16,26 +16,31 @@ The shared VFX contract and authoring conventions live in
 
 ## Shared visual language
 
-Each ritual builds eight `0.24u` cubes. A `0.025u` geometric bevel removes the
-pointed silhouette; a restrained `0.075` Fresnel contribution supplies the
-slight polished edge without turning the cubes metallic or glossy. All eight
-instances share one generated mesh and one shader material. The effect owns no
-particles, lights, or timers and is capped at nine nodes, eight geometry
-instances, and eight draw calls.
+Each ritual builds eight `Sprite3D` cubes at `0.24u` apparent width. Rotation
+frame zero is the exact 32x32 Wind cube from `element cubes.png`, stored as a
+pixel-role map so all ten accepted palettes retain the same source silhouette,
+one-pixel seams, corner accents, and face proportions. Eleven generated frames
+complete one 90-degree turn; cubic symmetry repeats that quarter-turn for the
+full spin. Every frame is hard-rasterized without antialiasing and uses only
+the palette's direct, middle, and shadow colors.
+
+All eight instances share one per-effect `ImageTexture` atlas, use nearest
+filtering, remain camera-facing, and cast no shadows. The effect owns no
+particles, lights, timers, custom material, or per-cube texture and is capped
+at nine nodes, eight geometry instances, and eight draw calls.
 
 The cubes never drift independently. Their angular speed and self-spin are
-derived from one analytic normalized clock, every cube has the same local
-rotation at a given instant, and orbital spacing is mathematical rather than
+derived from one analytic normalized clock, every cube selects the same atlas
+frame at a given instant, and orbital spacing is mathematical rather than
 spring- or noise-driven. Seeking, replaying, pausing, and changing playback
 speed therefore cannot desynchronize the formation.
 
-The shader is unshaded and evaluates a fixed virtual key in world space. It
-uses two `smoothstep` blends rather than thresholds, so a rotating face moves
-continuously from shadow to middle to direct color instead of jumping between
-swatches. The key points from above and slightly camera-left; that makes a
-direct, middle, and shadow-facing surface visible together at the normal battle
-camera more often. Rounded bevel normals carry a narrow blend of the adjacent
-face shades across each edge.
+The sprites deliberately do not respond to scene lights: the original's top,
+middle, and shadow arrangement is part of the pixel drawing. Intermediate
+rotation frames keep those three screen-facing roles stable, avoiding the
+erratic face-color swaps that occurred under thresholded realtime lighting.
+This trades physically correct light response for exact palette discipline and
+the supplied artwork's identity at battle scale.
 
 | element | direct | middle | shadow |
 | --- | --- | --- | --- |

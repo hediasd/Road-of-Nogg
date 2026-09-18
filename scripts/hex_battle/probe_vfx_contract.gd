@@ -162,10 +162,12 @@ func _checkCubePlaceholderProfiles() -> void:
 		CubeRitualProfileScript.SPIRAL_PROFILE_ID,
 	]:
 		var effect := BridgeScript.createPlayback(
-			profileID, _root, context.impact_world_position, Color.WHITE, null, context)
+			profileID, _root, context.impact_world_position,
+			Color(0.55, 0.9, 0.78), null, context)
 		_require(effect != null, "cube profile '%s' did not build" % profileID)
 		if effect == null:
 			continue
+		_checkCubePixelCarrier(effect, profileID)
 		_require(
 			effect.global_position.is_equal_approx(context.source_world_position),
 			"cube profile '%s' stayed at impact instead of anchoring on the caster" % profileID
@@ -182,7 +184,85 @@ func _checkCubePlaceholderProfiles() -> void:
 			effect.get_live_instance_count() == CubeRitualProfileScript.CUBE_COUNT,
 			"cube profile '%s' does not hold all eight cubes mid-ritual" % profileID
 		)
+		var synchronizedFrame := -1
+		for child: Node in effect.get_children():
+			if child is not Sprite3D:
+				continue
+			var cube := child as Sprite3D
+			if synchronizedFrame < 0:
+				synchronizedFrame = cube.frame
+			_require(
+				cube.frame == synchronizedFrame,
+				"cube profile '%s' desynchronized its sprite rotation frames" % profileID
+			)
 		effect.dispose()
+
+
+func _checkCubePixelCarrier(effect: VfxPlayback, profileID: String) -> void:
+	var cubes: Array[Sprite3D] = []
+	for child: Node in effect.get_children():
+		if child is Sprite3D:
+			cubes.append(child as Sprite3D)
+	_require(
+		cubes.size() == CubeRitualProfileScript.CUBE_COUNT,
+		"cube profile '%s' does not build exactly eight Sprite3D carriers" % profileID
+	)
+	if cubes.is_empty():
+		return
+	var first := cubes[0]
+	_require(
+		first.hframes == CubeRitualProfileScript.SPRITE_ROTATION_FRAMES,
+		"cube profile '%s' does not expose the 12-frame quarter turn" % profileID
+	)
+	_require(
+		first.texture_filter == BaseMaterial3D.TEXTURE_FILTER_NEAREST,
+		"cube profile '%s' does not use nearest texture filtering" % profileID
+	)
+	for cube: Sprite3D in cubes:
+		_require(
+			cube.texture == first.texture,
+			"cube profile '%s' allocated a per-cube atlas" % profileID
+		)
+
+	var atlas := first.texture.get_image()
+	_require(atlas != null, "cube profile '%s' has no readable atlas" % profileID)
+	if atlas == null:
+		return
+	_require(
+		atlas.get_width()
+			== CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX
+				* CubeRitualProfileScript.SPRITE_ROTATION_FRAMES
+			and atlas.get_height() == CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX,
+		"cube profile '%s' atlas dimensions do not match 12 32x32 frames" % profileID
+	)
+
+	var palette: Array[Color] = CubeRitualProfileScript.paletteFor(Color(0.55, 0.9, 0.78))
+	var roleCounts := [0, 0, 0]
+	for y in range(CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX):
+		for x in range(CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX):
+			var pixel := atlas.get_pixel(x, y)
+			if pixel.a <= 0.0:
+				continue
+			for roleIndex in range(palette.size()):
+				if pixel.is_equal_approx(palette[roleIndex]):
+					roleCounts[roleIndex] += 1
+	_require(
+		roleCounts == [239, 306, 269],
+		"cube profile '%s' did not preserve the source PNG's exact pixel roles: %s"
+			% [profileID, roleCounts]
+	)
+	for frameIndex in range(1, CubeRitualProfileScript.SPRITE_ROTATION_FRAMES):
+		var opaquePixels := 0
+		var offsetX := frameIndex * CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX
+		for y in range(CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX):
+			for x in range(CubeRitualProfileScript.SPRITE_FRAME_SIZE_PX):
+				if atlas.get_pixel(offsetX + x, y).a > 0.0:
+					opaquePixels += 1
+		_require(
+			opaquePixels > 300,
+			"cube profile '%s' rotation frame %d is empty or malformed"
+				% [profileID, frameIndex]
+		)
 
 
 ## The resolver's order is the footprint's order, and the bounds cover the cells' corners rather

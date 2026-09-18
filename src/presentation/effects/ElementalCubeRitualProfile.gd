@@ -23,11 +23,52 @@ const ACTION_HOLD_FRACTION := 0.76
 ## accepted maximum slider settings from the sketch.
 const CUBE_COUNT := 8
 const CUBE_SIZE_U := 0.24
-const BEVEL_RADIUS_U := 0.025
+const SPRITE_FRAME_SIZE_PX := 32
+const SPRITE_ROTATION_FRAMES := 12
+const SPRITE_PIXEL_SIZE_U := CUBE_SIZE_U / float(SPRITE_FRAME_SIZE_PX)
 const ORBIT_TURNS := 2.40
 const SPIN_TURNS := 3.20
 const ACCELERATION := 2.80
 const DISSIPATION := 2.40
+
+## AUTHORED exact 32x32 Wind cube cropped from `element cubes.png`. Each
+## character is one source pixel: direct, middle, shadow, or transparent. This
+## is frame zero of the quarter-turn atlas; the other eleven frames reconstruct
+## only the rotation between exact source poses and use the same three roles.
+const SOURCE_FRAME_ROWS: Array[String] = [
+	".............MDDDDM.............",
+	"...........MDDDDDDDDM...........",
+	".........MDDDDDDDDDDDDM.........",
+	".......MDDDDDDDDDDDDDDDDM.......",
+	".....MDDDDDDDDDDDDDDDDDDDDM.....",
+	"...MDDDDDDDDDDDDDDDDDDDDDDDDM...",
+	".MDDDDDDDDDDDDDDDDDDDDDDDDDDDDM.",
+	"DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDM",
+	"SMDDDDDDDDDDDDDDDDDDDDDDDDDDDDMM",
+	"MSSMDDDDDDDDDDDDDDDDDDDDDDDDMMMM",
+	"MSSSSSMDDDDDDDDDDDDDDDDDDMMMMMMM",
+	"SSSSSSSSMDDDDDDDDDDDDDDMMMMMMMMM",
+	"MSSSSSSSSSSMDDDDDDDDMMMMMMMMMMMM",
+	"SSSSSSSSSSSSSMDDDDMMMMMMMMMMMMMM",
+	"SSSSSSSSSSSSSSSMMMMMMMMMMMMMMMMM",
+	"SSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMM",
+	"SSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMM",
+	"SSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMM",
+	"SSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMM",
+	"SSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMM",
+	"SSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMM",
+	"MSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMM",
+	"MSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMM",
+	"SSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMM",
+	"MSSSSSSSSSSSSSSSMMMMMMMMMMMMMMMS",
+	"..MSSSSSSSSSSSSSMMMMMMMMMMMMMS..",
+	"....MSSSSSSSSSSSMMMMMMMMMMMS....",
+	"......MSSSSSSSSSMMMMMMMMMS......",
+	"........MSSSSSSSMMMMMMMS........",
+	"..........MSSSSSMMMMMS..........",
+	"............MSSSMMMS............",
+	"..............SSMS..............",
+]
 
 ## AUTHORED Crownburst path.
 const CROWN_INNER_RADIUS_U := 0.26
@@ -57,15 +98,6 @@ const SPIRAL_RADIUS_SETTLE_PROGRESS := 0.22
 const SPIRAL_HEIGHT_U := 1.55
 const SPIRAL_BASE_HEIGHT_U := 0.04
 
-## AUTHORED light response. The key points from above and slightly to camera
-## left, making the top, middle and shadow ranges visible together while cube
-## rotation still determines which face receives each shade.
-const LIGHT_DIRECTION_WORLD := Vector3(0.55, 1.0, -0.18)
-const SHADOW_STOP := -0.18
-const MID_STOP := 0.32
-const DIRECT_STOP := 0.82
-const EDGE_POLISH := 0.075
-
 ## AUTHORED element palettes accepted in the cube sketch: direct, middle,
 ## shadow. Reference colours mirror BattleMeshFactory.elementColor() and let
 ## the factory's existing Color-only effect boundary stay unchanged.
@@ -94,8 +126,8 @@ const ELEMENT_PALETTES := {
 	"thunder": [Color("fbf236"), Color("df7126"), Color("3f3f74")],
 }
 
-## AUTHORED safety ceilings: one root and eight cube instances sharing one mesh
-## and material. No particles, lights, timers, or per-cube materials.
+## AUTHORED safety ceilings: one root and eight Sprite3D instances sharing one
+## generated 12-frame atlas. No particles, lights, timers, or per-cube textures.
 const MAX_LIVE_RITUALS := 4
 const MAX_EFFECT_NODES := 9
 const MAX_GEOMETRY_INSTANCES := 8
