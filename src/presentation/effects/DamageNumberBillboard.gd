@@ -10,6 +10,12 @@
 ## shifted by one pixel in the cardinal directions, then one white copy in the
 ## centre. Drawing the glyphs directly keeps the number tightly kerned instead
 ## of making it look like several centered UI labels placed side by side.
+##
+## The number is thrown rather than stamped: it leaves the unit at
+## `RISE_SPEED`, decelerates under `FALL_ACCELERATION`, crests, and is already
+## descending when it drops its outline and flashes out. See
+## `docs/plans/battle-damage-number-arc.md` for the measured reference figures
+## this timeline implements.
 
 class_name DamageNumberBillboard
 extends Control
@@ -17,18 +23,42 @@ extends Control
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 
 const SPAWN_HEIGHT := 0.85
-const PUMP_SCALE := 1.15
-const PUMP_UP_DURATION := 0.07
-const PUMP_DOWN_DURATION := 0.12
-const DIGIT_STAGGER := 0.025
-const HOLD_DURATION := 0.18
-const DISAPPEAR_DURATION := 0.14
 
-const DAMAGE_VISIBLE_DURATION := (
-	PUMP_UP_DURATION + PUMP_DOWN_DURATION + DIGIT_STAGGER * 2.0
-	+ HOLD_DURATION + DISAPPEAR_DURATION
-)
+## The arc's parts, in glyph heights and glyph heights per second, so the throw
+## keeps its proportions against the number that is doing the travelling at
+## every `NoggTheme.ui_scale`. A figure in device pixels would make the arc
+## shrink relative to the glyph as the UI grew.
+##
+## These are the timeline's parts, not a subdivision of a chosen total: per
+## `docs/VFX_DESIGN.md` §4 the lifetime below falls out of them. Moving
+## `OUTLINED_DURATION` earlier ends the number earlier rather than stretching
+## what follows it.
+const RISE_SPEED := 23.1
+const FALL_ACCELERATION := 55.4
+const DRIFT_SPEED := 4.2
+
+## The reference drifts left on both of its sampled hits, which share an
+## attacker, so this is the observed direction rather than a demonstrated rule.
+## Kept as a signed constant because that is the whole of the change if stacked
+## numbers ever read as mechanical.
+const DRIFT_DIRECTION := -1.0
+
+const OUTLINED_DURATION := 0.46
+const FLASH_DURATION := 0.12
+
+## The exit is not this glyph going transparent. The outline is dropped
+## outright and the fill lightens, so the number blooms off the unit instead of
+## dimming into the background. Derived from the front colour rather than
+## authored, so the heal tint flashes as its own colour.
+const FLASH_LIGHTEN := 0.25
+
+const DAMAGE_VISIBLE_DURATION := OUTLINED_DURATION + FLASH_DURATION
 const HEAL_VISIBLE_DURATION := DAMAGE_VISIBLE_DURATION
+
+## Published for the probe: both fall out of the two motion constants, and
+## restating them anywhere else would let the assertion drift from the arc.
+const CREST_TIME := RISE_SPEED / FALL_ACCELERATION
+const CREST_HEIGHT := RISE_SPEED * RISE_SPEED / (2.0 * FALL_ACCELERATION)
 
 ## This only matters when a queue tween is skipped or the tree is torn down
 ## while the animation is running. The normal tween callback frees the node.
@@ -52,9 +82,13 @@ const OUTLINE_OFFSETS := [
 
 static var _font: Font = null
 
+var _anchor := Vector2.ZERO
+var _glyph_height := 1.0
 
-## A single digit owns its five direct draw passes, so scaling it for the one
-## pump does not introduce Label layout padding or per-label centering drift.
+
+## A single digit owns its five direct draw passes, so the outline can be
+## dropped for the flash without Label layout padding or per-label centering
+## drift entering the number's geometry.
 class DamageGlyph:
 	extends Control
 
@@ -63,6 +97,7 @@ class DamageGlyph:
 	var glyph_width: int = 1
 	var font_size: int = 24
 	var front_color := Color.WHITE
+	var outlined := true
 
 	func configure(
 			font_value: Font,
@@ -81,20 +116,30 @@ class DamageGlyph:
 		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		queue_redraw()
 
+	## Compares before assigning so a tween seeking backwards restores the
+	## outlined form as readily as playing forwards drops it.
+	func setFlashing(flashing: bool, color_value: Color) -> void:
+		if outlined == (not flashing) and front_color.is_equal_approx(color_value):
+			return
+		outlined = not flashing
+		front_color = color_value
+		queue_redraw()
+
 	func _draw() -> void:
 		if font == null or glyph.is_empty():
 			return
 		var baseline := Vector2(0, font.get_ascent(font_size))
-		for offset in DamageNumberBillboard.OUTLINE_OFFSETS:
-			draw_string(
-				font,
-				baseline + offset,
-				glyph,
-				HORIZONTAL_ALIGNMENT_LEFT,
-				-1.0,
-				font_size,
-				NoggThemeScript.OUTLINE
-			)
+		if outlined:
+			for offset in DamageNumberBillboard.OUTLINE_OFFSETS:
+				draw_string(
+					font,
+					baseline + offset,
+					glyph,
+					HORIZONTAL_ALIGNMENT_LEFT,
+					-1.0,
+					font_size,
+					NoggThemeScript.OUTLINE
+				)
 		draw_string(
 			font,
 			baseline,
@@ -145,6 +190,21 @@ static func visible_duration(is_heal: bool) -> float:
 	return HEAL_VISIBLE_DURATION if is_heal else DAMAGE_VISIBLE_DURATION
 
 
+## The number's offset from its spawn anchor at `seconds`, in device pixels.
+##
+## Closed form, per `docs/VFX_DESIGN.md` §3: the vertical term is the integral
+## of a decelerating rise written out rather than a value advanced by `delta`,
+## so seeking to an instant and playing to it land on the same pixel.
+static func offset_at(seconds: float, glyph_height: float) -> Vector2:
+	return Vector2(
+		DRIFT_DIRECTION * DRIFT_SPEED * glyph_height * seconds,
+		(
+			-RISE_SPEED * glyph_height * seconds
+			+ 0.5 * FALL_ACCELERATION * glyph_height * seconds * seconds
+		)
+	)
+
+
 static func _ensure_font() -> void:
 	if _font == null:
 		_font = NoggThemeScript.build_game_theme().default_font
@@ -170,8 +230,10 @@ func _build(screen_position: Vector2, amount: int, is_heal: bool) -> Tween:
 		advances.append(advance)
 		total_width += advance
 
+	_glyph_height = float(NoggThemeScript.FONT_SIZE_BODY)
 	size = Vector2(total_width, NoggThemeScript.FONT_SIZE_BODY)
-	position = (screen_position.round() - size * 0.5).round()
+	_anchor = (screen_position.round() - size * 0.5).round()
+	position = _anchor
 
 	var x := 0
 	for index in range(text.length()):
@@ -188,44 +250,43 @@ func _build(screen_position: Vector2, amount: int, is_heal: bool) -> Tween:
 		add_child(digit)
 		x += advances[index]
 
-	return _animate()
+	return _animate(front_color)
 
 
-func _animate() -> Tween:
+## One linear tween over the number's own clock. Every visible property is a
+## function of that clock rather than a separate tweened track, so the arc, the
+## outline drop and the fade cannot fall out of step with each other.
+func _animate(front_color: Color) -> Tween:
+	var total := DAMAGE_VISIBLE_DURATION
+	var flash_color := front_color.lightened(FLASH_LIGHTEN)
 	var tween := create_tween()
-	var digits := get_children()
-
-	# A tiny left-to-right wave makes the value feel struck into the scene while
-	# keeping the whole number readable as one compact object.
-	tween.set_parallel(true)
-	for index in range(digits.size()):
-		tween.tween_property(
-			digits[index], "scale", Vector2.ONE * PUMP_SCALE, PUMP_UP_DURATION
-		).set_delay(index * DIGIT_STAGGER) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tween.set_parallel(false)
-	tween.tween_callback(func() -> void: pass)
-
-	# Return in the opposite order: the last digit settles first, giving the
-	# number the compact arcade/JRPG hit cadence without moving its anchor.
-	tween.set_parallel(true)
-	for index in range(digits.size()):
-		var reverse_delay := (digits.size() - 1 - index) * DIGIT_STAGGER
-		tween.tween_property(
-			digits[index], "scale", Vector2.ONE, PUMP_DOWN_DURATION
-		).set_delay(reverse_delay) \
-			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
-	tween.set_parallel(false)
-	tween.tween_callback(func() -> void: pass)
-	tween.tween_interval(HOLD_DURATION)
-
-	tween.set_parallel(true)
-	for digit in digits:
-		tween.tween_property(digit, "modulate:a", 0.0, DISAPPEAR_DURATION) \
-			.set_trans(Tween.TRANS_LINEAR)
-	tween.set_parallel(false)
+	tween.tween_method(
+		func(seconds: float) -> void: _applyClock(seconds, front_color, flash_color),
+		0.0,
+		total,
+		total
+	).set_trans(Tween.TRANS_LINEAR)
 	tween.tween_callback(func() -> void:
 		if is_instance_valid(self):
 			queue_free()
 	)
 	return tween
+
+
+## Rounded to whole device pixels before it reaches `position`: the number
+## steps the way the pixel-art scene behind it does, instead of sliding through
+## subpixels and shimmering against a nearest-filtered battlefield.
+func _applyClock(seconds: float, front_color: Color, flash_color: Color) -> void:
+	position = (_anchor + offset_at(seconds, _glyph_height)).round()
+
+	var flashing := seconds >= OUTLINED_DURATION
+	var color := flash_color if flashing else front_color
+	for child in get_children():
+		var digit := child as DamageGlyph
+		if digit != null:
+			digit.setFlashing(flashing, color)
+
+	if flashing:
+		modulate.a = clampf(1.0 - (seconds - OUTLINED_DURATION) / FLASH_DURATION, 0.0, 1.0)
+	else:
+		modulate.a = 1.0
