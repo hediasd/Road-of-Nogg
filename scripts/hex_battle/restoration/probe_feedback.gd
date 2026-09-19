@@ -116,8 +116,15 @@ func _phaseOrdering() -> void:
 	while adapter.queue().activeActionKind() != "bump" \
 			and Time.get_ticks_msec() - began < DRAIN_TIMEOUT_MS:
 		await process_frame
+	# The number answers the impact, not the wind-up, so the lunge has to
+	# travel before it is thrown: absent as the bump starts, present once the
+	# bump lands. Checking both ends pins the beat it is thrown on, where
+	# checking only that it arrives would pass again if it moved back to frame
+	# zero.
 	var numberRoot: Control = adapter.damageNumberRoot()
-	_require(numberRoot != null and numberRoot.get_child_count() > 0,
+	_require(numberRoot == null or numberRoot.get_child_count() == 0,
+		"the number was thrown as the lunge began, not where it landed")
+	_require(await _awaitNumber(),
 		"the first strike did not spawn a damage number")
 	var maxLiveCasts := await _drain(true)
 	_require(maxLiveCasts == 1, "cast playback count while draining was %d, not 1" % maxLiveCasts)
@@ -229,9 +236,9 @@ func _phaseStage() -> void:
 	sim.events.monster_attacked.emit(attackerID, targetPos, targetID, 5,
 		int(sim.state.getMonster(targetID).hitpoints) - 5)
 	await process_frame
-	var numberRoot: Control = adapter.damageNumberRoot()
-	_require(numberRoot != null and numberRoot.get_child_count() > 0,
+	_require(await _awaitNumber(),
 		"no damage number spawned under the stage")
+	var numberRoot: Control = adapter.damageNumberRoot()
 	if numberRoot != null:
 		_require(numberRoot.get_viewport() == root,
 			"damage numbers render inside a SubViewport, not at native resolution")
@@ -390,6 +397,19 @@ func _countNamed(node: Node, wanted: String) -> int:
 	for child in node.get_children():
 		total += _countNamed(child, wanted)
 	return total
+
+
+## Waits for a strike's number to be thrown. A caller that read the same frame
+## the bump began would race the bump out, since the number is spawned where
+## the lunge lands rather than on its first frame.
+func _awaitNumber() -> bool:
+	var began := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - began < DRAIN_TIMEOUT_MS:
+		var numbers: Control = adapter.damageNumberRoot()
+		if numbers != null and numbers.get_child_count() > 0:
+			return true
+		await process_frame
+	return false
 
 
 func _require(condition: bool, message: String) -> void:

@@ -220,9 +220,7 @@ func _startStrike(action: VisualAction, payload: Dictionary, queue: VisualAction
 	var source: Node3D = _adapter.modelFor(int(payload.get("source_id", -1)))
 	if source == null or not is_instance_valid(source):
 		return _startNumber(action, payload, queue)
-	_applyImpact(payload)
 	var targetWorld: Vector3 = payload.get("target_world", Vector3.ZERO)
-	var numberShown := _spawnNumber(payload)
 	var origin: Vector3 = payload.get("source_world", source.position)
 	source.position = origin
 	var direction := targetWorld - origin
@@ -231,10 +229,18 @@ func _startStrike(action: VisualAction, payload: Dictionary, queue: VisualAction
 	var tween := source.create_tween()
 	tween.tween_property(
 		source, "position", origin + direction.normalized() * BUMP_DISTANCE, BUMP_OUT_SECONDS)
+	# The number answers the impact rather than the wind-up, so it is thrown
+	# where the lunge lands: at the end of the bump out, not at frame zero when
+	# the attacker has not yet moved. The health it reports changes on the same
+	# beat, so the bar and the number cannot disagree about when the hit landed.
+	tween.tween_callback(func() -> void:
+		_applyImpact(payload)
+		_spawnNumber(payload)
+	)
 	tween.tween_property(source, "position", origin, BUMP_BACK_SECONDS)
 	var visible := BUMP_OUT_SECONDS + BUMP_BACK_SECONDS
-	if numberShown:
-		var hold := DamageNumberBillboardScript.visible_duration(false)
+	if _willShowNumber(payload):
+		var hold := BUMP_OUT_SECONDS + DamageNumberBillboardScript.visible_duration(false)
 		if hold > visible:
 			tween.chain().tween_interval(hold - visible)
 			visible = hold
@@ -262,9 +268,19 @@ func _applyImpact(payload: Dictionary) -> void:
 		_display.setHitpoints(int(payload.get("target_id", -1)), int(payload["new_hp"]))
 
 
+## The part of `_spawnNumber`'s guard that can be asked before the lunge, so a
+## strike can size its hold while the number itself is still a bump away. The
+## rest of that guard -- a layer to draw on, a target the camera can see --
+## cannot be answered early and is not predicted here; a number the projection
+## later refuses leaves the action fractionally long rather than cutting the
+## number off, which is the safer way round.
+func _willShowNumber(payload: Dictionary) -> bool:
+	return int(payload.get("amount", 0)) > 0 and int(payload.get("target_id", -1)) >= 0
+
+
 func _spawnNumber(payload: Dictionary) -> bool:
 	var amount := int(payload.get("amount", 0))
-	if amount <= 0 or int(payload.get("target_id", -1)) < 0:
+	if not _willShowNumber(payload):
 		return false
 	var worldPosition: Vector3 = payload.get("target_world", Vector3.ZERO)
 	var screenPosition := _projectToScreen(
