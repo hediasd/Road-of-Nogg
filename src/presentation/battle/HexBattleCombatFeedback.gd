@@ -213,9 +213,11 @@ func numberRoot() -> Control:
 
 # --- strikes and numbers ----------------------------------------------------
 
-## A basic attack or a per-target spell hit: the source lunges toward the target while the number
-## appears. Held for the number's whole visible duration, as the donor did, so the next hit cannot
-## cover it.
+## A basic attack or a per-target spell hit: the source lunges toward the target, and the number is
+## thrown where the lunge lands. Held "mostly through" the number by `ACTION_HOLD_FRACTION`, the
+## same rule heals and defeats already follow, so consecutive hits overlap instead of queueing up
+## behind each other's tails. Two numbers sharing the screen is the intended reading: they are on
+## the same path a third of a second apart, which is a rhythm, not a collision.
 func _startStrike(action: VisualAction, payload: Dictionary, queue: VisualActionQueue) -> bool:
 	var source: Node3D = _adapter.modelFor(int(payload.get("source_id", -1)))
 	if source == null or not is_instance_valid(source):
@@ -240,7 +242,7 @@ func _startStrike(action: VisualAction, payload: Dictionary, queue: VisualAction
 	tween.tween_property(source, "position", origin, BUMP_BACK_SECONDS)
 	var visible := BUMP_OUT_SECONDS + BUMP_BACK_SECONDS
 	if _willShowNumber(payload):
-		var hold := BUMP_OUT_SECONDS + DamageNumberBillboardScript.visible_duration(false)
+		var hold := DamageNumberBillboardScript.visible_duration(false) * ACTION_HOLD_FRACTION
 		if hold > visible:
 			tween.chain().tween_interval(hold - visible)
 			visible = hold
