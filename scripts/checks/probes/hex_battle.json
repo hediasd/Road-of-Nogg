@@ -33,6 +33,7 @@
 		{"script": "res://scripts/hex_battle/restoration/probe_unit_colors.gd", "marker": "HPR_UNIT_COLORS_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://scripts/hex_battle/side_turn/probe_board_cues.gd", "marker": "STB_BOARD_CUES_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://scripts/hex_battle/side_turn/probe_camera_opening.gd", "marker": "SIDE_TURN_CAMERA_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://scripts/hex_battle/side_turn/probe_damage_number.gd", "marker": "STB_DAMAGE_NUMBER_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://scripts/hex_battle/side_turn/probe_side_turn_rules.gd", "marker": "SIDE_TURN_RULES_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://scripts/hex_battle/side_turn/probe_ui_guardrails.gd", "marker": "STB_UI_GUARDRAILS_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
 	]
