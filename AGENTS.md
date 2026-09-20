@@ -253,6 +253,32 @@ with deferred checks has exactly one, depending on every item that feeds it,
 with its own model assignment — and "Where validation runs" below settles
 whether it needs a wave to itself.
 
+### Convergence reviews during execution
+
+Count implementation items in planned wave order, excluding any validation
+item. A cycle with 5–8 implementation items has one implicit convergence review
+after `floor(item count / 2)` items (after item 3 in a 7-item cycle). A cycle
+with 9 or more has one after every third implementation item, except the last;
+a 9-item cycle reviews after items 3 and 6. Shorter cycles need no scheduled
+review. Author new wave tables so a wave ends at each review point. For an
+already frozen cycle whose waves cross a review point, review at the first
+completed wave boundary after it instead of editing the cycle file.
+
+In a wave, the session that commits its last item performs the review before
+the next wave begins. In a single-session cycle, review immediately after the
+checkpoint item's commit. Stop and compare the committed work and check
+evidence so far with the cycle's outcome, item end states, constraints,
+dependencies, and deliberate exclusions. Use a small focused probe when it
+helps expose drift; this review does not repeat every item's checks or replace
+deferred validation.
+Report whether the work is converging and what course correction is needed.
+Correct drift within the remaining items' owned paths and intended outcome,
+recording the reason in the relevant item's commit. If recovery needs paths
+outside their `Touches` lists or changes the promised outcome, stop dependent
+work and coordinate a revised plan with the user. The review is an implicit
+execution substep, not an item, commit, approval gate, or edit to the frozen
+cycle file.
+
 **Write each item for the tier that will run it.** The Model field is not only
 a cost decision — it decides how the item body must be written, and an item
 written for the wrong tier fails even when the routing is right.

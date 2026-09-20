@@ -93,6 +93,14 @@ the current branch unless the user explicitly requests a plan branch as a
 coarse recovery boundary. Item-scoped commits, complete path ownership and
 explicit-path staging remain the practical rollback and coexistence mechanisms.
 
+Long cycles can pass every local check while their combined direction drifts
+from the promised outcome. A brief review after roughly each third of a long
+cycle, or once near the midpoint of a medium one, exposes that drift while
+there are still later items in which to correct it. It examines committed work
+against the frozen plan without creating another shared status file or
+duplicating the final behavioral validation. Wave boundaries give the review a
+coherent set of finished work and preserve concurrent path ownership.
+
 Beyond that:
 
 - Use a written plan when coordination, rollback risk, or architectural impact

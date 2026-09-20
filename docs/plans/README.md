@@ -104,6 +104,10 @@ separate sessions.
 A wave is legal only when every item's dependencies are already committed and
 the items' Touches lists are pairwise disjoint. Authoring this table is where
 conflicts are designed out — it is the plan author's job, not the executor's.
+Also end waves at the implicit convergence review points defined in `AGENTS.md`:
+one midpoint review for 5–8 implementation items, or after every third item
+before the last for 9 or more. These reviews are execution substeps, so they do
+not get rows, item IDs, or `Touches` lists of their own.
 
 ### Naming the validation form
 
