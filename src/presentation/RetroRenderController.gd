@@ -618,7 +618,15 @@ func _apply_settings(persist: bool) -> void:
 ## window resolution and then letterboxing it down would resample every frame,
 ## which is exactly the artefact the retro pipeline exists to avoid.
 func _resize_world_viewport() -> void:
-	var nativeSize := Vector2i(host.get_window().size)
+	# The CANVAS, not the OS window. With the project's stretch mode the two differ, and the world
+	# image is drawn into a control measured in canvas units -- so rendering it at window resolution
+	# would resample it down into that control and then the stretch would scale it back up, which is
+	# two resamples to arrive at the picture one would have given. Identical to the window under a
+	# disabled stretch mode, which is what every probe that sets `root.size` relies on.
+	var hostViewport := host.get_viewport()
+	var nativeSize := MIN_VIEWPORT_SIZE
+	if hostViewport != null:
+		nativeSize = Vector2i(hostViewport.get_visible_rect().size.round())
 	if display_rect_override.size.x > 0.0 and display_rect_override.size.y > 0.0:
 		nativeSize = Vector2i(display_rect_override.size.round())
 	var baseSize = render_size if retro_enabled else nativeSize

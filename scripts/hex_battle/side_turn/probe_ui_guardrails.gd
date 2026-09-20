@@ -15,6 +15,17 @@
 ##
 ## Both lengths are layout tokens that scale with the UI; a new window passes by using them, not
 ## by picking pixel values that happen to fit one resolution.
+##
+## **THE WINDOW SIZES ARE NOT RESOLUTIONS, THEY ARE CANVASES.** The project scales a fixed 1280x720
+## canvas to whatever size the window is, so a 1920x1080 window lays the HUD out on exactly the same
+## canvas as a 1280x720 one -- proving that no screen can drift out of the layout when a player
+## resizes. The third size is deliberately not 16:9: under `expand` a taller window buys extra
+## canvas HEIGHT rather than black bars, which is the one case where the layout genuinely changes,
+## and it is where a window docked to the bottom edge would be caught floating.
+##
+## Every rect below is therefore measured against the VISIBLE RECT -- the canvas -- and never
+## against `root.size`, which is the window. Measured against the window, a right-docked window on a
+## 1920-wide screen clears a 1920 edge by 640px and the margin rule stops testing anything.
 
 extends SceneTree
 
@@ -25,7 +36,7 @@ const NoggWindowScript = preload("res://src/presentation/theme/NoggWindow.gd")
 const IconArcScript = preload("res://src/presentation/battle/ui/side_turn/SideTurnIconArc.gd")
 const PreviewBoxScript = preload("res://src/presentation/battle/ui/side_turn/SideTurnPreviewBox.gd")
 
-const SIZES := [Vector2i(1280, 720), Vector2i(1920, 1080)]
+const SIZES := [Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(1600, 1000)]
 ## Sub-pixel slack for rounding in centred layouts.
 const TOLERANCE := 0.5
 const SETTLE_SECONDS := 0.45
@@ -107,7 +118,7 @@ func _checkSize(size: Vector2i) -> void:
 
 func _audit(state: String) -> void:
 	_state = state
-	var viewport := Vector2(root.size)
+	var viewport := root.get_visible_rect().size
 	for layerRoot in [controller.hud, controller.sideCues]:
 		if layerRoot == null:
 			continue

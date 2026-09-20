@@ -111,11 +111,14 @@ func _init() -> void:
 	# "UI through CRT" layer just above. At layer 1 the HUD sat under the numbers.
 	layer = NoggThemeScript.GAME_LAYER
 	# Before any child reads a token: every width and pitch below is a function of ui_scale.
-	# The root window's size, as the controller reads it, not the display server's: headless the
-	# display server reports its 64 px stub, which pinned every probe to x1 whatever size it set.
+	# The root window, as the controller reads it, not the display server: headless the display
+	# server reports its 64 px stub, which pinned every probe to x1 whatever size it set. The
+	# window is asked for its CANVAS, not its own height -- `NoggTheme.configure_for_window`.
 	var tree := Engine.get_main_loop() as SceneTree
-	NoggThemeScript.configure_for_window_height(
-		tree.root.size.y if tree != null else DisplayServer.window_get_size().y)
+	if tree != null:
+		NoggThemeScript.configure_for_window(tree.root)
+	else:
+		NoggThemeScript.configure_for_window_height(DisplayServer.window_get_size().y)
 
 	_root = Control.new()
 	_root.name = "HudRoot"

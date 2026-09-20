@@ -226,7 +226,7 @@ func _ready() -> void:
 	# x2 no matter its window size, so it silently failed to reproduce what the
 	# game does — which made it useless for judging anything that scales,
 	# including the CRT pitch this scene is used to tune.
-	NoggThemeScript.configure_for_window_height(get_window().size.y)
+	NoggThemeScript.configure_for_window(get_window())
 
 	retroRenderer = RetroRenderControllerScript.new(self)
 	retroRenderer.set_preset(retroRenderer.PRESET_NONE, false)

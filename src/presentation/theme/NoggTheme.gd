@@ -196,6 +196,31 @@ static func configure_for_window_height(height: int) -> bool:
 	)
 
 
+## **The one door every screen goes through, and the reason it is not the OS window's height.**
+##
+## The project scales the whole canvas from a fixed base size (`display/window/size/viewport_*`) to
+## whatever size the window happens to be, so a design unit is already a window-relative length
+## before this file multiplies anything. Deriving `ui_scale` from the OS window on top of that would
+## scale the UI twice: at a 1600x900 window the engine is already drawing the 1280x720 canvas at
+## 1.25x, and reading 900 here would ALSO step the tokens from x2 to x3, for 1.875x the intended
+## size on screen.
+##
+## So the scale is derived from the CANVAS, which is fixed, and the window is left to the engine.
+## `ui_scale` is then a property of the design, not of the player's monitor -- which is what makes
+## "everything scales with the window" true of every screen at once, including screens this file has
+## never heard of.
+##
+## Falls back to the window's own height when content scaling is off (a probe that never loaded the
+## project settings, a tool scene), where the window IS the canvas and the old rule is correct.
+static func configure_for_window(window: Window) -> bool:
+	if window == null:
+		return false
+	var height := int(window.content_scale_size.y)
+	if window.content_scale_mode == Window.CONTENT_SCALE_MODE_DISABLED or height <= 0:
+		height = int(window.size.y)
+	return configure_for_window_height(height)
+
+
 static func configure(scale: int) -> bool:
 	var wanted := clampi(scale, UI_SCALE_MIN, UI_SCALE_MAX)
 	if wanted == ui_scale:

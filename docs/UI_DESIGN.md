@@ -286,9 +286,8 @@ chrome that did not care, and resolution-dependent content — both fonts, and
 the small-integer geometry in `MenuCursor`, `PagerArrow` and `ResonanceBar` —
 that did. Only the second family needed defending.
 
-**The fix: stop scaling the canvas, scale the tokens.** `project.godot` now sets
-`window/stretch/mode = "disabled"` — nothing is ever resampled, and a device
-pixel is a real pixel. `NoggTheme` carries `ui_scale` (default 2, matching what
+**The fix: stop scaling the *rasteriser*, scale the tokens.** `NoggTheme` carries
+`ui_scale` (default 2, matching what
 the pre-fix constants already encoded) and every geometry token is authored in
 *design units*, multiplied by `ui_scale` through `NoggTheme.configure()` /
 `configure_for_window_height()`. `_static_init()` derives them all together on
@@ -296,9 +295,12 @@ class load, and `_scaled()`/`_scaled_int()` round every result to a whole
 device pixel — that guarantee lives at the token layer once, rather than being
 hoped for at each `_draw()`.
 
-**`ui_scale` is fixed for the process lifetime.** `BattlePresentationController`
-calls `configure_for_window_height()` as the first statement of `_ready()`,
-before any Theme is built, and never calls it again. This was a deliberate
+**`ui_scale` is fixed for the process lifetime, and now for a stronger reason
+than scope.** The project scales the whole frame from a fixed 1280x720 canvas
+(see 4a-ter), so the canvas a screen is laid out on is the same at every window
+size and there is nothing for `ui_scale` to track. Every entry point settles it
+once through `NoggTheme.configure_for_window()`, before any Theme is built, and
+never calls it again. Keeping it fixed was originally a deliberate
 scope decision, not an oversight: changing `ui_scale` after Theme resources are
 already built and assigned would desync two kinds of reader — a `Theme`'s font
 size and styleboxes are copied in at build time and would keep the old scale,
@@ -317,14 +319,54 @@ comparison; `native` matches the shipping project default. The text specimen's
 pixel-fidelity readout still reports the live canvas factor, which is now x1
 everywhere.
 
+### 4a-ter. Everything scales with the window
+
+**One rule, at the engine, for the whole game.** `project.godot` sets
+`window/stretch/mode = "viewport"` with `aspect = "expand"` over a 1280x720
+canvas, and opens the window at 1600x900. The canvas is rendered at its own
+scale and the finished image is scaled to whatever size the window is, so the
+HUD, the board, the side-turn cues, the editor and every debug screen scale
+together — including screens written after this was decided, which is the point
+of settling it at the engine rather than per widget. A window that is not 16:9
+buys extra canvas under `expand` rather than black bars.
+
+**Why `viewport` and not `canvas_items`, which would keep text sharper.**
+`canvas_items` scales the canvas transform, which changes the text server's font
+oversampling with the window — and the finding below is that an oversampling
+change empties a baked face's glyph cache for good. Under `viewport` the canvas
+is always rasterised at its own scale, so oversampling never changes and the
+faces cannot be lost. The price is that the frame is resampled at a non-integer
+window size: the same unevenness §4a measured, moved from the glyph rasteriser
+to the final image, where it lands on a game whose world already renders through
+a deliberately low-resolution retro pipeline. Moving to `canvas_items` is a
+one-line project change and would be sharper, but it must be preceded by a
+rebuild of both faces on every content-scale change.
+
+**`NoggTheme.configure_for_window()` is the one door.** It derives `ui_scale`
+from the window's *canvas* (`content_scale_size`), never from the window itself:
+under a stretch mode the engine is already scaling, and reading the window
+height on top of that scales the UI twice — at 1600x900 the engine's 1.25x would
+meet a token step from x2 to x3, for 1.875x the intended size. It falls back to
+the window's own height when content scaling is off, where the window is the
+canvas and the old rule is exactly right.
+
+**What reads the canvas, and what reads the window.** Layout, picking and every
+cue read the canvas (`get_visible_rect()` / `get_viewport_rect()`), which is what
+makes them resolution-independent. One thing deliberately does not: the battle's
+world render target is sized from the canvas too (`RetroRenderController.
+_resize_world_viewport`), because the world image is drawn into a
+canvas-measured control — sizing it from the window would resample it down into
+that control and then let the stretch scale it back up.
+
 **A related finding, measured while building the fix:** a bitmap face whose
 glyphs are injected into the cache does not survive a content-scale change.
 Oversampling changes with the scale, that clears cached glyph data, and this
 face has no source bytes to re-rasterize from — so every string falls back to a
-system font with ascent and descent reported as zero. Fixing the canvas scale
-at `disabled` removes the failure mode entirely, because oversampling then
-never changes at runtime — this is a second, independent reason the project chose
-`disabled` over an integer-scaled `canvas_items` mode. The specimen still
+system font with ascent and descent reported as zero. Keeping the canvas scale
+fixed removes the failure mode entirely, because oversampling then never changes
+at runtime — this is why the project scales with `viewport` stretch rather than
+either flavour of `canvas_items`, and it is the one thing to fix first if the
+sharper mode is ever wanted. The specimen still
 watches the scale and rebuilds defensively (it exercises every stretch preset,
 including the ones that do change scale), but shipping code no longer needs to.
 
@@ -1119,11 +1161,14 @@ method, not the tool. Rebuild it when a change forces a re-measure:
   the values each one came out at.
 
 There is no width *budget* to fit inside anymore. `project.godot` used to cap
-every 2D panel to a shared 1152 × 648 logical base (now replaced by
-`window/stretch/mode = "disabled"` — see §3), so this table used to report a
-running total against that ceiling. Under the current model each window is
+every 2D panel to a shared 1152 × 648 logical base, so this table used to report
+a running total against that ceiling. Under the current model each window is
 simply as wide as its own worst-case content needs, independent of the others;
-there is nothing left for them to compete over.
+there is nothing left for them to compete over. The canvas the engine scales to
+the window (1280 × 720, §4a-ter) is a ceiling in the same sense any screen is —
+640 × 360 design units at the shipping x2 — but it is fixed, so a window that
+fits at all fits at every window size, which is what
+`probe_ui_guardrails.gd` walks.
 
 | Window | Dock | Size (design units, device px at shipping x2) | Contents |
 |---|---|---|---|

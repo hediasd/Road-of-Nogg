@@ -15,6 +15,38 @@ run/main_scene="res://scenes/battle/HexBattle.tscn"
 config/features=PackedStringArray("4.4")
 config/icon="res://assets/textures/icon.png"
 
+[display]
+
+; EVERYTHING SCALES WITH THE WINDOW, AND `viewport` IS WHY IT CAN. The game is authored against a
+; fixed 1280x720 canvas and the engine scales that canvas to whatever size the window is, so there
+; is ONE scaling rule for the whole game -- HUD, board, cues, editor, debug -- and no screen can opt
+; out of it or has to opt in.
+;
+; `viewport` rather than `canvas_items`, and the reason is measured rather than aesthetic:
+; `canvas_items` changes the text server's font oversampling with the window, and both game faces
+; are baked FontFiles whose glyphs were injected into the cache with no source bytes to
+; re-rasterize from. An oversampling change empties that cache and every string in the game falls
+; back to a system font with zero ascent -- see the note at the top of `NoggBitmapFont.gd`, and
+; UI_DESIGN section 4a. Under `viewport` the canvas is always rendered at its own scale and the
+; finished image is scaled to the window, so oversampling never changes and the faces cannot be
+; lost. What it costs is sharpness: the whole frame is resampled at a non-integer window size, which
+; is in keeping with a game whose world already renders through a deliberately low-resolution retro
+; pipeline. Switching this to `canvas_items` is a one-line change, but it needs a font rebuild on
+; every content-scale change first.
+;
+; `expand`: a window that is not 16:9 buys extra canvas rather than black bars.
+; `fractional`: the scale follows the window continuously instead of jumping at integer multiples.
+;
+; The window opens larger than its canvas on purpose (1600x900, 1.25x): landscape, comfortably
+; bigger than Godot's 1152x648 default, and still inside a 1080p desktop once chrome is taken.
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/size/window_width_override=1600
+window/size/window_height_override=900
+window/stretch/mode="viewport"
+window/stretch/aspect="expand"
+window/stretch/scale_mode="fractional"
+
 [filesystem]
 
 import/blender/enabled=false

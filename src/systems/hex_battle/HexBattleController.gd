@@ -260,9 +260,10 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	battleCamera.frameMap(map, adapter.layout)
 	battleCamera.camera.current = true
 
-	# The HUD's windows are measured in design units; the scale must match this window before they
-	# are built, as the square battle did, or a 720p HUD is laid out for the default x3.
-	NoggThemeScript.configure_for_window_height(get_window().size.y)
+	# The HUD's windows are measured in design units; the scale must be settled before they are
+	# built. Derived from the canvas the project scales to the window, never from the window itself
+	# -- see `NoggTheme.configure_for_window`, which owns that distinction.
+	NoggThemeScript.configure_for_window(get_window())
 	hud = HexBattleHudScript.new()
 	add_child(hud)
 	hud.member_selected.connect(_onHudMemberSelected)
