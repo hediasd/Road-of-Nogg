@@ -53,9 +53,75 @@ func _run() -> void:
 	_glyph_height = float(load("res://src/presentation/theme/NoggTheme.gd").FONT_SIZE_BODY)
 
 	_phaseArc()
+	await _phaseGrid()
 	await _phaseExit()
 	await _phaseDeterminism()
 	_finish()
+
+
+# --- A2: the number lives on a coarse art-pixel grid -------------------------
+
+
+## What keeps the number reading as pixel art rather than as moving text. The
+## reference's glyph is eight art pixels tall, outlined one art pixel thick and
+## stepping one art pixel at a time; drawn on the device grid instead it turns
+## into a hairline that glides.
+func _phaseGrid() -> void:
+	var art: float = BillboardScript.art_pixel()
+	_require(
+		absf(art - _glyph_height / BillboardScript.ART_PIXELS_PER_GLYPH) < 0.001,
+		"an art pixel is %.3f px, not a glyph height over %.0f"
+			% [art, BillboardScript.ART_PIXELS_PER_GLYPH]
+	)
+	_require(
+		art >= 2.0,
+		"an art pixel is %.2f device px: the outline is back to a hairline" % art
+	)
+
+	# The outline is a filled disc, so it cannot be seen through at the corners.
+	var radius := maxi(1, roundi(art))
+	var ring: Array = BillboardScript.outline_offsets(radius)
+	_require(
+		ring.has(Vector2(radius, 0)) and ring.has(Vector2(0, -radius)),
+		"the outline ring is missing its cardinal extremes at radius %d" % radius
+	)
+	var diagonal := int(floor(float(radius) / sqrt(2.0)))
+	_require(
+		ring.has(Vector2(diagonal, diagonal)),
+		"the outline ring is open on the diagonal at radius %d" % radius
+	)
+
+	# Every drawn position is a whole number of art pixels from the anchor.
+	#
+	# Counting distinct positions would prove nothing: the number crosses about
+	# 38 art pixels in its life and the reference crosses about 42, so both
+	# visit roughly as many places as a frame-rate sampling has frames. What
+	# separates stepping from gliding is that a coarse grid makes the number
+	# *hold* -- once its speed drops below an art pixel per frame it stays put
+	# for consecutive frames, which is plainly visible in the reference near its
+	# crest and impossible on a grid 24ths of a glyph fine.
+	var frame := 1.0 / 60.0
+	var frames := int(BillboardScript.DAMAGE_VISIBLE_DURATION / frame)
+	var previous := Vector2(NAN, NAN)
+	var holds := 0
+	for index in range(frames + 1):
+		var state := await _stateAt([frame * float(index)])
+		var offset: Vector2 = state.get("position", Vector2.ZERO)
+		for component in [offset.x, offset.y]:
+			var steps: float = float(component) / art
+			_require(
+				absf(steps - roundf(steps)) < 0.35,
+				"a drawn offset of %.1f px is not a whole art pixel (%.2f px)"
+					% [component, art]
+			)
+		if index > 0 and offset == previous:
+			holds += 1
+		previous = offset
+	_require(
+		holds >= 5,
+		"the number held still on only %d of %d frames: it is gliding, not stepping"
+			% [holds, frames]
+	)
 
 
 # --- A: the arc is the shape it claims ---------------------------------------

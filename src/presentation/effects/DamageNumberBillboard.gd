@@ -64,21 +64,45 @@ const CREST_HEIGHT := RISE_SPEED * RISE_SPEED / (2.0 * FALL_ACCELERATION)
 ## while the animation is running. The normal tween callback frees the node.
 const CLEANUP_MARGIN := 0.5
 
-## Deliberately a fixed 1 device pixel at every `NoggTheme.ui_scale`, not scaled
-## alongside the glyph size it outlines. `FONT_SIZE_BODY` already grows with
-## `ui_scale` — this halo is the crisp hairline finishing that growth, the same
-## role `docs/UI_DESIGN.md` §3's "resolution-independent chrome" family plays
-## for `StyleBoxFlat` rims: redrawn consistently rather than scaled
-## proportionally. A halo that grew with the glyph would read as thicker,
-## blurrier text at high `ui_scale` instead of the same crisp number rendered
-## bigger, which is the opposite of what a hit number in this project's style
-## is meant to look like.
-const OUTLINE_OFFSETS := [
-	Vector2(-1, 0),
-	Vector2(1, 0),
-	Vector2(0, -1),
-	Vector2(0, 1)
-]
+## The number is drawn on its own coarse grid, not on the device's.
+##
+## The reference's glyph stands 8 art pixels tall, wears an outline exactly one
+## art pixel thick, and steps one art pixel at a time. Measured against its
+## capture: the outline is 13% of the glyph's height and the motion quantum is
+## an eighth of it. Drawn on the device grid instead, our outline was a 1 pixel
+## hairline (4% of a 24 px glyph) and the motion stepped in 24ths -- which is
+## why the number read as finely drawn and too smooth beside the source.
+##
+## So one art pixel is a share of the glyph, and both the outline and the
+## motion are measured in it. This deliberately reverses `docs/UI_DESIGN.md`
+## §3's "resolution-independent chrome" rule for this one element: a hit number
+## is pixel art wearing a font, not window chrome, and chrome's hairline is the
+## wrong family for it. Everything else on screen keeps the hairline rule.
+const ART_PIXELS_PER_GLYPH := 8.0
+
+static var _outline_cache: Dictionary = {}
+
+
+## Device pixels per art pixel, at the current `NoggTheme.ui_scale`.
+static func art_pixel() -> float:
+	return maxf(1.0, float(NoggThemeScript.FONT_SIZE_BODY) / ART_PIXELS_PER_GLYPH)
+
+
+## A filled disc rather than the four cardinals: at a one pixel radius those are
+## the same ring, but at three they leave the diagonals open and the glyph
+## bleeds through its own outline at every corner.
+static func outline_offsets(radius: int) -> Array:
+	if _outline_cache.has(radius):
+		return _outline_cache[radius]
+	var offsets: Array = []
+	for dy in range(-radius, radius + 1):
+		for dx in range(-radius, radius + 1):
+			if dx == 0 and dy == 0:
+				continue
+			if dx * dx + dy * dy <= radius * radius:
+				offsets.append(Vector2(dx, dy))
+	_outline_cache[radius] = offsets
+	return offsets
 
 static var _font: Font = null
 
@@ -98,6 +122,7 @@ class DamageGlyph:
 	var font_size: int = 24
 	var front_color := Color.WHITE
 	var outlined := true
+	var outline_ring: Array = []
 
 	func configure(
 			font_value: Font,
@@ -110,6 +135,9 @@ class DamageGlyph:
 		glyph_width = width_value
 		font_size = size_value
 		front_color = color_value
+		outline_ring = DamageNumberBillboard.outline_offsets(
+			maxi(1, roundi(DamageNumberBillboard.art_pixel()))
+		)
 		size = Vector2(glyph_width, font_size)
 		pivot_offset = size * 0.5
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -130,7 +158,7 @@ class DamageGlyph:
 			return
 		var baseline := Vector2(0, font.get_ascent(font_size))
 		if outlined:
-			for offset in DamageNumberBillboard.OUTLINE_OFFSETS:
+			for offset in outline_ring:
 				draw_string(
 					font,
 					baseline + offset,
@@ -273,11 +301,19 @@ func _animate(front_color: Color) -> Tween:
 	return tween
 
 
-## Rounded to whole device pixels before it reaches `position`: the number
-## steps the way the pixel-art scene behind it does, instead of sliding through
-## subpixels and shimmering against a nearest-filtered battlefield.
+## Snapped to whole art pixels before it reaches `position`. Rounding to device
+## pixels was not enough: at 24 device pixels per glyph the number moved in
+## 24ths of its own height, which is a glide, where the reference moves in
+## eighths and visibly steps. The arc underneath is unchanged and still
+## continuous -- only what is drawn from it is quantised, so the closed form
+## and its probe stay exactly as they were.
 func _applyClock(seconds: float, front_color: Color, flash_color: Color) -> void:
-	position = (_anchor + offset_at(seconds, _glyph_height)).round()
+	var art := art_pixel()
+	var offset := offset_at(seconds, _glyph_height)
+	position = (_anchor + Vector2(
+		roundf(offset.x / art) * art,
+		roundf(offset.y / art) * art
+	)).round()
 
 	var flashing := seconds >= OUTLINED_DURATION
 	var color := flash_color if flashing else front_color
