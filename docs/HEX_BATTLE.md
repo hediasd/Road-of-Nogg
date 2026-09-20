@@ -12,12 +12,19 @@ enemy it cannot hit, or ground it cannot reach) ends its turn as a Wait. A unit 
 and then use a non-magic action, or act without moving. Acting spends it and
 ends its unit turn. Casting after moving is refused. Undo is available after a
 move and before an action. When the last unit is spent the side ends
-automatically; End turn spends every remaining ready unit as Wait, asking for
-confirmation first when any remain.
+automatically, and so does a player side whose only ready units are ones the
+simulator refuses every command from (petrify today) — a unit that cannot even be
+told to Wait can never be spent, and leaving the side open on it would make End
+turn a way of clearing a jam rather than a choice. End turn spends every
+remaining ready unit as Wait, asking for confirmation first when any remain.
 
-The screen mirrors that model instead of exposing parties. A brief `Your turn`
-or `Enemy turn` notice names the active side, then sweeps back out so it does
-not become permanent chrome. Ready friendly units are selected
+The screen mirrors that model instead of exposing parties. Every side turn opens
+with `NEXT TURN`, then `TURN #n`, growing vertically in the middle of the screen,
+and a brief `Your turn` or `Enemy turn` notice names the active side before
+sweeping back out so neither becomes permanent chrome. When the last unit is
+spent, the automatic end is immediate and visible: the action arc, forecasts and
+the End turn control all go at once, and the status line says so, rather than the
+turn appearing to continue until the next side opens. Ready friendly units are selected
 directly on the board and receive a movement contour plus a projected action
 arc. The contour shows only where the unit can still walk, so it disappears
 once the unit has moved and is never drawn outside the player's own turn.
@@ -25,8 +32,10 @@ Reachable empty ground moves; a legal enemy click attacks; other unit
 clicks inspect. A moved unit keeps Undo, Attack, Item, Status and Wait, with
 Magic crossed out. Magic is the only action that opens a list, using a reduced
 `HexCommandMenu` as a short spell picker; aim then shows a forecast beside
-each affected unit. Spent units drain to slate grey, keeping their team plinth, and the End turn control reports how
-many units remain ready.
+each affected unit. A spent unit darkens evenly toward black, its whole
+model including the plinth, fading as playback reaches the end of its turn rather
+than when the simulation decided it; the End turn control reports how many units
+remain ready.
 
 The party panel, party-order panel, full command rail and prompt box are hidden
 in side-turn mode. Parties still group authored content and controllers in

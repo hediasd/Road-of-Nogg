@@ -1509,10 +1509,32 @@ five icons never overlap. Disabled actions remain present and dim so their
 stable keyboard positions do not change.
 
 The target sword is the arc's own attack icon, drawn over an anchor parented
-to the target model. Spent units take `HexUnitSpent.gdshader` through
-`material_overlay`: the unit drained to its luminance under a slate tint, on a
-thin hull so vertex-snapped faces cannot speckle through. The team plinth is
-left untouched.
+to the target model. A spent unit darkens instead: `unit_darken`, a per-instance
+uniform in both retro surface shaders, multiplies the whole model's albedo and
+specular down toward black (0.72, fading over 0.30s), plinth included. It is one
+multiply inside the unit's own shading, so the darkening is even across every
+part, each hue is kept exactly as authored, and `material_overlay` stays free for
+the hover outline — a spent unit can be hovered without losing either cue. The
+screen-read `material_overlay` hull this replaced sampled the drawn frame through
+an inflated silhouette, which read as blotches at the retro pipeline's internal
+resolution, and substituted luminance for colour, which made every spent unit the
+same grey.
+
+**The darkening is playback's to apply, not the simulation's.** A unit is spent
+the instant its action resolves, several queued animations before the screen has
+shown that action; applied at that moment, a unit went dark while its own attack
+was still swinging and a whole CPU side darkened at once before any of it played.
+`unit_spent` therefore enqueues a `VisualAction.Kind.SPENT`, and the fade plays
+where the queue reaches it, holding the queue for its own length so the last unit
+of a side is seen going dark before the next turn brightens everyone.
+
+The turn heading is the one deliberately large cue in the battle:
+`SideTurnAnnouncement` prints `NEXT TURN`, then `TURN #n`, across the middle of
+the screen in the Herald display face at three times banner size. Each message
+grows from zero height to full around its own centre, holds, and collapses the
+same way — vertical `scale.y` rather than a font size tween, because a bitmap
+face floors any size off its own grid and would snap between two sizes instead of
+growing. It is mouse-transparent and never blocks the turn it announces.
 
 Forecast boxes are one `NoggWindow`-family frame per affected unit. They only
 format the resolver-provided forecast dictionary; several may coexist for a

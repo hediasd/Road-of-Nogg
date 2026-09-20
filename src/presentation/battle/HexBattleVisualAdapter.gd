@@ -32,7 +32,7 @@ const HexBattleUnitBadgesScript = preload("res://src/presentation/battle/HexBatt
 const MonsterModelFactoryScript = preload("res://src/presentation/MonsterModelFactory.gd")
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const UnitOutlineShader = preload("res://src/presentation/battle/shaders/HexUnitOutline.gdshader")
-const UnitSpentShader = preload("res://src/presentation/battle/shaders/HexUnitSpent.gdshader")
+const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
 const SpellVfxCatalogScript = preload("res://src/presentation/effects/SpellVfxCatalog.gd")
 const VfxCastContextScript = preload("res://src/presentation/effects/VfxCastContext.gd")
@@ -83,6 +83,17 @@ const SWORD_MARKER_NAME := "TargetSword"
 const SWORD_HEIGHT := 1.75
 const SWORD_CLEARANCE := 0.45
 const SWORD_IDLE_SECONDS := 1.7
+
+## SPENT UNITS DARKEN, they do not grey out. How far toward black a unit whose turn is over is
+## taken, and how long the fade takes. 0.72 leaves the silhouette and enough of the team and
+## element hues to tell two spent units apart, while reading unmistakably as "done"; 1.0 would be
+## a black cut-out. The fade is a fade because the moment it happens is information -- a snap to
+## dark is easy to miss and impossible to attribute to the action that caused it.
+const SPENT_DARKEN := 0.72
+const SPENT_DARKEN_SECONDS := 0.30
+## How long a unit takes to come back up when its side's next turn opens. Quicker than the fade
+## down: waking up is a state change the player already expects, not a result to be read.
+const SPENT_RESTORE_SECONDS := 0.18
 
 ## Independent overlay layers. Painting one never clears another, which is what lets a pending
 ## command be previewed over the reach the player is aiming from.
@@ -152,8 +163,13 @@ var _badges
 ## Presentation speed for movement tweens. Combat feedback holds its own copy, set alongside.
 var _playbackSpeed := 1.0
 var _outlineMaterial: ShaderMaterial
-var _spentMaterial: ShaderMaterial
 var _spentUnitIDs: Dictionary = {}
+## monsterID -> the darkening currently on its model, so a fade always starts from what is on
+## screen rather than from 0.0 (a unit re-darkened mid-fade would otherwise jump back to full
+## brightness first).
+var _spentDarken: Dictionary = {}
+## monsterID -> its live darkening tween, killed before another is started for the same unit.
+var _spentTweens: Dictionary = {}
 var _hoveredID := -1
 var _selectedID := -1
 var _selectionRing: MeshInstance3D
@@ -225,10 +241,13 @@ func dispose() -> void:
 		_badges.dispose()
 		_badges = null
 	for id in _models.keys():
+		_killDarkenTween(int(id))
 		var model: Node3D = _models[id]
 		if is_instance_valid(model):
 			model.queue_free()
 	_models.clear()
+	_spentUnitIDs.clear()
+	_spentDarken.clear()
 	if is_instance_valid(boardView):
 		boardView.clear()
 
@@ -305,19 +324,95 @@ func setHoveredUnit(monsterID: int) -> void:
 	_applyOutline(_hoveredID, true)
 
 
-## Reversible presentation-only dimming. Unit-authored materials stay untouched; removing the
-## overlay restores the exact original surface. Hover temporarily owns the same overlay slot and
-## hands it back to the spent treatment when the pointer leaves.
-func setUnitSpent(monsterID: int, spent: bool) -> void:
+## A unit whose turn is over darkens evenly toward black, and comes back when its side acts again.
+##
+## Reversible and presentation-only: the darkening is a per-instance shader parameter, so no
+## material is edited and clearing it restores the exact original surface. It is also independent
+## of the hover outline, which owns `material_overlay` -- a spent unit can be hovered without
+## losing its treatment, which the shared overlay slot made impossible.
+##
+## `animate` is false by default, which is the honest default for a caller that is re-deriving
+## state (a rebuilt model, a recovered queue, a skipped action): those callers are catching the
+## screen up, and a catch-up that takes time is just a slower divergence. The turn ENDING is the
+## one moment worth watching, and it is animated by `_startSpentFade` off the playback queue.
+func setUnitSpent(monsterID: int, spent: bool, animate: bool = false) -> void:
 	if spent:
 		_spentUnitIDs[monsterID] = true
 	else:
 		_spentUnitIDs.erase(monsterID)
-	_applyUnitOverlay(monsterID)
+	var target := SPENT_DARKEN if spent else 0.0
+	if animate:
+		_fadeUnitDarken(monsterID, target,
+			SPENT_DARKEN_SECONDS if spent else SPENT_RESTORE_SECONDS)
+	else:
+		_setUnitDarken(monsterID, target)
 
 
 func isUnitSpent(monsterID: int) -> bool:
 	return _spentUnitIDs.has(monsterID)
+
+
+## How dark a unit's model is drawn right now, for probes and for a fade that has to start
+## somewhere.
+func unitDarken(monsterID: int) -> float:
+	return float(_spentDarken.get(monsterID, 0.0))
+
+
+func _setUnitDarken(monsterID: int, amount: float) -> void:
+	_killDarkenTween(monsterID)
+	_writeUnitDarken(monsterID, amount)
+
+
+func _fadeUnitDarken(monsterID: int, amount: float, seconds: float) -> void:
+	var tween := _buildDarkenTween(monsterID, amount, seconds)
+	if tween == null:
+		_setUnitDarken(monsterID, amount)
+		return
+	tween.finished.connect(func(): _spentTweens.erase(monsterID))
+	_spentTweens[monsterID] = tween
+
+
+## The fade itself, or null when there is nothing to fade. Built on the TREE rather than on the
+## model, exactly as `_startMove` is: a unit freed mid-fade would take a model-bound tween with it,
+## and when the queue is waiting on that tween the only thing that would end the wait is the
+## watchdog. `_writeUnitDarken` already tolerates a model that has gone.
+func _buildDarkenTween(monsterID: int, amount: float, seconds: float) -> Tween:
+	var model := modelFor(monsterID)
+	if model == null or not is_instance_valid(model) or not is_instance_valid(_root):
+		return null
+	var tree := _root.get_tree()
+	if tree == null:
+		return null
+	var from := unitDarken(monsterID)
+	if is_equal_approx(from, amount):
+		return null
+	_killDarkenTween(monsterID)
+	var tween := tree.create_tween()
+	tween.tween_method(
+		func(value: float): _writeUnitDarken(monsterID, value), from, amount, seconds)
+	# Speed-scaled like every other playback tween, so the darkening keeps pace with the action it
+	# belongs to at every presentation speed.
+	tween.set_speed_scale(maxf(_playbackSpeed, PLAYBACK_SPEED_MIN))
+	return tween
+
+
+func _writeUnitDarken(monsterID: int, amount: float) -> void:
+	var model := modelFor(monsterID)
+	# A unit that left the board mid-fade keeps no record: the queue's own tween may outlive the
+	# model (it is built on the tree for exactly that reason), and a remembered darkening for a
+	# unit with no model would be re-applied to the next model built under that id.
+	if model == null or not is_instance_valid(model):
+		_spentDarken.erase(monsterID)
+		return
+	_spentDarken[monsterID] = amount
+	BattleMeshFactoryScript.setUnitDarkenRecursive(model, amount)
+
+
+func _killDarkenTween(monsterID: int) -> void:
+	var tween: Tween = _spentTweens.get(monsterID)
+	if tween != null and tween.is_valid():
+		tween.kill()
+	_spentTweens.erase(monsterID)
 
 
 ## The selection cue: a breathing ring on the selected unit's own cell, distinct from the hover rim
@@ -355,15 +450,13 @@ func _applyOutline(monsterID: int, on: bool) -> void:
 	_applyUnitOverlay(monsterID)
 
 
+## The overlay slot carries the hover outline and nothing else. Spent units are darkened through
+## their own shading instead, so the two cues are independent and a hovered spent unit keeps both.
 func _applyUnitOverlay(monsterID: int) -> void:
 	var model := modelFor(monsterID)
 	if model == null or not is_instance_valid(model):
 		return
-	if _spentMaterial == null:
-		_spentMaterial = ShaderMaterial.new()
-		_spentMaterial.shader = UnitSpentShader
-	var overlay: Material = _outlineMaterial if monsterID == _hoveredID else (
-		_spentMaterial if _spentUnitIDs.has(monsterID) else null)
+	var overlay: Material = _outlineMaterial if monsterID == _hoveredID else null
 	for node in model.find_children("*", "MeshInstance3D", true, false):
 		var mesh := node as MeshInstance3D
 		# The team plinth and the selection ring are not the unit. Outlining the plinth drew a
@@ -505,7 +598,9 @@ func _forgetUnitCues(monsterID: int) -> void:
 		_selectedID = -1
 	if monsterID == _targetedID:
 		_clearSwordMarker()
+	_killDarkenTween(monsterID)
 	_spentUnitIDs.erase(monsterID)
+	_spentDarken.erase(monsterID)
 
 
 func removeDisplayedModel(monsterID: int) -> void:
@@ -552,6 +647,10 @@ func _buildMonsterModel(
 			model.set_meta(TEAM_CAPTAIN_META, true)
 	_root.add_child(model)
 	_models[monsterID] = model
+	# A model rebuilt by queue recovery is rebuilt bright, so whatever treatment the unit carries
+	# has to be written onto the new meshes.
+	if _spentUnitIDs.has(monsterID):
+		_setUnitDarken(monsterID, SPENT_DARKEN)
 	return model
 
 
@@ -658,6 +757,33 @@ func _on_monster_defeated(monsterID: int, killerID: int) -> void:
 func _on_party_withdrawn(_partyID: int, memberIDs: Array) -> void:
 	for value in memberIDs:
 		_queueRemoval(int(value), -1, HexBattleDisplayStateScript.REASON_WITHDRAWN)
+
+
+## QUEUED, NEVER APPLIED HERE, and that is the whole point of this handler.
+##
+## The simulation marks a unit spent the moment its action RESOLVES, which is one or more queued
+## animations before the screen has shown that action happening. Darkening the unit here made it go
+## dark while its own attack was still winding up, and for a CPU side the whole team darkened in one
+## go before any of it had played. The queue is what knows when the picture has caught up.
+func _on_unit_spent(_sideID: int, monsterID: int) -> void:
+	if _queue == null or not _models.has(monsterID):
+		return
+	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.SPENT)
+	action.monster_id = monsterID
+	_queue.enqueue(action)
+
+
+## Everyone on the board is ready again: `spentUnitIDs` is cleared per side turn, so the treatment
+## is cleared for every model rather than for the opening side's own units. Applied directly
+## because a side turn only ever opens on a drained queue -- there is nothing in flight to order it
+## against.
+func _on_side_turn_started(
+		_sideID: int, _roundNumber: int, _turnNumber: int, _eligibleUnitIDs: Array
+) -> void:
+	for value in _models.keys():
+		var monsterID := int(value)
+		if _spentUnitIDs.has(monsterID) or unitDarken(monsterID) > 0.0:
+			setUnitSpent(monsterID, false, true)
 
 
 # --- cursor and overlays ----------------------------------------------------
@@ -1177,6 +1303,8 @@ func _startQueuedAction(action: VisualAction) -> bool:
 	match action.kind:
 		VisualAction.Kind.MOVE:
 			return _startMove(action)
+		VisualAction.Kind.SPENT:
+			return _startSpentFade(action)
 		_:
 			if _feedback == null:
 				return false
@@ -1209,7 +1337,29 @@ func _startMove(action: VisualAction) -> bool:
 	return true
 
 
+## A unit's turn ending, played where the queue reached it.
+##
+## HOLDS THE QUEUE OPEN for the length of the fade, which is what makes the cue worth having. A
+## side turn opens only on a drained queue, and the opening clears every unit's treatment -- so a
+## fade the queue did not wait for would be brightened away a frame or two after it started, and
+## the last unit of a side would never be seen going dark at all. It also gives each unit's turn a
+## short beat of its own before the next one starts.
+func _startSpentFade(action: VisualAction) -> bool:
+	var monsterID := action.monster_id
+	_spentUnitIDs[monsterID] = true
+	var tween := _buildDarkenTween(monsterID, SPENT_DARKEN, SPENT_DARKEN_SECONDS)
+	if tween == null:
+		setUnitSpent(monsterID, true)
+		return false
+	var speed := maxf(_playbackSpeed, PLAYBACK_SPEED_MIN)
+	_queue.activate(tween, action, SPENT_DARKEN_SECONDS / speed)
+	return true
+
+
 func _finalizeQueuedAction(action: VisualAction) -> void:
+	if action.kind == VisualAction.Kind.SPENT:
+		setUnitSpent(action.monster_id, true)
+		return
 	if action.kind == VisualAction.Kind.MOVE:
 		var model := modelFor(action.monster_id)
 		if model != null and is_instance_valid(model) and not action.path.is_empty():
@@ -1260,6 +1410,11 @@ func _synchroniseOccupancy(exceptMonsterID: int = -1) -> void:
 			continue
 		model.visible = true
 		model.position = worldPositionOf(cell)
+	# Queued SPENT actions went with the rest of the queue, so the treatment is re-derived from the
+	# authoritative spent set. Unanimated: a recovery is the screen catching up, not a beat.
+	for value in _models.keys():
+		var monsterID := int(value)
+		setUnitSpent(monsterID, _state.spentUnitIDs.has(monsterID))
 	if _badges != null:
 		_badges.refreshAll()
 

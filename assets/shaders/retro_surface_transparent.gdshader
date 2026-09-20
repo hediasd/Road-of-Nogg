@@ -23,6 +23,10 @@ uniform float emission_strength = 0.0;
 // retro_surface.gdshader's uniform of the same name; keep the two in sync.
 uniform float dim_amount : hint_range(0.0, 1.0) = 0.0;
 
+// Mirrors retro_surface.gdshader's own `unit_darken` instance uniform, for the transparent parts
+// of a model; keep the two in sync. See that file for why it is per instance and a plain multiply.
+instance uniform float unit_darken = 0.0;
+
 varying vec2 split_model_xy;
 varying vec2 affine_uv_times_w;
 varying float affine_clip_w;
@@ -64,10 +68,11 @@ void fragment() {
 	if (split_color && split_uv.y - split_uv.x >= 0.0) {
 		tint = color_b;
 	}
-	ALBEDO = tint.rgb * texel.rgb * (1.0 - dim_amount * 0.55);
+	float lit = 1.0 - clamp(unit_darken, 0.0, 1.0);
+	ALBEDO = tint.rgb * texel.rgb * (1.0 - dim_amount * 0.55) * lit;
 	ALPHA = tint.a * texel.a;
 	ROUGHNESS = 1.0;
 	METALLIC = 0.0;
-	SPECULAR = 0.25;
+	SPECULAR = 0.25 * lit;
 	EMISSION = ALBEDO * emission_strength;
 }

@@ -132,6 +132,9 @@ func teardownBattle() -> void:
 		memberTurn.cancel()
 		memberTurn = null
 	memberInput = null
+	if sim != null and sim.events != null \
+			and sim.events.side_turn_ended.is_connected(_onSideTurnEnded):
+		sim.events.side_turn_ended.disconnect(_onSideTurnEnded)
 	if adapter != null:
 		adapter.disconnectFromEvents()
 		if adapter.animation_queue_drained.is_connected(_onPlaybackDrained):
@@ -233,6 +236,12 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	adapter.setCombatResolver(sim.combatResolver)
 	adapter.connectToEvents(sim.events)
 	adapter.animation_queue_drained.connect(_onPlaybackDrained)
+	# The one event this controller listens to directly. Every other signal reaches the screen
+	# through the adapter, but a side turn ending is not a picture: it is the moment the player's
+	# own controls stop applying, and it can happen without the player doing anything (the last
+	# unit's action spends it). Polled through `_advance` it was invisible until the next side
+	# opened, which is what made an automatic end read as a battle that had stopped responding.
+	sim.events.side_turn_ended.connect(_onSideTurnEnded)
 	# FHB-1: the adapter is listening now, so this is the earliest point the board can be
 	# announced -- and it must happen before sim.startBattle() opens the turn loop, or the first
 	# move would be the first thing a connected adapter ever hears about.
@@ -332,10 +341,43 @@ func _onActivationOpened(sideID: int) -> void:
 		sideCues.clearForecasts()
 	if sideCues != null:
 		sideCues.showTurnBanner(controller == "player")
+		# The turn's own heading, from the simulator's side-turn counter: every side turn is one
+		# turn, so the number climbs by one whoever is playing.
+		sideCues.showTurnAnnouncement(int(sim.state.turnCount))
 		_lastReadyCount = sim.eligibleSideUnitIDs().size()
 		sideCues.setReadyCount(_lastReadyCount)
-	_syncSpentCues()
 	_setStatus("Your turn." if controller == "player" else "Enemy turn.")
+
+
+## A side turn is over. The simulator ends one by itself as soon as its last unit is spent
+## ("units_exhausted"), so this is normally reached with nobody having clicked anything -- the
+## player's last unit acted and that was the turn. Everything the open side owned goes now, rather
+## than lingering until the next side opens: a live End turn button on a turn that has ended is an
+## invitation to click something that will be refused.
+##
+## The spent treatment is deliberately NOT cleared here. Units stay dark until their side's next
+## turn opens, which is what the darkening means.
+func _onSideTurnEnded(sideID: int, reason: String) -> void:
+	if lifecycle != Lifecycle.BATTLE:
+		return
+	_lastReadyCount = -1
+	_pointerTargetID = -1
+	# The sword goes with the aim it belonged to. The selection ring deliberately stays: the last
+	# unit's action may still be playing, and pulling the ring off the unit mid-swing reads as the
+	# unit being deselected rather than as the turn ending. The next side turn clears it.
+	if adapter != null:
+		adapter.setTargetedUnit(-1)
+	if hud != null:
+		hud.hideCommands()
+		hud.showAim({})
+	if sideCues != null:
+		sideCues.hideActionArc()
+		sideCues.clearForecasts()
+		sideCues.setReadyCount(0)
+		sideCues.setEndTurnVisible(false)
+	if _sideController(sideID) == "player":
+		_setStatus("Every unit has acted. Turn over." if reason == "units_exhausted"
+			else "Turn over.")
 
 
 func _serveOpenActivation() -> void:
@@ -348,8 +390,29 @@ func _serveOpenActivation() -> void:
 		sim.endSideTurn("system")
 		return
 	if controller == "player":
+		# Ready, but with nothing any of them can be told to do. The simulator's own rule ends a
+		# side turn when its last unit is SPENT, and a unit the simulator refuses every command
+		# from can never be spent by the player: Wait is a command too, and it is refused with the
+		# rest. Left alone, such a side stays open on units the player cannot use, and the only way
+		# out is the End turn button -- which is not the player making a choice, it is the player
+		# clearing a jam. `endSideTurn` spends them the one way that works, through the simulator's
+		# own skip path.
+		if _everyUnitStalled(eligible):
+			sim.endSideTurn("system")
 		return
 	_beginCpuMember(int(eligible[0]))
+
+
+## Whether the simulator would refuse every command from all of these units. Petrify is the only
+## state that does that today; it is asked of the state rather than restated here, so a second
+## such effect is covered by the same question.
+func _everyUnitStalled(unitIDs: Array) -> bool:
+	if unitIDs.is_empty():
+		return false
+	for value in unitIDs:
+		if not sim.state.hasEffect(int(value), "petrify"):
+			return false
+	return true
 
 
 ## Opens one sliced whole-side deliberation. It chooses the actor as well as the command, then a
@@ -390,7 +453,6 @@ func _process(_delta: float) -> void:
 	else:
 		push_error("CPU side-turn actor was refused: %s" % str(selected.get("reason", "unknown")))
 		sim.endSideTurn("cpu_actor_refused")
-	_syncSpentCues()
 	playback.release(HexBattlePlayback.OWNER_CPU)
 	_deliberatingMemberID = -1
 	_checkFinished()
@@ -558,7 +620,6 @@ func _onMemberTurnFinished(monsterID: int) -> void:
 	adapter.setTargetedUnit(-1)
 	_pointerTargetID = -1
 	playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
-	_syncSpentCues()
 	_checkFinished()
 
 
@@ -585,7 +646,6 @@ func _onHudEndParty() -> void:
 	if sideCues != null:
 		sideCues.hideActionArc()
 		sideCues.setReadyCount(0)
-	_syncSpentCues()
 	_checkFinished()
 
 
@@ -942,14 +1002,6 @@ func _sideController(sideID: int) -> String:
 	return controllers[0] if not controllers.is_empty() else ""
 
 
-func _syncSpentCues() -> void:
-	if adapter == null or sim == null:
-		return
-	for idValue in adapter.shownModelIDs():
-		var monsterID := int(idValue)
-		adapter.setUnitSpent(monsterID, sim.state.spentUnitIDs.has(monsterID))
-
-
 ## Screen axes, y growing downward, which is what `HexBattleCursor` resolves against. Arrows and
 ## the WASD cluster produce the same four vectors; the diagonals reach the remaining two
 ## neighbours directly, and four-way input reaches them through the nearer cardinal.
@@ -1217,6 +1269,7 @@ func _beginEnding() -> void:
 		sideCues.hideActionArc()
 		sideCues.clearForecasts()
 		sideCues.hideTurnBanner()
+		sideCues.hideTurnAnnouncement()
 	if adapter != null:
 		adapter.setTargetedUnit(-1)
 	_setStatus("The battle is decided.")

@@ -6,6 +6,9 @@ class_name BattleMeshFactory
 const RETRO_SURFACE_SHADER = preload("res://assets/shaders/retro_surface.gdshader")
 const RETRO_TRANSPARENT_SHADER = preload("res://assets/shaders/retro_surface_transparent.gdshader")
 const RETRO_MATERIAL_META := "road_of_nogg_retro_material"
+## The retro shaders' own per-instance darkening parameter. Named here so the shader and the one
+## caller that drives it cannot drift apart over a string.
+const UNIT_DARKEN_PARAM := &"unit_darken"
 const TERRAIN_CELL_SIZE := Vector3(1.0, 0.5, 1.0)
 
 ## Total height every model base occupies, however many ascension layers it is
@@ -350,6 +353,49 @@ static func _setDimAmountOnMaterial(material: ShaderMaterial, amount: float) -> 
 	if not material.has_meta(RETRO_MATERIAL_META):
 		return
 	material.set_shader_parameter("dim_amount", amount)
+
+
+## Sets the per-instance `unit_darken` on every retro-shaded mesh under `node`, which is how a
+## spent unit is darkened: evenly, keeping its own hues, all the way toward black at 1.0.
+##
+## An INSTANCE parameter, not a material one. `setDimAmountRecursive` above writes to the material,
+## which is correct for a marker every mesh wearing that material should share, and wrong here --
+## two units of the same monster may come to share one material resource, and one of them being
+## over says nothing about the other. Recognised by shader identity rather than by the retro meta
+## flag, because a duplicated material (the team captain's top base layer) keeps its shader but is
+## not guaranteed to keep meta.
+static func setUnitDarkenRecursive(node: Node, amount: float) -> void:
+	if node is MeshInstance3D:
+		_setUnitDarkenForMesh(node, clampf(amount, 0.0, 1.0))
+	for child in node.get_children():
+		setUnitDarkenRecursive(child, amount)
+
+
+static func _setUnitDarkenForMesh(meshInstance: MeshInstance3D, amount: float) -> void:
+	if not _hasRetroShader(meshInstance):
+		return
+	meshInstance.set_instance_shader_parameter(UNIT_DARKEN_PARAM, amount)
+
+
+static func _hasRetroShader(meshInstance: MeshInstance3D) -> bool:
+	if _isRetroShaded(meshInstance.material_override):
+		return true
+	if meshInstance.mesh == null:
+		return false
+	for surfaceIndex in range(meshInstance.mesh.get_surface_count()):
+		if _isRetroShaded(meshInstance.get_surface_override_material(surfaceIndex)):
+			return true
+		if _isRetroShaded(meshInstance.mesh.surface_get_material(surfaceIndex)):
+			return true
+	return false
+
+
+static func _isRetroShaded(material: Material) -> bool:
+	var shaderMaterial := material as ShaderMaterial
+	if shaderMaterial == null:
+		return false
+	return shaderMaterial.shader == RETRO_SURFACE_SHADER \
+		or shaderMaterial.shader == RETRO_TRANSPARENT_SHADER
 
 
 ## Sets screen-door `dither_amount` on every retro material under `node`, used

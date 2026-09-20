@@ -5,6 +5,8 @@ signal action_requested(actionID: String)
 signal end_turn_requested()
 
 const BannerScript = preload("res://src/presentation/battle/ui/side_turn/SideTurnBanner.gd")
+const AnnouncementScript = preload(
+	"res://src/presentation/battle/ui/side_turn/SideTurnAnnouncement.gd")
 const IconArcScript = preload("res://src/presentation/battle/ui/side_turn/SideTurnIconArc.gd")
 const PreviewBoxScript = preload("res://src/presentation/battle/ui/side_turn/SideTurnPreviewBox.gd")
 const EndButtonScript = preload("res://src/presentation/battle/ui/side_turn/SideTurnEndButton.gd")
@@ -21,6 +23,7 @@ const SWORD_ENTRANCE_SECONDS := 0.16
 
 var _root: Control
 var _banner
+var _announcement
 var _arc
 var _endButton
 var _previews: Array = []
@@ -43,6 +46,10 @@ func _init() -> void:
 	add_child(_root)
 	_banner = BannerScript.new()
 	_root.add_child(_banner)
+	# Added before the arc, the sword and the forecasts, so a heading over the middle of the board
+	# never covers a cue the player is about to act on.
+	_announcement = AnnouncementScript.new()
+	_root.add_child(_announcement)
 	_arc = IconArcScript.new()
 	_arc.action_requested.connect(func(id: String): action_requested.emit(id))
 	_root.add_child(_arc)
@@ -116,6 +123,21 @@ func hideTurnBanner() -> void:
 	_banner.hideTurn()
 
 
+## The turn heading: NEXT TURN, then TURN #turnNumber, growing vertically in the middle of the
+## screen. Shown at every side turn, whoever owns it -- the heading announces the turn, and the
+## docked banner above says whose it is.
+func showTurnAnnouncement(turnNumber: int) -> void:
+	_announcement.showTurn(turnNumber)
+
+
+func hideTurnAnnouncement() -> void:
+	_announcement.cancel()
+
+
+func announcedText() -> String:
+	return _announcement.announcedText()
+
+
 func showActionArc(
 		worldAnchor: Vector3, enabled: Dictionary, crossed: Array = [], undo: bool = false
 ) -> void:
@@ -187,6 +209,7 @@ func _layoutFixedCues() -> void:
 	# Screen-docked cues keep the HUD's own screen margin, like every other HUD window.
 	var margin := NoggThemeScript.HEX_SCREEN_MARGIN
 	_banner.setRestPosition(Vector2(roundf((viewportSize.x - _banner.size.x) * 0.5), margin))
+	_announcement.layoutFor(viewportSize)
 	_endButton.position = Vector2(
 		viewportSize.x - _endButton.size.x - margin,
 		viewportSize.y - _endButton.size.y - margin)

@@ -21,6 +21,21 @@ uniform float emission_strength = 0.0;
 // material is pixel-identical until something opts in.
 uniform float dim_amount : hint_range(0.0, 1.0) = 0.0;
 
+// Spent-unit darkening, PER MESH INSTANCE rather than per material.
+//
+// An `instance uniform` because two units of the same monster may one day share one material
+// resource (MonsterVisualRegistry instantiates a scene; its surfaces come with it), and darkening
+// a shared material would darken every unit wearing it. Set through
+// `MeshInstance3D.set_instance_shader_parameter`, so nothing about the material is touched and
+// clearing it restores the exact original surface.
+//
+// Deliberately a plain multiply on ALBEDO rather than a screen-read overlay: the overlay this
+// replaced sampled the already-drawn frame through a slightly inflated hull, which at the retro
+// pipeline's low internal resolution read as blotches, and it substituted luminance for colour,
+// which turned every unit the same grey. One multiply keeps each hue exactly as authored and only
+// changes how much light the surface returns, evenly across the whole model.
+instance uniform float unit_darken = 0.0;
+
 // Surface finish, promoted from what used to be hardcoded in fragment() so a
 // material can opt into a different finish (the model base's metallic plinth,
 // for one) without every other material in the scene changing appearance.
@@ -103,13 +118,16 @@ void fragment() {
 	if (split_color && split_uv.y - split_uv.x >= 0.0) {
 		tint = color_b;
 	}
-	ALBEDO = tint.rgb * texel.rgb * (1.0 - dim_amount * 0.55);
+	// Applied before the finish so the darkening also takes the highlights with it. A dark albedo
+	// under a full specular response still reads as a lit, shiny unit, which is not "over".
+	float lit = 1.0 - clamp(unit_darken, 0.0, 1.0);
+	ALBEDO = tint.rgb * texel.rgb * (1.0 - dim_amount * 0.55) * lit;
 	ROUGHNESS = surface_roughness;
 	METALLIC = surface_metallic;
-	SPECULAR = surface_specular;
+	SPECULAR = surface_specular * lit;
 	EMISSION = ALBEDO * emission_strength;
 	if (rim_amount > 0.0) {
 		float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 4.0);
-		EMISSION += rim_color.rgb * fresnel * rim_amount;
+		EMISSION += rim_color.rgb * fresnel * rim_amount * lit;
 	}
 }
