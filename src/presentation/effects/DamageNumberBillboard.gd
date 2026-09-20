@@ -80,6 +80,11 @@ const CLEANUP_MARGIN := 0.5
 ## wrong family for it. Everything else on screen keeps the hairline rule.
 const ART_PIXELS_PER_GLYPH := 8.0
 
+## The smallest size Nogg Terminal still rasterises. Below this it returns a
+## zero-sized glyph and the number renders as nothing at all, which is a silent
+## failure rather than a small one -- hence a floor rather than a comment.
+const MIN_FONT_STRIKE := 6
+
 static var _outline_cache: Dictionary = {}
 
 
@@ -123,22 +128,26 @@ class DamageGlyph:
 	var front_color := Color.WHITE
 	var outlined := true
 	var outline_ring: Array = []
+	var pixel_scale := 1.0
 
 	func configure(
 			font_value: Font,
 			glyph_value: String,
 			width_value: int,
 			size_value: int,
-			color_value: Color) -> void:
+			color_value: Color,
+			pixel_value: float) -> void:
 		font = font_value
 		glyph = glyph_value
 		glyph_width = width_value
 		font_size = size_value
 		front_color = color_value
-		outline_ring = DamageNumberBillboard.outline_offsets(
-			maxi(1, roundi(DamageNumberBillboard.art_pixel()))
-		)
-		size = Vector2(glyph_width, font_size)
+		pixel_scale = pixel_value
+		# One art pixel, in the small space the glyph is rasterised in. The disc
+		# at radius 1 is the four cardinals, which is the reference's outline
+		# exactly; the blow-up below is what makes it read as thick.
+		outline_ring = DamageNumberBillboard.outline_offsets(1)
+		size = Vector2(glyph_width, font_size) * pixel_scale
 		pivot_offset = size * 0.5
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -153,9 +162,15 @@ class DamageGlyph:
 		front_color = color_value
 		queue_redraw()
 
+	## The glyph is rasterised small and blown up by a whole number with nearest
+	## filtering, rather than rasterised at full size. That is the difference
+	## between pixel art and text: the reference's digit is about six art pixels
+	## tall and every edge in it lands on that grid, where a glyph rasterised at
+	## 24 px carries detail finer than any pixel the scene has.
 	func _draw() -> void:
 		if font == null or glyph.is_empty():
 			return
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2(pixel_scale, pixel_scale))
 		var baseline := Vector2(0, font.get_ascent(font_size))
 		if outlined:
 			for offset in outline_ring:
@@ -245,6 +260,21 @@ func _build(screen_position: Vector2, amount: int, is_heal: bool) -> Tween:
 		if is_heal else
 		NoggThemeScript.TEXT_PRIMARY
 	)
+	# Everything below is laid out in art pixels and multiplied up at the end,
+	# so kerning lands on the same grid the glyph and its motion do. Measuring
+	# advances at the full size and dividing would put digits at fractions of an
+	# art pixel and undo the blow-up.
+	var pixel := art_pixel()
+	# Nogg Terminal is a bitmap font with fixed strikes, not a scalable one: it
+	# renders the same 12 px strike for every requested size from 6 to 16, a
+	# doubled strike at 24, and *nothing at all* below 6. So the size asked for
+	# here is the design strike itself rather than a figure derived from the art
+	# grid -- a derived one would silently render the same glyph while claiming
+	# a smaller one, and a small enough one would render an invisible number.
+	# The blow-up below is what sets the size on screen.
+	var art_font_size := maxi(
+		MIN_FONT_STRIKE, int(NoggThemeScript.FONT_SIZE_BODY_UNITS)
+	)
 	var advances: Array[int] = []
 	var total_width := 0
 	for index in range(text.length()):
@@ -252,14 +282,18 @@ func _build(screen_position: Vector2, amount: int, is_heal: bool) -> Tween:
 		var advance := maxi(
 			1,
 			ceili(_font.get_string_size(
-				glyph, HORIZONTAL_ALIGNMENT_LEFT, -1.0, NoggThemeScript.FONT_SIZE_BODY
+				glyph, HORIZONTAL_ALIGNMENT_LEFT, -1.0, art_font_size
 			).x)
 		)
 		advances.append(advance)
 		total_width += advance
 
-	_glyph_height = float(NoggThemeScript.FONT_SIZE_BODY)
-	size = Vector2(total_width, NoggThemeScript.FONT_SIZE_BODY)
+	# The arc's unit is the glyph the art grid describes -- ART_PIXELS_PER_GLYPH
+	# art pixels, which comes back to FONT_SIZE_BODY on screen -- not the font
+	# strike's line box. The strike is 12 art pixels tall where its ink is 8, so
+	# measuring the arc against it would throw the number half again as far.
+	_glyph_height = ART_PIXELS_PER_GLYPH * pixel
+	size = Vector2(float(total_width), float(art_font_size)) * pixel
 	_anchor = (screen_position.round() - size * 0.5).round()
 	position = _anchor
 
@@ -267,13 +301,14 @@ func _build(screen_position: Vector2, amount: int, is_heal: bool) -> Tween:
 	for index in range(text.length()):
 		var digit := DamageGlyph.new()
 		digit.name = "Digit_%d" % index
-		digit.position = Vector2(x, 0)
+		digit.position = Vector2(float(x) * pixel, 0.0)
 		digit.configure(
 			_font,
 			text.substr(index, 1),
 			advances[index],
-			NoggThemeScript.FONT_SIZE_BODY,
-			front_color
+			art_font_size,
+			front_color,
+			pixel
 		)
 		add_child(digit)
 		x += advances[index]
