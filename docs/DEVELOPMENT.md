@@ -70,6 +70,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_swe
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter forecast
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter rewind
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter replay
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter spatial_cost
 ```
 
 Active hex state and replay snapshots use version 8. Version 7 state can be
@@ -85,6 +86,14 @@ rewind probe restores the same side twice, checks allocator/RNG recovery,
 round-trips the branch replay through JSON and finds a deliberately tampered
 operation by index. These are technical contracts; interactive rewind UI and
 player-facing cost have not been implemented.
+
+The spatial cost probe checks that cached ray geometry is pure and bounded, and
+that weighted reachability and A* agree with an exhaustive oracle on a board
+wider than the correctness fixture's. It prints `AI_SPATIAL_COST` lines with the
+workload it measured; those numbers are observations of the host that ran them,
+never pass conditions. Line-of-sight rules are asserted by `-Filter spatial`
+against hand-derived cases in `scripts/hex_battle/fixtures/spatial/los_golden.json`
+and a second corner-walking oracle, not against captured output.
 
 Two runners under `scripts/battle/`. Both write to `battle_output/` at the
 project root by default: single battles under `battle_output/battles/`,

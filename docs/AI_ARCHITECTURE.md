@@ -23,7 +23,7 @@ sequencing; this reference remains useful after those cycle files are removed.
 | Actor choice | [PartyCommandDeliberation](../src/entity_ai/PartyCommandDeliberation.gd) sorts ready units by role/urgency and stable ID, then finishes after the first selected unit's deliberation |
 | Candidate construction | [CommandDeliberation](../src/entity_ai/CommandDeliberation.gd) limits destinations to ten and enumerates spells from the origin because magic is pre-move |
 | Evaluation | [BattleCommandEvaluator](../src/entity_ai/BattleCommandEvaluator.gd) scores candidates; brain subclasses supply role differences |
-| Geometry and movement | [HexGrid](../src/board/HexGrid.gd), [HexReachability](../src/algorithms/HexReachability.gd), [AStarPathfinder](../src/algorithms/AStarPathfinder.gd), [LineOfSight](../src/algorithms/LineOfSight.gd), and canonical resolver callbacks |
+| Geometry and movement | [HexGrid](../src/board/HexGrid.gd), [HexReachability](../src/algorithms/HexReachability.gd) over cost buckets, [AStarPathfinder](../src/algorithms/AStarPathfinder.gd) over a binary heap, [LineOfSight](../src/algorithms/LineOfSight.gd) over translated ray templates, and canonical resolver callbacks |
 | Interactive scheduling | [HexBattleController](../src/systems/hex_battle/HexBattleController.gd) advances four deterministic inner slices per rendered frame, then applies a completed proposal on the main thread |
 | Headless scheduling | [run_battle](../scripts/battle/run_battle.gd) completes the same planner synchronously |
 | Stale proposal detection | [StateRevision](../src/entity_ai/StateRevision.gd) includes actor state, a mutation revision and timeline generation; full actor serialization is still paid on capture |
@@ -294,6 +294,62 @@ retention limits when implemented. Do not cache all board-cell pairs without a
 demonstrated need. Query keys include all relevant semantic inputs; revision and
 timeline generation protect against stale results. Diagnostic full-state hashes
 verify the mutation contract rather than becoming a per-frame hot-path tax.
+
+#### Current hex query implementation
+
+[LineOfSight](../src/algorithms/LineOfSight.gd) builds one ray template per
+axial displacement and source-column parity, and translates it. Cell centres are
+an affine image of axial coordinates, so the touched cells, their entry and exit
+parameters, and their order all depend on nothing else -- parity enters only
+because the order tie-break reads storage rows, which shift with it. A template
+holds geometry alone: heights, blockers and occupancy stay in the caller's
+callable and are re-asked on every query. Retention is one bounded table of 4096
+templates, dropped whole rather than evicted, since every entry costs the same
+to rebuild. `clearRayTemplates()` exists for the cost probe; no gameplay path
+needs to invalidate geometry, because geometry never changes.
+
+Building a template is still a scan of the disc of radius distance + 1, clipping
+the segment against six edge normals per cell, so a first ray of length *d*
+costs *O(d²)* while every later ray of that displacement costs *O(d)*. A
+narrower enumerator that walks only cells near the segment was rejected: it
+needs a proof that its candidate set is a superset of the touched set, and the
+templates already remove the repeated cost that the measured workload pays.
+
+[HexReachability](../src/algorithms/HexReachability.gd) keeps one search per
+actor rather than an A* per destination, and spends its frontier through cost
+buckets. Every step costs at least one, so a relaxation can only move a cell to
+a strictly later bucket, and a bucket is complete before it is opened: sorting
+it once on its stable row-and-column key reproduces exactly the order a repeated
+cheapest-cell scan produced. Memory is one array slot per point of the movement
+budget. [AStarPathfinder](../src/algorithms/AStarPathfinder.gd) uses a binary
+heap over the same total key the old scan selected on -- estimate, cost so far,
+row, column, insertion sequence -- which a heap may reorder freely because
+entries agreeing on all five describe the same cell reached the same way.
+
+`MovementResolver` caches the minimum traversal cost that scales the A*
+heuristic, keyed by map and mutation revision, because A* asked for a whole-board
+scan on every path query. Understating that minimum is always safe: every
+traversal cost is a positive integer, so a bound of one is admissible on any
+board. Overstating it is not, so **a future traversal cheaper than the recorded
+minimum -- a portal, or a direct board write of the kind the state contract still
+permits -- must advance a revision or fall back to one.**
+
+Measured on this Windows Godot 4.4 host, ten runs each, against the previous
+implementations. Rays over two full radius-8 discs: 687-743 ms before, 294-363
+ms after. One side turn of the technical scenario -- eight units, 67 reachable
+destinations, 219 melee and 747 spell target tests -- 481-487 ms before, 137-143
+ms after. Weighted reachability: no clear gain on a small frontier, 1.4x to 2.9x
+faster as board and movement budget grow. A long A* path: no gain on short
+searches where the open set stays tiny, 1.4x to 3.5x faster at 24 and 40 cells
+square. These are observations of one host, not acceptance thresholds.
+
+Enumeration **order** is not a property callers may lean on beyond the one
+guarantee that it is deterministic. The touched *set* is symmetric under
+reversal and invariant under translation; the order is neither, because cells
+are ordered by where the segment enters them, which reversal does not mirror,
+and ties break on storage rows, which move with source-column parity. The
+correctness probe asserts the set properties everywhere and the order only for
+parity-preserving translations.
 
 ### Forecasting and information access
 

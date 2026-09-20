@@ -16,6 +16,24 @@ const HEX_NORMALS: Array[Vector2] = [
 ]
 
 
+## Pure geometry, keyed by axial displacement and source column parity. Nothing
+## about occupancy, height or board contents may enter this dictionary: those
+## are asked per query by the caller's blocker callable. Retention is bounded;
+## the whole table is dropped rather than evicted one entry at a time, because
+## every entry is equally cheap to rebuild.
+const MAX_RAY_TEMPLATES := 4096
+static var _rayTemplates: Dictionary = {}
+
+
+## Diagnostics for the cost probe. Not an input to any gameplay decision.
+static func rayTemplateStats() -> Dictionary:
+	return {"templates": _rayTemplates.size(), "capacity": MAX_RAY_TEMPLATES}
+
+
+static func clearRayTemplates() -> void:
+	_rayTemplates.clear()
+
+
 static func supercoverCells(fromPos: Vector2i, toPos: Vector2i) -> Array[Vector2i]:
 	## Every cell whose closed hex touches the centre-to-centre segment. Source
 	## and target are included in this geometry query; visibility checks skip them.
@@ -58,13 +76,45 @@ static func hasHeightAwareLoS(
 
 
 static func _supercoverEntries(fromPos: Vector2i, toPos: Vector2i) -> Array[Dictionary]:
+	## Cell centres are an affine image of axial coordinates, so the touched set,
+	## its entry/exit parameters and its order depend only on the axial
+	## displacement and on the source column's parity -- parity alone decides how
+	## an axial offset lands in storage rows, and the order tie-break reads those
+	## rows. Building the answer once per displacement and translating it also
+	## makes the query exactly translation-invariant, which computing centres at
+	## absolute coordinates only approximated.
 	if fromPos == toPos:
 		return [{"cell": fromPos, "enter_t": 0.0, "exit_t": 1.0}]
-	var start := _cellCenter(fromPos)
-	var finish := _cellCenter(toPos)
+	var fromAxial := HexGridScript.offsetToAxial(fromPos)
+	var toAxial := HexGridScript.offsetToAxial(toPos)
+	var key := Vector3i(
+		toAxial.x - fromAxial.x, toAxial.y - fromAxial.y, fromPos.x & 1)
+	var template: Array = _rayTemplates.get(key, [])
+	if template.is_empty():
+		template = _buildRayTemplate(key)
+		if _rayTemplates.size() >= MAX_RAY_TEMPLATES:
+			_rayTemplates.clear()
+		_rayTemplates[key] = template
 	var entries: Array[Dictionary] = []
-	var candidateRadius := HexGridScript.distance(fromPos, toPos) + 1
-	for cell: Vector2i in HexGridScript.disc(fromPos, candidateRadius):
+	for entry: Dictionary in template:
+		entries.append({
+			"cell": fromPos + Vector2i(entry["delta"]),
+			"enter_t": entry["enter_t"],
+			"exit_t": entry["exit_t"],
+		})
+	return entries
+
+
+static func _buildRayTemplate(key: Vector3i) -> Array:
+	var origin := Vector2i(key.z, 0)
+	var originAxial := HexGridScript.offsetToAxial(origin)
+	var target := HexGridScript.axialToOffset(
+		originAxial + Vector2i(key.x, key.y))
+	var start := _cellCenter(origin)
+	var finish := _cellCenter(target)
+	var entries: Array[Dictionary] = []
+	var candidateRadius := HexGridScript.distance(origin, target) + 1
+	for cell: Vector2i in HexGridScript.disc(origin, candidateRadius):
 		var interval := _segmentHexInterval(start, finish, _cellCenter(cell))
 		if interval.x < 0.0:
 			continue
@@ -81,7 +131,14 @@ static func _supercoverEntries(fromPos: Vector2i, toPos: Vector2i) -> Array[Dict
 		var bCell: Vector2i = b["cell"]
 		return aCell.y < bCell.y or (aCell.y == bCell.y and aCell.x < bCell.x)
 	)
-	return entries
+	var template: Array = []
+	for entry: Dictionary in entries:
+		template.append({
+			"delta": Vector2i(entry["cell"]) - origin,
+			"enter_t": entry["enter_t"],
+			"exit_t": entry["exit_t"],
+		})
+	return template
 
 
 static func _cellCenter(cell: Vector2i) -> Vector2:

@@ -25,12 +25,17 @@ static func findPath(
 	if fromPos == toPos or maxCost < 0:
 		return []
 
+	## The open set is a binary heap ordered by the same total key the previous
+	## repeated scan selected on: cheapest estimate, then cheapest cost so far,
+	## then storage row and column, then insertion sequence. Entries sharing all
+	## of those describe the same cell reached the same way, so heap order and
+	## scan order agree while the heap drops the per-pop linear scan.
 	var openSet: Array[Dictionary] = []
 	var closedSet: Dictionary = {}
 	var cameFrom: Dictionary = {}
 	var gScore: Dictionary = {fromPos: 0}
 	var sequence := 0
-	openSet.append({
+	_pushOpen(openSet, {
 		"pos": fromPos,
 		"g": 0,
 		"f": HexGridScript.distance(fromPos, toPos) * maxi(0, minimumTraversalCost),
@@ -38,9 +43,7 @@ static func findPath(
 	})
 
 	while not openSet.is_empty():
-		var currentIndex := _bestOpenIndex(openSet)
-		var current: Dictionary = openSet[currentIndex]
-		openSet.remove_at(currentIndex)
+		var current: Dictionary = _popOpen(openSet)
 		var currentPos: Vector2i = current["pos"]
 		if closedSet.has(currentPos):
 			continue
@@ -75,7 +78,7 @@ static func findPath(
 			cameFrom[neighbor] = currentPos
 			gScore[neighbor] = tentativeCost
 			sequence += 1
-			openSet.append({
+			_pushOpen(openSet, {
 				"pos": neighbor,
 				"g": tentativeCost,
 				"f": tentativeCost + HexGridScript.distance(neighbor, toPos) * maxi(0, minimumTraversalCost),
@@ -101,23 +104,58 @@ static func pathCost(path: Array, getTraversalCost: Callable, fromPos: Vector2i)
 	return total
 
 
-static func _bestOpenIndex(openSet: Array[Dictionary]) -> int:
-	var best := 0
-	for index in range(1, openSet.size()):
-		var candidate: Dictionary = openSet[index]
-		var incumbent: Dictionary = openSet[best]
-		if int(candidate["f"]) < int(incumbent["f"]):
-			best = index
-		elif int(candidate["f"]) == int(incumbent["f"]):
-			if int(candidate["g"]) < int(incumbent["g"]):
-				best = index
-			elif int(candidate["g"]) == int(incumbent["g"]):
-				var a: Vector2i = candidate["pos"]
-				var b: Vector2i = incumbent["pos"]
-				if a.y < b.y or (a.y == b.y and a.x < b.x):
-					best = index
-				elif a == b and int(candidate["sequence"]) < int(incumbent["sequence"]):
-					best = index
+static func _openPrecedes(candidate: Dictionary, incumbent: Dictionary) -> bool:
+	var candidateF := int(candidate["f"])
+	var incumbentF := int(incumbent["f"])
+	if candidateF != incumbentF:
+		return candidateF < incumbentF
+	var candidateG := int(candidate["g"])
+	var incumbentG := int(incumbent["g"])
+	if candidateG != incumbentG:
+		return candidateG < incumbentG
+	var a: Vector2i = candidate["pos"]
+	var b: Vector2i = incumbent["pos"]
+	if a.y != b.y:
+		return a.y < b.y
+	if a.x != b.x:
+		return a.x < b.x
+	return int(candidate["sequence"]) < int(incumbent["sequence"])
+
+
+static func _pushOpen(openSet: Array[Dictionary], entry: Dictionary) -> void:
+	openSet.append(entry)
+	var child := openSet.size() - 1
+	while child > 0:
+		var parent := (child - 1) >> 1
+		if not _openPrecedes(openSet[child], openSet[parent]):
+			return
+		var swap := openSet[parent]
+		openSet[parent] = openSet[child]
+		openSet[child] = swap
+		child = parent
+
+
+static func _popOpen(openSet: Array[Dictionary]) -> Dictionary:
+	var best: Dictionary = openSet[0]
+	var last: Dictionary = openSet.pop_back()
+	if openSet.is_empty():
+		return best
+	openSet[0] = last
+	var parent := 0
+	while true:
+		var left := parent * 2 + 1
+		var right := left + 1
+		var smallest := parent
+		if left < openSet.size() and _openPrecedes(openSet[left], openSet[smallest]):
+			smallest = left
+		if right < openSet.size() and _openPrecedes(openSet[right], openSet[smallest]):
+			smallest = right
+		if smallest == parent:
+			return best
+		var swap := openSet[parent]
+		openSet[parent] = openSet[smallest]
+		openSet[smallest] = swap
+		parent = smallest
 	return best
 
 

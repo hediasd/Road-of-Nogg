@@ -17,6 +17,10 @@ const SpellScript = preload("res://src/entities/Spell.gd")
 
 const SCENARIO_PATH := "res://data/battle/scenarios/technical_hxb_contract_player_cpu.json"
 const GRAPH_PATH := "res://scripts/hex_battle/fixtures/spatial/weighted_graph.json"
+const GOLDEN_PATH := "res://scripts/hex_battle/fixtures/spatial/los_golden.json"
+const SQRT_THREE := 1.7320508075688772
+const SHRINK := 0.9999
+const INFLATE := 1.0001
 
 var failures: Array[String] = []
 
@@ -25,6 +29,9 @@ func _init() -> void:
 	_checkWeightedAlgorithms()
 	_checkShapes()
 	_checkLineOfSight()
+	_checkLineOfSightGolden()
+	_checkLineOfSightOracle()
+	_checkLineOfSightInvariants()
 	_checkMovementBoundary()
 	_checkCombatBoundary()
 	_checkPassiveAreas()
@@ -211,6 +218,173 @@ func _checkLineOfSight() -> void:
 		Vector2i(0, 0), Vector2i(4, 2), 5.0, 5.0,
 		func(_cell: Vector2i) -> float: return 0.0),
 		"low terrain blocked a level elevated ray")
+
+
+func _checkLineOfSightGolden() -> void:
+	## Expectations derived from the lattice definition, not captured from the
+	## implementation under test. A regression here is a rules change.
+	var file := FileAccess.open(GOLDEN_PATH, FileAccess.READ)
+	if file == null:
+		failures.append("line of sight golden fixture could not be opened")
+		return
+	var parsed = JSON.parse_string(file.get_as_text())
+	if not parsed is Dictionary:
+		failures.append("line of sight golden fixture is not a dictionary")
+		return
+	for caseValue in parsed["cases"]:
+		var entry: Dictionary = caseValue
+		var fromPos := _cellOf(entry["from"])
+		var toPos := _cellOf(entry["to"])
+		var expected: Array[Vector2i] = []
+		for cellValue in entry["cells"]:
+			expected.append(_cellOf(cellValue))
+		var actual: Array[Vector2i] = LineOfSightScript.supercoverCells(fromPos, toPos)
+		_require(actual == expected,
+			"supercover %s -> %s gave %s, expected %s (%s)" %
+			[fromPos, toPos, actual, expected, entry["why"]])
+		for index in range(1, expected.size() - 1):
+			var blocker: Vector2i = expected[index]
+			_require(not LineOfSightScript.hasLoS(fromPos, toPos,
+				func(cell: Vector2i) -> bool: return cell == blocker),
+				"cell %s on the ray %s -> %s did not block" % [blocker, fromPos, toPos])
+	for heightValue in parsed["heights"]:
+		var entry: Dictionary = heightValue
+		var origin := _cellOf(entry["from"])
+		var direction := _cellOf(entry["direction"])
+		var originAxial := HexGridScript.offsetToAxial(origin)
+		var length := int(entry["length"])
+		var target := HexGridScript.axialToOffset(originAxial + direction * length)
+		var blocker := HexGridScript.axialToOffset(
+			originAxial + direction * int(entry["cell_index"]))
+		var rayHeight := float(entry["ray_height"])
+		var sourceEye := float(entry["source_eye"])
+		var targetEye := float(entry["target_eye"])
+		_require(LineOfSightScript.hasHeightAwareLoS(origin, target, sourceEye, targetEye,
+			func(cell: Vector2i) -> float:
+				return rayHeight - 0.1 if cell == blocker else -INF),
+			"a blocker below the ray at %s stopped it (%s)" % [blocker, entry["why"]])
+		_require(not LineOfSightScript.hasHeightAwareLoS(origin, target, sourceEye, targetEye,
+			func(cell: Vector2i) -> float:
+				return rayHeight + 0.1 if cell == blocker else -INF),
+			"a blocker above the ray at %s did not stop it (%s)" % [blocker, entry["why"]])
+
+
+func _checkLineOfSightOracle() -> void:
+	## A second, structurally different answer: the production query clips the
+	## segment against six edge normals, while this walks the six corners and
+	## asks whether the segment crosses the polygon at all. Cases that graze the
+	## boundary are skipped rather than guessed, so only decided cases assert.
+	var decided := 0
+	for origin: Vector2i in [Vector2i(2, 4), Vector2i(3, 4)]:
+		for target: Vector2i in HexGridScript.disc(origin, 5):
+			if target == origin:
+				continue
+			var touched: Dictionary = {}
+			for cell: Vector2i in LineOfSightScript.supercoverCells(origin, target):
+				touched[cell] = true
+			var start := _center(origin)
+			var finish := _center(target)
+			for cell: Vector2i in HexGridScript.disc(origin, 7):
+				var center := _center(cell)
+				var inside := _segmentMeetsHex(start, finish, center, SHRINK)
+				var outside := not _segmentMeetsHex(start, finish, center, INFLATE)
+				if inside:
+					decided += 1
+					_require(touched.has(cell),
+						"oracle crossed %s on %s -> %s but supercover missed it" %
+						[cell, origin, target])
+				elif outside:
+					decided += 1
+					_require(not touched.has(cell),
+						"supercover claimed %s on %s -> %s but the oracle cleared it" %
+						[cell, origin, target])
+	_require(decided > 10000, "line of sight oracle decided too few cases: %d" % decided)
+
+
+func _checkLineOfSightInvariants() -> void:
+	## Cell centres are an affine image of axial coordinates, so the same axial
+	## displacement touches the same cells anywhere on the lattice, and a
+	## reversed ray touches the same cells as the forward one. Both are set
+	## properties. Enumeration order is not one of them: cells are ordered by
+	## where the segment enters them, which reversal does not simply mirror, and
+	## the tie-break reads storage rows, which shift with the source column's
+	## parity. Order is asserted where it is invariant -- a translation that
+	## keeps that parity -- and by set everywhere else.
+	var base := Vector2i(1, 1)
+	for target: Vector2i in HexGridScript.disc(base, 6):
+		var reference: Array[Vector2i] = LineOfSightScript.supercoverCells(base, target)
+		var forward := reference.duplicate()
+		forward.sort_custom(_rowMajorLess)
+		var reverse: Array[Vector2i] = LineOfSightScript.supercoverCells(target, base)
+		reverse.sort_custom(_rowMajorLess)
+		_require(forward == reverse,
+			"reversing the ray %s -> %s changed the touched cells" % [base, target])
+		var baseAxial := HexGridScript.offsetToAxial(base)
+		var delta := HexGridScript.offsetToAxial(target) - baseAxial
+		for shift: Vector2i in [Vector2i(4, 2), Vector2i(-3, 5), Vector2i(7, -1)]:
+			var movedOrigin := HexGridScript.axialToOffset(baseAxial + shift)
+			var movedTarget := HexGridScript.axialToOffset(baseAxial + shift + delta)
+			var moved: Array[Vector2i] = LineOfSightScript.supercoverCells(
+				movedOrigin, movedTarget)
+			var translated: Array[Vector2i] = []
+			for cell: Vector2i in reference:
+				translated.append(HexGridScript.axialToOffset(
+					HexGridScript.offsetToAxial(cell) + shift))
+			if shift.x % 2 == 0:
+				_require(moved == translated,
+					"translating %s -> %s by axial %s changed the touched cells or their order" %
+					[base, target, shift])
+			var movedSorted := moved.duplicate()
+			movedSorted.sort_custom(_rowMajorLess)
+			translated.sort_custom(_rowMajorLess)
+			_require(movedSorted == translated,
+				"translating %s -> %s by axial %s changed the touched cells" %
+				[base, target, shift])
+
+
+func _cellOf(value) -> Vector2i:
+	return Vector2i(int(value[0]), int(value[1]))
+
+
+func _center(cell: Vector2i) -> Vector2:
+	var axial := HexGridScript.offsetToAxial(cell)
+	return Vector2(1.5 * float(axial.x),
+		SQRT_THREE * (float(axial.y) + float(axial.x) * 0.5))
+
+
+func _hexCorners(center: Vector2, scale: float) -> Array[Vector2]:
+	var corners: Array[Vector2] = []
+	for index in range(6):
+		var angle := float(index) * PI / 3.0
+		corners.append(center + Vector2(cos(angle), sin(angle)) * scale)
+	return corners
+
+
+func _segmentMeetsHex(start: Vector2, finish: Vector2, center: Vector2,
+		scale: float) -> bool:
+	var corners := _hexCorners(center, scale)
+	if _pointInHex(start, corners) or _pointInHex(finish, corners):
+		return true
+	for index in range(6):
+		if _segmentsCross(start, finish, corners[index], corners[(index + 1) % 6]):
+			return true
+	return false
+
+
+func _pointInHex(point: Vector2, corners: Array[Vector2]) -> bool:
+	for index in range(6):
+		var edge := corners[(index + 1) % 6] - corners[index]
+		if edge.cross(point - corners[index]) < 0.0:
+			return false
+	return true
+
+
+func _segmentsCross(a: Vector2, b: Vector2, c: Vector2, d: Vector2) -> bool:
+	var d1 := (b - a).cross(c - a)
+	var d2 := (b - a).cross(d - a)
+	var d3 := (d - c).cross(a - c)
+	var d4 := (d - c).cross(b - c)
+	return ((d1 > 0.0) != (d2 > 0.0)) and ((d3 > 0.0) != (d4 > 0.0))
 
 
 func _checkMovementBoundary() -> void:

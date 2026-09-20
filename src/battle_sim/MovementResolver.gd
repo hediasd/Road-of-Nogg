@@ -9,6 +9,11 @@ const HexReachabilityScript = preload("res://src/algorithms/HexReachability.gd")
 var state: BattleState
 var events: BattleEvents
 
+## One entry, invalidated by map and mutation revision rather than retained.
+## A* asks for this on every path query and it reads the whole board.
+var _minimumCostRevision: Vector2i = Vector2i(-1, -1)
+var _minimumCost: int = 1
+
 
 func _init(_state: BattleState, _events: BattleEvents) -> void:
 	state = _state
@@ -181,7 +186,17 @@ func _terminatesMovement(monsterID: int, cell: Vector2i) -> bool:
 	return false
 
 
+## A lower bound on any single step, used only to scale the A* hex-distance
+## heuristic. Understating it is always safe: every traversal cost is a positive
+## integer, so a bound of one stays admissible on any board. Overstating it is
+## not, so terrain that becomes cheaper than the recorded minimum must advance
+## the map or mutation revision; a future traversal that bypasses both -- a
+## portal, or a direct board write of the kind the state contract still allows --
+## must fall back to one rather than reuse this cache.
 func _minimumTraversalCost() -> int:
+	var revision := Vector2i(state.mapRevision, state.mutationRevision)
+	if revision == _minimumCostRevision:
+		return _minimumCost
 	var minimum := 2147483647
 	if state.battleMap != null:
 		for cell: Vector2i in state.battleMap.validCells():
@@ -194,7 +209,9 @@ func _minimumTraversalCost() -> int:
 				var cost := int(state.movementCostBoard.at(Vector2i(x, y)))
 				if cost > 0:
 					minimum = mini(minimum, cost)
-	return 1 if minimum == 2147483647 else minimum
+	_minimumCost = 1 if minimum == 2147483647 else minimum
+	_minimumCostRevision = revision
+	return _minimumCost
 
 
 func _terrainFailureReason(monsterID: int, fromPos: Vector2i, toPos: Vector2i) -> String:

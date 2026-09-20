@@ -345,7 +345,11 @@ player previews, command validation, and CPU paths.
 
 Combat target queries enforce melee/spell height reach before resolution.
 Height-aware supercover LoS compares the interpolated eye-to-eye ray against
-surface, obstacle, and intervening-unit tops. `DirectDamageRules` owns the
+surface, obstacle, and intervening-unit tops. Which cells that ray touches is
+pure geometry, cached per axial displacement and translated; the heights,
+blockers and occupants it is compared against are asked fresh on every query.
+The touched set is symmetric under reversal and invariant under translation,
+but its enumeration order is only deterministic, not symmetric. `DirectDamageRules` owns the
 110/100/90-percent elevation arithmetic used by real attacks, spells, and pure
 CPU estimates; healing, ticks, and reflected damage do not call it.
 
