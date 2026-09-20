@@ -26,6 +26,12 @@ signal turn_ended(monsterID: int)
 signal monster_spawned(monsterID: int, monsterName: String, team: int, pos: Vector2i, stats: Dictionary)
 signal movement_targeted(monsterID: int, destination: Vector2i)
 signal monster_moved(monsterID: int, path: Array)
+## The move phase was taken back. Presentation cannot infer this from
+## `monster_moved` alone: an undo replays the walk home through that same signal,
+## so the two are indistinguishable to a listener, and a unit that has walked
+## back is fully ready again rather than half-used. Emitted after the walk home,
+## so a queued adapter applies it in the order it was played.
+signal unit_move_undone(monsterID: int)
 signal action_targeted(monsterID: int, targetPos: Vector2i, targetID: int, action: String)
 signal monster_attacked(attackerID: int, targetPos: Vector2i, targetID: int, damage: int, targetNewHP: int)
 ## `resolvedAffectedCells`, `resolvedTargetIDs`, `resolvedRadius`, and `areaShape` are the

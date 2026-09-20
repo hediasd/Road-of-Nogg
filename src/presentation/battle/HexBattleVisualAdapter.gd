@@ -84,15 +84,37 @@ const SWORD_HEIGHT := 1.75
 const SWORD_CLEARANCE := 0.45
 const SWORD_IDLE_SECONDS := 1.7
 
-## SPENT UNITS DARKEN, they do not grey out. How far toward black a unit whose turn is over is
-## taken, and how long the fade takes. 0.72 leaves the silhouette and enough of the team and
-## element hues to tell two spent units apart, while reading unmistakably as "done"; 1.0 would be
-## a black cut-out. The fade is a fade because the moment it happens is information -- a snap to
-## dark is easy to miss and impossible to attribute to the action that caused it.
-const SPENT_DARKEN := 0.72
+## TWO SHADES, AND THE DIFFERENCE BETWEEN THEM IS WHETHER A CLICK STILL DOES ANYTHING.
+##
+## Mild: the unit has used part of its turn -- it has moved -- and is still the player's to command.
+## Clicking it still offers Attack, Magic (crossed out after a move), Wait and Undo. The shade says
+## "you have started this one", not "you are finished with it", so it has to be clearly lighter than
+## the spent shade AND clearly darker than a ready unit, at a glance, without a legend.
+##
+## Spent: the turn is over and only read-only inspection is left. 0.72 leaves the silhouette and
+## enough of the team and element hues to tell two spent units apart while reading unmistakably as
+## "done"; 1.0 would be a black cut-out.
+##
+## **BOTH NUMBERS ARE CHOSEN IN PERCEIVED LIGHTNESS, NOT IN THE MULTIPLIER, AND THE DIFFERENCE IS
+## LARGE.** `unit_darken` multiplies ALBEDO, which is linear light, and the frame is gamma-encoded
+## afterwards, so the share of brightness a player still sees is `(1 - darken) ^ (1/2.2)`, not
+## `1 - darken`. A multiplier of 0.72 removes 44% of the visible brightness, not 72%. Picked by eye
+## in multiplier space, the mild shade came out nearly invisible.
+##
+## So these are stated the other way round: the moved shade takes about a quarter of the unit's
+## visible brightness (0.48 -> 74% left) and the spent shade about three fifths (0.87 -> 40% left),
+## which puts the three states at roughly even perceived steps. `docs/sketches/
+## 2026-09-20-unit-shades-ready-moved-spent.html` is where the pair was chosen, against the real
+## team and element colours on grass, stone, snow and night ground, and it carries the curve.
+const MOVED_DARKEN := 0.48
+const SPENT_DARKEN := 0.87
+## The moved shade arrives with the footstep that earned it, so it is quicker than the spent fade:
+## it is a state the player caused one beat ago and is about to act on again.
+const MOVED_DARKEN_SECONDS := 0.20
 const SPENT_DARKEN_SECONDS := 0.30
-## How long a unit takes to come back up when its side's next turn opens. Quicker than the fade
-## down: waking up is a state change the player already expects, not a result to be read.
+## How long a unit takes to come back up -- when its side's next turn opens, or when the player
+## takes a move back. Quicker than either fade down: recovering is a state change the player
+## already expects, not a result to be read.
 const SPENT_RESTORE_SECONDS := 0.18
 
 ## Independent overlay layers. Painting one never clears another, which is what lets a pending
@@ -164,6 +186,9 @@ var _badges
 var _playbackSpeed := 1.0
 var _outlineMaterial: ShaderMaterial
 var _spentUnitIDs: Dictionary = {}
+## Units that have played their move and not yet played their spend: the mild shade. Playback
+## order decides membership, never `BattleState` -- which is the whole reason it is kept here.
+var _movedUnitIDs: Dictionary = {}
 ## monsterID -> the darkening currently on its model, so a fade always starts from what is on
 ## screen rather than from 0.0 (a unit re-darkened mid-fade would otherwise jump back to full
 ## brightness first).
@@ -247,6 +272,7 @@ func dispose() -> void:
 			model.queue_free()
 	_models.clear()
 	_spentUnitIDs.clear()
+	_movedUnitIDs.clear()
 	_spentDarken.clear()
 	if is_instance_valid(boardView):
 		boardView.clear()
@@ -331,6 +357,9 @@ func setHoveredUnit(monsterID: int) -> void:
 ## of the hover outline, which owns `material_overlay` -- a spent unit can be hovered without
 ## losing its treatment, which the shared overlay slot made impossible.
 ##
+## Spending a unit clears the moved shade's bookkeeping as well: spent is the terminal state, and a
+## unit that is spent is not "spent and also part-way through its turn".
+##
 ## `animate` is false by default, which is the honest default for a caller that is re-deriving
 ## state (a rebuilt model, a recovered queue, a skipped action): those callers are catching the
 ## screen up, and a catch-up that takes time is just a slower divergence. The turn ENDING is the
@@ -338,24 +367,60 @@ func setHoveredUnit(monsterID: int) -> void:
 func setUnitSpent(monsterID: int, spent: bool, animate: bool = false) -> void:
 	if spent:
 		_spentUnitIDs[monsterID] = true
+		_movedUnitIDs.erase(monsterID)
 	else:
 		_spentUnitIDs.erase(monsterID)
-	var target := SPENT_DARKEN if spent else 0.0
-	if animate:
-		_fadeUnitDarken(monsterID, target,
-			SPENT_DARKEN_SECONDS if spent else SPENT_RESTORE_SECONDS)
+	_applyUnitShade(monsterID, animate)
+
+
+## The mild shade: this unit has used its move and is still the player's to command. Set when a
+## walk finishes ON SCREEN (`_finalizeQueuedAction` for a MOVE), cleared when an undo walk home
+## finishes, and outranked by the spent shade.
+func setUnitMoved(monsterID: int, moved: bool, animate: bool = false) -> void:
+	if moved:
+		_movedUnitIDs[monsterID] = true
 	else:
-		_setUnitDarken(monsterID, target)
+		_movedUnitIDs.erase(monsterID)
+	_applyUnitShade(monsterID, animate)
 
 
 func isUnitSpent(monsterID: int) -> bool:
 	return _spentUnitIDs.has(monsterID)
 
 
+func isUnitMoved(monsterID: int) -> bool:
+	return _movedUnitIDs.has(monsterID)
+
+
 ## How dark a unit's model is drawn right now, for probes and for a fade that has to start
 ## somewhere.
 func unitDarken(monsterID: int) -> float:
 	return float(_spentDarken.get(monsterID, 0.0))
+
+
+## The shade a unit's state calls for. One function, so the two shades cannot disagree about which
+## one wins: spent is terminal, moved is partial, and anything else is ready.
+func unitShadeFor(monsterID: int) -> float:
+	if _spentUnitIDs.has(monsterID):
+		return SPENT_DARKEN
+	if _movedUnitIDs.has(monsterID):
+		return MOVED_DARKEN
+	return 0.0
+
+
+## Puts the unit's current shade on its model. `animate` fades at the speed the TARGET shade
+## deserves -- arriving at a shade is a result to be read, leaving one is not.
+func _applyUnitShade(monsterID: int, animate: bool) -> void:
+	var target := unitShadeFor(monsterID)
+	if not animate:
+		_setUnitDarken(monsterID, target)
+		return
+	var seconds := SPENT_RESTORE_SECONDS
+	if target >= SPENT_DARKEN:
+		seconds = SPENT_DARKEN_SECONDS
+	elif target > 0.0:
+		seconds = MOVED_DARKEN_SECONDS
+	_fadeUnitDarken(monsterID, target, seconds)
 
 
 func _setUnitDarken(monsterID: int, amount: float) -> void:
@@ -600,6 +665,7 @@ func _forgetUnitCues(monsterID: int) -> void:
 		_clearSwordMarker()
 	_killDarkenTween(monsterID)
 	_spentUnitIDs.erase(monsterID)
+	_movedUnitIDs.erase(monsterID)
 	_spentDarken.erase(monsterID)
 
 
@@ -647,10 +713,10 @@ func _buildMonsterModel(
 			model.set_meta(TEAM_CAPTAIN_META, true)
 	_root.add_child(model)
 	_models[monsterID] = model
-	# A model rebuilt by queue recovery is rebuilt bright, so whatever treatment the unit carries
-	# has to be written onto the new meshes.
-	if _spentUnitIDs.has(monsterID):
-		_setUnitDarken(monsterID, SPENT_DARKEN)
+	# A model rebuilt by queue recovery is rebuilt bright, so whatever shade the unit carries has to
+	# be written onto the new meshes.
+	if unitShadeFor(monsterID) > 0.0:
+		_applyUnitShade(monsterID, false)
 	return model
 
 
@@ -777,13 +843,24 @@ func _on_unit_spent(_sideID: int, monsterID: int) -> void:
 ## is cleared for every model rather than for the opening side's own units. Applied directly
 ## because a side turn only ever opens on a drained queue -- there is nothing in flight to order it
 ## against.
+func _on_unit_move_undone(monsterID: int) -> void:
+	if _queue == null or not _models.has(monsterID):
+		return
+	var action: VisualAction = VisualActionScript.new(VisualAction.Kind.MOVE_UNDONE)
+	action.monster_id = monsterID
+	_queue.enqueue(action)
+
+
 func _on_side_turn_started(
 		_sideID: int, _roundNumber: int, _turnNumber: int, _eligibleUnitIDs: Array
 ) -> void:
 	for value in _models.keys():
 		var monsterID := int(value)
-		if _spentUnitIDs.has(monsterID) or unitDarken(monsterID) > 0.0:
-			setUnitSpent(monsterID, false, true)
+		if _spentUnitIDs.has(monsterID) or _movedUnitIDs.has(monsterID) \
+				or unitDarken(monsterID) > 0.0:
+			_spentUnitIDs.erase(monsterID)
+			_movedUnitIDs.erase(monsterID)
+			_applyUnitShade(monsterID, true)
 
 
 # --- cursor and overlays ----------------------------------------------------
@@ -1305,6 +1382,11 @@ func _startQueuedAction(action: VisualAction) -> bool:
 			return _startMove(action)
 		VisualAction.Kind.SPENT:
 			return _startSpentFade(action)
+		VisualAction.Kind.MOVE_UNDONE:
+			# The walk home has already played; the unit is standing where it started and is fully
+			# ready again. Does not hold the queue: the move it undoes had the beat.
+			setUnitMoved(action.monster_id, false, true)
+			return false
 		_:
 			if _feedback == null:
 				return false
@@ -1347,6 +1429,7 @@ func _startMove(action: VisualAction) -> bool:
 func _startSpentFade(action: VisualAction) -> bool:
 	var monsterID := action.monster_id
 	_spentUnitIDs[monsterID] = true
+	_movedUnitIDs.erase(monsterID)
 	var tween := _buildDarkenTween(monsterID, SPENT_DARKEN, SPENT_DARKEN_SECONDS)
 	if tween == null:
 		setUnitSpent(monsterID, true)
@@ -1365,6 +1448,10 @@ func _finalizeQueuedAction(action: VisualAction) -> void:
 		if model != null and is_instance_valid(model) and not action.path.is_empty():
 			model.position = worldPositionOf(action.path[action.path.size() - 1])
 			_displayState.setPosition(action.monster_id, action.path[action.path.size() - 1])
+		# The mild shade lands with the footstep that earns it: the unit has used its move and is
+		# still the player's to command. A walk HOME is also a move and also lands here -- it is
+		# followed by its own MOVE_UNDONE, which clears this the moment the unit is home.
+		setUnitMoved(action.monster_id, true, true)
 		return
 	if _feedback != null:
 		_feedback.finalize(action)
@@ -1410,11 +1497,22 @@ func _synchroniseOccupancy(exceptMonsterID: int = -1) -> void:
 			continue
 		model.visible = true
 		model.position = worldPositionOf(cell)
-	# Queued SPENT actions went with the rest of the queue, so the treatment is re-derived from the
-	# authoritative spent set. Unanimated: a recovery is the screen catching up, not a beat.
+	# Queued shade actions went with the rest of the queue, so both shades are re-derived from
+	# authoritative state. Unanimated: a recovery is the screen catching up, not a beat.
 	for value in _models.keys():
 		var monsterID := int(value)
-		setUnitSpent(monsterID, _state.spentUnitIDs.has(monsterID))
+		var spent: bool = _state.spentUnitIDs.has(monsterID)
+		var pending: Dictionary = _state.pendingUnitTurns.get(monsterID, {})
+		if spent:
+			_spentUnitIDs[monsterID] = true
+			_movedUnitIDs.erase(monsterID)
+		else:
+			_spentUnitIDs.erase(monsterID)
+			if bool(pending.get("has_moved", false)):
+				_movedUnitIDs[monsterID] = true
+			else:
+				_movedUnitIDs.erase(monsterID)
+		_applyUnitShade(monsterID, false)
 	if _badges != null:
 		_badges.refreshAll()
 

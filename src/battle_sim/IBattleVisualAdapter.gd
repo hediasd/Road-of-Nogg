@@ -32,6 +32,7 @@ func connectToEvents(battleEvents: BattleEvents) -> void:
 	battleEvents.monster_spawned.connect(_on_monster_spawned)
 	battleEvents.movement_targeted.connect(_on_movement_targeted)
 	battleEvents.monster_moved.connect(_on_monster_moved)
+	battleEvents.unit_move_undone.connect(_on_unit_move_undone)
 	battleEvents.action_targeted.connect(_on_action_targeted)
 	battleEvents.monster_attacked.connect(_on_monster_attacked)
 	battleEvents.spell_cast_started.connect(_on_spell_cast_started)
@@ -68,6 +69,7 @@ func disconnectFromEvents() -> void:
 	_disconnect(_connectedEvents.turn_ended, _on_turn_ended)
 	_disconnect(_connectedEvents.monster_spawned, _on_monster_spawned)
 	_disconnect(_connectedEvents.movement_targeted, _on_movement_targeted)
+	_disconnect(_connectedEvents.unit_move_undone, _on_unit_move_undone)
 	_disconnect(_connectedEvents.monster_moved, _on_monster_moved)
 	_disconnect(_connectedEvents.action_targeted, _on_action_targeted)
 	_disconnect(_connectedEvents.monster_attacked, _on_monster_attacked)
@@ -111,6 +113,7 @@ func _on_turn_ended(_monsterID: int) -> void: pass
 func _on_monster_spawned(_monsterID: int, _name: String, _team: int, _pos: Vector2i, _stats: Dictionary) -> void: pass
 func _on_movement_targeted(_monsterID: int, _destination: Vector2i) -> void: pass
 func _on_monster_moved(_monsterID: int, _path: Array) -> void: pass
+func _on_unit_move_undone(_monsterID: int) -> void: pass
 func _on_action_targeted(_monsterID: int, _targetPos: Vector2i, _targetID: int, _action: String) -> void: pass
 func _on_monster_attacked(_attackerID: int, _targetPos: Vector2i, _targetID: int, _damage: int, _targetNewHP: int) -> void: pass
 func _on_spell_cast_started(

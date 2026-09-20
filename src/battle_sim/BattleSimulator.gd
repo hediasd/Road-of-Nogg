@@ -741,6 +741,7 @@ func undoMovePhase(monsterID: int) -> Dictionary:
 
 	accumulator["has_moved"] = false
 	accumulator["move_path"] = []
+	events.unit_move_undone.emit(monsterID)
 	_checkInvariants("undo")
 	return {"success": true, "destination": origin}
 

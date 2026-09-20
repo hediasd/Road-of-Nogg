@@ -5,12 +5,12 @@
 class_name VisualAction
 extends RefCounted
 
-## SPENT is appended last so every existing kind keeps its ordinal, and carries no payload beyond
-## `monster_id`. It exists so that "this unit's turn is over" is something PLAYBACK says, in the
-## order the queue reached it, rather than something the simulation says the instant it decides --
-## the simulation runs ahead, so a unit used to darken while the attack that spent it was still
-## swinging.
-enum Kind { FOCUS, MESSAGE, MOVE, BUMP, CAST_AREA, DEFEAT, SPENT }
+## SPENT and MOVE_UNDONE are appended so every existing kind keeps its ordinal, and carry no
+## payload beyond `monster_id`. They exist so that "this unit's turn is over" and "its move was
+## taken back" are things PLAYBACK says, in the order the queue reached them, rather than things the
+## simulation says the instant it decides -- the simulation runs ahead, so a unit used to darken
+## while the attack that spent it was still swinging.
+enum Kind { FOCUS, MESSAGE, MOVE, BUMP, CAST_AREA, DEFEAT, SPENT, MOVE_UNDONE }
 enum CursorMode { TARGET, TURN, MOVEMENT }
 
 var kind: Kind

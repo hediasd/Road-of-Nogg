@@ -32,10 +32,12 @@ Reachable empty ground moves; a legal enemy click attacks; other unit
 clicks inspect. A moved unit keeps Undo, Attack, Item, Status and Wait, with
 Magic crossed out. Magic is the only action that opens a list, using a reduced
 `HexCommandMenu` as a short spell picker; aim then shows a forecast beside
-each affected unit. A spent unit darkens evenly toward black, its whole
-model including the plinth, fading as playback reaches the end of its turn rather
-than when the simulation decided it; the End turn control reports how many units
-remain ready.
+each affected unit. A unit darkens evenly toward black in two shades, its whole model
+including the plinth, and both arrive as playback reaches the move or the action
+that earned them rather than when the simulation decided it: a mild shade once it
+has moved and is still the player's to command, a deep one once its turn is over
+and only inspection is left. Taking a move back returns the unit to full
+brightness. The End turn control reports how many units remain ready.
 
 The party panel, party-order panel, full command rail and prompt box are hidden
 in side-turn mode. Parties still group authored content and controllers in

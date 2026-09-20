@@ -1,0 +1,505 @@
+<title>Unit Shade Ladder</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<style>
+  /* Deliberately single-theme. The page exists to judge dark shades against terrain, and a light
+     ground would falsify every swatch on it, so the palette is painted explicitly and never
+     inherits the host's. Colours are the game's own HUD tokens from NoggTheme. */
+  #nogg-shades {
+    --ground: #0f1419;
+    --panel: #1b242b;
+    --panel-hi: #232e36;
+    --line: #35424b;
+    --ink: #f4f1ff;
+    --muted: #9aacb5;
+    --accent: #ffd766;
+    --spent: #ff8f6b;
+    --moved: #8fd0ff;
+    color-scheme: dark;
+    font: 400 15px/1.55 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--ground);
+    padding-block: 28px;
+    padding-left: 16px;
+    padding-right: 16px;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  #nogg-shades * { box-sizing: border-box; }
+  #nogg-shades h1 {
+    font: 600 clamp(26px, 5vw, 40px)/1.12 'Cinzel', Georgia, serif;
+    letter-spacing: .01em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  #nogg-shades .ns-kicker {
+    font: 600 12px/1 'IBM Plex Mono', ui-monospace, monospace;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+  #nogg-shades h2 {
+    font: 600 20px/1.2 'Cinzel', Georgia, serif;
+    margin: 40px 0 4px;
+    text-wrap: balance;
+  }
+  #nogg-shades h3 {
+    font: 600 11px/1 'IBM Plex Mono', ui-monospace, monospace;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 10px;
+  }
+  #nogg-shades p { margin: 0 0 10px; max-width: 68ch; }
+  #nogg-shades .ns-lede { color: var(--muted); }
+  #nogg-shades code, #nogg-shades .ns-num {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  #nogg-shades code { background: var(--panel-hi); padding: 1px 5px; border-radius: 3px; font-size: .92em; }
+  #nogg-shades .ns-note {
+    background: var(--panel);
+    border-left: 3px solid var(--accent);
+    padding: 16px 18px;
+    margin: 0 0 28px;
+  }
+  #nogg-shades .ns-note p:last-child { margin-bottom: 0; }
+  #nogg-shades .ns-note b { color: var(--accent); font-weight: 600; }
+
+  /* Controls */
+  #nogg-shades .ns-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px 26px;
+    align-items: flex-end;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 14px 16px;
+    margin: 0 0 22px;
+  }
+  #nogg-shades .ns-field { display: flex; flex-direction: column; gap: 6px; min-width: 190px; flex: 1 1 190px; }
+  #nogg-shades label {
+    font: 600 11px/1 'IBM Plex Mono', ui-monospace, monospace;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  #nogg-shades .ns-readout { color: var(--ink); }
+  #nogg-shades input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+  #nogg-shades .ns-segmented { display: flex; gap: 0; border: 1px solid var(--line); width: fit-content; }
+  #nogg-shades .ns-segmented button {
+    font: 400 13px/1 'IBM Plex Sans', sans-serif;
+    color: var(--muted);
+    background: transparent;
+    border: 0;
+    border-right: 1px solid var(--line);
+    padding: 9px 13px;
+    cursor: pointer;
+  }
+  #nogg-shades .ns-segmented button:last-child { border-right: 0; }
+  #nogg-shades .ns-segmented button[aria-pressed=true] { color: var(--ground); background: var(--accent); font-weight: 600; }
+  #nogg-shades button:focus-visible, #nogg-shades input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* Swatch matrix */
+  #nogg-shades .ns-matrix { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); overflow-x: auto; }
+  #nogg-shades .ns-row { display: grid; grid-template-columns: 96px repeat(3, minmax(88px, 1fr)); gap: 1px; }
+  #nogg-shades .ns-head { background: var(--panel); }
+  #nogg-shades .ns-cell { background: var(--panel-hi); display: flex; align-items: center; justify-content: center; padding: 8px 4px; }
+  #nogg-shades .ns-label {
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 10px;
+    font: 400 13px/1.2 'IBM Plex Sans', sans-serif;
+  }
+  #nogg-shades .ns-label small { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  #nogg-shades .ns-colhead {
+    background: var(--panel);
+    padding: 10px 6px;
+    text-align: center;
+    font: 600 11px/1.35 'IBM Plex Mono', ui-monospace, monospace;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  #nogg-shades .ns-colhead span { display: block; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); }
+  #nogg-shades .ns-colhead.is-moved { color: var(--moved); }
+  #nogg-shades .ns-colhead.is-spent { color: var(--spent); }
+  #nogg-shades svg.ns-figure { display: block; width: 100%; max-width: 74px; height: auto; }
+
+  /* Findings + chart */
+  #nogg-shades .ns-split { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 26px; align-items: start; }
+  #nogg-shades .ns-chart { background: var(--panel); border: 1px solid var(--line); padding: 14px; }
+  #nogg-shades .ns-chart svg { display: block; width: 100%; height: auto; max-width: 100%; }
+  #nogg-shades table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  #nogg-shades th, #nogg-shades td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  #nogg-shades th:first-child, #nogg-shades td:first-child { text-align: left; }
+  #nogg-shades thead th { color: var(--muted); font: 600 11px/1 'IBM Plex Mono', monospace; letter-spacing: .1em; text-transform: uppercase; }
+  #nogg-shades td.ns-num { font-family: 'IBM Plex Mono', monospace; font-variant-numeric: tabular-nums; }
+  #nogg-shades .ns-tablewrap { overflow-x: auto; }
+
+  /* Rejected panel */
+  #nogg-shades .ns-rejected { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  #nogg-shades .ns-option { background: var(--panel); border: 1px solid var(--line); padding: 12px; }
+  #nogg-shades .ns-option.is-kept { border-color: var(--accent); }
+  #nogg-shades .ns-option h4 { margin: 0 0 8px; font: 600 13px/1.3 'IBM Plex Sans', sans-serif; }
+  #nogg-shades .ns-option.is-kept h4 { color: var(--accent); }
+  #nogg-shades .ns-option p { font-size: 12.5px; color: var(--muted); margin: 8px 0 0; max-width: none; }
+  #nogg-shades .ns-strip { display: flex; gap: 6px; }
+  #nogg-shades .ns-strip > div { flex: 1; }
+  #nogg-shades footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+  @media (max-width: 720px) {
+    #nogg-shades .ns-split { grid-template-columns: 1fr; }
+    #nogg-shades .ns-row { grid-template-columns: 78px repeat(3, minmax(64px, 1fr)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #nogg-shades * { transition: none !important; }
+  }
+</style>
+
+<div id="nogg-shades">
+  <p class="ns-kicker">Road of Nogg &middot; hex battle &middot; 20 September 2026</p>
+  <h1>Ready, moved, spent</h1>
+
+  <div class="ns-note">
+    <p><b>What this settled.</b> That a unit on the hex board carries <em>three</em> shades, not two,
+    and that the two darkened ones are chosen in <em>perceived</em> lightness rather than in the
+    shader's multiplier. <b>Moved</b> &mdash; walked but not yet committed to an action, still the
+    player's to command &mdash; sits about a quarter of the way to black. <b>Spent</b> &mdash; turn
+    over, only read-only inspection left &mdash; sits about three fifths of the way. Both are one
+    multiply on the unit's own albedo, so every hue survives and every part of the model darkens by
+    the same factor.</p>
+    <p><b>The correction this page exists for.</b> <code>unit_darken</code> multiplies
+    <code>ALBEDO</code>, which is <em>linear</em> light, and the frame is then gamma-encoded. A
+    multiplier of 0.72 therefore does not remove 72% of the brightness a player sees &mdash; it
+    removes 44%. Picking the pair by eye in multiplier space gave two shades that were far milder
+    on screen than their numbers suggested, and the mild one was nearly invisible. The sliders below
+    are in perceived terms and print the shader constant they imply.</p>
+    <p><b>What was rejected.</b> Replacing the unit with its own luminance under a slate tint &mdash;
+    the treatment that shipped first. It made every unit the same grey, so a spent unit lost both its
+    team and its element, and it was applied by reading the drawn frame back through a slightly
+    inflated hull, which broke up at the retro pipeline's internal resolution. It is reconstructed in
+    the last panel from its own formula, beside the one that replaced it.</p>
+  </div>
+
+  <div class="ns-controls">
+    <div class="ns-field">
+      <label for="ns-moved">Moved &mdash; toward black <span class="ns-readout ns-num" id="ns-moved-out"></span></label>
+      <input type="range" id="ns-moved" min="5" max="60" step="1" value="26">
+    </div>
+    <div class="ns-field">
+      <label for="ns-spent">Spent &mdash; toward black <span class="ns-readout ns-num" id="ns-spent-out"></span></label>
+      <input type="range" id="ns-spent" min="30" max="90" step="1" value="60">
+    </div>
+    <div class="ns-field" style="flex: 0 0 auto;">
+      <label for="ns-terrain-grass">Terrain under the unit</label>
+      <div class="ns-segmented" role="group" aria-label="Terrain under the unit" id="ns-terrain">
+        <button type="button" id="ns-terrain-grass" data-ground="#4a6a35" aria-pressed="true">Grass</button>
+        <button type="button" data-ground="#7d7466" aria-pressed="false">Stone</button>
+        <button type="button" data-ground="#c9d3da" aria-pressed="false">Snow</button>
+        <button type="button" data-ground="#1d2430" aria-pressed="false">Night</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="ns-matrix" id="ns-matrix" role="table" aria-label="Unit shades by element"></div>
+
+  <h2>Why these two numbers</h2>
+  <p class="ns-lede">The multiplier and what the player sees are not the same curve. The dashed line
+  is what a multiplier looks like it should do; the solid line is what it does once the frame is
+  gamma-encoded. The two marks are the chosen shades.</p>
+
+  <div class="ns-split">
+    <div class="ns-chart">
+      <h3>Multiplier against screen brightness</h3>
+      <svg id="ns-curve" viewBox="0 0 420 260" role="img"
+           aria-label="Remaining screen brightness against the shader's linear multiplier"></svg>
+    </div>
+    <div>
+      <h3>The ladder, measured</h3>
+      <div class="ns-tablewrap">
+        <table>
+          <thead>
+            <tr><th>State</th><th>Screen</th><th>Linear</th><th><code>unit_darken</code></th></tr>
+          </thead>
+          <tbody id="ns-ladder"></tbody>
+        </table>
+      </div>
+      <p class="ns-lede" style="margin-top:12px;font-size:13px">Screen is the share of the unit's own
+      brightness a player still sees. Linear is the share of its albedo. The constant is what the
+      adapter hands the shader &mdash; <code>MOVED_DARKEN</code> and <code>SPENT_DARKEN</code> in
+      <code>HexBattleVisualAdapter</code>.</p>
+    </div>
+  </div>
+
+  <h2>Against the treatment it replaced</h2>
+  <p class="ns-lede">Thunder and ice, the two units the old treatment hurt most: a yellow unit went
+  olive, and a pale blue one went the same grey as everything else.</p>
+  <div class="ns-rejected" id="ns-rejected"></div>
+
+  <footer>
+    <p style="margin:0">Shades are applied by playback, not by the simulation &mdash; a unit darkens
+    when the screen has shown the move or the action that earned it, never when the simulator decided
+    it. The rule and the two constants live in <code>src/presentation/battle/HexBattleVisualAdapter.gd</code>;
+    the multiply itself is <code>unit_darken</code> in <code>assets/shaders/retro_surface.gdshader</code>.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var GAMMA = 2.2;
+
+  // --- colour plumbing. The same order of operations the shader uses: decode to linear, apply
+  // lighting and the darkening there, then encode back for the screen.
+  function srgbToLinear(c) { return Math.pow(Math.max(c, 0), GAMMA); }
+  function linearToSrgb(c) { return Math.pow(Math.max(c, 0), 1 / GAMMA); }
+  function hexToRgb(hex) {
+    var n = parseInt(hex.slice(1), 16);
+    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  }
+  function css(rgb) {
+    return "rgb(" + rgb.map(function (c) {
+      return Math.round(Math.min(Math.max(c, 0), 1) * 255);
+    }).join(",") + ")";
+  }
+  // One shaded sample: albedo in sRGB, a light factor for the facing, a linear darkening.
+  function shade(hex, light, darken) {
+    return css(hexToRgb(hex).map(function (c) {
+      return linearToSrgb(srgbToLinear(c) * light * (1 - darken));
+    }));
+  }
+  // Perceived share of the unit's own brightness, from the linear multiplier.
+  function screenShare(darken) { return linearToSrgb(1 - darken); }
+  // ...and back, which is how the sliders (perceived) produce the constants (linear).
+  function darkenForScreenShare(share) { return 1 - srgbToLinear(share); }
+
+  // The rejected treatment, from its own shader: luminance under a cool slate tint.
+  var SLATE = [0.36, 0.39, 0.46];
+  function luminanceSlate(hex, light) {
+    var lin = hexToRgb(hex).map(function (c) { return srgbToLinear(c) * light; });
+    var lum = 0.299 * lin[0] + 0.587 * lin[1] + 0.114 * lin[2];
+    return css(SLATE.map(function (t) { return linearToSrgb(lum * t); }));
+  }
+
+  // --- the real catalogs. Element colours are BattleMeshFactory.elementColor; the plinth is the
+  // team colour darkened by BASE_COLOR_DARKEN (0.34), which is a Color.darkened() in sRGB.
+  var ELEMENTS = [
+    { name: "Thunder", hex: "#e6e61a", team: "#2e6bf2" },
+    { name: "Fire", hex: "#e63333", team: "#e63329" },
+    { name: "Ice", hex: "#99e6e6", team: "#2e6bf2" },
+    { name: "Wood", hex: "#33b333", team: "#2e6bf2" },
+    { name: "Darkness", hex: "#661a99", team: "#e63329" },
+    { name: "Steel", hex: "#9999bf", team: "#e63329" }
+  ];
+  function plinth(teamHex) {
+    return css(hexToRgb(teamHex).map(function (c) { return c * (1 - 0.34); }));
+  }
+
+  // --- the figure: the placeholder body every monster currently wears (four stacked coins, a
+  // sphere head) on its team plinth, with one light factor per facing so an even darkening is
+  // visible as even.
+  var PARTS = [
+    { kind: "disc", cx: 32, cy: 88, rx: 20, ry: 5, role: "shadow" },
+    { kind: "drum", top: 79, bottom: 88, rTop: 18, rBottom: 18, role: "plinth" },
+    { kind: "drum", top: 70, bottom: 79, rTop: 13, rBottom: 15, role: "body", light: 0.86 },
+    { kind: "drum", top: 64, bottom: 70, rTop: 13, rBottom: 13, role: "body", light: 0.78 },
+    { kind: "drum", top: 34, bottom: 64, rTop: 5, rBottom: 11, role: "body", light: 1.0 },
+    { kind: "drum", top: 28, bottom: 34, rTop: 9, rBottom: 9, role: "body", light: 0.9 },
+    { kind: "ball", cx: 32, cy: 19, r: 9, role: "body", light: 1.06 }
+  ];
+  function figure(el, darken, mode) {
+    var bodyFill = function (light) {
+      return mode === "slate" ? luminanceSlate(el.hex, light) : shade(el.hex, light, darken);
+    };
+    var plinthFill = mode === "slate"
+      ? plinth(el.team)            // the old treatment left the plinth alone on purpose
+      : shade(plinth(el.team), 1, darken);
+    var out = '<svg class="ns-figure" viewBox="0 0 64 96" aria-hidden="true">';
+    PARTS.forEach(function (p) {
+      if (p.role === "shadow") {
+        out += '<ellipse cx="' + p.cx + '" cy="' + p.cy + '" rx="' + p.rx + '" ry="' + p.ry
+            + '" fill="rgba(0,0,0,0.42)"></ellipse>';
+        return;
+      }
+      var fill = p.role === "plinth" ? plinthFill : bodyFill(p.light);
+      if (p.kind === "ball") {
+        out += '<circle cx="' + p.cx + '" cy="' + p.cy + '" r="' + p.r + '" fill="' + fill + '"></circle>';
+        return;
+      }
+      // A capped tapered drum: the side wall, then the lit top ellipse.
+      out += '<path d="M' + (32 - p.rBottom) + ' ' + p.bottom
+          + ' L' + (32 - p.rTop) + ' ' + p.top
+          + ' L' + (32 + p.rTop) + ' ' + p.top
+          + ' L' + (32 + p.rBottom) + ' ' + p.bottom
+          + ' Z" fill="' + fill + '"></path>';
+      out += '<ellipse cx="32" cy="' + p.bottom + '" rx="' + p.rBottom + '" ry="'
+          + Math.max(p.rBottom * 0.28, 2) + '" fill="' + fill + '"></ellipse>';
+      var capFill = p.role === "plinth"
+        ? plinthFill
+        : (mode === "slate" ? luminanceSlate(el.hex, 1.18) : shade(el.hex, 1.18, darken));
+      out += '<ellipse cx="32" cy="' + p.top + '" rx="' + p.rTop + '" ry="'
+          + Math.max(p.rTop * 0.3, 1.6) + '" fill="' + capFill + '"></ellipse>';
+    });
+    return out + "</svg>";
+  }
+
+  // --- state
+  var state = { moved: 0.26, spent: 0.60, ground: "#4a6a35" };
+
+  var matrix = document.getElementById("ns-matrix");
+  var ladder = document.getElementById("ns-ladder");
+  var rejected = document.getElementById("ns-rejected");
+  var curve = document.getElementById("ns-curve");
+  var movedInput = document.getElementById("ns-moved");
+  var spentInput = document.getElementById("ns-spent");
+  var movedOut = document.getElementById("ns-moved-out");
+  var spentOut = document.getElementById("ns-spent-out");
+
+  function pct(v) { return Math.round(v * 100) + "%"; }
+  function fixed(v) { return v.toFixed(2); }
+
+  function drawMatrix() {
+    var dMoved = darkenForScreenShare(1 - state.moved);
+    var dSpent = darkenForScreenShare(1 - state.spent);
+    var html = '<div class="ns-row ns-head">'
+      + '<div class="ns-colhead" style="text-align:left">Element</div>'
+      + '<div class="ns-colhead">Ready<span>click does anything</span></div>'
+      + '<div class="ns-colhead is-moved">Moved<span>click still commands</span></div>'
+      + '<div class="ns-colhead is-spent">Spent<span>inspection only</span></div>'
+      + '</div>';
+    ELEMENTS.forEach(function (el) {
+      html += '<div class="ns-row">'
+        + '<div class="ns-label">' + el.name + '<small>' + el.hex + '</small></div>'
+        + '<div class="ns-cell" style="background:' + state.ground + '">' + figure(el, 0, "multiply") + '</div>'
+        + '<div class="ns-cell" style="background:' + state.ground + '">' + figure(el, dMoved, "multiply") + '</div>'
+        + '<div class="ns-cell" style="background:' + state.ground + '">' + figure(el, dSpent, "multiply") + '</div>'
+        + '</div>';
+    });
+    matrix.innerHTML = html;
+  }
+
+  function drawLadder() {
+    var rows = [
+      { name: "Ready", share: 1 },
+      { name: "Moved", share: 1 - state.moved },
+      { name: "Spent", share: 1 - state.spent }
+    ];
+    ladder.innerHTML = rows.map(function (r) {
+      var darken = darkenForScreenShare(r.share);
+      return '<tr><td>' + r.name + '</td>'
+        + '<td class="ns-num">' + pct(r.share) + '</td>'
+        + '<td class="ns-num">' + pct(1 - darken) + '</td>'
+        + '<td class="ns-num">' + (darken <= 0.0005 ? "0.00" : fixed(darken)) + '</td></tr>';
+    }).join("");
+  }
+
+  function drawCurve() {
+    var W = 420, H = 260, L = 46, R = 12, T = 14, B = 34;
+    var x = function (d) { return L + d * (W - L - R); };
+    var y = function (v) { return T + (1 - v) * (H - T - B); };
+    var parts = [];
+    // grid + axes, labelled at values the chart reaches
+    [0, 0.25, 0.5, 0.75, 1].forEach(function (v) {
+      parts.push('<line x1="' + L + '" y1="' + y(v) + '" x2="' + (W - R) + '" y2="' + y(v)
+        + '" stroke="#35424b" stroke-width="1"></line>');
+      parts.push('<text x="' + (L - 8) + '" y="' + (y(v) + 4)
+        + '" fill="#9aacb5" font-size="11" font-family="IBM Plex Mono, monospace" text-anchor="end">'
+        + Math.round(v * 100) + '%</text>');
+    });
+    [0, 0.5, 1].forEach(function (d) {
+      parts.push('<text x="' + x(d) + '" y="' + (H - 12)
+        + '" fill="#9aacb5" font-size="11" font-family="IBM Plex Mono, monospace" text-anchor="middle">'
+        + fixed(d) + '</text>');
+    });
+    parts.push('<text x="' + ((L + W - R) / 2) + '" y="' + (H - 1)
+      + '" fill="#9aacb5" font-size="11" text-anchor="middle">unit_darken (linear multiplier)</text>');
+    // the naive reading
+    parts.push('<line x1="' + x(0) + '" y1="' + y(1) + '" x2="' + x(1) + '" y2="' + y(0)
+      + '" stroke="#9aacb5" stroke-width="1.5" stroke-dasharray="5 4"></line>');
+    parts.push('<text x="' + x(0.60) + '" y="' + (y(0.40) - 8)
+      + '" fill="#9aacb5" font-size="11" text-anchor="middle">what it looks like it does</text>');
+    // what it actually does
+    var path = "";
+    for (var i = 0; i <= 50; i++) {
+      var d = i / 50;
+      path += (i ? " L" : "M") + x(d).toFixed(1) + " " + y(screenShare(d)).toFixed(1);
+    }
+    parts.push('<path d="' + path + '" fill="none" stroke="#ffd766" stroke-width="2.5"></path>');
+    parts.push('<text x="' + x(0.16) + '" y="' + (y(screenShare(0.16)) - 10)
+      + '" fill="#ffd766" font-size="11">what a player sees</text>');
+    // the two marks
+    [{ share: 1 - state.moved, label: "Moved", colour: "#8fd0ff" },
+     { share: 1 - state.spent, label: "Spent", colour: "#ff8f6b" }].forEach(function (m) {
+      var d = darkenForScreenShare(m.share);
+      parts.push('<line x1="' + x(d) + '" y1="' + y(0) + '" x2="' + x(d) + '" y2="' + y(m.share)
+        + '" stroke="' + m.colour + '" stroke-width="1" stroke-dasharray="3 3"></line>');
+      parts.push('<circle cx="' + x(d) + '" cy="' + y(m.share) + '" r="5" fill="' + m.colour + '"></circle>');
+      parts.push('<text x="' + (x(d) + (d > 0.7 ? -9 : 9)) + '" y="' + (y(m.share) + 4)
+        + '" fill="' + m.colour + '" font-size="11.5" font-family="IBM Plex Mono, monospace" text-anchor="'
+        + (d > 0.7 ? "end" : "start") + '">' + m.label + " " + fixed(d) + '</text>');
+    });
+    curve.innerHTML = parts.join("");
+  }
+
+  function drawRejected() {
+    var dSpent = darkenForScreenShare(1 - state.spent);
+    var cases = [
+      { el: ELEMENTS[0], mode: "slate", title: "Luminance × slate", kept: false,
+        note: "Thunder's yellow becomes the grass colour. Every unit arrives at the same grey, so two spent units are no longer telling apart." },
+      { el: ELEMENTS[0], mode: "multiply", title: "Darken toward black", kept: true,
+        note: "The hue is untouched; only the light it returns changes. A spent thunder unit is still a thunder unit." },
+      { el: ELEMENTS[2], mode: "slate", title: "Luminance × slate", kept: false,
+        note: "Ice is already pale, so draining it to luminance barely darkens it — the one unit that most needed the cue got the least of it." },
+      { el: ELEMENTS[2], mode: "multiply", title: "Darken toward black", kept: true,
+        note: "A pale unit darkens by the same factor as a saturated one, because the factor is applied to its own albedo." }
+    ];
+    rejected.innerHTML = cases.map(function (c) {
+      return '<div class="ns-option' + (c.kept ? " is-kept" : "") + '">'
+        + '<h4>' + c.el.name + " · " + c.title + '</h4>'
+        + '<div class="ns-strip">'
+        + '<div class="ns-cell" style="background:' + state.ground + '">'
+        + figure(c.el, c.mode === "slate" ? 0 : dSpent, c.mode) + '</div>'
+        + '</div><p>' + c.note + '</p></div>';
+    }).join("");
+  }
+
+  function render() {
+    movedOut.textContent = pct(state.moved) + " · " + fixed(darkenForScreenShare(1 - state.moved));
+    spentOut.textContent = pct(state.spent) + " · " + fixed(darkenForScreenShare(1 - state.spent));
+    drawMatrix();
+    drawLadder();
+    drawCurve();
+    drawRejected();
+  }
+
+  movedInput.addEventListener("input", function () {
+    state.moved = Number(movedInput.value) / 100;
+    if (state.moved >= state.spent) {
+      state.spent = Math.min(0.9, state.moved + 0.05);
+      spentInput.value = String(Math.round(state.spent * 100));
+    }
+    render();
+  });
+  spentInput.addEventListener("input", function () {
+    state.spent = Number(spentInput.value) / 100;
+    if (state.spent <= state.moved) {
+      state.moved = Math.max(0.05, state.spent - 0.05);
+      movedInput.value = String(Math.round(state.moved * 100));
+    }
+    render();
+  });
+  document.getElementById("ns-terrain").addEventListener("click", function (event) {
+    var button = event.target.closest("button[data-ground]");
+    if (!button) return;
+    state.ground = button.dataset.ground;
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function (b) {
+      b.setAttribute("aria-pressed", String(b === button));
+    });
+    render();
+  });
+
+  render();
+})();
+</script>

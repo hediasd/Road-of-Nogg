@@ -87,6 +87,40 @@ func _checkWorldCues(scenario, state) -> void:
 			and _darkenedMeshCount(model) == 0,
 		"clearing spent did not restore the original presentation")
 
+	# Two shades, and which one wins. Moved is the mild one -- the unit has walked and is still the
+	# player's to command -- and it has to be clearly lighter than spent and clearly darker than
+	# ready, or the three states are not tellable apart without a legend.
+	_require(AdapterScript.MOVED_DARKEN > 0.0
+			and AdapterScript.MOVED_DARKEN < AdapterScript.SPENT_DARKEN,
+		"the moved shade is not between ready and spent")
+	_adapter.setUnitMoved(spentID, true)
+	_require(_adapter.isUnitMoved(spentID), "moved state was not retained")
+	_require(is_equal_approx(_adapter.unitDarken(spentID), AdapterScript.MOVED_DARKEN),
+		"a moved unit did not take the mild shade")
+	_require(_darkenedMeshCount(model) == _retroMeshCount(model),
+		"the mild shade reached only part of the model")
+	_adapter.setUnitSpent(spentID, true)
+	_require(is_equal_approx(_adapter.unitDarken(spentID), AdapterScript.SPENT_DARKEN)
+			and not _adapter.isUnitMoved(spentID),
+		"spending a moved unit did not take over from the mild shade")
+	_adapter.setUnitSpent(spentID, false)
+	_require(is_equal_approx(_adapter.unitDarken(spentID), 0.0),
+		"clearing spent left the unit part-way through a turn it no longer has")
+
+	# The same timing rule on the way back up: an undone move brightens the unit only once the walk
+	# home has played. Held behind a real animation on another unit, because an idle queue starts
+	# whatever it is handed at once and would prove nothing about ordering -- and checked while the
+	# unit is not spent, because spent outranks moved and would mask the result.
+	_adapter.setUnitMoved(spentID, true)
+	sim.events.monster_moved.emit(targetID, [_adapter.displayedPosition(targetID)])
+	_require(_adapter.isAnimationBusy(), "the queue was idle, so ordering was not under test")
+	sim.events.unit_move_undone.emit(spentID)
+	_require(is_equal_approx(_adapter.unitDarken(spentID), AdapterScript.MOVED_DARKEN),
+		"an undone move brightened the unit before the walk home had played")
+	_adapter.recoverPlayback()
+	_adapter.setUnitMoved(spentID, false)
+	_adapter.setUnitMoved(targetID, false)
+
 	# The timing rule: the simulation spending a unit must not darken it. Only playback may, and
 	# the queue is what says when playback has reached it.
 	sim.events.unit_spent.emit(int(sim.state.activeSideID), spentID)

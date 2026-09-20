@@ -1509,9 +1509,16 @@ five icons never overlap. Disabled actions remain present and dim so their
 stable keyboard positions do not change.
 
 The target sword is the arc's own attack icon, drawn over an anchor parented
-to the target model. A spent unit darkens instead: `unit_darken`, a per-instance
-uniform in both retro surface shaders, multiplies the whole model's albedo and
-specular down toward black (0.72, fading over 0.30s), plinth included. It is one
+to the target model. A unit that has used part or all of its turn darkens instead, in
+two shades: `unit_darken`, a per-instance uniform in both retro surface shaders,
+multiplies the whole model's albedo and specular down toward black, plinth
+included. **Moved** (0.48, over 0.20s) means the unit has walked and is still the
+player's to command; **spent** (0.87, over 0.30s) means the turn is over and only
+inspection is left. Both are stated in perceived lightness rather than in the
+multiplier -- ALBEDO is linear light and the frame is gamma-encoded after, so the
+visible share left is `(1 - darken) ^ (1/2.2)`, which puts the three states at
+roughly even perceived steps (100%, 74%, 40%). See
+`docs/sketches/2026-09-20-unit-shades-ready-moved-spent.html`. It is one
 multiply inside the unit's own shading, so the darkening is even across every
 part, each hue is kept exactly as authored, and `material_overlay` stays free for
 the hover outline — a spent unit can be hovered without losing either cue. The
