@@ -48,12 +48,11 @@ const GENERATED_DIR := "res://assets/worldmap/regions/generated"
 
 var _image: Image
 var _texture: ImageTexture
-## Accumulated dirty regions in MAP PIXELS, snapped out to whole tiles. Kept as a list rather
-## than one union rect: two edits at opposite corners of a map would union into the whole map,
-## which is the full rebuild this exists to avoid.
+## Accumulated dirty regions in MAP PIXELS, snapped out to whole tiles. Overlapping regions
+## merge, but distant edits stay separate rather than forcing a full-map recomposition.
 var _dirty: Array[Rect2i] = []
-## Tileset id -> `{image, cells}`, where `cells` maps a tile id to its cell in the sheet. Built
-## once per bake so a 24,000-tile compose does not re-read a sheet per cell.
+## Tileset id -> `{image, cells, masked_frames}`, where `cells` maps a tile id to its sheet cell
+## and `masked_frames` holds one prepared image per sheet cell and detail slot.
 var _sheets: Dictionary = {}
 
 
@@ -173,12 +172,20 @@ func markPixelsDirty(rect: Rect2i) -> void:
 	)
 	if snapped.size.x <= 0 or snapped.size.y <= 0:
 		return
-	# Absorbed into an existing entry when one already covers it, so a drag across one tile does
-	# not accumulate a hundred identical rects.
-	for existing in _dirty:
-		if existing.encloses(snapped):
-			return
-	_dirty.append(snapped)
+	# Hex invalidation pads every cell by a frame. A stroke therefore produces heavily
+	# overlapping rects; flushing them separately repeats the same detail composition and can
+	# blend outside each cleared rect. Merge transitively, while keeping distant edits separate.
+	var merged := snapped
+	var index := 0
+	while index < _dirty.size():
+		var existing := _dirty[index]
+		if merged.grow(1).intersects(existing):
+			merged = merged.merge(existing)
+			_dirty.remove_at(index)
+			index = 0
+		else:
+			index += 1
+	_dirty.append(merged)
 
 
 func dirtyCount() -> int:
@@ -224,7 +231,8 @@ func _composeRect(data: WorldMapTileData, rect: Rect2i) -> void:
 			# square map's cel grade already covers "finer than a tile", and a detail block
 			# should never exist on one, but this stays a no-op rather than a crash if it did.
 			if hex:
-				_composeDetailLayer(data, layerID, rect, data.size_tiles, framePx, sheetImage, cells)
+				_composeDetailLayer(data, layerID, rect, data.size_tiles, framePx, sheetImage, cells,
+					sheet["masked_frames"])
 			continue
 		var size := data.layerSize(layerID)
 		if hex:
@@ -329,7 +337,7 @@ func _hexFrameOrigin(cell: Vector2i, framePx: int) -> Vector2i:
 ## overlay on the terrain beneath it, never a replacement for it.
 func _composeDetailLayer(
 	data: WorldMapTileData, layerID: String, rect: Rect2i, size: Vector2i, framePx: int,
-	sheetImage: Image, cellsOnSheet: Dictionary
+	sheetImage: Image, cellsOnSheet: Dictionary, maskedFrames: Dictionary
 ) -> void:
 	var cellRange := _hexCandidateCells(rect, framePx, size)
 	for y in range(cellRange.position.y, cellRange.position.y + cellRange.size.y):
@@ -340,15 +348,19 @@ func _composeDetailLayer(
 				if id == WorldMapTileData.EMPTY or not cellsOnSheet.has(id):
 					continue
 				var source: Vector2i = cellsOnSheet[id]
-				var masked := _maskToTriangle(sheetImage, source, framePx, triangleIndex)
+				var cacheKey := Vector3i(source.x, source.y, triangleIndex)
+				var masked := maskedFrames.get(cacheKey) as Image
+				if masked == null:
+					masked = _maskToTriangle(sheetImage, source, framePx, triangleIndex)
+					maskedFrames[cacheKey] = masked
 				_image.blend_rect(
 					masked, Rect2i(Vector2i.ZERO, Vector2i(framePx, framePx)),
 					_hexFrameOrigin(cell, framePx)
 				)
 
 
-## A copy of one tileset frame with every pixel outside fan triangle `triangleIndex` cleared to
-## transparent. `WorldMapHeightField.CORNER_OFFSETS` is the same six corners that file's own fan
+## Builds one tileset frame on first use, with every pixel outside fan triangle `triangleIndex`
+## cleared to transparent. `WorldMapHeightField.CORNER_OFFSETS` is the same six corners its fan
 ## uses; the inside test itself (`_insideFanTriangle`) is a small, deliberate DUPLICATE of that
 ## file's own `_barycentric`, not a call into it -- `WorldMapHeightField.gd` is not touched by
 ## this item, the same reason `tool_author_hex32.gd` once had to mirror `tool_cut_hex32.gd`'s own
@@ -428,7 +440,9 @@ func _loadSheets(data: WorldMapTileData) -> void:
 		var cells: Dictionary = {}
 		for tile in reference["TILES"]:
 			cells[str((tile as Dictionary)["ID"])] = (tile as Dictionary)["CELL"]
-		_sheets[tilesetID] = {"image": sheetImage, "cells": cells}
+		# A frame's triangle mask depends on its sheet pixels and slot, never on the map cell.
+		# Re-import calls forgetSheets(), dropping these prepared images with the old sheet.
+		_sheets[tilesetID] = {"image": sheetImage, "cells": cells, "masked_frames": {}}
 
 
 ## Drops the cached sheets, so a tileset re-imported mid-session is picked up by the next bake.

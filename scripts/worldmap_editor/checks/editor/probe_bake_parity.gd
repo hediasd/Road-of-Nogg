@@ -38,6 +38,7 @@ func _initialize() -> void:
 	_checkHexFramePlacement()
 	_checkHexFrameCornersAreTransparent()
 	_checkHexPartialEqualsFull()
+	_checkHexDetailStrokePartialEqualsFull()
 
 	print("")
 	print("probe_bake_parity: %s" % ("PASS" if _failures == 0 else "%d FAILURE(S)" % _failures))
@@ -426,3 +427,42 @@ func _checkHexPartialEqualsFull() -> void:
 			_fail("hex partial rebake at %s diverged from a full bake: %s" % [editCell, difference])
 			return
 	print("  ok    single-cell edit on an even and an odd column, partial matches full exactly")
+
+
+## A detail stroke marks adjacent padded hex rects. They should merge into one recomposition,
+## while its masked slots and translucent borders still match a clean full bake byte for byte.
+func _checkHexDetailStrokePartialEqualsFull() -> void:
+	print("-- adjacent detail edits merge and remain byte-identical to a full bake --")
+	var ids: Array[String] = []
+	for tile in TilesetCatalog.tilesetFor(HEX_TILESET)["TILES"]:
+		ids.append(str((tile as Dictionary)["ID"]))
+	if ids.size() < 2:
+		_fail("hex tileset has too few tiles for detail stroke parity")
+		return
+	var data := MapData.create("_probe_hex_detail_stroke", Vector2i(9, 7), MapData.LAYOUT_HEX_FLAT)
+	data.layers["ground"]["TILESET"] = HEX_TILESET
+	data.addDetailLayer("detail", HEX_TILESET)
+	for y in data.size_tiles.y:
+		for x in data.size_tiles.x:
+			data.setCell("ground", Vector2i(x, y), ids[0])
+	for cell in [Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2)]:
+		for slot in MapData.DETAIL_SLOTS_PER_CELL:
+			data.setDetail("detail", cell, slot, ids[0])
+	var baker := Baker.new()
+	baker.bake(data)
+	for cell in [Vector2i(3, 2), Vector2i(4, 2), Vector2i(5, 2)]:
+		data.setDetail("detail", cell, 1, ids[1])
+		baker.markCellsDirty(data, "detail", Rect2i(cell, Vector2i.ONE))
+	if baker.dirtyCount() != 1:
+		_fail("three adjacent detail edits left %d dirty rects" % baker.dirtyCount())
+		return
+	if not baker.flush(data):
+		_fail("detail stroke flush reported no work")
+		return
+	var reference := Baker.new()
+	reference.bake(data)
+	var difference := _describeDifference(baker.image(), reference.image())
+	if not difference.is_empty():
+		_fail("adjacent detail edits diverged from a full bake: %s" % difference)
+		return
+	print("  ok    three adjacent detail edits coalesced and partial equals full")

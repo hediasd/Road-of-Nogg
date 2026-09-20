@@ -554,11 +554,11 @@ region size, since a stroke on a 155-tile region otherwise re-blits ~24,000 tile
 
 Flushing is therefore something to do once after a batch of edits, not once per cell.
 
-Dirty rects are kept as a **list, not a union**: two edits at opposite corners of a map would
-union into the whole map, which is the full rebuild the model exists to avoid. Each rect snaps
-**out** to whole tiles, so a cel-grade edit always dirties the tile beneath it and a cel brush
-cannot leave the ground under it stale. A mark already covered by an existing rect is absorbed,
-so a drag across one tile does not accumulate a hundred identical entries.
+Dirty rects are kept as a **list, not one map-wide union**: two edits at opposite corners stay
+separate rather than rebuilding the whole map. Each rect snaps **out** to whole tiles, so a
+cel-grade edit always dirties the tile beneath it. Overlapping or touching rects merge
+transitively; a stroke across adjacent hexes is recomposed once instead of repeatedly clearing
+and blending the same padded neighbourhood.
 
 `flush()` clears each dirty rect to transparent before recomposing it. Without that, a cell
 whose tile was *erased* would keep showing its old pixels, since compositing draws over rather
@@ -1234,12 +1234,11 @@ nothing just outside the lattice that owns one. It serialises through the exact 
 There is no dedicated detail tileset yet — the probe reuses `temp2_hex32_ground`, the only hex
 tileset in the catalog, the same bootstrap pattern already used for ground and
 brushes. So the six slots cannot come from six pre-cut triangular art pieces; **the baker masks a
-whole tileset frame down to one fan triangle at composite time**, per pixel, before blending it
-in. A pixel's own local position (relative to the hex's own centre, in world units) is tested
-against the same barycentric fan-triangle math `WorldMapHeightField` uses for terrain
-sampling — deliberately **duplicated**, not called, since `WorldMapHeightField.gd` is not touched
-by this item, the same reason `tool_author_hex32.gd` once had to mirror `tool_cut_hex32.gd`'s own
-mask rather than import it.
+whole tileset frame down to one fan triangle on first use**, then reuses that prepared image for
+the same sheet frame and slot until the sheet cache is forgotten. A pixel's own local position
+(relative to the hex's own centre, in world units) is tested against the same barycentric
+fan-triangle math `WorldMapHeightField` uses for terrain sampling. The baker deliberately keeps
+its own pixel-space test instead of depending on the terrain sampler.
 
 This is what makes six independently-painted slots share one 32 px frame without overwriting each
 other: `_maskToTriangle` builds a masked copy of the source frame, then `blend_rect`s only that
