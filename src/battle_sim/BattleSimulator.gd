@@ -35,6 +35,11 @@ var visualAdapter: IBattleVisualAdapter
 var brains: Dictionary = {}
 var initialStateSnapshot: Dictionary = {}
 var setupSnapshot: Dictionary = {}
+## Operations survive a timeline restore; only the current rules state rewinds.
+var operationLedger: Array[Dictionary] = []
+## Exactly one side-start state is retained, until the next side opens.
+var sideStartCheckpoint: Dictionary = {}
+var _resolutionDepth := 0
 
 ## Set by `emitInitialBoard()`, reset on every `configureHexState()`. Lets `startBattle()` skip
 ## its own `battle_started` emission when the board has already been announced -- see that
@@ -128,6 +133,8 @@ func configureHexState(
 	setupSnapshot = setupData.duplicate(true)
 	initialStateSnapshot = {}
 	_initialBoardEmitted = false
+	operationLedger.clear()
+	sideStartCheckpoint.clear()
 
 
 func _rebuildRuntimeDependencies(brainClasses: Dictionary = {}) -> void:
@@ -277,7 +284,7 @@ func uniformChoiceRNGForActiveSide() -> RandomNumberGenerator:
 	# the battle's own generator would change the state revision and be discarded as stale. See
 	# RandomLegalBrain.rngFor().
 	var rng := RandomNumberGenerator.new()
-	rng.seed = hash([state.battleSeed, state.sideTurnCount, state.history.size(), state.activeSideID])
+	rng.seed = hash([state.battleSeed, state.sideTurnCount, state.totalHistoryCount(), state.activeSideID])
 	return rng
 
 
@@ -286,6 +293,8 @@ func hasSideRuntime() -> bool:
 
 
 func startNextSideTurn(source: String = "system") -> Dictionary:
+	if _resolutionDepth > 0:
+		return {"success": false, "reason": "operation_in_progress", "side_id": -1}
 	if not hasSideRuntime():
 		return {"success": false, "reason": "side_runtime_unavailable", "side_id": -1}
 	if state.battleOutcome != -1:
@@ -327,12 +336,20 @@ func startNextSideTurn(source: String = "system") -> Dictionary:
 			"side_turn": state.sideTurnCount,
 			"eligible": eligible.duplicate(),
 		})
-		events.side_turn_started.emit(
-			sideID, state.roundCount, state.turnCount, eligible.duplicate())
 		if eligible.is_empty():
+			_resolutionDepth += 1
+			events.side_turn_started.emit(
+				sideID, state.roundCount, state.turnCount, eligible.duplicate())
+			_resolutionDepth -= 1
 			_closeSideTurn("no_eligible_units")
 			continue
 		_checkInvariants("side_open:%d" % sideID)
+		_recordOperation("side_turn_start")
+		_captureSideStartCheckpoint()
+		_resolutionDepth += 1
+		events.side_turn_started.emit(
+			sideID, state.roundCount, state.turnCount, eligible.duplicate())
+		_resolutionDepth -= 1
 		return {"success": true, "reason": "", "side_id": sideID}
 
 	_recordBattleOutcomeIfResolved()
@@ -346,6 +363,8 @@ func eligibleSideUnitIDs() -> Array[int]:
 
 
 func selectUnit(monsterID: int, source: String = "player") -> Dictionary:
+	if _resolutionDepth > 0:
+		return {"success": false, "reason": "operation_in_progress", "monster_id": -1}
 	var rejection := _validateUnitSelection(monsterID)
 	if not rejection.is_empty():
 		state.add_event("unit_selection_rejected", monsterID, -1, {
@@ -362,7 +381,10 @@ func selectUnit(monsterID: int, source: String = "player") -> Dictionary:
 		"side_id": state.activeSideID,
 		"side_turn": state.sideTurnCount,
 	})
+	_recordOperation("unit_selected")
+	_resolutionDepth += 1
 	events.unit_selected.emit(state.activeSideID, monsterID)
+	_resolutionDepth -= 1
 	return {"success": true, "reason": "", "monster_id": monsterID}
 
 
@@ -386,6 +408,8 @@ func _validateUnitSelection(monsterID: int) -> String:
 
 
 func endSideTurn(source: String = "player") -> Dictionary:
+	if _resolutionDepth > 0:
+		return {"success": false, "reason": "operation_in_progress", "consumed": []}
 	if not hasSideRuntime() or state.activeSideID == -1:
 		return {"success": false, "reason": "no_active_side", "consumed": []}
 	var sideID := state.activeSideID
@@ -434,11 +458,13 @@ func _closeSideTurn(reason: String) -> void:
 		"reason": reason,
 		"spent": _sortedIntKeys(state.spentUnitIDs),
 	})
+	_resolutionDepth += 1
 	events.side_turn_ended.emit(sideID, reason)
 	state.activeSideID = -1
 	state.currentMonsterID = -1
 	state.sideTurnPhase = "idle"
 	state.pendingUnitTurns.clear()
+	_resolutionDepth -= 1
 
 
 ## Compatibility names kept only until the interactive controller item lands.
@@ -652,6 +678,8 @@ func turnPhaseState(monsterID: int) -> Dictionary:
 
 
 func executeMovePhase(monsterID: int, path: Array, source: String = "player") -> Dictionary:
+	if _resolutionDepth > 0:
+		return {"success": false, "reason": "operation_in_progress"}
 	var guard = _guardPhase(monsterID)
 	if not guard["success"]:
 		return _rejectPhase(monsterID, source, guard["reason"])
@@ -669,8 +697,10 @@ func executeMovePhase(monsterID: int, path: Array, source: String = "player") ->
 
 	var moved = false
 	if not normalizedPath.is_empty():
+		_resolutionDepth += 1
 		events.movement_targeted.emit(monsterID, normalizedPath.back())
 		moved = movementResolver.executeMove(monsterID, normalizedPath)
+		_resolutionDepth -= 1
 
 	accumulator["has_moved"] = not normalizedPath.is_empty()
 	accumulator["move_path"] = normalizedPath
@@ -681,6 +711,8 @@ func executeMovePhase(monsterID: int, path: Array, source: String = "player") ->
 			"path": normalizedPath.duplicate(),
 		})
 	_checkInvariants("move")
+	if moved:
+		_recordOperation("move_phase")
 	return {
 		"success": true,
 		"moved": moved,
@@ -689,6 +721,8 @@ func executeMovePhase(monsterID: int, path: Array, source: String = "player") ->
 
 
 func undoMovePhase(monsterID: int) -> Dictionary:
+	if _resolutionDepth > 0:
+		return {"success": false, "reason": "operation_in_progress"}
 	## Rewinds the movement phase to where the turn began. Only legal while the
 	## action phase is unspent: an attack or spell is validated against range,
 	## line of sight, and elevation from the tile it was made from, so rewinding
@@ -727,6 +761,8 @@ func undoMovePhase(monsterID: int) -> Dictionary:
 	accumulator["has_moved"] = false
 	accumulator["move_path"] = []
 	_checkInvariants("undo")
+	if currentPos != origin:
+		_recordOperation("undo_move")
 	return {"success": true, "destination": origin}
 
 
@@ -737,6 +773,8 @@ func executeActionPhase(
 		spellSetIndex: int = 0,
 		spellIndex: int = 0,
 		source: String = "player") -> Dictionary:
+	if _resolutionDepth > 0:
+		return {"success": false, "reason": "operation_in_progress"}
 	var guard = _guardPhase(monsterID)
 	if not guard["success"]:
 		return _rejectPhase(monsterID, source, guard["reason"])
@@ -763,6 +801,7 @@ func executeActionPhase(
 		monsterID, action, spellSetIndex, spellIndex, fromPos, targetPos
 	)
 	var actionResult: Dictionary = {"success": true}
+	_resolutionDepth += 1
 	if action in ["attack", "spell"]:
 		events.action_targeted.emit(monsterID, targetPos, targetID, action)
 	if action == "attack":
@@ -771,6 +810,7 @@ func executeActionPhase(
 		actionResult = combatResolver.executeCastSpell(
 			monsterID, targetPos, spellSetIndex, spellIndex
 		)
+	_resolutionDepth -= 1
 
 	accumulator["has_acted"] = true
 	accumulator["action"] = action
@@ -784,6 +824,8 @@ func executeActionPhase(
 	return {"success": true, "actionResult": actionResult}
 
 func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResult:
+	if _resolutionDepth > 0:
+		return BattleCommandResult.rejected("operation_in_progress")
 	## Spending a unit is its end-of-turn boundary: effects, cooldowns and
 	## passives advance here, not when the whole side closes.
 	if state.currentMonsterID != monsterID:
@@ -816,10 +858,13 @@ func finishTurn(monsterID: int, source: String = "player") -> BattleCommandResul
 		"spell_index": normalized.spell_index,
 		"result": result.to_dictionary(),
 	})
+	_resolutionDepth += 1
 	passiveSkillResolver.fireEvent(PassiveSkillResolver.ON_TURN_END, monsterID)
 	if hasSideRuntime():
 		_completeUnitAction(monsterID)
+	_resolutionDepth -= 1
 	_checkInvariants("unit_finished:%d" % monsterID)
+	_recordOperation("unit_action")
 	return result
 
 func _rejectPhase(monsterID: int, source: String, reason: String) -> Dictionary:
@@ -869,6 +914,8 @@ func executeCommand(
 		monsterID: int,
 		command: BattleCommand,
 		source: String = "cpu") -> BattleCommandResult:
+	if _resolutionDepth > 0:
+		return BattleCommandResult.rejected("operation_in_progress")
 	## The atomic entry point CPU brains and replay use. Validates the whole turn
 	## up front, then resolves it through the same phase calls the interactive
 	## path uses, in the order the command records.
@@ -974,6 +1021,79 @@ func _sideLegalCommand(decision: BattleCommand) -> BattleCommand:
 		return BattleCommand.new(decision.move_path, "wait", -1, 0, 0, ORDER_MOVE_FIRST)
 	return decision
 
+## Fingerprint excludes diagnostic history but includes sufficient rules memory
+## and exact gameplay RNG. Cost follows board, actors and rule-relevant damage.
+static func semanticFingerprint(battleState: BattleState) -> String:
+	var context := HashingContext.new()
+	context.start(HashingContext.HASH_SHA256)
+	context.update(_canonicalJSON(
+		BattleStateSerializerScript.serializeCore(battleState)).to_utf8_buffer())
+	return "sha256:%s" % context.finish().hex_encode()
+
+
+func _recordOperation(eventType: String) -> void:
+	for index in range(state.history.size() - 1, -1, -1):
+		var event: Dictionary = state.history[index]
+		if str(event.get("type", "")) == eventType:
+			var operation: Dictionary = BattleStateSerializerScript.jsonSafe(event)
+			operation["fingerprint"] = semanticFingerprint(state)
+			operationLedger.append(operation)
+			return
+	assert(false, "Resolved operation missing from state history: %s" % eventType)
+
+
+func _captureSideStartCheckpoint() -> void:
+	assert(state.activeSideID != -1, "Checkpoint requires an open side turn.")
+	sideStartCheckpoint = {
+		"side_turn_count": state.sideTurnCount,
+		"side_id": state.activeSideID,
+		"fingerprint": semanticFingerprint(state),
+		"state": state.serialize_state(),
+		"ledger_count": operationLedger.size(),
+	}
+
+
+## Technical state replacement, reusable within the current side turn. Costs,
+## eligibility and presentation are later gameplay/UI decisions.
+func restoreSideTurn() -> Dictionary:
+	if _resolutionDepth > 0:
+		return {"success": false, "reason": "resolver_in_progress"}
+	if sideStartCheckpoint.is_empty():
+		return {"success": false, "reason": "missing_side_checkpoint"}
+	if int(sideStartCheckpoint.get("side_turn_count", -1)) != state.sideTurnCount:
+		return {"success": false, "reason": "checkpoint_expired"}
+	var restored: BattleState = BattleStateSerializerScript.deserialize(
+		sideStartCheckpoint["state"])
+	if restored.contentFingerprint != state.contentFingerprint:
+		return {"success": false, "reason": "content_fingerprint_mismatch"}
+	if semanticFingerprint(restored) != str(sideStartCheckpoint.get("fingerprint", "")):
+		return {"success": false, "reason": "checkpoint_fingerprint_mismatch"}
+	var priorGeneration := state.timelineGeneration
+	var branchID := operationLedger.size() + 1
+	var abandonedCount := maxi(0, operationLedger.size() -
+		int(sideStartCheckpoint.get("ledger_count", 0)))
+	if visualAdapter != null:
+		visualAdapter.disconnectFromEvents()
+	visualAdapter = null
+	state = restored
+	state.timelineGeneration = priorGeneration + 1
+	_rebuildRuntimeDependencies()
+	var branchOperation := {
+		"type": "side_turn_rewind",
+		"actor_id": int(sideStartCheckpoint["side_id"]),
+		"data": {
+			"side_turn_count": int(sideStartCheckpoint["side_turn_count"]),
+			"checkpoint_fingerprint": str(sideStartCheckpoint["fingerprint"]),
+			"branch_id": branchID,
+			"abandoned_operations": abandonedCount,
+		},
+		"fingerprint": semanticFingerprint(state),
+	}
+	operationLedger.append(branchOperation)
+	return {"success": true, "branch_id": branchID,
+		"generation": state.timelineGeneration}
+
+
 func createReplaySnapshot() -> Dictionary:
 	if not hasPartyRuntime():
 		return {
@@ -986,13 +1106,9 @@ func createReplaySnapshot() -> Dictionary:
 		var brain = brains[monsterID]
 		brainClasses[str(monsterID)] = brain.get_script().resource_path.get_file().get_basename()
 
-	var operations: Array = []
+	var operations: Array = operationLedger.duplicate(true)
 	var commands: Array = []
-	for event in state.history:
-		if event.get("type", "") in [
-			"side_turn_start", "unit_selected", "move_phase", "undo_move", "unit_action"
-		]:
-			operations.append(BattleStateSerializerScript.jsonSafe(event))
+	for event in operationLedger:
 		if event.get("type", "") == "unit_action":
 			commands.append(BattleStateSerializerScript.jsonSafe(event))
 
@@ -1014,6 +1130,7 @@ func createReplaySnapshot() -> Dictionary:
 		"currentState": state.serialize_state(),
 		"brainClasses": brainClasses,
 		"operations": operations,
+		"sideStartCheckpoint": sideStartCheckpoint.duplicate(true),
 		"commands": commands
 	})
 
@@ -1050,6 +1167,8 @@ func restoreReplaySnapshot(snapshot: Dictionary) -> Dictionary:
 	setupSnapshot = snapshot.get("setup", {}).duplicate(true)
 	var brainClasses: Dictionary = snapshot.get("brainClasses", {})
 	_rebuildRuntimeDependencies(brainClasses)
+	operationLedger.assign(snapshot.get("operations", []).duplicate(true))
+	sideStartCheckpoint = snapshot.get("sideStartCheckpoint", {}).duplicate(true)
 
 	return {"success": true}
 

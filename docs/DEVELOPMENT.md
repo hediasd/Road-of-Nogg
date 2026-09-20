@@ -67,12 +67,24 @@ process's snapshot from battle_output/battles/ai_state_contract.json.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter state_contract
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter forecast
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter rewind
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter replay
 ```
 
 Active hex state and replay snapshots use version 8. Version 7 state can be
 loaded with catalog-restored abilities, but old numeric RNG files cannot prove
 lossless continuation. Version 7 replay envelopes fail with an explicit
 unsupported-version result.
+
+The forecast probe checks isolated canonical resolution, area damage, damage
+reversal, reactive fizzle, stable policy samples and history-copy cost. The
+forecast probe also compares a random-consuming sample with its prior-process
+artifact on a second run. The
+rewind probe restores the same side twice, checks allocator/RNG recovery,
+round-trips the branch replay through JSON and finds a deliberately tampered
+operation by index. These are technical contracts; interactive rewind UI and
+player-facing cost have not been implemented.
 
 Two runners under `scripts/battle/`. Both write to `battle_output/` at the
 project root by default: single battles under `battle_output/battles/`,

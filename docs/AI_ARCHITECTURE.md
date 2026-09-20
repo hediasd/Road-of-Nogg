@@ -28,6 +28,8 @@ sequencing; this reference remains useful after those cycle files are removed.
 | Headless scheduling | [run_battle](../scripts/battle/run_battle.gd) completes the same planner synchronously |
 | Stale proposal detection | [StateRevision](../src/entity_ai/StateRevision.gd) includes actor state, a mutation revision and timeline generation; full actor serialization is still paid on capture |
 | Persistence and replay | [BattleStateSerializer](../src/battle_sim/BattleStateSerializer.gd) restores runtime abilities, movement costs and lossless large integers in state version 8; [BattleReplayRunner](../src/battle_sim/BattleReplayRunner.gd) consumes the version 8 replay envelope |
+| Detached forecast | [BattleForecast](../src/battle_sim/BattleForecast.gd) resolves one command on a cloned canonical state; [OutcomeEstimator](../src/entity_ai/OutcomeEstimator.gd) combines explicit policy samples as integer counts and sums |
+| Technical side rewind | BattleSimulator retains one side-start checkpoint, restores only at quiescent boundaries, increments timeline generation, and keeps branch operations in an outer ledger |
 | Existing match tools | [run_championship](../scripts/battle/run_championship.gd) and [BattleRecordAdapter](../src/presentation/BattleRecordAdapter.gd); placeholders for the later experiment system |
 
 Current decision flow:
@@ -71,8 +73,9 @@ application ordered through the simulator and never mutate state from playback.
   entities or nested dictionaries bypass the cheap revision. Proposal capture
   still reads actor fields; future caches must use state methods or a semantic
   validation at application.
-- Full history participates in serialization. Some history is gameplay data:
-  SpellEffectResolver's damage reversal reads damage since a prior turn.
+- Full history participates in replay snapshots and the one retained side-start
+  checkpoint. Forecast forks copy the suffix beginning at the earliest actor
+  last-turn index. SpellEffectResolver's damage reversal reads that suffix.
 - Existing championship output is not a resumable, supervised, parallel
   experiment system. Its repair is not a prerequisite for AI restructuring.
 
@@ -135,13 +138,90 @@ numeric values rather than claiming byte-identical in-memory dictionaries.
 Run the focused sweep twice for the fresh-process check. State version 7 uses
 catalog reconstruction; version 7 replay envelopes are unsupported.
 
-Current simulator operations and resolver cascades are synchronous. Capture a
-reusable snapshot between completed operations, after their events and state
-mutations finish. The current serializer has no field for an in-progress
-reaction or deferred trigger; adding either requires explicit pending state or
-a checked quiescent boundary. Full history remains part of each state snapshot,
-including the damage events read by damage reversal. Smaller rules-memory
-snapshots and bounded checkpoint retention remain future work.
+### Current forecast, checkpoint and branch contract
+
+`BattleForecast.evaluate(simulator, actorID, command, mode, sampleID)` copies
+`BattleStateSerializer.serializeForForecast`, reconstructs independent state and
+resolvers, selects the actor on the fork when needed, then calls the canonical
+`executeCommand`. `BattleForecastResult` reports `accepted` and `resolved`
+separately, the one-command horizon, an ordered list of changed serialized
+paths, new state events, and copied bytes/history counts plus diagnostic times.
+An accepted command whose caster dies to an `ON_TARGETED` passive is unresolved.
+The generic path delta exposes state changes from new effect types without an
+effect-specific forecast handler; an evaluator still needs to value them.
+
+`debug_exact` clones the current gameplay RNG for reproduction. `policy_sample`
+does not read its state: the serializer substitutes zero before cloning and a
+new stream is seeded from battle seed, round, side-turn count, active side,
+actor ID, explicit sample ID, and content fingerprint. The caller owns stable
+sample IDs, independent of candidate enumeration and worker completion order.
+Do not pass debug-exact results to policy aggregation. `OutcomeEstimator` checks
+for unique policy sample IDs and reports integer acceptance/resolution counts,
+HP delta sums and terminal counts. Its summaries are not yet a tactical policy.
+The forecast probe persists a random-consuming policy sample under
+`battle_output/battles/ai_forecast_sample.json` and compares the next process's
+result and serialized bytes with it; diagnostic timings are excluded.
+
+Forecast history starts at the earliest `last_turn_start_index` among **all**
+monsters, including defeated ones. Indices are shifted into the fork and
+`historyBaseIndex` preserves the logical event count for seeded uniform choices.
+This is sufficient for the current damage-reversal rule, which reads damage
+events by actor since that index. A future effect that reads older history must
+extend the rules-memory contract before using compact forecasts. The technical
+probe copied zero historical events and serialized 17,720 bytes at both 120
+and 960 diagnostic events after all turn indices advanced (sampled on this
+Windows Godot 4.4 host; 2,844 and 3,247 microseconds respectively). Full
+snapshots at those lengths were 28,378 and 102,298 bytes. These
+timings are observations, not deterministic policy inputs or a performance gate.
+Before every monster has a turn index, the conservative default copies from
+event zero.
+
+`BattleSimulator` captures one complete state snapshot after `side_turn_start`
+has settled; the next side replaces it. `restoreSideTurn()` rejects a missing or
+expired checkpoint and calls during movement, action resolution, unit-selection
+callbacks or end-of-turn passive cascades. It validates content and semantic
+fingerprints before replacing state, then rebuilds resolvers/brains and advances
+`timelineGeneration`. The old gameplay RNG and allocator return to their
+checkpoint values. Entity IDs can therefore recur on divergent branches; use
+branch identity plus generation when naming a trace entity. Repeated restores
+from the same side checkpoint are technically supported. There is no player
+cost, usage limit or interactive presentation contract yet.
+
+The append-only `operationLedger` is outside rewindable `BattleState`. It holds
+normal accepted operations with post-operation semantic fingerprints and a
+`side_turn_rewind` entry with checkpoint fingerprint, branch ID and abandoned
+operation count. Version 8 replay executes branches in order, checks each
+post-operation fingerprint, and reports the first divergent operation index.
+The fingerprint covers future-affecting state, including damage facts selected
+by turn-start pointers, but omits diagnostic history, the numeric pointers and
+reconstructed brain objects; operation results and the ledger cover event order.
+Exact integral JSON numbers are normalized within
+their safe range for semantic comparisons, while unrestricted integers retain
+their tagged decimal representation. A direct restored battle keeps the
+checkpoint and ledger in the replay envelope.
+
+The checkpoint retains **one full history copy**, so its capture cost and size
+still grow with battle age, though forecast copies do not once turn indices
+advance. A future persistent event store could remove that remaining growth;
+this implementation does not claim constant-memory rewind. Current resolver
+cascades are synchronous and have no serialized in-progress queue. Any future
+delayed work must add pending state and a declared deterministic processing
+order before it may cross this checkpoint boundary.
+
+Reaction order is fixed and finite. `ON_TARGETED` retaliation fires before the
+attack or spell's own damage, once per affected unit in enumeration order; a
+caster killed there leaves the command accepted and unresolved with reason
+`caster_died_to_passive`. Every kill source reaches the single
+`PassiveSkillResolver.handleDefeat` path, whose `_resolvingDeaths` set refuses
+to re-enter a monster that is already resolving, so an `ON_DEATH` area chain
+visits each entity at most once and terminates instead of looping. That guard
+bounds today's cascade; it is not a general reaction budget, and it is
+transient resolver wiring rebuilt with the resolvers rather than serialized
+state. Restore cannot observe it mid-chain, because every path that populates
+it runs inside `_resolutionDepth`. A future trigger that can re-enter the same
+entity, or queue work past the end of its own resolution, owes this contract a
+declared deterministic processing order and a diagnostic failure on exceeding
+it; truncating a cascade silently is not an acceptable fallback.
 
 The remaining contract extends this foundation. Immutable definitions describe
 authored content. Mutable battle state owns

@@ -178,6 +178,13 @@ Side-turn state may be captured at any operation boundary, including with a
 selected unit or several moved-but-unspent units. Pending origins and paths are
 serialized, and replay reproduces selection, movement, undo, and action events
 in their original interleaving order.
+The simulator also retains one complete checkpoint after each side opens.
+Its technical `restoreSideTurn()` replaces the canonical state between
+operations, increments timeline generation, and leaves an immutable branch
+entry in the simulator's outer operation ledger. Replay checks a semantic
+fingerprint after each accepted operation. Detached one-command forecasts use
+the same resolvers on cloned state with a bounded rules-history suffix; see
+[Nogg AI architecture](./AI_ARCHITECTURE.md) for RNG modes and retention limits.
 Hex battle is the sole maintained product path; fixes and upgrades do not flow
 back into the reference. This archive boundary avoids a second runtime family
 while keeping the old behaviour available for comparison.

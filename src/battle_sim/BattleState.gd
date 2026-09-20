@@ -68,6 +68,9 @@ var nextMonsterID: int = 100
 
 var history: Array[Dictionary] = []
 var last_turn_start_index: Dictionary = {}
+## Forecast forks may retain only the rule-relevant history suffix. Live and
+## replay states keep this at zero; totalHistoryCount preserves seeded choices.
+var historyBaseIndex: int = 0
 
 ## Scheduling identity is deliberately outside serialized gameplay state.
 ## Restoring an equal position on another branch must retire old AI work.
@@ -550,6 +553,10 @@ func add_event(type: String, actor_id: int, target_id: int, data: Dictionary = {
 		"data": data
 	})
 	markMutation()
+
+
+func totalHistoryCount() -> int:
+	return historyBaseIndex + history.size()
 
 func get_events_for_actor_since_last_turn(actor_id: int, event_type: String) -> Array[Dictionary]:
 	var results: Array[Dictionary] = []

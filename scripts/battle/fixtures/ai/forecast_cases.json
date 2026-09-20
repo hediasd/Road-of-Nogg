@@ -1,0 +1,7 @@
+{
+  "scenario": "res://data/battle/scenarios/technical_hxb_contract_player_cpu.json",
+  "seed": 99173,
+  "probe_revision": 1,
+  "sample_id": 17,
+  "history_lengths": [120, 960]
+}

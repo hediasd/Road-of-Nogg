@@ -18,11 +18,67 @@ const BattlePartyScript = preload("res://src/entities/BattleParty.gd")
 
 
 static func serialize(state: BattleState) -> Dictionary:
+	return _serialize(state, 0)
+
+
+## Only the history window that can still affect current combat rules is
+## cloned for a one-command forecast. A full replay always uses serialize().
+static func serializeForForecast(state: BattleState,
+		includeHiddenRNG: bool = true) -> Dictionary:
+	var firstRequired := state.history.size()
+	for monsterID in state.monsters:
+		firstRequired = mini(firstRequired,
+			int(state.last_turn_start_index.get(monsterID, 0)))
+	return _serialize(state, firstRequired, true, includeHiddenRNG)
+
+
+## Semantic state for per-operation replay checks. Command outcomes and the
+## branch ledger cover history; excluding it keeps fingerprint cost bounded.
+static func serializeCore(state: BattleState) -> Dictionary:
+	var result := _serialize(state, 0, false)
+	result.erase("history")
+	result.erase("historyBaseIndex")
+	result.erase("lastTurnStartIndex")
+	# Brain objects are runtime wiring reconstructed after deserialization;
+	# they do not affect resolution of a submitted command.
+	for monsterData in (result.get("monsters", {}) as Dictionary).values():
+		monsterData.erase("brainClass")
+	# The numeric pointers are drive-history dependent, but the damage facts they
+	# select affect damage-reversal spells. Fingerprint the sufficient memory.
+	var ruleDamageMemory: Dictionary = {}
+	for monsterID in state.monsters:
+		ruleDamageMemory[str(monsterID)] = _jsonSafe(
+			state.get_events_for_actor_since_last_turn(monsterID, "damage"))
+	result["ruleDamageMemory"] = ruleDamageMemory
+	return normalizeSemanticNumbers(result)
+
+
+## Godot parses ordinary JSON numbers as floats. For exact integral values in
+## JSON's safe range, the type is a transport detail, not a gameplay change.
+static func normalizeSemanticNumbers(value):
+	if value is Dictionary:
+		var normalized: Dictionary = {}
+		for key in value:
+			normalized[key] = normalizeSemanticNumbers(value[key])
+		return normalized
+	if value is Array:
+		var normalized: Array = []
+		for item in value:
+			normalized.append(normalizeSemanticNumbers(item))
+		return normalized
+	if value is float and value >= -MAX_JSON_EXACT_INT and \
+		value <= MAX_JSON_EXACT_INT and value == floor(value):
+		return int(value)
+	return value
+
+
+static func _serialize(state: BattleState, historyStart: int,
+		includeHistory: bool = true, includeHiddenRNG: bool = true) -> Dictionary:
 	var isHexSideState := not state.parties.is_empty()
 	var data := {
 		"version": CURRENT_VERSION if isHexSideState else LEGACY_CURRENT_VERSION,
 		"seed": state.battleSeed,
-		"rngState": str(state.rng.state),
+		"rngState": str(state.rng.state) if includeHiddenRNG else "0",
 		"nextMonsterID": state.nextMonsterID,
 		"mapName": state.mapName,
 		"mapRevision": state.mapRevision,
@@ -37,8 +93,10 @@ static func serialize(state: BattleState) -> Dictionary:
 		"monsterPositions": _positions(state.monsterPositions),
 		"teamRosters": _stringKeyedDictionary(state.teamRosters),
 		"activeEffects": _stringKeyedDictionary(state.activeEffects),
-		"history": _jsonSafe(state.history),
-		"lastTurnStartIndex": _stringKeyedDictionary(state.last_turn_start_index),
+		"history": _jsonSafe(state.history.slice(historyStart)) if includeHistory else [],
+		"historyBaseIndex": state.historyBaseIndex + historyStart,
+		"lastTurnStartIndex": _stringKeyedDictionary(
+			_adjustedHistoryIndices(state.last_turn_start_index, historyStart)),
 		"monsters": _monsters(state.monsters)
 	}
 	if not isHexSideState:
@@ -139,6 +197,7 @@ static func deserialize(data: Dictionary) -> BattleState:
 	state.teamRosters = _restoreTeamRosters(data.get("teamRosters", {}))
 	state.activeEffects = _restoreIntKeyDictionary(data.get("activeEffects", {}))
 	state.last_turn_start_index = _restoreIntValueDictionary(data.get("lastTurnStartIndex", {}))
+	state.historyBaseIndex = int(data.get("historyBaseIndex", 0))
 	state.history.assign(data.get("history", []).duplicate(true))
 	if version >= FIRST_HEX_VERSION:
 		state.gridKind = str(data.get("gridKind", ""))
@@ -293,6 +352,13 @@ static func _restoreIntValueDictionary(source: Dictionary) -> Dictionary:
 	var result: Dictionary = {}
 	for key in source:
 		result[int(key)] = int(source[key])
+	return result
+
+
+static func _adjustedHistoryIndices(source: Dictionary, start: int) -> Dictionary:
+	var result: Dictionary = {}
+	for key in source:
+		result[key] = maxi(0, int(source[key]) - start)
 	return result
 
 

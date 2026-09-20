@@ -49,6 +49,7 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 	simulator.initialStateSnapshot = initialValue.duplicate(true)
 	simulator.startBattle()
 
+	var operationIndex := 0
 	for operationValue in snapshot.get("operations", []):
 		if not operationValue is Dictionary:
 			return {"success": false, "reason": "invalid_replay_operation"}
@@ -56,6 +57,21 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 		var type := str(operation.get("type", ""))
 		var data: Dictionary = operation.get("data", {})
 		match type:
+			"side_turn_rewind":
+				if str(simulator.sideStartCheckpoint.get("fingerprint", "")) != \
+					str(data.get("checkpoint_fingerprint", "")):
+					return {"success": false, "reason": "checkpoint_divergence",
+						"operation_index": operationIndex}
+				var branch := simulator.restoreSideTurn()
+				if not bool(branch.get("success", false)) or \
+					int(branch.get("branch_id", -1)) != int(data.get("branch_id", -2)):
+					return {"success": false, "reason": "branch_mismatch",
+						"operation_index": operationIndex, "actual": branch}
+				var actualBranch: Dictionary = simulator.operationLedger.back()
+				if int(operation.get("actor_id", -1)) != int(actualBranch["actor_id"]) or \
+					not _same(data, actualBranch["data"]):
+					return {"success": false, "reason": "branch_metadata_mismatch",
+						"operation_index": operationIndex}
 			"side_turn_start":
 				var sideTurn := simulator.startNextSideTurn(str(data.get("source", "replay")))
 				if not sideTurn["success"] or int(sideTurn["side_id"]) != int(operation.get("actor_id", -1)):
@@ -113,6 +129,15 @@ static func replay(snapshot: Dictionary) -> Dictionary:
 			_:
 				return {"success": false, "reason": "unsupported_replay_operation", "type": type}
 		simulator.state.assertValidOccupancy()
+		var expectedFingerprint := str(operation.get("fingerprint", ""))
+		if not expectedFingerprint.is_empty():
+			var actualFingerprint := BattleSimulatorScript.semanticFingerprint(simulator.state)
+			if expectedFingerprint != actualFingerprint:
+				return {"success": false, "reason": "operation_divergence",
+					"operation_index": operationIndex, "operation_type": type,
+					"expectedFingerprint": expectedFingerprint,
+					"actualFingerprint": actualFingerprint}
+		operationIndex += 1
 
 	var currentValue = snapshot.get("currentState", {})
 	if not currentValue is Dictionary:
@@ -211,7 +236,10 @@ static func _outcomeProjection(serializedState: Dictionary) -> Dictionary:
 
 
 static func _same(a, b) -> bool:
-	return BattleSimulatorScript._canonicalJSON(a) == BattleSimulatorScript._canonicalJSON(b)
+	return BattleSimulatorScript._canonicalJSON(
+		BattleStateSerializerScript.normalizeSemanticNumbers(a)) == \
+		BattleSimulatorScript._canonicalJSON(
+			BattleStateSerializerScript.normalizeSemanticNumbers(b))
 
 
 static func _fingerprint(value) -> String:

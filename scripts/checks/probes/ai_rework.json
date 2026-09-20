@@ -1,5 +1,7 @@
 {
   "probes": [
-    {"script": "res://scripts/battle/checks/probe_state_contract.gd", "marker": "AI_STATE_CONTRACT_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+    {"script": "res://scripts/battle/checks/probe_state_contract.gd", "marker": "AI_STATE_CONTRACT_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://scripts/battle/checks/probe_forecast.gd", "marker": "AI_FORECAST_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://scripts/battle/checks/probe_rewind.gd", "marker": "AI_REWIND_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
   ]
 }

@@ -120,7 +120,11 @@ func restoreRuntime(data: Dictionary) -> void:
 	max_height_delta = int(data.get("maxHeightDelta", 1))
 	damage = int(data.get("damage", 0))
 	element = str(data.get("element", "none"))
-	damage_lines = data.get("damageLines", []).duplicate(true)
+	damage_lines = []
+	for lineValue in data.get("damageLines", []):
+		var line: Dictionary = lineValue.duplicate(true)
+		line["damage"] = int(line.get("damage", 0))
+		damage_lines.append(line)
 	targetType = str(data.get("targetType", "single"))
 	radius = int(data.get("radius", 0))
 	area_shape = str(data.get("areaShape", "circle"))
