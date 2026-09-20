@@ -1,9 +1,9 @@
 # Nogg AI architecture
 
-Status: current behavior was checked against source on 2026-09-20. The rework
-contracts below are intended architecture, not a claim that the implementation
-already exists. Implementation changes must update this document in the same
-commit and remove obsolete current-behavior descriptions.
+Status: checked against source on 2026-09-20. The state and persistence
+foundation described as current below is implemented. Later rework contracts
+remain intended architecture. Implementation changes must update this document
+in the same commit and remove obsolete current-behavior descriptions.
 
 This is the durable reference for Nogg's AI structure, algorithms, determinism,
 extension points and experiment semantics. It is not an execution log.
@@ -26,8 +26,8 @@ sequencing; this reference remains useful after those cycle files are removed.
 | Geometry and movement | [HexGrid](../src/board/HexGrid.gd), [HexReachability](../src/algorithms/HexReachability.gd), [AStarPathfinder](../src/algorithms/AStarPathfinder.gd), [LineOfSight](../src/algorithms/LineOfSight.gd), and canonical resolver callbacks |
 | Interactive scheduling | [HexBattleController](../src/systems/hex_battle/HexBattleController.gd) advances four deterministic inner slices per rendered frame, then applies a completed proposal on the main thread |
 | Headless scheduling | [run_battle](../scripts/battle/run_battle.gd) completes the same planner synchronously |
-| Stale proposal detection | [StateRevision](../src/entity_ai/StateRevision.gd) builds a token from actors and selected battle fields; it is not yet the complete cheap revision/generation contract described below |
-| Persistence and replay | [BattleStateSerializer](../src/battle_sim/BattleStateSerializer.gd) and [BattleReplayRunner](../src/battle_sim/BattleReplayRunner.gd); current coverage has the limitations below |
+| Stale proposal detection | [StateRevision](../src/entity_ai/StateRevision.gd) includes actor state, a mutation revision and timeline generation; full actor serialization is still paid on capture |
+| Persistence and replay | [BattleStateSerializer](../src/battle_sim/BattleStateSerializer.gd) restores runtime abilities, movement costs and lossless large integers in state version 8; [BattleReplayRunner](../src/battle_sim/BattleReplayRunner.gd) consumes the version 8 replay envelope |
 | Existing match tools | [run_championship](../scripts/battle/run_championship.gd) and [BattleRecordAdapter](../src/presentation/BattleRecordAdapter.gd); placeholders for the later experiment system |
 
 Current decision flow:
@@ -61,10 +61,16 @@ application ordered through the simulator and never mutate state from playback.
   when they currently affect the same units.
 - RandomLegalBrain samples the existing restricted candidates. It is fuzz
   coverage, not proof of complete action coverage or an AI strength baseline.
-- Serializer restoration reconstructs catalog monsters and abilities. Names do
-  not capture arbitrary runtime ability-property or loadout changes.
-- RNG state is a JSON number. Lossless integer persistence must be established
-  before relying on disk snapshots for exact continuation.
+- State version 8 restores spell and passive instance properties and complete
+  loadouts. Older state version 7 remains readable with catalog reconstruction;
+  its numeric RNG field cannot prove lossless disk continuation.
+- RNG state is decimal text. Integers beyond JSON's exact range use a reserved
+  tagged decimal string in state and replay envelopes. Decode at read boundaries.
+- Current state mutation methods advance a revision; simulator restore advances
+  generation even for an equal position. Direct writes to public matrices,
+  entities or nested dictionaries bypass the cheap revision. Proposal capture
+  still reads actor fields; future caches must use state methods or a semantic
+  validation at application.
 - Full history participates in serialization. Some history is gameplay data:
   SpellEffectResolver's damage reversal reads damage since a prior turn.
 - Existing championship output is not a resumable, supervised, parallel
@@ -72,8 +78,8 @@ application ordered through the simulator and never mutate state from playback.
 
 ## Intended structure
 
-The following sections specify the rework's contracts. Until implemented and
-verified, they describe targets. Concrete exported symbols, schemas, algorithm
+The following sections specify the remaining rework contracts. Until implemented
+and verified, they describe targets. Concrete exported symbols, schemas, algorithm
 choices, limits and runnable examples must replace open design choices as they
 ship. Do not describe a proposed interface as an available API.
 
@@ -98,7 +104,47 @@ flowchart TD
 
 ### State, definitions and history
 
-Immutable definitions describe authored content. Mutable battle state owns
+Version 8 currently stores these future-affecting fields:
+
+| Owner | Persisted state |
+|-------|-----------------|
+| BattleState | Board occupancy, height, terrain and movement cost; map/scenario identity; rosters/parties; side order, selection, spent/pending/withdrawn state; clocks and outcome |
+| BattleState | Effects, complete event history, turn-start indices, battle seed, decimal RNG state and next monster ID |
+| Monster | Identity, position, stats, elements, lineage, cooldowns, resonance, complete spell instances and passives |
+| BattleSimulator | Setup identity and replay operation envelope; resolver and brain wiring are rebuilt after restore |
+
+Mutation revision and timeline generation are scheduling identity outside the
+gameplay snapshot. State APIs for terrain, height, movement cost, effects,
+abilities, allocation and occupancy advance the revision; state events do too.
+Direct field writes need markMutation until those paths are encapsulated. The
+full actor token catches direct actor edits, but a direct board write bypasses
+the cheap token. Future cache users must respect this boundary.
+
+Catalog references are treated as immutable. Monster construction copies the
+elements list; spell/passive instances own their mutable properties; and
+setMonsterAbilities copies an incoming loadout. The content fingerprint uses
+authored map and party data plus sorted complete catalogs. A runtime ability
+edit does not change that identity. It does not hash simulation source code;
+later experiments must identify the executable build separately.
+
+The state-contract probe writes a version 8 snapshot under battle_output/.
+On its next run it reads the prior process's file. It checks large integers,
+runtime abilities, board/effect state and a continued command. JSON turns
+ordinary numbers into floats on parse, so the probe compares equivalent
+numeric values rather than claiming byte-identical in-memory dictionaries.
+Run the focused sweep twice for the fresh-process check. State version 7 uses
+catalog reconstruction; version 7 replay envelopes are unsupported.
+
+Current simulator operations and resolver cascades are synchronous. Capture a
+reusable snapshot between completed operations, after their events and state
+mutations finish. The current serializer has no field for an in-progress
+reaction or deferred trigger; adding either requires explicit pending state or
+a checked quiescent boundary. Full history remains part of each state snapshot,
+including the damage events read by damage reversal. Smaller rules-memory
+snapshots and bounded checkpoint retention remain future work.
+
+The remaining contract extends this foundation. Immutable definitions describe
+authored content. Mutable battle state owns
 everything that can affect a future legal action or result: entity properties,
 runtime ability modifications, resources, cooldowns, board layers, effects,
 durations, side/selection/spent/withdrawal state, allocation, gameplay RNG,

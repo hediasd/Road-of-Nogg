@@ -60,6 +60,20 @@ is asynchronous, so it aborts partway and writes no `.import` file.
 
 ## Simulating battles headlessly, and recording them
 
+The state-contract probe verifies disk persistence of mutable abilities, board
+costs, large IDs and RNG state, then continues the restored battle through a
+canonical command. Run it twice: the second invocation also reads the first
+process's snapshot from battle_output/battles/ai_state_contract.json.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter state_contract
+```
+
+Active hex state and replay snapshots use version 8. Version 7 state can be
+loaded with catalog-restored abilities, but old numeric RNG files cannot prove
+lossless continuation. Version 7 replay envelopes fail with an explicit
+unsupported-version result.
+
 Two runners under `scripts/battle/`. Both write to `battle_output/` at the
 project root by default: single battles under `battle_output/battles/`,
 championships under `battle_output/championships/`. See the next section.

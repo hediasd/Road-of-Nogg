@@ -91,7 +91,7 @@ func _init(parameterDictionary, _uniqueID) -> void:
 	def = derivedStats["def"]
 	speed = int(stats.get("SPD", 1))
 	luck = maxi(0, int(stats.get("LUCK", 0)))
-	elements = get_or_default(parameterDictionary, "ELEMENTS", [])
+	elements = get_or_default(parameterDictionary, "ELEMENTS", []).duplicate()
 	race = get_or_default(parameterDictionary, "RACE", "none")
 	family = get_or_default(parameterDictionary, "FAMILY", "none")
 	species = get_or_default(parameterDictionary, "SPECIES", "none")
@@ -231,15 +231,21 @@ func _apply_resonance_bonus(value: int) -> int:
 
 func serialize() -> Dictionary:
 	var serializedSpellSets = []
+	var runtimeSpellSets = []
 	for spellSet in spellSets:
 		var serializedSpellSet = []
+		var runtimeSpellSet = []
 		for spell in spellSet:
 			serializedSpellSet.append(spell.name)
+			runtimeSpellSet.append(spell.serializeRuntime())
 		serializedSpellSets.append(serializedSpellSet)
+		runtimeSpellSets.append(runtimeSpellSet)
 
 	var serializedPassives = []
+	var runtimePassives = []
 	for passive in passives:
 		serializedPassives.append(passive.name)
+		runtimePassives.append(passive.serializeRuntime())
 
 	return {
 		"uniqueID": uniqueID,
@@ -269,7 +275,9 @@ func serialize() -> Dictionary:
 
 		"resonanceBars": resonance_bars.duplicate(true),
 		"spellSets": serializedSpellSets,
+		"spellRuntimeSets": runtimeSpellSets,
 		"spellCooldowns": spell_cooldowns.duplicate(true),
 		"passives": serializedPassives,
+		"passiveRuntime": runtimePassives,
 		"brainClass": brain.get_script().resource_path.get_file().get_basename() if brain != null else ""
 	}

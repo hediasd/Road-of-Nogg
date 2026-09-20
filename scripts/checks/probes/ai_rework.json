@@ -1,0 +1,5 @@
+{
+  "probes": [
+    {"script": "res://scripts/battle/checks/probe_state_contract.gd", "marker": "AI_STATE_CONTRACT_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+  ]
+}

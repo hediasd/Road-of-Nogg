@@ -57,7 +57,7 @@ func _checkReplayAndContinuation(simulator: BattleSimulator) -> void:
 	_require(snapshot.get("success", false), "activation-boundary snapshot failed")
 	if not snapshot.get("success", false):
 		return
-	_require(snapshot["version"] == 7, "hex replay did not use version 7")
+	_require(snapshot["version"] == 8, "hex replay did not use version 8")
 	_require(snapshot["gridKind"] == "hex_flat" and snapshot["coordinateConvention"] == "odd_q_offset",
 		"hex topology identity was not recorded")
 	_require(snapshot["rulesetID"] == "hex_side_turn_v1",
@@ -102,6 +102,9 @@ func _checkReplayAndContinuation(simulator: BattleSimulator) -> void:
 		_require(partialReplay.get("success", false), "mid-side-turn replay failed")
 
 	_expectReplayFailure({"version": 5}, "square_reference_required", "square replay")
+	var oldSideReplay: Dictionary = snapshot.duplicate(true)
+	oldSideReplay["version"] = 7
+	_expectReplayFailure(oldSideReplay, "unsupported_replay_version", "old side-turn replay")
 	var wrongGrid: Dictionary = snapshot.duplicate(true)
 	wrongGrid["gridKind"] = "square"
 	_expectReplayFailure(wrongGrid, "grid_kind_mismatch", "wrong grid")

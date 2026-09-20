@@ -537,23 +537,26 @@ reorders resolution to accommodate planning or playback.
   base/growth fields, resolved stats, family, ascension parent, Resonance bars,
   and Luck; versions 2-5 remain readable only for internal square-state
   compatibility while that code is retired.
-- Hex state schema version 7 records `hex_flat`, `odd_q_offset`,
+- Hex state schema version 8 records `hex_flat`, `odd_q_offset`,
   `hex_side_turn_v1`, exact map/scenario identity, a scoped content fingerprint,
   parties, frozen and pending side order, active side, selected unit, spent and
-  withdrawn identities, pending per-unit moves, side-turn phase/count, and
-  battle outcome. Retired version 6 party-activation state fails loudly.
+  withdrawn identities, pending per-unit moves, side-turn phase/count, battle
+  outcome, movement costs and mutable spell/passive instance data. Version 7
+  state remains readable with catalog-restored abilities; retired version 6
+  party-activation state fails loudly.
 - `BattleStateSerializer` produces and restores JSON-safe state, including RNG,
-  IDs, board layers, rosters, effects, history, and monsters.
-  This does not yet guarantee arbitrary runtime ability changes or lossless
-  disk RNG continuation; see the current limitations and intended state contract
-  in [Nogg AI architecture](./AI_ARCHITECTURE.md).
+  IDs, board layers, rosters, effects, history and monsters. RNG state is decimal
+  text; large integers use a tagged decimal encoding for lossless disk restore.
+  Runtime ability/loadout changes are stored in version 8. See the mutation
+  boundary and remaining limits in [Nogg AI architecture](./AI_ARCHITECTURE.md).
 - `BattleSimulator.createReplaySnapshot()` includes setup, initial/current state,
   brain classes, and explicit side-start, unit-selection, movement, undo, and
   unit-action operations. Each action carries both acceptance and resolution.
-- Active-project replay snapshots are hex version 7. They identify topology,
+- Active-project replay snapshots are hex version 8. They identify topology,
   coordinate convention, ruleset, scenario/map revisions, map-source
-  fingerprint, and a canonical fingerprint of the relevant map, party, monster,
-  spell, and passive content. Square replay versions 2-5 return
+  fingerprint, and a canonical fingerprint of the authored map, party, monster,
+  spell, and passive catalogs. Version 7 replay envelopes are unsupported;
+  square replay versions 2-5 return
   `square_reference_required`; retired party-activation version 6 returns
   `party_activation_replay_unsupported`.
 - `BattleReplayRunner` reconstructs current setup/catalog identity before it

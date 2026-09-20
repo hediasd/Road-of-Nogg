@@ -23,3 +23,23 @@ func _init(paramDict: Dictionary) -> void:
 
 func _to_string() -> String:
 	return name
+
+
+func serializeRuntime() -> Dictionary:
+	return {
+		"name": name,
+		"trigger": trigger,
+		"effectType": effect_type,
+		"value": value,
+		"element": element,
+		"radius": radius,
+	}
+
+
+func restoreRuntime(data: Dictionary) -> void:
+	name = str(data.get("name", ""))
+	trigger = str(data.get("trigger", ""))
+	effect_type = str(data.get("effectType", ""))
+	value = float(data.get("value", 0.0))
+	element = str(data.get("element", "none"))
+	radius = int(data.get("radius", 0))

@@ -69,6 +69,11 @@ var nextMonsterID: int = 100
 var history: Array[Dictionary] = []
 var last_turn_start_index: Dictionary = {}
 
+## Scheduling identity is deliberately outside serialized gameplay state.
+## Restoring an equal position on another branch must retire old AI work.
+var mutationRevision: int = 0
+var timelineGeneration: int = 0
+
 
 func _init(seedValue: int = 0) -> void:
 	rng = RandomNumberGenerator.new()
@@ -78,14 +83,21 @@ func _init(seedValue: int = 0) -> void:
 func setSeed(seedValue: int) -> void:
 	battleSeed = seedValue
 	rng.seed = seedValue
+	markMutation()
+
+
+func markMutation() -> void:
+	mutationRevision += 1
 
 
 func allocateMonsterID() -> int:
 	var monsterID = nextMonsterID
 	nextMonsterID += 1
+	markMutation()
 	return monsterID
 
 func setup_board(size: Vector2i) -> void:
+	markMutation()
 	battleMap = null
 	boardSize = size
 	board = Matrix.new(size.x, size.y)
@@ -112,6 +124,50 @@ func setBattleMap(definition: BattleMapDefinition) -> void:
 		heightBoard.set_at(definition.heightAt(cell), cell)
 		terrainBoard.set_at(definition.terrainStateCodeAt(cell), cell)
 		movementCostBoard.set_at(definition.movementCostAt(cell), cell)
+	markMutation()
+
+
+func setTerrainState(pos: Vector2i, terrainCode: int) -> void:
+	assert(containsCell(pos), "Terrain change requires a valid hex cell.")
+	terrainBoard.set_at(terrainCode, pos)
+	markMutation()
+
+
+func setHeight(pos: Vector2i, height: int) -> void:
+	assert(containsCell(pos) and height >= 0 and height <= 8,
+		"Height change requires a valid hex cell and height 0-8.")
+	heightBoard.set_at(height, pos)
+	markMutation()
+
+
+func setMovementCost(pos: Vector2i, cost: int) -> void:
+	assert(containsCell(pos) and cost >= 0,
+		"Movement-cost change requires a valid hex cell and nonnegative cost.")
+	movementCostBoard.set_at(cost, pos)
+	markMutation()
+
+
+func setMonsterAbilities(monsterID: int, spellSets: Array, passiveSkills: Array) -> void:
+	var monster: Monster = getMonster(monsterID)
+	assert(monster != null, "Cannot replace abilities for an unknown monster.")
+	var copiedSpellSets: Array = []
+	for spellSet in spellSets:
+		var copiedSet: Array = []
+		for spell in spellSet:
+			assert(spell is Spell, "Ability loadout contains a non-spell value.")
+			var copy = Spell.new({})
+			copy.restoreRuntime(spell.serializeRuntime())
+			copiedSet.append(copy)
+		copiedSpellSets.append(copiedSet)
+	var copiedPassives: Array = []
+	for passive in passiveSkills:
+		assert(passive is PassiveSkill, "Ability loadout contains a non-passive value.")
+		var copy = PassiveSkill.new({})
+		copy.restoreRuntime(passive.serializeRuntime())
+		copiedPassives.append(copy)
+	monster.spellSets = copiedSpellSets
+	monster.passives = copiedPassives
+	markMutation()
 
 
 func registerParty(party: BattleParty) -> void:
@@ -125,6 +181,7 @@ func registerParty(party: BattleParty) -> void:
 	for memberID: int in party.memberIDs:
 		assert(not monsterPartyIDs.has(memberID), "Monster %d belongs to multiple parties." % memberID)
 		monsterPartyIDs[memberID] = party.partyID
+	markMutation()
 
 
 func partyForMember(monsterID: int) -> BattleParty:
@@ -196,6 +253,7 @@ func withdrawMonster(monsterID: int) -> void:
 		if monster != null:
 			monster.position = Vector2i(-1, -1)
 	assertValidOccupancy()
+	markMutation()
 
 
 
@@ -219,6 +277,7 @@ func addMonster(monster: Monster, pos: Vector2i, team: int) -> void:
 		teamRosters[team] = []
 	teamRosters[team].append(id)
 	assertValidOccupancy()
+	markMutation()
 
 
 func removeMonster(monsterID: int) -> void:
@@ -234,6 +293,7 @@ func removeMonster(monsterID: int) -> void:
 	# Keep the monster in the monsters dict for reference, but mark as defeated
 	# (is_alive will return false)
 	assertValidOccupancy()
+	markMutation()
 
 
 func getMonster(monsterID: int) -> Monster:
@@ -277,6 +337,7 @@ func moveMonsterTo(monsterID: int, newPos: Vector2i) -> void:
 	monsterPositions[monsterID] = newPos
 	monsters[monsterID].position = newPos
 	assertValidOccupancy()
+	markMutation()
 
 
 func assertValidOccupancy() -> void:
@@ -419,6 +480,7 @@ func addEffect(monsterID: int, effectName: String, duration: int,
 			effect["damagePerTurn"] = damagePerTurn
 			for key in effectData:
 				effect[key] = mergedEffectValue(effect.get(key), effectData[key])
+			markMutation()
 			return
 
 	var newEffect = {
@@ -431,6 +493,7 @@ func addEffect(monsterID: int, effectName: String, duration: int,
 	for key in effectData:
 		newEffect[key] = effectData[key]
 	activeEffects[monsterID].append(newEffect)
+	markMutation()
 
 
 static func mergedEffectValue(existingValue, incomingValue):
@@ -457,6 +520,7 @@ func removeEffect(monsterID: int, effectName: String) -> void:
 			remaining.append(effect)
 
 	activeEffects[monsterID] = remaining
+	markMutation()
 
 
 func hasEffect(monsterID: int, effectName: String) -> bool:
@@ -485,6 +549,7 @@ func add_event(type: String, actor_id: int, target_id: int, data: Dictionary = {
 		"target_id": target_id,
 		"data": data
 	})
+	markMutation()
 
 func get_events_for_actor_since_last_turn(actor_id: int, event_type: String) -> Array[Dictionary]:
 	var results: Array[Dictionary] = []
@@ -514,6 +579,7 @@ func tickEffects(monsterID: int) -> Array:
 			remaining.append(effect)
 
 	activeEffects[monsterID] = remaining
+	markMutation()
 	return expired
 
 func serialize_state() -> Dictionary:

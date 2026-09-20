@@ -83,3 +83,63 @@ func _init(parameterDictionary) -> void:
 
 func _to_string():
 	return name
+
+
+## A battle may change a spell instance without changing its catalog definition.
+## This is the complete runtime surface copied by battle snapshots.
+func serializeRuntime() -> Dictionary:
+	return {
+		"uniqueID": uniqueID, "name": name,
+		"minRange": min_range, "range": range,
+		"maxHeightDelta": max_height_delta,
+		"damage": damage, "element": element,
+		"damageLines": damage_lines.duplicate(true),
+		"targetType": targetType, "radius": radius,
+		"areaShape": area_shape, "heals": heals,
+		"canTargetEmpty": can_target_empty,
+		"inflictsStatus": inflicts_status,
+		"removesStatus": removes_status,
+		"bypassLoS": bypass_los,
+		"buffsAtk": buffs_atk, "buffDuration": buff_duration,
+		"revertsDamage": reverts_damage, "cooldown": cooldown,
+		"sequenceLevel": sequence_level,
+		"resonanceElement": resonance_element,
+		"effects": effects.duplicate(true),
+		"selfRadius": self_radius, "aoeTargets": aoe_targets,
+		"healAmount": heal_amount, "ownerID": ownerID,
+		"castByTeam": castByTeam,
+		"position": {"x": position.x, "y": position.y},
+	}
+
+
+func restoreRuntime(data: Dictionary) -> void:
+	uniqueID = int(data.get("uniqueID", 0))
+	name = str(data.get("name", ""))
+	min_range = int(data.get("minRange", 0))
+	range = int(data.get("range", 1))
+	max_height_delta = int(data.get("maxHeightDelta", 1))
+	damage = int(data.get("damage", 0))
+	element = str(data.get("element", "none"))
+	damage_lines = data.get("damageLines", []).duplicate(true)
+	targetType = str(data.get("targetType", "single"))
+	radius = int(data.get("radius", 0))
+	area_shape = str(data.get("areaShape", "circle"))
+	heals = bool(data.get("heals", false))
+	can_target_empty = bool(data.get("canTargetEmpty", false))
+	inflicts_status = str(data.get("inflictsStatus", ""))
+	removes_status = str(data.get("removesStatus", ""))
+	bypass_los = bool(data.get("bypassLoS", false))
+	buffs_atk = int(data.get("buffsAtk", 0))
+	buff_duration = int(data.get("buffDuration", 0))
+	reverts_damage = bool(data.get("revertsDamage", false))
+	cooldown = int(data.get("cooldown", 0))
+	sequence_level = int(data.get("sequenceLevel", 0))
+	resonance_element = str(data.get("resonanceElement", "none"))
+	effects = data.get("effects", []).duplicate(true)
+	self_radius = int(data.get("selfRadius", 0))
+	aoe_targets = str(data.get("aoeTargets", "self"))
+	heal_amount = int(data.get("healAmount", 0))
+	ownerID = int(data.get("ownerID", 0))
+	castByTeam = int(data.get("castByTeam", 0))
+	var savedPosition: Dictionary = data.get("position", {})
+	position = Vector2(float(savedPosition.get("x", 0.0)), float(savedPosition.get("y", 0.0)))

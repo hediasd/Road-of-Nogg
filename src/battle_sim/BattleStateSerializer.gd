@@ -2,9 +2,12 @@
 
 class_name BattleStateSerializer
 
-const CURRENT_VERSION := 7
+const CURRENT_VERSION := 8
+const FIRST_HEX_VERSION := 7
 const LEGACY_CURRENT_VERSION := 5
 const MIN_SUPPORTED_VERSION := 2
+const MAX_JSON_EXACT_INT := 9007199254740991
+const LARGE_INT_TAG := "__nogg_int64__"
 const HEX_GRID_KIND := "hex_flat"
 const HEX_COORDINATE_CONVENTION := "odd_q_offset"
 const HEX_RULESET_ID := "hex_side_turn_v1"
@@ -19,7 +22,7 @@ static func serialize(state: BattleState) -> Dictionary:
 	var data := {
 		"version": CURRENT_VERSION if isHexSideState else LEGACY_CURRENT_VERSION,
 		"seed": state.battleSeed,
-		"rngState": state.rng.state,
+		"rngState": str(state.rng.state),
 		"nextMonsterID": state.nextMonsterID,
 		"mapName": state.mapName,
 		"mapRevision": state.mapRevision,
@@ -27,6 +30,7 @@ static func serialize(state: BattleState) -> Dictionary:
 		"board": _matrix(state.board, state.boardSize),
 		"heightBoard": _matrix(state.heightBoard, state.boardSize),
 		"terrainBoard": _matrix(state.terrainBoard, state.boardSize),
+		"movementCostBoard": _matrix(state.movementCostBoard, state.boardSize),
 		"roundCount": state.roundCount,
 		"turnCount": state.turnCount,
 		"currentMonsterID": state.currentMonsterID,
@@ -38,7 +42,7 @@ static func serialize(state: BattleState) -> Dictionary:
 		"monsters": _monsters(state.monsters)
 	}
 	if not isHexSideState:
-		return data
+		return _jsonSafe(data)
 	assert(state.battleMap != null, "Hex party state requires a battle map definition.")
 	assert(state.gridKind == HEX_GRID_KIND, "Hex party state has the wrong grid kind.")
 	assert(state.coordinateConvention == HEX_COORDINATE_CONVENTION,
@@ -68,14 +72,21 @@ static func serialize(state: BattleState) -> Dictionary:
 		"sideTurnPhase": state.sideTurnPhase,
 		"battleOutcome": state.battleOutcome,
 	})
-	return data
+	return _jsonSafe(data)
 
 
 static func jsonSafe(value):
 	return _jsonSafe(value)
 
 
+static func restoreJsonSafe(value):
+	return _restoreLossless(value)
+
+
 static func deserialize(data: Dictionary) -> BattleState:
+	var compatibilityProblem := compatibilityError(data)
+	assert(compatibilityProblem.is_empty(), compatibilityProblem)
+	data = restoreJsonSafe(data)
 	var version = int(data.get("version", MIN_SUPPORTED_VERSION))
 	assert(
 		version >= MIN_SUPPORTED_VERSION and version <= CURRENT_VERSION,
@@ -88,7 +99,7 @@ static func deserialize(data: Dictionary) -> BattleState:
 	var state = BattleState.new(int(data.get("seed", 0)))
 	var sizeData: Dictionary = data.get("boardSize", {"x": 0, "y": 0})
 	var serializedSize := Vector2i(int(sizeData.get("x", 0)), int(sizeData.get("y", 0)))
-	if version >= CURRENT_VERSION:
+	if version >= FIRST_HEX_VERSION:
 		assert(str(data.get("gridKind", "")) == HEX_GRID_KIND,
 			"Unsupported grid kind; use the frozen square reference for square state files.")
 		assert(str(data.get("coordinateConvention", "")) == HEX_COORDINATE_CONVENTION,
@@ -107,11 +118,18 @@ static func deserialize(data: Dictionary) -> BattleState:
 	_validateHeightRows(heightRows, state.boardSize)
 	_restoreMatrix(state.heightBoard, heightRows)
 	_restoreMatrix(state.terrainBoard, data.get("terrainBoard", []))
+	if version >= CURRENT_VERSION:
+		var movementRows: Array = data.get("movementCostBoard", [])
+		_validateMovementCostRows(movementRows, state.boardSize)
+		_restoreMatrix(state.movementCostBoard, movementRows)
 	state.mapName = str(data.get("mapName", ""))
 	state.mapRevision = int(data.get("mapRevision", 1))
 
 	state.battleSeed = int(data.get("seed", 0))
 	state.rng.seed = state.battleSeed
+	if version >= CURRENT_VERSION:
+		assert(data.get("rngState") is String,
+			"Version 8 RNG state must be a lossless decimal string.")
 	state.rng.state = int(data.get("rngState", state.rng.state))
 	state.nextMonsterID = int(data.get("nextMonsterID", 100))
 	state.roundCount = int(data.get("roundCount", 0))
@@ -122,7 +140,7 @@ static func deserialize(data: Dictionary) -> BattleState:
 	state.activeEffects = _restoreIntKeyDictionary(data.get("activeEffects", {}))
 	state.last_turn_start_index = _restoreIntValueDictionary(data.get("lastTurnStartIndex", {}))
 	state.history.assign(data.get("history", []).duplicate(true))
-	if version >= CURRENT_VERSION:
+	if version >= FIRST_HEX_VERSION:
 		state.gridKind = str(data.get("gridKind", ""))
 		state.coordinateConvention = str(data.get("coordinateConvention", ""))
 		state.rulesetID = str(data.get("rulesetID", ""))
@@ -173,6 +191,7 @@ static func deserialize(data: Dictionary) -> BattleState:
 		monster.elements.assign(monsterData.get("elements", []))
 		monster.race = monsterData.get("race", monster.race)
 		monster.family = str(monsterData.get("family", monster.family))
+		monster.species = str(monsterData.get("species", monster.species))
 		monster.ascends_from = str(monsterData.get("ascendsFrom", monster.ascends_from))
 		var restoredBars: Dictionary = monsterData.get("resonanceBars", {})
 		if not restoredBars.is_empty():
@@ -181,11 +200,36 @@ static func deserialize(data: Dictionary) -> BattleState:
 				if monster.elements.has(str(element)):
 					monster.resonance_bars[str(element)] = clampi(int(restoredBars[element]), 0, 3)
 		monster.spell_cooldowns = monsterData.get("spellCooldowns", {}).duplicate(true)
+		if version >= CURRENT_VERSION:
+			assert(monsterData.has("spellRuntimeSets") and monsterData.has("passiveRuntime"),
+				"Version 8 monster is missing runtime abilities.")
+			monster.spellSets.clear()
+			for setData in monsterData["spellRuntimeSets"]:
+				var restoredSet: Array = []
+				for spellData in setData:
+					var spell = Spell.new({})
+					spell.restoreRuntime(spellData)
+					restoredSet.append(spell)
+				monster.spellSets.append(restoredSet)
+			monster.passives.clear()
+			for passiveData in monsterData["passiveRuntime"]:
+				var passive = PassiveSkill.new({})
+				passive.restoreRuntime(passiveData)
+				monster.passives.append(passive)
 		monster.position = state.monsterPositions.get(monsterID, Vector2i(-1, -1))
 		state.monsters[monsterID] = monster
 
 	state.assertValidOccupancy()
 	return state
+
+
+static func compatibilityError(data: Dictionary) -> String:
+	var version := int(data.get("version", MIN_SUPPORTED_VERSION))
+	if version == FIRST_HEX_VERSION and data.get("rngState") is float:
+		return "Hex state version 7 has numeric RNG state with unverifiable disk precision."
+	if version >= CURRENT_VERSION and not data.get("rngState") is String:
+		return "Hex state version 8 requires decimal-text RNG state."
+	return ""
 
 
 static func _validateHeightRows(rows: Array, size: Vector2i) -> void:
@@ -194,6 +238,15 @@ static func _validateHeightRows(rows: Array, size: Vector2i) -> void:
 		assert(row is Array and row.size() == size.x, "Height board column count does not match board size.")
 		for value in row:
 			assert(int(value) >= 0 and int(value) <= 8, "Height values must be between 0 and 8.")
+
+
+static func _validateMovementCostRows(rows: Array, size: Vector2i) -> void:
+	assert(rows.size() == size.y, "Movement-cost row count does not match board size.")
+	for row in rows:
+		assert(row is Array and row.size() == size.x,
+			"Movement-cost column count does not match board size.")
+		for value in row:
+			assert(int(value) >= 0, "Movement cost cannot be negative.")
 
 
 static func _flatMatrix(size: Vector2i) -> Array:
@@ -358,6 +411,10 @@ static func _stringKeyedDictionary(source: Dictionary) -> Dictionary:
 
 static func _jsonSafe(value):
 	match typeof(value):
+		TYPE_INT:
+			if value > MAX_JSON_EXACT_INT or value < -MAX_JSON_EXACT_INT:
+				return {LARGE_INT_TAG: str(value)}
+			return value
 		TYPE_VECTOR2I:
 			return _vector(value)
 		TYPE_VECTOR2:
@@ -368,12 +425,41 @@ static func _jsonSafe(value):
 				result.append(_jsonSafe(item))
 			return result
 		TYPE_DICTIONARY:
+			if value.size() == 1 and value.has(LARGE_INT_TAG):
+				assert(value[LARGE_INT_TAG] is String and
+					str(value[LARGE_INT_TAG]).is_valid_int() and
+					str(int(value[LARGE_INT_TAG])) == str(value[LARGE_INT_TAG]),
+					"Invalid lossless-integer marker in battle data.")
+				return value.duplicate()
 			var result = {}
 			for key in value:
 				result[str(key)] = _jsonSafe(value[key])
 			return result
 		_:
 			return value
+
+
+static func _restoreLossless(value):
+	if value is float:
+		assert(absf(value) <= float(MAX_JSON_EXACT_INT),
+			"JSON number exceeds exact integer range; use a lossless integer marker.")
+		return value
+	if value is Array:
+		var result: Array = []
+		for item in value:
+			result.append(_restoreLossless(item))
+		return result
+	if value is Dictionary:
+		if value.size() == 1 and value.has(LARGE_INT_TAG):
+			var textValue := str(value[LARGE_INT_TAG])
+			assert(textValue.is_valid_int() and str(int(textValue)) == textValue,
+				"Invalid lossless integer in battle snapshot.")
+			return int(textValue)
+		var result: Dictionary = {}
+		for key in value:
+			result[key] = _restoreLossless(value[key])
+		return result
+	return value
 
 
 static func _vector(value: Vector2i) -> Dictionary:

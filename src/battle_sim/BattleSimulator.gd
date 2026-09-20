@@ -5,10 +5,10 @@ class_name BattleSimulator
 
 const ORDER_MOVE_FIRST := "move_first"
 
-## Version 7 records side-turn operations in their real interleaving order.
+## Version 8 keeps side-turn operation order and uses lossless state snapshots.
 ## Version 6 was the retired party-activation contract and is never reinterpreted.
-const REPLAY_VERSION := 7
-const REPLAY_MIN_VERSION := 7
+const REPLAY_VERSION := 8
+const REPLAY_MIN_VERSION := 8
 const SQUARE_REPLAY_MAX_VERSION := 5
 const PARTY_ACTIVATION_REPLAY_VERSION := 6
 const GRID_KIND := "hex_flat"
@@ -151,32 +151,11 @@ func _rebuildRuntimeDependencies(brainClasses: Dictionary = {}) -> void:
 
 
 static func computeContentFingerprint(battleState: BattleState) -> String:
-	var monsterIDs: Array = battleState.monsters.keys()
-	monsterIDs.sort()
-	var monsters: Array = []
-	var spellNames: Dictionary = {}
-	var passiveNames: Dictionary = {}
-	for monsterID in monsterIDs:
-		var monster: Monster = battleState.monsters[monsterID]
-		monsters.append({
-			"id": int(monsterID),
-			"reference": MonsterReferencesScript.getReference(monster.name).duplicate(true),
-		})
-		for spellSet in monster.spellSets:
-			for spell in spellSet:
-				spellNames[spell.name] = true
-		for passive in monster.passives:
-			passiveNames[passive.name] = true
-	var sortedSpellNames: Array = spellNames.keys()
-	sortedSpellNames.sort()
-	var spells: Array = []
-	for spellName in sortedSpellNames:
-		spells.append(SpellReferencesScript.getReference(str(spellName)).duplicate(true))
-	var sortedPassiveNames: Array = passiveNames.keys()
-	sortedPassiveNames.sort()
-	var passives: Array = []
-	for passiveName in sortedPassiveNames:
-		passives.append(PassiveSkillReferencesScript.getReference(str(passiveName)).duplicate(true))
+	## Content identity describes authored definitions, never mutable spell/passive
+	## instances. A temporary ability change must not invalidate the build itself.
+	var monsters := _sortedDefinitions(MonsterReferencesScript.list)
+	var spells := _sortedDefinitions(SpellReferencesScript.list)
+	var passives := _sortedDefinitions(PassiveSkillReferencesScript.list)
 	var partyIDs: Array = battleState.parties.keys()
 	partyIDs.sort()
 	var parties: Array = []
@@ -195,6 +174,12 @@ static func computeContentFingerprint(battleState: BattleState) -> String:
 	context.start(HashingContext.HASH_SHA256)
 	context.update(_canonicalJSON(BattleStateSerializerScript.jsonSafe(content)).to_utf8_buffer())
 	return "sha256:%s" % context.finish().hex_encode()
+
+
+static func _sortedDefinitions(definitions: Array) -> Array:
+	var result: Array = definitions.duplicate(true)
+	result.sort_custom(func(a, b): return str(a.get("NAME", "")) < str(b.get("NAME", "")))
+	return result
 
 
 static func _canonicalJSON(value) -> String:
@@ -1011,7 +996,7 @@ func createReplaySnapshot() -> Dictionary:
 		if event.get("type", "") == "unit_action":
 			commands.append(BattleStateSerializerScript.jsonSafe(event))
 
-	return {
+	return BattleStateSerializerScript.jsonSafe({
 		"success": true,
 		"version": REPLAY_VERSION,
 		"gridKind": GRID_KIND,
@@ -1030,10 +1015,12 @@ func createReplaySnapshot() -> Dictionary:
 		"brainClasses": brainClasses,
 		"operations": operations,
 		"commands": commands
-	}
+	})
 
 
 func restoreReplaySnapshot(snapshot: Dictionary) -> Dictionary:
+	snapshot = BattleStateSerializerScript.restoreJsonSafe(snapshot)
+	var nextGeneration := state.timelineGeneration + 1
 	var version = int(snapshot.get("version", REPLAY_MIN_VERSION))
 	if version <= SQUARE_REPLAY_MAX_VERSION:
 		return {
@@ -1056,6 +1043,7 @@ func restoreReplaySnapshot(snapshot: Dictionary) -> Dictionary:
 		visualAdapter.disconnectFromEvents()
 	visualAdapter = null
 	state = BattleStateSerializerScript.deserialize(currentState)
+	state.timelineGeneration = nextGeneration
 	if computeContentFingerprint(state) != str(snapshot.get("contentFingerprint", "")):
 		return {"success": false, "reason": "content_fingerprint_mismatch"}
 	initialStateSnapshot = snapshot.get("initialState", {}).duplicate(true)

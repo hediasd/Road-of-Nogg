@@ -9,6 +9,7 @@
 class_name BattleStateRevision
 extends RefCounted
 
+const BattleStateSerializerScript = preload("res://src/battle_sim/BattleStateSerializer.gd")
 
 static func capture(state: BattleState) -> String:
 	if state == null:
@@ -28,7 +29,9 @@ static func capture(state: BattleState) -> String:
 			"party": int(state.monsterPartyIDs.get(monsterID, -1)),
 			"withdrawn": state.isMonsterWithdrawn(monsterID),
 		})
-	return JSON.stringify({
+	return JSON.stringify(BattleStateSerializerScript.jsonSafe({
+		"generation": state.timelineGeneration,
+		"mutation_revision": state.mutationRevision,
 		"history_size": state.history.size(),
 		"rng_state": state.rng.state,
 		"next_monster_id": state.nextMonsterID,
@@ -45,4 +48,4 @@ static func capture(state: BattleState) -> String:
 		"side_turn_phase": state.sideTurnPhase,
 		"outcome": state.battleOutcome,
 		"actors": actors,
-	})
+	}))

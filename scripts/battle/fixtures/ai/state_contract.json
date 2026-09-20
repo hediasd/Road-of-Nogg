@@ -1,0 +1,8 @@
+{
+  "probe_revision": 2,
+  "scenario": "res://data/battle/scenarios/technical_hxb_contract_player_cpu.json",
+  "seed": 99173,
+  "large_integer": "9007199254740993",
+  "heal_amount": 13,
+  "movement_cost": 7
+}

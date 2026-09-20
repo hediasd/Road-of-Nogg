@@ -8,6 +8,7 @@ const BattleStateSerializerScript = preload("res://src/battle_sim/BattleStateSer
 
 
 static func replay(snapshot: Dictionary) -> Dictionary:
+	snapshot = BattleStateSerializerScript.restoreJsonSafe(snapshot)
 	var identityError := _identityError(snapshot)
 	if not identityError.is_empty():
 		return {"success": false, "reason": identityError}
