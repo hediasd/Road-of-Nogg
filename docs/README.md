@@ -8,6 +8,7 @@ Use this page to find the source of truth instead of searching every document.
 | [Policies](./POLICIES.md) | Engineering guardrails and verification policy |
 | [Module map](./MODULE_MAP.md) | Directory ownership, allowed dependencies, and where to make a change |
 | [Architecture](./ARCHITECTURE.md) | Current runtime ownership, boundaries, and data flow |
+| [Nogg AI architecture](./AI_ARCHITECTURE.md) | AI structure, algorithms, state/forecast contracts, determinism, extension points, and experiment semantics; current behavior and intended changes are labeled separately |
 | [Game design](./GAME_DESIGN.md) | Confirmed player-facing mechanics and constraints |
 | [UI / UX design](./UI_DESIGN.md) | Battle UI visual language, theme tokens, cursor and input model |
 | [VFX design](./VFX_DESIGN.md) | Spell effect contract, authoring conventions, the house motion style for any animation, and the debug harness |
@@ -25,7 +26,7 @@ Use this page to find the source of truth instead of searching every document.
 | [Game reference index](../gamerefs/tactical_rpg_turn_systems.md) | Comparative research and aspect studies |
 | [Lore](./LORE.md) | World, factions, and narrative canon; see also `lore/` |
 | [Monster catalog schema](./MONSTER_CATALOG_SCHEMA.md) | Authored monster-data shape and validation rules |
-| [Implementation cycles](./plans/) | The one active cycle, frozen during execution; item findings live in commit messages |
+| [Implementation cycles](./plans/) | Active cycles, each frozen during execution; item findings live in commit messages |
 
 ## Authority and updates
 
