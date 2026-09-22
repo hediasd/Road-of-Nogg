@@ -7,9 +7,8 @@ settles — the stack turns around the caster, its blades churn, and the charge
 disperses outward rather than fading in place.
 
 The contract and conventions both implement live in
-[`../VFX_DESIGN.md`](../VFX_DESIGN.md). Neither is wired to a spell; that is the
-pre-cast telegraph item in
-[`../../BACKLOG_LONGTERM.md`](../../BACKLOG_LONGTERM.md).
+[`../VFX_DESIGN.md`](../VFX_DESIGN.md). Neither is wired to a spell; choosing a
+production carrier and its pre-cast timing remains a separate design decision.
 
 | version | profile id | shape | length |
 | --- | --- | --- | --- |

@@ -767,7 +767,7 @@ anything, on 2026-09-17, failed them:
 All three are renderer-bound, all three were passing when sections 9 and 10 were written, and
 nothing in between could report otherwise: they printed `FAIL` and exited 0, in a folder Git
 ignored. They are quarantined in `scripts/checks/probes/worldmap_design.json` with those lines
-and listed in `BACKLOG_CRITICAL.md`. Whether the rig drifted or the measurement did is the first
+and grouped in `BACKLOG.md`. Whether the rig drifted or the measurement did is the first
 question for whoever picks them up -- section 11's own list of three probes that once passed
 while measuring nothing is a warning in both directions.
 

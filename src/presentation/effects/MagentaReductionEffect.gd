@@ -4,7 +4,7 @@
 ## same `VfxPlayback` contract, same seed/scrub/dispose lifecycle, same
 ## build-time budget asserts. `MagentaReductionProfile`'s header records why this
 ## is a third forked file rather than the shared resource `docs/VFX_DESIGN.md` §4
-## schedules for the third effect, and `BACKLOG_LONGTERM.md` carries the restated
+## schedules for the third effect; the profile header carries the restated
 ## trigger.
 ##
 ## What differs from the fire storm: the motion runs inward instead of outward,

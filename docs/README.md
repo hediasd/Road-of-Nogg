@@ -14,8 +14,7 @@ Use this page to find the source of truth instead of searching every document.
 | [VFX design](./VFX_DESIGN.md) | Spell effect contract, authoring conventions, the house motion style for any animation, and the debug harness |
 | [Effects](./effects/README.md) | One page per effect profile: what each one does, its constants, and the measurements behind them |
 | [Sketches](./sketches/README.md) | Kept design sketches: the few debug artifacts that stayed useful after their work shipped |
-| [Critical backlog](../BACKLOG_CRITICAL.md) | Incomplete work that materially affects current gameplay, correctness, or readiness |
-| [Long-term backlog](../BACKLOG_LONGTERM.md) | Deferred design, tooling, and maintenance work |
+| [Backlog](../BACKLOG.md) | Actionable work outside active implementation cycles, ordered by priority |
 | [Learnings](./LEARNINGS.md) | Verified reusable discoveries and review triggers |
 | [Development](./DEVELOPMENT.md) | Commands, Windows safeguards, and completion checks |
 | [Spell catalog schema](./SPELL_CATALOG_SCHEMA.md) | Authored spell-data shape and normalization boundary |

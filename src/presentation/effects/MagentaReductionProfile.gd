@@ -10,7 +10,7 @@
 ## neither storm has while dropping the crown that both do. Abstracting a
 ## resource from three files where the third barely fits would have fixed the
 ## wrong shape for every effect after it. Declined with the user 2026-08-08 and
-## recorded in `BACKLOG_LONGTERM.md`, with the trigger restated as the next
+## recorded in `docs/VFX_DESIGN.md`, with the trigger restated as the next
 ## effect that is structurally a storm.
 ##
 ## Provenance, following `FireStormProfile`: no reference footage was

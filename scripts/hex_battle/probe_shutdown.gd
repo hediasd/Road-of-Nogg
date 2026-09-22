@@ -13,7 +13,7 @@
 ##
 ##     marker present + non-zero exit  ->  the bug is still here, as documented
 ##     marker present + exit 0         ->  THE BUG IS GONE. Delete this probe, close the
-##                                         BACKLOG_CRITICAL entry, and say what fixed it.
+##                                         BACKLOG.md entry, and say what fixed it.
 ##     marker absent                   ->  a real failure; read the assertions below.
 ##
 ## WHAT IS ESTABLISHED, measured over repeated runs rather than single ones:

@@ -10,10 +10,9 @@ semantics — turn structure and command meaning live in
 [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 This document is the contract: the six traits below are settled and
-implemented. Any future build work against this document belongs in
-[`BACKLOG_CRITICAL.md`](../BACKLOG_CRITICAL.md) or
-[`BACKLOG_LONGTERM.md`](../BACKLOG_LONGTERM.md) depending on urgency, not in a
-transitory plan file, so nothing here cites a plan item by name.
+implemented. Unscheduled work belongs in [`BACKLOG.md`](../BACKLOG.md);
+active implementation cycles live under [`plans/`](./plans/). This document
+does not cite a plan item by name.
 
 > **Where the named implementations live now (HXB-14).** Rules below cite
 > `BattlePresentationController` and `PlayerTurnController` functions by name.
@@ -305,8 +304,7 @@ size and styleboxes are copied in at build time and would keep the old scale,
 while code that reads a token directly at draw time (`NoggWindow`'s cursor
 gutter math, `MenuCursor`'s accessors) would see the new one immediately. That
 disagreement is worse than not rescaling at all, and correcting it needs a
-rebuild-and-relayout path for every open window — tracked in
-`BACKLOG_LONGTERM.md` as live UI rescaling, not attempted in this cycle.
+rebuild-and-relayout path for every open window, not attempted in this cycle.
 
 Measured at 1152 x 648 (x1.000, the historical baseline) every stroke was
 exactly two device pixels; at 1340 x 754 (x1.163) stroke widths varied within a
@@ -1236,10 +1234,10 @@ off, and that Pass still ends the turn. `PlayerCommandMenu._refresh_prompt()`
 drives this the same way the status windows work above: `open()`/`close()` off
 whether there is text, not a bare `visible` flip.
 
-Separately, `BACKLOG_CRITICAL.md` recorded the prompt rendering behind the dev
+Separately, the original battle UI recorded the prompt rendering behind the dev
 bar at the shipping `ui_scale`, since both dock to the same top band and
 `DEV_LAYER` draws over `GAME_LAYER`. Docking the prompt below the dev bar's
-band was the other candidate that backlog entry named, and was rejected here
+band was the other candidate considered, and was rejected here
 because it would make a developer-only action (F1) move a player-facing
 element. `PlayerCommandMenu` now takes an externally-supplied parent for the
 prompt window alone (`set_prompt_layer_root()`, called by `BattleUIBuilder`
@@ -1282,8 +1280,8 @@ not as a literal at the call site.
 
 **The turn rail owns the top band, and the prompt moved down for it.** The band
 was already contested — the prompt docked at `PROMPT_TOP` 12 and the developer
-bar sits above everything on `DEV_LAYER`, an overlap `BACKLOG_CRITICAL.md`
-already records. Adding a third occupant without settling ownership would have
+bar sits above everything on `DEV_LAYER`, an overlap already observed in the
+original battle UI. Adding a third occupant without settling ownership would have
 made it a three-way collision. The rail wins the stable position because it is
 **persistent and the prompt is transient**: a readout the player consults every
 turn should not move because a transient line appeared. `PROMPT_TOP` is now 34.

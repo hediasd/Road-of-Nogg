@@ -499,9 +499,13 @@ range. Read a file end to end only when editing throughout it.
 
 ## Backlog maintenance
 
-- Use `BACKLOG_CRITICAL.md` for incomplete work that materially affects current
-  gameplay, correctness, or user-facing readiness and should be fixed promptly.
-- Use `BACKLOG_LONGTERM.md` for deferred design, tooling, and maintenance work.
+- Use `BACKLOG.md` for actionable work outside active implementation cycles.
+  Keep priority and acceptance concise; the current code, probe manifests, and
+  owning design documents carry supporting detail.
+- Frozen cycle files may still name the retired `BACKLOG_CRITICAL.md` and
+  `BACKLOG_LONGTERM.md` paths in their `Touches` lists. For those entries only,
+  `BACKLOG.md` is the successor path; do not recreate either retired file or
+  edit the frozen cycle to change its list.
 - Add a backlog item only when it is actionable, durable, and out of current
   scope. Do not use the backlog as a stream of incidental ideas.
 - During implementation, **append only**, and commit the backlog file by

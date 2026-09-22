@@ -60,9 +60,9 @@ constant-time name index. MonsterReferences owns the monster-specific STATS
 schema and normalization. RaceReferences uses the same loader and owns
 resistance coercion.
 
-Broader cross-catalog semantic validation is not currently automated.
-Rebuilding it is tracked in `BACKLOG_LONGTERM.md` under "Build a fresh test
-suite".
+Broader cross-catalog semantic validation is not currently automated. Check
+the relevant catalog probes when changing a kit; add focused coverage when a
+new rule makes it necessary.
 
 ## Editing the catalog
 

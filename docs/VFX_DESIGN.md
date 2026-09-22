@@ -216,7 +216,7 @@ implosion has none of that. It pulls inward, runs a four-beat timeline whose
 third beat holds before anything is released, and carries a core and a discharge
 while dropping the crown. A resource abstracted from three files where the third
 only barely fits would have fixed the wrong shape for everything after it.
-`BACKLOG_LONGTERM.md` tracks the storm-shaped extraction and records that
+The storm-shaped extraction remains conditional on a third storm, and
 `IceStormProfile`'s `MEASURED` labels have to survive any migration.
 
 The general lesson: *a "do it at the third" rule needs to say the third **what***
@@ -874,7 +874,7 @@ A radius-`R` footprint reaches `R + 0.5` in world units, because the outermost
 tile contributes its own half-width. Effects and the debug guide both use that,
 so they agree by construction.
 
-Current gap, tracked in `BACKLOG_LONGTERM.md`: ground washes carry every shape,
+Current gap, tracked in `BACKLOG.md`: ground washes carry every shape,
 but particle layers still do not handle `cross` or `line`.
 
 

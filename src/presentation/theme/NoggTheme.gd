@@ -29,10 +29,10 @@ const WORLD_EFFECT_LAYER := 9
 const GAME_LAYER := 10
 const DEV_LAYER := 20
 ## The player-facing prompt window only (`PlayerCommandMenu._prompt_window`),
-## which BACKLOG_CRITICAL.md records as overlapped by the dev bar at the
+## which the original battle UI observed overlapping the dev bar at the
 ## shipping ui_scale: both dock to the same top band, DEV_LAYER draws over
 ## GAME_LAYER, and the prompt loses. Docking it below the dev bar's band
-## instead was the other candidate the backlog names, rejected because it
+## instead was the other candidate, rejected because it
 ## would make the prompt jump position whenever the dev bar (F1) toggles — a
 ## developer-only action moving a player-facing element is worse than the
 ## layer split it would fix. A dedicated layer keeps the prompt's position

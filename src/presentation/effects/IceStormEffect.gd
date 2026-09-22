@@ -760,7 +760,7 @@ static func _smoothstep(edge0: float, edge1: float, value: float) -> float:
 ## `circle` and any unrecognized value — falls through to `ShapeCaster.getCircle`,
 ## which has returned a hex disc since HXB-7. `cross`/`line` carriers keep the
 ## legacy square flurry field and disc wash; no carrier uses either with this
-## profile today (tracked in `BACKLOG_LONGTERM.md`). The predicate name is
+## profile today (area-footprint work is tracked in `BACKLOG.md`). The predicate name is
 ## retained so this donor's behavior does not change.
 static func _isDiamondShape(areaShape: String) -> bool:
 	return areaShape != "cross" and areaShape != "line"
