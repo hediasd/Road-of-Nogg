@@ -508,6 +508,16 @@ range. Read a file end to end only when editing throughout it.
   edit the frozen cycle to change its list.
 - Add a backlog item only when it is actionable, durable, and out of current
   scope. Do not use the backlog as a stream of incidental ideas.
+- At an item or cycle boundary, check whether finished work makes a backlog
+  item timely. Recommend at most one or two relevant next items, with why now,
+  any prerequisite or user decision, and the suggested model tier plus a short
+  rationale. If nothing became timely, do not repeat the backlog.
+- When work reveals a possible new item, verify the gap against current code
+  and search the backlog and active cycles for an owner. Suggest concrete
+  out-of-scope work with its trigger, consequence, and acceptance test. Append
+  verified, actionable, durable work only when this session owns `BACKLOG.md`;
+  otherwise report the candidate for a later owned pass. Leave speculative
+  design choices as suggestions until the user decides.
 - During implementation, **append only**, and commit the backlog file by
   explicit path immediately. Rewriting, reordering, or pruning a backlog is a
   whole-file edit: do it only when your item's Touches list claims that file,

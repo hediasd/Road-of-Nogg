@@ -56,13 +56,27 @@ growth values are balance decisions for the user.
 
 `Fire Storm`, `Ice Statue`, and the generic spell-cast aura have extensive
 debug-harness evidence but incomplete integrated battle acceptance. Cast them
-through the real event/adapter path, on contrasting bodies and terrain, and
-check targeting, camera motion, readability, overlap, pause, skip, speed,
-defeat, and scene exit. Compare existing caller goldens before touching any
-shared VFX primitive. The generic aura's longer lifecycle is a separate motion
-decision: judge its timing in a live action before retuning it. Acceptance:
-record the tested revision, visible result, gameplay result, and clean teardown
-for each effect. The shutdown reproducer below is a distinct stress case.
+through the real event/adapter path. Retain the checks particular to each:
+
+- **Fire Storm (`Smoke Tower`):** test live terrain and units through CRT and
+  queue playback; cover overlap/cap, pause, skip, speed, and exit. Extend the
+  harness radius sweep beyond 1-2 to radius 3. Capture closely spaced motion
+  frames so winding, taper, shrink, and lean can be judged in motion.
+- **Ice Statue (Snowzilla):** cast at short and long legal range onto two
+  visibly different bodies, including elevated terrain. Check event-time
+  placement, cyan readability through CRT, damage-number separation, defeat,
+  retrigger, oldest-effect disposal at the live cap, pause, skip, 0.5x/2x
+  speed, and exit without a surviving shell.
+- **Generic spell-cast aura:** prove true time-zero emergence, several seeds and
+  elemental tints, native and retro rendering, camera motion, forward/backward
+  seek, identical frames at identical normalized time and seed, pause, skip,
+  overlap, replay, disposal, and a real cast. Its longer lifecycle and adapter
+  hold fraction need a separate motion judgement; 1.8-2.2 seconds was an
+  initial range to test, not an approved duration.
+
+Compare existing caller goldens before touching a shared VFX primitive. Record
+the tested revision, visible result, gameplay result, and clean teardown for
+each effect. The shutdown reproducer below is a distinct stress case.
 
 ## Make authoring and verification dependable
 
@@ -79,14 +93,17 @@ own narrow write path rather than reviving the older broad editor plan.
 ### Restore trustworthy probe coverage
 
 The registered probe manifests under `scripts/checks/probes/` own the current
-quarantine list and failure notes. Reconcile old battle corpus/round-cap probes
-with side turns where the active AI cycle does not already do so; investigate
-the world-map and editor probes still marked `gate: false`; and add a marker to
-the unregistered renderer-bound foundation acceptance probe. A failure may be
-an obsolete assertion or a product defect: establish which before changing the
-gate. Acceptance: each repaired probe passes and is gated, or is replaced with
-a current-rule check that proves the same useful contract. Keep the manifest as
-the single source for exact probe names and status.
+quarantine list and failure notes. The active AI cycle owns the old battle
+corpus and round-cap probes. Investigate the world-map and editor probes still
+marked `gate: false`; a failure may be an obsolete assertion or a product
+defect, so establish which before changing the gate. The sweep currently skips
+renderer-bound probes: add a renderer-capable run path. Until then, perform and
+record explicit non-interactive window checks; do not count `SKIP` as a pass.
+Give the unregistered renderer-bound foundation acceptance probe a success
+marker and register it only when the sweep can actually run it. Acceptance:
+each repaired probe passes in its required environment and is gated, or is
+replaced with a current-rule check that proves the same useful contract. Keep
+the manifest as the single source for exact probe names and status.
 
 ### Diagnose the synthetic VFX shutdown fault
 
@@ -124,12 +141,3 @@ Validate keyboard and gamepad navigation, focus indicators, and all six
 camera-relative hex directions in an actual battle. Add user-facing remapping
 only after the concrete navigation gaps are known. Acceptance: every available
 command and legal target can be reached and confirmed without a mouse.
-
-### Polish world-map presentation after authoring acceptance
-
-At close framing, a single cloud can dominate the view; its shadow can end at
-the region edge as a hard rectangle. No current preset exposes standing
-structures and their lighting. Judge these together on an authored map, then
-choose a preset and shadow/scale behavior from captured gameplay views. The
-ground rig's broader camera and region-width decisions belong to world-map
-design rather than a standing implementation task.
