@@ -16,6 +16,7 @@ const HudScript = preload("res://src/presentation/battle/HexBattleHud.gd")
 const SessionPanelScript = preload("res://src/presentation/battle/ui/HexGraphicsPanel.gd")
 const BattleSetupConfigScript = preload("res://src/battle_sim/BattleSetupConfig.gd")
 const BattleSetupFactoryScript = preload("res://src/battle_sim/BattleSetupFactory.gd")
+const BattleSimulatorScript = preload("res://src/battle_sim/BattleSimulator.gd")
 
 const CPU_SCENARIO := "res://data/battle/scenarios/technical_hxb_contract_cpu_cpu.json"
 const PLAYER_SCENARIO := "res://data/battle/scenarios/technical_hxb_contract_player_cpu.json"
@@ -49,6 +50,7 @@ func _run() -> void:
 	await _checkCpuPauseSpeedSkip()
 	await _checkPlayerPause()
 	await _checkLedgerFinalDrainAndRestart()
+	await _checkTimelineRestore()
 	await _checkRepeatedTransitions()
 	_report()
 
@@ -536,6 +538,66 @@ func _battleNodeCounts() -> Dictionary:
 		for child in node.get_children():
 			stack.append(child)
 	return result
+
+
+## A technical restore while the screen is busy. Not a player-facing rewind --
+## there is no control for this and none is being added -- but the lifecycle it
+## exercises is the one a rewind would eventually need, and the failure it looks
+## for is a callback from the abandoned timeline arriving afterwards and
+## advancing the restored one.
+func _checkTimelineRestore() -> void:
+	if not _start(CPU_SCENARIO):
+		return
+	await _frames(2)
+	var simulator = _controller.sim
+	## Let the battle get far enough in that there is real work to abandon: a
+	## queued animation, a decision in flight, a board that has moved on.
+	var frames := 0
+	while frames < 600 and simulator.state.history.size() < 12:
+		await _frames(1)
+		frames += 1
+	var beforeAdapter = _controller.adapter
+	var beforeGeneration := int(simulator.state.timelineGeneration)
+	var checkpointFingerprint := str(simulator.sideStartCheckpoint.get("fingerprint", ""))
+	_require(not checkpointFingerprint.is_empty(),
+		"no side checkpoint was retained to restore from")
+	var restored: Dictionary = simulator.restoreSideTurn()
+	if not bool(restored.get("success", false)):
+		_require(false, "the technical restore was refused: %s" % str(restored))
+		return
+	## The rebuild is deferred, so the adapter is still the old one until the
+	## next frame -- which is the point: nothing tears down inside the emit.
+	await _frames(3)
+
+	_require(int(simulator.state.timelineGeneration) == beforeGeneration + 1,
+		"the restore did not advance the timeline generation")
+	_require(_controller.adapter != null and _controller.adapter != beforeAdapter,
+		"presentation was not rebuilt for the restored timeline")
+	_require(simulator.visualAdapter == _controller.adapter,
+		"the simulator was left without the rebuilt adapter")
+	_require(_controller.memberInput == null,
+		"an input target from the abandoned timeline survived the restore")
+	_require(BattleSimulatorScript.semanticFingerprint(simulator.state)
+		== checkpointFingerprint,
+		"the restored board is not the one the checkpoint recorded")
+
+	## The battle has to keep playing, and keep playing correctly: a stale
+	## callback that still fired would show up as an invariant violation or a
+	## board that stops advancing.
+	var historyAfterRestore: int = simulator.state.history.size()
+	var advanced := 0
+	while advanced < 900 and simulator.state.history.size() <= historyAfterRestore:
+		await _frames(1)
+		advanced += 1
+	_require(simulator.state.history.size() > historyAfterRestore,
+		"the battle did not resume after the restore")
+	_require(simulator.invariantViolations().is_empty(),
+		"the restored timeline violated an invariant: %s" %
+		str(simulator.invariantViolations()))
+	_evidence["restore_generation"] = simulator.state.timelineGeneration
+	_evidence["restore_resumed_after_frames"] = advanced
+	_controller.teardownBattle()
+	await _frames(1)
 
 
 # --- helpers --------------------------------------------------------------------------

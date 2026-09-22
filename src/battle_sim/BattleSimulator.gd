@@ -1103,9 +1103,20 @@ func restoreSideTurn() -> Dictionary:
 	var branchID := operationLedger.size() + 1
 	var abandonedCount := maxi(0, operationLedger.size() -
 		int(sideStartCheckpoint.get("ledger_count", 0)))
+	## Presentation is detached rather than destroyed. The adapter was built
+	## against the state object that is about to be replaced, so leaving it
+	## connected would feed the new timeline's events to something reading the
+	## old board; but deciding what to draw instead is presentation's business,
+	## and it is told through `timeline_restored` so it can rebuild once.
 	if visualAdapter != null:
 		visualAdapter.disconnectFromEvents()
 	visualAdapter = null
+	## Rebuilding the runtime replaces the event bus, which silently orphans
+	## every listener connected to the old one. The announcement therefore has
+	## to go out on the bus that still has listeners -- emitted on the new bus it
+	## would reach nobody, and presentation would sit there holding a board that
+	## no longer exists while hearing nothing further.
+	var previousEvents := events
 	state = restored
 	state.timelineGeneration = priorGeneration + 1
 	_rebuildRuntimeDependencies()
@@ -1121,6 +1132,11 @@ func restoreSideTurn() -> Dictionary:
 		"fingerprint": semanticFingerprint(state),
 	}
 	operationLedger.append(branchOperation)
+	## Announced after the state, resolvers and ledger are all consistent, so a
+	## listener that rebuilds on this signal sees a finished restore -- and on
+	## the previous bus, because that is where the listeners are. A listener
+	## reconnects to `simulator.events`, which is now a different object.
+	previousEvents.timeline_restored.emit(state.timelineGeneration, branchID)
 	return {"success": true, "branch_id": branchID,
 		"generation": state.timelineGeneration}
 

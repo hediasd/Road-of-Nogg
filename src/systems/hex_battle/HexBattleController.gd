@@ -233,6 +233,7 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	adapter.setCombatResolver(sim.combatResolver)
 	adapter.connectToEvents(sim.events)
 	adapter.animation_queue_drained.connect(_onPlaybackDrained)
+	sim.events.timeline_restored.connect(_onTimelineRestored)
 	# FHB-1: the adapter is listening now, so this is the earliest point the board can be
 	# announced -- and it must happen before sim.startBattle() opens the turn loop, or the first
 	# move would be the first thing a connected adapter ever hears about.
@@ -394,6 +395,74 @@ func _process(_delta: float) -> void:
 	playback.release(HexBattlePlayback.OWNER_CPU)
 	_deliberatingMemberID = -1
 	_checkFinished()
+
+
+## The canonical state was replaced by a restored one, so everything this
+## controller is holding belongs to a branch nobody is playing.
+##
+## **Teardown and rebuild, not reversal.** Playing the animations backwards, or
+## trying to unwind the queue action by action, would mean every future effect
+## owes an inverse and the first one that forgets leaves the board lying. The
+## restored position is authoritative and cheap to draw from scratch, so
+## everything derived from the old timeline is dropped and the board is
+## announced again exactly the way it is announced when a battle starts.
+##
+## Deferred because the restore arrives mid-call inside the simulator: freeing
+## the adapter underneath the code that just emitted the signal would tear down
+## an object still on the stack.
+func _onTimelineRestored(_generation: int, _branchID: int) -> void:
+	_rebuildForRestoredTimeline.call_deferred()
+
+
+func _rebuildForRestoredTimeline() -> void:
+	if sim == null or lifecycle != Lifecycle.BATTLE:
+		return
+	## The abandoned generation's work, in the order it can be dropped safely:
+	## the decision first so nothing applies it, then the member turn and its
+	## input so no cell stays aimed, then the animations.
+	_deliberation = null
+	_deliberatingMemberID = -1
+	if memberTurn != null:
+		memberTurn.cancel()
+		memberTurn = null
+	memberInput = null
+	if playback != null:
+		playback.release(HexBattlePlayback.OWNER_CPU)
+		playback.release(HexBattlePlayback.OWNER_PLAYER)
+	if adapter != null:
+		## `dispose()` bumps the queue's serial, so any tween completion or
+		## watchdog still in flight for the old timeline finds a serial that no
+		## longer matches and does nothing, rather than finalising an action
+		## against a board that has been replaced.
+		adapter.disconnectFromEvents()
+		if adapter.animation_queue_drained.is_connected(_onPlaybackDrained):
+			adapter.animation_queue_drained.disconnect(_onPlaybackDrained)
+		adapter.dispose()
+		adapter = null
+	if _boardRoot != null:
+		_boardRoot.queue_free()
+		_boardRoot = null
+	_boardRoot = Node3D.new()
+	_boardRoot.name = "HexBoard"
+	stage.worldRoot().add_child(_boardRoot)
+	adapter = HexBattleVisualAdapterScript.new(_boardRoot, map, sim.state)
+	sim.setVisualAdapter(adapter)
+	adapter.setCombatResolver(sim.combatResolver)
+	adapter.connectToEvents(sim.events)
+	adapter.animation_queue_drained.connect(_onPlaybackDrained)
+	adapter.boardView.showOverTerrain(stage.hasTerrain())
+	## The authoritative board, drawn once. Everything the player can see now
+	## comes from the restored state and nothing from the branch it replaced.
+	sim.emitInitialBoard()
+	if hud != null:
+		hud.clearParty()
+		hud.showAim({})
+	if sideCues != null:
+		sideCues.hideActionArc()
+		sideCues.clearForecasts()
+	_syncSpentCues()
+	_refreshHud()
+	_setStatus("The side turn was restored.")
 
 
 # --- player input -----------------------------------------------------------

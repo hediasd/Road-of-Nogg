@@ -178,7 +178,10 @@ Side-turn state may be captured at any operation boundary, including with a
 selected unit or several moved-but-unspent units. Pending origins and paths are
 serialized, and replay reproduces selection, movement, undo, and action events
 in their original interleaving order.
-The simulator also retains one complete checkpoint after each side opens.
+Restoring a side turn replaces the simulator's event bus as well as its state,
+so presentation is told through `timeline_restored` on the bus it is still
+listening to, and rebuilds against the restored board rather than unwinding what
+it had drawn. The simulator also retains one complete checkpoint after each side opens.
 Its technical `restoreSideTurn()` replaces the canonical state between
 operations, increments timeline generation, and leaves an immutable branch
 entry in the simulator's outer operation ledger. Replay checks a semantic

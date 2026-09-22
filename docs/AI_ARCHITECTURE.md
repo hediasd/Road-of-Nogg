@@ -179,6 +179,28 @@ timings are observations, not deterministic policy inputs or a performance gate.
 Before every monster has a turn index, the conservative default copies from
 event zero.
 
+Presentation is told, not torn down by the simulator. `restoreSideTurn()`
+detaches the visual adapter -- it was built against the state object being
+replaced -- and emits `timeline_restored`, and the controller rebuilds from
+there. **The announcement goes out on the previous event bus**, because
+rebuilding the runtime replaces `events` with a new object and silently orphans
+every listener on the old one; emitted on the new bus it would reach nobody, and
+presentation would sit holding a board that no longer exists. A listener
+reconnects to `simulator.events`, which is now a different object.
+
+Presentation rebuilds rather than reverses. Playing animations backwards would
+oblige every future effect to define an inverse, and the first one that forgot
+would leave the board lying; the restored position is authoritative and cheap to
+draw from scratch. `HexBattleController` drops the decision in flight, cancels
+the member turn and its input target, releases the playback owner, disposes the
+adapter -- which bumps the visual queue's serial, so a tween completion or
+watchdog still in flight for the abandoned timeline finds a serial that no
+longer matches and does nothing -- then builds a new board root and adapter and
+announces the board once. The rebuild is deferred by a frame, because the signal
+arrives inside the simulator call and freeing the adapter there would tear down
+an object still on the stack. No player-facing rewind control exists; this is
+the technical lifecycle only.
+
 `BattleSimulator` captures one complete state snapshot after `side_turn_start`
 has settled; the next side replaces it. `restoreSideTurn()` rejects a missing or
 expired checkpoint and calls during movement, action resolution, unit-selection

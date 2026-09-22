@@ -55,3 +55,12 @@ signal status_damage_dealt(monsterID: int, effectName: String, damage: int, newH
 
 signal passive_triggered(monsterID: int, passiveName: String, trigger: String)
 signal passive_aoe_damage(sourceID: int, passiveName: String, targetID: int, element: String, damage: int, targetNewHP: int)
+
+## The canonical state was replaced by a restored one. Everything a listener
+## derived from the old timeline -- queued animations, tweens in flight, a
+## pending decision, whatever cell the cursor was aiming at -- describes a
+## branch nobody is playing any more and must be abandoned rather than finished.
+##
+## The old state object is gone by the time this arrives, so a listener holding
+## one must rebuild against the simulator's current state, not read its own.
+signal timeline_restored(generation: int, branchID: int)

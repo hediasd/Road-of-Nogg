@@ -1632,6 +1632,16 @@ them. There is no automatic interval on `MESSAGE`, `FOCUS`, or `CAST_AREA`: a sp
 may produce several instant display updates and per-target consequences, and adding
 the same delay to each would make area actions accumulate dead time. Broader cast
 grouping belongs to a later battle-director contract.
+
+**A restored side turn is drawn, not unwound.** There is no player-facing rewind
+control and none is being designed here, but the technical restore already has a
+lifecycle and it is teardown-and-redraw: the decision in flight is dropped, the
+member turn and whatever cell it had aimed at are cancelled, the visual queue is
+abandoned with its serial bumped so a tween still finishing cannot report back,
+and the restored board is announced once from scratch. Nothing plays backwards.
+Ordinary playback -- pacing, pause, speed, skip, the watchdog -- is untouched by
+any of this; a restore is the only thing that discards a queue mid-flight, and
+it discards the whole thing rather than editing it.
 ---
 
 ## Hex battle HUD
