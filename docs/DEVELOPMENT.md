@@ -108,6 +108,23 @@ by class. It also replays the frozen decisions of the shipped side policy from
 behaviour moved.** If that was deliberate, regenerate the fixture in the same
 commit and say why; if it was not, it is the finding.
 
+### Watching the CPU play
+
+The probes prove the policy decides the same thing however it is sliced and that
+a restore rebuilds the board. Neither can say whether a side turn *reads* right.
+This needs a renderer, so it is not in the sweep -- run it without `--headless`:
+
+```bash
+./Godot_v4.4-stable_win64.exe --path . --script scripts/battle/capture_ai_session.gd
+```
+
+It plays a real battle, saves frames to `battle_output/ai_session/`, performs one
+technical restore once there is real work to abandon so the rebuild can be seen,
+and prints its frame timings. **Treat those timings as the renderer's, not the
+AI's** -- on a machine without a GPU they measure software rasterisation. The
+AI's own per-frame cost is in
+[docs/sketches/2026-09-22-side-turn-restore-and-frame-cost.html](sketches/2026-09-22-side-turn-restore-and-frame-cost.html).
+
 ### Policy experiments
 
 A declared experiment runs from a manifest on independent process workers:

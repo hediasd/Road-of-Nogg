@@ -145,6 +145,32 @@ func stepSlices(sliceCount: int) -> bool:
 	return false
 
 
+## Spends up to `budgetMsec` of this frame and returns true once finished.
+##
+## A slice count is the wrong budget for a caller that owns a frame. Slices are
+## not equal: enumerating one actor costs milliseconds while pre-scoring a batch
+## costs a fraction of one, so a fixed count of four spent four *expensive*
+## slices in the same frame often enough to drop it. Measured before this:
+## 4 to 11 percent of deliberating frames over 16.7 ms, peaking at 27 ms.
+##
+## Always advances at least one slice, so progress is guaranteed at any budget
+## and a caller cannot spin without advancing. **Which frame a slice lands in
+## cannot change the decision** -- candidates accumulate in a fixed order and
+## rank once at the end -- so spending a wall-clock budget here is a pacing
+## choice, not a search one, and the probe holds that by comparing slice sizes
+## from one to four thousand.
+func step(budgetMsec: float) -> bool:
+	if _phase == Phase.FINISHED:
+		return true
+	var startedUsec := Time.get_ticks_usec()
+	while true:
+		if stepSlices(1):
+			return true
+		if float(Time.get_ticks_usec() - startedUsec) / 1000.0 >= budgetMsec:
+			return false
+	return false
+
+
 func run(sliceCount: int = 64):
 	while not stepSlices(sliceCount):
 		pass

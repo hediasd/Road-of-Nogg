@@ -588,6 +588,18 @@ table. Two things about it were load-bearing:
   30 rounds at one and two, a decided battle at three, the same result one unit
   poorer at five.
 
+What one frame pays is measured on the controller's own slice call, with
+nothing else in the sample: median around 6 ms, p95 around 14 ms, and **1.6
+percent or fewer of deliberating frames over a 60 Hz budget**. Getting there
+meant replacing the fixed slice count with a wall-clock budget, because slices
+are not equal in cost and four expensive ones landing in the same frame produced
+27 ms outliers -- 4 to 11 percent of frames over budget. Where a slice falls
+cannot change the decision, so this is a pacing choice rather than a search one.
+A single enumeration slice can still overshoot on its own, which is the
+remaining 17 to 20 ms tail; removing it means subdividing enumeration below one
+actor, which this cycle did not take on. A rendered session on a machine without
+a GPU measures the rasteriser instead and says nothing about any of this.
+
 Work is bounded in two passes. Everything except danger is scored for every
 candidate; only a shortlist of six per actor earns a danger question, which is
 cached by tile. **A slice is a unit of work, not a unit of candidate** --

@@ -59,6 +59,11 @@ const ADVANCE_INTERVAL_SECONDS := 0.05
 ## frame kept the measured proving-ground maximum comfortably responsive without cross-thread
 ## access to mutable battle state.
 const DELIBERATION_SLICES_PER_FRAME := 4
+## What one frame may spend on thinking, for a policy that can be asked in
+## milliseconds. Well inside a 60 Hz frame with room for the rest of the frame's
+## work; a single indivisible slice can still overshoot it, which is why the
+## policy keeps its slices small rather than relying on this alone.
+const DELIBERATION_BUDGET_MSEC := 4.0
 ## How far, in viewport pixels, a right press may travel and still count as a click.
 const RIGHT_TAP_SLOP := 4.0
 
@@ -371,7 +376,16 @@ func _process(_delta: float) -> void:
 		return
 	if playback == null or playback.isPaused():
 		return
-	if not _deliberation.stepSlices(DELIBERATION_SLICES_PER_FRAME):
+	## A wall-clock budget where the policy offers one, because slices are not
+	## equal in cost and a fixed count of them spent four expensive ones in the
+	## same frame often enough to drop it. Where a slice lands cannot change the
+	## decision, so this paces the work without touching the answer.
+	var advanced := false
+	if _deliberation.has_method("step"):
+		advanced = _deliberation.step(DELIBERATION_BUDGET_MSEC)
+	else:
+		advanced = _deliberation.stepSlices(DELIBERATION_SLICES_PER_FRAME)
+	if not advanced:
 		return
 	var proposal = _deliberation.result()
 	_deliberation = null
