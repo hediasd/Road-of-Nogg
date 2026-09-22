@@ -20,12 +20,13 @@
 ## `truncated` set, because an answer that ran out of budget is a different
 ## thing from one that finished.
 ##
-## Cheap geometric rejection comes first: an enemy whose movement plus reach
-## cannot span the distance to the tile is dropped before anything asks the
-## resolvers about legality, line of sight or height. That bound is deliberately
-## generous, and any capability it cannot reason about -- an unfamiliar
-## traversal, an effect with no declared range -- falls back to *not* rejecting,
-## because a bound that prunes something it does not understand is unsound.
+## Geometry is shared rather than re-derived. Which tiles a unit could strike, and
+## from where, is the same answer whoever is asking, so it is computed once per
+## unit on the decision context and looked up here; only the damage depends on
+## who is standing on the tile. Nothing is pruned by a distance guess: the reach
+## comes from the authoritative resolvers, so an ability whose range this code
+## could not have reasoned about is included rather than dropped, and the
+## assessment says when one was seen.
 
 class_name DangerQuery
 extends RefCounted
@@ -39,7 +40,6 @@ const APPROX_NO_REACTIONS := "ignores_reaction_passives"
 const APPROX_NO_STATUS_TICKS := "ignores_status_damage_over_time"
 const APPROX_SINGLE_ROUND := "single_enemy_round_only"
 const APPROX_GREEDY_ASSIGNMENT := "feasible_assignment_is_greedy_not_optimal"
-const APPROX_UNBOUNDED_ABILITY := "an_ability_without_a_declared_range_was_not_pruned"
 
 ## Enough work for a side of a handful of units on a normal board. A caller with
 ## a tighter frame spends less and is told that it did.
@@ -185,7 +185,12 @@ static func _bestReply(context: DecisionContext, enemyID: int, tile: Vector2i,
 
 
 ## Every way this enemy could hit `tile`, with where it would have to stand.
-## Cheap geometry rejects the impossible before the resolvers are asked anything.
+##
+## The geometry comes from the context's shared strike reach, computed once per
+## unit rather than re-derived for every tile asked about -- a side policy asks
+## about dozens of tiles with the same few enemies, and re-deriving was the most
+## expensive thing in a decision. Only the damage is computed here, because only
+## the damage depends on who is standing on the tile.
 static func _replyOptions(context: DecisionContext, enemyID: int,
 		tile: Vector2i, assessment: DangerAssessment, budget: int) -> Array:
 	var options: Array = []
@@ -193,68 +198,31 @@ static func _replyOptions(context: DecisionContext, enemyID: int,
 	var enemy: Monster = state.getMonster(enemyID)
 	if enemy == null or not enemy.is_alive():
 		return options
+	if assessment.queries >= budget:
+		assessment.truncated = true
+		return options
 	var resolver := context.resolver()
-	var origin: Vector2i = state.getMonsterPosition(enemyID)
 	var victim: Monster = state.getMonsterAt(tile)
+	var reach := context.strikeReach(enemyID)
 
-	## Magic is pre-move, so a cast only ever happens from where the enemy is.
-	for setIndex in range(enemy.spellSets.size()):
-		for spellIndex in range(enemy.spellSets[setIndex].size()):
-			var spell: Spell = enemy.spellSets[setIndex][spellIndex]
-			if spell.heals or not enemy.can_cast(spell):
-				continue
-			if not _couldReach(enemy, spell, origin, tile, assessment):
-				continue
-			if assessment.queries >= budget:
-				assessment.truncated = true
-				return options
-			for centerPos: Vector2i in resolver.getSpellTargetPositionsFrom(
-					enemyID, setIndex, spellIndex, origin, true):
-				assessment.queries += 1
-				var affected: Array = resolver.getSpellAffectedPositionsFrom(
-					enemyID, setIndex, spellIndex, origin, centerPos, true)
-				if not affected.has(tile):
-					continue
-				var damage := _spellDamageAt(resolver, enemy, victim, spell, origin)
-				if damage <= 0:
-					continue
-				options.append({"enemy_id": enemyID, "value": damage,
-					"from": origin, "kind": "spell"})
-				break
-
-	## Melee happens after moving, so any reachable cell adjacent to the tile
-	## counts -- except the tile itself, which its occupant is standing on.
-	var reach := context.reachability(enemyID)
-	for destination: Vector2i in reach["destinations"]:
-		if destination == tile:
-			continue
-		if HexGridScript.distance(destination, tile) != 1:
-			continue
-		if assessment.queries >= budget:
-			assessment.truncated = true
-			return options
+	for wayValue in (reach["spells"] as Dictionary).get(tile, []):
+		var way: Dictionary = wayValue
 		assessment.queries += 1
-		if not resolver.canBasicAttackPositionFrom(enemyID, destination, tile):
-			continue
-		var damage := enemy.atk if victim == null else \
-			resolver.calculateBasicDamage(enemy, victim, true, destination)
-		if damage <= 0:
-			continue
-		options.append({"enemy_id": enemyID, "value": damage,
-			"from": destination, "kind": "melee"})
+		var from: Vector2i = way["from"]
+		var spell: Spell = enemy.spellSets[int(way["set"])][int(way["index"])]
+		var damage := _spellDamageAt(resolver, enemy, victim, spell, from)
+		if damage > 0:
+			options.append({"enemy_id": enemyID, "value": damage,
+				"from": from, "kind": "spell"})
+
+	var meleeFrom = (reach["melee"] as Dictionary).get(tile)
+	if meleeFrom != null and Vector2i(meleeFrom) != tile:
+		assessment.queries += 1
+		var damage := enemy.atk if victim == null else 			resolver.calculateBasicDamage(enemy, victim, true, Vector2i(meleeFrom))
+		if damage > 0:
+			options.append({"enemy_id": enemyID, "value": damage,
+				"from": Vector2i(meleeFrom), "kind": "melee"})
 	return options
-
-
-## Generous geometric rejection. Returns false only when no arrangement of legal
-## movement and this ability's declared reach could span the gap. An ability
-## that declares no reach is never rejected, and says so on the assessment.
-static func _couldReach(enemy: Monster, spell: Spell, origin: Vector2i,
-		tile: Vector2i, assessment: DangerAssessment) -> bool:
-	if spell.range <= 0 and spell.radius <= 0 and spell.targetType != "self":
-		assessment.note(APPROX_UNBOUNDED_ABILITY)
-		return true
-	var span := spell.range + spell.radius
-	return HexGridScript.distance(origin, tile) <= span
 
 
 static func _spellDamageAt(resolver: CombatResolver, enemy: Monster,

@@ -67,7 +67,7 @@ func _playBattle() -> void:
 			waits += 1
 			continue
 
-		var proposal = SideDeliberationScript.new(controller.sim).run(64)
+		var proposal = controller.sim.beginSideDeliberation().run(64)
 		if proposal == null:
 			controller.sideCues._endButton._onPressed()
 			controller.sideCues._endButton._onPressed()

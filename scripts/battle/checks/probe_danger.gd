@@ -258,9 +258,11 @@ func _checkOccupancyFeasibility() -> void:
 
 
 func _checkSoundPruning() -> void:
-	## The cheap geometric rejection must never drop something legal. An ability
-	## that declares no reach at all is the case a careless bound gets wrong, so
-	## it is built here on purpose and must survive.
+	## Nothing may be dropped for being unfamiliar. Reach is asked of the
+	## authoritative resolvers rather than guessed from declared range, so an
+	## ability whose shape no danger code anticipated is included by
+	## construction. An ability declaring no range at all is the case a
+	## distance guess gets wrong, so one is built here and priced.
 	var simulator := _simulator(int(cases.get("seed", 1)))
 	if simulator == null:
 		return
@@ -285,7 +287,7 @@ func _checkSoundPruning() -> void:
 	oddSpell.heals = false
 	state.setMonsterAbilities(enemyID, [[oddSpell]], enemy.passives)
 	var context := DecisionContextScript.forSimulator(simulator)
-	var noted := false
+	var checked := 0
 	for defenderIDValue in state.getAliveMonsterIDs():
 		var defender: Monster = state.getMonster(int(defenderIDValue))
 		if defender.team == enemy.team:
@@ -296,9 +298,35 @@ func _checkSoundPruning() -> void:
 		_require(assessment.value == expected,
 			"an ability with no declared reach was mispriced at %s: %d against %d" %
 			[tile, assessment.value, expected])
-		if assessment.approximations.has(DangerQueryScript.APPROX_UNBOUNDED_ABILITY):
-			noted = true
-	_require(noted, "an ability with no declared reach was pruned without a note")
+		checked += 1
+	_require(checked > 0, "the unusual-ability check priced nothing")
+	## A resistance case: the ability that hits hardest on paper is not always
+	## the one that hits hardest here, so danger must price every way a unit
+	## could reach a tile rather than only the largest declared one.
+	var resisted := SpellScript.new({})
+	resisted.restoreRuntime(enemy.spellSets[0][0].serializeRuntime())
+	resisted.range = 6
+	resisted.bypass_los = true
+	resisted.heals = false
+	resisted.element = "fire"
+	resisted.damage = 40
+	resisted.damage_lines = [{"damage": 40, "element": "fire"}]
+	var plain := SpellScript.new({})
+	plain.restoreRuntime(resisted.serializeRuntime())
+	plain.element = "none"
+	plain.damage = 12
+	plain.damage_lines = [{"damage": 12, "element": "none"}]
+	state.setMonsterAbilities(enemyID, [[resisted, plain]], enemy.passives)
+	var resistContext := DecisionContextScript.forSimulator(simulator)
+	for defenderIDValue in state.getAliveMonsterIDs():
+		var defender: Monster = state.getMonster(int(defenderIDValue))
+		if defender.team == enemy.team:
+			continue
+		var tile: Vector2i = state.getMonsterPosition(int(defenderIDValue))
+		_require(DangerQueryScript.reply(resistContext, enemyID, tile).value
+			== _exhaustiveReply(resistContext, enemyID, tile),
+			"danger kept only the largest declared ability and mispriced %s" % tile)
+	resistContext.close()
 	context.close()
 
 

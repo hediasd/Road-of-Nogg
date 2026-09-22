@@ -15,6 +15,8 @@ extends RefCounted
 const LEGACY_SIDE := "legacy_side_v1"
 ## Uniform choice among legal actions. A fuzzer, never an opponent.
 const RANDOM_LEGAL := "random_legal_v1"
+## The reworked side policy: bands, labelled danger, one decision step.
+const TACTICAL_SIDE := "tactical_side_v1"
 
 const _POLICIES: Dictionary = {
 	LEGACY_SIDE: {
@@ -32,6 +34,42 @@ const _POLICIES: Dictionary = {
 		"kind": "uniform",
 		"summary": "Uniform draw over enumerated legal candidates, with waiting in the pool.",
 		"configuration": {"includes_wait": true},
+	},
+	TACTICAL_SIDE: {
+		"kind": "scored",
+		"summary": "One decision step over all ready actors: hit points as the single currency, terminal outcomes on their own tiers, survival gated on the danger bound, trades priced on the feasible continuation, and position valued by each unit's own engagement band.",
+		"configuration": {
+			"horizon": "one_decision_step",
+			"candidate_limit": 64,
+			## Hit points are the currency, so a weight of one means a point of
+			## risk trades one for one against a point of damage. Position is
+			## weighted above that because a band's value is what a unit earns
+			## there *every* turn, while the risk beside it is one turn's worth:
+			## at a weight of one a melee unit never closes, because standing
+			## next to somebody costs more than a single swing returns. Measured
+			## on the technical scenario at 30 rounds and no result for one and
+			## two, a decided battle at three with four survivors, and the same
+			## result one unit poorer at five.
+			"position_weight": 3,
+			"risk_weight": 1,
+			## The worst case is priced below the realistic one: a unit should
+			## weigh what the enemy can actually do more heavily than what it
+			## could do if every one of them turned on it at once.
+			"exposure_weight": 1,
+			## Breaks equal trades towards a commander without distorting play
+			## into a rush: smaller than any real damage difference.
+			"commander_preference": 1,
+			## Doing nothing is never better than doing something equally scored.
+			"idle_penalty": 1,
+			## A slice is a unit of work, not of candidate: enumerating one
+			## actor costs milliseconds while pre-scoring one candidate costs a
+			## fraction of one, and the first danger question about a tile sits
+			## between them. Sized so any single slice stays well inside a frame.
+			"prescore_per_slice": 32,
+			"price_per_slice": 4,
+			"shortlist_per_actor": 6,
+			"trace_alternatives": 5,
+		},
 	},
 }
 

@@ -23,6 +23,7 @@ sequencing; this reference remains useful after those cycle files are removed.
 | Actor choice | [PartyCommandDeliberation](../src/entity_ai/PartyCommandDeliberation.gd) sorts ready units by role/urgency and stable ID, then finishes after the first selected unit's deliberation |
 | Candidate construction | [CommandDeliberation](../src/entity_ai/CommandDeliberation.gd) limits destinations to ten and enumerates spells from the origin because magic is pre-move |
 | Evaluation | [BattleCommandEvaluator](../src/entity_ai/BattleCommandEvaluator.gd) scores candidates; brain subclasses supply role differences |
+| Side policy | [TacticalSidePolicy](../src/entity_ai/TacticalSidePolicy.gd) ranks every ready actor's commands over one decision step; [CommandUtility](../src/entity_ai/CommandUtility.gd) scores in hit points; [EngagementBand](../src/entity_ai/EngagementBand.gd) says where each unit wants to stand |
 | Danger | [DangerQuery](../src/entity_ai/DangerQuery.gd) answers a single reply, a conservative bound and a feasible continuation as three labelled things; [DangerAssessment](../src/entity_ai/DangerAssessment.gd) carries the label, contributors, cost and named blind spots |
 | Decision context and candidates | [DecisionContext](../src/entity_ai/DecisionContext.gd) shares revision-scoped queries; [LegalActionEnumerator](../src/entity_ai/LegalActionEnumerator.gd) produces complete legal [ActionCandidate](../src/entity_ai/ActionCandidate.gd) sets; [CandidateFilter](../src/entity_ai/CandidateFilter.gd) narrows them; [PolicyCatalog](../src/entity_ai/PolicyCatalog.gd) names who chose |
 | Geometry and movement | [HexGrid](../src/board/HexGrid.gd), [HexReachability](../src/algorithms/HexReachability.gd) over cost buckets, [AStarPathfinder](../src/algorithms/AStarPathfinder.gd) over a binary heap, [LineOfSight](../src/algorithms/LineOfSight.gd) over translated ray templates, and canonical resolver callbacks |
@@ -516,11 +517,86 @@ sizes a side policy actually asks, which is why there is no shared batch yet --
 not because batching is wrong, but because nothing has yet asked enough
 overlapping questions to pay for it. These are observations, not gates.
 
-**The shipped policy does not consume this yet.** `CommandDeliberation` sets an
-empty threat dictionary and skips the threat phase, so today's CPU runs with
-danger disabled; the contract is built and proven here, and the reworked policy
-is what wires it in. Changing the legacy path now would move the frozen
-decisions that exist precisely to hold it still.
+**The reworked policy is what consumes this.** `CommandDeliberation` sets an
+empty threat dictionary and skips its threat phase, so the legacy path still
+runs with danger disabled; that is deliberate, because moving it would move the
+frozen decisions that exist to hold it still.
+
+#### Current side policy
+
+[TacticalSidePolicy](../src/entity_ai/TacticalSidePolicy.gd) is what plays.
+`BattleSimulator.sidePolicyID` selects it and `beginSideDeliberation()` is the
+one way a side decision opens, so a run always knows what chose its moves; the
+legacy stream stays selectable by id as a comparator, and random legal play
+keeps its own path because a fuzzer's whole point is the uniform draw.
+
+Its **horizon is one decision step**. It picks the next command the simulator
+will resolve and values a position by what the acting unit could do from there
+afterwards. It never schedules an enemy turn: the reply enters only through
+`DangerQuery`, labelled as a single-enemy-round approximation. Things the
+horizon cannot see are listed in the class, not discovered later -- combinations
+needing two allies, effects that pay off after a duration, terrain that matters
+in two turns, and any opponent move other than a reply.
+
+[CommandUtility](../src/entity_ai/CommandUtility.gd) scores in one currency,
+hit points, with terminal outcomes on their own tiers far above it. It uses the
+two danger labels for the two jobs they exist for, and **which one gates
+survival was the difference between a game and a staring contest**: vetoing a
+destination on the *bound* -- everything the enemy side could throw -- made
+units refuse every engagement once wounded, and the technical scenario ran 30
+rounds to no result. Vetoing on the *feasible* continuation, and charging the
+bound's excess as a separate `exposure` term, gives a decided battle. Only
+*added* exposure is charged, so standing in danger is not itself a reason to
+act and retreating earns nothing.
+
+[EngagementBand](../src/entity_ai/EngagementBand.gd) is where a unit's preferred
+distance comes from, and it is read off the abilities the unit is carrying
+rather than typed in per role: melee at one for `atk`, each damaging castable
+spell across its own range band, best band wins and ties go to the longer one.
+A unit handed a new spell starts wanting a new distance with nobody editing a
+table. Two things about it were load-bearing:
+
+- **The value is not clamped at zero.** Clamping made everywhere past a few
+  hexes score the same nothing, so a unit that started far from the fight saw a
+  flat landscape and had no reason to walk in.
+- **Position is weighted at three, not one.** A band's value is what a unit
+  earns there every turn while the risk beside it is one turn's worth, so at a
+  weight of one a melee unit never closes -- standing next to somebody costs
+  more than one swing returns. Measured on the technical scenario: no result in
+  30 rounds at one and two, a decided battle at three, the same result one unit
+  poorer at five.
+
+Work is bounded in two passes. Everything except danger is scored for every
+candidate; only a shortlist of six per actor earns a danger question, which is
+cached by tile. **A slice is a unit of work, not a unit of candidate** --
+enumerating one actor costs milliseconds while pre-scoring one candidate costs a
+fraction of one, so spending a slice on each made a decision take dozens of
+frames on the presentation thread. One decision on the technical scenario
+enumerates 185 candidates, scores 24, and finishes in 16 slices and about 33 ms
+on this host.
+
+`CandidateFilter.dropIdleAttacks()` removes a swing at an empty tile. A basic
+attack damages the occupant of its target and nothing else, so aimed at nobody
+it is the Wait at that same destination spelled in a way **a player's own
+controls cannot express**, and a CPU should not play moves the person across the
+board could not. It is an equivalence, not a judgement about usefulness: spells
+whose centre catches nobody are deliberately kept, because an effect that reads
+the ground is a mechanic this game could gain. If a basic attack ever lands
+something without a target, that filter is wrong and must go.
+
+The policy is stateless and draws nothing from the battle's RNG. Candidates
+accumulate in a fixed order and rank once on a total key, so slice boundaries
+cannot change the answer, and a fresh instance is built after each resolution so
+later units see the board the earlier ones changed. `trace()` returns the chosen
+action's components, the runners-up, what was enumerated against what was
+scored, and the work spent; the probe checks the components sum to the score.
+
+Measured against the shipped policy on the technical cpu-versus-cpu scenario at
+two seeds, both sides running the same policy: legacy resolves in 7 rounds and
+38 decisions, the reworked policy in 14 rounds and 78 decisions, with a
+different side winning. **That is not evidence of strength.** Both finish, which
+is the property being checked here; which policy is better is what the later
+experiment items are for, and a two-seed self-play fixture cannot answer it.
 
 ### Determinism, persistence and rewind
 

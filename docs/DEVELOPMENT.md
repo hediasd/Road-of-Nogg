@@ -73,6 +73,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_swe
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter spatial_cost
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter candidates
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter danger
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter side_policy
 ```
 
 Active hex state and replay snapshots use version 8. Version 7 state can be

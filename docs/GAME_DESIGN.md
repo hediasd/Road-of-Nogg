@@ -167,6 +167,21 @@ CPU decisions and player input converge on the same validated
 command contract. A controller proposes a command; the simulator validates,
 executes, and records it.
 
+**Approved CPU character.** A unit takes a trade when what it deals is worth
+what the enemy can realistically answer with, so it will not spend half its
+health to land a single point of damage. It will not move somewhere a realistic
+reply would take it off the board, unless the action ends the battle or fells a
+commander. It aims for the distance its own abilities work at rather than
+charging blindly: a unit whose damage is a sword closes, one whose damage comes
+from range holds that range, and neither has that preference typed in per role.
+With two comparable options it takes the one that touches a commander, because
+felling one withdraws a party, but it does not abandon position to hunt them. A
+heal is worth casting only when it keeps somebody standing who would otherwise
+fall; a heal that changes nobody's survival loses to attacking. These are
+balance-facing choices, decided deliberately rather than falling out of weights;
+the tuning that implements them lives in
+[Nogg AI architecture](./AI_ARCHITECTURE.md).
+
 ## Current square baseline: actions
 
 - **Move:** Orthogonal grid pathfinding, limited by MOVE.

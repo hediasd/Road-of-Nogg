@@ -80,6 +80,41 @@ static func capWithAllowance(candidates: Array, limit: int,
 	return kept
 
 
+## Removes attacks that cannot touch anybody.
+##
+## A basic attack has exactly one rule: it damages the occupant of the target
+## tile. Aimed at an empty tile it therefore does nothing at all, which makes it
+## the same move as the Wait the enumerator emits at that same destination --
+## the same walk, the same spent turn, the same board afterwards. Keeping both
+## lets a policy pick the spelling a player's own controls cannot express: there
+## is no way to click "swing at nothing", so a CPU that chose it would be
+## playing a move the person across the board could not.
+##
+## This is an equivalence, **not** a judgement that the action looks useless.
+## Spells whose centre catches nobody are deliberately left alone: an effect
+## that reads the ground rather than the units standing on it is a mechanic this
+## game could gain, and a filter that had quietly dropped the whole class would
+## hide it. **If a basic attack ever gains an effect that lands without a
+## target, this filter is wrong and must go.**
+static func dropIdleAttacks(candidates: Array) -> Array[ActionCandidate]:
+	var waitDestinations: Dictionary = {}
+	for candidateValue in candidates:
+		var candidate: ActionCandidate = candidateValue
+		if candidate.action_class == CandidateScript.CLASS_WAIT:
+			waitDestinations[candidate.destination] = true
+	var kept: Array[ActionCandidate] = []
+	for candidateValue in candidates:
+		var candidate: ActionCandidate = candidateValue
+		if candidate.action_class != CandidateScript.CLASS_ATTACK:
+			kept.append(candidate)
+			continue
+		if candidate.command.target_id >= 0 or not waitDestinations.has(candidate.destination):
+			kept.append(candidate)
+			continue
+		continue
+	return kept
+
+
 ## The legacy destination budget, kept executable rather than described: the
 ## nearest destinations to an enemy, the origin always first. It is a policy
 ## choice about where to look, so it lives with the filters and is named, not

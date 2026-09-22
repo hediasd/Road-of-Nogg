@@ -356,7 +356,9 @@ CPU estimates; healing, ticks, and reflected damage do not call it.
 Legal actions are enumerated from these same resolvers, never restated in the
 AI: a rules change reaches the CPU without anyone copying it across. What is
 legal, what a policy narrows that to, and how it ranks what survives are three
-separate interfaces.
+separate interfaces. `BattleSimulator.beginSideDeliberation()` is the only way a
+CPU side decision opens, so which named policy is playing is always recorded
+rather than implied by whichever class a caller happened to construct.
 
 CPU actor selection, candidate pruning, role evaluation, spatial query use and
 interactive scheduling are documented in [Nogg AI architecture](./AI_ARCHITECTURE.md).

@@ -224,7 +224,7 @@ static func _runCpuSides(sim: BattleSimulator, maxRounds: int) -> Dictionary:
 		var deliberationUsec := 0
 		while sim.state.activeSideID != -1 and sim.state.battleOutcome == -1:
 			var started := Time.get_ticks_usec()
-			var proposal = SideDeliberationScript.new(sim).run(32)
+			var proposal = sim.beginSideDeliberation().run(32)
 			deliberationUsec += Time.get_ticks_usec() - started
 			if proposal == null:
 				var ended := sim.endSideTurn("cpu_no_proposal")

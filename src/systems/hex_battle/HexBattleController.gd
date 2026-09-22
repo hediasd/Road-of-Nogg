@@ -359,7 +359,7 @@ func _beginCpuMember(_monsterID: int) -> void:
 		return
 	if not playback.claim(HexBattlePlayback.OWNER_CPU):
 		return
-	_deliberation = SideDeliberationScript.new(sim)
+	_deliberation = sim.beginSideDeliberation()
 
 
 ## CPU work is sliced on the presentation thread so mutable canonical state is never read from a

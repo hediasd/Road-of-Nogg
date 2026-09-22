@@ -23,6 +23,9 @@ const BattleStateSerializerScript = preload("res://src/battle_sim/BattleStateSer
 const MonsterReferencesScript = preload("res://src/factories/MonsterReferences.gd")
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
 const PassiveSkillReferencesScript = preload("res://src/factories/PassiveSkillReferences.gd")
+const PolicyCatalogScript = preload("res://src/entity_ai/PolicyCatalog.gd")
+const SideDeliberationScript = preload("res://src/entity_ai/PartyCommandDeliberation.gd")
+const TacticalSidePolicyScript = preload("res://src/entity_ai/TacticalSidePolicy.gd")
 
 var state: BattleState
 var events: BattleEvents
@@ -35,6 +38,10 @@ var visualAdapter: IBattleVisualAdapter
 var brains: Dictionary = {}
 var initialStateSnapshot: Dictionary = {}
 var setupSnapshot: Dictionary = {}
+## Which named policy plays this battle's CPU sides. Every caller that opens a
+## side decision goes through beginSideDeliberation(), so a run always knows,
+## and can say, what chose its moves.
+var sidePolicyID: String = PolicyCatalogScript.TACTICAL_SIDE
 ## Operations survive a timeline restore; only the current rules state rewinds.
 var operationLedger: Array[Dictionary] = []
 ## Exactly one side-start state is retained, until the next side opens.
@@ -1005,6 +1012,30 @@ func applyDeliberatedTurn(monsterID: int, deliberation: CommandDeliberation) -> 
 		push_error("AI command rejected for monster %d: %s" % [monsterID, result.reason])
 		result = executeCommand(monsterID, BattleCommand.wait(), "cpu_fallback")
 	return result.acted
+
+
+## Opens one whole-side decision under the configured policy. Everything that
+## drives a CPU side -- the controller, the headless runners, the probes -- comes
+## through here, so switching policies is one field and not a search for every
+## place a deliberation was constructed.
+##
+## Random legal play keeps its own path. It is a fuzzer whose whole point is the
+## uniform draw that lives in the legacy deliberation, and scoring random picks
+## against each other would not produce random play.
+func beginSideDeliberation():
+	if _sidePlaysAtRandom():
+		return SideDeliberationScript.new(self)
+	if sidePolicyID == PolicyCatalogScript.LEGACY_SIDE:
+		return SideDeliberationScript.new(self)
+	return TacticalSidePolicyScript.new(self, sidePolicyID)
+
+
+func _sidePlaysAtRandom() -> bool:
+	for monsterID in eligibleSideUnitIDs():
+		var brain = brains.get(int(monsterID))
+		if brain != null and brain.has_method("playsAtRandom") and brain.playsAtRandom():
+			return true
+	return false
 
 
 func _sideLegalCommand(decision: BattleCommand) -> BattleCommand:

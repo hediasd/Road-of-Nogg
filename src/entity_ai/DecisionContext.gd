@@ -29,6 +29,7 @@ var _resolver: CombatResolver
 var _revision: Vector2i
 var _reachability: Dictionary = {}
 var _enemyPositions: Dictionary = {}
+var _strikeReach: Dictionary = {}
 var _closed: bool = false
 
 
@@ -99,6 +100,7 @@ func close() -> void:
 	_resolver = null
 	_reachability.clear()
 	_enemyPositions.clear()
+	_strikeReach.clear()
 
 
 ## Where this actor can stand, computed once per actor per revision. The origin
@@ -158,6 +160,67 @@ func enemyPositions(actorID: int) -> Array[Vector2i]:
 		positions.sort_custom(rowMajorLess)
 	_enemyPositions[actorID] = positions
 	return positions
+
+
+## Where one unit could strike, computed once and shared.
+##
+## A tile-by-tile danger question re-derives this every time it is asked, and a
+## side policy asks about dozens of tiles with the same handful of enemies --
+## which made re-deriving it the most expensive thing in a decision. The
+## **geometry** is cached here because it does not depend on who is standing on
+## the tile; the **damage** is not, because it does.
+##
+## `{"melee": {tile: from_cell}, "spells": {tile: {"set", "index", "from"}}}`.
+## Melee records a cell the unit could stand on to reach that tile. Spells are
+## recorded only from the unit's own cell, because magic is pre-move.
+func strikeReach(monsterID: int) -> Dictionary:
+	assert(isCurrent(), "A decision context cannot answer after its revision moved on.")
+	if _strikeReach.has(monsterID):
+		return _strikeReach[monsterID]
+	var monster: Monster = _state.getMonster(monsterID)
+	var reach := {"melee": {}, "spells": {}}
+	if monster == null or not monster.is_alive():
+		_strikeReach[monsterID] = reach
+		return reach
+	var origin: Vector2i = _state.getMonsterPosition(monsterID)
+
+	var melee: Dictionary = reach["melee"]
+	for destination: Vector2i in reachability(monsterID)["destinations"]:
+		for neighbour: Vector2i in HexGridScript.neighbours(destination):
+			if melee.has(neighbour):
+				continue
+			if not _resolver.canBasicAttackPositionFrom(monsterID, destination, neighbour):
+				continue
+			melee[neighbour] = destination
+
+	var spells: Dictionary = reach["spells"]
+	for setIndex in range(monster.spellSets.size()):
+		for spellIndex in range(monster.spellSets[setIndex].size()):
+			var spell: Spell = monster.spellSets[setIndex][spellIndex]
+			if spell.heals or not monster.can_cast(spell):
+				continue
+			for centerPos: Vector2i in _resolver.getSpellTargetPositionsFrom(
+					monsterID, setIndex, spellIndex, origin, true):
+				for affected: Vector2i in _resolver.getSpellAffectedPositionsFrom(
+						monsterID, setIndex, spellIndex, origin, centerPos, true):
+					## Every ability that reaches the tile is kept, not just the
+					## one with the largest declared damage: what a spell
+					## actually deals depends on the element and the unit
+					## standing there, so the hardest-hitting on paper is not
+					## always the hardest-hitting here. Recorded once per
+					## ability per tile, in ability order.
+					if not spells.has(affected):
+						spells[affected] = []
+					var ways: Array = spells[affected]
+					var seen := false
+					for way in ways:
+						if int(way["set"]) == setIndex and int(way["index"]) == spellIndex:
+							seen = true
+							break
+					if not seen:
+						ways.append({"set": setIndex, "index": spellIndex, "from": origin})
+	_strikeReach[monsterID] = reach
+	return reach
 
 
 func nearestEnemyDistance(actorID: int, from: Vector2i) -> int:

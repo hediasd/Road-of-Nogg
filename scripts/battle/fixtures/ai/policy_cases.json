@@ -1,0 +1,10 @@
+{
+  "scenario": "res://data/battle/scenarios/technical_hxb_contract_player_cpu.json",
+  "headless_scenario": "res://data/battle/scenarios/technical_hxb_contract_cpu_cpu.json",
+  "seeds": [
+    4242,
+    99173
+  ],
+  "max_rounds": 30,
+  "note": "Inputs for the side policy probe. Expectations are properties of the decision, not stored outputs: the same decision under every slice size, unchanged by hidden randomness, explained by components that sum to its score, and a battle that finishes."
+}
