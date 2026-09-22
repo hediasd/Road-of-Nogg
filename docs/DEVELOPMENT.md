@@ -144,6 +144,28 @@ worker and three workers produce byte-identical deterministic results, and a run
 interrupted after two of four matches and resumed reproduces the uninterrupted
 bytes exactly.
 
+Analysis reads the merged rows and writes three files beside them:
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script res://scripts/battle/analyze_policy_tournament.gd -- --manifest=res://scripts/battle/fixtures/ai/evaluation_manifest.json --results=res://battle_output/tournaments/smoke
+```
+
+`analysis.json` for machines, `matches.csv` for a spreadsheet, `report.md` for a
+person. The report is built to be hard to over-read. **The sample unit is the
+position, not the match:** one scenario at one seed played with the sides
+swapped is a single paired comparison, so eight matches over four positions are
+four units and not eight. Positions the policies split -- each winning from side
+one -- carry no information about which is better and are excluded from the
+tally rather than counted as halves. Below the manifest's declared minimum of
+decisive positions no interval is printed at all, because a range that wide gets
+read as an estimate anyway.
+
+Round-cap finishes stay out of the strength tally; they measure pacing and the
+cap. Infrastructure failures are counted against every scheduled match, so a run
+that lost a third of its matches cannot look clean over the survivors. Every
+report lists what its data cannot support, and names representative losses with
+the command to reproduce them.
+
 Two runners under `scripts/battle/`. Both write to `battle_output/` at the
 project root by default: single battles under `battle_output/battles/`,
 championships under `battle_output/championships/`. See the next section.

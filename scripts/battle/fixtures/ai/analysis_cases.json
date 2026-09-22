@@ -1,0 +1,73 @@
+{
+  "note": "Paired-cluster cases small enough to check on paper. Each says in words what it is testing, so a disagreement names which reading was wrong.",
+  "clusters": [
+    {
+      "why": "a policy that wins from both seats won the position",
+      "outcome": "policy_a",
+      "matches": [
+        {
+          "swapped": 0,
+          "winner": "tactical_side_v1"
+        },
+        {
+          "swapped": 1,
+          "winner": "tactical_side_v1"
+        }
+      ]
+    },
+    {
+      "why": "each policy winning from side one is the seat, not the policy",
+      "outcome": "split",
+      "matches": [
+        {
+          "swapped": 0,
+          "winner": "tactical_side_v1"
+        },
+        {
+          "swapped": 1,
+          "winner": "legacy_side_v1"
+        }
+      ]
+    },
+    {
+      "why": "two battles nobody won is a drawn position",
+      "outcome": "drawn",
+      "matches": [
+        {
+          "swapped": 0,
+          "winner": "",
+          "end_reason": "draw"
+        },
+        {
+          "swapped": 1,
+          "winner": "",
+          "end_reason": "draw"
+        }
+      ]
+    },
+    {
+      "why": "the other policy winning both seats takes the position",
+      "outcome": "policy_b",
+      "matches": [
+        {
+          "swapped": 0,
+          "winner": "legacy_side_v1"
+        },
+        {
+          "swapped": 1,
+          "winner": "legacy_side_v1"
+        }
+      ]
+    },
+    {
+      "why": "one side never played, so the comparison is unfinished",
+      "outcome": "incomplete",
+      "matches": [
+        {
+          "swapped": 0,
+          "winner": "tactical_side_v1"
+        }
+      ]
+    }
+  ]
+}

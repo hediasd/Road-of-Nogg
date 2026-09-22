@@ -1,0 +1,37 @@
+{
+  "manifest_id": "evaluation_v1",
+  "note": "Budgets and acceptance criteria declared before any result is read. Reading the held-out scenarios and then tuning spends this holdout: the next claim needs a new manifest and a new one.",
+  "scenarios": [
+    "res://data/battle/scenarios/technical_hxb_contract_cpu_cpu.json",
+    "res://data/battle/scenarios/proving_ground_cpu_cpu.json",
+    "res://data/battle/scenarios/hexmap_cpu_cpu.json"
+  ],
+  "seeds": [
+    4242,
+    99173,
+    7,
+    31337,
+    1234,
+    8675
+  ],
+  "policy_a": "tactical_side_v1",
+  "policy_b": "legacy_side_v1",
+  "side_assignment": "both",
+  "max_rounds": 30,
+  "max_workers": 3,
+  "worker_timeout_seconds": 900,
+  "tuning_scenarios": [
+    "res://data/battle/scenarios/technical_hxb_contract_cpu_cpu.json",
+    "res://data/battle/scenarios/proving_ground_cpu_cpu.json"
+  ],
+  "holdout_scenarios": [
+    "res://data/battle/scenarios/hexmap_cpu_cpu.json"
+  ],
+  "acceptance": {
+    "minimum_decisive_positions": 8,
+    "max_infrastructure_failure_rate": 0.05,
+    "max_round_cap_share": 0.25,
+    "non_regression": "No increase in illegal commands or invariant violations against the legacy comparator.",
+    "strength_claim_requires": "An interval on decisive positions that excludes one half."
+  }
+}

@@ -646,6 +646,45 @@ silently dropping effects to meet a search budget changes the rules.
 
 ## Later experiments and analysis
 
+### Current analysis
+
+[analyze_policy_tournament.gd](../scripts/battle/analyze_policy_tournament.gd)
+turns merged rows into `analysis.json`, `matches.csv` and `report.md`, over
+[PairedOutcomes](../scripts/battle/analysis/PairedOutcomes.gd) and
+[Aggregates](../scripts/battle/analysis/Aggregates.gd). `analyze()` is pure, so
+the probe checks it against cases small enough to work out on paper.
+
+**The sample unit is the position, not the match.** One scenario at one seed
+played with the sides swapped is a single paired comparison run twice to remove
+the advantage of the better seat. Reporting eight such matches as eight samples
+overstates the evidence by exactly the factor that would mislead somebody. A
+position the policies split -- each winning from side one -- says the seat
+decided it, not the policy, and is excluded from the tally rather than counted
+as a half. A position with a crashed or killed half is **incomplete**, not
+scored from the survivor: that half is precisely the one that would remain if
+failures correlated with hard positions. Two rows for one match id are a
+reproduction check and are counted once.
+
+Below the manifest's declared minimum of decisive positions, no interval is
+printed at all. A Wilson interval is used above it, because the textbook normal
+approximation produces impossible bounds at the counts this project will
+actually run.
+
+Round-cap finishes are kept out of the strength tally: they measure pacing and
+the cap, and pooling them would report game balance as policy quality.
+Infrastructure failures are counted against every scheduled match, not the
+survivors. Every report carries a list of what its data cannot support --
+including that a shared seed does not give two policies identical random events,
+because they consume the stream differently the moment their decisions diverge.
+Held-out scenarios are reported separately and last, with the note that reading
+them and then tuning spends the holdout.
+
+On the smoke manifest the machinery refuses to over-claim, which is the
+behaviour worth having: four matches, two positions, **zero decisive** -- each
+policy won from side one in both -- so the report states no conclusion and says
+why. The first-mover advantage on that scenario dominates the policy difference,
+which is itself a finding, and one a pooled win rate would have hidden.
+
 ### Current experiment runner
 
 [run_policy_tournament.ps1](../scripts/battle/run_policy_tournament.ps1)

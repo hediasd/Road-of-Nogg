@@ -120,6 +120,12 @@ func _playMatch(manifest: TournamentManifest, matchRow: Dictionary,
 
 	var decisions := 0
 	var illegal := ""
+	## Work counts are deterministic and belong in the row; the microseconds
+	## beside them are not, and belong in telemetry. Mixing the two would make
+	## every run of the same experiment compare unequal.
+	var slices := 0
+	var candidates := 0
+	var decisionUsec: Array[int] = []
 	while simulator.state.battleOutcome == -1 \
 			and simulator.state.roundCount < manifest.max_rounds:
 		if simulator.state.activeSideID == -1:
@@ -129,7 +135,12 @@ func _playMatch(manifest: TournamentManifest, matchRow: Dictionary,
 		## which side is never ambiguous and never half-applied.
 		simulator.sidePolicyID = str(matchRow["side_one_policy"]) \
 			if simulator.state.activeSideID == 1 else str(matchRow["side_two_policy"])
-		var proposal = simulator.beginSideDeliberation().run(64)
+		var deliberation = simulator.beginSideDeliberation()
+		var decisionStarted := Time.get_ticks_usec()
+		var proposal = deliberation.run(64)
+		decisionUsec.append(Time.get_ticks_usec() - decisionStarted)
+		slices += int(deliberation.workSliceCount())
+		candidates += int(deliberation.candidateCount())
 		if proposal == null:
 			simulator.endSideTurn("no_proposal")
 			continue
@@ -167,7 +178,12 @@ func _playMatch(manifest: TournamentManifest, matchRow: Dictionary,
 	## Which policy won, rather than which side, so a swapped assignment can be
 	## pooled with its pair without anyone having to remember the mapping.
 	row["winning_policy"] = _winningPolicy(matchRow, simulator.state.battleOutcome)
-	row["telemetry"] = _telemetry(started)
+	row["work"] = {
+		"deliberations": decisionUsec.size(),
+		"slices": slices,
+		"candidates_enumerated": candidates,
+	}
+	row["telemetry"] = _telemetry(started, decisionUsec)
 	return row
 
 
@@ -233,11 +249,24 @@ static func _attemptNumber(rows: Array, matchIdentifier: String) -> int:
 	return attempts
 
 
-static func _telemetry(startedUsec: int) -> Dictionary:
+static func _telemetry(startedUsec: int,
+		decisionUsec: Array[int] = [] as Array[int]) -> Dictionary:
+	var sorted := decisionUsec.duplicate()
+	sorted.sort()
 	return {
 		"elapsed_usec": Time.get_ticks_usec() - startedUsec,
 		"host_os": OS.get_name(),
+		"decision_usec_p50": _percentile(sorted, 0.50),
+		"decision_usec_p95": _percentile(sorted, 0.95),
+		"decision_usec_max": 0 if sorted.is_empty() else int(sorted[sorted.size() - 1]),
 	}
+
+
+static func _percentile(sorted: Array, fraction: float) -> int:
+	if sorted.is_empty():
+		return 0
+	var index := int(floor(fraction * float(sorted.size() - 1)))
+	return int(sorted[clampi(index, 0, sorted.size() - 1)])
 
 
 static func _parseFlags(arguments: PackedStringArray) -> Dictionary:
