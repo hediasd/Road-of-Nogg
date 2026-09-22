@@ -1,0 +1,25 @@
+{
+  "manifest_id": "smoke",
+  "scenarios": [
+    "res://data/battle/scenarios/technical_hxb_contract_cpu_cpu.json"
+  ],
+  "seeds": [
+    4242,
+    99173
+  ],
+  "policy_a": "tactical_side_v1",
+  "policy_b": "legacy_side_v1",
+  "side_assignment": "both",
+  "max_rounds": 12,
+  "max_workers": 2,
+  "worker_timeout_seconds": 300,
+  "tuning_scenarios": [
+    "res://data/battle/scenarios/technical_hxb_contract_cpu_cpu.json"
+  ],
+  "holdout_scenarios": [],
+  "acceptance": {
+    "note": "Declared before any result is read. The analysis item judges these; the runner only carries them.",
+    "min_matches": 4,
+    "max_infrastructure_failure_rate": 0.0
+  }
+}

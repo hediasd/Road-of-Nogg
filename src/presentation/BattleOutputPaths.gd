@@ -25,6 +25,8 @@ const EXPORT_ROOT := "user://battle_output"
 
 const BATTLES := "battles"
 const CHAMPIONSHIPS := "championships"
+## Declared policy experiments: one directory per run, shards and logs inside.
+const TOURNAMENTS := "tournaments"
 const DEMO := "demo"
 const PLAYED := "played"
 

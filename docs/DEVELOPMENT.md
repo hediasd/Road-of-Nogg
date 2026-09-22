@@ -108,6 +108,42 @@ by class. It also replays the frozen decisions of the shipped side policy from
 behaviour moved.** If that was deliberate, regenerate the fixture in the same
 commit and say why; if it was not, it is the finding.
 
+### Policy experiments
+
+A declared experiment runs from a manifest on independent process workers:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/battle/run_policy_tournament.ps1 -Manifest scripts/battle/fixtures/ai/tournament_smoke.json -Output battle_output/tournaments/smoke
+```
+
+Add `-Resume` to finish an interrupted run, `-Workers <n>` to override the
+manifest's worker count and `-TimeoutSeconds <n>` its watchdog. Output lands in
+the given directory: one `shard_NN.jsonl` per worker, merged into
+`results.jsonl` in canonical match order, with `summary.json` beside it and
+worker logs under `logs/`.
+
+The manifest names the scenarios, seeds, both policies and the side assignment,
+and declares budgets and acceptance criteria **before** any result exists. An
+unknown policy id is refused rather than defaulted. Each row carries the
+manifest identity and a hash of the simulation and content that produced it, so
+an experiment launched from a tree somebody is editing cannot silently mix two
+programs.
+
+Three distinctions the runner keeps, because collapsing any of them biases a
+win rate: a **match id** names work and an **attempt id** names one try at it,
+so a resume neither loses a retried match nor counts it twice; **timing and host
+data** live in `telemetry` outside the deterministic result bytes, so a slow
+machine cannot make a run look irreproducible; and an **infrastructure failure**
+-- a crash or a watchdog kill -- is recorded as itself and stays visible after a
+successful retry, never filed as a loss.
+
+A worker killed mid-write leaves an unterminated final line. That line is
+dropped on read and the shard is rewritten before anything is appended, because
+appending to it would weld the next row onto the broken one. Verified: one
+worker and three workers produce byte-identical deterministic results, and a run
+interrupted after two of four matches and resumed reproduces the uninterrupted
+bytes exactly.
+
 Two runners under `scripts/battle/`. Both write to `battle_output/` at the
 project root by default: single battles under `battle_output/battles/`,
 championships under `battle_output/championships/`. See the next section.

@@ -646,6 +646,55 @@ silently dropping effects to meet a search budget changes the rules.
 
 ## Later experiments and analysis
 
+### Current experiment runner
+
+[run_policy_tournament.ps1](../scripts/battle/run_policy_tournament.ps1)
+supervises, [run_policy_tournament.gd](../scripts/battle/run_policy_tournament.gd)
+plays one shard or merges them, and the helpers under
+[scripts/battle/tournament/](../scripts/battle/tournament/) hold the parts worth
+testing on their own:
+[TournamentManifest](../scripts/battle/tournament/TournamentManifest.gd) refuses
+an unknown policy id rather than defaulting it,
+[MatchPlan](../scripts/battle/tournament/MatchPlan.gd) names matches the same way
+on every machine, [ResultShard](../scripts/battle/tournament/ResultShard.gd)
+recovers and merges, and
+[BuildIdentity](../scripts/battle/tournament/BuildIdentity.gd) hashes what
+actually ran.
+
+Three distinctions carry the correctness of a win rate:
+
+- **A match id names work; an attempt id names one try at it.** A resume skips
+  matches with a successful attempt and retries the rest, so the matches that
+  were hardest to finish are neither lost nor counted twice -- and those are
+  never a random sample of the matches being measured.
+- **Deterministic bytes and telemetry live apart.** Elapsed time and host go in
+  `telemetry`, outside what two runs are compared on, so a slow machine cannot
+  make an experiment look irreproducible.
+- **An infrastructure failure is not a result.** A crash or a watchdog kill is
+  recorded as itself, stays visible after a successful retry, and is never
+  filed as a loss. A watchdog that could turn a hang into a defeat would make
+  the slowest policy look like the worst one.
+
+Workers are separate processes because that is what lets one hang be killed
+without touching the others' finished work. A killed process leaves an
+unterminated final line; it is dropped on read, and **the shard is rewritten
+before anything is appended**, because appending to it welds the next row onto
+the broken one and loses both -- which surfaces much later as a match missing
+from a run nobody thought had failed. That was a real defect, found by
+interrupting a run rather than by reading the code.
+
+Verified on the smoke manifest: one worker and three produce byte-identical
+deterministic results, and a run interrupted after two of four matches and
+resumed reproduces the uninterrupted bytes exactly, with no duplicate and
+nothing missing.
+
+The build hash covers the simulator, algorithms, AI, board, entities, factories
+and battle content. Presentation is deliberately excluded: a headless match
+draws nothing, so a change there cannot move a result, and including it would
+make every visual commit look like a new build. It is identity, not integrity --
+it says whether two runs match, not that nobody tampered with a file.
+
+
 Tournament tooling follows the AI foundations. Early work uses narrow local
 fixtures and counters; it does not repair or depend on the placeholder runner.
 
