@@ -52,6 +52,11 @@ var _preScored: Array[Dictionary] = []
 var _shortlist: Array[Dictionary] = []
 var _priceCursor: int = 0
 var _scored: Array[Dictionary] = []
+## Why candidates were dropped. A trace that shows only what was considered
+## cannot answer the question people actually ask, which is why the obvious move
+## was not taken.
+var _rejected: Array[Dictionary] = []
+var _droppedByFilters: int = 0
 var _candidateCount: int = 0
 var _workSlices: int = 0
 var _stale: bool = false
@@ -113,6 +118,15 @@ func trace() -> Dictionary:
 		"alternatives": alternatives,
 		"candidates_enumerated": _candidateCount,
 		"candidates_scored": _scored.size(),
+		## Pruning, in the three places it happens: duplicates and idle attacks
+		## removed before scoring, candidates that never earned a danger
+		## question, and destinations refused as lethal.
+		"pruned": {
+			"dropped_by_filters": _droppedByFilters,
+			"not_shortlisted": maxi(0, _preScored.size() - _shortlist.size()),
+			"rejected_when_priced": _rejected.size(),
+			"rejections": _rejected,
+		},
 		"work_slices": _workSlices,
 	}
 
@@ -175,8 +189,10 @@ func _stepEnumerate() -> void:
 	## stopped being considered and units walked towards the top-left of the map
 	## instead of towards the fight. Narrowing happens after the cheap pass, on
 	## the shortlist, where it can rank.
-	_pending.append_array(FilterScript.dropIdleAttacks(
-		FilterScript.collapseEquivalent(candidates)))
+	var narrowed := FilterScript.dropIdleAttacks(
+		FilterScript.collapseEquivalent(candidates))
+	_droppedByFilters += candidates.size() - narrowed.size()
+	_pending.append_array(narrowed)
 
 
 ## The cheap pass, in batches: everything except what the enemy could do back.
@@ -234,6 +250,8 @@ func _stepPrice() -> void:
 			_configuration, _dangerCache, trace)
 		if str(priced.get("rejected", "")).is_empty():
 			_scored.append(priced)
+		else:
+			_rejected.append(_readableTrace(priced))
 
 
 func _finish() -> void:

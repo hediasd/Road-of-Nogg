@@ -142,6 +142,21 @@ func _checkTraceAddsUp() -> void:
 		"the policy did not declare its horizon")
 	_require(int(trace["candidates_enumerated"]) >= int(trace["candidates_scored"]),
 		"more candidates were scored than enumerated")
+	## A trace that shows only what was considered cannot answer the question
+	## people actually ask, which is why the obvious move was not taken.
+	var pruned: Dictionary = trace["pruned"]
+	_require(pruned.has("dropped_by_filters") and pruned.has("not_shortlisted")
+		and pruned.has("rejected_when_priced"),
+		"the trace did not say where candidates were pruned")
+	_require(int(pruned["dropped_by_filters"]) > 0,
+		"no candidate was reported as filtered, though idle attacks exist here")
+	_require(int(trace["candidates_scored"]) + int(pruned["not_shortlisted"])
+		+ int(pruned["rejected_when_priced"]) + int(pruned["dropped_by_filters"])
+		<= int(trace["candidates_enumerated"]),
+		"the pruning counts do not fit inside what was enumerated")
+	for rejection in pruned["rejections"]:
+		_require(not str(rejection.get("rejected", "")).is_empty(),
+			"a rejected candidate was listed without a reason")
 	print("AI_SIDE_POLICY trace enumerated=%d scored=%d slices=%d" %
 		[int(trace["candidates_enumerated"]), int(trace["candidates_scored"]),
 		int(trace["work_slices"])])

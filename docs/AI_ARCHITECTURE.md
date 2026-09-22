@@ -611,7 +611,11 @@ accumulate in a fixed order and rank once on a total key, so slice boundaries
 cannot change the answer, and a fresh instance is built after each resolution so
 later units see the board the earlier ones changed. `trace()` returns the chosen
 action's components, the runners-up, what was enumerated against what was
-scored, and the work spent; the probe checks the components sum to the score.
+scored, the work spent, and where candidates were pruned -- dropped by filters,
+never shortlisted, or refused as lethal when priced, with each rejection's
+reason. A trace that shows only what was considered cannot answer the question
+people actually ask, which is why the obvious move was not taken. The probe
+checks the components sum to the score.
 
 Measured against the shipped policy on the technical cpu-versus-cpu scenario at
 two seeds, both sides running the same policy: legacy resolves in 7 rounds and
@@ -701,11 +705,18 @@ because they consume the stream differently the moment their decisions diverge.
 Held-out scenarios are reported separately and last, with the note that reading
 them and then tuning spends the holdout.
 
-On the smoke manifest the machinery refuses to over-claim, which is the
-behaviour worth having: four matches, two positions, **zero decisive** -- each
-policy won from side one in both -- so the report states no conclusion and says
-why. The first-mover advantage on that scenario dominates the policy difference,
-which is itself a finding, and one a pooled win rate would have hidden.
+The declared evaluation experiment -- three scenarios, six seeds, both side
+assignments, 36 matches, no infrastructure failures and no round caps -- came
+back with **eighteen decided positions and zero decisive ones**, because side one
+won every single match. The report states no conclusion and says why.
+
+That is the result worth having from this machinery, and a pooled win rate would
+have buried it: it would have read 50 percent and looked like two evenly matched
+policies, when what actually happened is that neither policy mattered. These
+boards are decided by who moves first, so no policy comparison can be run on
+them until that is addressed; the backlog carries it. **Nothing in this cycle
+establishes that the reworked policy is stronger than the legacy one**, and the
+experiment that could has not yet been possible to run.
 
 ### Current experiment runner
 

@@ -135,6 +135,22 @@ the proven v2 live-update path and verify an interactive slider drag at a fixed
 seed and time. Keep the debug-only effect's production telegraph decision out
 of this bug fix.
 
+### Give CPU-versus-CPU scenarios a fair second seat
+
+Across the declared evaluation experiment -- three scenarios, six seeds, both
+side assignments, 36 matches -- **side one won every single match**. Every
+position split, so the run produced eighteen decided positions and zero decisive
+ones, and could say nothing at all about which policy plays better. Whoever
+moves first wins these boards.
+
+That is a scenario and turn-order question, not an AI one, and it blocks any
+future policy comparison on these maps: a league run here measures the seat.
+Worth establishing whether the advantage is starting positions, the side order
+itself, or a first-strike threshold in the combat numbers, and then either
+balancing the scenarios or adding ones that do not resolve on move one.
+Acceptance: a scenario set where the same policy on both sides does not win by
+seat, so a paired comparison can produce decisive positions.
+
 ### Improve battle input access
 
 Validate keyboard and gamepad navigation, focus indicators, and all six
