@@ -98,6 +98,12 @@ static func applyMapToState(map: Map, state: BattleState) -> void:
 			else:
 				state.terrainBoard.set_at(BattleState.TERRAIN_CLEAR, pos)
 			state.heightBoard.set_at(int(map.heights[y][x]), pos)
+	## These writes reach the layers directly rather than through the state's own
+	## setters, because applying a whole map one cell at a time through them would
+	## count thousands of mutations for one setup. The revision still has to move
+	## once, or a decision context built before a map was applied would believe it
+	## was still looking at the same board.
+	state.markMutation()
 
 
 static func _flatHeights(size: Vector2i) -> Array:

@@ -71,6 +71,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_swe
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter rewind
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter replay
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter spatial_cost
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter candidates
 ```
 
 Active hex state and replay snapshots use version 8. Version 7 state can be
@@ -94,6 +95,16 @@ workload it measured; those numbers are observations of the host that ran them,
 never pass conditions. Line-of-sight rules are asserted by `-Filter spatial`
 against hand-derived cases in `scripts/hex_battle/fixtures/spatial/los_golden.json`
 and a second corner-walking oracle, not against captured output.
+
+The candidates probe checks the separated decision stream: complete legal
+enumeration against an independent cell-by-cell sweep of the resolvers, one
+shared context that stops answering when the board moves or the timeline
+branches, collapse that merges only indistinguishable candidates, a cap that
+cannot starve an action class, unknown policy ids refused, and sampling coverage
+by class. It also replays the frozen decisions of the shipped side policy from
+`scripts/battle/fixtures/ai/legacy_decisions.json`. **A failure there means CPU
+behaviour moved.** If that was deliberate, regenerate the fixture in the same
+commit and say why; if it was not, it is the finding.
 
 Two runners under `scripts/battle/`. Both write to `battle_output/` at the
 project root by default: single battles under `battle_output/battles/`,

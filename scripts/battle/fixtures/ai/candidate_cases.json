@@ -1,0 +1,8 @@
+{
+  "scenario": "res://data/battle/scenarios/technical_hxb_contract_player_cpu.json",
+  "seed": 4242,
+  "cap_limit": 6,
+  "sample_seed": 7,
+  "sample_count": 400,
+  "note": "Inputs for the candidate probe. The legal action set it checks is derived from the simulator, not stored here."
+}

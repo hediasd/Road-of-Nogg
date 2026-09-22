@@ -1,0 +1,114 @@
+{
+  "decisions": [
+    {
+      "decision": {
+        "actor_id": 102,
+        "candidate_count": 20,
+        "command": {
+          "action": "spell",
+          "move_path": [],
+          "order": "move_first",
+          "spell_index": 1,
+          "spell_set_index": 1,
+          "target_id": -1,
+          "target_pos": {
+            "x": 1,
+            "y": 2
+          }
+        },
+        "eligible": [
+          102,
+          101,
+          103,
+          100
+        ],
+        "policy": "legacy_side_v1",
+        "score": 1120
+      },
+      "seed": 4242
+    },
+    {
+      "decision": {
+        "actor_id": 102,
+        "candidate_count": 20,
+        "command": {
+          "action": "spell",
+          "move_path": [],
+          "order": "move_first",
+          "spell_index": 1,
+          "spell_set_index": 1,
+          "target_id": -1,
+          "target_pos": {
+            "x": 1,
+            "y": 2
+          }
+        },
+        "eligible": [
+          102,
+          101,
+          103,
+          100
+        ],
+        "policy": "legacy_side_v1",
+        "score": 1120
+      },
+      "seed": 99173
+    },
+    {
+      "decision": {
+        "actor_id": 102,
+        "candidate_count": 20,
+        "command": {
+          "action": "spell",
+          "move_path": [],
+          "order": "move_first",
+          "spell_index": 1,
+          "spell_set_index": 1,
+          "target_id": -1,
+          "target_pos": {
+            "x": 1,
+            "y": 2
+          }
+        },
+        "eligible": [
+          102,
+          101,
+          103,
+          100
+        ],
+        "policy": "legacy_side_v1",
+        "score": 1120
+      },
+      "seed": 7
+    },
+    {
+      "decision": {
+        "actor_id": 102,
+        "candidate_count": 20,
+        "command": {
+          "action": "spell",
+          "move_path": [],
+          "order": "move_first",
+          "spell_index": 1,
+          "spell_set_index": 1,
+          "target_id": -1,
+          "target_pos": {
+            "x": 1,
+            "y": 2
+          }
+        },
+        "eligible": [
+          102,
+          101,
+          103,
+          100
+        ],
+        "policy": "legacy_side_v1",
+        "score": 1120
+      },
+      "seed": 31337
+    }
+  ],
+  "note": "Frozen decisions of the shipped side policy. Regenerate only with a deliberate behaviour change, and say so in the commit.",
+  "policy_fingerprint": "legacy_side_v1:{\"max_side_destinations\":10,\"weights\":{\"damage\":100,\"distance\":1,\"threat\":2,\"utility\":100,\"wait_penalty\":5}}"
+}

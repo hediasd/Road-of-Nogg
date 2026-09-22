@@ -353,6 +353,11 @@ but its enumeration order is only deterministic, not symmetric. `DirectDamageRul
 110/100/90-percent elevation arithmetic used by real attacks, spells, and pure
 CPU estimates; healing, ticks, and reflected damage do not call it.
 
+Legal actions are enumerated from these same resolvers, never restated in the
+AI: a rules change reaches the CPU without anyone copying it across. What is
+legal, what a policy narrows that to, and how it ranks what survives are three
+separate interfaces.
+
 CPU actor selection, candidate pruning, role evaluation, spatial query use and
 interactive scheduling are documented in [Nogg AI architecture](./AI_ARCHITECTURE.md).
 That reference separates current behavior from the intended rework contracts.

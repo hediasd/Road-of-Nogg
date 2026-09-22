@@ -23,6 +23,7 @@ sequencing; this reference remains useful after those cycle files are removed.
 | Actor choice | [PartyCommandDeliberation](../src/entity_ai/PartyCommandDeliberation.gd) sorts ready units by role/urgency and stable ID, then finishes after the first selected unit's deliberation |
 | Candidate construction | [CommandDeliberation](../src/entity_ai/CommandDeliberation.gd) limits destinations to ten and enumerates spells from the origin because magic is pre-move |
 | Evaluation | [BattleCommandEvaluator](../src/entity_ai/BattleCommandEvaluator.gd) scores candidates; brain subclasses supply role differences |
+| Decision context and candidates | [DecisionContext](../src/entity_ai/DecisionContext.gd) shares revision-scoped queries; [LegalActionEnumerator](../src/entity_ai/LegalActionEnumerator.gd) produces complete legal [ActionCandidate](../src/entity_ai/ActionCandidate.gd) sets; [CandidateFilter](../src/entity_ai/CandidateFilter.gd) narrows them; [PolicyCatalog](../src/entity_ai/PolicyCatalog.gd) names who chose |
 | Geometry and movement | [HexGrid](../src/board/HexGrid.gd), [HexReachability](../src/algorithms/HexReachability.gd) over cost buckets, [AStarPathfinder](../src/algorithms/AStarPathfinder.gd) over a binary heap, [LineOfSight](../src/algorithms/LineOfSight.gd) over translated ray templates, and canonical resolver callbacks |
 | Interactive scheduling | [HexBattleController](../src/systems/hex_battle/HexBattleController.gd) advances four deterministic inner slices per rendered frame, then applies a completed proposal on the main thread |
 | Headless scheduling | [run_battle](../scripts/battle/run_battle.gd) completes the same planner synchronously |
@@ -270,6 +271,74 @@ Preserve a namespaced executable compatibility strategy for local regression
 and later comparisons. It retains the old actor/destination/deduplication choices.
 The unrestricted candidate interface does not promise old policy decisions.
 Random fuzzing names its sampling distribution and reports action-class coverage.
+
+#### Current candidate implementation
+
+[DecisionContext](../src/entity_ai/DecisionContext.gd) is the one read-only view
+a decision works from. It computes an actor's reachable set once and shares it
+across every ready actor, holds the memoizing resolver for exactly its own
+lifetime, and refuses to answer once it is no longer current. Its key is the
+cheap pair of timeline generation and mutation revision; it also watches whether
+the simulator's state **object** was replaced, because `restoreSideTurn()` swaps
+in a restored state rather than editing the old one, and a context holding only
+the old object would keep answering confidently about an abandoned branch.
+`debugFingerprint()` is the expensive full-actor token, used by the probe to
+show that the cheap key moves whenever the supported mutation API is used. That
+equivalence holds only for mutations that go through a `BattleState` method:
+writing a `Monster`'s fields directly still bypasses it, and `MapFactory` now
+marks one mutation after applying a map, because it writes the terrain and
+height layers directly for speed.
+
+[LegalActionEnumerator](../src/entity_ai/LegalActionEnumerator.gd) answers what
+is legal and nothing else. It asks the resolvers rather than restating their
+rules, and emits four classes: Wait at every reachable destination, an attack per
+legal target position, and a spell per castable centre, split by whether the
+centre catches any unit. Spells are enumerated at the origin alone because magic
+is pre-move -- `BattleSimulator._sideLegalCommand()` turns a move-then-cast into
+a move and a Wait, so a cast from a walked-to tile is not a legal action to
+begin with. `classCoverage()` counts a candidate set by class, so a sampler that
+never casts anything is visible as a gap rather than as a number nobody read.
+
+[ActionCandidate](../src/entity_ai/ActionCandidate.gd) carries the actor, the
+canonical command, the destination and the walked path, and two separate keys.
+`tie_key` totally orders one actor's candidates so selection among equals is
+machine-independent. `equivalence_key` is the finite action abstraction: two
+candidates are the same move when the action class, destination, ability and set
+of affected units all match. **The route is deliberately excluded, and that is
+an obligation, not a simplification.** The first rule that reads the route -- a
+tile that triggers on entry, a trail, an opportunity attack -- makes routes
+distinguishable, and the key must gain the path in the same change, or the
+filter will discard the only route that fires the trigger.
+
+[CandidateFilter](../src/entity_ai/CandidateFilter.gd) is where narrowing
+happens, in the open. `collapseEquivalent()` may merge only on
+`equivalence_key`. `capWithAllowance()` reserves a per-class allowance before
+spending the rest of its budget, so a cap can make a policy look at less but
+cannot make a whole class of action invisible -- the failure mode where a new
+spell is never chosen because ranking never understood it. `nearestDestinations()`
+holds the legacy ten-destination budget as a named filter rather than as
+something an enumerator does quietly.
+
+[PolicyCatalog](../src/entity_ai/PolicyCatalog.gd) names the policies a battle
+may be played with, with their configuration and a fingerprint over both. An
+unknown id is refused rather than defaulted, so a manifest typo fails instead of
+running something else under the name that was asked for.
+[LegacySidePolicy](../src/entity_ai/legacy/LegacySidePolicy.gd) gives the shipped
+stream an identity and freezes its decisions in
+`scripts/battle/fixtures/ai/legacy_decisions.json`. It drives the existing
+deliberation classes rather than copying them, because a second implementation
+of one policy drifts and then neither is the baseline. Its decisions are frozen
+across slice sizes as well, since how a decision was spent is not part of it.
+
+**The reworked stream is built beside the shipped one, not over it.** The game
+still plays through `PartyCommandDeliberation` and `CommandDeliberation`, which
+keep their per-slice full-actor staleness check. Retiring that cost belongs to
+the item that replaces the policy; changing it here would alter legacy staleness
+behaviour in exactly the edge cases the frozen baseline exists to hold still.
+Measured on the technical scenario, the complete legal set the enumerator
+produces for one ready side is 38 Wait, 119 attack, 8 unit-affecting spell and
+20 empty-centre spell candidates -- the last class being one the shipped
+deduplication collapses away entirely.
 
 ### Hex queries and cache lifetime
 
