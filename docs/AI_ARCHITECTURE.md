@@ -23,6 +23,7 @@ sequencing; this reference remains useful after those cycle files are removed.
 | Actor choice | [PartyCommandDeliberation](../src/entity_ai/PartyCommandDeliberation.gd) sorts ready units by role/urgency and stable ID, then finishes after the first selected unit's deliberation |
 | Candidate construction | [CommandDeliberation](../src/entity_ai/CommandDeliberation.gd) limits destinations to ten and enumerates spells from the origin because magic is pre-move |
 | Evaluation | [BattleCommandEvaluator](../src/entity_ai/BattleCommandEvaluator.gd) scores candidates; brain subclasses supply role differences |
+| Danger | [DangerQuery](../src/entity_ai/DangerQuery.gd) answers a single reply, a conservative bound and a feasible continuation as three labelled things; [DangerAssessment](../src/entity_ai/DangerAssessment.gd) carries the label, contributors, cost and named blind spots |
 | Decision context and candidates | [DecisionContext](../src/entity_ai/DecisionContext.gd) shares revision-scoped queries; [LegalActionEnumerator](../src/entity_ai/LegalActionEnumerator.gd) produces complete legal [ActionCandidate](../src/entity_ai/ActionCandidate.gd) sets; [CandidateFilter](../src/entity_ai/CandidateFilter.gd) narrows them; [PolicyCatalog](../src/entity_ai/PolicyCatalog.gd) names who chose |
 | Geometry and movement | [HexGrid](../src/board/HexGrid.gd), [HexReachability](../src/algorithms/HexReachability.gd) over cost buckets, [AStarPathfinder](../src/algorithms/AStarPathfinder.gd) over a binary heap, [LineOfSight](../src/algorithms/LineOfSight.gd) over translated ray templates, and canonical resolver callbacks |
 | Interactive scheduling | [HexBattleController](../src/systems/hex_battle/HexBattleController.gd) advances four deterministic inner slices per rendered frame, then applies a completed proposal on the main thread |
@@ -469,6 +470,57 @@ through conservative handling or a deterministic exploration allowance.
 Generic outcome deltas do not automatically teach the policy to value traps,
 terrain, summons, combos or time manipulation. Document evaluator features and
 horizon blind spots. Authored difficulty/personality remains a game-design choice.
+
+#### Current danger implementation
+
+[DangerQuery](../src/entity_ai/DangerQuery.gd) answers three questions and keeps
+them apart, because a caller that gets one number cannot tell which risk it is
+taking. `reply()` is the most one named enemy could deal at a tile, exact under
+current rules for that enemy. `conservativeBound()` adds every enemy's best
+reply: **an upper bound, never a prediction**, because two of those enemies may
+need the same cell to stand on. `feasibleContinuation()` builds a continuation
+the side could really carry out -- one action each, no two enemies on one cell,
+and a caster stays put -- which is a **lower** bound, since the assignment is
+greedy over the conflict set rather than optimal. So `feasible <= truth <=
+bound`, and a consumer picks the side of the truth it wants to be wrong on.
+Commander safety and heal worth both ask the bound, because overstating danger
+loses a tile and understating it loses a commander.
+
+[DangerAssessment](../src/entity_ai/DangerAssessment.gd) carries the label, the
+per-enemy contributors with the cell each would act from, the work spent, a
+`truncated` flag, and `approximations` -- the named blind spots, which are part
+of the answer rather than a comment: reactions, damage over time, anything past
+one enemy round, the greedy assignment, and any ability with no declared reach.
+
+**Pre-move magic is respected, and the influence map it replaces did not respect
+it.** `ThreatMap.threatFor()` enumerates each enemy's spells from every cell it
+could walk to, but `BattleSimulator._sideLegalCommand()` turns a move-then-cast
+into a move and a Wait, so those casts cannot happen. Danger therefore credits a
+spell only from where the enemy already stands. On the technical scenario the
+probe finds three walked-to cells from which a relocated caster's spell would
+have reached its target, and credits none of them.
+
+Cheap geometric rejection runs before any question about legality, line of sight
+or height: an enemy whose declared reach cannot span the distance is dropped
+untouched. The bound is deliberately generous and **fails towards keeping**, so
+an ability that declares no range at all is never pruned and the assessment says
+so. A bound that silently prunes a mechanic it does not understand is how a new
+spell becomes invisible to danger.
+
+Work is counted per query and a budget yields a truncated answer rather than a
+stall. Measured on the technical scenario on this Windows Godot 4.4 host: eight
+sparse bounds, one per living unit, cost 154 resolver queries in 22 ms; seven
+dense bounds over one actor's whole reachable set cost 146 queries in 12 ms; the
+full-board influence map for one side costs 86 ms. Sparse questions win at the
+sizes a side policy actually asks, which is why there is no shared batch yet --
+not because batching is wrong, but because nothing has yet asked enough
+overlapping questions to pay for it. These are observations, not gates.
+
+**The shipped policy does not consume this yet.** `CommandDeliberation` sets an
+empty threat dictionary and skips the threat phase, so today's CPU runs with
+danger disabled; the contract is built and proven here, and the reworked policy
+is what wires it in. Changing the legacy path now would move the frozen
+decisions that exist precisely to hold it still.
 
 ### Determinism, persistence and rewind
 

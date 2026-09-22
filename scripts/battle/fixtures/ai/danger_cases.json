@@ -1,0 +1,5 @@
+{
+  "scenario": "res://data/battle/scenarios/technical_hxb_contract_player_cpu.json",
+  "seed": 4242,
+  "note": "Inputs for the danger probe. Expected values are derived from an exhaustive sweep of legal enemy actions, not stored here."
+}
