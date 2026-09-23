@@ -21,6 +21,8 @@ const MenuCursorScript = preload("res://src/presentation/theme/MenuCursor.gd")
 const HexTextBoxScript = preload("res://src/presentation/battle/ui/HexTextBox.gd")
 const HexHpBarScript = preload("res://src/presentation/battle/ui/HexHpBar.gd")
 const HexElementSquareScript = preload("res://src/presentation/battle/ui/HexElementSquare.gd")
+## For the commander word only, so the sheet and the readout cannot drift apart on it.
+const HexUnitReadoutScript = preload("res://src/presentation/battle/ui/HexUnitReadout.gd")
 
 const TABS := ["PROFILE", "EFFECTS", "SKILLS", "GEAR"]
 const TAB_PROFILE := 0
@@ -276,9 +278,16 @@ func _add(rows: Array, label: String, value: String, meta: Dictionary, disabled 
 
 
 func _profileRows(rows: Array) -> void:
-	var level := "Lv %d" % int(_facts.get("level", 1))
+	# The readout's pair, on one row: a unit inspected on the board and the same unit opened here
+	# must not disagree about how its rank and level are written. `CMD Lv 12` was this sheet's own
+	# spelling of both. The sheet carries no allegiance -- it is a character sheet, not a target
+	# readout -- so a non-commander shows the level alone, exactly as `CMD` used to be absent.
+	# It rides the name row rather than taking one of its own: this profile already fills the six
+	# rows the sheet pages at, and a seventh would push the HP bar and element squares onto a page
+	# they are not drawn for.
+	var level := "Lv.%02d" % int(_facts.get("level", 1))
 	if bool(_facts.get("commander", false)):
-		level = "CMD " + level
+		level = HexUnitReadoutScript.COMMANDER_TAG + " " + level
 	_add(rows, str(_facts.get("name", "")), level, {})
 	_add(rows, "HP", "%d/%d" % [int(_facts.get("hp", 0)), int(_facts.get("max_hp", 1))], {})
 	_add(rows, "Elements", "", {})
