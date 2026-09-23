@@ -13,6 +13,26 @@ const CubeRitualProfileScript = preload(
 const HEX_EFFECT_DIR := "res://src/presentation/battle/effects"
 const DONOR_DIR := "res://src/presentation/effects"
 
+## How far down a generated cube rotation frame must still reach before its lower faces count as
+## lost. Guards the defect `d8323f4` fixed -- lower faces collapsing into a transparent strip --
+## and nothing finer.
+##
+## THE SILHOUETTE IS SUPPOSED TO RISE IN THE MIDDLE OF THE TURN. It was 28, which the frames near
+## 0 and 90 degrees meet and the frames between them cannot. A cube rotating about Y under this
+## isometric projection presents two bottom vertices head-on and a single bottom corner at 45, so
+## its lowest point is 22.5 + 7 * max(cos a, sin a) -- highest at the ends of the quarter turn,
+## lowest at the middle. Measured lowest opaque row per frame, 0 through 11:
+## 31, 28, 28, 28, 27, 27, 26, 27, 27, 28, 28, 28. Frames 4 to 8 were failing a bound that the
+## geometry cannot satisfy, and have been since `d8323f4` introduced the projection and the
+## assertion in one commit; nothing has touched the projection since, and it has no random input,
+## so this probe cannot have passed on any revision after that one.
+##
+## 25 leaves the true worst case one row of headroom. That is thin on purpose: the value is
+## deterministic, so a projection change that moves it SHOULD be reported rather than absorbed.
+## A collapsed lower face loses far more than a row -- frame 6 still carries 483 opaque pixels
+## against the 300 the check above demands.
+const LOWEST_CUBE_ROW := 25
+
 ## Files this item may not modify. Compared by content hash against the committed tree, which is
 ## the only check that actually proves "the donors retain their appearance" rather than asserting
 ## it in prose.
@@ -41,6 +61,7 @@ func _run() -> void:
 	_checkAdapterExtentTracksTheFootprint()
 	_checkNoSharedResourceWrites()
 	_checkHexResourcesAreOwnedAndDistinct()
+	_teardown()
 
 	if not failures.is_empty():
 		for failure: String in failures:
@@ -49,6 +70,21 @@ func _run() -> void:
 		return
 	print("HXB_VFX_OK")
 	quit(0)
+
+
+## Frees what the checks built, while there is still a tree to free it from.
+##
+## WITHOUT THIS GODOT CRASHES ON THE WAY OUT. The checks instantiate real effects under `_root`,
+## and quitting with them still parented left their textures alive past the renderer: headless
+## reported four leaked `DummyTexture` RIDs and eight resources still in use, then exited with an
+## access violation AFTER printing `HXB_VFX_OK`. The sweep read that exit code and failed a probe
+## whose assertions had all passed -- the same signature `probe_shutdown` is quarantined for.
+## Freeing the subtree here costs nothing and removes the leak report and the crash together.
+func _teardown() -> void:
+	if _root != null and is_instance_valid(_root):
+		root.remove_child(_root)
+		_root.free()
+	_root = null
 
 
 func _require(condition: bool, message: String) -> void:
@@ -306,9 +342,9 @@ func _checkCubePixelCarrier(effect: VfxPlayback, profileID: String) -> void:
 				% [profileID, frameIndex]
 		)
 		_require(
-			lowestOpaqueRow >= 28,
-			"cube profile '%s' rotation frame %d lost its lower faces"
-				% [profileID, frameIndex]
+			lowestOpaqueRow >= LOWEST_CUBE_ROW,
+			"cube profile '%s' rotation frame %d lost its lower faces (lowest row %d)"
+				% [profileID, frameIndex, lowestOpaqueRow]
 		)
 
 
