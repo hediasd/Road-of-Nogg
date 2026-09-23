@@ -1471,11 +1471,22 @@ The side-turn flow puts availability on the pieces rather than in a party or
 initiative panel:
 
 - A selected ready unit keeps the pale breathing ground ring.
-- A unit becomes **spent** only after it acts or waits, not after movement. A
-  dark translucent `material_overlay` is applied to its body meshes and is
-  removed at the next side turn. The model's authored materials are never
-  edited. Hover temporarily owns the same overlay slot for the white inverted
-  hull, then restores the spent overlay when the pointer leaves.
+- A used piece is **darkened, at two depths**, through a `material_overlay`
+  that never edits the model's authored materials. A unit that has moved but
+  still holds its action is partly done and takes the shallower darkening; one
+  that has acted or waited is **spent** and takes the deeper one. Spent
+  outranks partly spent, and both clear at the next side turn. Hover
+  temporarily owns the same overlay slot for the white inverted hull, then
+  restores whichever darkening applies when the pointer leaves.
+- **The piece keeps its own colours.** Darkening multiplies what was drawn
+  rather than replacing it, so a used unit still reads as whose it is and what
+  it is — a spent cyan unit is dark cyan, not grey and not black. An earlier
+  version drained every used piece to its luminance under a slate tint, which
+  made them all the same colour and threw away the first thing a player reads.
+- **It covers the whole piece, plinth included.** Darkening the body while the
+  team disc kept full colour left a used unit looking half-lit rather than
+  done, and the bright disc is what the eye finds first. The selection ring is
+  not part of the piece and is never overlaid.
 - A valid attack target carries a small floating sword. It is parented to the
   rendered model, so it follows queued playback rather than lagging at the
   simulation's newer position. Its scale-in resolves in 0.16 s; a separate
@@ -1507,10 +1518,22 @@ five icons never overlap. Disabled actions remain present and dim so their
 stable keyboard positions do not change.
 
 The target sword is the arc's own attack icon, drawn over an anchor parented
-to the target model. Spent units take `HexUnitSpent.gdshader` through
-`material_overlay`: the unit drained to its luminance under a slate tint, on a
-thin hull so vertex-snapped faces cannot speckle through. The team plinth is
-left untouched.
+to the target model. Used units take `HexUnitSpent.gdshader` through
+`material_overlay`, which multiplies the drawn pixel by a factor below one: the
+piece keeps its colours and stands in shadow. Two factors, one for a unit that
+has moved and one for a unit that is finished, are constants on the adapter so
+the gap between them is chosen once rather than guessed per call. The multiply
+happens in linear space, so the darkening a player sees is roughly the factor
+raised to 1/2.2, and the constants are set against measured on-screen ratios.
+
+The overlay is nudged toward the camera in clip space rather than expanded
+along surface normals. Pushing each vertex along its own normal splits the hull
+wherever the model has a hard crease: the faces meeting at a pawn's collar and
+base rim carry different normals, so inflating pulled them apart and left rings
+of undarkened colour exactly there. A depth bias moves nothing on screen and so
+cannot open a seam. Writing `ALPHA` puts the overlay in the transparent pass,
+after every component has written depth, so one treatment covers one piece
+instead of one per component.
 
 Forecast boxes are one `NoggWindow`-family frame per affected unit. They only
 format the resolver-provided forecast dictionary; several may coexist for a

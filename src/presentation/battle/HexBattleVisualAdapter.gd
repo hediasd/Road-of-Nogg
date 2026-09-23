@@ -67,6 +67,18 @@ const REGION_CONTOUR_INSET := 0.075
 ## apart.
 const OUTLINE_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const OUTLINE_WIDTH_PX := 4.0
+## The two depths a used piece takes. Multiplied into the drawn pixel, so a unit
+## keeps its own colours and simply stands in shadow: a player still reads whose
+## it is and what it is. The slight cool bias stops a darkened yellow reading as
+## brown. Partly spent has to be clearly lighter than spent while still reading
+## as "not ready" beside a full-colour unit, which is why both live here rather
+## than being guessed at each call site.
+## Chosen against measured on-screen ratios, not against how the numbers read:
+## the multiply happens in linear space, so a factor shows as roughly itself
+## raised to 1/2.2. These land a partly spent piece near seven tenths of its own
+## brightness and a spent one near four tenths.
+const PARTLY_SPENT_DARKEN := Vector3(0.44, 0.46, 0.52)
+const SPENT_DARKEN := Vector3(0.14, 0.15, 0.19)
 const COLOR_SELECTED_RING := Color(1.0, 0.97, 0.88, 0.95)
 ## Inner edge of the ring as a share of the cell's own outline: a band, not a filled hex, so it
 ## never hides the reach or cursor marker painted on the same cell.
@@ -153,7 +165,9 @@ var _badges
 var _playbackSpeed := 1.0
 var _outlineMaterial: ShaderMaterial
 var _spentMaterial: ShaderMaterial
+var _partlySpentMaterial: ShaderMaterial
 var _spentUnitIDs: Dictionary = {}
+var _partlySpentUnitIDs: Dictionary = {}
 var _hoveredID := -1
 var _selectedID := -1
 var _selectionRing: MeshInstance3D
@@ -308,6 +322,22 @@ func setHoveredUnit(monsterID: int) -> void:
 ## Reversible presentation-only dimming. Unit-authored materials stay untouched; removing the
 ## overlay restores the exact original surface. Hover temporarily owns the same overlay slot and
 ## hands it back to the spent treatment when the pointer leaves.
+## A unit that has moved but still holds its action. Shallower than spent, so a
+## player scanning the board can tell "still has something" from "done" without
+## reading the HUD. Independent of spent: setting one never clears the other,
+## and a unit that becomes spent simply outranks its partial state.
+func setUnitPartlySpent(monsterID: int, partly: bool) -> void:
+	if partly:
+		_partlySpentUnitIDs[monsterID] = true
+	else:
+		_partlySpentUnitIDs.erase(monsterID)
+	_applyUnitOverlay(monsterID)
+
+
+func isUnitPartlySpent(monsterID: int) -> bool:
+	return _partlySpentUnitIDs.has(monsterID)
+
+
 func setUnitSpent(monsterID: int, spent: bool) -> void:
 	if spent:
 		_spentUnitIDs[monsterID] = true
@@ -362,14 +392,33 @@ func _applyUnitOverlay(monsterID: int) -> void:
 	if _spentMaterial == null:
 		_spentMaterial = ShaderMaterial.new()
 		_spentMaterial.shader = UnitSpentShader
-	var overlay: Material = _outlineMaterial if monsterID == _hoveredID else (
-		_spentMaterial if _spentUnitIDs.has(monsterID) else null)
+		_spentMaterial.set_shader_parameter("darken", SPENT_DARKEN)
+	if _partlySpentMaterial == null:
+		_partlySpentMaterial = ShaderMaterial.new()
+		_partlySpentMaterial.shader = UnitSpentShader
+		_partlySpentMaterial.set_shader_parameter("darken", PARTLY_SPENT_DARKEN)
+	var hovered := monsterID == _hoveredID
+	var spent := _spentUnitIDs.has(monsterID)
+	## Spent outranks partly spent: a unit that has acted is done, whatever it
+	## did on the way there.
+	var used: Material = _spentMaterial if spent else (
+		_partlySpentMaterial if _partlySpentUnitIDs.has(monsterID) else null)
 	for node in model.find_children("*", "MeshInstance3D", true, false):
 		var mesh := node as MeshInstance3D
-		# The team plinth and the selection ring are not the unit. Outlining the plinth drew a
-		# second ring round the base that read as a selection marker.
-		if _isUnitChrome(mesh, model):
+		# The selection ring is a ground cue this adapter draws, not part of the piece, so no
+		# unit treatment ever touches it.
+		if _isSelectionRing(mesh, model):
 			continue
+		var overlay: Material = null
+		if hovered and not _isModelBase(mesh, model):
+			# The outline still skips the plinth: expanding a hull around the base drew a
+			# second ring there that read as a selection marker.
+			overlay = _outlineMaterial
+		else:
+			# The treatment covers the whole piece, plinth included. Darkening the body while
+			# the base kept its full team colour left a used unit looking half-lit rather than
+			# done, and the eye reads the bright disc first.
+			overlay = used
 		mesh.material_overlay = overlay
 
 
@@ -424,10 +473,27 @@ func _clearSwordMarker() -> void:
 	_targetedID = -1
 
 
+## Everything a unit treatment may need to tell apart. The plinth and the ring
+## used to be one category because the outline skips both; they are not the same
+## thing, and the spent treatment needs the difference.
 func _isUnitChrome(node: Node, model: Node) -> bool:
+	return _isModelBase(node, model) or _isSelectionRing(node, model)
+
+
+## The team-coloured disc the piece stands on. Part of the model.
+func _isModelBase(node: Node, model: Node) -> bool:
+	return _hasAncestorNamed(node, model, "ModelBase")
+
+
+## A ground cue this adapter builds. Not part of the model, and never overlaid.
+func _isSelectionRing(node: Node, model: Node) -> bool:
+	return _hasAncestorNamed(node, model, "SelectionRing")
+
+
+func _hasAncestorNamed(node: Node, model: Node, wanted: String) -> bool:
 	var current := node
 	while current != null and current != model:
-		if current.name == "ModelBase" or current.name == "SelectionRing":
+		if current.name == wanted:
 			return true
 		current = current.get_parent()
 	return false
@@ -506,6 +572,7 @@ func _forgetUnitCues(monsterID: int) -> void:
 	if monsterID == _targetedID:
 		_clearSwordMarker()
 	_spentUnitIDs.erase(monsterID)
+	_partlySpentUnitIDs.erase(monsterID)
 
 
 func removeDisplayedModel(monsterID: int) -> void:

@@ -1030,7 +1030,15 @@ func _syncSpentCues() -> void:
 		return
 	for idValue in adapter.shownModelIDs():
 		var monsterID := int(idValue)
-		adapter.setUnitSpent(monsterID, sim.state.spentUnitIDs.has(monsterID))
+		var spent := sim.state.spentUnitIDs.has(monsterID)
+		adapter.setUnitSpent(monsterID, spent)
+		## A unit that walked but still holds its action is partly done, and the
+		## board should say so without anyone opening the HUD. Its turn is only
+		## pending while its own side is the one acting; between side turns
+		## nothing is half-finished.
+		var phase: Dictionary = sim.turnPhaseState(monsterID)
+		adapter.setUnitPartlySpent(monsterID, not spent
+			and bool(phase.get("has_moved", false)))
 
 
 ## Screen axes, y growing downward, which is what `HexBattleCursor` resolves against. Arrows and

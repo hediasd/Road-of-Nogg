@@ -71,6 +71,57 @@ func _checkWorldCues(scenario, state) -> void:
 	_require(mesh != null and mesh.material_overlay is ShaderMaterial
 			and (mesh.material_overlay as ShaderMaterial).shader == _adapter.UnitSpentShader,
 		"leaving hover did not restore the spent overlay")
+	## The whole piece is drained, plinth included: a used unit whose team disc
+	## kept full colour read as half-lit, and the bright disc is what the eye
+	## finds first.
+	var baseMeshes := 0
+	var baseOverlaid := 0
+	var ringMeshes := 0
+	var ringOverlaid := 0
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var candidate := node as MeshInstance3D
+		if _adapter._isModelBase(candidate, model):
+			baseMeshes += 1
+			if candidate.material_overlay != null:
+				baseOverlaid += 1
+		elif _adapter._isSelectionRing(candidate, model):
+			ringMeshes += 1
+			if candidate.material_overlay != null:
+				ringOverlaid += 1
+	_require(baseMeshes > 0, "the fixture unit has no team plinth to check")
+	_require(baseOverlaid == baseMeshes,
+		"the spent treatment covered %d of %d plinth meshes" % [baseOverlaid, baseMeshes])
+	## The selection ring is a ground cue this adapter draws, not the piece.
+	_require(ringOverlaid == 0,
+		"a unit treatment was applied to the selection ring")
+	## Two depths, and spent outranks partly spent: a unit that has acted is done,
+	## whatever it did on the way there.
+	var partlyID := int(ids[1])
+	_adapter.setUnitPartlySpent(partlyID, true)
+	_require(_adapter.isUnitPartlySpent(partlyID), "partly spent state was not retained")
+	var partlyMesh := _firstUnitMesh(_adapter.modelFor(partlyID))
+	_require(partlyMesh != null and partlyMesh.material_overlay != null,
+		"a partly spent unit received no overlay")
+	var partlyDarken = (partlyMesh.material_overlay as ShaderMaterial).get_shader_parameter(
+		"darken")
+	var spentDarken = (mesh.material_overlay as ShaderMaterial).get_shader_parameter("darken")
+	_require(partlyDarken != null and spentDarken != null,
+		"a unit treatment carried no darkening factor")
+	if partlyDarken != null and spentDarken != null:
+		_require(Vector3(spentDarken).x < Vector3(partlyDarken).x,
+			"the spent depth was not darker than the partly spent one")
+		## Darkened, not drained: the piece keeps its own colours, so a player
+		## still reads whose it is and what it is.
+		_require(Vector3(partlyDarken).x > 0.0 and Vector3(spentDarken).x > 0.0,
+			"a unit treatment darkened all the way to black")
+	_adapter.setUnitSpent(partlyID, true)
+	_require((_firstUnitMesh(_adapter.modelFor(partlyID)).material_overlay as ShaderMaterial)
+		.get_shader_parameter("darken") == spentDarken,
+		"spent did not outrank partly spent")
+	_adapter.setUnitSpent(partlyID, false)
+	_adapter.setUnitPartlySpent(partlyID, false)
+	_require(_firstUnitMesh(_adapter.modelFor(partlyID)).material_overlay == null,
+		"clearing both states left a treatment behind")
 	_adapter.setUnitSpent(spentID, false)
 	_require(mesh == null or mesh.material_overlay == null,
 		"clearing spent did not restore the original presentation")
