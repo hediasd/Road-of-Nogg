@@ -53,10 +53,50 @@ func _run() -> void:
 	_glyph_height = float(load("res://src/presentation/theme/NoggTheme.gd").FONT_SIZE_BODY)
 
 	_phaseArc()
+	_phaseScales()
 	await _phaseGrid()
 	await _phaseExit()
 	await _phaseDeterminism()
 	_finish()
+
+
+# --- A1: the grid is whole at every shipping ui_scale ------------------------
+
+
+## The check that was missing while the number looked soft.
+##
+## `FONT_SIZE_BODY` is `12 * ui_scale`, so an art pixel taken as a plain
+## division is 1.5 device pixels at x1 and 4.5 at x3. Blown up by a fraction,
+## the glyph's edges stop landing on device pixels -- consecutive art pixels
+## render two device pixels wide and then three -- and the number reads ragged
+## however pure its colours are. Nothing rendered can be pixel perfect if this
+## arithmetic is not, so it is checked here rather than in a capture.
+func _phaseScales() -> void:
+	var theme = load("res://src/presentation/theme/NoggTheme.gd")
+	var restore: int = theme.ui_scale
+	for scale in range(theme.UI_SCALE_MIN, theme.UI_SCALE_MAX + 1):
+		theme.configure(scale)
+		var art: float = BillboardScript.art_pixel()
+		_require(
+			absf(art - roundf(art)) < 0.0001,
+			"ui_scale %d gives an art pixel of %.2f device px, which is not whole"
+				% [scale, art]
+		)
+		_require(art >= 1.0, "ui_scale %d gives an art pixel of %.2f" % [scale, art])
+
+		# The glyph and the arc's unit are whole device pixels too, since both
+		# are art pixels multiplied up.
+		var glyph: float = BillboardScript.ART_PIXELS_PER_GLYPH * art
+		_require(
+			absf(glyph - roundf(glyph)) < 0.0001,
+			"ui_scale %d gives a glyph height of %.2f device px" % [scale, glyph]
+		)
+		_require(
+			glyph >= float(theme.FONT_SIZE_BODY),
+			"ui_scale %d draws the number at %.0f px, under body text at %d px"
+				% [scale, glyph, theme.FONT_SIZE_BODY]
+		)
+	theme.configure(restore)
 
 
 # --- A2: the number lives on a coarse art-pixel grid -------------------------

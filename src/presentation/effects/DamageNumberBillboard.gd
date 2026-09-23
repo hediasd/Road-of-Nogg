@@ -89,8 +89,20 @@ static var _outline_cache: Dictionary = {}
 
 
 ## Device pixels per art pixel, at the current `NoggTheme.ui_scale`.
+##
+## Rounded to a whole number, and that is the whole point of the function.
+## `FONT_SIZE_BODY` is `12 * ui_scale`, so dividing it by `ART_PIXELS_PER_GLYPH`
+## gives 1.5 at x1 and 4.5 at x3 -- both shipping scales. A fractional art pixel
+## blows the glyph up by a fraction, and its edges stop landing on device
+## pixels: some art pixels render three device pixels wide and their neighbours
+## four, which is exactly the ragged, soft-looking number this whole grid exists
+## to prevent. `NoggTheme._scaled` rounds its tokens for the same reason and
+## says why: whole device pixels have to be a property of the token, not a hope
+## at each draw site.
 static func art_pixel() -> float:
-	return maxf(1.0, float(NoggThemeScript.FONT_SIZE_BODY) / ART_PIXELS_PER_GLYPH)
+	return float(maxi(
+		1, roundi(float(NoggThemeScript.FONT_SIZE_BODY) / ART_PIXELS_PER_GLYPH)
+	))
 
 
 ## A filled disc rather than the four cardinals: at a one pixel radius those are
