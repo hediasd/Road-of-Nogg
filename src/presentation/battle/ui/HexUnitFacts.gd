@@ -25,6 +25,12 @@ const EFFECT_BONUS_LABELS := {
 	"atk_bonus": "ATK", "def_bonus": "DEF", "spd_bonus": "SPD", "move_bonus": "MOV",
 }
 
+## `allegiance` values. The meaning, not the word: which side a unit is on is a fact, and what the
+## readout prints for it is that control's business.
+const ALLEGIANCE_ALLY := "ally"
+const ALLEGIANCE_ENEMY := "enemy"
+const ALLEGIANCE_UNKNOWN := ""
+
 
 ## Everything the readout and the sheet show, or an empty dictionary when the unit is gone -- which
 ## is how a stale selection is noticed.
@@ -33,7 +39,13 @@ const EFFECT_BONUS_LABELS := {
 ## SCREEN has shown, because the simulation runs ahead of playback: without it a readout drops HP
 ## before the blow that took it has landed. Everything else has no displayed counterpart and is read
 ## live from state.
-static func build(sim: BattleSimulator, monsterID: int, display = null) -> Dictionary:
+##
+## `viewerPartyID` is the party the HUD is showing, and allegiance is relative to it. Left at -1 --
+## as component probes leave it -- allegiance comes back unknown and the readout prints no tag,
+## which is the honest answer when there is no point of view to be relative to.
+static func build(
+	sim: BattleSimulator, monsterID: int, display = null, viewerPartyID: int = -1
+) -> Dictionary:
 	if sim == null or sim.state == null:
 		return {}
 	var monster = sim.state.getMonster(monsterID)
@@ -108,7 +120,40 @@ static func build(sim: BattleSimulator, monsterID: int, display = null) -> Dicti
 		"passives": passives,
 		"equipment": equipment,
 		"commander": party != null and int(party.commanderID) == monsterID,
+		"allegiance": allegianceFor(sim, monster, viewerPartyID),
 	}
+
+
+## The party the player controls: whose eyes the readout speaks from.
+##
+## NOT THE ACTING SIDE. In side-turn play the active side alternates every turn, so keying
+## allegiance to it would relabel every unit on the board the moment the CPU took over -- `ENEMY`
+## has to mean the same thing all battle. The player's own party does not move. With no
+## player-controlled party at all, as in a replay watched from outside, the answer is -1 and the
+## readout prints no tag rather than inventing a point of view.
+static func playerPartyID(sim: BattleSimulator) -> int:
+	if sim == null or sim.state == null:
+		return -1
+	for partyID in sim.state.parties:
+		var party = sim.state.parties[partyID]
+		if party != null and str(party.controller) == BattleParty.CONTROLLER_PLAYER:
+			return int(partyID)
+	return -1
+
+
+## Which side `monster` is on as seen from `viewerPartyID`.
+##
+## RELATIVE, AND RESOLVED HERE. A readout that compared team ids itself would label every unit
+## backwards in a replay watched from the other side, and would have to learn which team the
+## viewer is on to avoid it -- a thing no control on this plate otherwise knows. The viewer is
+## already known where the rest of the HUD's facts are built, so the answer belongs here.
+static func allegianceFor(sim: BattleSimulator, monster, viewerPartyID: int) -> String:
+	if monster == null or viewerPartyID < 0 or sim == null or sim.state == null:
+		return ALLEGIANCE_UNKNOWN
+	var viewer = sim.state.parties.get(viewerPartyID)
+	if viewer == null:
+		return ALLEGIANCE_UNKNOWN
+	return ALLEGIANCE_ALLY if int(viewer.teamID) == int(monster.team) else ALLEGIANCE_ENEMY
 
 
 static func elementFacts(element: String) -> Dictionary:

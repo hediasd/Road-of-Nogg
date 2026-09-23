@@ -561,7 +561,18 @@ func handleBoardMouse(event: InputEventMouseButton) -> bool:
 func _facts(monsterID: int) -> Dictionary:
 	if monsterID < 0 or _sim == null:
 		return {}
-	return HexUnitFactsScript.build(_sim, monsterID, _display)
+	return HexUnitFactsScript.build(_sim, monsterID, _display, _viewerPartyID())
+
+
+## Whose side the readout's allegiance tag is relative to.
+##
+## `_partyID` belongs to the legacy party-panel path, and side-turn play never sets it --
+## `showParty` returns early in that mode. So the player's own party is the answer here, and it
+## stays the answer whichever side is currently acting.
+func _viewerPartyID() -> int:
+	if _partyID != -1:
+		return _partyID
+	return HexUnitFactsScript.playerPartyID(_sim)
 
 
 func _refreshReadout() -> void:

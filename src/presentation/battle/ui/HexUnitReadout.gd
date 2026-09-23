@@ -1,14 +1,20 @@
-## The compact readout a click on a unit opens: name and level, an HP bar with its numbers, the
-## unit's element squares, and its active effects with the turns each has left.
+## The compact readout a click on a unit opens: the unit's name, then whose side it is on and what
+## level it is, an HP bar with its numbers, the unit's element squares, and its active effects with
+## the turns each has left.
 ##
 ## A READOUT, NOT A MENU. Input-transparent, so it can sit over the board without making the tiles
 ## under it unclickable (the reason `NoggWindow.set_input_transparent` exists). Pointing at an
 ## effect is answered by the HUD asking `effectAt()`, not by this box taking mouse input.
 ##
-## FIXED CAPACITY. Four rows whatever the unit, so selecting a unit with no effects and then one
+## FIXED CAPACITY. Five rows whatever the unit, so selecting a unit with no effects and then one
 ## with five never makes the box jump (UI_DESIGN §4, "size on open, then hold"). Effects that do not
 ## fit the last row collapse into a `+N` cell, which the HUD explains with the names it hides; the
 ## full list is on the STATUS sheet.
+##
+## NOTHING ON THIS PLATE MOVES BETWEEN UNITS. The level is zero-padded and the allegiance word is
+## laid out in a field the width of the longest one, so sweeping the cursor across the board never
+## redraws a column in a new place. Holding a column still is the same rule as holding the box
+## size still, applied one level down.
 
 class_name HexUnitReadout
 extends Control
@@ -18,12 +24,28 @@ const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const StatusEffectIconsScript = preload("res://src/presentation/StatusEffectIcons.gd")
 const HexElementSquareScript = preload("res://src/presentation/battle/ui/HexElementSquare.gd")
 const HexHpBarScript = preload("res://src/presentation/battle/ui/HexHpBar.gd")
+## For the `allegiance` vocabulary only. This control renders a `HexUnitFacts` dictionary, so the
+## names of the values in it are the one thing it may legitimately know; it still never builds one,
+## and still never sees a `Monster` or a `BattleState`.
+const HexUnitFactsScript = preload("res://src/presentation/battle/ui/HexUnitFacts.gd")
 
-const ROWS := 4
+const ROWS := 5
 const ROW_NAME := 0
-const ROW_HP := 1
-const ROW_KIND := 2
-const ROW_EFFECTS := 3
+const ROW_TAG := 1
+const ROW_HP := 2
+const ROW_KIND := 3
+const ROW_EFFECTS := 4
+
+## The allegiance words, and the one a commander takes instead.
+##
+## A COMMANDER SPENDS ITS SIDE WORD ON ITS RANK. `COMMANDER` replaces `ALLY`/`ENEMY` rather than
+## joining it, so a commander's side is carried by the word's colour alone. That is the one place
+## on this plate where colour is not backing up a word but standing in for one, and it is the
+## channel a colourblind player does not have. Chosen knowingly; `ENEMY CMDR` is the alternative
+## if the trade is ever reconsidered.
+const ALLY_TAG := "ALLY"
+const ENEMY_TAG := "ENEMY"
+const COMMANDER_TAG := "COMMANDER"
 
 var _window: NoggWindow
 var _overlay: Control
@@ -112,10 +134,8 @@ func _rebuild() -> void:
 	_effectCells.clear()
 	_window.clear_rows()
 
-	var level := "Lv %d" % int(_facts.get("level", 1))
-	if bool(_facts.get("commander", false)):
-		level = "CMD " + level
-	_window.add_row(str(_facts.get("name", "")), level)
+	_window.add_row(str(_facts.get("name", "")))
+	_buildTagRow()
 
 	var hp := int(_facts.get("hp", 0))
 	var maxHp := int(_facts.get("max_hp", 1))
@@ -133,6 +153,40 @@ func _rebuild() -> void:
 
 	_buildKindRow()
 	_buildEffectsRow()
+
+
+## `ENEMY Lv.06`: the side word and the level, as one right-aligned pair.
+##
+## THE TAG SITS IN A FIXED FIELD. `COMMANDER` is nine characters against `ENEMY`'s five, so a word
+## laid out flush against the level would move its own left edge by four cells every time the
+## cursor crossed a commander -- the jitter the zero-padded level exists to remove, reintroduced
+## right beside it. The field is measured off the longest word rather than assumed, which is
+## `docs/UI_DESIGN.md` §8's rule applied to a word instead of a window.
+##
+## `Lv.%02d` grows to six characters past level 99 and the pair steps left once. A real step, not
+## a hidden one: it happens at a level nothing reaches today, and it happens once.
+func _buildTagRow() -> void:
+	var level := "Lv.%02d" % int(_facts.get("level", 1))
+	_window.add_row("", level)
+
+	var allegiance := str(_facts.get("allegiance", HexUnitFactsScript.ALLEGIANCE_UNKNOWN))
+	if allegiance == HexUnitFactsScript.ALLEGIANCE_UNKNOWN:
+		return
+	var ally := allegiance == HexUnitFactsScript.ALLEGIANCE_ALLY
+	var word := ALLY_TAG if ally else ENEMY_TAG
+	if bool(_facts.get("commander", false)):
+		word = COMMANDER_TAG
+	var label := _label(word, NoggThemeScript.TEXT_ALLY if ally else NoggThemeScript.TEXT_ENEMY)
+
+	var rect := _window.row_rect(ROW_TAG)
+	var pairWidth := (
+		_textWidth(COMMANDER_TAG) + NoggThemeScript.HEX_PLATE_ICON_GAP + _textWidth(level)
+	)
+	label.position = Vector2(
+		rect.position.x + rect.size.x - pairWidth,
+		rect.position.y + _centreY(label, rect)
+	)
+	_overlay.add_child(label)
 
 
 ## Element squares first, then the taxonomy the unit is read by.

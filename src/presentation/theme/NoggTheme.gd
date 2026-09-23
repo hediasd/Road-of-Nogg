@@ -105,6 +105,16 @@ const OUTLINE := Color(0.0, 0.0, 0.0, 1.0)
 const TEAM_ONE_COLOR := Color(0.18, 0.42, 0.95)
 const TEAM_TWO_COLOR := Color(0.9, 0.2, 0.16)
 
+## The same identities as small type on a window plate, which is a different
+## job from colouring a unit on the board. Measured against the plate fill, the
+## board colours land at 4.44:1 (team one) and 4.81:1 (team two) -- team one is
+## under the 4.5:1 floor body text is held to, and it was never chosen to be
+## read at 12 units. These keep the hue and lift the value, reaching 8.46:1 and
+## 6.74:1. Additive: the board colours above are untouched and every existing
+## caller renders exactly as before.
+const TEXT_ALLY := Color(0.435, 0.651, 1.0)
+const TEXT_ENEMY := Color(1.0, 0.353, 0.306)
+
 
 ## Team colour by team index. Two teams today (`docs/GAME_DESIGN.md`); anything
 ## outside that falls back to team two's colour rather than asserting, because a

@@ -6,6 +6,7 @@ extends SceneTree
 
 const HexBattleControllerScript = preload("res://src/systems/hex_battle/HexBattleController.gd")
 const HexUnitFactsScript = preload("res://src/presentation/battle/ui/HexUnitFacts.gd")
+const HexUnitReadoutScript = preload("res://src/presentation/battle/ui/HexUnitReadout.gd")
 const HexTextBoxScript = preload("res://src/presentation/battle/ui/HexTextBox.gd")
 
 const SCENARIO := "res://data/battle/scenarios/technical_hxb_contract_player_cpu.json"
@@ -51,6 +52,7 @@ func _run() -> void:
 		failures.append("no player member turn opened")
 		return _report()
 	await _checkPickingSelectsByID()
+	await _checkAllegianceTag()
 	await _checkEffectsAndOverflow()
 	await _checkLostSelectionFallsBack()
 	await _checkSheetIsModal()
@@ -161,6 +163,108 @@ func _checkPickingSelectsByID() -> void:
 	_controller.adapter.setHoveredUnit(other)
 	_require(_controller.adapter.hoveredUnit() == other, "hover did not take unit %d" % other)
 	_require(_controller.adapter.selectedUnit() == other, "hovering disturbed the selection")
+
+
+## The allegiance tag and the level it pairs with, over every deployed unit.
+##
+## THREE THINGS, AND THE THIRD IS THE ONE THAT ROTS QUIETLY. That the word is relative to the
+## viewing party rather than a raw team id; that a commander takes its rank in place of its side
+## word; and that the pair's left edge is the same pixel for every unit, which is the whole reason
+## the tag is laid out in a field the width of `COMMANDER` instead of flush against the level. The
+## first two fail loudly the moment they break. The third degrades into a column that twitches as
+## the cursor moves, which nobody files a bug about and everybody feels.
+func _checkAllegianceTag() -> void:
+	var state := _controller.sim.state
+	var restore := _controller.hud.selectedUnit()
+	var viewer = state.parties.get(_controller.hud._viewerPartyID())
+	_require(viewer != null, "the HUD has no viewing party for allegiance to be relative to")
+	if viewer == null:
+		return
+
+	var words: Dictionary = {}
+	var tagEdges: Dictionary = {}
+	for id in state.monsters:
+		var monsterID := int(id)
+		var monster = state.monsters[id]
+		if not monster.is_alive():
+			continue
+		_controller._selectUnit(monsterID)
+		await _afterRefresh()
+		var facts := _controller.hud.readout.facts()
+		if facts.is_empty():
+			continue
+
+		var expected := (
+			HexUnitFactsScript.ALLEGIANCE_ALLY
+			if int(viewer.teamID) == int(monster.team)
+			else HexUnitFactsScript.ALLEGIANCE_ENEMY
+		)
+		_require(str(facts.get("allegiance", "")) == expected,
+			"unit %d reads allegiance '%s', expected '%s'"
+				% [monsterID, str(facts.get("allegiance", "")), expected])
+
+		var wanted := HexUnitReadoutScript.ENEMY_TAG
+		if bool(facts.get("commander", false)):
+			wanted = HexUnitReadoutScript.COMMANDER_TAG
+		elif expected == HexUnitFactsScript.ALLEGIANCE_ALLY:
+			wanted = HexUnitReadoutScript.ALLY_TAG
+		var tag := _readoutLabel([
+			HexUnitReadoutScript.ALLY_TAG,
+			HexUnitReadoutScript.ENEMY_TAG,
+			HexUnitReadoutScript.COMMANDER_TAG,
+		])
+		_require(tag != null, "unit %d shows no allegiance tag" % monsterID)
+		if tag == null:
+			continue
+		_require(tag.text == wanted,
+			"unit %d tags '%s', expected '%s'" % [monsterID, tag.text, wanted])
+		words[tag.text] = true
+		tagEdges[snappedf(tag.position.x, 0.5)] = true
+
+		var level := _readoutLabelStarting("Lv.")
+		_require(level != null, "unit %d shows no level" % monsterID)
+		if level != null:
+			_require(level.text == "Lv.%02d" % int(facts.get("level", 1)),
+				"unit %d reads '%s', expected a zero-padded level" % [monsterID, level.text])
+
+	_require(words.size() >= 2,
+		"every unit tagged the same word, so a fixed tag field proves nothing here")
+	_require(tagEdges.size() == 1,
+		"the tag's left edge took %d positions across the board; the field is not holding it"
+			% tagEdges.size())
+
+	if restore != -1:
+		_controller._selectUnit(restore)
+		await _afterRefresh()
+
+
+## Labels under the readout, found by text rather than by child index, so the search survives the
+## overlay being rebuilt in a different order.
+func _readoutLabel(texts: Array) -> Label:
+	for label in _readoutLabels():
+		if texts.has(label.text):
+			return label
+	return null
+
+
+func _readoutLabelStarting(prefix: String) -> Label:
+	for label in _readoutLabels():
+		if label.text.begins_with(prefix):
+			return label
+	return null
+
+
+func _readoutLabels() -> Array[Label]:
+	var found: Array[Label] = []
+	_collectLabels(_controller.hud.readout, found)
+	return found
+
+
+func _collectLabels(node: Node, out: Array[Label]) -> void:
+	for child in node.get_children():
+		if child is Label:
+			out.append(child)
+		_collectLabels(child, out)
 
 
 func _checkEffectsAndOverflow() -> void:
