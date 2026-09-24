@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cube spell motion studies</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --background: #101318;
+    --foreground: #f4f7fb;
+    --muted: #242a33;
+    --muted-foreground: #aab4c3;
+    --border: #3b4553;
+    --secondary: #3b4655;
+    --viz-series-1: #67b7ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px; background: var(--background); color: var(--foreground); font: 15px/1.45 system-ui, sans-serif; }
+  body::before { content: "Decided 2026-09-24: Road of Nogg's temporary spell vocabulary uses fake-3D cubes only. These 24 studies are the source of truth for cube counts, relative sizes, trajectories, and normalized motion beats; neutral C/T cubes are scale and position references, not effect geometry."; display: block; max-width: 980px; margin: 0 auto 24px; color: var(--muted-foreground); }
+  #cube-motion-studies { max-width: 1180px; margin: 0 auto; }
+  h2, h3 { margin-top: 0; }
+  .viz-row { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+  .viz-controls { display: grid; grid-template-columns: auto 160px minmax(260px,1fr); gap: 16px; align-items: end; margin: 18px 0; padding: 14px; border: 1px solid var(--border); background: #151a21; }
+  .form-label { display: grid; gap: 6px; }
+  .form-select, .form-range, .btn { font: inherit; }
+  .form-select, .btn { color: var(--foreground); background: var(--muted); border: 1px solid var(--border); padding: 7px 10px; }
+  .btn { cursor: pointer; }
+  .form-range { width: 100%; }
+  .text-small { font-size: 0.875rem; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+  @media(max-width: 700px) { body { padding: 18px; } .viz-controls { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="cube-motion-studies">
+  <div class="viz-row"><h2>24 cube spell studies</h2><span class="text-small">Motion sketches · all spell geometry is cubes</span></div>
+  <div class="viz-controls">
+    <button type="button" class="btn" id="cube-play">Pause</button>
+    <label class="form-label" for="cube-speed">Playback<select class="form-select" id="cube-speed"><option value="0.5">Half speed</option><option value="1" selected>Normal</option><option value="1.5">Fast</option></select></label>
+    <label class="form-label" for="cube-time">Shared timeline <span class="tabular-nums" id="cube-time-label">0%</span><input class="form-range" id="cube-time" type="range" min="0" max="1000" value="0" aria-label="Scrub all 24 effects"></label>
+  </div>
+  <div class="text-small">C = caster · T = target · neutral cubes = scale references · colored cubes = spell</div>
+  <div id="cube-gallery"></div>
+  <div class="sr-only" aria-live="polite" id="cube-status"></div>
+</div>
+<style>
+  #cube-motion-studies { color:var(--foreground); }
+  #cube-motion-studies .study-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px 18px; }
+  #cube-motion-studies .study-family { margin-top:28px; }
+  #cube-motion-studies .study-family h3 { margin-bottom:16px; }
+  #cube-motion-studies .study-heading { display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-weight:500; }
+  #cube-motion-studies .study-meta { min-height:2.6em;margin-top:4px;color:var(--muted-foreground); }
+  #cube-motion-studies canvas { display:block;width:100%;aspect-ratio:1.65; }
+  #cube-motion-studies .study-beats { display:flex;flex-wrap:wrap;gap:6px;color:var(--muted-foreground); }
+  #cube-motion-studies .study-beats span[data-now="true"] { color:var(--foreground);font-weight:500; }
+  @media(max-width:800px) { #cube-motion-studies .study-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:510px) { #cube-motion-studies .study-grid { grid-template-columns:minmax(0,1fr); } }
+</style>
+<script>
+(() => {
+  const root=document.getElementById('cube-motion-studies');
+  const gallery=root.querySelector('#cube-gallery');
+  const playButton=root.querySelector('#cube-play');
+  const speedControl=root.querySelector('#cube-speed');
+  const timeControl=root.querySelector('#cube-time');
+  const timeLabel=root.querySelector('#cube-time-label');
+  const status=root.querySelector('#cube-status');
+  const TAU=Math.PI*2, C=-2.25, T=1.25;
+  const clamp=v=>Math.max(0,Math.min(1,v));
+  const phase=(t,a,b)=>clamp((t-a)/(b-a));
+  const smooth=v=>v*v*(3-2*v);
+  const mix=(a,b,t)=>a+(b-a)*t;
+  const rnd=i=>{ const x=Math.sin(i*127.1+311.7)*43758.5453;return x-Math.floor(x); };
+  const sizeIn=(t,a,b)=>smooth(phase(t,a,b));
+  const tail=(t,a=.83,b=.97)=>1-smooth(phase(t,a,b));
+  let cubes=[];
+  function cube(x,y,z,s,yaw=0,kind='spell',opacity=1) {
+    if(s>.003 && opacity>.01) cubes.push({x,y:Math.max(s*.5,y),z,s,yaw,kind,opacity});
+  }
+  function ring(x,y,r,n,s,angle,t,kind='spell') {
+    for(let i=0;i<n;i++){const a=i*TAU/n+angle;cube(x+Math.cos(a)*r,y,Math.sin(a)*r,s,t*5+i*.3,kind);}
+  }
+  function debris(t,start,x=T,z=0,n=12,reach=1.2,s=.09,duration=.27) {
+    if(t<start || t>start+duration)return;
+    const q=phase(t,start,start+duration);
+    for(let i=0;i<n;i++) {
+      const a=rnd(i+42)*TAU,r=q*reach*(.4+rnd(i+120));
+      cube(x+Math.cos(a)*r,.08+Math.sin(q*Math.PI)*(.2+rnd(i+80)*.5),z+Math.sin(a)*r,s*(1-q*.9),q*6+i);
+    }
+  }
+  function ballistic(q,x0,x1,z0,z1,height,y0=.8,y1=.7) {
+    return [mix(x0,x1,q),mix(y0,y1,q)+4*height*q*(1-q),mix(z0,z1,q)];
+  }
+  function throwCube(t,start,end,x0,x1,z0,z1,h,s) {
+    if(t<start-.08 || t>end)return;
+    const q=phase(t,start,end),p=ballistic(q,x0,x1,z0,z1,h);
+    cube(...p,s*sizeIn(t,start-.08,start),q*5);
+  }
+  const studies=[
+    {name:'Arcing pair',family:0,meta:'2 medium → tiny impact chips · lob / stone toss',beats:['Gather','Angled arcs','Break'],desc:'Two cubes leave the caster on staggered high arcs with sideways offsets, then break into small impact cubes.',draw(t){
+      throwCube(t,.16,.55,C,T,-.6,-.22,1.3,.36);throwCube(t,.28,.68,C,T,.6,.22,1.55,.46);
+      debris(t,.55,T,-.22,8,.7);debris(t,.68,T,.22,12,1.1);
+    }},
+    {name:'Scattershot',family:0,meta:'11 small · cone / shotgun / spray',beats:['Pack','Fan out','Pepper'],desc:'A compact group of eleven small cubes spreads into a widening cone and hits several nearby points.',draw(t){
+      for(let i=0;i<11;i++){const a=.16+i*.008,b=.49+i*.012,z=(rnd(i)-.5)*2.6;
+        throwCube(t,a,b,C,T+(rnd(i+24)-.5)*.9,0,z,.15,.13+.035*rnd(i+30));
+        debris(t,b,T+(rnd(i+24)-.5)*.9,z,3,.4,.06,.18);}
+    }},
+    {name:'Corkscrew bolt',family:0,meta:'1 medium + 7 tiny · drill / piercing bolt',beats:['Wind up','Bore forward','Burst'],desc:'A lead cube drives straight ahead while seven tiny cubes wind around its path like a drilling wake.',draw(t){
+      if(t<.67){const q=smooth(phase(t,.16,.64));cube(mix(C,T,q),.9,0,.36*sizeIn(t,.02,.14),q*14);
+        for(let i=0;i<7;i++){const p=clamp(q-i*.035),a=t*32-i*.8;cube(mix(C,T,p)-.15, .9+Math.sin(a)*.3,Math.cos(a)*.3,.11*sizeIn(t,.08,.2),a);}}
+      debris(t,.64,T,0,16,1.5,.1);
+    }},
+    {name:'Returning throw',family:0,meta:'1 large · boomerang / thrown weapon',beats:['Throw wide','Clip target','Return'],desc:'One large cube sweeps around the target on a wide curve and returns along the other side to the caster.',draw(t){
+      const q=phase(t,.12,.89),out=q<.5,p=out?q*2:(q-.5)*2;
+      const x=out?mix(C,T,smooth(p)):mix(T,C,smooth(p));
+      cube(x,.9+Math.sin(p*Math.PI)*.5,(out?-1:1)*Math.sin(p*Math.PI)*1.25,.43*sizeIn(t,.02,.12)*tail(t,.89,.98),t*14);
+      debris(t,.505,T,0,8,.8,.08,.2);
+    }},
+    {name:'Skipping stone',family:0,meta:'1 medium · ricochet / chain hit',beats:['Launch','Hop → hop','Last impact'],desc:'A cube makes three distinct bounces through a small group, scattering chips at each contact.',draw(t){
+      const nodes=[[C,-.2],[-.65,-.7],[.55,.7],[T+.55,-.3]],starts=[.12,.34,.56];
+      for(let i=0;i<3;i++){if(t>=starts[i] && t<starts[i]+.22){const q=phase(t,starts[i],starts[i]+.22);cube(mix(nodes[i][0],nodes[i+1][0],q),.25+Math.sin(q*Math.PI)*1.1,mix(nodes[i][1],nodes[i+1][1],q),.35,t*12);}debris(t,starts[i]+.22,nodes[i+1][0],nodes[i+1][1],6,.65,.075,.18);}
+    }},
+    {name:'Flanking volley',family:0,meta:'4 medium · homing / pincer strike',beats:['Separate','Curve around','Converge'],desc:'Four cubes leave the caster, curl around both flanks, and strike the target together from different angles.',draw(t){
+      if(t<.7){const q=phase(t,.14,.7);for(let i=0;i<4;i++){const sign=i<2?-1:1;cube(mix(C,T,q),.8+Math.sin(q*Math.PI)*(.4+(i%2)*.55),Math.sin(q*Math.PI)*sign*(1.1+(i%2)*.55),.28*sizeIn(t,.02,.13),q*7+i);}}
+      debris(t,.7,T,0,18,1.3,.1);
+    }},
+    {name:'Ceiling collapse',family:1,meta:'12 dust + 7 heavy · cave-in / crushing area',beats:['Dust warning','Heavy fall','Rubble'],desc:'Tiny cubes fall first like dust. Seven differently sized heavy cubes then drop almost together and scatter rubble across the target area.',draw(t){
+      for(let i=0;i<12;i++){const a=.04+rnd(i)*.16,q=phase(t,a,a+.3);if(t>=a && q<1)cube(T+(rnd(i+30)-.5)*2.3,mix(2.8,.05,q*q),(rnd(i+70)-.5)*1.7,.055+.04*rnd(i+50),q*4);}
+      for(let i=0;i<7;i++){const a=.4+rnd(i)*.035,q=phase(t,a,a+.22),s=.38+rnd(i+21)*.44,x=T+(rnd(i+50)-.5)*2.15,z=(rnd(i+85)-.5)*1.6;
+        if(t>=.27 && t<a+.22)cube(x,mix(3.05,s*.5,q*q),z,s*sizeIn(t,.27,.36),q*.7+i*.3);
+        else if(t>=a+.22)cube(x,s*.35,z,s*.72*tail(t,.77,.96),i*.3);
+        debris(t,a+.22,x,z,5,.7,.075,.24);}
+    }},
+    {name:'Ground teeth',family:1,meta:'5 growing stacks · earth spike / eruption',beats:['Tremble','Punch upward','Crumble'],desc:'Five narrow cube stacks grow upward from the ground in sequence, lift into jagged teeth, and crumble.',draw(t){
+      for(let i=0;i<5;i++){const a=.18+i*.045,x=T+(i-2)*.43,z=(i%2)*.4-.2,q=phase(t,a,a+.17),h=smooth(q)*(1.4+rnd(i)*.8);
+        if(t>.07 && t<a)cube(x,.08,z,.085,Math.sin(t*110+i)*.4);
+        for(let j=0;j<4;j++)cube(x,.12+j*h/3,z,(.34-j*.04)*sizeIn(t,a,a+.06)*tail(t,.65+i*.015,.84+i*.015),0);
+        debris(t,.71+i*.015,x,z,5,.6,.08,.23);}
+    }},
+    {name:'Expanding shockwave',family:1,meta:'1 compressed core → 24 small · blast / knockback',beats:['Compress','Expanding ring','Scatter'],desc:'A small core compresses, then a broad ring of cubes rushes outward low across the ground.',draw(t){
+      if(t<.3)cube(T,.2,0,mix(.45,.09,phase(t,.07,.29))*sizeIn(t,0,.07),t*2);
+      if(t>=.3){const q=phase(t,.3,.85),r=.2+q*2.2;ring(T,.15+Math.sin(q*Math.PI)*.23,r,24,.17*tail(t,.63,.9),q*.25,t);}
+    }},
+    {name:'Implosion',family:1,meta:'18 small → 1 dense core · gravity / compression',beats:['Hang','Snap inward','Collapse'],desc:'Eighteen suspended cubes accelerate inward from a broad sphere, compress into one core, and vanish.',draw(t){
+      if(t<.69){const q=phase(t,.29,.69),r=1.8*(1-q*q*q);for(let i=0;i<18;i++){const a=i*2.4;cube(T+Math.cos(a)*r,.75+Math.sin(a*1.7)*r*.4,Math.sin(a)*r,.19*sizeIn(t,.03,.2),t*3+i);}}
+      if(t>=.65)cube(T,.75,0,.55*sizeIn(t,.65,.7)*tail(t,.74,.91),t*9);
+    }},
+    {name:'Rolling avalanche',family:1,meta:'2 large + 10 small · heavy rush / boulder wave',beats:['Rumble','Roll through','Break apart'],desc:'Two large cubes tumble toward and through the target, followed by a low trail of smaller rubble.',draw(t){
+      for(let i=0;i<12;i++){const a=.08+i*.014,b=.67+i*.013,q=phase(t,a,b),s=i<2?.67:.13+rnd(i)*.18;
+        if(t>=a && t<b)cube(mix(C-.2,T+.7,q),s*.6+Math.abs(Math.sin(q*14+i))*.23,(rnd(i+11)-.5)*1.3,s,t*13+i);}
+      debris(t,.64,T,0,18,1.6,.14,.29);
+    }},
+    {name:'Staggered bombardment',family:1,meta:'9 mixed · meteor rain / repeated strikes',beats:['First drops','Uneven impacts','Last heavy hit'],desc:'Mixed-size cubes rain diagonally onto different points in an area, ending with a larger final strike.',draw(t){
+      for(let i=0;i<9;i++){const a=.03+i*.062,b=a+.24,q=phase(t,a,b),x=T+(rnd(i+40)-.5)*1.9,z=(rnd(i+14)-.5)*1.8,s=i===8?.64:.2+rnd(i)*.23;
+        if(t>=a && t<b)cube(x-.9*(1-q),mix(3.15,.14,q*q),z,s*sizeIn(t,a,a+.035),q*3+i);
+        debris(t,b,x,z,i===8?14:5,i===8?1.25:.55,.085,.21);}
+    }},
+    {name:'Rising barricade',family:2,meta:'15 medium · wall / protection / obstruction',beats:['Seed line','Build upward','Withdraw'],desc:'A row of cubes rises into a three-layer wall between caster and target, holds, then sinks away.',draw(t){
+      for(let row=0;row<3;row++)for(let col=0;col<5;col++){const a=.07+row*.07+Math.abs(col-2)*.025,q=sizeIn(t,a,a+.19)*tail(t,.8,.98);cube(-.25,(.22+row*.43)*q,(col-2)*.43,.4*q,0);}
+    }},
+    {name:'Closing cage',family:2,meta:'16 medium · bind / imprisonment',beats:['Corner posts','Close overhead','Hold'],desc:'Four cube columns assemble around the target. Their upper cubes close inward over the head to suggest confinement.',draw(t){
+      for(let i=0;i<4;i++){const a=i*TAU/4+Math.PI/4;for(let j=0;j<4;j++){const q=sizeIn(t,.05+j*.055,.23+j*.055),r=j===3?mix(.85,.3,smooth(phase(t,.42,.65))):.85;cube(T+Math.cos(a)*r,(.18+j*.46)*q,Math.sin(a)*r,.3*q*tail(t,.84,.99),0);}}
+    }},
+    {name:'Climbing coil',family:2,meta:'22 tiny → tight helix · vines / snare / slow',beats:['Find feet','Climb','Tighten'],desc:'A line of little cubes coils up around the target, then tightens to imply a snare or binding spell.',draw(t){
+      const tighten=smooth(phase(t,.62,.8));for(let i=0;i<22;i++){const a=.04+i*.023,q=sizeIn(t,a,a+.1),ang=i*.67-t*.4,r=mix(.77,.48,tighten);cube(T+Math.cos(ang)*r,.1+i*.075,Math.sin(ang)*r,.15*q*tail(t,.87,.99),ang);}
+    }},
+    {name:'Lifting vortex',family:2,meta:'28 small · whirlwind / lift / suspension',beats:['Sweep inward','Spiral upward','Release'],desc:'A wide skirt of cubes narrows into a rising spiral and flings its topmost cubes outward.',draw(t){
+      for(let i=0;i<28;i++){const p=phase(t,.015+i*.009,.58+i*.009),a=i*2.4+p*7,r=mix(1.65,.38,p)+(p>.8?(p-.8)*3:0);cube(T+Math.cos(a)*r,.08+p*2.45,Math.sin(a)*r,.13*sizeIn(t,.015+i*.009,.085+i*.009)*tail(t,.7+i*.006,.83+i*.006),a);}
+    }},
+    {name:'Clapping slabs',family:2,meta:'2 walls of 6 → fragments · crush / pressure',beats:['Build sides','Slam together','Chip away'],desc:'Two slabs assembled from cubes wait on opposite sides of the target and suddenly clap together.',draw(t){
+      const q=Math.pow(phase(t,.38,.62),3),r=mix(1.55,.28,q);
+      if(t<.68)for(let side of [-1,1])for(let j=0;j<6;j++)cube(T+side*r,.26+Math.floor(j/2)*.46,(j%2-.5)*.45,.44*sizeIn(t,.04+j*.017,.2+j*.017),0);
+      debris(t,.63,T,0,26,1.45,.13,.31);
+    }},
+    {name:'Encasing frost',family:2,meta:'18 small / medium · freeze / petrify',beats:['Seed crystals','Build shell','Lock'],desc:'Cubes accumulate around the target from the feet upward into a rigid shell, then chip away at release.',draw(t){
+      for(let i=0;i<18;i++){const row=Math.floor(i/6),a=i*TAU/6,st=.02+row*.15+(i%6)*.022,s=(.28+rnd(i)*.11)*sizeIn(t,st,st+.13)*tail(t,.83,.98);cube(T+Math.cos(a)*.54,.22+row*.52,Math.sin(a)*.54,s,0);}
+      debris(t,.85,T,0,12,1,.07,.14);
+    }},
+    {name:'Repair / mend',family:3,meta:'12 tiny → 4 medium · heal / rebuild',beats:['Gather fragments','Rise inward','Reassemble'],desc:'Scattered cubes gently converge and rise, becoming four larger cubes in a stable vertical arrangement beside the target.',draw(t){
+      if(t<.61)for(let i=0;i<12;i++){const q=smooth(phase(t,.04+i*.011,.57)),a=i*2.4,r=1.35*(1-q);cube(T+Math.cos(a)*r,.1+q*(.3+(i%4)*.36),Math.sin(a)*r,.11*sizeIn(t,0,.09),q*2+i);}
+      if(t>=.53)for(let i=0;i<4;i++)cube(T,.34+i*.38,0,.27*sizeIn(t,.53,.65)*tail(t,.8,.97),0);
+    }},
+    {name:'Intercepting guard',family:3,meta:'6 medium + 1 incoming · ward / block',beats:['Orbit','Intercept','Recover'],desc:'Six guard cubes orbit the target, pivot to meet an incoming cube, absorb it, and return to their orbit.',draw(t){
+      const engage=smooth(phase(t,.25,.49))*(1-smooth(phase(t,.66,.84)));
+      for(let i=0;i<6;i++){const a=i*TAU/6+t*3,ox=T+Math.cos(a)*.85,oz=Math.sin(a)*.85;cube(mix(ox,T-.78,engage),mix(.8,.43+Math.floor(i/2)*.4,engage),mix(oz,(i%2-.5)*.39,engage),.25*sizeIn(t,0,.1)*tail(t,.9,1),a*.3);}
+      throwCube(t,.23,.55,C,T-.9,0,0,.1,.3);debris(t,.55,T-.9,0,9,.5,.065,.18);
+    }},
+    {name:'Siphon',family:3,meta:'9 small → 1 medium · drain / steal energy',beats:['Loosen','Pull to caster','Absorb'],desc:'Small cubes peel away from the target in a staggered stream and travel back into a growing cube above the caster.',draw(t){
+      for(let i=0;i<9;i++){const a=.07+i*.04,b=a+.36,q=phase(t,a,b);if(t>=a && t<b){const p=ballistic(q,T,C,(rnd(i)-.5)*.8,0,.38);cube(...p,.15*sizeIn(t,a,a+.04)*(1-q*.6),q*4+i);}}
+      cube(C,1.1,0,(.15+.29*phase(t,.38,.76))*sizeIn(t,.12,.25)*tail(t,.84,.98),t*2);
+    }},
+    {name:'Cleanse',family:3,meta:'10 attached → outward chips · dispel / purify',beats:['Cling','Lift off','Cast away'],desc:'Cubes clinging to the target rise briefly, then pop outward and shrink, leaving the target clear.',draw(t){
+      for(let i=0;i<10;i++){const a=i*2.4,q=phase(t,.32+i*.014,.72+i*.014),r=.47+q*q*1.35;cube(T+Math.cos(a)*r,.28+(i%3)*.39+Math.sin(q*Math.PI)*.58,Math.sin(a)*r,.21*sizeIn(t,0,.1)*(1-q),q*5+i);}
+    }},
+    {name:'Blink transfer',family:3,meta:'8 medium · blink / phase travel',beats:['Disassemble','Cross in a streak','Reform'],desc:'Eight cubes forming a body-sized cluster break apart at the caster, zip across in sequence, and rebuild at the target.',draw(t){
+      for(let i=0;i<8;i++){const q=smooth(phase(t,.2+i*.018,.51+i*.018)),z=(i%2-.5)*.34,y=.22+Math.floor(i/2)*.34;cube(mix(C,T,q),y+Math.sin(q*Math.PI)*.35,z+Math.sin(q*Math.PI)*(rnd(i)-.5)*1.4,.28*sizeIn(t,0,.09)*tail(t,.86,.99),Math.sin(q*Math.PI)*5);}
+    }},
+    {name:'Charge and release',family:3,meta:'16 tiny → 1 large → chips · charged blast',beats:['Gather power','Hold weight','Fire'],desc:'Sixteen tiny cubes spiral into a heavy cube near the caster. After a short held charge, it fires toward the target and shatters.',draw(t){
+      if(t<.4)for(let i=0;i<16;i++){const q=phase(t,.02+i*.006,.36),a=i*2.4+q*4,r=(1-q)*1.15;cube(C+Math.cos(a)*r,.95+Math.sin(a)*r*.4,Math.sin(a)*r,.11*sizeIn(t,0,.05),q*5+i);}
+      if(t>=.19 && t<.76){const q=Math.pow(phase(t,.55,.76),2),s=.6*sizeIn(t,.19,.42);cube(mix(C,T,q),1.05,0,s*(1+.025*Math.sin(t*55)),t<.55?t*2:q*5);}
+      debris(t,.76,T,0,24,1.7,.12,.22);
+    }}
+  ];
+  const families=['Travel & delivery','Impact & area','Shape & control','Restore & transform'];
+  const panels=[];
+  families.forEach((name,f)=>{
+    const section=document.createElement('section');section.className='study-family';
+    const title=document.createElement('h3');title.textContent=name;section.append(title);
+    const grid=document.createElement('div');grid.className='study-grid';section.append(grid);gallery.append(section);
+    studies.forEach((s,i)=>{if(s.family!==f)return;
+      const panel=document.createElement('figure');panel.style.margin='0';
+      const heading=document.createElement('figcaption');heading.className='study-heading';heading.textContent=String(i+1).padStart(2,'0')+' · '+s.name;
+      const meta=document.createElement('div');meta.className='study-meta text-small';meta.textContent=s.meta;
+      const canvas=document.createElement('canvas');canvas.setAttribute('role','img');canvas.setAttribute('aria-label',s.desc);canvas.textContent=s.desc;
+      const beats=document.createElement('div');beats.className='study-beats text-small';s.beats.forEach((b,j)=>{const span=document.createElement('span');span.textContent=(j?'→ ':'')+b;beats.append(span);});
+      panel.append(heading,meta,canvas,beats);grid.append(panel);panels.push({canvas,ctx:canvas.getContext('2d'),study:s,beats,visible:true});
+    });
+  });
+  let theme={};
+  const probe=document.createElement('span');probe.hidden=true;root.append(probe);
+  function color(value){probe.style.color=value;return getComputedStyle(probe).color;}
+  function colors(){theme={line:color('var(--border)'),text:color('var(--foreground)'),muted:color('var(--muted-foreground)'),floor:color('var(--muted)'),actor:color('var(--secondary)'),
+    top:color('color-mix(in srgb,var(--viz-series-1) 60%,var(--foreground))'),left:color('var(--viz-series-1)'),right:color('color-mix(in srgb,var(--viz-series-1) 54%,var(--background))'),
+    actorTop:color('color-mix(in srgb,var(--muted-foreground) 35%,var(--background))'),actorLeft:color('color-mix(in srgb,var(--muted-foreground) 25%,var(--background))'),actorRight:color('color-mix(in srgb,var(--muted-foreground) 15%,var(--background))')};}
+  function project(x,y,z){return [x+z*.49,-y+z*.3];}
+  function poly(ctx,pts,fill,alpha=1){ctx.globalAlpha=alpha;ctx.fillStyle=fill;ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fill();ctx.globalAlpha=1;}
+  function drawCube(ctx,b){
+    const h=b.s/2,cs=Math.cos(b.yaw),sn=Math.sin(b.yaw),v=[];
+    for(let i=0;i<8;i++){const x=(i&1)?h:-h,y=(i&2)?h:-h,z=(i&4)?h:-h;v.push(project(b.x+x*cs+z*sn,b.y+y,b.z-x*sn+z*cs));}
+    const specs=[{id:[2,3,7,6],n:[0,1,0],fill:'top'}, {id:[0,2,6,4],n:[-1,0,0],fill:'left'}, {id:[1,5,7,3],n:[1,0,0],fill:'left'}, {id:[4,6,7,5],n:[0,0,1],fill:'right'}, {id:[0,1,3,2],n:[0,0,-1],fill:'right'}];
+    const dir=[-.49,.3,1];
+    for(const f of specs){const n=[f.n[0]*cs+f.n[2]*sn,f.n[1],-f.n[0]*sn+f.n[2]*cs];if(n[0]*dir[0]+n[1]*dir[1]+n[2]*dir[2]<=0)continue;const key=b.kind==='actor'?'actor'+f.fill[0].toUpperCase()+f.fill.slice(1):f.fill;poly(ctx,f.id.map(i=>v[i]),theme[key],b.opacity);}
+  }
+  function drawPanel(panel,t){
+    const {canvas,ctx,study}=panel,w=canvas.clientWidth,h=w/1.65,dpr=Math.min(window.devicePixelRatio||1,2);
+    if(!w)return;
+    if(canvas.width!==Math.round(w*dpr)||canvas.height!==Math.round(h*dpr)){canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);}
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,w,h);
+    const scale=w/8.25,ox=w*.46,oy=h*.79;
+    ctx.save();ctx.translate(ox,oy);ctx.scale(scale,scale);
+    ctx.strokeStyle=theme.line;ctx.lineWidth=1/scale;ctx.globalAlpha=.72;
+    for(let x=-3;x<=3;x++){ctx.beginPath();ctx.moveTo(...project(x,0,-1.6));ctx.lineTo(...project(x,0,1.6));ctx.stroke();}
+    for(let z=-1.5;z<=1.51;z+=.5){ctx.beginPath();ctx.moveTo(...project(-3,0,z));ctx.lineTo(...project(3,0,z));ctx.stroke();}ctx.globalAlpha=1;
+    cubes=[];study.draw(t);
+    for(const x of [C,T]){cube(x,.28,0,.45,0,'actor');cube(x,.69,0,.29,0,'actor');}
+    cubes.sort((a,b)=>(a.z-a.x*.49)-(b.z-b.x*.49)||a.y-b.y);
+    for(const b of cubes)drawCube(ctx,b);
+    ctx.restore();ctx.fillStyle=theme.muted;ctx.font=getComputedStyle(root).font;ctx.textAlign='center';
+    for(const [x,label] of [[C,'C'],[T,'T']])ctx.fillText(label,ox+x*scale,oy+scale*.6);
+    const beat=t<.29?0:t<.67?1:2;Array.from(panel.beats.children).forEach((el,i)=>el.dataset.now=String(i===beat));
+  }
+  let playing=!window.matchMedia('(prefers-reduced-motion: reduce)').matches,time=.16,speed=1,last=0;
+  function applyState(state){const p=state?.privateContent;if(!p)return;if(typeof p.playing==='boolean')playing=p.playing;if(Number.isFinite(p.time))time=clamp(p.time);if([.5,1,1.5].includes(p.speed))speed=p.speed;}
+  applyState(window.openai?.widgetState);
+  function save(){window.openai?.setWidgetState?.({modelContent:{sketches:24,material:'cubes only',speed,paused:!playing},privateContent:{playing,time,speed}})?.catch(()=>{});}
+  function controls(){playButton.textContent=playing?'Pause':'Play';speedControl.value=String(speed);timeControl.value=String(Math.round(time*1000));timeLabel.textContent=Math.round(time*100)+'%';}
+  function draw(){panels.forEach(p=>{if(p.visible)drawPanel(p,time);});controls();}
+  playButton.addEventListener('click',()=>{playing=!playing;status.textContent=playing?'All sketches playing.':'All sketches paused.';controls();save();});
+  speedControl.addEventListener('change',()=>{speed=Number(speedControl.value);save();});
+  timeControl.addEventListener('input',()=>{time=Number(timeControl.value)/1000;playing=false;draw();});
+  timeControl.addEventListener('change',()=>{save();status.textContent='All sketches paused at '+Math.round(time*100)+' percent.';});
+  window.addEventListener('openai:set_globals',event=>{applyState(event.detail?.globals?.widgetState);draw();});
+  const resize=new ResizeObserver(()=>{colors();draw();});resize.observe(root);
+  const observer=new IntersectionObserver(entries=>{for(const entry of entries){const p=panels.find(p=>p.canvas===entry.target);p.visible=entry.isIntersecting;if(p.visible)drawPanel(p,time);}},{rootMargin:'200px'});panels.forEach(p=>observer.observe(p.canvas));
+  let colorElapsed=0;
+  function tick(now){const dt=last?Math.min((now-last)/1000,.1):0;last=now;colorElapsed+=dt;if(colorElapsed>1){colors();colorElapsed=0;}if(playing){time=(time+dt*speed/4.8)%1;draw();}requestAnimationFrame(tick);}
+  colors();draw();requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
