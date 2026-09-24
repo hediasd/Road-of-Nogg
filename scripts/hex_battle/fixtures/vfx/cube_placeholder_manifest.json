@@ -1,0 +1,3614 @@
+{
+	"format": 1,
+	"reference": {
+		"distance_cells": 4.0,
+		"body": "standard",
+		"footprint": "none",
+		"seed": 0,
+		"mode": "battle",
+		"units": "sketch units relative to the target"
+	},
+	"profiles": {
+		"cube_arcing_pair": {
+			"family": "travel",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_arcing_pair",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"fire"
+					],
+					"SPELL": "Ember Strike"
+				}
+			],
+			"ingredients": {
+				"lobs": 2,
+				"chips": 20
+			},
+			"peak": 21,
+			"declared_peak": 21,
+			"beats": [
+				{
+					"name": "Gather",
+					"start": 0.0,
+					"end": 0.16,
+					"travel": false
+				},
+				{
+					"name": "Angled arcs",
+					"start": 0.16,
+					"end": 0.68,
+					"travel": true
+				},
+				{
+					"name": "Break",
+					"start": 0.68,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.68,
+			"settle": 0.68,
+			"signatures": {
+				"0.12": {
+					"lobs": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.49,
+							-0.72
+						],
+						"radius": 5.05,
+						"height": [
+							0.49,
+							0.49
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"lobs": {
+						"count": 2,
+						"centroid": [
+							-3.98,
+							1.42,
+							0.08
+						],
+						"radius": 4.03,
+						"height": [
+							0.85,
+							1.99
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"lobs": {
+						"count": 2,
+						"centroid": [
+							-1.45,
+							1.9,
+							0.08
+						],
+						"radius": 1.5,
+						"height": [
+							1.37,
+							2.44
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"lobs": {
+						"count": 0
+					},
+					"chips": {
+						"count": 20,
+						"centroid": [
+							-0.09,
+							0.35,
+							0.06
+						],
+						"radius": 0.3,
+						"height": [
+							0.13,
+							0.77
+						]
+					}
+				},
+				"0.90": {
+					"lobs": {
+						"count": 0
+					},
+					"chips": {
+						"count": 12,
+						"centroid": [
+							-0.24,
+							0.35,
+							0.4
+						],
+						"radius": 0.91,
+						"height": [
+							0.2,
+							0.46
+						]
+					}
+				}
+			}
+		},
+		"cube_scattershot": {
+			"family": "travel",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_scattershot",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "spread",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"darkness"
+					],
+					"SPELL": "Corrupting Splatter"
+				}
+			],
+			"ingredients": {
+				"shot": 11,
+				"chips": 33
+			},
+			"peak": 34,
+			"declared_peak": 34,
+			"beats": [
+				{
+					"name": "Pack",
+					"start": 0.0,
+					"end": 0.16,
+					"travel": false
+				},
+				{
+					"name": "Fan out",
+					"start": 0.16,
+					"end": 0.49,
+					"travel": true
+				},
+				{
+					"name": "Pepper",
+					"start": 0.49,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.49,
+			"settle": 0.49,
+			"signatures": {
+				"0.12": {
+					"shot": {
+						"count": 5,
+						"centroid": [
+							-5.0,
+							0.49,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.49,
+							0.49
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"shot": {
+						"count": 11,
+						"centroid": [
+							-3.59,
+							0.69,
+							0.15
+						],
+						"radius": 3.6,
+						"height": [
+							0.62,
+							0.75
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"shot": {
+						"count": 10,
+						"centroid": [
+							-0.87,
+							0.76,
+							0.47
+						],
+						"radius": 1.19,
+						"height": [
+							0.7,
+							0.79
+						]
+					},
+					"chips": {
+						"count": 3,
+						"centroid": [
+							-0.26,
+							0.18,
+							0.84
+						],
+						"radius": 0.88,
+						"height": [
+							0.14,
+							0.19
+						]
+					}
+				},
+				"0.70": {
+					"shot": {
+						"count": 0
+					},
+					"chips": {
+						"count": 24,
+						"centroid": [
+							-0.34,
+							0.45,
+							0.89
+						],
+						"radius": 1.02,
+						"height": [
+							0.12,
+							0.74
+						]
+					}
+				},
+				"0.90": {
+					"shot": {
+						"count": 0
+					},
+					"chips": {
+						"count": 0
+					}
+				}
+			}
+		},
+		"cube_corkscrew_bolt": {
+			"family": "travel",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_corkscrew_bolt",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"thunder"
+					],
+					"SPELL": "Lightningbolt"
+				}
+			],
+			"ingredients": {
+				"bolt": 1,
+				"wake": 7,
+				"burst": 16
+			},
+			"peak": 24,
+			"declared_peak": 24,
+			"beats": [
+				{
+					"name": "Wind up",
+					"start": 0.0,
+					"end": 0.16,
+					"travel": false
+				},
+				{
+					"name": "Bore forward",
+					"start": 0.16,
+					"end": 0.64,
+					"travel": true
+				},
+				{
+					"name": "Burst",
+					"start": 0.64,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.64,
+			"settle": 0.64,
+			"signatures": {
+				"0.12": {
+					"bolt": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.59,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.59,
+							0.59
+						]
+					},
+					"wake": {
+						"count": 7,
+						"centroid": [
+							-5.15,
+							0.62,
+							0.0
+						],
+						"radius": 5.15,
+						"height": [
+							0.34,
+							0.88
+						]
+					},
+					"burst": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"bolt": {
+						"count": 1,
+						"centroid": [
+							-3.97,
+							0.65,
+							0.0
+						],
+						"radius": 3.97,
+						"height": [
+							0.65,
+							0.65
+						]
+					},
+					"wake": {
+						"count": 7,
+						"centroid": [
+							-4.64,
+							0.65,
+							0.02
+						],
+						"radius": 4.65,
+						"height": [
+							0.29,
+							0.93
+						]
+					},
+					"burst": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"bolt": {
+						"count": 1,
+						"centroid": [
+							-1.03,
+							0.84,
+							0.0
+						],
+						"radius": 1.03,
+						"height": [
+							0.84,
+							0.84
+						]
+					},
+					"wake": {
+						"count": 7,
+						"centroid": [
+							-1.7,
+							0.83,
+							0.02
+						],
+						"radius": 1.72,
+						"height": [
+							0.48,
+							1.1
+						]
+					},
+					"burst": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"bolt": {
+						"count": 0
+					},
+					"wake": {
+						"count": 0
+					},
+					"burst": {
+						"count": 16,
+						"centroid": [
+							-0.05,
+							0.4,
+							0.08
+						],
+						"radius": 0.32,
+						"height": [
+							0.22,
+							0.53
+						]
+					}
+				},
+				"0.90": {
+					"bolt": {
+						"count": 0
+					},
+					"wake": {
+						"count": 0
+					},
+					"burst": {
+						"count": 16,
+						"centroid": [
+							-0.21,
+							0.14,
+							0.33
+						],
+						"radius": 1.4,
+						"height": [
+							0.1,
+							0.16
+						]
+					}
+				}
+			}
+		},
+		"cube_returning_throw": {
+			"family": "travel",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_returning_throw",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"steel"
+					],
+					"SPELL": "Steel Blade"
+				}
+			],
+			"ingredients": {
+				"blade": 1,
+				"chips": 8
+			},
+			"peak": 9,
+			"declared_peak": 9,
+			"beats": [
+				{
+					"name": "Throw wide",
+					"start": 0.0,
+					"end": 0.12,
+					"travel": false
+				},
+				{
+					"name": "Throw wide",
+					"start": 0.12,
+					"end": 0.505,
+					"travel": true
+				},
+				{
+					"name": "Clip target",
+					"start": 0.505,
+					"end": 0.52,
+					"travel": false
+				},
+				{
+					"name": "Return",
+					"start": 0.52,
+					"end": 0.89,
+					"travel": true
+				},
+				{
+					"name": "Return",
+					"start": 0.89,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.505,
+			"settle": 0.505,
+			"signatures": {
+				"0.12": {
+					"blade": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.59,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.59,
+							0.59
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"blade": {
+						"count": 1,
+						"centroid": [
+							-2.74,
+							1.32,
+							-1.49
+						],
+						"radius": 3.12,
+						"height": [
+							1.32,
+							1.32
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"blade": {
+						"count": 1,
+						"centroid": [
+							0.0,
+							0.92,
+							-0.06
+						],
+						"radius": 0.06,
+						"height": [
+							0.92,
+							0.92
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"blade": {
+						"count": 1,
+						"centroid": [
+							-2.55,
+							1.34,
+							1.49
+						],
+						"radius": 2.95,
+						"height": [
+							1.34,
+							1.34
+						]
+					},
+					"chips": {
+						"count": 8,
+						"centroid": [
+							-0.4,
+							0.12,
+							0.04
+						],
+						"radius": 0.67,
+						"height": [
+							0.1,
+							0.13
+						]
+					}
+				},
+				"0.90": {
+					"blade": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.59,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.59,
+							0.59
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				}
+			}
+		},
+		"cube_skipping_stone": {
+			"family": "travel",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_skipping_stone",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"water"
+					],
+					"SPELL": "Splash"
+				}
+			],
+			"ingredients": {
+				"stone": 1,
+				"chips": 18
+			},
+			"peak": 7,
+			"declared_peak": 7,
+			"beats": [
+				{
+					"name": "Launch",
+					"start": 0.0,
+					"end": 0.12,
+					"travel": false
+				},
+				{
+					"name": "Launch",
+					"start": 0.12,
+					"end": 0.34,
+					"travel": true
+				},
+				{
+					"name": "Hop → hop",
+					"start": 0.34,
+					"end": 0.78,
+					"travel": true
+				},
+				{
+					"name": "Last impact",
+					"start": 0.78,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.78,
+			"settle": 0.78,
+			"signatures": {
+				"0.12": {
+					"stone": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							-0.06,
+							-0.24
+						],
+						"radius": 5.01,
+						"height": [
+							-0.06,
+							-0.06
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"stone": {
+						"count": 1,
+						"centroid": [
+							-3.13,
+							0.77,
+							-0.73
+						],
+						"radius": 3.21,
+						"height": [
+							0.77,
+							0.77
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"stone": {
+						"count": 1,
+						"centroid": [
+							-1.47,
+							1.15,
+							0.38
+						],
+						"radius": 1.52,
+						"height": [
+							1.15,
+							1.15
+						]
+					},
+					"chips": {
+						"count": 6,
+						"centroid": [
+							-3.03,
+							0.07,
+							-0.8
+						],
+						"radius": 3.15,
+						"height": [
+							-0.02,
+							0.15
+						]
+					}
+				},
+				"0.70": {
+					"stone": {
+						"count": 1,
+						"centroid": [
+							-0.01,
+							1.42,
+							0.11
+						],
+						"radius": 0.11,
+						"height": [
+							1.42,
+							1.42
+						]
+					},
+					"chips": {
+						"count": 6,
+						"centroid": [
+							-1.27,
+							0.32,
+							0.87
+						],
+						"radius": 1.56,
+						"height": [
+							0.15,
+							0.47
+						]
+					}
+				},
+				"0.90": {
+					"stone": {
+						"count": 0
+					},
+					"chips": {
+						"count": 6,
+						"centroid": [
+							0.32,
+							0.48,
+							-0.27
+						],
+						"radius": 0.48,
+						"height": [
+							0.26,
+							0.68
+						]
+					}
+				}
+			}
+		},
+		"cube_flanking_volley": {
+			"family": "travel",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_flanking_volley",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"darkness"
+					],
+					"SPELL": "Dark Bolt"
+				}
+			],
+			"ingredients": {
+				"volley": 4,
+				"burst": 18
+			},
+			"peak": 18,
+			"declared_peak": 18,
+			"beats": [
+				{
+					"name": "Separate",
+					"start": 0.0,
+					"end": 0.14,
+					"travel": false
+				},
+				{
+					"name": "Curve around",
+					"start": 0.14,
+					"end": 0.7,
+					"travel": true
+				},
+				{
+					"name": "Converge",
+					"start": 0.7,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.7,
+			"settle": 0.7,
+			"signatures": {
+				"0.12": {
+					"volley": {
+						"count": 4,
+						"centroid": [
+							-5.0,
+							0.49,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.49,
+							0.49
+						]
+					},
+					"burst": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"volley": {
+						"count": 4,
+						"centroid": [
+							-3.57,
+							1.21,
+							0.0
+						],
+						"radius": 3.8,
+						"height": [
+							0.95,
+							1.46
+						]
+					},
+					"burst": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"volley": {
+						"count": 4,
+						"centroid": [
+							-1.79,
+							1.42,
+							0.0
+						],
+						"radius": 2.33,
+						"height": [
+							1.12,
+							1.71
+						]
+					},
+					"burst": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"volley": {
+						"count": 0
+					},
+					"burst": {
+						"count": 18,
+						"centroid": [
+							0.0,
+							0.08,
+							0.0
+						],
+						"radius": 0.0,
+						"height": [
+							0.08,
+							0.08
+						]
+					}
+				},
+				"0.90": {
+					"volley": {
+						"count": 0
+					},
+					"burst": {
+						"count": 18,
+						"centroid": [
+							-0.13,
+							0.44,
+							0.19
+						],
+						"radius": 0.91,
+						"height": [
+							0.23,
+							0.59
+						]
+					}
+				}
+			}
+		},
+		"cube_ceiling_collapse": {
+			"family": "impact",
+			"binding": "area",
+			"carriers": [
+				{
+					"PROFILE": "cube_ceiling_collapse",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"ice"
+					],
+					"SPELL": "Ice Plume"
+				}
+			],
+			"ingredients": {
+				"dust": 12,
+				"heavy": 7,
+				"rubble": 35
+			},
+			"peak": 42,
+			"declared_peak": 42,
+			"beats": [
+				{
+					"name": "Dust warning",
+					"start": 0.0,
+					"end": 0.4,
+					"travel": false
+				},
+				{
+					"name": "Heavy fall",
+					"start": 0.4,
+					"end": 0.66,
+					"travel": false
+				},
+				{
+					"name": "Rubble",
+					"start": 0.66,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.62,
+			"settle": 0.62,
+			"signatures": {
+				"0.12": {
+					"dust": {
+						"count": 1,
+						"centroid": [
+							0.31,
+							2.68,
+							0.39
+						],
+						"radius": 0.5,
+						"height": [
+							2.68,
+							2.68
+						]
+					},
+					"heavy": {
+						"count": 0
+					},
+					"rubble": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"dust": {
+						"count": 12,
+						"centroid": [
+							-0.19,
+							2.13,
+							0.19
+						],
+						"radius": 0.94,
+						"height": [
+							0.99,
+							2.48
+						]
+					},
+					"heavy": {
+						"count": 7,
+						"centroid": [
+							-0.43,
+							3.05,
+							0.04
+						],
+						"radius": 0.9,
+						"height": [
+							3.05,
+							3.05
+						]
+					},
+					"rubble": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"dust": {
+						"count": 0
+					},
+					"heavy": {
+						"count": 7,
+						"centroid": [
+							-0.43,
+							2.71,
+							0.04
+						],
+						"radius": 0.9,
+						"height": [
+							2.52,
+							2.81
+						]
+					},
+					"rubble": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"dust": {
+						"count": 0
+					},
+					"heavy": {
+						"count": 7,
+						"centroid": [
+							-0.43,
+							0.2,
+							0.04
+						],
+						"radius": 0.9,
+						"height": [
+							0.15,
+							0.26
+						]
+					},
+					"rubble": {
+						"count": 35,
+						"centroid": [
+							-0.52,
+							0.43,
+							0.05
+						],
+						"radius": 0.95,
+						"height": [
+							0.2,
+							0.67
+						]
+					}
+				},
+				"0.90": {
+					"dust": {
+						"count": 0
+					},
+					"heavy": {
+						"count": 7,
+						"centroid": [
+							-0.43,
+							0.2,
+							0.04
+						],
+						"radius": 0.9,
+						"height": [
+							0.15,
+							0.26
+						]
+					},
+					"rubble": {
+						"count": 0
+					}
+				}
+			}
+		},
+		"cube_ground_teeth": {
+			"family": "impact",
+			"binding": "area",
+			"carriers": [
+				{
+					"PROFILE": "cube_ground_teeth",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"earth"
+					],
+					"SPELL": "Earth Spike"
+				}
+			],
+			"ingredients": {
+				"tremble": 5,
+				"teeth": 20,
+				"crumbs": 25
+			},
+			"peak": 45,
+			"declared_peak": 45,
+			"beats": [
+				{
+					"name": "Tremble",
+					"start": 0.0,
+					"end": 0.18,
+					"travel": false
+				},
+				{
+					"name": "Punch upward",
+					"start": 0.18,
+					"end": 0.65,
+					"travel": false
+				},
+				{
+					"name": "Crumble",
+					"start": 0.65,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.35,
+			"settle": 0.35,
+			"signatures": {
+				"0.12": {
+					"tremble": {
+						"count": 5,
+						"centroid": [
+							0.0,
+							0.08,
+							-0.04
+						],
+						"radius": 0.58,
+						"height": [
+							0.08,
+							0.08
+						]
+					},
+					"teeth": {
+						"count": 0
+					},
+					"crumbs": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"tremble": {
+						"count": 2,
+						"centroid": [
+							0.65,
+							0.08,
+							0.0
+						],
+						"radius": 0.68,
+						"height": [
+							0.08,
+							0.08
+						]
+					},
+					"teeth": {
+						"count": 12,
+						"centroid": [
+							-0.43,
+							0.52,
+							-0.07
+						],
+						"radius": 0.52,
+						"height": [
+							0.12,
+							1.75
+						]
+					},
+					"crumbs": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"tremble": {
+						"count": 0
+					},
+					"teeth": {
+						"count": 20,
+						"centroid": [
+							0.0,
+							1.06,
+							-0.04
+						],
+						"radius": 0.58,
+						"height": [
+							0.12,
+							2.18
+						]
+					},
+					"crumbs": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"tremble": {
+						"count": 0
+					},
+					"teeth": {
+						"count": 20,
+						"centroid": [
+							0.0,
+							1.08,
+							-0.04
+						],
+						"radius": 0.58,
+						"height": [
+							0.12,
+							2.18
+						]
+					},
+					"crumbs": {
+						"count": 0
+					}
+				},
+				"0.90": {
+					"tremble": {
+						"count": 0
+					},
+					"teeth": {
+						"count": 0
+					},
+					"crumbs": {
+						"count": 25,
+						"centroid": [
+							-0.21,
+							0.48,
+							-0.03
+						],
+						"radius": 0.69,
+						"height": [
+							0.19,
+							0.76
+						]
+					}
+				}
+			}
+		},
+		"cube_expanding_shockwave": {
+			"family": "impact",
+			"binding": "area",
+			"carriers": [
+				{
+					"PROFILE": "cube_expanding_shockwave",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"darkness"
+					],
+					"SPELL": "Dark Nova"
+				}
+			],
+			"ingredients": {
+				"core": 1,
+				"ring": 24
+			},
+			"peak": 24,
+			"declared_peak": 24,
+			"beats": [
+				{
+					"name": "Compress",
+					"start": 0.0,
+					"end": 0.3,
+					"travel": false
+				},
+				{
+					"name": "Expanding ring",
+					"start": 0.3,
+					"end": 0.63,
+					"travel": false
+				},
+				{
+					"name": "Scatter",
+					"start": 0.63,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.3,
+			"settle": 0.3,
+			"signatures": {
+				"0.12": {
+					"core": {
+						"count": 1,
+						"centroid": [
+							0.0,
+							0.2,
+							0.0
+						],
+						"radius": 0.0,
+						"height": [
+							0.2,
+							0.2
+						]
+					},
+					"ring": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"core": {
+						"count": 0
+					},
+					"ring": {
+						"count": 24,
+						"centroid": [
+							0.0,
+							0.15,
+							0.0
+						],
+						"radius": 0.2,
+						"height": [
+							0.15,
+							0.15
+						]
+					}
+				},
+				"0.50": {
+					"core": {
+						"count": 0
+					},
+					"ring": {
+						"count": 24,
+						"centroid": [
+							0.0,
+							0.36,
+							0.0
+						],
+						"radius": 1.0,
+						"height": [
+							0.36,
+							0.36
+						]
+					}
+				},
+				"0.70": {
+					"core": {
+						"count": 0
+					},
+					"ring": {
+						"count": 24,
+						"centroid": [
+							0.0,
+							0.32,
+							0.0
+						],
+						"radius": 1.8,
+						"height": [
+							0.32,
+							0.32
+						]
+					}
+				},
+				"0.90": {
+					"core": {
+						"count": 0
+					},
+					"ring": {
+						"count": 0
+					}
+				}
+			}
+		},
+		"cube_implosion": {
+			"family": "impact",
+			"binding": "volume",
+			"carriers": [
+				{
+					"PROFILE": "cube_implosion",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "spread",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"water",
+						"fire"
+					],
+					"SPELL": "Magenta Reduction"
+				}
+			],
+			"ingredients": {
+				"shell": 18,
+				"core": 1
+			},
+			"peak": 19,
+			"declared_peak": 19,
+			"beats": [
+				{
+					"name": "Hang",
+					"start": 0.0,
+					"end": 0.29,
+					"travel": false
+				},
+				{
+					"name": "Snap inward",
+					"start": 0.29,
+					"end": 0.69,
+					"travel": false
+				},
+				{
+					"name": "Collapse",
+					"start": 0.69,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.69,
+			"settle": 0.69,
+			"signatures": {
+				"0.12": {
+					"shell": {
+						"count": 18,
+						"centroid": [
+							0.0,
+							0.75,
+							0.04
+						],
+						"radius": 1.8,
+						"height": [
+							0.04,
+							1.47
+						]
+					},
+					"core": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"shell": {
+						"count": 18,
+						"centroid": [
+							0.0,
+							0.76,
+							0.04
+						],
+						"radius": 1.8,
+						"height": [
+							0.06,
+							1.47
+						]
+					},
+					"core": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"shell": {
+						"count": 18,
+						"centroid": [
+							0.0,
+							0.75,
+							0.03
+						],
+						"radius": 1.54,
+						"height": [
+							0.14,
+							1.37
+						]
+					},
+					"core": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"shell": {
+						"count": 0
+					},
+					"core": {
+						"count": 1,
+						"centroid": [
+							0.0,
+							0.75,
+							0.0
+						],
+						"radius": 0.0,
+						"height": [
+							0.75,
+							0.75
+						]
+					}
+				},
+				"0.90": {
+					"shell": {
+						"count": 0
+					},
+					"core": {
+						"count": 1,
+						"centroid": [
+							0.0,
+							0.75,
+							0.0
+						],
+						"radius": 0.0,
+						"height": [
+							0.75,
+							0.75
+						]
+					}
+				}
+			}
+		},
+		"cube_rolling_avalanche": {
+			"family": "impact",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_rolling_avalanche",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"ice"
+					],
+					"SPELL": "Ice Plow"
+				}
+			],
+			"ingredients": {
+				"boulders": 2,
+				"trail": 10,
+				"rubble": 18
+			},
+			"peak": 30,
+			"declared_peak": 30,
+			"beats": [
+				{
+					"name": "Rumble",
+					"start": 0.0,
+					"end": 0.08,
+					"travel": false
+				},
+				{
+					"name": "Roll through",
+					"start": 0.08,
+					"end": 0.64,
+					"travel": true
+				},
+				{
+					"name": "Break apart",
+					"start": 0.64,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.6,
+			"settle": 0.6,
+			"signatures": {
+				"0.12": {
+					"boulders": {
+						"count": 2,
+						"centroid": [
+							-4.87,
+							0.32,
+							-0.09
+						],
+						"radius": 4.88,
+						"height": [
+							0.3,
+							0.33
+						]
+					},
+					"trail": {
+						"count": 1,
+						"centroid": [
+							-5.08,
+							0.03,
+							0.57
+						],
+						"radius": 5.11,
+						"height": [
+							0.03,
+							0.03
+						]
+					},
+					"rubble": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"boulders": {
+						"count": 2,
+						"centroid": [
+							-3.07,
+							0.35,
+							-0.09
+						],
+						"radius": 3.08,
+						"height": [
+							0.29,
+							0.41
+						]
+					},
+					"trail": {
+						"count": 10,
+						"centroid": [
+							-3.9,
+							0.06,
+							-0.06
+						],
+						"radius": 3.93,
+						"height": [
+							-0.12,
+							0.17
+						]
+					},
+					"rubble": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"boulders": {
+						"count": 2,
+						"centroid": [
+							-1.07,
+							0.48,
+							-0.09
+						],
+						"radius": 1.11,
+						"height": [
+							0.43,
+							0.52
+						]
+					},
+					"trail": {
+						"count": 10,
+						"centroid": [
+							-1.88,
+							0.18,
+							-0.06
+						],
+						"radius": 1.94,
+						"height": [
+							0.07,
+							0.28
+						]
+					},
+					"rubble": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"boulders": {
+						"count": 0
+					},
+					"trail": {
+						"count": 9,
+						"centroid": [
+							0.08,
+							0.27,
+							-0.14
+						],
+						"radius": 0.55,
+						"height": [
+							0.15,
+							0.38
+						]
+					},
+					"rubble": {
+						"count": 18,
+						"centroid": [
+							-0.04,
+							0.38,
+							0.07
+						],
+						"radius": 0.31,
+						"height": [
+							0.21,
+							0.5
+						]
+					}
+				},
+				"0.90": {
+					"boulders": {
+						"count": 0
+					},
+					"trail": {
+						"count": 0
+					},
+					"rubble": {
+						"count": 18,
+						"centroid": [
+							-0.19,
+							0.24,
+							0.28
+						],
+						"radius": 1.35,
+						"height": [
+							0.15,
+							0.3
+						]
+					}
+				}
+			}
+		},
+		"cube_staggered_bombardment": {
+			"family": "impact",
+			"binding": "area",
+			"carriers": [
+				{
+					"PROFILE": "cube_staggered_bombardment",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"fire"
+					],
+					"SPELL": "Solar Storm"
+				}
+			],
+			"ingredients": {
+				"strikes": 9,
+				"rubble": 54
+			},
+			"peak": 29,
+			"declared_peak": 29,
+			"beats": [
+				{
+					"name": "First drops",
+					"start": 0.0,
+					"end": 0.27,
+					"travel": false
+				},
+				{
+					"name": "Uneven impacts",
+					"start": 0.27,
+					"end": 0.766,
+					"travel": false
+				},
+				{
+					"name": "Last heavy hit",
+					"start": 0.766,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.766,
+			"settle": 0.766,
+			"signatures": {
+				"0.12": {
+					"strikes": {
+						"count": 2,
+						"centroid": [
+							-0.97,
+							2.92,
+							-0.04
+						],
+						"radius": 1.17,
+						"height": [
+							2.73,
+							3.11
+						]
+					},
+					"rubble": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"strikes": {
+						"count": 4,
+						"centroid": [
+							-0.52,
+							2.21,
+							0.01
+						],
+						"radius": 0.91,
+						"height": [
+							0.89,
+							3.12
+						]
+					},
+					"rubble": {
+						"count": 5,
+						"centroid": [
+							-0.74,
+							0.3,
+							-0.68
+						],
+						"radius": 1.01,
+						"height": [
+							0.17,
+							0.38
+						]
+					}
+				},
+				"0.50": {
+					"strikes": {
+						"count": 4,
+						"centroid": [
+							-0.28,
+							2.03,
+							-0.01
+						],
+						"radius": 0.74,
+						"height": [
+							0.57,
+							3.08
+						]
+					},
+					"rubble": {
+						"count": 15,
+						"centroid": [
+							-0.2,
+							0.46,
+							-0.25
+						],
+						"radius": 0.74,
+						"height": [
+							0.2,
+							0.78
+						]
+					}
+				},
+				"0.70": {
+					"strikes": {
+						"count": 2,
+						"centroid": [
+							-0.44,
+							0.9,
+							-0.45
+						],
+						"radius": 0.76,
+						"height": [
+							0.24,
+							1.57
+						]
+					},
+					"rubble": {
+						"count": 15,
+						"centroid": [
+							0.06,
+							0.45,
+							0.23
+						],
+						"radius": 0.66,
+						"height": [
+							0.17,
+							0.76
+						]
+					}
+				},
+				"0.90": {
+					"strikes": {
+						"count": 0
+					},
+					"rubble": {
+						"count": 19,
+						"centroid": [
+							-0.57,
+							0.43,
+							-0.21
+						],
+						"radius": 0.89,
+						"height": [
+							0.12,
+							0.71
+						]
+					}
+				}
+			}
+		},
+		"cube_rising_barricade": {
+			"family": "control",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_rising_barricade",
+					"SPREAD": "centre",
+					"ANCHOR": "caster_front",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "fixed",
+					"ELEMENTS": [
+						"wood"
+					],
+					"SPELL": "Barricade"
+				}
+			],
+			"ingredients": {
+				"wall": 15
+			},
+			"peak": 15,
+			"declared_peak": 15,
+			"beats": [
+				{
+					"name": "Seed line",
+					"start": 0.0,
+					"end": 0.14,
+					"travel": false
+				},
+				{
+					"name": "Build upward",
+					"start": 0.14,
+					"end": 0.8,
+					"travel": false
+				},
+				{
+					"name": "Withdraw",
+					"start": 0.8,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.45,
+			"settle": 0.45,
+			"signatures": {
+				"0.12": {
+					"wall": {
+						"count": 3,
+						"centroid": [
+							-2.14,
+							-0.11,
+							0.0
+						],
+						"radius": 2.17,
+						"height": [
+							-0.12,
+							-0.1
+						]
+					}
+				},
+				"0.30": {
+					"wall": {
+						"count": 15,
+						"centroid": [
+							-2.14,
+							0.19,
+							0.0
+						],
+						"radius": 2.23,
+						"height": [
+							-0.01,
+							0.47
+						]
+					}
+				},
+				"0.50": {
+					"wall": {
+						"count": 15,
+						"centroid": [
+							-2.14,
+							0.52,
+							0.0
+						],
+						"radius": 2.23,
+						"height": [
+							0.09,
+							0.95
+						]
+					}
+				},
+				"0.70": {
+					"wall": {
+						"count": 15,
+						"centroid": [
+							-2.14,
+							0.52,
+							0.0
+						],
+						"radius": 2.23,
+						"height": [
+							0.09,
+							0.95
+						]
+					}
+				},
+				"0.90": {
+					"wall": {
+						"count": 15,
+						"centroid": [
+							-2.14,
+							0.14,
+							0.0
+						],
+						"radius": 2.23,
+						"height": [
+							-0.04,
+							0.32
+						]
+					}
+				}
+			}
+		},
+		"cube_closing_cage": {
+			"family": "control",
+			"binding": "body",
+			"carriers": [
+				{
+					"PROFILE": "cube_closing_cage",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "spread",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"wood"
+					],
+					"SPELL": "Bramble Crown"
+				},
+				{
+					"PROFILE": "cube_closing_cage",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "none",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"darkness"
+					],
+					"SPELL": "Aurora Veil"
+				}
+			],
+			"ingredients": {
+				"posts": 12,
+				"lid": 4
+			},
+			"peak": 16,
+			"declared_peak": 16,
+			"beats": [
+				{
+					"name": "Corner posts",
+					"start": 0.0,
+					"end": 0.42,
+					"travel": false
+				},
+				{
+					"name": "Close overhead",
+					"start": 0.42,
+					"end": 0.65,
+					"travel": false
+				},
+				{
+					"name": "Hold",
+					"start": 0.65,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.65,
+			"settle": 0.65,
+			"signatures": {
+				"0.12": {
+					"posts": {
+						"count": 8,
+						"centroid": [
+							0.0,
+							0.04,
+							0.0
+						],
+						"radius": 0.85,
+						"height": [
+							0.01,
+							0.06
+						]
+					},
+					"lid": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"posts": {
+						"count": 12,
+						"centroid": [
+							0.0,
+							0.59,
+							0.0
+						],
+						"radius": 0.85,
+						"height": [
+							0.18,
+							0.96
+						]
+					},
+					"lid": {
+						"count": 4,
+						"centroid": [
+							0.0,
+							0.72,
+							0.0
+						],
+						"radius": 0.85,
+						"height": [
+							0.72,
+							0.72
+						]
+					}
+				},
+				"0.50": {
+					"posts": {
+						"count": 12,
+						"centroid": [
+							0.0,
+							0.64,
+							0.0
+						],
+						"radius": 0.85,
+						"height": [
+							0.18,
+							1.1
+						]
+					},
+					"lid": {
+						"count": 4,
+						"centroid": [
+							0.0,
+							1.56,
+							0.0
+						],
+						"radius": 0.7,
+						"height": [
+							1.56,
+							1.56
+						]
+					}
+				},
+				"0.70": {
+					"posts": {
+						"count": 12,
+						"centroid": [
+							0.0,
+							0.64,
+							0.0
+						],
+						"radius": 0.85,
+						"height": [
+							0.18,
+							1.1
+						]
+					},
+					"lid": {
+						"count": 4,
+						"centroid": [
+							0.0,
+							1.56,
+							0.0
+						],
+						"radius": 0.3,
+						"height": [
+							1.56,
+							1.56
+						]
+					}
+				},
+				"0.90": {
+					"posts": {
+						"count": 12,
+						"centroid": [
+							0.0,
+							0.64,
+							0.0
+						],
+						"radius": 0.85,
+						"height": [
+							0.18,
+							1.1
+						]
+					},
+					"lid": {
+						"count": 4,
+						"centroid": [
+							0.0,
+							1.56,
+							0.0
+						],
+						"radius": 0.3,
+						"height": [
+							1.56,
+							1.56
+						]
+					}
+				}
+			}
+		},
+		"cube_climbing_coil": {
+			"family": "control",
+			"binding": "body",
+			"carriers": [
+				{
+					"PROFILE": "cube_climbing_coil",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"wood"
+					],
+					"SPELL": "Thornlash"
+				}
+			],
+			"ingredients": {
+				"coil": 22
+			},
+			"peak": 22,
+			"declared_peak": 22,
+			"beats": [
+				{
+					"name": "Find feet",
+					"start": 0.0,
+					"end": 0.15,
+					"travel": false
+				},
+				{
+					"name": "Climb",
+					"start": 0.15,
+					"end": 0.62,
+					"travel": false
+				},
+				{
+					"name": "Tighten",
+					"start": 0.62,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.8,
+			"settle": 0.8,
+			"signatures": {
+				"0.12": {
+					"coil": {
+						"count": 4,
+						"centroid": [
+							0.33,
+							0.21,
+							0.47
+						],
+						"radius": 0.77,
+						"height": [
+							0.1,
+							0.32
+						]
+					}
+				},
+				"0.30": {
+					"coil": {
+						"count": 11,
+						"centroid": [
+							0.11,
+							0.47,
+							0.01
+						],
+						"radius": 0.77,
+						"height": [
+							0.1,
+							0.85
+						]
+					}
+				},
+				"0.50": {
+					"coil": {
+						"count": 20,
+						"centroid": [
+							0.05,
+							0.81,
+							-0.01
+						],
+						"radius": 0.77,
+						"height": [
+							0.1,
+							1.52
+						]
+					}
+				},
+				"0.70": {
+					"coil": {
+						"count": 22,
+						"centroid": [
+							0.07,
+							0.89,
+							0.04
+						],
+						"radius": 0.65,
+						"height": [
+							0.1,
+							1.68
+						]
+					}
+				},
+				"0.90": {
+					"coil": {
+						"count": 22,
+						"centroid": [
+							0.05,
+							0.89,
+							0.02
+						],
+						"radius": 0.48,
+						"height": [
+							0.1,
+							1.68
+						]
+					}
+				}
+			}
+		},
+		"cube_lifting_vortex": {
+			"family": "control",
+			"binding": "volume",
+			"carriers": [
+				{
+					"PROFILE": "cube_lifting_vortex",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "spread",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"fire"
+					],
+					"SPELL": "Smoke Tower"
+				}
+			],
+			"ingredients": {
+				"vortex": 28
+			},
+			"peak": 28,
+			"declared_peak": 28,
+			"beats": [
+				{
+					"name": "Sweep inward",
+					"start": 0.0,
+					"end": 0.3,
+					"travel": false
+				},
+				{
+					"name": "Spiral upward",
+					"start": 0.3,
+					"end": 0.7,
+					"travel": false
+				},
+				{
+					"name": "Release",
+					"start": 0.7,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.6,
+			"settle": 0.6,
+			"signatures": {
+				"0.12": {
+					"vortex": {
+						"count": 11,
+						"centroid": [
+							0.0,
+							0.34,
+							-0.01
+						],
+						"radius": 1.52,
+						"height": [
+							0.15,
+							0.54
+						]
+					}
+				},
+				"0.30": {
+					"vortex": {
+						"count": 28,
+						"centroid": [
+							-0.03,
+							0.79,
+							0.01
+						],
+						"radius": 1.28,
+						"height": [
+							0.26,
+							1.32
+						]
+					}
+				},
+				"0.50": {
+					"vortex": {
+						"count": 28,
+						"centroid": [
+							0.01,
+							1.66,
+							-0.02
+						],
+						"radius": 0.85,
+						"height": [
+							1.13,
+							2.18
+						]
+					}
+				},
+				"0.70": {
+					"vortex": {
+						"count": 28,
+						"centroid": [
+							0.02,
+							2.39,
+							0.03
+						],
+						"radius": 0.88,
+						"height": [
+							2.0,
+							2.53
+						]
+					}
+				},
+				"0.90": {
+					"vortex": {
+						"count": 14,
+						"centroid": [
+							-0.06,
+							2.53,
+							0.02
+						],
+						"radius": 0.98,
+						"height": [
+							2.53,
+							2.53
+						]
+					}
+				}
+			}
+		},
+		"cube_clapping_slabs": {
+			"family": "control",
+			"binding": "body",
+			"carriers": [
+				{
+					"PROFILE": "cube_clapping_slabs",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "none",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"darkness"
+					],
+					"SPELL": "Closing of the Third Sanctuary"
+				}
+			],
+			"ingredients": {
+				"slabs": 12,
+				"fragments": 26
+			},
+			"peak": 38,
+			"declared_peak": 38,
+			"beats": [
+				{
+					"name": "Build sides",
+					"start": 0.0,
+					"end": 0.38,
+					"travel": false
+				},
+				{
+					"name": "Slam together",
+					"start": 0.38,
+					"end": 0.62,
+					"travel": false
+				},
+				{
+					"name": "Chip away",
+					"start": 0.62,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.62,
+			"settle": 0.62,
+			"signatures": {
+				"0.12": {
+					"slabs": {
+						"count": 10,
+						"centroid": [
+							0.0,
+							0.63,
+							-0.04
+						],
+						"radius": 1.57,
+						"height": [
+							0.26,
+							1.18
+						]
+					},
+					"fragments": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"slabs": {
+						"count": 12,
+						"centroid": [
+							0.0,
+							0.72,
+							0.0
+						],
+						"radius": 1.57,
+						"height": [
+							0.26,
+							1.18
+						]
+					},
+					"fragments": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"slabs": {
+						"count": 12,
+						"centroid": [
+							0.0,
+							0.72,
+							0.0
+						],
+						"radius": 1.41,
+						"height": [
+							0.26,
+							1.18
+						]
+					},
+					"fragments": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"slabs": {
+						"count": 0
+					},
+					"fragments": {
+						"count": 26,
+						"centroid": [
+							-0.04,
+							0.39,
+							0.0
+						],
+						"radius": 0.3,
+						"height": [
+							0.22,
+							0.53
+						]
+					}
+				},
+				"0.90": {
+					"slabs": {
+						"count": 0
+					},
+					"fragments": {
+						"count": 26,
+						"centroid": [
+							-0.15,
+							0.27,
+							0.0
+						],
+						"radius": 1.14,
+						"height": [
+							0.16,
+							0.36
+						]
+					}
+				}
+			}
+		},
+		"cube_encasing_frost": {
+			"family": "control",
+			"binding": "body",
+			"carriers": [
+				{
+					"PROFILE": "cube_encasing_frost",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"ice"
+					],
+					"SPELL": "Ice Statue"
+				}
+			],
+			"ingredients": {
+				"shell": 18,
+				"chips": 12
+			},
+			"peak": 30,
+			"declared_peak": 30,
+			"beats": [
+				{
+					"name": "Seed crystals",
+					"start": 0.0,
+					"end": 0.17,
+					"travel": false
+				},
+				{
+					"name": "Build shell",
+					"start": 0.17,
+					"end": 0.56,
+					"travel": false
+				},
+				{
+					"name": "Lock",
+					"start": 0.56,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.56,
+			"settle": 0.56,
+			"signatures": {
+				"0.12": {
+					"shell": {
+						"count": 5,
+						"centroid": [
+							-0.05,
+							0.22,
+							0.09
+						],
+						"radius": 0.54,
+						"height": [
+							0.22,
+							0.22
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"shell": {
+						"count": 12,
+						"centroid": [
+							0.0,
+							0.48,
+							0.0
+						],
+						"radius": 0.54,
+						"height": [
+							0.22,
+							0.74
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"shell": {
+						"count": 18,
+						"centroid": [
+							0.0,
+							0.74,
+							0.0
+						],
+						"radius": 0.54,
+						"height": [
+							0.22,
+							1.26
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"shell": {
+						"count": 18,
+						"centroid": [
+							0.0,
+							0.74,
+							0.0
+						],
+						"radius": 0.54,
+						"height": [
+							0.22,
+							1.26
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.90": {
+					"shell": {
+						"count": 18,
+						"centroid": [
+							0.0,
+							0.74,
+							0.0
+						],
+						"radius": 0.54,
+						"height": [
+							0.22,
+							1.26
+						]
+					},
+					"chips": {
+						"count": 12,
+						"centroid": [
+							-0.09,
+							0.52,
+							0.07
+						],
+						"radius": 0.35,
+						"height": [
+							0.27,
+							0.71
+						]
+					}
+				}
+			}
+		},
+		"cube_repair_mend": {
+			"family": "restore",
+			"binding": "body",
+			"carriers": [
+				{
+					"PROFILE": "cube_repair_mend",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"light"
+					],
+					"SPELL": "Mending"
+				}
+			],
+			"ingredients": {
+				"fragments": 12,
+				"blocks": 4
+			},
+			"peak": 16,
+			"declared_peak": 16,
+			"beats": [
+				{
+					"name": "Gather fragments",
+					"start": 0.0,
+					"end": 0.3,
+					"travel": false
+				},
+				{
+					"name": "Rise inward",
+					"start": 0.3,
+					"end": 0.57,
+					"travel": false
+				},
+				{
+					"name": "Reassemble",
+					"start": 0.57,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.65,
+			"settle": 0.65,
+			"signatures": {
+				"0.12": {
+					"fragments": {
+						"count": 12,
+						"centroid": [
+							0.09,
+							0.11,
+							0.43
+						],
+						"radius": 1.37,
+						"height": [
+							0.1,
+							0.14
+						]
+					},
+					"blocks": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"fragments": {
+						"count": 12,
+						"centroid": [
+							0.06,
+							0.41,
+							0.41
+						],
+						"radius": 0.89,
+						"height": [
+							0.2,
+							0.7
+						]
+					},
+					"blocks": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"fragments": {
+						"count": 12,
+						"centroid": [
+							0.01,
+							0.89,
+							0.36
+						],
+						"radius": 0.37,
+						"height": [
+							0.38,
+							1.41
+						]
+					},
+					"blocks": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"fragments": {
+						"count": 0
+					},
+					"blocks": {
+						"count": 4,
+						"centroid": [
+							0.0,
+							0.91,
+							0.36
+						],
+						"radius": 0.36,
+						"height": [
+							0.34,
+							1.48
+						]
+					}
+				},
+				"0.90": {
+					"fragments": {
+						"count": 0
+					},
+					"blocks": {
+						"count": 4,
+						"centroid": [
+							0.0,
+							0.91,
+							0.36
+						],
+						"radius": 0.36,
+						"height": [
+							0.34,
+							1.48
+						]
+					}
+				}
+			}
+		},
+		"cube_intercepting_guard": {
+			"family": "restore",
+			"binding": "body",
+			"carriers": [
+				{
+					"PROFILE": "cube_intercepting_guard",
+					"SPREAD": "each_target",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"water"
+					],
+					"SPELL": "Ooze Shield"
+				}
+			],
+			"ingredients": {
+				"guards": 6,
+				"incoming": 1,
+				"chips": 9
+			},
+			"peak": 15,
+			"declared_peak": 15,
+			"beats": [
+				{
+					"name": "Orbit",
+					"start": 0.0,
+					"end": 0.25,
+					"travel": false
+				},
+				{
+					"name": "Intercept",
+					"start": 0.25,
+					"end": 0.66,
+					"travel": false
+				},
+				{
+					"name": "Recover",
+					"start": 0.66,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.55,
+			"settle": 0.55,
+			"signatures": {
+				"0.12": {
+					"guards": {
+						"count": 6,
+						"centroid": [
+							0.0,
+							0.8,
+							0.0
+						],
+						"radius": 0.85,
+						"height": [
+							0.8,
+							0.8
+						]
+					},
+					"incoming": {
+						"count": 0
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"guards": {
+						"count": 6,
+						"centroid": [
+							-0.09,
+							0.8,
+							0.0
+						],
+						"radius": 0.76,
+						"height": [
+							0.76,
+							0.85
+						]
+					},
+					"incoming": {
+						"count": 1,
+						"centroid": [
+							-2.93,
+							0.85,
+							0.0
+						],
+						"radius": 2.93,
+						"height": [
+							0.85,
+							0.85
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"guards": {
+						"count": 6,
+						"centroid": [
+							-0.78,
+							0.83,
+							0.0
+						],
+						"radius": 0.8,
+						"height": [
+							0.43,
+							1.23
+						]
+					},
+					"incoming": {
+						"count": 1,
+						"centroid": [
+							-1.31,
+							0.77,
+							0.0
+						],
+						"radius": 1.31,
+						"height": [
+							0.77,
+							0.77
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"guards": {
+						"count": 6,
+						"centroid": [
+							-0.68,
+							0.83,
+							0.0
+						],
+						"radius": 0.71,
+						"height": [
+							0.48,
+							1.18
+						]
+					},
+					"incoming": {
+						"count": 0
+					},
+					"chips": {
+						"count": 9,
+						"centroid": [
+							-1.04,
+							0.34,
+							0.04
+						],
+						"radius": 1.07,
+						"height": [
+							0.19,
+							0.43
+						]
+					}
+				},
+				"0.90": {
+					"guards": {
+						"count": 6,
+						"centroid": [
+							0.0,
+							0.8,
+							0.0
+						],
+						"radius": 0.85,
+						"height": [
+							0.8,
+							0.8
+						]
+					},
+					"incoming": {
+						"count": 0
+					},
+					"chips": {
+						"count": 0
+					}
+				}
+			}
+		},
+		"cube_siphon": {
+			"family": "restore",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_siphon",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"wood"
+					],
+					"SPELL": "Insatiable Famine"
+				}
+			],
+			"ingredients": {
+				"stream": 9,
+				"absorber": 1
+			},
+			"peak": 10,
+			"declared_peak": 10,
+			"beats": [
+				{
+					"name": "Loosen",
+					"start": 0.0,
+					"end": 0.07,
+					"travel": false
+				},
+				{
+					"name": "Pull to caster",
+					"start": 0.07,
+					"end": 0.79,
+					"travel": true
+				},
+				{
+					"name": "Absorb",
+					"start": 0.79,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.43,
+			"settle": 0.43,
+			"signatures": {
+				"0.12": {
+					"stream": {
+						"count": 2,
+						"centroid": [
+							-0.42,
+							0.9,
+							-0.05
+						],
+						"radius": 0.57,
+						"height": [
+							0.84,
+							0.96
+						]
+					},
+					"absorber": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"stream": {
+						"count": 6,
+						"centroid": [
+							-1.81,
+							1.0,
+							0.08
+						],
+						"radius": 1.81,
+						"height": [
+							0.9,
+							1.07
+						]
+					},
+					"absorber": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.79,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.79,
+							0.79
+						]
+					}
+				},
+				"0.50": {
+					"stream": {
+						"count": 7,
+						"centroid": [
+							-3.19,
+							0.87,
+							0.11
+						],
+						"radius": 3.2,
+						"height": [
+							0.45,
+							1.07
+						]
+					},
+					"absorber": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.79,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.79,
+							0.79
+						]
+					}
+				},
+				"0.70": {
+					"stream": {
+						"count": 2,
+						"centroid": [
+							-4.58,
+							0.56,
+							0.03
+						],
+						"radius": 4.58,
+						"height": [
+							0.45,
+							0.66
+						]
+					},
+					"absorber": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.79,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.79,
+							0.79
+						]
+					}
+				},
+				"0.90": {
+					"stream": {
+						"count": 0
+					},
+					"absorber": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.79,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.79,
+							0.79
+						]
+					}
+				}
+			}
+		},
+		"cube_cleanse": {
+			"family": "restore",
+			"binding": "body",
+			"carriers": [
+				{
+					"PROFILE": "cube_cleanse",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "none",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"light"
+					],
+					"SPELL": "Opening of the Third Sanctuary"
+				}
+			],
+			"ingredients": {
+				"attached": 10
+			},
+			"peak": 10,
+			"declared_peak": 10,
+			"beats": [
+				{
+					"name": "Cling",
+					"start": 0.0,
+					"end": 0.32,
+					"travel": false
+				},
+				{
+					"name": "Lift off",
+					"start": 0.32,
+					"end": 0.52,
+					"travel": false
+				},
+				{
+					"name": "Cast away",
+					"start": 0.52,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.52,
+			"settle": 0.52,
+			"signatures": {
+				"0.12": {
+					"attached": {
+						"count": 10,
+						"centroid": [
+							0.01,
+							0.63,
+							0.03
+						],
+						"radius": 0.47,
+						"height": [
+							0.28,
+							1.06
+						]
+					}
+				},
+				"0.30": {
+					"attached": {
+						"count": 10,
+						"centroid": [
+							0.01,
+							0.63,
+							0.03
+						],
+						"radius": 0.47,
+						"height": [
+							0.28,
+							1.06
+						]
+					}
+				},
+				"0.50": {
+					"attached": {
+						"count": 10,
+						"centroid": [
+							0.02,
+							1.07,
+							0.03
+						],
+						"radius": 0.6,
+						"height": [
+							0.52,
+							1.6
+						]
+					}
+				},
+				"0.70": {
+					"attached": {
+						"count": 10,
+						"centroid": [
+							0.05,
+							0.97,
+							0.07
+						],
+						"radius": 1.33,
+						"height": [
+							0.37,
+							1.56
+						]
+					}
+				},
+				"0.90": {
+					"attached": {
+						"count": 0
+					}
+				}
+			}
+		},
+		"cube_blink_transfer": {
+			"family": "restore",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_blink_transfer",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"steel",
+						"wind"
+					],
+					"SPELL": "Feather Time"
+				}
+			],
+			"ingredients": {
+				"cluster": 8
+			},
+			"peak": 8,
+			"declared_peak": 8,
+			"beats": [
+				{
+					"name": "Disassemble",
+					"start": 0.0,
+					"end": 0.2,
+					"travel": false
+				},
+				{
+					"name": "Cross in a streak",
+					"start": 0.2,
+					"end": 0.636,
+					"travel": true
+				},
+				{
+					"name": "Reform",
+					"start": 0.636,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.636,
+			"settle": 0.636,
+			"signatures": {
+				"0.12": {
+					"cluster": {
+						"count": 8,
+						"centroid": [
+							-5.0,
+							0.42,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							-0.09,
+							0.93
+						]
+					}
+				},
+				"0.30": {
+					"cluster": {
+						"count": 8,
+						"centroid": [
+							-4.62,
+							0.52,
+							0.03
+						],
+						"radius": 4.62,
+						"height": [
+							0.14,
+							0.93
+						]
+					}
+				},
+				"0.50": {
+					"cluster": {
+						"count": 8,
+						"centroid": [
+							-0.84,
+							0.84,
+							0.22
+						],
+						"radius": 0.91,
+						"height": [
+							0.22,
+							1.45
+						]
+					}
+				},
+				"0.70": {
+					"cluster": {
+						"count": 8,
+						"centroid": [
+							0.0,
+							0.73,
+							0.0
+						],
+						"radius": 0.17,
+						"height": [
+							0.22,
+							1.24
+						]
+					}
+				},
+				"0.90": {
+					"cluster": {
+						"count": 8,
+						"centroid": [
+							0.0,
+							0.73,
+							0.0
+						],
+						"radius": 0.17,
+						"height": [
+							0.22,
+							1.24
+						]
+					}
+				}
+			}
+		},
+		"cube_charge_release": {
+			"family": "restore",
+			"binding": "two_anchor",
+			"carriers": [
+				{
+					"PROFILE": "cube_charge_release",
+					"SPREAD": "centre",
+					"ANCHOR": "target",
+					"AREA_SCALING": "",
+					"RANGE_SCALING": "",
+					"ELEMENTS": [
+						"fire"
+					],
+					"SPELL": "Pyre Blast"
+				}
+			],
+			"ingredients": {
+				"gather": 16,
+				"charge": 1,
+				"chips": 24
+			},
+			"peak": 24,
+			"declared_peak": 24,
+			"beats": [
+				{
+					"name": "Gather power",
+					"start": 0.0,
+					"end": 0.42,
+					"travel": false
+				},
+				{
+					"name": "Hold weight",
+					"start": 0.42,
+					"end": 0.55,
+					"travel": false
+				},
+				{
+					"name": "Fire",
+					"start": 0.55,
+					"end": 0.76,
+					"travel": true
+				},
+				{
+					"name": "Fire",
+					"start": 0.76,
+					"end": 1.0,
+					"travel": false
+				}
+			],
+			"impact": 0.76,
+			"settle": 0.76,
+			"signatures": {
+				"0.12": {
+					"gather": {
+						"count": 16,
+						"centroid": [
+							-5.01,
+							0.63,
+							-0.01
+						],
+						"radius": 5.06,
+						"height": [
+							0.2,
+							1.03
+						]
+					},
+					"charge": {
+						"count": 0
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.30": {
+					"gather": {
+						"count": 16,
+						"centroid": [
+							-5.0,
+							0.64,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.54,
+							0.74
+						]
+					},
+					"charge": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.74,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.74,
+							0.74
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.50": {
+					"gather": {
+						"count": 0
+					},
+					"charge": {
+						"count": 1,
+						"centroid": [
+							-5.0,
+							0.74,
+							0.0
+						],
+						"radius": 5.0,
+						"height": [
+							0.74,
+							0.74
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.70": {
+					"gather": {
+						"count": 0
+					},
+					"charge": {
+						"count": 1,
+						"centroid": [
+							-2.45,
+							0.9,
+							0.0
+						],
+						"radius": 2.45,
+						"height": [
+							0.9,
+							0.9
+						]
+					},
+					"chips": {
+						"count": 0
+					}
+				},
+				"0.90": {
+					"gather": {
+						"count": 0
+					},
+					"charge": {
+						"count": 0
+					},
+					"chips": {
+						"count": 24,
+						"centroid": [
+							-0.13,
+							0.51,
+							0.06
+						],
+						"radius": 0.98,
+						"height": [
+							0.27,
+							0.72
+						]
+					}
+				}
+			}
+		}
+	}
+}

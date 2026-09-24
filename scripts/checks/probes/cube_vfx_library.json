@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://scripts/hex_battle/cube_vfx/probe_cube_placeholder_library.gd", "marker": "CUBE_VFX_LIBRARY_OK", "timeout": 900, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}
