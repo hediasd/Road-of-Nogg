@@ -55,21 +55,38 @@ func _buildForm() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.name = "SetupScroll"
 	var viewportSize := get_viewport().get_visible_rect().size
+	var sizeScale := float(NoggThemeScript.ui_scale) / 2.0
 	scroll.custom_minimum_size = Vector2(
-		minf(820.0, viewportSize.x - 32.0),
-		minf(610.0, viewportSize.y - 32.0))
+		minf(820.0 * sizeScale, viewportSize.x - 32.0 * sizeScale),
+		minf(610.0 * sizeScale, viewportSize.y - 32.0 * sizeScale))
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	center.add_child(scroll)
 
-	var panel := PanelContainer.new()
+	var frameRoot := Control.new()
+	frameRoot.name = "SetupFrame"
+	frameRoot.custom_minimum_size = scroll.custom_minimum_size
+	scroll.add_child(frameRoot)
+
+	var halo := NoggThemeScript.build_window_halo()
+	if halo != null:
+		frameRoot.add_child(halo)
+	var panel := NoggThemeScript.build_window_body()
 	panel.name = "SetupPanel"
-	panel.custom_minimum_size = scroll.custom_minimum_size
-	scroll.add_child(panel)
+	frameRoot.add_child(panel)
+
+	var inset := MarginContainer.new()
+	inset.name = "SetupInset"
+	inset.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+		inset.add_theme_constant_override(
+			"margin_%s" % ["left", "top", "right", "bottom"][side],
+			NoggThemeScript.CONTENT_INSET)
+	frameRoot.add_child(inset)
 
 	var content := VBoxContainer.new()
 	content.name = "SetupContent"
 	content.add_theme_constant_override("separation", 12)
-	panel.add_child(content)
+	inset.add_child(content)
 
 	var title := NoggThemeScript.make_banner_label("BATTLE SETUP")
 	title.name = "SetupTitle"
@@ -154,11 +171,13 @@ func _buildForm() -> void:
 	content.add_child(startButton)
 	startButton.call_deferred("grab_focus")
 
-	# The skin's rim overlays the content without changing its measured size.
+	# Frame layers share the full panel bounds; the content alone takes an inset.
 	var frame := NoggThemeScript.build_window_frame()
 	if frame != null:
-		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		panel.add_child(frame)
+		frameRoot.add_child(frame)
+	frameRoot.custom_minimum_size.y = maxf(
+		scroll.custom_minimum_size.y, content.get_combined_minimum_size().y
+		+ NoggThemeScript.CONTENT_INSET * 2)
 
 
 func _populateScenarios() -> void:
