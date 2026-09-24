@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://scripts/hex_battle/cube_vfx/travel/probe_cube_travel.gd", "marker": "CUBE_VFX_TRAVEL_OK", "timeout": 300, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}
