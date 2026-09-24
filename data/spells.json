@@ -18,7 +18,9 @@
 		"RADIUS": 1,
 		"RANGE": 5,
 		"TARGET_TYPE": "single",
-		"VFX_PROFILE": "ice_target_encasement"
+		"VFX": {
+			"PROFILE": "cube_encasing_frost"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -27,7 +29,10 @@
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Ice Plume",
 		"RADIUS": 1,
-		"RANGE": 5
+		"RANGE": 5,
+		"VFX": {
+			"PROFILE": "cube_ceiling_collapse"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -38,7 +43,9 @@
 		"RADIUS": 4,
 		"RANGE": 3,
 		"TARGET_TYPE": "area",
-		"VFX_PROFILE": "ice_area_storm"
+		"VFX": {
+			"PROFILE": "cube_rolling_avalanche"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -47,7 +54,10 @@
 		"ELEMENT": "darkness",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Dark Bolt",
-		"RANGE": 4
+		"RANGE": 4,
+		"VFX": {
+			"PROFILE": "cube_flanking_volley"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -57,7 +67,10 @@
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Dark Nova",
 		"RANGE": 3,
-		"TARGET_TYPE": "area"
+		"TARGET_TYPE": "area",
+		"VFX": {
+			"PROFILE": "cube_expanding_shockwave"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": false,
@@ -69,7 +82,10 @@
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Mending",
 		"RANGE": 5,
-		"TARGET_TYPE": "single"
+		"TARGET_TYPE": "single",
+		"VFX": {
+			"PROFILE": "cube_repair_mend"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -79,7 +95,10 @@
 		"INFLICTS_STATUS": "burn",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Ember Strike",
-		"RANGE": 2
+		"RANGE": 2,
+		"VFX": {
+			"PROFILE": "cube_arcing_pair"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -89,7 +108,10 @@
 		"INFLICTS_STATUS": "burn",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Pyre Blast",
-		"RANGE": 3
+		"RANGE": 3,
+		"VFX": {
+			"PROFILE": "cube_charge_release"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -97,7 +119,10 @@
 		"ELEMENT": "earth",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Earth Spike",
-		"RANGE": 3
+		"RANGE": 3,
+		"VFX": {
+			"PROFILE": "cube_ground_teeth"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -105,7 +130,10 @@
 		"ELEMENT": "steel",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Steel Blade",
-		"RANGE": 1
+		"RANGE": 1,
+		"VFX": {
+			"PROFILE": "cube_returning_throw"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -113,7 +141,10 @@
 		"ELEMENT": "water",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Splash",
-		"RANGE": 4
+		"RANGE": 4,
+		"VFX": {
+			"PROFILE": "cube_skipping_stone"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -553,7 +584,12 @@
 		"NAME": "Barricade",
 		"RANGE": 0,
 		"SEQUENCE_LEVEL": 1,
-		"TARGET_TYPE": "self"
+		"TARGET_TYPE": "self",
+		"VFX": {
+			"PROFILE": "cube_rising_barricade",
+			"ANCHOR": "caster_front",
+			"RANGE_SCALING": "fixed"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": false,
@@ -578,7 +614,10 @@
 		"NAME": "Thornlash",
 		"RANGE": 3,
 		"SEQUENCE_LEVEL": 2,
-		"TARGET_TYPE": "single"
+		"TARGET_TYPE": "single",
+		"VFX": {
+			"PROFILE": "cube_climbing_coil"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -592,7 +631,12 @@
 		"RADIUS": 2,
 		"RANGE": 3,
 		"SEQUENCE_LEVEL": 3,
-		"TARGET_TYPE": "area"
+		"TARGET_TYPE": "area",
+		"VFX": {
+			"PROFILE": "cube_closing_cage",
+			"SPREAD": "centre",
+			"AREA_SCALING": "spread"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -637,7 +681,12 @@
 		"NAME": "Closing of the Third Sanctuary",
 		"RADIUS": 3,
 		"RANGE": 5,
-		"TARGET_TYPE": "area"
+		"TARGET_TYPE": "area",
+		"VFX": {
+			"PROFILE": "cube_clapping_slabs",
+			"SPREAD": "centre",
+			"AREA_SCALING": "none"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": false,
@@ -650,7 +699,12 @@
 		"RADIUS": 3,
 		"RANGE": 5,
 		"REMOVES_STATUS": "petrify",
-		"TARGET_TYPE": "area"
+		"TARGET_TYPE": "area",
+		"VFX": {
+			"PROFILE": "cube_cleanse",
+			"SPREAD": "centre",
+			"AREA_SCALING": "none"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -676,7 +730,10 @@
 		"RADIUS": 3,
 		"RANGE": 4,
 		"TARGET_TYPE": "area",
-		"VFX_PROFILE": "fire_area_storm"
+		"VFX": {
+			"PROFILE": "cube_lifting_vortex",
+			"AREA_SCALING": "spread"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -702,7 +759,11 @@
 		"DESC": "Unleashes a flurry of metallic feathers, striking with both steel and wind.",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Feather Time",
-		"RANGE": 4
+		"RANGE": 4,
+		"VFX": {
+			"PROFILE": "cube_blink_transfer",
+			"ELEMENTS": ["steel", "wind"]
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -731,7 +792,11 @@
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Ooze Shield",
 		"SELF_RADIUS": 2,
-		"TARGET_TYPE": "self"
+		"TARGET_TYPE": "self",
+		"VFX": {
+			"PROFILE": "cube_intercepting_guard",
+			"SPREAD": "each_target"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -743,7 +808,11 @@
 		"NAME": "Corrupting Splatter",
 		"RADIUS": 1,
 		"RANGE": 3,
-		"TARGET_TYPE": "area"
+		"TARGET_TYPE": "area",
+		"VFX": {
+			"PROFILE": "cube_scattershot",
+			"AREA_SCALING": "spread"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": false,
@@ -773,7 +842,10 @@
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Insatiable Famine",
 		"RANGE": 4,
-		"TARGET_TYPE": "single"
+		"TARGET_TYPE": "single",
+		"VFX": {
+			"PROFILE": "cube_siphon"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": false,
@@ -802,7 +874,10 @@
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Lightningbolt",
 		"RANGE": 6,
-		"TARGET_TYPE": "single"
+		"TARGET_TYPE": "single",
+		"VFX": {
+			"PROFILE": "cube_corkscrew_bolt"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -861,7 +936,10 @@
 		"RADIUS": 3,
 		"RANGE": 3,
 		"TARGET_TYPE": "area",
-		"VFX_PROFILE": "magenta_reduction"
+		"VFX": {
+			"PROFILE": "cube_implosion",
+			"AREA_SCALING": "spread"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -873,7 +951,11 @@
 		"RADIUS": 2,
 		"RANGE": 4,
 		"TARGET_TYPE": "area",
-		"VFX_PROFILE": "aurora_veil"
+		"VFX": {
+			"PROFILE": "cube_closing_cage",
+			"SPREAD": "centre",
+			"AREA_SCALING": "none"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
@@ -885,6 +967,8 @@
 		"RADIUS": 3,
 		"RANGE": 5,
 		"TARGET_TYPE": "area",
-		"VFX_PROFILE": "solar_storm"
+		"VFX": {
+			"PROFILE": "cube_staggered_bombardment"
+		}
 	}
 ]

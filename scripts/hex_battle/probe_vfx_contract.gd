@@ -9,6 +9,57 @@ const HexGridScript = preload("res://src/board/HexGrid.gd")
 const VfxTexturesScript = preload("res://src/presentation/effects/VfxTextures.gd")
 const CubeRitualProfileScript = preload(
 	"res://src/presentation/effects/ElementalCubeRitualProfile.gd")
+const CubeEffectScript = preload(
+	"res://src/presentation/effects/cube_placeholders/shared/CubePlaceholderEffect.gd")
+const SpellVfxSpecScript = preload("res://src/presentation/effects/SpellVfxSpec.gd")
+const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
+
+## The 24 cube placeholder profiles, in catalog order.
+const CUBE_PLACEHOLDER_PROFILES := [
+	"cube_arcing_pair", "cube_scattershot", "cube_corkscrew_bolt", "cube_returning_throw",
+	"cube_skipping_stone", "cube_flanking_volley",
+	"cube_ceiling_collapse", "cube_ground_teeth", "cube_expanding_shockwave", "cube_implosion",
+	"cube_rolling_avalanche", "cube_staggered_bombardment",
+	"cube_rising_barricade", "cube_closing_cage", "cube_climbing_coil", "cube_lifting_vortex",
+	"cube_clapping_slabs", "cube_encasing_frost",
+	"cube_repair_mend", "cube_intercepting_guard", "cube_siphon", "cube_cleanse",
+	"cube_blink_transfer", "cube_charge_release",
+]
+
+## The carrier settings table: spell -> the spec it must resolve to. Unlisted
+## keys must resolve to their defaults.
+const CARRIERS := {
+	"Ember Strike": {"PROFILE": "cube_arcing_pair"},
+	"Corrupting Splatter": {"PROFILE": "cube_scattershot", "AREA_SCALING": "spread"},
+	"Lightningbolt": {"PROFILE": "cube_corkscrew_bolt"},
+	"Steel Blade": {"PROFILE": "cube_returning_throw"},
+	"Splash": {"PROFILE": "cube_skipping_stone"},
+	"Dark Bolt": {"PROFILE": "cube_flanking_volley"},
+	"Ice Plume": {"PROFILE": "cube_ceiling_collapse"},
+	"Earth Spike": {"PROFILE": "cube_ground_teeth"},
+	"Dark Nova": {"PROFILE": "cube_expanding_shockwave"},
+	"Magenta Reduction": {"PROFILE": "cube_implosion", "AREA_SCALING": "spread"},
+	"Ice Plow": {"PROFILE": "cube_rolling_avalanche"},
+	"Solar Storm": {"PROFILE": "cube_staggered_bombardment"},
+	"Barricade": {"PROFILE": "cube_rising_barricade", "ANCHOR": "caster_front", "RANGE_SCALING": "fixed"},
+	"Bramble Crown": {"PROFILE": "cube_closing_cage", "SPREAD": "centre", "AREA_SCALING": "spread"},
+	"Aurora Veil": {"PROFILE": "cube_closing_cage", "SPREAD": "centre", "AREA_SCALING": "none"},
+	"Thornlash": {"PROFILE": "cube_climbing_coil"},
+	"Smoke Tower": {"PROFILE": "cube_lifting_vortex", "AREA_SCALING": "spread"},
+	"Closing of the Third Sanctuary": {"PROFILE": "cube_clapping_slabs", "SPREAD": "centre", "AREA_SCALING": "none"},
+	"Ice Statue": {"PROFILE": "cube_encasing_frost"},
+	"Mending": {"PROFILE": "cube_repair_mend"},
+	"Ooze Shield": {"PROFILE": "cube_intercepting_guard", "SPREAD": "each_target"},
+	"Insatiable Famine": {"PROFILE": "cube_siphon"},
+	"Opening of the Third Sanctuary": {"PROFILE": "cube_cleanse", "SPREAD": "centre", "AREA_SCALING": "none"},
+	"Feather Time": {"PROFILE": "cube_blink_transfer", "ELEMENTS": ["steel", "wind"]},
+	"Pyre Blast": {"PROFILE": "cube_charge_release"},
+}
+
+## Presentation and simulation paths that must never branch on a profile id.
+const NO_PROFILE_BRANCH_DIRS := [
+	"res://src/presentation/battle", "res://src/presentation/battle/effects", "res://src/battle_sim",
+]
 
 const HEX_EFFECT_DIR := "res://src/presentation/battle/effects"
 const DONOR_DIR := "res://src/presentation/effects"
@@ -54,6 +105,7 @@ func _run() -> void:
 	_checkCatalogCoverage()
 	_checkClassificationMatchesTheDonors()
 	_checkCubePlaceholderProfiles()
+	_checkCubePlaceholderIntegration()
 	_checkFootprintOrderingAndBounds()
 	_checkEmptyCellsAreInTheBounds()
 	_checkGroundWashSilhouette()
@@ -111,7 +163,9 @@ func _map(cols := 21, rows := 21) -> BattleMapDefinition:
 
 
 ## Every active cube profile must be served, and no parked effect may re-enter
-## through the catalog while this direction is in force.
+## through the catalog while this direction is in force. The active set is
+## exactly the two rituals and the 24 cube placeholders, all body-built by the
+## bridge (none sizes itself from a tile radius).
 func _checkCatalogCoverage() -> void:
 	var catalog := SpellVfxCatalog.entries()
 	var coverage := BridgeScript.coverage()
@@ -119,6 +173,7 @@ func _checkCatalogCoverage() -> void:
 		CubeRitualProfileScript.CROWNBURST_PROFILE_ID,
 		CubeRitualProfileScript.SPIRAL_PROFILE_ID,
 	]
+	expectedProfiles.append_array(CUBE_PLACEHOLDER_PROFILES)
 	_require(catalog.size() == expectedProfiles.size(),
 		"cube-only catalog should list %d profiles, got %d" % [
 			expectedProfiles.size(), catalog.size()
@@ -175,6 +230,155 @@ func _checkClassificationMatchesTheDonors() -> void:
 			"profile '%s' is classified %s but its donor %s setFootprint" % [
 				profileID, str(row["binding"]), "declares" if declaresFootprint else "does not declare"
 			])
+
+
+## The cube placeholder library through the catalog, the spell data and the bridge: exact active
+## set and order, generic metadata, the carrier table, fallback for every other spell, construction
+## of every entry through the battle bridge, footprint and spec propagation, the playback's own
+## hold, and no profile-id branch anywhere in battle presentation or simulation.
+func _checkCubePlaceholderIntegration() -> void:
+	var catalog := SpellVfxCatalog.entries()
+	var ids: Array = []
+	for entry: Dictionary in catalog:
+		ids.append(str(entry["profile_id"]))
+	var expected: Array = [
+		CubeRitualProfileScript.CROWNBURST_PROFILE_ID, CubeRitualProfileScript.SPIRAL_PROFILE_ID,
+	]
+	expected.append_array(CUBE_PLACEHOLDER_PROFILES)
+	_require(ids == expected, "active catalog is %s" % str(ids))
+	for entry: Dictionary in catalog:
+		var profileID := str(entry["profile_id"])
+		_require(entry.has("binding") and entry.has("family"),
+			"%s lacks generic binding metadata" % profileID)
+		if profileID.begins_with("cube_"):
+			_require(entry.has("composition") and entry["composition"] is Script,
+				"%s names no composition" % profileID)
+			_require(str(entry["binding"]) in ["two_anchor", "body", "area", "volume"],
+				"%s has binding %s" % [profileID, entry["binding"]])
+			_require(is_equal_approx(float(entry["action_hold_fraction"]),
+				(entry["composition"] as Script).new().impactTime()),
+				"%s hold fraction is not its impact beat" % profileID)
+	for row: Dictionary in BridgeScript.coverage():
+		_require(row.has("spatial"), "bridge coverage row %s has no spatial binding" % row["profile_id"])
+
+	# The carrier table, exactly, and fallback for every other spell.
+	var seen := {}
+	var defaults := SpellVfxSpecScript.defaults()
+	for reference: Dictionary in SpellReferencesScript.list:
+		var spellName := str(reference["NAME"])
+		var spec: SpellVfxSpec = SpellVfxCatalog.specForSpell(reference)
+		_require(spec.isValid(), "%s spec errors: %s" % [spellName, str(spec.errors)])
+		_require(str(reference.get("VFX_PROFILE", "")).is_empty(),
+			"%s still carries VFX_PROFILE" % spellName)
+		if CARRIERS.has(spellName):
+			seen[spellName] = true
+			var want: Dictionary = CARRIERS[spellName]
+			var got := spec.toDictionary()
+			for key: String in ["PROFILE", "SPREAD", "ANCHOR", "AREA_SCALING", "RANGE_SCALING"]:
+				var expectedValue = want.get(key, defaults.values[key])
+				_require(got[key] == expectedValue, "%s %s is %s, the table says %s" % [
+					spellName, key, got[key], expectedValue])
+			if want.has("ELEMENTS"):
+				_require(got["ELEMENTS"] == want["ELEMENTS"],
+					"%s elements %s" % [spellName, str(got["ELEMENTS"])])
+			_require(spec.explicit.has("PROFILE"), "%s does not author its profile" % spellName)
+		else:
+			_require(spec.profileID() in [
+				CubeRitualProfileScript.CROWNBURST_PROFILE_ID, CubeRitualProfileScript.SPIRAL_PROFILE_ID,
+			], "%s is outside the carrier table but resolves to %s" % [spellName, spec.profileID()])
+			_require(not reference.has("VFX"), "%s has a VFX block outside the carrier table" % spellName)
+	_require(seen.size() == CARRIERS.size(),
+		"carriers found in spell data: %d of %d" % [seen.size(), CARRIERS.size()])
+
+	# Every entry builds through the battle bridge with a footprint, a spec and fronts.
+	var map := _map()
+	var cells := HexGridScript.disc(Vector2i(10, 10), 2)
+	var footprint: HexVfxFootprint = FootprintScript.fromCells(cells, map)
+	var layout := HexBattleLayout.new(map)
+	var impact: Vector3 = layout.cellCenter(Vector2i(10, 10))
+	var source: Vector3 = layout.cellCenter(Vector2i(10, 6))
+	var oneTarget: Array[int] = [5]
+	var atImpact: Array[Vector3] = [impact]
+	var oneBody: Array[AABB] = [VfxCastContext.DEFAULT_TARGET_BODY_BOUNDS]
+	for entry: Dictionary in catalog:
+		var profileID := str(entry["profile_id"])
+		var context := VfxCastContext.create(1, source, impact, oneTarget, atImpact, oneBody)
+		var spec := SpellVfxSpecScript.defaults(profileID)
+		var fronts: Array[Vector3] = [Vector3.LEFT]
+		var effect := BridgeScript.createPlayback(
+			profileID, _root, impact, Color(0.6, 0.9, 0.9), footprint, context, {}, 0.0, "circle",
+			spec, Vector3.RIGHT, fronts)
+		_require(effect != null, "%s did not build through the bridge" % profileID)
+		if effect == null:
+			continue
+		effect.play(3, VfxPlayback.MODE_BATTLE)
+		effect.seek_normalized(0.5)
+		if profileID.begins_with("cube_"):
+			var frame: CubePlaceholderFrame = effect.get_frames()[0]
+			_require(frame.footprint != null and frame.footprint.cellCount() == 19,
+				"%s lost the footprint or its empty cells" % profileID)
+			_require(frame.front.is_equal_approx(Vector3.LEFT),
+				"%s ignored the supplied target front" % profileID)
+			_require(effect.has_method("get_action_hold_seconds"), "%s has no own hold" % profileID)
+		effect.dispose()
+
+	# Spec propagation: one ring per protected ally, two palettes for two elements.
+	var allies: Array[int] = [5, 6, 7]
+	var allyPositions: Array[Vector3] = [
+		impact, impact + Vector3(2.0, 0.0, 0.0), impact + Vector3(0.0, 0.0, 2.0),
+	]
+	var allyBounds: Array[AABB] = [
+		VfxCastContext.DEFAULT_TARGET_BODY_BOUNDS, VfxCastContext.DEFAULT_TARGET_BODY_BOUNDS,
+		VfxCastContext.DEFAULT_TARGET_BODY_BOUNDS,
+	]
+	var shield := BridgeScript.createPlayback(
+		"cube_intercepting_guard", _root, impact, Color(0.1, 0.4, 0.9), footprint,
+		VfxCastContext.create(1, impact, impact, allies, allyPositions, allyBounds), {}, 0.0, "circle",
+		SpellVfxCatalog.specForSpell(SpellReferencesScript.getReference("Ooze Shield")))
+	shield.play(1, VfxPlayback.MODE_BATTLE)
+	_require(shield.get_frames().size() == 3,
+		"Ooze Shield did not ring each ally (%d rings)" % shield.get_frames().size())
+	shield.dispose()
+	var feather := BridgeScript.createPlayback(
+		"cube_blink_transfer", _root, impact, Color(0.5, 0.5, 0.5), null,
+		VfxCastContext.create(1, source, impact, oneTarget, atImpact, oneBody), {}, 0.0, "circle",
+		SpellVfxCatalog.specForSpell(SpellReferencesScript.getReference("Feather Time")))
+	feather.play(1, VfxPlayback.MODE_BATTLE)
+	_require(feather.get_palette_keys() == ["steel", "wind"],
+		"Feather Time palettes %s" % str(feather.get_palette_keys()))
+	feather.dispose()
+
+	# The playback's own hold is its impact beat, at the reference and stretched.
+	for cellsAway: int in [2, 4, 6]:
+		var far: Vector3 = layout.cellCenter(Vector2i(10, 10 - cellsAway))
+		var charge := BridgeScript.createPlayback(
+			"cube_charge_release", _root, impact, Color(0.9, 0.2, 0.2), null,
+			VfxCastContext.create(1, far, impact, oneTarget, atImpact, oneBody))
+		charge.play(1, VfxPlayback.MODE_BATTLE)
+		var impactT: float = charge.get_composition().impactTime()
+		var expectedHold: float = charge.normalizedAtSketchTime(impactT) * charge.get_total_duration()
+		_require(is_equal_approx(charge.get_action_hold_seconds(), expectedHold),
+			"charge hold %.3f is not its impact beat %.3f at %d cells" % [
+				charge.get_action_hold_seconds(), expectedHold, cellsAway])
+		if cellsAway == 4:
+			_require(is_equal_approx(charge.get_action_hold_seconds(),
+				impactT * charge.get_composition().battleDurationSeconds()),
+				"charge hold at the reference distance is not the sketch's impact")
+		charge.dispose()
+
+	# No profile-id branching in battle presentation or simulation.
+	for directory: String in NO_PROFILE_BRANCH_DIRS:
+		var dir := DirAccess.open(directory)
+		if dir == null:
+			continue
+		for fileName: String in dir.get_files():
+			if not fileName.ends_with(".gd"):
+				continue
+			var text := FileAccess.get_file_as_string(directory.path_join(fileName))
+			_require(not text.contains("\"cube_"),
+				"%s/%s branches on a cube profile id" % [directory, fileName])
+			_require(not text.contains("elemental_cube_"),
+				"%s/%s branches on a ritual profile id" % [directory, fileName])
 
 
 ## Blank and parked spell profiles route by role. Explicit cube profiles remain

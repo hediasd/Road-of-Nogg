@@ -26,6 +26,11 @@ to 35% of a document that calls itself conventions and authoring workflow.
 | --- | --- | --- |
 | [Generic spell-cast aura](./spell-cast-aura.md) | `spell_cast_aura` | Parked; source and assets retained, absent from the active catalog |
 | [Elemental cube rituals](./elemental-cube-rituals.md) | `elemental_cube_crownburst`, `elemental_cube_spiral` | Active cube-only cast language: Crownburst for offensive spells, Spiral Invocation for support and utility |
+| [Cube placeholder foundation](./cube-placeholder-foundation.md) | substrate and `VFX` spec for the 24 below | Active; one MultiMesh, one draw call per playback |
+| [Cube placeholders: travel](./cube-placeholder-travel.md) | `cube_arcing_pair`, `cube_scattershot`, `cube_corkscrew_bolt`, `cube_returning_throw`, `cube_skipping_stone`, `cube_flanking_volley` | Active; carriers Ember Strike, Corrupting Splatter, Lightningbolt, Steel Blade, Splash, Dark Bolt |
+| [Cube placeholders: impact](./cube-placeholder-impact.md) | `cube_ceiling_collapse`, `cube_ground_teeth`, `cube_expanding_shockwave`, `cube_implosion`, `cube_rolling_avalanche`, `cube_staggered_bombardment` | Active; carriers Ice Plume, Earth Spike, Dark Nova, Magenta Reduction, Ice Plow, Solar Storm |
+| [Cube placeholders: control](./cube-placeholder-control.md) | `cube_rising_barricade`, `cube_closing_cage`, `cube_climbing_coil`, `cube_lifting_vortex`, `cube_clapping_slabs`, `cube_encasing_frost` | Active; carriers Barricade, Bramble Crown, Aurora Veil, Thornlash, Smoke Tower, Closing of the Third Sanctuary, Ice Statue |
+| [Cube placeholders: restore](./cube-placeholder-restore.md) | `cube_repair_mend`, `cube_intercepting_guard`, `cube_siphon`, `cube_cleanse`, `cube_blink_transfer`, `cube_charge_release` | Active; carriers Mending, Ooze Shield, Insatiable Famine, Opening of the Third Sanctuary, Feather Time, Pyre Blast |
 | [Aurora Veil](./aurora-veil.md) | `aurora_veil` | Parked; source and spell metadata retained, absent from the active catalog |
 | [Solar Storm](./solar-storm.md) | `solar_storm` (+ five ladder rungs) | Parked; source and spell metadata retained, absent from the active catalog |
 | [Technique charge aura](./technique-charge-aura.md) | `technique_charge_aura_v1`, `technique_charge_aura_v2` | Parked; debug-only source and assets retained, absent from the active catalog |

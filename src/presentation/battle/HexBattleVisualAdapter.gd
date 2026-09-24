@@ -35,6 +35,7 @@ const UnitOutlineShader = preload("res://src/presentation/battle/shaders/HexUnit
 const UnitSpentShader = preload("res://src/presentation/battle/shaders/HexUnitSpent.gdshader")
 const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
 const SpellVfxCatalogScript = preload("res://src/presentation/effects/SpellVfxCatalog.gd")
+const SpellVfxSpecScript = preload("res://src/presentation/effects/SpellVfxSpec.gd")
 const VfxCastContextScript = preload("res://src/presentation/effects/VfxCastContext.gd")
 const HexGridScript = preload("res://src/board/HexGrid.gd")
 
@@ -1022,6 +1023,11 @@ func _on_spell_cast_started(
 		"source_world": worldPositionOf(casterCell),
 		"impact_world": impactWorld,
 		"profile": SpellVfxCatalogScript.profileForSpell(reference),
+		# Presentation-only: how the effect adapts to this cast, and which way "in front of" is
+		# for the caster and for each target, since units have no facing.
+		"vfx_spec": SpellVfxCatalogScript.specForSpell(reference),
+		"source_front": _frontOf(casterID, worldPositionOf(casterCell), impactWorld - worldPositionOf(casterCell)),
+		"target_fronts": _frontsOf(resolvedTargetIDs, targetWorldPositions, casterID),
 		"element": element,
 		"area_shape": areaShape,
 		"affected_cells": resolvedAffectedCells.duplicate(true),
@@ -1126,6 +1132,34 @@ func _impactPayload(
 		"amount": amount,
 		"heal": heal,
 	}
+
+
+## Which way is "in front of" a unit at this event: toward its nearest living hostile, by
+## `SpellVfxSpec.frontToward`, the rule the VFX debug scene applies too. Read-only: presentation
+## derives it for the effect and never writes a facing back into the simulation.
+func _frontOf(monsterID: int, worldPosition: Vector3, fallback: Vector3) -> Vector3:
+	var positions: Array[Vector3] = []
+	var ids: Array[int] = []
+	var unit = _state.getMonster(monsterID) if _state != null else null
+	if unit != null:
+		for otherID in _state.monsters:
+			var other = _state.monsters[otherID]
+			if other == null or not other.is_alive() or other.team == unit.team:
+				continue
+			positions.append(worldPositionOf(_eventCellOf(int(otherID), Vector2i(-1, -1))))
+			ids.append(int(otherID))
+	return SpellVfxSpecScript.frontToward(worldPosition, positions, ids, fallback)
+
+
+## One front per resolved target, aligned with the payload's target lists. A target with no hostile
+## left faces away from the caster, which is where the cast came from.
+func _frontsOf(targetIDs: Array, targetWorldPositions: Array[Vector3], casterID: int) -> Array[Vector3]:
+	var fronts: Array[Vector3] = []
+	var casterWorld := worldPositionOf(_eventCellOf(casterID, Vector2i(-1, -1)))
+	for index: int in range(targetIDs.size()):
+		var targetWorld := targetWorldPositions[index] if index < targetWorldPositions.size() else casterWorld
+		fronts.append(_frontOf(int(targetIDs[index]), targetWorld, targetWorld - casterWorld))
+	return fronts
 
 
 ## Where a unit stands AT THIS EVENT. Only valid inside an event callback: the simulation emits

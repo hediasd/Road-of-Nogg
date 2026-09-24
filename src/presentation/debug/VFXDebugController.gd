@@ -28,6 +28,12 @@
 ##                           row format. Repeatable. Debug-only: this is how
 ##                           effects not yet registered with gameplay are
 ##                           previewed and captured.
+##   --spell=<spell name>    preview a real spell the way the battle plays it:
+##                           its resolved effect, its VFX spec (spread, anchor,
+##                           area and range scaling, elements), its area radius
+##                           and shape, its range as the source separation (two
+##                           world units a cell), and a self-cast lands on the
+##                           caster. Explicit flags given with it still win.
 ##   --element=<name>        element tint, matching BattleMeshFactory's palette
 ##                           (default: ice)
 ##   --radius=<n>            footprint radius in tiles (default 4, UI supports 1-8)
@@ -51,7 +57,8 @@
 ##   --seed=<n>              pin the seed instead of cycling it
 ##   --scale=<f>             playback scale
 ##   --target-body=<standard|wide|tall>  target-body bounds preset
-##   --source-distance=<4-10> caster-to-target separation in world units
+##   --source-distance=<4-20> caster-to-target separation in world units; 8
+##                           is the cube placeholders' 4-cell reference
 ##   --camera-yaw=<degrees>   orbit the preview camera around both anchors
 ##   --camera-pitch=<degrees> elevation, 6-84
 ##   --camera-size=<units>    orthographic size override, for framing one effect
@@ -115,6 +122,10 @@ const VfxDebugWorldScript = preload("res://src/presentation/debug/VfxDebugWorld.
 const VfxDebugCaptureScript = preload("res://src/presentation/debug/VfxDebugCapture.gd")
 const VfxDebugHudScript = preload("res://src/presentation/debug/VfxDebugHud.gd")
 const VfxDebugTuningScript = preload("res://src/presentation/debug/VfxDebugTuning.gd")
+const SpellReferencesScript = preload("res://src/factories/SpellReferences.gd")
+const SpellVfxSpecScript = preload("res://src/presentation/effects/SpellVfxSpec.gd")
+## World units per battle cell, for turning a spell's RANGE into a separation.
+const CELL_PITCH_U := 2.0
 
 const _AREA_SHAPES := [
 	{"id": "circle", "label": "Circle (diamond)"},
@@ -129,7 +140,7 @@ const CATALOG_ROW_KEYS: Array[String] = [
 ## Flags that name one effect's own vocabulary, and so have no meaning across a
 ## batch of different effects.
 const _BATCH_REFUSED_FLAGS: Array[String] = [
-	"--effect=", "--layers=", "--tune=", "--tune-load="
+	"--effect=", "--layers=", "--tune=", "--tune-load=", "--spell="
 ]
 ## Exit code for a batch that could not run as asked: a refused flag, or a
 ## catalog script that failed to load. Distinct from the golden-failure code.
@@ -247,6 +258,10 @@ var _captureMessage: String = ""
 var _worldEnvironment: WorldEnvironment
 var _textSpecimen: CanvasLayer
 var _paneAspectMode: String = PANE_ASPECT_GAME
+## The spell `--spell` previews, and its resolved spec. Empty and null for a
+## bare profile preview, which plays the profile's own defaults.
+var _spellReference: Dictionary = {}
+var _spellSpec: SpellVfxSpec = null
 
 @onready var _sceneCasterAnchor: Node3D = $CasterAnchor
 @onready var _sceneTargetAnchor: Node3D = $TargetAnchor
@@ -805,6 +820,13 @@ func _createSelectedPlayback() -> VfxPlayback:
 		tuning.overrides
 	)
 	playback.configure_cast_context(world.buildCastContext())
+	# The same optional inputs the battle bridge hands over, gated the same way:
+	# a playback that does not declare them is built exactly as before.
+	if _spellSpec != null and playback.has_method("configure_spell_spec"):
+		playback.call("configure_spell_spec", _spellSpec)
+	if playback.has_method("configure_facing"):
+		var fronts := world.fronts()
+		playback.call("configure_facing", fronts["source"], fronts["targets"])
 	return playback
 
 
@@ -1026,6 +1048,7 @@ func _updateStatus() -> void:
 ## run sees exactly the state an interactive session would after setting the
 ## same controls by hand.
 func _applyCommandLineOverrides() -> void:
+	_applySpellArgument()
 	var radius := VfxDebugArguments.integer(
 		"--radius=", VfxDebugWorldScript.DEFAULT_FOOTPRINT_RADIUS
 	)
@@ -1178,6 +1201,55 @@ func _applyCommandLineOverrides() -> void:
 	tuning.applyArgument(VfxDebugArguments.string("--tune="))
 
 	_applyTextCommandLineOverrides()
+
+
+## `--spell=<name>`: sets up the scene the way the battle would cast it, then
+## lets any explicit flag given alongside override a piece of it. Radius,
+## shape, separation and element go through the HUD controls, so the panel
+## shows what the preview is using.
+func _applySpellArgument() -> void:
+	var spellName := VfxDebugArguments.string("--spell=")
+	if spellName.is_empty():
+		return
+	# Underscores stand for spaces, so a name survives any shell's argument
+	# splitting: `--spell=Ooze_Shield`.
+	if not SpellReferencesScript.hasReference(spellName):
+		spellName = spellName.replace("_", " ")
+	var reference: Dictionary = SpellReferencesScript.getReference(spellName)
+	if reference.is_empty():
+		push_warning("Unknown --spell=%s; previewing the selected effect instead." % spellName)
+		return
+	_spellReference = reference
+	_spellSpec = SpellVfxCatalogScript.specForSpell(reference)
+	for problem: String in _spellSpec.errors:
+		push_warning("--spell=%s: %s" % [spellName, problem])
+	var profileID := _spellSpec.profileID()
+	if not VfxDebugHudScript.selectOptionByMetadata(hud.effectOption, profileID, _onEffectSelected):
+		push_warning("--spell=%s resolves to %s, which the picker lacks." % [spellName, profileID])
+
+	var targetType := str(reference.get("TARGET_TYPE", "single")).to_lower()
+	world.castOnCaster = targetType == "self"
+	var shape := "single"
+	var radius := 1
+	if targetType == "area":
+		shape = str(reference.get("AREA_SHAPE", "circle"))
+		radius = maxi(1, int(reference.get("RADIUS", 1)))
+	elif targetType == "self" and int(reference.get("SELF_RADIUS", 0)) > 0:
+		shape = "circle"
+		radius = int(reference.get("SELF_RADIUS", 0))
+	hud.radiusSetting.set_value_no_signal(radius)
+	world.footprintRadius = radius
+	VfxDebugHudScript.selectOptionByMetadata(hud.shapeOption, shape, _onShapeSelected)
+	var rangeCells := maxi(int(reference.get("RANGE", 1)), 1)
+	hud.sourceDistanceSetting.set_value_no_signal(float(rangeCells) * CELL_PITCH_U)
+	var names := _spellSpec.elements()
+	if not names.is_empty() and names[0] != "none":
+		VfxDebugHudScript.selectOptionByMetadata(hud.elementOption, names[0], _onElementSelected)
+	_refreshSelectedEffectSurfaces()
+	_captureMessage = "Spell: %s -> %s" % [spellName, profileID]
+	print("VFX_DEBUG_SPELL name=%s profile=%s spec=%s" % [
+		spellName, profileID, JSON.stringify(_spellSpec.toDictionary())
+	])
 
 
 ## Routed through the HUD controls rather than straight at the specimen, so a

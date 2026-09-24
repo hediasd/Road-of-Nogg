@@ -70,6 +70,10 @@ var cameraFocus: String = "midpoint"
 ## the hex cells they receive; everything else keeps the legacy tile outline,
 ## so an effect that never reads a footprint captures exactly as it always has.
 var hexGuide: bool = false
+## A self-cast: the spell lands on the caster, as a spell with `TARGET_TYPE: self` does in battle.
+## The caster is then the cast's target and footprint centre; the target anchor stays in the scene
+## as the nearest hostile, which is what "in front of the caster" points at.
+var castOnCaster: bool = false
 
 var _worldRoot: Node3D
 var _camera: BattleCameraController
@@ -222,6 +226,14 @@ func frameCamera(pitchRadians: float, zoom: float) -> void:
 
 
 func buildCastContext() -> VfxCastContext:
+	if castOnCaster:
+		var selfIDs: Array[int] = [DEBUG_CASTER_ID]
+		var selfPositions: Array[Vector3] = [casterAnchor.position]
+		var selfBounds: Array[AABB] = [VfxCastContext.DEFAULT_TARGET_BODY_BOUNDS]
+		return VfxCastContextScript.create(
+			DEBUG_CASTER_ID, casterAnchor.position, casterAnchor.position,
+			selfIDs, selfPositions, selfBounds
+		)
 	var targetIDs: Array[int] = [DEBUG_TARGET_ID]
 	var targetPositions: Array[Vector3] = [targetAnchor.position]
 	var targetBounds: Array[AABB] = [targetBodyBounds]
@@ -420,9 +432,37 @@ func _updateHexFootprintGuide() -> void:
 ## the target anchor. Empty cells are included: nothing stands on any of them
 ## but the target, which is the case area effects most need to be truthful in.
 func hexFootprint() -> HexVfxFootprint:
+	if castOnCaster:
+		return buildHexFootprint(
+			areaShape, footprintRadius, casterAnchor.position, targetAnchor.position
+		)
 	return buildHexFootprint(
 		areaShape, footprintRadius, targetAnchor.position, casterAnchor.position
 	)
+
+
+## "In front of" each unit of the cast, by the rule the battle adapter applies
+## (`SpellVfxSpec.frontToward`): the caster faces the target anchor, its only
+## hostile, and each cast target faces the caster. On a self-cast the caster is
+## the target and still faces the target anchor.
+func fronts() -> Dictionary:
+	var hostileOfCaster: Array[Vector3] = [targetAnchor.position]
+	var hostileOfCasterIDs: Array[int] = [DEBUG_TARGET_ID]
+	var sourceFront := SpellVfxSpec.frontToward(
+		casterAnchor.position, hostileOfCaster, hostileOfCasterIDs,
+		targetAnchor.position - casterAnchor.position
+	)
+	var targetFronts: Array[Vector3] = []
+	if castOnCaster:
+		targetFronts.append(sourceFront)
+	else:
+		var hostileOfTarget: Array[Vector3] = [casterAnchor.position]
+		var hostileOfTargetIDs: Array[int] = [DEBUG_CASTER_ID]
+		targetFronts.append(SpellVfxSpec.frontToward(
+			targetAnchor.position, hostileOfTarget, hostileOfTargetIDs,
+			casterAnchor.position - targetAnchor.position
+		))
+	return {"source": sourceFront, "targets": targetFronts}
 
 
 ## Static so a headless probe can check the footprint without a scene.

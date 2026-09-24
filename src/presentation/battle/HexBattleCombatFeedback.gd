@@ -352,6 +352,12 @@ func _ensureNumberLayer() -> bool:
 
 # --- casts ------------------------------------------------------------------
 
+static func _targetFronts(payload: Dictionary) -> Array[Vector3]:
+	var fronts: Array[Vector3] = []
+	fronts.assign(payload.get("target_fronts", []))
+	return fronts
+
+
 ## One carrier per `spell_cast_started`. Per-target damage arrives as separate strike actions, so
 ## a six-target storm is one storm followed by six hits, never six storms.
 func _startCast(action: VisualAction, payload: Dictionary, queue: VisualActionQueue) -> bool:
@@ -377,7 +383,9 @@ func _startCast(action: VisualAction, payload: Dictionary, queue: VisualActionQu
 		profile, _root, payload.get("impact_world", Vector3.ZERO),
 		BattleMeshFactoryScript.elementColor(str(payload.get("element", "none"))),
 		footprint, context, {}, float(payload.get("ground_span", 0.0)),
-		str(payload.get("area_shape", "circle")))
+		str(payload.get("area_shape", "circle")),
+		payload.get("vfx_spec", null), payload.get("source_front", Vector3.ZERO),
+		_targetFronts(payload))
 	if effect == null:
 		push_error("Hex cast could not build playback for profile '%s' (spell %s)." % [
 			profile, str(payload.get("spell", ""))])
@@ -387,7 +395,14 @@ func _startCast(action: VisualAction, payload: Dictionary, queue: VisualActionQu
 	effect.set_playback_scale(0.0 if _paused else _playbackScale)
 	_activeCast = _trackEffect(effect, resolvedProfile)
 	effect.play(int(payload.get("effect_seed", 0)), VfxPlayback.MODE_BATTLE)
-	var hold := effect.get_total_duration() * SpellVfxCatalogScript.actionHoldFraction(profile)
+	# A playback that knows its own impact time (a cube placeholder whose travel stretched with
+	# range) is held exactly that long, so the hit lands on its impact beat at any distance. The
+	# rituals keep their authored fraction.
+	var hold := (
+		float(effect.call("get_action_hold_seconds"))
+		if effect.has_method("get_action_hold_seconds")
+		else effect.get_total_duration() * SpellVfxCatalogScript.actionHoldFraction(profile)
+	)
 	var tween := _root.create_tween()
 	tween.tween_interval(hold)
 	_activate(queue, tween, action, hold)

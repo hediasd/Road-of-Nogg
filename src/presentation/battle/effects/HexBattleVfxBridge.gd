@@ -7,10 +7,12 @@
 ## resolved cells themselves and hands each profile whichever of the two shapes it can actually
 ## use.
 ##
-## EVERY REACHABLE PROFILE IS DISPATCHED. `SpellVfxCatalog` currently exposes only the two
-## body-bound elemental-cube rituals. The preserved area-effect adapters below remain dormant while
-## their donor profiles are parked. `coverage()` reports the active mapping as data so the probe
-## can assert it rather than trust it.
+## EVERY REACHABLE PROFILE IS DISPATCHED. `SpellVfxCatalog` exposes the two elemental-cube
+## rituals and the 24 cube placeholder profiles, all served by the generic path below: none sizes
+## itself from a tile radius, and the placeholders take the resolved hex footprint through
+## `setHexFootprint`. The preserved area-effect adapters remain dormant while their donor profiles
+## are parked. `coverage()` reports the active mapping as data so the probe can assert it rather
+## than trust it.
 ##
 ## THE CLASSIFICATION, AND WHAT DECIDES IT. An effect is AREA-BOUND if it declares `setFootprint`
 ## -- that is not a guess about what an effect looks like, it is the literal question "does this
@@ -19,6 +21,12 @@
 ## which carries world positions and model bounds that were never tile-scaled and are correct on
 ## either topology. So body-bound effects are reused with no hex variant at all, which is why
 ## there are five subclasses and not nine.
+##
+## SPEC AND FACING, THE SAME WAY AS THE FOOTPRINT. A spell's presentation spec (`SpellVfxSpec`) and
+## the derived fronts ("in front of" a unit, which has no facing of its own) reach any playback
+## that declares `configure_spell_spec` / `configure_facing`, and nothing else. The cube placeholder
+## profiles declare them; the rituals do not and are built exactly as before. No branch here names
+## a profile: which inputs a playback takes is the playback's own declaration.
 ##
 ## WHAT THE BRIDGE DOES NOT TOUCH. It writes to no donor, no shared texture, no shared material,
 ## no theme token and no mesh factory. It constructs, configures and returns; the caller owns the
@@ -67,6 +75,9 @@ static func coverage() -> Array[Dictionary]:
 			"display_name": str(entry["display_name"]),
 			"binding": BINDING_AREA if _isAreaProfile(profileID) else BINDING_BODY,
 			"hex_class": _hexClassNameFor(profileID),
+			# The catalog's own spatial binding (source, two_anchor, body, area, volume): which
+			# cast inputs the profile reads, as opposed to how this bridge constructs it.
+			"spatial": str(entry.get("binding", "source")),
 		})
 	return rows
 
@@ -116,7 +127,10 @@ static func createPlayback(
 	context: VfxCastContext = null,
 	overrides: Dictionary = {},
 	groundSpan := 0.0,
-	areaShape := "circle"
+	areaShape := "circle",
+	spec: SpellVfxSpec = null,
+	sourceFront := Vector3.ZERO,
+	targetFronts: Array[Vector3] = []
 ) -> VfxPlayback:
 	var hexClass := _hexClassNameFor(profileID)
 	var playback: VfxPlayback = null
@@ -132,6 +146,10 @@ static func createPlayback(
 		playback.configure_cast_context(context)
 	if footprint != null and not footprint.isEmpty() and playback.has_method("setHexFootprint"):
 		playback.call("setHexFootprint", footprint, groundSpan, areaShape)
+	if spec != null and playback.has_method("configure_spell_spec"):
+		playback.call("configure_spell_spec", spec)
+	if (sourceFront != Vector3.ZERO or not targetFronts.is_empty()) and playback.has_method("configure_facing"):
+		playback.call("configure_facing", sourceFront, targetFronts)
 	return playback
 
 

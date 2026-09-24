@@ -27,9 +27,9 @@ the change is a rule that outlives it, bring the rule here.
 ## 1. How an effect reaches the screen
 
 ```
-data/spells.json  optional VFX_PROFILE (parked non-cube values may remain)
+data/spells.json  optional VFX object (presentation spec), or legacy VFX_PROFILE
         │
-SpellReferences   normalizes the row; VFX_PROFILE defaults to ""
+SpellReferences   normalizes the row; VFX passes through untouched
         │
 CombatResolver    resolves ordered target IDs and the live spell footprint,
         │         then emits spell_cast_started for every cast
@@ -54,8 +54,19 @@ VfxPlayback       the effect itself
 it, to `VisualAction`, or to the event layer. If a new effect seems to need one,
 that is a signal the contract is being worked around.
 
-`VFX_PROFILE` is presentation metadata with no gameplay effect. During the
-cube-only VFX phase, only an active cube value wins. In hex battle, an empty,
+**The hex battle path, as it stands.** `HexBattleVisualAdapter` resolves the
+spell's spec with `SpellVfxCatalog.specForSpell()` and puts it on the cast
+payload with the caster's and each target's derived front (toward the nearest
+living hostile, `SpellVfxSpec.frontToward`). `HexBattleVfxBridge.createPlayback`
+hands the footprint, spec and fronts to any playback that declares
+`setHexFootprint`, `configure_spell_spec` and `configure_facing`, and to nothing
+else, so the rituals are built as before. `HexBattleCombatFeedback` holds the
+queue for the playback's own `get_action_hold_seconds()` when it has one — a
+cube placeholder whose travel stretched with range lands its hit on its impact
+beat at any distance — and for `duration x action_hold_fraction` otherwise.
+
+The spec is presentation metadata with no gameplay effect. During the
+cube-only VFX phase, only an active cube profile wins. In hex battle, an empty,
 unknown, or parked non-cube value resolves through
 `SpellVfxCatalog.profileForSpell()`: offensive spells use elemental-cube
 Crownburst and all others use Spiral Invocation. A caller that bypasses this
@@ -99,11 +110,21 @@ Every effect extends `src/presentation/effects/VfxPlayback.gd` and implements:
 
 Optional, discovered by `has_method`:
 
-- `setFootprint(radius, groundSpan, areaShape)` — area effects.
+- `setFootprint(radius, groundSpan, areaShape)` — area effects (square legacy).
+- `setHexFootprint(footprint, groundSpan, areaShape)` — the resolved hex cells,
+  empty ones included.
+- `configure_spell_spec(spec)` — the spell's `SpellVfxSpec`.
+- `configure_facing(sourceFront, targetFronts)` — "in front of" the caster and
+  each target, since units have no facing.
+- `get_action_hold_seconds()` — the playback's own impact time; a battle caller
+  holds the queue this long instead of `duration x action_hold_fraction`.
 - `setIntensityScale(f)` — lets the adapter dim overlapping effects.
 
 **Registration** is one row in `SpellVfxCatalog.entries()`: `profile_id`,
-`display_name`, `factory`, `action_hold_fraction`, `max_live`.
+`display_name`, `factory`, `action_hold_fraction`, `max_live`, and, for cube
+placeholders, generic metadata: `family`, `binding` (`source`, `two_anchor`,
+`body`, `area`, `volume`) and `composition`. A cube placeholder profile is one
+row in its family's catalog under `effects/cube_placeholders/`.
 
 ---
 

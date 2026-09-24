@@ -13,6 +13,9 @@
 class_name VfxDebugHud
 extends RefCounted
 
+## World units. Ten hex cells at the battle row pitch of 2.0.
+const SOURCE_DISTANCE_MAX := 20.0
+
 ## Rows of the status block, in order: id, label. Ids match the keys
 ## `setStatus()` is handed, so adding a readout is one row here and one key
 ## there rather than a new positional argument in a twenty-slot format string.
@@ -113,6 +116,9 @@ func _init(hudRoot: CanvasLayer) -> void:
 	shapeOption = context.get_node("ShapeOption")
 	targetBodyOption = context.get_node("TargetBodyOption")
 	sourceDistanceSetting = context.get_node("SourceDistanceSetting")
+	# Ten cells: the range the cube placeholders' travel stretch is checked over. The scene file
+	# still says 10 world units (five cells), which stopped short of it.
+	sourceDistanceSetting.max_value = SOURCE_DISTANCE_MAX
 
 	var camera := column.get_node("CameraSection/CameraGrid")
 	cameraYawSetting = camera.get_node("CameraYawSetting")
