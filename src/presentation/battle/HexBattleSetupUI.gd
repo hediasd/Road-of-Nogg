@@ -1,21 +1,15 @@
-## Choose a scenario and a seed, then start. The whole of setup.
-##
-## SCENARIO, NOT ROSTER. The square battle's setup composed a battle from monster picks and team
-## counts; a hex battle is fought from an authored scenario that already binds a map to parties and
-## their deployment (HXB-5). So this offers the scenarios on disk rather than rebuilding a party
-## editor, and the "party composition" it exposes is what the chosen scenario declares.
-##
-## THE SEED IS SHOWN AND EDITABLE, because a seeded preset that cannot be reproduced on purpose is
-## not reproducible in the sense that matters -- someone has to be able to type back the seed from
-## a battle they want to see again.
-
+## The playable hex battle's setup screen. Authored scenarios supply parties and
+## deployment; this form chooses controller mode and a reproducible seed.
 class_name HexBattleSetupUI
 extends CanvasLayer
 
 const NoggThemeScript = preload("res://src/presentation/theme/NoggTheme.gd")
 const BattleScenarioFactoryScript = preload("res://src/factories/BattleScenarioFactory.gd")
 
-const SCENARIO_DIR := "res://data/battle/scenarios"
+const BATTLE_MODES := [
+	{"label": "CPU vs CPU", "path": "res://data/battle/scenarios/hexmap_cpu_cpu.json"},
+	{"label": "Player vs CPU", "path": "res://data/battle/scenarios/hexmap_player_cpu.json"},
+]
 
 signal battle_requested(scenarioPath: String, seedValue: int)
 
@@ -24,6 +18,7 @@ var _scenarioOption: OptionButton
 var _seedField: LineEdit
 var _summary: Label
 var _error: Label
+var _teamColumns: Array[VBoxContainer] = []
 var _scenarioPaths: Array[String] = []
 
 
@@ -31,102 +26,182 @@ func _init() -> void:
 	name = "HexBattleSetupUI"
 	layer = 2
 
-	_root = Control.new()
-	_root.name = "SetupRoot"
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(_root)
 
-	var column := VBoxContainer.new()
-	column.name = "SetupColumn"
-	column.position = Vector2(NoggThemeScript.SCREEN_MARGIN, NoggThemeScript.SCREEN_MARGIN)
-	column.add_theme_constant_override("separation", 8)
-	_root.add_child(column)
-
-	var title := Label.new()
-	title.text = "Hex battle"
-	title.add_theme_color_override("font_color", NoggThemeScript.TEXT_ACCENT)
-	column.add_child(title)
-
-	_scenarioOption = OptionButton.new()
-	_scenarioOption.name = "ScenarioOption"
-	column.add_child(_scenarioOption)
-	_scenarioOption.item_selected.connect(_onScenarioSelected)
-
-	var seedRow := HBoxContainer.new()
-	var seedLabel := Label.new()
-	seedLabel.text = "Seed"
-	seedRow.add_child(seedLabel)
-	_seedField = LineEdit.new()
-	_seedField.name = "SeedField"
-	_seedField.text = "1"
-	_seedField.custom_minimum_size.x = 120.0
-	seedRow.add_child(_seedField)
-	column.add_child(seedRow)
-
-	_summary = Label.new()
-	_summary.name = "ScenarioSummary"
-	_summary.add_theme_color_override("font_color", NoggThemeScript.TEXT_DIM)
-	column.add_child(_summary)
-
-	_error = Label.new()
-	_error.name = "SetupError"
-	column.add_child(_error)
-
-	var startButton := Button.new()
-	startButton.name = "StartButton"
-	startButton.text = "Start battle"
-	startButton.pressed.connect(_onStartPressed)
-	column.add_child(startButton)
-
+func _ready() -> void:
+	NoggThemeScript.configure_for_window_height(get_window().size.y)
+	_buildForm()
 	_populateScenarios()
 
 
-## Every scenario on disk, sorted. Scanned rather than listed in a constant, so a scenario added
-## by HXB-10's authoring route appears here without this file being edited.
+func _buildForm() -> void:
+	_root = Control.new()
+	_root.name = "SetupRoot"
+	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.theme = NoggThemeScript.build_game_theme()
+	add_child(_root)
+
+	var dim := ColorRect.new()
+	dim.name = "Backdrop"
+	dim.color = NoggThemeScript.WINDOW_FILL_DEEP
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.name = "SetupCenter"
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(center)
+
+	var scroll := ScrollContainer.new()
+	scroll.name = "SetupScroll"
+	var viewportSize := get_viewport().get_visible_rect().size
+	scroll.custom_minimum_size = Vector2(
+		minf(820.0, viewportSize.x - 32.0),
+		minf(610.0, viewportSize.y - 32.0))
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	center.add_child(scroll)
+
+	var panel := PanelContainer.new()
+	panel.name = "SetupPanel"
+	panel.custom_minimum_size = scroll.custom_minimum_size
+	scroll.add_child(panel)
+
+	var content := VBoxContainer.new()
+	content.name = "SetupContent"
+	content.add_theme_constant_override("separation", 12)
+	panel.add_child(content)
+
+	var title := NoggThemeScript.make_banner_label("BATTLE SETUP")
+	title.name = "SetupTitle"
+	content.add_child(title)
+
+	var subtitle := Label.new()
+	subtitle.text = "Choose a battle mode and seed, then confirm."
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(subtitle)
+
+	var generalGrid := GridContainer.new()
+	generalGrid.name = "BattleOptions"
+	generalGrid.columns = 2
+	generalGrid.add_theme_constant_override("h_separation", 18)
+	generalGrid.add_theme_constant_override("v_separation", 8)
+	content.add_child(generalGrid)
+
+	var modeLabel := Label.new()
+	modeLabel.text = "Battle mode"
+	generalGrid.add_child(modeLabel)
+	_scenarioOption = OptionButton.new()
+	_scenarioOption.name = "ScenarioOption"
+	_scenarioOption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scenarioOption.tooltip_text = "Choose who controls Team 1."
+	generalGrid.add_child(_scenarioOption)
+	_scenarioOption.item_selected.connect(_onScenarioSelected)
+
+	var mapLabel := Label.new()
+	mapLabel.text = "Map"
+	generalGrid.add_child(mapLabel)
+	var mapValue := Label.new()
+	mapValue.text = "Hexmap"
+	mapValue.add_theme_color_override("font_color", NoggThemeScript.TEXT_ACCENT)
+	generalGrid.add_child(mapValue)
+
+	var seedLabel := Label.new()
+	seedLabel.text = "Seed"
+	generalGrid.add_child(seedLabel)
+	_seedField = LineEdit.new()
+	_seedField.name = "SeedField"
+	_seedField.text = "1"
+	_seedField.tooltip_text = "Use the same seed to reproduce a battle."
+	_seedField.text_submitted.connect(func(_value: String) -> void: _onStartPressed())
+	generalGrid.add_child(_seedField)
+
+	var teams := HBoxContainer.new()
+	teams.name = "Teams"
+	teams.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	teams.add_theme_constant_override("separation", 24)
+	content.add_child(teams)
+	for teamID in [1, 2]:
+		var column := VBoxContainer.new()
+		column.name = "Team%d" % teamID
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		column.add_theme_constant_override("separation", 4)
+		teams.add_child(column)
+		var heading := Label.new()
+		heading.text = "TEAM %d" % teamID
+		heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		heading.add_theme_color_override("font_color", NoggThemeScript.TEXT_ACCENT)
+		column.add_child(heading)
+		_teamColumns.append(column)
+
+	_summary = Label.new()
+	_summary.name = "ScenarioSummary"
+	_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_summary.add_theme_color_override("font_color", NoggThemeScript.TEXT_DIM)
+	content.add_child(_summary)
+
+	_error = Label.new()
+	_error.name = "SetupError"
+	_error.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_error.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_error.add_theme_color_override("font_color", NoggThemeScript.HEX_HP_FILL_LOW)
+	content.add_child(_error)
+
+	var startButton := Button.new()
+	startButton.name = "StartButton"
+	startButton.text = "CONFIRM AND LOAD BATTLE"
+	startButton.custom_minimum_size.y = 48
+	startButton.pressed.connect(_onStartPressed)
+	content.add_child(startButton)
+	startButton.call_deferred("grab_focus")
+
+	# The skin's rim overlays the content without changing its measured size.
+	var frame := NoggThemeScript.build_window_frame()
+	if frame != null:
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(frame)
+
+
 func _populateScenarios() -> void:
 	_scenarioPaths.clear()
 	_scenarioOption.clear()
-	var dir := DirAccess.open(SCENARIO_DIR)
-	if dir == null:
-		_summary.text = "No scenario directory at %s." % SCENARIO_DIR
-		return
-	var names := dir.get_files()
-	names.sort()
-	for fileName in names:
-		if not fileName.ends_with(".json"):
-			continue
-		var path := "%s/%s" % [SCENARIO_DIR, fileName]
-		_scenarioPaths.append(path)
-		_scenarioOption.add_item(fileName.get_basename())
-	if not _scenarioPaths.is_empty():
-		_scenarioOption.select(0)
+	for mode: Dictionary in BATTLE_MODES:
+		_scenarioPaths.append(str(mode["path"]))
+		_scenarioOption.add_item(str(mode["label"]))
+	_scenarioOption.select(0)
 	_refreshSummary()
 
 
-## What the chosen scenario actually contains -- party count, controllers and map. Read from the
-## scenario itself rather than described here, so the summary cannot drift from the file.
 func _refreshSummary() -> void:
+	for column in _teamColumns:
+		for index in range(column.get_child_count() - 1, 0, -1):
+			var row := column.get_child(index)
+			column.remove_child(row)
+			row.queue_free()
 	var path := selectedScenarioPath()
 	if path.is_empty():
-		_summary.text = "No scenarios available."
+		_summary.text = "No battle mode available."
 		return
 	var loaded := BattleScenarioFactoryScript.loadFromPath(path)
 	if not loaded["success"]:
 		_summary.text = "Unreadable: %s" % str(loaded.get("error", ""))
 		return
 	var scenario = loaded["scenario"]
-	var playerParties := 0
-	var cpuParties := 0
-	var members := 0
+	var memberCount := 0
 	for party in scenario.parties:
-		members += party.memberIDs.size()
-		if party.controller == "player":
-			playerParties += 1
-		else:
-			cpuParties += 1
-	_summary.text = "%d parties (%d player, %d CPU), %d members, map %s" % [
-		scenario.parties.size(), playerParties, cpuParties, members, str(scenario.mapID)
-	]
+		memberCount += party.memberIDs.size()
+		var column: VBoxContainer = _teamColumns[party.teamID - 1] if party.teamID in [1, 2] else null
+		if column == null:
+			continue
+		for memberID in party.memberIDs:
+			var row := Label.new()
+			var nameText := str(party.monsterNames[memberID])
+			var level := int(party.memberLevels[memberID])
+			row.text = "%s  Lv%d%s" % [
+				nameText, level, "  (Captain)" if memberID == party.commanderID else ""]
+			row.clip_text = true
+			column.add_child(row)
+	_summary.text = "%d parties, %d members, map %s" % [
+		scenario.parties.size(), memberCount, str(scenario.mapID)]
 
 
 func _onScenarioSelected(_index: int) -> void:
@@ -142,8 +217,8 @@ func selectedScenarioPath() -> String:
 
 
 func selectedSeed() -> int:
-	var text := _seedField.text.strip_edges() if _seedField != null else ""
-	return int(text) if text.is_valid_int() else 0
+	var seedText := _seedField.text.strip_edges() if _seedField != null else ""
+	return int(seedText) if seedText.is_valid_int() else 0
 
 
 func showError(message: String) -> void:
@@ -156,7 +231,8 @@ func _clearError() -> void:
 
 
 func setVisibleUI(shown: bool) -> void:
-	_root.visible = shown
+	if _root != null:
+		_root.visible = shown
 
 
 func _onStartPressed() -> void:

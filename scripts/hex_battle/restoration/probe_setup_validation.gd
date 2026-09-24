@@ -44,10 +44,31 @@ func _require(condition: bool, message: String) -> void:
 
 
 func _checkDiscoveredScenario() -> void:
+	_require(_ui._scenarioOption.item_count == 2, "setup UI should offer exactly two playable modes")
+	_require(_ui._scenarioOption.get_item_text(0) == "CPU vs CPU",
+		"first playable mode should be CPU vs CPU")
+	_require(_ui._scenarioOption.get_item_text(1) == "Player vs CPU",
+		"second playable mode should be Player vs CPU")
+	_require(_ui._scenarioPaths == [
+		"res://data/battle/scenarios/hexmap_cpu_cpu.json",
+		"res://data/battle/scenarios/hexmap_player_cpu.json",
+	], "playable modes should use the true hexmap scenarios")
+	_require(_ui._root.find_child("SetupPanel", true, false) != null,
+		"setup should display the centered battle panel")
+	_require(_ui._teamColumns.size() == 2, "setup should display both team columns")
+	for column in _ui._teamColumns:
+		_require(column.get_child_count() == 5,
+			"each true battle team should show its heading and four members")
 	_require(not _ui.selectedScenarioPath().is_empty(), "setup UI discovered no scenario for valid-seed checks")
 	if not _ui.selectedScenarioPath().is_empty():
 		var loaded := BattleScenarioFactoryScript.loadFromPath(_ui.selectedScenarioPath())
 		_require(loaded["success"], "discovered scenario is not loadable: %s" % loaded.get("error", ""))
+	_ui._scenarioOption.select(1)
+	_ui._scenarioOption.item_selected.emit(1)
+	_require(_ui.selectedScenarioPath() == "res://data/battle/scenarios/hexmap_player_cpu.json",
+		"Player vs CPU should select the playable player scenario")
+	_ui._scenarioOption.select(0)
+	_ui._scenarioOption.item_selected.emit(0)
 
 
 func _checkSeedValidation() -> void:
