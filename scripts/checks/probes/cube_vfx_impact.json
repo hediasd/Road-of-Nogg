@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://scripts/hex_battle/cube_vfx/impact/probe_cube_impact.gd", "marker": "CUBE_VFX_IMPACT_OK", "timeout": 400, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}
