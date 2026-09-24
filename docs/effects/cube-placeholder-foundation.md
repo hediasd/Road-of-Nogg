@@ -19,6 +19,7 @@ Code: `src/presentation/effects/cube_placeholders/shared/` and
 | `CubePlaceholderEffect` | The `VfxPlayback`: lifecycle, the range warp, anchors from the spec, palettes, and the renderer. One generic factory, `create(parent, position, colour, overrides, compositionScript)`, which catalog rows bind a composition script to. |
 | `CubePlaceholderPoseBuffer` | The preallocated cubes of one sample. |
 | `CubePlaceholderAtlas`, `CubePlaceholderProfile` | The sprite atlas and the authored constants, copied from the rituals rather than shared with them. |
+| `CubePlaceholderFootprintReach` | How far an affected footprint reaches from an origin in each direction, measured once per cast; what keeps a spread shape on the cells a spell hit. The impact family keeps its own earlier copy of the same measurement. |
 | `SpellVfxSpec` | Parsing, defaults and validation of a spell's `VFX` block, and the `frontToward` rule for "in front of". |
 
 ## Rendering: one MultiMesh, one draw call

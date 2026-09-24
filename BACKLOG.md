@@ -52,11 +52,45 @@ mixed-level battles show the correct HP/ATK/DEF in setup, simulation, STATUS,
 and restored state; existing level-1 numbers stay unchanged. The range and
 growth values are balance decisions for the user.
 
+### Review the cube placeholder settings per spell
+
+Every spell that casts a cube placeholder effect carries a presentation-only
+`VFX` block (`data/spells.json`, vocabulary in `docs/SPELL_CATALOG_SCHEMA.md`).
+The 25 carriers and their settings were proposed and approved in the cycle
+that built the library, on the understanding that the user reviews them once
+it shipped. Review each with `--spell=<Name>` in the VFX debug scene and in a
+live battle. Points noticed during validation to decide on:
+
+- **Magenta Reduction** has no `ELEMENT` and water and fire damage lines, so
+  the default rule shows both palettes. Author `ELEMENTS` if one colour is
+  wanted.
+- **Cube scale against battle pawns.** Body-bound shapes (frost, cage) scale to
+  the body bounds the adapter measures; next to the small pawn models they
+  read chunky. Decide whether the world unit (1.6 per sketch unit) or the body
+  measurement should change.
+- **Single-cell area casts** (Ice Plume, Earth Spike) squeeze their area
+  studies into one hex, which keeps them truthful but tight. Decide whether a
+  single-target spell should play an area study at all.
+- **Range scaling** is provisional: travel beats stretch by
+  `clamp(cells / 4, 0.75, 1.5)`. Adjacent casts hit the 0.75 floor.
+- **The final validation was not independent.** The session that built the
+  library also validated it, at the user's instruction to proceed without
+  stopping. A fresh-eyes look at the 24 against the retained sketch is still
+  owed.
+
+Acceptance: each carrier's settings are confirmed or changed by the user, and
+any change keeps `scripts/hex_battle/probe_vfx_contract.gd`'s carrier table and
+the cube placeholder manifest in step.
+
 ### Prove existing VFX in real battles
 
-`Fire Storm`, `Ice Statue`, and the generic spell-cast aura have extensive
-debug-harness evidence but incomplete integrated battle acceptance. Cast them
-through the real event/adapter path. Retain the checks particular to each:
+Only once these effects are restored: as of the cube placeholder library, no
+spell carries `Fire Storm`, the ice target encasement or the generic
+spell-cast aura (`Smoke Tower` and `Ice Statue` now play cube placeholders).
+`Fire Storm`, `Ice Statue`'s encasement, and the generic spell-cast aura have
+extensive debug-harness evidence but incomplete integrated battle acceptance.
+Cast them through the real event/adapter path. Retain the checks particular to
+each:
 
 - **Fire Storm (`Smoke Tower`):** test live terrain and units through CRT and
   queue playback; cover overlap/cap, pause, skip, speed, and exit. Extend the

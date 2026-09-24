@@ -43,8 +43,20 @@ When a spell's spec spreads a body-bound shape over its footprint — Bramble
 Crown's cage, whose briar encircles its area — `ControlComposition.around()`
 spreads the ground plan by the frame's target scale and keeps heights and
 cube sizes at the body scale. A spread cage is wider, never taller, so its
-posts stay columns of touching cubes. Without a spread, a footprint changes
-nothing: a body-only shape claims no area.
+posts stay columns of touching cubes. Each spread point is then held within
+85% of the footprint's reach in its own direction
+(`CubePlaceholderFootprintReach`), and never pulled inside its body-sized
+position: spreading only widens a shape onto affected cells. Where the
+footprint is narrower than the body-sized shape (a disc clipped by the board
+edge, the gaps of a cross), the shape keeps its body size there, exactly as
+without a spread. Without a spread, a footprint changes nothing: a body-only
+shape claims no area.
+
+That hold was added in the cycle's live-battle validation. Before it, a spread
+shape scaled uniformly to the farthest affected cell, which put cage posts on
+unaffected cells in most directions and, near the board edge, off the board.
+The probe now fails that old behaviour on a full disc, a clipped disc and a
+cross.
 
 ## Judgement calls
 
@@ -75,7 +87,9 @@ bodies and seeds 0 and 7, within the render budget; reverse and shuffled seeks
 across the holds agree; every cube scales by exactly the body factor on wide
 and tall; with a radius-3 footprint and no spread a body-bound shape is
 identical to having no footprint and stays within reach of the body; with
-spread it widens with cube sizes unchanged. Per study: a 15-cube wall between
+spread it widens with cube sizes unchanged; spread over a full disc, a clipped
+disc and a cross, the cage and the vortex never widen a grounded cube onto an
+unaffected cell and never pull one inside its body-sized position. Per study: a 15-cube wall between
 caster and target, across the cast direction, stacking upward, gone at .99; the
 same wall on its anchor a cell in front of a self-cast (zero-length source to
 impact) and across the front; four posts of four whose lid closes to under half

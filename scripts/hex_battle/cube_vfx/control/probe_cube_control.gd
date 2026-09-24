@@ -44,6 +44,7 @@ func _run() -> void:
 		_checkBodyScale(profileID)
 		_checkNoClaimedArea(profileID)
 	_checkBarricade()
+	_checkSpreadStaysOnCells()
 	_checkCage()
 	_checkCoil()
 	_checkVortex()
@@ -209,6 +210,57 @@ func _checkNoClaimedArea(profileID: String) -> void:
 	none.dispose()
 	bare.dispose()
 	spread.dispose()
+
+
+## Spreading only widens a shape onto affected cells: a grounded cube the
+## spread moved further out than its body-sized position stands on an affected
+## cell, on a disc clipped by the board edge (cells on one side removed), a
+## cross and a full disc; and no cube is pulled inside its body-sized
+## position. Where the footprint is narrower than the body-sized shape, the
+## shape keeps its body size, exactly as without a spread. Found in
+## live-battle validation: a spread cage near the board edge put posts off
+## the board.
+func _checkSpreadStaysOnCells() -> void:
+	var spread := Spec.fromReference({"NAME": "Spread", "VFX": {"AREA_SCALING": "spread"}})
+	var clipped := DebugWorld.buildHexFootprint("circle", 2, _target, _source)
+	var keptCells: Array[Vector2i] = []
+	var keptPositions: Array[Vector3] = []
+	for index: int in range(clipped.cellCount()):
+		if clipped.world_positions[index].x <= _target.x + 1.0:
+			keptCells.append(clipped.cells[index])
+			keptPositions.append(clipped.world_positions[index])
+	clipped.cells = keptCells
+	clipped.world_positions = keptPositions
+	var cases := {
+		"clipped disc": clipped,
+		"cross": DebugWorld.buildHexFootprint("cross", 2, _target, _source),
+		"full disc": DebugWorld.buildHexFootprint("circle", 2, _target, _source),
+	}
+	for profileID: String in ["cube_closing_cage", "cube_lifting_vortex"]:
+		var bare := _make(profileID)
+		for name: String in cases:
+			var footprint: HexVfxFootprint = cases[name]
+			var playback := _make(profileID, "standard", spread, footprint)
+			var off := 0
+			var shrunk := 0
+			for index: int in range(101):
+				var t := float(index) / 100.0
+				var buffer := _at(playback, t)
+				var positions := buffer.positions.duplicate()
+				var count := buffer.count
+				var reference := _at(bare, t)
+				for cube: int in range(count):
+					var spreadReach := _flatDistance(positions[cube], _target)
+					var bodyReach := _flatDistance(reference.positions[cube], _target) if cube < reference.count else 0.0
+					var widened := spreadReach > bodyReach + 0.001
+					if widened and positions[cube].y - _target.y < 1.0 and not footprint.containsWorldPoint(positions[cube]):
+						off += 1
+					if spreadReach + 0.001 < bodyReach:
+						shrunk += 1
+			_expect(off == 0, "%s spread over a %s: %d cube samples widened onto unaffected ground" % [profileID, name, off])
+			_expect(shrunk == 0, "%s spread over a %s: %d cube samples pulled inside the body-sized shape" % [profileID, name, shrunk])
+			playback.dispose()
+		bare.dispose()
 
 
 func _checkBarricade() -> void:
