@@ -968,6 +968,46 @@ Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
 and the world is letterboxed into the rest, so a golden written with the panel
 visible frames differently from one written without it.
 
+### Batch capture, catalog scripts, and hex footprints
+
+`--effect-prefix=<prefix>` with `--capture-at` captures every catalog entry
+whose profile id starts with the prefix, in picker order, in one process. Each
+profile gets the same series and a `<capture-out>_<profile>_sheet.png` phase
+sheet it would get from its own `--effect=<profile>` run, byte for byte; the
+elemental cube rituals were checked this way when the mode was added. The
+seed is pinned for the whole batch. Flags that name one effect's own vocabulary
+(`--effect`, `--layers`, `--tune`, `--tune-load`) are refused with exit code 4.
+
+The batch writes `<capture-out>_batch_manifest.json`: selector, times, seed,
+mode, the full argument list, every matched profile with its frames, sheet and
+result, and the final exit code. Its `status` reads `running` from before the
+first capture until the batch ends, then `complete`, `failed` or `invalid`, so
+an interrupted batch is never mistaken for a finished one. A prefix that
+matches nothing is a complete, successful, empty batch.
+
+```bash
+Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
+  --effect-prefix=cube_ --seed=7 --hide-hud --render-resolution=640x480 \
+  --capture-at=0.12,0.30,0.50,0.70,0.90 --capture-out=user://cube_sheets
+```
+
+`--catalog-script=<res://path.gd>` (repeatable) adds the rows of that script's
+static `entries()`, in `SpellVfxCatalog.entries()` row format, to the picker,
+the batch selector and capture. It is how an effect is previewed before
+gameplay registers it. A missing script, a malformed row, or an id that already
+exists is reported and skipped, never allowed to replace a registered row; in a
+batch any such error makes the batch invalid.
+
+An effect that implements `setHexFootprint(footprint, groundSpan, areaShape)`
+receives the battle's own hex cells for `--radius` and `--shape`, empty cells
+included, through the same call `HexBattleVfxBridge.createPlayback` makes: a
+`HexVfxFootprint` built on a synthetic flat lattice at the battle's cell size
+with its centre cell on the target anchor. `line` runs from the caster's cell
+toward the target, as a line spell resolves; `single` is the target cell alone.
+For such an effect the footprint guide draws exactly those hexes. Effects that
+only implement the legacy `setFootprint(radius, ...)` keep receiving it, under
+the legacy tile outline.
+
 ### Panel, camera, and live tuning
 
 The scene is a fixed menu column on the left and a navigable world pane on the

@@ -21,11 +21,32 @@
 ## produce an observation its own plan asked for.
 ##
 ## Scene selection and framing:
-##   --effect=<profile id>   catalog entry to open with (default: first entry)
+##   --effect=<profile id>   catalog entry to open with (default: first entry;
+##                           an unknown id warns and opens the first entry)
+##   --catalog-script=<res://path.gd>  also offer the rows of that script's
+##                           static `entries()`, in the `SpellVfxCatalog.entries()`
+##                           row format. Repeatable. Debug-only: this is how
+##                           effects not yet registered with gameplay are
+##                           previewed and captured.
 ##   --element=<name>        element tint, matching BattleMeshFactory's palette
 ##                           (default: ice)
 ##   --radius=<n>            footprint radius in tiles (default 4, UI supports 1-8)
-##   --shape=<circle|cross|line>  area shape, matching AREA_SHAPE (default circle)
+##   --shape=<circle|cross|line|single>  area shape, matching AREA_SHAPE
+##                           (default circle). Effects that take a hex footprint
+##                           receive the battle's own hex cells for it, empty
+##                           cells included, and the guide draws those cells.
+##
+## Batch capture (with --capture-at, which it requires):
+##   --effect-prefix=<prefix>  capture every catalog entry whose profile id
+##                           starts with <prefix>, one series and one phase
+##                           sheet each, in catalog order, in one process. Writes
+##                           <capture-out>_batch_manifest.json, whose `status`
+##                           reads `running` until the batch finishes, so an
+##                           interrupted batch is never mistaken for a complete
+##                           one. No match is a complete, successful, empty
+##                           batch. The seed is pinned for the whole batch.
+##                           Refuses --effect, --layers, --tune and --tune-load,
+##                           which name one effect's own vocabulary.
 ##   --layers=<a,b,...>      isolate: show only these layers, hide the rest
 ##   --seed=<n>              pin the seed instead of cycling it
 ##   --scale=<f>             playback scale
@@ -99,7 +120,20 @@ const _AREA_SHAPES := [
 	{"id": "circle", "label": "Circle (diamond)"},
 	{"id": "cross", "label": "Cross"},
 	{"id": "line", "label": "Line"},
+	{"id": "single", "label": "Single cell"},
 ]
+## Every row a catalog entry must carry, mirroring `SpellVfxCatalog.entries()`.
+const CATALOG_ROW_KEYS: Array[String] = [
+	"profile_id", "display_name", "factory", "action_hold_fraction", "max_live"
+]
+## Flags that name one effect's own vocabulary, and so have no meaning across a
+## batch of different effects.
+const _BATCH_REFUSED_FLAGS: Array[String] = [
+	"--effect=", "--layers=", "--tune=", "--tune-load="
+]
+## Exit code for a batch that could not run as asked: a refused flag, or a
+## catalog script that failed to load. Distinct from the golden-failure code.
+const EXIT_BATCH_INVALID := 4
 const _PANE_ASPECTS := [
 	{"id": "game", "label": "Match game aspect"},
 	{"id": "fill", "label": "Fill pane"},
@@ -201,6 +235,7 @@ var hud: VfxDebugHud
 var tuning: VfxDebugTuning
 
 var _catalogEntries: Array[Dictionary] = []
+var _catalogErrors: PackedStringArray = PackedStringArray()
 var _activePlayback
 var _overlapPlaybacks: Array = []
 var _playbackState: String = _STATE_STOPPED
@@ -334,7 +369,14 @@ func _exit_tree() -> void:
 
 
 func _configurePlaybackControls() -> void:
-	_catalogEntries = SpellVfxCatalogScript.entries()
+	var merged := mergeCatalogScripts(
+		SpellVfxCatalogScript.entries(), VfxDebugArguments.strings("--catalog-script=")
+	)
+	_catalogEntries.assign(merged["entries"])
+	_catalogErrors = merged["errors"]
+	for message: String in _catalogErrors:
+		push_error(message)
+		print("VFX_DEBUG_CATALOG_SCRIPT error=%s" % message)
 	assert(not _catalogEntries.is_empty(), "Spell VFX catalog must contain an effect.")
 	for entry: Dictionary in _catalogEntries:
 		hud.effectOption.add_item(entry["display_name"])
@@ -522,37 +564,66 @@ func _onEffectSelected(_index: int) -> void:
 func _refreshSelectedEffectSurfaces() -> void:
 	var profileId := _selectedProfileId()
 	tuning.setEffect(profileId, _tunablesFor(profileId))
-	_rebuildLayerToggles(_layerNamesFor(profileId))
+	var surfaces := _probeSelectedEffect(profileId)
+	_rebuildLayerToggles(surfaces["layers"])
+	# The guide shows what the selected effect is actually handed, so it only
+	# changes shape for an effect that takes the hex footprint.
+	if world.hexGuide != bool(surfaces["hex_footprint"]):
+		world.hexGuide = bool(surfaces["hex_footprint"])
+		world.updateFootprintRing()
 
 
 func _selectedProfileId() -> String:
 	return str(hud.effectOption.get_item_metadata(hud.effectOption.selected))
 
 
+## The scene's own catalog, which is `SpellVfxCatalog` plus any
+## `--catalog-script` rows. Falls back to the first entry exactly as
+## `SpellVfxCatalog.resolve` falls back to its default.
+func _entryFor(profileId: String) -> Dictionary:
+	for entry: Dictionary in _catalogEntries:
+		if str(entry["profile_id"]) == profileId:
+			return entry
+	return _catalogEntries[0]
+
+
+## Same construction `SpellVfxCatalog.create` performs, against this scene's
+## catalog, so a catalog-script row is built exactly as a registered one would be.
+func _createFromCatalog(
+		profileId: String,
+		parent: Node3D,
+		worldPosition: Vector3,
+		color: Color,
+		overrides: Dictionary = {}) -> VfxPlayback:
+	var factory: Callable = _entryFor(profileId)["factory"]
+	return factory.call(parent, worldPosition, color, overrides) as VfxPlayback
+
+
 func _tunablesFor(profileId: String) -> Array[Dictionary]:
-	var entry := SpellVfxCatalogScript.resolve(profileId)
-	var factory: Callable = entry["factory"]
+	var factory: Callable = _entryFor(profileId)["factory"]
 	var script: Script = factory.get_object() as Script
 	if script == null or not script.has_method("tunables"):
 		return []
 	return script.call("tunables")
 
 
-## Builds a probe playback purely to read its layer roster, then disposes it.
-## Cheap next to a relaunch, and it keeps the toggle row truthful for an effect
-## that has not been played yet.
-func _layerNamesFor(profileId: String) -> Array[String]:
-	var probe: VfxPlayback = SpellVfxCatalogScript.create(
+## Builds a probe playback purely to read its layer roster and whether it takes
+## a hex footprint, then disposes it. Cheap next to a relaunch, and it keeps the
+## toggle row and the guide truthful for an effect that has not been played yet.
+func _probeSelectedEffect(profileId: String) -> Dictionary:
+	var probe: VfxPlayback = _createFromCatalog(
 		profileId, retroRenderer.world_root, world.targetAnchor.position,
 		BattleMeshFactoryScript.elementColor(
 			hud.elementOption.get_item_metadata(hud.elementOption.selected)
 		)
 	)
+	var names: Array[String] = []
 	if probe == null:
-		return []
-	var names: Array[String] = probe.get_layer_names()
+		return {"layers": names, "hex_footprint": false}
+	names = probe.get_layer_names()
+	var takesHexFootprint := probe.has_method("setHexFootprint")
 	probe.dispose()
-	return names
+	return {"layers": names, "hex_footprint": takesHexFootprint}
 
 
 func _onElementSelected(_index: int) -> void:
@@ -726,7 +797,7 @@ func _createSelectedPlayback() -> VfxPlayback:
 	# build their geometry and bake their shader uniforms inside `createPlayback`,
 	# so a rebuild-class value handed over afterwards is consumed by nothing and
 	# the panel reports a change that never reached the screen.
-	var playback: VfxPlayback = SpellVfxCatalogScript.create(
+	var playback: VfxPlayback = _createFromCatalog(
 		_selectedProfileId(),
 		retroRenderer.world_root,
 		world.targetAnchor.position,
@@ -1194,12 +1265,37 @@ func _runCaptureMode(times: PackedFloat32Array) -> void:
 		push_error("--capture-at requires a rendered display; headless capture is unsupported.")
 		get_tree().quit(2)
 		return
+	var selector := VfxDebugArguments.string("--effect-prefix=")
+	if not selector.is_empty():
+		await _runBatchCapture(selector, times)
+		return
+	var series: Dictionary = await _captureSeries(
+		capture.capturePrefix(), times, VfxDebugArguments.flag("--capture-sheet")
+	)
+	if capture.goldenFailures > 0:
+		print("VFX_GOLDEN_RESULT failures=%d" % capture.goldenFailures)
+		get_tree().quit(VfxDebugCaptureScript.EXIT_GOLDEN_FAILED)
+		return
+	get_tree().quit(int(series["error"]))
+
+
+## One effect's series: plays the selected effect, captures every requested
+## time, optionally tiles the sheet. Returns what it wrote rather than quitting,
+## so a single capture and a batch share one path and cannot drift apart.
+##
+## A lone time keeps its historical single-file name, and a sheet is only tiled
+## from two or more frames, unless `alwaysSheet` asks for one regardless — a
+## batch promises a sheet per profile whatever the time list.
+func _captureSeries(
+		prefix: String, times: PackedFloat32Array, wantSheet: bool,
+		alwaysSheet: bool = false) -> Dictionary:
 	_onPlayPressed()
 	_applyLayerIsolation()
 
-	var prefix := capture.capturePrefix()
 	var single := times.size() == 1
 	var frames: Array[Image] = []
+	var framePaths: Array[String] = []
+	var sheetPath := ""
 	var lastError := OK
 
 	for index: int in range(times.size()):
@@ -1221,25 +1317,197 @@ func _runCaptureMode(times: PackedFloat32Array) -> void:
 		var image := capture.readViewportImage()
 		frames.append(image)
 		var name := capture.frameName(prefix, normalizedTime, single)
-		var error := capture.writeFrame(image, capture.framePath(prefix, name, single))
+		var framePath := capture.framePath(prefix, name, single)
+		var error := capture.writeFrame(image, framePath)
+		framePaths.append(ProjectSettings.globalize_path(framePath))
 		if error != OK:
 			lastError = error
 		capture.checkGolden(name, image)
 
-	if VfxDebugArguments.flag("--capture-sheet") and frames.size() > 1:
-		var sheetPath := "%s_sheet.png" % prefix
+	if (wantSheet and frames.size() > 1) or (alwaysSheet and not frames.is_empty()):
+		sheetPath = "%s_sheet.png" % prefix
 		var sheetError := capture.writeContactSheet(frames, sheetPath)
 		if sheetError != OK:
 			lastError = sheetError
 		print("VFX_DEBUG_SHEET path=%s error=%d frames=%d" % [
 			ProjectSettings.globalize_path(sheetPath), sheetError, frames.size()
 		])
+	return {
+		"error": lastError,
+		"frames": framePaths,
+		"sheet": ProjectSettings.globalize_path(sheetPath) if not sheetPath.is_empty() else "",
+	}
 
-	if capture.goldenFailures > 0:
-		print("VFX_GOLDEN_RESULT failures=%d" % capture.goldenFailures)
-		get_tree().quit(VfxDebugCaptureScript.EXIT_GOLDEN_FAILED)
+
+## Captures every catalog entry whose id starts with `selector`, each exactly
+## as a single `--effect=<id>` capture of it would, in one process.
+##
+## One process rather than one per profile because each series already replays
+## its effect from zero before every seek, which is what makes a capture
+## reproducible; nothing about a previous profile survives that except state
+## this scene holds itself, and the reset below clears all of it: playbacks are
+## disposed on selection, tuning overrides are cleared by `tuning.setEffect`,
+## and layer visibility is forgotten. Flags that would carry one effect's
+## vocabulary into another are refused up front instead.
+##
+## The manifest is written before the first capture with status `running`,
+## rewritten after every profile, and only reaches `complete` at the end, so a
+## crash or a kill leaves a manifest that says so.
+func _runBatchCapture(selector: String, times: PackedFloat32Array) -> void:
+	var basePrefix := capture.capturePrefix()
+	var manifestPath := "%s_batch_manifest.json" % basePrefix
+	var matches := entriesWithPrefix(_catalogEntries, selector)
+	# Pinned whether or not --seed was given, so every profile in the batch
+	# plays the same seed and the manifest can name it.
+	hud.seedPin.set_pressed_no_signal(true)
+	var manifest := VfxDebugCaptureScript.newBatchManifest(
+		selector, times, int(hud.seedSetting.value), _selectedMode(),
+		VfxDebugArguments.all(), VfxDebugArguments.strings("--catalog-script="),
+		entryIds(matches)
+	)
+	var problems := batchArgumentProblems(VfxDebugArguments.all())
+	problems.append_array(_catalogErrors)
+	if not problems.is_empty():
+		for problem: String in problems:
+			push_error(problem)
+		VfxDebugCaptureScript.finishBatchManifest(
+			manifest, VfxDebugCaptureScript.BATCH_INVALID, EXIT_BATCH_INVALID, problems
+		)
+		capture.writeBatchManifest(manifest, manifestPath)
+		get_tree().quit(EXIT_BATCH_INVALID)
 		return
-	get_tree().quit(lastError)
+	capture.writeBatchManifest(manifest, manifestPath)
+
+	var exitCode := OK
+	for entry: Dictionary in matches:
+		var profileId := str(entry["profile_id"])
+		if not VfxDebugHudScript.selectOptionByMetadata(
+				hud.effectOption, profileId, _onEffectSelected):
+			push_error("Batch profile %s is not in the picker." % profileId)
+			exitCode = FAILED
+			continue
+		_layerVisibility.clear()
+		var goldenBefore := capture.goldenFailures
+		var series: Dictionary = await _captureSeries(
+			"%s_%s" % [basePrefix, profileId], times, true, true
+		)
+		var row := {
+			"profile_id": profileId,
+			"display_name": str(entry["display_name"]),
+			"frames": series["frames"],
+			"sheet": series["sheet"],
+			"error": int(series["error"]),
+			"golden_failures": capture.goldenFailures - goldenBefore,
+		}
+		(manifest["profiles"] as Array).append(row)
+		if int(series["error"]) != OK and exitCode == OK:
+			exitCode = int(series["error"])
+		capture.writeBatchManifest(manifest, manifestPath)
+		print("VFX_DEBUG_BATCH_PROFILE id=%s error=%d sheet=%s" % [
+			profileId, int(series["error"]), str(series["sheet"])
+		])
+
+	if exitCode == OK and capture.goldenFailures > 0:
+		print("VFX_GOLDEN_RESULT failures=%d" % capture.goldenFailures)
+		exitCode = VfxDebugCaptureScript.EXIT_GOLDEN_FAILED
+	VfxDebugCaptureScript.finishBatchManifest(
+		manifest,
+		VfxDebugCaptureScript.BATCH_COMPLETE if exitCode == OK else VfxDebugCaptureScript.BATCH_FAILED,
+		exitCode, PackedStringArray()
+	)
+	var manifestError := capture.writeBatchManifest(manifest, manifestPath)
+	if manifestError != OK and exitCode == OK:
+		exitCode = manifestError
+	print("VFX_DEBUG_BATCH status=%s profiles=%d exit=%d manifest=%s" % [
+		str(manifest["status"]), (manifest["profiles"] as Array).size(), exitCode,
+		ProjectSettings.globalize_path(manifestPath)
+	])
+	get_tree().quit(exitCode)
+
+
+## Merges catalog-script rows after the base catalog, in command-line order.
+## Static and side-effect free so it can be checked headlessly.
+##
+## A script that is missing, has no static `entries()`, or returns a malformed
+## or duplicate row contributes nothing for that row and records why; the
+## caller decides whether that is fatal. A duplicate never replaces a base row,
+## so a stray script can never change which effect a registered id plays.
+static func mergeCatalogScripts(
+		base: Array[Dictionary], scriptPaths: PackedStringArray) -> Dictionary:
+	var entries: Array[Dictionary] = []
+	var errors := PackedStringArray()
+	var seen := {}
+	for entry: Dictionary in base:
+		entries.append(entry)
+		seen[str(entry["profile_id"])] = true
+	for path: String in scriptPaths:
+		if not ResourceLoader.exists(path):
+			errors.append("Catalog script not found: %s" % path)
+			continue
+		var script := load(path) as Script
+		if script == null or not script.has_method("entries"):
+			errors.append("Catalog script has no static entries(): %s" % path)
+			continue
+		var rows = script.call("entries")
+		if not (rows is Array):
+			errors.append("Catalog script entries() did not return an Array: %s" % path)
+			continue
+		for row in rows:
+			var problem := catalogRowProblem(row)
+			if not problem.is_empty():
+				errors.append("%s: %s" % [path, problem])
+				continue
+			var profileId := str((row as Dictionary)["profile_id"])
+			if seen.has(profileId):
+				errors.append("%s: duplicate profile id %s" % [path, profileId])
+				continue
+			seen[profileId] = true
+			entries.append(row)
+	return {"entries": entries, "errors": errors}
+
+
+## Why a row cannot join the catalog, or empty when it can.
+static func catalogRowProblem(row) -> String:
+	if not (row is Dictionary):
+		return "catalog row is not a Dictionary"
+	for key: String in CATALOG_ROW_KEYS:
+		if not (row as Dictionary).has(key):
+			return "catalog row lacks %s" % key
+	if str(row["profile_id"]).strip_edges().is_empty():
+		return "catalog row has an empty profile_id"
+	var factory = row["factory"]
+	if not (factory is Callable) or not (factory as Callable).is_valid():
+		return "catalog row %s has no valid factory" % str(row["profile_id"])
+	return ""
+
+
+## Catalog order, which is also picker order, so a batch is reproducible.
+static func entriesWithPrefix(entries: Array[Dictionary], prefix: String) -> Array[Dictionary]:
+	var matches: Array[Dictionary] = []
+	for entry: Dictionary in entries:
+		if str(entry["profile_id"]).begins_with(prefix):
+			matches.append(entry)
+	return matches
+
+
+static func entryIds(entries: Array[Dictionary]) -> PackedStringArray:
+	var ids := PackedStringArray()
+	for entry: Dictionary in entries:
+		ids.append(str(entry["profile_id"]))
+	return ids
+
+
+static func batchArgumentProblems(arguments: PackedStringArray) -> PackedStringArray:
+	var problems := PackedStringArray()
+	for argument: String in arguments:
+		for refused: String in _BATCH_REFUSED_FLAGS:
+			if argument.begins_with(refused):
+				problems.append(
+					"%s names one effect and is refused in a batch (%s)" % [
+						refused.trim_suffix("="), argument
+					]
+				)
+	return problems
 
 
 ## The interactive `C` / "Capture" path. Never quits — an unattended run uses
@@ -1369,10 +1637,18 @@ func _applyFootprintToAll() -> void:
 
 
 ## No-op for playbacks (like the generic aura) that don't expose a footprint.
-## The guide always draws the diamond `ShapeCaster.getCircle` shape, which is
-## every carrier's shape except `cross`/`line` — see `IceStormEffect._isDiamondShape`.
+##
+## A playback that takes a hex footprint gets one, the same call and argument
+## shape `HexBattleVfxBridge.createPlayback` makes in battle, with a ground span
+## of zero because every synthetic cell sits on the target's own surface. Only a
+## playback without it falls back to the legacy tile radius, whose guide draws
+## the diamond `ShapeCaster.getCircle` used to be — see `IceStormEffect._isDiamondShape`.
 func _applyFootprintTo(playback) -> void:
-	if playback != null and is_instance_valid(playback) and playback.has_method("setFootprint"):
+	if playback == null or not is_instance_valid(playback):
+		return
+	if playback.has_method("setHexFootprint"):
+		playback.call("setHexFootprint", world.hexFootprint(), 0.0, world.areaShape)
+	elif playback.has_method("setFootprint"):
 		playback.call("setFootprint", world.footprintRadius, 0.0, world.areaShape)
 
 
@@ -1384,6 +1660,10 @@ func _applyTargetContextControls() -> void:
 	world.sourceDistance = float(hud.sourceDistanceSetting.value)
 	world.cameraYawDegrees = float(hud.cameraYawSetting.value)
 	world.apply()
+	# A hex line footprint starts at the caster, so it moves with the
+	# separation. Legacy radius footprints do not read the anchors.
+	if world.hexGuide:
+		_applyFootprintToAll()
 	_updateStatus()
 
 

@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://scripts/hex_battle/cube_vfx/probe_batch_capture_args.gd", "marker": "CUBE_VFX_BATCH_CAPTURE_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}

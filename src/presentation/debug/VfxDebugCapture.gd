@@ -20,6 +20,11 @@
 ##   --golden-write          write the captures into <dir> as new references
 ##   --golden-tolerance=<f>  override the calibrated tolerance below
 ##
+## Batch capture (`--effect-prefix`, orchestrated by the controller) writes
+## <prefix>_batch_manifest.json through `writeBatchManifest`: selector, times,
+## seed, mode, the full argument list, every matched profile with its frames,
+## sheet and result, and the final exit code. See the BATCH_* statuses below.
+##
 ## Determinism is what makes the golden comparison meaningful: a given effect,
 ## seed and timestamp reproduce exactly across processes, so a DIFF is a real
 ## regression rather than sampling noise.
@@ -32,6 +37,14 @@ const CAPTURE_PREFIX_DEFAULT := "user://vfx_debug_capture"
 ## Exit code for a golden-frame mismatch, distinct from the engine's own
 ## failure codes so a CI caller can tell a regression from a crash.
 const EXIT_GOLDEN_FAILED := 3
+## Batch manifest `status` values. `running` is written before the first
+## capture and replaced only when the batch ends, so a manifest still reading
+## `running` is an interrupted batch, never a finished one.
+const BATCH_RUNNING := "running"
+const BATCH_COMPLETE := "complete"
+const BATCH_FAILED := "failed"
+const BATCH_INVALID := "invalid"
+const BATCH_MANIFEST_FORMAT := 1
 ## Full draw cycles to settle after seeking before a capture is read back.
 ## Two is enough for the shader uniforms and the draw to land; more does not
 ## improve stability (measured), because the residual variation is GPU particle
@@ -148,6 +161,55 @@ func writeContactSheet(frames: Array[Image], path: String) -> int:
 				Rect2i(Vector2i.ZERO, cell.get_size()),
 				Vector2i((index % columns) * cellWidth, (index / columns) * cellHeight))
 	return sheet.save_png(path)
+
+
+## A batch manifest before any capture: what was asked for and what matched.
+## `profiles` fills in as each profile finishes; `exit_code` stays null until
+## the batch ends. Static so the shape is checkable without a scene.
+static func newBatchManifest(
+		selector: String,
+		times: PackedFloat32Array,
+		seedValue: int,
+		mode: String,
+		arguments: PackedStringArray,
+		catalogScripts: PackedStringArray,
+		matchedIds: PackedStringArray) -> Dictionary:
+	var timeList: Array[float] = []
+	for value: float in times:
+		timeList.append(value)
+	return {
+		"format": BATCH_MANIFEST_FORMAT,
+		"status": BATCH_RUNNING,
+		"selector": selector,
+		"times": timeList,
+		"seed": seedValue,
+		"mode": mode,
+		"arguments": Array(arguments),
+		"catalog_scripts": Array(catalogScripts),
+		"matched": Array(matchedIds),
+		"profiles": [],
+		"errors": [],
+		"exit_code": null,
+	}
+
+
+static func finishBatchManifest(
+		manifest: Dictionary, status: String, exitCode: int,
+		errors: PackedStringArray) -> void:
+	manifest["status"] = status
+	manifest["exit_code"] = exitCode
+	manifest["errors"] = Array(errors)
+
+
+func writeBatchManifest(manifest: Dictionary, path: String) -> int:
+	var file := FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		var error := FileAccess.get_open_error()
+		push_error("Could not write batch manifest %s (error %d)." % [path, error])
+		return error
+	file.store_string(JSON.stringify(manifest, "\t") + "\n")
+	file.close()
+	return OK
 
 
 ## Compares a capture against a stored reference, or records a new one.

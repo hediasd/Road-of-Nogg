@@ -13,6 +13,14 @@ extends RefCounted
 
 const BattleMeshFactoryScript = preload("res://src/presentation/BattleMeshFactory.gd")
 const VfxCastContextScript = preload("res://src/presentation/effects/VfxCastContext.gd")
+const HexVfxFootprintScript = preload("res://src/presentation/battle/effects/HexVfxFootprint.gd")
+const HexBattleLayoutScript = preload("res://src/presentation/battle/HexBattleLayout.gd")
+const ShapeCasterScript = preload("res://src/algorithms/ShapeCaster.gd")
+
+## The synthetic hex lattice's centre cell. Well inside positive offset space so
+## no shape at the UI's largest radius reaches a negative column, where the
+## odd-column parity would need thinking about.
+const HEX_CENTRE_CELL := Vector2i(16, 16)
 
 const CAMERA_OFFSET := Vector3(6.0, 15.0, 14.0)
 ## Meadow and Forest are 16 cells across with two elevation steps, producing
@@ -58,6 +66,10 @@ var cameraYawDegrees: float = DEFAULT_CAMERA_YAW_DEGREES
 ## keeps the established two-island composition.
 var cameraSizeOverride: float = 0.0
 var cameraFocus: String = "midpoint"
+## Which guide the footprint draws. Effects that take a hex footprint are shown
+## the hex cells they receive; everything else keeps the legacy tile outline,
+## so an effect that never reads a footprint captures exactly as it always has.
+var hexGuide: bool = false
 
 var _worldRoot: Node3D
 var _camera: BattleCameraController
@@ -136,6 +148,10 @@ func apply() -> void:
 	# visual to the selected AABB keeps the original capsule proxy while making
 	# standard, wide, and tall context presets truthful.
 	_targetBodyVisual.scale = targetBodyBounds.size / Vector3(0.6, 0.8, 0.6)
+	# A line footprint starts at the caster, so the hex guide follows the
+	# separation. The legacy outline never read the anchors and is left alone.
+	if hexGuide:
+		updateFootprintRing()
 	updateCameraFraming()
 
 
@@ -346,6 +362,9 @@ func _buildTargetGuides() -> void:
 func updateFootprintRing() -> void:
 	if _footprintRing == null:
 		return
+	if hexGuide:
+		_updateHexFootprintGuide()
+		return
 	var polygon := footprintPolygon(footprintRadius, areaShape)
 	var indices := Geometry2D.triangulate_polygon(polygon)
 	var surfaceTool := SurfaceTool.new()
@@ -363,6 +382,116 @@ func updateFootprintRing() -> void:
 	_footprintRing.mesh = surfaceTool.commit()
 
 
+## Draws exactly the cells `hexFootprint()` hands an effect, as a fan per hex,
+## so the guide and the effect's footprint are one computation rather than two
+## that could disagree.
+func _updateHexFootprintGuide() -> void:
+	var footprint := hexFootprint()
+	var surfaceTool := SurfaceTool.new()
+	surfaceTool.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var halfWidth := footprint.cell_width * 0.5
+	var halfHeight := footprint.cell_height * 0.5
+	var offsets: Array[Vector3] = [
+		Vector3(halfWidth, 0.0, 0.0),
+		Vector3(halfWidth * 0.5, 0.0, halfHeight),
+		Vector3(-halfWidth * 0.5, 0.0, halfHeight),
+		Vector3(-halfWidth, 0.0, 0.0),
+		Vector3(-halfWidth * 0.5, 0.0, -halfHeight),
+		Vector3(halfWidth * 0.5, 0.0, -halfHeight),
+	]
+	for centre: Vector3 in footprint.world_positions:
+		var local := centre - targetAnchor.position
+		local.y = 0.0
+		for corner: int in range(offsets.size()):
+			var a := local
+			var b := local + offsets[corner]
+			var c := local + offsets[(corner + 1) % offsets.size()]
+			surfaceTool.add_vertex(a)
+			surfaceTool.add_vertex(b)
+			surfaceTool.add_vertex(c)
+			surfaceTool.add_vertex(a)
+			surfaceTool.add_vertex(c)
+			surfaceTool.add_vertex(b)
+	_footprintRing.mesh = surfaceTool.commit()
+
+
+## The affected cells a battle cast with this scene's radius and shape would
+## resolve, on the battle's own hex lattice, placed so the centre cell sits on
+## the target anchor. Empty cells are included: nothing stands on any of them
+## but the target, which is the case area effects most need to be truthful in.
+func hexFootprint() -> HexVfxFootprint:
+	return buildHexFootprint(
+		areaShape, footprintRadius, targetAnchor.position, casterAnchor.position
+	)
+
+
+## Static so a headless probe can check the footprint without a scene.
+##
+## `circle` and `cross` resolve around the centre exactly as `CombatResolver`
+## does. `line` runs from the caster's cell toward the centre, excluding the
+## caster, which is how a line spell resolves in battle. `single` is the one
+## target cell.
+static func buildHexFootprint(
+		shape: String,
+		radius: int,
+		centreWorld: Vector3,
+		casterWorld: Vector3) -> HexVfxFootprint:
+	var map := BattleMapDefinition.new()
+	var layout: HexBattleLayout = HexBattleLayoutScript.new(map)
+	var centre := HEX_CENTRE_CELL
+	var cells: Array[Vector2i] = []
+	match shape:
+		"single":
+			cells = [centre]
+		"cross":
+			cells = ShapeCasterScript.getCross(centre, radius)
+		"line":
+			var casterCell := _nearestLatticeCell(
+				map, layout, layout.cellCenter(centre) + (casterWorld - centreWorld)
+			)
+			cells = ShapeCasterScript.getLine(casterCell, centre, radius)
+		_:
+			cells = ShapeCasterScript.getCircle(centre, radius)
+	# Height 0 everywhere, so every cell's centre lands on one plane that the
+	# offset below lifts onto the target's own surface.
+	var cellData := {}
+	for cell: Vector2i in cells:
+		cellData[cell] = {"height": 0}
+	map.configureCells(cells, cellData)
+	var footprint: HexVfxFootprint = HexVfxFootprintScript.fromCells(cells, map)
+	# The centre's lattice position with the height zero every affected cell
+	# has. A line need not contain the centre, and an unconfigured cell reports
+	# height -1, so the centre's own height cannot be read back here.
+	var lattice := layout.cellCenter(centre)
+	var offset := centreWorld - Vector3(lattice.x, 0.0, lattice.z)
+	for index: int in range(footprint.world_positions.size()):
+		footprint.world_positions[index] += offset
+	footprint.bounds.position += offset
+	return footprint
+
+
+## Brute force over a window around the point's estimated column and row: the
+## lattice is small and this runs on a control change, so exactness beats
+## cleverness.
+static func _nearestLatticeCell(
+		map: BattleMapDefinition, layout: HexBattleLayout, point: Vector3) -> Vector2i:
+	var width := map.cellWidth
+	var height := map.cellHeight
+	var column := roundi((point.x - width * 0.5) / (0.75 * width))
+	var row := roundi((point.z - height * 0.5) / height)
+	var best := Vector2i(column, row)
+	var bestDistance := INF
+	for dx: int in range(-2, 3):
+		for dz: int in range(-2, 3):
+			var cell := Vector2i(column + dx, row + dz)
+			var centre := layout.cellCenter(cell)
+			var distance := Vector2(centre.x - point.x, centre.z - point.z).length_squared()
+			if distance < bestDistance:
+				bestDistance = distance
+				best = cell
+	return best
+
+
 func _groundPoint(point: Vector2) -> Vector3:
 	return Vector3(point.x, 0.0, point.y)
 
@@ -374,6 +503,11 @@ func _groundPoint(point: Vector2) -> Vector3:
 static func footprintPolygon(radius: int, shape: String) -> PackedVector2Array:
 	var extent := float(radius) + 0.5
 	match shape:
+		"single":
+			return PackedVector2Array([
+				Vector2(0.5, 0.5), Vector2(-0.5, 0.5),
+				Vector2(-0.5, -0.5), Vector2(0.5, -0.5),
+			])
 		"cross":
 			# Twelve corners tracing a plus: arms one tile wide (half-width 0.5)
 			# reaching `extent` along each axis. Matches ShapeCaster.getCross.

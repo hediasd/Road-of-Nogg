@@ -27,6 +27,26 @@ static func string(prefix: String) -> String:
 	return ""
 
 
+## Every value of a repeatable flag, in command-line order. Each occurrence may
+## also carry a comma-separated list, so `--x=a --x=b` and `--x=a,b` agree.
+static func strings(prefix: String) -> PackedStringArray:
+	return stringsFrom(all(), prefix)
+
+
+## `strings` over an explicit argument list, so the parsing is checkable
+## without a process whose command line says the right thing.
+static func stringsFrom(arguments: PackedStringArray, prefix: String) -> PackedStringArray:
+	var values := PackedStringArray()
+	for argument: String in arguments:
+		if not argument.begins_with(prefix):
+			continue
+		for piece: String in argument.trim_prefix(prefix).split(",", false):
+			var trimmed := piece.strip_edges()
+			if not trimmed.is_empty():
+				values.append(trimmed)
+	return values
+
+
 static func flag(name: String) -> bool:
 	return all().has(name)
 
