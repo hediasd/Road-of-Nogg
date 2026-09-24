@@ -30,10 +30,12 @@ whether an empty reachable center is legally confirmable. It does not remove
 that center from the player targeting display. Self and healing spells are
 currently `false`; offensive non-self spells are `true`.
 
-`VFX_PROFILE` is optional presentation metadata with no gameplay effect. An
-empty or unknown value falls back to the generic spell aura; a recognized value
-selects a registered presentation effect without changing damage, targeting,
-range, radius, or any other spell rule.
+`VFX_PROFILE` is optional presentation metadata with no gameplay effect. The
+current cube-only VFX phase keeps earlier non-cube values in the catalog data
+but parks their implementations outside the active registry. An active cube
+value is preserved; an empty, unknown, or parked value routes by spell role to
+Elemental Cube Crownburst (offensive) or Spiral Invocation (support/utility).
+This never changes damage, targeting, range, radius, or any other spell rule.
 
 ## Collection fields
 

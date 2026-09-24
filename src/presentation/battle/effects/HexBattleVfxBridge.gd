@@ -7,12 +7,10 @@
 ## resolved cells themselves and hands each profile whichever of the two shapes it can actually
 ## use.
 ##
-## EVERY REACHABLE PROFILE IS DISPATCHED, AND NONE IS SILENTLY DOWNGRADED. `SpellVfxCatalog` lists
-## fourteen profile ids across nine effect classes. Nine of the fourteen are Solar Storm's own
-## version ladder, which all share one class. Each id resolves here to either its donor, unchanged,
-## or to the hex subclass of its donor -- never to a generic flash and never to nothing, which the
-## item text forbids in as many words. `coverage()` reports that mapping as data so the probe can
-## assert it rather than trust it.
+## EVERY REACHABLE PROFILE IS DISPATCHED. `SpellVfxCatalog` currently exposes only the two
+## body-bound elemental-cube rituals. The preserved area-effect adapters below remain dormant while
+## their donor profiles are parked. `coverage()` reports the active mapping as data so the probe
+## can assert it rather than trust it.
 ##
 ## THE CLASSIFICATION, AND WHAT DECIDES IT. An effect is AREA-BOUND if it declares `setFootprint`
 ## -- that is not a guess about what an effect looks like, it is the literal question "does this

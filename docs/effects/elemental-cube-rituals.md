@@ -4,7 +4,8 @@ Two source-bound spell placeholders express power channeled from the elemental
 realms. They use the same exact-source pixel cube, palette system, generated
 rotation atlas, and lifecycle; choreography distinguishes the cast role. Crownburst is the
 offensive placeholder. Spiral Invocation is the support and utility
-placeholder. A spell with an explicit `VFX_PROFILE` keeps its authored effect.
+placeholder. During the cube-only VFX phase, an explicit cube profile is kept;
+an empty, unknown, or parked non-cube profile routes to one of these rituals.
 
 The shared VFX contract and authoring conventions live in
 [`../VFX_DESIGN.md`](../VFX_DESIGN.md).
@@ -91,5 +92,5 @@ Invocation. The decision is presentation-only and does not change simulation
 state, targeting, damage, or spell data.
 
 Both effects reanchor to `VfxCastContext.source_world_position`, not the target
-or impact position. The generic aura remains the catalog safety fallback for
-an unrecognized explicit profile id.
+or impact position. Crownburst is the catalog safety fallback when a caller
+bypasses role-aware spell routing with an unrecognized profile id.

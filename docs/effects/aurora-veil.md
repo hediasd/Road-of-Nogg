@@ -1,10 +1,13 @@
 # Aurora Veil
 
+**Status: parked.** Its source, assets, and spell metadata remain available,
+but it is absent from the active spell VFX catalog during the cube-only phase.
+
 `aurora_veil` — an iridescent curtain on a single upright panel: vertical
 filaments whose folds shear with height, over a wide veil envelope, pixel-
-snapped and wave-displaced. Carried by the darkness spell of the same name
+snapped and wave-displaced. It was carried by the darkness spell of the same name
 (radius 2, range 4, 4 damage, `CAN_TARGET_EMPTY`), which is the only spell that
-selects it.
+retains its profile metadata.
 
 The contract and conventions it implements live in
 [`../VFX_DESIGN.md`](../VFX_DESIGN.md). [Solar Storm](./solar-storm.md) is its

@@ -1,53 +1,21 @@
-## Presentation-only registry for previewable spell effects.
+## Presentation-only registry for active spell effects.
+##
+## The authored non-cube effects remain on disk while the spell VFX direction is
+## being reconsidered, but they are deliberately absent from this registry.
+## Gameplay and the debug picker therefore expose only the cube language.
 
 class_name SpellVfxCatalog
 extends RefCounted
 
-const SpellCastAuraScript = preload("res://src/presentation/effects/SpellCastAura.gd")
-const IceStormEffectScript = preload("res://src/presentation/effects/IceStormEffect.gd")
-const FireStormEffectScript = preload("res://src/presentation/effects/FireStormEffect.gd")
-const MagentaReductionEffectScript = preload(
-		"res://src/presentation/effects/MagentaReductionEffect.gd")
-const IceTargetEncasementEffectScript = preload(
-		"res://src/presentation/effects/IceTargetEncasementEffect.gd")
-const AuroraVeilEffectScript = preload(
-		"res://src/presentation/effects/AuroraVeilEffect.gd")
-const SolarStormEffectScript = preload(
-		"res://src/presentation/effects/SolarStormEffect.gd")
-const TechniqueChargeAuraV1EffectScript = preload(
-		"res://src/presentation/effects/TechniqueChargeAuraV1Effect.gd")
-const TechniqueChargeAuraV2EffectScript = preload(
-		"res://src/presentation/effects/TechniqueChargeAuraV2Effect.gd")
 const ElementalCubeRitualEffectScript = preload(
 		"res://src/presentation/effects/ElementalCubeRitualEffect.gd")
 const ElementalCubeRitualProfileScript = preload(
 		"res://src/presentation/effects/ElementalCubeRitualProfile.gd")
-const GENERIC_AURA_PROFILE_ID := SpellCastAuraProfile.PROFILE_ID
+const DEFAULT_PROFILE_ID := ElementalCubeRitualProfileScript.CROWNBURST_PROFILE_ID
 
 
 static func entries() -> Array[Dictionary]:
 	return [
-		{
-			"profile_id": GENERIC_AURA_PROFILE_ID,
-			"display_name": "Spell Cast Aura",
-			"factory": Callable(SpellCastAuraScript, "createPlayback"),
-			"action_hold_fraction": SpellCastAuraProfile.ACTION_HOLD_FRACTION,
-			"max_live": SpellCastAuraProfile.MAX_LIVE_AURAS,
-		},
-		{
-			"profile_id": TechniqueChargeAuraV1Profile.PROFILE_ID,
-			"display_name": "Technique Charge Aura v1 (preview)",
-			"factory": Callable(TechniqueChargeAuraV1EffectScript, "createPlayback"),
-			"action_hold_fraction": TechniqueChargeAuraV1Profile.ACTION_HOLD_FRACTION,
-			"max_live": TechniqueChargeAuraV1Profile.MAX_LIVE_AURAS,
-		},
-		{
-			"profile_id": TechniqueChargeAuraV2Profile.PROFILE_ID,
-			"display_name": "Technique Charge Aura v2 (preview)",
-			"factory": Callable(TechniqueChargeAuraV2EffectScript, "createPlayback"),
-			"action_hold_fraction": TechniqueChargeAuraV2Profile.ACTION_HOLD_FRACTION,
-			"max_live": TechniqueChargeAuraV2Profile.MAX_LIVE_AURAS,
-		},
 		{
 			"profile_id": ElementalCubeRitualProfileScript.CROWNBURST_PROFILE_ID,
 			"display_name": "Elemental Cube Crownburst",
@@ -62,99 +30,29 @@ static func entries() -> Array[Dictionary]:
 			"action_hold_fraction": ElementalCubeRitualProfileScript.ACTION_HOLD_FRACTION,
 			"max_live": ElementalCubeRitualProfileScript.MAX_LIVE_RITUALS,
 		},
-		{
-			"profile_id": IceStormProfile.PROFILE_ID,
-			"display_name": "Ice Area Storm",
-			"factory": Callable(IceStormEffectScript, "createPlayback"),
-			"action_hold_fraction": IceStormProfile.ACTION_HOLD_FRACTION,
-			"max_live": IceStormProfile.MAX_LIVE_STORMS,
-		},
-		{
-			"profile_id": FireStormProfile.PROFILE_ID,
-			"display_name": "Fire Area Storm",
-			"factory": Callable(FireStormEffectScript, "createPlayback"),
-			"action_hold_fraction": FireStormProfile.ACTION_HOLD_FRACTION,
-			"max_live": FireStormProfile.MAX_LIVE_STORMS,
-		},
-		{
-			"profile_id": MagentaReductionProfile.PROFILE_ID,
-			"display_name": "Magenta Reduction",
-			"factory": Callable(MagentaReductionEffectScript, "createPlayback"),
-			"action_hold_fraction": MagentaReductionProfile.ACTION_HOLD_FRACTION,
-			"max_live": MagentaReductionProfile.MAX_LIVE_IMPLOSIONS,
-		},
-		{
-			"profile_id": IceTargetEncasementProfile.PROFILE_ID,
-			"display_name": "Ice Target Encasement",
-			"factory": Callable(IceTargetEncasementEffectScript, "createPlayback"),
-			"action_hold_fraction": IceTargetEncasementProfile.ACTION_HOLD_FRACTION,
-			"max_live": IceTargetEncasementProfile.MAX_LIVE_ENCASEMENTS,
-		},
-		{
-			"profile_id": AuroraVeilProfile.PROFILE_ID,
-			"display_name": "Aurora Veil",
-			"factory": Callable(AuroraVeilEffectScript, "createPlayback"),
-			"action_hold_fraction": AuroraVeilProfile.ACTION_HOLD_FRACTION,
-			"max_live": AuroraVeilProfile.MAX_LIVE_VEILS,
-		},
-		{
-			"profile_id": SolarStormProfile.PROFILE_ID_V1,
-			"display_name": "Solar Storm v1 (wave)",
-			"factory": Callable(SolarStormEffectScript, "createV1"),
-			"action_hold_fraction": SolarStormProfile.ACTION_HOLD_FRACTION,
-			"max_live": SolarStormProfile.MAX_LIVE_STORMS,
-		},
-		{
-			"profile_id": SolarStormProfile.PROFILE_ID_V2,
-			"display_name": "Solar Storm v2 (pulse)",
-			"factory": Callable(SolarStormEffectScript, "createV2"),
-			"action_hold_fraction": SolarStormProfile.ACTION_HOLD_FRACTION,
-			"max_live": SolarStormProfile.MAX_LIVE_STORMS,
-		},
-		{
-			"profile_id": SolarStormProfile.PROFILE_ID_V2_1,
-			"display_name": "Solar Storm v2.1 (+loops)",
-			"factory": Callable(SolarStormEffectScript, "createV2_1"),
-			"action_hold_fraction": SolarStormProfile.ACTION_HOLD_FRACTION,
-			"max_live": SolarStormProfile.MAX_LIVE_STORMS,
-		},
-		{
-			"profile_id": SolarStormProfile.PROFILE_ID_V2_2,
-			"display_name": "Solar Storm v2.2 (+heat)",
-			"factory": Callable(SolarStormEffectScript, "createV2_2"),
-			"action_hold_fraction": SolarStormProfile.ACTION_HOLD_FRACTION,
-			"max_live": SolarStormProfile.MAX_LIVE_STORMS,
-		},
-		{
-			"profile_id": SolarStormProfile.PROFILE_ID,
-			"display_name": "Solar Storm v2.4 (full)",
-			"factory": Callable(SolarStormEffectScript, "createPlayback"),
-			"action_hold_fraction": SolarStormProfile.ACTION_HOLD_FRACTION,
-			"max_live": SolarStormProfile.MAX_LIVE_STORMS,
-		},
-		{
-			"profile_id": SolarStormProfile.PROFILE_ID_V3,
-			"display_name": "Solar Storm v3 (melt)",
-			"factory": Callable(SolarStormEffectScript, "createV3"),
-			"action_hold_fraction": SolarStormProfile.ACTION_HOLD_FRACTION,
-			"max_live": SolarStormProfile.MAX_LIVE_STORMS,
-		},
 	]
 
 
 ## Resolves the presentation fallback for a normalized spell reference.
-## Explicit authored profiles are never replaced. Blank profiles use the cube
-## rituals so the placeholder choice remains presentation-only and does not add
-## a spell-name branch to simulation or the cast adapter.
+## Only active cube profiles are preserved. Blank, unknown, and parked authored
+## profiles use the cube rituals so the temporary direction remains entirely in
+## presentation and does not require rewriting spell data.
 static func profileForSpell(reference: Dictionary) -> String:
 	var explicitProfile := str(reference.get("VFX_PROFILE", "")).strip_edges()
-	if not explicitProfile.is_empty():
+	if isActiveProfile(explicitProfile):
 		return explicitProfile
 	return (
 		ElementalCubeRitualProfileScript.CROWNBURST_PROFILE_ID
 		if isOffensiveSpell(reference)
 		else ElementalCubeRitualProfileScript.SPIRAL_PROFILE_ID
 	)
+
+
+static func isActiveProfile(profile_id: String) -> bool:
+	for entry: Dictionary in entries():
+		if str(entry["profile_id"]) == profile_id:
+			return true
+	return false
 
 
 static func isOffensiveSpell(reference: Dictionary) -> bool:
@@ -173,14 +71,14 @@ static func isOffensiveSpell(reference: Dictionary) -> bool:
 
 
 static func resolve(profile_id: String) -> Dictionary:
-	var generic_entry: Dictionary = {}
 	for entry: Dictionary in entries():
-		if entry["profile_id"] == GENERIC_AURA_PROFILE_ID:
-			generic_entry = entry
 		if entry["profile_id"] == profile_id:
 			return entry
-	assert(not generic_entry.is_empty(), "Spell VFX catalog lacks its generic fallback.")
-	return generic_entry
+	for entry: Dictionary in entries():
+		if entry["profile_id"] == DEFAULT_PROFILE_ID:
+			return entry
+	assert(false, "Spell VFX catalog lacks its cube fallback.")
+	return {}
 
 
 static func resolvedProfileId(profile_id: String) -> String:

@@ -110,14 +110,25 @@ func _map(cols := 21, rows := 21) -> BattleMapDefinition:
 	return map
 
 
-## Every profile the catalog offers must be served, and served by something specific.
+## Every active cube profile must be served, and no parked effect may re-enter
+## through the catalog while this direction is in force.
 func _checkCatalogCoverage() -> void:
 	var catalog := SpellVfxCatalog.entries()
 	var coverage := BridgeScript.coverage()
+	var expectedProfiles := [
+		CubeRitualProfileScript.CROWNBURST_PROFILE_ID,
+		CubeRitualProfileScript.SPIRAL_PROFILE_ID,
+	]
+	_require(catalog.size() == expectedProfiles.size(),
+		"cube-only catalog should list %d profiles, got %d" % [
+			expectedProfiles.size(), catalog.size()
+		])
 	_require(coverage.size() == catalog.size(),
 		"the bridge covers %d profiles but the catalog lists %d" % [coverage.size(), catalog.size()])
 	for entry: Dictionary in catalog:
 		var profileID := str(entry["profile_id"])
+		_require(expectedProfiles.has(profileID),
+			"parked non-cube profile '%s' is still active" % profileID)
 		_require(BridgeScript.servesProfile(profileID),
 			"profile '%s' is in the catalog and not served by the bridge" % profileID)
 	var areaCount := 0
@@ -134,8 +145,10 @@ func _checkCatalogCoverage() -> void:
 			bodyCount += 1
 			_require(str(row["hex_class"]).is_empty(),
 				"body profile '%s' should reuse its donor, not a hex class" % str(row["profile_id"]))
-	_require(areaCount > 0 and bodyCount > 0,
-		"expected both area and body profiles; got %d area and %d body" % [areaCount, bodyCount])
+	_require(areaCount == 0 and bodyCount == expectedProfiles.size(),
+		"cube-only catalog should have 0 area and %d body profiles; got %d and %d" % [
+			expectedProfiles.size(), areaCount, bodyCount
+		])
 
 
 ## The classification is only trustworthy if it matches what the donors actually declare. An
@@ -164,8 +177,8 @@ func _checkClassificationMatchesTheDonors() -> void:
 			])
 
 
-## Blank spell profiles route by role without replacing authored spell-specific
-## effects. Both cube rituals stay body-bound and anchor on the caster snapshot.
+## Blank and parked spell profiles route by role. Explicit cube profiles remain
+## selectable. Both cube rituals stay body-bound and anchor on the caster snapshot.
 func _checkCubePlaceholderProfiles() -> void:
 	var offensive := {
 		"DAMAGE": 3, "HEALS": false, "TARGET_TYPE": "single", "VFX_PROFILE": "",
@@ -175,6 +188,8 @@ func _checkCubePlaceholderProfiles() -> void:
 	}
 	var authored := offensive.duplicate()
 	authored["VFX_PROFILE"] = "ice_area_storm"
+	var authoredCube := support.duplicate()
+	authoredCube["VFX_PROFILE"] = CubeRitualProfileScript.CROWNBURST_PROFILE_ID
 	_require(
 		SpellVfxCatalog.profileForSpell(offensive)
 			== CubeRitualProfileScript.CROWNBURST_PROFILE_ID,
@@ -186,8 +201,14 @@ func _checkCubePlaceholderProfiles() -> void:
 		"blank support spells do not resolve to Spiral Invocation"
 	)
 	_require(
-		SpellVfxCatalog.profileForSpell(authored) == "ice_area_storm",
-		"an authored spell profile was replaced by a cube placeholder"
+		SpellVfxCatalog.profileForSpell(authored)
+			== CubeRitualProfileScript.CROWNBURST_PROFILE_ID,
+		"a parked offensive profile did not route to Crownburst"
+	)
+	_require(
+		SpellVfxCatalog.profileForSpell(authoredCube)
+			== CubeRitualProfileScript.CROWNBURST_PROFILE_ID,
+		"an explicit active cube profile was not preserved"
 	)
 
 	var context := VfxCastContext.new()

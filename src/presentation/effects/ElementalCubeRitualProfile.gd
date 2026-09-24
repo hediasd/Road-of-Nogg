@@ -2,8 +2,9 @@
 ##
 ## Both profiles depict the same source-bound channeling language and differ
 ## only in choreography. Crownburst is the hostile cast fallback; Spiral
-## Invocation is the support and utility fallback. Explicit spell profiles
-## always win over either placeholder.
+## Invocation is the support and utility fallback. During the cube-only VFX
+## phase, only explicit cube profiles override this role-based routing;
+## authored non-cube profiles remain parked.
 
 class_name ElementalCubeRitualProfile
 extends RefCounted

@@ -1,7 +1,10 @@
 # Generic spell-cast aura
 
-`spell_cast_aura` — the default carrier a spell falls back to when it names
-no other profile. The contract and conventions this implements live in
+**Status: parked.** Its source and assets remain available, but it is absent
+from the active spell VFX catalog during the cube-only phase.
+
+`spell_cast_aura` — the former default carrier for a spell with no recognized
+profile. The contract and conventions this implements live in
 [`../VFX_DESIGN.md`](../VFX_DESIGN.md).
 
 Eleven consecutive source frames supersede the earlier still-image

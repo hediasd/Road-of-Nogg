@@ -27,7 +27,7 @@ the change is a rule that outlives it, bring the rule here.
 ## 1. How an effect reaches the screen
 
 ```
-data/spells.json  VFX_PROFILE: "ice_area_storm"
+data/spells.json  optional VFX_PROFILE (parked non-cube values may remain)
         │
 SpellReferences   normalizes the row; VFX_PROFILE defaults to ""
         │
@@ -35,7 +35,7 @@ CombatResolver    resolves ordered target IDs and the live spell footprint,
         │         then emits spell_cast_started for every cast
         │
 GodotVisualAdapter._on_spell_cast_started
-        │         preserves an explicit VFX_PROFILE, otherwise resolves the
+        │         preserves an active cube VFX_PROFILE, otherwise resolves the
         │         spell role to an elemental-cube placeholder; copies the event's
         │         resolved radius, shape, and event-time source/target snapshot
         │         onto a CAST_AREA VisualAction; derives a deterministic seed
@@ -54,11 +54,12 @@ VfxPlayback       the effect itself
 it, to `VisualAction`, or to the event layer. If a new effect seems to need one,
 that is a signal the contract is being worked around.
 
-`VFX_PROFILE` is presentation metadata with no gameplay effect. An explicit
-value always wins. In hex battle, an empty value resolves through
+`VFX_PROFILE` is presentation metadata with no gameplay effect. During the
+cube-only VFX phase, only an active cube value wins. In hex battle, an empty,
+unknown, or parked non-cube value resolves through
 `SpellVfxCatalog.profileForSpell()`: offensive spells use elemental-cube
-Crownburst and all others use Spiral Invocation. An unrecognized explicit
-value still falls back to the generic aura. See
+Crownburst and all others use Spiral Invocation. A caller that bypasses this
+role-aware resolution falls back to Crownburst. See
 [`SPELL_CATALOG_SCHEMA.md`](./SPELL_CATALOG_SCHEMA.md).
 
 **The cast event owns the resolved footprint.** Gameplay uses the mutable

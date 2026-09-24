@@ -1,7 +1,10 @@
 # Technique charge aura
 
-A polygonal light carrier that rises around a casting entity. Two versions ship
-side by side in the debug catalog, both debug-only: **v1** grows out of the
+**Status: parked.** Both versions remain available in source and assets, but
+neither appears in the active spell VFX catalog during the cube-only phase.
+
+A polygonal light carrier that rises around a casting entity. Two debug-only
+versions remain preserved: **v1** grows out of the
 floor, bounces, and settles into a quiet idle; **v2** forks it and never
 settles — the stack turns around the caster, its blades churn, and the charge
 disperses outward rather than fading in place.

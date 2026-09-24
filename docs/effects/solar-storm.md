@@ -1,11 +1,14 @@
 # Solar Storm
 
+**Status: parked.** Its source, assets, and spell metadata remain available,
+but it is absent from the active spell VFX catalog during the cube-only phase.
+
 `solar_storm` — a coronagraph panel: an occulting disk with the star's limb ring
 behind it, streams fanning out from the occultation, plasma loops on the limb, a
 bright ejection front travelling outward, and a broad corona inside the
-instrument's circular field of view. Carried by the fire spell of the same name
+instrument's circular field of view. It was carried by the fire spell of the same name
 (radius 3, range 5, 7 damage, `CAN_TARGET_EMPTY`), which is the only spell that
-selects it.
+retains its profile metadata.
 
 The contract and conventions it implements live in
 [`../VFX_DESIGN.md`](../VFX_DESIGN.md).
