@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://scripts/hex_battle/cube_vfx/shared/probe_cube_substrate.gd", "marker": "CUBE_VFX_SUBSTRATE_OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}
