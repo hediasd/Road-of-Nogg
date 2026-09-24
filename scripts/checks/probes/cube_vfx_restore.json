@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://scripts/hex_battle/cube_vfx/restore/probe_cube_restore.gd", "marker": "CUBE_VFX_RESTORE_OK", "timeout": 400, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}
