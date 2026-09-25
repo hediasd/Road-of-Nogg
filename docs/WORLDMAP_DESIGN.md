@@ -739,16 +739,16 @@ second.
 
 ## 11. Validated
 
-Every claim in sections 9 and 10 is checked by a probe in `scripts/worldmap/checks/`, and each
+Every claim in sections 9 and 10 is checked by a probe in `checks/worldmap/`, and each
 is written so it can fail -- which now means it exits non-zero and prints
 `WORLD MAP <NAME> OK` only when it passes. Until 2026-09-17 they printed `FAIL` lines and
 exited 0 regardless, so a caller reading the exit code saw a pass either way; they also lived in
 `debug/`, which `.gitignore` excludes, so nothing kept them and nothing ran them. All seven are
-registered in `scripts/checks/probes/worldmap_design.json`. Run them together when touching this
+registered in `checks/manifests/worldmap_design.json`. Run them together when touching this
 rig:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter worldmap/checks
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter worldmap/checks
 ```
 
 The sweep skips the four that need a renderer, because it runs Godot headless. Run those
@@ -766,7 +766,7 @@ anything, on 2026-09-17, failed them:
 
 All three are renderer-bound, all three were passing when sections 9 and 10 were written, and
 nothing in between could report otherwise: they printed `FAIL` and exited 0, in a folder Git
-ignored. They are quarantined in `scripts/checks/probes/worldmap_design.json` with those lines
+ignored. They are quarantined in `checks/manifests/worldmap_design.json` with those lines
 and grouped in `BACKLOG.md`. Whether the rig drifted or the measurement did is the first
 question for whoever picks them up -- section 11's own list of three probes that once passed
 while measuring nothing is a warning in both directions.
@@ -783,8 +783,8 @@ while measuring nothing is a warning in both directions.
 
 `probe_validation.gd` passed its original 18 checks, negative control included, when section 9
 was written. It no longer parses: `K_CLOUD_STRENGTH` is gone from `WorldMapGroundUniforms`. It
-is tracked at `scripts/worldmap/checks/probe_validation.gd` and quarantined in
-`scripts/checks/probes/worldmap.json` until someone repairs it.
+is tracked at `checks/worldmap/probe_validation.gd` and quarantined in
+`checks/manifests/worldmap.json` until someone repairs it.
 
 **Three probes cited elsewhere in this document are investigations, not checks**, and are
 deliberately not in the table: `probe_allpresets.gd` (section 6's band signatures),

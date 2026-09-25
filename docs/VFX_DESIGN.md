@@ -18,8 +18,8 @@ the change is a rule that outlives it, bring the rule here.
 > independently runnable reference under `references/square-battle/`. The
 > citations are kept because they record where each rule was derived and
 > measured, which is still true; the hex battle's counterparts are
-> `src/presentation/battle/HexBattleVisualAdapter.gd` and
-> `src/systems/hex_battle/HexBattleController.gd`, and casts reach the screen
+> `battle/HexBattleVisualAdapter.gd` and
+> `battle/HexBattleController.gd`, and casts reach the screen
 > through `HexBattleVfxBridge` (section 8).
 
 ---
@@ -94,7 +94,7 @@ standard authored body box centered at the event impact.
 
 ## 2. The `VfxPlayback` contract
 
-Every effect extends `src/presentation/effects/VfxPlayback.gd` and implements:
+Every effect extends `effects/VfxPlayback.gd` and implements:
 
 | Member | Obligation |
 | --- | --- |
@@ -938,7 +938,7 @@ The retro viewport starts enabled. Scripted comparisons use
 `--no-retro` for the matched native-render frame; capture commands never need
 an interactive resolution or render-mode toggle to produce either side.
 
-`scenes/debug/VFXDebugScene.tscn` renders through the real retro pipeline and is
+`scenes/VFXDebugScene.tscn` renders through the real retro pipeline and is
 the acceptance surface for VFX work. Interactive keys are listed in
 `VFXDebugController.gd`'s header.
 
@@ -947,7 +947,7 @@ scriptable. That parity is not a convenience — it is the thing that keeps a
 validation item from stalling.
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
   --effect=fire_area_storm --shape=cross --radius=1 --seed=7 --hide-hud \
   --capture-at=0.15,0.35,0.55,0.85 --capture-sheet --resolution 1400x900
 ```
@@ -979,7 +979,7 @@ failed by roughly 12, four times the score of comparing two entirely different
 effects. Regenerate with:
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
   --resolution 900x600 --effect=<profile> --seed=7 --radius=4 --element=ice \
   --hide-hud --capture-at=0.2,0.45,0.75 --capture-out=user://<name> \
   --golden=debug/vfx_golden --golden-write
@@ -1007,7 +1007,7 @@ an interrupted batch is never mistaken for a finished one. A prefix that
 matches nothing is a complete, successful, empty batch.
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
   --effect-prefix=cube_ --seed=7 --hide-hud --render-resolution=640x480 \
   --capture-at=0.12,0.30,0.50,0.70,0.90 --capture-out=user://cube_sheets
 ```
@@ -1089,7 +1089,7 @@ A workable default for a new effect:
 Cheapest form, one launch per checkpoint:
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
   --effect=<profile> --radius=<r> --seed=7 --hide-hud \
   --capture-at=0.12,0.30,0.50,0.70,0.90 --capture-sheet --resolution 1400x900
 ```
@@ -1201,12 +1201,12 @@ tile-scaled and are already correct.
 
 So of fourteen catalog profiles, ten are area-bound (six of them Solar Storm's own version ladder)
 and four are body-bound. Body-bound profiles reuse their donor **unchanged** — there is no hex
-variant of them at all. `scripts/hex_battle/fixtures/vfx/donor_manifest.json` is that mapping
+variant of them at all. `checks/fixtures/donor_manifest.json` is that mapping
 captured as data, for HXB-V to regress against.
 
 ### Subclasses, not copies
 
-The five area donors get thin owned subclasses under `src/presentation/battle/effects/`.
+The five area donors get thin owned subclasses under `effects/`.
 GDScript methods are virtual, so overriding the one function that carries the square assumption
 inherits every other line — authored timing, density curves, layers, lifecycle — unchanged.
 
@@ -1251,8 +1251,8 @@ including the empty ones.
 ### A donor note this item could not act on
 
 `ShapeCaster.getCircle` is now a hex disc, but several donor files under
-`src/presentation/effects/` still describe it in their headers as a Manhattan diamond — true when
+`effects/` still describe it in their headers as a Manhattan diamond — true when
 written, false since HXB-7. Those files are donors this item may not modify, and no item in this
-cycle owns `src/presentation/effects/**`, so the stale prose is recorded here rather than fixed.
+cycle owns `effects/**`, so the stale prose is recorded here rather than fixed.
 It is comment drift, not behaviour: the donors' own geometry is unchanged and the hex path does not
 read those masks.

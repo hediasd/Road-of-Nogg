@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://checks/vfx/probe_cube_travel.gd", "marker": "CUBE_VFX_TRAVEL_OK", "timeout": 300, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}

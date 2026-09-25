@@ -5,8 +5,8 @@ the rationale; this file is the concise operational contract.
 
 ## Architecture
 
-- Keep `src/battle_sim/`, `src/algorithms/`, `src/board/`, `src/entities/`,
-  `src/entity_ai/`, and `src/factories/` headless. They may use Godot data
+- Keep `simulation/`, `simulation/`, `simulation/`, `content/`,
+  `ai/`, and `content/` headless. They may use Godot data
   types, but must not inherit visual/tree nodes or depend on presentation code.
 - `BattleSimulator` and `BattleState` are the canonical runtime and state.
 - Presentation observes simulation through `BattleEvents` or
@@ -435,15 +435,15 @@ finished file, and do not retain completed items in it.
 
 ## Running the checks
 
-There is no test suite or git hooks. `scripts/checks/run_probe_sweep.ps1` runs
-every probe registered under `scripts/checks/probes/`. Run it with `-Filter` on
+There is no test suite or git hooks. `checks/run_probe_sweep.ps1` runs
+every probe registered under `checks/manifests/`. Run it with `-Filter` on
 your area when your item changes code a registered probe loads, and in full in
 a cycle's last item. An item that adds a probe registers it in a manifest in
 the same commit. Behaviour and appearance still need the game launched
 manually; follow the Windows safeguards in `docs/DEVELOPMENT.md`.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter side_turn
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter side_turn
 ```
 
 A probe that fails today is **quarantined** in its manifest (`"gate": false`
@@ -456,7 +456,7 @@ un-quarantine a probe without making it pass.
   Do not start, close, or automate an interactive Godot window for that check;
   the user owns interactive playtesting.
 - Any change to battle HUD or side-turn UI must pass
-  `scripts/hex_battle/side_turn/probe_ui_guardrails.gd` (screen margin, content
+  `checks/battle/probe_ui_guardrails.gd` (screen margin, content
   inset, unclipped text, game fonts; see `docs/UI_DESIGN.md` §10c). Extend its
   states when adding a new window rather than exempting the window.
 

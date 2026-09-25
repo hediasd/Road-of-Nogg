@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://checks/vfx/probe_cube_control.gd", "marker": "CUBE_VFX_CONTROL_OK", "timeout": 400, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}

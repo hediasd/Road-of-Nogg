@@ -6,12 +6,12 @@ translated from the retained
 The substrate is described in
 [cube-placeholder-foundation.md](./cube-placeholder-foundation.md).
 
-Code: `src/presentation/effects/cube_placeholders/impact/`. Preview without
+Code: `effects/cube_placeholders/impact/`. Preview without
 gameplay registration:
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
-  --catalog-script=res://src/presentation/effects/cube_placeholders/impact/ImpactCatalog.gd \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
+  --catalog-script=res://effects/cube_placeholders/ImpactCatalog.gd \
   --effect-prefix=cube_ --seed=7 --hide-hud --source-distance=8 --radius=2 \
   --render-resolution=640x480 --capture-at=0.12,0.30,0.50,0.70,0.90
 ```
@@ -75,8 +75,8 @@ advertising neighbouring cells a single-target spell does not hit.
 
 ## Checks
 
-`scripts/hex_battle/cube_vfx/impact/probe_cube_impact.gd` (manifest
-`scripts/checks/probes/cube_vfx_impact.json`, `-Filter cube_vfx/impact`):
+`checks/vfx/probe_cube_impact.gd` (manifest
+`checks/manifests/cube_vfx_impact.json`, `-Filter cube_vfx/impact`):
 declared peaks equal the maximum over 801 samples with no footprint, one cell
 and a radius-3 disc, in default, spread and none modes, seeds 0 and 7, within
 the render budget; reverse and shuffled seeks agree; 4x rate; settle. For the

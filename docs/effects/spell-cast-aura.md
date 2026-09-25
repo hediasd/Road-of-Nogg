@@ -64,7 +64,7 @@ multiply fire nearly to black. The final cool bias restores the luminance of
 the registered material capture while the warm branch remains separately
 bounded. No white core is injected into either branch.
 
-`assets/vfx/spell_cast_aura/plume_flow_atlas.png` is original project artwork
+`assets/vfx/spell_cast_aura_plume_flow_atlas.png` is original project artwork
 generated deterministically by the retained adjacent Python/Pillow source and
 the normalized measurements in `source_measurements.json`; source screenshot
 pixels are never read or copied. Its eleven 256x256 cells encode angular-U by
@@ -86,10 +86,10 @@ the report retains only names, hashes, dimensions, registration data, and
 measurements. The command shape is:
 
 ```bash
-python assets/vfx/spell_cast_aura/compare_replica.py \
+python assets/vfx/spell_cast_aura_compare_replica.py \
   --source <source-01.png> ... <source-11.png> \
   --render <render-01.png> ... <render-11.png> \
-  --report assets/vfx/spell_cast_aura/replica_baseline.json \
+  --report assets/vfx/spell_cast_aura_replica_baseline.json \
   --sheet debug/aura_comparison.png \
   --envelope-plot debug/aura_envelope.png \
   --command-label <capture-contract>

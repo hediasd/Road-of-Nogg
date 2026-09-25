@@ -35,7 +35,7 @@ currently `false`; offensive non-self spells are `true`.
 
 `VFX` is an optional object of presentation-only settings: which effect plays
 and how it adapts to the cast. Gameplay never reads it; `SpellReferences`
-passes it through untouched. `SpellVfxSpec` (`src/presentation/effects/`)
+passes it through untouched. `SpellVfxSpec` (`effects/`)
 parses it, fills defaults, and records problems instead of failing. Its
 `ASPECTS` table is the vocabulary below, so a later aspect is one row there
 plus the effects that read it.

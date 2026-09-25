@@ -1,0 +1,11 @@
+{
+	"probes": [
+		{"script": "res://checks/worldmap/probe_prop_layer.gd", "marker": "WORLD MAP PROP LAYER OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://checks/worldmap/probe_sun.gd", "marker": "WORLD MAP SUN OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://checks/worldmap/probe_shadows.gd", "marker": "WORLD MAP SHADOWS OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://checks/worldmap/probe_props.gd", "marker": "WORLD MAP PROPS OK", "timeout": 180, "expect": "pass", "gate": false, "renderer": true, "note": "gain and face should hold painted proportions; 2 failures with a renderer on 2026-09-17"},
+		{"script": "res://checks/worldmap/probe_prop_fog.gd", "marker": "WORLD MAP PROP FOG OK", "timeout": 180, "expect": "pass", "gate": false, "renderer": true, "note": "props are not fogging with the ground: the gap barely closed"},
+		{"script": "res://checks/worldmap/probe_lamps.gd", "marker": "WORLD MAP LAMPS OK", "timeout": 180, "expect": "pass", "gate": false, "renderer": true, "note": "every lamp shape pushed 1224 px past daylight -- that is additive behaviour"},
+		{"script": "res://checks/worldmap/probe_shadow_look.gd", "marker": "WORLD MAP SHADOW LOOK OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": true, "note": ""}
+	]
+}

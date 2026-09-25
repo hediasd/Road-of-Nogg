@@ -8,19 +8,19 @@ the working tree, but preserve unrelated user changes.
 ## No test suite, but one command runs every probe
 
 The previous test suite (unit/integration/scene tiers), the GUT addon, the
-`scripts/run_godot_check.ps1` / `scripts/check_docs.ps1` runners, and the git
+the former `run_godot_check.ps1` / `check_docs.ps1` runners, and the git
 hooks that invoked them were all removed to be rebuilt fresh. What replaced
 none of that is a suite: it is a sweep over the probes the cycles already
 wrote.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter worldmap
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter worldmap
 ```
 
-`scripts/checks/run_probe_sweep.ps1` reads every manifest in
-`scripts/checks/probes/`, runs each registered probe through
-`scripts/hex_battle/run_probe.ps1` one at a time, prints a verdict line per
+`checks/run_probe_sweep.ps1` reads every manifest in
+`checks/manifests/`, runs each registered probe through
+`checks/run_probe.ps1` one at a time, prints a verdict line per
 probe and ends with `PROBE_SWEEP_OK <passed>/<gated>` or
 `PROBE_SWEEP_FAILED <n>`. A manifest entry names the probe, the exact marker it
 prints on success, its timeout, whether a pass or a failure is expected, and
@@ -40,7 +40,7 @@ probe registers it in a manifest in the same commit.
 Registered probes are the only automated check that exists. Behaviour, feel and
 appearance are still verified by launching the game.
 
-`scripts/demo_battle.gd` remains available as a manual, non-automated seeded
+`tools/demo_battle.gd` remains available as a manual, non-automated seeded
 console battle. It now runs the same PARTY runtime the playable scene does,
 from an authored CPU-vs-CPU scenario. Run it from the repository root through a
 waited process and require its explicit `Battle complete` marker; a zero exit
@@ -49,7 +49,7 @@ you want to choose the scenario, the seed or the output, use the runners in the
 next section instead — they supersede it.
 
 The hex battle cycle also ships bounded headless probes under
-`scripts/hex_battle/`, each run through `scripts/hex_battle/run_probe.ps1` and
+`checks/battle/`, each run through `checks/run_probe.ps1` and
 each requiring its own exact marker line. They are narrow checks of one item's
 own logic, not a test suite and not visual acceptance.
 
@@ -66,14 +66,14 @@ canonical command. Run it twice: the second invocation also reads the first
 process's snapshot from battle_output/battles/ai_state_contract.json.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter state_contract
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter forecast
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter rewind
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter replay
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter spatial_cost
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter candidates
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter danger
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter side_policy
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter state_contract
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter forecast
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter rewind
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter replay
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter spatial_cost
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter candidates
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter danger
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter side_policy
 ```
 
 Active hex state and replay snapshots use version 8. Version 7 state can be
@@ -95,7 +95,7 @@ that weighted reachability and A* agree with an exhaustive oracle on a board
 wider than the correctness fixture's. It prints `AI_SPATIAL_COST` lines with the
 workload it measured; those numbers are observations of the host that ran them,
 never pass conditions. Line-of-sight rules are asserted by `-Filter spatial`
-against hand-derived cases in `scripts/hex_battle/fixtures/spatial/los_golden.json`
+against hand-derived cases in `checks/fixtures/los_golden.json`
 and a second corner-walking oracle, not against captured output.
 
 The candidates probe checks the separated decision stream: complete legal
@@ -104,7 +104,7 @@ shared context that stops answering when the board moves or the timeline
 branches, collapse that merges only indistinguishable candidates, a cap that
 cannot starve an action class, unknown policy ids refused, and sampling coverage
 by class. It also replays the frozen decisions of the shipped side policy from
-`scripts/battle/fixtures/ai/legacy_decisions.json`. **A failure there means CPU
+`checks/fixtures/legacy_decisions.json`. **A failure there means CPU
 behaviour moved.** If that was deliberate, regenerate the fixture in the same
 commit and say why; if it was not, it is the finding.
 
@@ -115,7 +115,7 @@ a restore rebuilds the board. Neither can say whether a side turn *reads* right.
 This needs a renderer, so it is not in the sweep -- run it without `--headless`:
 
 ```bash
-./Godot_v4.4-stable_win64.exe --path . --script scripts/battle/capture_ai_session.gd
+./Godot_v4.4-stable_win64.exe --path . --script tools/capture_ai_session.gd
 ```
 
 It plays a real battle, saves frames to `battle_output/ai_session/`, performs one
@@ -130,7 +130,7 @@ AI's own per-frame cost is in
 A declared experiment runs from a manifest on independent process workers:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/battle/run_policy_tournament.ps1 -Manifest scripts/battle/fixtures/ai/tournament_smoke.json -Output battle_output/tournaments/smoke
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/run_policy_tournament.ps1 -Manifest checks/fixtures/tournament_smoke.json -Output battle_output/tournaments/smoke
 ```
 
 Add `-Resume` to finish an interrupted run, `-Workers <n>` to override the
@@ -164,7 +164,7 @@ bytes exactly.
 Analysis reads the merged rows and writes three files beside them:
 
 ```powershell
-./Godot_v4.4-stable_win64.exe --headless --path . --script res://scripts/battle/analyze_policy_tournament.gd -- --manifest=res://scripts/battle/fixtures/ai/evaluation_manifest.json --results=res://battle_output/tournaments/smoke
+./Godot_v4.4-stable_win64.exe --headless --path . --script res://tools/analyze_policy_tournament.gd -- --manifest=res://checks/fixtures/evaluation_manifest.json --results=res://battle_output/tournaments/smoke
 ```
 
 `analysis.json` for machines, `matches.csv` for a spreadsheet, `report.md` for a
@@ -183,20 +183,20 @@ that lost a third of its matches cannot look clean over the survivors. Every
 report lists what its data cannot support, and names representative losses with
 the command to reproduce them.
 
-Two runners under `scripts/battle/`. Both write to `battle_output/` at the
+Two runners under `tools/`. Both write to `battle_output/` at the
 project root by default: single battles under `battle_output/battles/`,
 championships under `battle_output/championships/`. See the next section.
 
 One battle, both outputs — the readable log and the machine record:
 
 ```powershell
-./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/battle/run_battle.gd -- res://data/battle/scenarios/proving_ground_cpu_cpu.json 7
+./Godot_v4.4-stable_win64.exe --headless --path . --script tools/run_battle.gd -- res://data/scenarios/proving_ground_cpu_cpu.json 7
 ```
 
 Many seeds into one corpus plus a run summary:
 
 ```powershell
-./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/battle/run_championship.gd -- res://data/battle/scenarios/proving_ground_cpu_cpu.json 1000 8
+./Godot_v4.4-stable_win64.exe --headless --path . --script tools/run_championship.gd -- res://data/scenarios/proving_ground_cpu_cpu.json 1000 8
 ```
 
 The corpus is **JSONL, one battle per line**, written by `BattleRecordAdapter`.
@@ -244,7 +244,7 @@ is that rule, not a policy's decision.
 nobody to choose. Use the `_cpu_cpu` scenario of a pair.
 
 **Records are deterministic**: two runs at one seed produce byte-identical
-lines, asserted by `scripts/battle/checks/probe_battle_runner.gd`. The
+lines, asserted by `checks/battle/probe_battle_runner.gd`. The
 championship *summary* deliberately is not — it carries wall-clock timings.
 The summary tallies `winners` by team id, with draws under `"draw"` rather than
 as a team `"0"`, and counts `end_reasons` beside it; each battle entry carries
@@ -268,7 +268,7 @@ championship puts the brain in the output file name so a random corpus and a
 policy corpus can never be confused on disk.
 
 ```powershell
-./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/battle/run_championship.gd -- res://data/battle/scenarios/proving_ground_cpu_cpu.json 1 100 --brain=RandomLegalBrain
+./Godot_v4.4-stable_win64.exe --headless --path . --script tools/run_championship.gd -- res://data/scenarios/proving_ground_cpu_cpu.json 1 100 --brain=RandomLegalBrain
 ```
 
 `RandomLegalBrain` picks uniformly among the legal commands the evaluator
@@ -292,7 +292,7 @@ each member's brain, so it always says which it is. And win rates against
 random play measure nothing about balance, because a random policy loses to
 every real one.
 
-`scripts/battle/checks/probe_fuzz.gd` is the smoke-sized version: random play
+`checks/battle/probe_fuzz.gd` is the smoke-sized version: random play
 across every CPU-vs-CPU scenario, asserting each battle ends by elimination or
 at the cap, violates no invariant, replays identically at one seed, and differs
 from the policy run. It also drives `undoMovePhase()` directly, which no CPU
@@ -330,22 +330,22 @@ writes about a battle in future. The folder is gitignored and carries a tracked
 | `battle_output/demo/` | `demo_battle.gd` |
 | `battle_output/played/` | reserved for the playable scene |
 
-A new writer asks `src/presentation/BattleOutputPaths.gd` for its path instead
+A new writer asks `battle/BattleOutputPaths.gd` for its path instead
 of choosing one. An exported build cannot write to `res://`, so there the same
 layout lives under `user://battle_output/`. Probe fixtures are not battle
 output: they stay in memory or under `user://`.
 
 ## Exporting a map's battle products without the editor
 
-`scripts/worldmap_editor/export_battle_products.gd` publishes an authored hex
+`tools/export_battle_products.gd` publishes an authored hex
 map's battle products the same way the editor's own Export Battle action does,
 without opening the editor:
 
 ```powershell
-./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/worldmap_editor/export_battle_products.gd -- hexmap
+./Godot_v4.4-stable_win64.exe --headless --path . --script tools/export_battle_products.gd -- hexmap
 ```
 
-The argument is a map id under `data/worldmap/authored/<id>.noggmap.json` — the
+The argument is a map id under `data/authored/<id>.noggmap.json` — the
 versioned envelope format the editor's own Save/Save As write. It reads that
 one format only; a pre-migration bare `.json` region such as `proving_ground`
 predates the envelope and is out of scope for this script, the same as it is
@@ -361,7 +361,7 @@ not a sign the export failed. Trust the exit code and the final
 **Re-exporting an already-scenario'd map makes those scenarios stale.**
 `BattleScenarioFactory` refuses to load a scenario whose recorded map
 fingerprint no longer matches — correct behaviour, not a bug — and the command
-prints a reminder naming every scenario under `data/battle/scenarios` that
+prints a reminder naming every scenario under `data/scenarios` that
 needs its `MAP` block updated to match.
 
 ## Validation timing

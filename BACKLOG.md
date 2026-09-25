@@ -79,7 +79,7 @@ live battle. Points noticed during validation to decide on:
   owed.
 
 Acceptance: each carrier's settings are confirmed or changed by the user, and
-any change keeps `scripts/hex_battle/probe_vfx_contract.gd`'s carrier table and
+any change keeps `checks/battle/probe_vfx_contract.gd`'s carrier table and
 the cube placeholder manifest in step.
 
 ### Prove existing VFX in real battles
@@ -126,7 +126,7 @@ own narrow write path rather than reviving the older broad editor plan.
 
 ### Restore trustworthy probe coverage
 
-The registered probe manifests under `scripts/checks/probes/` own the current
+The registered probe manifests under `checks/manifests/` own the current
 quarantine list and failure notes. The active AI cycle owns the old battle
 corpus and round-cap probes. Investigate the world-map and editor probes still
 marked `gate: false`; a failure may be an obsolete assertion or a product
@@ -142,7 +142,7 @@ the manifest as the single source for exact probe names and status.
 ### Diagnose the synthetic VFX shutdown fault
 
 Shipped hex paths previously exited cleanly, including completed battles, but
-`scripts/hex_battle/probe_shutdown.gd` still reproduces an exit-time access
+`checks/battle/probe_shutdown.gd` still reproduces an exit-time access
 violation when a particular mix of hex and donor effects is loaded in one
 process. A single effect and larger mixes can exit cleanly, so volume alone is
 not the cause. Capture the retained-object/resource graph before cleanup loses

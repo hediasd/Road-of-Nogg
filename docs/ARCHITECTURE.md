@@ -25,10 +25,10 @@ commands and reacts to events; it does not edit battle state directly.
 
 | Layer | Locations | Responsibility |
 |---|---|---|
-| Simulation and data | `src/battle_sim/`, `src/algorithms/`, `src/board/`, `src/entities/`, `src/entity_ai/`, `src/factories/` | Deterministic rules, state, setup construction, content, AI decisions |
-| Presentation | `src/presentation/` | Cameras, meshes, cursor, setup/battle UI helpers, visual registry and adapters |
-| Scene orchestration | `src/systems/hex_battle/HexBattleController.gd` | Godot lifecycle, side-turn pacing, input routing, adapter wiring |
-| Unit action | `src/systems/hex_battle/HexBattleMemberTurn.gd` | One selected unit's pending move, action, cursor, and undo submission |
+| Simulation and data | `simulation/`, `simulation/`, `simulation/`, `content/`, `ai/`, `content/` | Deterministic rules, state, setup construction, content, AI decisions |
+| Presentation | `battle/`, `ui/`, `effects/`, `worldmap/`, and `map_editor/` | Cameras, meshes, cursor, setup/battle UI helpers, visual registry and adapters |
+| Scene orchestration | `battle/HexBattleController.gd` | Godot lifecycle, side-turn pacing, input routing, adapter wiring |
+| Unit action | `battle/HexBattleMemberTurn.gd` | One selected unit's pending move, action, cursor, and undo submission |
 
 Godot value types such as `Vector2i`, `Dictionary`, and
 `RandomNumberGenerator` are valid in the headless layer. Scene nodes, cameras,
@@ -103,7 +103,7 @@ The HUD reads battle state and never writes it. Four owners keep that true:
 
 ### Shared hex lattice
 
-`src/board/HexGrid.gd` is the headless authority for odd-column offset/axial
+`simulation/HexGrid.gd` is the headless authority for odd-column offset/axial
 conversion, the deterministic E/NE/NW/W/SW/SE neighbour order, hex distance,
 and row-major hex discs. Its public coordinates remain `Vector2i` offset cells
 so `Matrix` storage stays rectangular. Axial coordinates are an internal math
@@ -247,7 +247,7 @@ reader a battle has. Where each kind of run draws the line:
 `BattleState.assertValidOccupancy()` predates this and stays: it guards the
 occupancy family inside `moveMonsterTo()` itself with `assert()`, which the
 release build strips and which stops at the first failure.
-`scripts/battle/checks/probe_invariants.gd` proves the checker both ways — a
+`checks/battle/probe_invariants.gd` proves the checker both ways — a
 whole battle violating nothing, and each invariant family reported on a state
 broken on purpose.
 
@@ -456,10 +456,10 @@ a consumer to that bus.
 
 There are two adapter contracts, and the split matters:
 
-- **`IBattleVisualAdapter`** (`src/battle_sim/`) is the general, *observational*
+- **`IBattleVisualAdapter`** (`simulation/`) is the general, *observational*
   surface — enough to watch a battle. `ConsoleVisualAdapter` implements exactly
   this and stays non-interactive.
-- **`IPlayerTurnVisualAdapter`** (`src/presentation/`) extends it with the
+- **`IPlayerTurnVisualAdapter`** (`battle/`, `ui/`, `effects/`, `worldmap/`, and `map_editor/`) extends it with the
   narrow *interactive* additions a player turn needs: busy state, the
   `animation_queue_drained` signal, player/target cursor, target status,
   movement and target overlays, cursor release, and overlay clearing.
@@ -613,7 +613,7 @@ reorders resolution to accommodate planning or playback.
 
 ## Single runtime
 
-`project.godot` launches `scenes/battle/HexBattle.tscn`, which uses the canonical
+`project.godot` launches `scenes/HexBattle.tscn`, which uses the canonical
 presentation controller. This is the only battle runtime: the earlier
 rollback scene and its board/camera/input scripts were removed once the
 current runtime covered their behavior, and `git log` is their archive. A

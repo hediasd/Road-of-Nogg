@@ -20,8 +20,8 @@ does not cite a plan item by name.
 > code they name is preserved in the independently runnable reference under
 > `references/square-battle/`. The citations are kept because they record where
 > each rule was derived and measured, which is still true. The hex battle's own
-> equivalents are `src/systems/hex_battle/HexBattleController.gd` (scene
-> lifecycle, party pacing) and `src/systems/hex_battle/HexBattleMemberTurn.gd`
+> equivalents are `battle/HexBattleController.gd` (scene
+> lifecycle, party pacing) and `battle/HexBattleMemberTurn.gd`
 > (one member's phases, cursor, undo). Where a rule names a function the hex
 > battle has no counterpart for yet -- the action row's safe rect, the command
 > menu's forecast text -- that surface has not been rebuilt on hex, and
@@ -98,7 +98,7 @@ back-references is not. The project builds all of its UI procedurally already,
 so a code-built theme is also the consistent choice.
 
 **The tokens are the contract.** No colour literal may appear anywhere in
-`src/presentation/` outside `NoggTheme.gd`. That single rule is what makes the
+`battle/`, `ui/`, `effects/`, `worldmap/`, and `map_editor/` outside `NoggTheme.gd`. That single rule is what makes the
 whole restyle a one-file edit next time.
 
 ---
@@ -157,7 +157,7 @@ be mistakable for game affordances.
 
 ### Typography
 
-- **Game:** `assets/Fonts/NoggTerminal/NoggTerminal.res` — **Nogg Terminal**,
+- **Game:** `assets/Fonts/NoggTerminal_NoggTerminal.res` — **Nogg Terminal**,
   the in-house bitmap face described in the next section. Drawn on an 8 x 12
   design cell with an 8-unit monospace advance, so at the shipping x2 scale it
   is a **24 px body with a 16 px advance**. Sizes are `FONT_SIZE_*_UNITS *
@@ -186,10 +186,10 @@ font: monospaced, octagonal, flat-terminalled, generously spaced. It is **not
 the shipping UI face** — see the adoption cost at the end of this section — but
 it is fully built and testable.
 
-**It is authored as text, not as an image.** `assets/Fonts/NoggTerminal/glyphs.txt`
+**It is authored as text, not as an image.** `assets/Fonts/NoggTerminal_glyphs.txt`
 holds every glyph as ASCII art and is the only file anyone edits. The atlas PNG
 and the `FontFile` beside it are build outputs of
-`scripts/bake_bitmap_font.gd`. That inversion is the whole point: a glyph tweak
+`tools/bake_bitmap_font.gd`. That inversion is the whole point: a glyph tweak
 is a one-line diff a reviewer can read, rather than an opaque binary blob, and
 the baker validates the source strictly enough that a malformed glyph fails the
 build instead of shipping as a garbled letter.
@@ -328,7 +328,7 @@ including the ones that do change scale), but shipping code no longer needs to.
 
 #### Looking at it
 
-The text specimen lives in the VFX debug scene (`scenes/debug/VFXDebugScene.tscn`),
+The text specimen lives in the VFX debug scene (`scenes/VFXDebugScene.tscn`),
 not in a flat preview page, because the only question that matters about a UI
 face is whether it survives what it actually sits on — a lit board, at the
 retro viewport's downsample, under the CRT pass. The specimen draws on its own
@@ -714,7 +714,7 @@ than the reference has. Closing the gap properly means authoring a
 one-pixel proportional face, which is a font job rather than a skin token.
 
 **Every number in the Brigandine Plate column is measured output**, read off
-`assets/ui/references/brigandine2.png` — Brigandine: The Legend of Forsena, PS1
+`assets/ui/brigandine2.png` — Brigandine: The Legend of Forsena, PS1
 — rather than estimated from it. The image is 320x240, so **one source pixel is
 1.50 design units**: a design-unit screen is ~360 tall at every `ui_scale`, and
 it is the ratio that transfers, not the pixel count.
@@ -1553,7 +1553,7 @@ jump.
 ## 10c. Spacing and font guardrails
 
 Every player-facing HUD element follows three rules, and
-`scripts/hex_battle/side_turn/probe_ui_guardrails.gd` enforces them in each
+`checks/battle/probe_ui_guardrails.gd` enforces them in each
 side-turn HUD state at 1280x720 (x2) and 1920x1080 (x3):
 
 1. **Screen margin.** A screen-docked window keeps at least

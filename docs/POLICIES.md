@@ -27,8 +27,8 @@ here; add rules there.
 
 - `BattleSimulator` is the canonical battle runtime and `BattleState` is the
   authoritative state container.
-- Simulation code in `src/battle_sim/`, `src/algorithms/`, `src/board/`,
-  `src/entities/`, `src/entity_ai/`, and `src/factories/` stays headless. Godot
+- Simulation code in `simulation/`, `simulation/`, `simulation/`,
+  `content/`, `ai/`, and `content/` stays headless. Godot
   data types are acceptable; visual nodes and presentation dependencies are not.
 - Presentation subscribes through `BattleEvents` or implements
   `IBattleVisualAdapter`. It must not directly mutate simulation state.
@@ -107,9 +107,9 @@ Beyond that:
   warrants one. Small and well-bounded changes can proceed directly even when
   they touch several files.
 - Keep generated diagnostics out of tracked source. Put reusable utilities in
-  `scripts/`.
+  `tools/` and `checks/`.
 - Battle output (logs, records, corpora, summaries, from any kind of run) goes
-  under `battle_output/` through `src/presentation/BattleOutputPaths.gd`, never
+  under `battle_output/` through `battle/BattleOutputPaths.gd`, never
   into `docs/`, scratch folders or a writer's own choice of path.
 - For complex UI, create a mockup when visual direction is genuinely undecided
   or the user asks for one. A mockup is not required for every `Control` tree.
@@ -132,7 +132,7 @@ and is not being completed in the current task.
 
 ## Game-reference research
 
-[`gamerefs/tactical_rpg_turn_systems.md`](../gamerefs/tactical_rpg_turn_systems.md)
+[`references/tactical_rpg_turn_systems.md`](../references/tactical_rpg_turn_systems.md)
 owns the reference roster and links to aspect studies. Aspect files should:
 
 - cover only examples relevant to the aspect rather than reproducing the whole
@@ -145,8 +145,8 @@ owns the reference roster and links to aspect studies. Aspect files should:
 
 There is no test suite in this repository; the previous suite, GUT, and their
 runners were removed to be rebuilt fresh. What exists is a sweep over the
-probes the cycles wrote: `scripts/checks/run_probe_sweep.ps1` runs everything
-registered under `scripts/checks/probes/` and reports quarantined failures
+probes the cycles wrote: `checks/run_probe_sweep.ps1` runs everything
+registered under `checks/manifests/` and reports quarantined failures
 rather than hiding them. Everything about behaviour, feel and appearance is
 still verified by hand, which is what shapes the rules in `AGENTS.md`,
 "Running the checks". See [`DEVELOPMENT.md`](./DEVELOPMENT.md) for the

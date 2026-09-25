@@ -1,10 +1,10 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapGround.gd" id="1_ground"]
-[ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapCameraRig.gd" id="2_camera"]
-[ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapSky.gd" id="3_sky"]
-[ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapProps.gd" id="4_props"]
-[ext_resource type="Script" path="res://src/presentation/worldmap/WorldMapClouds.gd" id="5_clouds"]
+[ext_resource type="Script" path="res://worldmap/WorldMapGround.gd" id="1_ground"]
+[ext_resource type="Script" path="res://worldmap/WorldMapCameraRig.gd" id="2_camera"]
+[ext_resource type="Script" path="res://worldmap/WorldMapSky.gd" id="3_sky"]
+[ext_resource type="Script" path="res://worldmap/WorldMapProps.gd" id="4_props"]
+[ext_resource type="Script" path="res://worldmap/WorldMapClouds.gd" id="5_clouds"]
 
 [node name="WorldMap" type="Node3D"]
 

@@ -7,12 +7,12 @@ The sketch owns their choreography; this page records how it was carried into
 the world. The substrate they run on is described in
 [cube-placeholder-foundation.md](./cube-placeholder-foundation.md).
 
-Code: `src/presentation/effects/cube_placeholders/travel/`. Preview any of them
+Code: `effects/cube_placeholders/travel/`. Preview any of them
 without gameplay registration:
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
-  --catalog-script=res://src/presentation/effects/cube_placeholders/travel/TravelCatalog.gd \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
+  --catalog-script=res://effects/cube_placeholders/TravelCatalog.gd \
   --effect-prefix=cube_ --seed=7 --hide-hud --source-distance=8 --radius=1 \
   --render-resolution=640x480 --capture-at=0.12,0.30,0.50,0.70,0.90
 ```
@@ -65,8 +65,8 @@ as one pack.
 
 ## Checks
 
-`scripts/hex_battle/cube_vfx/travel/probe_cube_travel.gd` (manifest
-`scripts/checks/probes/cube_vfx_travel.json`, `-Filter cube_vfx/travel`):
+`checks/vfx/probe_cube_travel.gd` (manifest
+`checks/manifests/cube_vfx_travel.json`, `-Filter cube_vfx/travel`):
 declared peak equals the maximum sampled over 1201 times at 2/4/6/10 cells and
 seeds 0 and 7, with no overflow and within the render budget; every beat
 boundary is exact at the reference; ascending, reverse and shuffled seeks

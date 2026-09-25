@@ -65,6 +65,6 @@ loadable visual scene tied to the same source identity.
   registries and resolvers may remain code when they represent executable
   strategy rather than content.
 - Exported builds currently include `data/*.json` through `export_presets.cfg`;
-  nested `data/battle/**` inclusion is verified before the hex runtime ships.
+  nested `data/maps/**` and `data/scenarios/**` inclusion is verified before the hex runtime ships.
 - Cross-catalog gameplay acceptance belongs to the final validation item in the
   active implementation plan.
