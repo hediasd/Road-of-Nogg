@@ -60,6 +60,21 @@ An unknown key, a value outside the vocabulary, a wrong type, or authoring both
 `VFX` and the legacy `VFX_PROFILE` is an error the VFX contract probe reports;
 presentation keeps the default for that aspect.
 
+### Classifying multi-element damage
+
+A spell whose `DAMAGE_LINES` land on two or more distinct elements is
+classified by those lines: leave `ELEMENT` unset (or `none`) rather than
+picking one element to represent the spell, and let the default `ELEMENTS`
+rule above derive the full set from `DAMAGE_LINES` so the effect shows every
+element's palette. The user gave standing authorization on 2026-09-25 for this
+classification to be made without asking, resolving the open question the
+cube-placeholder review left on `Magenta Reduction`
+(`BACKLOG.md`): keep the default multi-palette behavior rather than
+authoring `ELEMENTS` down to one colour. `Eschatology` (fire/light),
+`Magenta Reduction` (water/fire), and `Feather Time` (steel/wind, which
+authors `ELEMENTS` explicitly but to the same values the default already
+derives) follow this convention.
+
 `VFX_PROFILE` is the legacy flat form, still read for a spell with no `VFX`
 block. No spell carries it today. During the cube-only VFX phase an active cube
 profile is preserved; an empty, unknown, or parked value routes by spell role

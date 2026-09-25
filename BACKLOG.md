@@ -61,9 +61,6 @@ that built the library, on the understanding that the user reviews them once
 it shipped. Review each with `--spell=<Name>` in the VFX debug scene and in a
 live battle. Points noticed during validation to decide on:
 
-- **Magenta Reduction** has no `ELEMENT` and water and fire damage lines, so
-  the default rule shows both palettes. Author `ELEMENTS` if one colour is
-  wanted.
 - **Cube scale against battle pawns.** Body-bound shapes (frost, cage) scale to
   the body bounds the adapter measures; next to the small pawn models they
   read chunky. Decide whether the world unit (1.6 per sketch unit) or the body
