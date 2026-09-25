@@ -7991,12 +7991,17 @@
                         "pathBefore":  "assets/Fonts/NoggHerald/nogg_herald_atlas.png.import",
                         "pathAfter":  "assets/Fonts/NoggHerald_nogg_herald_atlas.png.import",
                         "preSha256":  "e810e6cc1f79aa3e3651544cf6b1c50c1165b33ebf44e52c9717921b5010cfcc",
-                        "postSha256":  "4ebf016f63674441eb759c91d9994acf22803276a732df5f8953d5feb8b59b72",
+                        "postSha256":  "dd9c6d2452e8861d8da617d025fb175c57c3d19d1adbf56d7b132ed955787b01",
                         "replacements":  [
                                              {
                                                  "old":  "res://assets/Fonts/NoggHerald/nogg_herald_atlas.png",
                                                  "new":  "res://assets/Fonts/NoggHerald_nogg_herald_atlas.png",
                                                  "count":  1
+                                             },
+                                             {
+                                                 "old":  "res://.godot/imported/nogg_herald_atlas.png-",
+                                                 "new":  "res://.godot/imported/NoggHerald_nogg_herald_atlas.png-",
+                                                 "count":  2
                                              },
                                              {
                                                  "old":  "c075c4961f1c12c0212e5f1a2adbab53",
@@ -8009,12 +8014,17 @@
                         "pathBefore":  "assets/Fonts/NoggHerald/nogg_herald_specimen.png.import",
                         "pathAfter":  "assets/Fonts/NoggHerald_nogg_herald_specimen.png.import",
                         "preSha256":  "cbb6438e128cb58c1d2bde509cbdc6cd354c589d1166c22a6487c2500b5c93ae",
-                        "postSha256":  "022e9333b28e423431b2cb39f533d5e37770053a636bfc61dcfa40a73a2281a7",
+                        "postSha256":  "7570fded2e6ecfa08f6630154e015e8e7f820d630b103ef4c4aee4506892b3ad",
                         "replacements":  [
                                              {
                                                  "old":  "res://assets/Fonts/NoggHerald/nogg_herald_specimen.png",
                                                  "new":  "res://assets/Fonts/NoggHerald_nogg_herald_specimen.png",
                                                  "count":  1
+                                             },
+                                             {
+                                                 "old":  "res://.godot/imported/nogg_herald_specimen.png-",
+                                                 "new":  "res://.godot/imported/NoggHerald_nogg_herald_specimen.png-",
+                                                 "count":  2
                                              },
                                              {
                                                  "old":  "fed93a9a67934fdfdf40166b4957d3e3",
@@ -8040,12 +8050,17 @@
                         "pathBefore":  "assets/Fonts/NoggTerminal/nogg_terminal_atlas.png.import",
                         "pathAfter":  "assets/Fonts/NoggTerminal_nogg_terminal_atlas.png.import",
                         "preSha256":  "cc039f8831d1f3f0c82185938017cd606dffd11c2af12b9821ab2f380c3212b0",
-                        "postSha256":  "e2f713f87cd1e004732f5a4b829a643a81b9cafba3f09e2a7c55a8112ccb5577",
+                        "postSha256":  "8e14f58a8990d9178f42019c367163ca4be62441d55a52a1420afa5d78704ce7",
                         "replacements":  [
                                              {
                                                  "old":  "res://assets/Fonts/NoggTerminal/nogg_terminal_atlas.png",
                                                  "new":  "res://assets/Fonts/NoggTerminal_nogg_terminal_atlas.png",
                                                  "count":  1
+                                             },
+                                             {
+                                                 "old":  "res://.godot/imported/nogg_terminal_atlas.png-",
+                                                 "new":  "res://.godot/imported/NoggTerminal_nogg_terminal_atlas.png-",
+                                                 "count":  2
                                              },
                                              {
                                                  "old":  "4b8cd15e05e5f23afd0ad1164a2a9928",
@@ -8187,12 +8202,17 @@
                         "pathBefore":  "assets/vfx/spell_cast_aura/plume_flow_atlas.png.import",
                         "pathAfter":  "assets/vfx/spell_cast_aura_plume_flow_atlas.png.import",
                         "preSha256":  "f0b3b31e9172ba0288e20a765492fe4e1adc0d2729377bdb69ea0756c704f34f",
-                        "postSha256":  "ce93d1edd2314b5de0a3583c2f0e5254c4c94041956b199d0abc6b010d8f9bbd",
+                        "postSha256":  "6783a2a9723339bcd6eb0869db3035d9e520579b5de80dbe4e21a0e3d2ec72cd",
                         "replacements":  [
                                              {
                                                  "old":  "res://assets/vfx/spell_cast_aura/plume_flow_atlas.png",
                                                  "new":  "res://assets/vfx/spell_cast_aura_plume_flow_atlas.png",
                                                  "count":  1
+                                             },
+                                             {
+                                                 "old":  "res://.godot/imported/plume_flow_atlas.png-",
+                                                 "new":  "res://.godot/imported/spell_cast_aura_plume_flow_atlas.png-",
+                                                 "count":  2
                                              },
                                              {
                                                  "old":  "4eea2e2434f4d778f270c026ba791d02",
@@ -8205,12 +8225,17 @@
                         "pathBefore":  "assets/vfx/technique_charge_aura/aura_panel.png.import",
                         "pathAfter":  "assets/vfx/technique_charge_aura_aura_panel.png.import",
                         "preSha256":  "6bd7290c2c6ce03999ff5b0ad666a329bd3122a7b8c3b4185ed2dc074dc6baa4",
-                        "postSha256":  "ce607c2eee0797539d121efd35e8b17034584a66fdd0a5c4dc6213d830cd3238",
+                        "postSha256":  "a6f0a8e5caa20f5ce5eb6a93f0f0601649b33b7b7641fe056b25bb7941970a45",
                         "replacements":  [
                                              {
                                                  "old":  "res://assets/vfx/technique_charge_aura/aura_panel.png",
                                                  "new":  "res://assets/vfx/technique_charge_aura_aura_panel.png",
                                                  "count":  1
+                                             },
+                                             {
+                                                 "old":  "res://.godot/imported/aura_panel.png-",
+                                                 "new":  "res://.godot/imported/technique_charge_aura_aura_panel.png-",
+                                                 "count":  2
                                              },
                                              {
                                                  "old":  "a6e46977616dd9639083b00fef77c194",
@@ -8223,12 +8248,17 @@
                         "pathBefore":  "assets/vfx/technique_charge_aura_v2/aura_panel.png.import",
                         "pathAfter":  "assets/vfx/technique_charge_aura_v2_aura_panel.png.import",
                         "preSha256":  "5b735a4b21e06f804c00050cac37e92ccff4dbdf614f11d2afd6eb5f66f039e0",
-                        "postSha256":  "53e9a827b7a69e7b86e731aca856c3b83f7c90644d4c35339d23e0e95d2fc3ca",
+                        "postSha256":  "21ee86796e656fa85ec280b280d69cdc395d789ac0a892f641b982b4c1cb76ad",
                         "replacements":  [
                                              {
                                                  "old":  "res://assets/vfx/technique_charge_aura_v2/aura_panel.png",
                                                  "new":  "res://assets/vfx/technique_charge_aura_v2_aura_panel.png",
                                                  "count":  1
+                                             },
+                                             {
+                                                 "old":  "res://.godot/imported/aura_panel.png-",
+                                                 "new":  "res://.godot/imported/technique_charge_aura_v2_aura_panel.png-",
+                                                 "count":  2
                                              },
                                              {
                                                  "old":  "347130eaf9d1b232f55a4e74dd8209fc",
@@ -9150,7 +9180,7 @@
                         "pathBefore":  "docs/effects/cube-placeholder-control.md",
                         "pathAfter":  "docs/effects/cube-placeholder-control.md",
                         "preSha256":  "3e0b5e31f7de6a54bbc05c0284603fe8361ef79668d38975b9c6d4c8bbd1b0d0",
-                        "postSha256":  "74cf203f624af9a3e83f650ef11773502e801e1355772c0c561c36679035565d",
+                        "postSha256":  "9781a68773943a7e1b102e857b40e2fdf19d014f931b9dc5e90f75431deeb04c",
                         "replacements":  [
                                              {
                                                  "old":  "res://src/presentation/effects/cube_placeholders/control/ControlCatalog.gd",
@@ -9168,13 +9198,13 @@
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "src/presentation/effects/cube_placeholders",
-                                                 "new":  "effects/cube_placeholders",
+                                                 "old":  "scenes/debug/VFXDebugScene.tscn",
+                                                 "new":  "scenes/VFXDebugScene.tscn",
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "scenes/debug/VFXDebugScene.tscn",
-                                                 "new":  "scenes/VFXDebugScene.tscn",
+                                                 "old":  "src/presentation/effects/cube_placeholders/control/",
+                                                 "new":  "effects/cube_placeholders/",
                                                  "count":  1
                                              }
                                          ]
@@ -9183,7 +9213,7 @@
                         "pathBefore":  "docs/effects/cube-placeholder-foundation.md",
                         "pathAfter":  "docs/effects/cube-placeholder-foundation.md",
                         "preSha256":  "a94bcca830d0077b6b4d557c73f1e053a49775cfaf86a19b2ddb9b8eb2edba93",
-                        "postSha256":  "8ab41de818f702b6ab1a641d991977aa694340164657bcf0a4d24fa54a6390f2",
+                        "postSha256":  "66de8f04aa49b5e9bfb374274a0b0e0198c61caa6fcd6972fc9006eaa9e01484",
                         "replacements":  [
                                              {
                                                  "old":  "scripts/hex_battle/cube_vfx/shared/probe_cube_substrate.gd",
@@ -9196,13 +9226,13 @@
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "src/presentation/effects/cube_placeholders",
-                                                 "new":  "effects/cube_placeholders",
+                                                 "old":  "src/presentation/effects/SpellVfxSpec.gd",
+                                                 "new":  "effects/SpellVfxSpec.gd",
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "src/presentation/effects/SpellVfxSpec.gd",
-                                                 "new":  "effects/SpellVfxSpec.gd",
+                                                 "old":  "Code: `src/presentation/effects/cube_placeholders/shared/` and",
+                                                 "new":  "Code: the substrate files in `effects/cube_placeholders/` and",
                                                  "count":  1
                                              }
                                          ]
@@ -9211,7 +9241,7 @@
                         "pathBefore":  "docs/effects/cube-placeholder-impact.md",
                         "pathAfter":  "docs/effects/cube-placeholder-impact.md",
                         "preSha256":  "ef2c81b798be2b83d91d6e97c686a1a973c58b7c94fe79f8fa7e4188bc132a01",
-                        "postSha256":  "a28f3a04e170ab0d80d09684ba25c055b76a46d6ef7c826550df251818604fa3",
+                        "postSha256":  "355c7b1288dcad22c55a877c9ce737d9bc11b53a10e1d4cce819c2fa133daeb4",
                         "replacements":  [
                                              {
                                                  "old":  "res://src/presentation/effects/cube_placeholders/impact/ImpactCatalog.gd",
@@ -9229,13 +9259,13 @@
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "src/presentation/effects/cube_placeholders",
-                                                 "new":  "effects/cube_placeholders",
+                                                 "old":  "scenes/debug/VFXDebugScene.tscn",
+                                                 "new":  "scenes/VFXDebugScene.tscn",
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "scenes/debug/VFXDebugScene.tscn",
-                                                 "new":  "scenes/VFXDebugScene.tscn",
+                                                 "old":  "src/presentation/effects/cube_placeholders/impact/",
+                                                 "new":  "effects/cube_placeholders/",
                                                  "count":  1
                                              }
                                          ]
@@ -9244,7 +9274,7 @@
                         "pathBefore":  "docs/effects/cube-placeholder-restore.md",
                         "pathAfter":  "docs/effects/cube-placeholder-restore.md",
                         "preSha256":  "adf8bcab0fa028c453b9063b79eb4aba3bc7f498c51e98a78f585f83184d9719",
-                        "postSha256":  "ec2e0b8da91ae04582e200d1d6ac8d5ca1fdf4b5788e1223852b924ae373d1d0",
+                        "postSha256":  "12b42a72eda58cc08aae89bd092c16670ca7cdf129f43d2f85d792af5a0bb409",
                         "replacements":  [
                                              {
                                                  "old":  "res://src/presentation/effects/cube_placeholders/restore/RestoreCatalog.gd",
@@ -9262,13 +9292,13 @@
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "src/presentation/effects/cube_placeholders",
-                                                 "new":  "effects/cube_placeholders",
+                                                 "old":  "scenes/debug/VFXDebugScene.tscn",
+                                                 "new":  "scenes/VFXDebugScene.tscn",
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "scenes/debug/VFXDebugScene.tscn",
-                                                 "new":  "scenes/VFXDebugScene.tscn",
+                                                 "old":  "src/presentation/effects/cube_placeholders/restore/",
+                                                 "new":  "effects/cube_placeholders/",
                                                  "count":  1
                                              }
                                          ]
@@ -9277,7 +9307,7 @@
                         "pathBefore":  "docs/effects/cube-placeholder-travel.md",
                         "pathAfter":  "docs/effects/cube-placeholder-travel.md",
                         "preSha256":  "6cc913a655e10f197b19b09947aeee90cc9947ce64b78fd5e792ea65fbddf228",
-                        "postSha256":  "8748fad25a11d6df202b0bfdb57dcd9e935b0119290fbad0dc265b732234f2cb",
+                        "postSha256":  "ccb761cf3d761f2ebf05c2f01693250cad04a533e5af9c82fdfc5518ae40fd8f",
                         "replacements":  [
                                              {
                                                  "old":  "res://src/presentation/effects/cube_placeholders/travel/TravelCatalog.gd",
@@ -9295,13 +9325,13 @@
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "src/presentation/effects/cube_placeholders",
-                                                 "new":  "effects/cube_placeholders",
+                                                 "old":  "scenes/debug/VFXDebugScene.tscn",
+                                                 "new":  "scenes/VFXDebugScene.tscn",
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "scenes/debug/VFXDebugScene.tscn",
-                                                 "new":  "scenes/VFXDebugScene.tscn",
+                                                 "old":  "src/presentation/effects/cube_placeholders/travel/",
+                                                 "new":  "effects/cube_placeholders/",
                                                  "count":  1
                                              }
                                          ]
@@ -12003,7 +12033,7 @@
                         "pathBefore":  "scripts/hex_battle/cube_vfx/shared/probe_cube_substrate.gd",
                         "pathAfter":  "checks/vfx/probe_cube_substrate.gd",
                         "preSha256":  "0c08c6b8883d2fca7cd9656ae5a57cb78bedfbbf780bbcf1b30c6aa8dd18a36c",
-                        "postSha256":  "6c3f29eb7eac97ce4e1ad6a3a86920f07002b1b6d0b8f7b6e4449b43e9692c25",
+                        "postSha256":  "ec481101ac8240b6237d0fc0bb0c2bae44fb0f65cc4a5134cd314299e8170c90",
                         "replacements":  [
                                              {
                                                  "old":  "res://src/presentation/effects/cube_placeholders/shared/CubePlaceholderProfile.gd",
@@ -12026,11 +12056,6 @@
                                                  "count":  1
                                              },
                                              {
-                                                 "old":  "res://src/presentation/effects/cube_placeholders",
-                                                 "new":  "res://effects/cube_placeholders",
-                                                 "count":  1
-                                             },
-                                             {
                                                  "old":  "res://src/presentation/debug/VfxDebugCapture.gd",
                                                  "new":  "res://effects/VfxDebugCapture.gd",
                                                  "count":  1
@@ -12043,6 +12068,16 @@
                                              {
                                                  "old":  "res://src/factories/SpellReferences.gd",
                                                  "new":  "res://content/SpellReferences.gd",
+                                                 "count":  1
+                                             },
+                                             {
+                                                 "old":  "const SHARED_DIR := \"res://src/presentation/effects/cube_placeholders/shared\"",
+                                                 "new":  "const SUBSTRATE_DIR := \"res://effects/cube_placeholders\"\nconst SUBSTRATE_FILES := [\n\t\"CubePlaceholderAtlas.gd\",\n\t\"CubePlaceholderComposition.gd\",\n\t\"CubePlaceholderEffect.gd\",\n\t\"CubePlaceholderFootprintReach.gd\",\n\t\"CubePlaceholderFrame.gd\",\n\t\"CubePlaceholderPoseBuffer.gd\",\n\t\"CubePlaceholderProfile.gd\",\n]",
+                                                 "count":  1
+                                             },
+                                             {
+                                                 "old":  "\tvar directory := DirAccess.open(SHARED_DIR)\n\t_expect(directory != null, \"shared directory missing\")\n\tif directory == null:\n\t\treturn\n\tfor fileName: String in directory.get_files():\n\t\tif not fileName.ends_with(\".gd\"):\n\t\t\tcontinue\n\t\tvar source := FileAccess.get_file_as_string(SHARED_DIR.path_join(fileName))",
+                                                 "new":  "\tfor fileName: String in SUBSTRATE_FILES:\n\t\tvar sourcePath := SUBSTRATE_DIR.path_join(fileName)\n\t\t_expect(FileAccess.file_exists(sourcePath), \"%s missing\" % fileName)\n\t\tif not FileAccess.file_exists(sourcePath):\n\t\t\tcontinue\n\t\tvar source := FileAccess.get_file_as_string(sourcePath)",
                                                  "count":  1
                                              }
                                          ]
@@ -19643,6 +19678,14 @@
                         "preSha256":  "dd825595a2f9ee5611edac76f7637db8abb00f29abc3c53312ac3cb467c0c423"
                     }
                 ],
+    "creates":  [
+                    {
+                        "path":  "checks/battle/capture_damage_number.gd.uid",
+                        "content":  "uid://dgf6ok62xmt1k",
+                        "sha256":  "28c7d52185d2f3401d4bad7fe94820a6b67e7b1ca739b4e250eea46532f7c6d1",
+                        "reason":  "Godot regenerates the missing sidecar for the retained capture script; keep its cached identity stable."
+                    }
+                ],
     "emptyDirectories":  [
                              "export_templates",
                              "feature_profiles",
@@ -21700,7 +21743,7 @@
                         "artPayloadFiles":  137
                     },
     "expectedPost":  {
-                         "trackedFiles":  1226,
+                         "trackedFiles":  1227,
                          "directories":  45,
                          "maxDepthIncludingExceptions":  4,
                          "moves":  985,
@@ -21712,6 +21755,6 @@
                            "godot":  "4.4-stable",
                            "cacheKey":  "lowercase MD5 of the res:// source path",
                            "sidecarsDerived":  26,
-                           "evidence":  "isolated moved brigandine2.png import: expected and observed b205bb67d42c4472a50bafad9ef5bc0c"
+                           "evidence":  "isolated moved brigandine2.png import proved the lowercase-MD5 cache key; the real import pass additionally proved that renamed source files use their new basename in .godot/imported targets"
                        }
 }

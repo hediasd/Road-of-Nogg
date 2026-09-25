@@ -6,7 +6,7 @@ lift, crush, encasement — out of identical cubes, translated from the retained
 The substrate is described in
 [cube-placeholder-foundation.md](./cube-placeholder-foundation.md).
 
-Code: `effects/cube_placeholders/control/`. Preview without
+Code: `effects/cube_placeholders/`. Preview without
 gameplay registration:
 
 ```bash

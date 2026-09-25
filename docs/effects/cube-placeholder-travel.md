@@ -7,7 +7,7 @@ The sketch owns their choreography; this page records how it was carried into
 the world. The substrate they run on is described in
 [cube-placeholder-foundation.md](./cube-placeholder-foundation.md).
 
-Code: `effects/cube_placeholders/travel/`. Preview any of them
+Code: `effects/cube_placeholders/`. Preview any of them
 without gameplay registration:
 
 ```bash

@@ -6,7 +6,7 @@ cleanse, transfer, charge — translated from the retained
 The substrate is described in
 [cube-placeholder-foundation.md](./cube-placeholder-foundation.md).
 
-Code: `effects/cube_placeholders/restore/`. Preview without
+Code: `effects/cube_placeholders/`. Preview without
 gameplay registration:
 
 ```bash

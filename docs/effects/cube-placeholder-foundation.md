@@ -7,7 +7,7 @@ themselves are translations of the retained
 each family page (travel, impact, control, restore) covers its own six. The
 shared VFX contract lives in [`../VFX_DESIGN.md`](../VFX_DESIGN.md).
 
-Code: `effects/cube_placeholders/shared/` and
+Code: the substrate files in `effects/cube_placeholders/` and
 `effects/SpellVfxSpec.gd`.
 
 ## Split of responsibility

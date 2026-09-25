@@ -13,7 +13,16 @@ const TestComposition = preload("res://checks/vfx/probe_test_composition.gd")
 const DebugCapture = preload("res://effects/VfxDebugCapture.gd")
 const SpellReferencesScript = preload("res://content/SpellReferences.gd")
 
-const SHARED_DIR := "res://effects/cube_placeholders/shared"
+const SUBSTRATE_DIR := "res://effects/cube_placeholders"
+const SUBSTRATE_FILES := [
+	"CubePlaceholderAtlas.gd",
+	"CubePlaceholderComposition.gd",
+	"CubePlaceholderEffect.gd",
+	"CubePlaceholderFootprintReach.gd",
+	"CubePlaceholderFrame.gd",
+	"CubePlaceholderPoseBuffer.gd",
+	"CubePlaceholderProfile.gd",
+]
 const SAMPLE_COUNT := 101
 
 var _failures: PackedStringArray = PackedStringArray()
@@ -401,14 +410,12 @@ func _checkSpreadAndElements() -> void:
 
 
 func _checkIndependence() -> void:
-	var directory := DirAccess.open(SHARED_DIR)
-	_expect(directory != null, "shared directory missing")
-	if directory == null:
-		return
-	for fileName: String in directory.get_files():
-		if not fileName.ends_with(".gd"):
+	for fileName: String in SUBSTRATE_FILES:
+		var sourcePath := SUBSTRATE_DIR.path_join(fileName)
+		_expect(FileAccess.file_exists(sourcePath), "%s missing" % fileName)
+		if not FileAccess.file_exists(sourcePath):
 			continue
-		var source := FileAccess.get_file_as_string(SHARED_DIR.path_join(fileName))
+		var source := FileAccess.get_file_as_string(sourcePath)
 		for line: String in source.split("\n"):
 			var trimmed := line.strip_edges()
 			if trimmed.begins_with("#"):

@@ -188,6 +188,23 @@ function Assert-ManifestShape($Manifest, $Baseline) {
 			Fail "delete outside boundary or frozen: $($delete.path)"
 		}
 	}
+	foreach ($create in @($Manifest.creates)) {
+		$path = Normalize-RelativePath ([string]$create.path)
+		if (-not (Test-InWriteBoundary $path) -or (Test-IsFrozenPath $path)) {
+			Fail "create outside boundary or frozen: $path"
+		}
+		if ($destinations.ContainsKey($path.ToLowerInvariant())) {
+			Fail "create collides with move destination: $path"
+		}
+		$bytes = $script:Utf8NoBom.GetBytes(([string]$create.content) + "`n")
+		$stream = [System.IO.MemoryStream]::new($bytes)
+		try {
+			$hash = ([System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash($stream))).Replace('-', '').ToLowerInvariant()
+		} finally {
+			$stream.Dispose()
+		}
+		if ($hash -ne [string]$create.sha256) { Fail "create hash mismatch: $path" }
+	}
 	$baselineKeys = @{}
 	foreach ($entry in @($Baseline.entries)) {
 		$key = ([string]$entry.path).ToLowerInvariant()
@@ -439,6 +456,17 @@ function Invoke-Apply {
 			Remove-Item -LiteralPath $path -Force
 		}
 	}
+	foreach ($create in @($manifest.creates)) {
+		$path = Resolve-SafePath ([string]$create.path)
+		if (Test-Path -LiteralPath $path -PathType Leaf) {
+			if ((Get-Sha256 $path) -ne [string]$create.sha256) { Fail "create output changed: $($create.path)" }
+			continue
+		}
+		$directory = Split-Path -Parent $path
+		if (-not (Test-Path -LiteralPath $directory -PathType Container)) { New-Item -ItemType Directory -Path $directory -Force | Out-Null }
+		[System.IO.File]::WriteAllText($path, ([string]$create.content) + "`n", $script:Utf8NoBom)
+		if ((Get-Sha256 $path) -ne [string]$create.sha256) { Fail "created output hash mismatch: $($create.path)" }
+	}
 	foreach ($relative in @($manifest.emptyDirectories)) {
 		$directory = Resolve-SafePath ([string]$relative)
 		if (Test-Path -LiteralPath $directory -PathType Container) {
@@ -476,12 +504,18 @@ function Invoke-Verify {
 	foreach ($delete in @($manifest.deletes)) {
 		if (Test-Path -LiteralPath (Resolve-SafePath ([string]$delete.path))) { Fail "deleted path remains: $($delete.path)" }
 	}
+	foreach ($create in @($manifest.creates)) {
+		$path = Resolve-SafePath ([string]$create.path)
+		if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or (Get-Sha256 $path) -ne [string]$create.sha256) {
+			Fail "created file missing or changed: $($create.path)"
+		}
+	}
 	$expectedPaths = @($baseline.entries | ForEach-Object {
 		$key = ([string]$_.path).ToLowerInvariant()
 		if ($moveBySource.ContainsKey($key)) { [string]$moveBySource[$key].destination } else { [string]$_.path }
-	}) + $script:ToolRelativePaths
+	}) + $script:ToolRelativePaths + @($manifest.creates | ForEach-Object { [string]$_.path })
 	$expectedPaths = @($expectedPaths | Sort-Object -Unique)
-	$expectedPost = @($baseline.entries).Count + $script:ToolRelativePaths.Count
+	$expectedPost = @($baseline.entries).Count + $script:ToolRelativePaths.Count + @($manifest.creates).Count
 	if ($expectedPaths.Count -ne $expectedPost) { Fail "post path count expected $expectedPost, got $($expectedPaths.Count)" }
 
 	foreach ($uid in @($expectedPaths | Where-Object { $_.EndsWith('.gd.uid', [System.StringComparison]::OrdinalIgnoreCase) })) {
