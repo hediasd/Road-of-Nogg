@@ -784,8 +784,8 @@
 			"DEF_GROWTH": 0
 		},
 		"ELEMENTS": [
-			"darkness",
-			"earth"
+			"earth",
+			"wind"
 		],
 		"RACE": "Terrorugon",
 		"FAMILY": "Winged Lion",
@@ -793,9 +793,39 @@
 		"BRAIN": "MageBrain",
 		"SPELLS": [
 			[
-				"Dark Bolt",
-				"Dark Nova",
-				"Closing of the Third Sanctuary"
+				"Earth Spike"
+			],
+			[
+				"Peck",
+				"Sudden Storm"
+			]
+		]
+	},
+	{
+		"NAME": "Lesser Antelope",
+		"STATS": {
+			"HP": 36,
+			"ATK": 5,
+			"DEF": 3,
+			"SPD": 5,
+			"MOVE": 4,
+			"LUCK": 4,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
+		"ELEMENTS": [
+			"darkness",
+			"earth"
+		],
+		"RACE": "Terrorugon",
+		"FAMILY": "Terror Goat",
+		"ARCHETYPE": "striker",
+		"BRAIN": "BerserkBrain",
+		"SPELLS": [
+			[
+				"Dark Bolt"
 			],
 			[
 				"Earth Spike"
