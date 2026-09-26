@@ -230,6 +230,23 @@ Playable monster definitions use `race -> family -> species`. Ascended entries
 remain independently selectable when present and record their immediate
 `ascends_from` relationship.
 
+#### Default ascension step
+
+A new ascension line starts from this default unless its design says
+otherwise. Each stage keeps its predecessor's elements, race, family,
+archetype and brain, and its Level 1 stats rise by one step:
+
+| Stat | Gain per stage |
+|---|---|
+| HP | +10 |
+| ATK, DEF, LUCK | +1 each |
+| SPD or MOVE | +1 to one of them, alternating between stages |
+
+The kit carries over and may add at most one spell. The Bigua line (Lesser,
+Sunshower, Suncrowned) is the reference. The earlier Paper Cat to Samarkand
+Stalker step is larger and predates this default. Nothing enforces it
+automatically.
+
 Each monster owns a separate Resonance bar for each of its elements. Casting a
 Level 1-3 spell raises that element's bar only when the spell level equals the
 current charge plus one. Other casts do not reset progress. A Level 4 spell
