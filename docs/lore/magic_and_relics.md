@@ -36,6 +36,34 @@ Various styles of magic group spells into thematic disciplines.
 | Snow Golem | Snow Golem Stomp | |
 | Worship | Bow and Clap | |
 
+## Spell Names
+
+Spell names carry deliberate meanings. This section keeps them for later
+consultation, so a name's intent is not lost once only the catalog remains.
+"Level" is the spell's Resonance tier (`SEQUENCE_LEVEL` in the catalog).
+
+### Naming by Level
+
+- **Level 1 — a single word.** Derived from its element: the element's concept,
+  its Greatness or Ruin, or the conflicts between them (the ten elements are
+  set out in [`LORE.md`](../LORE.md)).
+- **Level 4 — a poetic sentence or a niche real-world reference**, linked to the
+  element abstractly rather than literally. *Roses at Summers End* (an episode
+  title from *Legend of the Galactic Heroes*) and *Wicker Man* (a real-world
+  concept) are the models.
+
+### Reference Register
+
+Every spell whose name carries a reference gets a row here when it enters the
+catalog. "Element link" records how the reference ties to the element. A link
+marked *(reading)* is an interpretation the creator has not confirmed.
+
+| Spell | Element | Level | Reference | Element link |
+| :--- | :--- | :--- | :--- | :--- |
+| Roses at Summers End | WOOD | 4 | Title of an episode of *Legend of the Galactic Heroes*. | Not yet recorded. |
+| Wicker Man | LIGHT / WOOD | none (named in the Level 4 style) | The wicker man: a human-shaped wicker effigy that Julius Caesar's *Commentarii de Bello Gallico* (Book VI) describes the Druids filling with people and burning as a sacrifice. | Woven wood made into a vessel of faith *(reading)*: Wood's gift turned to offering, and Light's Ruin of rigid dogma. |
+| Insatiable Famine | WOOD | none | The curse of Erysichthon (Greek myth, told in Ovid's *Metamorphoses*, Book VIII): a king who felled Demeter's sacred grove and was cursed with a hunger nothing could satisfy. Named in the spell's own catalog description. | The inverse of Wood's abundance: plenty taken from the grove, returned as endless want *(reading)*. |
+
 ## Notable Relics of Power
 
 Relics, items, and artifacts known as **Ominoujies** are highly sought after. Masters in special are avid collectors of Ominoujies and hoard great stashes of them to display power and wealth.

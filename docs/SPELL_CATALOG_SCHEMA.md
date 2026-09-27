@@ -97,7 +97,13 @@ are listed on each cube placeholder family page under
 ## Editing and validation
 
 Edit `res://data/spells.json` directly. A rejected hot reload leaves the
-previous catalog live. Gameplay semantics remain owned by `Spell`,
+previous catalog live.
+
+Spell names follow the naming conventions in
+[`lore/magic_and_relics.md`](./lore/magic_and_relics.md#spell-names) (a single
+word at Level 1, a poetic sentence or niche real-world reference at Level 4).
+When a new spell's name carries a reference, add its row to that file's
+Reference Register in the same commit as the catalog entry. Gameplay semantics remain owned by `Spell`,
 `SpellEffectResolver`, command validation, AI, and presentation; this catalog
 only defines authored input. Spell construction, atomic reload behavior, and
 integrated battle behavior are validated against those owners, not against this
