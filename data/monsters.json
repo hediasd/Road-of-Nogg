@@ -522,8 +522,7 @@
 			[
 				"Splash"
 			]
-		],
-		"DESCRIPTION": "Half-submerged crocodilian sentry, holds the ford against anything that wades in"
+		]
 	},
 	{
 		"NAME": "Veneta Arugula",
@@ -551,8 +550,7 @@
 				"Wood Splinter",
 				"Insatiable Famine"
 			]
-		],
-		"DESCRIPTION": "Bitter leaf of sudden whims, each one sharper than the last"
+		]
 	},
 	{
 		"NAME": "Walker of the Woods",
@@ -743,8 +741,7 @@
 				"Corrupting Splatter",
 				"Aurora Veil"
 			]
-		],
-		"DESCRIPTION": "Calls what sleeps beneath dark water up into the fight"
+		]
 	},
 	{
 		"NAME": "Kickatoo",
