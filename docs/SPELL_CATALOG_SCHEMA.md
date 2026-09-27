@@ -60,20 +60,33 @@ An unknown key, a value outside the vocabulary, a wrong type, or authoring both
 `VFX` and the legacy `VFX_PROFILE` is an error the VFX contract probe reports;
 presentation keeps the default for that aspect.
 
-### Classifying multi-element damage
+### A spell's elements always match its damage lines
 
-A spell whose `DAMAGE_LINES` land on two or more distinct elements is
-classified by those lines: leave `ELEMENT` unset (or `none`) rather than
-picking one element to represent the spell, and let the default `ELEMENTS`
-rule above derive the full set from `DAMAGE_LINES` so the effect shows every
-element's palette. The user gave standing authorization on 2026-09-25 for this
-classification to be made without asking, resolving the open question the
-cube-placeholder review left on `Magenta Reduction`
-(`BACKLOG.md`): keep the default multi-palette behavior rather than
-authoring `ELEMENTS` down to one colour. `Eschatology` (fire/light),
-`Magenta Reduction` (water/fire), and `Feather Time` (steel/wind, which
-authors `ELEMENTS` explicitly but to the same values the default already
-derives) follow this convention.
+A spell's declared element and the elements of its `DAMAGE_LINES` are always
+the same set, in both directions. The user set this as an unconditional rule on
+2026-09-27, and `SpellReferences` enforces it at load: a spell that breaks it
+rejects the whole reload.
+
+- **One element:** author `ELEMENT`. Every damage line must carry that element.
+  A spell without `DAMAGE_LINES` gets one line of that element, so it is
+  aligned by construction.
+- **Two or more elements:** author the top-level `ELEMENTS` array instead of
+  `ELEMENT`, listing the elements in the order their damage lines first use
+  them. `DAMAGE_LINES` must carry exactly those elements. Such a spell never
+  collapses to one element. `Eschatology` (fire/light), `Feather Time`
+  (steel/wind), `Magenta Reduction` (water/fire), and `Wicker Man`
+  (light/wood) are the current examples.
+- A spell that damages in several elements without declaring `ELEMENTS`, or
+  declares elements its lines do not carry, is rejected. The same goes for one
+  that authors both `ELEMENT` and `ELEMENTS`, or names an element that is not
+  in `data/elements.json`.
+
+After loading, every reference carries `ELEMENTS` (the full list; empty for an
+elementless spell) and `ELEMENT` (the single element, or `none` when there are
+several). The top-level `ELEMENTS` is not the presentation-only `VFX.ELEMENTS`
+above. That key is still derived from the damage lines by default, so a
+multi-element effect shows every element's palette. Resonance follows the same
+list: see *Taxonomy and Resonance* in [`GAME_DESIGN.md`](./GAME_DESIGN.md).
 
 `VFX_PROFILE` is the legacy flat form, still read for a spell with no `VFX`
 block. No spell carries it today. During the cube-only VFX phase an active cube
@@ -90,6 +103,9 @@ are listed on each cube placeholder family page under
   lowercase `damage` (integer) and `element` (string). When omitted, `Spell`
   synthesizes one line from `DAMAGE` and `ELEMENT`; an explicit empty array is
   preserved.
+- `ELEMENTS` is optional and only for spells with two or more elements; see
+  *A spell's elements always match its damage lines*. The loader fills it on
+  every reference.
 - `EFFECTS` is optional and defaults to `[]`. Every entry is an object with a
   non-empty uppercase `NAME`. Integer effect fields (`DURATION`, stat bonuses,
   and `VALUE`), `DAMAGE_MULTIPLIER`, and `NEGATIVE` are coerced before use.
@@ -103,7 +119,9 @@ Spell names follow the naming conventions in
 [`lore/magic_and_relics.md`](./lore/magic_and_relics.md#spell-names) (a single
 word at Level 1, a poetic sentence or niche real-world reference at Level 4).
 When a new spell's name carries a reference, add its row to that file's
-Reference Register in the same commit as the catalog entry. Gameplay semantics remain owned by `Spell`,
+Reference Register in the same commit as the catalog entry.
+
+Gameplay semantics remain owned by `Spell`,
 `SpellEffectResolver`, command validation, AI, and presentation; this catalog
 only defines authored input. Spell construction, atomic reload behavior, and
 integrated battle behavior are validated against those owners, not against this

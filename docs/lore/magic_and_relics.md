@@ -61,7 +61,7 @@ marked *(reading)* is an interpretation the creator has not confirmed.
 | Spell | Element | Level | Reference | Element link |
 | :--- | :--- | :--- | :--- | :--- |
 | Roses at Summers End | WOOD | 4 | Title of an episode of *Legend of the Galactic Heroes*. | Not yet recorded. |
-| Wicker Man | LIGHT / WOOD | none (named in the Level 4 style) | The wicker man: a human-shaped wicker effigy that Julius Caesar's *Commentarii de Bello Gallico* (Book VI) describes the Druids filling with people and burning as a sacrifice. | Woven wood made into a vessel of faith *(reading)*: Wood's gift turned to offering, and Light's Ruin of rigid dogma. |
+| Wicker Man | LIGHT / WOOD | 3 (named in the Level 4 style) | The wicker man: a human-shaped wicker effigy that Julius Caesar's *Commentarii de Bello Gallico* (Book VI) describes the Druids filling with people and burning as a sacrifice. | Woven wood made into a vessel of faith *(reading)*: Wood's gift turned to offering, and Light's Ruin of rigid dogma. |
 | Insatiable Famine | WOOD | none | The curse of Erysichthon (Greek myth, told in Ovid's *Metamorphoses*, Book VIII): a king who felled Demeter's sacred grove and was cursed with a hunger nothing could satisfy. Named in the spell's own catalog description. | The inverse of Wood's abundance: plenty taken from the grove, returned as endless want *(reading)*. |
 
 ## Notable Relics of Power
