@@ -156,8 +156,14 @@ force pushes, rewriting history, or anything the checks have not cleared.
 
 - Use a written plan when risk or scope benefits from one, especially for
   cross-layer changes. A file count alone does not require a plan.
-- Ask before making creative or lore decisions and before materially expanding
-  scope. Resolve ordinary technical details from repository evidence.
+- **CRITICAL: never decide a creative aspect on your own.** Names, race,
+  family, species, elements, lore, descriptions and flavour text, spell names
+  and meanings, archetype, stats and kits are the user's to decide. Write only
+  what the user stated. When a required field is unstated, use `TBC` where the
+  data allows it, or ask; never invent a value and label it provisional.
+  Suggesting options is fine. Choosing among them is the user's call. The user
+  set this as critical on 2026-09-27. Resolve ordinary technical details from
+  repository evidence, and ask before materially expanding scope.
 - Race, family and species are a hierarchy (race → family → species; each
   family belongs to exactly one race). Always name them as separate fields,
   in tables and prose alike, and never merge them into one combined
