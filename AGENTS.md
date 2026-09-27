@@ -442,6 +442,14 @@ a cycle's last item. An item that adds a probe registers it in a manifest in
 the same commit. Behaviour and appearance still need the game launched
 manually; follow the Windows safeguards in `docs/DEVELOPMENT.md`.
 
+**Never auto-run expensive checks after a small change.** A catalog or data
+edit, a doc change, or a one-function fix gets only its cheap checks: parse
+and cross-catalog consistency, plus a single targeted probe when the change
+touches code that probe loads. Probe sweeps, fuzz runs, and other long
+simulations run only when the user asks, or for a cross-layer code change or a
+cycle's last item. Otherwise, offer the sweep instead of running it. The user
+set this rule on 2026-09-27.
+
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/checks/run_probe_sweep.ps1 -Filter side_turn
 ```
