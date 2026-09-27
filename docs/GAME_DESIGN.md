@@ -265,10 +265,14 @@ a single `RESONANCE_ELEMENT` (no spell does), those are exactly the bars it
 charges.
 
 
-A monster owns one to four spell sets. Each set stays on a single element and
-holds at most one spell per Level from 1 through 4. A set does not have to fill
-every Level: partial sets are legal, so a monster may cover any subset of the
-tiers it has been authored for.
+A monster owns one to four spell sets. Each set has one home element and holds
+at most one spell per Level from 1 through 4. Every spell in a set must include
+the home element, either alone or alongside others: a light set may hold a
+light/wood spell, but not a wood-only one. Every step of the ladder therefore
+charges the home bar, so a set's Resonance climb always works. A multi-element
+Level 4 spell still needs every one of its bars full, including bars its own
+set never charges. A set does not have to fill every Level: partial sets are
+legal, so a monster may cover any subset of the tiers it has been authored for.
 
 #### Tier contract
 
