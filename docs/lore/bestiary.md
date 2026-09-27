@@ -10,14 +10,14 @@ The known sapient and semi-sapient races include:
 - **Lizardon**: Reptilian folk such as crocodilians and exogators.
 - **Nymph**: All feminine-like creatures: pixies, fairies, ladies of the woods and of the lakes, and leisure ladies. Sapient plants belong here too, as a different, more distant branch.
 - **Wingedos**: Bird and winged creatures, often found in Steep Valley.
-- **Gel**: Gelatinous or amorphous shapeshifting beings, including Cloudmen and Blobs.
+- **Gel**: A wide variety of creatures with unstable composition: amorphous, liquid, gaseous, etc. Includes Cloudmen and Blobs.
 - **Mechans**: Machine-like or clockwork beings, including Tropos and Clock-Birds.
 - **Kemetos**: Desert and ruin dwellers, linked to mud and earth.
 - **Tigerfolk**: Feline humanoid warriors and hunters.
 - **Pondtenders**: Amphibious beings such as Kappas.
 - **Paperfolk**: Creatures of parchment and artifice, such as Paper Tigers.
 - **Sephilim**: Angelic or wheel-shaped entities, often with many eyes.
-- **Terrorugon**: Terrifying beasts such as Winged Lions and Terror Goats.
+- **Terrorugon**: Demonic beasts: unspeakable or speakable terrors, terrors of the day and night, creatures with weird limbs and/or questionable morals. Includes Winged Lions and Terror Goats.
 - **Golemfolk**: Stone, sand, and organic titans.
 
 ## Creature Families (Grouped Logically)

@@ -65,7 +65,7 @@
 				"water": 0.8,
 				"wind": 1.2
 			},
-			"DESCRIPTION": "Gelatinous or amorphous shapeshifting beings, including Cloudmen and Blobs."
+			"DESCRIPTION": "A wide variety of creatures with unstable composition: amorphous, liquid, gaseous, etc."
 		},
 		{
 			"NAME": "Mechans",
@@ -135,7 +135,7 @@
 				"thunder": 1.2,
 				"wood": 1.2
 			},
-			"DESCRIPTION": "Terrifying beasts such as Winged Lions and Terror Goats."
+			"DESCRIPTION": "Demonic beasts: unspeakable or speakable terrors, terrors of the day and night, creatures with weird limbs and/or questionable morals."
 		},
 		{
 			"NAME": "Golemfolk",
@@ -151,8 +151,7 @@
 	"families": [
 		{
 			"NAME": "Basic Kappa",
-			"RACE": "Pondtenders",
-			"DESCRIPTION": ""
+			"RACE": "Pondtenders"
 		},
 		{
 			"NAME": "Blob",
@@ -161,13 +160,11 @@
 		},
 		{
 			"NAME": "Brickamon",
-			"RACE": "Golemfolk",
-			"DESCRIPTION": ""
+			"RACE": "Golemfolk"
 		},
 		{
 			"NAME": "Chrono Sage",
-			"RACE": "Mechans",
-			"DESCRIPTION": ""
+			"RACE": "Mechans"
 		},
 		{
 			"NAME": "Clock-Bird",
@@ -176,28 +173,23 @@
 		},
 		{
 			"NAME": "Crocodon",
-			"RACE": "Lizardon",
-			"DESCRIPTION": ""
+			"RACE": "Lizardon"
 		},
 		{
 			"NAME": "Crowned Birdo",
-			"RACE": "Wingedos",
-			"DESCRIPTION": ""
+			"RACE": "Wingedos"
 		},
 		{
 			"NAME": "Dark Mage",
-			"RACE": "Shadogus",
-			"DESCRIPTION": ""
+			"RACE": "Shadogus"
 		},
 		{
 			"NAME": "Exogator",
-			"RACE": "Lizardon",
-			"DESCRIPTION": ""
+			"RACE": "Lizardon"
 		},
 		{
 			"NAME": "Extrafolk",
-			"RACE": "Shadogus",
-			"DESCRIPTION": ""
+			"RACE": "Shadogus"
 		},
 		{
 			"NAME": "Hanansk",
@@ -211,8 +203,7 @@
 		},
 		{
 			"NAME": "Night Panther",
-			"RACE": "Tigerfolk",
-			"DESCRIPTION": ""
+			"RACE": "Tigerfolk"
 		},
 		{
 			"NAME": "Paper Tiger",
@@ -221,33 +212,27 @@
 		},
 		{
 			"NAME": "Sanctum Wing",
-			"RACE": "Terrorugon",
-			"DESCRIPTION": ""
+			"RACE": "Terrorugon"
 		},
 		{
 			"NAME": "Seabirdo",
-			"RACE": "Wingedos",
-			"DESCRIPTION": ""
+			"RACE": "Wingedos"
 		},
 		{
 			"NAME": "Smoke Fiend",
-			"RACE": "Terrorugon",
-			"DESCRIPTION": ""
+			"RACE": "Terrorugon"
 		},
 		{
 			"NAME": "Snofros",
-			"RACE": "Helvengesk",
-			"DESCRIPTION": ""
+			"RACE": "Helvengesk"
 		},
 		{
 			"NAME": "Storm Herald",
-			"RACE": "Sephilim",
-			"DESCRIPTION": ""
+			"RACE": "Sephilim"
 		},
 		{
 			"NAME": "Terror Goat",
-			"RACE": "Terrorugon",
-			"DESCRIPTION": ""
+			"RACE": "Terrorugon"
 		},
 		{
 			"NAME": "Wheel Watcher",
@@ -256,13 +241,11 @@
 		},
 		{
 			"NAME": "Winged Lion",
-			"RACE": "Terrorugon",
-			"DESCRIPTION": ""
+			"RACE": "Terrorugon"
 		},
 		{
 			"NAME": "Woodsland Nymph",
-			"RACE": "Nymph",
-			"DESCRIPTION": ""
+			"RACE": "Nymph"
 		}
 	],
 	"species": []
