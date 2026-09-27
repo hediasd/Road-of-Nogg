@@ -158,6 +158,10 @@ force pushes, rewriting history, or anything the checks have not cleared.
   cross-layer changes. A file count alone does not require a plan.
 - Ask before making creative or lore decisions and before materially expanding
   scope. Resolve ordinary technical details from repository evidence.
+- Race, family and species are a hierarchy (race → family → species; each
+  family belongs to exactly one race). Always name them as separate fields,
+  in tables and prose alike, and never merge them into one combined
+  "race/family" value.
 - Fail loudly on critical state desynchronization. Review large or deeply
   nested code for extraction, but do not stop solely at a numeric threshold.
 - Treat every existing VFX and animation, plus shared presentation textures,
