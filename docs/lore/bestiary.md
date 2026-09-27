@@ -8,7 +8,7 @@ The known sapient and semi-sapient races include:
 - **Shadogus**: Mysterious entities
 - **Helvengesk**: Whitish-skinned cold populace of the Hanenski region; melts when hurt.
 - **Lizardon**: Reptilian folk such as crocodilians and exogators.
-- **Nymph**: Beings deeply tied to water and wind domains.
+- **Nymph**: All feminine-like creatures: pixies, fairies, ladies of the woods and of the lakes, and leisure ladies. Sapient plants belong here too, as a different, more distant branch.
 - **Wingedos**: Bird and winged creatures, often found in Steep Valley.
 - **Gel**: Gelatinous or amorphous shapeshifting beings, including Cloudmen and Blobs.
 - **Mechans**: Machine-like or clockwork beings, including Tropos and Clock-Birds.

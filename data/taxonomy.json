@@ -4,7 +4,8 @@
 			"NAME": "none",
 			"RESISTANCES": {
 
-			}
+			},
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Shadogus",
@@ -13,7 +14,8 @@
 				"light": 1.2,
 				"wind": 1.2,
 				"wood": 0.8
-			}
+			},
+			"DESCRIPTION": "Mysterious entities."
 		},
 		{
 			"NAME": "Helvengesk",
@@ -22,7 +24,8 @@
 				"ice": 0.8,
 				"thunder": 1.2,
 				"wind": 0.8
-			}
+			},
+			"DESCRIPTION": "Whitish-skinned cold populace of the Hanenski region; melts when hurt."
 		},
 		{
 			"NAME": "Lizardon",
@@ -31,7 +34,8 @@
 				"fire": 0.8,
 				"ice": 1.2,
 				"water": 1.2
-			}
+			},
+			"DESCRIPTION": "Reptilian folk such as crocodilians and exogators."
 		},
 		{
 			"NAME": "Nymph",
@@ -40,7 +44,8 @@
 				"steel": 1.2,
 				"water": 0.8,
 				"wood": 0.8
-			}
+			},
+			"DESCRIPTION": "All feminine-like creatures: pixies, fairies, ladies of the woods and of the lakes, and leisure ladies. Sapient plants belong here too, as a different, more distant branch."
 		},
 		{
 			"NAME": "Wingedos",
@@ -49,7 +54,8 @@
 				"light": 0.8,
 				"thunder": 1.2,
 				"wind": 0.8
-			}
+			},
+			"DESCRIPTION": "Bird and winged creatures, often found in Steep Valley."
 		},
 		{
 			"NAME": "Gel",
@@ -58,7 +64,8 @@
 				"light": 1.2,
 				"water": 0.8,
 				"wind": 1.2
-			}
+			},
+			"DESCRIPTION": "Gelatinous or amorphous shapeshifting beings, including Cloudmen and Blobs."
 		},
 		{
 			"NAME": "Mechans",
@@ -67,7 +74,8 @@
 				"steel": 0.8,
 				"water": 1.2,
 				"wind": 1.2
-			}
+			},
+			"DESCRIPTION": "Machine-like or clockwork beings, including Tropos and Clock-Birds."
 		},
 		{
 			"NAME": "Kemetos",
@@ -76,7 +84,8 @@
 				"ice": 0.8,
 				"light": 1.2,
 				"water": 1.2
-			}
+			},
+			"DESCRIPTION": "Desert and ruin dwellers, linked to mud and earth."
 		},
 		{
 			"NAME": "Tigerfolk",
@@ -85,7 +94,8 @@
 				"light": 1.2,
 				"steel": 1.2,
 				"wind": 0.8
-			}
+			},
+			"DESCRIPTION": "Feline humanoid warriors and hunters."
 		},
 		{
 			"NAME": "Pondtenders",
@@ -94,7 +104,8 @@
 				"fire": 1.2,
 				"water": 0.8,
 				"wood": 0.8
-			}
+			},
+			"DESCRIPTION": "Amphibious beings such as Kappas."
 		},
 		{
 			"NAME": "Paperfolk",
@@ -103,7 +114,8 @@
 				"steel": 0.8,
 				"water": 1.2,
 				"wind": 0.8
-			}
+			},
+			"DESCRIPTION": "Creatures of parchment and artifice, such as Paper Tigers."
 		},
 		{
 			"NAME": "Sephilim",
@@ -112,7 +124,8 @@
 				"earth": 1.2,
 				"light": 0.8,
 				"thunder": 0.8
-			}
+			},
+			"DESCRIPTION": "Angelic or wheel-shaped entities, often with many eyes."
 		},
 		{
 			"NAME": "Terrorugon",
@@ -121,7 +134,8 @@
 				"fire": 0.8,
 				"thunder": 1.2,
 				"wood": 1.2
-			}
+			},
+			"DESCRIPTION": "Terrifying beasts such as Winged Lions and Terror Goats."
 		},
 		{
 			"NAME": "Golemfolk",
@@ -130,101 +144,125 @@
 				"steel": 0.8,
 				"water": 1.2,
 				"wood": 1.2
-			}
+			},
+			"DESCRIPTION": "Stone, sand, and organic titans."
 		}
 	],
 	"families": [
 		{
 			"NAME": "Basic Kappa",
-			"RACE": "Pondtenders"
+			"RACE": "Pondtenders",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Blob",
-			"RACE": "Gel"
+			"RACE": "Gel",
+			"DESCRIPTION": "Amorphous dwellers."
 		},
 		{
 			"NAME": "Brickamon",
-			"RACE": "Golemfolk"
+			"RACE": "Golemfolk",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Chrono Sage",
-			"RACE": "Mechans"
+			"RACE": "Mechans",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Clock-Bird",
-			"RACE": "Mechans"
+			"RACE": "Mechans",
+			"DESCRIPTION": "Wind/Steel automations."
 		},
 		{
 			"NAME": "Crocodon",
-			"RACE": "Lizardon"
+			"RACE": "Lizardon",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Crowned Birdo",
-			"RACE": "Wingedos"
+			"RACE": "Wingedos",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Dark Mage",
-			"RACE": "Shadogus"
+			"RACE": "Shadogus",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Exogator",
-			"RACE": "Lizardon"
+			"RACE": "Lizardon",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Extrafolk",
-			"RACE": "Shadogus"
+			"RACE": "Shadogus",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Hanansk",
-			"RACE": "Helvengesk"
+			"RACE": "Helvengesk",
+			"DESCRIPTION": "Ice beings of the North."
 		},
 		{
 			"NAME": "Mumitomos",
-			"RACE": "Kemetos"
+			"RACE": "Kemetos",
+			"DESCRIPTION": "Mudtombs and desert dwellers."
 		},
 		{
 			"NAME": "Night Panther",
-			"RACE": "Tigerfolk"
+			"RACE": "Tigerfolk",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Paper Tiger",
-			"RACE": "Paperfolk"
+			"RACE": "Paperfolk",
+			"DESCRIPTION": "Origami-like beings."
 		},
 		{
 			"NAME": "Sanctum Wing",
-			"RACE": "Terrorugon"
+			"RACE": "Terrorugon",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Seabirdo",
-			"RACE": "Wingedos"
+			"RACE": "Wingedos",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Smoke Fiend",
-			"RACE": "Terrorugon"
+			"RACE": "Terrorugon",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Snofros",
-			"RACE": "Helvengesk"
+			"RACE": "Helvengesk",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Storm Herald",
-			"RACE": "Sephilim"
+			"RACE": "Sephilim",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Terror Goat",
-			"RACE": "Terrorugon"
+			"RACE": "Terrorugon",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Wheel Watcher",
-			"RACE": "Sephilim"
+			"RACE": "Sephilim",
+			"DESCRIPTION": "Winged wheel-shaped entities."
 		},
 		{
 			"NAME": "Winged Lion",
-			"RACE": "Terrorugon"
+			"RACE": "Terrorugon",
+			"DESCRIPTION": ""
 		},
 		{
 			"NAME": "Woodsland Nymph",
-			"RACE": "Nymph"
+			"RACE": "Nymph",
+			"DESCRIPTION": ""
 		}
 	],
 	"species": []

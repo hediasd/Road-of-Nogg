@@ -21,6 +21,15 @@ and runtime representation conversion.
 | Hex battle maps | `battle/maps/<map-id>.json` | Strict tactical topology, mask, semantic terrain, elevation, source identity, and cell metrics. |
 | Hex battle scenarios | `battle/scenarios/<scenario-id>.json` | Exact map identity, deterministic parties, controllers, members, and deployment. |
 
+## Race and family descriptions
+
+Every race and family in `taxonomy.json` carries a short `DESCRIPTION`, which
+may be empty. No code reads it. It records what belongs in each group, so a
+session choosing a default race or family has the creator's intent to go on.
+Race descriptions follow `docs/lore/bestiary.md`; keep the two in step when
+either changes. An empty description means the creator has not described that
+group yet: suggest, don't infer.
+
 ## Map coordinates
 
 JSON has no Godot vector type. `maps.json` represents `SIZE` and deployment

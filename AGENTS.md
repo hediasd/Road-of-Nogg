@@ -163,7 +163,9 @@ force pushes, rewriting history, or anything the checks have not cleared.
   a sensible default when the user gives none: race, family, species,
   elements, stats, archetype, AI brain, kits (which spells a monster
   carries), and a spell's numbers (damage, range, radius, cooldown, Level).
-  **Always say which defaults you chose**, so the user can overrule them. The
+  **Always say which defaults you chose**, so the user can overrule them.
+  Ground a race or family default in the `DESCRIPTION` fields of
+  `data/taxonomy.json`, which record the user's intent for each group. The
   user set these rules on 2026-09-27. Resolve ordinary technical details from
   repository evidence, and ask before materially expanding scope.
 - Race, family and species are a hierarchy (race → family → species; each
