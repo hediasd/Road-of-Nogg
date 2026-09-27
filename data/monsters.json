@@ -190,8 +190,8 @@
 		"ELEMENTS": [
 			"wood"
 		],
-		"RACE": "Lizardon",
-		"FAMILY": "Crocodon",
+		"RACE": "Nymph",
+		"FAMILY": "TBC",
 		"ARCHETYPE": "defender",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
