@@ -462,6 +462,38 @@
 		"DESCRIPTION": "Hyper-aggressive plasma crocodilian, fast melee striker"
 	},
 	{
+		"NAME": "River Shallows Guard",
+		"STATS": {
+			"HP": 44,
+			"ATK": 5,
+			"DEF": 6,
+			"SPD": 3,
+			"MOVE": 2,
+			"LUCK": 3,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
+		"ELEMENTS": [
+			"earth",
+			"water"
+		],
+		"RACE": "Lizardon",
+		"FAMILY": "Crocodon",
+		"ARCHETYPE": "defender",
+		"BRAIN": "TacticalBrain",
+		"SPELLS": [
+			[
+				"Earth Spike"
+			],
+			[
+				"Splash"
+			]
+		],
+		"DESCRIPTION": "Half-submerged crocodilian sentry, holds the ford against anything that wades in"
+	},
+	{
 		"NAME": "Walker of the Woods",
 		"STATS": {
 			"HP": 40,
