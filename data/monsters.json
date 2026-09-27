@@ -526,6 +526,35 @@
 		"DESCRIPTION": "Half-submerged crocodilian sentry, holds the ford against anything that wades in"
 	},
 	{
+		"NAME": "Veneta Arugula",
+		"STATS": {
+			"HP": 30,
+			"ATK": 4,
+			"DEF": 2,
+			"SPD": 5,
+			"MOVE": 3,
+			"LUCK": 4,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
+		"ELEMENTS": [
+			"wood"
+		],
+		"RACE": "Nymph",
+		"FAMILY": "TBC",
+		"ARCHETYPE": "controller",
+		"BRAIN": "MageBrain",
+		"SPELLS": [
+			[
+				"Wood Splinter",
+				"Insatiable Famine"
+			]
+		],
+		"DESCRIPTION": "Bitter leaf of sudden whims, each one sharper than the last"
+	},
+	{
 		"NAME": "Walker of the Woods",
 		"STATS": {
 			"HP": 40,
