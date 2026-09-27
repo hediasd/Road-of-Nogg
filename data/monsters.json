@@ -221,7 +221,7 @@
 			"ice"
 		],
 		"RACE": "Helvengesk",
-		"FAMILY": "none",
+		"FAMILY": "Snofros",
 		"ARCHETYPE": "striker",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
@@ -416,7 +416,7 @@
 			"ice"
 		],
 		"RACE": "Helvengesk",
-		"FAMILY": "Hanansk",
+		"FAMILY": "Snofros",
 		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
