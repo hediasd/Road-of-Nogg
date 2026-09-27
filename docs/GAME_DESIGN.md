@@ -233,8 +233,12 @@ remain independently selectable when present and record their immediate
 #### Default ascension step
 
 A new ascension line starts from this default unless its design says
-otherwise. Each stage keeps its predecessor's elements, race, family,
-archetype and brain, and its Level 1 stats rise by one step:
+otherwise. Each stage keeps its predecessor's race, family, archetype and
+brain, and its Level 1 stats rise by one step. Elements are not pinned
+across stages: a later stage may add, drop, or swap an element when that is
+the design (its kit and Resonance sets follow whatever elements it ends up
+with). The Bigua line kept its elements because nothing called for a change,
+not because the default requires it.
 
 | Stat | Gain per stage |
 |---|---|
