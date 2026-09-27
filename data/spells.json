@@ -672,6 +672,26 @@
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
+		"COOLDOWN": 6,
+		"DAMAGE_LINES": [
+			{
+				"damage": 5,
+				"element": "light"
+			},
+			{
+				"damage": 5,
+				"element": "wood"
+			}
+		],
+		"DESC": "Binds the target in living wicker and passes a radiant judgement upon it.",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Wicker Man",
+		"RADIUS": 2,
+		"RANGE": 4,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
 		"COOLDOWN": 5,
 		"DAMAGE": 0,
 		"DESC": "Applies petrification to enemies in a 3-cell radius.",
