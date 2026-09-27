@@ -260,8 +260,9 @@ A spell with several elements resonates on all of them, each bar under the
 same rule. A Level 1-3 cast raises every one of its bars that stands at the
 spell level minus one; a Level 4 spell needs all of its bars full and depletes
 each when cast. A spell's elements are always its damage lines' elements (see
-[`SPELL_CATALOG_SCHEMA.md`](./SPELL_CATALOG_SCHEMA.md)), so it never resonates
-on only one of the elements it deals.
+[`SPELL_CATALOG_SCHEMA.md`](./SPELL_CATALOG_SCHEMA.md)). Unless the spell names
+a single `RESONANCE_ELEMENT` (no spell does), those are exactly the bars it
+charges.
 
 
 A monster owns one to four spell sets. Each set stays on a single element and

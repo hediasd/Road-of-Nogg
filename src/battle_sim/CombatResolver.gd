@@ -555,17 +555,22 @@ func executeCastSpell(
 	if casterDealtDamage:
 		spellEffectResolver.consumeCasterDamageEffects(casterID)
 
-	var resonanceElement = spell.resonance_element
-	var oldCharge = caster.get_resonance(resonanceElement)
+	var resonanceElements: Array = spell.getResonanceElements()
+	var oldCharges := {}
+	for resonanceElement in resonanceElements:
+		oldCharges[resonanceElement] = caster.get_resonance(resonanceElement)
 	caster.record_cast(spell)
 	state.add_event("spell_cast", casterID, targetID, {
 		"spell": spell.name,
 		"target_pos": centerPos,
 		"targets_hit": actualTargets.size()
 	})
-	var newCharge = caster.get_resonance(resonanceElement)
-	if newCharge != oldCharge:
-		var reason = "ascension_cast" if spell.sequence_level == 4 else "sequence_advanced"
+	var reason = "ascension_cast" if spell.sequence_level == 4 else "sequence_advanced"
+	for resonanceElement in resonanceElements:
+		var oldCharge: int = oldCharges[resonanceElement]
+		var newCharge: int = caster.get_resonance(resonanceElement)
+		if newCharge == oldCharge:
+			continue
 		state.add_event("resonance_changed", casterID, casterID, {
 			"element": resonanceElement, "old_charge": oldCharge,
 			"new_charge": newCharge, "reason": reason

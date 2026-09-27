@@ -665,6 +665,7 @@
 			}
 		],
 		"DESC": "A medium-close range fire/light damage spell.",
+		"ELEMENTS": ["fire", "light"],
 		"MAX_HEIGHT_DELTA": 1,
 		"MIN_RANGE": 2,
 		"NAME": "Eschatology",
@@ -684,10 +685,12 @@
 			}
 		],
 		"DESC": "Binds the target in living wicker and passes a radiant judgement upon it.",
+		"ELEMENTS": ["light", "wood"],
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Wicker Man",
 		"RADIUS": 2,
 		"RANGE": 4,
+		"SEQUENCE_LEVEL": 3,
 		"TARGET_TYPE": "area"
 	},
 	{
@@ -777,6 +780,7 @@
 			}
 		],
 		"DESC": "Unleashes a flurry of metallic feathers, striking with both steel and wind.",
+		"ELEMENTS": ["steel", "wind"],
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Feather Time",
 		"RANGE": 4,
@@ -951,6 +955,7 @@
 			}
 		],
 		"DESC": "Boils seawater against open flame, scalding the target with both water and fire.",
+		"ELEMENTS": ["water", "fire"],
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Magenta Reduction",
 		"RADIUS": 3,

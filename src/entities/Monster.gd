@@ -144,18 +144,16 @@ func can_cast(spell: Spell) -> bool:
 	if spell_cooldowns.has(spell.name) and spell_cooldowns[spell.name] > 0:
 		return false
 
-	var required_elements = {}
-	if spell.element != "none":
-		required_elements[spell.element] = true
-	for line in spell.damage_lines:
-		if line.has("element") and line["element"] != "none":
-			required_elements[line["element"]] = true
-
-	for req in required_elements.keys():
+	for req in spell.getElements():
 		if not elements.has(req):
 			return false
 	if spell.sequence_level == 4:
-		return get_resonance(spell.resonance_element) == 3
+		var bars := spell.getResonanceElements()
+		if bars.is_empty():
+			return false
+		for bar in bars:
+			if get_resonance(bar) != 3:
+				return false
 	return true
 
 
@@ -170,13 +168,14 @@ func tick_cooldowns() -> void:
 func record_cast(spell: Spell) -> void:
 	if spell.cooldown > 0:
 		spell_cooldowns[spell.name] = spell.cooldown
-	if spell.sequence_level <= 0 or spell.resonance_element == "none":
+	if spell.sequence_level <= 0:
 		return
-	var current = get_resonance(spell.resonance_element)
-	if spell.sequence_level == 4:
-		resonance_bars[spell.resonance_element] = 0
-	elif spell.sequence_level == current + 1:
-		resonance_bars[spell.resonance_element] = mini(3, current + 1)
+	for bar in spell.getResonanceElements():
+		var current = get_resonance(bar)
+		if spell.sequence_level == 4:
+			resonance_bars[bar] = 0
+		elif spell.sequence_level == current + 1:
+			resonance_bars[bar] = mini(3, current + 1)
 
 
 func get_resonance(element: String) -> int:
@@ -184,11 +183,12 @@ func get_resonance(element: String) -> int:
 
 
 func would_advance_resonance(spell: Spell) -> bool:
-	return (
-		spell.sequence_level >= 1
-		and spell.sequence_level <= 3
-		and spell.sequence_level == get_resonance(spell.resonance_element) + 1
-	)
+	if spell.sequence_level < 1 or spell.sequence_level > 3:
+		return false
+	for bar in spell.getResonanceElements():
+		if spell.sequence_level == get_resonance(bar) + 1:
+			return true
+	return false
 
 
 func get_resonance_bonus_percent() -> int:

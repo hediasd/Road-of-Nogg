@@ -2,6 +2,7 @@ class_name SpellReferences
 
 const JSON_PATH := "res://data/spells.json"
 const JsonCatalogLoaderScript = preload("res://src/factories/JsonCatalogLoader.gd")
+const ElementReferencesScript = preload("res://src/factories/ElementReferences.gd")
 const INTEGER_DEFAULTS := {
 	"RADIUS": 1,
 	"MIN_RANGE": 0,
@@ -97,6 +98,10 @@ static func _normalizeReference(reference: Dictionary) -> Dictionary:
 			normalizedLines.append(line)
 		reference["DAMAGE_LINES"] = normalizedLines
 
+	var aligned := _alignElements(reference)
+	if not aligned["success"]:
+		return aligned
+
 	var effectsValue = reference.get("EFFECTS", [])
 	if not effectsValue is Array:
 		return _normalizationFailure("Spell '%s' EFFECTS is not an array" % reference["NAME"])
@@ -117,6 +122,51 @@ static func _normalizeReference(reference: Dictionary) -> Dictionary:
 			effect["NEGATIVE"] = bool(effect["NEGATIVE"])
 		normalizedEffects.append(effect)
 	reference["EFFECTS"] = normalizedEffects
+	return {"success": true, "reference": reference, "error": ""}
+
+
+## A spell's declared elements and its damage lines' elements are always the same
+## list, in the order the lines first use them: one element is authored as
+## ELEMENT, several as ELEMENTS. Publishes ELEMENTS on every reference and leaves
+## ELEMENT as the single element, or none when there are several.
+static func _alignElements(reference: Dictionary) -> Dictionary:
+	var spellName := str(reference["NAME"])
+	var single := str(reference["ELEMENT"])
+	var lineElements: Array[String] = []
+	for line in reference.get("DAMAGE_LINES", []):
+		var lineElement := str(line["element"])
+		if lineElement != "none" and not lineElements.has(lineElement):
+			lineElements.append(lineElement)
+
+	var elements: Array[String] = []
+	if reference.has("ELEMENTS"):
+		var authored = reference["ELEMENTS"]
+		if not authored is Array:
+			return _normalizationFailure("Spell '%s' ELEMENTS is not an array" % spellName)
+		if single != "none":
+			return _normalizationFailure("Spell '%s' authors both ELEMENT and ELEMENTS" % spellName)
+		for value in authored:
+			var elementName := str(value)
+			if elementName == "none" or not ElementReferencesScript.isValid(elementName) \
+					or elements.has(elementName):
+				return _normalizationFailure(
+					"Spell '%s' ELEMENTS has an unknown or repeated element '%s'" % [spellName, elementName])
+			elements.append(elementName)
+		if elements.size() < 2:
+			return _normalizationFailure(
+				"Spell '%s' ELEMENTS names fewer than two elements; author ELEMENT instead" % spellName)
+		if elements != lineElements:
+			return _normalizationFailure("Spell '%s' ELEMENTS %s do not match its damage lines %s" % [
+				spellName, str(elements), str(lineElements)])
+	else:
+		if single != "none":
+			elements.append(single)
+		if not lineElements.is_empty() and elements != lineElements:
+			var hint := " (several elements are declared with ELEMENTS)" if lineElements.size() >= 2 else ""
+			return _normalizationFailure("Spell '%s' element %s does not match its damage lines %s%s" % [
+				spellName, str(elements), str(lineElements), hint])
+
+	reference["ELEMENTS"] = elements
 	return {"success": true, "reference": reference, "error": ""}
 
 

@@ -381,7 +381,10 @@ static func spellDetail(monster, spell) -> String:
 	if remaining > 0:
 		return "CD %d" % remaining
 	if int(spell.sequence_level) == 4:
-		var charge := int(monster.get_resonance(str(spell.resonance_element)))
+		var bars: Array = spell.getResonanceElements()
+		var charge := 0 if bars.is_empty() else 3
+		for bar in bars:
+			charge = mini(charge, int(monster.get_resonance(str(bar))))
 		if charge < 3:
 			return "Res %d/3" % charge
 	return "No element"
@@ -499,18 +502,11 @@ func _spellRefusal(monster, spell, canAct: bool) -> String:
 	var cooldown := int(monster.spell_cooldowns.get(spell.name, 0))
 	if cooldown > 0:
 		return "Ready in %d turn%s." % [cooldown, "" if cooldown == 1 else "s"]
-	var required: Array = []
-	if str(spell.element) != "none":
-		required.append(str(spell.element))
-	for line in spell.damage_lines:
-		var element := str(line.get("element", "none"))
-		if element != "none" and not required.has(element):
-			required.append(element)
-	for element in required:
+	for element in spell.getElements():
 		if not monster.elements.has(element):
 			return "Needs the %s element." % element
 	if int(spell.sequence_level) == 4:
-		return "Needs full %s resonance." % str(spell.resonance_element)
+		return "Needs full %s resonance." % "/".join(PackedStringArray(spell.getResonanceElements()))
 	return "Cannot be cast right now."
 
 

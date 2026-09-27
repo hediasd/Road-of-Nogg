@@ -216,9 +216,11 @@ static func displayName(effectName: String) -> String:
 
 static func spellSummary(spell) -> String:
 	var parts: Array[String] = []
-	var element := str(spell.element)
-	if element != "none" and element != "":
-		parts.append(displayName(element) + ".")
+	var elementNames := PackedStringArray()
+	for element in spell.getElements():
+		elementNames.append(displayName(str(element)))
+	if not elementNames.is_empty():
+		parts.append("/".join(elementNames) + ".")
 	parts.append("Range %d." % int(spell.range))
 	if int(spell.radius) > 0:
 		parts.append("Radius %d." % int(spell.radius))

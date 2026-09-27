@@ -85,6 +85,29 @@ func _to_string():
 	return name
 
 
+## The spell's elements: its single element, then any further element its damage
+## lines deal, in first-use order. The catalog keeps the two aligned; deriving
+## here keeps the answer right for runtime copies edited after construction.
+func getElements() -> Array[String]:
+	var names: Array[String] = []
+	if element != "none" and not element.is_empty():
+		names.append(element)
+	for line in damage_lines:
+		var lineElement := str(line.get("element", "none"))
+		if lineElement != "none" and not lineElement.is_empty() and not names.has(lineElement):
+			names.append(lineElement)
+	return names
+
+
+## The Resonance bars this spell charges: its named resonance element when it has
+## one, otherwise every element it deals.
+func getResonanceElements() -> Array[String]:
+	if resonance_element != "none" and not resonance_element.is_empty():
+		var named: Array[String] = [resonance_element]
+		return named
+	return getElements()
+
+
 ## A battle may change a spell instance without changing its catalog definition.
 ## This is the complete runtime surface copied by battle snapshots.
 func serializeRuntime() -> Dictionary:

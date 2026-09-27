@@ -77,9 +77,10 @@ rejects the whole reload.
   (steel/wind), `Magenta Reduction` (water/fire), and `Wicker Man`
   (light/wood) are the current examples.
 - A spell that damages in several elements without declaring `ELEMENTS`, or
-  declares elements its lines do not carry, is rejected. The same goes for one
-  that authors both `ELEMENT` and `ELEMENTS`, or names an element that is not
-  in `data/elements.json`.
+  declares elements its lines do not carry, is rejected. So is one that authors
+  both `ELEMENT` and `ELEMENTS`, lists fewer than two elements in `ELEMENTS`,
+  or lists an element there that is repeated or missing from
+  `data/elements.json`.
 
 After loading, every reference carries `ELEMENTS` (the full list; empty for an
 elementless spell) and `ELEMENT` (the single element, or `none` when there are
