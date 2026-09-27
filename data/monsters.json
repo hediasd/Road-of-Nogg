@@ -17,7 +17,7 @@
 			"ice"
 		],
 		"RACE": "Helvengesk",
-		"FAMILY": "none",
+		"FAMILY": "TBC",
 		"ARCHETYPE": "defender",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
@@ -44,7 +44,7 @@
 			"ice"
 		],
 		"RACE": "Helvengesk",
-		"FAMILY": "none",
+		"FAMILY": "TBC",
 		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
@@ -77,7 +77,7 @@
 			"darkness"
 		],
 		"RACE": "Shadogus",
-		"FAMILY": "none",
+		"FAMILY": "TBC",
 		"ARCHETYPE": "controller",
 		"BRAIN": "MageBrain",
 		"SPELLS": [
@@ -105,7 +105,7 @@
 			"light"
 		],
 		"RACE": "Sephilim",
-		"FAMILY": "none",
+		"FAMILY": "TBC",
 		"ARCHETYPE": "leader",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
@@ -133,7 +133,7 @@
 			"fire"
 		],
 		"RACE": "Lizardon",
-		"FAMILY": "none",
+		"FAMILY": "TBC",
 		"ARCHETYPE": "striker",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
@@ -191,7 +191,7 @@
 			"wood"
 		],
 		"RACE": "Nymph",
-		"FAMILY": "none",
+		"FAMILY": "TBC",
 		"ARCHETYPE": "defender",
 		"BRAIN": "BerserkBrain",
 		"SPELLS": [
@@ -302,7 +302,7 @@
 			"light"
 		],
 		"RACE": "Sephilim",
-		"FAMILY": "none",
+		"FAMILY": "TBC",
 		"ARCHETYPE": "controller",
 		"BRAIN": "SupportBrain",
 		"SPELLS": [
