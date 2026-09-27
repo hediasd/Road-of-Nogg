@@ -652,14 +652,14 @@
 		]
 	},
 	{
-		"NAME": "Purple Dungeon Slime",
+		"NAME": "Kraken Summoner",
 		"STATS": {
-			"HP": 46,
-			"ATK": 3,
-			"DEF": 4,
-			"SPD": 2,
-			"MOVE": 2,
-			"LUCK": 0,
+			"HP": 36,
+			"ATK": 4,
+			"DEF": 3,
+			"SPD": 4,
+			"MOVE": 3,
+			"LUCK": 4,
 			"JUMP": 1,
 			"HP_GROWTH": 0,
 			"ATK_GROWTH": 0,
@@ -669,18 +669,21 @@
 			"water",
 			"darkness"
 		],
-		"RACE": "Gel",
-		"FAMILY": "Blob",
+		"RACE": "Shadogus",
+		"FAMILY": "Dark Mage",
 		"ARCHETYPE": "controller",
-		"BRAIN": "SupportBrain",
+		"BRAIN": "MageBrain",
 		"SPELLS": [
 			[
 				"Splash",
-				"Ooze Shield",
-				"Corrupting Splatter"
+				"Ooze Shield"
+			],
+			[
+				"Corrupting Splatter",
+				"Aurora Veil"
 			]
 		],
-		"DESCRIPTION": "Amorphous gelatinous mass, adaptable utility, immune to physical crits"
+		"DESCRIPTION": "Calls what sleeps beneath dark water up into the fight"
 	},
 	{
 		"NAME": "Kickatoo",
