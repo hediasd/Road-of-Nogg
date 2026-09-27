@@ -429,6 +429,38 @@
 		"DESCRIPTION": "Magical cold-wielder, northern origin"
 	},
 	{
+		"NAME": "Legion Legendaire",
+		"STATS": {
+			"HP": 48,
+			"ATK": 5,
+			"DEF": 6,
+			"SPD": 3,
+			"MOVE": 3,
+			"LUCK": 3,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
+		"ELEMENTS": [
+			"ice",
+			"steel"
+		],
+		"RACE": "Helvengesk",
+		"FAMILY": "Hanansk",
+		"ARCHETYPE": "defender",
+		"BRAIN": "TacticalBrain",
+		"SPELLS": [
+			[
+				"Dutiful",
+				"Ice Plow"
+			],
+			[
+				"Steel Blade"
+			]
+		]
+	},
+	{
 		"NAME": "Fireblood Lizard",
 		"STATS": {
 			"HP": 42,
