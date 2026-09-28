@@ -706,6 +706,26 @@
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
+		"DAMAGE_LINES": [
+			{
+				"damage": 2,
+				"element": "fire"
+			},
+			{
+				"damage": 2,
+				"element": "ice"
+			}
+		],
+		"ELEMENTS": ["fire", "ice"],
+		"MAX_HEIGHT_DELTA": 1,
+		"MIN_RANGE": 1,
+		"NAME": "Heat Drift",
+		"RANGE": 3,
+		"SEQUENCE_LEVEL": 2,
+		"TARGET_TYPE": "single"
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
 		"COOLDOWN": 5,
 		"DAMAGE": 0,
 		"DESC": "Applies petrification to enemies in a 3-cell radius.",
