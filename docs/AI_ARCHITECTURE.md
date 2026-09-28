@@ -717,18 +717,33 @@ because they consume the stream differently the moment their decisions diverge.
 Held-out scenarios are reported separately and last, with the note that reading
 them and then tuning spends the holdout.
 
-The declared evaluation experiment -- three scenarios, six seeds, both side
-assignments, 36 matches, no infrastructure failures and no round caps -- came
-back with **eighteen decided positions and zero decisive ones**, because side one
-won every single match. The report states no conclusion and says why.
+The first declared evaluation used three original scenarios, six seeds and both
+side assignments (36 matches). Team 1 won every match, leaving zero
+policy-decisive pairs. A follow-up diagnosis showed that this was **not** a
+general first-action rule: the original stronger roster could win from the
+second seat on the larger maps, while the technical map mixed roster, geometry,
+policy and initiative effects. The original scenarios confounded those factors.
 
-That is the result worth having from this machinery, and a pooled win rate would
-have buried it: it would have read 50 percent and looked like two evenly matched
-policies, when what actually happened is that neither policy mattered. These
-boards are decided by who moves first, so no policy comparison can be run on
-them until that is addressed; the backlog carries it. **Nothing in this cycle
-establishes that the reworked policy is stronger than the legacy one**, and the
-experiment that could has not yet been possible to run.
+The exploratory [mirrored manifest](../checks/fixtures/evaluation_mirrors_v2.json)
+copies each original A or B kit onto both teams on each map, retaining each
+side's cells and stable IDs. Six seeds and both policy assignments produce 72
+matches and 36 paired positions, with no infrastructure failure or round cap.
+The generated `battle_output/tournaments/pef_v2/report.md` records 8
+tactical-favouring pairs, 6 legacy-favouring pairs and 22 splits. The six
+technical A pairs all favoured legacy, while the six Proving Ground A pairs all
+favoured tactical. The technical and Proving Ground B-kit fixtures split by
+seat at every seed. Hexmap A split at five seeds and favoured tactical once;
+Hexmap B split at five and had
+one tactical win paired with a draw, which the current analyzer counts as
+tactical-favouring. These are strong fixture interactions, not a general policy
+ranking. The pooled Wilson interval over the analyzer's 14 favourable pairs
+spans 0.33 to 0.79 and includes one half.
+
+The six seeds on each fixture repeat only three authored maps and two original
+kits; they do not provide 36 independent map designs. Every mirrored fixture
+was already screened, so this manifest has no holdout. **Neither policy is
+established as stronger.** A future strength claim needs a fresh, uninspected
+corpus with varied maps and rosters and an explicit rule for win-plus-draw pairs.
 
 ### Current experiment runner
 
@@ -772,11 +787,11 @@ deterministic results, and a run interrupted after two of four matches and
 resumed reproduces the uninterrupted bytes exactly, with no duplicate and
 nothing missing.
 
-The build hash covers the simulator, algorithms, AI, board, entities, factories
-and battle content. Presentation is deliberately excluded: a headless match
-draws nothing, so a change there cannot move a result, and including it would
-make every visual commit look like a new build. It is identity, not integrity --
-it says whether two runs match, not that nobody tampered with a file.
+The build hash covers `simulation/`, `ai/`, `content/`, the runner and identity
+scripts, and the actual `data/` tree, including scenarios, maps and catalogs.
+Presentation is excluded because a headless match draws nothing. It is identity,
+not integrity: it distinguishes these inputs across runs, but is not a complete
+source-tree fingerprint or a tamper check.
 
 
 Tournament tooling follows the AI foundations. Early work uses narrow local

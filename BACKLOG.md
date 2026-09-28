@@ -169,21 +169,29 @@ the proven v2 live-update path and verify an interactive slider drag at a fixed
 seed and time. Keep the debug-only effect's production telegraph decision out
 of this bug fix.
 
-### Give CPU-versus-CPU scenarios a fair second seat
+### Build a fresh policy-comparison corpus
 
-Across the declared evaluation experiment -- three scenarios, six seeds, both
-side assignments, 36 matches -- **side one won every single match**. Every
-position split, so the run produced eighteen decided positions and zero decisive
-ones, and could say nothing at all about which policy plays better. Whoever
-moves first wins these boards.
+Mirroring the two existing kits across three maps separated some roster effects
+from seat effects, but the technical A kit favoured legacy at every seed,
+Proving Ground A favoured tactical at every seed, and both B kits stayed fully
+seat split. Repeating seeds on these inspected maps is not a new holdout.
+Author new map, deployment and roster combinations without looking at their
+policy outcomes first. Screen development cases with same-policy play from
+both seats, then reserve distinct, uninspected cases for the final paired run.
+Acceptance: the manifest declares independent held-out cases and both policy
+assignments in advance; the report shows seat balance, decisive pairs,
+failures and caps by fixture, with no claim based on a viewed development set.
 
-That is a scenario and turn-order question, not an AI one, and it blocks any
-future policy comparison on these maps: a league run here measures the seat.
-Worth establishing whether the advantage is starting positions, the side order
-itself, or a first-strike threshold in the combat numbers, and then either
-balancing the scenarios or adding ones that do not resolve on move one.
-Acceptance: a scenario set where the same policy on both sides does not win by
-seat, so a paired comparison can produce decisive positions.
+### Define paired draw and cap scoring before another strength claim
+
+The mirrored run included a tactical win paired with a draw, which the current
+analyzer counts as a tactical-favouring position even though its estimand says
+the policy wins outright from both seats. `PairedOutcomes` can also count a
+win paired with a round cap, contrary to the report's claim that capped matches
+stay out of the strength tally. Decide the exact pair categories and update the
+analyzer, prose and hand-checked probe cases together. Acceptance: win/draw and
+win/cap pairs have explicit, tested classifications, and the reported
+estimand matches the code before a fresh holdout is evaluated.
 
 ### Improve battle input access
 

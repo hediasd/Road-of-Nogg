@@ -18,6 +18,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter worldmap
 ```
 
+If `Start-Process` reports duplicate `Path`/`PATH` keys on this Windows host,
+normalize that variable in the current PowerShell process, then rerun the sweep:
+
+```powershell
+$pathValue = $env:Path
+[Environment]::SetEnvironmentVariable('PATH', $null, 'Process')
+[Environment]::SetEnvironmentVariable('Path', $pathValue, 'Process')
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1
+```
+
 `checks/run_probe_sweep.ps1` reads every manifest in
 `checks/manifests/`, runs each registered probe through
 `checks/run_probe.ps1` one at a time, prints a verdict line per
@@ -133,6 +143,16 @@ A declared experiment runs from a manifest on independent process workers:
 powershell -NoProfile -ExecutionPolicy Bypass -File tools/run_policy_tournament.ps1 -Manifest checks/fixtures/tournament_smoke.json -Output battle_output/tournaments/smoke
 ```
 
+For the exploratory mirrored evaluation, use the committed six-fixture manifest:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/run_policy_tournament.ps1 -Manifest checks/fixtures/evaluation_mirrors_v2.json -Output battle_output/tournaments/pef_v2 -Workers 3
+```
+
+It schedules 72 matches: A/A and B/B kits on three existing maps, at six
+seeds with both policy assignments. All cases are inspected development data;
+the run has no holdout and cannot establish a general policy-strength claim.
+
 Add `-Resume` to finish an interrupted run, `-Workers <n>` to override the
 manifest's worker count and `-TimeoutSeconds <n>` its watchdog. Output lands in
 the given directory: one `shard_NN.jsonl` per worker, merged into
@@ -164,11 +184,12 @@ bytes exactly.
 Analysis reads the merged rows and writes three files beside them:
 
 ```powershell
-./Godot_v4.4-stable_win64.exe --headless --path . --script res://tools/analyze_policy_tournament.gd -- --manifest=res://checks/fixtures/evaluation_manifest.json --results=res://battle_output/tournaments/smoke
+./Godot_v4.4-stable_win64.exe --headless --disable-crash-handler --path . --script res://tools/analyze_policy_tournament.gd -- --manifest=res://checks/fixtures/evaluation_mirrors_v2.json --results=res://battle_output/tournaments/pef_v2
 ```
 
-`analysis.json` for machines, `matches.csv` for a spreadsheet, `report.md` for a
-person. The report is built to be hard to over-read. **The sample unit is the
+Wait for `POLICY_ANALYSIS_OK` before reading `analysis.json` for machines,
+`matches.csv` for a spreadsheet, or `report.md` for a person. The report is
+built to be hard to over-read. **The sample unit is the
 position, not the match:** one scenario at one seed played with the sides
 swapped is a single paired comparison, so eight matches over four positions are
 four units and not eight. Positions the policies split -- each winning from side
