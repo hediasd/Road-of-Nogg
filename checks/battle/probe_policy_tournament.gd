@@ -229,6 +229,28 @@ func _checkBuildIdentity() -> void:
 	var build := BuildIdentityScript.capture()
 	_require(str(build.get("simulation", "")).begins_with("sha256:"),
 		"the build identity carried no simulation hash")
+	_require(str(build.get("content", "")).begins_with("sha256:"),
+		"the build identity carried no content hash")
+	var dataPaths: Array[String] = []
+	BuildIdentityScript._collect("res://data", dataPaths)
+	for required in ["res://data/monsters.json", "res://data/spells.json",
+			"res://data/maps/hexmap.json",
+			"res://data/scenarios/hexmap_cpu_cpu.json"]:
+		_require(dataPaths.has(required), "content identity omits %s" % required)
+	_require(str(build["content"]) == BuildIdentityScript._hashOf(["res://data"]),
+		"capture did not hash the current data directory")
+	## Mutation sensitivity is checked in ignored probe output, without writing
+	## a production catalog that may be owned by another session.
+	var dataProbePath := "%s/content_identity.json" % workDirectory
+	var dataProbe := FileAccess.open(dataProbePath, FileAccess.WRITE)
+	dataProbe.store_string("one")
+	dataProbe.close()
+	var before := BuildIdentityScript._hashOf([workDirectory])
+	dataProbe = FileAccess.open(dataProbePath, FileAccess.WRITE)
+	dataProbe.store_string("two")
+	dataProbe.close()
+	_require(before != BuildIdentityScript._hashOf([workDirectory]),
+		"changing a content file did not change its hash")
 	_require(BuildIdentityScript.agrees(build, BuildIdentityScript.capture()),
 		"the build identity was unstable within one process")
 	_require(not BuildIdentityScript.agrees(build,

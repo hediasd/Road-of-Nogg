@@ -21,14 +21,16 @@ extends RefCounted
 ## a result and including it would make every VFX commit look like a new build.
 const HASHED_DIRECTORIES: Array[String] = [
 	"res://simulation",
-	"res://simulation",
 	"res://ai",
-	"res://simulation",
-	"res://content",
 	"res://content",
 ]
+## These two tools also determine the recorded outcome of a match.
+const HASHED_RUNNER_FILES: Array[String] = [
+	"res://tools/BuildIdentity.gd",
+	"res://tools/run_policy_tournament.gd",
+]
 const HASHED_DATA: Array[String] = [
-	"res://data/battle",
+	"res://data",
 ]
 
 
@@ -36,7 +38,7 @@ static func capture() -> Dictionary:
 	return {
 		"engine": "%s.%s" % [Engine.get_version_info()["string"],
 			Engine.get_version_info()["build"]],
-		"simulation": _hashOf(HASHED_DIRECTORIES),
+		"simulation": _hashOf(HASHED_DIRECTORIES, HASHED_RUNNER_FILES),
 		"content": _hashOf(HASHED_DATA),
 	}
 
@@ -48,24 +50,29 @@ static func agrees(a: Dictionary, b: Dictionary) -> bool:
 		and str(a.get("content", "")) == str(b.get("content", ""))
 
 
-static func _hashOf(roots: Array) -> String:
+static func _hashOf(roots: Array, individualFiles: Array = []) -> String:
 	var paths: Array[String] = []
 	for root: String in roots:
 		_collect(root, paths)
+	for path: String in individualFiles:
+		assert(FileAccess.file_exists(path), "build identity file missing: %s" % path)
+		paths.append(path)
 	paths.sort()
 	var context := HashingContext.new()
 	context.start(HashingContext.HASH_SHA256)
 	for path: String in paths:
 		context.update(path.to_utf8_buffer())
 		var bytes := FileAccess.get_file_as_bytes(path)
-		context.update(bytes)
+		## The path already distinguishes an empty file; Godot rejects a hash
+		## update with a zero-length buffer (data/.gitkeep is one such file).
+		if not bytes.is_empty():
+			context.update(bytes)
 	return "sha256:%s" % context.finish().hex_encode().substr(0, 32)
 
 
 static func _collect(root: String, out: Array[String]) -> void:
 	var directory := DirAccess.open(root)
-	if directory == null:
-		return
+	assert(directory != null, "build identity directory missing: %s" % root)
 	for fileName in directory.get_files():
 		## Godot's own bookkeeping files change without the program changing.
 		if fileName.ends_with(".uid") or fileName.ends_with(".import"):

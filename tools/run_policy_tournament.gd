@@ -126,8 +126,13 @@ func _playMatch(manifest: TournamentManifest, matchRow: Dictionary,
 	var slices := 0
 	var candidates := 0
 	var decisionUsec: Array[int] = []
-	while simulator.state.battleOutcome == -1 \
-			and simulator.state.roundCount < manifest.max_rounds:
+	while simulator.state.battleOutcome == -1:
+		## roundCount increments when the first side opens. Do not clip the
+		## surviving second side's turn in the final allowed round.
+		if simulator.state.roundCount >= manifest.max_rounds \
+				and simulator.state.activeSideID == -1 \
+				and simulator.state.pendingSideIDs.is_empty():
+			break
 		if simulator.state.activeSideID == -1:
 			if not bool(simulator.startNextSideTurn("tournament").get("success", false)):
 				break
@@ -172,6 +177,7 @@ func _playMatch(manifest: TournamentManifest, matchRow: Dictionary,
 		row["end_reason"] = ShardScript.END_ROUND_CAP
 	row["winner_team"] = simulator.state.battleOutcome
 	row["rounds"] = simulator.state.roundCount
+	row["side_turns"] = simulator.state.sideTurnCount
 	row["decisions"] = decisions
 	row["survivors"] = survivors
 	row["invariant_violations"] = simulator.invariantViolations()

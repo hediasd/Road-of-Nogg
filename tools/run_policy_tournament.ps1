@@ -55,6 +55,73 @@ New-Item -ItemType Directory -Force -Path $logDirectory | Out-Null
 $manifestResource = 'res://' + ($Manifest -replace '\\', '/')
 $outputResource = 'res://' + ($Output -replace '\\', '/')
 
+## Start-Process on this host can fail while copying PATH/path into its
+## environment dictionary. ProcessStartInfo also gives us a reliable exit code
+## and a handle to the exact worker that a watchdog may need to stop.
+function ConvertTo-WindowsArgument([string]$Value) {
+	if ($Value.Length -gt 0 -and $Value -notmatch '[\s"]') { return $Value }
+	$quoted = [System.Text.StringBuilder]::new()
+	$null = $quoted.Append('"')
+	$backslashes = 0
+	foreach ($character in $Value.ToCharArray()) {
+		if ($character -eq '\') { $backslashes += 1; continue }
+		if ($character -eq '"') {
+			$null = $quoted.Append('\', ($backslashes * 2) + 1)
+			$null = $quoted.Append('"')
+			$backslashes = 0
+			continue
+		}
+		$null = $quoted.Append('\', $backslashes)
+		$null = $quoted.Append($character)
+		$backslashes = 0
+	}
+	$null = $quoted.Append('\', $backslashes * 2)
+	$null = $quoted.Append('"')
+	return $quoted.ToString()
+}
+
+function Start-GodotJob([string[]]$JobArguments, [string]$StdoutPath, [string]$StderrPath) {
+	$info = [System.Diagnostics.ProcessStartInfo]::new()
+	$info.FileName = if ([System.IO.Path]::IsPathRooted($GodotPath)) {
+		[System.IO.Path]::GetFullPath($GodotPath)
+	} else {
+		[System.IO.Path]::GetFullPath((Join-Path $projectRoot $GodotPath))
+	}
+	$info.WorkingDirectory = $projectRoot
+	$info.UseShellExecute = $false
+	$info.CreateNoWindow = $true
+	$info.RedirectStandardOutput = $true
+	$info.RedirectStandardError = $true
+	$info.Arguments = ($JobArguments | ForEach-Object { ConvertTo-WindowsArgument $_ }) -join ' '
+	$process = [System.Diagnostics.Process]::new()
+	$process.StartInfo = $info
+	if (-not $process.Start()) { Fail-Tournament "Godot failed to start: $($info.FileName)" }
+	return [pscustomobject]@{
+		Process = $process
+		StdoutTask = $process.StandardOutput.ReadToEndAsync()
+		StderrTask = $process.StandardError.ReadToEndAsync()
+		StdoutPath = $StdoutPath
+		StderrPath = $StderrPath
+	}
+}
+
+function Finish-GodotJob($Job, [int]$RemainingSeconds) {
+	$timedOut = -not $Job.Process.WaitForExit([math]::Max(1, $RemainingSeconds) * 1000)
+	if ($timedOut -and -not $Job.Process.HasExited) { $Job.Process.Kill() }
+	$Job.Process.WaitForExit()
+	$encoding = [System.Text.UTF8Encoding]::new($false)
+	$stdoutText = $Job.StdoutTask.GetAwaiter().GetResult()
+	$stderrText = $Job.StderrTask.GetAwaiter().GetResult()
+	[System.IO.File]::WriteAllText($Job.StdoutPath, $stdoutText, $encoding)
+	[System.IO.File]::WriteAllText($Job.StderrPath, $stderrText, $encoding)
+	return [pscustomobject]@{
+		TimedOut = $timedOut
+		ExitCode = $Job.Process.ExitCode
+		Stdout = $stdoutText
+		Stderr = $stderrText
+	}
+}
+
 $processes = @()
 for ($shard = 0; $shard -lt $Workers; $shard++) {
 	$arguments = @(
@@ -66,9 +133,8 @@ for ($shard = 0; $shard -lt $Workers; $shard++) {
 	if ($Resume) { $arguments += '--resume' }
 	$stdout = Join-Path $logDirectory ("worker_{0:d2}.out.log" -f $shard)
 	$stderr = Join-Path $logDirectory ("worker_{0:d2}.err.log" -f $shard)
-	$process = Start-Process -FilePath $GodotPath -ArgumentList $arguments -PassThru `
-		-NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-	$processes += [pscustomobject]@{ Shard = $shard; Process = $process; Stdout = $stdout }
+	$job = Start-GodotJob $arguments $stdout $stderr
+	$processes += [pscustomobject]@{ Shard = $shard; Job = $job }
 }
 
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
@@ -76,21 +142,18 @@ $killed = @()
 $failed = @()
 foreach ($entry in $processes) {
 	$remaining = [int]([math]::Max(1, ($deadline - (Get-Date)).TotalSeconds))
-	if (-not $entry.Process.WaitForExit($remaining * 1000)) {
+	$result = Finish-GodotJob $entry.Job $remaining
+	if ($result.TimedOut) {
 		## A worker that outran the budget is stopped. Its finished matches are
 		## already on disk; the unfinished one is simply absent, and a resume
 		## will play it again rather than anyone inventing a result for it.
-		try { $entry.Process.Kill($true) } catch {}
 		$killed += $entry.Shard
 		Write-Output ("worker {0} exceeded {1}s and was stopped" -f $entry.Shard, $TimeoutSeconds)
 		continue
 	}
-	## Judged by its marker, not its exit code. A Godot process can report a
-	## non-zero status while shutting down cleanly, and Start-Process does not
-	## reliably surface the code at all; the marker is the thing the worker only
-	## prints once it has written every row it owed.
-	if (-not (Select-String -LiteralPath $entry.Stdout -Pattern 'POLICY_TOURNAMENT_SHARD_OK' -Quiet)) {
-		Write-Output ("worker {0} did not finish its shard; see {1}" -f $entry.Shard, $entry.Stdout)
+	if ($result.ExitCode -ne 0 -or $result.Stdout -notmatch '(?m)^POLICY_TOURNAMENT_SHARD_OK ') {
+		Write-Output ("worker {0} did not finish its shard (exit {1}); see {2}" -f `
+			$entry.Shard, $result.ExitCode, $entry.Job.StdoutPath)
 		$failed += $entry.Shard
 	}
 }
@@ -102,11 +165,11 @@ $mergeArguments = @(
 )
 $mergeOut = Join-Path $logDirectory 'merge.out.log'
 $mergeErr = Join-Path $logDirectory 'merge.err.log'
-$merge = Start-Process -FilePath $GodotPath -ArgumentList $mergeArguments -PassThru `
-	-NoNewWindow -RedirectStandardOutput $mergeOut -RedirectStandardError $mergeErr
-$merge.WaitForExit()
+$mergeJob = Start-GodotJob $mergeArguments $mergeOut $mergeErr
+$merge = Finish-GodotJob $mergeJob $TimeoutSeconds
 Get-Content -LiteralPath $mergeOut | Where-Object { $_ -match 'POLICY_TOURNAMENT' } | Write-Output
-if (-not (Select-String -LiteralPath $mergeOut -Pattern 'POLICY_TOURNAMENT_MERGE_OK' -Quiet)) {
+if ($merge.TimedOut -or $merge.ExitCode -ne 0 -or `
+		$merge.Stdout -notmatch '(?m)^POLICY_TOURNAMENT_MERGE_OK ') {
 	if (Test-Path -LiteralPath $mergeErr) { Get-Content -LiteralPath $mergeErr | Write-Output }
 	Fail-Tournament "merge did not complete; see $mergeErr"
 }
