@@ -960,6 +960,63 @@
 		]
 	},
 	{
+		"NAME": "Humility",
+		"STATS": {
+			"HP": 44,
+			"ATK": 4,
+			"DEF": 6,
+			"SPD": 3,
+			"MOVE": 2,
+			"LUCK": 2,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
+		"ELEMENTS": [
+			"earth"
+		],
+		"RACE": "Sephilim",
+		"FAMILY": "Elgladion",
+		"ARCHETYPE": "defender",
+		"BRAIN": "TacticalBrain",
+		"SPELLS": [
+			[
+				"Stand",
+				"Earth Spike"
+			]
+		]
+	},
+	{
+		"NAME": "Worship",
+		"STATS": {
+			"HP": 40,
+			"ATK": 3,
+			"DEF": 4,
+			"SPD": 3,
+			"MOVE": 2,
+			"LUCK": 1,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
+		"ELEMENTS": [
+			"light"
+		],
+		"RACE": "Sephilim",
+		"FAMILY": "Elgladion",
+		"ARCHETYPE": "leader",
+		"BRAIN": "SupportBrain",
+		"SPELLS": [
+			[
+				"Prayer",
+				"Mending",
+				"Holy Cross"
+			]
+		]
+	},
+	{
 		"NAME": "Six-Winged Terror",
 		"STATS": {
 			"HP": 48,
