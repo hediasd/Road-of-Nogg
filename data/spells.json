@@ -654,6 +654,18 @@
 	},
 	{
 		"CAN_TARGET_EMPTY": true,
+		"COOLDOWN": 8,
+		"DAMAGE": 7,
+		"ELEMENT": "water",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Corallitic Acid Reflux",
+		"RADIUS": 2,
+		"RANGE": 4,
+		"SEQUENCE_LEVEL": 4,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
 		"DAMAGE_LINES": [
 			{
 				"damage": 4,
