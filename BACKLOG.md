@@ -147,6 +147,33 @@ catalog with their register rows. The flowers heal only allies standing in
 the area at their turn start, and expire. Area Denial clears them. All of this
 is visible on the board, serialized, and deterministic under replay.
 
+### Port the lost turn-boundary and window-scaling work
+
+Three commits from 2026-09-20 (`f529879`, `f17b59f`, `77cb0ea`) never reached
+`main`. They sit on `claude/turn-auto-end-darkening-rk687y`, which is also
+meant to be archived as the tag `archive/turn-auto-end-darkening`. That branch
+predates the 2026-09-18 re-import and the flat layout, so it cannot be merged.
+Re-implement on current code what `main` still lacks:
+
+- **Window scaling.** A fixed 1280x720 canvas stretched to the window, opening
+  at 1600x900, with `aspect = expand`, and UI scale derived from the canvas so
+  the engine's scaling is not applied twice. The commit body argues for
+  `viewport` over `canvas_items` stretch: the baked game fonts lose their glyph
+  cache when oversampling changes. Re-check that against today's font code.
+- **Turn announcement.** "NEXT TURN" then "TURN #n" across the screen at each
+  side turn. It ignores the mouse and never blocks playback.
+- **Instant turn-end controls.** Clear the action arc, forecasts and End turn
+  on `side_turn_ended`, instead of waiting for the next side to open.
+- **Petrified player side.** Check whether a player side whose only ready units
+  are petrified can still get stuck. If it can, end that side automatically.
+
+Do not port the branch's shader-based two-shade darkening: `main` rebuilt it
+(`73b2f0d`). Its playback timing, where a unit darkens when the animation queue
+reaches its action, and undo brightening, are worth comparing against `main`'s
+turn-phase approach. Acceptance: each ported behaviour works on the current
+layout, passes `checks/battle/probe_ui_guardrails.gd` and the hex-battle probes,
+and leaves `main`'s darkening unchanged.
+
 ## Make authoring and verification dependable
 
 ### Accept the world-map editor end to end
