@@ -151,6 +151,32 @@ force pushes, rewriting history, or anything the checks have not cleared.
 5. **Finish every housekeeping pass with the audit above.** Report what was
    merged, deleted, archived and pushed. End with one line: either "only
    `main`, in sync with `origin`" or what is still left and why.
+6. **Before any history rewrite or re-import of `main`, merge or archive every
+   open branch.** A branch whose history no longer connects to `main` can
+   never be merged normally. The 2026-09-18 re-import stranded two branches
+   that way, and their work had to be ported by hand.
+
+### Cloud sessions
+
+Claude Code cloud sessions push through a git proxy that accepts only branch
+creates and updates. It refuses tags ("only branch updates are permitted"),
+branch deletions ("branch deletion is not allowed") and force pushes. Local
+tools (Codex, Claude Code desktop or CLI) use the user's own credentials and
+can do all three. Confirmed 2026-09-29.
+
+- **Never attempt a tag push or a branch deletion from a cloud session**, and
+  never route around the proxy through the GitHub API. When housekeeping calls
+  for an archive tag or a deletion, end the report with the exact commands for
+  the user to run from a local session, tag before delete.
+- **Keep the session branch close to `main`.** A cloud session works on its
+  own `claude/*` branch. Merge `main` into it at the start of each working day
+  and as soon as `main` changes shape (moved folders, renames), so it never
+  drifts far enough for a merge to turn into a porting job.
+- **Merge back through a pull request.** Open a PR from the session branch
+  into `main` and merge it there. The repository's "Automatically delete head
+  branches" setting (GitHub → Settings → General) then deletes the merged
+  branch, which a cloud session cannot do itself. Pushing the branch straight
+  onto `main` skips that cleanup and leaves the branch behind.
 
 ## Working safely
 
