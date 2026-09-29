@@ -1026,5 +1026,29 @@
 		"VFX": {
 			"PROFILE": "cube_staggered_bombardment"
 		}
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
+		"DAMAGE": 4,
+		"DESC": "Hurls a heavy stone at a single foe.",
+		"ELEMENT": "earth",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Stone Throwing",
+		"RANGE": 3,
+		"SEQUENCE_LEVEL": 2,
+		"TARGET_TYPE": "single"
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
+		"COOLDOWN": 4,
+		"DAMAGE": 5,
+		"DESC": "Brings the ceiling down on everything in the area.",
+		"ELEMENT": "earth",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Falling Ceiling",
+		"RADIUS": 2,
+		"RANGE": 3,
+		"SEQUENCE_LEVEL": 3,
+		"TARGET_TYPE": "area"
 	}
 ]

@@ -1,0 +1,14 @@
+{
+  "probes": [
+    {"script": "res://checks/battle/probe_state_contract.gd", "marker": "AI_STATE_CONTRACT_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://checks/battle/probe_forecast.gd", "marker": "AI_FORECAST_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://checks/battle/probe_rewind.gd", "marker": "AI_REWIND_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://checks/battle/probe_spatial_cost.gd", "marker": "AI_SPATIAL_COST_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://checks/battle/probe_candidates.gd", "marker": "AI_CANDIDATES_OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://checks/battle/probe_danger.gd", "marker": "AI_DANGER_OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://checks/battle/probe_side_policy.gd", "marker": "AI_SIDE_POLICY_OK", "timeout": 300, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://checks/battle/probe_policy_tournament.gd", "marker": "AI_POLICY_TOURNAMENT_OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://checks/battle/probe_evaluation_fixtures.gd", "marker": "EVALUATION_FIXTURES_OK", "timeout": 180, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+    {"script": "res://checks/battle/probe_policy_analysis.gd", "marker": "AI_POLICY_ANALYSIS_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+  ]
+}

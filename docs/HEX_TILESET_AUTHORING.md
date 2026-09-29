@@ -7,13 +7,13 @@
 From the repository root, run:
 
 ```powershell
-powershell -NoProfile -File scripts/hex_battle/run_probe.ps1 -Script res://scripts/worldmap_editor/build_hex_starter.gd -Marker "WORLD MAP HEX STARTER BUILT"
+powershell -NoProfile -File checks/run_probe.ps1 -Script res://tools/build_hex_starter.gd -Marker "WORLD MAP HEX STARTER BUILT"
 ```
 
 Verify the generated sheet, catalog entry, exact colours, frame hashes and lattice geometry with:
 
 ```powershell
-powershell -NoProfile -File scripts/hex_battle/run_probe.ps1 -Script res://scripts/worldmap_editor/probe_hex_starter.gd -Marker "WORLD MAP HEX STARTER OK"
+powershell -NoProfile -File checks/run_probe.ps1 -Script res://checks/worldmap/probe_hex_starter.gd -Marker "WORLD MAP HEX STARTER OK"
 ```
 
 The generator reads `temp2.png` through `WorldMapTilesetCatalog.loadSheetImage()` and refuses to use substitute colours. Its three exact RGB inputs are land `#FFD363`, sea `#37AEAE`, and grass `#BDD106`; their expected source counts are 11,569, 27,200, and 3,654 respectively. It writes `temp2_hex32_starter.png`, upserts only its catalog record, and writes the editable guide. The PNG is an RGBA 160 × 96 sheet with 15 32 × 32 frames in five columns and three rows. It has zero margin and spacing, no gutters, no resampling, and no donor terrain pixels.
@@ -37,9 +37,9 @@ These are manual edge examples, **not a complete autotile or Wang set**. Junctio
 ## Use in the editor
 
 The generated source sheet is
-`assets/worldmap/tilesets/temp2_hex32_starter.png`; its editable geometry guide is
-`assets/worldmap/tilesets/templates/hex32_guides.svg`; and its stable frame IDs live in
-`data/worldmap/tilesets/temp2_hex32_starter.json`. Keep those three artifacts aligned when
+`assets/worldmap/temp2_hex32_starter.png`; its editable geometry guide is
+`assets/worldmap/hex32_guides.svg`; and its stable frame IDs live in
+`data/tilesets/temp2_hex32_starter.json`. Keep those three artifacts aligned when
 deriving a future sheet.
 
 In the [World map editor](./WORLDMAP_EDITOR.md), choose `temp2_hex32_starter` when creating a map,

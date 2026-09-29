@@ -33,8 +33,8 @@ caught this collision when the field was first written.
 
 ## 2. Tilesets
 
-A tileset is **a PNG plus a descriptor**. The PNG lives under `assets/worldmap/tilesets/`; the
-descriptor is its own file, `data/worldmap/tilesets/<ID>.json`, one file per tileset rather than
+A tileset is **a PNG plus a descriptor**. The PNG lives under `assets/worldmap/`; the
+descriptor is its own file, `data/tilesets/<ID>.json`, one file per tileset rather than
 one shared catalog.
 
 ```
@@ -51,7 +51,7 @@ TILES           the ledger -- see §3
 Per tile, the ledger carries `ID`, `HASH`, `CELL`, `LABEL`, `TERRAIN`, `AUTOTILE`, `VARIANT`,
 `WALKABLE` and `LIFTABLE`.
 
-**Every PNG directly under `assets/worldmap/tilesets/` is discoverable**, whether or not it has a
+**Every PNG directly under `assets/worldmap/` is discoverable**, whether or not it has a
 config file yet. A sheet with no config gets defaults in memory — 32 × 32 frames, the `temp2`
 palette region — and is offered by the New dialog like any other. The config becomes durable only
 the first time the sheet is actually selected: for a new map, or for an existing one that names it.
@@ -214,7 +214,7 @@ rather than silently dropping it.
 
 ## 6. The editor scene
 
-`scenes/debug/WorldMapEditorScene.tscn` is driven by `WorldMapEditorController` on the neutral
+`scenes/WorldMapEditorScene.tscn` is driven by `WorldMapEditorController` on the neutral
 `WorldMapEditorFoundationStage`. Opening it starts an empty workspace: it does not load `temp2`,
 does not run the old debug controller, and does not add clouds, sky, sun, lights or region-preview
 controls. Those presentation features return later as an explicit editor-preview feature; their
@@ -402,7 +402,7 @@ went further than the sketch it was designed from, is kept in
 
 ### Checking the editor still works
 
-The editor's probes live under `scripts/worldmap_editor/checks/`. Most run headless; the two that
+The editor's probes live under `checks/worldmap/`. Most run headless; the two that
 judge layout, rendering and a live bake need a real window and take a client size. Each prints an
 exact marker line, and a zero exit code alone is not evidence -- require the marker.
 
@@ -411,16 +411,16 @@ The probes this document cites by name -- `probe_bake_parity.gd`, `probe_brushes
 `probe_height_field.gd`, `probe_hex_grid_overlay.gd`, `probe_object_layer.gd`,
 `probe_scene_export.gd`, `probe_subtriangles.gd`, `probe_tile_format.gd`,
 `probe_tileset_ids.gd` and `probe_water_layer.gd` -- are in
-`scripts/worldmap_editor/checks/editor/`. They were written in the gitignored `debug/worldmap/`
+`checks/worldmap/`. They were written in the gitignored `debug/worldmap/`
 folder, where nothing kept them, and were moved into the tree with the markers they had been
 missing. `probe_tile_law.gd`, cited here and by `WORLDMAP_DESIGN.md`, is in
-`scripts/worldmap/checks/`. All of them are registered in `scripts/checks/probes/worldmap.json`,
-so `scripts/checks/run_probe_sweep.ps1` runs them; the scratch documents they write go to
+`checks/worldmap/`. All of them are registered in `checks/manifests/worldmap.json`,
+so `checks/run_probe_sweep.ps1` runs them; the scratch documents they write go to
 `user://probe_scratch/worldmap/`.
 
 ```powershell
-./Godot_v4.4-stable_win64.exe --headless --path . --script scripts/worldmap_editor/checks/workspace/probe_workspace_contract.gd
-./Godot_v4.4-stable_win64.exe --path . --script scripts/worldmap_editor/checks/acceptance/probe_foundation_acceptance.gd ++ 1280 720
+./Godot_v4.4-stable_win64.exe --headless --path . --script checks/worldmap/probe_workspace_contract.gd
+./Godot_v4.4-stable_win64.exe --path . --script checks/worldmap/probe_foundation_acceptance.gd ++ 1280 720
 ```
 
 The acceptance probe is the broad one: a fresh launch, New, the tilesheet, a painted drag, the
@@ -440,7 +440,7 @@ pre-stroke cells.
 
 ## 7. The authored region format
 
-An authored region is a text file under `data/worldmap/authored/<name>.json`, read and written
+An authored region is a text file under `data/authored/<name>.json`, read and written
 by `WorldMapTileData`. Unlike the catalogs, that is a **live model** rather than a record:
 brushes mutate it, the history stack records deltas of it, and the baker reads it.
 
@@ -929,10 +929,10 @@ One export writes four derived files:
 
 | Product | Location |
 |---|---|
-| Baked texture resource | `assets/worldmap/regions/generated/<stem>.tres` |
-| Reusable visual scene | `scenes/worldmap/generated/<stem>.tscn` |
-| Battle definition | `data/battle/maps/<stem>.json` |
-| Success receipt, written last | `data/battle/maps/<stem>.receipt.json` |
+| Baked texture resource | `assets/worldmap/<stem>.tres` |
+| Reusable visual scene | `scenes/generated/<stem>.tscn` |
+| Battle definition | `data/maps/<stem>.json` |
+| Success receipt, written last | `data/maps/<stem>.receipt.json` |
 
 The scene and battle definition carry the same source UUID, saved revision and canonical source
 fingerprint. The battle definition also names the visual scene and is checked through
@@ -1006,7 +1006,7 @@ fallback, because the only available fallback is the embedding above.
 identical content twice produces different bytes. That is the opposite of the baked PNG, which is
 byte-deterministic and is therefore committed and byte-checked by `probe_bake_parity`. An
 exported scene cannot be checked that way, and committing one would show a spurious diff on every
-re-export — so exports land in `scenes/worldmap/generated/`, created on demand, and none is
+re-export — so exports land in `scenes/generated/`, created on demand, and none is
 committed by this item.
 
 The two artifacts are treated differently because they genuinely differ in this property, not by
@@ -1014,8 +1014,8 @@ preference.
 
 ### The wrapper pattern
 
-`scenes/worldmap/generated/<name>.tscn` is regenerated wholesale and must never be hand-edited —
-the same rule `assets/worldmap/regions/generated/` already carries for baked art. Hand-authored
+`scenes/generated/<name>.tscn` is regenerated wholesale and must never be hand-edited —
+the same rule `assets/worldmap/` already carries for baked art. Hand-authored
 additions belong in a **wrapper scene** at `scenes/worldmap/<name>.tscn` that *instances* the
 generated one. Re-exporting rewrites only the generated file; the wrapper is untouched and picks
 up the new content on its next load. That is what "re-exporting updates generated content without

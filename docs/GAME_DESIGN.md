@@ -325,5 +325,5 @@ corresponding content lands.
   the first Player vs CPU slice.
 
 Comparative research is indexed in
-[`gamerefs/tactical_rpg_turn_systems.md`](../gamerefs/tactical_rpg_turn_systems.md).
+[`references/tactical_rpg_turn_systems.md`](../references/tactical_rpg_turn_systems.md).
 It informs design but does not override confirmed Road of Nogg decisions.

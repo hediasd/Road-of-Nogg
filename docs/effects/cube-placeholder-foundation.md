@@ -7,8 +7,8 @@ themselves are translations of the retained
 each family page (travel, impact, control, restore) covers its own six. The
 shared VFX contract lives in [`../VFX_DESIGN.md`](../VFX_DESIGN.md).
 
-Code: `src/presentation/effects/cube_placeholders/shared/` and
-`src/presentation/effects/SpellVfxSpec.gd`.
+Code: the substrate files in `effects/cube_placeholders/` and
+`effects/SpellVfxSpec.gd`.
 
 ## Split of responsibility
 
@@ -124,8 +124,8 @@ the buffer counts the overflow and the playback pushes an error.
 
 ## Checks
 
-`scripts/hex_battle/cube_vfx/shared/probe_cube_substrate.gd`, registered in
-`scripts/checks/probes/cube_vfx_shared.json`, runs a probe-only composition
+`checks/vfx/probe_cube_substrate.gd`, registered in
+`checks/manifests/cube_vfx_shared.json`, runs a probe-only composition
 (two roles, one travel beat, a peak of exactly 48) through the real playback.
 It covers spec parsing and every error case, that every current spell parses,
 `frontToward`, the warp, palettes, 101-time sampling in three orders for two

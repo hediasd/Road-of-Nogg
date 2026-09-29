@@ -6,12 +6,12 @@ lift, crush, encasement — out of identical cubes, translated from the retained
 The substrate is described in
 [cube-placeholder-foundation.md](./cube-placeholder-foundation.md).
 
-Code: `src/presentation/effects/cube_placeholders/control/`. Preview without
+Code: `effects/cube_placeholders/`. Preview without
 gameplay registration:
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
-  --catalog-script=res://src/presentation/effects/cube_placeholders/control/ControlCatalog.gd \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
+  --catalog-script=res://effects/cube_placeholders/ControlCatalog.gd \
   --effect-prefix=cube_ --seed=7 --hide-hud --source-distance=8 --shape=single \
   --target-body=standard --camera-size=8 --camera-focus=target \
   --render-resolution=640x480 --capture-at=0.12,0.30,0.50,0.70,0.90
@@ -80,8 +80,8 @@ cross.
 
 ## Checks
 
-`scripts/hex_battle/cube_vfx/control/probe_cube_control.gd` (manifest
-`scripts/checks/probes/cube_vfx_control.json`, `-Filter cube_vfx/control`):
+`checks/vfx/probe_cube_control.gd` (manifest
+`checks/manifests/cube_vfx_control.json`, `-Filter cube_vfx/control`):
 declared peaks equal the maximum over 801 samples on standard, wide and tall
 bodies and seeds 0 and 7, within the render budget; reverse and shuffled seeks
 across the holds agree; every cube scales by exactly the body factor on wide

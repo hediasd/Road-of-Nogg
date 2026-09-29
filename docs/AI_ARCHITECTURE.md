@@ -19,21 +19,21 @@ sequencing; this reference remains useful after those cycle files are removed.
 
 | Concern | Current owner and behavior |
 |---------|----------------------------|
-| Authoritative state and resolution | [BattleState](../src/battle_sim/BattleState.gd) and [BattleSimulator](../src/battle_sim/BattleSimulator.gd); AI submits commands rather than resolving its own rules |
-| Actor choice | [PartyCommandDeliberation](../src/entity_ai/PartyCommandDeliberation.gd) sorts ready units by role/urgency and stable ID, then finishes after the first selected unit's deliberation |
-| Candidate construction | [CommandDeliberation](../src/entity_ai/CommandDeliberation.gd) limits destinations to ten and enumerates spells from the origin because magic is pre-move |
-| Evaluation | [BattleCommandEvaluator](../src/entity_ai/BattleCommandEvaluator.gd) scores candidates; brain subclasses supply role differences |
-| Side policy | [TacticalSidePolicy](../src/entity_ai/TacticalSidePolicy.gd) ranks every ready actor's commands over one decision step; [CommandUtility](../src/entity_ai/CommandUtility.gd) scores in hit points; [EngagementBand](../src/entity_ai/EngagementBand.gd) says where each unit wants to stand |
-| Danger | [DangerQuery](../src/entity_ai/DangerQuery.gd) answers a single reply, a conservative bound and a feasible continuation as three labelled things; [DangerAssessment](../src/entity_ai/DangerAssessment.gd) carries the label, contributors, cost and named blind spots |
-| Decision context and candidates | [DecisionContext](../src/entity_ai/DecisionContext.gd) shares revision-scoped queries; [LegalActionEnumerator](../src/entity_ai/LegalActionEnumerator.gd) produces complete legal [ActionCandidate](../src/entity_ai/ActionCandidate.gd) sets; [CandidateFilter](../src/entity_ai/CandidateFilter.gd) narrows them; [PolicyCatalog](../src/entity_ai/PolicyCatalog.gd) names who chose |
-| Geometry and movement | [HexGrid](../src/board/HexGrid.gd), [HexReachability](../src/algorithms/HexReachability.gd) over cost buckets, [AStarPathfinder](../src/algorithms/AStarPathfinder.gd) over a binary heap, [LineOfSight](../src/algorithms/LineOfSight.gd) over translated ray templates, and canonical resolver callbacks |
-| Interactive scheduling | [HexBattleController](../src/systems/hex_battle/HexBattleController.gd) advances four deterministic inner slices per rendered frame, then applies a completed proposal on the main thread |
-| Headless scheduling | [run_battle](../scripts/battle/run_battle.gd) completes the same planner synchronously |
-| Stale proposal detection | [StateRevision](../src/entity_ai/StateRevision.gd) includes actor state, a mutation revision and timeline generation; full actor serialization is still paid on capture |
-| Persistence and replay | [BattleStateSerializer](../src/battle_sim/BattleStateSerializer.gd) restores runtime abilities, movement costs and lossless large integers in state version 8; [BattleReplayRunner](../src/battle_sim/BattleReplayRunner.gd) consumes the version 8 replay envelope |
-| Detached forecast | [BattleForecast](../src/battle_sim/BattleForecast.gd) resolves one command on a cloned canonical state; [OutcomeEstimator](../src/entity_ai/OutcomeEstimator.gd) combines explicit policy samples as integer counts and sums |
+| Authoritative state and resolution | [BattleState](../simulation/BattleState.gd) and [BattleSimulator](../simulation/BattleSimulator.gd); AI submits commands rather than resolving its own rules |
+| Actor choice | [PartyCommandDeliberation](../ai/PartyCommandDeliberation.gd) sorts ready units by role/urgency and stable ID, then finishes after the first selected unit's deliberation |
+| Candidate construction | [CommandDeliberation](../ai/CommandDeliberation.gd) limits destinations to ten and enumerates spells from the origin because magic is pre-move |
+| Evaluation | [BattleCommandEvaluator](../ai/BattleCommandEvaluator.gd) scores candidates; brain subclasses supply role differences |
+| Side policy | [TacticalSidePolicy](../ai/TacticalSidePolicy.gd) ranks every ready actor's commands over one decision step; [CommandUtility](../ai/CommandUtility.gd) scores in hit points; [EngagementBand](../ai/EngagementBand.gd) says where each unit wants to stand |
+| Danger | [DangerQuery](../ai/DangerQuery.gd) answers a single reply, a conservative bound and a feasible continuation as three labelled things; [DangerAssessment](../ai/DangerAssessment.gd) carries the label, contributors, cost and named blind spots |
+| Decision context and candidates | [DecisionContext](../ai/DecisionContext.gd) shares revision-scoped queries; [LegalActionEnumerator](../ai/LegalActionEnumerator.gd) produces complete legal [ActionCandidate](../ai/ActionCandidate.gd) sets; [CandidateFilter](../ai/CandidateFilter.gd) narrows them; [PolicyCatalog](../ai/PolicyCatalog.gd) names who chose |
+| Geometry and movement | [HexGrid](../simulation/HexGrid.gd), [HexReachability](../simulation/HexReachability.gd) over cost buckets, [AStarPathfinder](../simulation/AStarPathfinder.gd) over a binary heap, [LineOfSight](../simulation/LineOfSight.gd) over translated ray templates, and canonical resolver callbacks |
+| Interactive scheduling | [HexBattleController](../battle/HexBattleController.gd) advances four deterministic inner slices per rendered frame, then applies a completed proposal on the main thread |
+| Headless scheduling | [run_battle](../tools/run_battle.gd) completes the same planner synchronously |
+| Stale proposal detection | [StateRevision](../ai/StateRevision.gd) includes actor state, a mutation revision and timeline generation; full actor serialization is still paid on capture |
+| Persistence and replay | [BattleStateSerializer](../simulation/BattleStateSerializer.gd) restores runtime abilities, movement costs and lossless large integers in state version 8; [BattleReplayRunner](../simulation/BattleReplayRunner.gd) consumes the version 8 replay envelope |
+| Detached forecast | [BattleForecast](../simulation/BattleForecast.gd) resolves one command on a cloned canonical state; [OutcomeEstimator](../ai/OutcomeEstimator.gd) combines explicit policy samples as integer counts and sums |
 | Technical side rewind | BattleSimulator retains one side-start checkpoint, restores only at quiescent boundaries, increments timeline generation, and keeps branch operations in an outer ledger |
-| Existing match tools | [run_championship](../scripts/battle/run_championship.gd) and [BattleRecordAdapter](../src/presentation/BattleRecordAdapter.gd); placeholders for the later experiment system |
+| Existing match tools | [run_championship](../tools/run_championship.gd) and [BattleRecordAdapter](../battle/BattleRecordAdapter.gd); placeholders for the later experiment system |
 
 Current decision flow:
 
@@ -298,7 +298,7 @@ Random fuzzing names its sampling distribution and reports action-class coverage
 
 #### Current candidate implementation
 
-[DecisionContext](../src/entity_ai/DecisionContext.gd) is the one read-only view
+[DecisionContext](../ai/DecisionContext.gd) is the one read-only view
 a decision works from. It computes an actor's reachable set once and shares it
 across every ready actor, holds the memoizing resolver for exactly its own
 lifetime, and refuses to answer once it is no longer current. Its key is the
@@ -313,7 +313,7 @@ writing a `Monster`'s fields directly still bypasses it, and `MapFactory` now
 marks one mutation after applying a map, because it writes the terrain and
 height layers directly for speed.
 
-[LegalActionEnumerator](../src/entity_ai/LegalActionEnumerator.gd) answers what
+[LegalActionEnumerator](../ai/LegalActionEnumerator.gd) answers what
 is legal and nothing else. It asks the resolvers rather than restating their
 rules, and emits four classes: Wait at every reachable destination, an attack per
 legal target position, and a spell per castable centre, split by whether the
@@ -323,7 +323,7 @@ a move and a Wait, so a cast from a walked-to tile is not a legal action to
 begin with. `classCoverage()` counts a candidate set by class, so a sampler that
 never casts anything is visible as a gap rather than as a number nobody read.
 
-[ActionCandidate](../src/entity_ai/ActionCandidate.gd) carries the actor, the
+[ActionCandidate](../ai/ActionCandidate.gd) carries the actor, the
 canonical command, the destination and the walked path, and two separate keys.
 `tie_key` totally orders one actor's candidates so selection among equals is
 machine-independent. `equivalence_key` is the finite action abstraction: two
@@ -334,7 +334,7 @@ tile that triggers on entry, a trail, an opportunity attack -- makes routes
 distinguishable, and the key must gain the path in the same change, or the
 filter will discard the only route that fires the trigger.
 
-[CandidateFilter](../src/entity_ai/CandidateFilter.gd) is where narrowing
+[CandidateFilter](../ai/CandidateFilter.gd) is where narrowing
 happens, in the open. `collapseEquivalent()` may merge only on
 `equivalence_key`. `capWithAllowance()` reserves a per-class allowance before
 spending the rest of its budget, so a cap can make a policy look at less but
@@ -343,13 +343,13 @@ spell is never chosen because ranking never understood it. `nearestDestinations(
 holds the legacy ten-destination budget as a named filter rather than as
 something an enumerator does quietly.
 
-[PolicyCatalog](../src/entity_ai/PolicyCatalog.gd) names the policies a battle
+[PolicyCatalog](../ai/PolicyCatalog.gd) names the policies a battle
 may be played with, with their configuration and a fingerprint over both. An
 unknown id is refused rather than defaulted, so a manifest typo fails instead of
 running something else under the name that was asked for.
-[LegacySidePolicy](../src/entity_ai/legacy/LegacySidePolicy.gd) gives the shipped
+[LegacySidePolicy](../ai/LegacySidePolicy.gd) gives the shipped
 stream an identity and freezes its decisions in
-`scripts/battle/fixtures/ai/legacy_decisions.json`. It drives the existing
+`checks/fixtures/legacy_decisions.json`. It drives the existing
 deliberation classes rather than copying them, because a second implementation
 of one policy drifts and then neither is the baseline. Its decisions are frozen
 across slice sizes as well, since how a decision was spent is not part of it.
@@ -390,7 +390,7 @@ verify the mutation contract rather than becoming a per-frame hot-path tax.
 
 #### Current hex query implementation
 
-[LineOfSight](../src/algorithms/LineOfSight.gd) builds one ray template per
+[LineOfSight](../simulation/LineOfSight.gd) builds one ray template per
 axial displacement and source-column parity, and translates it. Cell centres are
 an affine image of axial coordinates, so the touched cells, their entry and exit
 parameters, and their order all depend on nothing else -- parity enters only
@@ -408,13 +408,13 @@ narrower enumerator that walks only cells near the segment was rejected: it
 needs a proof that its candidate set is a superset of the touched set, and the
 templates already remove the repeated cost that the measured workload pays.
 
-[HexReachability](../src/algorithms/HexReachability.gd) keeps one search per
+[HexReachability](../simulation/HexReachability.gd) keeps one search per
 actor rather than an A* per destination, and spends its frontier through cost
 buckets. Every step costs at least one, so a relaxation can only move a cell to
 a strictly later bucket, and a bucket is complete before it is opened: sorting
 it once on its stable row-and-column key reproduces exactly the order a repeated
 cheapest-cell scan produced. Memory is one array slot per point of the movement
-budget. [AStarPathfinder](../src/algorithms/AStarPathfinder.gd) uses a binary
+budget. [AStarPathfinder](../simulation/AStarPathfinder.gd) uses a binary
 heap over the same total key the old scan selected on -- estimate, cost so far,
 row, column, insertion sequence -- which a heap may reorder freely because
 entries agreeing on all five describe the same cell reached the same way.
@@ -496,7 +496,7 @@ horizon blind spots. Authored difficulty/personality remains a game-design choic
 
 #### Current danger implementation
 
-[DangerQuery](../src/entity_ai/DangerQuery.gd) answers three questions and keeps
+[DangerQuery](../ai/DangerQuery.gd) answers three questions and keeps
 them apart, because a caller that gets one number cannot tell which risk it is
 taking. `reply()` is the most one named enemy could deal at a tile, exact under
 current rules for that enemy. `conservativeBound()` adds every enemy's best
@@ -509,7 +509,7 @@ bound`, and a consumer picks the side of the truth it wants to be wrong on.
 Commander safety and heal worth both ask the bound, because overstating danger
 loses a tile and understating it loses a commander.
 
-[DangerAssessment](../src/entity_ai/DangerAssessment.gd) carries the label, the
+[DangerAssessment](../ai/DangerAssessment.gd) carries the label, the
 per-enemy contributors with the cell each would act from, the work spent, a
 `truncated` flag, and `approximations` -- the named blind spots, which are part
 of the answer rather than a comment: reactions, damage over time, anything past
@@ -546,7 +546,7 @@ frozen decisions that exist to hold it still.
 
 #### Current side policy
 
-[TacticalSidePolicy](../src/entity_ai/TacticalSidePolicy.gd) is what plays.
+[TacticalSidePolicy](../ai/TacticalSidePolicy.gd) is what plays.
 `BattleSimulator.sidePolicyID` selects it and `beginSideDeliberation()` is the
 one way a side decision opens, so a run always knows what chose its moves; the
 legacy stream stays selectable by id as a comparator, and random legal play
@@ -560,7 +560,7 @@ horizon cannot see are listed in the class, not discovered later -- combinations
 needing two allies, effects that pay off after a duration, terrain that matters
 in two turns, and any opponent move other than a reply.
 
-[CommandUtility](../src/entity_ai/CommandUtility.gd) scores in one currency,
+[CommandUtility](../ai/CommandUtility.gd) scores in one currency,
 hit points, with terminal outcomes on their own tiers far above it. It uses the
 two danger labels for the two jobs they exist for, and **which one gates
 survival was the difference between a game and a staring contest**: vetoing a
@@ -571,7 +571,7 @@ bound's excess as a separate `exposure` term, gives a decided battle. Only
 *added* exposure is charged, so standing in danger is not itself a reason to
 act and retreating earns nothing.
 
-[EngagementBand](../src/entity_ai/EngagementBand.gd) is where a unit's preferred
+[EngagementBand](../ai/EngagementBand.gd) is where a unit's preferred
 distance comes from, and it is read off the abilities the unit is carrying
 rather than typed in per role: melee at one for `atk`, each damaging castable
 spell across its own range band, best band wins and ties go to the longer one.
@@ -686,10 +686,10 @@ silently dropping effects to meet a search budget changes the rules.
 
 ### Current analysis
 
-[analyze_policy_tournament.gd](../scripts/battle/analyze_policy_tournament.gd)
+[analyze_policy_tournament.gd](../tools/analyze_policy_tournament.gd)
 turns merged rows into `analysis.json`, `matches.csv` and `report.md`, over
-[PairedOutcomes](../scripts/battle/analysis/PairedOutcomes.gd) and
-[Aggregates](../scripts/battle/analysis/Aggregates.gd). `analyze()` is pure, so
+[PairedOutcomes](../tools/PairedOutcomes.gd) and
+[Aggregates](../tools/Aggregates.gd). `analyze()` is pure, so
 the probe checks it against cases small enough to work out on paper.
 
 **The sample unit is the position, not the match.** One scenario at one seed
@@ -717,32 +717,47 @@ because they consume the stream differently the moment their decisions diverge.
 Held-out scenarios are reported separately and last, with the note that reading
 them and then tuning spends the holdout.
 
-The declared evaluation experiment -- three scenarios, six seeds, both side
-assignments, 36 matches, no infrastructure failures and no round caps -- came
-back with **eighteen decided positions and zero decisive ones**, because side one
-won every single match. The report states no conclusion and says why.
+The first declared evaluation used three original scenarios, six seeds and both
+side assignments (36 matches). Team 1 won every match, leaving zero
+policy-decisive pairs. A follow-up diagnosis showed that this was **not** a
+general first-action rule: the original stronger roster could win from the
+second seat on the larger maps, while the technical map mixed roster, geometry,
+policy and initiative effects. The original scenarios confounded those factors.
 
-That is the result worth having from this machinery, and a pooled win rate would
-have buried it: it would have read 50 percent and looked like two evenly matched
-policies, when what actually happened is that neither policy mattered. These
-boards are decided by who moves first, so no policy comparison can be run on
-them until that is addressed; the backlog carries it. **Nothing in this cycle
-establishes that the reworked policy is stronger than the legacy one**, and the
-experiment that could has not yet been possible to run.
+The exploratory [mirrored manifest](../checks/fixtures/evaluation_mirrors_v2.json)
+copies each original A or B kit onto both teams on each map, retaining each
+side's cells and stable IDs. Six seeds and both policy assignments produce 72
+matches and 36 paired positions, with no infrastructure failure or round cap.
+The generated `battle_output/tournaments/pef_v2/report.md` records 8
+tactical-favouring pairs, 6 legacy-favouring pairs and 22 splits. The six
+technical A pairs all favoured legacy, while the six Proving Ground A pairs all
+favoured tactical. The technical and Proving Ground B-kit fixtures split by
+seat at every seed. Hexmap A split at five seeds and favoured tactical once;
+Hexmap B split at five and had
+one tactical win paired with a draw, which the current analyzer counts as
+tactical-favouring. These are strong fixture interactions, not a general policy
+ranking. The pooled Wilson interval over the analyzer's 14 favourable pairs
+spans 0.33 to 0.79 and includes one half.
+
+The six seeds on each fixture repeat only three authored maps and two original
+kits; they do not provide 36 independent map designs. Every mirrored fixture
+was already screened, so this manifest has no holdout. **Neither policy is
+established as stronger.** A future strength claim needs a fresh, uninspected
+corpus with varied maps and rosters and an explicit rule for win-plus-draw pairs.
 
 ### Current experiment runner
 
-[run_policy_tournament.ps1](../scripts/battle/run_policy_tournament.ps1)
-supervises, [run_policy_tournament.gd](../scripts/battle/run_policy_tournament.gd)
+[run_policy_tournament.ps1](../tools/run_policy_tournament.ps1)
+supervises, [run_policy_tournament.gd](../tools/run_policy_tournament.gd)
 plays one shard or merges them, and the helpers under
-[scripts/battle/tournament/](../scripts/battle/tournament/) hold the parts worth
+[tools/](../tools/) hold the parts worth
 testing on their own:
-[TournamentManifest](../scripts/battle/tournament/TournamentManifest.gd) refuses
+[TournamentManifest](../tools/TournamentManifest.gd) refuses
 an unknown policy id rather than defaulting it,
-[MatchPlan](../scripts/battle/tournament/MatchPlan.gd) names matches the same way
-on every machine, [ResultShard](../scripts/battle/tournament/ResultShard.gd)
+[MatchPlan](../tools/MatchPlan.gd) names matches the same way
+on every machine, [ResultShard](../tools/ResultShard.gd)
 recovers and merges, and
-[BuildIdentity](../scripts/battle/tournament/BuildIdentity.gd) hashes what
+[BuildIdentity](../tools/BuildIdentity.gd) hashes what
 actually ran.
 
 Three distinctions carry the correctness of a win rate:
@@ -772,11 +787,11 @@ deterministic results, and a run interrupted after two of four matches and
 resumed reproduces the uninterrupted bytes exactly, with no duplicate and
 nothing missing.
 
-The build hash covers the simulator, algorithms, AI, board, entities, factories
-and battle content. Presentation is deliberately excluded: a headless match
-draws nothing, so a change there cannot move a result, and including it would
-make every visual commit look like a new build. It is identity, not integrity --
-it says whether two runs match, not that nobody tampered with a file.
+The build hash covers `simulation/`, `ai/`, `content/`, the runner and identity
+scripts, and the actual `data/` tree, including scenarios, maps and catalogs.
+Presentation is excluded because a headless match draws nothing. It is identity,
+not integrity: it distinguishes these inputs across runs, but is not a complete
+source-tree fingerprint or a tamper check.
 
 
 Tournament tooling follows the AI foundations. Early work uses narrow local

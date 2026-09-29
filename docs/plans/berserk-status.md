@@ -55,12 +55,12 @@ recipe.
 
 **Touches:**
 - `data/status_effects.json`
-- `src/battle_sim/**`
-- `src/entity_ai/**`
-- `src/entities/Monster.gd`
+- `simulation/**`
+- `ai/**`
+- `content/Monster.gd`
 - `docs/GAME_DESIGN.md`
-- `scripts/battle/checks/probe_berserk.gd` and its `.uid` (new)
-- `scripts/checks/probes/battle.json`
+- `checks/battle/probe_berserk.gd` and its `.uid` (new)
+- `checks/manifests/battle.json`
 
 **End state:** A `berserk` status exists in the status catalog, negative (so
 cleanse removes it), with a default duration. While it lasts, its unit is
@@ -83,7 +83,7 @@ commit body:
   scores effects by their stat fields and a pure control effect scores zero
   today.
 
-Invariants: `src/battle_sim/` and `src/entity_ai/` stay headless;
+Invariants: `simulation/` and `ai/` stay headless;
 presentation learns about the state only through `BattleEvents` (add events
 if needed); any randomness goes through `BattleState.rng`; existing
 BerserkBrain monsters and every non-berserk unit behave exactly as before.
@@ -146,11 +146,13 @@ under the UI guardrails.
 **Depends on:** BERSERK-1.
 
 **Touches:**
-- `src/systems/hex_battle/**`
-- `src/presentation/battle/**`
-- `src/presentation/StatusEffectIcons.gd`
-- `src/presentation/StatusBadgeRow.gd`
-- `scripts/hex_battle/side_turn/probe_ui_guardrails.gd`
+- `battle/**`
+- `ui/HexUnitFacts.gd`
+- `ui/HexUnitReadout.gd`
+- `ui/HexCharacterStatus.gd`
+- `ui/StatusEffectIcons.gd`
+- `ui/StatusBadgeRow.gd`
+- `checks/battle/probe_ui_guardrails.gd`
 - `docs/UI_DESIGN.md`
 
 **End state:** On a player side, a berserk unit cannot be selected or

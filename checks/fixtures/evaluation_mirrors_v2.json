@@ -1,0 +1,35 @@
+{
+  "manifest_id": "evaluation_mirrors_v2",
+  "note": "Exploratory development fixtures: these maps, rosters, and earlier screening outcomes have been inspected. Repeated seeds do not create independent maps, and this manifest has no holdout.",
+  "scenarios": [
+    "res://data/scenarios/eval_mirror_technical_a.json",
+    "res://data/scenarios/eval_mirror_technical_b.json",
+    "res://data/scenarios/eval_mirror_proving_a.json",
+    "res://data/scenarios/eval_mirror_proving_b.json",
+    "res://data/scenarios/eval_mirror_hexmap_a.json",
+    "res://data/scenarios/eval_mirror_hexmap_b.json"
+  ],
+  "seeds": [4242, 99173, 7, 31337, 1234, 8675],
+  "policy_a": "tactical_side_v1",
+  "policy_b": "legacy_side_v1",
+  "side_assignment": "both",
+  "max_rounds": 30,
+  "max_workers": 3,
+  "worker_timeout_seconds": 900,
+  "tuning_scenarios": [
+    "res://data/scenarios/eval_mirror_technical_a.json",
+    "res://data/scenarios/eval_mirror_technical_b.json",
+    "res://data/scenarios/eval_mirror_proving_a.json",
+    "res://data/scenarios/eval_mirror_proving_b.json",
+    "res://data/scenarios/eval_mirror_hexmap_a.json",
+    "res://data/scenarios/eval_mirror_hexmap_b.json"
+  ],
+  "holdout_scenarios": [],
+  "acceptance": {
+    "minimum_decisive_positions": 8,
+    "max_infrastructure_failure_rate": 0.05,
+    "max_round_cap_share": 0.25,
+    "non_regression": "No illegal commands or invariant violations in either policy assignment.",
+    "strength_claim_requires": "A new, uninspected holdout with independent map and roster designs; these development fixtures cannot establish strength."
+  }
+}

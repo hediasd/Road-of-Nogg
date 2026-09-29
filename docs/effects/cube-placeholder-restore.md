@@ -6,12 +6,12 @@ cleanse, transfer, charge — translated from the retained
 The substrate is described in
 [cube-placeholder-foundation.md](./cube-placeholder-foundation.md).
 
-Code: `src/presentation/effects/cube_placeholders/restore/`. Preview without
+Code: `effects/cube_placeholders/`. Preview without
 gameplay registration:
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
-  --catalog-script=res://src/presentation/effects/cube_placeholders/restore/RestoreCatalog.gd \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
+  --catalog-script=res://effects/cube_placeholders/RestoreCatalog.gd \
   --effect-prefix=cube_ --seed=7 --hide-hud --source-distance=8 --shape=single \
   --render-resolution=640x480 --capture-at=0.12,0.30,0.50,0.70,0.90
 ```
@@ -67,8 +67,8 @@ study this way, with and without `SPREAD: each_target`.
 
 ## Checks
 
-`scripts/hex_battle/cube_vfx/restore/probe_cube_restore.gd` (manifest
-`scripts/checks/probes/cube_vfx_restore.json`, `-Filter cube_vfx/restore`):
+`checks/vfx/probe_cube_restore.gd` (manifest
+`checks/manifests/cube_vfx_restore.json`, `-Filter cube_vfx/restore`):
 declared peaks equal the maximum over 801 samples at 2/4/10 cells and seeds 0
 and 7, within the render budget; seeks just before, at and after every beat
 boundary agree in either order; every study stays finite with a unit forward on

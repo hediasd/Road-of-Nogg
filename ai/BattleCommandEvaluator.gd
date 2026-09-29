@@ -1,0 +1,299 @@
+## Builds and scores controller-neutral CPU command candidates once per turn.
+
+class_name BattleCommandEvaluator
+extends RefCounted
+
+const StatusEffectReferencesScript = preload("res://content/StatusEffectReferences.gd")
+const HexGridScript = preload("res://simulation/HexGrid.gd")
+
+var state: BattleState
+var movementResolver: MovementResolver
+var combatResolver: CombatResolver
+
+
+func _init(
+		_state: BattleState,
+		_movementResolver: MovementResolver,
+		_combatResolver: CombatResolver) -> void:
+	state = _state
+	movementResolver = _movementResolver
+	combatResolver = _combatResolver
+
+
+## Runs a decision to completion. CPU brains, executeTurn(), runFullBattle(),
+## and every headless harness use this and stay synchronous; the presentation
+## controller drives beginDeliberation() a slice at a time instead so a decision
+## cannot cost a frame. Both go through the same CommandDeliberation, so they
+## cannot produce different answers.
+func chooseCommand(monsterID: int, weights: Dictionary) -> BattleCommand:
+	return beginDeliberation(monsterID, weights).run()
+
+
+func beginDeliberation(monsterID: int, weights: Dictionary) -> CommandDeliberation:
+	return CommandDeliberation.new(self, state, monsterID, weights)
+
+
+## Scores one candidate. Public because CommandDeliberation owns the iteration
+## and this class owns the scoring; they are one unit split along a resumability
+## seam, not two independent collaborators.
+func scoreCandidate(
+		actor: Monster,
+		path: Array,
+		destination: Vector2i,
+		action: String,
+		targetPos: Vector2i,
+		spellSetIndex: int,
+		spellIndex: int,
+		affectedTargets: Array,
+		threat: Dictionary,
+		weights: Dictionary,
+		enemyPositions: Array[Vector2i]) -> Dictionary:
+	var projectedOccupantID = combatResolver.getProjectedOccupantID(
+		actor.uniqueID, destination, targetPos
+	) if state.withinBounds(targetPos) else 0
+	var targetID = -1 if projectedOccupantID == 0 else projectedOccupantID
+	var command = BattleCommand.new(
+		path,
+		action,
+		targetID,
+		spellSetIndex,
+		spellIndex,
+		"move_first",
+		targetPos
+	)
+	var defeats = 0
+	var defeatedValue = 0
+	var expectedDamage = 0
+	var utility = 0
+	var hasUsefulOutcome = action == "wait"
+	## Whether this command reaches an enemy at all. Buffing or healing your own
+	## side is a real move, but it is not contact, and a side that only ever does
+	## that never ends a battle -- see CommandDeliberation._closestApproach().
+	var engagesEnemy = false
+	if action == "attack" and targetID >= 0:
+		var target = state.getMonster(targetID)
+		expectedDamage = combatResolver.calculateBasicDamage(
+			actor, target, true, destination
+		)
+		hasUsefulOutcome = expectedDamage > 0
+		engagesEnemy = hasUsefulOutcome and target.team != actor.team
+		if expectedDamage >= target.hitpoints:
+			defeats = 1
+			defeatedValue = target.max_hitpoints
+	elif action == "spell":
+		var spell = actor.spellSets[spellSetIndex][spellIndex]
+		for affectedID in affectedTargets:
+			var target = state.getMonster(affectedID)
+			if target.team != actor.team:
+				engagesEnemy = true
+			utility += _declaredEffectUtility(actor, spell, affectedID)
+			if spell.buffs_atk > 0 or spell.removes_status != "" or spell.reverts_damage:
+				utility += 10
+			if spell.inflicts_status != "":
+				utility += _statusSeverity(spell.inflicts_status)
+			if spell.heals:
+				utility += healWorth(actor, spell, target, destination, threat)
+				continue
+			var targetDamage = 0
+			for line in spell.damage_lines:
+				var baseDamage = int(line.get("damage", 0))
+				if baseDamage <= 0:
+					continue
+				targetDamage += combatResolver.calculateSpellDamage(
+					actor,
+					target,
+					baseDamage,
+					line.get("element", "none"),
+					true,
+					destination
+				)
+			expectedDamage += targetDamage
+			if targetDamage >= target.hitpoints:
+				defeats += 1
+				defeatedValue += target.max_hitpoints
+		if not affectedTargets.is_empty():
+			if actor.would_advance_resonance(spell):
+				utility += 20
+			elif spell.sequence_level == 4:
+				utility += 30
+		hasUsefulOutcome = not affectedTargets.is_empty() and (
+			expectedDamage > 0 or utility > 0
+		)
+
+	var winsBattle = defeats > 0 and defeats >= enemyPositions.size()
+	var score = (
+		(1_000_000 if winsBattle else 0)
+		+ defeats * 100_000
+		+ defeatedValue * 1_000
+		+ utility * int(weights.get("utility", 100))
+		+ expectedDamage * int(weights.get("damage", 100))
+		- int(threat.get(destination, 0)) * int(weights.get("threat", 1))
+	)
+	var nearestEnemyDistance = _nearestEnemyDistance(destination, enemyPositions)
+	score -= nearestEnemyDistance * int(weights.get("distance", 1))
+	var waitPenalty = int(weights.get("wait_penalty", 5))
+	if action == "wait":
+		score -= waitPenalty
+	elif not hasUsefulOutcome:
+		# Legal misses/no-op casts remain candidates for controller consistency,
+		# but cannot beat Wait at an otherwise identical destination.
+		score -= waitPenalty + 1
+	var tieKey = "%02d:%02d:%s:%02d:%02d:%02d:%02d" % [
+		destination.y,
+		destination.x,
+		action,
+		spellSetIndex,
+		spellIndex,
+		targetPos.y + 1,
+		targetPos.x + 1
+	]
+	return {
+		"score": score,
+		"tie_key": tieKey,
+		"command": command,
+		"enemy_distance": nearestEnemyDistance,
+		"engages_enemy": engagesEnemy,
+	}
+
+## What a heal on `target` is worth: the HP it restores, but ONLY WHEN THE TARGET COULD FALL
+## BEFORE IT ACTS AGAIN without it (FHB-10). Otherwise nothing.
+##
+## "Could fall" is the threat map's value at the cell the target will stand on -- the most the
+## enemies who can reach it this round could deal there -- plus one tick of every damage-over-time
+## effect it carries. The threat map is a generous upper bound, so the gate opens early rather
+## than late.
+##
+## Why the gate exists. Every brain adds utility times its utility weight, and SupportBrain weighs
+## utility four times damage, so one healed HP outscored four points of damage on an enemy. A
+## support unit under chip damage therefore healed back what it lost, every turn, and never struck.
+## That is the seed-14 stall on hexmap: from round 7 to 30 the Healer Mage sat at 40-49 of 50 HP,
+## healed itself for 7 against 6-7 incoming, and never hit a Smoke Cloud on 6 HP or, once the
+## Oracle of Ages came up, the enemy commander beside it. Those heals restored real HP, but none of
+## it was HP the Healer was about to die for. A heal that changes nothing about who is standing
+## next round is a heal worth nothing, and it must not beat an attack.
+##
+## Public so a probe can ask the question directly rather than reverse it out of a score.
+func healWorth(
+		actor: Monster,
+		spell: Spell,
+		target: Monster,
+		destination: Vector2i,
+		threat: Dictionary) -> int:
+	var restored := mini(
+		target.max_hitpoints - target.hitpoints,
+		combatResolver.calculateHeal(actor, spell)
+	)
+	if restored <= 0:
+		return 0
+	var cell: Vector2i = destination if target.uniqueID == actor.uniqueID \
+		else state.getMonsterPosition(target.uniqueID)
+	var danger := int(threat.get(cell, 0))
+	for effect in state.getActiveEffects(target.uniqueID):
+		danger += maxi(0, int(effect.get("damagePerTurn", 0)))
+	return restored if danger >= target.hitpoints else 0
+
+
+func sortPositions(positions: Array) -> void:
+	positions.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+
+
+func affectedOutcomeKey(affectedTargets: Array) -> String:
+	var sortedTargets = affectedTargets.duplicate()
+	sortedTargets.sort()
+	var parts := PackedStringArray()
+	for targetID in sortedTargets:
+		parts.append(str(targetID))
+	return "none" if parts.is_empty() else ",".join(parts)
+
+func _declaredEffectUtility(actor: Monster, spell: Spell, affectedID: int) -> int:
+	## Scores spell.effects (guard/focus/atk_buff/def_buff/spd_buff/move_buff/
+	## chill/cleanse/cooldown_reduction), previously invisible to the CPU. All
+	## 25 Level 1 self-spells rely on this field exclusively, so without this
+	## the CPU could not distinguish any of them from a no-op wait.
+	##
+	## SIGNED BY WHO BEARS IT (FHB-10). The size of an effect says how much it
+	## matters; whether that is good for the caster depends on whose side the
+	## bearer is on. A harmful effect on an enemy and a helpful one on an ally
+	## are worth their size; the other two cost it. Before this, the size was
+	## always added, so Timeoff's permanent -2 speed on the caster's own side
+	## scored as ten points of benefit. That is how a heal that restored nothing
+	## beat waiting, every turn, in the seed-14 stall on hexmap.
+	var target = state.getMonster(affectedID)
+	var onOwnSide: bool = target != null and actor != null and target.team == actor.team
+	var total := 0
+	for definition in spell.effects:
+		var size := _singleEffectUtility(definition, affectedID)
+		var helpsBearer := not _isHarmfulEffect(definition)
+		total += size if helpsBearer == onOwnSide else -size
+	return total
+
+
+## Whether an effect works against the monster that carries it. Read from the
+## definition itself -- its NEGATIVE flag, or stat bonuses that sum below zero --
+## so an effect the status catalogue does not list is still judged by what it
+## declares.
+func _isHarmfulEffect(definition: Dictionary) -> bool:
+	if bool(definition.get("NEGATIVE", false)):
+		return true
+	var bonus := 0
+	for key in ["ATK_BONUS", "DEF_BONUS", "SPD_BONUS", "MOVE_BONUS"]:
+		bonus += int(definition.get(key, 0))
+	return bonus < 0
+
+
+func _singleEffectUtility(definition: Dictionary, affectedID: int) -> int:
+	var effectName := str(definition.get("NAME", ""))
+	match effectName:
+		"cleanse":
+			# Worthless if there is nothing negative to remove.
+			return 15 if _hasNegativeEffect(affectedID) else 0
+		"cooldown_reduction":
+			# Worthless if no spell is actually on cooldown.
+			return 10 if _hasActiveCooldown(affectedID) else 0
+		"guard", "focus":
+			var multiplier := float(definition.get("DAMAGE_MULTIPLIER", 1.0))
+			return int(round(absf(multiplier - 1.0) * 40.0))
+		_:
+			# atk_buff, def_buff, spd_buff, move_buff, chill, and any future
+			# stat-bonus effect: value scales with whichever bonus the spell
+			# actually declares.
+			var magnitude := 0
+			for key in ["ATK_BONUS", "DEF_BONUS", "SPD_BONUS", "MOVE_BONUS"]:
+				magnitude += absi(int(definition.get(key, 0)))
+			return magnitude * 5
+
+
+func _hasNegativeEffect(monsterID: int) -> bool:
+	for effect in state.getActiveEffects(monsterID):
+		var effectName := str(effect.get("name", ""))
+		if bool(effect.get("negative", false)) or StatusEffectReferencesScript.isNegative(effectName):
+			return true
+	return false
+
+
+func _hasActiveCooldown(monsterID: int) -> bool:
+	var monster = state.getMonster(monsterID)
+	if monster == null:
+		return false
+	for spellName in monster.spell_cooldowns:
+		if int(monster.spell_cooldowns[spellName]) > 0:
+			return true
+	return false
+
+
+func _statusSeverity(statusName: String) -> int:
+	## Replaces the old flat +10: weight by the status's actual duration and
+	## damage-per-turn instead of treating burn/poison/petrify/spd_debuff as
+	## equally valuable.
+	var duration = StatusEffectReferencesScript.getDuration(statusName)
+	var damagePerTurn = StatusEffectReferencesScript.getDamagePerTurn(statusName)
+	return duration * (damagePerTurn + 2)
+
+
+func _nearestEnemyDistance(fromPos: Vector2i, enemyPositions: Array[Vector2i]) -> int:
+	var result = 999
+	for enemyPos in enemyPositions:
+		result = mini(result, HexGridScript.distance(fromPos, enemyPos))
+	return 0 if result == 999 else result

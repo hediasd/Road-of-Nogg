@@ -153,7 +153,7 @@ The notice stays on the status line under whatever the battle is saying.
 To export a map's scene without the editor, see `DEVELOPMENT.md`, "Exporting a
 map's battle products without the editor".
 
-`scripts/hex_battle/probe_board_terrain.gd` (`HXB_BOARD_TERRAIN_OK`) checks the
+`checks/battle/probe_board_terrain.gd` (`HXB_BOARD_TERRAIN_OK`) checks the
 structure, decorators and camera gesture contract. Whether the one-pixel grid,
 slab margin, shadows and captain finish read well is a rendered check, not a
 probe.

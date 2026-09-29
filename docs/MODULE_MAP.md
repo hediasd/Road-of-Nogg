@@ -10,78 +10,54 @@ disagree, ARCHITECTURE wins and this file is the one to correct.
 
 ## Directories
 
-| Directory | Responsibility | Public entry points | May depend on | Must not depend on | Owning doc |
-|---|---|---|---|---|---|
-| `data/` | Authored JSON catalogs: monsters, spells, passives, archetypes, elements, status effects, taxonomy, maps | The JSON files themselves | nothing (inert data) | any code | [`REFERENCE_CATALOGS.md`](./REFERENCE_CATALOGS.md), [`SPELL_CATALOG_SCHEMA.md`](./SPELL_CATALOG_SCHEMA.md) |
-| `src/factories/` | Load catalogs and build runtime entities; own the JSON→object boundary | `MonsterFactory`, `MapFactory`, `SpellFactory`, `PassiveSkillFactory`, `*References`, `BattleSetupPresets` | `data/`, `src/entities/` | presentation, scene tree | [`REFERENCE_CATALOGS.md`](./REFERENCE_CATALOGS.md) |
-| `src/entities/` | Passive runtime content objects | `Monster`, `Map`, `Spell`, `PassiveSkill` | `src/board/` | presentation, scene tree | [`GAME_DESIGN.md`](./GAME_DESIGN.md) |
-| `src/board/` | Grid containers and terrain storage | `BattleBoard`, `Matrix` | nothing | presentation, scene tree | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| `src/algorithms/` | Spatial/tactical math. Five files are pure primitives; `ThreatMap` is the documented exception below | `AStarPathfinder`, `BFSFloodFill`, `LineOfSight`, `ParabolicArc`, `ShapeCaster`, `ThreatMap` | `src/board/`; `ThreatMap` additionally reads `BattleState` and the movement/combat resolvers | presentation, scene tree | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| `src/entity_ai/` | CPU decision-making | `DecisionContext`, `LegalActionEnumerator`, `ActionCandidate`, `CandidateFilter`, `DangerQuery`, `TacticalSidePolicy`, `CommandUtility`, `EngagementBand`, `PolicyCatalog`; `EntityBrain` and its `Tactical`/`Mage`/`Support`/`Berserk` subclasses, `PartyCommandDeliberation`, `CommandDeliberation`, `BattleCommandEvaluator` | `src/algorithms/`, `src/board/`, `src/entities/`, `src/battle_sim/` command types | presentation, scene tree | [`AI_ARCHITECTURE.md`](./AI_ARCHITECTURE.md) |
-| `src/entity_ai/legacy/` | The shipped side policy, named and frozen as a baseline | `LegacySidePolicy` | `src/entity_ai/` | new policy work; nothing may build on it | [`AI_ARCHITECTURE.md`](./AI_ARCHITECTURE.md) |
-| `src/battle_sim/` | Canonical runtime: state, turn order, resolvers, setup, replay, event bus, adapter port | `BattleSimulator`, `BattleState`, `BattleSetupConfig`, `BattleSetupValidationResult`, `BattleSetupFactory`, `BattleCommand`, `BattleEvents`, `IBattleVisualAdapter`, `BattleStateSerializer`, `BattleReplayRunner` | every headless directory above | `src/presentation/`, `src/systems/`, scene tree | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| `src/presentation/` | Observe simulation and draw it: camera, meshes, cursor, UI, effects, adapters | `IPlayerTurnVisualAdapter`, `HexBattleVisualAdapter`, `ConsoleVisualAdapter`, `BattleMeshFactory`, `HexBattleCamera`, `HexBattleHud`, `HexBattleSetupUI`, `VisualActionQueue` | all simulation directories (read-only) | mutating `BattleState`; being imported by simulation | [`UI_DESIGN.md`](./UI_DESIGN.md), [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| `src/presentation/theme/` | Reusable HUD widgets and theme tokens | `NoggTheme`, `NoggWindow`, `MenuCursor`, `PagerArrow`, `ResonanceBar` | Godot `Control` API | simulation | [`UI_DESIGN.md`](./UI_DESIGN.md) |
-| `src/presentation/effects/` | Transient visual effects | `VfxPlayback` (the contract), `SpellVfxCatalog`, `SpellVfxSpec` (a spell's presentation-only `VFX` block), `ElementalCubeRitualEffect`/`ElementalCubeRitualProfile`, parked legacy spell effects, `VfxTextures`, `DamageNumberBillboard` | Godot 3D API | simulation | [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
-| `src/presentation/effects/cube_placeholders/` | The 24 cube placeholder spell effects | `shared/` substrate (`CubePlaceholderEffect`, `CubePlaceholderComposition`, `CubePlaceholderFrame`), one folder per family (`travel`, `impact`, `control`, `restore`) with its compositions and catalog | Godot 3D API, `SpellVfxSpec` | simulation, the elemental cube rituals | [`effects/cube-placeholder-foundation.md`](./effects/cube-placeholder-foundation.md) |
-| `src/systems/` | Scene lifecycle and player-turn orchestration | `hex_battle/HexBattleController` (scene root), `hex_battle/HexBattleMemberTurn` | simulation and presentation | being imported by either | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| `scenes/` | Godot scenes | `battle/HexBattle.tscn` (the entry scene), `Monster.tscn`, `map01.tscn` | `src/systems/`, `src/presentation/` | — | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
-| `scripts/` | Headless tooling, run via `SceneTree` | `demo_battle.gd`, `update_gamerefs.gd` | simulation | being imported by runtime code | [`DEVELOPMENT.md`](./DEVELOPMENT.md) |
+| Directory | Responsibility | Public entry points | Dependency boundary | Owning doc |
+|---|---|---|---|---|
+| `data/` | Authored catalogs, maps, scenarios and world-map documents | JSON files | Inert data; no code dependencies | [`REFERENCE_CATALOGS.md`](./REFERENCE_CATALOGS.md) |
+| `simulation/` | Canonical battle state/runtime, resolvers, board storage and spatial algorithms | `BattleSimulator`, `BattleState`, `HexGrid`, resolvers | Headless; never imports presentation or scene-tree code | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| `ai/` | CPU decision-making and the frozen legacy policy baseline | brains, deliberation, policy catalog | Headless; consumes simulation/content, never presentation | [`AI_ARCHITECTURE.md`](./AI_ARCHITECTURE.md) |
+| `content/` | Passive runtime content objects plus JSON-to-object factories | entities, `*References`, setup presets | Headless; owns catalog conversion | [`REFERENCE_CATALOGS.md`](./REFERENCE_CATALOGS.md) |
+| `battle/` | Scene orchestration, battle camera/meshes, adapters, records and playback | `HexBattleController`, adapters, render controllers | Reads/submits through simulation contracts; never mutates battle state directly | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| `ui/` | HUD, menus, windows, fonts and shared theme widgets | `HexBattleHud`, `NoggTheme`, command/status controls | Presentation only | [`UI_DESIGN.md`](./UI_DESIGN.md) |
+| `effects/` | VFX playback, spell effects and the cube-placeholder collection | `VfxPlayback`, catalogs, profiles | Presentation only; existing shared resources remain compatibility surfaces | [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
+| `worldmap/` | World-map rendering, framing, sky, clouds and props | world-map presentation classes | Presentation only | [`WORLDMAP_DESIGN.md`](./WORLDMAP_DESIGN.md) |
+| `map_editor/` | World-map editing, document, workspace and export code | editor controller, document/export services | May consume world-map and headless map contracts; runtime never imports it | [`WORLDMAP_EDITOR.md`](./WORLDMAP_EDITOR.md) |
+| `scenes/` | Maintained Godot entry/debug scenes | `HexBattle.tscn`, world-map/editor and VFX scenes | Instantiates presentation/orchestration code | [`ARCHITECTURE.md`](./ARCHITECTURE.md) |
+| `assets/` | Retained fonts, models, textures, shaders, UI and world-map art | Resource files | Art collections are preserved; bundle exceptions beat unsafe reserialization | [`UI_DESIGN.md`](./UI_DESIGN.md), [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
+| `tools/` | Manual runners, generators, captures and analysis utilities | battle/tournament and authoring tools | May consume runtime; runtime never imports tools | [`DEVELOPMENT.md`](./DEVELOPMENT.md) |
+| `checks/` | Probe sweep, process runner, manifests, fixtures and probes | `run_probe_sweep.ps1`, `run_probe.ps1` | Verification only; never imported by runtime | [`DEVELOPMENT.md`](./DEVELOPMENT.md) |
+| `references/` | Game research and the frozen square-battle package | reference documents/package | Never imported by active runtime | [`README.md`](./README.md) |
 
-`data/` is loaded only through `src/factories/`. Nothing else reads the JSON
-directly.
-
-**The one asymmetry:** `AStarPathfinder`, `BFSFloodFill`, `LineOfSight`,
-`ParabolicArc`, and `ShapeCaster` depend on nothing but `src/board/`.
-`ThreatMap` is different — it takes `BattleState` and the movement/combat
-resolvers, because an influence map is only accurate if it is built from the
-same rules the simulation applies. It is consumed solely by `src/entity_ai/`;
-`src/battle_sim/` never imports it, so there is no cycle. Treat it as AI
-support that happens to live in `algorithms/`, and do not copy its dependency
-breadth into the other five.
+Physical flattening does not merge logical layers: `simulation/`, `ai/`, and `content/` remain headless; `battle/`, `ui/`, `effects/`, `worldmap/`, and `map_editor/` remain presentation or authoring. `data/` is loaded only through `content/` factories.
 
 ## Dependency direction
 
-```text
-data/  ──►  src/factories/  ──►  src/entities/
-                                      │
-              src/board/, src/algorithms/
-                                      │
-                                      ▼
-                            src/battle_sim/  ◄── src/entity_ai/
-                                      │
-                            BattleEvents / IBattleVisualAdapter
-                                      │  (one way: events out, commands in)
-                                      ▼
-                            src/presentation/
-                                      ▲
-                                      │
-                             src/systems/  ──►  scenes/battle/HexBattle.tscn
-```
+`	ext
+data/ --> content/ --> simulation/ <-- ai/
+                         |
+             BattleEvents / adapter contracts
+                         |
+                         v
+              battle/ + ui/ + effects/
+                         |
+                         v
+                       scenes/
 
-Authored data and setup feed the headless simulation; `src/systems/`
-orchestrates the Godot lifecycle; presentation observes through events and
-adapters and submits commands back. **No arrow points from simulation into
-presentation.** Reading a `BattleState` constant or static helper (for example
-`BattleState.TERRAIN_ABYSS` or `BattleState.isPermanentDuration`) from
-presentation is a read, not a dependency inversion, and is allowed.
+worldmap/ <-- map_editor/
+`
+
+Presentation submits commands and observes authoritative state. No dependency points from the headless roots into battle, UI, effects, world-map, editor, or scene code.
 
 ## Where to make a change
 
 | Change | Go to |
 |---|---|
-| Catalog content — a new monster, spell, passive, element | `data/*.json`, then the matching `src/factories/*References.gd` if the schema changes |
-| Combat rules, damage, status application | `src/battle_sim/CombatResolver.gd`, `DirectDamageRules.gd`, `SpellEffectResolver.gd`, `PassiveSkillResolver.gd` |
-| Movement, reachability, line of sight | `src/battle_sim/MovementResolver.gd`, `src/algorithms/` |
-| Side order and round structure | `src/battle_sim/TurnManager.gd` |
-| CPU behavior | `src/entity_ai/` — pick the brain, `LegalActionEnumerator` for what is legal, `CandidateFilter` for what gets searched, or `CommandDeliberation` for the shipped search itself |
-| Replay and serialization | `src/battle_sim/BattleStateSerializer.gd`, `BattleReplayRunner.gd` |
-| Battle setup, modes, seeds, team construction | `src/battle_sim/BattleSetupConfig.gd`, `BattleSetupFactory.gd`, `src/factories/BattleSetupPresets.gd` |
-| Battle HUD, menus, windows, fonts | `src/presentation/BattleUIBuilder.gd`, `PlayerCommandMenu.gd`, `src/presentation/theme/` |
-| Setup screen | `src/presentation/BattleSetupUI.gd` |
-| Monster/board meshes and materials | `src/presentation/BattleMeshFactory.gd` |
-| Visual effects, animation pacing | `src/presentation/BattleVisualEffects.gd`, `VisualActionQueue.gd`, `src/presentation/effects/` — see [`VFX_DESIGN.md`](./VFX_DESIGN.md) |
-| Camera | `src/presentation/BattleCameraController.gd` |
-| Selected-unit phases, cursor ownership, undo | `src/systems/hex_battle/HexBattleMemberTurn.gd` |
-| Scene lifecycle, side-turn pacing, adapter wiring | `src/systems/hex_battle/HexBattleController.gd` |
-| Headless tooling and demos | `scripts/` |
+| Catalog content or JSON conversion | `data/`, then `content/` when the schema/conversion changes |
+| Combat, movement, turn order, replay or serialization | `simulation/` |
+| CPU behavior | `ai/` |
+| Battle lifecycle, camera, meshes, adapters or playback | `battle/` |
+| HUD, menus, windows, fonts or theme | `ui/` |
+| Visual effects and animation pacing | `effects/` |
+| World-map rendering | `worldmap/` |
+| World-map authoring, documents and export | `map_editor/` |
+| Headless probes and fixtures | `checks/` |
+| Manual runners, generators and analysis | `tools/` |

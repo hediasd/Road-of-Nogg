@@ -230,7 +230,7 @@ matters because the radial part of a face's normal is `sin(lean)` and that is
 the only thing carrying the face's azimuth to the shader.
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
   --effect=technique_charge_aura_v1 --seed=7 --hide-hud \
   --capture-at=0.08,0.185,0.29,0.60,0.94 --capture-sheet --resolution 1400x900
 ```
@@ -388,7 +388,7 @@ switch. Cutting them also resolved the footprint question above — the visible
 peak fell from 2.98u to 1.86u.
 
 ```bash
-Godot_v4.4-stable_win64.exe --path . scenes/debug/VFXDebugScene.tscn \
+Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
   --effect=technique_charge_aura_v2 --seed=7 --hide-hud \
   --capture-at=0.107,0.55,0.667,0.687,0.853,0.973 --capture-sheet \
   --resolution 1400x900

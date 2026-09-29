@@ -223,7 +223,7 @@ float grid_coverage(vec2 p, float spacing) {
 // HEX GRID OVERLAY. `fract()` on world XZ has no hex analogue -- a hex lattice is not a
 // rectangular repeat -- so this is a different technique from `grid_coverage()` above, not an
 // extension of it. Every function here is a direct port of
-// `src/presentation/worldmap/editor/WorldMapHexGrid.gd`, and it has to be a PORT rather than a
+// `map_editor/WorldMapHexGrid.gd`, and it has to be a PORT rather than a
 // re-derivation: that file's own header explains why independent-axis rounding fails at every
 // hex seam, and a shader-side re-derivation that got the same detail wrong would draw a lattice
 // that looks plausible while disagreeing with the picker along every boundary -- exactly the

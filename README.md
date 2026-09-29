@@ -4,12 +4,12 @@ A tactical RPG project built with Godot 4.4.
 
 ## Runtime
 
-- Default scene: `scenes/battle/HexBattle.tscn`
-- Canonical simulation: `src/battle_sim/BattleSimulator.gd`
-- Scene controller: `src/systems/hex_battle/HexBattleController.gd`
+- Default scene: `scenes/HexBattle.tscn`
+- Canonical simulation: `simulation/BattleSimulator.gd`
+- Scene controller: `battle/HexBattleController.gd`
 - Playable setup: choose an authored scenario and a seed; parties activate in
   turn and their members act in the order you pick
-- Headless demo: `godot --headless --script res://scripts/demo_battle.gd` runs a
+- Headless demo: `godot --headless --script res://tools/demo_battle.gd` runs a
   full CPU-vs-CPU party battle through the same runtime
 
 ## The square battle
