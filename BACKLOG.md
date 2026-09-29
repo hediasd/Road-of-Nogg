@@ -109,6 +109,44 @@ Compare existing caller goldens before touching a shared VFX primitive. Record
 the tested revision, visible result, gameplay result, and clean teardown for
 each effect. The shutdown reproducer below is a distinct stress case.
 
+### Let a spell declare several elements without damage lines
+
+The spell catalog enforces that a multi-element spell's `ELEMENTS` match its
+damage lines, and rejects `ELEMENTS` on a spell with no damage lines. At
+runtime, `Spell.getElements()` derives elements from `ELEMENT` and the damage
+lines, so a non-damaging spell has no way to be multi-element. Carpet of
+Flowers (light/wood) and Area Denial (steel/water) below are both
+non-damaging and multi-element. When the spell has damage lines, the declared
+elements must still match them exactly. When it has none, they must stand on
+their own. Acceptance: a spell with `ELEMENTS` and no damage lines loads.
+Casting it requires every declared element, and it charges each of their
+Resonance bars. `probe_spell_elements.gd`'s "ELEMENTS with no damage lines"
+fixture flips from rejected to accepted, and every other alignment check
+still holds.
+
+### Add ground effects, for Carpet of Flowers and Area Denial
+
+Nothing in the battle lasts on a cell: statuses live on units, and no spell
+leaves anything on the board. Two designed spells need a ground-effect
+mechanic: cells that carry an effect for a number of turns, trigger for units
+standing on them, and can be removed.
+
+- **Carpet of Flowers:** Level 2, light/wood. Creates flowers over a radius-3
+  area. At the start of the turn of each unit standing there, it heals the
+  caster's allies.
+- **Area Denial:** Level 2, steel/water. Removes every ground effect within
+  radius 3 of the caster.
+
+The creator gave the above. Defaults to confirm when this is built: Carpet of
+Flowers targets a cell up to range 3, lasts 3 turns, and heals 2 HP per trigger
+(only allies of the caster, never enemies). Area Denial removes effects of both
+sides. Both break the Level 2 tier shape (single target). Record them as
+exceptions in `docs/GAME_DESIGN.md`, or change the shape, per the creator's
+call. This needs the item above first. Acceptance: both spells exist in the
+catalog with their register rows. The flowers heal only allies standing in
+the area at their turn start, and expire. Area Denial clears them. All of this
+is visible on the board, serialized, and deterministic under replay.
+
 ## Make authoring and verification dependable
 
 ### Accept the world-map editor end to end
