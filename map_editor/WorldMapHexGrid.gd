@@ -23,7 +23,8 @@
 ## Storing axial would have made the RLE rows ragged and rewritten plumbing that has nothing
 ## wrong with it.
 ##
-## GEOMETRY, settled in `docs/plans/worldmap-hex-authoring.md`. Flat-top hexes, pre-stretched so
+## GEOMETRY, settled by the world map hex authoring cycle (`docs/plans/worldmap-hex-authoring.md`,
+## removed 2026-10-02; read it from git history). Flat-top hexes, pre-stretched so
 ## they read regular at pitch 60 -- which is what makes the world footprint square. One hex is
 ## two world units wide and two tall; columns advance 1.5 units; rows advance 2; odd columns drop
 ## 1. The 16 px world unit is unchanged, so a hex is 32 px of art.
