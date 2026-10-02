@@ -1,16 +1,17 @@
 # Inner Descriptions
 
-2026-10-02, revised the same day. **Proposal: do not execute INNER-3 until the
-user confirms its spell list (see "Blocking decision").** The user wants every
-authored content object (spells, elements and element combinations, items, and
-similar) to carry an inner description. It is a free-text field for the creator
-alone, recording the real-world source of an object rooted in a real concept,
-plus any other trivia. No player-facing screen ever shows it. It replaces the
-lore Reference Register, which the user does not trust. The proof of concept is
-a new fire/darkness spell, *Blood Meridian*, named after Cormac McCarthy's
-novel. This cycle does not build an items catalog (none exists yet), add new
-VFX, or write lore, flavour text, or any explanation of how a source links to an
-object.
+2026-10-02, revised twice the same day. The user wants every authored content
+object (spells, elements and element combinations, items, and similar) to carry
+an inner description: a free-text field for the creator alone, recording the
+real-world source of an object rooted in a real concept, plus any other trivia.
+No player-facing screen ever shows it. It replaces the lore Reference Register,
+which the user does not trust. The proof of concept is a new fire/darkness
+spell, *Blood Meridian*, named after Cormac McCarthy's novel. On the same day
+the user dissolved every other cycle. Their medium and large unbuilt work went
+to `BACKLOG.md`, and the one small leftover, the damage-number arc's last two
+steps, is folded in here as INNER-5. This cycle does not build an items catalog
+(none exists), add new VFX, or write lore, flavour text, or any explanation of
+how a source links to an object.
 
 ## Outcome
 
@@ -21,12 +22,15 @@ object.
 - `data/elements.json` is the one element catalog. It holds single elements,
   all 45 two-element combinations, and three placeholder three-element
   combinations, each with an `INNER_DESCRIPTION` slot.
-- The Reference Register is gone, and spell sources live in
-  `INNER_DESCRIPTION`.
-- `data/spells.json` has *Blood Meridian*, a Level 4 fire/darkness spell whose
-  `INNER_DESCRIPTION` documents the novel.
+- The Reference Register is gone. *Wicker Man*, *Eschatology*, *Solar Storm*,
+  and *Insatiable Famine* carry pending inner descriptions.
+- `data/spells.json` has *Blood Meridian*, a Level 4 fire/darkness spell with a
+  sourced or pending inner description.
 - A standing authoring rule, recorded in `AGENTS.md` and
   `docs/REFERENCE_CATALOGS.md`, governs every inner description from now on.
+- A damage number answers the impact flash instead of arriving with it, and a
+  multi-hit attack's numbers either overlap in rhythm or are recorded as
+  something the queue cannot express.
 
 ## The authoring rule (user, 2026-10-02)
 
@@ -34,22 +38,24 @@ An inner description documents **the source only**. When the object is rooted
 in a real-world concept, base the entry on its English Wikipedia article
 whenever a good one exists, and end with that article's URL. Never explain how
 the source links to the object: why a spell is fire/darkness, what its
-mechanics evoke, or any reading of the name. If Wikipedia cannot be reached,
-write only the source the user stated, add no URL, and say in the commit body
-that Wikipedia was not checked.
+mechanics evoke, or any reading of the name.
 
 Format: one plain string. Write the source as one or two sentences in your own
 words based on the article's lead, then `Wikipedia: <url>`. Any trivia the user
 adds later follows as further sentences.
 
-## Blocking decision (user)
+**Pending entries.** When an inner description is owed but cannot be written
+now (Wikipedia is unreachable, or the user asked for it to be left pending),
+the field holds an instruction for whoever fills it, never an empty string or a
+guess:
 
-**Which existing spells get a sourced inner description in INNER-3?** The
-register is not trusted, so INNER-3 does not copy it. It sources only the spells
-the user lists. Candidates whose names are recognisable real-world references
-are *Roses at Summers End*, *Wicker Man*, *Insatiable Famine*, *Eschatology*,
-*Holy Cross*, *Aurora Veil*, *Solar Storm*, and *Corallitic Acid Reflux*. Any
-spell the user does not name keeps no inner description.
+`PENDING: write the source from English Wikipedia (topic: <topic>). Source only; do not explain the link.`
+
+`<topic>` is the real-world concept the user named, taken from their own words
+or the object's existing text. A session that reaches a `PENDING:` entry while
+it can reach Wikipedia may replace it under the rule above, and lists each
+replacement in its commit body. An empty `INNER_DESCRIPTION` means nothing is
+owed (for example, the element slots below); it is not pending.
 
 ## Defaults taken (the user may overrule)
 
@@ -67,15 +73,19 @@ spell the user does not name keeps no inner description.
 - There is no items catalog. Only a placeholder Item plate exists in the HUD.
 - *Corallitic Acid Reflux* has no `DESC`, and that is deliberate: the user
   writes descriptions. *Blood Meridian* ships without a `DESC` too.
+- *Insatiable Famine*'s player-facing `DESC` begins "Inspired by the curse of
+  Erysichthon." That is source text in a visible field. It is the user's to
+  move or keep; leave `DESC` untouched.
 - `ElementReferences` has exactly two consumers: `SpellReferences` calls
   `isValid()`, and `ui/HexUnitFacts.gd` calls `code()`. Both mean a single
   element. A combination must never satisfy either. `effects/SpellVfxSpec.gd`
   validates against its own `KNOWN_ELEMENTS` and is out of scope.
 - No tool writes the content catalogs back to disk, so the new field cannot be
   dropped by a round-trip save.
-- `docs/plans/berserk-status.md` (not started as of 2026-10-02) tells BERSERK-2
-  to add a register row for *Summit Fever*. INNER-3 removes that instruction
-  only if that cycle still has no commits; see INNER-3.
+- `effects/DamageNumberBillboard.gd` already implements the arc's ballistic
+  travel and flash-out, and `checks/battle/probe_damage_number.gd` proves them.
+  `SPAWN_HEIGHT` is still 0.85, and `_spawnNumber` still fires in the same
+  frame as the strike.
 
 ## Items
 
@@ -106,9 +116,11 @@ other entries do. Those are boundary judgements, not mechanical edits.
 as a string. A non-string value rejects the reload with a message naming the
 entry, and the previous catalog stays live. No player-facing code can read the
 field. `docs/REFERENCE_CATALOGS.md` states the contract and the authoring rule
-above, word for word. `AGENTS.md` gains one bullet: inner descriptions document
-only the source, are based on Wikipedia where a good article exists, and never
-explain the link. The bullet points to `docs/REFERENCE_CATALOGS.md`.
+above, including the pending convention, word for word. `AGENTS.md` gains one
+bullet: inner descriptions document only the source, are based on Wikipedia
+where a good article exists, never explain the link, and use the `PENDING:`
+form when they cannot be written yet. The bullet points to
+`docs/REFERENCE_CATALOGS.md`.
 
 **Implementation (brief):** The tension is between *enforcing* "never shown"
 and *keeping the field reachable*. One option strips the field from the runtime
@@ -191,17 +203,14 @@ the 11 single elements.
   rejection case. The headless load check passes, which proves
   `SpellReferences` still accepts every spell.
 
-### INNER-3 — Retire the Reference Register and source the confirmed spells
+### INNER-3 — Retire the Reference Register and mark the user's four spells pending
 
 **Model:** Sonnet 5 / GPT Terra
 
-**Model rationale:** Once the user lists the spells, each entry follows the
-authoring rule mechanically: read the article, then write a source sentence and
-the URL. It involves no interpretation (the rule forbids explanation), and the
-doc edits are deletions plus one pointer.
+**Model rationale:** The four strings are fixed below, and the doc edits are a
+deletion plus one pointer. It needs no research and no interpretation.
 
-**Depends on:** INNER-1, the blocking decision. **Must not run while BERSERK-2
-runs:** both write `data/spells.json`.
+**Depends on:** INNER-1.
 
 **Touches:**
 - `data/spells.json`
@@ -209,28 +218,33 @@ runs:** both write `data/spells.json`.
   keep "Naming by Level")
 - `docs/SPELL_CATALOG_SCHEMA.md` (the paragraph that sends new spells to the
   register)
-- `docs/plans/berserk-status.md` (only the sentence asking BERSERK-2 for a
-  register row, and only if `git log --grep="Plan-Item: BERSERK"` is empty;
-  otherwise leave the file alone and tell the user)
 
 **End state:**
-- Each spell the user listed carries an `INNER_DESCRIPTION` written under the
-  authoring rule.
+- These four spells carry exactly these strings, and no other spell gains an
+  `INNER_DESCRIPTION`:
+
+  | Spell | `INNER_DESCRIPTION` |
+  |---|---|
+  | Wicker Man | `PENDING: write the source from English Wikipedia (topic: wicker man). Source only; do not explain the link.` |
+  | Eschatology | `PENDING: write the source from English Wikipedia (topic: eschatology). Source only; do not explain the link.` |
+  | Solar Storm | `PENDING: write the source from English Wikipedia (topic: solar storm). Source only; do not explain the link.` |
+  | Insatiable Famine | `PENDING: write the source from English Wikipedia (topic: the curse of Erysichthon). Source only; do not explain the link.` |
+
 - The register section no longer exists.
 - `docs/SPELL_CATALOG_SCHEMA.md` tells authors to document a referenced name's
   source in the spell's `INNER_DESCRIPTION`, and links to the authoring rule.
-- `grep -rn "Reference Register" docs .claude AGENTS.md` finds nothing outside
-  `docs/plans/`.
+- `grep -rn "Reference Register" docs .claude AGENTS.md BACKLOG.md` finds
+  nothing outside `docs/plans/`.
 
-**Implementation:** Do not copy register text, because it is untrusted. Do not
-add an element link or any interpretation. Touch no other spell field.
+**Implementation:** These stay pending even if Wikipedia is reachable: the user
+asked for them to be pending. Do not copy register text, because it is
+untrusted. Touch no other spell field, including *Insatiable Famine*'s `DESC`.
 
 **Risk:** JSON formatting churn. Keep the tab indentation and key order.
 
 **Validation:**
 - Self-contained: `python3 -m json.tool data/spells.json` parses the file, the
-  headless load check passes, and the grep above is clean. The commit body
-  lists each spell with the article it used, or says Wikipedia was not reached.
+  headless load check passes, and the grep above is clean.
 
 ### INNER-4 — Add *Blood Meridian*
 
@@ -255,7 +269,7 @@ design judgement left. It is one catalog entry.
 		{"damage": 3, "element": "darkness"}
 	],
 	"ELEMENTS": ["fire", "darkness"],
-	"INNER_DESCRIPTION": "<per the authoring rule>",
+	"INNER_DESCRIPTION": "<see below>",
 	"MAX_HEIGHT_DELTA": 1,
 	"NAME": "Blood Meridian",
 	"RADIUS": 2,
@@ -265,13 +279,14 @@ design judgement left. It is one catalog entry.
 }
 ```
 
-The `INNER_DESCRIPTION` names the novel's full title (*Blood Meridian, or the
-Evening Redness in the West*), Cormac McCarthy, and 1985, plus at most one
-further sentence drawn from the article's lead. It ends with
-`Wikipedia: https://en.wikipedia.org/wiki/Blood_Meridian`. If Wikipedia is
-unreachable, it is only `Source: Blood Meridian, or the Evening Redness in the
-West, a 1985 novel by Cormac McCarthy.`, and the commit body says Wikipedia was
-not checked.
+If `https://en.wikipedia.org/wiki/Blood_Meridian` is reachable, the
+`INNER_DESCRIPTION` follows the authoring rule. It names the full title
+(*Blood Meridian, or the Evening Redness in the West*), Cormac McCarthy and
+1985, adds at most one further sentence drawn from the article's lead, and
+ends with `Wikipedia: https://en.wikipedia.org/wiki/Blood_Meridian`. Otherwise
+it is exactly
+`PENDING: write the source from English Wikipedia (topic: Blood Meridian, the 1985 novel by Cormac McCarthy). Source only; do not explain the link.`,
+and the commit body says Wikipedia was unreachable.
 
 **Implementation:** The spell has no `DESC`, no `VFX` block (the default cube
 fallback draws fire and darkness palettes from the damage lines), and no
@@ -286,13 +301,81 @@ intended.
   the multi-element alignment. A grep shows the entry with
   `ELEMENTS == ["fire", "darkness"]`.
 
+### INNER-5 — Finish the damage-number arc: impact frame and multi-hit cadence
+
+**Model:** Opus 5 / GPT Sol
+
+**Model rationale:** Half of this is a one-frame delay, but the other half
+needs a judgement about whether the visual action queue models a multi-hit
+attack at all, and how a per-number stagger interacts with an action's hold.
+That shape cannot be known from one file. Inventing a queue feature here would
+be the wrong call, and telling when to stop is the judgement being paid for.
+
+**Depends on:** —
+
+**Touches:**
+- `battle/HexBattleCombatFeedback.gd`
+- `battle/VisualAction.gd`
+- `effects/DamageNumberBillboard.gd` (`SPAWN_HEIGHT` only)
+- `checks/battle/probe_damage_number.gd`
+
+**End state:** The number spawns one frame after the impact flash begins, so
+the flash reads first. `SPAWN_HEIGHT` is re-checked now that the number climbs
+4.76 glyph heights on its own, and lowered if a full arc overshoots the unit's
+head. The multi-hit outcome is either two numbers from one attack overlapping
+0.34 s apart, each on its own full 0.58 s arc (the gap is a constant on the
+feedback layer, not the billboard), or a commit body stating that the queue
+cannot express it, with no queue feature invented.
+
+**Implementation (brief):** The reference figures are in the removed
+`docs/plans/battle-damage-number-arc.md` (read it from git history). The
+single-hit arc already implemented must not change: rise, fall, drift,
+outline and flash constants stay as they are. Pacing in `_startNumber` and
+`_startStrike` must keep its total.
+
+**Risk:** A spawn delay that makes the queue's hold end before the number is
+visible; a stagger that stretches every attack's action time.
+
+**Validation:**
+- Self-contained: `checks/battle/probe_damage_number.gd` still passes; extend
+  it to assert the one-frame spawn delay. Run the headless load check.
+- Deferred: the user watches a basic attack and, if one exists, a multi-hit
+  attack at 1x, and judges whether the number answers the flash and clears
+  the unit's head.
+
+### INNER-V — Watch the damage numbers
+
+**Model:** Opus 5 / GPT Sol
+
+**Model rationale:** The only deferred check is a visual judgement about
+INNER-5's work, which its implementing session cannot fairly make about
+itself. The user observes; the session prepares exact steps, records the
+result, and tunes only `SPAWN_HEIGHT` or the multi-hit gap if the user asks.
+
+**Depends on:** INNER-5.
+
+**Touches:** `effects/DamageNumberBillboard.gd` (`SPAWN_HEIGHT` only),
+`battle/HexBattleCombatFeedback.gd` (the multi-hit gap constant only),
+`docs/plans/inner-descriptions.md` (deletion at closure).
+
+**End state:** The user has watched the steps and accepted them, or the
+correction is committed with the observation. The cycle closes and this file
+is deleted.
+
+**Validation:**
+- Deferred: INNER-5's deferred line, observed by the user at the INNER-5
+  revision, noting any unrelated in-flight changes.
+
 ## Waves
 
 | Wave | Items | Why disjoint |
 |------|-------|--------------|
-| 1 | INNER-1 | boundary item; everything depends on it |
-| 2 | INNER-2, INNER-3 + INNER-4 (lane) | element catalog and its wrapper vs. spell catalog and spell/lore docs; no shared path. The lane must not overlap BERSERK-2 on `data/spells.json`. |
-| — | validation: inline, no deferred checks | |
+| 1 | INNER-1, INNER-5 | catalog loader, content probes and docs vs. battle feedback and damage-number billboard; no shared path |
+| 2 | INNER-2, INNER-3 + INNER-4 (lane) | element catalog and its wrapper vs. spell catalog and spell/lore docs; no shared path |
+| 3 | INNER-V | validation, alone; the user observes |
+
+Five implementation items: the convergence review falls after the second,
+which is the end of wave 1.
 
 ## Deliberately excluded
 
@@ -308,5 +391,8 @@ intended.
   design decision.
 - **All 120 triples, and gameplay use of combinations.** The triples are
   placeholders. Nothing reads combinations yet.
-- **Backfilling inner descriptions beyond the INNER-3 list.** The user adds the
-  rest as they go.
+- **Inner descriptions for *Roses at Summers End*, *Holy Cross*, *Aurora
+  Veil*, *Corallitic Acid Reflux*, or any other object.** The user listed four
+  spells, and adds the rest as they go.
+- **Everything from the dissolved cycles except INNER-5.** It is in
+  `BACKLOG.md`.
