@@ -52,9 +52,10 @@ guess:
 `PENDING: write the source from English Wikipedia (topic: <topic>). Source only; do not explain the link.`
 
 `<topic>` is the real-world concept the user named, taken from their own words
-or the object's existing text. A session that reaches a `PENDING:` entry while
-it can reach Wikipedia may replace it under the rule above, and lists each
-replacement in its commit body. An empty `INNER_DESCRIPTION` means nothing is
+or the object's existing text. User-written text may come before the
+`PENDING:` sentence. A session that reaches a `PENDING:` entry while it can
+reach Wikipedia may replace that sentence under the rule above, keeping any
+text before it, and lists each replacement in its commit body. An empty `INNER_DESCRIPTION` means nothing is
 owed (for example, the element slots below); it is not pending.
 
 ## Defaults taken (the user may overrule)
@@ -74,8 +75,9 @@ owed (for example, the element slots below); it is not pending.
 - *Corallitic Acid Reflux* has no `DESC`, and that is deliberate: the user
   writes descriptions. *Blood Meridian* ships without a `DESC` too.
 - *Insatiable Famine*'s player-facing `DESC` begins "Inspired by the curse of
-  Erysichthon." That is source text in a visible field. It is the user's to
-  move or keep; leave `DESC` untouched.
+  Erysichthon." That is source text in a visible field. On 2026-10-03 the user
+  asked for it to move into the inner description; INNER-3 does that and
+  changes no other `DESC`.
 - `ElementReferences` has exactly two consumers: `SpellReferences` calls
   `isValid()`, and `ui/HexUnitFacts.gd` calls `code()`. Both mean a single
   element. A combination must never satisfy either. `effects/SpellVfxSpec.gd`
@@ -207,8 +209,8 @@ the 11 single elements.
 
 **Model:** Sonnet 5 / GPT Terra
 
-**Model rationale:** The four strings are fixed below, and the doc edits are a
-deletion plus one pointer. It needs no research and no interpretation.
+**Model rationale:** The four strings and the one `DESC` change are fixed
+below, and the doc edits are a deletion plus one pointer. It needs no research and no interpretation.
 
 **Depends on:** INNER-1.
 
@@ -221,15 +223,18 @@ deletion plus one pointer. It needs no research and no interpretation.
 
 **End state:**
 - These four spells carry exactly these strings, and no other spell gains an
-  `INNER_DESCRIPTION`:
+  `INNER_DESCRIPTION`. *Insatiable Famine*'s first sentence is the user's own,
+  moved out of its `DESC`:
 
   | Spell | `INNER_DESCRIPTION` |
   |---|---|
   | Wicker Man | `PENDING: write the source from English Wikipedia (topic: wicker man). Source only; do not explain the link.` |
   | Eschatology | `PENDING: write the source from English Wikipedia (topic: eschatology). Source only; do not explain the link.` |
   | Solar Storm | `PENDING: write the source from English Wikipedia (topic: solar storm). Source only; do not explain the link.` |
-  | Insatiable Famine | `PENDING: write the source from English Wikipedia (topic: the curse of Erysichthon). Source only; do not explain the link.` |
+  | Insatiable Famine | `Inspired by the curse of Erysichthon. PENDING: write the source from English Wikipedia (topic: the curse of Erysichthon). Source only; do not explain the link.` |
 
+- *Insatiable Famine*'s `DESC` is exactly
+  `Single target ranged attack that inflicts poison.`
 - The register section no longer exists.
 - `docs/SPELL_CATALOG_SCHEMA.md` tells authors to document a referenced name's
   source in the spell's `INNER_DESCRIPTION`, and links to the authoring rule.
@@ -238,7 +243,8 @@ deletion plus one pointer. It needs no research and no interpretation.
 
 **Implementation:** These stay pending even if Wikipedia is reachable: the user
 asked for them to be pending. Do not copy register text, because it is
-untrusted. Touch no other spell field, including *Insatiable Famine*'s `DESC`.
+untrusted. Apart from *Insatiable Famine*'s `DESC`, touch no other spell
+field.
 
 **Risk:** JSON formatting churn. Keep the tab indentation and key order.
 
