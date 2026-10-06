@@ -1054,5 +1054,27 @@
 		"RANGE": 3,
 		"SEQUENCE_LEVEL": 3,
 		"TARGET_TYPE": "area"
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
+		"COOLDOWN": 6,
+		"DAMAGE_LINES": [
+			{
+				"damage": 5,
+				"element": "fire"
+			},
+			{
+				"damage": 5,
+				"element": "darkness"
+			}
+		],
+		"ELEMENTS": ["fire", "darkness"],
+		"INNER_DESCRIPTION": "PENDING: write the source from English Wikipedia (topic: Blood Meridian, the 1985 novel by Cormac McCarthy). Source only; do not explain the link.",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Blood Meridian",
+		"RADIUS": 2,
+		"RANGE": 4,
+		"SEQUENCE_LEVEL": 3,
+		"TARGET_TYPE": "area"
 	}
 ]
