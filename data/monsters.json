@@ -1161,5 +1161,38 @@
 				"Earth Spike"
 			]
 		]
+	},
+	{
+		"NAME": "Diplomat of Sebenitia",
+		"STATS": {
+			"HP": 40,
+			"ATK": 3,
+			"DEF": 4,
+			"SPD": 3,
+			"MOVE": 3,
+			"LUCK": 1,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
+		"ELEMENTS": [
+			"earth",
+			"water"
+		],
+		"RACE": "Kemetos",
+		"FAMILY": "TBC",
+		"ARCHETYPE": "leader",
+		"BRAIN": "SupportBrain",
+		"SPELLS": [
+			[
+				"Pillar",
+				"Stone Throwing"
+			],
+			[
+				"Dissolve",
+				"Ooze Shield"
+			]
+		]
 	}
 ]
