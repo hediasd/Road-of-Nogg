@@ -17,6 +17,7 @@ and runtime representation conversion.
 | Archetypes | `archetypes.json` | Optional integer stat-band values. |
 | Passives | `passives.json` | Trigger/effect fields, value, and radius. |
 | Status effects | `status_effects.json` | Duration, damage-per-turn, and negative flag. |
+| Settlements | `settlements.json` | No runtime wrapper yet: named towns and cities that carry creator-only data such as `INNER_DESCRIPTION`. |
 | Maps | `maps.json` | Integer heights and JSON coordinate pairs converted to `Vector2i`. |
 | Hex battle maps | `battle/maps/<map-id>.json` | Strict tactical topology, mask, semantic terrain, elevation, source identity, and cell metrics. |
 | Hex battle scenarios | `battle/scenarios/<scenario-id>.json` | Exact map identity, deterministic parties, controllers, members, and deployment. |
@@ -36,9 +37,9 @@ through `loadNamedCatalog`, an items catalog included, inherits the rule with
 no code of its own. To read an inner description, open the JSON file: it is
 deliberately not available at runtime.
 
-Taxonomy families and species have no runtime loader, so nothing checks them
-at load. `checks/content/probe_inner_description.gd` proves the rule on them,
-and on every wrapped catalog, directly.
+Taxonomy families and species, and `settlements.json`, have no runtime
+loader, so nothing checks them at load. `checks/content/probe_inner_description.gd`
+proves the rule on them, and on every wrapped catalog, directly.
 
 ### Authoring rule (user, 2026-10-02)
 

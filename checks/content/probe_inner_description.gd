@@ -17,6 +17,8 @@ const RaceReferencesScript = preload("res://content/RaceReferences.gd")
 const KEY := "INNER_DESCRIPTION"
 const FIXTURE_PATH := "user://probe_inner_description_fixture.json"
 const TAXONOMY_PATH := "res://data/taxonomy.json"
+## Catalogs no runtime wrapper loads yet; the loader is proven on them directly.
+const UNWRAPPED_CATALOGS := ["res://data/settlements.json"]
 const PROBE_SOURCE := "Source: probe fixture."
 
 var failures: Array[String] = []
@@ -28,6 +30,8 @@ func _init() -> void:
 		_checkWrappedCatalog(catalog)
 	_checkTaxonomySection("families")
 	_checkTaxonomySection("species")
+	for path: String in UNWRAPPED_CATALOGS:
+		_checkUnwrappedCatalog(path)
 	_finish()
 
 
@@ -135,6 +139,21 @@ func _checkTaxonomySection(section: String) -> void:
 	_writeFixture(taxonomy)
 	loaded = JsonCatalogLoaderScript.loadNamedCatalog(FIXTURE_PATH, section)
 	_check(not loaded["success"], "%s: accepted a numeric %s" % [section, KEY])
+
+
+## A catalog with no wrapper: production loads through the shared loader with
+## every field stripped, and a wrong type on its first entry is rejected.
+func _checkUnwrappedCatalog(path: String) -> void:
+	var loaded := JsonCatalogLoaderScript.loadNamedCatalog(path)
+	_check(loaded["success"], "%s: production catalog did not load: %s" % [path, loaded["error"]])
+	if loaded["success"]:
+		for reference: Dictionary in loaded["list"]:
+			_check(not reference.has(KEY), "%s: '%s' published %s" % [path, reference.get("NAME", ""), KEY])
+	var withNumber = _readJson(path)
+	withNumber[0][KEY] = 7
+	_writeFixture(withNumber)
+	_check(not JsonCatalogLoaderScript.loadNamedCatalog(FIXTURE_PATH)["success"],
+		"%s: accepted a numeric %s" % [path, KEY])
 
 
 func _entries(root, rootKey: String) -> Array:
