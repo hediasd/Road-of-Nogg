@@ -38,8 +38,10 @@ Various styles of magic group spells into thematic disciplines.
 
 ## Spell Names
 
-Spell names carry deliberate meanings. This section keeps them for later
-consultation, so a name's intent is not lost once only the catalog remains.
+Spell names carry deliberate meanings. When a name comes from a real-world
+source, the source is recorded in that spell's `INNER_DESCRIPTION` in
+`data/spells.json`, under the rule in
+[`REFERENCE_CATALOGS.md`](../REFERENCE_CATALOGS.md#inner-descriptions).
 "Level" is the spell's Resonance tier (`SEQUENCE_LEVEL` in the catalog).
 
 ### Naming by Level
@@ -51,19 +53,6 @@ consultation, so a name's intent is not lost once only the catalog remains.
   element abstractly rather than literally. *Roses at Summers End* (an episode
   title from *Legend of the Galactic Heroes*) and *Wicker Man* (a real-world
   concept) are the models.
-
-### Reference Register
-
-Every spell whose name carries a reference gets a row here when it enters the
-catalog. "Element link" records how the reference ties to the element. A link
-marked *(reading)* is an interpretation the creator has not confirmed.
-
-| Spell | Element | Level | Reference | Element link |
-| :--- | :--- | :--- | :--- | :--- |
-| Roses at Summers End | WOOD | 4 | Title of an episode of *Legend of the Galactic Heroes*. | Not yet recorded. |
-| Corallitic Acid Reflux | WATER | 4 | TBC | TBC |
-| Wicker Man | LIGHT / WOOD | 3 (named in the Level 4 style) | The wicker man: a human-shaped wicker effigy that Julius Caesar's *Commentarii de Bello Gallico* (Book VI) describes the Druids filling with people and burning as a sacrifice. | Woven wood made into a vessel of faith *(reading)*: Wood's gift turned to offering, and Light's Ruin of rigid dogma. |
-| Insatiable Famine | WOOD | none | The curse of Erysichthon (Greek myth, told in Ovid's *Metamorphoses*, Book VIII): a king who felled Demeter's sacred grove and was cursed with a hunger nothing could satisfy. Named in the spell's own catalog description. | The inverse of Wood's abundance: plenty taken from the grove, returned as endless want *(reading)*. |
 
 ## Notable Relics of Power
 
