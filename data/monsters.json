@@ -1080,6 +1080,61 @@
 		]
 	},
 	{
+		"NAME": "Brickamon",
+		"STATS": {
+			"HP": 40,
+			"ATK": 2,
+			"DEF": 6,
+			"SPD": 1,
+			"MOVE": 1,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
+		"ELEMENTS": [
+			"earth"
+		],
+		"RACE": "Golemfolk",
+		"FAMILY": "Brickamons",
+		"ARCHETYPE": "defender",
+		"BRAIN": "TacticalBrain",
+		"SPELLS": [
+			[
+				"Earth Spike"
+			]
+		]
+	},
+	{
+		"NAME": "Brickamany",
+		"STATS": {
+			"HP": 50,
+			"ATK": 3,
+			"DEF": 7,
+			"SPD": 1,
+			"MOVE": 1,
+			"LUCK": 0,
+			"JUMP": 1,
+			"HP_GROWTH": 0,
+			"ATK_GROWTH": 0,
+			"DEF_GROWTH": 0
+		},
+		"ELEMENTS": [
+			"earth"
+		],
+		"RACE": "Golemfolk",
+		"FAMILY": "Brickamons",
+		"ARCHETYPE": "defender",
+		"ASCENDS_FROM": "Brickamon",
+		"BRAIN": "TacticalBrain",
+		"SPELLS": [
+			[
+				"Earth Spike"
+			]
+		]
+	},
+	{
 		"NAME": "Brickamount",
 		"STATS": {
 			"HP": 60,
@@ -1097,8 +1152,9 @@
 			"earth"
 		],
 		"RACE": "Golemfolk",
-		"FAMILY": "Brickamon",
+		"FAMILY": "Brickamons",
 		"ARCHETYPE": "defender",
+		"ASCENDS_FROM": "Brickamany",
 		"BRAIN": "TacticalBrain",
 		"SPELLS": [
 			[
