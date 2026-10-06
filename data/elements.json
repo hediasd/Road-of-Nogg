@@ -1,46 +1,444 @@
 [
 	{
 		"NAME": "fire",
-		"CODE": "FI"
+		"CODE": "FI",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "ice",
-		"CODE": "IC"
+		"CODE": "IC",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "wood",
-		"CODE": "WO"
+		"CODE": "WO",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "steel",
-		"CODE": "ST"
+		"CODE": "ST",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "darkness",
-		"CODE": "DA"
+		"CODE": "DA",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "light",
-		"CODE": "LI"
+		"CODE": "LI",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "earth",
-		"CODE": "EA"
+		"CODE": "EA",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "water",
-		"CODE": "WA"
+		"CODE": "WA",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "thunder",
-		"CODE": "TH"
+		"CODE": "TH",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "wind",
-		"CODE": "WI"
+		"CODE": "WI",
+		"INNER_DESCRIPTION": ""
 	},
 	{
 		"NAME": "none",
-		"CODE": "NO"
+		"CODE": "NO",
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+ice",
+		"ELEMENTS": [
+			"fire",
+			"ice"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+wood",
+		"ELEMENTS": [
+			"fire",
+			"wood"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+steel",
+		"ELEMENTS": [
+			"fire",
+			"steel"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+darkness",
+		"ELEMENTS": [
+			"fire",
+			"darkness"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+light",
+		"ELEMENTS": [
+			"fire",
+			"light"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+earth",
+		"ELEMENTS": [
+			"fire",
+			"earth"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+water",
+		"ELEMENTS": [
+			"fire",
+			"water"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+thunder",
+		"ELEMENTS": [
+			"fire",
+			"thunder"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+wind",
+		"ELEMENTS": [
+			"fire",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "ice+wood",
+		"ELEMENTS": [
+			"ice",
+			"wood"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "ice+steel",
+		"ELEMENTS": [
+			"ice",
+			"steel"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "ice+darkness",
+		"ELEMENTS": [
+			"ice",
+			"darkness"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "ice+light",
+		"ELEMENTS": [
+			"ice",
+			"light"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "ice+earth",
+		"ELEMENTS": [
+			"ice",
+			"earth"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "ice+water",
+		"ELEMENTS": [
+			"ice",
+			"water"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "ice+thunder",
+		"ELEMENTS": [
+			"ice",
+			"thunder"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "ice+wind",
+		"ELEMENTS": [
+			"ice",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "wood+steel",
+		"ELEMENTS": [
+			"wood",
+			"steel"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "wood+darkness",
+		"ELEMENTS": [
+			"wood",
+			"darkness"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "wood+light",
+		"ELEMENTS": [
+			"wood",
+			"light"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "wood+earth",
+		"ELEMENTS": [
+			"wood",
+			"earth"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "wood+water",
+		"ELEMENTS": [
+			"wood",
+			"water"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "wood+thunder",
+		"ELEMENTS": [
+			"wood",
+			"thunder"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "wood+wind",
+		"ELEMENTS": [
+			"wood",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "steel+darkness",
+		"ELEMENTS": [
+			"steel",
+			"darkness"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "steel+light",
+		"ELEMENTS": [
+			"steel",
+			"light"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "steel+earth",
+		"ELEMENTS": [
+			"steel",
+			"earth"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "steel+water",
+		"ELEMENTS": [
+			"steel",
+			"water"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "steel+thunder",
+		"ELEMENTS": [
+			"steel",
+			"thunder"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "steel+wind",
+		"ELEMENTS": [
+			"steel",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "darkness+light",
+		"ELEMENTS": [
+			"darkness",
+			"light"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "darkness+earth",
+		"ELEMENTS": [
+			"darkness",
+			"earth"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "darkness+water",
+		"ELEMENTS": [
+			"darkness",
+			"water"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "darkness+thunder",
+		"ELEMENTS": [
+			"darkness",
+			"thunder"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "darkness+wind",
+		"ELEMENTS": [
+			"darkness",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "light+earth",
+		"ELEMENTS": [
+			"light",
+			"earth"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "light+water",
+		"ELEMENTS": [
+			"light",
+			"water"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "light+thunder",
+		"ELEMENTS": [
+			"light",
+			"thunder"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "light+wind",
+		"ELEMENTS": [
+			"light",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "earth+water",
+		"ELEMENTS": [
+			"earth",
+			"water"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "earth+thunder",
+		"ELEMENTS": [
+			"earth",
+			"thunder"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "earth+wind",
+		"ELEMENTS": [
+			"earth",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "water+thunder",
+		"ELEMENTS": [
+			"water",
+			"thunder"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "water+wind",
+		"ELEMENTS": [
+			"water",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "thunder+wind",
+		"ELEMENTS": [
+			"thunder",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "fire+darkness+light",
+		"ELEMENTS": [
+			"fire",
+			"darkness",
+			"light"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "ice+water+wind",
+		"ELEMENTS": [
+			"ice",
+			"water",
+			"wind"
+		],
+		"INNER_DESCRIPTION": ""
+	},
+	{
+		"NAME": "wood+earth+thunder",
+		"ELEMENTS": [
+			"wood",
+			"earth",
+			"thunder"
+		],
+		"INNER_DESCRIPTION": ""
 	}
 ]
