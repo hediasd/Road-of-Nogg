@@ -3,7 +3,7 @@
 ## Historical Events & Lore
 * **Mythic Age**: A legendary era/manifestation of power, represented in the world's lore as a powerful Area-of-Effect support spell (Level 3, Elements: Earth and Light).
 * **The Red Moon**: A rare cosmological event that bathes the land in red glow, inciting power, rage, and madness on beings with lesser mental fortitude. The Cosmo Queen devised ways to force its recurrence to cultivate power and gather an army of Terrorugon.
-* **New Rizardia & Reconquest of Sebenitia**: A major geopolitical shift where power in the crocoan governorates shifts after the Maestro retires. The army of Crocodopolis, becoming a regional power, takes over Sebenitia (Saqqara) and establishes a revisionist crocodon rule.
+* **New Rizardia & Reconquest of Sebenitia**: A major geopolitical shift where power in the crocoan governorates shifts after the Maestro retires. The army of Crocodopolis, becoming a regional power, takes over Sebenitia (built over the earlier town of Saqqara; see [Geography](geography.md)) and establishes a revisionist crocodon rule.
 
 ## Storyline and Episodes
 
