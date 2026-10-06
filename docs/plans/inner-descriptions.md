@@ -24,7 +24,7 @@ how a source links to an object.
   combinations, each with an `INNER_DESCRIPTION` slot.
 - The Reference Register is gone. *Wicker Man*, *Eschatology*, *Solar Storm*,
   and *Insatiable Famine* carry pending inner descriptions.
-- `data/spells.json` has *Blood Meridian*, a Level 4 fire/darkness spell with a
+- `data/spells.json` has *Blood Meridian*, a Level 3 fire/darkness spell with a
   sourced or pending inner description.
 - A standing authoring rule, recorded in `AGENTS.md` and
   `docs/REFERENCE_CATALOGS.md`, governs every inner description from now on.
@@ -256,9 +256,9 @@ field.
 
 **Model:** Sonnet 5 / GPT Terra
 
-**Model rationale:** The gameplay values copy the existing Level 4 benchmark,
-and the inner description follows the fixed rule, so there is no balance or
-design judgement left. It is one catalog entry.
+**Model rationale:** The gameplay values copy *Wicker Man*, the existing
+two-element Level 3 spell, and the inner description follows the fixed rule,
+so there is no balance or design judgement left. It is one catalog entry.
 
 **Depends on:** INNER-3 (same file; run as one lane).
 
@@ -269,10 +269,10 @@ design judgement left. It is one catalog entry.
 ```json
 {
 	"CAN_TARGET_EMPTY": true,
-	"COOLDOWN": 8,
+	"COOLDOWN": 6,
 	"DAMAGE_LINES": [
-		{"damage": 4, "element": "fire"},
-		{"damage": 3, "element": "darkness"}
+		{"damage": 5, "element": "fire"},
+		{"damage": 5, "element": "darkness"}
 	],
 	"ELEMENTS": ["fire", "darkness"],
 	"INNER_DESCRIPTION": "<see below>",
@@ -280,7 +280,7 @@ design judgement left. It is one catalog entry.
 	"NAME": "Blood Meridian",
 	"RADIUS": 2,
 	"RANGE": 4,
-	"SEQUENCE_LEVEL": 4,
+	"SEQUENCE_LEVEL": 3,
 	"TARGET_TYPE": "area"
 }
 ```
@@ -391,10 +391,11 @@ which is the end of wave 1.
   export, so the text is in the build even though no screen shows it. This
   belongs in the backlog before a public release.
 - **A kit for *Blood Meridian*.** Smoke Cloud (race Terrorugon, family Smoke
-  Fiend) is the only fire+darkness monster. Its one spell set is fire-only, so
-  its darkness bar never charges and it could never cast a Level 4
-  fire/darkness spell. A kit needs a darkness set first, which is a separate
-  design decision.
+  Fiend) is the only fire+darkness monster, and at Level 3 it could legally
+  carry the spell in its fire set beside Smoke Tower. It is left out because
+  Smoke Cloud fights in nine scenarios, including the AI evaluation mirrors,
+  so a new spell would change CPU behaviour and evaluation baselines. That is
+  the user's call, not a side effect of this cycle.
 - **All 120 triples, and gameplay use of combinations.** The triples are
   placeholders. Nothing reads combinations yet.
 - **Inner descriptions for *Roses at Summers End*, *Holy Cross*, *Aurora
