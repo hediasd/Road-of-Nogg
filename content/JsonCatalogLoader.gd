@@ -3,6 +3,15 @@
 
 extends RefCounted
 
+## Creator-only notes on any catalog entry: the real-world source of an object
+## rooted in a real concept, plus trivia. Validated and REMOVED here, before any
+## wrapper sees the entry, so no runtime reference, screen, AI decision or save
+## can hold it -- a guarantee a grep audit of the presentation code could only
+## approximate. It lives here rather than in each wrapper so that every catalog,
+## including ones not yet written, inherits it. Read it from the JSON file. See
+## docs/REFERENCE_CATALOGS.md, "Inner descriptions".
+const INNER_DESCRIPTION_KEY := "INNER_DESCRIPTION"
+
 
 static func loadNamedCatalog(path: String, rootKey: String = "") -> Dictionary:
 	var parsedResult := _loadJson(path)
@@ -34,6 +43,13 @@ static func loadNamedCatalog(path: String, rootKey: String = "") -> Dictionary:
 			return _failure("JSON catalog contains an entry without NAME")
 		if nameIndex.has(nameKey):
 			return _failure("JSON catalog contains duplicate NAME \"%s\"" % nameKey)
+		if reference.has(INNER_DESCRIPTION_KEY):
+			if not reference[INNER_DESCRIPTION_KEY] is String:
+				return _failure(
+					"JSON catalog entry \"%s\" has a non-string %s"
+					% [nameKey, INNER_DESCRIPTION_KEY]
+				)
+			reference.erase(INNER_DESCRIPTION_KEY)
 		entries.append(reference)
 		nameIndex[nameKey] = reference
 

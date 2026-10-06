@@ -25,6 +25,7 @@ before the JSON migration. Authored values are coerced at the catalog boundary:
 | Booleans | `HEALS`, `CAN_TARGET_EMPTY`, `BYPASS_LOS`, `REVERTS_DAMAGE` |
 | Strings | `ELEMENT`, `TARGET_TYPE`, `AREA_SHAPE`, `INFLICTS_STATUS`, `REMOVES_STATUS`, `RESONANCE_ELEMENT`, `AOE_TARGETS`, `VFX_PROFILE` (legacy), `DESC` |
 | Objects | `VFX` (presentation only; see below) |
+| Creator-only | `INNER_DESCRIPTION`: validated and removed at load, never published. See [Inner descriptions](./REFERENCE_CATALOGS.md#inner-descriptions). |
 
 `CAN_TARGET_EMPTY` is explicit on every spell. For non-self spells it controls
 whether an empty reachable center is legally confirmable. It does not remove

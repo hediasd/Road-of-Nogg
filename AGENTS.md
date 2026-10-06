@@ -194,6 +194,14 @@ can do all three. Confirmed 2026-09-29.
   `data/taxonomy.json`, which record the user's intent for each race. The
   user set these rules on 2026-09-27. Resolve ordinary technical details from
   repository evidence, and ask before materially expanding scope.
+- **Inner descriptions record sources, nothing else.** Any catalog entry may
+  carry `INNER_DESCRIPTION`, a creator-only string the game never shows. Write
+  only the real-world source, based on the English Wikipedia article where a
+  good one exists and ending with its URL. Never explain how the source links
+  to the object. When one is owed but cannot be written yet, write the
+  `PENDING:` instruction instead of leaving it empty or guessing. The exact
+  rule and format are in `docs/REFERENCE_CATALOGS.md` (*Inner descriptions*).
+  The user set this on 2026-10-02.
 - Race, family and species are a hierarchy (race → family → species; each
   family belongs to exactly one race). Always name them as separate fields,
   in tables and prose alike, and never merge them into one combined
