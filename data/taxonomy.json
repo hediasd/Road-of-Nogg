@@ -201,6 +201,11 @@
 			"DESCRIPTION": "Ice beings of the North."
 		},
 		{
+			"NAME": "Kemetomos",
+			"RACE": "Kemetos",
+			"DESCRIPTION": "Mudtombs and desert dwellers."
+		},
+		{
 			"NAME": "Mumitomos",
 			"RACE": "Kemetos",
 			"DESCRIPTION": "Mudtombs and desert dwellers."

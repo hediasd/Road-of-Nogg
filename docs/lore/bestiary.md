@@ -79,7 +79,7 @@ Constructs and gargantuan beings of varied materials.
 | Name | Associated Race | Notes |
 |------|-----------------|-------|
 | Hanansk & Megadansk | Helvengesk | Ice beings of the North |
-| Kemetomos & Mumitomos | Kemetos | Mudtombs and desert dwellers |
+| Kemetomos & Mumitomos | Kemetos | Mudtombs and desert dwellers; the Diplomat of Sebenitia is a Kemetomos |
 | Paper Tiger (King) | Paperfolk | Origami-like beings |
 | Shapeshifters / Blob | Gel | Amorphous dwellers |
 | Extrafolk | Shadogus | - |
