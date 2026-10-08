@@ -14,8 +14,8 @@
 ## The number is thrown rather than stamped: it leaves the unit at
 ## `RISE_SPEED`, decelerates under `FALL_ACCELERATION`, crests, and is already
 ## descending when it drops its outline and flashes out. See
-## `docs/plans/battle-damage-number-arc.md` for the measured reference figures
-## this timeline implements.
+## `docs/plans/battle-damage-number-arc.md` (removed 2026-10-02; read it from
+## git history) for the measured reference figures this timeline implements.
 
 class_name DamageNumberBillboard
 extends Control

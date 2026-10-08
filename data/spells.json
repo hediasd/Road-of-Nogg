@@ -678,6 +678,7 @@
 		],
 		"DESC": "A medium-close range fire/light damage spell.",
 		"ELEMENTS": ["fire", "light"],
+		"INNER_DESCRIPTION": "PENDING: write the source from English Wikipedia (topic: eschatology). Source only; do not explain the link.",
 		"MAX_HEIGHT_DELTA": 1,
 		"MIN_RANGE": 2,
 		"NAME": "Eschatology",
@@ -697,6 +698,7 @@
 			}
 		],
 		"ELEMENTS": ["light", "wood"],
+		"INNER_DESCRIPTION": "PENDING: write the source from English Wikipedia (topic: wicker man). Source only; do not explain the link.",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Wicker Man",
 		"RADIUS": 2,
@@ -891,9 +893,10 @@
 	{
 		"CAN_TARGET_EMPTY": true,
 		"DAMAGE": 2,
-		"DESC": "Inspired by the curse of Erysichthon. Single target ranged attack that inflicts poison.",
+		"DESC": "Single target ranged attack that inflicts poison.",
 		"ELEMENT": "wood",
 		"INFLICTS_STATUS": "poison",
+		"INNER_DESCRIPTION": "Inspired by the curse of Erysichthon. PENDING: write the source from English Wikipedia (topic: the curse of Erysichthon). Source only; do not explain the link.",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Insatiable Famine",
 		"RANGE": 4,
@@ -1018,6 +1021,7 @@
 		"DAMAGE": 7,
 		"DESC": "Tears a hole in the daylight and lets what stands behind it throw its fire across the field.",
 		"ELEMENT": "fire",
+		"INNER_DESCRIPTION": "PENDING: write the source from English Wikipedia (topic: solar storm). Source only; do not explain the link.",
 		"MAX_HEIGHT_DELTA": 1,
 		"NAME": "Solar Storm",
 		"RADIUS": 3,
@@ -1048,6 +1052,28 @@
 		"NAME": "Falling Ceiling",
 		"RADIUS": 2,
 		"RANGE": 3,
+		"SEQUENCE_LEVEL": 3,
+		"TARGET_TYPE": "area"
+	},
+	{
+		"CAN_TARGET_EMPTY": true,
+		"COOLDOWN": 6,
+		"DAMAGE_LINES": [
+			{
+				"damage": 5,
+				"element": "fire"
+			},
+			{
+				"damage": 5,
+				"element": "darkness"
+			}
+		],
+		"ELEMENTS": ["fire", "darkness"],
+		"INNER_DESCRIPTION": "PENDING: write the source from English Wikipedia (topic: Blood Meridian, the 1985 novel by Cormac McCarthy). Source only; do not explain the link.",
+		"MAX_HEIGHT_DELTA": 1,
+		"NAME": "Blood Meridian",
+		"RADIUS": 2,
+		"RANGE": 4,
 		"SEQUENCE_LEVEL": 3,
 		"TARGET_TYPE": "area"
 	}

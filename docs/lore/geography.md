@@ -22,7 +22,7 @@ The continent is broadly divided into grand cardinal regions, each hosting uniqu
 
 ## Major Cities
 
-*   **Sebenitia (Seat of Culture):** A holy, highly cultured metropolis renowned for its grand temples, the Forge of Sebenitia, and its learned populace.
+*   **Sebenitia (Seat of Culture):** A holy, highly cultured metropolis renowned for its grand temples, the Forge of Sebenitia, and its learned populace. It was built over the settlement of the earlier town of Saqqara. It is walled, green with trees, partially surrounded by a river, and threaded with underground waterways from old times.
 *   **Lightown:** The "City filled with Lights," a dominion that acts as a beacon of order, faith, and potentially blinding dogma (channeling the Light element).
 *   **Crocodopolis:** A dangerous, sprawling settlement within the swamps and rivers, governed heavily by the robust and aggressive locals.
 *   **Chacoalia:** The grand capital of the Chacals, located in the deep desert.

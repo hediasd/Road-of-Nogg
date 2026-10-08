@@ -215,9 +215,12 @@ func numberRoot() -> Control:
 
 ## A basic attack or a per-target spell hit: the source lunges toward the target, and the number is
 ## thrown where the lunge lands. Held "mostly through" the number by `ACTION_HOLD_FRACTION`, the
-## same rule heals and defeats already follow, so consecutive hits overlap instead of queueing up
-## behind each other's tails. Two numbers sharing the screen is the intended reading: they are on
-## the same path a third of a second apart, which is a rhythm, not a collision.
+## same rule heals and defeats already follow; `VisualActionQueue` then appends its strike recovery
+## (`STRIKE_RECOVERY_SECONDS`), so consecutive hits land about half a second apart and their numbers
+## share the screen only briefly. One hit throws one number however many
+## damage lines it carries -- `_on_monster_cast_spell` sums them -- so the reference capture's two
+## numbers from a single attack, 0.34 s apart on one path, have no counterpart here. Showing one
+## number per damage line would be a design change, not a timing one.
 func _startStrike(action: VisualAction, payload: Dictionary, queue: VisualActionQueue) -> bool:
 	var source: Node3D = _adapter.modelFor(int(payload.get("source_id", -1)))
 	if source == null or not is_instance_valid(source):

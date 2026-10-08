@@ -159,7 +159,7 @@
 			"DESCRIPTION": "Amorphous dwellers."
 		},
 		{
-			"NAME": "Brickamon",
+			"NAME": "Brickamons",
 			"RACE": "Golemfolk"
 		},
 		{
@@ -199,6 +199,11 @@
 			"NAME": "Hanansk",
 			"RACE": "Helvengesk",
 			"DESCRIPTION": "Ice beings of the North."
+		},
+		{
+			"NAME": "Kemetomos",
+			"RACE": "Kemetos",
+			"DESCRIPTION": "Mudtombs and desert dwellers."
 		},
 		{
 			"NAME": "Mumitomos",

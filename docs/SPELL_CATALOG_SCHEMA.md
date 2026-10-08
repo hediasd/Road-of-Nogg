@@ -25,6 +25,7 @@ before the JSON migration. Authored values are coerced at the catalog boundary:
 | Booleans | `HEALS`, `CAN_TARGET_EMPTY`, `BYPASS_LOS`, `REVERTS_DAMAGE` |
 | Strings | `ELEMENT`, `TARGET_TYPE`, `AREA_SHAPE`, `INFLICTS_STATUS`, `REMOVES_STATUS`, `RESONANCE_ELEMENT`, `AOE_TARGETS`, `VFX_PROFILE` (legacy), `DESC` |
 | Objects | `VFX` (presentation only; see below) |
+| Creator-only | `INNER_DESCRIPTION`: validated and removed at load, never published. See [Inner descriptions](./REFERENCE_CATALOGS.md#inner-descriptions). |
 
 `CAN_TARGET_EMPTY` is explicit on every spell. For non-self spells it controls
 whether an empty reachable center is legally confirmable. It does not remove
@@ -119,8 +120,9 @@ previous catalog live.
 Spell names follow the naming conventions in
 [`lore/magic_and_relics.md`](./lore/magic_and_relics.md#spell-names) (a single
 word at Level 1, a poetic sentence or niche real-world reference at Level 4).
-When a new spell's name carries a reference, add its row to that file's
-Reference Register in the same commit as the catalog entry.
+When a new spell's name carries a reference, document the source in the
+spell's `INNER_DESCRIPTION` in the same commit as the catalog entry, following
+the authoring rule in [Inner descriptions](./REFERENCE_CATALOGS.md#inner-descriptions).
 
 Gameplay semantics remain owned by `Spell`,
 `SpellEffectResolver`, command validation, AI, and presentation; this catalog

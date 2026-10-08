@@ -13,13 +13,60 @@ and runtime representation conversion.
 | Monsters | `monsters.json` | Nested `STATS` coercion and monster metadata defaults. |
 | Races | `taxonomy.json` (`races`) | Resistance multiplier coercion. |
 | Spells | `spells.json` | Spell scalars, damage lines, and effect definitions. |
-| Elements | `elements.json` | Ordered normalized names plus a required, unique two-character uppercase `CODE`; includes the `none` sentinel. |
+| Elements | `elements.json` | Single elements first: ordered normalized names plus a required, unique two-character uppercase `CODE`, including the `none` sentinel; `list`, `STANDARD`, `CODES`, `code()` and `isValid()` see only these. Then two- and three-element combinations: an entry with `ELEMENTS` and no `CODE`, named by its elements in single-element order joined with `+` (`fire+darkness`), reached through `COMBINATIONS` and the order-insensitive `getCombination()`. |
 | Archetypes | `archetypes.json` | Optional integer stat-band values. |
 | Passives | `passives.json` | Trigger/effect fields, value, and radius. |
 | Status effects | `status_effects.json` | Duration, damage-per-turn, and negative flag. |
+| Settlements | `settlements.json` | No runtime wrapper yet: named towns and cities that carry creator-only data such as `INNER_DESCRIPTION`. |
 | Maps | `maps.json` | Integer heights and JSON coordinate pairs converted to `Vector2i`. |
 | Hex battle maps | `battle/maps/<map-id>.json` | Strict tactical topology, mask, semantic terrain, elevation, source identity, and cell metrics. |
 | Hex battle scenarios | `battle/scenarios/<scenario-id>.json` | Exact map identity, deterministic parties, controllers, members, and deployment. |
+
+## Inner descriptions
+
+Any entry in a JSON catalog may carry `INNER_DESCRIPTION`: a string for the
+creator alone, recording the real-world source of an object rooted in a real
+concept, plus any other trivia. The game never shows it.
+
+`JsonCatalogLoader.loadNamedCatalog` enforces this once, for every catalog. A
+string is accepted and removed before the entry reaches its wrapper, so no
+runtime reference, screen, AI decision or save ever holds it. Any other type
+(a number, `null`, an array, an object) rejects the whole reload with a message
+naming the entry, and the previous catalog stays live. A new catalog that loads
+through `loadNamedCatalog`, an items catalog included, inherits the rule with
+no code of its own. To read an inner description, open the JSON file: it is
+deliberately not available at runtime.
+
+Taxonomy families and species, and `settlements.json`, have no runtime
+loader, so nothing checks them at load. `checks/content/probe_inner_description.gd`
+proves the rule on them, and on every wrapped catalog, directly.
+
+### Authoring rule (user, 2026-10-02)
+
+An inner description documents **the source only**. When the object is rooted
+in a real-world concept, base the entry on its English Wikipedia article
+whenever a good one exists, and end with that article's URL. Never explain how
+the source links to the object: why a spell is fire/darkness, what its
+mechanics evoke, or any reading of the name.
+
+Format: one plain string. Write the source as one or two sentences in your own
+words based on the article's lead, then `Wikipedia: <url>`. Any trivia the user
+adds later follows as further sentences.
+
+**Pending entries.** When an inner description is owed but cannot be written
+now (Wikipedia is unreachable, or the user asked for it to be left pending),
+the field holds an instruction for whoever fills it, never an empty string or a
+guess:
+
+`PENDING: write the source from English Wikipedia (topic: <topic>). Source only; do not explain the link.`
+
+`<topic>` is the real-world concept the user named, taken from their own words
+or the object's existing text. User-written text may come before the
+`PENDING:` sentence. A session that reaches a `PENDING:` entry while it can
+reach Wikipedia may replace that sentence under the rule above, keeping any
+text before it, and lists each replacement in its commit body. An empty
+`INNER_DESCRIPTION` means nothing is owed (for example, an element combination
+nobody has written about yet); it is not pending.
 
 ## Race descriptions
 
@@ -70,6 +117,7 @@ loadable visual scene tied to the same source identity.
 ## Editing rules
 
 - Catalog roots are arrays of named objects; names must be unique.
+- `INNER_DESCRIPTION` is creator-only; see *Inner descriptions* above.
 - A failed hot reload preserves the previously live catalog.
 - Do not put authored arrays back into GDScript reference classes. Behavior
   registries and resolvers may remain code when they represent executable

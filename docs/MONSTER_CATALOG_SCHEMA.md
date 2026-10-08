@@ -25,6 +25,7 @@ working catalog.
 | PASSIVES | array of string | no | Passive names owned by the monster. |
 | ASCENDS_FROM | string | no | Defaults to an empty string. |
 | DESCRIPTION | string | no | Free-text flavor. |
+| INNER_DESCRIPTION | string | no | Creator-only; validated and removed at load, never published. See [Inner descriptions](./REFERENCE_CATALOGS.md#inner-descriptions). |
 
 ### STATS dictionary
 

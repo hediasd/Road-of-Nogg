@@ -1,0 +1,6 @@
+{
+	"probes": [
+		{"script": "res://checks/content/probe_inner_description.gd", "marker": "INNER_DESCRIPTION_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://checks/content/probe_element_catalog.gd", "marker": "ELEMENT_CATALOG_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}
