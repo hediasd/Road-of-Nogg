@@ -12,6 +12,11 @@ const BATTLE_MODES := [
 ]
 
 signal battle_requested(scenarioPath: String, seedValue: int)
+signal road_requested()
+
+## Whether to offer the road. Set by the controller before this enters the tree, so the form is
+## measured with the button already in it.
+var roadAvailable := false
 
 var _root: Control
 var _scenarioOption: OptionButton
@@ -170,6 +175,14 @@ func _buildForm() -> void:
 	startButton.pressed.connect(_onStartPressed)
 	content.add_child(startButton)
 	startButton.call_deferred("grab_focus")
+
+	if roadAvailable:
+		var roadButton := Button.new()
+		roadButton.name = "RoadButton"
+		roadButton.text = "OPEN THE ROAD"
+		roadButton.custom_minimum_size.y = 48
+		roadButton.pressed.connect(func() -> void: road_requested.emit())
+		content.add_child(roadButton)
 
 	# Frame layers share the full panel bounds; the content alone takes an inset.
 	var frame := NoggThemeScript.build_window_frame()

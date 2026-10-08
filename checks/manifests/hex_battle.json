@@ -8,6 +8,7 @@
 		{"script": "res://checks/battle/probe_board_view.gd", "marker": "HXB_BOARD_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://checks/battle/probe_command_menu.gd", "marker": "HXB_MENU_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://checks/battle/probe_editor_export.gd", "marker": "HXB_EXPORT_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://checks/battle/probe_embedded_battle.gd", "marker": "HXB_EMBEDDED_OK", "timeout": 240, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://checks/battle/probe_entrypoints.gd", "marker": "HXB_ENTRYPOINTS_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://checks/battle/probe_grid.gd", "marker": "HXB_GRID_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://checks/battle/probe_inspection.gd", "marker": "HXB_INSPECT_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},

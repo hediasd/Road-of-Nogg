@@ -64,6 +64,10 @@ static func toggleClearance() -> float:
 
 var renderer: RetroRenderController
 var battleCamera: HexBattleCamera
+## What the SETUP row says. A battle embedded in another scene leaves to that scene instead.
+var leaveLabel := "Setup"
+## Whether a finished battle offers Restart. An embedded battle's host has already counted it.
+var restartAllowed := true
 var toggleButton: Button
 var panel: PanelContainer
 var presetOption: OptionButton
@@ -139,7 +143,7 @@ func _build() -> void:
 	column.add_child(sessionTitle)
 	for entry in [
 		[PAUSE, "Pause", "P"], [SPEED, "Speed 1x", "F"], [SKIP, "Skip", "Enter"],
-		[RESTART, "Restart", "R"], [SETUP, "Setup", ""],
+		[RESTART, "Restart", "R"], [SETUP, leaveLabel, ""],
 	]:
 		var button := Button.new()
 		button.name = "Session_%s" % str(entry[0])
@@ -210,8 +214,8 @@ func setSession(session: Dictionary) -> void:
 	_setSessionRow(
 		SPEED, "Speed %s" % speedText(float(session.get("speed", 1.0))), "F", not complete)
 	_setSessionRow(SKIP, "Skip", "Enter", not complete and bool(session.get("can_skip", false)))
-	_setSessionRow(RESTART, "Restart", "R", complete)
-	_setSessionRow(SETUP, "Setup", "", true)
+	_setSessionRow(RESTART, "Restart", "R", complete and restartAllowed)
+	_setSessionRow(SETUP, leaveLabel, "", true)
 
 
 ## The session state this drawer last drew, for probes.

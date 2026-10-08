@@ -51,6 +51,23 @@ const HexGraphicsPanelScript = preload("res://ui/HexGraphicsPanel.gd")
 ## that decided it. Nothing may start in it, and the result waits for playback to drain.
 enum Lifecycle { SETUP, BATTLE, ENDING, COMPLETE }
 
+## EMBEDDING. Another scene (the road) can host a battle: it sets `embedded` before adding this
+## node, calls `startBattle`, and listens. `battle_completed` fires once, when the result is shown
+## (after playback drains, the same moment the status line announces it). `leave_requested` fires
+## when the player asks to leave, finished or not; the host frees this node. An embedded battle
+## never shows the setup screen and never restarts: the host has counted this battle, and a retry
+## is the host's to offer.
+signal battle_completed(outcome: int)
+signal leave_requested(outcome: int)
+
+## What the session drawer's leave row says inside an embedded battle.
+const EMBEDDED_LEAVE_LABEL := "Leave battle"
+## The scene the setup screen opens for the road. Offered only once it exists.
+const ROAD_SCENE := "res://scenes/Road.tscn"
+
+## Set by a host before this node enters the tree. See EMBEDDING above.
+var embedded := false
+
 ## How often the loop re-checks whether it may advance. A timer rather than `_process` so a
 ## battle that is waiting on playback is not re-evaluated sixty times a second for no reason.
 const ADVANCE_INTERVAL_SECONDS := 0.05
@@ -105,8 +122,10 @@ var _pointerTargetID := -1
 
 func _ready() -> void:
 	setupUI = HexBattleSetupUIScript.new()
+	setupUI.roadAvailable = not embedded and ResourceLoader.exists(ROAD_SCENE)
 	add_child(setupUI)
 	setupUI.battle_requested.connect(_onBattleRequested)
+	setupUI.road_requested.connect(_onRoadRequested)
 
 	_advanceTimer = Timer.new()
 	_advanceTimer.name = "AdvanceTimer"
@@ -122,7 +141,7 @@ func _ready() -> void:
 func _enterSetup() -> void:
 	lifecycle = Lifecycle.SETUP
 	_advanceTimer.stop()
-	setupUI.setVisibleUI(true)
+	setupUI.setVisibleUI(not embedded)
 	if hud != null:
 		hud.clearParty()
 
@@ -167,6 +186,16 @@ func teardownBattle() -> void:
 func returnToSetup() -> void:
 	teardownBattle()
 	_enterSetup()
+
+
+## Inside an embedded battle, the leave row hands the decision to the host, with the outcome so
+## far (-1 while undecided).
+func requestLeave() -> void:
+	leave_requested.emit(int(sim.state.battleOutcome) if sim != null else -1)
+
+
+func _onRoadRequested() -> void:
+	get_tree().change_scene_to_file(ROAD_SCENE)
 
 
 func _onBattleRequested(scenarioPath: String, seedValue: int) -> void:
@@ -267,6 +296,9 @@ func startBattle(scenarioPath: String, seedValue: int) -> Dictionary:
 	hud.command_chosen.connect(_onHudCommandChosen)
 	hud.command_cancelled.connect(_onHudCommandCancelled)
 	stage.graphicsPanel.session_command.connect(_onSessionCommand)
+	if embedded:
+		stage.graphicsPanel.leaveLabel = EMBEDDED_LEAVE_LABEL
+		stage.graphicsPanel.restartAllowed = false
 	hud.selection_lost.connect(func(_id: int): _selectUnit(_actingMemberID()))
 	hud.bind(sim, adapter)
 	hud.setSideTurnMode(true)
@@ -1179,9 +1211,13 @@ func _onSessionCommand(commandID: String) -> void:
 		HexGraphicsPanelScript.SKIP:
 			skipAnimation()
 		HexGraphicsPanelScript.RESTART:
-			restartBattle()
+			if not embedded:
+				restartBattle()
 		HexGraphicsPanelScript.SETUP:
-			returnToSetup()
+			if embedded:
+				requestLeave()
+			else:
+				returnToSetup()
 
 
 ## P pauses, F changes speed, Enter or Space skips when no member turn is open (inside a member
@@ -1199,7 +1235,7 @@ func _handleSessionKey(event: InputEventKey) -> bool:
 				skipAnimation()
 				return true
 		KEY_R:
-			if lifecycle == Lifecycle.COMPLETE:
+			if lifecycle == Lifecycle.COMPLETE and not embedded:
 				restartBattle()
 				return true
 	return false
@@ -1324,6 +1360,7 @@ func _completeBattle() -> void:
 	_advanceTimer.stop()
 	if hud != null:
 		_setStatus("%s." % resultText(sim.state))
+	battle_completed.emit(int(sim.state.battleOutcome))
 
 
 ## "Draw" for the draw team, otherwise the winning team, and whose side that is. A draw is team 0
