@@ -67,6 +67,25 @@ func _playBattle() -> void:
 			waits += 1
 			continue
 
+		# The click-to-attack path is what this probe proves, not that the CPU likes basic attacks.
+		# Once stats grow with level, this side's CPU fights the levelled enemy at range and never
+		# proposes one, at any seed. So the first time a ready unit can reach an enemy, it walks
+		# there and attacks it by clicking the enemy, and the hit must land.
+		if attacks == 0:
+			var attack: Dictionary = await _readyAttack()
+			if not attack.is_empty():
+				if attack.has("move_to"):
+					await _submitMove(attack["move_to"])
+				var target = controller.sim.state.getMonster(int(attack["target_id"]))
+				var hpBefore: int = target.hitpoints
+				controller._handleSideClick(controller.stage.projectWorldToScreen(
+					controller.adapter.worldPositionOf(controller.sim.state.getMonsterPosition(int(attack["target_id"])))))
+				await _frames(1)
+				_require(not target.is_alive() or target.hitpoints < hpBefore,
+					"clicking an enemy in reach did not attack it")
+				attacks += 1
+				continue
+
 		var proposal = controller.sim.beginSideDeliberation().run(64)
 		if proposal == null:
 			controller.sideCues._endButton._onPressed()
@@ -105,24 +124,27 @@ func _driveCommand(command: BattleCommand) -> void:
 			controller.memberInput.chooseCommand(HexBattleMemberInput.MOVE_COMMAND)
 			controller.memberInput.cancel()
 			cancels += 1
-		var point := controller.stage.projectWorldToScreen(controller.adapter.worldPositionOf(destination))
-		controller._handleSideClick(point)
-		await _frames(1)
-		moves += 1
+		await _submitMove(destination)
 		if undos == 0 and controller.memberTurn != null and controller.memberTurn.canUndoMove():
 			controller.sideCues.action_requested.emit("undo")
 			await _frames(1)
 			undos += 1
-			controller._handleSideClick(point)
-			await _frames(1)
-			moves += 1
+			await _submitMove(destination)
 	if controller.memberInput == null:
 		return
 	match command.action:
 		"attack":
 			var point := controller.stage.projectWorldToScreen(
 				controller.adapter.worldPositionOf(command.target_pos))
-			controller._handleSideClick(point)
+			var occupant = controller.sim.state.getMonsterAt(command.target_pos)
+			var targetID: int = occupant.uniqueID if occupant != null else -1
+			if controller._pointerUnit(point) == targetID:
+				controller._handleSideClick(point)
+			else:
+				# Another body is in front of the target here; aim at it as the keyboard would.
+				controller.memberInput.chooseCommand(HexBattleMemberInput.ATTACK_COMMAND)
+				controller.memberInput.aimAt(command.target_pos)
+				controller.memberInput.confirm()
 			await _frames(1)
 			attacks += 1
 		"spell":
@@ -136,6 +158,58 @@ func _driveCommand(command: BattleCommand) -> void:
 			_pushKey(KEY_4)
 			await _frames(1)
 			waits += 1
+
+
+## Moves the selected unit to `destination` by clicking the cell, as a mouse player would. When
+## an attackable enemy's body covers that cell, the click would (rightly) attack it, so the move is
+## aimed instead, as the keyboard does.
+func _submitMove(destination: Vector2i) -> void:
+	var point := controller.stage.projectWorldToScreen(controller.adapter.worldPositionOf(destination))
+	if controller._pointerUnit(point) == -1:
+		controller._handleSideClick(point)
+	else:
+		controller.memberInput.chooseCommand(HexBattleMemberInput.MOVE_COMMAND)
+		controller.memberInput.aimAt(destination)
+		controller.memberInput.confirm()
+	await _frames(1)
+	moves += 1
+
+
+## Selects ready units, lowest id first, until one can basic-attack an enemy from where it stands
+## or from a cell it can walk to. Returns `{unit, target_id}` plus `move_to` when it must walk,
+## with that unit left selected. Returns empty, with nothing selected, when none can.
+func _readyAttack() -> Dictionary:
+	var state = controller.sim.state
+	var ready: Array = controller.sim.eligibleSideUnitIDs().duplicate()
+	ready.sort()
+	var enemies: Array = []
+	var others: Array = state.monsterPositions.keys()
+	others.sort()
+	for otherID in others:
+		var other = state.getMonster(int(otherID))
+		if other != null and other.team != state.activeSideID and other.is_alive():
+			enemies.append(int(otherID))
+	for unitID in ready:
+		controller._onHudMemberSelected(int(unitID))
+		await _frames(1)
+		if controller.memberTurn == null:
+			continue
+		var origins: Array = [state.getMonsterPosition(int(unitID))]
+		var reachable: Array = controller.memberTurn.reachableCells()
+		reachable.sort()
+		origins.append_array(reachable)
+		for index in range(origins.size()):
+			for enemyID in enemies:
+				if controller.sim.combatResolver.canBasicAttackPositionFrom(
+						int(unitID), origins[index], state.getMonsterPosition(enemyID)):
+					var plan := {"unit": int(unitID), "target_id": enemyID}
+					if index > 0:
+						plan["move_to"] = origins[index]
+					return plan
+	# Nothing in reach: let go of the last unit looked at, or the turn loop waits on it forever.
+	controller._cancelPlayerSelection()
+	await _frames(1)
+	return {}
 
 
 func _pushKey(keycode: Key) -> void:

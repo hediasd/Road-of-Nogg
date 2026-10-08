@@ -223,6 +223,24 @@ its damage and a weak element deals 120%; every other element is neutral at
 100%. The multiplier applies to elemental damage only, so basic attacks are
 unaffected. Race matchups are the only source of these multipliers.
 
+### Level growth
+
+A monster's HP, ATK and DEF grow with level by its catalog `*_GROWTH` values,
+counted in hundredths per level above 1 and rounded down
+(`MonsterStatCalculator.derive`). Every monster takes the default for its
+archetype. The values were chosen as defaults on 2026-10-08 and can be
+overruled; three levels come to roughly one default ascension step.
+
+| Archetype | HP_GROWTH | ATK_GROWTH | DEF_GROWTH |
+|---|---|---|---|
+| defender | 400 | 34 | 67 |
+| striker | 250 | 67 | 34 |
+| controller | 300 | 50 | 50 |
+| leader | 300 | 34 | 50 |
+
+A level 4 striker therefore has +7 HP, +2 ATK and +1 DEF over its level 1
+numbers. Level 1 numbers do not change.
+
 
 ### Taxonomy and Resonance
 
@@ -311,7 +329,7 @@ corresponding content lands.
 | Resonance tiers 2-3 (+20%/+30%) and Level 4 ascension | Partial | Reachable since 2026-07-28, but only through the Wood ladder on `Walker of the Woods` — the only complete Level 1-4 set in the catalog. The other nine elements still stop at charge 1. |
 | Elemental weakness/critical Resonance decay | Live | Fires correctly whenever a charge exists to decay. |
 | Critical hits | Live | Implemented and tested. Luck (range 2–10 across the roster) drives critical chance via `min(luck * 1%, 15%)`. |
-| Level-based stat growth | Designed, not yet live | Every monster's `HP_GROWTH`/`ATK_GROWTH`/`DEF_GROWTH` is 0, **and** no production code spawns a monster above level 1, so growth values would be inert even if assigned. |
+| Level-based stat growth | Live | Since 2026-10-08 every monster carries its archetype's growth (see "Level growth"). Every scenario fields monsters at levels 1-4, so those battles are mixed-level. The standalone setup screen still cannot choose levels. |
 | Race elemental resistance (±20%) | Live | Every monster now has a race, including the default preset, so a default CPU vs CPU battle exercises resistances and weakness-driven Resonance decay. |
 | Resonance charge UI | Live | Docked status windows show each owned element's catalog code and a three-cell charge bar. In-world critical and weakness feedback remains deferred. |
 

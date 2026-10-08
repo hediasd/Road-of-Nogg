@@ -9,9 +9,9 @@
 			"MOVE": 2,
 			"LUCK": 2,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [
 			"ice"
@@ -36,9 +36,9 @@
 			"MOVE": 3,
 			"LUCK": 2,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 50,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"ice"
@@ -69,9 +69,9 @@
 			"MOVE": 2,
 			"LUCK": 5,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 50,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"darkness"
@@ -97,9 +97,9 @@
 			"MOVE": 2,
 			"LUCK": 0,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"light"
@@ -125,9 +125,9 @@
 			"MOVE": 3,
 			"LUCK": 3,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"fire"
@@ -153,9 +153,9 @@
 			"MOVE": 3,
 			"LUCK": 4,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"thunder"
@@ -183,9 +183,9 @@
 			"MOVE": 4,
 			"LUCK": 0,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [
 			"wood"
@@ -213,9 +213,9 @@
 			"MOVE": 3,
 			"LUCK": 6,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"ice"
@@ -244,9 +244,9 @@
 			"MOVE": 2,
 			"LUCK": 0,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [],
 		"RACE": "Helvengesk",
@@ -265,9 +265,9 @@
 			"MOVE": 3,
 			"LUCK": 3,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 50,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"fire",
@@ -293,9 +293,9 @@
 			"MOVE": 3,
 			"LUCK": 2,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 50,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"fire",
@@ -321,9 +321,9 @@
 			"MOVE": 2,
 			"LUCK": 0,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"light",
@@ -350,9 +350,9 @@
 			"MOVE": 3,
 			"LUCK": 0,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 50,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"wood",
@@ -379,9 +379,9 @@
 			"MOVE": 3,
 			"LUCK": 3,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [
 			"darkness"
@@ -408,9 +408,9 @@
 			"MOVE": 3,
 			"LUCK": 2,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 50,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"ice"
@@ -438,9 +438,9 @@
 			"MOVE": 3,
 			"LUCK": 3,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [
 			"ice",
@@ -470,9 +470,9 @@
 			"MOVE": 4,
 			"LUCK": 6,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"fire",
@@ -503,9 +503,9 @@
 			"MOVE": 2,
 			"LUCK": 3,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [
 			"earth",
@@ -534,9 +534,9 @@
 			"MOVE": 3,
 			"LUCK": 4,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 50,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"wood"
@@ -562,9 +562,9 @@
 			"MOVE": 3,
 			"LUCK": 0,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"wood",
@@ -599,9 +599,9 @@
 			"MOVE": 5,
 			"LUCK": 5,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"wind"
@@ -623,9 +623,9 @@
 			"MOVE": 5,
 			"LUCK": 4,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"water",
@@ -654,9 +654,9 @@
 			"MOVE": 5,
 			"LUCK": 5,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"water",
@@ -687,9 +687,9 @@
 			"MOVE": 6,
 			"LUCK": 6,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"water",
@@ -720,9 +720,9 @@
 			"MOVE": 3,
 			"LUCK": 4,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 50,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"water",
@@ -753,9 +753,9 @@
 			"MOVE": 8,
 			"LUCK": 5,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"steel",
@@ -784,9 +784,9 @@
 			"MOVE": 2,
 			"LUCK": 0,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [
 			"earth"
@@ -812,9 +812,9 @@
 			"MOVE": 4,
 			"LUCK": 9,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"darkness"
@@ -841,9 +841,9 @@
 			"MOVE": 3,
 			"LUCK": 3,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [
 			"water",
@@ -874,9 +874,9 @@
 			"MOVE": 4,
 			"LUCK": 8,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"steel",
@@ -907,9 +907,9 @@
 			"MOVE": 5,
 			"LUCK": 10,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"steel",
@@ -940,9 +940,9 @@
 			"MOVE": 3,
 			"LUCK": 2,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"light"
@@ -969,9 +969,9 @@
 			"MOVE": 2,
 			"LUCK": 2,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [
 			"earth"
@@ -997,9 +997,9 @@
 			"MOVE": 2,
 			"LUCK": 1,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"light"
@@ -1026,9 +1026,9 @@
 			"MOVE": 4,
 			"LUCK": 3,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 300,
+			"ATK_GROWTH": 50,
+			"DEF_GROWTH": 50
 		},
 		"ELEMENTS": [
 			"earth",
@@ -1058,9 +1058,9 @@
 			"MOVE": 4,
 			"LUCK": 4,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 250,
+			"ATK_GROWTH": 67,
+			"DEF_GROWTH": 34
 		},
 		"ELEMENTS": [
 			"darkness",
@@ -1089,9 +1089,9 @@
 			"MOVE": 1,
 			"LUCK": 0,
 			"JUMP": 1,
-			"HP_GROWTH": 0,
-			"ATK_GROWTH": 0,
-			"DEF_GROWTH": 0
+			"HP_GROWTH": 400,
+			"ATK_GROWTH": 34,
+			"DEF_GROWTH": 67
 		},
 		"ELEMENTS": [
 			"earth"

@@ -44,13 +44,14 @@ Spell roles and balance values require a deliberate content decision.
 
 ### Make levels playable
 
-Every roster slot still enters battle at level 1 and all 28 monster growth
-triples are zero. Add per-slot level selection to battle setup and preserve it
-through save/reconstruction, defaulting old setup data to level 1. Agree on a
-bounded range and role-shaped growth, then author the catalog values. Acceptance:
-mixed-level battles show the correct HP/ATK/DEF in setup, simulation, STATUS,
-and restored state; existing level-1 numbers stay unchanged. The range and
-growth values are balance decisions for the user.
+Growth is live: every monster carries its archetype's default growth
+(`docs/GAME_DESIGN.md`, "Level growth"), and scenarios field monsters at levels
+1-4. What is missing is choosing levels: the standalone setup screen only plays
+authored scenarios. Add per-slot level selection to battle setup and preserve
+it through save/reconstruction, defaulting old setup data to the authored level.
+Acceptance: a chosen level shows the correct HP/ATK/DEF in setup, simulation,
+STATUS and restored state. Whether the archetype defaults should become
+per-monster values is a balance decision for the user.
 
 ### Review the cube placeholder settings per spell
 
