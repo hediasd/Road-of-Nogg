@@ -25,9 +25,9 @@ commands and reacts to events; it does not edit battle state directly.
 
 | Layer | Locations | Responsibility |
 |---|---|---|
-| Simulation and data | `simulation/`, `simulation/`, `simulation/`, `content/`, `ai/`, `content/` | Deterministic rules, state, setup construction, content, AI decisions |
+| Simulation and data | `simulation/`, `simulation/`, `simulation/`, `content/`, `ai/`, `content/`, `road/` | Deterministic rules, state, setup construction, content, AI decisions, road progression |
 | Presentation | `battle/`, `ui/`, `effects/`, `worldmap/`, and `map_editor/` | Cameras, meshes, cursor, setup/battle UI helpers, visual registry and adapters |
-| Scene orchestration | `battle/HexBattleController.gd` | Godot lifecycle, side-turn pacing, input routing, adapter wiring |
+| Scene orchestration | `battle/HexBattleController.gd`, `worldmap/WorldMapRoadController.gd` | Godot lifecycle, side-turn pacing, input routing, adapter wiring; the road scene and its embedded battles |
 | Unit action | `battle/HexBattleMemberTurn.gd` | One selected unit's pending move, action, cursor, and undo submission |
 
 Godot value types such as `Vector2i`, `Dictionary`, and
@@ -284,6 +284,50 @@ deliberate exception is the serialization edge: `serialize()` and
 in replay files, and the defaults in `fromDictionary()` keep older snapshots
 loadable. Catalog payloads, event history, and variable-shape resolver results
 likewise stay dictionaries.
+
+## The road
+
+The road strings battles into a journey on the world map. Its rules are in
+[`GAME_DESIGN.md`](./GAME_DESIGN.md), "The road (first slice)". This section
+covers who owns what.
+
+| Concern | Owner | Notes |
+|---|---|---|
+| Road catalog | `content/RoadReferences.gd` | Loads `data/roads.json` and refuses a record a battle could not be built from (unknown monster, cell off the map or not standable, two units on a cell, commander outside its field or party) |
+| Road state | `road/RoadState.gd` | Canonical, like `BattleState` for a battle: company slots (species, Belief), field, captain, cleared stops, token position, attempts. Changes that can be refused return `{ok, error}` |
+| Rules | `road/RoadRules.gd` | Belief payment, level from Belief, ascension forms and thresholds; static and stateless |
+| Battle bridge | `road/RoadBattle.gd` | `compose` builds a stop's battle as a scenario Dictionary and checks it with `BattleScenarioFactory.fromDictionary`; `Tally` records `monster_defeated` events; `summarize` turns the final `BattleState` plus the tally into per-slot facts |
+| Save | `road/RoadSave.gd` | `user://road/<road>.json`, the `RoadState.toDictionary()` record |
+| Scene | `worldmap/WorldMapRoadController.gd` on `scenes/Road.tscn` | Composes the world-map rig, draws the road (`worldmap/WorldMapRoadMarkers.gd`), drives the panel (`ui/RoadPanel.gd`), and embeds battles |
+
+```text
+Road.tscn
+	-> RoadReferences.loadRoad + RoadSave.read            (state resumes)
+	travel to a stop
+	-> RoadState.beginAttempt -> RoadBattle.compose        (scenario Dictionary)
+	-> RoadBattle.writeScenario (user://road/battle.json)
+	-> HexBattle.tscn, embedded: startBattle(path, seed)
+		-> BattleEvents.monster_defeated -> RoadBattle.Tally
+		-> battle_completed -> RoadBattle.summarize -> RoadState.applyBattle -> RoadSave.write
+	-> result window -> leave -> the map again
+```
+
+- **Identity.** The company is one party (id 10) on team 1, with member id
+  `100 + company slot`, so a battle maps back onto the company with no lookup
+  table. Enemy parties are ids 20 and up on team 2.
+- **Seeds.** A stop's battle seed is `road seed + 1000 × stop + attempt`. A
+  retry is a different battle, and the same attempt is the same battle.
+- **Map identity** is read from the battle map when composing, never stored on
+  the stop, so a re-exported map cannot leave the road stale.
+- **Saves fail loudly.** A save for another road, another revision of the
+  road, or with numbers that do not fit it is refused with a reason. The scene
+  shows that reason and starts the road over rather than guessing.
+- **Embedding.** `HexBattleController.embedded` hides setup, refuses restart,
+  emits `battle_completed(outcome)` once after playback drains, and emits
+  `leave_requested(outcome)` from the session drawer's leave row. The road pays
+  on completion; a battle left before completion pays nothing.
+- **Limit.** There is no player-facing rewind. A rewound timeline would leave
+  defeats in the tally that the restored state no longer has.
 
 ## Controller-neutral command contract
 

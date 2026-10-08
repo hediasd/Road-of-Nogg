@@ -409,6 +409,30 @@ rewritten scenes with the change that caused them.
 `checks/battle/probe_battle_scene_parity.gd` fails when a committed scene no
 longer matches a rebuild.
 
+## The road
+
+Open the road from the battle setup screen (OPEN THE ROAD), or run
+`scenes/Road.tscn` directly. Progress saves to `user://road/first_road.json`,
+which on Windows is
+`%APPDATA%\Godot\app_userdata\Road of Nogg\road\first_road.json`. NEW ROAD (two
+presses) erases it, and so does deleting that file. A battle on the road writes
+its composed scenario beside the save as `battle.json`.
+
+Three probes cover it, all headless:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter checks/road
+powershell -NoProfile -ExecutionPolicy Bypass -File checks/run_probe_sweep.ps1 -Filter embedded
+```
+
+`probe_road_rules` proves the headless model: catalog refusals, every rule
+constant, a save round trip, and one CPU-vs-CPU battle at stop 1 tallied and
+paid. `probe_road_scene` drives the real scene with the CPU playing the
+company's side (`autoplay`) and a scratch save directory (`saveDirectory`).
+Both are the scene's probe hooks, set before it enters the tree.
+`probe_embedded_battle` proves the battle scene's embedding contract on its
+own.
+
 ## Validation timing
 
 AGENTS.md governs, and this section is subordinate to it. Plan files are frozen

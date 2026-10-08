@@ -175,6 +175,31 @@ turn-phase approach. Acceptance: each ported behaviour works on the current
 layout, passes `checks/battle/probe_ui_guardrails.gd` and the hex-battle probes,
 and leaves `main`'s darkening unchanged.
 
+### Settle the road's open design questions
+
+The road shipped on stated defaults (`docs/GAME_DESIGN.md`, "The road (first
+slice)"). The user still owes decisions on these:
+
+- the road's name and its stops' names (`TITLE` reads `TBC` in
+  `data/roads.json`);
+- what place or story the road is, if any;
+- whether "Belief" is the word the player sees;
+- whether relics and elemental dominance, which the lore names beside belief,
+  also gate ascension;
+- whether the Belief, level and ascension numbers stand.
+
+Lore goes through the Lorekeeper. Acceptance: each default is marked confirmed
+or replaced in GAME_DESIGN, the titles are filled, and the road probes still
+pass with any changed constant updated in `probe_road_rules`.
+
+### Unclip the setup screen's team lists
+
+A 1280x720 capture on 2026-10-08 shows "(Captain)" cut to "(Capta" in both team
+columns of the battle setup screen. `probe_ui_guardrails` does not cover those
+rows. Acceptance: no clipped roster text at 1280x720 or at the smallest
+supported window, with the guardrail extended to the setup rows rather than
+exempting them.
+
 ## Make authoring and verification dependable
 
 ### Accept the world-map editor end to end

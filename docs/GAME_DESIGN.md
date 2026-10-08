@@ -333,6 +333,56 @@ corresponding content lands.
 | Race elemental resistance (±20%) | Live | Every monster now has a race, including the default preset, so a default CPU vs CPU battle exercises resistances and weakness-driven Resonance decay. |
 | Resonance charge UI | Live | Docked status windows show each owned element's catalog code and a three-cell charge bar. In-world critical and weakness feedback remains deferred. |
 
+## The road (first slice)
+
+Status: built 2026-10-08 on placeholder content. **Every rule in this section
+is a default chosen when it was built**, stated so it can be overruled. None is
+a confirmed design decision yet. The constants named here live in
+`road/RoadRules.gd`, and the road itself is `first_road` in `data/roads.json`.
+
+The road connects battles into one journey on the world map. A company of
+monsters walks a linear road of stops. Each stop is a hex battle against
+authored enemy parties on a committed battle map. Winning the next stop opens
+the one after it, a cleared stop can be fought again, and a loss or draw leaves
+the company where it is. HP does not carry between battles and no monster is
+lost for good. Progress is saved after every change and resumes when the road
+is opened again.
+
+**The field.** Up to four company monsters are fielded, as one party on team
+1; one of them is its captain (the party commander), whose fall loses the
+battle as in any battle. The player chooses both on the road screen.
+
+**Belief.** The lore makes belief what lets a creature ascend, and the
+player's attachment its catalyst. Belief therefore measures how much the
+player leaned on a monster. A battle pays each fielded monster
+`BELIEF_FIELDED` (1). It pays `BELIEF_STANDING` (1) more if the monster is
+standing at the end, `BELIEF_PER_FELLED` (1) per enemy it felled, and
+`BELIEF_PER_COMMANDER_FELLED` (2) more for each of those that was a commander.
+On a win every fielded monster also earns `BELIEF_WIN` (1). A monster left out
+earns nothing, and a battle left before its end pays nothing.
+
+**Level.** Level comes from total Belief: reaching level L costs
+`LEVEL_STEP × (L−1) × L / 2` (3, 9, 18, 30, 45, 63, 84, 108, 135), capped at
+`LEVEL_CAP` (10). Level raises stats through the catalog's growth (see "Level
+growth").
+
+**Ascension.** A monster whose species has an ascended form (a catalog entry
+whose `ASCENDS_FROM` names it) may ascend once its Belief reaches
+`ASCENSION_BELIEF`: 18 for the first ascension and 63 for the second (the totals
+for levels 4 and 7). Ascension is offered, never automatic. The monster becomes
+the ascended species and keeps its Belief and level. The lore also names relics
+and elemental dominance as conditions of ascension; neither is modelled yet.
+
+**The first road's content**, all defaults: the company is Walker of the
+Woods (captain), Lesser Bigua, Paper Cat, Healer Mage (fielded), Humility and
+Kraken Summoner. The two ascension lines and the one complete Resonance ladder
+are in it on purpose. The four stops alternate `proving_ground` and `hexmap`
+with enemy levels 1 to 4, on the temp2 region beside its painted buildings.
+
+**Not decided, and the user's to decide:** the road's name, its stops' names
+(their `TITLE` fields read `TBC`), any story or place it represents, and
+whether "Belief" is the word the player sees.
+
 ## Scalability constraints
 
 - Simulation is headless and separate from presentation.
