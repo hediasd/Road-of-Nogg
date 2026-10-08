@@ -1,0 +1,95 @@
+[
+	{
+		"NAME": "first_road",
+		"FORMAT_VERSION": 1,
+		"REVISION": 1,
+		"TITLE": "TBC",
+		"REGION": "temp2",
+		"SEED": 20261008,
+		"START": [4.5, 9.2],
+		"FIELD_SIZE": 4,
+		"COMPANY": [
+			{"MONSTER": "Walker of the Woods"},
+			{"MONSTER": "Lesser Bigua"},
+			{"MONSTER": "Paper Cat"},
+			{"MONSTER": "Healer Mage"},
+			{"MONSTER": "Humility"},
+			{"MONSTER": "Kraken Summoner"}
+		],
+		"FIELDED": [0, 1, 2, 3],
+		"COMMANDER": 0,
+		"STOPS": [
+			{
+				"ID": "stop_1",
+				"TITLE": "TBC",
+				"POSITION": [3.5, 5.4],
+				"MAP": "res://data/maps/proving_ground.json",
+				"PLAYER_CELLS": [[2, 2], [3, 3], [3, 6], [2, 7]],
+				"ENEMIES": [
+					{
+						"COMMANDER": 0,
+						"MEMBERS": [
+							{"MONSTER": "Grid Demon", "LEVEL": 1, "CELL": [17, 2]},
+							{"MONSTER": "Magemornus", "LEVEL": 1, "CELL": [16, 3]},
+							{"MONSTER": "Night Hunter Panther", "LEVEL": 1, "CELL": [16, 6]}
+						]
+					}
+				]
+			},
+			{
+				"ID": "stop_2",
+				"TITLE": "TBC",
+				"POSITION": [5.5, 4.4],
+				"MAP": "res://data/maps/hexmap.json",
+				"PLAYER_CELLS": [[1, 3], [2, 3], [1, 5], [2, 5]],
+				"ENEMIES": [
+					{
+						"COMMANDER": 0,
+						"MEMBERS": [
+							{"MONSTER": "Megidos", "LEVEL": 2, "CELL": [13, 3]},
+							{"MONSTER": "Fireblood Lizard", "LEVEL": 2, "CELL": [12, 3]},
+							{"MONSTER": "Smoke Cloud", "LEVEL": 2, "CELL": [13, 5]},
+							{"MONSTER": "Envoy of Lightning", "LEVEL": 2, "CELL": [12, 5]}
+						]
+					}
+				]
+			},
+			{
+				"ID": "stop_3",
+				"TITLE": "TBC",
+				"POSITION": [9.5, 7.3],
+				"MAP": "res://data/maps/proving_ground.json",
+				"PLAYER_CELLS": [[2, 2], [3, 3], [3, 6], [2, 7]],
+				"ENEMIES": [
+					{
+						"COMMANDER": 0,
+						"MEMBERS": [
+							{"MONSTER": "Polar Weather Wizard", "LEVEL": 3, "CELL": [17, 2]},
+							{"MONSTER": "Snowzilla", "LEVEL": 3, "CELL": [16, 3]},
+							{"MONSTER": "Legion Legendaire", "LEVEL": 3, "CELL": [16, 6]},
+							{"MONSTER": "Oracle of Ages", "LEVEL": 3, "CELL": [17, 7]}
+						]
+					}
+				]
+			},
+			{
+				"ID": "stop_4",
+				"TITLE": "TBC",
+				"POSITION": [8.8, 3.0],
+				"MAP": "res://data/maps/hexmap.json",
+				"PLAYER_CELLS": [[1, 3], [2, 3], [1, 5], [2, 5]],
+				"ENEMIES": [
+					{
+						"COMMANDER": 0,
+						"MEMBERS": [
+							{"MONSTER": "Six-Winged Terror", "LEVEL": 4, "CELL": [13, 3]},
+							{"MONSTER": "Lord of the Mine", "LEVEL": 4, "CELL": [12, 3]},
+							{"MONSTER": "Lesser Antelope", "LEVEL": 4, "CELL": [13, 5]},
+							{"MONSTER": "Brickamount", "LEVEL": 4, "CELL": [12, 5]}
+						]
+					}
+				]
+			}
+		]
+	}
+]

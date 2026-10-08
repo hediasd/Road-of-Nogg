@@ -1,0 +1,5 @@
+{
+	"probes": [
+		{"script": "res://checks/road/probe_road_rules.gd", "marker": "ROAD_RULES_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""}
+	]
+}
