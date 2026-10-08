@@ -882,10 +882,14 @@ func _handleSideClick(point: Vector2) -> bool:
 	if cell.x < 0:
 		return false
 	if picked != -1:
+		# The enemy's own cell, not the cell under the pointer: a tall body covers the cell behind
+		# it, and `_pointerUnit` picks that body when it can be hit. The sword cue already judges
+		# the picked unit's cell, so the click must too, or it promises an attack it then refuses.
+		var targetCell: Vector2i = sim.state.getMonsterPosition(picked)
 		if sim.combatResolver.canBasicAttackPositionFrom(
-				memberTurn.monsterID(), sim.state.getMonsterPosition(memberTurn.monsterID()), cell):
+				memberTurn.monsterID(), sim.state.getMonsterPosition(memberTurn.monsterID()), targetCell):
 			memberInput.chooseCommand(HexBattleMemberInputScript.ATTACK_COMMAND)
-			memberInput.aimAt(cell)
+			memberInput.aimAt(targetCell)
 			memberInput.confirm()
 		else:
 			_endIfCommitted()

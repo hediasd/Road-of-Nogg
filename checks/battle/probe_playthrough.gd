@@ -21,6 +21,8 @@ var waits := 0
 var cancels := 0
 var endedEarly := 0
 var keyboardTurns := 0
+## Whether the forced attack clicked the enemy's body over another cell (see `_bodyPointOverAnotherCell`).
+var bodyClick := false
 
 
 func _init() -> void:
@@ -78,11 +80,18 @@ func _playBattle() -> void:
 					await _submitMove(attack["move_to"])
 				var target = controller.sim.state.getMonster(int(attack["target_id"]))
 				var hpBefore: int = target.hitpoints
-				controller._handleSideClick(controller.stage.projectWorldToScreen(
-					controller.adapter.worldPositionOf(controller.sim.state.getMonsterPosition(int(attack["target_id"])))))
+				# Click the enemy's body where it stands over ANOTHER cell when there is such a
+				# point: the pointer picks the body, and the attack must still go to the enemy, not
+				# to the cell behind it, exactly as the sword cue promises.
+				var point := _bodyPointOverAnotherCell(int(attack["target_id"]))
+				bodyClick = point.x >= 0.0
+				if not bodyClick:
+					point = controller.stage.projectWorldToScreen(controller.adapter.worldPositionOf(
+						controller.sim.state.getMonsterPosition(int(attack["target_id"]))))
+				controller._handleSideClick(point)
 				await _frames(1)
 				_require(not target.is_alive() or target.hitpoints < hpBefore,
-					"clicking an enemy in reach did not attack it")
+					"clicking an enemy in reach did not attack it (on its body over another cell: %s)" % str(bodyClick))
 				attacks += 1
 				continue
 
@@ -175,6 +184,21 @@ func _submitMove(destination: Vector2i) -> void:
 	moves += 1
 
 
+## A screen point where the pointer picks `targetID`'s body although the cell under it is another
+## one, scanning the region above the target's own cell row by row; (-1, -1) when the body covers
+## no other cell at this camera angle.
+func _bodyPointOverAnotherCell(targetID: int) -> Vector2:
+	var cell: Vector2i = controller.sim.state.getMonsterPosition(targetID)
+	var base := controller.stage.projectWorldToScreen(controller.adapter.worldPositionOf(cell))
+	for rise in range(0, 200, 2):
+		for side in range(-40, 41, 2):
+			var point := base + Vector2(float(side), -float(rise))
+			var under := controller._cellAtPoint(point)
+			if under.x >= 0 and under != cell and controller._pointerUnit(point) == targetID:
+				return point
+	return Vector2(-1.0, -1.0)
+
+
 ## Selects ready units, lowest id first, until one can basic-attack an enemy from where it stands
 ## or from a cell it can walk to. Returns `{unit, target_id}` plus `move_to` when it must walk,
 ## with that unit left selected. Returns empty, with nothing selected, when none can.
@@ -230,8 +254,8 @@ func _require(condition: bool, message: String) -> void:
 
 
 func _report() -> void:
-	print("HXB_PLAY_MATRIX moves=%d undos=%d attacks=%d casts=%d waits=%d cancels=%d ended=%d" % [
-		moves, undos, attacks, casts, waits, cancels, endedEarly])
+	print("HXB_PLAY_MATRIX moves=%d undos=%d attacks=%d casts=%d waits=%d cancels=%d ended=%d body_click=%s" % [
+		moves, undos, attacks, casts, waits, cancels, endedEarly, str(bodyClick)])
 	if not failures.is_empty():
 		for failure: String in failures:
 			printerr("HXB_PLAY_FAILURE: %s" % failure)
