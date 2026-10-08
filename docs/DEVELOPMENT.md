@@ -385,6 +385,30 @@ fingerprint no longer matches — correct behaviour, not a bug — and the comma
 prints a reminder naming every scenario under `data/scenarios` that
 needs its `MAP` block updated to match.
 
+`hexmap` itself no longer exports this way: its battlefield was derived from
+its art before explicit tactical layers existed, so its source has no
+`tactical` layer and the command refuses it. Its committed battle map is the
+battlefield; only its scene can be rebuilt, with the tool below.
+
+## Rebuilding the battle scenes
+
+The visual scene of every battle map is committed under `scenes/generated/`.
+`tools/export_battle_scenes.gd` rebuilds those scenes from each map's authored
+source and committed bake. It never writes the battle map, so no scenario goes
+stale. It reads both the envelope format and the legacy bare `.json` sources.
+
+```powershell
+./Godot_v4.4-stable_win64.exe --headless --path . --script tools/export_battle_scenes.gd
+./Godot_v4.4-stable_win64.exe --headless --path . --script tools/export_battle_scenes.gd -- hexmap
+```
+
+With no argument it rebuilds every map that names a `VISUAL_SCENE_PATH`; with
+map ids, only those. It needs no import pass, because the bakes are committed
+and already imported. It ends with `HEX_SCENES_OK <count>`. Commit the
+rewritten scenes with the change that caused them.
+`checks/battle/probe_battle_scene_parity.gd` fails when a committed scene no
+longer matches a rebuild.
+
 ## Validation timing
 
 AGENTS.md governs, and this section is subordinate to it. Plan files are frozen

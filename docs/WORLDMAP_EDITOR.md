@@ -1000,17 +1000,22 @@ will run.** A freshly saved map in a running editor session has the file but not
 `ResourceLoader.exists()` is false and the export says so, naming the path it wanted. There is no
 fallback, because the only available fallback is the embedding above.
 
-### Generated scenes are not committed, and the reason is measured
+### Generated scenes are committed
 
-`ResourceSaver.save()` assigns **random id suffixes** (`id="1_23d0s"`) on every save, so exporting
-identical content twice produces different bytes. That is the opposite of the baked PNG, which is
-byte-deterministic and is therefore committed and byte-checked by `probe_bake_parity`. An
-exported scene cannot be checked that way, and committing one would show a spurious diff on every
-re-export — so exports land in `scenes/generated/`, created on demand, and none is
-committed by this item.
+Until 2026-10-08 this section said the opposite: that `ResourceSaver.save()` assigns random id
+suffixes (`id="1_23d0s"`) on every save, so a committed scene would show a spurious diff on every
+re-export, and `scenes/generated/` was gitignored. Measured again with the bundled Godot 4.4, the
+suffixes are derived from the **destination path**: two fresh processes, and an overwrite, write
+byte-identical files to the same path, while the same content saved to another path gets other
+suffixes.
 
-The two artifacts are treated differently because they genuinely differ in this property, not by
-preference.
+Ignoring the directory had a real cost. The 2026-09-24 folder flatten moved the ignored scenes'
+directory, the files did not follow, and the default battle opened on a bare board with nothing
+failing but a status-line notice. So the battle scenes are committed like the bakes they sample.
+`tools/export_battle_scenes.gd` rebuilds every battle map's scene from its authored source and
+committed bake without touching the battle map, and `checks/battle/probe_battle_scene_parity.gd`
+rebuilds each one under `user://` and fails when a committed scene no longer matches (id suffixes
+masked, everything else exact).
 
 ### The wrapper pattern
 

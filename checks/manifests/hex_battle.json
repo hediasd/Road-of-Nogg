@@ -2,6 +2,7 @@
 	"probes": [
 		{"script": "res://checks/battle/probe_activation.gd", "marker": "HXB_ACTIVATION_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://checks/battle/probe_ai.gd", "marker": "HXB_AI_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
+		{"script": "res://checks/battle/probe_battle_scene_parity.gd", "marker": "HXB_SCENE_PARITY_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://checks/battle/probe_board_population.gd", "marker": "HXB_BOARD_POPULATION_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://checks/battle/probe_board_terrain.gd", "marker": "HXB_BOARD_TERRAIN_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},
 		{"script": "res://checks/battle/probe_board_view.gd", "marker": "HXB_BOARD_OK", "timeout": 120, "expect": "pass", "gate": true, "renderer": false, "note": ""},

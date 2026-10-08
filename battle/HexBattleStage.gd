@@ -180,8 +180,9 @@ func worldRoot() -> Node3D:
 ## cell at the same region-local X/Z, and the export places its art from the region origin. If the
 ## two ever disagree the fault is in one of them, and an offset here would hide it.
 ##
-## A MISSING SCENE IS NORMAL. Generated scenes are gitignored, so a fresh checkout has none. The
-## battle goes on with the grey board, and the report's `notice` says what to re-export. Returns
+## A MISSING SCENE IS SURVIVABLE. Generated scenes are committed, so a missing one means a map that
+## was exported but never committed, or a deleted file. The battle goes on with the grey board, and
+## the report's `notice` says what to re-export. Returns
 ## `{status, path, notice}`; `notice` is empty when the terrain loaded or the map has none by design.
 func loadTerrain(map: BattleMapDefinition) -> Dictionary:
 	_clearTerrain()

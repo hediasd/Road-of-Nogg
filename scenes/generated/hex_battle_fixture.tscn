@@ -1,0 +1,234 @@
+[gd_scene load_steps=24 format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/worldmap_ground.gdshader" id="1_53nhu"]
+[ext_resource type="Texture2D" path="res://assets/worldmap/hex_battle_fixture.png" id="2_wx2k2"]
+[ext_resource type="Script" path="res://worldmap/WorldMapGround.gd" id="3_3qlqb"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_0bsfe"]
+render_priority = 0
+shader = ExtResource("1_53nhu")
+shader_parameter/region_nearest = ExtResource("2_wx2k2")
+shader_parameter/region_nearest_mip = ExtResource("2_wx2k2")
+shader_parameter/region_linear_mip = ExtResource("2_wx2k2")
+shader_parameter/filter_mode = 0
+shader_parameter/region_origin = Vector2(0, 0)
+shader_parameter/region_size = Vector2(30.5, 21)
+shader_parameter/fog_start = 21.0
+shader_parameter/fog_end = 116.0
+shader_parameter/fog_curve = 1.4
+shader_parameter/fog_color = Color(0.729412, 0.909804, 0.886275, 1)
+shader_parameter/void_color = Color(0.215686, 0.682353, 0.682353, 1)
+shader_parameter/show_sky_beyond = false
+shader_parameter/shadow_strength = null
+shader_parameter/light_tint = null
+shader_parameter/lamp_lit = null
+shader_parameter/night_amount = null
+shader_parameter/shadow_color_mode = null
+shader_parameter/palette = null
+shader_parameter/palette_size = null
+shader_parameter/curvature_k = 0.0
+shader_parameter/cloud_shadow_strength = 0.4
+shader_parameter/cloud_softness = 0.0
+shader_parameter/map_size = null
+shader_parameter/grid_mode = null
+shader_parameter/grid_tile_color = null
+shader_parameter/grid_cel_color = null
+shader_parameter/grid_line_px = null
+shader_parameter/cursor_rect = null
+shader_parameter/cursor_color = null
+shader_parameter/grid_hex = null
+shader_parameter/hex_cursor = null
+shader_parameter/hex_lattice = null
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_hby0t"]
+size = Vector2(262.5, 253)
+subdivide_width = 64
+subdivide_depth = 64
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l4ax4"]
+shading_mode = 0
+albedo_color = Color(0.552941, 0.419608, 0.580392, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_mw8on"]
+size = Vector3(1.2, 3, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_6t4qf"]
+shading_mode = 0
+albedo_color = Color(0.85098, 0.627451, 0.4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_l1vkh"]
+size = Vector3(1.2, 2, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_l75wf"]
+shading_mode = 0
+albedo_color = Color(0.85098, 0.627451, 0.4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_jbqn4"]
+size = Vector3(1.2, 2, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_cl708"]
+shading_mode = 0
+albedo_color = Color(0.552941, 0.419608, 0.580392, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_vj5cj"]
+size = Vector3(1.2, 3, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_150nq"]
+shading_mode = 0
+albedo_color = Color(0.85098, 0.627451, 0.4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_gdmje"]
+size = Vector3(1.2, 2, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_mpnwj"]
+shading_mode = 0
+albedo_color = Color(0.85098, 0.627451, 0.4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_33agd"]
+size = Vector3(1.2, 2, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_xic7g"]
+shading_mode = 0
+albedo_color = Color(0.85098, 0.627451, 0.4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_2b8ih"]
+size = Vector3(1.2, 2, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kfju3"]
+shading_mode = 0
+albedo_color = Color(0.85098, 0.627451, 0.4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_qxupy"]
+size = Vector3(1.2, 2, 1.2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hwong"]
+shading_mode = 0
+albedo_color = Color(0.85098, 0.627451, 0.4, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_nt8kc"]
+size = Vector3(1.2, 2, 1.2)
+
+[node name="hex_battle_fixture" type="Node3D"]
+metadata/worldmap_region = "hex_battle_fixture"
+metadata/worldmap_layout = "hex_flat"
+metadata/worldmap_cells = Vector2i(20, 10)
+metadata/worldmap_extent = Vector2(30.5, 21)
+metadata/worldmap_source = "res://data/authored/hex_battle_fixture.json"
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 15.25, 0, 10.5)
+material_override = SubResource("ShaderMaterial_0bsfe")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("PlaneMesh_hby0t")
+script = ExtResource("3_3qlqb")
+
+[node name="Objects" type="Node3D" parent="."]
+
+[node name="o000" type="Node3D" parent="Objects"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 16, 0, 5)
+metadata/KIND = "tower"
+metadata/FOOTPRINT = 0
+
+[node name="Body" type="MeshInstance3D" parent="Objects/o000"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+material_override = SubResource("StandardMaterial3D_l4ax4")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("BoxMesh_mw8on")
+
+[node name="o001" type="Node3D" parent="Objects"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 5)
+metadata/KIND = "house"
+metadata/FOOTPRINT = 0
+
+[node name="Body" type="MeshInstance3D" parent="Objects/o001"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+material_override = SubResource("StandardMaterial3D_6t4qf")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("BoxMesh_l1vkh")
+
+[node name="o002" type="Node3D" parent="Objects"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 25, 0, 5)
+metadata/KIND = "house"
+metadata/FOOTPRINT = 0
+
+[node name="Body" type="MeshInstance3D" parent="Objects/o002"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+material_override = SubResource("StandardMaterial3D_l75wf")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("BoxMesh_jbqn4")
+
+[node name="o003" type="Node3D" parent="Objects"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.5, 0, 8)
+metadata/KIND = "tower"
+metadata/FOOTPRINT = 0
+
+[node name="Body" type="MeshInstance3D" parent="Objects/o003"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
+material_override = SubResource("StandardMaterial3D_cl708")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("BoxMesh_vj5cj")
+
+[node name="o004" type="Node3D" parent="Objects"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 22, 0, 7)
+metadata/KIND = "house"
+metadata/FOOTPRINT = 0
+
+[node name="Body" type="MeshInstance3D" parent="Objects/o004"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+material_override = SubResource("StandardMaterial3D_150nq")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("BoxMesh_gdmje")
+
+[node name="o005" type="Node3D" parent="Objects"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 7)
+metadata/KIND = "house"
+metadata/FOOTPRINT = 0
+
+[node name="Body" type="MeshInstance3D" parent="Objects/o005"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+material_override = SubResource("StandardMaterial3D_mpnwj")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("BoxMesh_33agd")
+
+[node name="o006" type="Node3D" parent="Objects"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0, 9)
+metadata/KIND = "house"
+metadata/FOOTPRINT = 0
+
+[node name="Body" type="MeshInstance3D" parent="Objects/o006"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+material_override = SubResource("StandardMaterial3D_xic7g")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("BoxMesh_2b8ih")
+
+[node name="o007" type="Node3D" parent="Objects"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19, 0, 11)
+metadata/KIND = "house"
+metadata/FOOTPRINT = 0
+
+[node name="Body" type="MeshInstance3D" parent="Objects/o007"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+material_override = SubResource("StandardMaterial3D_kfju3")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("BoxMesh_qxupy")
+
+[node name="o008" type="Node3D" parent="Objects"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 19, 0, 13)
+metadata/KIND = "house"
+metadata/FOOTPRINT = 0
+
+[node name="Body" type="MeshInstance3D" parent="Objects/o008"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+material_override = SubResource("StandardMaterial3D_hwong")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("BoxMesh_nt8kc")

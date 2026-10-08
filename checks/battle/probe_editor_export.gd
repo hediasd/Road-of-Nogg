@@ -247,7 +247,7 @@ func _checkDecorativeWaterIsAllowed() -> void:
 		"a map with decorative water was refused: %s" % str(built.get("error", "")))
 
 
-## The generated scene is not committed by repository policy, so the dependency has to be
+## The generated scene is a separate file the map depends on, so the dependency has to be
 ## declared somewhere a packaging step can read it.
 func _checkManifestDeclaresGeneratedProducts() -> void:
 	var products := ManifestScript.productsFor(FIXTURE_MAP)

@@ -1,0 +1,61 @@
+[gd_scene load_steps=6 format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/worldmap_ground.gdshader" id="1_a4qxc"]
+[ext_resource type="Texture2D" path="res://assets/worldmap/hexmap.png" id="2_gqgc7"]
+[ext_resource type="Script" path="res://worldmap/WorldMapGround.gd" id="3_4mteu"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vln15"]
+render_priority = 0
+shader = ExtResource("1_a4qxc")
+shader_parameter/region_nearest = ExtResource("2_gqgc7")
+shader_parameter/region_nearest_mip = ExtResource("2_gqgc7")
+shader_parameter/region_linear_mip = ExtResource("2_gqgc7")
+shader_parameter/filter_mode = 0
+shader_parameter/region_origin = Vector2(0, 0)
+shader_parameter/region_size = Vector2(23, 23)
+shader_parameter/fog_start = 21.0
+shader_parameter/fog_end = 116.0
+shader_parameter/fog_curve = 1.4
+shader_parameter/fog_color = Color(0.729412, 0.909804, 0.886275, 1)
+shader_parameter/void_color = Color(0.215686, 0.682353, 0.682353, 1)
+shader_parameter/show_sky_beyond = false
+shader_parameter/shadow_strength = null
+shader_parameter/light_tint = null
+shader_parameter/lamp_lit = null
+shader_parameter/night_amount = null
+shader_parameter/shadow_color_mode = null
+shader_parameter/palette = null
+shader_parameter/palette_size = null
+shader_parameter/curvature_k = 0.0
+shader_parameter/cloud_shadow_strength = 0.4
+shader_parameter/cloud_softness = 0.0
+shader_parameter/map_size = null
+shader_parameter/grid_mode = null
+shader_parameter/grid_tile_color = null
+shader_parameter/grid_cel_color = null
+shader_parameter/grid_line_px = null
+shader_parameter/cursor_rect = null
+shader_parameter/cursor_color = null
+shader_parameter/grid_hex = null
+shader_parameter/hex_cursor = null
+shader_parameter/hex_lattice = null
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_wvpqf"]
+size = Vector2(255, 255)
+subdivide_width = 64
+subdivide_depth = 64
+
+[node name="hexmap" type="Node3D"]
+metadata/worldmap_region = "hexmap"
+metadata/worldmap_layout = "hex_flat"
+metadata/worldmap_cells = Vector2i(15, 11)
+metadata/worldmap_extent = Vector2(23, 23)
+metadata/worldmap_source = "res://data/authored/hexmap.json"
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 11.5, 0, 11.5)
+material_override = SubResource("ShaderMaterial_vln15")
+cast_shadow = 0
+gi_mode = 0
+mesh = SubResource("PlaneMesh_wvpqf")
+script = ExtResource("3_4mteu")

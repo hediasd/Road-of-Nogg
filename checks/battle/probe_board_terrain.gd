@@ -12,8 +12,8 @@
 ## What it cannot prove: that the board reads well over the art, or that markers stay legible.
 ## Those are the cycle's rendered checks, and so is how the terrain is lit.
 ##
-## The generated scene is gitignored. On a checkout without it, export hexmap first; see
-## docs/DEVELOPMENT.md, "Exporting a map's battle products without the editor".
+## The generated scenes it loads are committed. If one is missing, rebuild it with
+## tools/export_battle_scenes.gd; see docs/DEVELOPMENT.md, "Rebuilding the battle scenes".
 
 extends SceneTree
 

@@ -144,14 +144,14 @@ board's silhouette; the sky is not darkened to do that job.
 |---|---|---|
 | `loaded` | The scene is in the world. | none |
 | `headless_only` | The map declares no scene on purpose (technical maps). | none |
-| `missing` | The scene file is not on disk. Generated scenes are gitignored, so a fresh checkout has none. | Re-export the map. |
+| `missing` | The scene file is not on disk. Generated scenes are committed, so this means one was never committed or was deleted. | Re-export the map. |
 | `unreadable` | The file is not an exported map scene. | Re-export the map. |
 | `mismatched` | The scene was exported for a different lattice or source. | Re-export the map. |
 
 The notice stays on the status line under whatever the battle is saying.
 
-To export a map's scene without the editor, see `DEVELOPMENT.md`, "Exporting a
-map's battle products without the editor".
+To rebuild a map's scene without the editor, see `DEVELOPMENT.md`, "Rebuilding
+the battle scenes".
 
 `checks/battle/probe_board_terrain.gd` (`HXB_BOARD_TERRAIN_OK`) checks the
 structure, decorators and camera gesture contract. Whether the one-pixel grid,

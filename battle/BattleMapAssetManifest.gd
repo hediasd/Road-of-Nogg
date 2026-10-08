@@ -1,17 +1,15 @@
 ## What a battle map needs on disk besides its own JSON, and whether it is there.
 ##
 ## WHY THIS EXISTS AT ALL. An authored battle map is two products from one document: the tactical
-## JSON under `data/maps`, which is committed, and the visual scene under
-## `scenes/generated`, which is NOT -- `.gitignore` excludes that directory because
-## `ResourceSaver.save()` assigns fresh resource ids on every write, so a committed export would
-## show a spurious diff each time anyone re-exported it. The bake the scene samples is committed,
-## because that one is byte-deterministic.
+## JSON under `data/maps` and the visual scene under `scenes/generated`. Both are committed. The
+## scene used to be gitignored, on the belief that every save gave it fresh resource ids; in fact
+## the ids are derived from the destination path, so re-exporting to the same path writes the same
+## bytes. Ignoring it let the 2026-09-24 folder flatten lose every scene without anything failing.
 ##
-## So a fresh checkout has the map and the art but not the scene, and the map's own
-## `VISUAL_SCENE_PATH` points at a file that is not there yet. That is a real state the project
-## is in by policy, not an accident, and the answer is to make the dependency DECLARED and
-## CHECKABLE rather than discovered as a load failure: this file is what packaging asks "what
-## must exist before you ship this map", and what an author asks "why will this map not load".
+## A scene can still be missing -- a map exported but not yet committed, or a file deleted by
+## hand -- and the answer is to make the dependency DECLARED and CHECKABLE rather than discovered
+## as a load failure: this file is what packaging asks "what must exist before you ship this map",
+## and what an author asks "why will this map not load".
 ##
 ## READS DATA, NOT THE EDITOR. Everything here comes from the map JSON itself. Nothing in this
 ## file imports `map_editor/**`, and nothing may -- a packaged game has no
@@ -52,8 +50,8 @@ static func productsFor(mapID: String) -> Array[Dictionary]:
 		"KIND": KIND_GENERATED,
 		"PRESENT": ResourceLoader.exists(scenePath),
 		"REASON": (
-			"exported from the authored region '%s'; generated scenes are not committed, so "
-			+ "re-export before packaging"
+			"exported from the authored region '%s'; rebuild it with "
+			+ "tools/export_battle_scenes.gd and commit it"
 		) % str(source.get("ID", "")),
 	})
 	return products

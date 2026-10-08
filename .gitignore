@@ -39,8 +39,6 @@ Godot_v*.x86_64
 godot_out.txt
 godot_test*.txt
 
-# Exported gameplay scenes. Regenerated wholesale by WorldMapSceneExport and never committed:
-# ResourceSaver.save() assigns random resource ids per save, so an exported scene shows a
-# spurious diff every time it is written. The baked PNG next to it IS committed -- that one is
-# byte-deterministic and probe_bake_parity checks it. See docs/WORLDMAP_EDITOR.md section 13.
-/scenes/generated/
+# Exported gameplay scenes under scenes/generated/ ARE committed: the battle cannot show its ground
+# without them, and ignoring them let a folder move lose them silently. Rebuild them with
+# tools/export_battle_scenes.gd; probe_battle_scene_parity checks the committed copies.
