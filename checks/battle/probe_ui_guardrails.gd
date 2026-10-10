@@ -84,6 +84,26 @@ func _checkSize(size: Vector2i) -> void:
 		_audit("%s target preview" % size)
 		controller.sideCues.clearForecasts()
 
+		# The docked card while aiming: one target's matchup, then an area list long enough to
+		# fold, with the longest names on the board.
+		controller._showTargetCues({
+			"kind": "attack", "target_id": enemyID, "legal": true, "reason": "",
+			"forecast": controller.adapter.forecastAttack(unitID, cell),
+		})
+		await _settle()
+		_require_matchup(size)
+		_audit("%s attack matchup" % size)
+		var longest := _longestNames(6)
+		var rows: Array = []
+		for name in longest:
+			rows.append({"name": name, "allegiance": "enemy", "damage": 88, "lethal": true,
+				"matchup": {"kind": "resist"}})
+		controller.hud.showMatchup({"kind": "area", "action": "Closing of the Third Sanctuary",
+			"elements": ["light", "darkness"], "legal": true, "targets": rows})
+		await _settle()
+		_audit("%s area matchup" % size)
+		controller._showTargetCues({})
+
 	var caster := _unitWithSpells()
 	if caster != -1:
 		controller._onHudMemberSelected(caster)
@@ -264,6 +284,18 @@ func _fail(text: String) -> void:
 	var line := "%s: %s" % [_state, text]
 	if not failures.has(line):
 		failures.append(line)
+
+
+func _require_matchup(size: Vector2i) -> void:
+	if not controller.hud.readout.showingMatchup():
+		_fail("%s: aiming at an enemy did not turn the docked card into its matchup" % size)
+
+
+## The `count` longest monster names in the catalog, longest first.
+func _longestNames(count: int) -> Array[String]:
+	var names: Array[String] = MonsterReferences.getNames()
+	names.sort_custom(func(a: String, b: String) -> bool: return a.length() > b.length())
+	return names.slice(0, count)
 
 
 func _anyEnemy() -> int:

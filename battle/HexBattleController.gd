@@ -46,6 +46,7 @@ const BattleSetupFactoryScript = preload("res://simulation/BattleSetupFactory.gd
 const BattleScenarioFactoryScript = preload("res://content/BattleScenarioFactory.gd")
 const NoggThemeScript = preload("res://ui/NoggTheme.gd")
 const HexGraphicsPanelScript = preload("res://ui/HexGraphicsPanel.gd")
+const HexMatchupFactsScript = preload("res://battle/HexMatchupFacts.gd")
 
 ## ENDING is the stretch between the simulator deciding the battle and the screen showing the blow
 ## that decided it. Nothing may start in it, and the result waits for playback to drain.
@@ -118,6 +119,8 @@ var _lastReadyCount := -1
 ## The enemy the pointer currently previews outside an aim, or -1. Rebuilding the preview box on
 ## every motion event would replay its entrance, so the cues change only when this does.
 var _pointerTargetID := -1
+## Builds what the docked card shows while aiming; keeps its threat cache between hovers.
+var _matchupFacts = HexMatchupFactsScript.new()
 
 
 func _ready() -> void:
@@ -367,7 +370,7 @@ func _onActivationOpened(sideID: int) -> void:
 	adapter.setTargetedUnit(-1)
 	if sideCues != null:
 		sideCues.hideActionArc()
-		sideCues.clearForecasts()
+		_clearForecasts()
 	if sideCues != null:
 		sideCues.showTurnBanner(controller == "player")
 		_lastReadyCount = sim.eligibleSideUnitIDs().size()
@@ -505,7 +508,7 @@ func _rebuildForRestoredTimeline() -> void:
 		hud.showAim({})
 	if sideCues != null:
 		sideCues.hideActionArc()
-		sideCues.clearForecasts()
+		_clearForecasts()
 	_syncSpentCues()
 	_refreshHud()
 	_setStatus("The side turn was restored.")
@@ -573,7 +576,7 @@ func _onMenuDismissed() -> void:
 		hud.hideCommands()
 	if sideCues != null:
 		sideCues.hideActionArc()
-		sideCues.clearForecasts()
+		_clearForecasts()
 
 
 func _onMemberStatus(text: String) -> void:
@@ -594,6 +597,7 @@ func _onAimChanged(model: Dictionary) -> void:
 func _showTargetCues(model: Dictionary) -> void:
 	adapter.setTargetedUnit(-1)
 	sideCues.clearForecasts()
+	_showMatchup(model)
 	if model.is_empty():
 		return
 	var targetID := int(model.get("target_id", -1))
@@ -629,8 +633,27 @@ func _showTargetCues(model: Dictionary) -> void:
 					+ Vector3.UP * 1.2,
 				"forecast": forecast,
 			})
-	if not forecasts.is_empty():
+	# One box per unit an area spell would hit piled into an unreadable stack over the board; the
+	# docked matchup card lists every one of them instead. A single target keeps its box.
+	if forecasts.size() == 1 or (not forecasts.is_empty() 			and str(model.get("kind", "")) != HexBattleMemberInputScript.SPELL_PREFIX):
 		sideCues.showForecasts(forecasts)
+
+
+## The in-world preview boxes and the docked matchup go together: whatever clears one clears both.
+func _clearForecasts() -> void:
+	if sideCues != null:
+		sideCues.clearForecasts()
+	if hud != null:
+		hud.showMatchup({})
+
+
+## The docked card turns into the matchup for this aim, or back into the unit card when there is
+## nothing to match up.
+func _showMatchup(model: Dictionary) -> void:
+	if hud == null:
+		return
+	var actorID := memberTurn.monsterID() if memberTurn != null else -1
+	hud.showMatchup(_matchupFacts.build(sim, adapter, actorID, model, hud._viewerPartyID()))
 
 
 func _onHudCommandChosen(commandID: String) -> void:
@@ -669,7 +692,7 @@ func _onMemberTurnFinished(monsterID: int) -> void:
 		hud.showAim({})
 	if sideCues != null:
 		sideCues.hideActionArc()
-		sideCues.clearForecasts()
+		_clearForecasts()
 	adapter.setTargetedUnit(-1)
 	_pointerTargetID = -1
 	playback.release(HexBattlePlayback.OWNER_PLAYER, monsterID)
@@ -1012,7 +1035,7 @@ func _clearPointerTarget() -> void:
 	if adapter != null:
 		adapter.setTargetedUnit(-1)
 	if sideCues != null:
-		sideCues.clearForecasts()
+		_clearForecasts()
 		sideCues.setAiming(false)
 
 
@@ -1032,7 +1055,7 @@ func _cancelPlayerSelection() -> void:
 		hud.showAim({})
 	if sideCues != null:
 		sideCues.hideActionArc()
-		sideCues.clearForecasts()
+		_clearForecasts()
 
 
 func _cycleReadyUnit(direction: int) -> bool:
@@ -1346,7 +1369,7 @@ func _beginEnding() -> void:
 		hud.showAim({})
 	if sideCues != null:
 		sideCues.hideActionArc()
-		sideCues.clearForecasts()
+		_clearForecasts()
 		sideCues.hideTurnBanner()
 	if adapter != null:
 		adapter.setTargetedUnit(-1)

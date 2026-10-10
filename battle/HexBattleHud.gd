@@ -92,6 +92,7 @@ var _inputEnabled := false
 var _selectedID := -1
 var _hoverID := -1
 var _aim: Dictionary = {}
+var _matchup: Dictionary = {}
 var _promptText := ""
 var _hoveredEffectKey := ""
 ## The party model last handed to the panel. The panel rebuilds its rows on every update, so the
@@ -575,7 +576,24 @@ func _viewerPartyID() -> int:
 	return HexUnitFactsScript.playerPartyID(_sim)
 
 
+## What the docked card shows while the player aims (see `HexMatchupFacts`), or {} for the unit
+## card. While it is set it takes the card's place; clearing it brings the unit card back.
+func showMatchup(matchup: Dictionary) -> void:
+	if matchup == _matchup:
+		return
+	_matchup = matchup.duplicate(true)
+	_refreshReadout()
+
+
+func matchup() -> Dictionary:
+	return _matchup
+
+
 func _refreshReadout() -> void:
+	if not _matchup.is_empty():
+		readout.showMatchup(_matchup)
+		_layout()
+		return
 	var shown := shownUnit()
 	var facts := _facts(shown)
 	if facts.is_empty() and _selectedID != -1:
