@@ -538,20 +538,20 @@ func _apply_preset_values(preset: String) -> bool:
 		PRESET_NONE:
 			pass
 		PRESET_SATURATED_CRT:
-			retro_enabled = true
-			render_size = Vector2i(640, 480)
-			nearest_filter_enabled = true
+			# TEMPORARILY LIGHT, at Henri's request on 2026-10-10: the full look flattened the
+			# board. Native resolution (no 640x480 buffer, so no 4:3 bars), a faint CRT, no
+			# colour push. The full look, to restore: retro_enabled true, render_size 640x480,
+			# nearest_filter_enabled true, brightness 1.1, contrast 1.15, saturation 1.25,
+			# scanline 0.4, mask 0.18, vignette 0.16, flicker 0.012, color_bleed 1.5,
+			# noise 0.035, glow 0.25. The low-res and every slider stay reachable in the drawer.
 			crt_enabled = true
-			brightness = 1.1
-			contrast = 1.15
-			saturation = 1.25
-			crt_scanline_strength = 0.4
-			crt_mask_strength = 0.18
-			crt_vignette_strength = 0.16
-			crt_flicker_strength = 0.012
-			crt_color_bleed = 1.5
-			crt_noise_strength = 0.035
-			crt_glow_strength = 0.25
+			crt_scanline_strength = 0.1
+			crt_mask_strength = 0.04
+			crt_vignette_strength = 0.08
+			crt_flicker_strength = 0.0
+			crt_color_bleed = 0.25
+			crt_noise_strength = 0.0
+			crt_glow_strength = 0.05
 	return true
 
 

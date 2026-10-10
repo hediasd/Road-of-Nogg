@@ -20,7 +20,7 @@ const PRESETS := [
 	{
 		"id": SATURATED_CRT,
 		"label": "CRT",
-		"description": "Vivid color, scanlines and RGB bleed."
+		"description": "Faint scanlines and bleed at native resolution (temporarily light)."
 	},
 	{
 		"id": CUSTOM,
