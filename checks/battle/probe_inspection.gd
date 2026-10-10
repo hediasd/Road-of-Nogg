@@ -221,11 +221,11 @@ func _checkAllegianceTag() -> void:
 		words[tag.text] = true
 		tagEdges[snappedf(tag.position.x, 0.5)] = true
 
-		var level := _readoutLabelStarting("Lv.")
+		var level := _readoutLabelStarting("Lv ")
 		_require(level != null, "unit %d shows no level" % monsterID)
 		if level != null:
-			_require(level.text == "Lv.%02d" % int(facts.get("level", 1)),
-				"unit %d reads '%s', expected a zero-padded level" % [monsterID, level.text])
+			_require(level.text == "Lv %d" % int(facts.get("level", 1)),
+				"unit %d reads '%s', expected 'Lv %d'" % [monsterID, level.text, int(facts.get("level", 1))])
 
 	_require(words.size() >= 2,
 		"every unit tagged the same word, so a fixed tag field proves nothing here")

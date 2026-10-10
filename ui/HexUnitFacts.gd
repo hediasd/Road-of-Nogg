@@ -121,7 +121,34 @@ static func build(
 		"equipment": equipment,
 		"commander": party != null and int(party.commanderID) == monsterID,
 		"allegiance": allegianceFor(sim, monster, viewerPartyID),
+		"resonance": resonanceFacts(monster),
+		"resonance_bonus": int(monster.get_resonance_bonus_percent()),
+		"turn": turnState(sim, monsterID),
 	}
+
+
+## Each owned element's Resonance charge, 0 to 3, in the monster's element order.
+static func resonanceFacts(monster) -> Array:
+	var charges: Array = []
+	for value in monster.elements:
+		charges.append({"element": str(value), "charge": int(monster.get_resonance(str(value)))})
+	return charges
+
+
+## Where the unit stands in its side's turn: "ready", "moved" (can still act), "acted" (can still
+## move), "spent", or "waiting" when its side is not the one acting.
+static func turnState(sim: BattleSimulator, monsterID: int) -> String:
+	var monster = sim.state.getMonster(monsterID)
+	if monster == null or int(monster.team) != int(sim.state.activeSideID):
+		return "waiting"
+	if sim.state.spentUnitIDs.has(monsterID):
+		return "spent"
+	var pending: Dictionary = sim.state.pendingUnitTurns.get(monsterID, {})
+	if bool(pending.get("has_moved", false)):
+		return "moved"
+	if bool(pending.get("has_acted", false)):
+		return "acted"
+	return "ready"
 
 
 ## The party the player controls: whose eyes the readout speaks from.
