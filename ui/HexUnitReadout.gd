@@ -6,11 +6,8 @@
 ##     ATK 6  DEF 5  MOV 3           green when a buff or Resonance raises it, red when lowered
 ##     [LI]##.  +20%     ## 2  ## 3  element squares with charge cells, effects with turns left
 ##
-## While the player aims, the same window shows the matchup instead (`showMatchup`): the target's
-## HP as it would stand after the action, what the action does, and the target's elements and
-## effects; or, for an area spell, the units it would hit. The matchup states what the action does
-## and nothing about what the player should do: no threat, weakness or counter advice. That depth
-## belongs to the STATUS sheet.
+## The card is the unit's general status only. What an aimed attack or spell would do is drawn over
+## the targeted units by the screen cues (`SideTurnPreviewBox`), never here.
 ##
 ## A READOUT, NOT A MENU. Input-transparent, so it can sit over the board without making the tiles
 ## under it unclickable (the reason `NoggWindow.set_input_transparent` exists). Pointing at an
@@ -48,11 +45,6 @@ const ROW_DETAIL := 3
 const RESONANCE_CELLS := 3
 ## One tick on the HP bar per this many hit points, so a glance reads quantity, not just a share.
 const HP_TICK := 10
-## Matchup kinds (see `HexMatchupFacts`).
-const MATCHUP_AREA := "area"
-## The part of the HP bar a blow would take away, and the part a heal would restore.
-const LOST_CHUNK := Color(1.0, 0.353, 0.306)
-const HEAL_CHUNK := Color(0.62, 1.0, 0.65)
 ## A stat raised above, or lowered below, what the unit's level makes it.
 const STAT_UP := Color(0.62, 1.0, 0.65)
 const STAT_DOWN := Color(1.0, 0.353, 0.306)
@@ -68,8 +60,6 @@ const COMMANDER_TAG := "COMMANDER"
 var _window: NoggWindow
 var _overlay: Control
 var _facts: Dictionary = {}
-## The aim matchup this card shows instead of the unit, or {} (see `showMatchup`).
-var _matchup: Dictionary = {}
 ## Hit rects of the effect cells, in this control's space: {rect, fact} or {rect, overflow: Array}.
 var _effectCells: Array = []
 
@@ -94,7 +84,7 @@ func _ready() -> void:
 	size = _window.size
 	# Added before the window built its chrome; keep it drawn over the rows, as the status sheet does.
 	_window.move_child(_overlay, _window.get_child_count() - 1)
-	if not _facts.is_empty() or not _matchup.is_empty():
+	if not _facts.is_empty():
 		_rebuild()
 
 
@@ -103,7 +93,6 @@ func showFacts(facts: Dictionary) -> void:
 		hideReadout()
 		return
 	var wasVisible := visible
-	_matchup = {}
 	_facts = facts
 	visible = true
 	if is_node_ready():
@@ -112,25 +101,7 @@ func showFacts(facts: Dictionary) -> void:
 			_window.open()
 
 
-## While the player aims, the card shows the matchup instead of the unit. Same window and rows.
-func showMatchup(matchup: Dictionary) -> void:
-	if matchup.is_empty():
-		return
-	var wasVisible := visible
-	_matchup = matchup
-	visible = true
-	if is_node_ready():
-		_rebuild()
-		if not wasVisible:
-			_window.open()
-
-
-func showingMatchup() -> bool:
-	return visible and not _matchup.is_empty()
-
-
 func hideReadout() -> void:
-	_matchup = {}
 	_facts = {}
 	_effectCells.clear()
 	visible = false
@@ -171,25 +142,18 @@ func _rebuild() -> void:
 		child.queue_free()
 	_effectCells.clear()
 	_window.clear_rows()
-	if not _matchup.is_empty():
-		if str(_matchup.get("kind", "")) == MATCHUP_AREA:
-			_rebuildArea()
-		else:
-			_rebuildSingle()
-		return
 	var f := _facts
 	_addFittedRow([str(f.get("name", ""))], _sideColor(f))
-	_buildVitals(f, int(f.get("hp", 0)), int(f.get("hp", 0)), int(f.get("max_hp", 1)))
+	_buildVitals(f)
 	_buildStats(f.get("card_stats", []))
 	_buildDetail(f)
 
 
 # --- the unit ---------------------------------------------------------------------
 
-## `^ Lv3 [===|===|==   ] 36/50`. With `after` different from `before`, the bar shows the chunk a
-## blow takes (red) or a heal restores (pale green), and the numbers read `before > after` with the
-## arrow drawn.
-func _buildVitals(f: Dictionary, before: int, after: int, maxHp: int) -> void:
+## `^ Lv3 [===|===|==   ] 36/50`: a crown for a captain, the level, the HP bar with a tick every 10 HP,
+## and current/max with the maximum dimmed.
+func _buildVitals(f: Dictionary) -> void:
 	_window.add_row("", "", true)
 	var rect := _window.row_rect(ROW_VITALS)
 	var gap := NoggThemeScript.HEX_PLATE_GAP * 2.0
@@ -201,47 +165,30 @@ func _buildVitals(f: Dictionary, before: int, after: int, maxHp: int) -> void:
 	_overlay.add_child(level)
 	x += level.size.x + gap
 
-	var changed := after != before
-	var arrow := _textWidth("0") * 0.75
-	var numbersWidth := (_textWidth("%d" % before) + gap + arrow + _textWidth("%d" % after)) if changed \
-		else _textWidth("%d/%d" % [before, maxHp])
+	var hp := int(f.get("hp", 0))
+	var maxHp := int(f.get("max_hp", 1))
 	var right := rect.position.x + rect.size.x
-	var barWidth := maxf(right - x - gap - numbersWidth, NoggThemeScript.HEX_ELEMENT_CELL)
+	var barWidth := maxf(right - x - gap - _textWidth("%d/%d" % [hp, maxHp]), NoggThemeScript.HEX_ELEMENT_CELL)
 	var height := NoggThemeScript.HEX_HP_BAR_HEIGHT * 2.0
 	var top := rect.position.y + floorf((rect.size.y - height) / 2.0)
 	var maximum := float(maxi(1, maxHp))
 	_box(x, top, barWidth, height, NoggThemeScript.HEX_HP_BACK)
-	var kept := floorf(barWidth * clampf(float(mini(before, after)) / maximum, 0.0, 1.0))
-	var low := float(after) / maximum <= HexHpBarScript.LOW_FRACTION
-	_box(x, top, kept, height, NoggThemeScript.HEX_HP_FILL_LOW if low else NoggThemeScript.HEX_HP_FILL)
-	if changed:
-		var span := floorf(barWidth * clampf(float(maxi(before, after)) / maximum, 0.0, 1.0)) - kept
-		if span > 0.0:
-			_box(x + kept, top, span, height, HEAL_CHUNK if after > before else LOST_CHUNK)
+	var low := float(hp) / maximum <= HexHpBarScript.LOW_FRACTION
+	_box(x, top, floorf(barWidth * clampf(float(hp) / maximum, 0.0, 1.0)), height,
+		NoggThemeScript.HEX_HP_FILL_LOW if low else NoggThemeScript.HEX_HP_FILL)
 	var tick := maxf(1.0, floorf(float(NoggThemeScript.ui_scale) / 2.0))
-	var hp := HP_TICK
-	while hp < maxHp:
-		_box(x + floorf(barWidth * float(hp) / maximum), top, tick, height, NoggThemeScript.WINDOW_FILL_DEEP)
-		hp += HP_TICK
+	var mark := HP_TICK
+	while mark < maxHp:
+		_box(x + floorf(barWidth * float(mark) / maximum), top, tick, height, NoggThemeScript.WINDOW_FILL_DEEP)
+		mark += HP_TICK
 
 	var nx := x + barWidth + gap
-	if changed:
-		var first := _label("%d" % before, NoggThemeScript.TEXT_PRIMARY)
-		first.position = Vector2(nx, rect.position.y + _centreY(first, rect))
-		_overlay.add_child(first)
-		nx += first.size.x + gap * 0.5
-		_drawArrow(Vector2(nx, rect.position.y + rect.size.y * 0.5), arrow)
-		nx += arrow + gap * 0.5
-		var second := _label("%d" % after, NoggThemeScript.HEX_HP_FILL_LOW if after == 0 or low else NoggThemeScript.TEXT_PRIMARY)
-		second.position = Vector2(nx, rect.position.y + _centreY(second, rect))
-		_overlay.add_child(second)
-	else:
-		var current := _label("%d" % before, NoggThemeScript.HEX_HP_FILL_LOW if low else NoggThemeScript.TEXT_PRIMARY)
-		current.position = Vector2(nx, rect.position.y + _centreY(current, rect))
-		_overlay.add_child(current)
-		var total := _label("/%d" % maxHp, NoggThemeScript.TEXT_DIM)
-		total.position = Vector2(nx + current.size.x, rect.position.y + _centreY(total, rect))
-		_overlay.add_child(total)
+	var current := _label("%d" % hp, NoggThemeScript.HEX_HP_FILL_LOW if low else NoggThemeScript.TEXT_PRIMARY)
+	current.position = Vector2(nx, rect.position.y + _centreY(current, rect))
+	_overlay.add_child(current)
+	var total := _label("/%d" % maxHp, NoggThemeScript.TEXT_DIM)
+	total.position = Vector2(nx + current.size.x, rect.position.y + _centreY(total, rect))
+	_overlay.add_child(total)
 
 
 ## `ATK 6  DEF 5  MOV 3`: dim labels, bright values, green or red where the battle has moved a stat
@@ -344,123 +291,6 @@ func _addOverflowCell(hidden: Array, x: float, rect: Rect2) -> void:
 	})
 
 
-# --- the matchup ------------------------------------------------------------------
-
-## One target: its name and the action; its HP after the action; what the action does; its elements
-## and effects.
-func _rebuildSingle() -> void:
-	var m := _matchup
-	var target: Dictionary = m.get("target", {})
-	var name := str(target.get("name", ""))
-	var action := str(m.get("action", ""))
-	_window.add_row("", "", true)
-	var rect := _window.row_rect(ROW_NAME)
-	var nameText := _fitted([name], rect.size.x)
-	var nameLabel := _label(nameText, _sideColor(target))
-	nameLabel.position = Vector2(rect.position.x, rect.position.y + _centreY(nameLabel, rect))
-	_overlay.add_child(nameLabel)
-	var room := rect.size.x - nameLabel.size.x - _textWidth("  ")
-	if _textWidth(action) <= room:
-		var actionLabel := _label(action, NoggThemeScript.TEXT_DIM)
-		actionLabel.position = Vector2(rect.position.x + nameLabel.size.x + _textWidth("  "),
-			rect.position.y + _centreY(actionLabel, rect))
-		_overlay.add_child(actionLabel)
-
-	_buildVitals(target, int(m.get("hp", 0)), int(m.get("hp_after", 0)), int(m.get("max_hp", 1)))
-	var outcome := _outcomeLine(m)
-	_addFittedRow(outcome["texts"], outcome["color"])
-	_buildDetail(target)
-
-
-## An area spell, summed up rather than listed (four rows cannot list eight units): what it is and
-## how many it hits; how many of those are on each side, red when the caster's own side is among
-## them; the damage range; and how many it would defeat.
-func _rebuildArea() -> void:
-	var m := _matchup
-	var targets: Array = m.get("targets", [])
-	_addFittedRow([str(m.get("action", ""))], NoggThemeScript.TEXT_PRIMARY, "%d hit" % targets.size())
-	if not bool(m.get("legal", false)):
-		var reason := str(m.get("reason", ""))
-		_addFittedRow([reason, "Not possible here"] if not reason.is_empty() else ["Not possible here"],
-			NoggThemeScript.TEXT_ENEMY)
-		_window.add_row("", "", true)
-		_window.add_row("", "", true)
-		return
-	var allies := 0
-	var low := -1
-	var high := 0
-	var defeated := 0
-	var alliesDefeated := 0
-	for target: Dictionary in targets:
-		var ally := str(target.get("allegiance", "")) == HexUnitFactsScript.ALLEGIANCE_ALLY
-		if ally:
-			allies += 1
-		var damage := int(target.get("damage", 0))
-		if damage > 0:
-			low = damage if low < 0 else mini(low, damage)
-			high = maxi(high, damage)
-		if bool(target.get("lethal", false)):
-			defeated += 1
-			if ally:
-				alliesDefeated += 1
-	var others := targets.size() - allies
-	if allies > 0:
-		_addFittedRow(["%s, %s" % [_count(allies, "ally", "allies"), _count(others, "enemy", "enemies")],
-			_count(allies, "ally", "allies")], NoggThemeScript.TEXT_ENEMY)
-	else:
-		_addFittedRow([_count(others, "enemy", "enemies")], NoggThemeScript.TEXT_DIM)
-	if low < 0:
-		_window.add_row("No damage", "", true)
-	elif low == high:
-		_addFittedRow(["Deals %d each" % low, "Deals %d" % low], NoggThemeScript.TEXT_PRIMARY)
-	else:
-		_addFittedRow(["Deals %d to %d" % [low, high], "Deals %d-%d" % [low, high]], NoggThemeScript.TEXT_PRIMARY)
-	if defeated == 0:
-		_window.add_row("", "", true)
-	elif alliesDefeated > 0:
-		_addFittedRow(["Defeats %d, %s" % [defeated, _count(alliesDefeated, "ally", "allies")],
-			"Defeats %d" % defeated], NoggThemeScript.TEXT_ENEMY)
-	else:
-		_addFittedRow(["Defeats %d" % defeated], NoggThemeScript.TEXT_ACCENT)
-
-
-func _count(amount: int, one: String, many: String) -> String:
-	return "%d %s" % [amount, one if amount == 1 else many]
-
-
-## What the action does: `{texts, color}`, longest wording first.
-func _outcomeLine(m: Dictionary) -> Dictionary:
-	if not bool(m.get("legal", false)):
-		var reason := str(m.get("reason", ""))
-		var refused: Array[String] = []
-		if not reason.is_empty():
-			refused.append(reason)
-		refused.append("Not possible here")
-		return {"texts": refused, "color": NoggThemeScript.TEXT_ENEMY}
-	var heal := int(m.get("heal", 0))
-	if heal > 0:
-		return {"texts": ["Restores %d HP" % heal, "+%d HP" % heal], "color": HEAL_CHUNK}
-	var low := int(m.get("damage_min", 0))
-	var high := int(m.get("damage_max", 0))
-	if low <= 0:
-		var effect := str(m.get("effect_text", ""))
-		var quiet: Array[String] = []
-		if not effect.is_empty():
-			quiet.append(effect)
-		quiet.append("No damage")
-		return {"texts": quiet, "color": NoggThemeScript.TEXT_DIM}
-	var chance := roundi(float(m.get("crit_chance", 0.0)) * 100.0)
-	if bool(m.get("lethal", false)):
-		return {"texts": ["Deals %d and defeats it" % low, "Defeats it"], "color": NoggThemeScript.TEXT_ACCENT}
-	if bool(m.get("possibly_lethal", false)) and chance > 0:
-		return {"texts": ["Deals %d, a crit defeats it (%d%%)" % [low, chance],
-			"Deals %d, crit KO %d%%" % [low, chance]], "color": NoggThemeScript.TEXT_ACCENT}
-	if high > low and chance > 0:
-		return {"texts": ["Deals %d, crit %d (%d%%)" % [low, high, chance], "Deals %d-%d" % [low, high]],
-			"color": NoggThemeScript.TEXT_PRIMARY}
-	return {"texts": ["Deals %d" % low], "color": NoggThemeScript.TEXT_PRIMARY}
-
-
 # --- drawing helpers --------------------------------------------------------------
 
 ## A unit's name colour: its side's, as seen from the player's party; plain when there is no
@@ -491,16 +321,6 @@ func _drawCrown(origin: Vector2, rowHeight: float) -> float:
 	crown.position = Vector2(origin.x, top)
 	_overlay.add_child(crown)
 	return width
-
-
-## A right-pointing triangle `width` wide, centred on `centre.y`.
-func _drawArrow(left: Vector2, width: float) -> void:
-	var arrow := Polygon2D.new()
-	arrow.color = NoggThemeScript.TEXT_DIM
-	var half := floorf(width * 0.6)
-	arrow.polygon = PackedVector2Array([Vector2(0.0, -half), Vector2(width, 0.0), Vector2(0.0, half)])
-	arrow.position = Vector2(left.x, floorf(left.y))
-	_overlay.add_child(arrow)
 
 
 func _box(x: float, y: float, width: float, height: float, color: Color) -> void:
@@ -541,8 +361,16 @@ func _label(text: String, color: Color) -> Label:
 	label.text = text
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	label.add_theme_color_override("font_color", color)
-	label.size = label.get_minimum_size()
+	# Measured with the game font: a label not yet in the tree reports the fallback font's size.
+	label.size = Vector2(_textWidth(text), _lineHeight())
 	return label
+
+
+func _lineHeight() -> float:
+	var font := get_theme_default_font()
+	if font == null:
+		font = ThemeDB.fallback_font
+	return font.get_height(NoggThemeScript.FONT_SIZE_BODY)
 
 
 func _centreY(label: Label, rect: Rect2) -> float:

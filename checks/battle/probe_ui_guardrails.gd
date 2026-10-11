@@ -74,34 +74,28 @@ func _checkSize(size: Vector2i) -> void:
 	var enemyID := _anyEnemy()
 	if enemyID != -1:
 		var cell: Vector2i = controller.sim.state.getMonsterPosition(enemyID)
-		controller.sideCues.showForecasts([{
-			"monster_id": enemyID,
-			"name": str(controller.sim.state.getMonster(enemyID).name),
-			"world_anchor": controller.adapter.worldPositionOf(cell) + Vector3.UP * 1.2,
-			"forecast": controller.adapter.forecastAttack(unitID, cell),
-		}])
-		await _settle()
-		_audit("%s target preview" % size)
-		controller.sideCues.clearForecasts()
-
-		# The docked card while aiming: one target's matchup, then an area list long enough to
-		# fold, with the longest names on the board.
+		# A single target: the full damage tag over the enemy, worst case a crit that may KO.
 		controller._showTargetCues({
 			"kind": "attack", "target_id": enemyID, "legal": true, "reason": "",
 			"forecast": controller.adapter.forecastAttack(unitID, cell),
 		})
 		await _settle()
-		_require_matchup(size)
-		_audit("%s attack matchup" % size)
-		var longest := _longestNames(6)
-		var rows: Array = []
-		for name in longest:
-			rows.append({"name": name, "allegiance": "enemy", "damage": 88, "lethal": true,
-				"matchup": {"kind": "resist"}})
-		controller.hud.showMatchup({"kind": "area", "action": "Closing of the Third Sanctuary",
-			"elements": ["light", "darkness"], "legal": true, "targets": rows})
+		_require_tags(size, 1)
+		_audit("%s target preview" % size)
+		# An area: a pill over every unit on the board, the widest text a pill draws, so pills on
+		# neighbouring units must push apart rather than pile.
+		var pills: Array = []
+		for id in controller.sim.state.monsterPositions:
+			var at: Vector2i = controller.sim.state.getMonsterPosition(int(id))
+			pills.append({"monster_id": int(id), "hp": 88, "max_hp": 88, "hp_after": 0, "damage": 88,
+				"crit_damage": 88, "crit_chance": 0.15, "lethal": true, "possibly_lethal": false,
+				"heal": 0, "legal": true,
+				"world_anchor": controller.adapter.worldPositionOf(at) + Vector3.UP * 1.2})
+		controller.sideCues.showForecasts(pills)
 		await _settle()
-		_audit("%s area matchup" % size)
+		_require_tags(size, pills.size())
+		_requireNoOverlap(size)
+		_audit("%s area preview" % size)
 		controller._showTargetCues({})
 
 	var caster := _unitWithSpells()
@@ -286,16 +280,28 @@ func _fail(text: String) -> void:
 		failures.append(line)
 
 
-func _require_matchup(size: Vector2i) -> void:
-	if not controller.hud.readout.showingMatchup():
-		_fail("%s: aiming at an enemy did not turn the docked card into its matchup" % size)
+func _require_tags(size: Vector2i, count: int) -> void:
+	var shown := 0
+	for preview in controller.sideCues._previews:
+		if is_instance_valid(preview) and preview.visible:
+			shown += 1
+	if shown != count:
+		_fail("%s: expected %d damage tags, saw %d" % [size, count, shown])
+	if controller.hud.readout.visible and controller.hud.readout.facts().is_empty():
+		_fail("%s: the docked card lost its unit while a preview was up" % size)
 
 
-## The `count` longest monster names in the catalog, longest first.
-func _longestNames(count: int) -> Array[String]:
-	var names: Array[String] = MonsterReferences.getNames()
-	names.sort_custom(func(a: String, b: String) -> bool: return a.length() > b.length())
-	return names.slice(0, count)
+## No two damage tags cover each other: the screen cues stack them instead.
+func _requireNoOverlap(size: Vector2i) -> void:
+	var rects: Array[Rect2] = []
+	for preview in controller.sideCues._previews:
+		if is_instance_valid(preview):
+			rects.append(Rect2(preview.position, preview.size))
+	for i in range(rects.size()):
+		for j in range(i + 1, rects.size()):
+			if rects[i].grow(-TOLERANCE).intersects(rects[j].grow(-TOLERANCE)):
+				_fail("%s: damage tags %d and %d overlap (%s, %s)" % [size, i, j, rects[i], rects[j]])
+				return
 
 
 func _anyEnemy() -> int:

@@ -12,7 +12,10 @@ const EndButtonScript = preload("res://ui/SideTurnEndButton.gd")
 const ActionIconsScript = preload("res://ui/ActionIcons.gd")
 const NoggThemeScript = preload("res://ui/NoggTheme.gd")
 
-const PREVIEW_OFFSET := Vector2(24.0, -96.0)
+## Design units between a unit's head anchor and the bottom of its damage tag -- enough to clear
+## the target marker's sword -- and between stacked tags.
+const PREVIEW_LIFT_UNITS := 14.0
+const PREVIEW_GAP_UNITS := 2.0
 ## The target sword is the arc's own attack icon at the arc's own size, so the cue that promises an
 ## attack reads as one of the icons already floating over the board.
 const SWORD_SIZE := 42.0
@@ -73,9 +76,7 @@ func _process(_delta: float) -> void:
 	if _arcVisible:
 		_arc.position = _projectWorld.call(_arcWorldAnchor)
 	_updateSword()
-	for preview in _previews:
-		if is_instance_valid(preview):
-			preview.position = _projectWorld.call(preview.worldAnchor) + PREVIEW_OFFSET
+	_placePreviews()
 
 
 ## Hidden whole while a HUD modal is open: under the sheet the arc would still take clicks, and a
@@ -134,18 +135,51 @@ func hideActionArc() -> void:
 	_arc.hideArc()
 
 
+## One damage tag over each unit in `models` (see `HexTargetPreviews`). A single target gets the
+## full tag; several get pills, so an area spell's tags fit between neighbouring units.
 func showForecasts(models: Array) -> void:
 	clearForecasts()
+	var pill := models.size() > 1
 	for model: Dictionary in models:
 		var preview = PreviewBoxScript.new()
 		_root.add_child(preview)
-		var anchor: Vector3 = model.get("world_anchor", Vector3.ZERO)
-		preview.position = _projectWorld.call(anchor) + PREVIEW_OFFSET \
-			if _projectWorld.is_valid() else Vector2.ZERO
-		preview.configure(
-			int(model.get("monster_id", -1)), str(model.get("name", "Target")),
-			anchor, model.get("forecast", {}))
+		preview.configure(model, pill)
 		_previews.append(preview)
+	_placePreviews()
+
+
+## Centres each tag just above its unit's head, then pushes any tag that would cover another one
+## up until it is clear, units nearest the bottom of the screen first, so on a tight cluster the
+## tags stack instead of piling. Recomputed every frame because the camera can turn and zoom.
+func _placePreviews() -> void:
+	if not _projectWorld.is_valid():
+		return
+	var lift := PREVIEW_LIFT_UNITS * float(NoggThemeScript.ui_scale)
+	var gap := PREVIEW_GAP_UNITS * float(NoggThemeScript.ui_scale)
+	var live: Array = []
+	for preview in _previews:
+		if is_instance_valid(preview):
+			var screen: Vector2 = _projectWorld.call(preview.worldAnchor)
+			preview.position = screen - Vector2(floorf(preview.size.x * 0.5), preview.size.y + lift)
+			live.append(preview)
+	live.sort_custom(func(first, second) -> bool: return first.position.y > second.position.y)
+	var placed: Array[Rect2] = []
+	# The target marker's sword is an obstacle like any tag: a tag that would cover it moves up.
+	if _sword.visible:
+		placed.append(Rect2(_sword.position, _sword.size).grow(gap * 0.5))
+	for preview in live:
+		var rect := Rect2(preview.position, preview.size).grow(gap * 0.5)
+		var moved := true
+		var guard := 0
+		while moved and guard < 16:
+			moved = false
+			guard += 1
+			for other in placed:
+				if rect.intersects(other):
+					rect.position.y = other.position.y - rect.size.y
+					moved = true
+		placed.append(rect)
+		preview.position = rect.position + Vector2.ONE * gap * 0.5
 
 
 func clearForecasts() -> void:

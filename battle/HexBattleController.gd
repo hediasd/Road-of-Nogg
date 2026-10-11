@@ -46,7 +46,7 @@ const BattleSetupFactoryScript = preload("res://simulation/BattleSetupFactory.gd
 const BattleScenarioFactoryScript = preload("res://content/BattleScenarioFactory.gd")
 const NoggThemeScript = preload("res://ui/NoggTheme.gd")
 const HexGraphicsPanelScript = preload("res://ui/HexGraphicsPanel.gd")
-const HexMatchupFactsScript = preload("res://battle/HexMatchupFacts.gd")
+const HexTargetPreviewsScript = preload("res://battle/HexTargetPreviews.gd")
 
 ## ENDING is the stretch between the simulator deciding the battle and the screen showing the blow
 ## that decided it. Nothing may start in it, and the result waits for playback to drain.
@@ -119,8 +119,6 @@ var _lastReadyCount := -1
 ## The enemy the pointer currently previews outside an aim, or -1. Rebuilding the preview box on
 ## every motion event would replay its entrance, so the cues change only when this does.
 var _pointerTargetID := -1
-## Builds what the docked card shows while aiming; keeps its threat cache between hovers.
-var _matchupFacts = HexMatchupFactsScript.new()
 
 
 func _ready() -> void:
@@ -593,67 +591,26 @@ func _onAimChanged(model: Dictionary) -> void:
 	_showTargetCues(model)
 
 
-## Sword and preview boxes for an aim model, or for the pointer's attack model outside an aim.
+## Sword and damage tags for an aim model, or for the pointer's attack model outside an aim. The
+## tags sit over the units the action would touch (`HexTargetPreviews`); the docked unit card is
+## left alone, because it is the unit's general status and never a preview.
 func _showTargetCues(model: Dictionary) -> void:
 	adapter.setTargetedUnit(-1)
 	sideCues.clearForecasts()
-	_showMatchup(model)
 	if model.is_empty():
 		return
 	var targetID := int(model.get("target_id", -1))
 	if targetID != -1 and bool(model.get("legal", false)):
 		adapter.setTargetedUnit(targetID)
-	var forecasts: Array = []
-	if str(model.get("kind", "")) == HexBattleMemberInputScript.SPELL_PREFIX:
-		for cellValue in model.get("affected_cells", []):
-			var cell: Vector2i = cellValue
-			var affectedID := int(sim.state.board.at(cell)) if map.containsCell(cell) else 0
-			if affectedID == 0:
-				continue
-			var forecast := adapter.forecastSpell(
-				memberTurn.monsterID(), int(model.get("spell_set_index", 0)),
-				int(model.get("spell_index", 0)), cell)
-			if forecast.is_empty() or not bool(forecast.get("available", false)):
-				continue
-			var affected = sim.state.getMonster(affectedID)
-			forecasts.append({
-				"monster_id": affectedID,
-				"name": str(affected.name) if affected != null else "Target",
-				"world_anchor": adapter.worldPositionOf(cell) + Vector3.UP * 1.2,
-				"forecast": forecast,
-			})
-	else:
-		var forecast: Dictionary = model.get("forecast", {})
-		if targetID != -1 and not forecast.is_empty():
-			var target = sim.state.getMonster(targetID)
-			forecasts.append({
-				"monster_id": targetID,
-				"name": str(target.name) if target != null else "Target",
-				"world_anchor": adapter.worldPositionOf(sim.state.getMonsterPosition(targetID)) \
-					+ Vector3.UP * 1.2,
-				"forecast": forecast,
-			})
-	# One box per unit an area spell would hit piled into an unreadable stack over the board; the
-	# docked matchup card lists every one of them instead. A single target keeps its box.
-	if forecasts.size() == 1 or (not forecasts.is_empty() 			and str(model.get("kind", "")) != HexBattleMemberInputScript.SPELL_PREFIX):
-		sideCues.showForecasts(forecasts)
+	var actorID := memberTurn.monsterID() if memberTurn != null else -1
+	var tags := HexTargetPreviewsScript.build(sim, adapter, actorID, model)
+	if not tags.is_empty():
+		sideCues.showForecasts(tags)
 
 
-## The in-world preview boxes and the docked matchup go together: whatever clears one clears both.
 func _clearForecasts() -> void:
 	if sideCues != null:
 		sideCues.clearForecasts()
-	if hud != null:
-		hud.showMatchup({})
-
-
-## The docked card turns into the matchup for this aim, or back into the unit card when there is
-## nothing to match up.
-func _showMatchup(model: Dictionary) -> void:
-	if hud == null:
-		return
-	var actorID := memberTurn.monsterID() if memberTurn != null else -1
-	hud.showMatchup(_matchupFacts.build(sim, adapter, actorID, model, hud._viewerPartyID()))
 
 
 func _onHudCommandChosen(commandID: String) -> void:
