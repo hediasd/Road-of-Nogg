@@ -123,8 +123,29 @@ static func build(
 		"allegiance": allegianceFor(sim, monster, viewerPartyID),
 		"resonance": resonanceFacts(monster),
 		"resonance_bonus": int(monster.get_resonance_bonus_percent()),
+		"card_stats": cardStats(monster, effectRows),
 		"turn": turnState(sim, monsterID),
 	}
+
+
+## ATK, DEF and MOV as the battle uses them now, each with its change from the unit's level stat:
+## `[{label, value, delta}]`. ATK and DEF carry the Resonance bonus and the effect bonuses applied at
+## damage time; MOV carries the effect bonuses the movement resolver adds. A positive delta is a
+## buff, a negative one a debuff, zero the unit as its level makes it.
+static func cardStats(monster, effectRows: Array) -> Array:
+	var bonus := {"atk_bonus": 0, "def_bonus": 0, "move_bonus": 0}
+	for effect in effectRows:
+		if effect is Dictionary:
+			for key in bonus:
+				bonus[key] = int(bonus[key]) + int((effect as Dictionary).get(key, 0))
+	var atk := int(monster.get_effective_atk()) + int(bonus["atk_bonus"])
+	var def := int(monster.get_effective_def()) + int(bonus["def_bonus"])
+	var mov := int(monster.move) + int(bonus["move_bonus"])
+	return [
+		{"label": "ATK", "value": atk, "delta": atk - int(monster.atk)},
+		{"label": "DEF", "value": def, "delta": def - int(monster.def)},
+		{"label": "MOV", "value": mov, "delta": mov - int(monster.move)},
+	]
 
 
 ## Each owned element's Resonance charge, 0 to 3, in the monster's element order.

@@ -1732,18 +1732,39 @@ the fit is bought back with narrower widths and fewer sheet rows instead.
   chiseled outer aura. There is no name label over units.
 - **Hover** also fills the readout, drawn over the committed selection and
   returning to it when the pointer leaves.
-- **Click** selects a unit and opens the readout: name and level, an HP bar with
-  its numbers, element squares (placeholder colour plus the two-letter `CODE`
-  from `data/elements.json`), the unit's kind, and its effects with turns left.
-  The selected unit gets a breathing ring on its cell, distinct from the hover
-  rim. Clicking empty ground returns selection to the acting member. Hover and
-  click work in every phase, except that a left click while aiming stays the
-  aim's confirm.
-- The readout has a fixed four rows. Effects that do not fit collapse into a
-  `+N` cell; pointing at an effect or at `+N` explains it in a text box above
-  the readout. The full list is on the STATUS sheet. HP, effects and removals are
-  read from DISPLAYED state -- what playback has shown -- never from
-  `BattleState`, or a readout drops HP before the hit lands.
+- **Click** selects a unit and opens the unit card, docked bottom-left. The selected unit gets a
+  breathing ring on its cell, distinct from the hover rim. Clicking empty ground returns selection
+  to the acting member. Hover and click work in every phase, except that a left click while aiming
+  stays the aim's confirm.
+- **The unit card** is four rows, 184 design units wide: wide enough for the longest monster name
+  (20 characters at Nogg Terminal's 8-unit advance) and no wider. At any UI scale it takes about
+  29% of the screen's width and 22% of its height.
+  1. The name, in its side's colour as seen from the player's party (`TEXT_ALLY` / `TEXT_ENEMY`;
+     plain with no point of view).
+  2. A drawn crown for a captain, `LvN` in the accent colour, an HP bar with a tick every 10 HP,
+     and `current/max` with the maximum dimmed.
+  3. `ATK DEF MOV` with dim labels and bright values; a value is green when buffs or Resonance
+     raise it above the unit's level stat and red when lowered.
+  4. Element squares (placeholder colour plus the two-letter `CODE` from `data/elements.json`),
+     each followed by three charge cells once it holds a charge; the Resonance bonus; then the
+     effects as a swatch and the turns left, folding into `+N`.
+
+  Race, family, the side word and turn state are not on the card: the side is the name's colour,
+  spent units are dark on the board, and the taxonomy is the STATUS sheet's. Pointing at an effect
+  or at `+N` explains it in a text box above the card. The card plays its open animation when it
+  appears, not each time the pointer moves to another unit. HP, effects and removals are read from
+  DISPLAYED state -- what playback has shown -- never from `BattleState`, or a card drops HP before
+  the hit lands.
+- **While aiming** an attack or a spell, or pointing at an enemy with a unit selected, the same
+  window shows the matchup in the same four rows: the target's name and the action; its HP bar as
+  it would stand afterwards, the chunk lost in red or restored in pale green, with
+  `before > after` (arrow drawn); what the action does (`Deals 3`, `Deals 5, crit 7 (7%)`,
+  `Deals 5 and defeats it`, `Restores 7 HP`, the summary of a damage-free spell, or the game's own
+  refusal); and the target's elements and effects. An area spell is summed up instead: how many
+  it hits, how many on each side (red when the caster's side is among them), the damage range,
+  and how many it would defeat. Area aims draw no per-unit boxes over the board; a single target
+  keeps its box. The matchup says what the action does, never what the player should do: no
+  threat, weakness, resistance or retaliation lines. That depth belongs to the STATUS sheet.
 - Effect and spell descriptions are built from the fields the simulator reads
   (`damagePerTurn`, `damage_multiplier`, stat bonuses), so a description never
   claims a rule the battle does not apply.

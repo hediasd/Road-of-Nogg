@@ -76,7 +76,7 @@ const VALUES := {
 		"hex_plate_gap_units": 3.0,
 		"hex_hint_width_units": 240.0,
 		"hex_spell_width_units": 280.0,
-		"hex_readout_width_units": 240.0,
+		"hex_readout_width_units": 184.0,
 		"hex_prompt_width_units": 260.0,
 		"hex_sheet_width_units": 340.0,
 		"hex_sheet_capacity": 12
@@ -138,7 +138,7 @@ const VALUES := {
 		"hex_plate_gap_units": 2.0,
 		"hex_hint_width_units": 190.0,
 		"hex_spell_width_units": 230.0,
-		"hex_readout_width_units": 200.0,
+		"hex_readout_width_units": 184.0,
 		"hex_prompt_width_units": 200.0,
 		"hex_sheet_width_units": 300.0,
 		# Eight, not the deep card's nine: tabs, body, and a three-row explanation

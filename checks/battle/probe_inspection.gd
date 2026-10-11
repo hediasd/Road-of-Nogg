@@ -7,6 +7,7 @@ extends SceneTree
 const HexBattleControllerScript = preload("res://battle/HexBattleController.gd")
 const HexUnitFactsScript = preload("res://ui/HexUnitFacts.gd")
 const HexUnitReadoutScript = preload("res://ui/HexUnitReadout.gd")
+const NoggThemeScript = preload("res://ui/NoggTheme.gd")
 const HexTextBoxScript = preload("res://ui/HexTextBox.gd")
 
 const SCENARIO := "res://data/scenarios/technical_hxb_contract_player_cpu.json"
@@ -165,14 +166,9 @@ func _checkPickingSelectsByID() -> void:
 	_require(_controller.adapter.selectedUnit() == other, "hovering disturbed the selection")
 
 
-## The allegiance tag and the level it pairs with, over every deployed unit.
-##
-## THREE THINGS, AND THE THIRD IS THE ONE THAT ROTS QUIETLY. That the word is relative to the
-## viewing party rather than a raw team id; that a commander takes its rank in place of its side
-## word; and that the pair's left edge is the same pixel for every unit, which is the whole reason
-## the tag is laid out in a field the width of `COMMANDER` instead of flush against the level. The
-## first two fail loudly the moment they break. The third degrades into a column that twitches as
-## the cursor moves, which nobody files a bug about and everybody feels.
+## The side and rank of every deployed unit, and its level. The side is the name's colour,
+## relative to the viewing party rather than a raw team id; a captain wears a drawn crown and no
+## one else does; the level reads `LvN` beside the HP bar.
 func _checkAllegianceTag() -> void:
 	var state := _controller.sim.state
 	var restore := _controller.hud.selectedUnit()
@@ -182,7 +178,6 @@ func _checkAllegianceTag() -> void:
 		return
 
 	var words: Dictionary = {}
-	var tagEdges: Dictionary = {}
 	for id in state.monsters:
 		var monsterID := int(id)
 		var monster = state.monsters[id]
@@ -203,35 +198,26 @@ func _checkAllegianceTag() -> void:
 			"unit %d reads allegiance '%s', expected '%s'"
 				% [monsterID, str(facts.get("allegiance", "")), expected])
 
-		var wanted := HexUnitReadoutScript.ENEMY_TAG
-		if bool(facts.get("commander", false)):
-			wanted = HexUnitReadoutScript.COMMANDER_TAG
-		elif expected == HexUnitFactsScript.ALLEGIANCE_ALLY:
-			wanted = HexUnitReadoutScript.ALLY_TAG
-		var tag := _readoutLabel([
-			HexUnitReadoutScript.ALLY_TAG,
-			HexUnitReadoutScript.ENEMY_TAG,
-			HexUnitReadoutScript.COMMANDER_TAG,
-		])
-		_require(tag != null, "unit %d shows no allegiance tag" % monsterID)
-		if tag == null:
-			continue
-		_require(tag.text == wanted,
-			"unit %d tags '%s', expected '%s'" % [monsterID, tag.text, wanted])
-		words[tag.text] = true
-		tagEdges[snappedf(tag.position.x, 0.5)] = true
+		# The side is the name's colour, and a captain wears a drawn crown.
+		var nameLabel := _readoutLabel([str(monster.name)])
+		_require(nameLabel != null, "unit %d shows no name" % monsterID)
+		if nameLabel != null:
+			var wantedColor := NoggThemeScript.TEXT_ALLY if expected == HexUnitFactsScript.ALLEGIANCE_ALLY 				else NoggThemeScript.TEXT_ENEMY
+			_require(nameLabel.get_theme_color("font_color") == wantedColor,
+				"unit %d's name is not in its side's colour" % monsterID)
+			words[expected] = true
+		var crown := _controller.hud.readout.find_child("Crown", true, false)
+		_require((crown != null) == bool(facts.get("commander", false)),
+			"unit %d %s a crown" % [monsterID, "lacks" if crown == null else "wrongly wears"])
 
-		var level := _readoutLabelStarting("Lv ")
+		var level := _readoutLabelStarting("Lv")
 		_require(level != null, "unit %d shows no level" % monsterID)
 		if level != null:
-			_require(level.text == "Lv %d" % int(facts.get("level", 1)),
-				"unit %d reads '%s', expected 'Lv %d'" % [monsterID, level.text, int(facts.get("level", 1))])
+			_require(level.text == "Lv%d" % int(facts.get("level", 1)),
+				"unit %d reads '%s', expected 'Lv%d'" % [monsterID, level.text, int(facts.get("level", 1))])
 
 	_require(words.size() >= 2,
-		"every unit tagged the same word, so a fixed tag field proves nothing here")
-	_require(tagEdges.size() == 1,
-		"the tag's left edge took %d positions across the board; the field is not holding it"
-			% tagEdges.size())
+		"every unit read as one side, so the name colour proves nothing here")
 
 	if restore != -1:
 		_controller._selectUnit(restore)
