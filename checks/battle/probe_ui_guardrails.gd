@@ -82,8 +82,8 @@ func _checkSize(size: Vector2i) -> void:
 		await _settle()
 		_require_tags(size, 1)
 		_audit("%s target preview" % size)
-		# An area: a pill over every unit on the board, the widest text a pill draws, so pills on
-		# neighbouring units must push apart rather than pile.
+		# An area: a window over every unit on the board, the widest text a window draws. Windows
+		# on neighbouring units may overlap, but each must stay on its own unit.
 		var pills: Array = []
 		for id in controller.sim.state.monsterPositions:
 			var at: Vector2i = controller.sim.state.getMonsterPosition(int(id))
@@ -94,7 +94,7 @@ func _checkSize(size: Vector2i) -> void:
 		controller.sideCues.showForecasts(pills)
 		await _settle()
 		_require_tags(size, pills.size())
-		_requireNoOverlap(size)
+		_requireAnchored(size)
 		_audit("%s area preview" % size)
 		controller._showTargetCues({})
 
@@ -291,17 +291,17 @@ func _require_tags(size: Vector2i, count: int) -> void:
 		_fail("%s: the docked card lost its unit while a preview was up" % size)
 
 
-## No two damage tags cover each other: the screen cues stack them instead.
-func _requireNoOverlap(size: Vector2i) -> void:
-	var rects: Array[Rect2] = []
+## Every preview window stays on its own unit: centred over it horizontally, whatever its
+## neighbours. Windows may overlap; a window that drifted off its unit could not be matched to it.
+func _requireAnchored(size: Vector2i) -> void:
 	for preview in controller.sideCues._previews:
-		if is_instance_valid(preview):
-			rects.append(Rect2(preview.position, preview.size))
-	for i in range(rects.size()):
-		for j in range(i + 1, rects.size()):
-			if rects[i].grow(-TOLERANCE).intersects(rects[j].grow(-TOLERANCE)):
-				_fail("%s: damage tags %d and %d overlap (%s, %s)" % [size, i, j, rects[i], rects[j]])
-				return
+		if not is_instance_valid(preview):
+			continue
+		var screen: Vector2 = controller.stage.projectWorldToScreen(preview.worldAnchor)
+		var centre: float = preview.position.x + preview.size.x * 0.5
+		if absf(centre - screen.x) > 1.0 + TOLERANCE:
+			_fail("%s: the preview window for unit %d drifted %.0f px off its unit" % [size, preview.targetID, centre - screen.x])
+			return
 
 
 func _anyEnemy() -> int:

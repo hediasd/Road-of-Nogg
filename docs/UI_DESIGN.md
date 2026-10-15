@@ -1757,20 +1757,20 @@ the fit is bought back with narrower widths and fewer sheet rows instead.
   the hit lands.
 - **The card is never a preview.** It is the unit's general status, and it stays that while the
   player aims. What an aimed attack or spell would do is drawn over the units it touches.
-- **Damage tags** (`SideTurnPreviewBox`, placed by `SideTurnScreenCues`, built by
+- **Damage preview windows** (`SideTurnPreviewBox`, placed by `SideTurnScreenCues`, built by
   `HexTargetPreviews`) sit above each unit an aim touches: the attack's target, or every unit on a
-  spell's resolved cells, allies included. Each is that unit's HP bar in a dark border, with the
-  segment the action takes (red) or a heal restores (pale green) pulsing, and the change beside it
-  (`-3`, `-12 KO`, `+7`). A single target gets a 40-unit bar with the number to its right and,
-  when a crit can happen and changes the result, `crit -5 7%` beneath. When several units are
-  touched, each gets a 24-unit bar with its number centred above, narrow enough for neighbouring
-  hexes. There is no frame: framed boxes over eight units piled into a tower nobody could match
-  to its unit. The text wears the baked outline (`NoggTheme.OUTLINE_SIZE`), the treatment for
-  text over a bright background. Tags are centred over their unit and pushed up, never sideways,
-  when they would cover another tag or the target marker's sword. An aim the rules refuse still
-  shows its tags, dimmed. A spell that neither damages nor heals draws none; the prompt line says
-  what it does. The preview states what the action does, never what the player should do: no
-  threat, weakness or retaliation, which belong to the STATUS sheet.
+  spell's resolved cells, allies included. Text never stands loose over the board: each preview is
+  a `NoggWindow` of its own, two rows. The first gives the change (`-3`, `-12 KO`, `+7`) and, for
+  a single target, what a crit would do when one can happen and changes the result
+  (`crit -5 7%`). The second gives the unit's HP bar, with the segment the action takes (red) or a
+  heal restores (pale green) pulsing, and for a single target the HP it would be left with. When
+  several units are touched each window is narrower and drops the crit and HP numbers. Windows
+  over neighbouring units may overlap: each stays centred over its own unit, the unit nearer the
+  camera draws its window on top, and a covered window takes the shared inactive tint so it does
+  not ghost through the one in front. Only the target marker's sword moves a window, up. An aim
+  the rules refuse still shows its windows, dimmed. A spell that neither damages nor heals draws
+  none; the prompt line says what it does. The preview states what the action does, never what
+  the player should do: no threat, weakness or retaliation, which belong to the STATUS sheet.
 - Effect and spell descriptions are built from the fields the simulator reads
   (`damagePerTurn`, `damage_multiplier`, stat bonuses), so a description never
   claims a rule the battle does not apply.

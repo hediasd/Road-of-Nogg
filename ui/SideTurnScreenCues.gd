@@ -12,8 +12,8 @@ const EndButtonScript = preload("res://ui/SideTurnEndButton.gd")
 const ActionIconsScript = preload("res://ui/ActionIcons.gd")
 const NoggThemeScript = preload("res://ui/NoggTheme.gd")
 
-## Design units between a unit's head anchor and the bottom of its damage tag -- enough to clear
-## the target marker's sword -- and between stacked tags.
+## Design units between a unit's head anchor and the bottom of its preview window, and between a
+## window and the target marker's sword it steps over.
 const PREVIEW_LIFT_UNITS := 14.0
 const PREVIEW_GAP_UNITS := 2.0
 ## The target sword is the arc's own attack icon at the arc's own size, so the cue that promises an
@@ -25,6 +25,7 @@ const SWORD_ENTRANCE_SECONDS := 0.16
 var _root: Control
 var _banner
 var _arc
+var _previewLayer: Control
 var _endButton
 var _previews: Array = []
 var _projectWorld: Callable
@@ -44,6 +45,12 @@ func _init() -> void:
 	# The game theme, or every window, banner and button here falls back to Godot's default sans.
 	_root.theme = NoggThemeScript.build_game_theme()
 	add_child(_root)
+	# Preview windows get their own layer, drawn under the banner, the arc and the sword, so ordering
+	# the windows by depth among themselves never lifts one over a control.
+	_previewLayer = Control.new()
+	_previewLayer.name = "PreviewLayer"
+	_previewLayer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_previewLayer)
 	_banner = BannerScript.new()
 	_root.add_child(_banner)
 	_arc = IconArcScript.new()
@@ -135,51 +142,49 @@ func hideActionArc() -> void:
 	_arc.hideArc()
 
 
-## One damage tag over each unit in `models` (see `HexTargetPreviews`). A single target gets the
-## full tag; several get pills, so an area spell's tags fit between neighbouring units.
+## One preview window over each unit in `models` (see `HexTargetPreviews`). A single target gets
+## the full window; several get the narrower one.
 func showForecasts(models: Array) -> void:
 	clearForecasts()
 	var pill := models.size() > 1
 	for model: Dictionary in models:
 		var preview = PreviewBoxScript.new()
-		_root.add_child(preview)
+		_previewLayer.add_child(preview)
 		preview.configure(model, pill)
 		_previews.append(preview)
 	_placePreviews()
 
 
-## Centres each tag just above its unit's head, then pushes any tag that would cover another one
-## up until it is clear, units nearest the bottom of the screen first, so on a tight cluster the
-## tags stack instead of piling. Recomputed every frame because the camera can turn and zoom.
+## Centres each preview window just above its unit's head. Windows over neighbouring units may
+## overlap: each stays on its own unit, the unit nearer the camera (lower on screen) draws its
+## window on top, and a covered window dims so it does not ghost through the one in front. Only the target marker's sword moves a window, up, so the marker stays visible.
+## Recomputed every frame because the camera can turn and zoom.
 func _placePreviews() -> void:
 	if not _projectWorld.is_valid():
 		return
 	var lift := PREVIEW_LIFT_UNITS * float(NoggThemeScript.ui_scale)
 	var gap := PREVIEW_GAP_UNITS * float(NoggThemeScript.ui_scale)
+	var sword := Rect2(_sword.position, _sword.size).grow(gap * 0.5) if _sword.visible else Rect2()
 	var live: Array = []
 	for preview in _previews:
 		if is_instance_valid(preview):
 			var screen: Vector2 = _projectWorld.call(preview.worldAnchor)
 			preview.position = screen - Vector2(floorf(preview.size.x * 0.5), preview.size.y + lift)
+			var rect := Rect2(preview.position, preview.size)
+			if _sword.visible and rect.intersects(sword):
+				preview.position.y = sword.position.y - preview.size.y - gap
 			live.append(preview)
-	live.sort_custom(func(first, second) -> bool: return first.position.y > second.position.y)
-	var placed: Array[Rect2] = []
-	# The target marker's sword is an obstacle like any tag: a tag that would cover it moves up.
-	if _sword.visible:
-		placed.append(Rect2(_sword.position, _sword.size).grow(gap * 0.5))
-	for preview in live:
-		var rect := Rect2(preview.position, preview.size).grow(gap * 0.5)
-		var moved := true
-		var guard := 0
-		while moved and guard < 16:
-			moved = false
-			guard += 1
-			for other in placed:
-				if rect.intersects(other):
-					rect.position.y = other.position.y - rect.size.y
-					moved = true
-		placed.append(rect)
-		preview.position = rect.position + Vector2.ONE * gap * 0.5
+	live.sort_custom(func(first, second) -> bool:
+		return _projectWorld.call(first.worldAnchor).y < _projectWorld.call(second.worldAnchor).y)
+	for index in range(live.size()):
+		_previewLayer.move_child(live[index], -1)
+		var rect := Rect2(live[index].position, live[index].size)
+		var covered := false
+		for nearer in range(index + 1, live.size()):
+			if rect.intersects(Rect2(live[nearer].position, live[nearer].size)):
+				covered = true
+				break
+		live[index].setCovered(covered)
 
 
 func clearForecasts() -> void:
