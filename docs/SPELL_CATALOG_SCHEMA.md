@@ -96,7 +96,8 @@ to Elemental Cube Crownburst (offensive) or Spiral Invocation
 (support/utility). None of this ever changes damage, targeting, range, radius,
 or any other spell rule. The spells that carry a `VFX` block and their settings
 are listed on each cube placeholder family page under
-[`effects/`](./effects/README.md).
+[`effects/`](./effects/README.md); Shine, the one carrier of a non-cube
+profile, is on the cross-filter sparkles page.
 
 ## Collection fields
 

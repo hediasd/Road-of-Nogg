@@ -66,7 +66,9 @@ cube placeholder whose travel stretched with range lands its hit on its impact
 beat at any distance — and for `duration x action_hold_fraction` otherwise.
 
 The spec is presentation metadata with no gameplay effect. During the
-cube-only VFX phase, only an active cube profile wins. In hex battle, an empty,
+cube-only VFX phase, only an active profile wins: a cube profile, or one of the
+authored effects `SpellVfxCatalog.AUTHORED_CATALOGS` admits (today only the
+cross-filter sparkles, Shine's placeholder). In hex battle, an empty,
 unknown, or parked non-cube value resolves through
 `SpellVfxCatalog.profileForSpell()`: offensive spells use elemental-cube
 Crownburst and all others use Spiral Invocation. A caller that bypasses this

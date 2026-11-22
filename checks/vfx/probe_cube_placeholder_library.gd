@@ -253,6 +253,10 @@ func _checkAgreement(manifest: Dictionary) -> void:
 	for row: Dictionary in SpellVfxCatalog.entries():
 		var profileID := str(row["profile_id"])
 		catalogIDs.append(profileID)
+		# Authored non-cube profiles admitted through SpellVfxCatalog's
+		# AUTHORED_CATALOGS build through their own playback, not this library.
+		if str(row.get("family", "")) == "authored":
+			continue
 		var factory: Callable = row["factory"]
 		var owner := factory.get_object() as Script
 		_expect(owner == Effect or owner == RitualEffect,

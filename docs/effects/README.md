@@ -34,7 +34,7 @@ to 35% of a document that calls itself conventions and authoring workflow.
 | [Aurora Veil](./aurora-veil.md) | `aurora_veil` | Parked; source and spell metadata retained, absent from the active catalog |
 | [Solar Storm](./solar-storm.md) | `solar_storm` (+ five ladder rungs) | Parked; source and spell metadata retained, absent from the active catalog |
 | [Technique charge aura](./technique-charge-aura.md) | `technique_charge_aura_v1`, `technique_charge_aura_v2` | Parked; debug-only source and assets retained, absent from the active catalog |
-| [Cross-filter sparkles](./cross-filter-sparkles.md) | `cross_filter_sparkles` | Preview only; loaded through its own catalog script, no carrier spell |
+| [Cross-filter sparkles](./cross-filter-sparkles.md) | `cross_filter_sparkles` | Active placeholder; carrier Shine |
 
 Parked effects with no page yet — Ice Storm, Fire Storm, Magenta Reduction,
 Ice Target Encasement — are documented only by their code and commit history.

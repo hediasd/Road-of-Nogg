@@ -26,6 +26,10 @@ const CUBE_PLACEHOLDER_PROFILES := [
 	"cube_blink_transfer", "cube_charge_release",
 ]
 
+## Non-cube profiles admitted to the active set through
+## `SpellVfxCatalog.AUTHORED_CATALOGS`, in catalog order after the cubes.
+const AUTHORED_PROFILES := ["cross_filter_sparkles"]
+
 ## The carrier settings table: spell -> the spec it must resolve to. Unlisted
 ## keys must resolve to their defaults.
 const CARRIERS := {
@@ -54,6 +58,7 @@ const CARRIERS := {
 	"Opening of the Third Sanctuary": {"PROFILE": "cube_cleanse", "SPREAD": "centre", "AREA_SCALING": "none"},
 	"Feather Time": {"PROFILE": "cube_blink_transfer", "ELEMENTS": ["steel", "wind"]},
 	"Pyre Blast": {"PROFILE": "cube_charge_release"},
+	"Shine": {"PROFILE": "cross_filter_sparkles"},
 }
 
 ## Presentation and simulation paths that must never branch on a profile id.
@@ -162,10 +167,10 @@ func _map(cols := 21, rows := 21) -> BattleMapDefinition:
 	return map
 
 
-## Every active cube profile must be served, and no parked effect may re-enter
+## Every active profile must be served, and no parked effect may re-enter
 ## through the catalog while this direction is in force. The active set is
-## exactly the two rituals and the 24 cube placeholders, all body-built by the
-## bridge (none sizes itself from a tile radius).
+## exactly the two rituals, the 24 cube placeholders and the listed authored
+## profiles, all body-built by the bridge (none sizes itself from a tile radius).
 func _checkCatalogCoverage() -> void:
 	var catalog := SpellVfxCatalog.entries()
 	var coverage := BridgeScript.coverage()
@@ -174,8 +179,9 @@ func _checkCatalogCoverage() -> void:
 		CubeRitualProfileScript.SPIRAL_PROFILE_ID,
 	]
 	expectedProfiles.append_array(CUBE_PLACEHOLDER_PROFILES)
+	expectedProfiles.append_array(AUTHORED_PROFILES)
 	_require(catalog.size() == expectedProfiles.size(),
-		"cube-only catalog should list %d profiles, got %d" % [
+		"active catalog should list %d profiles, got %d" % [
 			expectedProfiles.size(), catalog.size()
 		])
 	_require(coverage.size() == catalog.size(),
@@ -201,7 +207,7 @@ func _checkCatalogCoverage() -> void:
 			_require(str(row["hex_class"]).is_empty(),
 				"body profile '%s' should reuse its donor, not a hex class" % str(row["profile_id"]))
 	_require(areaCount == 0 and bodyCount == expectedProfiles.size(),
-		"cube-only catalog should have 0 area and %d body profiles; got %d and %d" % [
+		"active catalog should have 0 area and %d body profiles; got %d and %d" % [
 			expectedProfiles.size(), areaCount, bodyCount
 		])
 
@@ -245,6 +251,7 @@ func _checkCubePlaceholderIntegration() -> void:
 		CubeRitualProfileScript.CROWNBURST_PROFILE_ID, CubeRitualProfileScript.SPIRAL_PROFILE_ID,
 	]
 	expected.append_array(CUBE_PLACEHOLDER_PROFILES)
+	expected.append_array(AUTHORED_PROFILES)
 	_require(ids == expected, "active catalog is %s" % str(ids))
 	for entry: Dictionary in catalog:
 		var profileID := str(entry["profile_id"])

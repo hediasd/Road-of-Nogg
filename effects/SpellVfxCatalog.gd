@@ -1,11 +1,13 @@
 ## Presentation-only registry for active spell effects.
 ##
-## The authored non-cube effects remain on disk while the spell VFX direction is
-## being reconsidered, but they are deliberately absent from this registry.
-## Gameplay and the debug picker therefore expose only the cube language: the
-## two elemental cube rituals, which are the fallback for every spell without
-## a cube profile, and the 24 cube placeholder profiles, which each family
-## lists in its own catalog under `cube_placeholders/`.
+## The older authored non-cube effects remain on disk while the spell VFX
+## direction is being reconsidered, but they are deliberately absent from this
+## registry. Gameplay and the debug picker expose the cube language: the two
+## elemental cube rituals, which are the fallback for every spell without a
+## profile of its own, and the 24 cube placeholder profiles, which each family
+## lists in its own catalog under `cube_placeholders/`. The one exception is
+## listed in `AUTHORED_CATALOGS`: the cross-filter sparkle aura, added as
+## Shine's placeholder on 2026-11-22.
 ##
 ## A spell chooses its effect, and how that effect adapts to the cast, through
 ## its presentation-only VFX spec (`SpellVfxSpec`). Cube placeholder rows carry
@@ -30,6 +32,12 @@ const CUBE_PLACEHOLDER_CATALOGS: Array[Script] = [
 	preload("res://effects/cube_placeholders/ImpactCatalog.gd"),
 	preload("res://effects/cube_placeholders/ControlCatalog.gd"),
 	preload("res://effects/cube_placeholders/RestoreCatalog.gd"),
+]
+
+## Non-cube effects admitted to the active set, each through its own catalog
+## script in the same row format. Listed after the cube families.
+const AUTHORED_CATALOGS: Array[Script] = [
+	preload("res://effects/CrossFilterSparkleCatalog.gd"),
 ]
 
 ## `binding` value for the two rituals: they draw on the caster and need
@@ -70,6 +78,9 @@ static func _buildEntries() -> Array[Dictionary]:
 		},
 	]
 	for catalog: Script in CUBE_PLACEHOLDER_CATALOGS:
+		for row: Dictionary in catalog.call("entries"):
+			rows.append(row)
+	for catalog: Script in AUTHORED_CATALOGS:
 		for row: Dictionary in catalog.call("entries"):
 			rows.append(row)
 	return rows

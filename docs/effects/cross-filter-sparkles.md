@@ -1,12 +1,17 @@
 # Cross-filter sparkles
 
 Profile `cross_filter_sparkles`. Pink four-ray stars twinkling round a body's
-outline on a held 12 fps clock. **Preview only:** no spell selects it, and it
-is not in `SpellVfxCatalog`. Load it in the debug scene with:
+outline on a held 12 fps clock. It plays once per cast.
+
+**Carrier: Shine**, as a placeholder (since 2026-11-22). Shine is a light
+self buff that also reaches allies within radius 2, so the sparkles surround
+every unit it buffs. Its spec is just `{"PROFILE": "cross_filter_sparkles"}`.
+The profile reaches the active set through `SpellVfxCatalog.AUTHORED_CATALOGS`,
+the one non-cube exception to the cube-only catalog. Preview it in the debug
+scene with:
 
 ```bash
 Godot_v4.4-stable_win64.exe --path . scenes/VFXDebugScene.tscn \
-  --catalog-script=res://effects/CrossFilterSparkleCatalog.gd \
   --effect=cross_filter_sparkles --seed=7 --camera-size=5 --camera-focus=target
 ```
 
@@ -67,7 +72,7 @@ The palette stops at energy 0.30 and 1.00 and the 3 px ring colour are
 - **Retro presets.** At 320x240 the rays fall below a pixel and the stars read
   as soft pink dots. Thicker rays everywhere, a pixel-art star for retro, or
   accepting the dots is a look decision for the user.
-- **Carrier.** No spell carries it yet, so its duration, density and whether it
-  loops are guesses.
-- **Colour.** The palette is fixed pink. Whether it should follow the element
-  is open.
+- **Sizing for Shine.** Duration (2.6 s) and density were set before Shine
+  carried it and have not been retuned against a real cast.
+- **Colour.** The palette is fixed pink even though Shine is a light spell.
+  Whether it should follow the element is open.

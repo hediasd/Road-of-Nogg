@@ -390,7 +390,10 @@
 		"RANGE": 0,
 		"SELF_RADIUS": 2,
 		"SEQUENCE_LEVEL": 1,
-		"TARGET_TYPE": "self"
+		"TARGET_TYPE": "self",
+		"VFX": {
+			"PROFILE": "cross_filter_sparkles"
+		}
 	},
 	{
 		"CAN_TARGET_EMPTY": false,

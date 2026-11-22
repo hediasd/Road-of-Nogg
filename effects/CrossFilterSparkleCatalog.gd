@@ -1,7 +1,6 @@
-## Preview row for the cross-filter sparkle aura, in `SpellVfxCatalog.entries()`
-## format. No spell selects this effect yet, so it is not in the gameplay
-## registry; the debug scene loads it with
-## `--catalog-script=res://effects/CrossFilterSparkleCatalog.gd`.
+## The cross-filter sparkle aura's row, in `SpellVfxCatalog.entries()` format.
+## `SpellVfxCatalog.AUTHORED_CATALOGS` lists this script, so the row is in the
+## active set and in the debug picker; Shine selects it as its placeholder.
 
 extends RefCounted
 
@@ -17,6 +16,7 @@ static func entries() -> Array[Dictionary]:
 			"factory": Callable(Effect, "create"),
 			"action_hold_fraction": Profile.ACTION_HOLD_FRACTION,
 			"max_live": Profile.MAX_LIVE_PLAYBACKS,
+			"family": "authored",
 			"binding": "body",
 		},
 	]
